@@ -1,0 +1,90 @@
+[package]
+name = "pi_ui_render"
+version = "0.1.0"
+authors = ["suncy <suncy@gmail.com>"]
+edition = "2021"
+
+[dependencies]
+pi_slotmap = "0.1"
+num-traits = "0.2.6"
+fnv = "1.0.6"
+lazy_static = "*"
+derive_deref = "1.1"
+paste = "0.1"
+serde = { version = "1.0", features = ["derive"], option=true }
+ordered-float = { version = "1.0", default-features = false }
+fxhash = "0.2.1"
+nalgebra = {version = "0.24.0", features = ["serde", "serde-serialize"]}
+ncollide2d = {version = "0.27.0", features = ["serde"]}
+log="*"
+smallvec={version = "1.8", features = ["serde"]}
+getset="0.1"
+bitvec={version = "1.0", features = ["serde"]}
+pi_hash="0.1"
+pi_share="0.1"
+pi_atom={version="0.1", features = ["serde"]}
+pi_enum_default_macro="0.1"
+pi_res="0.1"
+pi_map="0.1"
+pi_null="0.1"
+pi_ucd="0.1"
+pi_data_view = "0.1"
+fixedbitset = {version="0.4", features = ["serde"]}
+pi_spatialtree = { path = "../pi_spatialtree" }
+# bytes="1.1"
+pi_render = { git = "https://github.com/GaiaWorld/pi_render.git" }
+
+pi_ecs_macros = { git = "https://github.com/GaiaWorld/pi_ecs.git" }
+pi_ecs_utils = { git = "https://github.com/GaiaWorld/pi_ecs_utils.git" }
+pi_ecs = { git = "https://github.com/GaiaWorld/pi_ecs.git" }
+pi_flex_layout = { git = "https://github.com/GaiaWorld/pi_flex_layout.git" }
+pi_slotmap_tree = { git = "https://github.com/GaiaWorld/pi_slotmap_tree.git" }
+pi_dirty = { git = "https://github.com/GaiaWorld/pi_dirty.git" }
+
+# [patch.crates-io]
+# pi_ecs = { path = "../pi_ecs" }
+# pi_ecs_macros = { path = "../pi_ecs/macros" }
+# pi_flex_layout = { path = "../pi_flex_layout" }
+# pi_slotmap_tree = { path = "../pi_slotmap_tree" }
+# pi_dirty = { path = "../pi_dirty" }
+
+
+
+[dev-dependencies]
+pi_async = "0.1"
+
+# tree = { path = "../pi_lib/tree"}
+# slotmap = { path = "../pi_lib/slotmap"}
+# slab = {path="../pi_lib/slab"}
+# atom = {path="../pi_lib/atom"}
+# map = {path="../pi_lib/map"}
+# any = {path="../pi_lib/any"}
+# listener = {path="../pi_lib/listener"}
+# hash = {path="../pi_lib/hash"}
+# time = {path="../pi_lib/time"}
+# share = {path="../pi_lib/share"}
+# wy_rng = {path="../pi_lib/wy_rng"}
+# debug_info = {path="../pi_lib/debug_info"}
+# graph = {path="../pi_lib/graph"}
+# async_graph = {path="../pi_lib/async_graph"}
+# async = {path="../pi_lib/async"}
+# dirty = { path= "../pi_lib/dirty"}
+# pi_ecs_macros = { path = "macros"}
+# paste = "0.1"
+# lazy_static = "*"
+# log = "*"
+# rand = "*"
+# thiserror = "1.0"
+# futures = "0.3"
+# fixedbitset = "0.4"
+
+
+
+
+# im = "*"
+
+# [dependencies.web-sys]
+# version = "*"
+# features = [
+# 	"console",
+# ]
