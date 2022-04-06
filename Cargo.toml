@@ -30,7 +30,7 @@ pi_null="0.1"
 pi_ucd="0.1"
 pi_data_view = "0.1"
 fixedbitset = {version="0.4", features = ["serde"]}
-pi_spatialtree = { path = "../pi_spatialtree" }
+pi_spatialtree = { git = "https://github.com/GaiaWorld/pi_spatialtree.git" }
 # bytes="1.1"
 pi_render = { git = "https://github.com/GaiaWorld/pi_render.git" }
 
