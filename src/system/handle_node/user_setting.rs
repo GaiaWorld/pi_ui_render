@@ -8,7 +8,7 @@ use pi_slotmap_tree::{InsertType, Storage};
 
 use crate::{components::{user::{Node, Size, Margin, Padding, Position, Border, MinMax, FlexContainer, FlexNormal, ZIndex, Overflow, Opacity, BlendMode, Transform, Show, BackgroundColor, BorderColor, BackgroundImage, MaskImage, MaskImageClip, Hsi, Blur, ObjectFit, BackgroundImageClip, BorderImage, BorderImageClip, BorderImageSlice, BorderImageRepeat, BorderRadius, BoxShadow, TextContent, TextStyle, ClassName}, calc::{StyleMark}}, utils::style::{style_sheet::{ClassSheet, StyleReader, StyleQuery, StyleAttr}}, resource::{UserCommands, NodeCommand}};
 
-pub fn cal_matrix(
+pub fn user_setting(
 	entitys: Query<Node, Entity>,
 
 	size: Query<Node, Write<Size>>,

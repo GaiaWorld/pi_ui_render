@@ -1,5 +1,7 @@
 //! 定义样式表
 
+use std::mem::forget;
+
 use bitvec::array::BitArray;
 use pi_ecs::{entity::Entity, prelude::{Query, Write}};
 use pi_flex_layout::{style::{Dimension, Direction, JustifyContent, FlexDirection, AlignItems, AlignContent, FlexWrap, AlignSelf, PositionType as PositionType1, Display}, prelude::Number};
@@ -687,6 +689,7 @@ impl StyleAttr {
 
 	pub unsafe fn write<T>(style_type: StyleType, value: T, buffer: &mut Vec<u8>) {
 		STYLE_ATTR[style_type as usize].write(&value as *const T as usize as *mut u8, buffer);
+		forget(value);
 	}
 
 	pub fn set(style_type: StyleType, buffer: &Vec<u8>, offset: usize, query: &mut StyleQuery, entity: Entity) {

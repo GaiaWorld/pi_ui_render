@@ -59,13 +59,8 @@ pub fn cal_matrix(
 	mut matrixs: Query<Node, Write<WorldMatrix>>,
 ) {
 	for id in dirtys.iter() {
-
-		let (transform, layout, parent_id) = match query.get(id) {
-			Some((t, l)) => {
-				(t, l, idtree.get_up(id).map_or(Entity::null(), |up|{up.parent()}))
-			},
-			None => return,
-		};
+		let (transform, layout) =  query.get_unchecked(id);
+		let parent_id = idtree.get_up(id).map_or(Entity::null(), |up|{up.parent()});
 	
 		let width = layout.rect.right - layout.rect.left;
 		let height = layout.rect.bottom - layout.rect.top;
@@ -103,16 +98,16 @@ pub fn cal_matrix(
 }
 
 #[cfg(test)] 
-mod test {
+pub mod test {
 	use std::sync::Arc;
 
 	use pi_async::rt::{multi_thread::{MultiTaskRuntimeBuilder, StealableTaskPool}, AsyncRuntime};
 	use pi_ecs::{prelude::{System, World, SingleDispatcher, IntoSystem, StageBuilder, Dispatcher, Write, QueryState, Query, In}, entity::Entity};
-	use pi_ecs_utils::prelude::{Layer, NodeUp, NodeDown, EntityTreeMut};
+	use pi_ecs_utils::prelude::EntityTreeMut;
 	use pi_flex_layout::prelude::Rect;
 	use pi_null::Null;
 
-	use crate::components::{user::{Node, Transform, TransformFunc, Vector4}, calc::NodeState};
+	use crate::components::user::{Node, Transform, TransformFunc, Vector4};
 	use crate::components::calc::LayoutResult;
 	use crate::components::calc::WorldMatrix;
 
@@ -138,25 +133,11 @@ mod test {
 		}
 	}
 
-	#[test]
-	fn test() {
-		// 创建world
-		let mut world = World::new();
-	
+	pub fn modfiy_world_matrix(world: &mut World, dispatcher: &mut impl Dispatcher) {
 		// 创建原型
 		world.new_archetype::<Node>()
-			.register::<Layer>()
-			.register::<NodeUp>()
-			.register::<NodeDown>()
-			.register::<Transform>()
-			.register::<LayoutResult>()
-			.register::<WorldMatrix>()
-			.register::<NodeState>()
 			.register::<AbsolutePosition>()
 			.create();
-
-		// 穿件派发器
-		let dispatcher = get_dispatcher(&mut world);
 		
 		let mut entitys = Vec::new();
 		let root = world.spawn::<Node>()
@@ -166,7 +147,6 @@ mod test {
 			padding: Rect{left:0.0, right:0.0, top:0.0, bottom:0.0},
 		})
 		.insert(AbsolutePosition(Rect{left:0.0, right:1000.0, top:0.0, bottom:1000.0}))
-		.insert(NodeState::default())
 		.id();
 		
 		//插入根节点
@@ -185,8 +165,7 @@ mod test {
 					border: Rect{left:0.0, right:0.0, top:0.0, bottom:0.0},
 					padding: Rect{left:0.0, right:0.0, top:0.0, bottom:0.0},
 				})
-				.insert(AbsolutePosition(Rect{left:left_top, right: right_bottom, top: left_top, bottom: right_bottom}))
-				.insert(NodeState::default()).id();
+				.insert(AbsolutePosition(Rect{left:left_top, right: right_bottom, top: left_top, bottom: right_bottom})).id();
 			// 插入实体，以根节点作为父节点
 			entitys.push(entity);
 
@@ -194,29 +173,29 @@ mod test {
 		}
 
 		// 组织为树结构
-		let mut init_tree_sys = init_tree.system(&mut world);
+		let mut init_tree_sys = init_tree.system(world);
 		init_tree_sys.run(In(root));
 
 		let mut query = world.query::<Node, (Entity, &WorldMatrix, &LayoutResult, &mut AbsolutePosition)>();
 	
 		// 测试矩阵计算
 		dispatcher.run();
-		asset_matrix(&mut world, &mut query);
+		asset_matrix(world, &mut query);
 
 		// 最后一个实体，添加一个缩放为0.5的Transform
 		let mut transform_mut = world.query::<Node, (Entity, Write<Transform>)>();
 		let last_entity = entitys[entitys.len() - 1];
 		let mut t = Transform::default();
 		t.funcs.push(TransformFunc::Scale(0.5, 0.5));
-		transform_mut.get_mut(&mut world, last_entity).unwrap().1.write(t);
+		transform_mut.get_mut(world, last_entity).unwrap().1.write(t);
 		
 		// 测试矩阵计算, 最后一个实体组件缩放为原来的0.5
 		dispatcher.run();
-		*query.get_mut(&mut world, last_entity).unwrap().3 = AbsolutePosition(Rect{left:112.5, right: 137.5, top: 112.5, bottom: 137.5});
-		asset_matrix(&mut world, &mut query);
+		*query.get_mut(world, last_entity).unwrap().3 = AbsolutePosition(Rect{left:112.5, right: 137.5, top: 112.5, bottom: 137.5});
+		asset_matrix(world, &mut query);
 	}
 
-	fn get_dispatcher(world: &mut World) -> SingleDispatcher<StealableTaskPool<()>> {
+	pub fn get_dispatcher(world: &mut World) -> SingleDispatcher<StealableTaskPool<()>> {
 		let rt = AsyncRuntime::Multi(MultiTaskRuntimeBuilder::default().build());
 		let system = cal_matrix.system(world);
 	
@@ -228,6 +207,18 @@ mod test {
 		let dispatcher = SingleDispatcher::new(stages, world, rt);
 	
 		dispatcher
+	}
+	
+
+	#[test]
+	fn test() {
+		// 创建world
+		let mut world = World::new();
+
+		// 穿件派发器
+		let mut dispatcher = get_dispatcher(&mut world);
+
+		modfiy_world_matrix(&mut world, &mut dispatcher);
 	}
 
 	fn asset_matrix(world: &mut World, query: &mut QueryState<Node, (Entity, &WorldMatrix, &LayoutResult, &mut AbsolutePosition)>) {

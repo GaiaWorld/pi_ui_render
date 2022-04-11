@@ -41,6 +41,9 @@ pi_flex_layout = { git = "https://github.com/GaiaWorld/pi_flex_layout.git" }
 pi_slotmap_tree = { git = "https://github.com/GaiaWorld/pi_slotmap_tree.git" }
 pi_dirty = { git = "https://github.com/GaiaWorld/pi_dirty.git" }
 
+[patch."https://github.com/GaiaWorld/pi_ecs"]
+pi_ecs = { path = "../pi_ecs" }
+
 # [patch.crates-io]
 # pi_ecs = { path = "../pi_ecs" }
 # pi_ecs_macros = { path = "../pi_ecs/macros" }

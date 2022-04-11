@@ -1,12 +1,12 @@
 //! 根据世界矩阵，计算包围盒
-use pi_ecs::monitor::{Event};
+use pi_ecs::monitor::Event;
 use pi_ecs::prelude::{Query, Write};
 use pi_ecs_macros::listen;
 
 use crate::components::user::{Node, Vector4, Aabb2, Point2};
 use crate::components::calc::{WorldMatrix, Oct, LayoutResult};
 
-/// TODO 取到容器， 进行整理
+
 pub fn collect() {
 	// oct.collect();
 }
@@ -57,3 +57,33 @@ fn cal_bound_box(size: (f32, f32), matrix: &WorldMatrix) -> Aabb2 {
 
     Aabb2::new(min, max)
 }
+
+#[cfg(test)]
+mod test {
+    use std::sync::Arc;
+
+    use pi_async::rt::{multi_thread::{StealableTaskPool, MultiTaskRuntimeBuilder}, AsyncRuntime};
+    use pi_ecs::{prelude::{World, SingleDispatcher, StageBuilder, IntoSystem}, monitor::{Listeners, ListenSetup}};
+
+    use crate::system::handle_node::world_matrix::{cal_matrix, test::{get_dispatcher, modfiy_world_matrix}};
+
+    use super::calc_oct;
+
+	#[test]
+	fn test() {
+		// 创建world
+		let mut world = World::new();
+
+		// 穿件派发器
+		let mut dispatcher = get_dispatcher(&mut world);
+
+		let oct_listener = calc_oct.listeners();
+		oct_listener.setup(&mut world);
+
+		// 修改世界矩阵
+		modfiy_world_matrix(&mut world, &mut dispatcher);
+
+
+	}
+}
+
