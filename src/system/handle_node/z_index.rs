@@ -28,7 +28,7 @@ use std::ops::Range;
 use pi_ecs::entity::Entity;
 use pi_ecs::prelude::{Query, Write};
 use pi_ecs::query::filter_change::Changed;
-use pi_ecs::storage::{LocalVersion, SecondaryMap};
+use pi_ecs::storage::{LocalVersion, SecondaryMap, Offset};
 use pi_ecs_utils::prelude::{EntityTree, LayerDirty};
 use pi_slotmap_tree::Storage;
 
@@ -38,7 +38,7 @@ use crate::components::user::{Node, ZIndex};
 /// 如果节点设置zindex为auto，则自身zindex为-1
 const Z_AUTO: isize = -1;
 /// 节点zindex的最大区间
-const Z_MAX: usize = 12;//usize::MAX;
+const Z_MAX: usize = 13;//usize::MAX;
 /// 每个节点自身占用的zindex区间大小
 const Z_SELF: usize = 3;
 /// 子节点将区间劈分成3段，自身在中间段
@@ -53,7 +53,7 @@ pub fn calc_zindex(
 ) {
     let mut vec: Vec<ZSort> = vec![];
     for (id, mark) in dirtys.iter_manual() {
-        println!("dirty:{:?}", id);
+        println!("dirty:{:?}", id.local().offset());
         match tree.get_up(id) {
             Some(up) => {
                 let parent = up.parent();
@@ -64,6 +64,7 @@ pub fn calc_zindex(
                 collect(&query, &tree, &mut vec, parent1, 0);
                 // 排序
                 vec.sort();
+                println!("---------local:{}, {:?}", local, vec);
                 if local {
                     // 如果是可以进行局部比较
                     local_reset(
@@ -74,6 +75,7 @@ pub fn calc_zindex(
                         &mut vec,
                         children_count,
                         zrange,
+                        id,
                     );
                 } else {
                     // 否则父节点重新设置zrange
@@ -108,10 +110,10 @@ fn get_parent(
     mut node: Entity,
 ) -> (Entity, usize, ZRange, bool) {
     let mut local = true;
-    println!("node:{:?}, ", &node);
+    // println!("node:{:?}, ", &node);
     loop {
         if let Some(z) = query.get_unchecked(node) {
-            println!("node z:{:?}, ", z);
+            // println!("node z:{:?}, ", z);
             if z.0 == Z_AUTO {
                 // 如果该节点设置为Z_AUTO，则没有自己的排序环境，继续向父节点寻找
                 node = tree.up(node).parent();
@@ -121,7 +123,7 @@ fn get_parent(
         let children_count = tree.down(node).count();
         let range = ranges.get(node).unwrap();
         let range = range.get_or_default();
-        println!("node range:{:?}, children_count:{}", range, children_count);
+        // println!("node range:{:?}, children_count:{}", range, children_count);
         // 节点的范围应该包含自身和递归子节点的z范围
         if range.end - range.start > (children_count + 1) * Z_SELF {
             return (node, children_count, range.clone(), local);
@@ -200,6 +202,7 @@ fn local_reset(
     vec: &mut Vec<ZSort>,
     children_count: usize,
     zrange: ZRange,
+    child: Entity,
 ) {
     fn empty(_mark: &mut SecondaryMap<LocalVersion, usize>, _node: &Entity) {}
     let z_end = zrange.end;
@@ -213,14 +216,16 @@ fn local_reset(
     dirty.zrange.start += Z_SELF;
     let len = vec.len();
     for i in 0..len {
+        let id = vec[i].node;
         // 寻找修改的节点
         // 清理脏标志，这样层脏迭代器就不会弹出这个节点
-        if mark.remove(vec[i].node.local()).is_some() {
+        if child == id || mark.remove(id.local()).is_some() {
+            println!("mark clear, {}", vec[i].node.local().offset());
             dirty.count += vec[i].children_count + 1;
             continue;
         }
         // 找到了没有被修改的节点，获得其zrange
-        let range = ranges.get(vec[i].node).unwrap();
+        let range = ranges.get(id).unwrap();
         // 如果不克隆，可能有问题？
         let range = range.get_or_default();
         // 如果前面没有修改的节点，则跳过当前没有被修改的节点
@@ -254,6 +259,7 @@ fn local_reset(
             dirty.count += cur_count;
         }
     }
+    println!("dirty.count, {}", dirty.count);
     if dirty.count > 0 {
         range_set(
             query,
@@ -319,6 +325,7 @@ fn range_set(
     mut zrange: ZRange,
     func: fn(&mut SecondaryMap<LocalVersion, usize>, &Entity),
 ) {
+    println!("range set: begin: {}, end: {}, count: {}", begin, end, children_count);
     // 获得间隔s
     let s = (zrange.end - zrange.start - children_count * Z_SELF) / (children_count * Z_SPLIT);
     zrange.start += s;
@@ -411,7 +418,7 @@ mod test {
         prelude::{
             Dispatcher, In, IntoSystem, Query, QueryState, SingleDispatcher, StageBuilder, System,
             World, Write,
-        },
+        }, storage::Offset,
     };
     use pi_ecs_utils::prelude::{EntityTreeMut, Layer, NodeDown, NodeUp};
     use pi_null::Null;
@@ -459,14 +466,13 @@ mod test {
         //插入根节点
         entitys.push(root);
         let mut i = 1;
-        // 插入三个节点作为子节点
-        while i < 4 {
-            let entity = world.spawn::<Node>().insert(ZIndex(i)).id();
-            // 插入实体，以根节点作为父节点
-            entitys.push(entity);
-
-            i += 1;
-        }
+        // 插入2个节点作为子节点
+        // 插入实体，以根节点作为父节点
+        entitys.push(world.spawn::<Node>().insert(ZIndex(i)).id());
+        i+=1;
+        // 插入实体，以根节点作为父节点
+        entitys.push(world.spawn::<Node>().insert(ZIndex(i)).id());
+        i+=1;
 
         // 组织为树结构
         let mut init_tree_sys = init_tree.system(&mut world);
@@ -476,11 +482,15 @@ mod test {
 
         // 测试计算
         dispatcher.run();
-        asset(&mut world, &mut query, vec![(0, (0, 9)), ]);
+        asset(&mut world, &mut query, vec![(0, (0, 13)), (1, (3, 6)), (2, (7, 10))]);
 
-        // 最后一个实体，添加一个缩放为0.5的Transform
+        // // 插入第3个实体，以根节点作为父节点
+        // entitys.push(world.spawn::<Node>().insert(ZIndex(i)).id());
+        // i+=1;
+        // init_tree_sys.run(In(root));
+        // // 最后一个实体，添加一个缩放为0.5的Transform
         // dispatcher.run();
-        // asset(&mut world, &mut query);
+        // asset(&mut world, &mut query, vec![(0, (0, 13)), (1, (3, 6)), (2, (6, 9)), (3, (9, 12))]);
     }
 
     fn get_dispatcher(world: &mut World) -> SingleDispatcher<StealableTaskPool<()>> {
@@ -502,10 +512,10 @@ mod test {
         query: &mut QueryState<Node, (Entity, Option<&ZIndex>, &ZRange)>,
         result: Vec<(isize, (usize, usize))>,
     ) {
-        for (_e, z, r) in query.iter_mut(world) {
-            log::debug!("=========, id:{:?}, r: {:?}", z, r);
+        for (e, z, r) in query.iter_mut(world) {
+            println!("=========, id:{:?}, z:{:?}, r: {:?}", e.local().offset(), z, r);
             assert!(result.iter().any(|&i| {
-                if i.0 == -1 && z.is_none() {
+                if i.0 == 0 && z.is_none() {
                     i.1.0 == r.0.start && i.1.1 == r.0.end
                 }else if z.is_some() && i.0 == **z.unwrap() {
                     i.1.0 == r.0.start && i.1.1 == r.0.end
