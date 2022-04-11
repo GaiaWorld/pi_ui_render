@@ -1,5 +1,7 @@
 //! 文字劈分系統
 //! 将文字劈分为字符，放入NodeState中，并设置好每个字符的布局宽高。等待布局系统布局
+use std::intrinsics::transmute;
+
 use pi_ecs::{prelude::{Query, filter_change::Changed, Or, ResMut, OrDefault, Write}, component::Component, entity::Entity};
 use pi_ecs_utils::prelude::{EntityTree, Layer};
 use pi_flex_layout::{prelude::{CharNode, Size, Rect}, style::{Dimension, PositionType}};
@@ -129,7 +131,7 @@ impl<'a, T: FontTexture> Calc<'a, T> {
 		let mut node_state = self.node_states.get_unchecked_mut(id);
 		let node_state = node_state.get_mut().unwrap();
 		
-		let chars = &mut node_state.text;
+		let chars: &'static mut Vec<CharNode> = unsafe { transmute( &mut node_state.text ) };
 		let (mut word_index, mut p_x, mut word_margin_start, mut char_index) = (0, 0.0, 0.0, 0);
 
 		if text_style.text_indent > 0.0 {

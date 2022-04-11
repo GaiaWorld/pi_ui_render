@@ -4,7 +4,7 @@
 use pi_ecs::{prelude::{Query, filter_change::Changed, Or, ResMut, OrDefault,With}, component::Component, entity::Entity};
 use pi_ecs_utils::prelude::Layer;
 use pi_share::Share;
-use pi_slotmap::{Key, DelaySlotMap};
+use pi_slotmap::Key;
 
 use crate::{
 	components::{
