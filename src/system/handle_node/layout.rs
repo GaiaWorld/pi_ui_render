@@ -242,7 +242,7 @@ impl<'a, 'b> GetMut<LayoutKey> for LayoutRs<'a, 'b> {
 		if index.text_index.is_null() {
 			let mut item = self.style.get_mut(index.entity).unwrap();
 			let r = unsafe { transmute(item.get_mut_or_default())};
-			LayoutRItem::Node(item, r, unsafe { transmute(&mut self.char_nodes)}, index.entity)
+			LayoutRItem::Node(unsafe { transmute(item) }, r, unsafe { transmute(&mut self.char_nodes)}, index.entity)
 		} else {
 			LayoutRItem::Text(unsafe {transmute(&mut (**self.char_nodes.get_mut(index.entity).unwrap()).text[index.text_index])}, unsafe { transmute(&self.default.border)})
 		}
@@ -250,7 +250,7 @@ impl<'a, 'b> GetMut<LayoutKey> for LayoutRs<'a, 'b> {
 }
 
 pub enum LayoutRItem<'s, 'b> {
-	Node(WriteItem<LayoutResult>, &'s mut LayoutResult, &'s mut Query<Node, &'b mut NodeState>, Entity),
+	Node(WriteItem<'s, LayoutResult>, &'s mut LayoutResult, &'s mut Query<Node, &'b mut NodeState>, Entity),
 	Text(&'s mut CharNode, &'s Rect<f32>),
 } 
 
