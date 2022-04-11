@@ -113,7 +113,7 @@ impl Default for FlexNormal {
 }
 
 //================================== 组件
-#[derive(Deref, DerefMut, Clone, Default, Serialize, Deserialize, Debug)]
+#[derive(Deref, DerefMut, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize, Debug)]
 pub struct ZIndex(pub isize);
 
 //超出部分的裁剪方式

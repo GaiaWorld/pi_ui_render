@@ -1,5 +1,5 @@
 /// 中间计算的组件
-use std::{ops::{Deref, DerefMut, Mul, Index, IndexMut}, intrinsics::transmute};
+use std::{ops::{Deref, DerefMut, Mul, Index, IndexMut}, intrinsics::transmute, collections::btree_map::Range};
 
 use nalgebra::Matrix4;
 use bitvec::prelude::BitArray;
@@ -40,8 +40,8 @@ impl Default for ContentBox {
 }
 
 // ZIndex计算结果， 按照节点的ZIndex分配的一个全局唯一的深度表示
-#[derive(Default, Deref, DerefMut, Clone, Debug)]
-pub struct ZDepth(pub f32);
+#[derive(Default, Deref, DerefMut, Clone, PartialEq, Eq, Hash, Debug)]
+pub struct ZRange(pub std::ops::Range<usize>);
 
 // 世界矩阵，  WorldMatrix(矩阵, 矩阵描述的变换是存在旋转变换)， 如果不存在旋转变换， 可以简化矩阵的乘法
 #[derive(Debug, Clone, Serialize, Deserialize)]
