@@ -219,6 +219,7 @@ fn local_reset(
         let id = vec[i].node;
         // 寻找修改的节点
         // 清理脏标志，这样层脏迭代器就不会弹出这个节点
+        println!("mark clear11, {}", vec[i].node.local().offset());
         if child == id || mark.remove(id.local()).is_some() {
             println!("mark clear, {}", vec[i].node.local().offset());
             dirty.count += vec[i].children_count + 1;
@@ -325,7 +326,7 @@ fn range_set(
     mut zrange: ZRange,
     func: fn(&mut SecondaryMap<LocalVersion, usize>, &Entity),
 ) {
-    println!("range set: begin: {}, end: {}, count: {}", begin, end, children_count);
+    println!("range set: zrange:{:?}, begin: {}, end: {}, count: {}", zrange, begin, end, children_count);
     // 获得间隔s
     let s = (zrange.end - zrange.start - children_count * Z_SELF) / (children_count * Z_SPLIT);
     zrange.start += s;
@@ -336,7 +337,7 @@ fn range_set(
         // 分配节点的range为: 自身空间(S+Z_SELF) + 子节点及间隔空间(Count*(S*Z_SPLIT+Z_SELF))
         let r = ZRange(Range {
             start: zrange.start,
-            end: zrange.start + s + Z_SELF + children_count * (s * Z_SPLIT + Z_SELF),
+            end: zrange.start + s + Z_SELF + count * (s * Z_SPLIT + Z_SELF),
         });
         zrange.start = r.end + s;
         set(query, tree, mark, ranges, vec, node, count, r);
@@ -482,15 +483,15 @@ mod test {
 
         // 测试计算
         dispatcher.run();
-        asset(&mut world, &mut query, vec![(0, (0, 13)), (1, (3, 6)), (2, (7, 10))]);
-
-        // // 插入第3个实体，以根节点作为父节点
-        // entitys.push(world.spawn::<Node>().insert(ZIndex(i)).id());
-        // i+=1;
-        // init_tree_sys.run(In(root));
-        // // 最后一个实体，添加一个缩放为0.5的Transform
-        // dispatcher.run();
-        // asset(&mut world, &mut query, vec![(0, (0, 13)), (1, (3, 6)), (2, (6, 9)), (3, (9, 12))]);
+        asset(&mut world, &mut query, vec![(0, (0, 13)), (1, (3, 6)), (2, (6, 9))]);
+        println!("=========");
+        // 插入第3个实体，以根节点作为父节点
+        entitys.push(world.spawn::<Node>().insert(ZIndex(i)).id());
+        i+=1;
+        init_tree_sys.run(In(root));
+        // 最后一个实体，添加一个缩放为0.5的Transform
+        dispatcher.run();
+        asset(&mut world, &mut query, vec![(0, (0, 13)), (1, (3, 6)), (2, (6, 9)), (3, (9, 12))]);
     }
 
     fn get_dispatcher(world: &mut World) -> SingleDispatcher<StealableTaskPool<()>> {
