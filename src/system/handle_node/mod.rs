@@ -2,7 +2,7 @@ pub mod world_matrix;
 pub mod layout;
 pub mod text_split;
 pub mod text_glphy;
-pub mod oct;
+pub mod quad;
 pub mod style_setting;
 pub mod user_setting;
 pub mod show;
