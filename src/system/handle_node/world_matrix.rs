@@ -58,6 +58,7 @@ pub fn cal_matrix(
 	dirtys: LayerDirty<Node, Or<(Changed<Transform>, Changed<LayoutResult>)>>,
 	mut matrixs: Query<Node, Write<WorldMatrix>>,
 ) {
+	println!("len========={:?}", dirtys.count());
 	for id in dirtys.iter() {
 		let (transform, layout) =  query.get_unchecked(id);
 		let parent_id = idtree.get_up(id).map_or(Entity::null(), |up|{up.parent()});
@@ -215,7 +216,7 @@ pub mod test {
 		// 创建world
 		let mut world = World::new();
 
-		// 穿件派发器
+		// 创建派发器
 		let mut dispatcher = get_dispatcher(&mut world);
 
 		modfiy_world_matrix(&mut world, &mut dispatcher);
@@ -232,6 +233,9 @@ pub mod test {
 		}
 	}
 }
+
+
+
 
 
 

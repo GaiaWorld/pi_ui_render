@@ -24,11 +24,6 @@ pub fn mask_image_change(
 		},
 		_ => {
 			render_mark_value.set(**local, false);
-			// 如果所有的位标记都被清除，则调用remove方法
-			if render_mark_value.not_any() {
-				render_mark_item.remove();
-				return;
-			}
 		},
 	};
 

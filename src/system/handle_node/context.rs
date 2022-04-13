@@ -47,6 +47,27 @@ impl Default for DirtyRect {
     }
 }
 
+/// 监听RenderContextMark的修改
+/// 检查： 标记全部为空时，删除RenderContextMark组件
+#[listen(component=(Node, RenderContextMark, Modify))]
+pub fn context_mark_modify(
+	e: Event,
+	mut render_mark: Query<Node, Write<RenderContextMark>>,
+) {
+	let mut render_context_mark_item = match render_mark.get_mut(e.id) {
+		Some(r) => r,
+		// 正常情况不会进入该分支，除非e.id实体在Node中不存在
+		None => return,
+	};
+
+	// 如果标记全部为空，则删除RenderContextMark组件
+	if let Some(v) = render_context_mark_item.get() {
+		if v.not_any() {
+			render_context_mark_item.remove();
+		}
+	}
+}
+
 /// 监听RenderContextMark和Layer的创建方法，创建渲染上下文（为考虑层修改的情况，是否需要？ TODO）
 #[listen(component=(Node, RenderContextMark, Create), component=(Node, Layer, Create))]
 pub fn context_mark_create(

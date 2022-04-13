@@ -44,6 +44,9 @@ pi_dirty = { git = "https://github.com/GaiaWorld/pi_dirty.git" }
 [patch."https://github.com/GaiaWorld/pi_ecs"]
 pi_ecs = { path = "../pi_ecs" }
 
+[patch."https://github.com/GaiaWorld/pi_ecs_utils"]
+pi_ecs_utils = { path = "../pi_ecs_utils" }
+
 # [patch.crates-io]
 # pi_ecs = { path = "../pi_ecs" }
 # pi_ecs_macros = { path = "../pi_ecs/macros" }

@@ -5,11 +5,11 @@ use pi_ecs::{prelude::{filter_change::Changed, Query, Write}};
 use pi_ecs_utils::prelude::{LayerDirty, NodeDown, NodeUp, Layer};
 use pi_null::Null;
 
-use crate::components::{calc::{Oct, ContentBox}, user::{Node, Aabb2}};
+use crate::components::{calc::{Quad, ContentBox}, user::{Node, Aabb2}};
 
 pub fn calc_content_box(
-	mut dirty: LayerDirty<Node, Changed<Oct>>,
-	oct: Query<Node, &Oct>,
+	mut dirty: LayerDirty<Node, Changed<Quad>>,
+	oct: Query<Node, &Quad>,
 	down: Query<Node, Option<&NodeDown>>,
 	up: Query<Node, &NodeUp>,
 	layer: Query<Node, &Layer>,

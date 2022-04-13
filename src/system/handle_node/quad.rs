@@ -4,7 +4,7 @@ use pi_ecs::prelude::{Query, Write};
 use pi_ecs_macros::listen;
 
 use crate::components::user::{Node, Vector4, Aabb2, Point2};
-use crate::components::calc::{WorldMatrix, Oct, LayoutResult};
+use crate::components::calc::{WorldMatrix, Quad, LayoutResult};
 
 
 pub fn collect() {
@@ -13,14 +13,14 @@ pub fn collect() {
 
 /// 监听世界矩阵变化，修改包围盒
 #[listen(component = (Node, WorldMatrix, Modify))]
-pub fn calc_oct(e: Event, query: Query<Node, (&WorldMatrix, &LayoutResult)>, mut oct: Query<Node, Write<Oct>>) {
+pub fn calc_quad(e: Event, query: Query<Node, (&WorldMatrix, &LayoutResult)>, mut oct: Query<Node, Write<Quad>>) {
 	let id = e.id;
 	let (world_matrix, layout) = query.get_unchecked(id);
 	let width = layout.rect.right - layout.rect.left;
 	let height = layout.rect.bottom - layout.rect.top;
 	let aabb = cal_bound_box((width, height), world_matrix);
 
-	oct.get_unchecked_mut(id).write(Oct::new(aabb));
+	oct.get_unchecked_mut(id).write(Quad::new(aabb));
 }
 
 fn cal_bound_box(size: (f32, f32), matrix: &WorldMatrix) -> Aabb2 {
@@ -67,7 +67,7 @@ mod test {
 
     use crate::system::handle_node::world_matrix::{cal_matrix, test::{get_dispatcher, modfiy_world_matrix}};
 
-    use super::calc_oct;
+    use super::calc_quad;
 
 	#[test]
 	fn test() {
@@ -77,7 +77,7 @@ mod test {
 		// 穿件派发器
 		let mut dispatcher = get_dispatcher(&mut world);
 
-		let oct_listener = calc_oct.listeners();
+		let oct_listener = calc_quad.listeners();
 		oct_listener.setup(&mut world);
 
 		// 修改世界矩阵

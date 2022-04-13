@@ -6,7 +6,7 @@ use bitvec::prelude::BitArray;
 use pi_ecs::storage::{LocalVersion};
 use pi_ecs_macros::Component;
 use pi_map::Map;
-use pi_spatialtree::QuadTree;
+use pi_spatialtree::QuadTree as QuadTree1;
 
 use super::user::*;
 use pi_flex_layout::prelude::*;
@@ -293,22 +293,22 @@ impl WorldMatrix {
 
 // #[storage = ]
 #[derive(Clone, Debug, Component)]
-#[storage(OctTree)]
-pub struct Oct(Aabb2, ());
+#[storage(QuadTree)]
+pub struct Quad(Aabb2, ());
 
-impl Oct {
-	pub fn new(aabb: Aabb2) -> Oct {
-		Oct(aabb, ())
+impl Quad {
+	pub fn new(aabb: Aabb2) -> Quad {
+		Quad(aabb, ())
 	}
 }
 
-impl Default for Oct {
+impl Default for Quad {
 	fn default() -> Self {
 		Self(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)), ())
 	}
 }
 
-impl Deref for Oct {
+impl Deref for Quad {
     type Target = Aabb2;
 
     fn deref(&self) -> &Self::Target {
@@ -316,24 +316,24 @@ impl Deref for Oct {
     }
 }
 
-impl DerefMut for Oct {
+impl DerefMut for Quad {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
 }
 
-pub struct OctTree(QuadTree<LocalVersion, f32, ()>);
+pub struct QuadTree(QuadTree1<LocalVersion, f32, ()>);
 
-impl Map for OctTree {
+impl Map for QuadTree {
 	type Key = LocalVersion;
-	type Val = Oct;
+	type Val = Quad;
 	fn len(&self) -> usize {
 		self.0.len()
 	}
 	fn with_capacity(_capacity: usize) -> Self {
 		let max = Vector2::new(100f32, 100f32);
     	let min = max / 100f32;
-        Self(QuadTree::new(
+        Self(QuadTree1::new(
             Aabb2::new(
                 Point2::new(-1024f32, -1024f32),
                 Point2::new(4096f32, 4096f32),
@@ -382,15 +382,15 @@ impl Map for OctTree {
 	}
 }
 
-impl Index<LocalVersion> for OctTree {
-    type Output = Oct;
+impl Index<LocalVersion> for QuadTree {
+    type Output = Quad;
 
     fn index(&self, index: LocalVersion) -> &Self::Output {
         unsafe { self.get_unchecked(&index) }
     }
 }
 
-impl IndexMut<LocalVersion> for OctTree {
+impl IndexMut<LocalVersion> for QuadTree {
     fn index_mut(&mut self, index: LocalVersion) -> &mut Self::Output {
         unsafe { self.get_unchecked_mut(&index) }
     }
