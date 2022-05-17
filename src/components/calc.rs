@@ -1,14 +1,15 @@
 /// 中间计算的组件
-use std::{ops::{Deref, DerefMut, Mul, Index, IndexMut}, intrinsics::transmute, collections::btree_map::Range};
+use std::{ops::{Deref, DerefMut, Mul, Index, IndexMut}, intrinsics::transmute};
 
 use nalgebra::Matrix4;
 use bitvec::prelude::BitArray;
-use pi_ecs::storage::{LocalVersion};
+use pi_ecs::prelude::{Id, LocalVersion};
 use pi_ecs_macros::Component;
 use pi_map::Map;
 use pi_spatialtree::QuadTree as QuadTree1;
+use smallvec::SmallVec;
 
-use super::user::*;
+use super::{user::*, pass_2d::Pass2D, draw_obj::DrawObject};
 use pi_flex_layout::prelude::*;
 
 /// 布局结果
@@ -55,6 +56,21 @@ impl Default for WorldMatrix {
 }
 
 impl WorldMatrix {
+	pub fn translate(&mut self, x: f32, y: f32, z: f32) {
+		if self.1 {
+			let r = &*self * WorldMatrix(
+				Matrix4::new_translation(&Vector3::new(x, y, z)),
+				false,
+			);
+			*self = r;
+		} else {
+			let slice = self.0.as_mut_slice();
+			slice[12] += x;
+			slice[13] += y;
+			slice[14] += z;
+		}
+	}
+	
 	pub fn form_transform(transform: &Transform, width: f32, height: f32, left_top: &Point2) -> WorldMatrix {
         // M = T * R * S
         // let mut m = cg::Matrix4::new(
@@ -65,94 +81,94 @@ impl WorldMatrix {
         // ); 
 			
 		// 矩阵变换是以父节点的左上角为原点变换的，left_top表明本节点左上角相对父节点左上角的位移
-        let mut move_value = transform.origin.to_value(width, height);
-		move_value = Point2::new(left_top.x + move_value.x, left_top.y + move_value.y);
+        let orgin_move_value = transform.origin.to_value(width, height);
+		let move_value = Point2::new(left_top.x + orgin_move_value.x, left_top.y + orgin_move_value.y);
 
 		// 变换前先将transform描述的原点位置移动到父节点的左上角
         let mut m = WorldMatrix(
-            Matrix4::new_translation(&Vector3::new(-move_value.x, -move_value.y, 0.0)),
+            Matrix4::new_translation(&Vector3::new(move_value.x, move_value.y, 0.0)),
             false,
         );
 
         for func in transform.funcs.iter() {
             match func {
                 TransformFunc::TranslateX(x) => {
-                    m = WorldMatrix(
+                    m = m * WorldMatrix(
 						Matrix4::new_translation(&Vector3::new(*x, 0.0, 0.0)),
                         false,
-                    ) * m;
+                    );
                 }
                 TransformFunc::TranslateY(y) => {
-                    m = WorldMatrix(
+                    m = m * WorldMatrix(
 						Matrix4::new_translation(&Vector3::new(0.0, *y, 0.0)),
                         false,
-                    ) * m;
+                    ) ;
                 }
                 TransformFunc::Translate(x, y) => {
-                    m = WorldMatrix(
+                    m = m * WorldMatrix(
 						Matrix4::new_translation(&Vector3::new(*x, *y, 0.0)),
 						false
-					) * m;
+					);
                 }
 
                 TransformFunc::TranslateXPercent(x) => {
-                    m = WorldMatrix(
+                    m = m * WorldMatrix(
 						Matrix4::new_translation(&Vector3::new(*x * width, 0.0, 0.0)),
                         false,
-                    ) * m;
+                    );
                 }
                 TransformFunc::TranslateYPercent(y) => {
-                    m = WorldMatrix(
+                    m = m * WorldMatrix(
 						Matrix4::new_translation(&Vector3::new(0.0, *y * height, 0.0)),
                         false,
-                    ) * m;
+                    );
                 }
                 TransformFunc::TranslatePercent(x, y) => {
-                    m = WorldMatrix(
+                    m = m * WorldMatrix(
 						Matrix4::new_translation(&Vector3::new(*x * width, *y * height, 0.0)),
                         false,
-                    ) * m;
+                    );
                 }
 
                 TransformFunc::ScaleX(x) => {
-                    m = WorldMatrix(
+                    m = m * WorldMatrix(
 						Matrix4::new_nonuniform_scaling(&Vector3::new(*x, 1.0, 1.0)),
 						false
-					) * m;
+					);
                 }
                 TransformFunc::ScaleY(y) => {
-                    m = WorldMatrix(
+                    m = m * WorldMatrix(
 						Matrix4::new_nonuniform_scaling(&Vector3::new(1.0, *y, 1.0)),
 						false
-					) * m;
+					);
                 }
                 TransformFunc::Scale(x, y) => {
-                    m = WorldMatrix(
+                    m = m * WorldMatrix(
 						Matrix4::new_nonuniform_scaling(&Vector3::new(*x, *y, 1.0)),
 						false
-					) * m;
+					);
                 }
 
                 TransformFunc::RotateZ(z) => {
-                    m = WorldMatrix(
+                    m = m * WorldMatrix(
 						Matrix4::new_rotation(Vector3::new(0.0, 0.0, *z/180.0 * std::f32::consts::PI)),
 						true
-					) * m;
+					);
                 }
 				TransformFunc::RotateX(x) => {
-                    m = WorldMatrix(
+                    m = m * WorldMatrix(
 						Matrix4::new_rotation(Vector3::new(*x/180.0 * std::f32::consts::PI, 0.0, 0.0)),
 						true
-					) * m;
+					);
                 }
 				TransformFunc::RotateY(y) => {
-                    m = WorldMatrix(
+                    m = m * WorldMatrix(
 						Matrix4::new_rotation(Vector3::new(0.0, *y/180.0 * std::f32::consts::PI, 0.0)),
 						true
-					) * m
+					)
                 }
 				TransformFunc::SkewX(x) => {
-                    m = WorldMatrix(
+                    m = m * WorldMatrix(
 						Matrix4::new(
 							1.0,
 							(*x/180.0 * std::f32::consts::PI).tan(),
@@ -172,10 +188,10 @@ impl WorldMatrix {
 							1.0,
 						),
 						true
-					) * m;
+					);
                 }
 				TransformFunc::SkewY(y) => {
-                    m = WorldMatrix(
+                    m = m * WorldMatrix(
 						Matrix4::new(
 							1.0,
 							0.0,
@@ -195,16 +211,16 @@ impl WorldMatrix {
 							1.0,
 						),
 						true
-					) * m;
+					);
                 }
             }
         }
 
 		// 变化后再将节点移动回来
-		WorldMatrix(
-            Matrix4::new_translation(&Vector3::new(move_value.x, move_value.y, 0.0)),
+		m * WorldMatrix(
+            Matrix4::new_translation(&Vector3::new( -orgin_move_value.x, -orgin_move_value.y, 0.0)),
             false,
-        ) * m
+		)
     }
 }
 
@@ -397,8 +413,14 @@ impl IndexMut<LocalVersion> for QuadTree {
 }
 
 //是否可见,
-#[derive(Deref, DerefMut, Clone, Debug, Default)]
+#[derive(Deref, DerefMut, Clone, Debug)]
 pub struct Visibility(pub bool);
+
+impl Default for Visibility{
+    fn default() -> Self {
+        Self(true)
+    }
+}
 
 //是否响应事件
 #[derive(Deref, DerefMut, Clone, Debug)]
@@ -478,6 +500,14 @@ pub struct TransformWillChangeMatrix(pub WorldMatrix);
 
 #[derive(Debug, Clone, Default)]
 pub struct MaskTexture;
+
+/// 上下文的实体ID，作为Node的组件，关联由其创建的渲染上下文
+#[derive(Deref, DerefMut, Default)]
+pub struct Pass2DId(pub Id<Pass2D>);
+
+/// 作为Node的组件，表示节点所在的渲染上下文的实体
+#[derive(Clone, Copy, Deref, DerefMut, Default, PartialEq, Eq)]
+pub struct InPassId(pub Id<Pass2D>);
 
 // 枚举样式的类型
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
@@ -638,3 +668,14 @@ pub enum FlexStyleType {
     AlignSelf = 84,
 	BlendMode = 85,
 }
+
+/// 节点的实体id，作为RenderContext的组件，引用创建该渲染上下文的节点
+#[derive(Deref, DerefMut, Default)]
+pub struct NodeId(pub Id<Node>);
+
+/// 宏标记(最多支持size::of::<usize>()个宏开关)
+pub struct DefineMark(bitvec::prelude::BitArray);
+
+/// 每节点的渲染列表
+#[derive(Deref, DerefMut, Default)]
+pub struct DrawList(SmallVec<[Id<DrawObject>; 1]>);

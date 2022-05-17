@@ -1,72 +1,79 @@
-use std::{intrinsics::transmute, any::TypeId};
+use std::{any::TypeId, sync::Arc, mem::replace};
 
-use pi_ecs::{prelude::{World, Entities, ArchetypeId}, entity::Entity};
+use pi_async::rt::{AsyncRuntime, single_thread::SingleTaskPool};
+use pi_ecs::prelude::{World, ArchetypeId, SingleDispatcher, StageBuilder, Id, Setup, Dispatcher};
+use pi_render::RenderStage;
 
-use crate::{components::{user::ClassName, calc::StyleType}, resource::{UserCommands, NodeCommand}, utils::style::style_sheet::StyleAttr};
+use crate::{components::user::ClassName, resource::{UserCommands, NodeCommand}, utils::style::style_sheet::{StyleAttr, Attr}, system::{node::{user_setting::CalcUserSetting, context::CalcContext, z_index::CalcZindex, layout::CalcLayout, quad::CalcQuad, world_matrix::CalcMatrix, content_box::CalcContentBox, context_root::CalcRoot, background_color::CalcBackGroundColor}, draw_obj::{world_marix::CalcWorldMatrixGroup, pipeline::CalcPipeline}, pass::{pass_render::CalcRender, pass_dirty_rect::CalcDirtyRect}}};
 
 use crate::components::user::Node;
 
 pub struct Gui {
 	world: World,
 
-	node_entities: &'static mut Entities,
-
-	user_commands: &'static mut UserCommands,
+	user_commands: UserCommands,
 
 	node_archetype_id: ArchetypeId,
+
+	dispatcher: SingleDispatcher<SingleTaskPool<()>>,
 }
 
 impl Gui {
-	pub fn init() -> Gui {
+	pub fn world_mut(&mut self) -> &mut World {
+		&mut self.world
+	}
+
+	pub fn new(rt: AsyncRuntime<(), SingleTaskPool<()>>) -> Gui {
 		let mut world = World::new();
-		world.new_archetype::<Node>().create();
+		world.new_archetype::<Node>().create(); // 创建Node原型
 
 		let node_archetype_id = world.archetypes().get_id_by_ident(TypeId::of::<Node>()).unwrap().clone();
-		let n =  unsafe{transmute(world.entities_mut(node_archetype_id.clone()))};
 
-		let user_commands = UserCommands::default();
+		let dispatcher= SingleDispatcher::new(rt);
 
-		world.insert_resource(user_commands);
-
-		let user_commands = unsafe{transmute(world.get_resource_mut::<UserCommands>().unwrap())};
 		Gui {
 			world,
-			node_entities: n,
 			node_archetype_id,
-			user_commands,
+			user_commands: UserCommands::default(),
+			dispatcher,
 		}
 	}
+
+	// 初始化gui
+	pub fn init(&mut self, render_stages: RenderStage) {
+		init_dispatcher(&mut self.world, render_stages, &mut self.dispatcher);
+	}
+
 	// 创建节点
-	pub fn create_node(&mut self) -> Entity {
-		let local = self.node_entities.reserve_entity();
-		Entity::new(self.node_archetype_id, local)
+	pub fn create_node(&mut self) -> Id<Node> {
+		let node_archetype_id = self.node_archetype_id;
+		unsafe { Id::new(self.world.archetypes_mut()[node_archetype_id].reserve_entity()) }
 	}
 
 	/// 将节点作为子节点挂在父上
-	pub fn append(&mut self, entity: Entity, parent: Entity) {
+	pub fn append(&mut self, entity: Id<Node>, parent: Id<Node>) {
 		self.user_commands.node_commands.push(NodeCommand::AppendNode(entity, parent));
 	}
 
 	/// 将节点插入到某个节点之前
-	pub fn insert_before(&mut self, entity: Entity, anchor: Entity) {
+	pub fn insert_before(&mut self, entity: Id<Node>, anchor: Id<Node>) {
 		self.user_commands.node_commands.push(NodeCommand::InsertBefore(entity, anchor));
 	}
 
 	/// 从父节点上移除节点
-	pub fn remove_node(&mut self, entity: Entity) {
+	pub fn remove_node(&mut self, entity: Id<Node>) {
 		self.user_commands.node_commands.push(NodeCommand::RemoveNode(entity));
 	}
 
 	/// 从父节点上移除节点，并销毁该节点及所有子节点
-	pub fn destroy_node(&mut self, entity: Entity) {
+	pub fn destroy_node(&mut self, entity: Id<Node>) {
 		self.user_commands.node_commands.push(NodeCommand::DestroyNode(entity));
 	}
 
 	/// 设置节点样式
-	pub fn set_style<T>(&mut self, entity: Entity, ty: StyleType, value: T){
+	pub fn set_style<T: Attr>(&mut self, entity: Id<Node>, value: T){
 		let start = self.user_commands.style_commands.style_buffer.len();
 		unsafe {StyleAttr::write(
-			ty,
 			value,
 			&mut self.user_commands.style_commands.style_buffer,
 		)};
@@ -80,85 +87,53 @@ impl Gui {
 	}
 
 	/// 设置节点的class
-	pub fn set_class(&mut self, entity: Entity, value: ClassName){
+	pub fn set_class(&mut self, entity: Id<Node>, value: ClassName){
 		self.user_commands.class_commands.push((entity, value));
 	}
 
 	/// 推动gui运行
 	pub fn run(&mut self) {
-		self.node_entities.flush();
+		let node_archetype_id = self.node_archetype_id;
+		self.world.archetypes_mut()[node_archetype_id].flush();
+		let commands = replace(&mut self.user_commands, UserCommands::default());
+		self.world.insert_resource(commands);
+		self.dispatcher.run();
 	}
 }
 
+fn init_dispatcher(world: &mut World, render_stages: RenderStage, dispatcher: &mut SingleDispatcher<SingleTaskPool<()>>) {
+	// let rt = AsyncRuntime::Multi(MultiTaskRuntimeBuilder::default().build());
+	let mut stages = Vec::new();
 
+	// 节点属性计算阶段
+	let mut node_stage = StageBuilder::new();
+	CalcUserSetting::setup(world, &mut node_stage);
+	CalcContext::setup(world, &mut node_stage);
+	CalcZindex::setup(world, &mut node_stage);
+	CalcLayout::setup(world, &mut node_stage);
+	CalcQuad::setup(world, &mut node_stage);
+	CalcMatrix::setup(world, &mut node_stage);
+	CalcContentBox::setup(world, &mut node_stage);
+	CalcRoot::setup(world, &mut node_stage);
+	CalcBackGroundColor::setup(world, &mut node_stage);
+	
+	// 渲染对象计算
+	let mut draw_stage = StageBuilder::new();
+	CalcWorldMatrixGroup::setup(world, &mut draw_stage);
+	CalcPipeline ::setup(world, &mut draw_stage);
 
-// struct StyleList{
+	// Pass计算
+	let mut pass_stage = StageBuilder::new();
+	CalcRender::setup(world, &mut pass_stage);
+	CalcDirtyRect::setup(world, &mut pass_stage);
 
-// }
+	
+	stages.push(Arc::new(node_stage.build(world)));
+	stages.push(Arc::new(draw_stage.build(world)));
+	stages.push(Arc::new(pass_stage.build(world)));
+	stages.push(Arc::new(render_stages.extract_stage.build(world)));
+	stages.push(Arc::new(render_stages.prepare_stage.build(world)));
+	stages.push(Arc::new(render_stages.render_stage.build(world)));
 
-// #[allow(non_snake_case)]
-// fn to_Dimension(t: u8, v: f32) -> Dimension {
-// 	match t {
-// 		1 => Dimension::Auto,
-// 		2 => Dimension::Points(v),
-// 		3 => Dimension::Percent(v),
-// 		_ => Dimension::Undefined,
-// 	}
-// }
-
-// #[allow(non_snake_case)]
-// fn to_FontSize(t: u8, v: f32) -> FontSize {
-// 	match t {
-// 		1 => FontSize::Length(v),
-// 		2 => FontSize::Percent(v),
-// 		_ => FontSize::None,
-// 	}
-// }
-
-// #[allow(non_snake_case)]
-// fn to_LineHeight(t: u8, v: f32) -> LineHeight {
-// 	match t {
-// 		1 => LineHeight::Length(v),
-// 		2 => LineHeight::Number(v),
-// 		3 => LineHeight::Percent(v),
-// 		_ => LineHeight::Normal,
-// 	}
-// }
-
-// #[allow(non_snake_case)]
-// fn to_Blur(v: f32) -> Blur {
-// 	Blur(v)
-// }
-
-// #[allow(non_snake_case)]
-// fn to_Opacity(v: f32) -> Opacity {
-// 	Opacity(v)
-// }
-
-// #[allow(non_snake_case)]
-// fn to_BorderImageRepeat(x: u8, y: u8) -> BorderImageRepeat {
-// 	BorderImageRepeat (unsafe { transmute(x)}, unsafe{transmute(y)})
-// }
-
-// #[allow(non_snake_case)]
-// fn to_BackgroundColor(x: u8) -> BackgroundColor {
-// 	unsafe { transmute(x)}
-// }
-
-// set_mult_attr!(min_width, MaskImage, MaskImage, u8, f32);
-
-// set_mult_attr!(max_width, BackgroundColor, BackgroundColor, u8, f32);
-// set_mult_attr!(max_height, BorderColor, BorderColor, u8, f32);
-// set_mult_attr!(flex_basis, BoxShadow, BoxShadow, u8, f32);
-
-// set_mult_attr!(min_width, ImageClip, ImageClip, u8, f32);
-// set_mult_attr!(min_height, BorderImageClip, BorderImageClip, u8, f32);
-// set_mult_attr!(max_width, BorderImageSlice, BorderImageSlice, u8, f32);
-// set_mult_attr!(max_height, TextShadow, TextShadow, u8, f32);
-// set_mult_attr!(flex_basis, Stroke, Stroke, u8, f32);
-
-// set_mult_attr!(min_width, BorderRadius, BorderRadius, u8, f32);
-// set_mult_attr!(min_height, TransformFunc, TransformFunc, u8, f32);
-// set_mult_attr!(max_width, TransformOrigin, TransformOrigin, u8, f32);
-// set_mult_attr!(max_height, Filter, Filter, u8, f32);
-// set_mult_attr!(flex_basis, MaskImageClip, ImageClip, u8, f32);
+	dispatcher.init(stages, world);
+}

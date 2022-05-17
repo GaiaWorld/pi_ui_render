@@ -20,8 +20,26 @@ pub type Point3 = nalgebra::Point3<f32>;
 pub type Vector2 = nalgebra::Vector2<f32>;
 pub type Vector3 = nalgebra::Vector3<f32>;
 pub type Vector4 = nalgebra::Vector4<f32>;
-pub type CgColor = nalgebra::Vector4<f32>;
+#[derive(Default, Debug, Deref, DerefMut, Clone, Serialize, Deserialize)]
+pub struct CgColor(nalgebra::Vector4<f32>);
 pub type Aabb2 = ncollide2d::bounding_volume::AABB<f32>;
+
+impl Hash for CgColor {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+		unsafe{
+			NotNan::unchecked_new(self.0.x).hash(state);
+			NotNan::unchecked_new(self.0.y).hash(state);
+			NotNan::unchecked_new(self.0.z).hash(state);
+			NotNan::unchecked_new(self.0.w).hash(state);
+		}
+	}
+}
+
+impl CgColor {
+	pub fn new(x: f32, y: f32, z: f32, w: f32) -> Self {
+		Self(nalgebra::Vector4::new(x, y, z, w))
+	}
+}
 
 #[derive(Default)]
 pub struct Node;
@@ -146,7 +164,7 @@ pub struct Transform {
 
 pub type TransformFuncs = Vec<TransformFunc>;
 // 背景色和class
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, Deref)]
 pub struct BackgroundColor(pub Color);
 
 // class名称， 支持多个class， 当只有一个或两个class时， 有优化
@@ -271,7 +289,7 @@ pub struct TextStyle {
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, Deref, DerefMut)]
-pub struct TextShadows(SmallVec<[TextShadow; 1]>);
+pub struct TextShadows(pub SmallVec<[TextShadow; 1]>);
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct TextShadow {

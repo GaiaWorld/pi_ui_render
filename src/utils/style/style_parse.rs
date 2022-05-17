@@ -8,9 +8,9 @@ use pi_flex_layout::{style::{Display, Dimension, AlignItems, AlignSelf, AlignCon
 use pi_hash::XHashMap;
 use smallvec::SmallVec;
 
-use crate::components::{user::{BackgroundColor, Color, BorderColor, ObjectFit, BorderImageRepeat, MaskImage, BorderRadius, Opacity, Hsi, Blur, Enable, WhiteSpace, LinearGradientColor, CgColor, ColorAndPosition, BorderImageSlice, BlendMode, LineHeight, TextAlign, FontSize, TextShadow, BoxShadow, Stroke, TransformFunc, TransformOrigin, LengthUnit, FitType, BorderImageRepeatType, BackgroundImage, BorderImage, MaskImageClip, BackgroundImageClip, BorderImageClip, Margin, Padding}, calc::StyleType};
+use crate::components::{user::{BackgroundColor, Color, BorderColor, ObjectFit, BorderImageRepeat, MaskImage, BorderRadius, Opacity, Hsi, Blur, Enable, WhiteSpace, LinearGradientColor, CgColor, ColorAndPosition, BorderImageSlice, BlendMode, LineHeight, TextAlign, FontSize, TextShadow, BoxShadow, Stroke, TransformFunc, TransformOrigin, LengthUnit, FitType, BorderImageRepeatType, BackgroundImage, BorderImage, MaskImageClip, BackgroundImageClip, BorderImageClip, Margin, Padding, Overflow, ZIndex, TextShadows}, calc::StyleType};
 
-use super::{style_sheet::{Class, ClassSheet, StyleAttr}, style_attribute::Attribute};
+use super::style_sheet::*;
 
 pub fn parse_class_map_from_string(value: &str) -> Result<ClassSheet, String> {
     let mut parser = ClassMapParser(value);
@@ -32,8 +32,8 @@ pub fn parse_class_map_from_string(value: &str) -> Result<ClassSheet, String> {
     Ok(class_sheet)
 }
 
-pub fn parse_class_from_string(value: &str, class_sheet: &mut ClassSheet) -> Result<Class, String> {
-    let mut class = Class::default();
+pub fn parse_class_from_string(value: &str, class_sheet: &mut ClassSheet) -> Result<ClassMeta, String> {
+    let mut class = ClassMeta::default();
 	let start_index = class_sheet.style_buffer.len();
     for p in value.split(";") {
         match p.find(":") {
@@ -112,17 +112,15 @@ fn find_end(value: &str) -> Option<usize> {
     Some(j1)
 }
 
-fn match_key(key: &str, value: &str, class: &mut Class, class_sheet: &mut ClassSheet) -> Result<(), String> {
+fn match_key(key: &str, value: &str, class: &mut ClassMeta, class_sheet: &mut ClassSheet) -> Result<(), String> {
      match key  {
 		"filter" => {
 			parse_filter(value, class, &mut class_sheet.style_buffer)?;
         }
         "background-color" => unsafe {
-			StyleAttr::write(
-				StyleType::BackgroundColor, 
-				BackgroundColor(Color::RGBA(
+			StyleAttr::write(BackgroundColorType(BackgroundColor(Color::RGBA(
                     parse_color_string(value)?,
-                )),
+                ))),
 				&mut class_sheet.style_buffer,
 			);
             class.class_style_mark.set(StyleType::BackgroundColor as usize, true);
@@ -130,10 +128,9 @@ fn match_key(key: &str, value: &str, class: &mut Class, class_sheet: &mut ClassS
         "background" => unsafe {
             if value.starts_with("linear-gradient") {
 				StyleAttr::write(
-					StyleType::BackgroundColor, 
-					BackgroundColor(
+					BackgroundColorType(BackgroundColor(
 						parse_linear_gradient_color_string(value)?,
-					),
+					)),
 					&mut class_sheet.style_buffer,
 				);
                 class.class_style_mark.set(StyleType::BackgroundColor as usize, true);
@@ -145,18 +142,16 @@ fn match_key(key: &str, value: &str, class: &mut Class, class_sheet: &mut ClassS
 
         "border-color" => unsafe {
 			StyleAttr::write(
-				StyleType::BorderColor, 
-				BorderColor(parse_color_string(
+				BorderColorType(BorderColor(parse_color_string(
                     value,
-                )?),
+                )?)),
 				&mut class_sheet.style_buffer,
 			);
             class.class_style_mark.set(StyleType::BorderColor as usize, true);
         }
         "box-shadow" => unsafe {
 			StyleAttr::write(
-				StyleType::BoxShadow, 
-				Attribute::BoxShadow(parse_box_shadow(value)?),
+				BoxShadowType(parse_box_shadow(value)?),
 				&mut class_sheet.style_buffer,
 			);
             class.class_style_mark.set(StyleType::BoxShadow as usize, true);
@@ -165,17 +160,15 @@ fn match_key(key: &str, value: &str, class: &mut Class, class_sheet: &mut ClassS
         "background-image" => unsafe {
 			if value.starts_with("linear-gradient") {
 				StyleAttr::write(
-					StyleType::BackgroundColor, 
-					BackgroundColor(
+					BackgroundColorType(BackgroundColor(
 						parse_linear_gradient_color_string(value)?,
-					),
+					)),
 					&mut class_sheet.style_buffer,
 				);
                 class.class_style_mark.set(StyleType::BackgroundColor as usize, true);
             } else {
 				StyleAttr::write(
-					StyleType::BackgroundImage, 
-					BackgroundImage(parse_url(value)?.get_hash()),
+					BackgroundImageType(BackgroundImage(parse_url(value)?.get_hash())),
 					&mut class_sheet.style_buffer,
 				);
 				class.class_style_mark.set(StyleType::BackgroundImage as usize, true);
@@ -183,10 +176,9 @@ fn match_key(key: &str, value: &str, class: &mut Class, class_sheet: &mut ClassS
 		}
 		"image-clip" => unsafe {
 			StyleAttr::write(
-				StyleType::BackgroundImageClip, 
-				BackgroundImageClip(
+				BackgroundImageClipType(BackgroundImageClip(
 					transmute(f32_4_to_aabb(parse_percent_to_f32_4(value, " ")?))
-				),
+				)),
 				&mut class_sheet.style_buffer,
 			);
             // class.class_style_mark.set  |= StyleType::BackgroundColor as usize;
@@ -194,18 +186,16 @@ fn match_key(key: &str, value: &str, class: &mut Class, class_sheet: &mut ClassS
         }
         "background-image-clip" => unsafe {
 			StyleAttr::write(
-				StyleType::BackgroundImageClip, 
-				BackgroundImageClip(
+				BackgroundImageClipType(BackgroundImageClip(
 					transmute(f32_4_to_aabb(parse_percent_to_f32_4(value, " ")?))
-				),
+				)),
 				&mut class_sheet.style_buffer,
 			);
             class.class_style_mark.set(StyleType::BackgroundImageClip as usize, true);
         }
         "object-fit" => unsafe {
 			StyleAttr::write(
-				StyleType::ObjectFit, 
-				ObjectFit(parse_object_fit(value)?),
+				ObjectFitType(ObjectFit(parse_object_fit(value)?)),
 				&mut class_sheet.style_buffer,
 			);
             class.class_style_mark.set(StyleType::ObjectFit as usize, true);
@@ -213,24 +203,21 @@ fn match_key(key: &str, value: &str, class: &mut Class, class_sheet: &mut ClassS
 
         "border-image" => unsafe {
 			StyleAttr::write(
-				StyleType::BorderImage, 
-				BorderImage(parse_url(value)?.get_hash()),
+				BorderImageType(BorderImage(parse_url(value)?.get_hash())),
 				&mut class_sheet.style_buffer,
 			);
             class.class_style_mark.set(StyleType::BorderImage as usize, true);
         }
         "border-image-clip" => unsafe {
 			StyleAttr::write(
-				StyleType::BorderImageClip, 
-				BorderImageClip(transmute(f32_4_to_aabb(parse_percent_to_f32_4(value, " ")?))),
+				BorderImageClipType(BorderImageClip(transmute(f32_4_to_aabb(parse_percent_to_f32_4(value, " ")?)))),
 				&mut class_sheet.style_buffer,
 			);
             class.class_style_mark.set(StyleType::BorderImageClip as usize, true);
         }
         "border-image-slice" => unsafe {
 			StyleAttr::write(
-				StyleType::BorderImageSlice, 
-				parse_border_image_slice(value)?,
+				BorderImageSliceType(parse_border_image_slice(value)?),
 				&mut class_sheet.style_buffer,
 			);
             class.class_style_mark.set(StyleType::BorderImageSlice as usize, true);
@@ -238,8 +225,7 @@ fn match_key(key: &str, value: &str, class: &mut Class, class_sheet: &mut ClassS
         "border-image-repeat" => unsafe {
 			let ty = parse_border_image_repeat(value)?;
 			StyleAttr::write(
-				StyleType::BorderImageRepeat, 
-				BorderImageRepeat(ty, ty),
+				BorderImageRepeatType(BorderImageRepeat(ty, ty)),
 				&mut class_sheet.style_buffer,
 			);
             class.class_style_mark.set(StyleType::BorderImageRepeat as usize, true);
@@ -247,16 +233,14 @@ fn match_key(key: &str, value: &str, class: &mut Class, class_sheet: &mut ClassS
 		"mask-image" => unsafe {
 			if value.starts_with("linear-gradient") {
 				StyleAttr::write(
-					StyleType::MaskImage, 
-					MaskImage::LinearGradient(
+					MaskImageType(MaskImage::LinearGradient(
 						parse_linear_gradient_color(value)?
-					),
+					)),
 					&mut class_sheet.style_buffer,
 				);
 			} else {
 				StyleAttr::write(
-					StyleType::MaskImage, 
-					MaskImage::Path(parse_url(value)?.get_hash()),
+					MaskImageType(MaskImage::Path(parse_url(value)?.get_hash())),
 					&mut class_sheet.style_buffer,
 				);
 			}
@@ -264,74 +248,65 @@ fn match_key(key: &str, value: &str, class: &mut Class, class_sheet: &mut ClassS
 		}
 		"mask-image-clip" => unsafe {
 			StyleAttr::write(
-				StyleType::MaskImageClip, 
-				MaskImageClip(
+				MaskImageClipType(MaskImageClip(
 					transmute(f32_4_to_aabb(parse_percent_to_f32_4(value, " ")?))
-				),
+				)),
 				&mut class_sheet.style_buffer,
 			);
             class.class_style_mark.set(StyleType::MaskImageClip as usize, true);
         }
 		"blend-mode" => unsafe {
 			StyleAttr::write(
-				StyleType::BlendMode,
-				parse_blend_mode(value)?,
+				BlendModeType(parse_blend_mode(value)?),
 				&mut class_sheet.style_buffer,
 			);
             class.class_style_mark.set(StyleType::BlendMode as usize, true);
         }
 		"text-gradient" => unsafe {
 			StyleAttr::write(
-				StyleType::Color,
-				parse_linear_gradient_color_string(value)?,
+				ColorType(parse_linear_gradient_color_string(value)?),
 				&mut class_sheet.style_buffer,
 			);
 			class.class_style_mark.set(StyleType::Color as usize, true);
 		}
         "color" => unsafe {
 			StyleAttr::write(
-				StyleType::Color,
-				Color::RGBA(parse_color_string(value)?),
+				ColorType(Color::RGBA(parse_color_string(value)?)),
 				&mut class_sheet.style_buffer,
 			);
             class.class_style_mark.set(StyleType::Color as usize, true);
         }
         "letter-spacing" => unsafe {
 			StyleAttr::write(
-				StyleType::LetterSpacing,
-				parse_px(value)?,
+				LetterSpacingType(parse_px(value)?),
 				&mut class_sheet.style_buffer,
 			);
             class.class_style_mark.set(StyleType::LetterSpacing as usize, true);
         }
         "line-height" => unsafe {
 			StyleAttr::write(
-				StyleType::LineHeight,
-				parse_line_height(value)?,
+				LineHeightType(parse_line_height(value)?),
 				&mut class_sheet.style_buffer,
 			);
             class.class_style_mark.set(StyleType::LineHeight as usize, true);
         }
         "text-align" => unsafe {
 			StyleAttr::write(
-				StyleType::TextAlign,
-				parse_text_align(value)?,
+				TextAlignType(parse_text_align(value)?),
 				&mut class_sheet.style_buffer,
 			);
             class.class_style_mark.set(StyleType::TextAlign as usize, true);
         }
         "text-indent" => unsafe {
 			StyleAttr::write(
-				StyleType::TextIndent,
-				parse_px(value)?,
+				TextIndentType(parse_px(value)?),
 				&mut class_sheet.style_buffer,
 			);
             class.class_style_mark.set(StyleType::TextIndent as usize, true);
         }
         "text-shadow" => unsafe {
 			StyleAttr::write(
-				StyleType::TextShadow,
-				parse_text_shadow(value)?,
+				TextShadowType(TextShadows(parse_text_shadow(value)?)),
 				&mut class_sheet.style_buffer,
 			);
             class.class_style_mark.set(StyleType::TextShadow as usize, true);
@@ -339,16 +314,14 @@ fn match_key(key: &str, value: &str, class: &mut Class, class_sheet: &mut ClassS
         // "vertical-align" => show_attr.push(Attribute::Color( Color::RGBA(parse_color_string(value)?) )),
         "white-space" => unsafe {
 			StyleAttr::write(
-				StyleType::WhiteSpace,
-				pasre_white_space(value)?,
+				WhiteSpaceType(pasre_white_space(value)?),
 				&mut class_sheet.style_buffer,
 			);
             class.class_style_mark.set(StyleType::WhiteSpace as usize, true);
         }
         "word-spacing" => unsafe {
 			StyleAttr::write(
-				StyleType::WordSpacing,
-				parse_px(value)?,
+				WordSpacingType(parse_px(value)?),
 				&mut class_sheet.style_buffer,
 			);
             class.class_style_mark.set(StyleType::WordSpacing as usize, true);
@@ -356,8 +329,7 @@ fn match_key(key: &str, value: &str, class: &mut Class, class_sheet: &mut ClassS
 
         "text-stroke" => unsafe {
 			StyleAttr::write(
-				StyleType::TextStroke,
-				parse_text_stroke(value)?,
+				TextStrokeType(parse_text_stroke(value)?),
 				&mut class_sheet.style_buffer,
 			);
             class.class_style_mark.set(StyleType::TextStroke as usize, true);
@@ -366,24 +338,21 @@ fn match_key(key: &str, value: &str, class: &mut Class, class_sheet: &mut ClassS
         // "font-style" => show_attr.push(Attribute::FontStyle( Color::RGBA(parse_color_string(value)?) )),
         "font-weight" => unsafe {
 			StyleAttr::write(
-				StyleType::TextStroke,
-				parse_font_weight(value)?,
+				FontWeightType(parse_font_weight(value)? as usize),
 				&mut class_sheet.style_buffer,
 			);
             class.class_style_mark.set(StyleType::FontWeight as usize, true);
         }
         "font-size" => unsafe {
 			StyleAttr::write(
-				StyleType::FontSize,
-				parse_font_size(value)?,
+				FontSizeType(parse_font_size(value)?),
 				&mut class_sheet.style_buffer,
 			);
             class.class_style_mark.set(StyleType::FontSize as usize, true);
         }
         "font-family" => unsafe {
 			StyleAttr::write(
-				StyleType::FontFamily,
-				parse_usize(value)?,
+				FontFamilyType(parse_usize(value)?),
 				&mut class_sheet.style_buffer,
 			);
             class.class_style_mark.set(StyleType::FontFamily as usize, true);
@@ -392,163 +361,143 @@ fn match_key(key: &str, value: &str, class: &mut Class, class_sheet: &mut ClassS
         "border-radius" => unsafe {
 			let v = parse_len_or_percent(value)?;
 			StyleAttr::write(
-				StyleType::BorderRadius,
-				BorderRadius {
+				BorderRadiusType(BorderRadius {
 					x: v.clone(),
 					y: v,
-				},
+				}),
 				&mut class_sheet.style_buffer,
 			);
             class.class_style_mark.set(StyleType::BorderRadius as usize, true);
         }
         "opacity" => unsafe {
 			StyleAttr::write(
-				StyleType::Opacity,
-				Opacity(parse_f32(value)?),
+				OpacityType(Opacity(parse_f32(value)?)),
 				&mut class_sheet.style_buffer,
 			);
             class.class_style_mark.set(StyleType::Opacity as usize, true);
         }
         "transform" => unsafe {
 			StyleAttr::write(
-				StyleType::Transform,
-				parse_transform(value)?,
+				TransformType(parse_transform(value)?),
 				&mut class_sheet.style_buffer,
 			);
             class.class_style_mark.set(StyleType::Transform as usize, true);
         }
         "transform-origin" => unsafe {
 			StyleAttr::write(
-				StyleType::TransformOrigin,
-				parse_transform_origin(value)?,
+				TransformOriginType(parse_transform_origin(value)?),
 				&mut class_sheet.style_buffer,
 			);
             class.class_style_mark.set(StyleType::TransformOrigin as usize, true);
         }
         "z-index" => unsafe {
 			StyleAttr::write(
-				StyleType::ZIndex,
-				parse_f32(value)? as isize,
+				ZIndexType(ZIndex(parse_f32(value)? as isize)),
 				&mut class_sheet.style_buffer,
 			);
             class.class_style_mark.set(StyleType::ZIndex as usize, true);
         }
         "visibility" => unsafe {
 			StyleAttr::write(
-				StyleType::Visibility,
-				parse_visibility(value)?,
+				VisibilityType(parse_visibility(value)?),
 				&mut class_sheet.style_buffer,
 			);
             class.class_style_mark.set(StyleType::Visibility as usize, true);
         }
         "pointer-events" => unsafe {
 			StyleAttr::write(
-				StyleType::Enable,
-				parse_enable(value)?,
+				EnableType(parse_enable(value)?),
 				&mut class_sheet.style_buffer,
 			);
             class.class_style_mark.set(StyleType::Enable as usize, true);
         }
         "display" => unsafe {
 			StyleAttr::write(
-				StyleType::Display,
-				parse_display(value)?,
+				DisplayType(parse_display(value)?),
 				&mut class_sheet.style_buffer,
 			);
             class.class_style_mark.set(StyleType::Display as usize, true);
         }
         "overflow" => unsafe {
 			StyleAttr::write(
-				StyleType::Overflow,
-				parse_overflow(value)?,
+				OverflowType(Overflow(parse_overflow(value)?)),
 				&mut class_sheet.style_buffer,
 			);
             class.class_style_mark.set(StyleType::Overflow as usize, true);
         }
         "overflow-y" => unsafe {
 			StyleAttr::write(
-				StyleType::Overflow,
-				parse_overflow(value)?,
+				OverflowType(Overflow(parse_overflow(value)?)),
 				&mut class_sheet.style_buffer,
 			);
             class.class_style_mark.set(StyleType::Overflow as usize, true);
         }
         "width" => unsafe {
 			StyleAttr::write(
-				StyleType::Width,
-				parse_unity(value)?,
+				WidthType(parse_unity(value)?),
 				&mut class_sheet.style_buffer,
 			);
             class.class_style_mark.set(StyleType::Width as usize, true);
         }
         "height" => unsafe {
 			StyleAttr::write(
-				StyleType::Height,
-				parse_unity(value)?,
+				HeightType(parse_unity(value)?),
 				&mut class_sheet.style_buffer,
 			);
             class.class_style_mark.set(StyleType::Height as usize, true);
         }
         "left" => unsafe {
 			StyleAttr::write(
-				StyleType::PositionLeft,
-				parse_unity(value)?,
+				PositionLeftType(parse_unity(value)?),
 				&mut class_sheet.style_buffer,
 			);
             class.class_style_mark.set(StyleType::PositionLeft as usize, true);
         }
         "bottom" => unsafe {
 			StyleAttr::write(
-				StyleType::PositionBottom,
-				parse_unity(value)?,
+				PositionBottomType(parse_unity(value)?),
 				&mut class_sheet.style_buffer,
 			);
             class.class_style_mark.set(StyleType::PositionBottom as usize, true);
         }
         "right" => unsafe {
             StyleAttr::write(
-				StyleType::PositionRight,
-				parse_unity(value)?,
+				PositionRightType(parse_unity(value)?),
 				&mut class_sheet.style_buffer,
 			);
             class.class_style_mark.set(StyleType::PositionRight as usize, true);
         }
         "top" => unsafe {
             StyleAttr::write(
-				StyleType::PositionTop,
-				parse_unity(value)?,
+				PositionTopType(parse_unity(value)?),
 				&mut class_sheet.style_buffer,
 			);
             class.class_style_mark.set(StyleType::PositionTop as usize, true);
         }
         "margin-left" => unsafe {
             StyleAttr::write(
-				StyleType::MarginLeft,
-				parse_unity(value)?,
+				MarginLeftType(parse_unity(value)?),
 				&mut class_sheet.style_buffer,
 			);
             class.class_style_mark.set(StyleType::MarginLeft as usize, true);
         }
         "margin-bottom" => unsafe {
             StyleAttr::write(
-				StyleType::MarginBottom,
-				parse_unity(value)?,
+				MarginBottomType(parse_unity(value)?),
 				&mut class_sheet.style_buffer,
 			);
             class.class_style_mark.set(StyleType::MarginBottom as usize, true);
         }
         "margin-right" => unsafe {
             StyleAttr::write(
-				StyleType::MarginRight,
-				parse_unity(value)?,
+				MarginRightType(parse_unity(value)?),
 				&mut class_sheet.style_buffer,
 			);
             class.class_style_mark.set(StyleType::MarginRight as usize, true);
         }
         "margin-top" => unsafe {
             StyleAttr::write(
-				StyleType::MarginTop,
-				parse_unity(value)?,
+				MarginTopType(parse_unity(value)?),
 				&mut class_sheet.style_buffer,
 			);
             class.class_style_mark.set(StyleType::MarginTop as usize, true);
@@ -556,40 +505,35 @@ fn match_key(key: &str, value: &str, class: &mut Class, class_sheet: &mut ClassS
         "margin" => unsafe {
             let [top, right, bottom, left] = parse_four_f32(value)?;
 			StyleAttr::write(
-				StyleType::Margin,
-				Margin(Rect{top, right, bottom, left}),
+				MarginType(Margin(Rect{top, right, bottom, left})),
 				&mut class_sheet.style_buffer,
 			);
 			class.class_style_mark.set(StyleType::Margin as usize, true);
         }
         "padding-left" => unsafe {
 			StyleAttr::write(
-				StyleType::PaddingLeft,
-				parse_unity(value)?,
+				PaddingLeftType(parse_unity(value)?),
 				&mut class_sheet.style_buffer,
 			);
             class.class_style_mark.set(StyleType::PaddingLeft as usize, true);
         }
         "padding-bottom" => unsafe {
             StyleAttr::write(
-				StyleType::PaddingBottom,
-				parse_unity(value)?,
+				PaddingBottomType(parse_unity(value)?),
 				&mut class_sheet.style_buffer,
 			);
             class.class_style_mark.set(StyleType::PaddingBottom as usize, true);
         }
         "padding-right" => unsafe {
             StyleAttr::write(
-				StyleType::PaddingRight,
-				parse_unity(value)?,
+				PaddingRightType(parse_unity(value)?),
 				&mut class_sheet.style_buffer,
 			);
             class.class_style_mark.set(StyleType::PaddingRight as usize, true);
         }
         "padding-top" => unsafe {
             StyleAttr::write(
-				StyleType::PaddingTop,
-				parse_unity(value)?,
+				PaddingTopType(parse_unity(value)?),
 				&mut class_sheet.style_buffer,
 			);
             class.class_style_mark.set(StyleType::PaddingTop as usize, true);
@@ -597,8 +541,7 @@ fn match_key(key: &str, value: &str, class: &mut Class, class_sheet: &mut ClassS
         "padding" => unsafe {
 			let [top, right, bottom, left] = parse_four_f32(value)?;
 			StyleAttr::write(
-				StyleType::Padding,
-				Padding(Rect{top, right, bottom, left}),
+				PaddingType(Padding(Rect{top, right, bottom, left})),
 				&mut class_sheet.style_buffer,
 			);
 			class.class_style_mark.set(StyleType::Padding as usize, true);
@@ -606,13 +549,11 @@ fn match_key(key: &str, value: &str, class: &mut Class, class_sheet: &mut ClassS
         "border-left" => unsafe {
             let r = parse_border(value)?;
 			StyleAttr::write(
-				StyleType::BorderLeft,
-				r.0,
+				BorderLeftType(r.0),
 				&mut class_sheet.style_buffer,
 			);
 			StyleAttr::write(
-				StyleType::BorderColor,
-				r.1,
+				BorderColorType(BorderColor(r.1)),
 				&mut class_sheet.style_buffer,
 			);
             class.class_style_mark.set(StyleType::BorderLeft as usize, true);
@@ -621,13 +562,11 @@ fn match_key(key: &str, value: &str, class: &mut Class, class_sheet: &mut ClassS
         "border-bottom" => unsafe {
             let r = parse_border(value)?;
 			StyleAttr::write(
-				StyleType::BorderBottom,
-				r.0,
+				BorderBottomType(r.0),
 				&mut class_sheet.style_buffer,
 			);
 			StyleAttr::write(
-				StyleType::BorderColor,
-				r.1,
+				BorderColorType(BorderColor(r.1)),
 				&mut class_sheet.style_buffer,
 			);
             class.class_style_mark.set(StyleType::BorderBottom as usize, true);
@@ -636,13 +575,11 @@ fn match_key(key: &str, value: &str, class: &mut Class, class_sheet: &mut ClassS
         "border-right" => unsafe {
             let r = parse_border(value)?;
 			StyleAttr::write(
-				StyleType::BorderRight,
-				r.0,
+				BorderRightType(r.0),
 				&mut class_sheet.style_buffer,
 			);
 			StyleAttr::write(
-				StyleType::BorderColor,
-				r.1,
+				BorderColorType(BorderColor(r.1)),
 				&mut class_sheet.style_buffer,
 			);
             class.class_style_mark.set(StyleType::BorderRight as usize, true);
@@ -651,13 +588,11 @@ fn match_key(key: &str, value: &str, class: &mut Class, class_sheet: &mut ClassS
         "border-top" => unsafe {
             let r = parse_border(value)?;
 			StyleAttr::write(
-				StyleType::BorderTop,
-				r.0,
+				BorderTopType(r.0),
 				&mut class_sheet.style_buffer,
 			);
 			StyleAttr::write(
-				StyleType::BorderColor,
-				r.1,
+				BorderColorType(BorderColor(r.1)),
 				&mut class_sheet.style_buffer,
 			);
             class.class_style_mark.set(StyleType::BorderTop as usize, true);
@@ -666,13 +601,11 @@ fn match_key(key: &str, value: &str, class: &mut Class, class_sheet: &mut ClassS
         "border" => unsafe {
             let r = parse_border(value)?;
 			StyleAttr::write(
-				StyleType::Padding,
-				Padding(Rect{top: r.0, right: r.0, bottom: r.0, left: r.0}),
+				PaddingType(Padding(Rect{top: r.0, right: r.0, bottom: r.0, left: r.0})),
 				&mut class_sheet.style_buffer,
 			);
             StyleAttr::write(
-				StyleType::BorderColor,
-				r.1,
+				BorderColorType(BorderColor(r.1)),
 				&mut class_sheet.style_buffer,
 			);
 			class.class_style_mark.set(StyleType::Border as usize, true);
@@ -681,120 +614,105 @@ fn match_key(key: &str, value: &str, class: &mut Class, class_sheet: &mut ClassS
         "border-width" => unsafe {
             let [top, right, bottom, left] = parse_four_f32(value)?;
             StyleAttr::write(
-				StyleType::Padding,
-				Padding(Rect{top, right, bottom, left}),
+				PaddingType(Padding(Rect{top, right, bottom, left})),
 				&mut class_sheet.style_buffer,
 			);
             class.class_style_mark.set(StyleType::Border as usize, true);
         }
         "min-width" => unsafe {
 			StyleAttr::write(
-				StyleType::MinWidth,
-				parse_unity(value)?,
+				MinWidthType(parse_unity(value)?),
 				&mut class_sheet.style_buffer,
 			);
             class.class_style_mark.set(StyleType::MinWidth as usize, true);
         }
         "min-height" => unsafe {
             StyleAttr::write(
-				StyleType::MinHeight,
-				parse_unity(value)?,
+				MinHeightType(parse_unity(value)?),
 				&mut class_sheet.style_buffer,
 			);
             class.class_style_mark.set(StyleType::MinHeight as usize, true);
         }
         "max-width" => unsafe {
             StyleAttr::write(
-				StyleType::MaxWidth,
-				parse_unity(value)?,
+				MaxWidthType(parse_unity(value)?),
 				&mut class_sheet.style_buffer,
 			);
             class.class_style_mark.set(StyleType::MaxWidth as usize, true);
         }
         "max-height" => unsafe {
             StyleAttr::write(
-				StyleType::MaxHeight,
-				parse_unity(value)?,
+				MaxHeightType(parse_unity(value)?),
 				&mut class_sheet.style_buffer,
 			);
             class.class_style_mark.set(StyleType::MaxHeight as usize, true);
         }
         "flex-basis" => unsafe {
             StyleAttr::write(
-				StyleType::FlexBasis,
-				parse_unity(value)?,
+				FlexBasisType(parse_unity(value)?),
 				&mut class_sheet.style_buffer,
 			);
             class.class_style_mark.set(StyleType::FlexBasis as usize, true);
         }
         "flex-shrink" => unsafe {
 			StyleAttr::write(
-				StyleType::FlexShrink,
-				parse_f32(value)?,
+				FlexShrinkType(parse_f32(value)?),
 				&mut class_sheet.style_buffer,
 			);
             class.class_style_mark.set(StyleType::FlexShrink as usize, true);
         }
         "flex-grow" => unsafe {
 			StyleAttr::write(
-				StyleType::FlexGrow,
-				parse_f32(value)?,
+				FlexGrowType(parse_f32(value)?),
 				&mut class_sheet.style_buffer,
 			);
             class.class_style_mark.set(StyleType::FlexGrow as usize, true);
         }
         "position" => unsafe {
 			StyleAttr::write(
-				StyleType::PositionType,
-				parse_yg_position_type(value)?,
+				PositionTypeType(parse_yg_position_type(value)?),
 				&mut class_sheet.style_buffer,
 			);
             class.class_style_mark.set(StyleType::PositionType as usize, true);
         }
         "flex-wrap" => unsafe {
 			StyleAttr::write(
-				StyleType::FlexWrap,
-				parse_yg_wrap(value)?,
+				FlexWrapType(parse_yg_wrap(value)?),
 				&mut class_sheet.style_buffer,
 			);
             class.class_style_mark.set(StyleType::FlexWrap as usize, true);
         }
         "flex-direction" => unsafe {
 			StyleAttr::write(
-				StyleType::FlexDirection,
-				parse_yg_direction(value)?,
+				FlexDirectionType(parse_yg_direction(value)?),
 				&mut class_sheet.style_buffer,
 			);
             class.class_style_mark.set(StyleType::FlexDirection as usize, true);
         }
         "align-content" => unsafe {
 			StyleAttr::write(
-				StyleType::AlignContent,
-				parse_yg_align_content(value)?,
+				AlignContentType(parse_yg_align_content(value)?),
 				&mut class_sheet.style_buffer,
 			);
             class.class_style_mark.set(StyleType::AlignContent as usize, true);
         }
         "align-items" => unsafe {
 			StyleAttr::write(
-				StyleType::AlignItems,
-				parse_yg_align_items(value)?,
+				AlignItemsType(parse_yg_align_items(value)?),
 				&mut class_sheet.style_buffer,
 			);
             class.class_style_mark.set(StyleType::AlignItems as usize, true);
         }
         "align-self" => unsafe {
 			StyleAttr::write(
-				StyleType::AlignSelf,
-				parse_yg_align_self(value)?,
+				AlignSelfType(parse_yg_align_self(value)?),
 				&mut class_sheet.style_buffer,
 			);
             class.class_style_mark.set(StyleType::AlignSelf as usize, true);
         }
         "justify-content" => unsafe {
 			StyleAttr::write(
-				StyleType::JustifyContent,
-				parse_yg_justify_content(value)?,
+				JustifyContentType(parse_yg_justify_content(value)?),
 				&mut class_sheet.style_buffer,
 			);
             class.class_style_mark.set(StyleType::JustifyContent as usize, true);
@@ -804,7 +722,7 @@ fn match_key(key: &str, value: &str, class: &mut Class, class_sheet: &mut ClassS
     Ok(())
 }
 
-fn parse_filter(value: &str, class: &mut Class, buffer: &mut Vec<u8>) -> Result<(), String>{
+fn parse_filter(value: &str, class: &mut ClassMeta, buffer: &mut Vec<u8>) -> Result<(), String>{
 	let mut i = 0;
 	let mut hsi = Hsi::default(); 
 	let mut hah_hsi = false;
@@ -849,8 +767,7 @@ fn parse_filter(value: &str, class: &mut Class, buffer: &mut Vec<u8>) -> Result<
 					},
 					"blur" => unsafe {
 						StyleAttr::write(
-							StyleType::Blur,
-							Blur(parse_f32(&v[0..v.len() - 2])?),
+							BlurType(Blur(parse_f32(&v[0..v.len() - 2])?)),
 							buffer,
 						);
 						class.class_style_mark.set(StyleType::Blur as usize, true);
@@ -863,8 +780,7 @@ fn parse_filter(value: &str, class: &mut Class, buffer: &mut Vec<u8>) -> Result<
 	}
 	if hah_hsi {
 		unsafe { StyleAttr::write(
-			StyleType::Blur,
-			hsi,
+			HsiType(hsi),
 			buffer,
 		)};
 		class.class_style_mark.set(StyleType::Hsi as usize, true);
@@ -1614,7 +1530,7 @@ fn parser_color_stop_last(
             for i in 0..list.len() {
                 color_stop.push(ColorAndPosition {
                     position: *pre_percent + pos * (i + 1) as f32,
-                    rgba: list[i],
+                    rgba: list[i].clone(),
                 });
             }
         } else {
@@ -1626,7 +1542,7 @@ fn parser_color_stop_last(
             for i in 0..list.len() {
                 color_stop.push(ColorAndPosition {
                     position: *pre_percent + pos * i as f32,
-                    rgba: list[i],
+                    rgba: list[i].clone(),
                 });
             }
         }
