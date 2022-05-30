@@ -1,8 +1,10 @@
 /// 中间计算的组件
 use std::{ops::{Deref, DerefMut, Mul, Index, IndexMut}, intrinsics::transmute};
+use std::hash::Hash;
 
 use nalgebra::Matrix4;
 use bitvec::prelude::BitArray;
+use ordered_float::NotNan;
 use pi_ecs::prelude::{Id, LocalVersion};
 use pi_ecs_macros::Component;
 use pi_map::Map;
@@ -47,6 +49,16 @@ pub struct ZRange(pub std::ops::Range<usize>);
 // 世界矩阵，  WorldMatrix(矩阵, 矩阵描述的变换是存在旋转变换)， 如果不存在旋转变换， 可以简化矩阵的乘法
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorldMatrix(pub Matrix4<f32>, pub bool);
+
+impl Hash for WorldMatrix {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+		for i in self.0.as_slice().iter() {
+			unsafe { NotNan::unchecked_new(*i).hash(state) };
+		}
+        
+        self.1.hash(state);
+    }
+}
 
 // 默认值设置为单位阵
 impl Default for WorldMatrix {

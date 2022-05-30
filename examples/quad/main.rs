@@ -9,7 +9,7 @@ use pi_async::rt::{
 	single_thread::SingleTaskPool
 };
 /// 渲染四边形 demo
-use pi_ecs::prelude::{Id, SingleDispatcher, Dispatcher};
+use pi_ecs::prelude::Id;
 use pi_flex_layout::style::{Dimension, PositionType};
 use pi_null::Null;
 use pi_render::RenderStage;
@@ -25,9 +25,7 @@ fn main() {
 }
 
 #[derive(Default)]
-pub struct QuadExample{
-	dispather: Option<SingleDispatcher<SingleTaskPool<()>>>,
-}
+pub struct QuadExample;
 
 #[async_trait]
 impl Example for QuadExample {
@@ -38,9 +36,8 @@ impl Example for QuadExample {
 		_rt: AsyncRuntime<(), SingleTaskPool<()>>,
 		size: (usize, usize),
 	) {
-		gui.init(render_stage);
+		gui.init(render_stage, 0, 0, size.0 as u32, size.1 as u32);
 		
-		gui.world_mut().insert_resource(Viewport(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(size.0 as f32, size.1 as f32))));
 		// 添加根节点
 		let root = gui.create_node();
 		gui.set_style(root, WidthType(Dimension::Points(size.0 as f32)));

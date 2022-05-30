@@ -1,10 +1,25 @@
 use std::{any::TypeId, sync::Arc, mem::replace};
 
+use pi_assets::{mgr::AssetMgr, asset::{GarbageEmpty, Handle}};
 use pi_async::rt::{AsyncRuntime, single_thread::SingleTaskPool};
-use pi_ecs::prelude::{World, ArchetypeId, SingleDispatcher, StageBuilder, Id, Setup, Dispatcher};
-use pi_render::RenderStage;
+use pi_ecs::prelude::{World, ArchetypeId, SingleDispatcher, StageBuilder, Id, Setup, Dispatcher, FromWorld};
+use pi_render::{RenderStage, rhi::{asset::RenderRes, buffer::Buffer, bind_group::BindGroup, device::RenderDevice}, components::view::target_alloc::{SafeAtlasAllocator, DEPTH_TEXTURE}};
+use pi_share::Share;
+use wgpu::TextureView;
 
-use crate::{components::user::ClassName, resource::{UserCommands, NodeCommand}, utils::style::style_sheet::{StyleAttr, Attr}, system::{node::{user_setting::CalcUserSetting, context::CalcContext, z_index::CalcZindex, layout::CalcLayout, quad::CalcQuad, world_matrix::CalcMatrix, content_box::CalcContentBox, context_root::CalcRoot, background_color::CalcBackGroundColor}, draw_obj::{world_marix::CalcWorldMatrixGroup, pipeline::CalcPipeline}, pass::{pass_render::CalcRender, pass_dirty_rect::CalcDirtyRect}}};
+use crate::{
+	components::{
+		user::{ClassName, Aabb2, Point2}, 
+		pass_2d::RenderTarget
+	}, 
+	resource::{UserCommands, NodeCommand, Viewport}, 
+	utils::{style::style_sheet::{StyleAttr, Attr}, tools::calc_hash}, 
+	system::{
+		node::{user_setting::CalcUserSetting, context::CalcContext, z_index::CalcZindex, layout::CalcLayout, quad::CalcQuad, world_matrix::CalcMatrix, content_box::CalcContentBox, context_root::CalcRoot, background_color::CalcBackGroundColor}, 
+		draw_obj::{world_marix::CalcWorldMatrixGroup, pipeline::CalcPipeline}, 
+		pass::{pass_render::CalcRender, pass_dirty_rect::CalcDirtyRect, pass_graph_node::{DynTargetType, InitGraphData}}
+	}
+};
 
 use crate::components::user::Node;
 
@@ -27,6 +42,9 @@ impl Gui {
 		let mut world = World::new();
 		world.new_archetype::<Node>().create(); // 创建Node原型
 
+		// 注册资源管理器
+		register_assets_mgr(&mut world);
+
 		let node_archetype_id = world.archetypes().get_id_by_ident(TypeId::of::<Node>()).unwrap().clone();
 
 		let dispatcher= SingleDispatcher::new(rt);
@@ -39,8 +57,19 @@ impl Gui {
 		}
 	}
 
-	// 初始化gui
-	pub fn init(&mut self, render_stages: RenderStage) {
+	/// 初始化gui
+	/// 调用此方法必须保证DeviceRender已经在resource上
+	pub fn init(
+		&mut self, 
+		render_stages: RenderStage,
+		x: u32, 
+		y: u32, 
+		width: u32, 
+		height: u32,
+	) {
+		// 添加必要资源
+		insert_resource(&mut self.world, x, y, width, height);
+
 		init_dispatcher(&mut self.world, render_stages, &mut self.dispatcher);
 	}
 
@@ -101,6 +130,80 @@ impl Gui {
 	}
 }
 
+fn register_assets_mgr(world: &mut World) {
+	world.insert_resource(AssetMgr::<RenderRes<Buffer>>::new(
+		GarbageEmpty(),
+		false,
+		20 * 1024 * 1024,
+		3 * 60 * 1000));
+	world.insert_resource(AssetMgr::<RenderRes<BindGroup>>::new(
+		GarbageEmpty(), 
+		false,
+		5 * 1024, 
+		3 * 60 * 1000));
+	world.insert_resource(AssetMgr::<RenderRes<TextureView>>::new(
+		GarbageEmpty(), 
+		false,
+		60 * 1024 * 1024, 
+		3 * 60 * 1000));
+}
+
+// 插入必须的资源
+fn insert_resource(
+	world: &mut World,
+	x: u32, 
+	y: u32, 
+	width: u32, 
+	height: u32,
+) {
+	let texture_res_mgr = world.get_resource::<Share<AssetMgr<RenderRes<TextureView>>>>().unwrap().clone();
+	let device = world.get_resource::<RenderDevice>().unwrap().clone();
+
+	let view_port = Aabb2::new(Point2::new(x as f32, y as f32), Point2::new((x + width) as f32, (y + height) as f32));
+	
+	// 设置gui默认渲染到屏幕
+	let depth_buffer = create_depth_buffer(&texture_res_mgr, &device, width, height);
+	world.insert_resource(RenderTarget::Screen {
+		aabb: view_port.clone(),
+		depth: Some(depth_buffer), // 深度缓冲区
+	});
+
+	// 添加纹理分配器
+	world.insert_resource(SafeAtlasAllocator::new(device, texture_res_mgr));
+
+	// 插入视口
+	world.insert_resource(Viewport(view_port));
+}
+
+// 创建深度缓冲区
+fn create_depth_buffer(
+	texture_res_mgr: &Share<AssetMgr<RenderRes<TextureView>>>,
+	device: &RenderDevice,
+	width: u32,
+	height: u32,
+) -> Handle<RenderRes<TextureView>> {
+	let texture = (**device).create_texture(&wgpu::TextureDescriptor {
+		label: Some("first depth buffer"),
+		size: wgpu::Extent3d {
+            width,
+            height,
+            depth_or_array_layers: 1,
+        },
+		mip_level_count: 1,
+		sample_count: 1,
+		dimension: wgpu::TextureDimension::D2,
+		format: wgpu::TextureFormat::Depth24Plus,
+		usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+	});
+	let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+
+	let hash = calc_hash(&(DEPTH_TEXTURE.get_hash(), width, height));
+	texture_res_mgr.cache(hash, RenderRes::new(texture_view, (width * height * 3) as usize));
+	texture_res_mgr.get(&hash).unwrap()
+}
+
+// fn calc_texture
+
 fn init_dispatcher(world: &mut World, render_stages: RenderStage, dispatcher: &mut SingleDispatcher<SingleTaskPool<()>>) {
 	// let rt = AsyncRuntime::Multi(MultiTaskRuntimeBuilder::default().build());
 	let mut stages = Vec::new();
@@ -127,7 +230,9 @@ fn init_dispatcher(world: &mut World, render_stages: RenderStage, dispatcher: &m
 	CalcRender::setup(world, &mut pass_stage);
 	CalcDirtyRect::setup(world, &mut pass_stage);
 
-	
+	// 初始化渲染节点需要的数据
+	InitGraphData::setup(world, &mut pass_stage);
+
 	stages.push(Arc::new(node_stage.build(world)));
 	stages.push(Arc::new(draw_stage.build(world)));
 	stages.push(Arc::new(pass_stage.build(world)));

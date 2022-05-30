@@ -1,6 +1,9 @@
 use bitvec::array::BitArray;
+use pi_assets::asset::Handle;
 use pi_ecs::entity::Id;
-use pi_render::{graph::node::NodeId, rhi::bind_group::BindGroup};
+use pi_render::{graph::node::NodeId, rhi::{bind_group::BindGroup, asset::RenderRes, buffer::Buffer}, components::view::{target_alloc::ShareTargetView, target::TextureViewKey}};
+use pi_share::{cell::TrustCell, ShareRwLock};
+use pi_slotmap::{DefaultKey, SecondaryMap};
 
 use super::{draw_obj::DrawKey, user::{Aabb2, Point2, Matrix4}};
 
@@ -18,9 +21,22 @@ pub struct Camera {
 	pub view_port: Aabb2,
 }
 
+/// 渲染目标类型
+#[derive(Debug, EnumDefault, Clone, Copy)]
+pub enum RenderTargetType {
+	New, // 渲染时，总是新分配一个rendertarget进行渲染
+	Last, // 将渲染对象渲染到最终目标（RenderInfo的渲染目标上，可能是最终屏幕，也可能是某个rendertarget）
+	None, // 渲染时，使用parent的渲染目标进行渲染
+}
+
 impl Default for Camera {
     fn default() -> Self {
-        Self { view: Default::default(), project: Default::default(), bind_group: Default::default(), view_port: Aabb2::new(Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)) }
+        Self { 
+			view: Default::default(), 
+			project: Default::default(), 
+			bind_group: Default::default(), 
+			view_port: Aabb2::new(Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)),
+		}
     }
 }
 
@@ -33,14 +49,14 @@ pub struct GraphId(pub NodeId);
 
 // 渲染 物件 列表
 pub struct Draw2DList {
-	pub all_list: Vec<DrawKey>,
+	pub all_list: Vec<DrawIndex>,
     /// 不透明 列表
     /// 注：渲染时，假设 Vec已经 排好序 了
-    pub opaque: Vec<DrawKey>,
+    pub opaque: Vec<DrawIndex>,
 
     /// 透明 列表
     /// 注：渲染时，假设 Vec已经 排好序 了
-    pub transparent: Vec<DrawKey>,
+    pub transparent: Vec<DrawIndex>,
 }
 
 impl Default for Draw2DList {
@@ -51,6 +67,15 @@ impl Default for Draw2DList {
             transparent: Vec::default(),
         }
     }
+}
+
+/// 渲染对象的索引
+#[derive(Debug, Clone, Copy, Hash)]
+pub enum DrawIndex {
+	// 一个渲染对象
+	DrawObj(DrawKey),
+	// 一个Pass2D的内容
+	Pass2D(Pass2DKey),
 }
 
 #[derive(Default, Deref, DerefMut)]
@@ -82,4 +107,52 @@ impl Default for DirtyRect {
 			state: DirtyRectState::UnInit,
 		}
     }
+}
+
+/// 后处理
+pub struct PostProcess {
+	pub draw_obj_key: DrawKey, // 渲染对象的Key
+	pub texture_bind_index: usize, // 纹理bing_group的索引
+	pub uv_vb_index: usize, // uv buffer在vbs中的索引
+
+	pub target: Option<(ShareTargetView, Handle<RenderRes<BindGroup>>, Handle<RenderRes<Buffer>>)>, // 处理目标
+
+	pub width: u32, // 后处理渲染目标宽度
+	pub height: u32, // 后处理渲染目标高度
+}
+
+impl PostProcess {
+	pub fn new(
+		draw_obj_key: DrawKey, 
+		texture_bind_index: usize, 
+		uv_vb_index: usize,
+		width: u32,
+		height: u32,
+	) -> Self {
+		Self {
+			draw_obj_key,
+			texture_bind_index,
+			uv_vb_index,
+			width,
+			height,
+			target: None,
+		}
+	}
+}
+
+/// 后处理列表
+#[derive(Default)]
+pub struct PostProcessList(pub SecondaryMap<DefaultKey, PostProcess>, pub DefaultKey/*最后一个后处理的key */);
+
+/// 
+pub enum RenderTarget {
+	// 渲染到一个指定的离屏fbo
+	OffScreen(ShareTargetView),
+	// 渲染到屏幕
+	Screen {
+		aabb: Aabb2,
+		depth: Option<Handle<RenderRes<wgpu::TextureView>>>,
+	},
+	// // 自动分配一个fbo来进行渲染
+	// Auto(Option<ShareTargetView>),
 }

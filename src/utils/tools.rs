@@ -1,5 +1,7 @@
 use std::hash::{Hash, Hasher};
 
+use num_traits::float::FloatCore;
+use ordered_float::NotNan;
 use pi_hash::DefaultHasher;
 
 use crate::components::user::{Aabb2, Point2};
@@ -8,6 +10,14 @@ use crate::components::user::{Aabb2, Point2};
 pub fn calc_hash<T: Hash>(v: &T)-> u64 {
 	let mut hasher = DefaultHasher::default();
 	v.hash(&mut hasher);
+	hasher.finish()
+}
+
+pub fn calc_float_hash<T: FloatCore>(v: &[T])-> u64 {
+	let mut hasher = DefaultHasher::default();
+	for i in v.iter() {
+		unsafe{NotNan::unchecked_new(*i)}.hash(&mut hasher);
+	}
 	hasher.finish()
 }
 
@@ -45,5 +55,21 @@ pub fn intersect(a: &Aabb2, b: &Aabb2) -> Option<Aabb2> {
 // 			0,
 // 		);
 // 	tree.query(&aabb, intersects, &mut (), ab_query_func);
+// }
+
+// async fn load<L: Load>(
+// 	mgr: &Share<AssetMgr<R1, G>>,
+// 	k: usize,
+// 	p: MultiTaskRuntime<()>,
+// ) -> io::Result<Handle<R1>> {
+// 	match AssetMgr::load(mgr, &k) {
+// 		LoadResult::Ok(r) => Ok(r),
+// 		LoadResult::Wait(f) => f.await,
+// 		LoadResult::Receiver(recv) => {
+// 			p.wait_timeout(1).await;
+// 			println!("---------------load:{:?}", k);
+// 			recv.receive(k, Ok(R1(TrustCell::new((k, k, 0))))).await
+// 		}
+// 	}
 // }
 

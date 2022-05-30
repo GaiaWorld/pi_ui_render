@@ -1,10 +1,11 @@
 use std::hash::{Hasher, Hash};
 
 
+use pi_assets::asset::Handle;
 use pi_ecs::entity::Id;
 use pi_hash::XHashSet;
 use pi_map::vecmap::VecMap;
-use pi_render::rhi::{bind_group::BindGroup, buffer::Buffer, IndexFormat, pipeline::RenderPipeline};
+use pi_render::rhi::{bind_group::BindGroup, buffer::Buffer, IndexFormat, pipeline::RenderPipeline, asset:: RenderRes};
 use pi_share::Share;
 use pi_slotmap::DefaultKey;
 use wgpu::RenderPass;
@@ -21,14 +22,20 @@ pub struct DrawState {
     pub pipeline: Option<Share<RenderPipeline>>,
 
     // 一堆 UBO
-    pub bind_groups: VecMap<Share<BindGroup>>,
+    pub bind_groups: VecMap<Handle<RenderRes<BindGroup>>>,
 
     // 一堆 VB
-    pub vbs: VecMap<(Share<Buffer>, u64)>,
+    pub vbs: VecMap<(Handle<RenderRes<Buffer>>, u64)>,
 
     // IB 可有 可无
-    pub ib: Option<(Share<Buffer>, u64, IndexFormat)>,
+    pub ib: Option<(Handle<RenderRes<Buffer>>, u64, IndexFormat)>,
 }
+
+// impl Default for DrawState {
+//     fn default() -> Self {
+//         Self { pipeline: Default::default(), bind_groups: VecMap::default(), vbs: Default::default(), ib: Default::default() }
+//     }
+// }
 
 impl DrawState {
     pub fn draw<'w, 'a>(&'a self, rpass: &'w mut RenderPass<'a>, camera: &'a Camera) {
@@ -48,12 +55,12 @@ impl DrawState {
 			i = 0;
 			for r in self.vbs.iter() {
 				if let Some(vertex_buf) = r {
-					rpass.set_vertex_buffer(i as u32, (**vertex_buf.0).slice(..));
+					rpass.set_vertex_buffer(i as u32, (****vertex_buf.0).slice(..));
 				}
 				i += 1;
 			}
 
-			rpass.set_index_buffer((**ib.0).slice(..), ib.2);
+			rpass.set_index_buffer((****ib.0).slice(..), ib.2);
 			rpass.draw_indexed(0..ib.1 as u32, 0, 0..1);
 		}
     }

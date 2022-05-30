@@ -2,17 +2,23 @@ use std::{collections::hash_map::Entry, borrow::Cow};
 use std::io::Result;
 
 use naga::ShaderStage;
+use pi_assets::mgr::{AssetMgr, LoadResult};
 use pi_ecs::prelude::{Query, Changed, EntityCommands, Commands, Write, ResMut, Res, res::WriteRes, Event, Id};
 use pi_ecs_macros::{listen, setup};
 use pi_hash::XHashMap;
 use pi_map::vecmap::VecMap;
+use pi_render::rhi::asset::RenderRes;
+use pi_render::rhi::bind_group::BindGroup;
+use pi_render::rhi::buffer::Buffer;
 use pi_render::rhi::{device::RenderDevice, shader::{Shader, ShaderProcessor, ShaderId}};
 use pi_share::Share;
 use pi_render::rhi::bind_group_layout::BindGroupLayout;
 use pi_slotmap::DefaultKey;
 use wgpu::IndexFormat;
 
-use crate::{components::{user::{Node, BackgroundColor, Color}, calc::{NodeId, DrawList}, draw_obj::{IsUnitQuad, DrawObject, DrawState, VSDefines, FSDefines, ShaderKey, PipelineKey, VertexBufferLayoutKey}}, resource::draw_obj::{Shaders, PipelineState, StateMap, VertexBufferLayouts, VertexBufferLayout, VertexBufferLayoutMap, ShaderStatic, ShaderCatch, UnitQuadBuffer, ShareLayout, ShaderInfo}, utils::shader_helper::{WORLD_MATRIX_GROUP, DEPTH_GROUP, CAMERA_GROUP}};
+use crate::resource::draw_obj::ShaderMap;
+use crate::utils::tools::calc_hash;
+use crate::{components::{user::{Node, BackgroundColor, Color}, calc::{NodeId, DrawList}, draw_obj::{IsUnitQuad, DrawObject, DrawState, VSDefines, FSDefines, ShaderKey, PipelineKey, VertexBufferLayoutKey}}, resource::draw_obj::{Shaders, PipelineState, StateMap, VertexBufferLayouts, VertexBufferLayout, VertexBufferLayoutMap, ShaderStatic, ShaderCatch, UnitQuadBuffer, ShareLayout, Program}, utils::shader_helper::{WORLD_MATRIX_GROUP, DEPTH_GROUP, CAMERA_GROUP}};
 // use crate::utils::tools::calc_hash;
 
 pub struct CalcBackGroundColor;
@@ -28,14 +34,12 @@ impl CalcBackGroundColor {
 		mut shader_catch: ResMut<ShaderCatch>,
 		mut shader_map: ResMut<ShaderMap>,
 		device: Res<RenderDevice>,
-		mut color_layouts: ResMut<ColorMap>,
 		mut static_index: WriteRes<BackgroundStaticIndex>,
 	) {
 		let shader_static = create_shader_static(
 			&share_layout, 
 			&mut shader_catch, 
-			&mut shader_map, 
-			&mut color_layouts, 
+			&mut shader_map,  
 			&device);
 
 		shader_static_map.0.push(shader_static);
@@ -56,7 +60,7 @@ impl CalcBackGroundColor {
 	}
 	/// 创建RenderObject，用于渲染背景颜色
 	#[system]
-	pub async fn calc_background<'a>(
+	pub async fn calc_background(
 		mut query: Query<Node, (Id<Node>, &BackgroundColor, Write<BackgroundDrawId>, Write<DrawList>), Changed<BackgroundColor>>,
 		query_draw: Query<DrawObject, Write<DrawState>>,
 		mut draw_state_commands: Commands<DrawObject, DrawState>,
@@ -68,10 +72,13 @@ impl CalcBackGroundColor {
 		mut vertex_buffer_layout_commands: Commands<DrawObject, VertexBufferLayoutKey>,
 		
 		// load_mgr: ResMut<'a, LoadMgr>,
-		device: Res<'a, RenderDevice>,
-		static_index: Res<'a, BackgroundStaticIndex>,
-		shader_static: Res<'a, Shaders>,
-		unit_quad_buffer: Res<'a, UnitQuadBuffer>
+		device: Res<'static, RenderDevice>,
+		static_index: Res<'static, BackgroundStaticIndex>,
+		shader_static: Res<'static, Shaders>,
+		unit_quad_buffer: Res<'static, UnitQuadBuffer>,
+
+		buffer_assets: Res<'static, Share<AssetMgr<RenderRes<Buffer>>>>,
+		bind_group_assets: Res<'static, Share<AssetMgr<RenderRes<BindGroup>>>>,
 	) -> Result<()> {
 		// log::info!("calc_background=================");
 		let color_group_layout = match shader_static.get(static_index.shader) {
@@ -85,7 +92,7 @@ impl CalcBackGroundColor {
 				Some(r) => {
 					let mut draw_state_item = query_draw.get_unchecked(**r);
 					let draw_state = draw_state_item.get_mut().unwrap();
-					modify_color_group(&background_color, draw_state, &device, &color_group_layout);
+					modify_color_group(&background_color, draw_state, &device, &color_group_layout, &buffer_assets, &bind_group_assets).await;
 					draw_state_item.notify_modify();
 				},
 				// 否则，创建一个新的DrawObj，并设置color group; 
@@ -101,7 +108,7 @@ impl CalcBackGroundColor {
 					let new_draw_obj = draw_obj_commands.spawn();
 					// 设置DrawState（包含color group）
 					let mut draw_state = DrawState::default();
-					modify_color_group(&background_color, &mut draw_state, &device, color_group_layout);
+					modify_color_group(&background_color, &mut draw_state, &device, color_group_layout, &buffer_assets, &bind_group_assets).await;
 					draw_state.vbs.insert(0, (unit_quad_buffer.vertex.clone(), 0));
 					draw_state.ib = Some((unit_quad_buffer.index.clone(), 6, IndexFormat::Uint16));
 					
@@ -160,21 +167,34 @@ pub fn background_color_delete(
 	}
 }
 
-fn modify_color_group(color: &Color, draw_state: &mut DrawState, device: &RenderDevice, color_group_layout: &BindGroupLayout) {
+async fn modify_color_group(
+	color: &Color, 
+	draw_state: &mut DrawState, 
+	device: &RenderDevice, 
+	color_group_layout: &BindGroupLayout,
+	buffer_assets: &Share<AssetMgr<RenderRes<Buffer>>>,
+	bind_group_assets: &Share<AssetMgr<RenderRes<BindGroup>>>,
+) {
 	match color {
 		Color::RGBA(color) => {
-			// let key = calc_hash(color);
-			
-			// let color_bind_group = match load_mgr.get::<BindGroup>(&key, 0) {
-			// 	Some(r) => r,
-			// 	None => {
-					// 创建color对应的uniform buffer（是否延迟数据TODO）
+			let key = calc_hash(color);
+			let uniform_buf = match AssetMgr::load(buffer_assets, &key) {
+				LoadResult::Ok(r) => r,
+				LoadResult::Wait(f) => f.await.unwrap(),
+				LoadResult::Receiver(recv) => {
 					let uniform_buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
 						label: Some("color buffer init"),
 						contents: bytemuck::cast_slice(&[color.x, color.y, color.z, color.w]),
 						usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
 					});
-					let color_bind_group = Share::new(device.create_bind_group(&wgpu::BindGroupDescriptor {
+					recv.receive(key, Ok(RenderRes::new(uniform_buf, 5))).await.unwrap()
+				},
+			};
+			let color_bind_group = match AssetMgr::load(bind_group_assets, &key) {
+				LoadResult::Ok(r) => r,
+				LoadResult::Wait(f) => f.await.unwrap(),
+				LoadResult::Receiver(recv) => {
+					let group = device.create_bind_group(&wgpu::BindGroupDescriptor {
 						layout: color_group_layout,
 						entries: &[
 							wgpu::BindGroupEntry {
@@ -183,21 +203,13 @@ fn modify_color_group(color: &Color, draw_state: &mut DrawState, device: &Render
 							},
 						],
 						label: Some("color group create"),
-					}));
-					draw_state.bind_groups.insert(COLOR_GROUP, color_bind_group);
-					// color_layout
-					// load_mgr.create(key, 0, 64, &wgpu::BindGroupDescriptor {
-					// 	layout: &backGround_color_static.color_layout,
-					// 	entries: &[
-					// 		wgpu::BindGroupEntry {
-					// 			binding: 0,
-					// 			resource: uniform_buf.as_entire_binding(),
-					// 		},
-					// 	],
-					// 	label: Some("color group create"),
-					// }).await
-			// 	},
-			// };
+					});
+					recv.receive(key, Ok(RenderRes::new(group, 5))).await.unwrap()
+				},
+			};
+			// 插入到drawstate中
+			draw_state.bind_groups.insert(COLOR_GROUP, color_bind_group);
+			
 		},
 		_ => panic!("color is error..."),
 	}
@@ -209,10 +221,9 @@ pub fn create_shader_static(
 	share_layout: &ShareLayout, 
 	shader_catch: &mut ShaderCatch, 
 	shader_map: &mut ShaderMap,
-	color_layouts: &mut ColorMap,
 	device: &RenderDevice,
 ) -> ShaderStatic {
-	let color_static = ColorStatic::init(color_layouts, device).0;
+	let color_static = ColorStatic::init(device).0;
 
 	let mut bind_group_layout = VecMap::new();
 	bind_group_layout.insert(COLOR_GROUP, color_static);
@@ -279,7 +290,7 @@ fn create_shader_info(
 	bind_group_layout: VecMap<Share<BindGroupLayout>>,
 	device: &RenderDevice,
 	shaders: &XHashMap<ShaderId, Shader>,
-) -> ShaderInfo {
+) -> Program {
 	let processor = ShaderProcessor::default();
 	let imports = XHashMap::default();
 
@@ -327,7 +338,7 @@ fn create_shader_info(
 		push_constant_ranges: &[],
 	});
 	
-	ShaderInfo {
+	Program {
 		pipeline_layout: Share::new(pipeline_layout),
 		vs_shader: Share::new(vs),
 		fs_shader: Share::new(fs),
@@ -384,38 +395,25 @@ impl GlslShaderStatic {
 pub struct ColorStatic(Share<BindGroupLayout>);
 
 impl ColorStatic {
-	fn init(color_layouts: &mut ColorMap, device: &RenderDevice) -> Self {
-
-		let color_layout = match color_layouts.entry(COLOR) {
-			Entry::Vacant(r) => 
-				r.insert(Share::new(device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-					label: Some("color_layout"),
-					entries: &[
-						wgpu::BindGroupLayoutEntry {
-							binding: 0,
-							visibility: wgpu::ShaderStages::FRAGMENT,
-							ty: wgpu::BindingType::Buffer {
-								ty: wgpu::BufferBindingType::Uniform,
-								has_dynamic_offset: false,
-								min_binding_size: wgpu::BufferSize::new(16), // rgba四个通道，每个通道为一个f32, 大小为 4 * 4（每个通道一个u8， todo）
-							},
-							count: None,
-						},
-					],
-				}))).clone()
-			,
-			Entry::Occupied(r) =>r.get().clone()
-		};
-		Self(color_layout)
+	fn init(device: &RenderDevice) -> Self {
+		ColorStatic(Share::new(device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+			label: Some("color_layout"),
+			entries: &[
+				wgpu::BindGroupLayoutEntry {
+					binding: 0,
+					visibility: wgpu::ShaderStages::FRAGMENT,
+					ty: wgpu::BindingType::Buffer {
+						ty: wgpu::BufferBindingType::Uniform,
+						has_dynamic_offset: false,
+						min_binding_size: wgpu::BufferSize::new(16), // rgba四个通道，每个通道为一个f32, 大小为 4 * 4（每个通道一个u8， todo）
+					},
+					count: None,
+				},
+			],
+		})))
 	}
 }
 
 const COLOR_SHADER_VS: &'static str = "color_shader_vs";
 const COLOR_SHADER_FS: &'static str = "color_shader_fs";
-const COLOR: &'static str = "color";
-
-#[derive(Default, Deref, DerefMut)]
-pub struct ShaderMap(XHashMap<&'static str, ShaderId>);
-#[derive(Default, Deref, DerefMut)]
-pub struct ColorMap(XHashMap<&'static str, Share<BindGroupLayout>>);
 

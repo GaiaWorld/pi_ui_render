@@ -3,15 +3,16 @@
 use std::{collections::hash_map::Entry, hash::Hash, num::NonZeroU32};
 
 use ordered_float::NotNan;
+use pi_assets::{mgr::AssetMgr, asset::Handle};
 use pi_ecs::world::FromWorld;
 use pi_hash::XHashMap;
 use pi_map::{vecmap::VecMap};
-use pi_render::{rhi::{bind_group_layout::BindGroupLayout, bind_group::BindGroup, shader::{ShaderId, Shader}, device::RenderDevice, pipeline::RenderPipeline, buffer::Buffer}, components::view::target::RenderTargetKey};
+use pi_render::{rhi::{bind_group_layout::BindGroupLayout, bind_group::BindGroup, shader::{ShaderId, Shader}, device::RenderDevice, pipeline::RenderPipeline, buffer::Buffer, asset::RenderRes}, components::view::target::RenderTargetKey};
 use pi_share::Share;
 use pi_slotmap::{SlotMap, DefaultKey};
 use wgpu::{PipelineLayout, ShaderModule};
 
-use crate::{components::{draw_obj::{VSDefines, FSDefines}}, utils::{tools::calc_hash, shader_helper::{create_matrix_group_layout, create_depth_layout, create_camera_layout}}};
+use crate::{components::{draw_obj::{VSDefines, FSDefines}}, utils::{tools::{calc_hash, calc_float_hash}, shader_helper::{create_matrix_group_layout, create_depth_layout, create_camera_layout}}};
 
 /// viewMatrix、projectMatrix 的BindGroupLayout
 #[derive(Deref)]
@@ -33,11 +34,15 @@ pub struct DepthGroup(pub Vec<Share<BindGroup>>);
 #[derive(Deref)]
 pub struct ColorGroupLayout(pub Share<BindGroupLayout>);
 
-/// shader的静态属性
+/// 每个shader对应一个ShaderId
+#[derive(Default, Deref, DerefMut)]
+pub struct ShaderMap(XHashMap<&'static str, ShaderId>);
+
+/// 每个渲染对象，关于shader的静态属性
 pub struct ShaderStatic {
-	pub vs_shader_soruce: ShaderId,
-	pub fs_shader_soruce: ShaderId,
-	pub bind_group: VecMap<Share<BindGroupLayout>>,
+	pub vs_shader_soruce: ShaderId, // 顶点shader的id
+	pub fs_shader_soruce: ShaderId, // 片元shader的id
+	pub bind_group: VecMap<Share<BindGroupLayout>>, // shader中全部的BindGroup
 	pub create_shader_info: fn (
 		vs_shader_soruce: &ShaderId,
 		fs_shader_soruce: &ShaderId,
@@ -46,17 +51,7 @@ pub struct ShaderStatic {
 		bind_group_layout: VecMap<Share<BindGroupLayout>>,
 		device: &RenderDevice,
 		shaders: &XHashMap<ShaderId, Shader>,
-	) -> ShaderInfo,
-}
-
-pub fn list_share_as_ref<'a, T, I: Iterator<Item=&'a Option<Share<T>>>>(list: I) -> Vec<&'a T> {
-	let mut v = Vec::new();
-	for r in list {
-		if let Some(r) = r {
-			v.push(&**r)
-		}
-	}
-	v
+	) -> Program,
 }
 
 /// shader的静态属性缓冲
@@ -66,15 +61,15 @@ pub struct Shaders(pub Vec<ShaderStatic>);
 #[derive(Deref, DerefMut, Default)]
 pub struct ShaderCatch(pub XHashMap<ShaderId, Shader>);
 
-/// 根据shader的原始代码、defines计算获得
-pub struct ShaderInfo {
+/// Program, 根据shader的原始代码、defines计算获得
+pub struct Program {
 	pub pipeline_layout: Share<PipelineLayout>,
 	pub vs_shader: Share<ShaderModule>,
 	pub fs_shader: Share<ShaderModule>,
 }
 
 #[derive(Default)]
-pub struct ShaderInfoMap(pub XHashMap<u64, Share<ShaderInfo>>);
+pub struct ShaderInfoMap(pub XHashMap<u64, Share<Program>>);
 pub type StateMap = ResMap<PipelineState>;
 
 #[derive(Default)]
@@ -153,12 +148,13 @@ impl Hash for PipelineState {
 /// 单位四边形对应的定点buffer和索引buffer
 #[derive(Debug)]
 pub struct UnitQuadBuffer {
-	pub vertex: Share<Buffer>,
-	pub index: Share<Buffer>,
+	pub vertex: Handle<RenderRes<Buffer>>,
+	pub index: Handle<RenderRes<Buffer>>,
 }
 impl FromWorld for UnitQuadBuffer {
     fn from_world(world: &mut pi_ecs::prelude::World) -> Self {
 		let device = world.get_resource::<RenderDevice>().expect("create UnitQuadBuffer need RenderDevice");
+		let buffer_asset_mgr = world.get_resource::<Share<AssetMgr<RenderRes<Buffer>>>>().expect("create UnitQuadBuffer need buffer AssetMgr");
         let vertex_data: [f32; 8] = [0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 0.0];
 		let index_data: [u16; 6] = [0, 1, 2, 0, 2, 3];
 		let vertex_buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
@@ -173,9 +169,14 @@ impl FromWorld for UnitQuadBuffer {
 			usage: wgpu::BufferUsages::INDEX,
 		});
 
+		let ib_key = calc_hash(&index_data);
+		let vb_key = calc_float_hash(&vertex_data);
+		AssetMgr::cache(&buffer_asset_mgr, vb_key, RenderRes::new(vertex_buf, 32));
+		AssetMgr::cache(&buffer_asset_mgr, ib_key, RenderRes::new(index_buf, 12));
+
 		UnitQuadBuffer {
-			vertex: Share::new(vertex_buf),
-			index: Share::new(index_buf),
+			vertex: AssetMgr::get(&buffer_asset_mgr, &vb_key).unwrap(),
+			index: AssetMgr::get(&buffer_asset_mgr, &ib_key).unwrap(),
 		}
     }
 }
@@ -200,6 +201,16 @@ impl FromWorld for ShareLayout {
 
 pub struct RenderInfo {
 	pub rt_key: RenderTargetKey,
+}
+
+pub fn list_share_as_ref<'a, T, I: Iterator<Item=&'a Option<Share<T>>>>(list: I) -> Vec<&'a T> {
+	let mut v = Vec::new();
+	for r in list {
+		if let Some(r) = r {
+			v.push(&**r)
+		}
+	}
+	v
 }
 
 
