@@ -36,7 +36,7 @@ pub struct Pass2DNode{
 }
 
 pub struct Param<'s> {
-	pass2d_query: QueryState<Pass2D,(&'static Camera, &'static Draw2DList, &'static RenderTargetType)>,
+	pass2d_query: QueryState<Pass2D,(&'static Camera, &'static Draw2DList)>,
 	draw_query: QueryState<DrawObject, &'static DrawState>,
 	post_query: QueryState<Pass2D, &'static PostProcessList>,
 	last_rt: &'s RenderTarget,
@@ -82,7 +82,7 @@ impl Node for Pass2DNode {
 		let pass2d_id = self.pass2d_id;
         async move {
 			let mut param = Param {
-				pass2d_query: QueryState::<Pass2D,(&'static Camera,&'static Draw2DList,&'static RenderTargetType)>::new(&mut world),
+				pass2d_query: QueryState::<Pass2D,(&'static Camera,&'static Draw2DList)>::new(&mut world),
 				draw_query: QueryState::<DrawObject, &'static DrawState>::new(&mut world),
 				post_query: QueryState::<Pass2D, &'static PostProcessList>::new(&mut world),
 				last_rt: world.get_resource::<RenderTarget>().unwrap(),
@@ -106,19 +106,18 @@ impl Node for Pass2DNode {
 			if let Some((
 				camera, 
 				// rt_key, 
-				list,
-				render_target_ty)) = param.pass2d_query.get(&world, pass2d_id) {
+				list)) = param.pass2d_query.get(&world, pass2d_id) {
 				
 				let mut out = None;
 				
-				let mut rt = match *render_target_ty {
-					// 如果渲染目标类型类型为，渲染到最终目标上，并且后处理列表长度为0，则不创建离屏的fbo
-					RenderTargetType::Last if post_list_len == 0 => None,
+				let mut rt = match post_list {
 					// 渲染目标类型为None，表示不进行渲染（可能由父节点对它进行渲染）
-					RenderTargetType::None => return Ok(None), 
+					None => return Ok(None), 
+					// 如果渲染目标类型类型为，渲染到最终目标上，并且后处理列表长度为0，则不创建离屏的fbo
+					Some(r) if r.0.len() == 0 => None,
 					// RenderTargetType::New || post_list_len > 0
 					// 渲染类型为新建渲染目标对其进行渲染，则从纹理分配器中分配一个fbo矩形区
-					_ => Some(param.atlas_allocator.allocate(
+					_ /*Some(r) if r.len() > 0*/ => Some(param.atlas_allocator.allocate(
 						(camera.view_port.maxs.x - camera.view_port.mins.x).ceil() as u32,
 						(camera.view_port.maxs.y - camera.view_port.mins.y).ceil() as u32,
 						param.t_type.has_depth,
@@ -206,8 +205,7 @@ impl Pass2DNode {
 				if let Some((
 					camera, 
 					// rt_key, 
-					list,
-					render_target_ty)) = param.pass2d_query.get(&world, pass2d_id) {
+					list)) = param.pass2d_query.get(&world, pass2d_id) {
 					// todo， 重新计算相机
 					self.draw_list(pass2d_id, rp, world, camera, list, param);
 				}
@@ -379,7 +377,6 @@ impl Pass2DNode {
 			match e {
 				DrawIndex::DrawObj(e) => {
 					if let Some(state) = param.draw_query.get(world, *e) {
-						println!("draw=====================");
 						state.draw(rp, camera);
 					}
 				},
@@ -491,12 +488,21 @@ impl InitGraphData{
 
 	#[listen(resource=(Viewport, (Modify, Create)))]
 	pub fn calc_dyn_target_type(
-		e: Event,
+		_e: Event,
 		atlas_allocator: Res<SafeAtlasAllocator>,
 		view_port: Res<Viewport>,
 		mut dyn_target_type: WriteRes<DynTargetType>,
 	) {
-		let ty = DynTargetType{
+		let ty = Self::create_dyn_target_type(&atlas_allocator, &view_port);
+		dyn_target_type.write(ty);
+
+	}
+
+	pub fn create_dyn_target_type(
+		atlas_allocator: &SafeAtlasAllocator,
+		view_port: &Viewport,
+	) -> DynTargetType {
+		DynTargetType{
 			has_depth: atlas_allocator.get_or_create_type(TargetDescriptor {
 				texture_descriptor: SmallVec::from_slice(&[TextureDescriptor {
 					mip_level_count: 1,
@@ -529,9 +535,7 @@ impl InitGraphData{
 				default_width: (view_port.maxs.x - view_port.mins.x).ceil() as u32,
 				default_height: (view_port.maxs.y - view_port.mins.y).ceil() as u32,
 			})
-		};
-		dyn_target_type.write(ty);
-
+		}
 	}
 }
 

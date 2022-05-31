@@ -46,12 +46,16 @@ impl CalcRender{
 		buffer_assets: Res<'a, Share<AssetMgr<RenderRes<Buffer>>>>,
 		bind_group_assets:  Res<'a, Share<AssetMgr<RenderRes<BindGroup>>>>,
 		mut depth_cache: ResMut<'a, DepthCache>,
+
+		mut rg: Res<'a, RenderGraph<Option<ShareTargetView>>>,
 	) -> Result<()> {
 		// log::info!("calc_render=================");
 		// 不脏，不需要组织渲染图， 也不需要渲染
 		if global_dirty_rect.state == DirtyRectState::UnInit {
 			return Ok(());
 		}
+
+		
 	
 		for (mut camera, context_box) in query_pass.iter_mut() {
 			// TODO， 还应该判断TransformWillChange
@@ -174,7 +178,7 @@ impl CalcRender{
 		e: Event,
 		query: Query<Pass2D, (&ParentPassId, &GraphId)>,
 		query_graph: Query<Pass2D, &GraphId>,
-		mut rg: ResMut<RenderGraph<Pass2DKey>>,
+		mut rg: ResMut<RenderGraph<Option<ShareTargetView>>>,
 	) {
 		// log::info!("depend_graph_node================={:?}", e.id);
 		let (parent_id, graph_id) = query.get_unchecked_by_entity(e.id);

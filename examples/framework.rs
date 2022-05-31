@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use log::{info, debug};
 use pi_async::rt::{single_thread::{SingleTaskRunner, SingleTaskPool}, AsyncRuntime};
 use pi_ecs::prelude::{World};
-use pi_render::{components::view::{render_window::{RenderWindow, RenderWindows}, target::{TextureViews, RenderTarget, RenderTargets}}, rhi::options::RenderOptions, init_render, RenderStage};
+use pi_render::{components::view::{render_window::{RenderWindow, RenderWindows}, target::{TextureViews, RenderTarget, RenderTargets}, target_alloc::ShareTargetView}, rhi::options::RenderOptions, init_render, RenderStage};
 use pi_share::ShareRefCell;
 use pi_ui_render::{gui::Gui, resource::draw_obj::RenderInfo, system::pass::pass_graph_node::Pass2DNode};
 use wgpu::PresentMode;
@@ -53,7 +53,7 @@ pub fn start<T: Example + Sync + Send + 'static>(example: T) {
 			let world = g.world_mut();
 
             let options = RenderOptions::default();
-			let render_stages = init_render::<Pass2DNode, _>(world, options, win.clone(), rt.clone()).await;
+			let render_stages = init_render::<Option<ShareTargetView>, _>(world, options, win.clone(), rt.clone()).await;
 
 			init_data(world, win);
 			e.init(g.borrow_mut(), render_stages, rt, (size.width as usize, size.height as usize)).await;

@@ -16,14 +16,16 @@
 //! 
 //! 
 
+use std::process::id;
+
 use pi_dirty::LayerDirty;
-use pi_ecs::prelude::{EntityCommands, Query, Write, Commands, Event, Or, Added, Deleted, Id, EntityDelete};
+use pi_ecs::{prelude::{EntityCommands, Query, Write, Commands, Event, Or, Added, Deleted, Id, EntityDelete, EntityInsert}, monitor::EventType};
 use pi_ecs_macros::{listen, setup};
-use pi_ecs_utils::prelude::{Layer, NodeUp, LayerDirty as LayerDirtyParam, EntityTree, NodeDown};
+use pi_ecs_utils::prelude::{Layer, NodeUp, LayerDirty as LayerDirtyParam, EntityTree, NodeDown, Root};
 use pi_null::Null;
 use pi_ecs::storage::SecondaryMap;
 
-use crate::components::{calc::{RenderContextMark, NodeId, Pass2DId, InPassId}, user::{Aabb2, Point2}, pass_2d::{Pass2D, ParentPassId}};
+use crate::components::{calc::{RenderContextMark, NodeId, Pass2DId, InPassId}, user::{Aabb2, Point2}, pass_2d::{Pass2D, ParentPassId, PostProcessList}};
 use crate::components::user::Node;
 
 pub struct CalcContext;
@@ -111,6 +113,32 @@ impl CalcContext {
 			// 删除RenderContext实体
 			command.despawn(*context);
 			// render_context_layer_list.delete(*context, **layer);
+		}
+	}
+
+	#[listen(component=(Node, Root, (Create, Delete)))]
+	pub fn root_change(
+		e: Event,
+		root: Query<Node, &Root>,
+		mut entity_insert: EntityInsert<Pass2D>,
+		mut entity_delete: EntityDelete<Pass2D>,
+
+		mut pass_query: Query<Node, Write<Pass2DId>>,
+		mut node_query: Query<Pass2D, (Write<NodeId>, Write<PostProcessList>)>,
+	) {
+		match e.ty {
+			EventType::Create =>{
+				let id = entity_insert.spawn();
+				pass_query.get_unchecked_by_entity(e.id).write(Pass2DId(id));
+				let (mut node_id, mut post_list) = node_query.get_unchecked(id);
+				node_id.write(NodeId(unsafe { Id::<Node>::new(e.id.local()) }));
+				post_list.write(PostProcessList::default());
+			},
+			EventType::Delete => {
+				let id = pass_query.get_unchecked_by_entity(e.id);
+				entity_delete.despawn(id.get().unwrap().0);
+			},
+			_ => (),
 		}
 	}
 }

@@ -17,7 +17,7 @@ use crate::{
 	system::{
 		node::{user_setting::CalcUserSetting, context::CalcContext, z_index::CalcZindex, layout::CalcLayout, quad::CalcQuad, world_matrix::CalcMatrix, content_box::CalcContentBox, context_root::CalcRoot, background_color::CalcBackGroundColor}, 
 		draw_obj::{world_marix::CalcWorldMatrixGroup, pipeline::CalcPipeline}, 
-		pass::{pass_render::CalcRender, pass_dirty_rect::CalcDirtyRect, pass_graph_node::{DynTargetType, InitGraphData}}
+		pass::{pass_render::CalcRender, pass_dirty_rect::CalcDirtyRect, pass_graph_node::{DynTargetType, InitGraphData, PostBindGroupLayout}}
 	}
 };
 
@@ -159,20 +159,33 @@ fn insert_resource(
 	let texture_res_mgr = world.get_resource::<Share<AssetMgr<RenderRes<TextureView>>>>().unwrap().clone();
 	let device = world.get_resource::<RenderDevice>().unwrap().clone();
 
-	let view_port = Aabb2::new(Point2::new(x as f32, y as f32), Point2::new((x + width) as f32, (y + height) as f32));
+	let view_port = Viewport(Aabb2::new(Point2::new(x as f32, y as f32), Point2::new((x + width) as f32, (y + height) as f32)));
 	
 	// 设置gui默认渲染到屏幕
 	let depth_buffer = create_depth_buffer(&texture_res_mgr, &device, width, height);
 	world.insert_resource(RenderTarget::Screen {
-		aabb: view_port.clone(),
+		aabb: view_port.0.clone(),
 		depth: Some(depth_buffer), // 深度缓冲区
+		// depth: None,
 	});
 
+	let allocator = SafeAtlasAllocator::new(device, texture_res_mgr);
+	let dyn_target_type = InitGraphData::create_dyn_target_type(&allocator, &view_port);
 	// 添加纹理分配器
-	world.insert_resource(SafeAtlasAllocator::new(device, texture_res_mgr));
+	world.insert_resource(allocator);
+
+	// 动态纹理类型
+	world.insert_resource(dyn_target_type);
 
 	// 插入视口
-	world.insert_resource(Viewport(view_port));
+	world.insert_resource(view_port);
+
+	// 插入PostBindGroupLayout
+	let post_layout = PostBindGroupLayout::from_world(world);
+	world.insert_resource(post_layout);
+	
+
+	
 }
 
 // 创建深度缓冲区
@@ -217,7 +230,7 @@ fn init_dispatcher(world: &mut World, render_stages: RenderStage, dispatcher: &m
 	CalcQuad::setup(world, &mut node_stage);
 	CalcMatrix::setup(world, &mut node_stage);
 	CalcContentBox::setup(world, &mut node_stage);
-	CalcRoot::setup(world, &mut node_stage);
+	// CalcRoot::setup(world, &mut node_stage);
 	CalcBackGroundColor::setup(world, &mut node_stage);
 	
 	// 渲染对象计算
