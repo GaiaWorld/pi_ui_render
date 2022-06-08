@@ -1,8 +1,9 @@
 use std::{collections::hash_map::Entry, borrow::Cow};
 use std::io::Result;
 
-use naga::ShaderStage;
-use pi_assets::mgr::{AssetMgr, LoadResult};
+use naga::{ShaderStage};
+use pi_assets::asset::Handle;
+use pi_assets::mgr::AssetMgr;
 use pi_ecs::prelude::{Query, Changed, EntityCommands, Commands, Write, ResMut, Res, res::WriteRes, Event, Id};
 use pi_ecs_macros::{listen, setup};
 use pi_hash::XHashMap;
@@ -14,11 +15,12 @@ use pi_render::rhi::{device::RenderDevice, shader::{Shader, ShaderProcessor, Sha
 use pi_share::Share;
 use pi_render::rhi::bind_group_layout::BindGroupLayout;
 use pi_slotmap::DefaultKey;
-use wgpu::IndexFormat;
+use wgpu::{IndexFormat, DepthStencilState, TextureFormat, CompareFunction, StencilState, DepthBiasState};
 
+use crate::components::user::CgColor;
 use crate::resource::draw_obj::ShaderMap;
 use crate::utils::tools::calc_hash;
-use crate::{components::{user::{Node, BackgroundColor, Color}, calc::{NodeId, DrawList}, draw_obj::{IsUnitQuad, DrawObject, DrawState, VSDefines, FSDefines, ShaderKey, PipelineKey, VertexBufferLayoutKey}}, resource::draw_obj::{Shaders, PipelineState, StateMap, VertexBufferLayouts, VertexBufferLayout, VertexBufferLayoutMap, ShaderStatic, ShaderCatch, UnitQuadBuffer, ShareLayout, Program}, utils::shader_helper::{WORLD_MATRIX_GROUP, DEPTH_GROUP, CAMERA_GROUP}};
+use crate::{components::{user::{Node, BackgroundColor, Color}, calc::{NodeId, DrawList}, draw_obj::{IsUnitQuad, DrawObject, DrawState, VSDefines, FSDefines, ShaderKey, PipelineKey, VertexBufferLayoutKey}}, resource::draw_obj::{Shaders, PipelineState, StateMap, VertexBufferLayouts, VertexBufferLayout, VertexBufferLayoutMap, ShaderStatic, ShaderCatch, UnitQuadBuffer, ShareLayout, Program}, utils::shader_helper::{WORLD_MATRIX_GROUP, DEPTH_GROUP, PROJECT_GROUP, VIEW_GROUP}};
 // use crate::utils::tools::calc_hash;
 
 pub struct CalcBackGroundColor;
@@ -153,7 +155,7 @@ pub struct BackgroundStaticIndex{
 	pub vertex_buffer_index: DefaultKey,
 }
 
-pub const COLOR_GROUP: usize = 3;
+pub const COLOR_GROUP: usize = 4;
 
 /// 实体删除，背景颜色删除时，删除对应的DrawObject
 #[listen(component=(Node, BackgroundColor, Delete), component=(Node, Node, Delete))]
@@ -177,43 +179,52 @@ async fn modify_color_group(
 ) {
 	match color {
 		Color::RGBA(color) => {
-			let key = calc_hash(color);
-			let uniform_buf = match AssetMgr::load(buffer_assets, &key) {
-				LoadResult::Ok(r) => r,
-				LoadResult::Wait(f) => f.await.unwrap(),
-				LoadResult::Receiver(recv) => {
+			let color_bind_group = create_reba_bind_group(color, device, color_group_layout, buffer_assets, bind_group_assets);
+			// 插入到drawstate中
+			draw_state.bind_groups.insert(COLOR_GROUP, color_bind_group);
+		},
+		_ => panic!("color is error..."),
+	}
+	
+}
+
+pub fn create_reba_bind_group(
+	color: &CgColor,
+	device: &RenderDevice, 
+	color_group_layout: &BindGroupLayout,
+	buffer_assets: &Share<AssetMgr<RenderRes<Buffer>>>,
+	bind_group_assets: &Share<AssetMgr<RenderRes<BindGroup>>>,
+) -> Handle<RenderRes<BindGroup>> {
+	let key = calc_hash(color);
+	match bind_group_assets.get(&key) {
+		Some(r) => r,
+		None => {
+			let uniform_buf = match buffer_assets.get(&key) {
+				Some(r) => r,
+				None => {
 					let uniform_buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
 						label: Some("color buffer init"),
 						contents: bytemuck::cast_slice(&[color.x, color.y, color.z, color.w]),
 						usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
 					});
-					recv.receive(key, Ok(RenderRes::new(uniform_buf, 5))).await.unwrap()
-				},
+					buffer_assets.cache(key, RenderRes::new(uniform_buf, 5));
+					buffer_assets.get(&key).unwrap()
+				}
 			};
-			let color_bind_group = match AssetMgr::load(bind_group_assets, &key) {
-				LoadResult::Ok(r) => r,
-				LoadResult::Wait(f) => f.await.unwrap(),
-				LoadResult::Receiver(recv) => {
-					let group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-						layout: color_group_layout,
-						entries: &[
-							wgpu::BindGroupEntry {
-								binding: 0,
-								resource: uniform_buf.as_entire_binding(),
-							},
-						],
-						label: Some("color group create"),
-					});
-					recv.receive(key, Ok(RenderRes::new(group, 5))).await.unwrap()
-				},
-			};
-			// 插入到drawstate中
-			draw_state.bind_groups.insert(COLOR_GROUP, color_bind_group);
-			
-		},
-		_ => panic!("color is error..."),
+			let group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+				layout: color_group_layout,
+				entries: &[
+					wgpu::BindGroupEntry {
+						binding: 0,
+						resource: uniform_buf.as_entire_binding(),
+					},
+				],
+				label: Some("color group create"),
+			});
+			bind_group_assets.cache(key, RenderRes::new(group, 5));
+			bind_group_assets.get(&key).unwrap()
+		}
 	}
-	
 }
 
 /// 创建background相关的shader信息（静态信息，在运行时不变）
@@ -230,7 +241,8 @@ pub fn create_shader_static(
 	// 通用Layout
 	bind_group_layout.insert(WORLD_MATRIX_GROUP, share_layout.matrix.clone());
 	bind_group_layout.insert(DEPTH_GROUP, share_layout.depth.clone());
-	bind_group_layout.insert(CAMERA_GROUP, share_layout.camera.clone());
+	bind_group_layout.insert(PROJECT_GROUP, share_layout.project.clone());
+	bind_group_layout.insert(VIEW_GROUP, share_layout.view.clone());
 
 	let bg_shader = GlslShaderStatic::init(shader_catch, shader_map, ||{include_str!("../../source/shader//color.vert")}, ||{include_str!("../../source/shader/color.frag")});
 	
@@ -262,7 +274,13 @@ pub fn create_pipeline_state() -> PipelineState {
 			polygon_mode: wgpu::PolygonMode::Fill,
 			..Default::default()
 		},
-		depth_stencil: None,
+		depth_stencil: Some(DepthStencilState {
+			format: TextureFormat::Depth32Float,
+			depth_write_enabled: true,
+			depth_compare: CompareFunction::Always,
+			stencil: StencilState::default(),
+			bias: DepthBiasState::default(),
+		}),
 		multisample: wgpu::MultisampleState::default(),
 		multiview: None,
 	}

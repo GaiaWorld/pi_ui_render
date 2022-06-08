@@ -10,8 +10,6 @@ use pi_share::Share;
 use pi_slotmap::DefaultKey;
 use wgpu::RenderPass;
 
-use super::pass_2d::Camera;
-
 pub type DrawKey = Id<DrawObject>;
 
 pub struct DrawObject;
@@ -38,13 +36,11 @@ pub struct DrawState {
 // }
 
 impl DrawState {
-    pub fn draw<'w, 'a>(&'a self, rpass: &'w mut RenderPass<'a>, camera: &'a Camera) {
+
+    pub fn draw<'w, 'a>(&'a self, rpass: &'w mut RenderPass<'a>) {
 		// log::info!("draw======={}, {}", self.pipeline.is_some(), self.ib.is_some());
         if let (Some(p), Some(ib)) = (&self.pipeline, &self.ib) {
 			rpass.set_pipeline(p);
-			if let Some(r) = &camera.bind_group {
-				rpass.set_bind_group(0, r, &[]);
-			}
 			let mut i = 0;
 			for r in self.bind_groups.iter() {
 				if let Some(group) = r {

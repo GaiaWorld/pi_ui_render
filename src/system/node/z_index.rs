@@ -37,7 +37,8 @@ use crate::components::user::{Node, ZIndex};
 /// 如果节点设置zindex为auto，则自身zindex为-1
 const Z_AUTO: isize = -1;
 /// 节点zindex的最大区间
-const Z_MAX: usize = 16;//usize::MAX;
+// const Z_MAX: usize = 16;//usize::MAX;
+const Z_MAX: usize = usize::MAX;
 /// 每个节点自身占用的zindex区间大小
 const Z_SELF: usize = 3;
 /// 子节点将区间劈分成3段，自身在中间段

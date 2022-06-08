@@ -308,7 +308,7 @@ pub struct Font {
 }
 
 // TransformWillChange， 用于优化频繁变化的Transform
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub struct TransformWillChange(pub Transform);
 
 impl Default for Font {

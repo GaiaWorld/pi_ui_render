@@ -4,7 +4,7 @@ use num_traits::float::FloatCore;
 use ordered_float::NotNan;
 use pi_hash::DefaultHasher;
 
-use crate::components::user::{Aabb2, Point2};
+use crate::components::{user::{Aabb2, Point2, Vector4}, calc::WorldMatrix};
 
 
 pub fn calc_hash<T: Hash>(v: &T)-> u64 {
@@ -19,6 +19,16 @@ pub fn calc_float_hash<T: FloatCore>(v: &[T])-> u64 {
 		unsafe{NotNan::unchecked_new(*i)}.hash(&mut hasher);
 	}
 	hasher.finish()
+}
+
+pub fn calc_aabb(aabb: &Aabb2, matrix: &WorldMatrix) -> Aabb2 {
+	let min = matrix * Vector4::new(aabb.mins.x, aabb.mins.y, 0.0, 1.0);
+	let max = matrix * Vector4::new(aabb.maxs.x, aabb.maxs.y, 0.0, 1.0);
+
+	let min = Point2::new(min.x, min.y);
+	let max = Point2::new(max.x, max.y);
+
+	Aabb2::new(min, max)
 }
 
 pub fn box_aabb(aabb1: &mut Aabb2, aabb2: &Aabb2) {

@@ -16,10 +16,8 @@
 //! 
 //! 
 
-use std::process::id;
-
 use pi_dirty::LayerDirty;
-use pi_ecs::{prelude::{EntityCommands, Query, Write, Commands, Event, Or, Added, Deleted, Id, EntityDelete, EntityInsert}, monitor::EventType};
+use pi_ecs::{prelude::{EntityCommands, Query, Write, Commands, Event, Or, Added, Deleted, Id, EntityDelete, EntityInsert, ParamSet}, monitor::EventType, storage::Offset};
 use pi_ecs_macros::{listen, setup};
 use pi_ecs_utils::prelude::{Layer, NodeUp, LayerDirty as LayerDirtyParam, EntityTree, NodeDown, Root};
 use pi_null::Null;
@@ -40,7 +38,7 @@ impl CalcContext {
 		mut command: EntityCommands<Pass2D>,
 		dirty: LayerDirtyParam<Node, Or<(Added<RenderContextMark>, Deleted<RenderContextMark>)>>,
 		idtree: EntityTree<Node>,
-		query: Query<Node, (Option<&NodeDown<Node>>, Option<&Pass2DId>)>,
+		query: Query<Node, (Option<&NodeDown<Node>>, Option<&RenderContextMark>, Option<&Pass2DId>)>,
 		up: Query<Node, &NodeUp<Node>>,
 		mut in_context: Query<Node, Write<InPassId>>,
 		mut query_pass: Commands<Pass2D, ParentPassId>,
@@ -49,6 +47,7 @@ impl CalcContext {
 		mut mark_context: Query<Node, (Option<&RenderContextMark>, Write<Pass2DId>)>,
 		mut node_id: Commands<Pass2D, NodeId>,
 	) {
+
 		// 当节点被挂在主树上，或者
 		for (node, mark) in dirty.iter_manual() {
 			if let (Some(_mark), mut pass2d_id_item) = mark_context.get_unchecked_mut(node) {
@@ -71,6 +70,7 @@ impl CalcContext {
 				None => InPassId(Id::<Pass2D>::null()),
 			};
 			recursive_set_node_context(node, &idtree, &query, &mut query_pass, &mut in_context, parent_context_id, mark);
+			println!("xxxxxxxxxxxxxxxxx");
 		}
 	}
 
@@ -119,24 +119,25 @@ impl CalcContext {
 	#[listen(component=(Node, Root, (Create, Delete)))]
 	pub fn root_change(
 		e: Event,
-		root: Query<Node, &Root>,
-		mut entity_insert: EntityInsert<Pass2D>,
-		mut entity_delete: EntityDelete<Pass2D>,
+		mut pass2d_query: ParamSet<(
+			EntityInsert<Pass2D>,
+			EntityDelete<Pass2D>,
+			Query<Pass2D, (Write<NodeId>, Write<PostProcessList>)>,
+		)>,
 
-		mut pass_query: Query<Node, Write<Pass2DId>>,
-		mut node_query: Query<Pass2D, (Write<NodeId>, Write<PostProcessList>)>,
+		mut node_query: Query<Node, Write<Pass2DId>>,
 	) {
 		match e.ty {
 			EventType::Create =>{
-				let id = entity_insert.spawn();
-				pass_query.get_unchecked_by_entity(e.id).write(Pass2DId(id));
-				let (mut node_id, mut post_list) = node_query.get_unchecked(id);
+				let id = pass2d_query.p0_mut().spawn();
+				node_query.get_unchecked_mut_by_entity(e.id).write(Pass2DId(id));
+				let (mut node_id, mut post_list) = pass2d_query.p2_mut().get_unchecked_mut(id);
 				node_id.write(NodeId(unsafe { Id::<Node>::new(e.id.local()) }));
 				post_list.write(PostProcessList::default());
 			},
 			EventType::Delete => {
-				let id = pass_query.get_unchecked_by_entity(e.id);
-				entity_delete.despawn(id.get().unwrap().0);
+				let id = node_query.get_unchecked_mut_by_entity(e.id);
+				pass2d_query.p1_mut().despawn(id.get().unwrap().0);
 			},
 			_ => (),
 		}
@@ -162,7 +163,7 @@ impl Default for DirtyRect {
 fn recursive_set_node_context<'s>(
 	node: Id<Node>,
 	idtree: &EntityTree<Node>,
-	query: &Query<Node, (Option<&NodeDown<Node>>, Option<&Pass2DId>)>,
+	query: &Query<Node, (Option<&NodeDown<Node>>,  Option<&RenderContextMark>, Option<&Pass2DId>)>,
 	query_pass: &mut Commands<Pass2D, ParentPassId>,
 	in_context: &mut Query<Node, Write<InPassId>>,
 	parent_context_id: InPassId,
@@ -171,7 +172,7 @@ fn recursive_set_node_context<'s>(
 	if node.is_null() {
 		return;
 	}
-	let (children_item, pass2d_id) = query.get_unchecked(node);
+	let (children_item, mark, pass2d_id) = query.get_unchecked(node);
 	let in_context_id = match pass2d_id {
 		Some(r) => {
 			query_pass.insert(**r, ParentPassId(*parent_context_id));
@@ -185,12 +186,18 @@ fn recursive_set_node_context<'s>(
 			}
 			InPassId(**r)
 		},
-		None => parent_context_id,
+		None => if let Some(_r) = mark { // 如果存在context_mark,则返回，将在接下来的迭代中处理
+			return
+		} else {
+			parent_context_id
+		},
 	};
 	set_node_context(node, in_context, in_context_id);
 
+	println!("remove==============={}", node.offset());
 	// 如果不是RenderContext，才会移除脏标记
 	dirty_mark.remove(node);
+	
 
 	// 递归设置子节点
 	if let Some(children_item) = children_item {

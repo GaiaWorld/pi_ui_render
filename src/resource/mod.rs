@@ -8,7 +8,7 @@ pub mod draw_obj;
 
 use pi_ecs::prelude::{World, FromWorld, Id};
 
-use crate::components::user::{TextContent, ClassName, Aabb2, Point2, Node};
+use crate::components::{user::{TextContent, ClassName, Aabb2, Point2, Node, CgColor}, draw_obj::DrawState};
 
 /// 用户指令
 
@@ -36,6 +36,7 @@ pub enum NodeCommand {
 	DestroyNode(Id<Node>),
 }
 
+/// style设置指令
 #[derive(Default)]
 pub struct StyleCommands {
 	/// 样式列表
@@ -67,22 +68,7 @@ impl FromWorld for RenderContextMarkType {
 	}
 }
 
-// /// 宏标记分配器
-// #[derive(Debug, Default, Deref, DerefMut)]
-// pub struct DefineAlloc(usize);
-
-// /// 宏类型，每一get不同的宏，都对应一个数字，一个shader中的宏开关，就是这些数字的组合种可以使节点成为渲染上下文的属性，都对应一个DefineType，类型值是在初始化时，找DefineAlloc分配的。
-// #[derive(Debug, Deref, DerefMut, Default)]
-// pub struct DefineType(usize);
-
-// impl FromWorld for DefineType {
-// 	fn from_world(world: &mut World) -> Self {
-// 		let cur_mark_index = world.get_resource_mut::<DefineAlloc>().unwrap();
-// 		**cur_mark_index += 1;
-// 		Self(**cur_mark_index)
-// 	}
-// }
-
+/// 视口
 #[derive(Clone, Serialize, Deserialize, Deref, DerefMut)]
 pub struct Viewport(pub Aabb2);
 
@@ -91,3 +77,11 @@ impl Default for Viewport {
         Self(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(100.0, 100.0)))
     }
 }
+
+// 清屏颜色(rgba)
+#[derive(Clone, Serialize, Deserialize, Deref, DerefMut)]
+pub struct ClearColor(pub CgColor);
+
+// 清屏的DrawObj（wgpu不支持清屏，因此用画矩形的方式模拟清屏）
+pub struct ClearDrawObj(pub DrawState);
+

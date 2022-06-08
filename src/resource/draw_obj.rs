@@ -4,15 +4,15 @@ use std::{collections::hash_map::Entry, hash::Hash, num::NonZeroU32};
 
 use ordered_float::NotNan;
 use pi_assets::{mgr::AssetMgr, asset::Handle};
-use pi_ecs::world::FromWorld;
+use pi_ecs::{world::FromWorld, prelude::World};
 use pi_hash::XHashMap;
-use pi_map::{vecmap::VecMap};
-use pi_render::{rhi::{bind_group_layout::BindGroupLayout, bind_group::BindGroup, shader::{ShaderId, Shader}, device::RenderDevice, pipeline::RenderPipeline, buffer::Buffer, asset::RenderRes}, components::view::target::RenderTargetKey};
+use pi_map::vecmap::VecMap;
+use pi_render::rhi::{bind_group_layout::BindGroupLayout, bind_group::BindGroup, shader::{ShaderId, Shader}, device::RenderDevice, pipeline::RenderPipeline, buffer::Buffer, asset::RenderRes};
 use pi_share::Share;
 use pi_slotmap::{SlotMap, DefaultKey};
-use wgpu::{PipelineLayout, ShaderModule};
+use wgpu::{PipelineLayout, ShaderModule, Sampler};
 
-use crate::{components::{draw_obj::{VSDefines, FSDefines}}, utils::{tools::{calc_hash, calc_float_hash}, shader_helper::{create_matrix_group_layout, create_depth_layout, create_camera_layout}}};
+use crate::{components::{draw_obj::{VSDefines, FSDefines}}, utils::{tools::{calc_hash, calc_float_hash}, shader_helper::{create_matrix_group_layout, create_depth_layout, create_view_layout, create_project_layout}}};
 
 /// viewMatrix、projectMatrix 的BindGroupLayout
 #[derive(Deref)]
@@ -185,23 +185,33 @@ impl FromWorld for UnitQuadBuffer {
 pub struct ShareLayout {
 	pub depth: Share<BindGroupLayout>,
 	pub matrix: Share<BindGroupLayout>,
-	pub camera: Share<BindGroupLayout>,
+	pub view: Share<BindGroupLayout>,
+	pub project: Share<BindGroupLayout>,
 }
 
 impl FromWorld for ShareLayout {
     fn from_world(world: &mut pi_ecs::prelude::World) -> Self {
 		let device = world.get_resource::<RenderDevice>().expect("create ShareLayout need RenderDevice");
 		ShareLayout {
-			camera: Share::new(create_camera_layout(device)),
+			project: Share::new(create_project_layout(device)),
+			view: Share::new(create_view_layout(device)),
 			matrix: Share::new(create_matrix_group_layout(device)),
 			depth: Share::new(create_depth_layout(device)),
 		}
     }
 }
 
-pub struct RenderInfo {
-	pub rt_key: RenderTargetKey,
+/// 清屏颜色的bindgroup（用户设置）
+pub struct ClearColorBindGroup(pub Option<Handle<RenderRes<BindGroup>>>);
+
+impl FromWorld for ClearColorBindGroup {
+    fn from_world(_world: &mut pi_ecs::prelude::World) -> Self {
+        ClearColorBindGroup(None)
+    }
 }
+
+/// 动态分配的纹理，清屏颜色的bindgroup（透明色）
+pub struct DynFboClearColorBindGroup(pub Handle<RenderRes<BindGroup>>);
 
 pub fn list_share_as_ref<'a, T, I: Iterator<Item=&'a Option<Share<T>>>>(list: I) -> Vec<&'a T> {
 	let mut v = Vec::new();
@@ -211,6 +221,28 @@ pub fn list_share_as_ref<'a, T, I: Iterator<Item=&'a Option<Share<T>>>>(list: I)
 		}
 	}
 	v
+}
+
+pub struct CommonSampler {
+	pub default: Sampler,
+}
+
+impl FromWorld for CommonSampler {
+    fn from_world(world: &mut World) -> Self {
+		let device = world.get_resource::<RenderDevice>().unwrap();
+        Self {
+			default: (**device).create_sampler(&wgpu::SamplerDescriptor {
+				label: Some("default sampler"),
+				address_mode_u: wgpu::AddressMode::ClampToEdge,
+				address_mode_v: wgpu::AddressMode::ClampToEdge,
+				address_mode_w: wgpu::AddressMode::ClampToEdge,
+				mag_filter: wgpu::FilterMode::Linear,
+				min_filter: wgpu::FilterMode::Linear,
+				mipmap_filter: wgpu::FilterMode::Linear,
+				..Default::default()
+			}),
+		}
+    }
 }
 
 

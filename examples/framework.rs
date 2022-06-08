@@ -2,13 +2,26 @@ use std::borrow::BorrowMut;
 
 use async_trait::async_trait;
 use log::{info, debug};
-use pi_async::rt::{single_thread::{SingleTaskRunner, SingleTaskPool}, AsyncRuntime};
-use pi_ecs::prelude::{World};
-use pi_render::{components::view::{render_window::{RenderWindow, RenderWindows}, target::{TextureViews, RenderTarget, RenderTargets}, target_alloc::ShareTargetView}, rhi::options::RenderOptions, init_render, RenderStage};
+use pi_async::rt::{
+	single_thread::{SingleTaskRunner, SingleTaskPool}, 
+	AsyncRuntime
+};
+use pi_ecs::prelude::World;
+use pi_render::{
+	components::view::{
+		render_window::{RenderWindow, RenderWindows}, 
+		target_alloc::ShareTargetView
+	}, 
+	rhi::options::RenderOptions, init_render, RenderStage
+};
 use pi_share::ShareRefCell;
-use pi_ui_render::{gui::Gui, resource::draw_obj::RenderInfo, system::pass::pass_graph_node::Pass2DNode};
+use pi_ui_render::gui::Gui;
 use wgpu::PresentMode;
-use winit::{event_loop::{EventLoop, ControlFlow}, window::Window, event::{WindowEvent, Event}};
+use winit::{
+	event_loop::{EventLoop, ControlFlow}, 
+	window::Window, 
+	event::{WindowEvent, Event}
+};
 
 #[async_trait]
 pub trait Example: 'static + Sized {
@@ -83,31 +96,11 @@ pub fn start<T: Example + Sync + Send + 'static>(example: T) {
 }
 
 fn init_data(world: &mut World, win: ShareRefCell<Window>) {
-	// 取 TextureView
-	let texture_views = match world.get_resource_mut::<TextureViews>(){
-		Some(r) => r,
-		None => {
-			world.insert_resource(TextureViews::default());
-			world.get_resource_mut::<TextureViews>().unwrap()
-		}
-	};
-	let view = texture_views.insert(None);
-
 	// 创建 RenderWindow
-	let render_window = RenderWindow::new(win, PresentMode::Mailbox, view);
+	let render_window = RenderWindow::new(win, PresentMode::Mailbox);
 	let render_windows = world.get_resource_mut::<RenderWindows>().unwrap();
 	render_windows.insert(render_window);
 
-	// 创建 RenderTarget
-	world.insert_resource(RenderTargets::default());
-	let mut rt = RenderTarget::default();
-	rt.add_color(view);
-	let render_targets = world.get_resource_mut::<RenderTargets>().unwrap();
-	let rt_key = render_targets.insert(rt);
-
-	world.insert_resource(RenderInfo {
-		rt_key
-	});
 }
 
 

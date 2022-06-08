@@ -7,7 +7,7 @@ use pi_ecs_utils::prelude::EntityTreeMut;
 use pi_null::Null;
 use pi_slotmap_tree::{InsertType, Storage};
 
-use crate::{components::{user::{Node, Size, Margin, Padding, Position, Border, MinMax, FlexContainer, FlexNormal, ZIndex, Overflow, Opacity, BlendMode, Transform, Show, BackgroundColor, BorderColor, BackgroundImage, MaskImage, MaskImageClip, Hsi, Blur, ObjectFit, BackgroundImageClip, BorderImage, BorderImageClip, BorderImageSlice, BorderImageRepeat, BorderRadius, BoxShadow, TextContent, TextStyle, ClassName}, calc::{StyleMark, StyleType}}, utils::style::{style_sheet::{ClassSheet, StyleTypeReader, StyleQuery, StyleAttr}}, resource::{UserCommands, NodeCommand}};
+use crate::{components::{user::{Node, Size, Margin, Padding, Position, Border, MinMax, FlexContainer, FlexNormal, ZIndex, Overflow, Opacity, BlendMode, Transform, Show, BackgroundColor, BorderColor, BackgroundImage, MaskImage, MaskImageClip, Hsi, Blur, ObjectFit, BackgroundImageClip, BorderImage, BorderImageClip, BorderImageSlice, BorderImageRepeat, BorderRadius, BoxShadow, TextContent, TextStyle, ClassName, TransformWillChange}, calc::{StyleMark, StyleType}}, utils::style::{style_sheet::{ClassSheet, StyleTypeReader, StyleQuery, StyleAttr}}, resource::{UserCommands, NodeCommand}};
 
 pub struct CalcUserSetting;
 
@@ -48,6 +48,7 @@ impl CalcUserSetting {
 		border_radius: Query<Node, Write<BorderRadius>>,
 		box_shadow: Query<Node, Write<BoxShadow>>,
 		text_style: Query<Node, Write<TextStyle>>,
+		transform_will_change: Query<Node, Write<TransformWillChange>>,
 	
 		class_sheet: Res<ClassSheet>,
 	
@@ -93,6 +94,7 @@ impl CalcUserSetting {
 			border_radius,
 			box_shadow,
 			text_style,
+			transform_will_change,
 		};
 	
 		// 操作节点(节点的创建、销毁、挂载、删除)

@@ -8,7 +8,7 @@ use pi_flex_layout::{style::{Dimension, Direction, JustifyContent, FlexDirection
 use pi_hash::XHashMap;
 
 use crate::components::{user::{
-	Node, Size, Margin, Padding, Position, Border, MinMax, FlexContainer, FlexNormal, ZIndex, Overflow, Opacity, BlendMode, Transform, Show, BackgroundColor, BorderColor, BackgroundImage, MaskImage, MaskImageClip, Hsi, Blur, ObjectFit, BackgroundImageClip, BorderImage, BorderImageClip, BorderImageSlice, BorderImageRepeat, BorderRadius, BoxShadow, TextStyle, TransformOrigin, FontSize, FontStyle, LineHeight, TextAlign, VerticalAlign, Color, Stroke, TextShadows, TransformFuncs, WhiteSpace, Enable
+	Node, Size, Margin, Padding, Position, Border, MinMax, FlexContainer, FlexNormal, ZIndex, Overflow, Opacity, BlendMode, Transform, Show, BackgroundColor, BorderColor, BackgroundImage, MaskImage, MaskImageClip, Hsi, Blur, ObjectFit, BackgroundImageClip, BorderImage, BorderImageClip, BorderImageSlice, BorderImageRepeat, BorderRadius, BoxShadow, TextStyle, TransformOrigin, FontSize, FontStyle, LineHeight, TextAlign, VerticalAlign, Color, Stroke, TextShadows, TransformFuncs, WhiteSpace, Enable, TransformWillChange
 }, calc::StyleType};
 
 // 全局Class样式表
@@ -443,8 +443,7 @@ impl_style!(@func DisplayType, show, set_display, get_display, Display, Display)
 impl_style!(@func VisibilityType, show, set_visibility, get_visibility, Visibility, bool);
 impl_style!(@func EnableType, show, set_enable, get_enable, Enable, Enable);
 
-// TODO TransformWillChangeType
-// impl_style!(TransformWillChangeType, transform_will_change, font_style, TransformWillChange);
+impl_style!(TransformWillChangeType, transform_will_change, TransformWillChange);
 
 impl_style!(ZIndexType, z_index, ZIndex);
 impl_style!(OverflowType, overflow, Overflow);
@@ -530,7 +529,7 @@ lazy_static! {
 		Box::new(MaskImageClipType(MaskImageClip::default())), // 30 MaskTexture
 		Box::new(TransformType(TransformFuncs::default())), // 31
 		Box::new(TransformOriginType(TransformOrigin::default())), // 32
-		Box::new(BorderRadiusType(BorderRadius::default())), // 33 transformwillchange
+		Box::new(TransformWillChangeType(TransformWillChange::default())), // 33
 		Box::new(BorderRadiusType(BorderRadius::default())), // 34
 		Box::new(ZIndexType(ZIndex::default())), // 35
 		Box::new(OverflowType(Overflow::default())), // 36
@@ -640,6 +639,7 @@ pub struct StyleQuery {
 	pub border_radius: Query<Node, Write<BorderRadius>>,
 	pub box_shadow: Query<Node, Write<BoxShadow>>,
 	pub text_style: Query<Node, Write<TextStyle>>,
+	pub transform_will_change: Query<Node, Write<TransformWillChange>>,
 }
 
 pub struct StyleAttr;

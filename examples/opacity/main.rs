@@ -1,4 +1,4 @@
-// 一个简单的四边形渲染
+// 半透明渲染
 
 #[path ="../framework.rs"]
 mod framework;
@@ -16,8 +16,8 @@ use pi_null::Null;
 use pi_render::RenderStage;
 use pi_ui_render::{
 	gui::Gui, 
-	components::user::{BackgroundColor, Color, CgColor}, 
-	utils::style::style_sheet::{WidthType, HeightType, BackgroundColorType, PositionTypeType, PositionLeftType, PositionTopType, MarginLeftType, MarginTopType}, resource::ClearColor
+	components::user::{BackgroundColor, Color, CgColor, Opacity}, 
+	utils::style::style_sheet::{WidthType, HeightType, BackgroundColorType, PositionTypeType, PositionLeftType, PositionTopType, MarginLeftType, MarginTopType, OpacityType}, resource::ClearColor
 };
 
 fn main() {
@@ -67,6 +67,31 @@ impl Example for QuadExample {
 		gui.set_style(div1, HeightType(Dimension::Points(100.0)));
 		gui.set_style(div1, BackgroundColorType (BackgroundColor(Color::RGBA(CgColor::new(1.0, 0.0, 0.0, 1.0)) )));
 		gui.append(div1, root);
+
+		
+		let div1 = gui.create_node();
+		gui.set_style(div1, PositionTopType(Dimension::Points(100.0)));
+		gui.set_style(div1, WidthType(Dimension::Points(100.0)));
+		gui.set_style(div1, HeightType(Dimension::Points(200.0)));
+		gui.set_style(div1, OpacityType(Opacity(0.7)));
+
+		// 添加一个绿色div
+		let div2 = gui.create_node();
+		gui.set_style(div2, WidthType(Dimension::Points(50.0)));
+		gui.set_style(div2, HeightType(Dimension::Points(100.0)));
+		gui.set_style(div2, BackgroundColorType (BackgroundColor(Color::RGBA(CgColor::new(0.0, 1.0, 0.0, 1.0)) )));
+		gui.append(div2, div1);
+
+		// 添加一个黄色
+		let div3 = gui.create_node();
+		gui.set_style(div3, PositionTopType(Dimension::Points(100.0)));
+		gui.set_style(div3, WidthType(Dimension::Points(50.0)));
+		gui.set_style(div3, HeightType(Dimension::Points(100.0)));
+		gui.set_style(div3, BackgroundColorType (BackgroundColor(Color::RGBA(CgColor::new(1.0, 1.0, 0.0, 1.0)) )));
+		gui.append(div3, div1);
+
+		gui.append(div1, root);
+
 	}
 	
 	fn render(&mut self, gui: &mut Gui) {

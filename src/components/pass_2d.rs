@@ -1,11 +1,16 @@
 use bitvec::array::BitArray;
 use pi_assets::asset::Handle;
 use pi_ecs::entity::Id;
-use pi_render::{graph::node::NodeId, rhi::{bind_group::BindGroup, asset::RenderRes, buffer::Buffer}, components::view::{target_alloc::ShareTargetView, target::TextureViewKey}};
-use pi_share::{cell::TrustCell, ShareRwLock};
+use pi_render::{
+	graph::node::NodeId, 
+	rhi::{bind_group::BindGroup, asset::RenderRes, buffer::Buffer}, components::view::target_alloc::ShareTargetView
+};
 use pi_slotmap::{DefaultKey, SecondaryMap};
 
-use super::{draw_obj::DrawKey, user::{Aabb2, Point2, Matrix4}};
+use super::{
+	draw_obj::DrawKey, 
+	user::{Aabb2, Point2}
+};
 
 /// 一个渲染Pass
 pub struct Pass2D;
@@ -15,30 +20,27 @@ pub type Pass2DKey = Id<Pass2D>;
 /// 相机
 #[derive(Debug)]
 pub struct Camera {
-	pub view: Matrix4,
-    pub project: Matrix4,
-	pub bind_group: Option<BindGroup>,
+	// pub view: Matrix4,
+    // pub project: Matrix4,
+	pub view_bind_group: Option<Handle<RenderRes<BindGroup>>>,
+	pub project_bind_group: Option<Handle<RenderRes<BindGroup>>>,
 	pub view_port: Aabb2,
-}
-
-/// 渲染目标类型
-#[derive(Debug, EnumDefault, Clone, Copy)]
-pub enum RenderTargetType {
-	New, // 渲染时，总是新分配一个rendertarget进行渲染
-	Last, // 将渲染对象渲染到最终目标（RenderInfo的渲染目标上，可能是最终屏幕，也可能是某个rendertarget）
-	None, // 渲染时，使用parent的渲染目标进行渲染
 }
 
 impl Default for Camera {
     fn default() -> Self {
         Self { 
-			view: Default::default(), 
-			project: Default::default(), 
-			bind_group: Default::default(), 
+			// view: Default::default(), 
+			// project: Default::default(), 
+			view_bind_group: Default::default(), 
+			project_bind_group: Default::default(), 
 			view_port: Aabb2::new(Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)),
 		}
     }
 }
+
+#[derive(Debug, Default, Deref, DerefMut)]
+pub struct ViewMatrix(pub Option<Handle<RenderRes<BindGroup>>>);
 
 #[derive(Debug, Default, Deref, DerefMut)]
 pub struct ParentPassId(pub Id<Pass2D>);
@@ -94,12 +96,6 @@ pub struct DirtyRect {
 	pub state: DirtyRectState,
 }
 
-#[derive(PartialEq, Eq, Debug, Clone)]
-pub enum DirtyRectState {
-	UnInit,
-	Inited,
-}
-
 impl Default for DirtyRect {
     fn default() -> Self {
         Self{
@@ -109,16 +105,48 @@ impl Default for DirtyRect {
     }
 }
 
+/// 上下文自身的脏区域(集考虑TransformWillchange)
+#[derive(Clone, Debug)]
+pub struct LastDirtyRect {
+	pub last: Aabb2,
+	pub no_will_change: Aabb2,
+}
+
+impl Default for LastDirtyRect {
+    fn default() -> Self {
+		LastDirtyRect{
+			last: Aabb2::new(Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)),
+			no_will_change: Aabb2::new(Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)),
+		}
+    }
+}
+
+#[derive(PartialEq, Eq, Debug, Clone)]
+pub enum DirtyRectState {
+	UnInit,
+	Inited,
+	Active,
+}
+
 /// 后处理
+#[derive(Clone)]
 pub struct PostProcess {
 	pub draw_obj_key: DrawKey, // 渲染对象的Key
 	pub texture_bind_index: usize, // 纹理bing_group的索引
 	pub uv_vb_index: usize, // uv buffer在vbs中的索引
 
-	pub target: Option<(ShareTargetView, Handle<RenderRes<BindGroup>>, Handle<RenderRes<Buffer>>)>, // 处理目标
+	pub result: Option<PostTemp>, // 处理目标
 
 	pub width: u32, // 后处理渲染目标宽度
 	pub height: u32, // 后处理渲染目标高度
+}
+
+#[derive(Clone)]
+pub struct PostTemp {
+	pub target: ShareTargetView,
+	pub texture_group: Handle<RenderRes<BindGroup>>,
+	pub matrix: Handle<RenderRes<BindGroup>>,
+	pub uv: Handle<RenderRes<Buffer>>,
 }
 
 impl PostProcess {
@@ -135,13 +163,13 @@ impl PostProcess {
 			uv_vb_index,
 			width,
 			height,
-			target: None,
+			result: None,
 		}
 	}
 }
 
 /// 后处理列表
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct PostProcessList(pub SecondaryMap<DefaultKey, PostProcess>, pub DefaultKey/*最后一个后处理的key */);
 
 /// 

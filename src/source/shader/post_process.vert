@@ -1,6 +1,7 @@
 #version 450
 
 layout(location = 0) in vec2 position;
+layout(location = 1) in vec2 uv;
 
 layout(set = 0, binding = 0) uniform ProjectMatrix {
 	mat4 projectMatrix;
@@ -17,7 +18,11 @@ layout(set = 3, binding = 0) uniform Depth {
 	float depth;
 };
 
+layout(location = 0) out vec2 vuv;
+
 void main() {
 	gl_Position = projectMatrix * viewMatrix * worldMatrix * vec4(position.x, position.y, 1.0, 1.0);
 	gl_Position.z = depth;
+
+	vuv = uv;
 }

@@ -12,12 +12,16 @@ use crate::{
 		user::{ClassName, Aabb2, Point2}, 
 		pass_2d::RenderTarget
 	}, 
-	resource::{UserCommands, NodeCommand, Viewport}, 
+	resource::{UserCommands, NodeCommand, Viewport, draw_obj::CommonSampler}, 
 	utils::{style::style_sheet::{StyleAttr, Attr}, tools::calc_hash}, 
 	system::{
-		node::{user_setting::CalcUserSetting, context::CalcContext, z_index::CalcZindex, layout::CalcLayout, quad::CalcQuad, world_matrix::CalcMatrix, content_box::CalcContentBox, context_root::CalcRoot, background_color::CalcBackGroundColor}, 
+		node::{user_setting::CalcUserSetting, context::CalcContext, z_index::CalcZindex, layout::CalcLayout, quad::CalcQuad, world_matrix::CalcMatrix, content_box::CalcContentBox, background_color::CalcBackGroundColor, context_opacity::{CalcOpacity, CalcOpacityPostProcess}, context_transform_will_change::CalcTransformWillChange}, 
 		draw_obj::{world_marix::CalcWorldMatrixGroup, pipeline::CalcPipeline}, 
-		pass::{pass_render::CalcRender, pass_dirty_rect::CalcDirtyRect, pass_graph_node::{DynTargetType, InitGraphData, PostBindGroupLayout}}
+		pass::{
+			pass_render::CalcRender, 
+			pass_dirty_rect::CalcDirtyRect, 
+			pass_graph_node::{InitGraphData, PostBindGroupLayout}
+		}, shader_utils::post_process::CalcPostProcessShader
 	}
 };
 
@@ -183,6 +187,10 @@ fn insert_resource(
 	// 插入PostBindGroupLayout
 	let post_layout = PostBindGroupLayout::from_world(world);
 	world.insert_resource(post_layout);
+
+	// 插入CommonSampler
+	let common_sampler = CommonSampler::from_world(world);
+	world.insert_resource(common_sampler);
 	
 
 	
@@ -205,8 +213,8 @@ fn create_depth_buffer(
 		mip_level_count: 1,
 		sample_count: 1,
 		dimension: wgpu::TextureDimension::D2,
-		format: wgpu::TextureFormat::Depth24Plus,
-		usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+		format: wgpu::TextureFormat::Depth32Float,
+		usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST | wgpu::TextureUsages::RENDER_ATTACHMENT,
 	});
 	let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
 
@@ -224,6 +232,7 @@ fn init_dispatcher(world: &mut World, render_stages: RenderStage, dispatcher: &m
 	// 节点属性计算阶段
 	let mut node_stage = StageBuilder::new();
 	CalcUserSetting::setup(world, &mut node_stage);
+	CalcOpacity::setup(world, &mut node_stage);
 	CalcContext::setup(world, &mut node_stage);
 	CalcZindex::setup(world, &mut node_stage);
 	CalcLayout::setup(world, &mut node_stage);
@@ -233,22 +242,30 @@ fn init_dispatcher(world: &mut World, render_stages: RenderStage, dispatcher: &m
 	// CalcRoot::setup(world, &mut node_stage);
 	CalcBackGroundColor::setup(world, &mut node_stage);
 	
+	let mut post_stage = StageBuilder::new();
+	CalcOpacityPostProcess::setup(world, &mut post_stage);
+	CalcTransformWillChange::setup(world, &mut post_stage);
+
 	// 渲染对象计算
 	let mut draw_stage = StageBuilder::new();
 	CalcWorldMatrixGroup::setup(world, &mut draw_stage);
-	CalcPipeline ::setup(world, &mut draw_stage);
+	CalcPipeline::setup(world, &mut draw_stage);
+
 
 	// Pass计算
 	let mut pass_stage = StageBuilder::new();
 	CalcRender::setup(world, &mut pass_stage);
 	CalcDirtyRect::setup(world, &mut pass_stage);
 
-	// 初始化渲染节点需要的数据
+	// 初始化渲染需要的数据
 	InitGraphData::setup(world, &mut pass_stage);
+	CalcPostProcessShader::setup(world, &mut pass_stage);
 
 	stages.push(Arc::new(node_stage.build(world)));
+	stages.push(Arc::new(post_stage.build(world)));
 	stages.push(Arc::new(draw_stage.build(world)));
 	stages.push(Arc::new(pass_stage.build(world)));
+
 	stages.push(Arc::new(render_stages.extract_stage.build(world)));
 	stages.push(Arc::new(render_stages.prepare_stage.build(world)));
 	stages.push(Arc::new(render_stages.render_stage.build(world)));

@@ -1,10 +1,10 @@
 /// 1. 计算每Pass的脏区域
 /// 2. 根据每个脏区域的脏，合并为全局脏区域
 
-use pi_ecs::{monitor::Event, prelude::{Write, Join, Query, ResMut, Res}};
+use pi_ecs::{monitor::Event, prelude::{Write, Join, Query, ResMut, Res, ParamSet}};
 use pi_ecs_macros::{listen, setup};
 
-use crate::{components::{pass_2d::{Pass2D, DirtyRect, DirtyRectState}, draw_obj::{DrawObject, DrawState}, calc::{NodeId, Quad, InPassId}, user::Node}, utils::tools::{box_aabb, intersect}, resource::Viewport};
+use crate::{components::{pass_2d::{Pass2D, DirtyRect, DirtyRectState}, draw_obj::{DrawObject, DrawState}, calc::{NodeId, Quad, InPassId, TransformWillChangeMatrix, ContentBox}, user::Node}, utils::tools::{box_aabb, intersect, calc_aabb}, resource::Viewport};
 
 pub struct CalcDirtyRect;
 
@@ -19,7 +19,6 @@ impl CalcDirtyRect {
 		e: Event,
 		query: Query<DrawObject, Join<NodeId, Node, (&InPassId, &Quad)>>,
 		query_pass: Query<Pass2D, Write<DirtyRect>>,
-
 	) {
 		// log::info!("cal_dirty_rect_by=================");
 		let (pass_id, quad) = match query.get_by_entity(e.id) {
@@ -31,7 +30,7 @@ impl CalcDirtyRect {
 		let dirty_rect = dirty_rect_item.get_mut_or_default();
 		let new_dirty_rect = match dirty_rect.state {
 			// 脏区域处于未初始化状态，则设置脏区域为当前DrawObject对应节点的包围盒
-			DirtyRectState::UnInit => DirtyRect {
+			DirtyRectState::UnInit | DirtyRectState::Active => DirtyRect {
 				value: *quad.clone(),
 				state: DirtyRectState::Inited,
 			},
@@ -42,7 +41,7 @@ impl CalcDirtyRect {
 					value: dirty_rect.value.clone(),
 					state: DirtyRectState::Inited,
 				}
-			}
+			},
 		};
 		// println!("quad======{:?}, id:{:?}, new_dirty_rect:{:?}", quad, e.id, new_dirty_rect);
 		dirty_rect_item.write(new_dirty_rect);
@@ -51,24 +50,42 @@ impl CalcDirtyRect {
 	/// 根据每个Pass的脏区域，计算全局脏区域
 	#[system]
 	pub fn calc_global_dirty_rect(
-		mut query_pass: Query<Pass2D, &mut DirtyRect>,
+		// 
+		mut query_pass: ParamSet<(
+			Query<Pass2D, (&'static mut DirtyRect, &'static NodeId)>,
+			Query<Pass2D, (&'static mut DirtyRect, Join<NodeId, Node, (&'static ContentBox, Option<&'static TransformWillChangeMatrix>)>)>)>,
+		query_node: Query<Node, &TransformWillChangeMatrix>,
 		mut global_dirty_rect: ResMut<DirtyRect>,
 		viewport: Res<Viewport>, // 视口
 	) {
+		
 		let mut dirty_rect = &mut *global_dirty_rect;
 		// 先恢复到初始状态
 		dirty_rect.state = DirtyRectState::UnInit;
+
 		// 先用第一个pass的脏区域，初始化全局脏区域
-		for mut pass_dirty_rect in query_pass.iter_mut() {
-			*dirty_rect = pass_dirty_rect.clone();
+		for (mut pass_dirty_rect, node_id) in query_pass.p0_mut().iter_mut() {
+			if let Some(matrix) = query_node.get(**node_id) {
+				if pass_dirty_rect.state == DirtyRectState::Inited {
+					dirty_rect.value = calc_aabb(&pass_dirty_rect.value, &matrix.0);
+					dirty_rect.state = DirtyRectState::Inited;
+				}
+			} else {
+				*dirty_rect = pass_dirty_rect.clone();
+			}
 			pass_dirty_rect.state = DirtyRectState::UnInit;
 			break;
 		}
 
 		// 遍历所有pass的脏区域，求并，得全局脏区域
-		for mut pass_dirty_rect in query_pass.iter_mut() {
+		for (mut pass_dirty_rect, node_id) in query_pass.p0_mut().iter_mut() {
 			if pass_dirty_rect.state == DirtyRectState::Inited {
-				box_aabb(&mut dirty_rect.value, &pass_dirty_rect.value);
+				let aabb = match query_node.get(**node_id) {
+					Some(matrix) => calc_aabb(&pass_dirty_rect.value, &matrix.0),
+					None => pass_dirty_rect.value.clone()
+				};
+
+				box_aabb(&mut dirty_rect.value, &aabb);
 				dirty_rect.state = DirtyRectState::Inited;
 				pass_dirty_rect.state = DirtyRectState::UnInit;
 			}
@@ -78,6 +95,12 @@ impl CalcDirtyRect {
 		match intersect(&dirty_rect.value, &viewport) {
 			Some(r) => dirty_rect.value = r,
 			None => dirty_rect.state = DirtyRectState::UnInit
+		}
+
+		// 视口改变，全局脏区域就为视口
+		if viewport.is_changed() {
+			dirty_rect.state = DirtyRectState::Inited;
+			dirty_rect.value = viewport.0.clone();
 		}
 	}
 }

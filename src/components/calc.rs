@@ -82,8 +82,20 @@ impl WorldMatrix {
 			slice[14] += z;
 		}
 	}
+
+	pub fn form_transform(transform: &Transform, width: f32, height: f32) -> WorldMatrix {
+		if transform.funcs.len() > 0 {
+			let mut m = Self::get_matrix(&transform.funcs[0], width, height);
+			for i in 1..transform.funcs.len() {
+				m = m *  Self::get_matrix(&transform.funcs[i], width, height);
+			}
+			m
+		} else {
+			WorldMatrix::default()
+		}
+	}
 	
-	pub fn form_transform(transform: &Transform, width: f32, height: f32, left_top: &Point2) -> WorldMatrix {
+	pub fn form_transform_layout(transform: &Transform, width: f32, height: f32, left_top: &Point2) -> WorldMatrix {
         // M = T * R * S
         // let mut m = cg::Matrix4::new(
         //     1.0, 0.0, 0.0, 0.0,
@@ -102,130 +114,9 @@ impl WorldMatrix {
             false,
         );
 
+		// 计算tranform
         for func in transform.funcs.iter() {
-            match func {
-                TransformFunc::TranslateX(x) => {
-                    m = m * WorldMatrix(
-						Matrix4::new_translation(&Vector3::new(*x, 0.0, 0.0)),
-                        false,
-                    );
-                }
-                TransformFunc::TranslateY(y) => {
-                    m = m * WorldMatrix(
-						Matrix4::new_translation(&Vector3::new(0.0, *y, 0.0)),
-                        false,
-                    ) ;
-                }
-                TransformFunc::Translate(x, y) => {
-                    m = m * WorldMatrix(
-						Matrix4::new_translation(&Vector3::new(*x, *y, 0.0)),
-						false
-					);
-                }
-
-                TransformFunc::TranslateXPercent(x) => {
-                    m = m * WorldMatrix(
-						Matrix4::new_translation(&Vector3::new(*x * width, 0.0, 0.0)),
-                        false,
-                    );
-                }
-                TransformFunc::TranslateYPercent(y) => {
-                    m = m * WorldMatrix(
-						Matrix4::new_translation(&Vector3::new(0.0, *y * height, 0.0)),
-                        false,
-                    );
-                }
-                TransformFunc::TranslatePercent(x, y) => {
-                    m = m * WorldMatrix(
-						Matrix4::new_translation(&Vector3::new(*x * width, *y * height, 0.0)),
-                        false,
-                    );
-                }
-
-                TransformFunc::ScaleX(x) => {
-                    m = m * WorldMatrix(
-						Matrix4::new_nonuniform_scaling(&Vector3::new(*x, 1.0, 1.0)),
-						false
-					);
-                }
-                TransformFunc::ScaleY(y) => {
-                    m = m * WorldMatrix(
-						Matrix4::new_nonuniform_scaling(&Vector3::new(1.0, *y, 1.0)),
-						false
-					);
-                }
-                TransformFunc::Scale(x, y) => {
-                    m = m * WorldMatrix(
-						Matrix4::new_nonuniform_scaling(&Vector3::new(*x, *y, 1.0)),
-						false
-					);
-                }
-
-                TransformFunc::RotateZ(z) => {
-                    m = m * WorldMatrix(
-						Matrix4::new_rotation(Vector3::new(0.0, 0.0, *z/180.0 * std::f32::consts::PI)),
-						true
-					);
-                }
-				TransformFunc::RotateX(x) => {
-                    m = m * WorldMatrix(
-						Matrix4::new_rotation(Vector3::new(*x/180.0 * std::f32::consts::PI, 0.0, 0.0)),
-						true
-					);
-                }
-				TransformFunc::RotateY(y) => {
-                    m = m * WorldMatrix(
-						Matrix4::new_rotation(Vector3::new(0.0, *y/180.0 * std::f32::consts::PI, 0.0)),
-						true
-					)
-                }
-				TransformFunc::SkewX(x) => {
-                    m = m * WorldMatrix(
-						Matrix4::new(
-							1.0,
-							(*x/180.0 * std::f32::consts::PI).tan(),
-							0.0,
-							0.0,
-							0.0,
-							1.0,
-							0.0,
-							0.0,
-							0.0,
-							0.0,
-							1.0,
-							0.0,
-							0.0,
-							0.0,
-							0.0,
-							1.0,
-						),
-						true
-					);
-                }
-				TransformFunc::SkewY(y) => {
-                    m = m * WorldMatrix(
-						Matrix4::new(
-							1.0,
-							0.0,
-							0.0,
-							0.0,
-							(*y/180.0 * std::f32::consts::PI).tan(),
-							1.0,
-							0.0,
-							0.0,
-							0.0,
-							0.0,
-							1.0,
-							0.0,
-							0.0,
-							0.0,
-							0.0,
-							1.0,
-						),
-						true
-					);
-                }
-            }
+           m = m * Self::get_matrix(func, width, height);
         }
 
 		// 变化后再将节点移动回来
@@ -234,6 +125,104 @@ impl WorldMatrix {
             false,
 		)
     }
+
+	fn get_matrix(func: &TransformFunc, width: f32, height: f32) -> WorldMatrix {
+		match func {
+			TransformFunc::TranslateX(x) => WorldMatrix(
+				Matrix4::new_translation(&Vector3::new(*x, 0.0, 0.0)),
+				false,
+			),
+			TransformFunc::TranslateY(y) => WorldMatrix(
+				Matrix4::new_translation(&Vector3::new(0.0, *y, 0.0)),
+				false,
+			),
+			TransformFunc::Translate(x, y) => WorldMatrix(
+				Matrix4::new_translation(&Vector3::new(*x, *y, 0.0)),
+				false
+			),
+
+			TransformFunc::TranslateXPercent(x) => WorldMatrix(
+				Matrix4::new_translation(&Vector3::new(*x * width, 0.0, 0.0)),
+				false,
+			),
+			TransformFunc::TranslateYPercent(y) => WorldMatrix(
+				Matrix4::new_translation(&Vector3::new(0.0, *y * height, 0.0)),
+				false,
+			),
+			TransformFunc::TranslatePercent(x, y) =>  WorldMatrix(
+				Matrix4::new_translation(&Vector3::new(*x * width, *y * height, 0.0)),
+				false,
+			),
+
+			TransformFunc::ScaleX(x) =>  WorldMatrix(
+				Matrix4::new_nonuniform_scaling(&Vector3::new(*x, 1.0, 1.0)),
+				false
+			),
+			TransformFunc::ScaleY(y) => WorldMatrix(
+				Matrix4::new_nonuniform_scaling(&Vector3::new(1.0, *y, 1.0)),
+				false
+			),
+			TransformFunc::Scale(x, y) => WorldMatrix(
+				Matrix4::new_nonuniform_scaling(&Vector3::new(*x, *y, 1.0)),
+				false
+			),
+
+			TransformFunc::RotateZ(z) => WorldMatrix(
+				Matrix4::new_rotation(Vector3::new(0.0, 0.0, *z/180.0 * std::f32::consts::PI)),
+				true
+			),
+			TransformFunc::RotateX(x) => WorldMatrix(
+				Matrix4::new_rotation(Vector3::new(*x/180.0 * std::f32::consts::PI, 0.0, 0.0)),
+				true
+			),
+			TransformFunc::RotateY(y) => WorldMatrix(
+				Matrix4::new_rotation(Vector3::new(0.0, *y/180.0 * std::f32::consts::PI, 0.0)),
+				true
+			),
+			TransformFunc::SkewX(x) => WorldMatrix(
+				Matrix4::new(
+					1.0,
+					(*x/180.0 * std::f32::consts::PI).tan(),
+					0.0,
+					0.0,
+					0.0,
+					1.0,
+					0.0,
+					0.0,
+					0.0,
+					0.0,
+					1.0,
+					0.0,
+					0.0,
+					0.0,
+					0.0,
+					1.0,
+				),
+				true
+			),
+			TransformFunc::SkewY(y) => WorldMatrix(
+				Matrix4::new(
+					1.0,
+					0.0,
+					0.0,
+					0.0,
+					(*y/180.0 * std::f32::consts::PI).tan(),
+					1.0,
+					0.0,
+					0.0,
+					0.0,
+					0.0,
+					1.0,
+					0.0,
+					0.0,
+					0.0,
+					0.0,
+					1.0,
+				),
+				true
+			)
+		}
+	}
 }
 
 impl Deref for WorldMatrix {
@@ -507,8 +496,7 @@ pub struct RenderContextMark(bitvec::prelude::BitArray);
 
 // TransformWillChange的矩阵计算结果， 用于优化Transform的频繁改变
 #[derive(Debug, Clone, Default)]
-pub struct TransformWillChangeMatrix(pub WorldMatrix);
-
+pub struct TransformWillChangeMatrix(pub WorldMatrix, pub WorldMatrix);
 
 #[derive(Debug, Clone, Default)]
 pub struct MaskTexture;

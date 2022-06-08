@@ -88,7 +88,7 @@ impl CalcMatrix {
 				
 				match transform {
 					// transform存在时，根据transform和布局计算得到变换矩阵，再乘以父矩阵
-					Some(transform) => parent_world_matrix*WorldMatrix::form_transform(
+					Some(transform) => parent_world_matrix*WorldMatrix::form_transform_layout(
 						transform,
 						width,
 						height,
