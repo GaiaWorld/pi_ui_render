@@ -16,8 +16,8 @@ use pi_null::Null;
 use pi_render::RenderStage;
 use pi_ui_render::{
 	gui::Gui, 
-	components::user::{BackgroundColor, Color, CgColor, TransformWillChange, TransformFunc, Opacity}, 
-	utils::style::style_sheet::{WidthType, HeightType, BackgroundColorType, PositionTypeType, PositionLeftType, PositionTopType, MarginLeftType, MarginTopType, TransformWillChangeType, OpacityType}, resource::ClearColor
+	components::user::{BackgroundColor, Color, CgColor, TransformWillChange, TransformFunc, Opacity, Overflow, Transform}, 
+	utils::style::style_sheet::{WidthType, HeightType, BackgroundColorType, PositionTypeType, PositionLeftType, PositionTopType, MarginLeftType, MarginTopType, TransformWillChangeType, OpacityType, OverflowType, TransformType}, resource::ClearColor
 };
 
 fn main() {
@@ -53,14 +53,16 @@ impl Example for QuadExample {
 		gui.set_style(root, MarginTopType(Dimension::Points(0.0)));
 		gui.append(root, Id::null());
 
-		// 添加一个玫红色div到根节点， 并添加TransformWillChange属性
+		// 添加一个玫红色div到根节点， 并添加overflow属性
 		let div1 = gui.create_node();
 		gui.set_style(div1, WidthType(Dimension::Points(300.0)));
 		gui.set_style(div1, HeightType(Dimension::Points(300.0)));
 		gui.set_style(div1, BackgroundColorType (BackgroundColor(Color::RGBA(CgColor::new(1.0, 0.0, 1.0, 1.0)) )));
-		let mut transform_willchange = TransformWillChange::default();
-		transform_willchange.0.funcs.push(TransformFunc::TranslateX(50.0));
-		gui.set_style(div1, TransformWillChangeType(transform_willchange));
+		// gui.set_style(div1, OverflowType(Overflow(true)));
+		let mut transform = Transform::default();
+		transform.funcs.push(TransformFunc::RotateZ(45.0));// 旋转45度
+		gui.set_style(div1, TransformType (transform.funcs));
+
 		gui.append(div1, root);
 
 		// 添加一个红色div到玫红节点
@@ -73,12 +75,10 @@ impl Example for QuadExample {
 		// 添加一个容器节点，其下有一个绿色节点，一个黄色节点， 对本节点添加TransformWillchange
 		let div3 = gui.create_node();
 		gui.set_style(div3, PositionTopType(Dimension::Points(100.0)));
-		gui.set_style(div3, WidthType(Dimension::Points(100.0)));
-		gui.set_style(div3, HeightType(Dimension::Points(200.0)));
+		gui.set_style(div3, WidthType(Dimension::Points(90.0)));
+		gui.set_style(div3, HeightType(Dimension::Points(150.0)));
 		// 设置TransformWillChange，向右平移100个像素
-		let mut transform_willchange = TransformWillChange::default();
-		transform_willchange.0.funcs.push(TransformFunc::TranslateX(50.0));
-		gui.set_style(div3, TransformWillChangeType(transform_willchange));
+		gui.set_style(div3, OverflowType(Overflow(true)));
 
 		// 添加一个绿色div
 		let div4 = gui.create_node();
@@ -94,7 +94,7 @@ impl Example for QuadExample {
 		gui.set_style(div5, HeightType(Dimension::Points(100.0)));
 		gui.set_style(div5, BackgroundColorType (BackgroundColor(Color::RGBA(CgColor::new(1.0, 1.0, 0.0, 1.0)) )));
 		// 设置opacity，测试Pass2d在父上存在TransformWillChange的情况下能否正确渲染
-		gui.set_style(div5, OpacityType(Opacity(0.5)));
+		// gui.set_style(div5, OpacityType(Opacity(0.5)));
 
 		gui.append(div5, div3);
 

@@ -140,11 +140,11 @@ impl Node for Pass2DNode {
 						0.0,
 						1.0
 					);
-					// // 清屏
-					// if let Some(clear_color) = clear_color {
-					// 	rp.set_bind_group(COLOR_GROUP as u32, &clear_color, &[]);
-					// 	param.clear_draw.0.draw(&mut rp); // 相机在drawObj中已经描述
-					// }
+					// 清屏
+					if let Some(clear_color) = clear_color {
+						rp.set_bind_group(COLOR_GROUP as u32, &clear_color, &[]);
+						param.clear_draw.0.draw(&mut rp); // 相机在drawObj中已经描述
+					}
 					
 					// 设置相机
 					if let Some(r) = &camera.project_bind_group {
@@ -154,7 +154,7 @@ impl Node for Pass2DNode {
 						rp.set_bind_group(VIEW_GROUP as u32, r, &[]);
 					}
 					// println!("pass_node1==========================opaque: {}, transparent:{}", list.opaque.len(), list.transparent.len());
-					self.draw_list(&mut rp, &world, camera, list, &mut param);
+					self.draw_list(&mut rp, &world, list, &mut param, camera, camera, &view_port, &view_port);
 				}
 				
 
@@ -217,15 +217,18 @@ impl Pass2DNode {
 		pass2d_id: Pass2DKey,
 		rp: &mut RenderPass<'a>,
 		world: &'a World,
-		camera: &'a Camera,
 		param: &'a Param<'a>,
+		last_camera: &'a Camera,
+		cur_camera: &'a Camera,
+		last_view_port: &(f32, f32, f32, f32),
+		cur_view_port: &(f32, f32, f32, f32),
 	) {
 		match param.post_query.get(world, pass2d_id) {
 			Some(r) => {
 				// 如果存在后处理，则直接将后处理结果渲染出来(后处理结果)
 				if let Some(post) = r.0.get(r.1) {
 					if let Some(state) = param.draw_query.get(world, post.draw_obj_key) {
-						Self::draw_one_post_process(rp, state, post, camera);
+						Self::draw_one_post_process(rp, state, post, last_camera);
 						// 释放握住的上次的渲染结果
 						let post_process_mut = unsafe {&mut *( post as *const PostProcess as usize as *mut PostProcess)};
 						post_process_mut.result = None;
@@ -235,16 +238,55 @@ impl Pass2DNode {
 			None => {
 				// 如果不存在后处理，则将pass2d中的所有渲染对象渲染到rp上
 				if let Some((
-					camera, 
+					camera_new, 
 					view_matrix,
 					// rt_key, 
 					list)) = param.pass2d_query.get(world, pass2d_id) {
-					// 设置视图矩阵
-					if let Some(view_matrix) = view_matrix {
-						rp.set_bind_group(VIEW_GROUP as u32, view_matrix.0.as_ref().unwrap(), &[]);
-					}
+					
+					let v = (
+						(last_view_port.0 as f32 - last_camera.view_port.mins.x) + camera_new.view_port.mins.x,
+						(last_view_port.1 as f32 - last_camera.view_port.mins.y) + camera_new.view_port.mins.y,
+						camera_new.view_port.maxs.x - camera_new.view_port.mins.x,
+						camera_new.view_port.maxs.y - camera_new.view_port.mins.y,
+					);
 
-					self.draw_list(rp, world, camera, list, param);
+
+					rp.set_viewport(
+						v.0, 
+						v.1, 
+						v.2, 
+						v.3, 
+						0.0, 
+						1.0);
+
+					if let Some(view_matrix) = &camera_new.view_bind_group {
+						rp.set_bind_group(VIEW_GROUP as u32, view_matrix, &[])
+					}
+					if let Some(project_matrix) = &camera_new.project_bind_group {
+						rp.set_bind_group(PROJECT_GROUP as u32, project_matrix, &[])
+					}
+					// // camera.vie
+					// // 设置视图矩阵
+					// if let Some(view_matrix) = view_matrix {
+					// 	rp.set_bind_group(VIEW_GROUP as u32, view_matrix.bind_group.as_ref().unwrap(), &[]);
+					// }
+
+					self.draw_list(rp, world, list, param, last_camera, camera_new, last_view_port, cur_view_port);
+
+					rp.set_viewport(
+						cur_view_port.0, 
+						cur_view_port.1, 
+						cur_view_port.2, 
+						cur_view_port.3, 
+						0.0,
+						1.0);
+					
+					if let Some(view_matrix) = &cur_camera.view_bind_group {
+						rp.set_bind_group(VIEW_GROUP as u32, view_matrix, &[])
+					}
+					if let Some(project_matrix) = &cur_camera.project_bind_group {
+						rp.set_bind_group(PROJECT_GROUP as u32, project_matrix, &[])
+					}
 				}
 			},
 		}
@@ -317,6 +359,9 @@ impl Pass2DNode {
 					0.0,
 					1.0
 				);
+				// 清屏
+				rp.set_bind_group(COLOR_GROUP as u32, &param.fbo_clear_color.0, &[]);
+				param.clear_draw.0.draw(&mut rp); // 相机在drawObj中已经描述
 
 				Self::draw_one_post_process(&mut rp, state, post_process, camera);
 			}
@@ -409,10 +454,13 @@ impl Pass2DNode {
 		&self,
 		rp: &'w mut RenderPass<'a>,
 		world: &'a World,
-		camera: &'a Camera,
 		list: &Draw2DList,
 
 		param: &'a Param<'a>,
+		last_camera: &'a Camera,
+		cur_camera: &'a Camera,
+		last_view_port: &(f32, f32, f32, f32),
+		cur_view_port: &(f32, f32, f32, f32),
 	) {
 
 		for e in list.opaque.iter().chain(list.transparent.iter()) {
@@ -422,7 +470,7 @@ impl Pass2DNode {
 						state.draw(rp);
 					}
 				},
-				DrawIndex::Pass2D(e) => self.render_pass_2d(*e, rp, world, camera, param),
+				DrawIndex::Pass2D(e) => self.render_pass_2d(*e, rp, world, param, last_camera, cur_camera, last_view_port, cur_view_port),
 			}
 		}
 	}
@@ -433,6 +481,7 @@ impl Pass2DNode {
 		post_process: &'a PostProcess,
 		camera: &'a Camera, // TODO 可能不是相机， 需要考虑TransformWillChange
 	) {
+		// 后处理的投影矩阵设置， TODO
 		if let Some(PostTemp{texture_group, uv, matrix, ..}) = &post_process.result {
 			rp.set_bind_group(WORLD_MATRIX_GROUP as u32, matrix, &[]);
 			rp.set_bind_group(post_process.texture_bind_index as u32, texture_group, &[]);

@@ -1,15 +1,17 @@
 use std::collections::hash_map::Entry;
 
 use naga::ShaderStage;
+use pi_assets::{mgr::AssetMgr, asset::Handle};
 use pi_hash::XHashMap;
 use pi_map::vecmap::VecMap;
-use pi_render::rhi::{device::RenderDevice, shader::{ShaderId, Shader}, bind_group_layout::BindGroupLayout};
+use pi_render::rhi::{device::RenderDevice, shader::{ShaderId, Shader}, bind_group_layout::BindGroupLayout, asset::RenderRes, buffer::Buffer, bind_group::BindGroup};
 use pi_share::Share;
 use pi_slotmap::DefaultKey;
 
-use crate::{resource::draw_obj::{ShareLayout, ShaderCatch, ShaderMap, ShaderStatic, Program}, utils::shader_helper::{WORLD_MATRIX_GROUP, DEPTH_GROUP, PROJECT_GROUP, VIEW_GROUP}, components::draw_obj::{FSDefines, VSDefines}};
+use crate::{resource::draw_obj::{ShareLayout, ShaderCatch, ShaderMap, ShaderStatic, Program}, utils::{shader_helper::{WORLD_MATRIX_GROUP, DEPTH_GROUP, PROJECT_GROUP, VIEW_GROUP}, tools::calc_float_hash}, components::{draw_obj::{FSDefines, VSDefines}, user::Matrix4}};
 
 pub mod post_process;
+pub mod image;
 pub struct GlslShaderStatic {
 	pub shader_vs: ShaderId,
 	pub shader_fs: ShaderId,
@@ -89,4 +91,47 @@ pub fn create_shader_common_static(
 		bind_group: bind_group_layout,
 		create_shader_info,
 	}
+}
+
+pub fn create_camera_bind_group(
+	view: &Matrix4,
+	layout: &BindGroupLayout,
+	device: &RenderDevice,
+	buffer_assets: &Share<AssetMgr<RenderRes<Buffer>>>,
+	bind_group_assets: &Share<AssetMgr<RenderRes<BindGroup>>>,
+) -> Handle<RenderRes<BindGroup>> {
+	let key = calc_float_hash(view.as_slice());
+
+	match bind_group_assets.get(&key) {
+		Some(r) => r,
+		None => {
+			let buf = match buffer_assets.get(&key) {
+				Some(r) => r,
+				None => {
+					let buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
+						label: Some("camera buffer init"),
+						contents: bytemuck::cast_slice(view.as_slice()),
+						usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+					});
+					buffer_assets.cache(key, RenderRes::new(buf, 5));
+					buffer_assets.get(&key).unwrap()
+				}
+			};
+			let group = device.create_bind_group(
+				&wgpu::BindGroupDescriptor {
+					layout: &layout,
+					entries: &[
+						wgpu::BindGroupEntry {
+							binding: 0,
+							resource: buf.as_entire_binding(),
+						},
+					],
+					label: Some("camera create"),
+				}
+			);
+			bind_group_assets.cache(key, RenderRes::new(group, 5));
+			bind_group_assets.get(&key).unwrap()
+		}
+	}
+	
 }

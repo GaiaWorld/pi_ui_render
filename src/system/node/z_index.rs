@@ -58,7 +58,7 @@ impl CalcZindex {
 	) {
 		// println!("call zindex==========================");
 		let mut vec: Vec<ZSort> = vec![];
-		for (id, mark) in dirtys.iter_manual() {
+		for (id, mark, _) in dirtys.iter_manual() {
 			// println!("dirty:{:?}", id.local().offset());
 			match tree.get_up(id) {
 				Some(up) => {

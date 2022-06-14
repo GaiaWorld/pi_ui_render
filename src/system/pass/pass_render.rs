@@ -1,4 +1,4 @@
-use std::io::Result;
+use std::{io::Result, f32::consts::E};
 
 use nalgebra::Orthographic3;
 use pi_assets::{mgr::AssetMgr, asset::Handle};
@@ -16,13 +16,13 @@ use wgpu::IndexFormat;
 
 use crate::{
 	components::{
-		calc::{NodeId, ContentBox, DrawList, Visibility, WorldMatrix, Quad, InPassId, Pass2DId, TransformWillChangeMatrix}, 
+		calc::{NodeId, ContentBox, DrawList, Visibility, WorldMatrix, Quad, InPassId, Pass2DId, TransformWillChangeMatrix, OverflowAabb}, 
 		pass_2d::{Camera, DirtyRectState, GraphId, Draw2DList, ParentPassId, Pass2D, DirtyRect, DrawIndex, PostProcessList, LastDirtyRect, ViewMatrix}, 
-		user::{Matrix4, Node, CgColor}, 
+		user::{Matrix4, Node, CgColor, TransformWillChange, Aabb2, Point2}, 
 		draw_obj::{DrawState, DrawObject, VSDefines, FSDefines, ShaderKey, PipelineKey, VertexBufferLayoutKey}
 	}, 
 	utils::{
-		tools::{intersect, calc_hash, calc_float_hash, calc_aabb}, 
+		tools::{intersect, calc_hash, calc_float_hash, calc_aabb, calc_bound_box}, 
 		shader_helper::{DEPTH_GROUP, VIEW_GROUP, PROJECT_GROUP}
 	}, 
 	resource::{
@@ -31,7 +31,7 @@ use crate::{
 	}, 
 	system::{
 		node::background_color::{BackgroundStaticIndex, COLOR_GROUP, create_reba_bind_group}, 
-		draw_obj::{pipeline::CalcPipeline, world_marix::modify_world_matrix}
+		draw_obj::{pipeline::CalcPipeline, world_marix::modify_world_matrix}, shader_utils::create_camera_bind_group
 	}
 };
 
@@ -101,13 +101,13 @@ impl CalcRender{
 		// 视图矩阵和投影矩阵都设置为单位阵
 		let view = WorldMatrix::default().0; 
 		let project = WorldMatrix::default().0;
-		let view_bind_group = Self::create_camera_bind_group(
+		let view_bind_group = create_camera_bind_group(
 			&view, 
 			&share_layout.view, 
 			&device, 
 			&buffer_assets,
 			&bind_group_assets,);
-		let project_bind_group = Self::create_camera_bind_group(
+		let project_bind_group = create_camera_bind_group(
 			&project, 
 			&share_layout.project, 
 			&device, 
@@ -163,7 +163,18 @@ impl CalcRender{
 				&'static Draw2DList, 
 				Option<&'static PostProcessList>)>)>,
 		mut query_pass: ParamSet<(
-			Query<Pass2D, (Write<Camera>, Write<ViewMatrix>, Write<LastDirtyRect>, Join<NodeId, Node, (&'static ContentBox, Option<&'static TransformWillChangeMatrix>)>)>,
+			Query<Pass2D, (
+				Write<Camera>, 
+				Write<ViewMatrix>, 
+				Write<LastDirtyRect>,
+				Option<&'static OverflowAabb>,
+				Join<NodeId, Node, (
+					&'static ContentBox, 
+					&'static Quad,
+					Option<&'static TransformWillChangeMatrix>, 
+					Option<&'static TransformWillChange>
+				)>
+			)>,
 			Query<Node, (&'static InPassId, Option<&'static Pass2DId>, Option<&'static DrawList>, &'static Quad, OrDefault<Visibility>, Join<InPassId, Pass2D, &'static LastDirtyRect>)>,
 		)>,
 		mut draw_state: Query<DrawObject, &mut DrawState>,
@@ -181,20 +192,41 @@ impl CalcRender{
 			return Ok(());
 		}
 	
-		for (mut camera, mut view_matrix, mut last_dirty, (context_box, willchange_matrix)) in query_pass.p0_mut().iter_mut() {
+		for (mut camera, mut view_matrix, mut last_dirty, overflow_aabb, (context_box, quad, willchange_matrix, will_change)) in query_pass.p0_mut().iter_mut() {
 			// 存在脏区域，与现有脏区域相交，得到最终脏区域
-			let c;
+			let mut c;
+
+			let aabb = if let Some(overflow) = overflow_aabb {
+				// 存在overflow
+				&**quad
+			} else {
+				// 否则， 该上下文最大的渲染区域不超过context_box
+				&context_box.0
+			};
+
 			let context_box = if let Some(r) = willchange_matrix {
-				c = calc_aabb(&context_box.0, &r.0);
+				c = calc_aabb(aabb, &r.will_change);
+				if let Some(overflow) = overflow_aabb {
+					if let (Some(overflow), None) = (&overflow.aabb, &overflow.matrix) {
+						// 存在旋转时，该上下文最大的渲染区域不超过quad
+						c = match intersect(&c, overflow) {
+							Some(r) => r,
+							None => Aabb2::new(
+								Point2::new(0.0, 0.0), 
+								Point2::new(0.0, 0.0))
+						};
+					}
+				}
 				&c
 			} else {
-				&context_box.0
+				&aabb
 			};
 
 			let aabb = if let Some(aabb) = intersect(&global_dirty_rect.value, context_box) {
 				// 如果存在transformwillchange，则需要算上脏区域
+				// no_will_change用于包围盒剔除渲染对象（渲染对象使用quad来剔除，quad是没有willchange_matrix的参与的）
 				let no_will_change = if let Some(r) = willchange_matrix {
-					calc_aabb(&aabb, &r.0.invert().unwrap())
+					calc_aabb(&aabb, &r.will_change_invert)
 				} else {
 					aabb
 				};
@@ -203,13 +235,25 @@ impl CalcRender{
 					last: aabb.clone(),
 					no_will_change,
 				});
-				aabb
+
+				if let Some(overflow) = overflow_aabb {
+					// 存在裁剪区，并且旋转，
+					if let Some(r) = &overflow.matrix {
+						let r = calc_bound_box(&aabb, r);
+						intersect(&aabb, &r).unwrap_or(
+							Aabb2::new(
+								Point2::new(0.0, 0.0), 
+								Point2::new(0.0, 0.0)))
+					} else{
+						aabb
+					}
+				} else {
+					aabb
+				}
 			} else {
 				continue;
 			};
 
-			// TODO， 还应该判断TransformWillChange
-			// 求全局脏区域和自身脏区域的ContextBox的交集
 			let project = create_project(
 				aabb.mins.x,
 				aabb.maxs.x,
@@ -217,37 +261,63 @@ impl CalcRender{
 				aabb.maxs.y,
 			);
 			let view = WorldMatrix::default().0;
-			let project_bind_group = Self::create_camera_bind_group(
+			
+			let view = if let Some(overflow) = overflow_aabb {
+				// 存在裁剪区，并且未旋转，则直接与视口相交
+				if let (Some(_aabb), Some(mtrix)) = (&overflow.aabb, &overflow.matrix) {
+					mtrix
+				} else {
+					&view
+				}
+			}else if let (Some(willchange_matrix), Some(_)) = (willchange_matrix, will_change) {
+				&willchange_matrix.will_change
+			} else {
+				&view
+			};
+
+			let project_bind_group = create_camera_bind_group(
 				&project, 
 				&share_layout.project, 
 				&device,
 				&buffer_assets,
 				&bind_group_assets,
 			);
-			let view_bind_group = Self::create_camera_bind_group(
+			let view_bind_group = create_camera_bind_group(
 				&view, 
 				&share_layout.view, 
 				&device,
 				&buffer_assets,
 				&bind_group_assets,
 			);
+
+			let aabb = Aabb2::new(
+				Point2::new(aabb.mins.x.floor(), aabb.mins.y.floor() ), 
+				Point2::new(aabb.maxs.x.ceil(), aabb.maxs.y.ceil() ));
+			
 			camera.write(Camera {
-				// view, project, 
+				// view: match willchange_matrix {
+				// 	Some(r) => r.0.clone(),
+				// 	Non
+				// }, 
 				view_bind_group: Some(view_bind_group),
 				project_bind_group: Some(project_bind_group),
-				view_port: aabb.clone(),
+				view_port: aabb,
 			});
 
-			if let Some(willchange_matrix) = willchange_matrix {
-				let view_bind_group = Self::create_camera_bind_group(
-					&willchange_matrix.0, 
-					&share_layout.view, 
-					&device,
-					&buffer_assets,
-					&bind_group_assets,
-				);
-				view_matrix.write(ViewMatrix(Some(view_bind_group)));
-			}
+			
+			// if let (Some(willchange_matrix), Some(_)) = (willchange_matrix, will_change) {
+			// 	let view_bind_group = create_camera_bind_group(
+			// 		&willchange_matrix.will_change, 
+			// 		&share_layout.view, 
+			// 		&device,
+			// 		&buffer_assets,
+			// 		&bind_group_assets,
+			// 	);
+			// 	view_matrix.write(ViewMatrix { 
+			// 		bind_group: Some(view_bind_group),
+			// 		// value: willchange_matrix.will_change.clone(),
+			// 	});
+			// }
 		}
 		
 		let p0 = query_draw2d_list.p0_mut();
@@ -393,49 +463,6 @@ impl CalcRender{
 		// let (mut graph_id_item, mut list_item) = query.get_unchecked_mut_by_entity(e.id);
 		// graph_id_item.write(GraphId(graph_id));
 		// list_item.write(Draw2DList::default());
-	}
-
-	fn create_camera_bind_group(
-		view: &Matrix4,
-		layout: &BindGroupLayout,
-		device: &RenderDevice,
-		buffer_assets: &Share<AssetMgr<RenderRes<Buffer>>>,
-		bind_group_assets: &Share<AssetMgr<RenderRes<BindGroup>>>,
-	) -> Handle<RenderRes<BindGroup>> {
-		let key = calc_float_hash(view.as_slice());
-
-		match bind_group_assets.get(&key) {
-			Some(r) => r,
-			None => {
-				let buf = match buffer_assets.get(&key) {
-					Some(r) => r,
-					None => {
-						let buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
-							label: Some("camera buffer init"),
-							contents: bytemuck::cast_slice(view.as_slice()),
-							usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-						});
-						buffer_assets.cache(key, RenderRes::new(buf, 5));
-						buffer_assets.get(&key).unwrap()
-					}
-				};
-				let group = device.create_bind_group(
-					&wgpu::BindGroupDescriptor {
-						layout: &layout,
-						entries: &[
-							wgpu::BindGroupEntry {
-								binding: 0,
-								resource: buf.as_entire_binding(),
-							},
-						],
-						label: Some("camera create"),
-					}
-				);
-				bind_group_assets.cache(key, RenderRes::new(group, 5));
-				bind_group_assets.get(&key).unwrap()
-			}
-		}
-		
 	}
 }
 

@@ -5,6 +5,7 @@ use pi_ecs_macros::{listen, setup};
 
 use crate::components::user::{Node, Vector4, Aabb2, Point2};
 use crate::components::calc::{WorldMatrix, Quad, LayoutResult};
+use crate::utils::tools::calc_bound_box;
 
 pub struct CalcQuad;
 
@@ -21,21 +22,21 @@ impl CalcQuad {
 		let (world_matrix, layout) = query.get_unchecked_by_entity(id);
 		let width = layout.rect.right - layout.rect.left;
 		let height = layout.rect.bottom - layout.rect.top;
-		let aabb = cal_bound_box((width, height), world_matrix);
+		let aabb = calc_bound_box(&Aabb2::new(Point2::new(0.0, 0.0), Point2::new(width, height)), world_matrix);
 	
 		oct.get_unchecked_mut_by_entity(id).write(Quad::new(aabb));
 	}
 }
 
-fn cal_bound_box(size: (f32, f32), matrix: &WorldMatrix) -> Aabb2 {
-	let left_top = matrix * Vector4::new(0.0, 0.0, 0.0, 1.0);
-	let right_bottom = matrix * Vector4::new(size.0,  size.1, 0.0, 1.0);
+// fn cal_bound_box(size: (f32, f32), matrix: &WorldMatrix) -> Aabb2 {
+// 	let left_top = matrix * Vector4::new(0.0, 0.0, 0.0, 1.0);
+// 	let right_bottom = matrix * Vector4::new(size.0,  size.1, 0.0, 1.0);
 
-	let min = Point2::new(left_top.x, left_top.y);
-	let max = Point2::new(right_bottom.x, right_bottom.y);
+// 	let min = Point2::new(left_top.x, left_top.y);
+// 	let max = Point2::new(right_bottom.x, right_bottom.y);
 
-	Aabb2::new(min, max)
-}
+// 	Aabb2::new(min, max)
+// }
 
 
 

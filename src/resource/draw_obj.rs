@@ -4,7 +4,8 @@ use std::{collections::hash_map::Entry, hash::Hash, num::NonZeroU32};
 
 use ordered_float::NotNan;
 use pi_assets::{mgr::AssetMgr, asset::Handle};
-use pi_ecs::{world::FromWorld, prelude::World};
+use pi_dirty::LayerDirty;
+use pi_ecs::{world::FromWorld, prelude::World, entity::Id};
 use pi_hash::XHashMap;
 use pi_map::vecmap::VecMap;
 use pi_render::rhi::{bind_group_layout::BindGroupLayout, bind_group::BindGroup, shader::{ShaderId, Shader}, device::RenderDevice, pipeline::RenderPipeline, buffer::Buffer, asset::RenderRes};
@@ -12,7 +13,7 @@ use pi_share::Share;
 use pi_slotmap::{SlotMap, DefaultKey};
 use wgpu::{PipelineLayout, ShaderModule, Sampler};
 
-use crate::{components::{draw_obj::{VSDefines, FSDefines}}, utils::{tools::{calc_hash, calc_float_hash}, shader_helper::{create_matrix_group_layout, create_depth_layout, create_view_layout, create_project_layout}}};
+use crate::{components::{draw_obj::{VSDefines, FSDefines}, pass_2d::Pass2D}, utils::{tools::{calc_hash, calc_float_hash}, shader_helper::{create_matrix_group_layout, create_depth_layout, create_view_layout, create_project_layout}}};
 
 /// viewMatrix、projectMatrix 的BindGroupLayout
 #[derive(Deref)]
@@ -225,6 +226,7 @@ pub fn list_share_as_ref<'a, T, I: Iterator<Item=&'a Option<Share<T>>>>(list: I)
 
 pub struct CommonSampler {
 	pub default: Sampler,
+	pub pointer: Sampler,
 }
 
 impl FromWorld for CommonSampler {
@@ -241,11 +243,23 @@ impl FromWorld for CommonSampler {
 				mipmap_filter: wgpu::FilterMode::Linear,
 				..Default::default()
 			}),
+			pointer: (**device).create_sampler(&wgpu::SamplerDescriptor {
+				label: Some("default sampler"),
+				address_mode_u: wgpu::AddressMode::ClampToEdge,
+				address_mode_v: wgpu::AddressMode::ClampToEdge,
+				address_mode_w: wgpu::AddressMode::ClampToEdge,
+				mag_filter: wgpu::FilterMode::Nearest,
+				min_filter: wgpu::FilterMode::Nearest,
+				mipmap_filter: wgpu::FilterMode::Nearest,
+				..Default::default()
+			}),
 		}
     }
 }
 
-
+/// 将pass2d组织为层的结构
+#[derive(Deref, Default, DerefMut)]
+pub struct LayerPass2D (LayerDirty<Id<Pass2D>>);
 
 
 

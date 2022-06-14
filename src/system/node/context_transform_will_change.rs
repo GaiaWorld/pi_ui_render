@@ -11,13 +11,13 @@
 //! 
 
 use pi_dirty::LayerDirty;
-use pi_ecs::{monitor::Event, prelude::{Query, Write, FromWorld, Res, Local, With, ChangeTrackers, ParamSet}, entity::Id};
+use pi_ecs::{monitor::Event, prelude::{Query, Write, FromWorld, Res, Local, With, ChangeTrackers, ParamSet, Join}, entity::Id};
 use pi_ecs_macros::{listen, setup};
 use pi_ecs_utils::prelude::{Layer, NodeUp};
 use pi_null::Null;
 
 
-use crate::{components::{user::{Node, TransformWillChange}, calc::{RenderContextMark, TransformWillChangeMatrix, LayoutResult, WorldMatrix, Pass2DId, NodeId}, pass_2d::{ParentPassId, Pass2D}}, resource::RenderContextMarkType};
+use crate::{components::{user::{Node, TransformWillChange}, calc::{RenderContextMark, TransformWillChangeMatrix, LayoutResult, WorldMatrix, Pass2DId, NodeId}, pass_2d::{ParentPassId, Pass2D}}, resource::{RenderContextMarkType, draw_obj::LayerPass2D}};
 
 pub struct CalcTransformWillChange;
 
@@ -34,12 +34,15 @@ impl FromWorld for TransformWillChangeRenderContextMarkType{
 impl CalcTransformWillChange {
 	#[system]
 	pub fn calc_transform_willchange(
+		layer_pass_2d: Res<LayerPass2D>,
 		query: Query<Node, (
 			Id<Node>,
 			&NodeUp<Node>,
 			&Pass2DId,
 			&Layer,
-			ChangeTrackers<WorldMatrix>,
+			// transform_willchange_matrix在父节点的WorldMatrix、节点自身的TransformWillChange， Layer修改时，需要改变
+			// 父节点的WorldMatrix, 子节点的WorldMatrix一定改变，因此这里拿到本节点的节拍
+			ChangeTrackers<WorldMatrix>, 
 			ChangeTrackers<TransformWillChange>, 
 			ChangeTrackers<Layer>), With<TransformWillChange>>,
 		query_node_trans: Query<Node, (
@@ -50,9 +53,11 @@ impl CalcTransformWillChange {
 		query_pass2d_nodeid: Query<Pass2D, &NodeId>,
 		mut write: ParamSet< (
 			Query<Node, Write<TransformWillChangeMatrix>>, 
-			Query<Node, (ChangeTrackers<TransformWillChangeMatrix>, &'static TransformWillChangeMatrix)>)>,
+			Query<Node, (ChangeTrackers<TransformWillChangeMatrix>, &'static TransformWillChangeMatrix)>,
+			Query<Pass2D, (&'static ParentPassId, &'static NodeId, Join<NodeId, Node, Option<&'static TransformWillChange>>) >)>,
 		mut local: Local<LayerDirty<(Id<Node>, Id<Node>, Id<Pass2D>, bool)>>,
 	) {
+		let mut has_change = false;
 		for (id, up, pass_id, layer, tracker_matrix, tracker_willchange, tracker_layer) in query.iter() {
 			local.mark( 
 				(id, 
@@ -90,7 +95,7 @@ impl CalcTransformWillChange {
 			}
 			
 			if changed || *is_changed {
-				
+				has_change = true;
 				let (will_change, layout) = query_node_trans.get_unchecked(*id);
 				let width = layout.rect.right - layout.rect.left;
 				let height = layout.rect.bottom - layout.rect.top;
@@ -101,16 +106,37 @@ impl CalcTransformWillChange {
 				let mut m = p_matrix * &matrix * invert;
 
 				if let Some(parent_will_change_matrix) = parent_will_change_matrix {
-					m = &parent_will_change_matrix.0 * &m;
-					matrix = &parent_will_change_matrix.1 * &matrix;
+					m = &parent_will_change_matrix.will_change * &m;
+					matrix = &parent_will_change_matrix.primitive * &matrix;
 				}
 
 				write.p0_mut().get_unchecked_mut(*id).write(
-					TransformWillChangeMatrix(m, matrix));
+					TransformWillChangeMatrix::new(m.invert().unwrap(), m, matrix));
 			}
 		}
 
 		local.clear();
+
+		// 如果willChange发生了变化，pass2DLayer发生了变化，从新设置非TransformWillchange的节点的matrix
+		if has_change || layer_pass_2d.is_changed() {
+			for (pass_id, _layer) in layer_pass_2d.iter() {
+				let (parent_id, node_id, will_change) = write.p2().get_unchecked(*pass_id);
+				// 节点存在TransformWillChange， 不处理(前面已经处理)
+				if will_change.is_some() || parent_id.is_null() {
+					continue;
+				}
+				let node_id = node_id.clone();
+
+				let parent_node_id = query_pass2d_nodeid.get_unchecked(**parent_id);
+
+				// 非TransformWillChange节点添加TransformWillChangeMatrix组件
+				let parent_will_change = write.p0().get_unchecked(**parent_node_id);
+				if let Some(parent_will_change) = parent_will_change.get() {
+					let p = parent_will_change.clone();
+					write.p0().get_unchecked(**node_id).write(p);
+				}
+			}
+		}
 	}
 
 	#[listen(component=(Node, TransformWillChange, (Create, Modify, Delete)))]

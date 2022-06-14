@@ -4,7 +4,7 @@
 use pi_ecs::{monitor::Event, prelude::{Write, Join, Query, ResMut, Res, ParamSet}};
 use pi_ecs_macros::{listen, setup};
 
-use crate::{components::{pass_2d::{Pass2D, DirtyRect, DirtyRectState}, draw_obj::{DrawObject, DrawState}, calc::{NodeId, Quad, InPassId, TransformWillChangeMatrix, ContentBox}, user::Node}, utils::tools::{box_aabb, intersect, calc_aabb}, resource::Viewport};
+use crate::{components::{pass_2d::{Pass2D, DirtyRect, DirtyRectState}, draw_obj::{DrawObject, DrawState}, calc::{NodeId, Quad, InPassId, TransformWillChangeMatrix, ContentBox}, user::{Node, Aabb2}}, utils::tools::{box_aabb, intersect, calc_aabb}, resource::{Viewport, draw_obj::LayerPass2D}};
 
 pub struct CalcDirtyRect;
 
@@ -62,26 +62,13 @@ impl CalcDirtyRect {
 		let mut dirty_rect = &mut *global_dirty_rect;
 		// 先恢复到初始状态
 		dirty_rect.state = DirtyRectState::UnInit;
-
-		// 先用第一个pass的脏区域，初始化全局脏区域
-		for (mut pass_dirty_rect, node_id) in query_pass.p0_mut().iter_mut() {
-			if let Some(matrix) = query_node.get(**node_id) {
-				if pass_dirty_rect.state == DirtyRectState::Inited {
-					dirty_rect.value = calc_aabb(&pass_dirty_rect.value, &matrix.0);
-					dirty_rect.state = DirtyRectState::Inited;
-				}
-			} else {
-				*dirty_rect = pass_dirty_rect.clone();
-			}
-			pass_dirty_rect.state = DirtyRectState::UnInit;
-			break;
-		}
+		dirty_rect.value = viewport.0.clone();
 
 		// 遍历所有pass的脏区域，求并，得全局脏区域
 		for (mut pass_dirty_rect, node_id) in query_pass.p0_mut().iter_mut() {
 			if pass_dirty_rect.state == DirtyRectState::Inited {
 				let aabb = match query_node.get(**node_id) {
-					Some(matrix) => calc_aabb(&pass_dirty_rect.value, &matrix.0),
+					Some(matrix) => calc_aabb(&pass_dirty_rect.value, &matrix.will_change),
 					None => pass_dirty_rect.value.clone()
 				};
 
@@ -89,12 +76,6 @@ impl CalcDirtyRect {
 				dirty_rect.state = DirtyRectState::Inited;
 				pass_dirty_rect.state = DirtyRectState::UnInit;
 			}
-		}
-
-		// 最后要与视口求交
-		match intersect(&dirty_rect.value, &viewport) {
-			Some(r) => dirty_rect.value = r,
-			None => dirty_rect.state = DirtyRectState::UnInit
 		}
 
 		// 视口改变，全局脏区域就为视口

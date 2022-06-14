@@ -88,12 +88,16 @@ impl CalcMatrix {
 				
 				match transform {
 					// transform存在时，根据transform和布局计算得到变换矩阵，再乘以父矩阵
-					Some(transform) => parent_world_matrix*WorldMatrix::form_transform_layout(
-						transform,
-						width,
-						height,
-						&Point2::new(layout.rect.left, layout.rect.top),
-					),
+					Some(transform) => {
+						let r = parent_world_matrix*WorldMatrix::form_transform_layout(
+							transform,
+							width,
+							height,
+							&Point2::new(layout.rect.left, layout.rect.top),
+						);
+						println!("r===={:?}\n{:?}", parent_world_matrix, r);
+						r
+					},
 					// transform不存在时，节点的变换矩阵可以直接由布局结果得出，世界矩阵计算更快，大部分情况也是走这条快速路径
 					None => {
 						let mut w = parent_world_matrix.clone();

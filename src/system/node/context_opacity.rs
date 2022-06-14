@@ -64,7 +64,6 @@ impl CalcOpacityPostProcess {
 		mark_type: Res<OpacityRenderContextMarkType>,
 		device: Res<RenderDevice>,
 		mut pass_query: Query<Pass2D, Write<PostProcessList>>,
-
 		mut query_draw: Query<DrawObject, Write<DrawState>>,
 		mut draw_state_commands: Commands<DrawObject, DrawState>,
 		mut draw_obj_commands: EntityCommands<DrawObject>,

@@ -4,7 +4,7 @@ use num_traits::float::FloatCore;
 use ordered_float::NotNan;
 use pi_hash::DefaultHasher;
 
-use crate::components::{user::{Aabb2, Point2, Vector4}, calc::WorldMatrix};
+use crate::components::{user::{Aabb2, Point2, Vector4, Matrix4}, calc::WorldMatrix};
 
 
 pub fn calc_hash<T: Hash>(v: &T)-> u64 {
@@ -21,6 +21,7 @@ pub fn calc_float_hash<T: FloatCore>(v: &[T])-> u64 {
 	hasher.finish()
 }
 
+// 计算aabb
 pub fn calc_aabb(aabb: &Aabb2, matrix: &WorldMatrix) -> Aabb2 {
 	let min = matrix * Vector4::new(aabb.mins.x, aabb.mins.y, 0.0, 1.0);
 	let max = matrix * Vector4::new(aabb.maxs.x, aabb.maxs.y, 0.0, 1.0);
@@ -31,6 +32,43 @@ pub fn calc_aabb(aabb: &Aabb2, matrix: &WorldMatrix) -> Aabb2 {
 	Aabb2::new(min, max)
 }
 
+// 计算包围盒
+pub fn calc_bound_box(aabb: &Aabb2, matrix: &Matrix4) -> Aabb2 {
+	let left_top = matrix * Vector4::new(aabb.mins.x, aabb.mins.y, 0.0, 1.0);
+    let right_top = matrix * Vector4::new(aabb.maxs.x, aabb.mins.y, 0.0, 1.0);
+    let left_bottom = matrix * Vector4::new(aabb.mins.x, aabb.maxs.y, 0.0, 1.0);
+    let right_bottom = matrix * Vector4::new(aabb.maxs.x, aabb.maxs.y, 0.0, 1.0);
+
+    let min = Point2::new(
+        left_top
+            .x
+            .min(right_top.x)
+            .min(left_bottom.x)
+            .min(right_bottom.x),
+        left_top
+            .y
+            .min(right_top.y)
+            .min(left_bottom.y)
+            .min(right_bottom.y),
+    );
+
+    let max = Point2::new(
+        left_top
+            .x
+            .max(right_top.x)
+            .max(left_bottom.x)
+            .max(right_bottom.x),
+        left_top
+            .y
+            .max(right_top.y)
+            .max(left_bottom.y)
+            .max(right_bottom.y),
+    );
+
+	Aabb2::new(min, max)
+}
+
+// 两个aabb，求整体包围盒
 pub fn box_aabb(aabb1: &mut Aabb2, aabb2: &Aabb2) {
 	aabb1.mins.x = aabb1.mins.x.min(aabb2.mins.x);
 	aabb1.mins.y = aabb1.mins.y.min(aabb2.mins.y);

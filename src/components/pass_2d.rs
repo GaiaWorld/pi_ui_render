@@ -20,7 +20,7 @@ pub type Pass2DKey = Id<Pass2D>;
 /// 相机
 #[derive(Debug)]
 pub struct Camera {
-	// pub view: Matrix4,
+	// pub view: Option<Matrix4>,
     // pub project: Matrix4,
 	pub view_bind_group: Option<Handle<RenderRes<BindGroup>>>,
 	pub project_bind_group: Option<Handle<RenderRes<BindGroup>>>,
@@ -30,7 +30,7 @@ pub struct Camera {
 impl Default for Camera {
     fn default() -> Self {
         Self { 
-			// view: Default::default(), 
+			// view: None, 
 			// project: Default::default(), 
 			view_bind_group: Default::default(), 
 			project_bind_group: Default::default(), 
@@ -39,8 +39,11 @@ impl Default for Camera {
     }
 }
 
-#[derive(Debug, Default, Deref, DerefMut)]
-pub struct ViewMatrix(pub Option<Handle<RenderRes<BindGroup>>>);
+#[derive(Debug, Default)]
+pub struct ViewMatrix{
+	pub bind_group: Option<Handle<RenderRes<BindGroup>>>,
+	// pub value: WorldMatrix,
+}
 
 #[derive(Debug, Default, Deref, DerefMut)]
 pub struct ParentPassId(pub Id<Pass2D>);

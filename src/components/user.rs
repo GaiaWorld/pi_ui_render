@@ -322,8 +322,8 @@ impl Default for Font {
     }
 }
 
-#[derive(Debug)]
-pub struct Quad(pub Point2, pub Point2, pub Point2, pub Point2);
+// #[derive(Debug)]
+// pub struct Quad(pub Point2, pub Point2, pub Point2, pub Point2);
 
 pub enum LengthUnitType {
     Pixel,

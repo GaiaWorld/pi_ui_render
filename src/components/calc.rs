@@ -8,6 +8,7 @@ use ordered_float::NotNan;
 use pi_ecs::prelude::{Id, LocalVersion};
 use pi_ecs_macros::Component;
 use pi_map::Map;
+use pi_share::Share;
 use pi_spatialtree::QuadTree as QuadTree1;
 use smallvec::SmallVec;
 
@@ -495,8 +496,25 @@ pub struct RenderContextMark(bitvec::prelude::BitArray);
 // pub struct TextChars(Vec<CharNode>);
 
 // TransformWillChange的矩阵计算结果， 用于优化Transform的频繁改变
+#[derive(Debug, Clone, Default, Deref)]
+pub struct TransformWillChangeMatrix(Share<TransformWillChangeMatrixInner>);
+
+impl TransformWillChangeMatrix {
+	pub fn new(will_change_invert: WorldMatrix, will_change: WorldMatrix, primitive: WorldMatrix) -> TransformWillChangeMatrix {
+		TransformWillChangeMatrix(Share::new(TransformWillChangeMatrixInner {
+			will_change_invert, 
+			will_change, 
+			primitive
+		}))
+	}
+}
+
 #[derive(Debug, Clone, Default)]
-pub struct TransformWillChangeMatrix(pub WorldMatrix, pub WorldMatrix);
+pub struct TransformWillChangeMatrixInner {
+	pub will_change: WorldMatrix, // = ParentWorldMatrix * primitive * ParentWorldMatrix逆
+	pub will_change_invert: WorldMatrix, // will_change 逆
+	pub primitive: WorldMatrix, // = Parent1.primitive * Parent2.primitive * ... * Transform
+}
 
 #[derive(Debug, Clone, Default)]
 pub struct MaskTexture;
@@ -679,3 +697,12 @@ pub struct DefineMark(bitvec::prelude::BitArray);
 /// 每节点的渲染列表
 #[derive(Deref, DerefMut, Default)]
 pub struct DrawList(SmallVec<[Id<DrawObject>; 1]>);
+
+/// 裁剪框
+/// 非旋转情况下，由世界矩阵、布局、TarnsformWillChange（包含父）计算、并与父的裁剪框相交而得
+/// 旋转情况下，由世界矩阵、布局、TarnsformWillChange（自身）计算，并逆旋转为矩形而得
+#[derive(Clone, Default)]
+pub struct OverflowAabb {
+	pub aabb: Option<Aabb2>,
+	pub matrix: Option<Matrix4<f32>>,
+}

@@ -17,13 +17,13 @@
 //! 
 
 use pi_dirty::LayerDirty;
-use pi_ecs::{prelude::{EntityCommands, Query, Write, Commands, Event, Or, Added, Deleted, Id, EntityDelete, EntityInsert, ParamSet}, monitor::EventType, storage::Offset};
+use pi_ecs::{prelude::{EntityCommands, Query, Write, Commands, Event, Or, Added, Deleted, Id, EntityDelete, EntityInsert, ParamSet, ResMut}, monitor::EventType, storage::Offset};
 use pi_ecs_macros::{listen, setup};
 use pi_ecs_utils::prelude::{Layer, NodeUp, LayerDirty as LayerDirtyParam, EntityTree, NodeDown, Root};
 use pi_null::Null;
 use pi_ecs::storage::SecondaryMap;
 
-use crate::components::{calc::{RenderContextMark, NodeId, Pass2DId, InPassId}, user::{Aabb2, Point2}, pass_2d::{Pass2D, ParentPassId, PostProcessList}};
+use crate::{components::{calc::{RenderContextMark, NodeId, Pass2DId, InPassId}, user::{Aabb2, Point2}, pass_2d::{Pass2D, ParentPassId, PostProcessList}}, resource::draw_obj::LayerPass2D};
 use crate::components::user::Node;
 
 pub struct CalcContext;
@@ -35,6 +35,7 @@ impl CalcContext {
 	/// 根据脏，从父向子递归，设置节点所在的渲染上下文（节点的渲染目标）
 	#[system]
 	pub fn cal_in_context_id(
+		mut layer_pass_2d: ResMut<LayerPass2D>,
 		mut command: EntityCommands<Pass2D>,
 		dirty: LayerDirtyParam<Node, Or<(Added<RenderContextMark>, Deleted<RenderContextMark>)>>,
 		idtree: EntityTree<Node>,
@@ -49,7 +50,7 @@ impl CalcContext {
 	) {
 
 		// 当节点被挂在主树上，或者
-		for (node, mark) in dirty.iter_manual() {
+		for (node, mark, layer) in dirty.iter_manual() {
 			if let (Some(_mark), mut pass2d_id_item) = mark_context.get_unchecked_mut(node) {
 				// 创建Pass2D
 				if pass2d_id_item.get().is_none() {
@@ -58,6 +59,7 @@ impl CalcContext {
 					pass2d_id_item.write(Pass2DId(context));
 					// 建立RenderContext到Node的索引关系
 					node_id.insert(context, NodeId(node));
+					layer_pass_2d.mark(context, layer);
 				}
 			}
 
@@ -107,11 +109,13 @@ impl CalcContext {
 		context_id: Query<Node, Write<Pass2DId>>,
 		layer: Query<Node, &Layer>,
 		mut command: EntityDelete<Pass2D>,
+		mut layer_pass_2d: ResMut<LayerPass2D>,
 		// mut render_context_layer_list: ResMut<RenderContextLayerList>,
 	) {
-		if let (Some(context), Some(_layer)) = (context_id.get_unchecked_by_entity(e.id).remove(), layer.get(unsafe {Id::<Node>::new(e.id.local())})) {
+		if let (Some(context), Some(layer)) = (context_id.get_unchecked_by_entity(e.id).remove(), layer.get(unsafe {Id::<Node>::new(e.id.local())})) {
 			// 删除RenderContext实体
 			command.despawn(*context);
+			layer_pass_2d.delete(*context, **layer);
 			// render_context_layer_list.delete(*context, **layer);
 		}
 	}

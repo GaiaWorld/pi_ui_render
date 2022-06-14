@@ -244,7 +244,7 @@ pub fn create_shader_static(
 	bind_group_layout.insert(PROJECT_GROUP, share_layout.project.clone());
 	bind_group_layout.insert(VIEW_GROUP, share_layout.view.clone());
 
-	let bg_shader = GlslShaderStatic::init(shader_catch, shader_map, ||{include_str!("../../source/shader//color.vert")}, ||{include_str!("../../source/shader/color.frag")});
+	let bg_shader = GlslShaderStatic::init(shader_catch, shader_map, ||{include_str!("../../source/shader/common.vert")}, ||{include_str!("../../source/shader/color.frag")});
 	
 	ShaderStatic {
 		vs_shader_soruce: bg_shader.shader_vs,

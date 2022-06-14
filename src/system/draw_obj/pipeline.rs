@@ -84,6 +84,7 @@ impl CalcPipeline {
 		pipeline_map: &mut PipelineMap,
 		shader_map: &mut ShaderInfoMap,
 	) -> Share<RenderPipeline> {
+		println!("====={:?}, {:?}", &vs_defines.0, &fs_defines.0);
 		match pipeline_map.0.entry(calc_hash(&(shader_id, vs_defines, fs_defines, pipeline_state))) {
 			Entry::Vacant(_r) => {
 				// 缓存未命中pipeline，取到编译后的shader（也是先从缓存命中）
