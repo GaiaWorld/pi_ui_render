@@ -90,13 +90,4 @@ impl Hash for FSDefines {
 	}
 }
 
-/// 渲染状态
-#[derive(Debug, Deref, DerefMut, Hash)]
-pub struct PipelineKey(pub DefaultKey);
-
-#[derive(Debug, Deref, DerefMut, Hash)]
-pub struct VertexBufferLayoutKey(pub DefaultKey);
-
-#[derive(Debug, Deref, DerefMut, Hash)]
-pub struct ShaderKey(pub usize);
 

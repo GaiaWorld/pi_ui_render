@@ -19,7 +19,7 @@ use crate::{
 		calc::{NodeId, ContentBox, DrawList, Visibility, WorldMatrix, Quad, InPassId, Pass2DId, TransformWillChangeMatrix, OverflowAabb}, 
 		pass_2d::{Camera, DirtyRectState, GraphId, Draw2DList, ParentPassId, Pass2D, DirtyRect, DrawIndex, PostProcessList, LastDirtyRect, ViewMatrix}, 
 		user::{Matrix4, Node, CgColor, TransformWillChange, Aabb2, Point2}, 
-		draw_obj::{DrawState, DrawObject, VSDefines, FSDefines, ShaderKey, PipelineKey, VertexBufferLayoutKey}
+		draw_obj::{DrawState, DrawObject, VSDefines, FSDefines}
 	}, 
 	utils::{
 		tools::{intersect, calc_hash, calc_float_hash, calc_aabb, calc_bound_box}, 
@@ -79,9 +79,7 @@ impl CalcRender{
 		let pipeline = CalcPipeline::calc_pipeline(
 			&vs_defines,
 			&fs_defines,
-			&PipelineKey(static_index.pipeline_state),
-			&ShaderKey(static_index.shader),
-			&VertexBufferLayoutKey(static_index.vertex_buffer_index),
+			&static_index,
 
 			&shader_statics,
 			&device,
@@ -91,6 +89,7 @@ impl CalcRender{
 
 			&mut pipeline_map,
 			&mut shader_map,
+			&share_layout,
 		);
 		// 设置pipeline
 		draw_state.pipeline = Some(pipeline);
@@ -208,7 +207,7 @@ impl CalcRender{
 				c = calc_aabb(aabb, &r.will_change);
 				if let Some(overflow) = overflow_aabb {
 					if let (Some(overflow), None) = (&overflow.aabb, &overflow.matrix) {
-						// 存在旋转时，该上下文最大的渲染区域不超过quad
+						// 不存在旋转时，该上下文最大的渲染区域不超过quad
 						c = match intersect(&c, overflow) {
 							Some(r) => r,
 							None => Aabb2::new(
@@ -238,9 +237,9 @@ impl CalcRender{
 
 				if let Some(overflow) = overflow_aabb {
 					// 存在裁剪区，并且旋转，
-					if let Some(r) = &overflow.matrix {
+					if let (Some(overflow), Some(r)) = (&overflow.aabb, &overflow.matrix) {
 						let r = calc_bound_box(&aabb, r);
-						intersect(&aabb, &r).unwrap_or(
+						intersect(&overflow, &r).unwrap_or(
 							Aabb2::new(
 								Point2::new(0.0, 0.0), 
 								Point2::new(0.0, 0.0)))

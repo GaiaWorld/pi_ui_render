@@ -1,10 +1,17 @@
-use pi_render::rhi::{device::RenderDevice, bind_group_layout::BindGroupLayout};
+use naga::Handle;
+use pi_render::rhi::{device::RenderDevice, bind_group_layout::BindGroupLayout, bind_group::BindGroup, asset::RenderRes};
 
 pub const PROJECT_GROUP: usize = 0;
 pub const VIEW_GROUP: usize = 1;
 pub const WORLD_MATRIX_GROUP: usize = 2;
 pub const DEPTH_GROUP: usize = 3;
 
+pub fn create_empty_layout(device: &RenderDevice) -> BindGroupLayout {
+	device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+		label: Some("empty_layout"),
+		entries: &[],
+	})
+}
 
 pub fn create_depth_layout(device: &RenderDevice) -> BindGroupLayout {
 	device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {

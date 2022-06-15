@@ -19,8 +19,9 @@ use wgpu::{IndexFormat, DepthStencilState, TextureFormat, CompareFunction, Stenc
 
 use crate::components::user::CgColor;
 use crate::resource::draw_obj::ShaderMap;
+use crate::system::shader_utils::StaticIndex;
 use crate::utils::tools::calc_hash;
-use crate::{components::{user::{Node, BackgroundColor, Color}, calc::{NodeId, DrawList}, draw_obj::{IsUnitQuad, DrawObject, DrawState, VSDefines, FSDefines, ShaderKey, PipelineKey, VertexBufferLayoutKey}}, resource::draw_obj::{Shaders, PipelineState, StateMap, VertexBufferLayouts, VertexBufferLayout, VertexBufferLayoutMap, ShaderStatic, ShaderCatch, UnitQuadBuffer, ShareLayout, Program}, utils::shader_helper::{WORLD_MATRIX_GROUP, DEPTH_GROUP, PROJECT_GROUP, VIEW_GROUP}};
+use crate::{components::{user::{Node, BackgroundColor, Color}, calc::{NodeId, DrawList}, draw_obj::{IsUnitQuad, DrawObject, DrawState, VSDefines, FSDefines}}, resource::draw_obj::{Shaders, PipelineState, StateMap, VertexBufferLayouts, VertexBufferLayout, VertexBufferLayoutMap, ShaderStatic, ShaderCatch, UnitQuadBuffer, ShareLayout, Program}, utils::shader_helper::{WORLD_MATRIX_GROUP, DEPTH_GROUP, PROJECT_GROUP, VIEW_GROUP}};
 // use crate::utils::tools::calc_hash;
 
 pub struct CalcBackGroundColor;
@@ -54,24 +55,24 @@ impl CalcBackGroundColor {
 		let vertex_buffer_index = vertex_buffer_map.insert(vertex_buffer);
 
 		// 插入背景颜色shader的索引
-		static_index.write(BackgroundStaticIndex {
-			shader: shader_index,
-			pipeline_state,
-			vertex_buffer_index,
-		});
+		static_index.write(BackgroundStaticIndex{
+			color: StaticIndex {
+				shader: shader_index,
+				pipeline_state,
+				vertex_buffer_index,
+			}
+		} );
 	}
 	/// 创建RenderObject，用于渲染背景颜色
 	#[system]
 	pub async fn calc_background(
 		mut query: Query<Node, (Id<Node>, &BackgroundColor, Write<BackgroundDrawId>, Write<DrawList>), Changed<BackgroundColor>>,
 		query_draw: Query<DrawObject, Write<DrawState>>,
-		mut draw_state_commands: Commands<DrawObject, DrawState>,
 		mut draw_obj_commands: EntityCommands<DrawObject>,
+		mut draw_state_commands: Commands<DrawObject, DrawState>,
 		mut node_id_commands: Commands<DrawObject, NodeId>,
 		mut is_unit_quad_commands: Commands<DrawObject, IsUnitQuad>,
-		mut shader_id_commands: Commands<DrawObject, ShaderKey>,
-		mut pipeline_state_commands: Commands<DrawObject, PipelineKey>,
-		mut vertex_buffer_layout_commands: Commands<DrawObject, VertexBufferLayoutKey>,
+		mut shader_static_commands: Commands<DrawObject, StaticIndex>,
 		
 		// load_mgr: ResMut<'a, LoadMgr>,
 		device: Res<'static, RenderDevice>,
@@ -118,9 +119,8 @@ impl CalcBackGroundColor {
 					// 建立DrawObj对Node的索引
 					node_id_commands.insert(new_draw_obj, NodeId(node));
 					is_unit_quad_commands.insert(new_draw_obj, IsUnitQuad(true));
-					shader_id_commands.insert(new_draw_obj, ShaderKey(static_index.shader));
-					pipeline_state_commands.insert(new_draw_obj, PipelineKey(static_index.pipeline_state));
-					vertex_buffer_layout_commands.insert(new_draw_obj, VertexBufferLayoutKey(static_index.vertex_buffer_index));
+
+					shader_static_commands.insert(new_draw_obj, static_index.color.clone());
 
 					// 建立Node对DrawObj的索引
 					draw_index.write(BackgroundDrawId(new_draw_obj));
@@ -149,10 +149,10 @@ impl CalcBackGroundColor {
 pub struct BackgroundDrawId(Id<DrawObject>);
 
 // 背景颜色 ShaderInfo的索引
-pub struct BackgroundStaticIndex{
-	pub shader: usize,
-	pub pipeline_state: DefaultKey,
-	pub vertex_buffer_index: DefaultKey,
+#[derive(Deref, Clone, Debug)]
+pub struct BackgroundStaticIndex {
+	pub color: StaticIndex,
+
 }
 
 pub const COLOR_GROUP: usize = 4;
@@ -306,6 +306,7 @@ fn create_shader_info(
 	vs_defines: &VSDefines, 
 	fs_defines: &FSDefines, 
 	bind_group_layout: VecMap<Share<BindGroupLayout>>,
+	create_shader_info: &Share<BindGroupLayout>,
 	device: &RenderDevice,
 	shaders: &XHashMap<ShaderId, Shader>,
 ) -> Program {

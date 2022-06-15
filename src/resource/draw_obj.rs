@@ -13,7 +13,7 @@ use pi_share::Share;
 use pi_slotmap::{SlotMap, DefaultKey};
 use wgpu::{PipelineLayout, ShaderModule, Sampler};
 
-use crate::{components::{draw_obj::{VSDefines, FSDefines}, pass_2d::Pass2D}, utils::{tools::{calc_hash, calc_float_hash}, shader_helper::{create_matrix_group_layout, create_depth_layout, create_view_layout, create_project_layout}}};
+use crate::{components::{draw_obj::{VSDefines, FSDefines}, pass_2d::Pass2D}, utils::{tools::{calc_hash, calc_float_hash}, shader_helper::{create_matrix_group_layout, create_depth_layout, create_view_layout, create_project_layout, create_empty_layout}}};
 
 /// viewMatrix、projectMatrix 的BindGroupLayout
 #[derive(Deref)]
@@ -50,6 +50,7 @@ pub struct ShaderStatic {
 		vs_defines: &VSDefines, 
 		fs_defines: &FSDefines, 
 		bind_group_layout: VecMap<Share<BindGroupLayout>>,
+		empty_group_layout: &Share<BindGroupLayout>,
 		device: &RenderDevice,
 		shaders: &XHashMap<ShaderId, Shader>,
 	) -> Program,
@@ -188,6 +189,7 @@ pub struct ShareLayout {
 	pub matrix: Share<BindGroupLayout>,
 	pub view: Share<BindGroupLayout>,
 	pub project: Share<BindGroupLayout>,
+	pub empty: Share<BindGroupLayout>,
 }
 
 impl FromWorld for ShareLayout {
@@ -198,9 +200,13 @@ impl FromWorld for ShareLayout {
 			view: Share::new(create_view_layout(device)),
 			matrix: Share::new(create_matrix_group_layout(device)),
 			depth: Share::new(create_depth_layout(device)),
+			empty: Share::new(create_empty_layout(device)),
 		}
     }
 }
+
+#[derive(Debug, Clone)]
+pub struct EmptyBind(pub Handle<RenderRes<BindGroup>>);
 
 /// 清屏颜色的bindgroup（用户设置）
 pub struct ClearColorBindGroup(pub Option<Handle<RenderRes<BindGroup>>>);

@@ -1,13 +1,14 @@
 use std::collections::hash_map::Entry;
 
+use pi_assets::{mgr::AssetMgr, asset::Handle};
 use pi_ecs::prelude::{Query, Changed, Added, ResMut, Res, OrDefault, Or};
 use pi_ecs_macros::setup;
-use pi_render::rhi::{device::RenderDevice, pipeline::RenderPipeline};
+use pi_render::rhi::{device::RenderDevice, pipeline::RenderPipeline, bind_group_layout::BindGroupLayout, bind_group::BindGroup, asset::RenderRes};
 use pi_share::Share;
 
 use crate::{
-	components::draw_obj::{VSDefines, FSDefines, VertexBufferLayoutKey, PipelineKey, ShaderKey, DrawObject, DrawState}, 
-	resource::draw_obj::{Shaders, ShaderInfoMap, VertexBufferLayoutMap, PipelineMap, StateMap, ShaderCatch}
+	components::draw_obj::{VSDefines, FSDefines, DrawObject, DrawState}, 
+	resource::draw_obj::{Shaders, ShaderInfoMap, VertexBufferLayoutMap, PipelineMap, StateMap, ShaderCatch, ShareLayout}, system::shader_utils::StaticIndex
 };
 use crate::utils::tools::calc_hash;
 
@@ -23,10 +24,8 @@ impl CalcPipeline {
 			(
 				OrDefault<VSDefines>,
 				OrDefault<FSDefines>,
-				&ShaderKey,
+				&StaticIndex,
 				&mut DrawState,
-				&PipelineKey,
-				&VertexBufferLayoutKey,
 			),
 			Or<(Changed<VSDefines>, Changed<FSDefines>, Added<DrawState>)>>,
 		device: Res<'a, RenderDevice>,
@@ -36,22 +35,19 @@ impl CalcPipeline {
 		mut pipeline_map: ResMut<'a, PipelineMap>,
 		vertex_buffer_layout_map: Res<'a, VertexBufferLayoutMap>,
 		shader_catch: Res<'a, ShaderCatch>,
+		share_layout: Res<'a, ShareLayout>,
 	) {
 		for (
 			vs_defines, 
 			fs_defines, 
-			shader_id, 
-			mut draw_state,
-			pipeline_state,
-			vertex_buffer_layout) in query_draw.iter_mut() {
+			static_index,
+			mut draw_state) in query_draw.iter_mut() {
 			
 			// 根据shader_id、vs_defines、fs_defines、pipeline_state的hash命中RenderPipeline
 			let pipeline = Self::calc_pipeline(
 				&vs_defines,
 				&fs_defines,
-				pipeline_state,
-				shader_id,
-				vertex_buffer_layout,
+				&static_index,
 
 				&shader_statics,
 				&device,
@@ -61,6 +57,7 @@ impl CalcPipeline {
 
 				&mut pipeline_map,
 				&mut shader_map,
+				&share_layout,
 			);
 
 			// 设置pipeline
@@ -71,9 +68,7 @@ impl CalcPipeline {
 	pub fn calc_pipeline(
 		vs_defines: &VSDefines,
 		fs_defines: &FSDefines,
-		pipeline_state: &PipelineKey,
-		shader_id: &ShaderKey,
-		vertex_buffer_layout: &VertexBufferLayoutKey,
+		static_index: &StaticIndex,
 
 		shader_statics: &Shaders,
 		device: &RenderDevice,
@@ -83,15 +78,16 @@ impl CalcPipeline {
 
 		pipeline_map: &mut PipelineMap,
 		shader_map: &mut ShaderInfoMap,
+		share_layout: &ShareLayout,
 	) -> Share<RenderPipeline> {
 		println!("====={:?}, {:?}", &vs_defines.0, &fs_defines.0);
-		match pipeline_map.0.entry(calc_hash(&(shader_id, vs_defines, fs_defines, pipeline_state))) {
+		match pipeline_map.0.entry(calc_hash(&(static_index.shader, vs_defines, fs_defines, static_index.pipeline_state))) {
 			Entry::Vacant(_r) => {
 				// 缓存未命中pipeline，取到编译后的shader（也是先从缓存命中）
-				let shader_info = match shader_map.0.entry(calc_hash(&(shader_id, vs_defines, fs_defines))) {
+				let shader_info = match shader_map.0.entry(calc_hash(&(static_index.shader, vs_defines, fs_defines))) {
 					Entry::Vacant(r) => {
 						// 如果缓存未命中shader，从缓存表中取到shader的静态信息
-						let shader = match shader_statics.0.get(shader_id.0) {
+						let shader = match shader_statics.0.get(static_index.shader) {
 							Some(r) => r,
 							None => panic!("shader is not exist, create pipeline fail!"),
 						};
@@ -106,6 +102,7 @@ impl CalcPipeline {
 							&vs_defines,
 							&fs_defines,
 							bind_group_layout,
+							&share_layout.empty,
 							&device,
 							&shader_catch.0,
 						);
@@ -113,7 +110,7 @@ impl CalcPipeline {
 					},
 					Entry::Occupied(r) => r.get().clone(),
 				};
-				let vertex_buffer_layout = (*vertex_buffer_layout_map).get(vertex_buffer_layout.0).unwrap();
+				let vertex_buffer_layout = (*vertex_buffer_layout_map).get(static_index.vertex_buffer_index).unwrap();
 				let vertex_buffer_layout: Vec<wgpu::VertexBufferLayout> = vertex_buffer_layout.iter().map(|r| {
 					wgpu::VertexBufferLayout {
 						array_stride: r.array_stride,
@@ -121,7 +118,7 @@ impl CalcPipeline {
 						attributes: &r.attributes,
 					}
 				}).collect();
-				let pipeline_state = state_map.get(pipeline_state.0).unwrap();
+				let pipeline_state = state_map.get(static_index.pipeline_state).unwrap();
 				// 创建pipline
 				let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
 					label: Some("bg_color pipeline"),
@@ -146,5 +143,21 @@ impl CalcPipeline {
 			Entry::Occupied(r) => r.get().clone(),
 		}
 	}
+}
+
+pub fn create_empty_bind_group(
+	device: &RenderDevice, 
+	group_layout: &BindGroupLayout,
+	bind_group_assets: &Share<AssetMgr<RenderRes<BindGroup>>>
+) -> Handle<RenderRes<BindGroup>> {
+	let key = calc_hash(&"empty group");
+	let r = device.create_bind_group(&wgpu::BindGroupDescriptor {
+		layout: group_layout,
+		entries: &[],
+		label: Some("color group create"),
+	});
+
+	bind_group_assets.cache(key, RenderRes::new(r, 5));
+	bind_group_assets.get(&key).unwrap()
 }
 

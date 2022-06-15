@@ -12,7 +12,7 @@ use pi_share::Share;
 use pi_slotmap::{DefaultKey, KeyData};
 use wgpu::IndexFormat;
 
-use crate::{components::{user::{Node, Overflow, Aabb2, Vector4, Point2, Matrix4, Transform, TransformFunc}, calc::{RenderContextMark, WorldMatrix, Pass2DId, TransformWillChangeMatrix, NodeId, OverflowAabb, LayoutResult, Quad}, pass_2d::{Pass2D, ParentPassId, PostProcessList, PostProcess}, draw_obj::{DrawObject, DrawState, ShaderKey, PipelineKey, VertexBufferLayoutKey, VSDefines}}, resource::{RenderContextMarkType, draw_obj::{UnitQuadBuffer, ShareLayout}}, utils::{tools::intersect, shader_helper::VIEW_GROUP}, system::shader_utils::{post_process::PostProcessStaticIndex, create_camera_bind_group, image::{POST_TEXTURE_GROUP, POST_UV_LOCATION}}};
+use crate::{components::{user::{Node, Overflow, Aabb2, Vector4, Point2, Matrix4, Transform, TransformFunc}, calc::{RenderContextMark, WorldMatrix, Pass2DId, TransformWillChangeMatrix, NodeId, OverflowAabb, LayoutResult, Quad}, pass_2d::{Pass2D, ParentPassId, PostProcessList, PostProcess}, draw_obj::{DrawObject, DrawState, VSDefines}}, resource::{RenderContextMarkType, draw_obj::{UnitQuadBuffer, ShareLayout, EmptyBind}}, utils::{tools::intersect, shader_helper::VIEW_GROUP}, system::shader_utils::{post_process::{PostProcessStaticIndex, CalcPostProcessShader, POST_TEXTURE_GROUP, POST_UV_LOCATION}, create_camera_bind_group, StaticIndex}};
 
 pub struct CalcOverflow;
 
@@ -63,10 +63,8 @@ impl CalcOverflow {
 		mut draw_state_commands: Commands<DrawObject, DrawState>,
 		mut draw_obj_commands: EntityCommands<DrawObject>,
 		mut node_id_commands: Commands<DrawObject, NodeId>,
-		mut shader_id_commands: Commands<DrawObject, ShaderKey>,
-		mut pipeline_state_commands: Commands<DrawObject, PipelineKey>,
-		mut vertex_buffer_layout_commands: Commands<DrawObject, VertexBufferLayoutKey>,
 		mut vs_defines_commands: Commands<DrawObject, VSDefines>,
+		mut shader_static_commands: Commands<DrawObject, StaticIndex>,
 		share_layout: Res<ShareLayout>,
 
 		unit_quad_buffer: Res<UnitQuadBuffer>,
@@ -74,6 +72,7 @@ impl CalcOverflow {
 
 		buffer_assets: Res<'static, Share<AssetMgr<RenderRes<Buffer>>>>,
 		bind_group_assets: Res<'static, Share<AssetMgr<RenderRes<BindGroup>>>>,
+		empty_group: Res<EmptyBind>,
 
 	) {
 		for (id, pass_id, layer, tracker_matrix, tracker_willchange, tracker_overflow, tracker_layer) in query.iter() {
@@ -134,7 +133,7 @@ impl CalcOverflow {
 						let height = layout.rect.bottom - layout.rect.top;
 
 						let aabb = cal_no_rotate_box(&Aabb2::new(Point2::new(0.0, 0.0), Point2::new(width, height)), &(rotate_matrix_invert * matrix.0));
-						println!("==={:?}\n{:?}\n{:?}\n{:?}\n{:?}", width, height, rotate_matrix_invert, &matrix.0, rotate_matrix_invert * matrix.0);
+						println!("==={:?}\n{:?}\n{:?}\n{:?}\n{:?}\naabb: {:?}", width, height, rotate_matrix_invert, &matrix.0, rotate_matrix_invert * matrix.0, aabb);
 						
 
 						overflow_aabb.write(OverflowAabb {
@@ -160,7 +159,7 @@ impl CalcOverflow {
 							None => {
 								let new_draw_obj = draw_obj_commands.spawn();
 								// 设置DrawState（包含color group）
-								let mut draw_state = DrawState::default();
+								let mut draw_state = CalcPostProcessShader::create_draw_state(&empty_group);
 								draw_state.vbs.insert(0, (unit_quad_buffer.vertex.clone(), 0));
 								draw_state.ib = Some((unit_quad_buffer.index.clone(), 6, IndexFormat::Uint16));
 								// opacity
@@ -176,12 +175,7 @@ impl CalcOverflow {
 								draw_state_commands.insert(new_draw_obj, draw_state);
 								// 建立DrawObj对Node的索引
 								node_id_commands.insert(new_draw_obj, NodeId(*id));
-								//shader
-								shader_id_commands.insert(new_draw_obj, ShaderKey(static_index.shader));
-								// pipeline
-								pipeline_state_commands.insert(new_draw_obj, PipelineKey(static_index.pipeline_state));
-								// vertex_buffer_layout
-								vertex_buffer_layout_commands.insert(new_draw_obj, VertexBufferLayoutKey(static_index.vertex_buffer_index));
+								shader_static_commands.insert(new_draw_obj, static_index.clone());
 								// fs defines - OPACITY
 								let mut vs_defines = VSDefines::default();
 								vs_defines.insert("VIEW".to_string());

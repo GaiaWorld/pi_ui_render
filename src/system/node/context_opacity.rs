@@ -8,7 +8,7 @@ use pi_share::Share;
 use pi_slotmap::{DefaultKey, KeyData};
 use wgpu::IndexFormat;
 
-use crate::{components::{user::{Node, Opacity}, calc::{RenderContextMark, Pass2DId, NodeId}, pass_2d::{PostProcessList, Pass2D, PostProcess}, draw_obj::{DrawObject, DrawState, ShaderKey, PipelineKey, VertexBufferLayoutKey, FSDefines}}, resource::{RenderContextMarkType, draw_obj::{UnitQuadBuffer, Shaders}}, system::shader_utils::post_process::{PostProcessStaticIndex, POST_TEXTURE_GROUP, POST_UV_LOCATION, OPACITY_GROUP}, utils::tools::calc_float_hash};
+use crate::{components::{user::{Node, Opacity}, calc::{RenderContextMark, Pass2DId, NodeId}, pass_2d::{PostProcessList, Pass2D, PostProcess}, draw_obj::{DrawObject, DrawState, FSDefines}}, resource::{RenderContextMarkType, draw_obj::{UnitQuadBuffer, Shaders, EmptyBind}}, system::shader_utils::{post_process::{PostProcessStaticIndex, POST_TEXTURE_GROUP, POST_UV_LOCATION, OPACITY_GROUP, CalcPostProcessShader}, StaticIndex}, utils::tools::calc_float_hash};
 
 pub struct CalcOpacity;
 
@@ -68,9 +68,7 @@ impl CalcOpacityPostProcess {
 		mut draw_state_commands: Commands<DrawObject, DrawState>,
 		mut draw_obj_commands: EntityCommands<DrawObject>,
 		mut node_id_commands: Commands<DrawObject, NodeId>,
-		mut shader_id_commands: Commands<DrawObject, ShaderKey>,
-		mut pipeline_state_commands: Commands<DrawObject, PipelineKey>,
-		mut vertex_buffer_layout_commands: Commands<DrawObject, VertexBufferLayoutKey>,
+		mut shader_static_commands: Commands<DrawObject, StaticIndex>,
 		mut fs_defines_commands: Commands<DrawObject, FSDefines>,
 
 		unit_quad_buffer: Res<UnitQuadBuffer>,
@@ -79,6 +77,7 @@ impl CalcOpacityPostProcess {
 
 		buffer_assets: Res<'static, Share<AssetMgr<RenderRes<Buffer>>>>,
 		bind_group_assets: Res<'static, Share<AssetMgr<RenderRes<BindGroup>>>>,
+		empty_group: Res<'static, EmptyBind>,
 	) {
 		for (node, opacity, pass2d_id) in opacity_dirty.iter() {
 			let pass2d_id = match pass2d_id {
@@ -110,7 +109,7 @@ impl CalcOpacityPostProcess {
 						None => {
 							let new_draw_obj = draw_obj_commands.spawn();
 							// 设置DrawState（包含color group）
-							let mut draw_state = DrawState::default();
+							let mut draw_state = CalcPostProcessShader::create_draw_state(&empty_group);
 							draw_state.vbs.insert(0, (unit_quad_buffer.vertex.clone(), 0));
 							draw_state.ib = Some((unit_quad_buffer.index.clone(), 6, IndexFormat::Uint16));
 							// opacity
@@ -125,12 +124,8 @@ impl CalcOpacityPostProcess {
 							draw_state_commands.insert(new_draw_obj, draw_state);
 							// 建立DrawObj对Node的索引
 							node_id_commands.insert(new_draw_obj, NodeId(node));
-							//shader
-							shader_id_commands.insert(new_draw_obj, ShaderKey(static_index.shader));
-							// pipeline
-							pipeline_state_commands.insert(new_draw_obj, PipelineKey(static_index.pipeline_state));
-							// vertex_buffer_layout
-							vertex_buffer_layout_commands.insert(new_draw_obj, VertexBufferLayoutKey(static_index.vertex_buffer_index));
+
+							shader_static_commands.insert(new_draw_obj, static_index.clone());
 							// fs defines - OPACITY
 							let mut fs_defines = FSDefines::default();
 							fs_defines.insert("OPACITY".to_string());

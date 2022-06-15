@@ -16,9 +16,9 @@ use crate::{
 	components::{
 		user::{Node, Matrix4}, 
 		calc::{DrawList, WorldMatrix, LayoutResult, Pass2DId}, 
-		draw_obj::{IsUnitQuad, ShaderKey, DrawObject, DrawState}
+		draw_obj::{IsUnitQuad, DrawObject, DrawState}
 	}, 
-	utils::{shader_helper::WORLD_MATRIX_GROUP, tools::calc_float_hash}, resource::draw_obj::Shaders};
+	utils::{shader_helper::WORLD_MATRIX_GROUP, tools::calc_float_hash}, resource::draw_obj::Shaders, system::shader_utils::StaticIndex};
 
 pub struct CalcWorldMatrixGroup;
 
@@ -28,7 +28,7 @@ impl CalcWorldMatrixGroup {
 	#[system]
 	pub async fn calc_matrix_group<'a>(
 		mut query: Query<Node, (&WorldMatrix, &LayoutResult, &DrawList), Or<(Added<Pass2DId>,Changed<DrawList>, Changed<WorldMatrix>)>>,
-		query_draw: Query<DrawObject, (Write<DrawState>, Option<&IsUnitQuad>, &ShaderKey)>,
+		query_draw: Query<DrawObject, (Write<DrawState>, Option<&IsUnitQuad>, &StaticIndex)>,
 		device: Res<'a, RenderDevice>,
 		shader_static: Res<'a, Shaders>,
 
@@ -43,9 +43,9 @@ impl CalcWorldMatrixGroup {
 				if let Some((
 					mut draw_data, 
 					is_unit_quad, 
-					shader_key,
+					static_index,
 				)) = query_draw.get(*draw_obj) {
-					let matrix_static = match shader_static.get(**shader_key) {
+					let matrix_static = match shader_static.get(static_index.shader) {
 						Some(r) => r.bind_group.get(WORLD_MATRIX_GROUP).unwrap(),
 						None => continue,
 					};
@@ -60,6 +60,7 @@ impl CalcWorldMatrixGroup {
 									0.0, 0.0,
 									matrix
 								);
+								println!("matrix====={:?}", matrix);
 								unit_quad_matrix = Some(matrix);
 								unit_quad_matrix.as_ref().unwrap()
 							}
@@ -68,6 +69,7 @@ impl CalcWorldMatrixGroup {
 						// 否者，世界矩阵使用节点的世界矩阵
 						matrix
 					};
+					println!("matrix1====={:?}", matrix);
 					modify_world_matrix(matrix_slice, draw_data.get_mut().unwrap(), &device, &matrix_static, &buffer_assets, &bind_group_assets);
 					draw_data.notify_modify();
 				}

@@ -11,12 +11,13 @@ use pi_slotmap::DefaultKey;
 use crate::{resource::draw_obj::{ShareLayout, ShaderCatch, ShaderMap, ShaderStatic, Program}, utils::{shader_helper::{WORLD_MATRIX_GROUP, DEPTH_GROUP, PROJECT_GROUP, VIEW_GROUP}, tools::calc_float_hash}, components::{draw_obj::{FSDefines, VSDefines}, user::Matrix4}};
 
 pub mod post_process;
-pub mod image;
+pub mod with_vert_color;
 pub struct GlslShaderStatic {
 	pub shader_vs: ShaderId,
 	pub shader_fs: ShaderId,
 }
 
+#[derive(Clone, Debug)]
 pub struct StaticIndex {
 	pub shader: usize,
 	pub pipeline_state: DefaultKey,
@@ -74,6 +75,7 @@ pub fn create_shader_common_static(
 		vs_defines: &VSDefines, 
 		fs_defines: &FSDefines, 
 		bind_group_layout: VecMap<Share<BindGroupLayout>>,
+		empty_group_layout: &Share<BindGroupLayout>,
 		device: &RenderDevice,
 		shaders: &XHashMap<ShaderId, Shader>,
 	) -> Program
