@@ -285,7 +285,7 @@ pub struct TextStyle {
 	pub font_style: FontStyle, //	规定字体样式。参阅：font-style 中可能的值。
     pub font_weight: usize,    //	规定字体粗细。参阅：font-weight 中可能的值。
     pub font_size: FontSize,   //
-    pub font_family: usize,     //	规定字体系列。参阅：font-family 中可能的值。
+    pub font_family: Atom,     //	规定字体系列。参阅：font-family 中可能的值。
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, Deref, DerefMut)]
@@ -402,6 +402,7 @@ pub struct RadialGradientColor {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ColorAndPosition {
+	// 位置百分比0~1
     pub position: f32,
     pub rgba: CgColor,
 }
@@ -474,7 +475,7 @@ pub fn to_radial_gradient_color(
 
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub struct Stroke {
-    pub width: f32,     //	描边宽度
+    pub width: NotNan<f32>,     //	描边宽度
     pub color: CgColor, //	描边颜色
 }
 
@@ -502,7 +503,7 @@ pub enum BorderImageRepeatType {
 #[derive(Debug, Clone, Copy, EnumDefault, Serialize, Deserialize)]
 pub enum FontSize {
     None,         // 默认尺寸。
-    Length(f32),  //把 font-size 设置为一个固定的值。
+    Length(usize),  //把 font-size 设置为一个固定的值。
     Percent(f32), //把 font-size 设置为基于父元素的一个百分比值。
 }
 

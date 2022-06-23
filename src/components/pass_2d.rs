@@ -128,7 +128,6 @@ impl Default for LastDirtyRect {
 pub enum DirtyRectState {
 	UnInit,
 	Inited,
-	Active,
 }
 
 /// 后处理
@@ -180,10 +179,14 @@ pub enum RenderTarget {
 	// 渲染到一个指定的离屏fbo
 	OffScreen(ShareTargetView),
 	// 渲染到屏幕
-	Screen {
-		aabb: Aabb2,
-		depth: Option<Handle<RenderRes<wgpu::TextureView>>>,
-	},
+	Screen,
 	// // 自动分配一个fbo来进行渲染
 	// Auto(Option<ShareTargetView>),
 }
+
+pub struct ScreenTarget {
+	pub aabb: Aabb2,
+	pub depth: Option<Handle<RenderRes<wgpu::TextureView>>>,
+}
+
+

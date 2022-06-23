@@ -12,7 +12,7 @@ use pi_share::Share;
 use pi_slotmap::{DefaultKey, KeyData};
 use wgpu::IndexFormat;
 
-use crate::{components::{user::{Node, Overflow, Aabb2, Vector4, Point2, Matrix4, Transform, TransformFunc}, calc::{RenderContextMark, WorldMatrix, Pass2DId, TransformWillChangeMatrix, NodeId, OverflowAabb, LayoutResult, Quad}, pass_2d::{Pass2D, ParentPassId, PostProcessList, PostProcess}, draw_obj::{DrawObject, DrawState, VSDefines}}, resource::{RenderContextMarkType, draw_obj::{UnitQuadBuffer, ShareLayout, EmptyBind}}, utils::{tools::intersect, shader_helper::VIEW_GROUP}, system::shader_utils::{post_process::{PostProcessStaticIndex, CalcPostProcessShader, POST_TEXTURE_GROUP, POST_UV_LOCATION}, create_camera_bind_group, StaticIndex}};
+use crate::{components::{user::{Node, Overflow, Aabb2, Vector4, Point2, Matrix4}, calc::{RenderContextMark, WorldMatrix, Pass2DId, TransformWillChangeMatrix, NodeId, OverflowAabb, LayoutResult, Quad}, pass_2d::{Pass2D, ParentPassId, PostProcessList, PostProcess}, draw_obj::{DrawObject, DrawState, VSDefines}}, resource::{RenderContextMarkType, draw_obj::{UnitQuadBuffer, ShareLayout, EmptyBind}}, utils::{tools::intersect, shader_helper::VIEW_GROUP}, system::shader_utils::{post_process::{PostProcessStaticIndex, CalcPostProcessShader, POST_TEXTURE_GROUP, POST_UV_LOCATION}, create_camera_bind_group, StaticIndex}};
 
 pub struct CalcOverflow;
 
@@ -99,8 +99,9 @@ impl CalcOverflow {
 						break;
 					}
 					cur_id = parent_id;
+				} else {
+					break;
 				}
-				break;
 			}
 			
 			if parent_changed || *is_changed {

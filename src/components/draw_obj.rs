@@ -7,7 +7,6 @@ use pi_hash::XHashSet;
 use pi_map::vecmap::VecMap;
 use pi_render::rhi::{bind_group::BindGroup, buffer::Buffer, IndexFormat, pipeline::RenderPipeline, asset:: RenderRes};
 use pi_share::Share;
-use pi_slotmap::DefaultKey;
 use wgpu::RenderPass;
 
 pub type DrawKey = Id<DrawObject>;
@@ -63,7 +62,7 @@ impl DrawState {
 }
 
 /// 是否使用单位四边形渲染
-#[derive(Default, Deref, DerefMut)]
+#[derive(Default, Deref, DerefMut, PartialEq, Eq)]
 pub struct IsUnitQuad(pub bool);
 
 /// vs shader的宏开关

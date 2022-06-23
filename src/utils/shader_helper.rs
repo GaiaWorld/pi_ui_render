@@ -1,5 +1,4 @@
-use naga::Handle;
-use pi_render::rhi::{device::RenderDevice, bind_group_layout::BindGroupLayout, bind_group::BindGroup, asset::RenderRes};
+use pi_render::rhi::{device::RenderDevice, bind_group_layout::BindGroupLayout};
 
 pub const PROJECT_GROUP: usize = 0;
 pub const VIEW_GROUP: usize = 1;

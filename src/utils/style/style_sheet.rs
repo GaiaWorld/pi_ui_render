@@ -3,12 +3,13 @@
 use std::mem::forget;
 
 use bitvec::array::BitArray;
+use pi_atom::Atom;
 use pi_ecs::{entity::Id, prelude::{Query, Write}};
 use pi_flex_layout::{style::{Dimension, Direction, JustifyContent, FlexDirection, AlignItems, AlignContent, FlexWrap, AlignSelf, PositionType as PositionType1, Display}, prelude::Number};
 use pi_hash::XHashMap;
 
 use crate::components::{user::{
-	Node, Size, Margin, Padding, Position, Border, MinMax, FlexContainer, FlexNormal, ZIndex, Overflow, Opacity, BlendMode, Transform, Show, BackgroundColor, BorderColor, BackgroundImage, MaskImage, MaskImageClip, Hsi, Blur, ObjectFit, BackgroundImageClip, BorderImage, BorderImageClip, BorderImageSlice, BorderImageRepeat, BorderRadius, BoxShadow, TextStyle, TransformOrigin, FontSize, FontStyle, LineHeight, TextAlign, VerticalAlign, Color, Stroke, TextShadows, TransformFuncs, WhiteSpace, Enable, TransformWillChange
+	Node, Size, Margin, Padding, Position, Border, MinMax, FlexContainer, FlexNormal, ZIndex, Overflow, Opacity, BlendMode, Transform, Show, BackgroundColor, BorderColor, BackgroundImage, MaskImage, MaskImageClip, Hsi, Blur, ObjectFit, BackgroundImageClip, BorderImage, BorderImageClip, BorderImageSlice, BorderImageRepeat, BorderRadius, BoxShadow, TextStyle, TransformOrigin, FontSize, FontStyle, LineHeight, TextAlign, VerticalAlign, Color, Stroke, TextShadows, TransformFuncs, WhiteSpace, Enable, TransformWillChange, TextContent
 }, calc::StyleType};
 
 // 全局Class样式表
@@ -383,13 +384,14 @@ impl_style!(FontStyleType, text_style, font_style, FontStyle, FontStyle);
 
 impl_style!(FontWeightType, text_style, font_weight, FontWeight, usize);
 impl_style!(FontSizeType, text_style, font_size, FontSize, FontSize);
-impl_style!(FontFamilyType, text_style, font_family, FontFamily, usize);
+impl_style!(FontFamilyType, text_style, font_family, FontFamily, Atom);
 impl_style!(LetterSpacingType, text_style, letter_spacing, LetterSpacing, f32);
 impl_style!(WordSpacingType, text_style, word_spacing, WordSpacing, f32);
 impl_style!(LineHeightType, text_style, line_height, LineHeight, LineHeight);
 impl_style!(TextIndentType, text_style, text_indent, TextIndent, f32);
 impl_style!(WhiteSpaceType, text_style, white_space, WhiteSpace, WhiteSpace);
 
+impl_style!(TextContentType, text_content, TextContent);
 impl_style!(TextAlignType, text_style, text_align, TextAlign, TextAlign);
 impl_style!(VerticalAlignType, text_style, vertical_align, VerticalAlign, VerticalAlign);
 impl_style!(ColorType, text_style, color, Color, Color);
@@ -490,13 +492,13 @@ impl_style!(FlexWrapType, flex_container, flex_wrap, FlexWrap, FlexWrap);
 
 
 lazy_static! {
-	static ref STYLE_ATTR: [Box<dyn Attr>; 81] = [
-		Box::new(PaddingTopType(Dimension::default())), // 0 empty
+	static ref STYLE_ATTR: [Box<dyn Attr>; 82] = [
+		Box::new(PaddingTopType(Dimension::default())), // 0 empty 占位， 无实际作用
 		Box::new(PaddingTopType(Dimension::default())), // 1 text
 		Box::new(FontStyleType(FontStyle::default())), // 2
 		Box::new(FontWeightType(usize::default())), // 3
 		Box::new(FontSizeType(FontSize::default())), // 4
-		Box::new(FontFamilyType(usize::default())), // 5
+		Box::new(FontFamilyType(Atom::from(""))), // 5
 		Box::new(LetterSpacingType(f32::default())), // 6
 		Box::new(WordSpacingType(f32::default())), // 7
 		Box::new(LineHeightType(LineHeight::default())), // 8
@@ -589,9 +591,7 @@ lazy_static! {
 		Box::new(PaddingType(Padding::default())), // 79
 		Box::new(OpacityType(Opacity::default())), // 80
 		
-		
-
-		
+		Box::new(TextContentType(TextContent::default())), // 81
 	];
 }
 impl_style!(FlexShrinkType, flex_normal, flex_shrink, FlexShrink, f32);
@@ -640,6 +640,7 @@ pub struct StyleQuery {
 	pub box_shadow: Query<Node, Write<BoxShadow>>,
 	pub text_style: Query<Node, Write<TextStyle>>,
 	pub transform_will_change: Query<Node, Write<TransformWillChange>>,
+	pub text_content: Query<Node, Write<TextContent>>,
 }
 
 pub struct StyleAttr;

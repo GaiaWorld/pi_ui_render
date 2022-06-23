@@ -21,7 +21,7 @@ use pi_flex_layout::{
 use pi_dirty::LayerDirty;
 use pi_null::Null;
 use pi_slotmap_tree::{Storage, Up, Down};
-use crate::components::{user::{Node, Size, Margin, Padding, Border, Position, MinMax, FlexContainer, FlexNormal, Show}, calc::{LayoutResult, NodeState}};
+use crate::components::{user::{Node, Size, Margin, Padding, Border, Position, MinMax, FlexContainer, FlexNormal, Show, TextContent, TextStyle}, calc::{LayoutResult, NodeState}};
 
 pub struct CalcLayout;
 
@@ -57,6 +57,8 @@ impl CalcLayout {
 				ChangeTrackers<FlexNormal>,
 				ChangeTrackers<Layer>,
 				ChangeTrackers<Show>,
+				ChangeTrackers<TextContent>,
+				ChangeTrackers<TextStyle>,
 				// ChangeTrackers<CharNode>,
 			), 
 			Or<(
@@ -70,6 +72,8 @@ impl CalcLayout {
 				Changed<FlexNormal>,
 				Changed<Layer>,
 				Changed<Show>,
+				Changed<TextContent>,
+				Changed<TextStyle>,
 				// Changed<Show>,
 			)>
 		>,
@@ -122,6 +126,8 @@ impl CalcLayout {
 			flex_normal,
 			layer,
 			show,
+			text_context,
+			text_style,
 			// char_node
 		) in dirtys.iter() {
 			// log::info!("calc layout===================={:?}", e.local().offset());
@@ -129,6 +135,11 @@ impl CalcLayout {
 				
 			// log::info!("calc layout1===================={:?}", e.local().offset());
 				layout.set_rect(&mut layer_dirty, LayoutKey{entity:e, text_index: usize::null()} , true, true);
+			}
+
+			// 文字修改，标记子脏
+			if text_context.is_changed() || text_style.is_changed() {
+				layout.mark_children_dirty(&mut layer_dirty, LayoutKey{entity:e, text_index: usize::null()});
 			}
 
 

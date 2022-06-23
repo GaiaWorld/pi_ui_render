@@ -15,6 +15,7 @@ pub mod context_mask_texture;
 pub mod context_overflow;
 pub mod context_root;
 pub mod background_color;
+pub mod text;
 pub mod context_transform_will_change;
 
 

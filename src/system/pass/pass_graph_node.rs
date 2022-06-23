@@ -1,4 +1,4 @@
-use std::{borrow::BorrowMut, mem::replace};
+use std::borrow::BorrowMut;
 
 use pi_assets::{mgr::AssetMgr, asset::Handle};
 use pi_ecs_macros::{listen, setup};
@@ -17,7 +17,7 @@ use pi_slotmap::DefaultKey;
 use smallvec::SmallVec;
 use wgpu::RenderPass;
 
-use crate::{components::{draw_obj::{DrawObject, DrawState}, pass_2d::{Camera, Draw2DList, Pass2DKey, Pass2D, PostProcessList, PostProcess, RenderTarget, DrawIndex, PostTemp, ViewMatrix}, user::{Aabb2, Matrix4}}, resource::{Viewport, draw_obj::{DynFboClearColorBindGroup, ClearColorBindGroup, CommonSampler, ShareLayout}, ClearDrawObj}, utils::{tools::{calc_hash, calc_float_hash}, shader_helper::{WORLD_MATRIX_GROUP, PROJECT_GROUP, VIEW_GROUP}}, system::{node::background_color::COLOR_GROUP, draw_obj::world_marix::create_world_matrix_bind}};
+use crate::{components::{draw_obj::{DrawObject, DrawState}, pass_2d::{Camera, Draw2DList, Pass2DKey, Pass2D, PostProcessList, PostProcess, RenderTarget, DrawIndex, PostTemp, ViewMatrix, ScreenTarget}, user::{Aabb2, Matrix4, Point2}}, resource::{Viewport, draw_obj::{DynFboClearColorBindGroup, ClearColorBindGroup, CommonSampler, ShareLayout, CopyFboToScreen}, ClearDrawObj}, utils::{tools::{calc_hash, calc_float_hash}, shader_helper::{WORLD_MATRIX_GROUP, PROJECT_GROUP, VIEW_GROUP}}, system::{ draw_obj::world_marix::create_world_matrix_bind, shader_utils::color::COLOR_GROUP}};
 
 
 /// Pass2D 渲染图节点
@@ -40,6 +40,7 @@ pub struct Param<'s> {
 	draw_query: QueryState<DrawObject, &'static DrawState>,
 	post_query: QueryState<Pass2D, &'static PostProcessList>,
 	last_rt: &'s RenderTarget,
+	screen: &'s ScreenTarget,
 	surface: &'s ScreenTexture,
 	atlas_allocator: &'s SafeAtlasAllocator,
 	t_type: &'s DynTargetType,
@@ -54,6 +55,8 @@ pub struct Param<'s> {
 	clear_color: &'s ClearColorBindGroup,
 	clear_draw: &'s ClearDrawObj,
 	common_sampler: &'s CommonSampler,
+
+	copy_fbo: Option<&'s CopyFboToScreen>,
 }
 
 impl Pass2DNode {
@@ -86,6 +89,7 @@ impl Node for Pass2DNode {
 				draw_query: QueryState::<DrawObject, &'static DrawState>::new(&mut world),
 				post_query: QueryState::<Pass2D, &'static PostProcessList>::new(&mut world),
 				last_rt: world.get_resource::<RenderTarget>().unwrap(),
+				screen: world.get_resource::<ScreenTarget>().unwrap(),
 				surface: world.get_resource::<ScreenTexture>().unwrap(),
 				atlas_allocator: world.get_resource::<SafeAtlasAllocator>().unwrap(),
 				t_type:world.get_resource::<DynTargetType>().unwrap(),
@@ -98,6 +102,8 @@ impl Node for Pass2DNode {
 				clear_color: world.get_resource::<ClearColorBindGroup>().unwrap(),
 				clear_draw: world.get_resource::<ClearDrawObj>().unwrap(),
 				common_sampler: world.get_resource::<CommonSampler>().unwrap(),
+
+				copy_fbo: world.get_resource::<CopyFboToScreen>(),
 			};
 
 			let post_list = param.post_query.get(&world, self.pass2d_id);
@@ -112,7 +118,8 @@ impl Node for Pass2DNode {
 					// 渲染目标类型为None，表示不进行渲染（可能由父节点对它进行渲染）
 					None => return Ok(None), 
 					// 如果渲染目标类型类型为，渲染到最终目标上，并且后处理列表长度为0，则不创建离屏的fbo
-					Some(r) if r.0.len() == 0 => (None, param.clear_color.0.as_ref()),
+					Some(r) if r.0.len() == 0 => //(None, param.clear_color.0.as_ref()),
+					(None, Some(&param.fbo_clear_color.0)),
 					// 渲染类型为新建渲染目标对其进行渲染，则从纹理分配器中分配一个fbo矩形区
 					_ /*Some(r) if r.len() > 0*/ => (Some(param.atlas_allocator.allocate(
 						(camera.view_port.maxs.x - camera.view_port.mins.x).ceil() as u32,
@@ -123,12 +130,14 @@ impl Node for Pass2DNode {
 				};
 				
 				{
-						// 创建一个渲染Pass
+					// 创建一个渲染Pass
 					let (mut rp, view_port) = self.create_rp(rt.as_ref(),
 					commands.borrow_mut(),
-					camera,
+					&camera.view_port,
 					&param.last_rt,
+					&param.screen,
 					&param.surface,
+					None
 					);
 
 					// 设置视口
@@ -146,46 +155,79 @@ impl Node for Pass2DNode {
 						param.clear_draw.0.draw(&mut rp); // 相机在drawObj中已经描述
 					}
 					
-					// 设置相机
-					if let Some(r) = &camera.project_bind_group {
-						rp.set_bind_group(PROJECT_GROUP as u32, r, &[]);
-					}
-					if let Some(r) = &camera.view_bind_group {
-						rp.set_bind_group(VIEW_GROUP as u32, r, &[]);
-					}
+					
 					// println!("pass_node1==========================opaque: {}, transparent:{}", list.opaque.len(), list.transparent.len());
 					self.draw_list(&mut rp, &world, list, &mut param, camera, camera, &view_port, &view_port);
 				}
 				
 
-				if let (Some(r), Some(post_process)) = (rt, post_list) {
-					// 渲染后处理
-					let r = self.post_process(
-						commands.borrow_mut(),
-						r,
-						post_process,
-						param.t_type.no_depth,
-						camera,
-						&world,
-						&mut param,
-						);
-					// 设置本次后处理结果，放入最后一个后处理中
-					// 如果后处理长度为0，则无法放入（也不需要放入，长度为0表示根节点）
-					if post_process.0.len() > 0 {
-						// 只会在本节点才会修改该post_process，除非存在两个相同pass2d_id的节点（应用逻辑应该保证不会重复）
-						let post_process_mut = unsafe {&mut *( post_process as *const PostProcessList as usize as *mut PostProcessList)};
-						let data = Self::create_post_process_data(&r.0, &param, &camera.view_port);
-						post_process_mut.0[r.1].result = Some(PostTemp {
-							target: r.0.clone(),
-							texture_group: data.0,
-							matrix: data.2,
-							uv: data.1,
-						});
-						post_process_mut.1 = r.1;
+				if let Some(post_process) = post_list {
+					if let Some(r) = rt {
+						// 渲染后处理
+						let r = self.post_process(
+							commands.borrow_mut(),
+							r,
+							post_process,
+							param.t_type.no_depth,
+							camera,
+							&world,
+							&mut param,
+							);
+						// 设置本次后处理结果，放入最后一个后处理中
+						// 如果后处理长度为0，则无法放入（也不需要放入，长度为0表示根节点）
+						if post_process.0.len() > 0 {
+							// 只会在本节点才会修改该post_process，除非存在两个相同pass2d_id的节点（应用逻辑应该保证不会重复）
+							let post_process_mut = unsafe {&mut *( post_process as *const PostProcessList as usize as *mut PostProcessList)};
+							let data = Self::create_post_process_data(&r.0, &param, &camera.view_port);
+							post_process_mut.0[r.1].result = Some(PostTemp {
+								target: r.0.clone(),
+								texture_group: data.0,
+								matrix: data.2,
+								uv: data.1,
+							});
+							post_process_mut.1 = r.1;
+						} 
+
+						out = Some(r.0);
+					}
+					if post_process.0.len() == 0 {
+						if let (Some(copy_fbo), RenderTarget::OffScreen(last_rt)) = (param.copy_fbo, param.last_rt) {
+							let rect = last_rt.rect();
+							// 将最终渲染目标渲染到屏幕上
+							// 创建一个渲染Pass
+							let (mut rp, view_port) = self.create_rp(
+								None,
+								commands.borrow_mut(),
+								&Aabb2::new(
+									Point2::new(rect.min.x as f32, rect.min.y as f32),
+									Point2::new(rect.max.x as f32, rect.max.y as f32),
+								),
+								&RenderTarget::Screen,
+								&param.screen,
+								&param.surface,
+								Some(
+									wgpu::Operations {
+										load: wgpu::LoadOp::Clear(wgpu::Color{r: 0.0, g: 0.0, b: 1.0, a: 1.0}),
+										// load: wgpu::LoadOp::Load,
+										store: true,
+									}
+								)
+							);
+	
+							// 设置视口
+							rp.set_viewport(
+								view_port.0,
+								view_port.1,
+								view_port.2,
+								view_port.3,
+								0.0,
+								1.0
+							);
+	
+							copy_fbo.0.draw(&mut rp);
+						}
 					}
 					
-
-					out = Some(r.0);
 				}
 			}
 
@@ -259,12 +301,12 @@ impl Pass2DNode {
 						0.0, 
 						1.0);
 
-					if let Some(view_matrix) = &camera_new.view_bind_group {
-						rp.set_bind_group(VIEW_GROUP as u32, view_matrix, &[])
-					}
-					if let Some(project_matrix) = &camera_new.project_bind_group {
-						rp.set_bind_group(PROJECT_GROUP as u32, project_matrix, &[])
-					}
+					// if let Some(view_matrix) = &camera_new.view_bind_group {
+					// 	rp.set_bind_group(VIEW_GROUP as u32, view_matrix, &[])
+					// }
+					// if let Some(project_matrix) = &camera_new.project_bind_group {
+					// 	rp.set_bind_group(PROJECT_GROUP as u32, project_matrix, &[])
+					// }
 					// // camera.vie
 					// // 设置视图矩阵
 					// if let Some(view_matrix) = view_matrix {
@@ -350,7 +392,7 @@ impl Pass2DNode {
 	) {
 		if let Some(state) = param.draw_query.get(&world, post_process.draw_obj_key) {
 			{
-				let (mut rp, view_port) = self.create_rp(rt, commands, camera, param.last_rt, param.surface);
+				let (mut rp, view_port) = self.create_rp(rt, commands, &camera.view_port, param.last_rt, param.screen, param.surface, None);
 				rp.set_viewport(
 					view_port.0,
 					view_port.1,
@@ -376,10 +418,20 @@ impl Pass2DNode {
 		&self,
 		rt: Option<&'a ShareTargetView>,
 		commands: &'a mut CommandEncoder,
-		camera: &Camera,
+		view_port: &Aabb2,
 		last_rt: &'a RenderTarget,
+		screen: &'a ScreenTarget,
 		surface: &'a ScreenTexture,
+		ops: Option<wgpu::Operations<wgpu::Color>>,
 	) -> (RenderPass<'a>, (f32, f32, f32, f32)) {
+		let ops = match ops {
+			Some(r) => r,
+			None => wgpu::Operations {
+				// load: wgpu::LoadOp::Clear(wgpu::Color{r: 0.0, g: 0.0, b: 1.0, a: 1.0}),
+				load: wgpu::LoadOp::Load,
+				store: true,
+			}
+		};
 		match (rt, last_rt) {
 			(Some(r), _) | (None, RenderTarget::OffScreen(r)) => {
 				let rp = commands.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -389,11 +441,8 @@ impl Pass2DNode {
 						.map(|view| {
 							wgpu::RenderPassColorAttachment {
 								resolve_target: None,
-								ops: wgpu::Operations {
-									load: wgpu::LoadOp::Clear(wgpu::Color{r: 0.0, g: 0.0, b: 1.0, a: 1.0}),
-									store: true,
-								},
-								view: view,
+								ops,
+								view: &view.0,
 							}
 						})
 						.collect::<Vec<wgpu::RenderPassColorAttachment>>().as_slice(),
@@ -404,7 +453,7 @@ impl Pass2DNode {
 								load: wgpu::LoadOp::Load,
 								store: true,
 							}),
-							view: r,
+							view: &r.0,
 						}),
 						None => None,
 					},
@@ -413,22 +462,19 @@ impl Pass2DNode {
 				(rp, (
 					rect.min.x as f32,
 					rect.min.y as f32,
-					camera.view_port.maxs.x - camera.view_port.mins.x,
-					camera.view_port.maxs.y - camera.view_port.mins.y,
+					view_port.maxs.x - view_port.mins.x,
+					view_port.maxs.y - view_port.mins.y,
 				))
 			},
-			(None, RenderTarget::Screen{depth, ..}) => {
+			(None, RenderTarget::Screen) => {
 				let rp = commands.begin_render_pass(&wgpu::RenderPassDescriptor {
 					label: None,
 					color_attachments: &[wgpu::RenderPassColorAttachment {
 						resolve_target: None,
-						ops: wgpu::Operations {
-							load: wgpu::LoadOp::Clear(wgpu::Color{r: 0.0, g: 0.0, b: 1.0, a: 1.0}),
-							store: true,
-						},
+						ops,
 						view: surface.view.as_ref().unwrap(),
 					}],
-					depth_stencil_attachment: match depth {
+					depth_stencil_attachment: match &screen.depth {
 						Some(r) => Some(wgpu::RenderPassDepthStencilAttachment {
 							stencil_ops: None,
 							depth_ops: Some(wgpu::Operations {
@@ -441,10 +487,10 @@ impl Pass2DNode {
 					},
 				});
 				(rp, (
-					camera.view_port.mins.x,
-					camera.view_port.mins.y,
-					camera.view_port.maxs.x - camera.view_port.mins.x,
-					camera.view_port.maxs.y - camera.view_port.mins.y,
+					view_port.mins.x,
+					view_port.mins.y,
+					view_port.maxs.x - view_port.mins.x,
+					view_port.maxs.y - view_port.mins.y,
 				))
 			},
 		}
@@ -463,9 +509,16 @@ impl Pass2DNode {
 		cur_view_port: &(f32, f32, f32, f32),
 	) {
 
+		if let Some(r) = &cur_camera.project_bind_group {
+			rp.set_bind_group(PROJECT_GROUP as u32, r, &[]);
+		}
+		if let Some(r) = &cur_camera.view_bind_group {
+			rp.set_bind_group(VIEW_GROUP as u32, r, &[]);
+		}
+
 		for e in list.opaque.iter().chain(list.transparent.iter()) {
 			match e {
-				DrawIndex::DrawObj(e) => {
+				DrawIndex::DrawObj(e) => {// 设置相机
 					if let Some(state) = param.draw_query.get(world, *e) {
 						state.draw(rp);
 					}
@@ -519,7 +572,7 @@ impl Pass2DNode {
 							},
 							wgpu::BindGroupEntry {
 								binding: 1,
-								resource: wgpu::BindingResource::TextureView(&texture.target().colors[0]),
+								resource: wgpu::BindingResource::TextureView(&texture.target().colors[0].0),
 							},
 						],
 						label: Some("post process texture bind group create"),

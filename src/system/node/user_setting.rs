@@ -56,7 +56,7 @@ impl CalcUserSetting {
 	
 		mut style_mark: Query<Node, &mut StyleMark>, // TODO OrDefaultMut
 	
-		mut text_content: Query<Node, Write<TextContent>>,
+		text_content: Query<Node, Write<TextContent>>,
 	
 		mut tree: EntityTreeMut<Node>,
 	
@@ -95,6 +95,7 @@ impl CalcUserSetting {
 			box_shadow,
 			text_style,
 			transform_will_change,
+			text_content,
 		};
 	
 		// 操作节点(节点的创建、销毁、挂载、删除)
@@ -146,17 +147,17 @@ impl CalcUserSetting {
 		}
 		unsafe { style_buffer.set_len(0) };
 	
-		// 设置文字
-		for (node, text) in user_commands.text_commands.drain(..) {
-			match text {
-				Some(r) => if let Some(mut t) = text_content.get_mut(node) {
-					t.write(r);
-				},
-				None => if let Some(mut t) = text_content.get_mut(node) {
-					t.remove();
-				}
-			}
-		}
+		// // 设置文字
+		// for (node, text) in user_commands.text_commands.drain(..) {
+		// 	match text {
+		// 		Some(r) => if let Some(mut t) = text_content.get_mut(node) {
+		// 			t.write(r);
+		// 		},
+		// 		None => if let Some(mut t) = text_content.get_mut(node) {
+		// 			t.remove();
+		// 		}
+		// 	}
+		// }
 	
 		// 设置class样式
 		for (node, class) in user_commands.class_commands.drain(..) {

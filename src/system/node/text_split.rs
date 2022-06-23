@@ -2,127 +2,145 @@
 //! 将文字劈分为字符，放入NodeState中，并设置好每个字符的布局宽高。等待布局系统布局
 use std::intrinsics::transmute;
 
+use ordered_float::{NotNaN, NotNan};
 use pi_ecs::prelude::{Query, Changed, Or, ResMut, OrDefault, Write, Id, Component};
+use pi_ecs_macros::setup;
 use pi_ecs_utils::prelude::{EntityTree, Layer};
 use pi_flex_layout::{prelude::{CharNode, Size, Rect}, style::{Dimension, PositionType}};
-use pi_share::Share;
+use pi_share::{Share, ShareCell};
 use pi_slotmap::{DefaultKey, Key};
 use pi_slotmap_tree::Storage;
 
 use crate::{
 	components::{
-		user::{TextContent, Node, TextStyle, FontStyle, FlexNormal, Size as FlexSize}, 
+		user::{TextContent, Node, TextStyle, FontStyle, FlexNormal, Size as FlexSize, LineHeight}, 
 		calc::NodeState
 	}, 
-	utils::font::{font_tex::FontTexture, font_sheet::{FontSheet, get_size, TexFont, split, SplitResult, get_line_height}}, utils::stdcell::StdCell,
+	utils::stdcell::StdCell, font::{font::{FontMgr, get_size, FontSheet, Font, FontId}, text_split::{split, SplitResult}},
 
 };
 
-/// 文字劈分
-/// 将可以简单布局的问文字节点转化为。。
-/// 将需要图文混排的文字节点，劈分为单个文字节点
-pub fn text_split<T: FontTexture + Component>(
-	query: Query<
-		Node, 
-		(
-			Id<Node>,
-			&TextContent,
-			OrDefault<TextStyle>
-		), 
-		Or<(Changed<TextContent>, Changed<FontStyle>, Changed<Layer>)>
-	>,
-	style: Query<
-		Node, 
-		(
-			OrDefault<FlexSize>,
-			OrDefault<FlexNormal>,
-		)
-	>,
-	tree: EntityTree<Node>,
-	mut node_states: Query<Node, Write<NodeState>>,
-	font_sheet: ResMut<Share<StdCell<FontSheet<T>>>>
-	
-) {
-	let mut font_sheet = font_sheet.borrow_mut();
-	for (
-		entity,
-		text_content, 
-		text_style) in query.iter() {
+pub struct CalcTextSplit;
+
+#[setup]
+impl CalcTextSplit {
+	/// 文字劈分
+	/// 将可以简单布局的问文字节点转化为。。
+	/// 将需要图文混排的文字节点，劈分为单个文字节点
+	#[system]
+	pub fn text_split(
+		query: Query<
+			Node, 
+			(
+				Id<Node>,
+				&TextContent,
+				OrDefault<TextStyle>
+			), 
+			Or<(Changed<TextContent>, Changed<FontStyle>, Changed<Layer>)>
+		>,
+		style: Query<
+			Node, 
+			(
+				OrDefault<FlexSize>,
+				OrDefault<FlexNormal>,
+			)
+		>,
+		tree: EntityTree<Node>,
+		mut node_states: Query<Node, Write<NodeState>>,
+		font_sheet: ResMut<Share<ShareCell<FontMgr>>>
 		
-		match tree.get_layer(entity) {
-			Some(r) => if *r == 0 {return},
-			None => return,
-		};
-		let up = tree.get_up(entity).unwrap();
-		// 取到字体详情
-		let tex_font: (TexFont<T>, usize) = match font_sheet.get_font_info(&text_style.font_family) {
-			Some(r) => (r.0.clone(), r.1),
-			None => {
-				log::error!("font is not exist, face_name: {:?}, id: {:?}",
-					text_style.font_family,
-					entity,
-				);
-				panic!("");
-			},
-		};
-		
-		// 字体大小，根据font-size样式，计算字体的绝对大小
-		let font_size = get_size(tex_font.1, &text_style.font_size) as f32;
-		// 获得字体高度
-		let font_height = tex_font
-			.0
-			.get_font_height(font_size as usize, text_style.text_stroke.width);
-		// 字体描边宽度
-		let sw = text_style.text_stroke.width;
+	) {
+		let mut font_sheet = font_sheet.borrow_mut();
+		for (
+			entity,
+			text_content, 
+			text_style) in query.iter() {
+			
+			match tree.get_layer(entity) {
+				Some(r) => if *r == 0 {return},
+				None => return,
+			};
+			let up = tree.get_up(entity).unwrap();
+			// // 取到字体详情
+			// let tex_font: (TexFont<T>, usize) = match font_sheet.get_font_info(&text_style.font_family) {
+			// 	Some(r) => (r.0.clone(), r.1),
+			// 	None => {
+			// 		log::error!("font is not exist, face_name: {:?}, id: {:?}",
+			// 			text_style.font_family,
+			// 			entity,
+			// 		);
+			// 		panic!("");
+			// 	},
+			// };
+			
+			// 字体大小，根据font-size样式，计算字体的绝对大小
+			let font_size = get_size(&text_style.font_size);
+			// 获得字体高度
+			// let font_height = tex_font
+			// 	.0
+			// 	.get_font_height(font_size as usize, text_style.text_stroke.width);
+			let font_id = font_sheet.font_id(Font::new(
+				text_style.font_family.clone(),
+				font_size,
+				text_style.font_weight,
+				text_style.text_stroke.width, // todo 或许应该设置比例
+			));
 
-		let mut calc = Calc {
-			id: entity,
-			text: text_content.0.as_ref(),
-			text_style: text_style,
+			let font_height = font_sheet.font_height(font_id, font_size as usize);
+			// 字体描边宽度
+			let sw = text_style.text_stroke.width;
 
-			font_sheet: &mut font_sheet,
-			tex_font,
-			font_size,
-			line_height: get_line_height(font_height as usize, &text_style.line_height),
-			sw: sw,
-			char_margin: text_style.letter_spacing - sw,
-			node_states: &mut node_states,
-		};
+			let mut calc = Calc {
+				id: entity,
+				text: text_content.0.as_ref(),
+				text_style: text_style,
 
-		// 将文字劈分为字符形式，放入nodestate中
-		calc.cacl_simple();
+				font_sheet: &mut font_sheet,
+				font_id,
+				font_size,
+				line_height: get_line_height(font_height as usize, &text_style.line_height),
+				sw: sw,
+				char_margin: text_style.letter_spacing - *sw,
+				node_states: &mut node_states,
+			};
 
-		// 如果父节点没有其它子节点，或者，自身定义了宽度或高度，则可使用简单布局
-		let mut node_state_item = node_states.get_unchecked_mut(entity);
-		let node_state = node_state_item.get_mut().unwrap();
-		let (size, normal_style) = style.get(entity).unwrap();
-		if !up.parent().is_null() && up.prev().is_null() && up.next().is_null() {
-			node_state.set_vnode(false);
-		} else if size.width != Dimension::Undefined || size.height != Dimension::Undefined || normal_style.position_type == PositionType::Absolute {
-			node_state.set_vnode(false);
-		}else {
-			node_state.set_vnode(true);
+			// 将文字劈分为字符形式，放入nodestate中
+			calc.cacl_simple();
+
+			// 如果父节点没有其它子节点，或者，自身定义了宽度或高度，则可使用简单布局
+			let mut node_state_item = node_states.get_unchecked_mut(entity);
+			let node_state = node_state_item.get_mut().unwrap();
+			let (size, normal_style) = style.get(entity).unwrap();
+			if !up.parent().is_null() && up.prev().is_null() && up.next().is_null() {
+				node_state.set_vnode(false);
+			} else if size.width != Dimension::Undefined || size.height != Dimension::Undefined || normal_style.position_type == PositionType::Absolute {
+				node_state.set_vnode(false);
+			}else {
+				node_state.set_vnode(true);
+			}
+
+			node_state_item.notify_modify();
 		}
-
-		node_state_item.notify_modify();
 	}
-}
+}	
 
-struct Calc<'a, T: FontTexture> {
+
+
+struct Calc<'a> {
 	id: Id<Node>,
 	text: &'a str,
 	text_style: &'a TextStyle,
 
-	font_sheet: &'a mut FontSheet<T>,
-	tex_font: (TexFont<T>, usize),
-	font_size: f32,
+	font_sheet: &'a mut FontMgr,
+	font_id: FontId,
+	font_size: usize,
 	line_height: f32,
-	sw: f32,
+	sw: NotNan<f32>,
 	char_margin: f32,
 	node_states: &'a mut Query<Node, Write<NodeState>>
 }
 
-impl<'a, T: FontTexture> Calc<'a, T> {
+impl<'a> Calc<'a> {
 	// 简单布局， 将文字劈分，单词节点的内部字符使用绝对布局，其余节点使用相对布局
 	// 与图文混排的布局方式不同，该布局不需要为每个字符节点创建实体
 	fn cacl_simple(&mut self) {
@@ -193,17 +211,14 @@ impl<'a, T: FontTexture> Calc<'a, T> {
 	}
 
 	fn create_char_node(&mut self, ch: char, p_x: f32, char_i: isize) -> CharNode {
-		let r = self.font_sheet.measure(
-			&self.tex_font.0,
-			self.font_size as usize,
-			self.sw as usize,
-			self.text_style.font_weight,
+		let width = self.font_sheet.measure_width(
+			self.font_id,
 			ch,
 		);
 
 		CharNode {
 			ch,
-			size: Size{width:Dimension::Points(r.0), height:Dimension::Points(self.line_height)},
+			size: Size{width:Dimension::Points(width), height:Dimension::Points(self.line_height)},
 			margin: Rect {
 				left: Dimension::Points(self.char_margin),
 				top:  Dimension::Points(0.0),
@@ -216,7 +231,6 @@ impl<'a, T: FontTexture> Calc<'a, T> {
 				right: 0.0,
 				bottom: 0.0
 			},
-			base_width: r.1,
 			count: 0,
 			ch_id: DefaultKey::null(),
 			char_i,
@@ -252,7 +266,6 @@ impl<'a, T: FontTexture> Calc<'a, T> {
 			pos: Rect {
 				top: 0.0, right: 0.0, bottom: 0.0, left: 0.0
 			},
-			base_width: self.font_size,
 			count: 1,
 			ch_id: DefaultKey::null(),
 			char_i,
@@ -299,4 +312,14 @@ fn dimension_points(v: Dimension) -> f32 {
 		Dimension::Points(r) => r,
 		_ => panic!(""),
 	}
+}
+
+// 行高
+pub fn get_line_height(size: usize, line_height: &LineHeight) -> f32 {
+    match line_height {
+        LineHeight::Length(r) => *r,                //固定像素
+        LineHeight::Number(r) => *r + size as f32, //设置数字，此数字会与当前的字体尺寸相加来设置行间距。
+        LineHeight::Percent(r) => *r * size as f32, //	基于当前字体尺寸的百分比行间距.
+        LineHeight::Normal => size as f32,
+    }
 }

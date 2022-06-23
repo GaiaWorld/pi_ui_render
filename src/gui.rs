@@ -3,26 +3,26 @@ use std::{any::TypeId, sync::Arc, mem::replace};
 use pi_assets::{mgr::AssetMgr, asset::{GarbageEmpty, Handle}};
 use pi_async::rt::{AsyncRuntime, single_thread::SingleTaskPool};
 use pi_ecs::prelude::{World, ArchetypeId, SingleDispatcher, StageBuilder, Id, Setup, Dispatcher, FromWorld};
-use pi_render::{RenderStage, rhi::{asset::RenderRes, buffer::Buffer, bind_group::BindGroup, device::RenderDevice}, components::view::target_alloc::{SafeAtlasAllocator, DEPTH_TEXTURE}};
-use pi_share::Share;
+use pi_render::{RenderStage, rhi::{asset::RenderRes, buffer::Buffer, bind_group::BindGroup, device::RenderDevice, RenderQueue}, components::view::target_alloc::{SafeAtlasAllocator, DEPTH_TEXTURE, ShareTargetView}};
+use pi_share::{Share, ShareCell};
 use wgpu::TextureView;
 
 use crate::{
 	components::{
 		user::{ClassName, Aabb2, Point2}, 
-		pass_2d::RenderTarget
+		pass_2d::{RenderTarget, ScreenTarget}
 	}, 
 	resource::{UserCommands, NodeCommand, Viewport, draw_obj::CommonSampler}, 
 	utils::{style::style_sheet::{StyleAttr, Attr}, tools::calc_hash}, 
 	system::{
-		node::{user_setting::CalcUserSetting, context::CalcContext, z_index::CalcZindex, layout::CalcLayout, quad::CalcQuad, world_matrix::CalcMatrix, content_box::CalcContentBox, background_color::CalcBackGroundColor, context_opacity::{CalcOpacity, CalcOpacityPostProcess}, context_transform_will_change::CalcTransformWillChange, context_overflow::CalcOverflow}, 
+		node::{user_setting::CalcUserSetting, context::CalcContext, z_index::CalcZindex, layout::CalcLayout, quad::CalcQuad, world_matrix::CalcMatrix, content_box::CalcContentBox, background_color::CalcBackGroundColor, context_opacity::{CalcOpacity, CalcOpacityPostProcess}, context_transform_will_change::CalcTransformWillChange, context_overflow::CalcOverflow, context_root::CalcRoot, text::CalcText, text_split::CalcTextSplit, text_glphy::CalcTextGlyph}, 
 		draw_obj::{world_marix::CalcWorldMatrixGroup, pipeline::CalcPipeline}, 
 		pass::{
 			pass_render::CalcRender, 
 			pass_dirty_rect::CalcDirtyRect, 
 			pass_graph_node::{InitGraphData, PostBindGroupLayout}
-		}, shader_utils::post_process::CalcPostProcessShader
-	}
+		}, shader_utils::{post_process::CalcPostProcessShader, with_vert_color::WithColorShader, text::TextShader, color::ColorShader}
+	}, font::font::FontMgr
 };
 
 use crate::components::user::Node;
@@ -162,19 +162,31 @@ fn insert_resource(
 ) {
 	let texture_res_mgr = world.get_resource::<Share<AssetMgr<RenderRes<TextureView>>>>().unwrap().clone();
 	let device = world.get_resource::<RenderDevice>().unwrap().clone();
+	let queue = world.get_resource::<RenderQueue>().unwrap().clone();
 
 	let view_port = Viewport(Aabb2::new(Point2::new(x as f32, y as f32), Point2::new((x + width) as f32, (y + height) as f32)));
 	
 	// 设置gui默认渲染到屏幕
 	let depth_buffer = create_depth_buffer(&texture_res_mgr, &device, width, height);
-	world.insert_resource(RenderTarget::Screen {
+	world.insert_resource(ScreenTarget {
 		aabb: view_port.0.clone(),
 		depth: Some(depth_buffer), // 深度缓冲区
 		// depth: None,
 	});
 
-	let allocator = SafeAtlasAllocator::new(device, texture_res_mgr);
+	let allocator = SafeAtlasAllocator::new(device.clone(), texture_res_mgr.clone());
 	let dyn_target_type = InitGraphData::create_dyn_target_type(&allocator, &view_port);
+
+	// 需要单独的一个target类型
+	let last_target = allocator.allocate::<&ShareTargetView, _>(
+		(view_port.maxs.x - view_port.mins.x).ceil() as u32,
+		(view_port.maxs.y - view_port.mins.y).ceil() as u32,
+		dyn_target_type.has_depth,
+		[].iter()
+	);
+	// 添加最终渲染目标
+	world.insert_resource(RenderTarget::OffScreen(last_target));
+	
 	// 添加纹理分配器
 	world.insert_resource(allocator);
 
@@ -192,7 +204,8 @@ fn insert_resource(
 	let common_sampler = CommonSampler::from_world(world);
 	world.insert_resource(common_sampler);
 	
-
+	// 插入FontSheet
+	world.insert_resource(Share::new(ShareCell::new(FontMgr::new(&device,&texture_res_mgr, &queue))));
 	
 }
 
@@ -231,6 +244,15 @@ fn init_dispatcher(world: &mut World, render_stages: RenderStage, dispatcher: &m
 
 	// 节点属性计算阶段
 	let mut node_stage = StageBuilder::new();
+
+	// 初始化数据
+	InitGraphData::setup(world, &mut node_stage);
+	CalcPostProcessShader::setup(world, &mut node_stage);
+	WithColorShader::setup(world, &mut node_stage);
+	TextShader::setup(world, &mut node_stage);
+	ColorShader::setup(world, &mut node_stage);
+
+	
 	CalcUserSetting::setup(world, &mut node_stage);
 	CalcOpacity::setup(world, &mut node_stage);
 	CalcContext::setup(world, &mut node_stage);
@@ -239,8 +261,11 @@ fn init_dispatcher(world: &mut World, render_stages: RenderStage, dispatcher: &m
 	CalcQuad::setup(world, &mut node_stage);
 	CalcMatrix::setup(world, &mut node_stage);
 	CalcContentBox::setup(world, &mut node_stage);
-	// CalcRoot::setup(world, &mut node_stage);
+	CalcRoot::setup(world, &mut node_stage);
 	CalcBackGroundColor::setup(world, &mut node_stage);
+	CalcTextSplit::setup(world, &mut node_stage);
+	CalcTextGlyph::setup(world, &mut node_stage);
+	CalcText::setup(world, &mut node_stage);
 	
 	let mut post_stage = StageBuilder::new();
 	CalcOpacityPostProcess::setup(world, &mut post_stage);
@@ -257,10 +282,6 @@ fn init_dispatcher(world: &mut World, render_stages: RenderStage, dispatcher: &m
 	let mut pass_stage = StageBuilder::new();
 	CalcRender::setup(world, &mut pass_stage);
 	CalcDirtyRect::setup(world, &mut pass_stage);
-
-	// 初始化渲染需要的数据
-	InitGraphData::setup(world, &mut pass_stage);
-	CalcPostProcessShader::setup(world, &mut pass_stage);
 
 	stages.push(Arc::new(node_stage.build(world)));
 	stages.push(Arc::new(post_stage.build(world)));

@@ -121,7 +121,7 @@ impl CalcPipeline {
 				let pipeline_state = state_map.get(static_index.pipeline_state).unwrap();
 				// 创建pipline
 				let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-					label: Some("bg_color pipeline"),
+					label: Some(static_index.name),
 					layout: Some(&shader_info.pipeline_layout),
 					vertex: wgpu::VertexState {
 						module: &shader_info.vs_shader,

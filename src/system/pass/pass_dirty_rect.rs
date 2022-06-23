@@ -4,7 +4,7 @@
 use pi_ecs::{monitor::Event, prelude::{Write, Join, Query, ResMut, Res, ParamSet}};
 use pi_ecs_macros::{listen, setup};
 
-use crate::{components::{pass_2d::{Pass2D, DirtyRect, DirtyRectState}, draw_obj::{DrawObject, DrawState}, calc::{NodeId, Quad, InPassId, TransformWillChangeMatrix, ContentBox}, user::{Node, Aabb2}}, utils::tools::{box_aabb, intersect, calc_aabb}, resource::{Viewport, draw_obj::LayerPass2D}};
+use crate::{components::{pass_2d::{Pass2D, DirtyRect, DirtyRectState}, draw_obj::{DrawObject, DrawState}, calc::{NodeId, Quad, InPassId, TransformWillChangeMatrix, ContentBox}, user::Node}, utils::tools::{box_aabb, calc_aabb}, resource::Viewport};
 
 pub struct CalcDirtyRect;
 
@@ -30,7 +30,7 @@ impl CalcDirtyRect {
 		let dirty_rect = dirty_rect_item.get_mut_or_default();
 		let new_dirty_rect = match dirty_rect.state {
 			// 脏区域处于未初始化状态，则设置脏区域为当前DrawObject对应节点的包围盒
-			DirtyRectState::UnInit | DirtyRectState::Active => DirtyRect {
+			DirtyRectState::UnInit => DirtyRect {
 				value: *quad.clone(),
 				state: DirtyRectState::Inited,
 			},

@@ -16,8 +16,8 @@ use pi_null::Null;
 use pi_render::RenderStage;
 use pi_ui_render::{
 	gui::Gui, 
-	components::user::{BackgroundColor, Color, CgColor, TransformWillChange, TransformFunc, Opacity, Overflow, Transform}, 
-	utils::style::style_sheet::{WidthType, HeightType, BackgroundColorType, PositionTypeType, PositionLeftType, PositionTopType, MarginLeftType, MarginTopType, TransformWillChangeType, OpacityType, OverflowType, TransformType}, resource::ClearColor
+	components::user::{BackgroundColor, Color, CgColor, TransformFunc, Overflow, Transform}, 
+	utils::style::style_sheet::{WidthType, HeightType, BackgroundColorType, PositionTypeType, PositionLeftType, PositionTopType, MarginLeftType, MarginTopType, OverflowType, TransformType}, resource::ClearColor
 };
 
 fn main() {

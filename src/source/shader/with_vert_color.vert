@@ -26,5 +26,5 @@ void main() {
 	gl_Position = projectMatrix * viewMatrix * worldMatrix * vec4(position.x, position.y, 1.0, 1.0);
 	gl_Position.z = depth;
 
-	vColor = color
+	vColor = color;
 }

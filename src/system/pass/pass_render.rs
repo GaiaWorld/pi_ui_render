@@ -1,4 +1,4 @@
-use std::{io::Result, f32::consts::E};
+use std::io::Result;
 
 use nalgebra::Orthographic3;
 use pi_assets::{mgr::AssetMgr, asset::Handle};
@@ -8,11 +8,11 @@ use pi_ecs_macros::{listen, setup};
 use pi_null::Null;
 use pi_render::{
 	graph::graph::RenderGraph, 
-	rhi::{device::RenderDevice, asset::RenderRes, bind_group::BindGroup, buffer::Buffer, bind_group_layout::BindGroupLayout}, components::view::target_alloc::ShareTargetView
+	rhi::{device::RenderDevice, asset::RenderRes, bind_group::BindGroup, buffer::Buffer}, components::view::target_alloc::ShareTargetView
 };
 use pi_share::Share;
 use pi_spatialtree::quad_helper::intersects;
-use wgpu::IndexFormat;
+use wgpu::{IndexFormat, DepthStencilState, TextureFormat, CompareFunction, StencilState, DepthBiasState};
 
 use crate::{
 	components::{
@@ -22,16 +22,16 @@ use crate::{
 		draw_obj::{DrawState, DrawObject, VSDefines, FSDefines}
 	}, 
 	utils::{
-		tools::{intersect, calc_hash, calc_float_hash, calc_aabb, calc_bound_box}, 
+		tools::{intersect, calc_aabb, calc_bound_box}, 
 		shader_helper::{DEPTH_GROUP, VIEW_GROUP, PROJECT_GROUP}
 	}, 
 	resource::{
-		draw_obj::{ShareLayout, UnitQuadBuffer, Shaders, PipelineMap, ShaderInfoMap, ShaderCatch, VertexBufferLayoutMap, StateMap, DynFboClearColorBindGroup, ClearColorBindGroup}, 
+		draw_obj::{ShareLayout, UnitQuadBuffer, Shaders, PipelineMap, ShaderInfoMap, ShaderCatch, VertexBufferLayoutMap, StateMap, DynFboClearColorBindGroup, ClearColorBindGroup, PipelineState}, 
 		ClearColor, ClearDrawObj
 	}, 
 	system::{
-		node::background_color::{BackgroundStaticIndex, COLOR_GROUP, create_reba_bind_group}, 
-		draw_obj::{pipeline::CalcPipeline, world_marix::modify_world_matrix}, shader_utils::create_camera_bind_group
+		node::background_color::{create_rgba_bind_group}, 
+		draw_obj::{pipeline::CalcPipeline, world_marix::modify_world_matrix}, shader_utils::{create_camera_bind_group, StaticIndex, create_depth_group, color::{ColorStaticIndex, COLOR_GROUP}}
 	}
 };
 
@@ -50,12 +50,12 @@ impl CalcRender{
 		mut depth_cache: ResMut<DepthCache>,
 
 		unit_quad_buffer: Res<UnitQuadBuffer>,
-		static_index: Res<BackgroundStaticIndex>,
+		static_index: Res<ColorStaticIndex>,
 		shader_statics: Res<Shaders>,
 		device: Res<RenderDevice>,
 		shader_catch: Res<ShaderCatch>,
 		vertex_buffer_layout_map: Res<VertexBufferLayoutMap>,
-		state_map: Res<StateMap>,
+		mut state_map: ResMut<StateMap>,
 		share_layout: Res<ShareLayout>,
 
 		buffer_assets: Res<Share<AssetMgr<RenderRes<Buffer>>>>,
@@ -64,6 +64,15 @@ impl CalcRender{
 		mut dyn_fbo_clear_color_bind_group: WriteRes<DynFboClearColorBindGroup>,
 		mut clear_draw_obj: WriteRes<ClearDrawObj>,
 	) {
+		let pipeline_state = create_clear_pipeline_state();
+		let pipeline_state = state_map.insert(pipeline_state);
+		let static_index = StaticIndex { 
+			shader: static_index.shader,
+			pipeline_state: pipeline_state, 
+			vertex_buffer_index: static_index.vertex_buffer_index, 
+			name: "clear screen" 
+		};
+
 		let color_group_layout = match shader_statics.get(static_index.shader) {
 			Some(r) => r.bind_group.get(COLOR_GROUP).unwrap(),
 			None => return,
@@ -142,7 +151,7 @@ impl CalcRender{
 		draw_state.bind_groups.insert(DEPTH_GROUP, depth_bind_group);
 
 		dyn_fbo_clear_color_bind_group.write(
-			DynFboClearColorBindGroup(create_reba_bind_group(
+			DynFboClearColorBindGroup(create_rgba_bind_group(
 				&CgColor::new(1.0, 1.0, 1.0, 0.0),
 				&device,
 				color_group_layout,
@@ -153,6 +162,7 @@ impl CalcRender{
 		clear_draw_obj.write(ClearDrawObj(draw_state));
 	}
 
+	
 	#[system]
 	pub fn calc_render<'a>(
 		parent_pass_id: Query<Pass2D, Option<&ParentPassId>>,
@@ -191,11 +201,11 @@ impl CalcRender{
 			return Ok(());
 		}
 	
-		for (mut camera, mut view_matrix, mut last_dirty, overflow_aabb, (context_box, quad, willchange_matrix, will_change)) in query_pass.p0_mut().iter_mut() {
+		for (mut camera, view_matrix, mut last_dirty, overflow_aabb, (context_box, quad, willchange_matrix, will_change)) in query_pass.p0_mut().iter_mut() {
 			// 存在脏区域，与现有脏区域相交，得到最终脏区域
 			let mut c;
 
-			let aabb = if let Some(overflow) = overflow_aabb {
+			let aabb = if let Some(_overflow) = overflow_aabb {
 				// 存在overflow
 				&**quad
 			} else {
@@ -343,6 +353,8 @@ impl CalcRender{
 
 		// 遍历所有的pass，设置不透明渲染列表和候命渲染列表
 		for mut list in p0.iter_mut() {
+			list.opaque.clear();
+			list.transparent.clear();
 			if list.all_list.len() == 0 {
 				continue;
 			}
@@ -357,6 +369,8 @@ impl CalcRender{
 				// 暂时放入不透明列表，TODO
 				list.opaque.push(entity);
 			}
+
+			list.all_list.clear();
 		}
 
 		let p1 = query_draw2d_list.p1();
@@ -434,7 +448,7 @@ impl CalcRender{
 		device: Res<RenderDevice>,
 		buffer_assets: Res<Share<AssetMgr<RenderRes<Buffer>>>>,
 		bind_group_assets: Res<Share<AssetMgr<RenderRes<BindGroup>>>>,
-		static_index: Res<BackgroundStaticIndex>,
+		static_index: Res<ColorStaticIndex>,
 		shader_statics: Res<Shaders>,
 
 	) {
@@ -444,7 +458,7 @@ impl CalcRender{
 					Some(r) => r.bind_group.get(COLOR_GROUP).unwrap(),
 					None => return,
 				};
-				bind_group.0 = Some(create_reba_bind_group(
+				bind_group.0 = Some(create_rgba_bind_group(
 					&color.unwrap(),
 					&device,
 					color_group_layout,
@@ -523,55 +537,44 @@ lazy_static! {
     pub static ref DEPTH: Atom = Atom::from("depth");
 }
 
-fn create_depth_group(
-	cur_depth: usize,
-	buffer_assets: &Share<AssetMgr<RenderRes<Buffer>>>,
-	bind_group_assets: &Share<AssetMgr<RenderRes<BindGroup>>>,
-	depth_cache: &mut Vec<Handle<RenderRes<BindGroup>>>,
-	device: &RenderDevice,
-	share_layout: &ShareLayout,
-) -> Handle<RenderRes<BindGroup>> {
-	match depth_cache.get(cur_depth) {
-		Some(r) => r.clone(),
-		None => {
-			let value = cur_depth as f32 / 600000.0;
-			let key = calc_hash(&(DEPTH.clone(), cur_depth)); // TODO
-			let d = match bind_group_assets.get(&key) {
-				Some(r) => r,
-				None => {
-					let uniform_buf = match buffer_assets.get(&key) {
-						Some(r)=> r,
-						None => {
-							let uniform_buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
-								label: Some("depth buffer init"),
-								contents: bytemuck::cast_slice(&[value]),
-								usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-							});
-							buffer_assets.cache(key, RenderRes::new(uniform_buf, 5));
-							buffer_assets.get(&key).unwrap()
-						}
-					};
-					let group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-						layout: &share_layout.depth,
-						entries: &[
-							wgpu::BindGroupEntry {
-								binding: 0,
-								resource: uniform_buf.as_entire_binding(),
-							},
-						],
-						label: Some("depth group create"),
-					});
-					bind_group_assets.cache(key, RenderRes::new(group, 5));
-					bind_group_assets.get(&key).unwrap()
-				},
-			};
-			depth_cache.push(d.clone());
-			d
-		}
-	}
-}
-
 /// depth BindGroup缓存
 #[derive(Deref, DerefMut, Default)]
 pub struct DepthCache(Vec<Handle<RenderRes<BindGroup>>>);
+
+
+pub fn create_clear_pipeline_state() -> PipelineState {
+	PipelineState {
+		targets: vec![wgpu::ColorTargetState {
+			format: wgpu::TextureFormat::Bgra8UnormSrgb,
+			blend: Some(wgpu::BlendState {
+				color: wgpu::BlendComponent {
+					operation: wgpu::BlendOperation::Add,
+					src_factor: wgpu::BlendFactor::One,
+					dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+				},
+				alpha: wgpu::BlendComponent {
+					operation: wgpu::BlendOperation::Add,
+					src_factor: wgpu::BlendFactor::One,
+					dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+				},
+			}),
+			write_mask: wgpu::ColorWrites::ALL,
+		}],
+		primitive: wgpu::PrimitiveState {
+			front_face: wgpu::FrontFace::Ccw,
+			cull_mode: None,
+			polygon_mode: wgpu::PolygonMode::Fill,
+			..Default::default()
+		},
+		depth_stencil: Some(DepthStencilState {
+			format: TextureFormat::Depth32Float,
+			depth_write_enabled: true,
+			depth_compare: CompareFunction::Never,
+			stencil: StencilState::default(),
+			bias: DepthBiasState::default(),
+		}),
+		multisample: wgpu::MultisampleState::default(),
+		multiview: None,
+	}
+}
 

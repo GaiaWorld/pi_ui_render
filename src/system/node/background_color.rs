@@ -1,73 +1,66 @@
-use std::{collections::hash_map::Entry, borrow::Cow};
 use std::io::Result;
 
-use naga::{ShaderStage};
-use pi_assets::asset::Handle;
+use ordered_float::NotNan;
+use pi_assets::asset::{Handle, Asset};
 use pi_assets::mgr::AssetMgr;
-use pi_ecs::prelude::{Query, Changed, EntityCommands, Commands, Write, ResMut, Res, res::WriteRes, Event, Id};
+use pi_ecs::prelude::{Or, Deleted, With, ChangeTrackers, ParamSet};
+use pi_ecs::prelude::{Query, Changed, EntityCommands, Commands, Write, Res, Event, Id};
 use pi_ecs_macros::{listen, setup};
-use pi_hash::XHashMap;
-use pi_map::vecmap::VecMap;
+use pi_flex_layout::prelude::{Rect, Size};
 use pi_render::rhi::asset::RenderRes;
 use pi_render::rhi::bind_group::BindGroup;
 use pi_render::rhi::buffer::Buffer;
-use pi_render::rhi::{device::RenderDevice, shader::{Shader, ShaderProcessor, ShaderId}};
+use pi_render::rhi::device::RenderDevice;
 use pi_share::Share;
 use pi_render::rhi::bind_group_layout::BindGroupLayout;
-use pi_slotmap::DefaultKey;
-use wgpu::{IndexFormat, DepthStencilState, TextureFormat, CompareFunction, StencilState, DepthBiasState};
+use pi_polygon::{split_by_radius, find_lg_endp, split_by_lg, interp_mult_by_lg, LgCfg, mult_to_triangle, to_triangle};
+use wgpu::IndexFormat;
 
-use crate::components::user::CgColor;
-use crate::resource::draw_obj::ShaderMap;
+use crate::components::calc::LayoutResult;
+use crate::components::user::{CgColor, BorderRadius};
 use crate::system::shader_utils::StaticIndex;
-use crate::utils::tools::calc_hash;
-use crate::{components::{user::{Node, BackgroundColor, Color}, calc::{NodeId, DrawList}, draw_obj::{IsUnitQuad, DrawObject, DrawState, VSDefines, FSDefines}}, resource::draw_obj::{Shaders, PipelineState, StateMap, VertexBufferLayouts, VertexBufferLayout, VertexBufferLayoutMap, ShaderStatic, ShaderCatch, UnitQuadBuffer, ShareLayout, Program}, utils::shader_helper::{WORLD_MATRIX_GROUP, DEPTH_GROUP, PROJECT_GROUP, VIEW_GROUP}};
+use crate::system::shader_utils::color::{ColorStaticIndex, COLOR_GROUP};
+use crate::system::shader_utils::with_vert_color::WithVertColorStaticIndex;
+use crate::utils::tools::{calc_hash, get_content_rect, get_content_radius};
+use crate::{components::{user::{Node, BackgroundColor, Color}, calc::{NodeId, DrawList}, draw_obj::{IsUnitQuad, DrawObject, DrawState}}, resource::draw_obj::{Shaders, UnitQuadBuffer}};
 // use crate::utils::tools::calc_hash;
 
 pub struct CalcBackGroundColor;
 
 #[setup]
 impl CalcBackGroundColor {
-	#[init]
-	pub fn init(
-		mut shader_static_map: ResMut<Shaders>,
-		mut state_map: ResMut<StateMap>,
-		mut vertex_buffer_map: ResMut<VertexBufferLayoutMap>,
-		share_layout: Res<ShareLayout>,
-		mut shader_catch: ResMut<ShaderCatch>,
-		mut shader_map: ResMut<ShaderMap>,
-		device: Res<RenderDevice>,
-		mut static_index: WriteRes<BackgroundStaticIndex>,
-	) {
-		let shader_static = create_shader_static(
-			&share_layout, 
-			&mut shader_catch, 
-			&mut shader_map,  
-			&device);
-
-		shader_static_map.0.push(shader_static);
-		let shader_index = shader_static_map.0.len() - 1;
-
-		let pipeline_state = create_pipeline_state();
-		let pipeline_state = state_map.insert(pipeline_state);
-
-		let vertex_buffer = create_vertex_buffer_layout();
-		let vertex_buffer_index = vertex_buffer_map.insert(vertex_buffer);
-
-		// 插入背景颜色shader的索引
-		static_index.write(BackgroundStaticIndex{
-			color: StaticIndex {
-				shader: shader_index,
-				pipeline_state,
-				vertex_buffer_index,
-			}
-		} );
-	}
 	/// 创建RenderObject，用于渲染背景颜色
 	#[system]
 	pub async fn calc_background(
-		mut query: Query<Node, (Id<Node>, &BackgroundColor, Write<BackgroundDrawId>, Write<DrawList>), Changed<BackgroundColor>>,
-		query_draw: Query<DrawObject, Write<DrawState>>,
+		mut query: ParamSet<(
+			// 布局修改、颜色修改、圆角修改或删除，需要修改或创建背景色的DrawObject
+			Query<Node, (
+				Id<Node>, 
+				&'static BackgroundColor,
+				Option<&'static BorderRadius>,
+				&'static LayoutResult,
+				Write<BackgroundDrawId>, 
+				Write<DrawList>,
+				ChangeTrackers<BackgroundColor>,
+				ChangeTrackers<BorderRadius>,
+				ChangeTrackers<LayoutResult>,
+			), (With<BackgroundColor>, Or<(
+				
+				Changed<BackgroundColor>,
+				Changed<BorderRadius>,
+				Deleted<BorderRadius>,
+				Changed<LayoutResult>,
+			)>)>,
+
+			// BackgroundColor删除，需要删除对应的DrawObject
+			Query<Node, (
+				Option<&'static BackgroundColor>,
+				Write<BackgroundDrawId>,
+				Write<DrawList>,
+			), Deleted<BackgroundColor>>
+		)>,
+
+		query_draw: Query<DrawObject, (Write<DrawState>, &'static IsUnitQuad, &'static StaticIndex)>,
 		mut draw_obj_commands: EntityCommands<DrawObject>,
 		mut draw_state_commands: Commands<DrawObject, DrawState>,
 		mut node_id_commands: Commands<DrawObject, NodeId>,
@@ -76,7 +69,8 @@ impl CalcBackGroundColor {
 		
 		// load_mgr: ResMut<'a, LoadMgr>,
 		device: Res<'static, RenderDevice>,
-		static_index: Res<'static, BackgroundStaticIndex>,
+		bg_static_index: Res<'static, ColorStaticIndex>,
+		with_vert_color_static_index: Res<'static, WithVertColorStaticIndex>,
 		shader_static: Res<'static, Shaders>,
 		unit_quad_buffer: Res<'static, UnitQuadBuffer>,
 
@@ -84,19 +78,69 @@ impl CalcBackGroundColor {
 		bind_group_assets: Res<'static, Share<AssetMgr<RenderRes<BindGroup>>>>,
 	) -> Result<()> {
 		// log::info!("calc_background=================");
-		let color_group_layout = match shader_static.get(static_index.shader) {
-			Some(r) => r.bind_group.get(COLOR_GROUP).unwrap(),
-			None => return Ok(()),
-		};
+		for (
+			background_color,
+			mut draw_index,
+			mut render_list) in query.p1_mut().iter_mut() {
+			// BackgroundColor不存在时，删除对应DrawObject
+			if background_color.is_some() {
+				continue;
+			};
+			// 删除对应的DrawObject
+			if let Some(draw_index_item) = draw_index.get() {
+				draw_obj_commands.despawn(draw_index_item.0.clone());
+				if let Some(r) = render_list.get_mut() {
+					for i in 0..r.len() {
+						let item = &r[i];
+						if item == &draw_index_item.0 {
+							r.swap_remove(i);
+						}
+					}
+				}
+				draw_index.remove();
+			}
+		}
 
-		for (node, background_color, mut draw_index, mut render_list ) in query.iter_mut() {
+		for (
+			node, 
+			background_color, 
+			radius, 
+			layout, 
+			mut draw_index, 
+			mut render_list,
+			background_color_change,
+			radius_change,
+			layout_change) in query.p0_mut().iter_mut() {
+
 			match draw_index.get() {
 				// background_color已经存在一个对应的DrawObj， 则修改color group
 				Some(r) => {
-					let mut draw_state_item = query_draw.get_unchecked(**r);
+					let (mut draw_state_item, old_unit_quad, old_static_index) = query_draw.get_unchecked(**r);
 					let draw_state = draw_state_item.get_mut().unwrap();
-					modify_color_group(&background_color, draw_state, &device, &color_group_layout, &buffer_assets, &bind_group_assets).await;
+					let (new_static_index, new_unit_quad) = modify(
+						&background_color, 
+						radius,
+						layout,
+						draw_state,
+						&device, 
+						&buffer_assets, 
+						&bind_group_assets,
+						&background_color_change,
+						&radius_change,
+						&layout_change,
+						&bg_static_index,
+						&with_vert_color_static_index,
+						&shader_static,
+						&unit_quad_buffer).await;
 					draw_state_item.notify_modify();
+
+					if old_unit_quad.0 != new_unit_quad.0 {
+						is_unit_quad_commands.insert(**r, new_unit_quad);
+					}
+
+					if old_static_index != new_static_index {
+						shader_static_commands.insert(**r, new_static_index.clone());
+					}
 				},
 				// 否则，创建一个新的DrawObj，并设置color group; 
 				// 修改以下组件：
@@ -111,20 +155,32 @@ impl CalcBackGroundColor {
 					let new_draw_obj = draw_obj_commands.spawn();
 					// 设置DrawState（包含color group）
 					let mut draw_state = DrawState::default();
-					modify_color_group(&background_color, &mut draw_state, &device, color_group_layout, &buffer_assets, &bind_group_assets).await;
-					draw_state.vbs.insert(0, (unit_quad_buffer.vertex.clone(), 0));
-					draw_state.ib = Some((unit_quad_buffer.index.clone(), 6, IndexFormat::Uint16));
+					let (new_static_index, new_unit_quad) = modify(
+						&background_color, 
+						radius,
+						layout,
+						&mut draw_state,
+						&device, 
+						&buffer_assets, 
+						&bind_group_assets,
+						&background_color_change,
+						&radius_change,
+						&layout_change,
+						&bg_static_index,
+						&with_vert_color_static_index,
+						&shader_static,
+						&unit_quad_buffer).await;
 					
 					draw_state_commands.insert(new_draw_obj, draw_state);
 					// 建立DrawObj对Node的索引
 					node_id_commands.insert(new_draw_obj, NodeId(node));
-					is_unit_quad_commands.insert(new_draw_obj, IsUnitQuad(true));
+					is_unit_quad_commands.insert(new_draw_obj, new_unit_quad);
 
-					shader_static_commands.insert(new_draw_obj, static_index.color.clone());
+					shader_static_commands.insert(new_draw_obj, new_static_index.clone());
 
 					// 建立Node对DrawObj的索引
 					draw_index.write(BackgroundDrawId(new_draw_obj));
-
+					
 					match render_list.get_mut() {
 						Some(r) => {
 							r.push(new_draw_obj);
@@ -143,19 +199,8 @@ impl CalcBackGroundColor {
 	}
 }
 
-
-
 #[derive(Deref, Default)]
 pub struct BackgroundDrawId(Id<DrawObject>);
-
-// 背景颜色 ShaderInfo的索引
-#[derive(Deref, Clone, Debug)]
-pub struct BackgroundStaticIndex {
-	pub color: StaticIndex,
-
-}
-
-pub const COLOR_GROUP: usize = 4;
 
 /// 实体删除，背景颜色删除时，删除对应的DrawObject
 #[listen(component=(Node, BackgroundColor, Delete), component=(Node, Node, Delete))]
@@ -169,33 +214,78 @@ pub fn background_color_delete(
 	}
 }
 
-async fn modify_color_group(
+// 返回当前需要的StaticIndex
+async fn modify<'a> (
 	color: &Color, 
+	radius: Option<&BorderRadius>, 
+	layout: &LayoutResult,
 	draw_state: &mut DrawState, 
 	device: &RenderDevice, 
-	color_group_layout: &BindGroupLayout,
 	buffer_assets: &Share<AssetMgr<RenderRes<Buffer>>>,
 	bind_group_assets: &Share<AssetMgr<RenderRes<BindGroup>>>,
-) {
-	match color {
+	bg_color_change: &ChangeTrackers<BackgroundColor>,
+	border_change: &ChangeTrackers<BorderRadius>,
+	layout_change: &ChangeTrackers<LayoutResult>,
+	color_static: &'a StaticIndex,
+	linear_static: &'a StaticIndex,
+	shader_static: &Shaders,
+	unit_quad_buffer: &UnitQuadBuffer,
+) -> (&'a StaticIndex, IsUnitQuad) {
+	// modify_radius_linear_geo
+	let static_index = match color {
 		Color::RGBA(color) => {
-			let color_bind_group = create_reba_bind_group(color, device, color_group_layout, buffer_assets, bind_group_assets);
-			// 插入到drawstate中
-			draw_state.bind_groups.insert(COLOR_GROUP, color_bind_group);
+			// 颜色改变，重新设置color_group
+			if bg_color_change.is_changed() {
+				let color_group_layout = shader_static.get(color_static.shader).unwrap().bind_group.get(COLOR_GROUP).unwrap();
+				let color_bind_group = create_rgba_bind_group(color, device, color_group_layout, buffer_assets, bind_group_assets);
+				// 插入color_bind_group到drawstate中
+				draw_state.bind_groups.insert(COLOR_GROUP, color_bind_group);
+			}
+			
+			color_static
 		},
-		_ => panic!("color is error..."),
+		_ => {
+			linear_static
+		},
+	};
+
+	let radius = get_content_radius(radius, layout);
+	// 如果既没有圆角，也不是渐变色，则不需要切分顶点,直接设置单位四边形的ib、vb
+	if radius.is_none() {
+		if let Color::LinearGradient(_) = color{} 
+		else{
+			if border_change.is_changed() || bg_color_change.is_changed() {
+				draw_state.vbs.insert(0, (unit_quad_buffer.vertex.clone(), 0));
+				draw_state.ib = Some((unit_quad_buffer.index.clone(), 6, IndexFormat::Uint16));
+			}
+			return (static_index, IsUnitQuad(true));
+		}
 	}
-	
+
+	// 否则，需要切分顶点，如果是渐变色，还要设置color vb
+	// ib、position vb、color vb
+	if border_change.is_changed() || bg_color_change.is_changed() || layout_change.is_changed() {
+		try_modify_as_radius_linear_geo(
+			&radius, 
+			layout,
+			device,
+			draw_state,
+			buffer_assets,
+			color
+		);
+	}
+
+	(static_index, IsUnitQuad(false))
 }
 
-pub fn create_reba_bind_group(
+pub fn create_rgba_bind_group(
 	color: &CgColor,
 	device: &RenderDevice, 
 	color_group_layout: &BindGroupLayout,
 	buffer_assets: &Share<AssetMgr<RenderRes<Buffer>>>,
 	bind_group_assets: &Share<AssetMgr<RenderRes<BindGroup>>>,
 ) -> Handle<RenderRes<BindGroup>> {
-	let key = calc_hash(color);
+	let key = calc_hash(&("color", color));
 	match bind_group_assets.get(&key) {
 		Some(r) => r,
 		None => {
@@ -227,212 +317,133 @@ pub fn create_reba_bind_group(
 	}
 }
 
-/// 创建background相关的shader信息（静态信息，在运行时不变）
-pub fn create_shader_static(
-	share_layout: &ShareLayout, 
-	shader_catch: &mut ShaderCatch, 
-	shader_map: &mut ShaderMap,
-	device: &RenderDevice,
-) -> ShaderStatic {
-	let color_static = ColorStatic::init(device).0;
 
-	let mut bind_group_layout = VecMap::new();
-	bind_group_layout.insert(COLOR_GROUP, color_static);
-	// 通用Layout
-	bind_group_layout.insert(WORLD_MATRIX_GROUP, share_layout.matrix.clone());
-	bind_group_layout.insert(DEPTH_GROUP, share_layout.depth.clone());
-	bind_group_layout.insert(PROJECT_GROUP, share_layout.project.clone());
-	bind_group_layout.insert(VIEW_GROUP, share_layout.view.clone());
+#[inline]
+fn try_modify_as_radius_linear_geo(
+    radius: &Option<Rect<NotNan<f32>>>,
+    layout: &LayoutResult,
+    device: &RenderDevice,
+	darw_state: &mut DrawState,
+	buffer_asset_mgr: &Share<AssetMgr<RenderRes<Buffer>>>,
+	color: &Color,
+) {
+	let rect = get_content_rect(layout);
+	let size = Size {width: rect.right - rect.left, height: rect.bottom - rect.top};
+	let vb_hash = calc_hash(&("radius vb", radius, rect));
+	let ib_hash = calc_hash(&("radius ib", radius, rect));
 
-	let bg_shader = GlslShaderStatic::init(shader_catch, shader_map, ||{include_str!("../../source/shader/common.vert")}, ||{include_str!("../../source/shader/color.frag")});
-	
-	ShaderStatic {
-		vs_shader_soruce: bg_shader.shader_vs,
-		fs_shader_soruce: bg_shader.shader_fs,
-		bind_group: bind_group_layout,
-		create_shader_info,
-	}
-}
-
-pub fn create_pipeline_state() -> PipelineState {
-	PipelineState {
-		targets: vec![wgpu::ColorTargetState {
-			format: wgpu::TextureFormat::Bgra8UnormSrgb,
-			blend: Some(wgpu::BlendState {
-				color: wgpu::BlendComponent {
-					operation: wgpu::BlendOperation::Add,
-					src_factor: wgpu::BlendFactor::SrcAlpha,
-					dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
-				},
-				alpha: wgpu::BlendComponent::REPLACE,
-			}),
-			write_mask: wgpu::ColorWrites::ALL,
-		}],
-		primitive: wgpu::PrimitiveState {
-			front_face: wgpu::FrontFace::Ccw,
-			cull_mode: None,
-			polygon_mode: wgpu::PolygonMode::Fill,
-			..Default::default()
-		},
-		depth_stencil: Some(DepthStencilState {
-			format: TextureFormat::Depth32Float,
-			depth_write_enabled: true,
-			depth_compare: CompareFunction::Always,
-			stencil: StencilState::default(),
-			bias: DepthBiasState::default(),
-		}),
-		multisample: wgpu::MultisampleState::default(),
-		multiview: None,
-	}
-}
-
-pub fn create_vertex_buffer_layout() -> VertexBufferLayouts {
-	vec![VertexBufferLayout {
-		array_stride: 8 as wgpu::BufferAddress,
-		step_mode: wgpu::VertexStepMode::Vertex,
-		attributes: vec![
-			wgpu::VertexAttribute {
-				format: wgpu::VertexFormat::Float32x2,
-				offset: 0,
-				shader_location: 0,
-			},
-		],
-	}]
-}
-
-fn create_shader_info(
-	vs_shader_id: &ShaderId,
-	fs_shader_id: &ShaderId,
-	vs_defines: &VSDefines, 
-	fs_defines: &FSDefines, 
-	bind_group_layout: VecMap<Share<BindGroupLayout>>,
-	create_shader_info: &Share<BindGroupLayout>,
-	device: &RenderDevice,
-	shaders: &XHashMap<ShaderId, Shader>,
-) -> Program {
-	let processor = ShaderProcessor::default();
-	let imports = XHashMap::default();
-
-	let vs = processor
-            .process(&vs_shader_id, vs_defines, shaders, &imports)
-            .unwrap();
-	let vs = vs.get_glsl_source().unwrap();
-	let vs = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
-		label: Some("bg_color_vs_shader_module"),
-		source: wgpu::ShaderSource::Glsl {
-			shader: Cow::Borrowed(vs),
-			stage: naga::ShaderStage::Vertex,
-			defines: naga::FastHashMap::default(),
-		},
-	});
-
-	let fs = processor
-            .process(&fs_shader_id, fs_defines, shaders, &imports)
-            .unwrap();
-	let fs = fs.get_glsl_source().unwrap();
-	let fs = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
-		label: Some("bg_color_fs_shader_module"),
-		source: wgpu::ShaderSource::Glsl {
-			shader: Cow::Borrowed(fs),
-			stage: naga::ShaderStage::Fragment,
-			defines: naga::FastHashMap::default(),
-		},
-	});
-	
-
-	// 根据defines， 删除layout(TODO)
-	
-	let mut v = Vec::new();
-	for r in bind_group_layout.iter() {
-		if let Some(r) = r {
-			v.push(&***r);
-		}
-	}
-	//list_share_as_ref(bind_group_layout.iter());
-	let slice = v.as_slice();
-	println!("len===={}, {}", slice.len(), v.len());
-	let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-		label: Some("cerate bg_color pipeline_layout"),
-		bind_group_layouts: slice,
-		push_constant_ranges: &[],
-	});
-	
-	Program {
-		pipeline_layout: Share::new(pipeline_layout),
-		vs_shader: Share::new(vs),
-		fs_shader: Share::new(fs),
-	}
-}
-
-pub struct GlslShaderStatic {
-	pub shader_vs: ShaderId,
-	pub shader_fs: ShaderId,
-}
-
-impl Clone for GlslShaderStatic {
-    fn clone(&self) -> Self {
-        Self { shader_vs: self.shader_vs.clone(), shader_fs: self.shader_fs.clone() }
-    }
-}
-
-impl GlslShaderStatic {
-    fn init(shader_catch: &mut ShaderCatch, shader_map: &mut ShaderMap, load_vs: impl Fn() -> &'static str, load_fs: impl Fn() -> &'static str) -> Self {
-		let (shader_vs, shader_fs) = {
-			(
-				match shader_map.entry(COLOR_SHADER_VS) {
-					Entry::Vacant(r) => {
-						let shader = Shader::from_glsl(
-							load_vs(), 
-							ShaderStage::Vertex);
-						let r = r.insert(shader.id()).clone();
-						shader_catch.insert(shader.id(), shader);
-						r
-					},
-					Entry::Occupied(r) =>r.get().clone()
-				},
-				match shader_map.entry(COLOR_SHADER_FS) {
-					Entry::Vacant(r) => {
-						let shader = Shader::from_glsl(
-							load_fs(), 
-							ShaderStage::Fragment);
-						let r = r.insert(shader.id()).clone();
-						shader_catch.insert(shader.id(), shader);
-						r
-					},
-					Entry::Occupied(r) => r.get().clone()
+	let (vb, ib, ) = match (buffer_asset_mgr.get(&vb_hash), buffer_asset_mgr.get(&ib_hash)) {
+		(Some(vb), Some(ib)) => (vb, ib),
+		(vb, ib) => {
+			let (mut positions, mut indices) = match radius {
+				Some(radius) => split_by_radius(
+					layout.border.left,
+					layout.border.top,
+					*size.width,
+					*size.height,
+					*radius.left,
+					None,
+				),
+				None => (
+					vec![
+                        *rect.left, *rect.top, // left_top
+                        *rect.left, *rect.bottom, // left_bootom
+                        *rect.right, *rect.bottom, // right_bootom
+                        *rect.right, *rect.top, // right_top
+                    ],
+                    vec![0, 1, 2, 3],
+				)
+			};
+			if let Color::LinearGradient(color) = color {
+				let mut lg_pos = Vec::with_capacity(color.list.len());
+				let mut colors = Vec::with_capacity(color.list.len() * 4);
+				for v in color.list.iter() {
+					lg_pos.push(v.position);
+					colors.extend_from_slice(&[v.rgba.x, v.rgba.y, v.rgba.z, v.rgba.w]);
 				}
-			)
-		};
-		Self {
-			shader_vs,
-			shader_fs
+
+				//渐变端点
+				let endp = find_lg_endp(
+					&[
+						0.0,
+						0.0,
+						0.0,
+						*size.height,
+						*size.width,
+						*size.height,
+						*size.width,
+						0.0,
+					],
+					color.direction,
+				);
+
+				let (positions1, indices1) = split_by_lg(
+					positions,
+					indices,
+					lg_pos.as_slice(),
+					endp.0.clone(),
+					endp.1.clone(),
+				);
+
+				let mut colors = interp_mult_by_lg(
+					positions1.as_slice(),
+					&indices1,
+					vec![Vec::new()],
+					vec![LgCfg {
+						unit: 4,
+						data: colors,
+					}],
+					lg_pos.as_slice(),
+					endp.0,
+					endp.1,
+				);
+
+				indices = mult_to_triangle(&indices1, Vec::new());
+				positions = positions1;
+
+				let colors = colors.pop().unwrap();
+				let buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
+					label: Some("radius or linear Color Buffer"),
+					contents: bytemuck::cast_slice(colors.as_slice()),
+					usage: wgpu::BufferUsages::VERTEX,
+				});
+				let color_hash = calc_hash(&("radius color vb", radius, rect));
+
+				buffer_asset_mgr.cache(color_hash, RenderRes::new(buf, colors.len() * 4));
+				darw_state.vbs.insert(1, (buffer_asset_mgr.get(&color_hash).unwrap(), 0));
+			} else {
+				indices = to_triangle(&indices, Vec::with_capacity(indices.len()));
+			}
+			let vb = match vb {
+				Some(r) => r,
+				None => {
+					let buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
+						label: Some("radius or linear Vertex Buffer"),
+						contents: bytemuck::cast_slice(positions.as_slice()),
+						usage: wgpu::BufferUsages::VERTEX,
+					});
+					buffer_asset_mgr.cache(vb_hash, RenderRes::new(buf, positions.len() * 4));
+					buffer_asset_mgr.get(&vb_hash).unwrap()
+				}
+			};
+			let ib = match ib {
+				Some(r) => r,
+				None => {
+					let buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
+						label: Some("radius or linear Index Buffer"),
+						contents: bytemuck::cast_slice(indices.as_slice()),
+						usage: wgpu::BufferUsages::INDEX,
+					});
+					buffer_asset_mgr.cache(ib_hash, RenderRes::new(buf, indices.len() * 2));
+					buffer_asset_mgr.get(&ib_hash).unwrap()
+				}
+			};
+			(vb, ib)
 		}
-	}
+	};
+
+	darw_state.vbs.insert(0, (vb, 0));
+	let ib_size = (ib.size()/2) as u64;
+	darw_state.ib =  Some((ib, ib_size, IndexFormat::Uint16));
 }
-
-#[derive(Deref)]
-pub struct ColorStatic(Share<BindGroupLayout>);
-
-impl ColorStatic {
-	fn init(device: &RenderDevice) -> Self {
-		ColorStatic(Share::new(device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-			label: Some("color_layout"),
-			entries: &[
-				wgpu::BindGroupLayoutEntry {
-					binding: 0,
-					visibility: wgpu::ShaderStages::FRAGMENT,
-					ty: wgpu::BindingType::Buffer {
-						ty: wgpu::BufferBindingType::Uniform,
-						has_dynamic_offset: false,
-						min_binding_size: wgpu::BufferSize::new(16), // rgba四个通道，每个通道为一个f32, 大小为 4 * 4（每个通道一个u8， todo）
-					},
-					count: None,
-				},
-			],
-		})))
-	}
-}
-
-const COLOR_SHADER_VS: &'static str = "color_shader_vs";
-const COLOR_SHADER_FS: &'static str = "color_shader_fs";
 

@@ -17,7 +17,8 @@ use crate::{
 use super::{GlslShaderStatic, create_shader_common_static, StaticIndex};
 
 const IMAGE_SHADER_VS: &'static str = "post_shader_vs";
-const IMAGE_SHADER_FS: &'static str = "post__shader_fs";
+const IMAGE_SHADER_FS: &'static str = "post_shader_fs";
+const POST_PIPELINE: &'static str = "post_pipeline";
 
 pub struct CalcPostProcessShader;
 
@@ -139,6 +140,7 @@ pub fn init_static(
 		shader: shader_index,
 		pipeline_state,
 		vertex_buffer_index,
+		name: POST_PIPELINE,
 	}
 }
 
@@ -273,10 +275,14 @@ pub fn create_pipeline_state() -> PipelineState {
 			blend: Some(wgpu::BlendState {
 				color: wgpu::BlendComponent {
 					operation: wgpu::BlendOperation::Add,
-					src_factor: wgpu::BlendFactor::SrcAlpha,
+					src_factor: wgpu::BlendFactor::One,
 					dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
 				},
-				alpha: wgpu::BlendComponent::REPLACE,
+				alpha: wgpu::BlendComponent {
+					operation: wgpu::BlendOperation::Add,
+					src_factor: wgpu::BlendFactor::One,
+					dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+				},
 			}),
 			write_mask: wgpu::ColorWrites::ALL,
 		}],

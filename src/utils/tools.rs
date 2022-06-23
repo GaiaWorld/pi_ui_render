@@ -2,14 +2,22 @@ use std::hash::{Hash, Hasher};
 
 use num_traits::float::FloatCore;
 use ordered_float::NotNan;
+use pi_flex_layout::prelude::{Rect, Size};
 use pi_hash::DefaultHasher;
 
-use crate::components::{user::{Aabb2, Point2, Vector4, Matrix4}, calc::WorldMatrix};
+use crate::components::{user::{Aabb2, Point2, Vector4, Matrix4, BorderRadius, LengthUnit}, calc::{WorldMatrix, LayoutResult}};
 
 
 pub fn calc_hash<T: Hash>(v: &T)-> u64 {
 	let mut hasher = DefaultHasher::default();
 	v.hash(&mut hasher);
+	hasher.finish()
+}
+pub fn calc_hash_slice<T: Hash>(v: &[T])-> u64 {
+	let mut hasher = DefaultHasher::default();
+	for i in v.iter() {
+		i.hash(&mut hasher);
+	}
 	hasher.finish()
 }
 
@@ -74,6 +82,84 @@ pub fn box_aabb(aabb1: &mut Aabb2, aabb2: &Aabb2) {
 	aabb1.mins.y = aabb1.mins.y.min(aabb2.mins.y);
 	aabb1.maxs.x = aabb1.maxs.x.max(aabb2.maxs.x);
 	aabb1.maxs.y = aabb1.maxs.y.max(aabb2.maxs.y);
+}
+
+pub fn get_radius(radius: &BorderRadius, layout: &LayoutResult) -> Rect<NotNan<f32>> {
+	let width = layout.rect.right - layout.rect.left;
+	let height = layout.rect.bottom - layout.rect.top;
+	let half_width = width/2.0;
+	let half_height = height/2.0;
+
+	Rect {
+		top: match radius.y {
+			LengthUnit::Pixel(v) => unsafe { NotNan::unchecked_new(half_height.min(v))},
+			LengthUnit::Percent(v) => unsafe { NotNan::unchecked_new(half_height.min(v * height))},
+		},
+		right: match radius.x {
+			LengthUnit::Pixel(v) => unsafe { NotNan::unchecked_new(half_width.min(v))},
+			LengthUnit::Percent(v) => unsafe { NotNan::unchecked_new(half_width.min(v * width))},
+		},
+		bottom: match radius.y {
+			LengthUnit::Pixel(v) => unsafe { NotNan::unchecked_new(half_height.min(v))},
+			LengthUnit::Percent(v) => unsafe { NotNan::unchecked_new(half_height.min(v * height))},
+		},
+		left: match radius.x {
+			LengthUnit::Pixel(v) => unsafe { NotNan::unchecked_new(half_width.min(v))},
+			LengthUnit::Percent(v) => unsafe { NotNan::unchecked_new(half_width.min(v * width))},
+		}
+	}
+}
+
+pub fn get_content_size(layout: &LayoutResult) -> Size<NotNan<f32>> {
+	Size {
+		width: unsafe { NotNan::unchecked_new(layout.rect.right - layout.rect.left - layout.border.left - layout.border.right)},
+		height: unsafe { NotNan::unchecked_new(layout.rect.bottom - layout.rect.top - layout.border.bottom - layout.border.top)},
+	}
+}
+
+#[inline]
+pub fn get_content_rect(layout: &LayoutResult) -> Rect<NotNan<f32>> { 
+	Rect {
+		top: unsafe { NotNan::unchecked_new(layout.border.top)},
+		right: unsafe { NotNan::unchecked_new(layout.rect.right - layout.border.left - layout.border.right)},
+		bottom: unsafe { NotNan::unchecked_new(layout.rect.bottom - layout.border.top - layout.border.bottom)},
+		left: unsafe { NotNan::unchecked_new(layout.border.left)},
+	}
+}
+
+pub fn get_content_radius(radius: Option<&BorderRadius>, layout: &LayoutResult) -> Option<Rect<NotNan<f32>>> {
+	let radius = match radius {
+		None => return None,
+		Some(radius) => radius,
+	};
+	let mut r = get_radius(radius, layout);
+	r.top = r.top - layout.border.top;
+	r.right = r.right - layout.border.right;
+	r.bottom = r.bottom - layout.border.bottom;
+	r.left = r.left - layout.border.left;
+	
+	if *r.top < 0.0 {
+		r.top = unsafe { NotNan::unchecked_new(0.0)};
+	}
+	if *r.right < 0.0 {
+		r.right = unsafe { NotNan::unchecked_new(0.0)};
+	}
+	if *r.bottom < 0.0 {
+		r.bottom = unsafe { NotNan::unchecked_new(0.0)};
+	}
+	if *r.left < 0.0 {
+		r.left = unsafe { NotNan::unchecked_new(0.0)};
+	}
+
+	if *r.top == 0.0 &&
+		*r.right == 0.0 &&
+		*r.bottom == 0.0 &&
+		*r.left == 0.0 {
+		return None
+	} else {
+		return Some(r);
+	}
+	
 }
 
 // 计算两个aabb的交集

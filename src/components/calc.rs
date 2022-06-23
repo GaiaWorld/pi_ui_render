@@ -640,6 +640,8 @@ pub enum StyleType {
 	Margin = 78,
 	Padding = 79,
 	Opacity = 80,
+
+	TextContent = 81,
 }
 
 pub enum FlexStyleType {

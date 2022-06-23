@@ -18,6 +18,7 @@ pub mod resource;
 pub mod system;
 pub mod utils;
 pub mod gui;
+pub mod font;
 
 
 

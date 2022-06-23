@@ -3,7 +3,7 @@ use pi_ecs::monitor::Event;
 use pi_ecs::prelude::{Query, Write};
 use pi_ecs_macros::{listen, setup};
 
-use crate::components::user::{Node, Vector4, Aabb2, Point2};
+use crate::components::user::{Node, Aabb2, Point2};
 use crate::components::calc::{WorldMatrix, Quad, LayoutResult};
 use crate::utils::tools::calc_bound_box;
 

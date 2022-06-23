@@ -13,7 +13,7 @@ use pi_share::Share;
 use pi_slotmap::{SlotMap, DefaultKey};
 use wgpu::{PipelineLayout, ShaderModule, Sampler};
 
-use crate::{components::{draw_obj::{VSDefines, FSDefines}, pass_2d::Pass2D}, utils::{tools::{calc_hash, calc_float_hash}, shader_helper::{create_matrix_group_layout, create_depth_layout, create_view_layout, create_project_layout, create_empty_layout}}};
+use crate::{components::{draw_obj::{VSDefines, FSDefines, DrawState}, pass_2d::Pass2D}, utils::{tools::{calc_hash, calc_float_hash}, shader_helper::{create_matrix_group_layout, create_depth_layout, create_view_layout, create_project_layout, create_empty_layout}}};
 
 /// viewMatrix、projectMatrix 的BindGroupLayout
 #[derive(Deref)]
@@ -151,6 +151,7 @@ impl Hash for PipelineState {
 #[derive(Debug)]
 pub struct UnitQuadBuffer {
 	pub vertex: Handle<RenderRes<Buffer>>,
+	pub uv: Handle<RenderRes<Buffer>>,
 	pub index: Handle<RenderRes<Buffer>>,
 }
 impl FromWorld for UnitQuadBuffer {
@@ -158,10 +159,17 @@ impl FromWorld for UnitQuadBuffer {
 		let device = world.get_resource::<RenderDevice>().expect("create UnitQuadBuffer need RenderDevice");
 		let buffer_asset_mgr = world.get_resource::<Share<AssetMgr<RenderRes<Buffer>>>>().expect("create UnitQuadBuffer need buffer AssetMgr");
         let vertex_data: [f32; 8] = [0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 0.0];
+		let uv_data: [f32; 8] = [0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0];
 		let index_data: [u16; 6] = [0, 1, 2, 0, 2, 3];
 		let vertex_buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
 			label: Some("Unit Quad Vertex Buffer"),
 			contents: bytemuck::cast_slice(&vertex_data),
+			usage: wgpu::BufferUsages::VERTEX,
+		});
+
+		let uv_buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
+			label: Some("Unit Quad UV Buffer"),
+			contents: bytemuck::cast_slice(&uv_data),
 			usage: wgpu::BufferUsages::VERTEX,
 		});
 	
@@ -173,11 +181,14 @@ impl FromWorld for UnitQuadBuffer {
 
 		let ib_key = calc_hash(&index_data);
 		let vb_key = calc_float_hash(&vertex_data);
+		let uv_key = calc_float_hash(&uv_data);
 		AssetMgr::cache(&buffer_asset_mgr, vb_key, RenderRes::new(vertex_buf, 32));
+		AssetMgr::cache(&buffer_asset_mgr, uv_key, RenderRes::new(uv_buf, 32));
 		AssetMgr::cache(&buffer_asset_mgr, ib_key, RenderRes::new(index_buf, 12));
 
 		UnitQuadBuffer {
 			vertex: AssetMgr::get(&buffer_asset_mgr, &vb_key).unwrap(),
+			uv: AssetMgr::get(&buffer_asset_mgr, &uv_key).unwrap(),
 			index: AssetMgr::get(&buffer_asset_mgr, &ib_key).unwrap(),
 		}
     }
@@ -266,6 +277,8 @@ impl FromWorld for CommonSampler {
 /// 将pass2d组织为层的结构
 #[derive(Deref, Default, DerefMut)]
 pub struct LayerPass2D (LayerDirty<Id<Pass2D>>);
+
+pub struct CopyFboToScreen(pub DrawState);
 
 
 

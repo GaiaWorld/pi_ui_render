@@ -3,6 +3,7 @@
 use std::intrinsics::transmute;
 use std::str::FromStr;
 
+use ordered_float::NotNan;
 use pi_atom::Atom;
 use pi_flex_layout::{style::{Display, Dimension, AlignItems, AlignSelf, AlignContent, FlexDirection, JustifyContent, PositionType, FlexWrap}, prelude::Rect};
 use pi_hash::XHashMap;
@@ -352,7 +353,7 @@ fn match_key(key: &str, value: &str, class: &mut ClassMeta, class_sheet: &mut Cl
         }
         "font-family" => unsafe {
 			StyleAttr::write(
-				FontFamilyType(parse_usize(value)?),
+				FontFamilyType(Atom::from(value)),
 				&mut class_sheet.style_buffer,
 			);
             class.class_style_mark.set(StyleType::FontFamily as usize, true);
@@ -1206,7 +1207,7 @@ fn parse_font_size(value: &str) -> Result<FontSize, String> {
             Ok(r) => r,
             Err(e) => return Err(e.to_string()),
         };
-        Ok(FontSize::Length(v))
+        Ok(FontSize::Length(v as usize))
     } else {
         Err("parse_font_size error".to_string())
     }
@@ -1321,7 +1322,11 @@ fn parse_box_shadow_number(
 fn parse_text_stroke(value: &str) -> Result<Stroke, String> {
     let mut i = 0;
     let mut stroke = Stroke::default();
-    stroke.width = parse_px(iter_by_space(value, &mut i)?)?;
+	let r = parse_px(iter_by_space(value, &mut i)?)?;
+	if r.is_nan() {
+		return Err("stroke is nan".to_string());
+	}
+    stroke.width = NotNan::new( r).unwrap();
     stroke.color = parse_color_string(iter_by_space(value, &mut i)?)?;
     Ok(stroke)
 }
@@ -2104,12 +2109,12 @@ fn parse_px(value: &str) -> Result<f32, String> {
     }
 }
 
-fn parse_usize(value: &str) -> Result<usize, String> {
-    match usize::from_str(value) {
-        Ok(r) => Ok(r),
-        Err(e) => Err(e.to_string()),
-    }
-}
+// fn parse_usize(value: &str) -> Result<usize, String> {
+//     match usize::from_str(value) {
+//         Ok(r) => Ok(r),
+//         Err(e) => Err(e.to_string()),
+//     }
+// }
 
 fn parse_f32(value: &str) -> Result<f32, String> {
     match f32::from_str(value) {
