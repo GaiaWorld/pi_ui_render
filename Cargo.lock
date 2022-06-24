@@ -657,12 +657,12 @@ checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
 [[package]]
 name = "font_kit"
 version = "0.1.0"
+source = "git+http://ser.yinengyun.com:10082/tech/font_kit.git?branch=suncy#00508375327f97c044b6949bb069b092d5f9dcdf"
 dependencies = [
  "freetype-sys",
  "image",
  "lazy_static",
  "libc",
- "pi_async 0.1.6",
 ]
 
 [[package]]
@@ -683,6 +683,7 @@ checksum = "00b0228411908ca8685dba7fc2cdd70ec9990a6e753e89b6ac91a84c40fbaf4b"
 [[package]]
 name = "freetype-sys"
 version = "0.13.1"
+source = "git+http://ser.yinengyun.com:10082/tech/freetype_sys.git?branch=suncy#40bfbc7f481713c159535409865c6c10debf3d01"
 dependencies = [
  "cmake",
  "libc",
@@ -1681,12 +1682,14 @@ checksum = "11eb29c61d91c65135b354b529f2674c1b5482d4b4c745d71edf8639f68d33df"
 
 [[package]]
 name = "pi_assets"
-version = "0.5.2"
+version = "0.7.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d867e329142776fa0f66248e618e925c6671a6f17be0716e4ee25eca424e7b70"
 dependencies = [
  "flume",
  "futures",
  "log",
- "pi_async 0.1.9",
+ "pi_async 0.2.6",
  "pi_cache",
  "pi_hash",
  "pi_share 0.2.0",
@@ -1695,7 +1698,9 @@ dependencies = [
 
 [[package]]
 name = "pi_async"
-version = "0.1.6"
+version = "0.1.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5048304a07786e57aa9588bf8950303bee1347d026f78c31a3cdab07d85b900e"
 dependencies = [
  "async-stream",
  "crossbeam-channel",
@@ -1714,9 +1719,9 @@ dependencies = [
 
 [[package]]
 name = "pi_async"
-version = "0.1.9"
+version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5048304a07786e57aa9588bf8950303bee1347d026f78c31a3cdab07d85b900e"
+checksum = "4b99917261f1abc0685365154d003c9384b73abc6981f94486d8705a6ae1eb2d"
 dependencies = [
  "async-stream",
  "crossbeam-channel",
@@ -1826,6 +1831,7 @@ dependencies = [
 [[package]]
 name = "pi_ecs"
 version = "0.1.1"
+source = "git+https://github.com/GaiaWorld/pi_ecs.git#99229d6cf5b75bbf6158e5e1b9078e93a5fa8cf8"
 dependencies = [
  "derive_deref",
  "fixedbitset 0.4.1",
@@ -1835,7 +1841,7 @@ dependencies = [
  "pi_any",
  "pi_async 0.1.9",
  "pi_async_graph",
- "pi_ecs_macros 0.1.0",
+ "pi_ecs_macros 0.1.0 (git+https://github.com/GaiaWorld/pi_ecs.git)",
  "pi_graph",
  "pi_hash",
  "pi_listener",
@@ -1845,16 +1851,6 @@ dependencies = [
  "pi_slotmap",
  "quote",
  "thiserror",
-]
-
-[[package]]
-name = "pi_ecs_macros"
-version = "0.1.0"
-dependencies = [
- "find-crate",
- "proc-macro2",
- "quote",
- "syn",
 ]
 
 [[package]]
@@ -1872,7 +1868,7 @@ dependencies = [
 [[package]]
 name = "pi_ecs_macros"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_ecs.git#897bb3e4d7178b4d2450ad85aecf999cc07b14bc"
+source = "git+https://github.com/GaiaWorld/pi_ecs.git#99229d6cf5b75bbf6158e5e1b9078e93a5fa8cf8"
 dependencies = [
  "find-crate",
  "proc-macro2",
@@ -1883,6 +1879,7 @@ dependencies = [
 [[package]]
 name = "pi_ecs_utils"
 version = "0.1.1"
+source = "git+https://github.com/GaiaWorld/pi_ecs_utils.git#b57e574fd8c36189639347aa04486fa15234e6a1"
 dependencies = [
  "derive_deref",
  "pi_dirty",
@@ -1908,6 +1905,7 @@ dependencies = [
 [[package]]
 name = "pi_flex_layout"
 version = "0.2.1"
+source = "git+https://github.com/GaiaWorld/pi_flex_layout.git#1d369bfde410df5a92ea1f35e6f61e9821f7b843"
 dependencies = [
  "debugit",
  "libm 0.1.4",
@@ -2017,6 +2015,7 @@ checksum = "48a220fd4dba0a60df2d8d44140c0dc918bf97d6daa8ac265884fd4522bd4f54"
 [[package]]
 name = "pi_render"
 version = "0.1.0"
+source = "git+https://github.com/GaiaWorld/pi_render.git#15ada9e45f3425a93d010350d3c0a9ae12deca19"
 dependencies = [
  "render_core",
 ]
@@ -2035,17 +2034,6 @@ dependencies = [
  "pi_lru",
  "pi_share 0.1.3",
  "pi_slab",
-]
-
-[[package]]
-name = "pi_res_loader"
-version = "0.1.0"
-dependencies = [
- "derive_deref",
- "futures",
- "pi_enum_default_macro",
- "pi_res",
- "pi_share 0.1.3",
 ]
 
 [[package]]
@@ -2091,6 +2079,7 @@ dependencies = [
 [[package]]
 name = "pi_slotmap_tree"
 version = "0.2.1"
+source = "git+https://github.com/GaiaWorld/pi_slotmap_tree.git#044e2db11206c7abc2c3f11acddcdc8ef84b3ea9"
 dependencies = [
  "log",
  "pi_null",
@@ -2156,7 +2145,7 @@ dependencies = [
  "pi_data_view",
  "pi_dirty",
  "pi_ecs",
- "pi_ecs_macros 0.1.0",
+ "pi_ecs_macros 0.1.0 (git+https://github.com/GaiaWorld/pi_ecs.git)",
  "pi_ecs_utils",
  "pi_enum_default_macro",
  "pi_flex_layout",
@@ -2166,7 +2155,6 @@ dependencies = [
  "pi_polygon",
  "pi_render",
  "pi_res",
- "pi_res_loader",
  "pi_share 0.1.3",
  "pi_slotmap",
  "pi_slotmap_tree",
@@ -2490,6 +2478,7 @@ checksum = "49b3de9ec5dc0a3417da371aab17d729997c15010e7fd24ff707773a33bddb64"
 [[package]]
 name = "render_core"
 version = "0.1.0"
+source = "git+https://github.com/GaiaWorld/pi_render.git#15ada9e45f3425a93d010350d3c0a9ae12deca19"
 dependencies = [
  "anyhow",
  "derive-deref-rs",
@@ -2529,6 +2518,7 @@ dependencies = [
 [[package]]
 name = "render_crevice"
 version = "0.1.0"
+source = "git+https://github.com/GaiaWorld/pi_render.git#15ada9e45f3425a93d010350d3c0a9ae12deca19"
 dependencies = [
  "bytemuck",
  "mint",
@@ -2539,6 +2529,7 @@ dependencies = [
 [[package]]
 name = "render_crevice_derive"
 version = "0.1.0"
+source = "git+https://github.com/GaiaWorld/pi_render.git#15ada9e45f3425a93d010350d3c0a9ae12deca19"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2549,6 +2540,7 @@ dependencies = [
 [[package]]
 name = "render_derive"
 version = "0.1.0"
+source = "git+https://github.com/GaiaWorld/pi_render.git#15ada9e45f3425a93d010350d3c0a9ae12deca19"
 dependencies = [
  "quote",
  "render_macro_utils",
@@ -2558,6 +2550,7 @@ dependencies = [
 [[package]]
 name = "render_macro_utils"
 version = "0.1.0"
+source = "git+https://github.com/GaiaWorld/pi_render.git#15ada9e45f3425a93d010350d3c0a9ae12deca19"
 dependencies = [
  "cargo-manifest",
  "quote",
@@ -2567,6 +2560,7 @@ dependencies = [
 [[package]]
 name = "render_utils"
 version = "0.1.0"
+source = "git+https://github.com/GaiaWorld/pi_render.git#15ada9e45f3425a93d010350d3c0a9ae12deca19"
 dependencies = [
  "ahash",
  "render_derive",

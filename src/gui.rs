@@ -257,14 +257,17 @@ fn init_dispatcher(world: &mut World, render_stages: RenderStage, dispatcher: &m
 	CalcOpacity::setup(world, &mut node_stage);
 	CalcContext::setup(world, &mut node_stage);
 	CalcZindex::setup(world, &mut node_stage);
-	CalcLayout::setup(world, &mut node_stage);
+	let split_id = CalcTextSplit::setup(world, &mut node_stage).unwrap();
+	let glyphid = CalcTextGlyph::setup(world, &mut node_stage).unwrap();
+	let layout_id = CalcLayout::setup(world, &mut node_stage).unwrap();
+	node_stage = node_stage
+		.order(split_id, layout_id)
+		.order(layout_id, glyphid);
 	CalcQuad::setup(world, &mut node_stage);
 	CalcMatrix::setup(world, &mut node_stage);
 	CalcContentBox::setup(world, &mut node_stage);
 	CalcRoot::setup(world, &mut node_stage);
 	CalcBackGroundColor::setup(world, &mut node_stage);
-	CalcTextSplit::setup(world, &mut node_stage);
-	CalcTextGlyph::setup(world, &mut node_stage);
 	CalcText::setup(world, &mut node_stage);
 	
 	let mut post_stage = StageBuilder::new();
