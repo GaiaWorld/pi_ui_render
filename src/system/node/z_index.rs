@@ -418,8 +418,7 @@ mod test {
     use std::sync::Arc;
 
     use pi_async::rt::{
-        multi_thread::{MultiTaskRuntimeBuilder, StealableTaskPool},
-        AsyncRuntime,
+        multi_thread::MultiTaskRuntime, AsyncRuntimeBuilder,
     };
     use pi_ecs::prelude::{
 		Dispatcher, In, Query, QueryState, SingleDispatcher, StageBuilder,
@@ -510,8 +509,14 @@ mod test {
         asset(&mut world, &mut query, vec![(0, (0, 16)), (1, (3, 6)), (2, (6, 9)), (3, (9, 12)), (4, (12, 15))]);
     }
 
-    fn get_dispatcher(world: &mut World) -> SingleDispatcher<StealableTaskPool<()>> {
-        let rt = AsyncRuntime::Multi(MultiTaskRuntimeBuilder::default().build());
+    fn get_dispatcher(world: &mut World) -> SingleDispatcher<MultiTaskRuntime> {
+		let rt = AsyncRuntimeBuilder::default_multi_thread(
+			None,
+			None,
+			None,
+			None,
+		);
+
         let mut stage = StageBuilder::new();
 		CalcZindex::setup(world, &mut stage);
 

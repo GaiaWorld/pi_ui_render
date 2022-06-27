@@ -8,11 +8,11 @@ use std::{
 };
 
 use ordered_float::NotNan;
+use pi_flex_layout::style::{AlignContent, Dimension, AlignSelf, PositionType, Direction, AlignItems, FlexWrap, FlexDirection, JustifyContent, Display};
 use smallvec::SmallVec;
 
 use pi_atom::Atom;
-use pi_flex_layout::prelude::*;
-use pi_flex_layout::prelude::Size as FlexSize;
+use pi_flex_layout::prelude::{Size as FlexSize, Number, Rect};
 
 pub type Matrix4 = nalgebra::Matrix4<f32>;
 pub type Point2 = nalgebra::Point2<f32>;
@@ -23,6 +23,7 @@ pub type Vector4 = nalgebra::Vector4<f32>;
 #[derive(Default, Debug, Deref, DerefMut, Clone, Serialize, Deserialize)]
 pub struct CgColor(nalgebra::Vector4<f32>);
 pub type Aabb2 = ncollide2d::bounding_volume::AABB<f32>;
+pub type NotNanRect = Rect<NotNan<f32>>;
 
 impl Hash for CgColor {
     fn hash<H: Hasher>(&self, state: &mut H) {
@@ -172,7 +173,7 @@ pub struct BackgroundColor(pub Color);
 pub struct ClassName(SmallVec<[usize; 1]>);
 
 // 边框颜色
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, Deref, DerefMut)]
 pub struct BorderColor(pub CgColor);
 
 // 图片路劲及纹理
@@ -216,23 +217,49 @@ pub struct ObjectFit(pub FitType);
 pub struct BackgroundImageClip(pub Aabb2);
 
 // 边框图片
-#[derive(Debug, Deref, DerefMut, Clone, Copy, Serialize, Deserialize, Default)]
-pub struct BorderImage(pub usize);
+#[derive(Debug, Deref, DerefMut, Clone, Serialize, Deserialize, Default, Hash)]
+pub struct BorderImage(pub Atom);
 
 // borderImage图像的uv（仅支持百分比， 不支持像素值）
-#[derive(Debug, Deref, DerefMut, Clone, Serialize, Deserialize)]
-pub struct BorderImageClip(pub Aabb2);
+#[derive(Debug, Deref, DerefMut, Clone, Serialize, Deserialize, Hash)]
+pub struct BorderImageClip(pub NotNanRect);
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+impl Default for BorderImageClip {
+    fn default() -> Self {
+        Self(
+			NotNanRect {
+				left: unsafe { NotNan::unchecked_new(0.0) }, 
+				top: unsafe { NotNan::unchecked_new(0.0) },
+				right: unsafe { NotNan::unchecked_new(1.0) } ,
+				bottom: unsafe { NotNan::unchecked_new(1.0) },
+			}
+		)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Hash)]
 pub struct BorderImageSlice {
-    pub top: f32,
-    pub right: f32,
-    pub bottom: f32,
-    pub left: f32,
+    pub top: NotNan<f32>,
+    pub right: NotNan<f32>,
+    pub bottom: NotNan<f32>,
+    pub left: NotNan<f32>,
     pub fill: bool,
 }
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct BorderImageRepeat(pub BorderImageRepeatType, pub BorderImageRepeatType);
+
+impl Default for BorderImageSlice {
+    fn default() -> Self {
+        Self {
+			left: unsafe { NotNan::unchecked_new(0.0) }, 
+			top: unsafe { NotNan::unchecked_new(0.0) },
+			right: unsafe { NotNan::unchecked_new(0.0) },
+			bottom: unsafe { NotNan::unchecked_new(0.0) },
+			fill: true,
+		}
+	}
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, Hash)]
+pub struct BorderImageRepeat(pub BorderImageRepeatOption, pub BorderImageRepeatOption);
 
 // 圆角， 目前仅支持x分量
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -492,8 +519,8 @@ pub enum FitType {
     RepeatY,
 }
 
-#[derive(Debug, Clone, Copy, EnumDefault, Serialize, Deserialize)]
-pub enum BorderImageRepeatType {
+#[derive(Debug, Clone, Copy, EnumDefault, Serialize, Deserialize, Hash)]
+pub enum BorderImageRepeatOption {
     Stretch, // 拉伸源图像的边缘区域以填充每个边界之间的间隙。
     Repeat, // 源图像的边缘区域被平铺（重复）以填充每个边界之间的间隙。可以修剪瓷砖以实现适当的配合。
     Round, // 源图像的边缘区域被平铺（重复）以填充每个边界之间的间隙。可以拉伸瓷砖以实现适当的配合。
@@ -725,8 +752,3 @@ impl Default for BackgroundImageClip {
     }
 }
 
-impl Default for BorderImageClip {
-    fn default() -> Self {
-        Self(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(1.0, 1.0)))
-    }
-}

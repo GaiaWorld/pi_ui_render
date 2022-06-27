@@ -5,9 +5,11 @@ use std::hash::Hash;
 use nalgebra::Matrix4;
 use bitvec::prelude::BitArray;
 use ordered_float::NotNan;
+use pi_assets::asset::Handle;
 use pi_ecs::prelude::{Id, LocalVersion};
 use pi_ecs_macros::Component;
 use pi_map::Map;
+use pi_render::rhi::asset::TextureRes;
 use pi_share::Share;
 use pi_spatialtree::QuadTree as QuadTree1;
 use smallvec::SmallVec;
@@ -708,3 +710,6 @@ pub struct OverflowAabb {
 	pub aabb: Option<Aabb2>,
 	pub matrix: Option<Matrix4<f32>>,
 }
+
+#[derive(Deref, DerefMut)]
+pub struct BorderImageTexture(pub Handle<TextureRes>);

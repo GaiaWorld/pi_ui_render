@@ -222,7 +222,7 @@ async fn modify<'a> (
 	draw_state: &mut DrawState, 
 	device: &RenderDevice, 
 	buffer_assets: &Share<AssetMgr<RenderRes<Buffer>>>,
-	bind_group_assets: &Share<AssetMgr<RenderRes<BindGroup>>>,
+	bind_group_assets: &'a Share<AssetMgr<RenderRes<BindGroup>>>,
 	bg_color_change: &ChangeTrackers<BackgroundColor>,
 	border_change: &ChangeTrackers<BorderRadius>,
 	layout_change: &ChangeTrackers<LayoutResult>,

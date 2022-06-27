@@ -6,16 +6,11 @@ mod framework;
 use async_trait::async_trait;
 use font_kit::font::new_face_by_path;
 use framework::Example;
-use pi_async::rt::{
-	AsyncRuntime, 
-	single_thread::SingleTaskPool
-};
 use pi_atom::Atom;
 /// 渲染四边形 demo
 use pi_ecs::prelude::Id;
 use pi_flex_layout::style::{Dimension, PositionType};
 use pi_null::Null;
-use pi_render::RenderStage;
 use pi_ui_render::{
 	gui::Gui, 
 	components::user::{Color, CgColor, TextContent, FontSize}, 
@@ -34,16 +29,12 @@ impl Example for QuadExample {
     async fn init(
 		&mut self, 
 		gui: &mut Gui, 
-		render_stage: RenderStage,
-		_rt: AsyncRuntime<(), SingleTaskPool<()>>,
 		size: (usize, usize),
 	) {
 		let mut dir = std::env::current_dir().unwrap();
 		log::info!("dir: {:?}", dir);
 		dir.push("examples/text/source/hwkt.ttf");
 		new_face_by_path("hwkt".to_string(), dir.to_str().unwrap());
-
-		gui.init(render_stage, 0, 0, size.0 as u32, size.1 as u32);
 
 		// 设置清屏颜色为绿色
 		gui.world_mut().insert_resource(ClearColor(CgColor::new(0.0, 1.0, 1.0, 1.0)));

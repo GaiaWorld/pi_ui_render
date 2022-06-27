@@ -1689,32 +1689,11 @@ dependencies = [
  "flume",
  "futures",
  "log",
- "pi_async 0.2.6",
+ "pi_async",
  "pi_cache",
  "pi_hash",
  "pi_share 0.2.0",
  "pi_time",
-]
-
-[[package]]
-name = "pi_async"
-version = "0.1.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5048304a07786e57aa9588bf8950303bee1347d026f78c31a3cdab07d85b900e"
-dependencies = [
- "async-stream",
- "crossbeam-channel",
- "crossbeam-deque",
- "crossbeam-queue",
- "flume",
- "futures",
- "libc",
- "log",
- "minstant",
- "num_cpus",
- "parking_lot 0.11.2",
- "pi_hash",
- "pi_local_timer",
 ]
 
 [[package]]
@@ -1739,14 +1718,31 @@ dependencies = [
 ]
 
 [[package]]
-name = "pi_async_graph"
+name = "pi_async_common"
 version = "0.1.0"
+dependencies = [
+ "lazy_static",
+ "pi_async",
+]
+
+[[package]]
+name = "pi_async_common"
+version = "0.1.0"
+source = "git+https://github.com/GaiaWorld/pi_async_common.git#823371a9b8e609e4d4b31d7f0bd3230879537eca"
+dependencies = [
+ "lazy_static",
+ "pi_async",
+]
+
+[[package]]
+name = "pi_async_graph"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fe47952534b5dd795856a14f8244f18e5a847f8101e1e275f9f9ebe9b7a6dcd9"
+checksum = "5f07f6291aaaf8a700156c746b68ea7430f1f35682356fa124011293d4b86956"
 dependencies = [
  "flume",
  "futures",
- "pi_async 0.1.9",
+ "pi_async",
  "pi_graph",
 ]
 
@@ -1831,7 +1827,7 @@ dependencies = [
 [[package]]
 name = "pi_ecs"
 version = "0.1.1"
-source = "git+https://github.com/GaiaWorld/pi_ecs.git#99229d6cf5b75bbf6158e5e1b9078e93a5fa8cf8"
+source = "git+https://github.com/GaiaWorld/pi_ecs.git#a93b4db65793674d67801dad73d6608e72fb61e3"
 dependencies = [
  "derive_deref",
  "fixedbitset 0.4.1",
@@ -1839,7 +1835,7 @@ dependencies = [
  "log",
  "paste 0.1.18",
  "pi_any",
- "pi_async 0.1.9",
+ "pi_async",
  "pi_async_graph",
  "pi_ecs_macros 0.1.0 (git+https://github.com/GaiaWorld/pi_ecs.git)",
  "pi_graph",
@@ -1868,7 +1864,7 @@ dependencies = [
 [[package]]
 name = "pi_ecs_macros"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_ecs.git#99229d6cf5b75bbf6158e5e1b9078e93a5fa8cf8"
+source = "git+https://github.com/GaiaWorld/pi_ecs.git#a93b4db65793674d67801dad73d6608e72fb61e3"
 dependencies = [
  "find-crate",
  "proc-macro2",
@@ -1995,6 +1991,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "pi_multimedia"
+version = "0.1.0"
+dependencies = [
+ "image",
+ "lazy_static",
+ "log",
+ "pi_assets",
+ "pi_async",
+ "pi_async_common 0.1.0 (git+https://github.com/GaiaWorld/pi_async_common.git)",
+ "pi_atom",
+ "pi_share 0.1.3",
+]
+
+[[package]]
 name = "pi_null"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2015,7 +2025,7 @@ checksum = "48a220fd4dba0a60df2d8d44140c0dc918bf97d6daa8ac265884fd4522bd4f54"
 [[package]]
 name = "pi_render"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_render.git#15ada9e45f3425a93d010350d3c0a9ae12deca19"
+source = "git+https://github.com/GaiaWorld/pi_render.git#2cd88126c8b02c443d0400072ccde6a95eedd970"
 dependencies = [
  "render_core",
 ]
@@ -2131,6 +2141,7 @@ dependencies = [
  "futures",
  "fxhash",
  "getset",
+ "image",
  "lazy_static",
  "log",
  "naga",
@@ -2140,7 +2151,8 @@ dependencies = [
  "ordered-float",
  "paste 0.1.18",
  "pi_assets",
- "pi_async 0.1.9",
+ "pi_async",
+ "pi_async_common 0.1.0",
  "pi_atom",
  "pi_data_view",
  "pi_dirty",
@@ -2151,6 +2163,7 @@ dependencies = [
  "pi_flex_layout",
  "pi_hash",
  "pi_map",
+ "pi_multimedia",
  "pi_null",
  "pi_polygon",
  "pi_render",
@@ -2478,7 +2491,7 @@ checksum = "49b3de9ec5dc0a3417da371aab17d729997c15010e7fd24ff707773a33bddb64"
 [[package]]
 name = "render_core"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_render.git#15ada9e45f3425a93d010350d3c0a9ae12deca19"
+source = "git+https://github.com/GaiaWorld/pi_render.git#2cd88126c8b02c443d0400072ccde6a95eedd970"
 dependencies = [
  "anyhow",
  "derive-deref-rs",
@@ -2494,7 +2507,7 @@ dependencies = [
  "parry3d",
  "paste 1.0.7",
  "pi_assets",
- "pi_async 0.1.9",
+ "pi_async",
  "pi_async_graph",
  "pi_atom",
  "pi_ecs",
@@ -2518,7 +2531,7 @@ dependencies = [
 [[package]]
 name = "render_crevice"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_render.git#15ada9e45f3425a93d010350d3c0a9ae12deca19"
+source = "git+https://github.com/GaiaWorld/pi_render.git#2cd88126c8b02c443d0400072ccde6a95eedd970"
 dependencies = [
  "bytemuck",
  "mint",
@@ -2529,7 +2542,7 @@ dependencies = [
 [[package]]
 name = "render_crevice_derive"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_render.git#15ada9e45f3425a93d010350d3c0a9ae12deca19"
+source = "git+https://github.com/GaiaWorld/pi_render.git#2cd88126c8b02c443d0400072ccde6a95eedd970"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2540,7 +2553,7 @@ dependencies = [
 [[package]]
 name = "render_derive"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_render.git#15ada9e45f3425a93d010350d3c0a9ae12deca19"
+source = "git+https://github.com/GaiaWorld/pi_render.git#2cd88126c8b02c443d0400072ccde6a95eedd970"
 dependencies = [
  "quote",
  "render_macro_utils",
@@ -2550,7 +2563,7 @@ dependencies = [
 [[package]]
 name = "render_macro_utils"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_render.git#15ada9e45f3425a93d010350d3c0a9ae12deca19"
+source = "git+https://github.com/GaiaWorld/pi_render.git#2cd88126c8b02c443d0400072ccde6a95eedd970"
 dependencies = [
  "cargo-manifest",
  "quote",
@@ -2560,7 +2573,7 @@ dependencies = [
 [[package]]
 name = "render_utils"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_render.git#15ada9e45f3425a93d010350d3c0a9ae12deca19"
+source = "git+https://github.com/GaiaWorld/pi_render.git#2cd88126c8b02c443d0400072ccde6a95eedd970"
 dependencies = [
  "ahash",
  "render_derive",

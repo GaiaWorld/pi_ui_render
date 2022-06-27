@@ -119,7 +119,7 @@ impl CalcMatrix {
 pub mod test {
 	use std::sync::Arc;
 
-	use pi_async::rt::{multi_thread::{MultiTaskRuntimeBuilder, StealableTaskPool}, AsyncRuntime};
+	use pi_async::rt::{multi_thread::MultiTaskRuntime, AsyncRuntimeBuilder};
 	use pi_ecs::prelude::{System, World, SingleDispatcher, IntoSystem, StageBuilder, Dispatcher, Write, QueryState, Query, In, Setup, Id};
 	use pi_ecs_utils::prelude::EntityTreeMut;
 	use pi_flex_layout::prelude::Rect;
@@ -224,8 +224,13 @@ pub mod test {
 		asset_matrix(world, &mut query);
 	}
 
-	pub fn get_dispatcher(world: &mut World) -> SingleDispatcher<StealableTaskPool<()>> {
-		let rt = AsyncRuntime::Multi(MultiTaskRuntimeBuilder::default().build());
+	pub fn get_dispatcher(world: &mut World) -> SingleDispatcher<MultiTaskRuntime> {
+		let rt = AsyncRuntimeBuilder::default_multi_thread(
+			None,
+			None,
+			None,
+			None,
+		);
 	
 		let mut stage = StageBuilder::new();
 		CalcMatrix::setup(world, &mut stage);

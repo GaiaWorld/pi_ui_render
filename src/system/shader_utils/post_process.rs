@@ -16,8 +16,8 @@ use crate::{
 
 use super::{GlslShaderStatic, create_shader_common_static, StaticIndex};
 
-const IMAGE_SHADER_VS: &'static str = "post_shader_vs";
-const IMAGE_SHADER_FS: &'static str = "post_shader_fs";
+const POST_SHADER_VS: &'static str = "post_shader_vs";
+const POST_SHADER_FS: &'static str = "post_shader_fs";
 const POST_PIPELINE: &'static str = "post_pipeline";
 
 pub struct CalcPostProcessShader;
@@ -38,8 +38,8 @@ impl CalcPostProcessShader {
 		mut empty_bind: WriteRes<EmptyBind>,
 	) {
 		let shader = GlslShaderStatic::init(
-			IMAGE_SHADER_VS,
-			IMAGE_SHADER_FS,
+			POST_SHADER_VS,
+			POST_SHADER_FS,
 			&mut shader_catch, 
 			&mut shader_map, 
 			||{include_str!("../../source/shader/post_process.vert")}, 

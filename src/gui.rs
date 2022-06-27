@@ -1,9 +1,9 @@
-use std::{any::TypeId, sync::Arc, mem::replace};
+use std::{any::TypeId, mem::replace};
 
 use pi_assets::{mgr::AssetMgr, asset::{GarbageEmpty, Handle}};
-use pi_async::rt::{AsyncRuntime, single_thread::SingleTaskPool};
-use pi_ecs::prelude::{World, ArchetypeId, SingleDispatcher, StageBuilder, Id, Setup, Dispatcher, FromWorld};
-use pi_render::{RenderStage, rhi::{asset::RenderRes, buffer::Buffer, bind_group::BindGroup, device::RenderDevice, RenderQueue}, components::view::target_alloc::{SafeAtlasAllocator, DEPTH_TEXTURE, ShareTargetView}};
+use pi_ecs::prelude::{World, ArchetypeId, StageBuilder, Id, Setup, FromWorld};
+use pi_multimedia::image::ImageRes;
+use pi_render::{rhi::{asset::{RenderRes, TextureRes}, buffer::Buffer, bind_group::BindGroup, device::RenderDevice, RenderQueue}, components::view::target_alloc::{SafeAtlasAllocator, DEPTH_TEXTURE, ShareTargetView}};
 use pi_share::{Share, ShareCell};
 use wgpu::TextureView;
 
@@ -15,13 +15,13 @@ use crate::{
 	resource::{UserCommands, NodeCommand, Viewport, draw_obj::CommonSampler}, 
 	utils::{style::style_sheet::{StyleAttr, Attr}, tools::calc_hash}, 
 	system::{
-		node::{user_setting::CalcUserSetting, context::CalcContext, z_index::CalcZindex, layout::CalcLayout, quad::CalcQuad, world_matrix::CalcMatrix, content_box::CalcContentBox, background_color::CalcBackGroundColor, context_opacity::{CalcOpacity, CalcOpacityPostProcess}, context_transform_will_change::CalcTransformWillChange, context_overflow::CalcOverflow, context_root::CalcRoot, text::CalcText, text_split::CalcTextSplit, text_glphy::CalcTextGlyph}, 
+		node::{user_setting::CalcUserSetting, context::CalcContext, z_index::CalcZindex, layout::CalcLayout, quad::CalcQuad, world_matrix::CalcMatrix, content_box::CalcContentBox, background_color::CalcBackGroundColor, context_opacity::{CalcOpacity, CalcOpacityPostProcess}, context_transform_will_change::CalcTransformWillChange, context_overflow::CalcOverflow, context_root::CalcRoot, text::CalcText, text_split::CalcTextSplit, text_glphy::CalcTextGlyph, border_image::{CalcBorderImage, CalcBorderImageLoad}, border_color::CalcBorderColor}, 
 		draw_obj::{world_marix::CalcWorldMatrixGroup, pipeline::CalcPipeline}, 
 		pass::{
 			pass_render::CalcRender, 
 			pass_dirty_rect::CalcDirtyRect, 
 			pass_graph_node::{InitGraphData, PostBindGroupLayout}
-		}, shader_utils::{post_process::CalcPostProcessShader, with_vert_color::WithColorShader, text::TextShader, color::ColorShader}
+		}, shader_utils::{post_process::CalcPostProcessShader, with_vert_color::WithColorShader, text::TextShader, color::ColorShader, image::ImageShader}
 	}, font::font::FontMgr
 };
 
@@ -33,8 +33,6 @@ pub struct Gui {
 	user_commands: UserCommands,
 
 	node_archetype_id: ArchetypeId,
-
-	dispatcher: SingleDispatcher<SingleTaskPool<()>>,
 }
 
 impl Gui {
@@ -42,22 +40,21 @@ impl Gui {
 		&mut self.world
 	}
 
-	pub fn new(rt: AsyncRuntime<(), SingleTaskPool<()>>) -> Gui {
-		let mut world = World::new();
+	pub fn new(world: &mut World) -> Gui {
 		world.new_archetype::<Node>().create(); // 创建Node原型
 
 		// 注册资源管理器
-		register_assets_mgr(&mut world);
+		register_assets_mgr(world);
 
 		let node_archetype_id = world.archetypes().get_id_by_ident(TypeId::of::<Node>()).unwrap().clone();
 
-		let dispatcher= SingleDispatcher::new(rt);
+		// let dispatcher= SingleDispatcher::new(rt);
 
 		Gui {
-			world,
+			world: world.clone(),
 			node_archetype_id,
 			user_commands: UserCommands::default(),
-			dispatcher,
+			// dispatcher,
 		}
 	}
 
@@ -65,16 +62,15 @@ impl Gui {
 	/// 调用此方法必须保证DeviceRender已经在resource上
 	pub fn init(
 		&mut self, 
-		render_stages: RenderStage,
 		x: u32, 
 		y: u32, 
 		width: u32, 
 		height: u32,
-	) {
+	) -> Vec<StageBuilder> {
 		// 添加必要资源
 		insert_resource(&mut self.world, x, y, width, height);
 
-		init_dispatcher(&mut self.world, render_stages, &mut self.dispatcher);
+		init_stage(&mut self.world)
 	}
 
 	// 创建节点
@@ -130,7 +126,6 @@ impl Gui {
 		self.world.archetypes_mut()[node_archetype_id].flush();
 		let commands = replace(&mut self.user_commands, UserCommands::default());
 		self.world.insert_resource(commands);
-		self.dispatcher.run();
 	}
 }
 
@@ -146,6 +141,16 @@ fn register_assets_mgr(world: &mut World) {
 		5 * 1024, 
 		3 * 60 * 1000));
 	world.insert_resource(AssetMgr::<RenderRes<TextureView>>::new(
+		GarbageEmpty(), 
+		false,
+		60 * 1024 * 1024, 
+		3 * 60 * 1000));
+	world.insert_resource(AssetMgr::<TextureRes>::new(
+		GarbageEmpty(), 
+		false,
+		60 * 1024 * 1024, 
+		3 * 60 * 1000));
+	world.insert_resource(AssetMgr::<ImageRes>::new(
 		GarbageEmpty(), 
 		false,
 		60 * 1024 * 1024, 
@@ -238,7 +243,7 @@ fn create_depth_buffer(
 
 // fn calc_texture
 
-fn init_dispatcher(world: &mut World, render_stages: RenderStage, dispatcher: &mut SingleDispatcher<SingleTaskPool<()>>) {
+fn init_stage(world: &mut World) -> Vec<StageBuilder> {
 	// let rt = AsyncRuntime::Multi(MultiTaskRuntimeBuilder::default().build());
 	let mut stages = Vec::new();
 
@@ -251,6 +256,7 @@ fn init_dispatcher(world: &mut World, render_stages: RenderStage, dispatcher: &m
 	WithColorShader::setup(world, &mut node_stage);
 	TextShader::setup(world, &mut node_stage);
 	ColorShader::setup(world, &mut node_stage);
+	ImageShader::setup(world, &mut node_stage);
 
 	
 	CalcUserSetting::setup(world, &mut node_stage);
@@ -269,6 +275,9 @@ fn init_dispatcher(world: &mut World, render_stages: RenderStage, dispatcher: &m
 	CalcRoot::setup(world, &mut node_stage);
 	CalcBackGroundColor::setup(world, &mut node_stage);
 	CalcText::setup(world, &mut node_stage);
+	CalcBorderImage::setup(world, &mut node_stage);
+	CalcBorderImageLoad::setup(world, &mut node_stage);
+	CalcBorderColor::setup(world, &mut node_stage);
 	
 	let mut post_stage = StageBuilder::new();
 	CalcOpacityPostProcess::setup(world, &mut post_stage);
@@ -286,14 +295,10 @@ fn init_dispatcher(world: &mut World, render_stages: RenderStage, dispatcher: &m
 	CalcRender::setup(world, &mut pass_stage);
 	CalcDirtyRect::setup(world, &mut pass_stage);
 
-	stages.push(Arc::new(node_stage.build(world)));
-	stages.push(Arc::new(post_stage.build(world)));
-	stages.push(Arc::new(draw_stage.build(world)));
-	stages.push(Arc::new(pass_stage.build(world)));
-
-	stages.push(Arc::new(render_stages.extract_stage.build(world)));
-	stages.push(Arc::new(render_stages.prepare_stage.build(world)));
-	stages.push(Arc::new(render_stages.render_stage.build(world)));
-
-	dispatcher.init(stages, world);
+	stages.push(node_stage);
+	stages.push(post_stage);
+	stages.push(draw_stage);
+	stages.push(pass_stage);
+	
+	stages
 }

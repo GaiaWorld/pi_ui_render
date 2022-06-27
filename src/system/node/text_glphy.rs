@@ -1,18 +1,17 @@
 //! 文字字形系统
 //! 为字符分配纹理位置，得到字符的位置索引关联到CharNode中的ch_id_or_count字段上
 //! 在fontsheet中，文字最多缓存一张纹理。为字符分配纹理，可能存在空间不足的情况。此时，本系统将清空fontsheet中所有缓存的字符，并重新为当前所有显示节点上的文字重新绘制纹理。
-use pi_ecs::prelude::{Query, Changed, Or, ResMut, OrDefault,With, Id, Component};
+use pi_ecs::prelude::{Query, Changed, Or, ResMut, OrDefault,With, Id};
 use pi_ecs_macros::setup;
 use pi_ecs_utils::prelude::Layer;
 use pi_share::{Share, ShareCell};
-use pi_slotmap::Key;
 
 use crate::{
 	components::{
-		user::{TextContent, Node, TextStyle, Vector4, FontSize, LineHeight},
+		user::{TextContent, Node, TextStyle, Vector4},
 		calc::{NodeState, WorldMatrix}
 	}, 
-	utils::stdcell::StdCell, font::font::{FontMgr, get_size, FontSheet, Font},
+	font::font::{FontMgr, get_size, FontSheet, Font},
 };
 
 pub struct CalcTextGlyph;

@@ -25,6 +25,7 @@ pub mod post_process;
 pub mod with_vert_color;
 pub mod text;
 pub mod color;
+pub mod image;
 
 pub struct GlslShaderStatic {
 	pub shader_vs: ShaderId,

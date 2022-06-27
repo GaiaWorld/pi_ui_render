@@ -9,7 +9,7 @@ use pi_flex_layout::{style::{Display, Dimension, AlignItems, AlignSelf, AlignCon
 use pi_hash::XHashMap;
 use smallvec::SmallVec;
 
-use crate::components::{user::{BackgroundColor, Color, BorderColor, ObjectFit, BorderImageRepeat, MaskImage, BorderRadius, Opacity, Hsi, Blur, Enable, WhiteSpace, LinearGradientColor, CgColor, ColorAndPosition, BorderImageSlice, BlendMode, LineHeight, TextAlign, FontSize, TextShadow, BoxShadow, Stroke, TransformFunc, TransformOrigin, LengthUnit, FitType, BorderImageRepeatType, BackgroundImage, BorderImage, MaskImageClip, BackgroundImageClip, BorderImageClip, Margin, Padding, Overflow, ZIndex, TextShadows}, calc::StyleType};
+use crate::components::{user::{BackgroundColor, Color, BorderColor, ObjectFit, BorderImageRepeat, MaskImage, BorderRadius, Opacity, Hsi, Blur, Enable, WhiteSpace, LinearGradientColor, CgColor, ColorAndPosition, BorderImageSlice, BlendMode, LineHeight, TextAlign, FontSize, TextShadow, BoxShadow, Stroke, TransformFunc, TransformOrigin, LengthUnit, FitType, BorderImageRepeatOption, BackgroundImage, BorderImage, MaskImageClip, BackgroundImageClip, BorderImageClip, Margin, Padding, Overflow, ZIndex, TextShadows}, calc::StyleType};
 
 use super::style_sheet::*;
 
@@ -204,7 +204,7 @@ fn match_key(key: &str, value: &str, class: &mut ClassMeta, class_sheet: &mut Cl
 
         "border-image" => unsafe {
 			StyleAttr::write(
-				BorderImageType(BorderImage(parse_url(value)?.get_hash())),
+				BorderImageType(BorderImage(parse_url(value)?)),
 				&mut class_sheet.style_buffer,
 			);
             class.class_style_mark.set(StyleType::BorderImage as usize, true);
@@ -1053,19 +1053,19 @@ fn parse_border_image_slice(value: &str) -> Result<BorderImageSlice, String> {
     }
     let r = to_four(arr)?;
     match r[0] {
-        Dimension::Percent(r) => slice.top = r,
+        Dimension::Percent(r) => slice.top = unsafe { NotNan::unchecked_new(r) },
         _ => (),
     };
     match r[1] {
-        Dimension::Percent(r) => slice.right = r,
+        Dimension::Percent(r) => slice.right = unsafe { NotNan::unchecked_new(r) },
         _ => (),
     };
     match r[2] {
-        Dimension::Percent(r) => slice.bottom = r,
+        Dimension::Percent(r) => slice.bottom = unsafe { NotNan::unchecked_new(r) },
         _ => (),
     };
     match r[3] {
-        Dimension::Percent(r) => slice.left = r,
+        Dimension::Percent(r) => slice.left = unsafe { NotNan::unchecked_new(r) },
         _ => (),
     };
     Ok(slice)
@@ -2151,12 +2151,12 @@ fn parse_object_fit(value: &str) -> Result<FitType, String> {
     Ok(r)
 }
 
-fn parse_border_image_repeat(value: &str) -> Result<BorderImageRepeatType, String> {
+fn parse_border_image_repeat(value: &str) -> Result<BorderImageRepeatOption, String> {
     let r = match value {
-        "stretch" => BorderImageRepeatType::Stretch,
-        "repeat" => BorderImageRepeatType::Repeat,
-        "round" => BorderImageRepeatType::Round,
-        "space" => BorderImageRepeatType::Space,
+        "stretch" => BorderImageRepeatOption::Stretch,
+        "repeat" => BorderImageRepeatOption::Repeat,
+        "round" => BorderImageRepeatOption::Round,
+        "space" => BorderImageRepeatOption::Space,
         _ => {
             return Err(format!(
                 "parse_border_image_repeat error, value: {:?}",
