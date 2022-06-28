@@ -65,7 +65,7 @@ impl Example for QuadExample {
 		gui.set_style(div1, PositionTopType(Dimension::Points(100.0)));
 		gui.set_style(div1, WidthType(Dimension::Points(100.0)));
 		gui.set_style(div1, HeightType(Dimension::Points(200.0)));
-		gui.set_style(div1, OpacityType(Opacity(0.7)));
+		gui.set_style(div1, OpacityType(Opacity(0.5)));
 
 		// 添加一个绿色div
 		let div2 = gui.create_node();

@@ -127,6 +127,16 @@ pub fn get_content_rect(layout: &LayoutResult) -> Rect<NotNan<f32>> {
 	}
 }
 
+#[inline]
+pub fn get_box_rect(layout: &LayoutResult) -> Rect<NotNan<f32>> { 
+	Rect {
+		top: unsafe { NotNan::unchecked_new(0.0)},
+		right: unsafe { NotNan::unchecked_new(layout.rect.right - layout.rect.left)},
+		bottom: unsafe { NotNan::unchecked_new(layout.rect.bottom - layout.rect.top)},
+		left: unsafe { NotNan::unchecked_new(0.0)},
+	}
+}
+
 pub fn get_content_radius(radius: Option<&BorderRadius>, layout: &LayoutResult) -> Option<Rect<NotNan<f32>>> {
 	let radius = match radius {
 		None => return None,

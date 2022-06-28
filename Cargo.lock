@@ -1720,14 +1720,6 @@ dependencies = [
 [[package]]
 name = "pi_async_common"
 version = "0.1.0"
-dependencies = [
- "lazy_static",
- "pi_async",
-]
-
-[[package]]
-name = "pi_async_common"
-version = "0.1.0"
 source = "git+https://github.com/GaiaWorld/pi_async_common.git#823371a9b8e609e4d4b31d7f0bd3230879537eca"
 dependencies = [
  "lazy_static",
@@ -1782,6 +1774,22 @@ dependencies = [
  "pi_slot_deque",
  "probabilistic-collections",
  "slotmap 1.0.6",
+]
+
+[[package]]
+name = "pi_cg2d"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fbfc7ee308032a17a03a367564dc4ff9ddd6232277da0c7bea7b3ddda0dd852e"
+dependencies = [
+ "log",
+ "nalgebra 0.24.1",
+ "ncollide2d",
+ "num-traits",
+ "pi_hash",
+ "pi_heap",
+ "pi_slab",
+ "pi_triangulation",
 ]
 
 [[package]]
@@ -1993,13 +2001,14 @@ dependencies = [
 [[package]]
 name = "pi_multimedia"
 version = "0.1.0"
+source = "git+https://github.com/GaiaWorld/pi_multimedia.git#997b51fdca5eb5b61164444ff9b778bd80eb044f"
 dependencies = [
  "image",
  "lazy_static",
  "log",
  "pi_assets",
  "pi_async",
- "pi_async_common 0.1.0 (git+https://github.com/GaiaWorld/pi_async_common.git)",
+ "pi_async_common",
  "pi_atom",
  "pi_share 0.1.3",
 ]
@@ -2120,6 +2129,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "pi_triangulation"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e79024447ae53208f9ad916c2374d4f4df27854feff6d3bb66ed41b2ea3536e7"
+dependencies = [
+ "num-traits",
+]
+
+[[package]]
 name = "pi_ucd"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2152,8 +2170,9 @@ dependencies = [
  "paste 0.1.18",
  "pi_assets",
  "pi_async",
- "pi_async_common 0.1.0",
+ "pi_async_common",
  "pi_atom",
+ "pi_cg2d",
  "pi_data_view",
  "pi_dirty",
  "pi_ecs",

@@ -17,6 +17,7 @@ pub mod context_root;
 pub mod background_color;
 pub mod border_color;
 pub mod border_image;
+pub mod box_shadow;
 pub mod text;
 pub mod context_transform_will_change;
 

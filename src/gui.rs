@@ -15,13 +15,13 @@ use crate::{
 	resource::{UserCommands, NodeCommand, Viewport, draw_obj::CommonSampler}, 
 	utils::{style::style_sheet::{StyleAttr, Attr}, tools::calc_hash}, 
 	system::{
-		node::{user_setting::CalcUserSetting, context::CalcContext, z_index::CalcZindex, layout::CalcLayout, quad::CalcQuad, world_matrix::CalcMatrix, content_box::CalcContentBox, background_color::CalcBackGroundColor, context_opacity::{CalcOpacity, CalcOpacityPostProcess}, context_transform_will_change::CalcTransformWillChange, context_overflow::CalcOverflow, context_root::CalcRoot, text::CalcText, text_split::CalcTextSplit, text_glphy::CalcTextGlyph, border_image::{CalcBorderImage, CalcBorderImageLoad}, border_color::CalcBorderColor}, 
+		node::{user_setting::CalcUserSetting, context::CalcContext, z_index::CalcZindex, layout::CalcLayout, quad::CalcQuad, world_matrix::CalcMatrix, content_box::CalcContentBox, background_color::CalcBackGroundColor, context_opacity::{CalcOpacity, CalcOpacityPostProcess}, context_transform_will_change::CalcTransformWillChange, context_overflow::CalcOverflow, context_root::CalcRoot, text::CalcText, text_split::CalcTextSplit, text_glphy::CalcTextGlyph, border_image::{CalcBorderImage, CalcBorderImageLoad}, border_color::CalcBorderColor, box_shadow::CalcBoxShadow}, 
 		draw_obj::{world_marix::CalcWorldMatrixGroup, pipeline::CalcPipeline}, 
 		pass::{
 			pass_render::CalcRender, 
 			pass_dirty_rect::CalcDirtyRect, 
 			pass_graph_node::{InitGraphData, PostBindGroupLayout}
-		}, shader_utils::{post_process::CalcPostProcessShader, with_vert_color::WithColorShader, text::TextShader, color::ColorShader, image::ImageShader}
+		}, shader_utils::{post_process::CalcPostProcessShader, with_vert_color::WithColorShader, text::TextShader, color::ColorShader, image::ImageShader, color_shadow::ColorShadowShader}
 	}, font::font::FontMgr
 };
 
@@ -257,6 +257,7 @@ fn init_stage(world: &mut World) -> Vec<StageBuilder> {
 	TextShader::setup(world, &mut node_stage);
 	ColorShader::setup(world, &mut node_stage);
 	ImageShader::setup(world, &mut node_stage);
+	ColorShadowShader::setup(world, &mut node_stage);
 
 	
 	CalcUserSetting::setup(world, &mut node_stage);
@@ -278,6 +279,7 @@ fn init_stage(world: &mut World) -> Vec<StageBuilder> {
 	CalcBorderImage::setup(world, &mut node_stage);
 	CalcBorderImageLoad::setup(world, &mut node_stage);
 	CalcBorderColor::setup(world, &mut node_stage);
+	CalcBoxShadow::setup(world, &mut node_stage);
 	
 	let mut post_stage = StageBuilder::new();
 	CalcOpacityPostProcess::setup(world, &mut post_stage);
