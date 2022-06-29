@@ -169,7 +169,7 @@ fn match_key(key: &str, value: &str, class: &mut ClassMeta, class_sheet: &mut Cl
                 class.class_style_mark.set(StyleType::BackgroundColor as usize, true);
             } else {
 				StyleAttr::write(
-					BackgroundImageType(BackgroundImage(parse_url(value)?.get_hash())),
+					BackgroundImageType(BackgroundImage(parse_url(value)?)),
 					&mut class_sheet.style_buffer,
 				);
 				class.class_style_mark.set(StyleType::BackgroundImage as usize, true);

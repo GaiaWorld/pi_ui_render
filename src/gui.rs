@@ -15,7 +15,7 @@ use crate::{
 	resource::{UserCommands, NodeCommand, Viewport, draw_obj::CommonSampler}, 
 	utils::{style::style_sheet::{StyleAttr, Attr}, tools::calc_hash}, 
 	system::{
-		node::{user_setting::CalcUserSetting, context::CalcContext, z_index::CalcZindex, layout::CalcLayout, quad::CalcQuad, world_matrix::CalcMatrix, content_box::CalcContentBox, background_color::CalcBackGroundColor, context_opacity::{CalcOpacity, CalcOpacityPostProcess}, context_transform_will_change::CalcTransformWillChange, context_overflow::CalcOverflow, context_root::CalcRoot, text::CalcText, text_split::CalcTextSplit, text_glphy::CalcTextGlyph, border_image::{CalcBorderImage, CalcBorderImageLoad}, border_color::CalcBorderColor, box_shadow::CalcBoxShadow}, 
+		node::{user_setting::CalcUserSetting, context::CalcContext, z_index::CalcZindex, layout::CalcLayout, quad::CalcQuad, world_matrix::CalcMatrix, content_box::CalcContentBox, background_color::CalcBackGroundColor, context_opacity::{CalcOpacity, CalcOpacityPostProcess}, context_transform_will_change::CalcTransformWillChange, context_overflow::CalcOverflow, context_root::CalcRoot, text::CalcText, text_split::CalcTextSplit, text_glphy::CalcTextGlyph, border_image::{CalcBorderImage, CalcBorderImageLoad}, border_color::CalcBorderColor, box_shadow::CalcBoxShadow, background_image::{CalcBackgroundImageLoad, CalcBackgroundImage}}, 
 		draw_obj::{world_marix::CalcWorldMatrixGroup, pipeline::CalcPipeline}, 
 		pass::{
 			pass_render::CalcRender, 
@@ -281,6 +281,9 @@ fn init_stage(world: &mut World) -> Vec<StageBuilder> {
 	CalcBorderColor::setup(world, &mut node_stage);
 	CalcBoxShadow::setup(world, &mut node_stage);
 	
+	CalcBackgroundImage::setup(world, &mut node_stage);
+	CalcBackgroundImageLoad::setup(world, &mut node_stage);
+
 	let mut post_stage = StageBuilder::new();
 	CalcOpacityPostProcess::setup(world, &mut post_stage);
 	CalcTransformWillChange::setup(world, &mut post_stage);
