@@ -225,6 +225,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "cast_trait"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c4f8d981c476baadf74cd52897866a1d279d3e14e2d5e2d9af045210e0ae6128"
+
+[[package]]
 name = "cc"
 version = "1.0.73"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2192,6 +2198,7 @@ dependencies = [
  "pi_slotmap_tree",
  "pi_spatialtree",
  "pi_ucd",
+ "polygon2",
  "serde",
  "smallvec",
  "wgpu",
@@ -2246,6 +2253,16 @@ dependencies = [
  "crc32fast",
  "deflate",
  "miniz_oxide 0.3.7",
+]
+
+[[package]]
+name = "polygon2"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c3d8e2b67e6aa528f8ba0490169f910d23646c28eb0fb20dc4b3f769b737663a"
+dependencies = [
+ "num-traits",
+ "vec2",
 ]
 
 [[package]]
@@ -2917,6 +2934,27 @@ checksum = "bc5cf98d8186244414c848017f0e2676b3fcb46807f6668a97dfe67359a3c4b7"
 dependencies = [
  "getrandom 0.2.6",
  "serde",
+]
+
+[[package]]
+name = "vec2"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a54c8415531b580fac54552a697128f338ea26bb790b88a5c6351e401b4cbb3f"
+dependencies = [
+ "cast_trait",
+ "num-traits",
+ "vec3",
+]
+
+[[package]]
+name = "vec3"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6ad952cfbcbc36c86769e13cf9ce2203b6ce9271fa54a03f259a35d1930449e1"
+dependencies = [
+ "cast_trait",
+ "num-traits",
 ]
 
 [[package]]

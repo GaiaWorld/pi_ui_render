@@ -1,7 +1,9 @@
 use std::io::Result;
+use std::slice;
 
 use pi_assets::asset::Asset;
 use pi_assets::mgr::AssetMgr;
+use pi_cg2d::Polygon;
 use pi_ecs::prelude::{Or, Deleted, With, ParamSet};
 use pi_ecs::prelude::{Query, Changed, EntityCommands, Commands, Write, Res, Event, Id};
 use pi_ecs_macros::{listen, setup};
@@ -11,11 +13,12 @@ use pi_render::rhi::buffer::Buffer;
 use pi_render::rhi::device::RenderDevice;
 use pi_share::Share;
 use pi_render::rhi::bind_group_layout::BindGroupLayout;
-use pi_polygon::{split_by_radius, to_triangle};
+use pi_polygon::split_by_radius;
+use polygon2::difference;
 use wgpu::IndexFormat;
 
 use crate::components::calc::LayoutResult;
-use crate::components::user::{ BorderRadius, BoxShadow};
+use crate::components::user::{ BorderRadius, BoxShadow, Point2};
 use crate::system::shader_utils::StaticIndex;
 use crate::system::shader_utils::color_shadow::{POSITION_LOCATION, BLUR_GROUP, BoxShadowStaticIndex};
 use crate::utils::tools::{calc_hash, get_content_radius, get_box_rect, calc_float_hash};
@@ -211,29 +214,55 @@ fn modify(
 	let (vb, ib) = match (buffer_assets_mgr.get(&vb_hash), buffer_assets_mgr.get(&ib_hash)) {
 		(Some(vb), Some(ib)) => (vb, ib),
 		(vb, ib) => {
-			// geo
-			let (positions, indices) = match radius {
-				Some(radius) => {
-					let (positions, mut indices) = split_by_radius(x, y, w, h, *(radius.left), Some(16));
-					if positions.len() == 0 {
-						return;
-					}
-					indices = to_triangle(&indices, Vec::with_capacity(indices.len()));
-
-					
-					(positions, indices)
-				},
-				None => {
-					(vec![
-						x, y,
-						x, y + h,
-						x + w, y + h,
-						x + w, y,
-					], vec![
-						0, 1, 2, 0, 2, 3
-					])
-				}
+			let radius = match radius {
+				Some(r) => *(r.left),
+				None => 0.0
 			};
+			// geo
+			let x1 = *g_b.left;
+			let y1 = *g_b.top;
+			let w1 = *g_b.right - *g_b.left;
+			let h1 = *g_b.bottom - *g_b.top;
+			let bg = split_by_radius(x1, y1, w1, h1, radius, Some(16));
+			if bg.0.len() == 0 {
+				return;
+			}
+
+			let shadow_pts = split_by_radius(x, y, w, h, radius, Some(16));
+			if bg.0.len() == 0 {
+				return;
+			}
+
+			let polygon_shadow = convert_to_f32_tow(shadow_pts.0.as_slice());
+			let polygon_bg = convert_to_f32_tow(bg.0.as_slice());
+			let difference_polygons = difference (polygon_shadow, polygon_bg);
+
+			// let polygon_shadow = Polygon::new(convert_to_point(shadow_pts.0.as_slice()));
+			// let polygon_bg = Polygon::new(convert_to_point(bg.0.as_slice()));
+
+			let mut curr_index = 0;
+			let mut positions: Vec<f32> = vec![];
+			let mut indices: Vec<u16> = vec![];
+			for p_slice in difference_polygons.into_iter() {
+				let p = Polygon::new(convert_to_point(convert_to_f32(p_slice.as_slice())));
+				positions.extend_from_slice(convert_to_f32(p_slice.as_slice()));
+
+				let tri_indices = p.triangulation();
+				indices.extend_from_slice(
+					tri_indices
+						.iter()
+						.map(|&v| (v + curr_index) as u16)
+						.collect::<Vec<u16>>()
+						.as_slice(),
+				);
+
+				curr_index += p.vertices.len();
+			}
+
+			if positions.len() == 0 {
+				return;
+			}
+
 			let vb = match vb {
 				Some(r) => r,
 				None => {
@@ -264,9 +293,16 @@ fn modify(
 	draw_state.vbs.insert(POSITION_LOCATION, (vb, 0));
 	let size = ib.size()/2;
 	draw_state.ib = Some((ib, size as u64, IndexFormat::Uint16));
+
+	let mut blur = shadow.blur;
+
+	let min_size = w.min(h);
+	if blur * 2.0 > min_size {
+		blur = min_size / 2.0
+	}
 	
 	// uniform
-	let u = [shadow.color.x, shadow.color.y, shadow.color.z, shadow.color.w, x, y, w, h, shadow.blur, 0.0, 0.0,0.0];
+	let u = [shadow.color.x, shadow.color.y, shadow.color.z, shadow.color.w, x + blur, y + blur, x + w - blur, y + h - blur, shadow.blur, 0.0, 0.0, 0.0];
 	let key = calc_hash(&("shadow blur", calc_float_hash(&u)));
 	let group = match bind_group_assets_mgr.get(&key) {
 		Some(r) => r,
@@ -326,12 +362,12 @@ fn modify(
 
 }
 
-// #[inline]
-// fn convert_to_point(pts: &[f32]) -> &[Point2] {
-//     let ptr = pts.as_ptr();
-//     let ptr = ptr as *const Point2;
-//     unsafe { slice::from_raw_parts(ptr, pts.len() / 2) }
-// }
+#[inline]
+fn convert_to_point(pts: &[f32]) -> &[Point2] {
+    let ptr = pts.as_ptr();
+    let ptr = ptr as *const Point2;
+    unsafe { slice::from_raw_parts(ptr, pts.len() / 2) }
+}
 
 // #[inline]
 // fn convert_to_f32(pts: &[Point2]) -> &[f32] {
@@ -339,3 +375,17 @@ fn modify(
 //     let ptr = ptr as *const f32;
 //     unsafe { slice::from_raw_parts(ptr, 2 * pts.len()) }
 // }
+
+#[inline]
+fn convert_to_f32_tow(pts: &[f32]) -> &[[f32; 2]] {
+    let ptr = pts.as_ptr();
+    let ptr = ptr as *const [f32; 2];
+    unsafe { slice::from_raw_parts(ptr, pts.len() / 2) }
+}
+
+#[inline]
+fn convert_to_f32(pts: &[[f32; 2]]) -> &[f32] {
+    let ptr = pts.as_ptr();
+    let ptr = ptr as *const f32;
+    unsafe { slice::from_raw_parts(ptr, 2 * pts.len()) }
+}

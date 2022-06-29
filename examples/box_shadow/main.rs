@@ -51,10 +51,10 @@ impl Example for QuadExample {
 		gui.set_style(div1, WidthType(Dimension::Points(110.0)));
 		gui.set_style(div1, HeightType(Dimension::Points(144.0)));
 		gui.set_style(div1, BoxShadowType (BoxShadow {
-			h: 10.0,
-			v: 10.0,
-			spread: 3.0,
-			blur: 6.0,
+			h: 50.0,
+			v: 50.0,
+			spread: 0.0,
+			blur: 20.0,
 			color: CgColor::new(0.5, 0.5, 0.5, 1.0),
 		}));
 		gui.append(div1, root);

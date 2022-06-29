@@ -67,14 +67,17 @@ float getShadowAlpha(vec2 pos, vec2 ptMin, vec2 ptMax, float sigma) {
 	// Compute the basic color '"colorFromRect"_sigma(p_0, p_1)'. This is all we have to do if
 	// the box is unrounded.
 	// return pos.x/(ptMax.x - ptMin.x);
-	// return colorFromRect(dMin, dMax, sigma);
-	return 0.5;
+	return colorFromRect(dMin, dMax, sigma);
+	// return 0.5;
 }
 
 void main() {
 	vec4 c = vec4(color.rgb, color.a * getShadowAlpha(vPosition, uRect.xy, uRect.zw, blur / 2.0));
 	o_Target = c;
-	o_Target = vec4(color.rgb, 0.5);
-	o_Target = vec4(1.0, 1.0, 1.0, 0.5);
+	// o_Target = vec4( getShadowAlpha(vPosition, uRect.xy, uRect.zw, blur / 2.0), 0.0, 0.0, 1.0);
+	// o_Target = vec4(color.rgb, 0.5);
+	// o_Target = vec4( getShadowAlpha(vPosition, uRect.xy, uRect.zw, blur / 2.0), 0.0, 0.0, 1.0);
+	// o_Target = vec4(vPosition.x, vPosition.y, 0.0, 1.0);
+	// o_Target = vec4(uRect.x, uRect.y, uRect.z, uRect.w);
 }
 

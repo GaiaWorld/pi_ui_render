@@ -152,7 +152,7 @@ impl CalcRender{
 
 		dyn_fbo_clear_color_bind_group.write(
 			DynFboClearColorBindGroup(create_rgba_bind_group(
-				&CgColor::new(1.0, 1.0, 1.0, 0.0),
+				&CgColor::new(0.0, 0.0, 0.0, 0.0),
 				&device,
 				color_group_layout,
 				&buffer_assets,
@@ -550,12 +550,12 @@ pub fn create_clear_pipeline_state() -> PipelineState {
 				color: wgpu::BlendComponent {
 					operation: wgpu::BlendOperation::Add,
 					src_factor: wgpu::BlendFactor::One,
-					dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+					dst_factor: wgpu::BlendFactor::Zero,
 				},
 				alpha: wgpu::BlendComponent {
 					operation: wgpu::BlendOperation::Add,
 					src_factor: wgpu::BlendFactor::One,
-					dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+					dst_factor: wgpu::BlendFactor::Zero,
 				},
 			}),
 			write_mask: wgpu::ColorWrites::ALL,
@@ -569,7 +569,7 @@ pub fn create_clear_pipeline_state() -> PipelineState {
 		depth_stencil: Some(DepthStencilState {
 			format: TextureFormat::Depth32Float,
 			depth_write_enabled: true,
-			depth_compare: CompareFunction::Never,
+			depth_compare: CompareFunction::Always,
 			stencil: StencilState::default(),
 			bias: DepthBiasState::default(),
 		}),

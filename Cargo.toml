@@ -45,6 +45,7 @@ naga = { version = "0.8", features = [
 ] }
 pi_assets = "0.7"
 image = "0.23"
+polygon2 = "0.3"
 
 pi_spatialtree = { git = "https://github.com/GaiaWorld/pi_spatialtree.git" }
 pi_render = { git = "https://github.com/GaiaWorld/pi_render.git" }
@@ -55,7 +56,6 @@ pi_flex_layout = { git = "https://github.com/GaiaWorld/pi_flex_layout.git" }
 pi_slotmap_tree = { git = "https://github.com/GaiaWorld/pi_slotmap_tree.git" }
 pi_dirty = { git = "https://github.com/GaiaWorld/pi_dirty.git" }
 font_kit = {git="http://ser.yinengyun.com:10082/tech/font_kit.git", branch="suncy"}
-# pi_res_loader = { path="../pi_res_loader" }
 pi_multimedia = { git = "https://github.com/GaiaWorld/pi_multimedia.git" }
 pi_async_common = { git = "https://github.com/GaiaWorld/pi_async_common.git" }
 
