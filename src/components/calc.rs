@@ -714,5 +714,17 @@ pub struct OverflowAabb {
 #[derive(Deref, DerefMut)]
 pub struct BorderImageTexture(pub Handle<TextureRes>);
 
+impl From<Handle<TextureRes>> for BorderImageTexture {
+    fn from(h: Handle<TextureRes>) -> Self {
+        Self(h)
+    }
+}
+
 #[derive(Deref, DerefMut)]
 pub struct BackgroundImageTexture(pub Handle<TextureRes>);
+
+impl From<Handle<TextureRes>> for BackgroundImageTexture {
+    fn from(h: Handle<TextureRes>) -> Self {
+        Self(h)
+    }
+}

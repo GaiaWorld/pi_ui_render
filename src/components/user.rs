@@ -507,7 +507,7 @@ pub struct Stroke {
 }
 
 // 图像填充的方式
-#[derive(Debug, Clone, EnumDefault, Serialize, Deserialize)]
+#[derive(Debug, Clone, EnumDefault, Serialize, Deserialize, PartialEq, Eq)]
 pub enum FitType {
     None,
     Fill,

@@ -21,5 +21,6 @@ pub mod box_shadow;
 pub mod text;
 pub mod context_transform_will_change;
 pub mod background_image;
+pub mod image_texture_load;
 
 

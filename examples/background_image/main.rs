@@ -5,25 +5,18 @@ mod framework;
 
 use async_trait::async_trait;
 use framework::Example;
-use ordered_float::NotNan;
 use pi_atom::Atom;
 /// 渲染四边形 demo
 use pi_ecs::prelude::Id;
-use pi_flex_layout::{
-    prelude::Rect,
-    style::{Dimension, PositionType},
-};
+use pi_flex_layout::style::{Dimension, PositionType};
 use pi_null::Null;
 use pi_ui_render::{
     components::user::{
-        BackgroundColor, BackgroundImage, Border, BorderImage, BorderImageRepeat,
-        BorderImageRepeatOption, BorderImageSlice, BorderRadius, CgColor, Color, LengthUnit,
+         BackgroundImage, BorderRadius, CgColor, LengthUnit,
     },
     gui::Gui,
     resource::ClearColor,
-    utils::style::style_sheet::{
-        BackgroundColorType, BackgroundImageType, BorderImageRepeatType, BorderImageSliceType,
-        BorderImageType, BorderRadiusType, BorderType, HeightType, MarginLeftType, MarginTopType,
+    utils::style::style_sheet::{BackgroundImageType, BorderRadiusType, HeightType, MarginLeftType, MarginTopType,
         PositionLeftType, PositionTopType, PositionTypeType, WidthType,
     },
 };

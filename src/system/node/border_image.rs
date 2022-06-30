@@ -1,24 +1,16 @@
 use std::io::Result;
 
 use bytemuck::{Pod, Zeroable};
-use pi_assets::asset::Handle;
-use pi_assets::mgr::{AssetMgr, LoadResult};
-use pi_async::rt::AsyncRuntime;
-use pi_atom::Atom;
+use pi_assets::mgr::AssetMgr;
 use pi_ecs::prelude::{Or, Deleted, With, ParamSet, OrDefault};
 use pi_ecs::prelude::{Query, Changed, EntityCommands, Commands, Write, Res, Event, Id};
 use pi_ecs_macros::{listen, setup};
-use pi_render::rhi::RenderQueue;
-use pi_render::rhi::asset::{RenderRes, TextureRes, ImageTextureDesc};
+use pi_render::rhi::asset::RenderRes;
 use pi_render::rhi::bind_group::BindGroup;
 use pi_render::rhi::bind_group_layout::BindGroupLayout;
 use pi_render::rhi::buffer::Buffer;
 use pi_render::rhi::device::RenderDevice;
-use pi_share::{Share, ShareMutex};
-use pi_hal::{
-	loader::AsyncLoader,
-	runtime::MULTI_MEDIA_RUNTIME,
-};
+use pi_share::Share;
 use wgpu::IndexFormat;
 
 use crate::components::calc::{LayoutResult, BorderImageTexture};
@@ -197,92 +189,6 @@ impl CalcBorderImage {
 			}
 		}
 		return Ok(())
-	}
-}
-
-#[derive(Clone, DerefMut, Deref)]
-pub struct BorderImageAwait(Share<ShareMutex<Vec<(Id<Node>, Atom, Handle<TextureRes>)>>>);
-
-impl Default for BorderImageAwait {
-    fn default() -> Self {
-        Self(Share::new(ShareMutex::new(Vec::new())))
-    }
-}
-
-pub struct CalcBorderImageLoad;
-
-#[setup]
-impl CalcBorderImageLoad {
-	/// BorderImage创建，加载对应的图片
-	/// 图片加载是异步，加载成功后，不能立即将图片对应的纹理设置到BorderImageTexture上
-	/// 因为BorderImageTexture未加锁，其他线程可能正在使用
-	/// 这里是将一个加载成功的Texture放入一个加锁的列表中，在system执行时，再放入到BorderImageTexture中
-	#[listen(component=(Node, BorderImage, Create))]
-	pub fn border_image_change(
-		e: Event,
-		mut query: Query<Node, (&BorderImage, Write<BorderImageTexture>)>,
-		texture_assets_mgr: Res<Share<AssetMgr<TextureRes>>>,
-		border_image_await: Res<BorderImageAwait>,
-		queue: Res<RenderQueue>,
-		device: Res<RenderDevice>,
-	) {
-		let (key, mut texture) = query.get_unchecked_mut_by_entity(e.id);
-		let result = AssetMgr::load(&texture_assets_mgr, &(key.get_hash() as u64));
-		match result {
-            LoadResult::Ok(r) => texture.write(BorderImageTexture(r)),
-			_ => {
-				let (awaits, device, queue) =( 
-					(*border_image_await).clone(),  
-					(*device).clone(), 
-					(*queue).clone());
-				let (id, key) = (
-					unsafe { Id::new(e.id.local())}, 
-					(*key).clone());
-
-					MULTI_MEDIA_RUNTIME.spawn(MULTI_MEDIA_RUNTIME.alloc(), async move {
-					let desc = ImageTextureDesc { 
-						url: &*key,
-						device: &device,
-						queue: &queue,
-					};
-					let r = TextureRes::async_load(desc, result).await;
-					match r {
-						Ok(r) => awaits.lock().unwrap().push((id, (*key).clone(), r)),
-						Err(e) => {
-							log::error!("load image fail, {:?}", e);
-						},
-					};
-				}).unwrap();
-			}
-		}
-	}
-
-	// 
-	#[system]
-	pub fn check_await_texture(
-		border_image_await: Res<BorderImageAwait>,
-		mut query: Query<Node, (&BorderImage, Write<BorderImageTexture>)>,
-
-	) {
-		let awaits = {
-			let mut border_image_await = border_image_await.0.lock().unwrap();
-			std::mem::replace(&mut *border_image_await, Vec::new())
-		};
-		
-		for (id, key, texture) in awaits.into_iter() {
-			let mut texture_item = match query.get_mut(id) {
-				Some((img, texture_item)) => {
-					// borderimage已经修改，不需要设置texture
-					if **img != key {
-						continue;
-					}
-					texture_item
-				},
-				// 节点已经销毁，或borderimage已经被删除，不需要设置texture
-				None => continue,
-			};
-			texture_item.write(BorderImageTexture(texture));
-		}
 	}
 }
 

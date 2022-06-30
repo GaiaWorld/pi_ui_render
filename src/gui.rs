@@ -17,13 +17,13 @@ use wgpu::TextureView;
 
 use crate::{
 	components::{
-		user::{ClassName, Aabb2, Point2}, 
-		pass_2d::{RenderTarget, ScreenTarget}
+		user::{ClassName, Aabb2, Point2, BorderImage, BackgroundImage}, 
+		pass_2d::{RenderTarget, ScreenTarget}, calc::{BorderImageTexture, BackgroundImageTexture}
 	}, 
 	resource::{UserCommands, NodeCommand, Viewport, draw_obj::CommonSampler}, 
 	utils::{style::style_sheet::{StyleAttr, Attr}, tools::calc_hash}, 
 	system::{
-		node::{user_setting::CalcUserSetting, context::CalcContext, z_index::CalcZindex, layout::CalcLayout, quad::CalcQuad, world_matrix::CalcMatrix, content_box::CalcContentBox, background_color::CalcBackGroundColor, context_opacity::{CalcOpacity, CalcOpacityPostProcess}, context_transform_will_change::CalcTransformWillChange, context_overflow::CalcOverflow, context_root::CalcRoot, text::CalcText, text_split::CalcTextSplit, text_glphy::CalcTextGlyph, border_image::{CalcBorderImage, CalcBorderImageLoad}, border_color::CalcBorderColor, box_shadow::CalcBoxShadow, background_image::{CalcBackgroundImageLoad, CalcBackgroundImage}}, 
+		node::{user_setting::CalcUserSetting, context::CalcContext, z_index::CalcZindex, layout::CalcLayout, quad::CalcQuad, world_matrix::CalcMatrix, content_box::CalcContentBox, background_color::CalcBackGroundColor, context_opacity::{CalcOpacity, CalcOpacityPostProcess}, context_transform_will_change::CalcTransformWillChange, context_overflow::CalcOverflow, context_root::CalcRoot, text::CalcText, text_split::CalcTextSplit, text_glphy::CalcTextGlyph, border_image::CalcBorderImage, border_color::CalcBorderColor, box_shadow::CalcBoxShadow, background_image::CalcBackgroundImage, image_texture_load::CalcImageLoad}, 
 		draw_obj::{world_marix::CalcWorldMatrixGroup, pipeline::CalcPipeline}, 
 		pass::{
 			pass_render::CalcRender, 
@@ -281,12 +281,12 @@ fn init_stage(world: &mut World) -> Vec<StageBuilder> {
 	CalcBackGroundColor::setup(world, &mut node_stage);
 	CalcText::setup(world, &mut node_stage);
 	CalcBorderImage::setup(world, &mut node_stage);
-	CalcBorderImageLoad::setup(world, &mut node_stage);
+	CalcImageLoad::<BorderImage, BorderImageTexture>::setup(world, &mut node_stage);
 	CalcBorderColor::setup(world, &mut node_stage);
 	CalcBoxShadow::setup(world, &mut node_stage);
 	
 	CalcBackgroundImage::setup(world, &mut node_stage);
-	CalcBackgroundImageLoad::setup(world, &mut node_stage);
+	CalcImageLoad::<BackgroundImage, BackgroundImageTexture>::setup(world, &mut node_stage);
 
 	let mut post_stage = StageBuilder::new();
 	CalcOpacityPostProcess::setup(world, &mut post_stage);

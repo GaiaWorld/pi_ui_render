@@ -2,28 +2,25 @@ use std::io::Result;
 
 use ordered_float::NotNan;
 use pi_assets::asset::Handle;
-use pi_assets::mgr::{AssetMgr, LoadResult};
-use pi_async_common::MULTI_RUNTIME;
+use pi_assets::mgr::AssetMgr;
 use pi_atom::Atom;
-use pi_ecs::prelude::{ChangeTrackers, Deleted, Or, ParamSet, With};
+use pi_ecs::prelude::{Deleted, Or, ParamSet, With, OrDefault};
 use pi_ecs::prelude::{Changed, Commands, EntityCommands, Event, Id, Query, Res, Write};
 use pi_ecs_macros::{listen, setup};
-use pi_flex_layout::prelude::{Rect, Size};
-use pi_multimedia::image::ImageRes;
-use pi_polygon::{
-    find_lg_endp, interp_mult_by_lg, mult_to_triangle, split_by_lg, split_by_radius,
-    split_mult_by_lg, to_triangle, LgCfg,
+use pi_flex_layout::prelude::Rect;
+use pi_polygon::{interp_mult_by_lg, mult_to_triangle, split_by_lg, split_by_radius,
+    split_mult_by_lg, LgCfg,
 };
 use pi_render::rhi::asset::{RenderRes, TextureRes};
 use pi_render::rhi::bind_group::BindGroup;
 use pi_render::rhi::bind_group_layout::BindGroupLayout;
 use pi_render::rhi::buffer::Buffer;
 use pi_render::rhi::device::RenderDevice;
-use pi_render::rhi::RenderQueue;
 use pi_share::{Share, ShareMutex};
 use wgpu::IndexFormat;
 
 use crate::components::calc::{BackgroundImageTexture, LayoutResult};
+use crate::components::draw_obj::IsUnitQuad;
 use crate::components::user::{
     Aabb2, BackgroundImageClip, BorderRadius, FitType, ObjectFit, Point2, Vector2,
 };
@@ -33,18 +30,15 @@ use crate::system::shader_utils::image::{
 };
 
 use crate::system::shader_utils::StaticIndex;
-use crate::utils::tools::{calc_hash, get_content_radius, get_content_rect};
+use crate::utils::tools::{calc_hash, get_content_radius};
 use crate::{
     components::{
         calc::{DrawList, NodeId},
-        draw_obj::{DrawObject, DrawState, IsUnitQuad},
+        draw_obj::{DrawObject, DrawState},
         user::{BackgroundImage, Node},
     },
     resource::draw_obj::{Shaders, UnitQuadBuffer},
 };
-use pi_async::rt::AsyncRuntime;
-
-use super::border_image::create_texture_from_image;
 
 pub struct CalcBackgroundImage;
 
@@ -54,7 +48,7 @@ impl CalcBackgroundImage {
     #[system]
     pub async fn calc_background(
         mut query: ParamSet<(
-            // 布局修改、颜色修改、圆角修改或删除，需要修改或创建背景色的DrawObject
+            // 布局修改、BackgroundImage修改、BackgroundImageClip修改、圆角修改或删除，需要修改或创建背景图片的DrawObject
             Query<
                 Node,
                 (
@@ -64,10 +58,9 @@ impl CalcBackgroundImage {
                     &'static LayoutResult,
                     Write<BackgroundImageDrawId>,
                     Write<DrawList>,
-                    Option<&'static BackgroundImageClip>,
-                    Option<&'static ObjectFit>,
+					OrDefault<BackgroundImageClip>,
+                    OrDefault<ObjectFit>,
                     &'static BackgroundImageTexture,
-                    ChangeTrackers<BorderRadius>,
                 ),
                 (
                     With<BackgroundImageTexture>,
@@ -80,7 +73,7 @@ impl CalcBackgroundImage {
                     )>,
                 ),
             >,
-            // BackgroundColor删除，需要删除对应的DrawObject
+            // BackgroundImage删除，需要删除对应的DrawObject
             Query<
                 Node,
                 (
@@ -92,11 +85,12 @@ impl CalcBackgroundImage {
             >,
         )>,
 
-        query_draw: Query<DrawObject, Write<DrawState>>,
+        query_draw: Query<DrawObject, (Write<DrawState>, &IsUnitQuad)>,
         mut draw_obj_commands: EntityCommands<DrawObject>,
         mut draw_state_commands: Commands<DrawObject, DrawState>,
         mut node_id_commands: Commands<DrawObject, NodeId>,
         mut shader_static_commands: Commands<DrawObject, StaticIndex>,
+		mut is_unit_quad_commands: Commands<DrawObject, IsUnitQuad>,
 
         // load_mgr: ResMut<'a, LoadMgr>,
         device: Res<'static, RenderDevice>,
@@ -141,22 +135,20 @@ impl CalcBackgroundImage {
             background_image_clip_change,
             fit,
             background_image_texture,
-            radius_change,
         ) in query.p0_mut().iter_mut()
         {
             match draw_index.get() {
                 // background_color已经存在一个对应的DrawObj， 则修改color group
                 Some(r) => {
-                    let mut draw_state_item = query_draw.get_unchecked(**r);
+                    let (mut draw_state_item, old_unit_quad) = query_draw.get_unchecked(**r);
                     let draw_state = draw_state_item.get_mut().unwrap();
-                    modify(
+                    let new_unit_quad = modify(
                         &background_image,
                         radius,
                         layout,
                         draw_state,
                         &device,
                         &buffer_assets,
-                        &radius_change,
                         &unit_quad_buffer,
                         &bind_group_assets,
                         &texture_group_layout,
@@ -168,17 +160,13 @@ impl CalcBackgroundImage {
                     .await;
                     draw_state_item.notify_modify();
 
-                    // if old_unit_quad.0 != new_unit_quad.0 {
-                    //     is_unit_quad_commands.insert(**r, new_unit_quad);
-                    // }
-
-                    // if old_static_index != new_static_index {
-                    //     shader_static_commands.insert(**r, new_static_index.clone());
-                    // }
+                    if old_unit_quad.0 != new_unit_quad.0 {
+                        is_unit_quad_commands.insert(**r, new_unit_quad);
+                    }
                 }
                 // 否则，创建一个新的DrawObj，并设置color group;
                 // 修改以下组件：
-                // * <Node, BackgroundDrawId>
+                // * <Node, BackgroundImageDrawId>
                 // * <Node, DrawList>
                 // * <DrawObject, DrawState>
                 // * <DrawObject, NodeId>
@@ -189,14 +177,13 @@ impl CalcBackgroundImage {
                     let new_draw_obj = draw_obj_commands.spawn();
                     // 设置DrawState（包含color group）
                     let mut draw_state = DrawState::default();
-                    modify(
+                    let new_unit_quad = modify(
                         &background_image,
                         radius,
                         layout,
                         &mut draw_state,
                         &device,
                         &buffer_assets,
-                        &radius_change,
                         &unit_quad_buffer,
                         &bind_group_assets,
                         &texture_group_layout,
@@ -209,7 +196,7 @@ impl CalcBackgroundImage {
                     draw_state_commands.insert(new_draw_obj, draw_state);
                     // 建立DrawObj对Node的索引
                     node_id_commands.insert(new_draw_obj, NodeId(node));
-                    // is_unit_quad_commands.insert(new_draw_obj, new_unit_quad);
+                    is_unit_quad_commands.insert(new_draw_obj, new_unit_quad);
                     shader_static_commands.insert(new_draw_obj, static_index.clone());
 
                     // 建立Node对DrawObj的索引
@@ -255,15 +242,14 @@ async fn modify<'a>(
     draw_state: &mut DrawState,
     device: &RenderDevice,
     buffer_assets: &Share<AssetMgr<RenderRes<Buffer>>>,
-    border_change: &ChangeTrackers<BorderRadius>,
     unit_quad_buffer: &UnitQuadBuffer,
     group_assets: &Share<AssetMgr<RenderRes<BindGroup>>>,
     texture_group_layout: &BindGroupLayout,
     texture: &BackgroundImageTexture,
-    clip: Option<&BackgroundImageClip>,
-    fit: Option<&ObjectFit>,
+    clip: &BackgroundImageClip,
+    fit: &ObjectFit,
     common_sampler: &CommonSampler,
-) {
+) -> IsUnitQuad {
     println!("=============background_image0");
     // modify_radius_linear_geo
     let vertex_key = calc_hash(&("background image", image));
@@ -295,20 +281,27 @@ async fn modify<'a>(
         (vertex, uv, indices) = use_layout_pos(uv_aabb, layout, radius.as_ref().unwrap());
     }
 
-    let vertex_buffer = match buffer_assets.get(&vertex_key) {
-        Some(r) => r,
-        None => {
-            println!("======= pos: {:?}", pos);
-
-            let buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
-                label: Some("background image vert buffer init"),
-                contents: bytemuck::cast_slice(&vertex),
-                usage: wgpu::BufferUsages::VERTEX,
-            });
-            buffer_assets.cache(vertex_key, RenderRes::new(buf, vertex.len() * 4));
-            buffer_assets.get(&vertex_key).unwrap()
-        }
-    };
+	
+	let (vertex_buffer, is_unit) = if radius.is_some() || fit.0 != FitType::Fill {
+		// 有圆角或适配方式为非填充，则需要创建buffer
+		(match buffer_assets.get(&vertex_key) {
+			Some(r) => r,
+			None => {
+				println!("======= pos: {:?}", pos);
+	
+				let buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
+					label: Some("background image vert buffer init"),
+					contents: bytemuck::cast_slice(&vertex),
+					usage: wgpu::BufferUsages::VERTEX,
+				});
+				buffer_assets.cache(vertex_key, RenderRes::new(buf, vertex.len() * 4));
+				buffer_assets.get(&vertex_key).unwrap()
+			}
+		}, IsUnitQuad(false))
+	} else {
+		// 否则buffer可以是单位四边形
+		(unit_quad_buffer.index.clone(), IsUnitQuad(true))
+	};
 
     draw_state
         .vbs
@@ -373,6 +366,8 @@ async fn modify<'a>(
     draw_state
         .bind_groups
         .insert(IMAGE_TEXTURE_GROUP, texture_group);
+
+	is_unit
 }
 
 #[derive(Clone, DerefMut, Deref)]
@@ -384,125 +379,116 @@ impl Default for BackgroundImageAwait {
     }
 }
 
-pub struct CalcBackgroundImageLoad;
+// pub struct CalcBackgroundImageLoad;
 
-#[setup]
-impl CalcBackgroundImageLoad {
-    /// BorderImage创建，加载对应的图片
-    /// 图片加载是异步，加载成功后，不能立即将图片对应的纹理设置到BorderImageTexture上
-    /// 因为BorderImageTexture未加锁，其他线程可能正在使用
-    /// 这里是将一个加载成功的Texture放入一个加锁的列表中，在system执行时，再放入到BorderImageTexture中
-    #[listen(component=(Node, BackgroundImage, Create))]
-    pub fn background_image_change(
-        e: Event,
-        mut query: Query<Node, (&BackgroundImage, Write<BackgroundImageTexture>)>,
-        texture_assets_mgr: Res<Share<AssetMgr<TextureRes>>>,
-        image_assets_mgr: Res<Share<AssetMgr<ImageRes>>>,
-        border_image_await: Res<BackgroundImageAwait>,
-        queue: Res<RenderQueue>,
-        device: Res<RenderDevice>,
-    ) {
-        println!("=============== background_image_change");
-        let (key, mut texture) = query.get_unchecked_mut_by_entity(e.id);
-        match AssetMgr::load(&texture_assets_mgr, &(key.get_hash() as u64)) {
-            LoadResult::Ok(r) => texture.write(BackgroundImageTexture(r)),
-            LoadResult::Wait(f) => {
-                let awaits = (*border_image_await).clone();
-                let (id, key) = (unsafe { Id::new(e.id.local()) }, key.clone());
-                MULTI_RUNTIME
-                    .spawn(MULTI_RUNTIME.alloc(), async move {
-                        let r = f.await.unwrap();
-                        awaits.lock().unwrap().push((id, (*key).clone(), r))
-                    })
-                    .unwrap();
-            }
-            LoadResult::Receiver(recv) => {
-                let (awaits, device, queue) = (
-                    (*border_image_await).clone(),
-                    (*device).clone(),
-                    (*queue).clone(),
-                );
-                let image_assets_mgr = (*image_assets_mgr).clone();
-                let (id, key) = (unsafe { Id::new(e.id.local()) }, (*key).clone());
-                MULTI_RUNTIME
-                    .spawn(MULTI_RUNTIME.alloc(), async move {
-                        let image =
-                            pi_multimedia::image::load_from_path(&image_assets_mgr, &*key).await;
-                        let image = match image {
-                            Ok(r) => r,
-                            Err(_) => {
-                                log::error!("load image fail: {:?}", key.as_str());
-                                panic!();
-                            }
-                        };
+// #[setup]
+// impl CalcBackgroundImageLoad {
+//     /// BorderImage创建，加载对应的图片
+//     /// 图片加载是异步，加载成功后，不能立即将图片对应的纹理设置到BorderImageTexture上
+//     /// 因为BorderImageTexture未加锁，其他线程可能正在使用
+//     /// 这里是将一个加载成功的Texture放入一个加锁的列表中，在system执行时，再放入到BorderImageTexture中
+//     #[listen(component=(Node, BackgroundImage, Create))]
+//     pub fn background_image_change(
+//         e: Event,
+//         mut query: Query<Node, (&BackgroundImage, Write<BackgroundImageTexture>)>,
+//         texture_assets_mgr: Res<Share<AssetMgr<TextureRes>>>,
+//         image_assets_mgr: Res<Share<AssetMgr<ImageRes>>>,
+//         border_image_await: Res<BackgroundImageAwait>,
+//         queue: Res<RenderQueue>,
+//         device: Res<RenderDevice>,
+//     ) {
+//         println!("=============== background_image_change");
+//         let (key, mut texture) = query.get_unchecked_mut_by_entity(e.id);
+//         match AssetMgr::load(&texture_assets_mgr, &(key.get_hash() as u64)) {
+//             LoadResult::Ok(r) => texture.write(BackgroundImageTexture(r)),
+//             LoadResult::Wait(f) => {
+//                 let awaits = (*border_image_await).clone();
+//                 let (id, key) = (unsafe { Id::new(e.id.local()) }, key.clone());
+//                 MULTI_RUNTIME
+//                     .spawn(MULTI_RUNTIME.alloc(), async move {
+//                         let r = f.await.unwrap();
+//                         awaits.lock().unwrap().push((id, (*key).clone(), r))
+//                     })
+//                     .unwrap();
+//             }
+//             LoadResult::Receiver(recv) => {
+//                 let (awaits, device, queue) = (
+//                     (*border_image_await).clone(),
+//                     (*device).clone(),
+//                     (*queue).clone(),
+//                 );
+//                 let image_assets_mgr = (*image_assets_mgr).clone();
+//                 let (id, key) = (unsafe { Id::new(e.id.local()) }, (*key).clone());
+//                 MULTI_RUNTIME
+//                     .spawn(MULTI_RUNTIME.alloc(), async move {
+//                         let image =
+//                             pi_multimedia::image::load_from_path(&image_assets_mgr, &*key).await;
+//                         let image = match image {
+//                             Ok(r) => r,
+//                             Err(_) => {
+//                                 log::error!("load image fail: {:?}", key.as_str());
+//                                 panic!();
+//                             }
+//                         };
 
-                        let texture = create_texture_from_image(
-                            &image,
-                            &device,
-                            &queue,
-                            (*key).clone(),
-                            recv,
-                        )
-                        .await;
-                        awaits.lock().unwrap().push((id, (*key).clone(), texture))
-                    })
-                    .unwrap();
-            }
-        }
-    }
+//                         let texture = create_texture_from_image(
+//                             &image,
+//                             &device,
+//                             &queue,
+//                             (*key).clone(),
+//                             recv,
+//                         )
+//                         .await;
+//                         awaits.lock().unwrap().push((id, (*key).clone(), texture))
+//                     })
+//                     .unwrap();
+//             }
+//         }
+//     }
 
-    //
-    #[system]
-    pub fn check_await_texture(
-        border_image_await: Res<BackgroundImageAwait>,
-        mut query: Query<Node, (&BackgroundImage, Write<BackgroundImageTexture>)>,
-    ) {
-        let awaits = {
-            let mut border_image_await = border_image_await.0.lock().unwrap();
-            std::mem::replace(&mut *border_image_await, Vec::new())
-        };
+//     //
+//     #[system]
+//     pub fn check_await_texture(
+//         border_image_await: Res<BackgroundImageAwait>,
+//         mut query: Query<Node, (&BackgroundImage, Write<BackgroundImageTexture>)>,
+//     ) {
+//         let awaits = {
+//             let mut border_image_await = border_image_await.0.lock().unwrap();
+//             std::mem::replace(&mut *border_image_await, Vec::new())
+//         };
 
-        for (id, key, texture) in awaits.into_iter() {
-            let mut texture_item = match query.get_mut(id) {
-                Some((img, texture_item)) => {
-                    // borderimage已经修改，不需要设置texture
-                    if **img != key {
-                        continue;
-                    }
-                    texture_item
-                }
-                // 节点已经销毁，或borderimage已经被删除，不需要设置texture
-                None => continue,
-            };
-            println!("=========== texture_item write");
-            texture_item.write(BackgroundImageTexture(texture));
-            println!("=========== texture_item write end");
-        }
-    }
-}
+//         for (id, key, texture) in awaits.into_iter() {
+//             let mut texture_item = match query.get_mut(id) {
+//                 Some((img, texture_item)) => {
+//                     // borderimage已经修改，不需要设置texture
+//                     if **img != key {
+//                         continue;
+//                     }
+//                     texture_item
+//                 }
+//                 // 节点已经销毁，或borderimage已经被删除，不需要设置texture
+//                 None => continue,
+//             };
+//             println!("=========== texture_item write");
+//             texture_item.write(BackgroundImageTexture(texture));
+//             println!("=========== texture_item write end");
+//         }
+//     }
+// }
 
 // 获得图片的4个点(逆时针)的坐标和uv的Aabb
 fn get_pos_uv(
     img: &BackgroundImageTexture,
-    clip: Option<&BackgroundImageClip>,
-    fit: Option<&ObjectFit>,
+    clip: &BackgroundImageClip,
+    fit: &ObjectFit,
     layout: &LayoutResult,
 ) -> (Aabb2, Aabb2) {
     let src = img.0.as_ref();
-    let (size, mut uv1, mut uv2) = match clip {
-        Some(c) => {
-            let size = Vector2::new(
-                src.width as f32 * (c.maxs.x - c.mins.x).abs(),
-                src.height as f32 * (c.maxs.y - c.mins.y).abs(),
-            );
-            (size, c.mins, c.maxs)
-        }
-        _ => (
-            Vector2::new(src.width as f32, src.height as f32),
-            Point2::new(0.0, 0.0),
-            Point2::new(1.0, 1.0),
-        ),
-    };
+	let size = Vector2::new(
+		src.width as f32 * (clip.maxs.x - clip.mins.x).abs(),
+		src.height as f32 * (clip.maxs.y - clip.mins.y).abs(),
+	);
+	let (mut uv1, mut uv2) = (clip.mins, clip.maxs);
 
     let width = layout.rect.right - layout.rect.left - layout.border.right - layout.border.left;
     let height = layout.rect.bottom - layout.rect.top - layout.border.bottom - layout.border.top;
@@ -515,68 +501,64 @@ fn get_pos_uv(
     let w = p2.x - p1.x;
     let h = p2.y - p1.y;
     // 如果不是填充，总是居中显示。 如果在范围内，则修改点坐标。如果超出的部分，会进行剪切，剪切会修改uv坐标。
-    match fit {
-        Some(f) => match f.0 {
-            FitType::None => {
-                // 保持原有尺寸比例。同时保持内容原始尺寸大小。 超出部分会被剪切
-                if size.x <= w {
-                    let x = (w - size.x) / 2.0;
-                    p1.x += x;
-                    p2.x -= x;
-                } else {
-                    let x = (size.x - w) * (uv2.x - uv1.x) * 0.5 / size.x;
-                    uv1.x += x;
-                    uv2.x -= x;
-                }
-                if size.y <= h {
-                    let y = (h - size.y) / 2.0;
-                    p1.y += y;
-                    p2.y -= y;
-                } else {
-                    let y = (size.y - h) * (uv2.y - uv1.y) * 0.5 / size.y;
-                    uv1.y += y;
-                    uv2.y -= y;
-                }
-            }
-            FitType::Contain => {
-                // 保持原有尺寸比例。保证内容尺寸一定可以在容器里面放得下。因此，此参数可能会在容器内留下空白。
-                fill(&size, &mut p1, &mut p2, w, h);
-            }
-            FitType::Cover => {
-                // 保持原有尺寸比例。保证内容尺寸一定大于容器尺寸，宽度和高度至少有一个和容器一致。超出部分会被剪切
-                let rw = size.x / w;
-                let rh = size.y / h;
-                if rw > rh {
-                    let x = (size.x - w * rh) * (uv2.x - uv1.x) * 0.5 / size.x;
-                    uv1.x += x;
-                    uv2.x -= x;
-                } else {
-                    let y = (size.y - h * rw) * (uv2.y - uv1.y) * 0.5 / size.y;
-                    uv1.y += y;
-                    uv2.y -= y;
-                }
-            }
-            FitType::ScaleDown => {
-                // 如果内容尺寸小于容器尺寸，则直接显示None。否则就是Contain
-                if size.x <= w && size.y <= h {
-                    let x = (w - size.x) / 2.0;
-                    let y = (h - size.y) / 2.0;
-                    p1.x += x;
-                    p1.y += y;
-                    p2.x -= x;
-                    p2.y -= y;
-                } else {
-                    fill(&size, &mut p1, &mut p2, w, h);
-                }
-            }
-            FitType::Repeat => panic!("TODO"),  // TODO
-            FitType::RepeatX => panic!("TODO"), // TODO
-            FitType::RepeatY => panic!("TODO"), // TODO
-            FitType::Fill => (),                // 填充。 内容拉伸填满整个容器，不保证保持原有的比例
-        },
-        // 默认情况是填充
-        _ => (),
-    };
+	match fit.0 {
+		FitType::None => {
+			// 保持原有尺寸比例。同时保持内容原始尺寸大小。 超出部分会被剪切
+			if size.x <= w {
+				let x = (w - size.x) / 2.0;
+				p1.x += x;
+				p2.x -= x;
+			} else {
+				let x = (size.x - w) * (uv2.x - uv1.x) * 0.5 / size.x;
+				uv1.x += x;
+				uv2.x -= x;
+			}
+			if size.y <= h {
+				let y = (h - size.y) / 2.0;
+				p1.y += y;
+				p2.y -= y;
+			} else {
+				let y = (size.y - h) * (uv2.y - uv1.y) * 0.5 / size.y;
+				uv1.y += y;
+				uv2.y -= y;
+			}
+		}
+		FitType::Contain => {
+			// 保持原有尺寸比例。保证内容尺寸一定可以在容器里面放得下。因此，此参数可能会在容器内留下空白。
+			fill(&size, &mut p1, &mut p2, w, h);
+		}
+		FitType::Cover => {
+			// 保持原有尺寸比例。保证内容尺寸一定大于容器尺寸，宽度和高度至少有一个和容器一致。超出部分会被剪切
+			let rw = size.x / w;
+			let rh = size.y / h;
+			if rw > rh {
+				let x = (size.x - w * rh) * (uv2.x - uv1.x) * 0.5 / size.x;
+				uv1.x += x;
+				uv2.x -= x;
+			} else {
+				let y = (size.y - h * rw) * (uv2.y - uv1.y) * 0.5 / size.y;
+				uv1.y += y;
+				uv2.y -= y;
+			}
+		}
+		FitType::ScaleDown => {
+			// 如果内容尺寸小于容器尺寸，则直接显示None。否则就是Contain
+			if size.x <= w && size.y <= h {
+				let x = (w - size.x) / 2.0;
+				let y = (h - size.y) / 2.0;
+				p1.x += x;
+				p1.y += y;
+				p2.x -= x;
+				p2.y -= y;
+			} else {
+				fill(&size, &mut p1, &mut p2, w, h);
+			}
+		}
+		FitType::Repeat => panic!("TODO"),  // TODO
+		FitType::RepeatX => panic!("TODO"), // TODO
+		FitType::RepeatY => panic!("TODO"), // TODO
+		FitType::Fill => (),                // 填充。 内容拉伸填满整个容器，不保证保持原有的比例
+	};
     (
         Aabb2 { mins: p1, maxs: p2 },
         Aabb2 {
