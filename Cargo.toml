@@ -12,7 +12,7 @@ lazy_static = "*"
 derive_deref = "1.1"
 paste = "0.1"
 serde = { version = "1.0", features = ["derive"], option=true }
-ordered-float = { version = "1.0", default-features = false, features = ["serde"] }
+ordered-float = { version = "3.0", default-features = false, features = ["serde"] }
 fxhash = "0.2.1"
 nalgebra = {version = "0.24.0", features = ["serde", "serde-serialize"]}
 ncollide2d = {version = "0.27.0", features = ["serde"]}
@@ -55,10 +55,7 @@ pi_ecs = { git = "https://github.com/GaiaWorld/pi_ecs.git" }
 pi_flex_layout = { git = "https://github.com/GaiaWorld/pi_flex_layout.git" }
 pi_slotmap_tree = { git = "https://github.com/GaiaWorld/pi_slotmap_tree.git" }
 pi_dirty = { git = "https://github.com/GaiaWorld/pi_dirty.git" }
-font_kit = {git="http://ser.yinengyun.com:10082/tech/font_kit.git", branch="suncy"}
-pi_multimedia = { git = "https://github.com/GaiaWorld/pi_multimedia.git" }
-pi_async_common = { git = "https://github.com/GaiaWorld/pi_async_common.git" }
-
+pi_hal={git="https://github.com/GaiaWorld/pi_hal.git"}
 # [patch."https://github.com/GaiaWorld/pi_ecs"]
 # pi_ecs = { path = "../pi_ecs" }
 # pi_ecs_macros = { path = "../pi_ecs/macros" }
@@ -91,6 +88,7 @@ wgpu = "0.12"
 env_logger = "0.9"
 float-ord = "0.3"
 async-trait="0.1"
+font_kit = {git="http://ser.yinengyun.com:10082/tech/font_kit.git", branch="suncy"}
 
 # [patch.crates-io]
 # pi_ecs = { path = "../pi_ecs" }

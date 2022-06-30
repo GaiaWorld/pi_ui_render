@@ -13,11 +13,11 @@ use pi_render::rhi::buffer::Buffer;
 use pi_render::rhi::{device::RenderDevice};
 use pi_share::{Share, ShareCell};
 use pi_polygon::{find_lg_endp, split_by_lg, interp_mult_by_lg, LgCfg, mult_to_triangle};
+use pi_render::font::{ FontSheet, Glyph, GlyphId};
 use wgpu::IndexFormat;
 
 use crate::components::calc::{LayoutResult, NodeState};
 use crate::components::user::{CgColor, TextContent, TextStyle};
-use crate::font::font::{FontBrush, FontSheet, FontMgr, Glyph, GlyphId};
 use crate::resource::draw_obj::CommonSampler;
 use crate::system::shader_utils::StaticIndex;
 use crate::system::shader_utils::text::{TextStaticIndex, TEXT_TEXTURE_SIZE_GROUP, TEXT_COLOR_GROUP, TEXT_POSITION_LOCATION, TEXT_UV_LOCATION, TEXT_TEXTURE_GROUP, TEXT_COLOR_LOCATION};
@@ -46,7 +46,7 @@ impl FromWorld for TextShareBuffer {
 		let text_static_index = world.get_resource::<TextStaticIndex>().unwrap();
 		let shader_static = world.get_resource::<Shaders,
 		>().unwrap();
-		let font_sheet = world.get_resource::<Share<ShareCell<FontMgr<>>>,
+		let font_sheet = world.get_resource::<Share<ShareCell<FontSheet<>>>,
 		>().unwrap();
 		let font_sheet = font_sheet.borrow();
 
@@ -190,7 +190,7 @@ impl CalcText {
 		static_index: Res<'static, TextStaticIndex>,
 		shader_static: Res<'static, Shaders>,
 
-		font_sheet: Res<'static, Share<ShareCell<FontMgr>>>,
+		font_sheet: Res<'static, Share<ShareCell<FontSheet>>>,
 
 		buffer_assets: Res<'static, Share<AssetMgr<RenderRes<Buffer>>>>,
 		bind_group_assets: Res<'static, Share<AssetMgr<RenderRes<BindGroup>>>>,
@@ -370,7 +370,7 @@ pub fn background_color_delete(
 // }
 // 返回当前需要的StaticIndex
 fn modify<'a> (
-	font_sheet: &FontMgr,
+	font_sheet: &FontSheet,
 	node_state: &NodeState, 
 	text_style: &TextStyle,
 	layout: &LayoutResult,
@@ -475,7 +475,7 @@ fn modify_geo(
 	draw_state: &mut DrawState,
 	layout: &LayoutResult,
     color: &Color,
-    font_sheet: &FontMgr,
+    font_sheet: &FontSheet,
     device: &RenderDevice,
 	index_buffer_max_len: &mut usize,
 	buffer_assets: &Share<AssetMgr<RenderRes<Buffer>>>,
@@ -702,7 +702,7 @@ fn get_or_create_buffer(
 fn text_vert(
 	node_state: &NodeState,
 	layout: &LayoutResult,
-	font_sheet: &FontMgr,
+	font_sheet: &FontSheet,
 	scale: f32,
 ) -> (Vec<f32>, Vec<f32>) {
 	let mut positions = Vec::new();

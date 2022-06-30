@@ -2,8 +2,16 @@ use std::{any::TypeId, mem::replace};
 
 use pi_assets::{mgr::AssetMgr, asset::{GarbageEmpty, Handle}};
 use pi_ecs::prelude::{World, ArchetypeId, StageBuilder, Id, Setup, FromWorld};
-use pi_multimedia::image::ImageRes;
-use pi_render::{rhi::{asset::{RenderRes, TextureRes}, buffer::Buffer, bind_group::BindGroup, device::RenderDevice, RenderQueue}, components::view::target_alloc::{SafeAtlasAllocator, DEPTH_TEXTURE, ShareTargetView}};
+use pi_render::{
+	rhi::{
+		asset::{RenderRes, TextureRes},
+		buffer::Buffer, 
+		bind_group::BindGroup, 
+		device::RenderDevice, RenderQueue
+	}, 
+	components::view::target_alloc::{SafeAtlasAllocator, DEPTH_TEXTURE, ShareTargetView},
+	font::FontSheet,
+};
 use pi_share::{Share, ShareCell};
 use wgpu::TextureView;
 
@@ -21,8 +29,9 @@ use crate::{
 			pass_render::CalcRender, 
 			pass_dirty_rect::CalcDirtyRect, 
 			pass_graph_node::{InitGraphData, PostBindGroupLayout}
-		}, shader_utils::{post_process::CalcPostProcessShader, with_vert_color::WithColorShader, text::TextShader, color::ColorShader, image::ImageShader, color_shadow::ColorShadowShader}
-	}, font::font::FontMgr
+		}, 
+		shader_utils::{post_process::CalcPostProcessShader, with_vert_color::WithColorShader, text::TextShader, color::ColorShader, image::ImageShader, color_shadow::ColorShadowShader}
+	}
 };
 
 use crate::components::user::Node;
@@ -150,11 +159,6 @@ fn register_assets_mgr(world: &mut World) {
 		false,
 		60 * 1024 * 1024, 
 		3 * 60 * 1000));
-	world.insert_resource(AssetMgr::<ImageRes>::new(
-		GarbageEmpty(), 
-		false,
-		60 * 1024 * 1024, 
-		3 * 60 * 1000));
 }
 
 // 插入必须的资源
@@ -210,7 +214,7 @@ fn insert_resource(
 	world.insert_resource(common_sampler);
 	
 	// 插入FontSheet
-	world.insert_resource(Share::new(ShareCell::new(FontMgr::new(&device,&texture_res_mgr, &queue))));
+	world.insert_resource(Share::new(ShareCell::new(FontSheet::new(&device,&texture_res_mgr, &queue))));
 	
 }
 

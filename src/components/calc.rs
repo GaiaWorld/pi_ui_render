@@ -56,7 +56,7 @@ pub struct WorldMatrix(pub Matrix4<f32>, pub bool);
 impl Hash for WorldMatrix {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
 		for i in self.0.as_slice().iter() {
-			unsafe { NotNan::unchecked_new(*i).hash(state) };
+			unsafe { NotNan::new_unchecked(*i).hash(state) };
 		}
         
         self.1.hash(state);

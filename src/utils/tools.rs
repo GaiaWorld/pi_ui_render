@@ -1,6 +1,6 @@
 use std::hash::{Hash, Hasher};
 
-use num_traits::float::FloatCore;
+use num_traits::Float;
 use ordered_float::NotNan;
 use pi_flex_layout::prelude::{Rect, Size};
 use pi_hash::DefaultHasher;
@@ -21,10 +21,10 @@ pub fn calc_hash_slice<T: Hash>(v: &[T])-> u64 {
 	hasher.finish()
 }
 
-pub fn calc_float_hash<T: FloatCore>(v: &[T])-> u64 {
+pub fn calc_float_hash<T: Float>(v: &[T])-> u64 {
 	let mut hasher = DefaultHasher::default();
 	for i in v.iter() {
-		unsafe{NotNan::unchecked_new(*i)}.hash(&mut hasher);
+		unsafe{NotNan::new_unchecked(*i)}.hash(&mut hasher);
 	}
 	hasher.finish()
 }
@@ -92,48 +92,48 @@ pub fn get_radius(radius: &BorderRadius, layout: &LayoutResult) -> Rect<NotNan<f
 
 	Rect {
 		top: match radius.y {
-			LengthUnit::Pixel(v) => unsafe { NotNan::unchecked_new(half_height.min(v))},
-			LengthUnit::Percent(v) => unsafe { NotNan::unchecked_new(half_height.min(v * height))},
+			LengthUnit::Pixel(v) => unsafe { NotNan::new_unchecked(half_height.min(v))},
+			LengthUnit::Percent(v) => unsafe { NotNan::new_unchecked(half_height.min(v * height))},
 		},
 		right: match radius.x {
-			LengthUnit::Pixel(v) => unsafe { NotNan::unchecked_new(half_width.min(v))},
-			LengthUnit::Percent(v) => unsafe { NotNan::unchecked_new(half_width.min(v * width))},
+			LengthUnit::Pixel(v) => unsafe { NotNan::new_unchecked(half_width.min(v))},
+			LengthUnit::Percent(v) => unsafe { NotNan::new_unchecked(half_width.min(v * width))},
 		},
 		bottom: match radius.y {
-			LengthUnit::Pixel(v) => unsafe { NotNan::unchecked_new(half_height.min(v))},
-			LengthUnit::Percent(v) => unsafe { NotNan::unchecked_new(half_height.min(v * height))},
+			LengthUnit::Pixel(v) => unsafe { NotNan::new_unchecked(half_height.min(v))},
+			LengthUnit::Percent(v) => unsafe { NotNan::new_unchecked(half_height.min(v * height))},
 		},
 		left: match radius.x {
-			LengthUnit::Pixel(v) => unsafe { NotNan::unchecked_new(half_width.min(v))},
-			LengthUnit::Percent(v) => unsafe { NotNan::unchecked_new(half_width.min(v * width))},
+			LengthUnit::Pixel(v) => unsafe { NotNan::new_unchecked(half_width.min(v))},
+			LengthUnit::Percent(v) => unsafe { NotNan::new_unchecked(half_width.min(v * width))},
 		}
 	}
 }
 
 pub fn get_content_size(layout: &LayoutResult) -> Size<NotNan<f32>> {
 	Size {
-		width: unsafe { NotNan::unchecked_new(layout.rect.right - layout.rect.left - layout.border.left - layout.border.right)},
-		height: unsafe { NotNan::unchecked_new(layout.rect.bottom - layout.rect.top - layout.border.bottom - layout.border.top)},
+		width: unsafe { NotNan::new_unchecked(layout.rect.right - layout.rect.left - layout.border.left - layout.border.right)},
+		height: unsafe { NotNan::new_unchecked(layout.rect.bottom - layout.rect.top - layout.border.bottom - layout.border.top)},
 	}
 }
 
 #[inline]
 pub fn get_content_rect(layout: &LayoutResult) -> Rect<NotNan<f32>> { 
 	Rect {
-		top: unsafe { NotNan::unchecked_new(layout.border.top)},
-		right: unsafe { NotNan::unchecked_new(layout.rect.right - layout.border.left - layout.border.right)},
-		bottom: unsafe { NotNan::unchecked_new(layout.rect.bottom - layout.border.top - layout.border.bottom)},
-		left: unsafe { NotNan::unchecked_new(layout.border.left)},
+		top: unsafe { NotNan::new_unchecked(layout.border.top)},
+		right: unsafe { NotNan::new_unchecked(layout.rect.right - layout.border.left - layout.border.right)},
+		bottom: unsafe { NotNan::new_unchecked(layout.rect.bottom - layout.border.top - layout.border.bottom)},
+		left: unsafe { NotNan::new_unchecked(layout.border.left)},
 	}
 }
 
 #[inline]
 pub fn get_box_rect(layout: &LayoutResult) -> Rect<NotNan<f32>> { 
 	Rect {
-		top: unsafe { NotNan::unchecked_new(0.0)},
-		right: unsafe { NotNan::unchecked_new(layout.rect.right - layout.rect.left)},
-		bottom: unsafe { NotNan::unchecked_new(layout.rect.bottom - layout.rect.top)},
-		left: unsafe { NotNan::unchecked_new(0.0)},
+		top: unsafe { NotNan::new_unchecked(0.0)},
+		right: unsafe { NotNan::new_unchecked(layout.rect.right - layout.rect.left)},
+		bottom: unsafe { NotNan::new_unchecked(layout.rect.bottom - layout.rect.top)},
+		left: unsafe { NotNan::new_unchecked(0.0)},
 	}
 }
 
@@ -149,16 +149,16 @@ pub fn get_content_radius(radius: Option<&BorderRadius>, layout: &LayoutResult) 
 	r.left = r.left - layout.border.left;
 	
 	if *r.top < 0.0 {
-		r.top = unsafe { NotNan::unchecked_new(0.0)};
+		r.top = unsafe { NotNan::new_unchecked(0.0)};
 	}
 	if *r.right < 0.0 {
-		r.right = unsafe { NotNan::unchecked_new(0.0)};
+		r.right = unsafe { NotNan::new_unchecked(0.0)};
 	}
 	if *r.bottom < 0.0 {
-		r.bottom = unsafe { NotNan::unchecked_new(0.0)};
+		r.bottom = unsafe { NotNan::new_unchecked(0.0)};
 	}
 	if *r.left < 0.0 {
-		r.left = unsafe { NotNan::unchecked_new(0.0)};
+		r.left = unsafe { NotNan::new_unchecked(0.0)};
 	}
 
 	if *r.top == 0.0 &&

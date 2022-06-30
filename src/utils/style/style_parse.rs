@@ -1053,19 +1053,19 @@ fn parse_border_image_slice(value: &str) -> Result<BorderImageSlice, String> {
     }
     let r = to_four(arr)?;
     match r[0] {
-        Dimension::Percent(r) => slice.top = unsafe { NotNan::unchecked_new(r) },
+        Dimension::Percent(r) => slice.top = unsafe { NotNan::new_unchecked(r) },
         _ => (),
     };
     match r[1] {
-        Dimension::Percent(r) => slice.right = unsafe { NotNan::unchecked_new(r) },
+        Dimension::Percent(r) => slice.right = unsafe { NotNan::new_unchecked(r) },
         _ => (),
     };
     match r[2] {
-        Dimension::Percent(r) => slice.bottom = unsafe { NotNan::unchecked_new(r) },
+        Dimension::Percent(r) => slice.bottom = unsafe { NotNan::new_unchecked(r) },
         _ => (),
     };
     match r[3] {
-        Dimension::Percent(r) => slice.left = unsafe { NotNan::unchecked_new(r) },
+        Dimension::Percent(r) => slice.left = unsafe { NotNan::new_unchecked(r) },
         _ => (),
     };
     Ok(slice)

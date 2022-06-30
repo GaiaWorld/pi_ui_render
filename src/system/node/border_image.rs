@@ -1,23 +1,24 @@
 use std::io::Result;
 
 use bytemuck::{Pod, Zeroable};
-use image::DynamicImage;
-use pi_assets::asset::{Handle, GarbageEmpty};
-use pi_assets::mgr::{AssetMgr, LoadResult, Receiver};
-use pi_async_common::MULTI_RUNTIME;
+use pi_assets::asset::Handle;
+use pi_assets::mgr::{AssetMgr, LoadResult};
 use pi_async::rt::AsyncRuntime;
 use pi_atom::Atom;
 use pi_ecs::prelude::{Or, Deleted, With, ParamSet, OrDefault};
 use pi_ecs::prelude::{Query, Changed, EntityCommands, Commands, Write, Res, Event, Id};
 use pi_ecs_macros::{listen, setup};
-use pi_multimedia::image::ImageRes;
 use pi_render::rhi::RenderQueue;
-use pi_render::rhi::asset::{RenderRes, TextureRes};
+use pi_render::rhi::asset::{RenderRes, TextureRes, ImageTextureDesc};
 use pi_render::rhi::bind_group::BindGroup;
 use pi_render::rhi::bind_group_layout::BindGroupLayout;
 use pi_render::rhi::buffer::Buffer;
 use pi_render::rhi::device::RenderDevice;
 use pi_share::{Share, ShareMutex};
+use pi_hal::{
+	loader::AsyncLoader,
+	runtime::MULTI_MEDIA_RUNTIME,
+};
 use wgpu::IndexFormat;
 
 use crate::components::calc::{LayoutResult, BorderImageTexture};
@@ -83,6 +84,7 @@ impl CalcBorderImage {
 		buffer_assets: Res<'static, Share<AssetMgr<RenderRes<Buffer>>>>,
 		bind_group_assets: Res<'static, Share<AssetMgr<RenderRes<BindGroup>>>>,
 	) -> Result<()> {
+		
 		// border image 中的position和uv，完全是一一对应的，几乎不存在，position或uv单独被其他renderObj重用的情况
 		// 因此，position和uv的布局不使用默认的布局方式，而是将其放入同一个buffer中
 		let mut static_index = (*static_index).clone();
@@ -220,41 +222,39 @@ impl CalcBorderImageLoad {
 		e: Event,
 		mut query: Query<Node, (&BorderImage, Write<BorderImageTexture>)>,
 		texture_assets_mgr: Res<Share<AssetMgr<TextureRes>>>,
-		image_assets_mgr: Res<Share<AssetMgr<ImageRes>>>,
 		border_image_await: Res<BorderImageAwait>,
 		queue: Res<RenderQueue>,
 		device: Res<RenderDevice>,
 	) {
 		let (key, mut texture) = query.get_unchecked_mut_by_entity(e.id);
-		match AssetMgr::load(&texture_assets_mgr, &(key.get_hash() as u64)) {
+		let result = AssetMgr::load(&texture_assets_mgr, &(key.get_hash() as u64));
+		match result {
             LoadResult::Ok(r) => texture.write(BorderImageTexture(r)),
-            LoadResult::Wait(f) => {
-				let awaits = (*border_image_await).clone();
-				let (id, key) = (unsafe { Id::new(e.id.local())}, key.clone());
-				MULTI_RUNTIME.spawn(MULTI_RUNTIME.alloc(), async move {
-					let r = f.await.unwrap();
-					awaits.lock().unwrap().push((id, (*key).clone(), r))
-				}).unwrap();
-			},
-            LoadResult::Receiver(recv) => {
-				let (awaits, device, queue) =( (*border_image_await).clone(),  (*device).clone(), (*queue).clone());
-				let image_assets_mgr = (*image_assets_mgr).clone();
-				let (id, key) = (unsafe { Id::new(e.id.local())}, (*key).clone());
-				MULTI_RUNTIME.spawn(MULTI_RUNTIME.alloc(), async move {
-					let image = pi_multimedia::image::load_from_path(&image_assets_mgr, &*key).await;
-					let image = match image {
-						Ok(r) => r,
-						Err(_) =>  {
-							log::error!("load image fail: {:?}", key.as_str());
-							panic!();
+			_ => {
+				let (awaits, device, queue) =( 
+					(*border_image_await).clone(),  
+					(*device).clone(), 
+					(*queue).clone());
+				let (id, key) = (
+					unsafe { Id::new(e.id.local())}, 
+					(*key).clone());
+
+					MULTI_MEDIA_RUNTIME.spawn(MULTI_MEDIA_RUNTIME.alloc(), async move {
+					let desc = ImageTextureDesc { 
+						url: &*key,
+						device: &device,
+						queue: &queue,
+					};
+					let r = TextureRes::async_load(desc, result).await;
+					match r {
+						Ok(r) => awaits.lock().unwrap().push((id, (*key).clone(), r)),
+						Err(e) => {
+							log::error!("load image fail, {:?}", e);
 						},
 					};
-
-					let texture = create_texture_from_image(&image, &device, &queue, (*key).clone(), recv).await;
-					awaits.lock().unwrap().push((id, (*key).clone(), texture))
 				}).unwrap();
-            }
-        }
+			}
+		}
 	}
 
 	// 
@@ -284,66 +284,6 @@ impl CalcBorderImageLoad {
 			texture_item.write(BorderImageTexture(texture));
 		}
 	}
-}
-
-pub async fn create_texture_from_image(
-	image: &Handle<ImageRes>, 
-	device: &RenderDevice, 
-	queue: &RenderQueue,
-	key: Atom,
-	recv: Receiver<TextureRes, GarbageEmpty>
-) -> Handle<TextureRes> {
-	let buffer_temp;
-	let buffer_temp1;
-	let (width, height, buffer, ty, pre_pixel_size) = match &****image {
-		DynamicImage::ImageLuma8(image) => (image.width(), image.height(), image.as_raw(), wgpu::TextureFormat::R8Unorm, 1),
-		DynamicImage::ImageRgb8(r) => {
-			buffer_temp =  image.to_rgba8();
-			(r.width(), r.height(), buffer_temp.as_raw(), wgpu::TextureFormat::Rgba8UnormSrgb, 4)
-		},
-		DynamicImage::ImageRgba8(image) => (image.width(), image.height(), image.as_raw(), wgpu::TextureFormat::Rgba8UnormSrgb, 4),
-		DynamicImage::ImageBgr8(r) => {
-			buffer_temp1 =  image.to_bgra8();
-			(r.width(), r.height(), buffer_temp1.as_raw(), wgpu::TextureFormat::Bgra8UnormSrgb, 4)
-		},
-		DynamicImage::ImageBgra8(image) => (image.width(), image.height(), image.as_raw(), wgpu::TextureFormat::Bgra8UnormSrgb, 4),
-
-		_ => panic!("不支持的图片格式"),
-
-		// DynamicImage::ImageLumaA8(image) => panic!("不支持的图片格式: DynamicImage::ImageLumaA8"),
-		// DynamicImage::ImageLuma16(image) => (image.width(), image.height(), image.as_raw(), wgpu::TextureFormat::Bgra8UnormSrgb),
-		// DynamicImage::ImageLumaA16(image) => (image.width(), image.height(), image.as_raw(), wgpu::TextureFormat::Bgra8UnormSrgb),
-
-		// DynamicImage::ImageRgb16(image) => (image.width(), image.height(), image.as_raw(), wgpu::TextureFormat::Bgra8UnormSrgb),
-		// DynamicImage::ImageRgba16(image) => (image.width(), image.height(), image.as_raw(), wgpu::TextureFormat::Bgra8UnormSrgb),
-	};
-	let texture_extent = wgpu::Extent3d {
-		width,
-		height,
-		depth_or_array_layers: 1,
-	};
-	let texture = (**device).create_texture(&wgpu::TextureDescriptor {
-		label: Some("first depth buffer"),
-		size: texture_extent,
-		mip_level_count: 1,
-		sample_count: 1,
-		dimension: wgpu::TextureDimension::D2,
-		format: ty,
-		usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
-	});
-	let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-	queue.write_texture(
-		texture.as_image_copy(),
-		buffer,
-		wgpu::ImageDataLayout {
-			offset: 0,
-			bytes_per_row: Some(std::num::NonZeroU32::new(width * pre_pixel_size).unwrap()),
-			rows_per_image: None,
-		},
-		texture_extent,
-	);
-
-	recv.receive(key.get_hash() as u64, Ok(TextureRes::new(width, height, (width * height * pre_pixel_size) as usize, texture_view))).await.unwrap()
 }
 
 #[derive(Deref, Default)]

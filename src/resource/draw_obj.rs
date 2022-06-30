@@ -137,8 +137,8 @@ impl Hash for PipelineState {
 				r.depth_compare.hash(state);
 				r.stencil.hash(state);
 				r.bias.constant.hash(state);
-				unsafe{NotNan::unchecked_new(r.bias.slope_scale).hash(state)};
-				unsafe{NotNan::unchecked_new(r.bias.clamp).hash(state)};
+				unsafe{NotNan::new_unchecked(r.bias.slope_scale).hash(state)};
+				unsafe{NotNan::new_unchecked(r.bias.clamp).hash(state)};
 			},
 			None => (),
 		};

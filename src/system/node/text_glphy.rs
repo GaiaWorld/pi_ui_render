@@ -5,13 +5,13 @@ use pi_ecs::prelude::{Query, Changed, Or, ResMut, OrDefault,With, Id};
 use pi_ecs_macros::setup;
 use pi_ecs_utils::prelude::Layer;
 use pi_share::{Share, ShareCell};
+use pi_render::font::{FontSheet, Font};
 
 use crate::{
 	components::{
-		user::{TextContent, Node, TextStyle, Vector4},
+		user::{TextContent, Node, TextStyle, Vector4, get_size},
 		calc::{NodeState, WorldMatrix}
-	}, 
-	font::font::{FontMgr, get_size, FontSheet, Font},
+	}
 };
 
 pub struct CalcTextGlyph;
@@ -43,7 +43,7 @@ impl CalcTextGlyph {
 			), 
 			(With<TextContent>, With<Layer>)
 		>,
-		font_sheet: ResMut<Share<ShareCell<FontMgr>>>
+		font_sheet: ResMut<Share<ShareCell<FontSheet>>>
 	) {
 
 		let mut font_sheet = font_sheet.borrow_mut();
@@ -91,7 +91,7 @@ pub fn set_gylph(
 	world_matrix: &WorldMatrix,
 	text_style: &TextStyle, 
 	node_state: &mut NodeState,
-	font_sheet: &mut FontMgr) -> Result<(), ()> {
+	font_sheet: &mut FontSheet) -> Result<(), ()> {
 	
 	let scale = Vector4::from(world_matrix.fixed_columns(1));
 	let scale = scale.dot(&scale).sqrt();

@@ -2,7 +2,7 @@
 //! 将文字劈分为字符，放入NodeState中，并设置好每个字符的布局宽高。等待布局系统布局
 use std::intrinsics::transmute;
 
-use ordered_float::{NotNaN, NotNan};
+use ordered_float::NotNan;
 use pi_ecs::prelude::{Query, Changed, Or, ResMut, OrDefault, Write, Id, Component};
 use pi_ecs_macros::setup;
 use pi_ecs_utils::prelude::{EntityTree, Layer};
@@ -10,14 +10,14 @@ use pi_flex_layout::{prelude::{CharNode, Size, Rect}, style::{Dimension, Positio
 use pi_share::{Share, ShareCell};
 use pi_slotmap::{DefaultKey, Key};
 use pi_slotmap_tree::Storage;
+use pi_render::font::{FontSheet, Font, FontId, split, SplitResult};
 
 use crate::{
 	components::{
-		user::{TextContent, Node, TextStyle, FontStyle, FlexNormal, Size as FlexSize, LineHeight}, 
+		user::{TextContent, Node, TextStyle, FontStyle, FlexNormal, Size as FlexSize, LineHeight, get_size}, 
 		calc::NodeState
 	}, 
-	utils::stdcell::StdCell, font::{font::{FontMgr, get_size, FontSheet, Font, FontId}, text_split::{split, SplitResult}},
-
+	utils::stdcell::StdCell,
 };
 
 pub struct CalcTextSplit;
@@ -47,7 +47,7 @@ impl CalcTextSplit {
 		>,
 		tree: EntityTree<Node>,
 		mut node_states: Query<Node, Write<NodeState>>,
-		font_sheet: ResMut<Share<ShareCell<FontMgr>>>
+		font_sheet: ResMut<Share<ShareCell<FontSheet>>>
 		
 	) {
 		let mut font_sheet = font_sheet.borrow_mut();
@@ -131,7 +131,7 @@ struct Calc<'a> {
 	text: &'a str,
 	text_style: &'a TextStyle,
 
-	font_sheet: &'a mut FontMgr,
+	font_sheet: &'a mut FontSheet,
 	font_id: FontId,
 	font_size: usize,
 	line_height: f32,

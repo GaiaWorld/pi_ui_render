@@ -54,10 +54,10 @@ impl Example for QuadExample {
 		gui.set_style(div1, HeightType(Dimension::Points(144.0)));
 		gui.set_style(div1, BorderImageType (BorderImage(Atom::from("examples/border_image/source/dialog_bg.png") )));
 		gui.set_style(div1, BorderImageSliceType(BorderImageSlice {
-			top: unsafe { NotNan::unchecked_new(0.3333334) },
-			right: unsafe { NotNan::unchecked_new(0.4272727) },
-			bottom: unsafe { NotNan::unchecked_new(0.5625) },
-			left: unsafe { NotNan::unchecked_new(0.4272727) },
+			top: unsafe { NotNan::new_unchecked(0.3333334) },
+			right: unsafe { NotNan::new_unchecked(0.4272727) },
+			bottom: unsafe { NotNan::new_unchecked(0.5625) },
+			left: unsafe { NotNan::new_unchecked(0.4272727) },
 			fill: true,
 		}));
 		gui.set_style(div1, BorderType (Border(Rect {

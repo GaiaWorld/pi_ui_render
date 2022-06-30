@@ -28,10 +28,10 @@ pub type NotNanRect = Rect<NotNan<f32>>;
 impl Hash for CgColor {
     fn hash<H: Hasher>(&self, state: &mut H) {
 		unsafe{
-			NotNan::unchecked_new(self.0.x).hash(state);
-			NotNan::unchecked_new(self.0.y).hash(state);
-			NotNan::unchecked_new(self.0.z).hash(state);
-			NotNan::unchecked_new(self.0.w).hash(state);
+			NotNan::new_unchecked(self.0.x).hash(state);
+			NotNan::new_unchecked(self.0.y).hash(state);
+			NotNan::new_unchecked(self.0.z).hash(state);
+			NotNan::new_unchecked(self.0.w).hash(state);
 		}
 	}
 }
@@ -228,10 +228,10 @@ impl Default for BorderImageClip {
     fn default() -> Self {
         Self(
 			NotNanRect {
-				left: unsafe { NotNan::unchecked_new(0.0) }, 
-				top: unsafe { NotNan::unchecked_new(0.0) },
-				right: unsafe { NotNan::unchecked_new(1.0) } ,
-				bottom: unsafe { NotNan::unchecked_new(1.0) },
+				left: unsafe { NotNan::new_unchecked(0.0) }, 
+				top: unsafe { NotNan::new_unchecked(0.0) },
+				right: unsafe { NotNan::new_unchecked(1.0) } ,
+				bottom: unsafe { NotNan::new_unchecked(1.0) },
 			}
 		)
     }
@@ -249,10 +249,10 @@ pub struct BorderImageSlice {
 impl Default for BorderImageSlice {
     fn default() -> Self {
         Self {
-			left: unsafe { NotNan::unchecked_new(0.0) }, 
-			top: unsafe { NotNan::unchecked_new(0.0) },
-			right: unsafe { NotNan::unchecked_new(0.0) },
-			bottom: unsafe { NotNan::unchecked_new(0.0) },
+			left: unsafe { NotNan::new_unchecked(0.0) }, 
+			top: unsafe { NotNan::new_unchecked(0.0) },
+			right: unsafe { NotNan::new_unchecked(0.0) },
+			bottom: unsafe { NotNan::new_unchecked(0.0) },
 			fill: true,
 		}
 	}
@@ -749,6 +749,20 @@ impl Default for Show {
 impl Default for BackgroundImageClip {
     fn default() -> BackgroundImageClip {
         BackgroundImageClip(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(1.0, 1.0)))
+    }
+}
+
+pub fn get_size(s: &FontSize) -> usize {
+    match s {
+        &FontSize::None => {
+			// size
+			panic!()
+		},
+        &FontSize::Length(r) => r,
+        &FontSize::Percent(_r) => {
+			// (r * size as f32).round() as usize;
+			panic!()
+		},
     }
 }
 
