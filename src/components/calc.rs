@@ -713,3 +713,6 @@ pub struct OverflowAabb {
 
 #[derive(Deref, DerefMut)]
 pub struct BorderImageTexture(pub Handle<TextureRes>);
+
+#[derive(Deref, DerefMut)]
+pub struct BackgroundImageTexture(pub Handle<TextureRes>);

@@ -177,8 +177,8 @@ pub struct ClassName(SmallVec<[usize; 1]>);
 pub struct BorderColor(pub CgColor);
 
 // 图片路劲及纹理
-#[derive(Clone, Deref, DerefMut, Serialize, Deserialize, Copy, Debug, Default)]
-pub struct BackgroundImage(pub usize);
+#[derive(Debug, Deref, DerefMut, Clone, Serialize, Deserialize, Default, Hash)]
+pub struct BackgroundImage(pub Atom);
 
 // 遮罩图片是图片路径或线性渐变色
 #[derive(Clone, Debug, Serialize, Deserialize, EnumDefault)]
