@@ -1,9 +1,10 @@
-use std::sync::Arc;
+use std::{sync::{Arc, Mutex}, time::{Instant, Duration}};
 
 use async_trait::async_trait;
-use log::{info, debug};
+use log::info;
 use pi_async::rt::{AsyncRuntime, AsyncRuntimeBuilder};
-use pi_ecs::prelude::{World, SingleDispatcher, Dispatcher};
+use pi_ecs::prelude::{World, SingleDispatcher, Dispatcher, Local, StageBuilder, IntoSystem};
+use pi_flex_layout::prelude::Size;
 use pi_render::{
 	components::view::{
 		render_window::{RenderWindow, RenderWindows}, 
@@ -17,7 +18,7 @@ use wgpu::PresentMode;
 use winit::{
 	event_loop::{EventLoop, ControlFlow}, 
 	window::Window, 
-	event::{WindowEvent, Event}
+	event::{WindowEvent, Event}, dpi::PhysicalSize
 };
 
 #[async_trait]
@@ -28,10 +29,15 @@ pub trait Example: 'static + Sized {
 		size: (usize, usize),
 	);
 	fn render(&mut self, gui: &mut Gui);
+
+	fn get_init_size(&self) -> Option<Size<u32>> {
+		// None表示使用默认值
+		None
+	}
 }
 
 pub fn start<T: Example + Sync + Send + 'static>(example: T) {
-	env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
+	env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("warn")).init();
 
 	// 初始化运行时
 	let runtime = AsyncRuntimeBuilder::default_worker_thread(
@@ -43,6 +49,14 @@ pub fn start<T: Example + Sync + Send + 'static>(example: T) {
 
     let event_loop = EventLoop::new();
     let window = ShareRefCell::new(winit::window::Window::new(&event_loop).unwrap());
+
+	if let Some(init_size) = example.get_init_size() {
+		window.0.borrow_mut().set_inner_size(PhysicalSize {
+			width: init_size.width,
+			height: init_size.height,
+		});
+	}
+	
 	let size = window.inner_size();
 
 	let mut world = World::new();
@@ -65,7 +79,6 @@ pub fn start<T: Example + Sync + Send + 'static>(example: T) {
         let runtime = runtime.clone();
 
         let rt = runtime.clone();
-		let rt1 = runtime.clone();
         let _ = runtime.spawn(runtime.alloc(), async move {
 			let world = g.world_mut();
 
@@ -83,31 +96,68 @@ pub fn start<T: Example + Sync + Send + 'static>(example: T) {
 			stages.push(Arc::new(render_stages.extract_stage.build(world)));
 			stages.push(Arc::new(render_stages.prepare_stage.build(world)));
 			stages.push(Arc::new(render_stages.render_stage.build(world)));
+
+			let mut last_stage = StageBuilder::new();
+			let last_run = move |pre_frame_time: Local<PreFrameTime>| {
+				let pre_frame_time1 = pre_frame_time.0.clone();
+				
+				let mut example = example.clone();
+				let dispatcher = dispatcher.clone();
+				let gui1 = gui1.clone();
+				
+				std::thread::spawn(move || {
+					let duration = {
+						let time = Instant::now();
+						let time1 = pre_frame_time1.lock().unwrap();
+
+						if time > *time1 {
+							let d = time - *time1;
+							if d > Duration::from_millis(16) {
+								Duration::from_millis(16)
+							} else {
+								Duration::from_millis(16) - d
+							}
+						} else {
+							Duration::from_millis(16)
+						}
+					};
+					std::thread::sleep( Duration::from_millis(16) - duration);
+					*pre_frame_time1.lock().unwrap() = Instant::now();
+					example.render(&mut gui1.0.borrow_mut());
+					dispatcher.0.borrow().run();
+				});
+			};
+			last_stage.add_node(IntoSystem::system(last_run, world));
+			stages.push(Arc::new(last_stage.build(world)));
+
 			d.0.borrow_mut().init(stages, world);
 
 			e.init(&mut g.0.borrow_mut(), (size.width as usize, size.height as usize)).await;
 
-			std::thread::spawn(move || {
-				let mut frame = 0;
-				loop {
-					frame += 1;
-					debug!("=================== frame = {}", frame);
+			// 首次运行
+			e.render(&mut g.0.borrow_mut());
+			d.0.borrow_mut().run();
+			// std::thread::spawn(move || {
+			// 	let mut frame = 0;
+			// 	loop {
+			// 		frame += 1;
+			// 		debug!("=================== frame = {}", frame);
 
-					let mut e = example.clone();
-					e.render(&mut gui1.0.borrow_mut());
+			// 		let mut e = example.clone();
+			// 		e.render(&mut gui1.0.borrow_mut());
 
-					// let mut dispatcher = dispatcher.clone();
-					dispatcher.0.borrow().run();
+			// 		// let mut dispatcher = dispatcher.clone();
+			// 		dispatcher.0.borrow().run();
 
-					loop {
-						let count = rt1.len();
-						if count == 0 {
-							break;
-						}
-					}
-					std::thread::sleep(std::time::Duration::from_millis(16));
-				}
-			});
+			// 		loop {
+			// 			let count = rt1.len();
+			// 			if count == 0 {
+			// 				break;
+			// 			}
+			// 		}
+			// 		std::thread::sleep(std::time::Duration::from_millis(16));
+			// 	}
+			// });
 
         });
 
@@ -141,6 +191,14 @@ pub fn start<T: Example + Sync + Send + 'static>(example: T) {
 
     run_window_loop(window, event_loop, e1, rt, gui);
 
+}
+
+pub struct PreFrameTime(pub Arc<Mutex<Instant>>);
+
+impl Default for PreFrameTime {
+    fn default() -> Self {
+        Self(Arc::new(Mutex::new(Instant::now())))
+    }
 }
 
 fn init_data(world: &mut World, win: ShareRefCell<Window>) {

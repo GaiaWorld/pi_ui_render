@@ -56,7 +56,7 @@ impl Example for QuadExample {
 
 		gui.append(div1, root);
 
-		// 添加一个红色div到玫红节点
+		// 添加一个红色div到红节点
 		let div2 = gui.create_node();
 		gui.set_style(div2, WidthType(Dimension::Points(50.0)));
 		gui.set_style(div2, HeightType(Dimension::Points(100.0)));

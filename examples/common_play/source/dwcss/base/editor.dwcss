@@ -1,0 +1,56 @@
+
+
+
+
+.flex,
+.2685874754{
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    align-content: flex-start;
+    flex-shrink: 0;
+    box-sizing: border-box;
+}
+
+.2217729565{
+    flex-shrink: 0;
+}
+
+.2858451731{
+    word-break: break-all;
+}
+
+
+
+
+
+.scroll_box_h::-webkit-scrollbar,
+.scroll_box_v::-webkit-scrollbar {
+    display: none;
+}
+
+.291808652{
+    overflow-x: auto;
+    overflow-y: hidden;
+    
+    -ms-overflow-style: none;
+}
+
+.3735587933{
+    overflow-x: hidden;
+    overflow-y: auto;
+    
+    -ms-overflow-style: none;
+}
+
+.scroll_box_h>div,
+.scroll_box_v>div,
+.scroll_box_h>div>div,
+.scroll_box_v>div>div {
+    position: relative;
+}
+
+.scroll_box_v,
+.scroll_box_v>div {
+    flex-wrap: wrap;
+}

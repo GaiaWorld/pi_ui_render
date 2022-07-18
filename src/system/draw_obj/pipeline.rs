@@ -80,11 +80,11 @@ impl CalcPipeline {
 		shader_map: &mut ShaderInfoMap,
 		share_layout: &ShareLayout,
 	) -> Share<RenderPipeline> {
-		println!("====={:?}, {:?}", &vs_defines.0, &fs_defines.0);
-		match pipeline_map.0.entry(calc_hash(&(static_index.shader, vs_defines, fs_defines, static_index.pipeline_state))) {
+		// println!("====={:?}, {:?}", &vs_defines.0, &fs_defines.0);
+		match pipeline_map.0.entry(calc_hash(&(static_index.shader, vs_defines, fs_defines, static_index.pipeline_state), 0)) {
 			Entry::Vacant(_r) => {
 				// 缓存未命中pipeline，取到编译后的shader（也是先从缓存命中）
-				let shader_info = match shader_map.0.entry(calc_hash(&(static_index.shader, vs_defines, fs_defines))) {
+				let shader_info = match shader_map.0.entry(calc_hash(&(static_index.shader, vs_defines, fs_defines), 0)) {
 					Entry::Vacant(r) => {
 						// 如果缓存未命中shader，从缓存表中取到shader的静态信息
 						let shader = match shader_statics.0.get(static_index.shader) {
@@ -150,14 +150,13 @@ pub fn create_empty_bind_group(
 	group_layout: &BindGroupLayout,
 	bind_group_assets: &Share<AssetMgr<RenderRes<BindGroup>>>
 ) -> Handle<RenderRes<BindGroup>> {
-	let key = calc_hash(&"empty group");
+	let key = calc_hash(&"empty group", 0);
 	let r = device.create_bind_group(&wgpu::BindGroupDescriptor {
 		layout: group_layout,
 		entries: &[],
 		label: Some("color group create"),
 	});
 
-	bind_group_assets.cache(key, RenderRes::new(r, 5));
-	bind_group_assets.get(&key).unwrap()
+	bind_group_assets.insert(key, RenderRes::new(r, 5)).unwrap()
 }
 

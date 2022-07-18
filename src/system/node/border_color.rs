@@ -16,11 +16,11 @@ use pi_render::rhi::bind_group_layout::BindGroupLayout;
 use pi_polygon::split_by_radius_border;
 use wgpu::IndexFormat;
 
-use crate::components::calc::LayoutResult;
+use crate::components::calc::{LayoutResult, DrawInfo};
 use crate::components::user::{CgColor, BorderRadius};
 use crate::system::shader_utils::StaticIndex;
 use crate::system::shader_utils::color::{ColorStaticIndex, COLOR_GROUP};
-use crate::utils::tools::{calc_hash, get_content_radius};
+use crate::utils::tools::{calc_hash, get_content_radius, calc_float_hash};
 use crate::{
 	components::{
 		user::{Node, BorderColor}, 
@@ -71,6 +71,7 @@ impl CalcBorderColor {
 		mut draw_state_commands: Commands<DrawObject, DrawState>,
 		mut node_id_commands: Commands<DrawObject, NodeId>,
 		mut shader_static_commands: Commands<DrawObject, StaticIndex>,
+		mut order_commands: Commands<DrawObject, DrawInfo>,
 		
 		// load_mgr: ResMut<'a, LoadMgr>,
 		device: Res<'static, RenderDevice>,
@@ -166,6 +167,7 @@ impl CalcBorderColor {
 					// 建立DrawObj对Node的索引
 					node_id_commands.insert(new_draw_obj, NodeId(node));
 					shader_static_commands.insert(new_draw_obj, static_index.clone());
+					order_commands.insert(new_draw_obj, DrawInfo::new(2, border_color.w >= 1.0));
 
 					// 建立Node对DrawObj的索引
 					draw_index.write(BackgroundDrawId(new_draw_obj));
@@ -230,8 +232,8 @@ async fn modify<'a> (
 	// ib、position vb、color vb
 	if border_change.is_changed() || layout_change.is_changed() {
 		let radius = get_content_radius(radius, layout);
-		let vert_key = calc_hash(&("border color vert", &radius)); // layout TODO
-		let index_key = calc_hash(&("border color index", &radius)); // layout TODO
+		let vert_key = calc_float_hash(&[layout.rect.left, layout.rect.right, layout.rect.bottom, layout.rect.top, layout.border.top, layout.border.right,layout.border.bottom, layout.border.left], calc_hash(&("vert radius", radius), 0)); // layout TODO
+		let index_key = calc_float_hash(&[layout.rect.left, layout.rect.right, layout.rect.bottom, layout.rect.top, layout.border.top, layout.border.right,layout.border.bottom, layout.border.left], calc_hash(&("index radius", radius), 0)); // layout TODO
 		let (vert, index) = match (buffer_assets.get(&vert_key), buffer_assets.get(&index_key)) {
 			(Some(v), Some(i)) => (v, i),
 			(v, i) => {
@@ -245,8 +247,7 @@ async fn modify<'a> (
 								contents: bytemuck::cast_slice(vert.as_slice()),
 								usage: wgpu::BufferUsages::VERTEX,
 							});
-							buffer_assets.cache(vert_key, RenderRes::new(buf, vert.len() * 4));
-							buffer_assets.get(&vert_key).unwrap()
+							buffer_assets.insert(vert_key, RenderRes::new(buf, vert.len() * 4)).unwrap()
 						}
 					},
 					match i {
@@ -257,8 +258,7 @@ async fn modify<'a> (
 								contents: bytemuck::cast_slice(indices.as_slice()),
 								usage: wgpu::BufferUsages::INDEX,
 							});
-							buffer_assets.cache(index_key, RenderRes::new(buf, indices.len() * 2));
-							buffer_assets.get(&index_key).unwrap()
+							buffer_assets.insert(index_key, RenderRes::new(buf, indices.len() * 2)).unwrap()
 						}
 					},
 				)
@@ -278,7 +278,7 @@ pub fn create_rgba_bind_group(
 	buffer_assets: &Share<AssetMgr<RenderRes<Buffer>>>,
 	bind_group_assets: &Share<AssetMgr<RenderRes<BindGroup>>>,
 ) -> Handle<RenderRes<BindGroup>> {
-	let key = calc_hash(&("color", color));
+	let key = calc_hash(&color, calc_hash(&"uniform", 0));
 	match bind_group_assets.get(&key) {
 		Some(r) => r,
 		None => {
@@ -290,8 +290,7 @@ pub fn create_rgba_bind_group(
 						contents: bytemuck::cast_slice(&[color.x, color.y, color.z, color.w]),
 						usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
 					});
-					buffer_assets.cache(key, RenderRes::new(uniform_buf, 5));
-					buffer_assets.get(&key).unwrap()
+					buffer_assets.insert(key, RenderRes::new(uniform_buf, 5)).unwrap()
 				}
 			};
 			let group = device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -304,8 +303,7 @@ pub fn create_rgba_bind_group(
 				],
 				label: Some("color group create"),
 			});
-			bind_group_assets.cache(key, RenderRes::new(group, 5));
-			bind_group_assets.get(&key).unwrap()
+			bind_group_assets.insert(key, RenderRes::new(group, 5)).unwrap()
 		}
 	}
 }

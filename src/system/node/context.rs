@@ -72,7 +72,6 @@ impl CalcContext {
 				None => InPassId(Id::<Pass2D>::null()),
 			};
 			recursive_set_node_context(node, &idtree, &query, &mut query_pass, &mut in_context, parent_context_id, mark);
-			println!("xxxxxxxxxxxxxxxxx");
 		}
 	}
 
@@ -198,7 +197,6 @@ fn recursive_set_node_context<'s>(
 	};
 	set_node_context(node, in_context, in_context_id);
 
-	println!("remove==============={}", node.offset());
 	// 如果不是RenderContext，才会移除脏标记
 	dirty_mark.remove(node);
 	

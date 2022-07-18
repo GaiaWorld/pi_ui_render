@@ -3,3 +3,4 @@ pub mod stdcell;
 pub mod style;
 pub mod tools;
 pub mod shader_helper;
+pub mod cmd;

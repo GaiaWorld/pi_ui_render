@@ -3,7 +3,7 @@ use std::io::Result;
 use ordered_float::NotNan;
 use pi_assets::asset::{Handle, Asset};
 use pi_assets::mgr::AssetMgr;
-use pi_ecs::prelude::{Or, Deleted, With, ChangeTrackers, ParamSet};
+use pi_ecs::prelude::{Or, Deleted, With, ChangeTrackers, ParamSet, OrDefault};
 use pi_ecs::prelude::{Query, Changed, EntityCommands, Commands, Write, Res, Event, Id};
 use pi_ecs_macros::{listen, setup};
 use pi_flex_layout::prelude::{Rect, Size};
@@ -16,13 +16,13 @@ use pi_render::rhi::bind_group_layout::BindGroupLayout;
 use pi_polygon::{split_by_radius, find_lg_endp, split_by_lg, interp_mult_by_lg, LgCfg, mult_to_triangle, to_triangle};
 use wgpu::IndexFormat;
 
-use crate::components::calc::LayoutResult;
+use crate::components::calc::{LayoutResult, DrawInfo};
 use crate::components::user::{CgColor, BorderRadius};
 use crate::system::shader_utils::StaticIndex;
 use crate::system::shader_utils::color::{ColorStaticIndex, COLOR_GROUP};
 use crate::system::shader_utils::with_vert_color::WithVertColorStaticIndex;
 use crate::utils::tools::{calc_hash, get_content_rect, get_content_radius};
-use crate::{components::{user::{Node, BackgroundColor, Color}, calc::{NodeId, DrawList}, draw_obj::{IsUnitQuad, DrawObject, DrawState}}, resource::draw_obj::{Shaders, UnitQuadBuffer}};
+use crate::{components::{user::{Node, BackgroundColor, Color}, calc::{NodeId, DrawList}, draw_obj::{BoxType, DrawObject, DrawState}}, resource::draw_obj::{Shaders, UnitQuadBuffer}};
 // use crate::utils::tools::calc_hash;
 
 pub struct CalcBackGroundColor;
@@ -60,12 +60,13 @@ impl CalcBackGroundColor {
 			), Deleted<BackgroundColor>>
 		)>,
 
-		query_draw: Query<DrawObject, (Write<DrawState>, &'static IsUnitQuad, &'static StaticIndex)>,
+		query_draw: Query<DrawObject, (Write<DrawState>, OrDefault<BoxType>, &'static StaticIndex)>,
 		mut draw_obj_commands: EntityCommands<DrawObject>,
 		mut draw_state_commands: Commands<DrawObject, DrawState>,
 		mut node_id_commands: Commands<DrawObject, NodeId>,
-		mut is_unit_quad_commands: Commands<DrawObject, IsUnitQuad>,
+		mut is_unit_quad_commands: Commands<DrawObject, BoxType>,
 		mut shader_static_commands: Commands<DrawObject, StaticIndex>,
+		mut order_commands: Commands<DrawObject, DrawInfo>,
 		
 		// load_mgr: ResMut<'a, LoadMgr>,
 		device: Res<'static, RenderDevice>,
@@ -111,7 +112,7 @@ impl CalcBackGroundColor {
 			background_color_change,
 			radius_change,
 			layout_change) in query.p0_mut().iter_mut() {
-
+			
 			match draw_index.get() {
 				// background_color已经存在一个对应的DrawObj， 则修改color group
 				Some(r) => {
@@ -134,7 +135,7 @@ impl CalcBackGroundColor {
 						&unit_quad_buffer).await;
 					draw_state_item.notify_modify();
 
-					if old_unit_quad.0 != new_unit_quad.0 {
+					if *old_unit_quad != new_unit_quad {
 						is_unit_quad_commands.insert(**r, new_unit_quad);
 					}
 
@@ -177,6 +178,7 @@ impl CalcBackGroundColor {
 					is_unit_quad_commands.insert(new_draw_obj, new_unit_quad);
 
 					shader_static_commands.insert(new_draw_obj, new_static_index.clone());
+					order_commands.insert(new_draw_obj, DrawInfo::new(-1, background_color.is_opaque()));
 
 					// 建立Node对DrawObj的索引
 					draw_index.write(BackgroundDrawId(new_draw_obj));
@@ -230,7 +232,7 @@ async fn modify<'a> (
 	linear_static: &'a StaticIndex,
 	shader_static: &Shaders,
 	unit_quad_buffer: &UnitQuadBuffer,
-) -> (&'a StaticIndex, IsUnitQuad) {
+) -> (&'a StaticIndex, BoxType) {
 	// modify_radius_linear_geo
 	let static_index = match color {
 		Color::RGBA(color) => {
@@ -258,7 +260,7 @@ async fn modify<'a> (
 				draw_state.vbs.insert(0, (unit_quad_buffer.vertex.clone(), 0));
 				draw_state.ib = Some((unit_quad_buffer.index.clone(), 6, IndexFormat::Uint16));
 			}
-			return (static_index, IsUnitQuad(true));
+			return (static_index, BoxType::Content);
 		}
 	}
 
@@ -275,7 +277,7 @@ async fn modify<'a> (
 		);
 	}
 
-	(static_index, IsUnitQuad(false))
+	(static_index, BoxType::None)
 }
 
 pub fn create_rgba_bind_group(
@@ -285,7 +287,7 @@ pub fn create_rgba_bind_group(
 	buffer_assets: &Share<AssetMgr<RenderRes<Buffer>>>,
 	bind_group_assets: &Share<AssetMgr<RenderRes<BindGroup>>>,
 ) -> Handle<RenderRes<BindGroup>> {
-	let key = calc_hash(&("color", color));
+	let key = calc_hash(&color, calc_hash(&"uniform", 0));
 	match bind_group_assets.get(&key) {
 		Some(r) => r,
 		None => {
@@ -297,8 +299,7 @@ pub fn create_rgba_bind_group(
 						contents: bytemuck::cast_slice(&[color.x, color.y, color.z, color.w]),
 						usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
 					});
-					buffer_assets.cache(key, RenderRes::new(uniform_buf, 5));
-					buffer_assets.get(&key).unwrap()
+					buffer_assets.insert(key, RenderRes::new(uniform_buf, 5)).unwrap()
 				}
 			};
 			let group = device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -311,8 +312,7 @@ pub fn create_rgba_bind_group(
 				],
 				label: Some("color group create"),
 			});
-			bind_group_assets.cache(key, RenderRes::new(group, 5));
-			bind_group_assets.get(&key).unwrap()
+			bind_group_assets.insert(key, RenderRes::new(group, 5)).unwrap()
 		}
 	}
 }
@@ -329,8 +329,8 @@ fn try_modify_as_radius_linear_geo(
 ) {
 	let rect = get_content_rect(layout);
 	let size = Size {width: rect.right - rect.left, height: rect.bottom - rect.top};
-	let vb_hash = calc_hash(&("radius vb", radius, rect));
-	let ib_hash = calc_hash(&("radius ib", radius, rect));
+	let vb_hash = calc_hash(&(radius, rect), calc_hash(&"radius vert", 0));
+	let ib_hash = calc_hash(&(radius, rect), calc_hash(&"radius index", 0));
 
 	let (vb, ib, ) = match (buffer_asset_mgr.get(&vb_hash), buffer_asset_mgr.get(&ib_hash)) {
 		(Some(vb), Some(ib)) => (vb, ib),
@@ -407,10 +407,10 @@ fn try_modify_as_radius_linear_geo(
 					contents: bytemuck::cast_slice(colors.as_slice()),
 					usage: wgpu::BufferUsages::VERTEX,
 				});
-				let color_hash = calc_hash(&("radius color vb", radius, rect));
+				let color_hash = calc_hash(&(radius, rect), calc_hash(&"radius vert color", 0));
 
-				buffer_asset_mgr.cache(color_hash, RenderRes::new(buf, colors.len() * 4));
-				darw_state.vbs.insert(1, (buffer_asset_mgr.get(&color_hash).unwrap(), 0));
+				let color = buffer_asset_mgr.get(&color_hash).unwrap_or_else(|| {buffer_asset_mgr.insert(color_hash, RenderRes::new(buf, colors.len() * 4)).unwrap()});
+				darw_state.vbs.insert(1, (color, 0));
 			} else {
 				indices = to_triangle(&indices, Vec::with_capacity(indices.len()));
 			}
@@ -422,8 +422,7 @@ fn try_modify_as_radius_linear_geo(
 						contents: bytemuck::cast_slice(positions.as_slice()),
 						usage: wgpu::BufferUsages::VERTEX,
 					});
-					buffer_asset_mgr.cache(vb_hash, RenderRes::new(buf, positions.len() * 4));
-					buffer_asset_mgr.get(&vb_hash).unwrap()
+					buffer_asset_mgr.insert(vb_hash, RenderRes::new(buf, positions.len() * 4)).unwrap()
 				}
 			};
 			let ib = match ib {
@@ -434,8 +433,7 @@ fn try_modify_as_radius_linear_geo(
 						contents: bytemuck::cast_slice(indices.as_slice()),
 						usage: wgpu::BufferUsages::INDEX,
 					});
-					buffer_asset_mgr.cache(ib_hash, RenderRes::new(buf, indices.len() * 2));
-					buffer_asset_mgr.get(&ib_hash).unwrap()
+					buffer_asset_mgr.insert(ib_hash, RenderRes::new(buf, indices.len() * 2)).unwrap()
 				}
 			};
 			(vb, ib)

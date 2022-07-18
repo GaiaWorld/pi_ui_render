@@ -208,15 +208,14 @@ pub fn create_empty_bind_group(
 	group_layout: &BindGroupLayout,
 	bind_group_assets: &Share<AssetMgr<RenderRes<BindGroup>>>
 ) -> Handle<RenderRes<BindGroup>> {
-	let key = calc_hash(&"empty bind");
+	let key = calc_hash(&"empty bind", 0);
 	let r = device.create_bind_group(&wgpu::BindGroupDescriptor {
 		layout: group_layout,
 		entries: &[],
 		label: Some("color group create"),
 	});
 
-	bind_group_assets.cache(key, RenderRes::new(r, 5));
-	bind_group_assets.get(&key).unwrap()
+	bind_group_assets.insert(key, RenderRes::new(r, 5)).unwrap()
 }
 
 #[derive(Deref)]

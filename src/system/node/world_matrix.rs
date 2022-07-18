@@ -39,7 +39,10 @@
 //! 
 //! 可以考虑： 当父矩阵计算完成后，父节点所有子节点所形成的子树，可以并行计算（他们依赖的父矩阵已经计算完毕）
 
+use std::intrinsics::transmute;
+
 use pi_ecs::prelude::{Or, Query, Write};
+use pi_ecs::storage::Offset;
 use pi_ecs_macros::setup;
 use pi_ecs_utils::prelude::{LayerDirty, EntityTree};
 use pi_ecs::prelude::{Changed, Id};
@@ -54,6 +57,15 @@ use crate::components::calc:: {
 
 pub struct CalcMatrix;
 
+fn print_parent(idtree: &EntityTree<Node>, id: Id<Node>) {
+	let parent_id = idtree.get_up(id).map_or(Id::<Node>::null(), |up|{up.parent()});
+	if !parent_id.is_null() {
+		println!("parent======{:?}", parent_id);
+		print_parent(idtree, parent_id);
+	}
+	
+}
+
 #[setup]
 impl CalcMatrix {
 	/// 计算世界矩阵
@@ -61,12 +73,16 @@ impl CalcMatrix {
 	#[system]
 	pub fn cal_matrix(
 		query: Query<Node, (Option<&Transform>, &LayoutResult)>,
+		query_layout: Query<Node, &LayoutResult>,
 		idtree: EntityTree<Node>,
 		dirtys: LayerDirty<Node, Or<(Changed<Transform>, Changed<LayoutResult>)>>,
 		mut matrixs: Query<Node, Write<WorldMatrix>>,
 	) {
 		for id in dirtys.iter() {
+			// println!("start parent==========={:?}",id);
+			// print_parent(&idtree, id);
 			let (transform, layout) =  query.get_unchecked(id);
+
 			let parent_id = idtree.get_up(id).map_or(Id::<Node>::null(), |up|{up.parent()});
 
 			let width = layout.rect.right - layout.rect.left;
@@ -74,7 +90,16 @@ impl CalcMatrix {
 
 			let matrix = if parent_id.is_null() {
 				// 父为空，则其为根节点，其世界矩阵为单位阵
-				WorldMatrix::default()
+				let mut r = WorldMatrix::default();
+				if let Some(transform) = transform {
+					r = r * WorldMatrix::form_transform_layout(
+						transform,
+						width,
+						height,
+						&Point2::new(layout.rect.left, layout.rect.top),
+					);
+				}
+				r
 			} else {
 				// 否则
 				let p_m= matrixs.get_mut(parent_id).unwrap();
@@ -85,6 +110,10 @@ impl CalcMatrix {
 						return;
 					}
 				};
+				let offset = match query_layout.get(parent_id) {
+					Some(parent_layout) => (layout.rect.left + parent_layout.padding.left, layout.rect.top + parent_layout.padding.top),
+					None => (layout.rect.left, layout.rect.top)
+				};
 				
 				match transform {
 					// transform存在时，根据transform和布局计算得到变换矩阵，再乘以父矩阵
@@ -93,20 +122,19 @@ impl CalcMatrix {
 							transform,
 							width,
 							height,
-							&Point2::new(layout.rect.left, layout.rect.top),
+							&Point2::new(offset.0, offset.1),
 						);
-						println!("r===={:?}\n{:?}", parent_world_matrix, r);
 						r
 					},
 					// transform不存在时，节点的变换矩阵可以直接由布局结果得出，世界矩阵计算更快，大部分情况也是走这条快速路径
 					None => {
+
 						let mut w = parent_world_matrix.clone();
-						w.translate(layout.rect.left, layout.rect.top, 0.0);
+						w.translate(offset.0, offset.1, 0.0);
 						w
 					}
 				}
 			};
-			
 			// 将计算结果写入组件
 			matrixs.get_mut(id).unwrap().write(matrix);
 		}

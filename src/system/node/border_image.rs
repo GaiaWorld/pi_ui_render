@@ -13,7 +13,7 @@ use pi_render::rhi::device::RenderDevice;
 use pi_share::Share;
 use wgpu::IndexFormat;
 
-use crate::components::calc::{LayoutResult, BorderImageTexture};
+use crate::components::calc::{LayoutResult, BorderImageTexture, DrawInfo};
 use crate::components::user::{BorderImageClip, BorderImageSlice, BorderImageRepeat, BorderImage, Polygon, Point2, BorderImageRepeatOption};
 use crate::resource::draw_obj::CommonSampler;
 use crate::system::shader_utils::StaticIndex;
@@ -65,6 +65,7 @@ impl CalcBorderImage {
 		mut draw_state_commands: Commands<DrawObject, DrawState>,
 		mut node_id_commands: Commands<DrawObject, NodeId>,
 		mut shader_static_commands: Commands<DrawObject, StaticIndex>,
+		mut order_commands: Commands<DrawObject, DrawInfo>,
 		
 		// load_mgr: ResMut<'a, LoadMgr>,
 		device: Res<'static, RenderDevice>,
@@ -170,6 +171,7 @@ impl CalcBorderImage {
 					node_id_commands.insert(new_draw_obj, NodeId(node));
 
 					shader_static_commands.insert(new_draw_obj, static_index.clone());
+					order_commands.insert(new_draw_obj, DrawInfo::new(2, border_texture.is_opacity));
 
 					// 建立Node对DrawObj的索引
 					draw_index.write(BorderImageDrawId(new_draw_obj));
@@ -231,8 +233,8 @@ async fn modify<'a> (
 ) {
 	// key TODO
 	// &layout.border, &layout.rect
-	let buffer_key = calc_hash(&("border image", image, clip, slice, repeat));
-	let index_key = calc_hash(&("border image index", image, clip, slice, repeat));
+	let buffer_key = calc_hash(&("border image", image, clip, slice, repeat), 0);
+	let index_key = calc_hash(&("border image index", image, clip, slice, repeat), 0);
 
 	let (vertex, indices) = get_border_image_stream(
 		texture,
@@ -252,8 +254,7 @@ async fn modify<'a> (
 				contents: bytemuck::cast_slice(&vertex),
 				usage: wgpu::BufferUsages::VERTEX
 			});
-			buffer_assets.cache(buffer_key, RenderRes::new(buf, vertex.len() * 4));
-			buffer_assets.get(&buffer_key).unwrap()
+			buffer_assets.insert(buffer_key, RenderRes::new(buf, vertex.len() * 4)).unwrap()
 		}
 	};
 	draw_state.vbs.insert(IMAGE_POSITION_LOCATION, (vertex_buffer, 0));
@@ -266,8 +267,7 @@ async fn modify<'a> (
 				contents: bytemuck::cast_slice(&indices),
 				usage: wgpu::BufferUsages::INDEX
 			});
-			buffer_assets.cache(index_key, RenderRes::new(buf, indices.len() * 2));
-			buffer_assets.get(&index_key).unwrap()
+			buffer_assets.insert(index_key, RenderRes::new(buf, indices.len() * 2)).unwrap()
 		}
 	};
 
@@ -282,7 +282,7 @@ async fn modify<'a> (
 				entries: &[
 					wgpu::BindGroupEntry {
 						binding: 0,
-						resource: wgpu::BindingResource::Sampler(&common_sampler.pointer),
+						resource: wgpu::BindingResource::Sampler(&common_sampler.default),
 					},
 					wgpu::BindGroupEntry {
 						binding: 1,
@@ -291,8 +291,7 @@ async fn modify<'a> (
 				],
 				label: Some("border image group create"),
 			});
-			group_assets.cache(buffer_key, RenderRes::new(group, 5));
-			group_assets.get(&buffer_key).unwrap().clone()
+			group_assets.insert(buffer_key, RenderRes::new(group, 5)).unwrap()
 		},
 	};
 	draw_state.bind_groups.insert(IMAGE_TEXTURE_GROUP, texture_group);

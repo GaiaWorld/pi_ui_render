@@ -11,13 +11,13 @@ use pi_render::{
     rhi::{CommandEncoder, bind_group_layout::BindGroupLayout, device::RenderDevice, asset::RenderRes, bind_group::BindGroup, buffer::Buffer, texture::ScreenTexture},
 };
 use futures::{future::BoxFuture, FutureExt};
-use pi_ecs::{prelude::{QueryState, FromWorld, World, Res, res::WriteRes}, monitor::Event};
+use pi_ecs::{prelude::{QueryState, FromWorld, World, Res, res::WriteRes}, monitor::Event, storage::Offset, entity::Id};
 use pi_share::{ShareRefCell, Share,};
 use pi_slotmap::DefaultKey;
 use smallvec::SmallVec;
 use wgpu::RenderPass;
 
-use crate::{components::{draw_obj::{DrawObject, DrawState}, pass_2d::{Camera, Draw2DList, Pass2DKey, Pass2D, PostProcessList, PostProcess, RenderTarget, DrawIndex, PostTemp, ViewMatrix, ScreenTarget}, user::{Aabb2, Matrix4, Point2}}, resource::{Viewport, draw_obj::{DynFboClearColorBindGroup, ClearColorBindGroup, CommonSampler, ShareLayout, CopyFboToScreen}, ClearDrawObj}, utils::{tools::{calc_hash, calc_float_hash}, shader_helper::{WORLD_MATRIX_GROUP, PROJECT_GROUP, VIEW_GROUP}}, system::{ draw_obj::world_marix::create_world_matrix_bind, shader_utils::color::COLOR_GROUP}};
+use crate::{components::{draw_obj::{DrawObject, DrawState}, pass_2d::{Camera, Draw2DList, Pass2DKey, Pass2D, PostProcessList, PostProcess, RenderTarget, DrawIndex, PostTemp, ViewMatrix, ScreenTarget}, user::{Aabb2, Matrix4, Point2}, calc::NodeId}, resource::{Viewport, draw_obj::{DynFboClearColorBindGroup, ClearColorBindGroup, CommonSampler, ShareLayout, CopyFboToScreen}, ClearDrawObj}, utils::{tools::{calc_hash, calc_float_hash}, shader_helper::{WORLD_MATRIX_GROUP, PROJECT_GROUP, VIEW_GROUP}}, system::{ draw_obj::world_marix::create_world_matrix_bind, shader_utils::color::COLOR_GROUP}};
 
 
 /// Pass2D 渲染图节点
@@ -36,7 +36,7 @@ pub struct Pass2DNode{
 }
 
 pub struct Param<'s> {
-	pass2d_query: QueryState<Pass2D,(&'static Camera, Option<&'static ViewMatrix>, &'static Draw2DList)>,
+	pass2d_query: QueryState<Pass2D,(&'static Camera, Option<&'static ViewMatrix>, &'static Draw2DList, Option<&'static NodeId>)>,
 	draw_query: QueryState<DrawObject, &'static DrawState>,
 	post_query: QueryState<Pass2D, &'static PostProcessList>,
 	last_rt: &'s RenderTarget,
@@ -85,7 +85,7 @@ impl Node for Pass2DNode {
 		let pass2d_id = self.pass2d_id;
         async move {
 			let mut param = Param {
-				pass2d_query: QueryState::<Pass2D,(&'static Camera, Option<&'static ViewMatrix>, &'static Draw2DList)>::new(&mut world),
+				pass2d_query: QueryState::<Pass2D,(&'static Camera, Option<&'static ViewMatrix>, &'static Draw2DList, Option<&'static NodeId>)>::new(&mut world),
 				draw_query: QueryState::<DrawObject, &'static DrawState>::new(&mut world),
 				post_query: QueryState::<Pass2D, &'static PostProcessList>::new(&mut world),
 				last_rt: world.get_resource::<RenderTarget>().unwrap(),
@@ -112,7 +112,8 @@ impl Node for Pass2DNode {
 			if let Some((
 				camera, 
 				_view_matrix,
-				list)) = param.pass2d_query.get(&world, pass2d_id) {
+				list,
+				node_id)) = param.pass2d_query.get(&world, pass2d_id) {
 				
 				let (rt, clear_color) = match post_list {
 					// 渲染目标类型为None，表示不进行渲染（可能由父节点对它进行渲染）
@@ -178,7 +179,7 @@ impl Node for Pass2DNode {
 						if post_process.0.len() > 0 {
 							// 只会在本节点才会修改该post_process，除非存在两个相同pass2d_id的节点（应用逻辑应该保证不会重复）
 							let post_process_mut = unsafe {&mut *( post_process as *const PostProcessList as usize as *mut PostProcessList)};
-							let data = Self::create_post_process_data(&r.0, &param, &camera.view_port);
+							let data = Self::create_post_process_data(&r.0, &param, &camera.view_port, node_id);
 							post_process_mut.0[r.1].result = Some(PostTemp {
 								target: r.0.clone(),
 								texture_group: data.0,
@@ -283,7 +284,8 @@ impl Pass2DNode {
 					camera_new, 
 					view_matrix,
 					// rt_key, 
-					list)) = param.pass2d_query.get(world, pass2d_id) {
+					list,
+					node)) = param.pass2d_query.get(world, pass2d_id) {
 					
 					let v = (
 						(last_view_port.0 as f32 - last_camera.view_port.mins.x) + camera_new.view_port.mins.x,
@@ -512,14 +514,20 @@ impl Pass2DNode {
 		if let Some(r) = &cur_camera.project_bind_group {
 			rp.set_bind_group(PROJECT_GROUP as u32, r, &[]);
 		}
-		if let Some(r) = &cur_camera.view_bind_group {
-			rp.set_bind_group(VIEW_GROUP as u32, r, &[]);
-		}
-
+		// if let Some(r) = &cur_camera.view_bind_group {
+		// 	println!("set cur_camera view======================");
+		// 	rp.set_bind_group(VIEW_GROUP as u32, r, &[]);
+		// }
+		
 		for e in list.opaque.iter().chain(list.transparent.iter()) {
 			match e {
 				DrawIndex::DrawObj(e) => {// 设置相机
 					if let Some(state) = param.draw_query.get(world, *e) {
+						if state.bind_groups.get(VIEW_GROUP).is_none() {
+							if let Some(r) = &cur_camera.view_bind_group {
+								rp.set_bind_group(VIEW_GROUP as u32, r, &[]);
+							}
+						}
 						state.draw(rp);
 					}
 				},
@@ -549,14 +557,15 @@ impl Pass2DNode {
 		texture: &ShareTargetView,
 		param: &'s Param<'s>,
 		render_rect: &Aabb2,
+		node: Option<&NodeId>,
 	) -> (Handle<RenderRes<BindGroup>>, Handle<RenderRes<Buffer>>, Handle<RenderRes<BindGroup>>) {
 		let uv = texture.uv();
-		let group_key = calc_hash(&(texture.ty_index(), texture.target_index())); // TODO
-		let buffer_key = calc_float_hash(&uv);
+		let group_key = calc_hash(&(texture.ty_index(), texture.target_index()), calc_hash(&"render target", 0)); // TODO
+		let buffer_key = calc_float_hash(&uv, calc_hash(&"vert", 0));
 		let matrix = Matrix4::new(
 			render_rect.maxs.x-render_rect.mins.x,0.0,0.0, render_rect.mins.x,
 			0.0,render_rect.maxs.y-render_rect.mins.y,0.0, render_rect.mins.y,
-			0.0,0.0,1.0,0.0,
+			0.0,0.0,1.0, node.map_or_else(|| {0}, |node| {node.offset()}) as f32,
 			0.0,0.0,0.0,1.0,
 		);
 		(
@@ -568,7 +577,7 @@ impl Pass2DNode {
 						entries: &[
 							wgpu::BindGroupEntry {
 								binding: 0,
-								resource: wgpu::BindingResource::Sampler(&param.common_sampler.default),
+								resource: wgpu::BindingResource::Sampler(&param.common_sampler.pointer),
 							},
 							wgpu::BindGroupEntry {
 								binding: 1,
@@ -577,8 +586,7 @@ impl Pass2DNode {
 						],
 						label: Some("post process texture bind group create"),
 					});
-					param.bind_group_assets.cache(group_key, RenderRes::new(group, 5));
-					param.bind_group_assets.get(&group_key).unwrap()
+					param.bind_group_assets.insert(group_key, RenderRes::new(group.clone(), 5)).unwrap()
 				},
 			},
 			match param.buffer_assets.get(&buffer_key) {
@@ -589,9 +597,8 @@ impl Pass2DNode {
 						contents: bytemuck::cast_slice(&uv),
 						usage: wgpu::BufferUsages::VERTEX,
 					});
-					param.buffer_assets.cache(buffer_key, RenderRes::new(uv_buf, 32));
-					param.buffer_assets.get(&buffer_key).unwrap()
-				},
+					param.buffer_assets.insert(buffer_key, RenderRes::new(uv_buf, 32)).unwrap()
+				}
 			},
 			create_world_matrix_bind(&matrix, param.device, &param.share_layout.matrix, param.buffer_assets, param.bind_group_assets)
 		)
@@ -668,7 +675,7 @@ impl InitGraphData{
 					mip_level_count: 1,
 					sample_count: 1,
 					dimension: wgpu::TextureDimension::D2,
-					format: wgpu::TextureFormat::Bgra8UnormSrgb,
+					format: wgpu::TextureFormat::Bgra8Unorm,
 					usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST | wgpu::TextureUsages::RENDER_ATTACHMENT,
 					base_mip_level: 0,
 					base_array_layer: 0,
@@ -684,7 +691,7 @@ impl InitGraphData{
 					mip_level_count: 1,
 					sample_count: 1,
 					dimension: wgpu::TextureDimension::D2,
-					format: wgpu::TextureFormat::Bgra8UnormSrgb,
+					format: wgpu::TextureFormat::Bgra8Unorm,
 					usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
 					base_mip_level: 0,
 					base_array_layer: 0,

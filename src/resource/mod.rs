@@ -8,7 +8,7 @@ pub mod draw_obj;
 
 use pi_ecs::prelude::{World, FromWorld, Id};
 
-use crate::components::{user::{TextContent, ClassName, Aabb2, Point2, Node, CgColor}, draw_obj::DrawState};
+use crate::{components::{user::{TextContent, ClassName, Aabb2, Point2, Node, CgColor}, draw_obj::DrawState, calc::StyleMark}, utils::cmd::CommandQueue};
 
 /// 用户指令
 
@@ -22,6 +22,9 @@ pub struct UserCommands {
 	pub text_commands: Vec<(Id<Node>, Option<TextContent>)>,
 	/// class指令
 	pub class_commands: Vec<(Id<Node>, ClassName)>,
+
+	/// single指令
+	pub other_commands: CommandQueue,
 }
 
 /// 节点指令
@@ -45,6 +48,11 @@ pub struct StyleCommands {
 	/// 设置样式（节点，开始索引，结束索引），其中开始索引和结束索引是指在style_list中的索引
 	pub commands: Vec<(Id<Node>, usize, usize)>,
 }
+
+#[derive(Default)]
+pub struct DefaultStyle;
+#[derive(Default)]
+pub struct DefaultStyleMark(pub StyleMark);
 
 /// 渲染上下文标记分配器，每一种可以使节点成为渲染上下文的属性，都可以让全局单例RenderContextMarkAlloc分配一个id
 #[derive(Debug, Default, Deref, DerefMut)]

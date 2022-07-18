@@ -105,7 +105,7 @@ impl<T: Hash> ResMap<T> {
 	}
 
 	pub fn insert(&mut self, value: T) -> DefaultKey {
-		match self.map.entry(calc_hash(&value)) {
+		match self.map.entry(calc_hash(&value, 0)) {
 			Entry::Occupied(r) => r.get().clone(),
 			Entry::Vacant(r) => {
 				let index = self.slot.insert(value);
@@ -179,9 +179,9 @@ impl FromWorld for UnitQuadBuffer {
 			usage: wgpu::BufferUsages::INDEX,
 		});
 
-		let ib_key = calc_hash(&index_data);
-		let vb_key = calc_float_hash(&vertex_data);
-		let uv_key = calc_float_hash(&uv_data);
+		let ib_key = calc_hash(&index_data, calc_hash(&"index", 0));
+		let vb_key = calc_float_hash(&vertex_data, calc_hash(&"vert", 0));
+		let uv_key = calc_float_hash(&uv_data, calc_hash(&"vert", 0));
 		AssetMgr::cache(&buffer_asset_mgr, vb_key, RenderRes::new(vertex_buf, 32));
 		AssetMgr::cache(&buffer_asset_mgr, uv_key, RenderRes::new(uv_buf, 32));
 		AssetMgr::cache(&buffer_asset_mgr, ib_key, RenderRes::new(index_buf, 12));

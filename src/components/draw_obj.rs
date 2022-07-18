@@ -62,8 +62,13 @@ impl DrawState {
 }
 
 /// 是否使用单位四边形渲染
-#[derive(Default, Deref, DerefMut, PartialEq, Eq)]
-pub struct IsUnitQuad(pub bool);
+#[derive(EnumDefault, PartialEq, Eq)]
+pub enum BoxType {
+	None,
+	Content,
+	Border,
+	
+}
 
 /// vs shader的宏开关
 #[derive(Deref, DerefMut, Default)]

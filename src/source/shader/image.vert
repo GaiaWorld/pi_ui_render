@@ -23,7 +23,7 @@ layout(location = 0) out vec2 vUv;
 
 void main() {
 	gl_Position = projectMatrix * viewMatrix * worldMatrix * vec4(position.x, position.y, 1.0, 1.0);
-	gl_Position.z = depth;
+	gl_Position.z = depth/60000.0;
 
 	vUv = uv;
 }

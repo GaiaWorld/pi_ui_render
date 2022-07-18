@@ -5,7 +5,7 @@ use std::intrinsics::transmute;
 use ordered_float::NotNan;
 use pi_ecs::prelude::{Query, Changed, Or, ResMut, OrDefault, Write, Id, Component};
 use pi_ecs_macros::setup;
-use pi_ecs_utils::prelude::{EntityTree, Layer};
+use pi_ecs_utils::prelude::{EntityTree, Layer, NodeUp};
 use pi_flex_layout::{prelude::{CharNode, Size, Rect}, style::{Dimension, PositionType}};
 use pi_share::{Share, ShareCell};
 use pi_slotmap::{DefaultKey, Key};
@@ -34,7 +34,8 @@ impl CalcTextSplit {
 			(
 				Id<Node>,
 				&TextContent,
-				OrDefault<TextStyle>
+				OrDefault<TextStyle>,
+				&NodeUp<Node>,
 			), 
 			Or<(Changed<TextContent>, Changed<FontStyle>, Changed<Layer>)>
 		>,
@@ -54,11 +55,11 @@ impl CalcTextSplit {
 		for (
 			entity,
 			text_content, 
-			text_style) in query.iter() {
-			
+			text_style, up) in query.iter() {
+		
 			match tree.get_layer(entity) {
-				Some(r) => if *r == 0 {return},
-				None => return,
+				Some(r) => if *r == 0 {continue},
+				None => continue,
 			};
 			let up = tree.get_up(entity).unwrap();
 			// // 取到字体详情
@@ -215,7 +216,6 @@ impl<'a> Calc<'a> {
 			self.font_id,
 			ch,
 		);
-
 		CharNode {
 			ch,
 			size: Size{width:Dimension::Points(width), height:Dimension::Points(self.line_height)},
@@ -228,8 +228,8 @@ impl<'a> Calc<'a> {
 			pos: Rect {
 				left: p_x,
 				top: 0.0,
-				right: 0.0,
-				bottom: 0.0
+				right: p_x + width,
+				bottom: self.line_height
 			},
 			count: 0,
 			ch_id: DefaultKey::null(),

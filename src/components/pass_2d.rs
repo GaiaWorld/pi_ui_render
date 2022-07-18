@@ -9,7 +9,7 @@ use pi_slotmap::{DefaultKey, SecondaryMap};
 
 use super::{
 	draw_obj::DrawKey, 
-	user::{Aabb2, Point2}
+	user::{Aabb2, Point2}, calc::{DrawInfo, ZRange}
 };
 
 /// 一个渲染Pass
@@ -54,7 +54,7 @@ pub struct GraphId(pub NodeId);
 
 // 渲染 物件 列表
 pub struct Draw2DList {
-	pub all_list: Vec<DrawIndex>,
+	pub all_list: Vec<(DrawIndex, ZRange, DrawInfo)>,
     /// 不透明 列表
     /// 注：渲染时，假设 Vec已经 排好序 了
     pub opaque: Vec<DrawIndex>,

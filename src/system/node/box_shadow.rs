@@ -17,7 +17,7 @@ use pi_polygon::split_by_radius;
 use polygon2::difference;
 use wgpu::IndexFormat;
 
-use crate::components::calc::LayoutResult;
+use crate::components::calc::{LayoutResult, DrawInfo};
 use crate::components::user::{ BorderRadius, BoxShadow, Point2};
 use crate::system::shader_utils::StaticIndex;
 use crate::system::shader_utils::color_shadow::{POSITION_LOCATION, BLUR_GROUP, BoxShadowStaticIndex};
@@ -62,6 +62,7 @@ impl CalcBoxShadow {
 		mut draw_state_commands: Commands<DrawObject, DrawState>,
 		mut node_id_commands: Commands<DrawObject, NodeId>,
 		mut shader_static_commands: Commands<DrawObject, StaticIndex>,
+		mut order_commands: Commands<DrawObject, DrawInfo>,
 		
 		// load_mgr: ResMut<'a, LoadMgr>,
 		device: Res<'static, RenderDevice>,
@@ -148,6 +149,7 @@ impl CalcBoxShadow {
 					node_id_commands.insert(new_draw_obj, NodeId(node));
 
 					shader_static_commands.insert(new_draw_obj, static_index.clone());
+					order_commands.insert(new_draw_obj, DrawInfo::new(-2, false));
 
 					// 建立Node对DrawObj的索引
 					draw_index.write(BoxShadowDrawId(new_draw_obj));
@@ -208,8 +210,8 @@ fn modify(
     let w = *(g_b.right) - *(g_b.left) + 2.0 * shadow.spread + shadow.blur;
     let h = *(g_b.bottom) - *(g_b.top) + 2.0 * shadow.spread + shadow.blur;
 
-	let vb_hash = calc_hash(&("box shadow vb", radius, calc_float_hash(&[x, y, h, w, shadow.blur])));
-	let ib_hash = calc_hash(&("box shadow ib", radius, calc_float_hash(&[x, y, h, w, shadow.blur])));
+	let vb_hash = calc_hash(&(radius, calc_float_hash(&[x, y, h, w, shadow.blur], 0)), calc_hash(&"vert", 0));
+	let ib_hash = calc_hash(&(radius, calc_float_hash(&[x, y, h, w, shadow.blur], 0)), calc_hash(&"index", 0));
 	
 	let (vb, ib) = match (buffer_assets_mgr.get(&vb_hash), buffer_assets_mgr.get(&ib_hash)) {
 		(Some(vb), Some(ib)) => (vb, ib),
@@ -271,8 +273,7 @@ fn modify(
 						contents: bytemuck::cast_slice(positions.as_slice()),
 						usage: wgpu::BufferUsages::VERTEX,
 					});
-					buffer_assets_mgr.cache(vb_hash, RenderRes::new(buf, positions.len() * 4));
-					buffer_assets_mgr.get(&vb_hash).unwrap()
+					buffer_assets_mgr.insert(vb_hash, RenderRes::new(buf, positions.len() * 4)).unwrap()
 				}
 			};
 			let ib = match ib {
@@ -283,8 +284,7 @@ fn modify(
 						contents: bytemuck::cast_slice(indices.as_slice()),
 						usage: wgpu::BufferUsages::INDEX,
 					});
-					buffer_assets_mgr.cache(ib_hash, RenderRes::new(buf, indices.len() * 2));
-					buffer_assets_mgr.get(&ib_hash).unwrap()
+					buffer_assets_mgr.insert(ib_hash, RenderRes::new(buf, indices.len() * 2)).unwrap()
 				},
 			};
 			(vb, ib)
@@ -303,7 +303,7 @@ fn modify(
 	
 	// uniform
 	let u = [shadow.color.x, shadow.color.y, shadow.color.z, shadow.color.w, x + blur, y + blur, x + w - blur, y + h - blur, shadow.blur, 0.0, 0.0, 0.0];
-	let key = calc_hash(&("shadow blur", calc_float_hash(&u)));
+	let key = calc_float_hash(&u, calc_hash(&"shadow blur", 0));
 	let group = match bind_group_assets_mgr.get(&key) {
 		Some(r) => r,
 		None => {
@@ -315,8 +315,7 @@ fn modify(
 						contents: bytemuck::cast_slice(&u),
 						usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
 					});
-					buffer_assets_mgr.cache(key, RenderRes::new(uniform_buf, 5));
-					buffer_assets_mgr.get(&key).unwrap()
+					buffer_assets_mgr.insert(key, RenderRes::new(uniform_buf, 5)).unwrap()
 				}
 			};
 			let group = device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -329,8 +328,7 @@ fn modify(
 				],
 				label: Some("shadow blur buffer group create"),
 			});
-			bind_group_assets_mgr.cache(key, RenderRes::new(group, 5));
-			bind_group_assets_mgr.get(&key).unwrap()
+			bind_group_assets_mgr.insert(key, RenderRes::new(group, 5)).unwrap()
 		}
 	};
 	draw_state.bind_groups.insert(BLUR_GROUP, group);

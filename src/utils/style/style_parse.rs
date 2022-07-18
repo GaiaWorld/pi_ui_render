@@ -6,23 +6,22 @@ use std::str::FromStr;
 use ordered_float::NotNan;
 use pi_atom::Atom;
 use pi_flex_layout::{style::{Display, Dimension, AlignItems, AlignSelf, AlignContent, FlexDirection, JustifyContent, PositionType, FlexWrap}, prelude::Rect};
-use pi_hash::XHashMap;
 use smallvec::SmallVec;
 
-use crate::components::{user::{BackgroundColor, Color, BorderColor, ObjectFit, BorderImageRepeat, MaskImage, BorderRadius, Opacity, Hsi, Blur, Enable, WhiteSpace, LinearGradientColor, CgColor, ColorAndPosition, BorderImageSlice, BlendMode, LineHeight, TextAlign, FontSize, TextShadow, BoxShadow, Stroke, TransformFunc, TransformOrigin, LengthUnit, FitType, BorderImageRepeatOption, BackgroundImage, BorderImage, MaskImageClip, BackgroundImageClip, BorderImageClip, Margin, Padding, Overflow, ZIndex, TextShadows}, calc::StyleType};
+use crate::components::{user::{BackgroundColor, Color, BorderColor, ObjectFit, BorderImageRepeat, MaskImage, BorderRadius, Opacity, Hsi, Blur, Enable, WhiteSpace, LinearGradientColor, CgColor, ColorAndPosition, BorderImageSlice, BlendMode, LineHeight, TextAlign, FontSize, TextShadow, BoxShadow, Stroke, TransformFunc, TransformOrigin, LengthUnit, FitType, BorderImageRepeatOption, BackgroundImage, BorderImage, MaskImageClip, BackgroundImageClip, BorderImageClip, Margin, Padding, Overflow, ZIndex, TextShadows, Border}, calc::StyleType};
 
 use super::style_sheet::*;
 
-pub fn parse_class_map_from_string(value: &str) -> Result<ClassSheet, String> {
+pub fn parse_class_map_from_string(value: &str, class_sheet: &mut ClassSheet) -> Result<(), String> {
     let mut parser = ClassMapParser(value);
-    let map = XHashMap::default();
-	let buffer = Vec::new();
-	let mut class_sheet = ClassSheet {style_buffer: buffer, class_map: map};
+    // let map = XHashMap::default();
+	// let buffer = Vec::new();
+	// let mut class_sheet = ClassSheet {style_buffer: buffer, class_map: map};
     loop {
         match parser.next_class() {
             Ok(r) => match r {
                 Some(r) => {
-					let class = parse_class_from_string(r.1, &mut class_sheet)?;
+					let class = parse_class_from_string(r.1, class_sheet)?;
 					class_sheet.class_map.insert(r.0, class);
 				},
                 None => break,
@@ -30,7 +29,7 @@ pub fn parse_class_map_from_string(value: &str) -> Result<ClassSheet, String> {
             Err(_) => continue,
         };
     }
-    Ok(class_sheet)
+    Ok(())
 }
 
 pub fn parse_class_from_string(value: &str, class_sheet: &mut ClassSheet) -> Result<ClassMeta, String> {
@@ -241,7 +240,7 @@ fn match_key(key: &str, value: &str, class: &mut ClassMeta, class_sheet: &mut Cl
 				);
 			} else {
 				StyleAttr::write(
-					MaskImageType(MaskImage::Path(parse_url(value)?.get_hash())),
+					MaskImageType(MaskImage::Path(parse_url(value)?)),
 					&mut class_sheet.style_buffer,
 				);
 			}
@@ -602,7 +601,7 @@ fn match_key(key: &str, value: &str, class: &mut ClassMeta, class_sheet: &mut Cl
         "border" => unsafe {
             let r = parse_border(value)?;
 			StyleAttr::write(
-				PaddingType(Padding(Rect{top: r.0, right: r.0, bottom: r.0, left: r.0})),
+				BorderType(Border(Rect{top: r.0, right: r.0, bottom: r.0, left: r.0})),
 				&mut class_sheet.style_buffer,
 			);
             StyleAttr::write(
@@ -615,7 +614,7 @@ fn match_key(key: &str, value: &str, class: &mut ClassMeta, class_sheet: &mut Cl
         "border-width" => unsafe {
             let [top, right, bottom, left] = parse_four_f32(value)?;
             StyleAttr::write(
-				PaddingType(Padding(Rect{top, right, bottom, left})),
+				BorderType(Border(Rect{top, right, bottom, left})),
 				&mut class_sheet.style_buffer,
 			);
             class.class_style_mark.set(StyleType::Border as usize, true);
@@ -2250,7 +2249,8 @@ pub fn test() {
 	let s = ".1{
 		background: linear-gradient(180deg, #fff, #000);
 	}";
-	parse_class_map_from_string(s).unwrap();
+	let mut class_sheet = ClassSheet::default();
+	parse_class_map_from_string(s, &mut class_sheet).unwrap();
 
 	// .t_s_12181a_3{
 	// 	text-shadow: 0px 3px 3px #12181a;

@@ -6,7 +6,7 @@ layout(location = 1) in vec2 uv;
 
 // 顶点色
 #ifdef VERTEX_COLOR
-	layout(location = 2) in vec2 color;
+	layout(location = 2) in vec4 color;
 #endif
 
 // 矩阵
@@ -40,8 +40,9 @@ layout(location = 0) out vec2 vUv;
 #endif
 
 void main() {
-	gl_Position = projectMatrix * viewMatrix * worldMatrix * vec4(position.x, position.y, 1.0, 1.0);
-	gl_Position.z = depth;
+	vec4 p = viewMatrix * worldMatrix * vec4(position.x, position.y, 1.0, 1.0);
+	gl_Position = projectMatrix * vec4(floor(p.x + 0.5 ), floor(p.y + 0.5), 1.0, 1.0);
+	gl_Position.z = depth/60000.0;
 
 	vUv = uv/texture_size;
 #ifdef VERTEX_COLOR

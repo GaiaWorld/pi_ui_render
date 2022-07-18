@@ -75,6 +75,7 @@ impl CalcOverflow {
 		empty_group: Res<EmptyBind>,
 
 	) {
+		// 将overflow组织为层的形式，处理overflow是，从根开始处理（子节点会受父节点的影响）
 		for (id, pass_id, layer, tracker_matrix, tracker_willchange, tracker_overflow, tracker_layer) in query.iter() {
 			local.mark( 
 				(id, 
@@ -123,19 +124,17 @@ impl CalcOverflow {
 						},
 						None => (matrix, matrix.1)
 					};
-					println!("xxx:{:?}", matrix.0.clone());
+					let left = layout.border.left + layout.padding.left;
+					let top = layout.border.top + layout.padding.top;
+					let right = layout.rect.right - (layout.border.right + layout.padding.right) - layout.rect.left ;
+					let bottom = layout.rect.bottom - (layout.border.top + layout.padding.top) - layout.rect.top ;
+
 					if is_rotation {
-						// 如果存在旋转，需要在逆旋转渲染，然后对逆旋转的渲染结果进行后处理
+						// 如果存在旋转，需要逆旋转渲染，然后对逆旋转的渲染结果进行后处理
 						let rotate_matrix_invert = calc_rotate_matrix(matrix.0.clone());
-						println!("zzzz: \n{:?},\n{:?}, \n{:?}", rotate_matrix_invert, &matrix.0, rotate_matrix_invert * &matrix.0);
 						let rotate_matrix = rotate_matrix_invert.try_inverse().unwrap();
 
-						let width = layout.rect.right - layout.rect.left;
-						let height = layout.rect.bottom - layout.rect.top;
-
-						let aabb = cal_no_rotate_box(&Aabb2::new(Point2::new(0.0, 0.0), Point2::new(width, height)), &(rotate_matrix_invert * matrix.0));
-						println!("==={:?}\n{:?}\n{:?}\n{:?}\n{:?}\naabb: {:?}", width, height, rotate_matrix_invert, &matrix.0, rotate_matrix_invert * matrix.0, aabb);
-						
+						let aabb = cal_no_rotate_box(&Aabb2::new(Point2::new(left, top), Point2::new(right, bottom)), &(rotate_matrix_invert * matrix.0));
 
 						overflow_aabb.write(OverflowAabb {
 							aabb: Some(aabb),
@@ -194,14 +193,22 @@ impl CalcOverflow {
 							},
 						};
 					} else {
+						let quad_temp;
+						let quad = if left > 0.0 || top > 0.0 {
+							quad_temp = cal_no_rotate_box(&Aabb2::new(Point2::new(left, top), Point2::new(right, bottom)), &matrix.0);
+							&quad_temp
+						} else {
+							&**quad
+						};
+
 						// 如果不存在旋转，则计算裁剪区域（还要与父裁剪区域求相交）
 						let aabb_temp;
 						let aabb = match will_change {
 							Some(r) => {
-								aabb_temp = cal_no_rotate_box(&**quad, &r.will_change);
+								aabb_temp = cal_no_rotate_box(quad, &r.will_change);
 								&aabb_temp
 							},
-							None => &**quad,
+							None => quad,
 						};
 
 						let r = match parent_aabb {
@@ -262,7 +269,6 @@ impl CalcOverflow {
 
 // 非旋转矩阵计算包围盒
 fn cal_no_rotate_box(aabb: &Aabb2, matrix: &Matrix4) -> Aabb2 {
-	println!("====={:?}", matrix);
 	let left_top = matrix * Vector4::new(aabb.mins.x, aabb.mins.y, 0.0, 1.0);
 	let right_bottom = matrix * Vector4::new(aabb.maxs.x,  aabb.maxs.y, 0.0, 1.0);
 
@@ -288,7 +294,6 @@ fn calc_rotate_matrix(mut matrix: Matrix4) -> Matrix4 {
 	let scale_x = scale_x.dot(&scale_x);
 	let scale_y = scale_y.dot(&scale_y);
 
-	println!("scale_x==={:?}, scale_y==={:?}, {:?}", scale_x, scale_y, matrix);
 	if scale_x != 0.0 {
 		matrix[(0, 0)] = matrix[(0, 0)]/scale_x;
 		matrix[(1, 0)] = matrix[(1, 0)]/scale_x;

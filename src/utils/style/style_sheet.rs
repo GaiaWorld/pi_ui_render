@@ -4,19 +4,33 @@ use std::mem::forget;
 
 use bitvec::array::BitArray;
 use pi_atom::Atom;
-use pi_ecs::{entity::Id, prelude::{Query, Write}};
+use pi_ecs::prelude::{Query, Write, DefaultComponent, Id, ResMut};
 use pi_flex_layout::{style::{Dimension, Direction, JustifyContent, FlexDirection, AlignItems, AlignContent, FlexWrap, AlignSelf, PositionType as PositionType1, Display}, prelude::Number};
 use pi_hash::XHashMap;
+use pi_print_any::{println_any, out_any};
 
 use crate::components::{user::{
-	Node, Size, Margin, Padding, Position, Border, MinMax, FlexContainer, FlexNormal, ZIndex, Overflow, Opacity, BlendMode, Transform, Show, BackgroundColor, BorderColor, BackgroundImage, MaskImage, MaskImageClip, Hsi, Blur, ObjectFit, BackgroundImageClip, BorderImage, BorderImageClip, BorderImageSlice, BorderImageRepeat, BorderRadius, BoxShadow, TextStyle, TransformOrigin, FontSize, FontStyle, LineHeight, TextAlign, VerticalAlign, Color, Stroke, TextShadows, TransformFuncs, WhiteSpace, Enable, TransformWillChange, TextContent
-}, calc::StyleType};
+	Node, Size, Margin, Padding, Position, Border, MinMax, FlexContainer, FlexNormal, ZIndex, Overflow, Opacity, BlendMode, Transform, Show, BackgroundColor, BorderColor, BackgroundImage, MaskImage, MaskImageClip, Hsi, Blur, ObjectFit, BackgroundImageClip, BorderImage, BorderImageClip, BorderImageSlice, BorderImageRepeat, BorderRadius, BoxShadow, TextStyle, TransformOrigin, FontSize, FontStyle, LineHeight, TextAlign, VerticalAlign, Color, Stroke, TextShadows, TransformFuncs, WhiteSpace, Enable, TransformWillChange, TextContent, TransformFunc
+}, calc::{StyleType, NodeState}};
 
 // 全局Class样式表
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct ClassSheet {
 	pub style_buffer: Vec<u8>, // 所有class样式的buffer集合
     pub class_map: XHashMap<usize, ClassMeta>, // 每个class的元信息描述
+}
+
+impl ClassSheet {
+	/// 从另一个ClassSheet扩充 
+	pub fn extend_from_class_sheet(&mut self, class_sheet: ClassSheet) {
+		let old_len = self.style_buffer.len();
+		self.style_buffer.extend_from_slice(class_sheet.style_buffer.as_slice());
+		for (i, mut meta) in class_sheet.class_map.into_iter() {
+			meta.start += old_len;
+			meta.end += old_len;
+			self.class_map.insert(i, meta);
+		}
+	}
 }
 
 /// class样式
@@ -33,6 +47,11 @@ pub struct StyleTypeReader<'a> {
 	buffer: &'a Vec<u8>,
 	cursor: usize,
 	end: usize,
+}
+
+pub enum StyleSet {
+	Set,
+	Cancel,
 }
 
 impl<'a> StyleTypeReader<'a> {
@@ -53,55 +72,76 @@ impl<'a> StyleTypeReader<'a> {
 	}
 
 	// 将当前style写入组件
-	pub fn write_to_component(&mut self, entity: Id<Node>, query: &mut StyleQuery) -> Option<StyleType>{
+	pub fn write_to_component(&mut self, cur_style_mark: &mut BitArray<[u32;3]>, entity: Id<Node>, query: &mut StyleQuery) -> bool {
 		let next_type = self.next_type();
 		// log::info!("write_to_component ty: {:?}, cursor:{}, buffer_len:{}", next_type, self.cursor, self.buffer.len());
 		if let Some(style_type) = next_type {
-			StyleAttr::set(style_type, &self.buffer, self.cursor, query, entity);
+			let set_type = StyleAttr::set(cur_style_mark, style_type, &self.buffer, self.cursor, query, entity);
 			let size = StyleAttr::size(style_type);
 			self.cursor += size;
+			return true;
+			// return Some(StyleAttr::get_type(style_type));
+		}
+		false
+	}
+
+	// 将当前style写入默认组件
+	pub fn write_to_default(&mut self, query: &mut DefaultStyle<'a>) -> Option<StyleType>{
+		let next_type = self.next_type();
+		// log::info!("write_to_component ty: {:?}, cursor:{}, buffer_len:{}", next_type, self.cursor, self.buffer.len());
+		if let Some(style_type) = next_type {
+			StyleAttr::set_default(style_type, &self.buffer, self.cursor, query);
+			let size = StyleAttr::size(style_type);
+			self.cursor += size;
+			return Some(StyleAttr::get_type(style_type));
 		}
 		
-		next_type
+		None
 	}
 
 	// f函数返回true，则写入到组件，否则不写入,跳过该属性
-	pub fn or_write_to_component<F: Fn(StyleType) -> bool>(&mut self, entity: Id<Node>, query: &mut StyleQuery, f: F) -> Option<StyleType>{
+	pub fn or_write_to_component<F: Fn(StyleType) -> bool>(&mut self, cur_style_mark: &mut BitArray<[u32;3]>, entity: Id<Node>, query: &mut StyleQuery, f: F) -> Option<StyleType>{
 		let next_type = self.next_type();
 		if let Some(style_type) = next_type {
-			if f(style_type) {
-				StyleAttr::set(style_type, &self.buffer, self.cursor, query, entity)
+			let ty = StyleAttr::get_type(style_type);
+			if f(ty) {
+				StyleAttr::set(cur_style_mark, style_type, &self.buffer, self.cursor, query, entity);
 			}
 			let size = StyleAttr::size(style_type);
 			self.cursor += size;
+			return Some(ty);
 		}
-		next_type
+		None
 	}
 
 	// 读下一个样式类型
-	fn next_type(&mut self) -> Option<StyleType> {
+	fn next_type(&mut self) -> Option<u8> {
 		if self.cursor >= self.end {
 			return None;
 		}
 
-		let ty_size = std::mem::size_of::<StyleType>();
-		let ty = unsafe {Some(self.buffer.as_ptr().add(self.cursor).cast::<StyleType>().read_unaligned())};
+		// let ty_size = std::mem::size_of::<u8>();
+		let ty = unsafe {Some(self.buffer.as_ptr().add(self.cursor).cast::<u8>().read_unaligned())};
 
 		// log::info!("next_type ty: {:?}, type_size:{:?}", ty, ty_size);
-		self.cursor += ty_size;
+		// self.cursor += ty_size;
+		self.cursor += 1;
 		ty
 	}
 }
 
 pub trait Attr: 'static + Sync + Send {
 	fn get_type(&self) -> StyleType;
+	fn get_style_index(&self) -> u8;
 	fn size(&self) -> usize;
 	/// 序列化自身到buffer中
 	unsafe fn write(self, buffer: &mut Vec<u8>);
 	/// 安全： entity必须存在
-	fn set(&self, buffer: &Vec<u8>, offset: usize, query: &mut StyleQuery, entity: Id<Node>);
-	/// 安全： entity必须存在
-	fn reset(&self, cur_style_mark: BitArray<[u32;3]>, query: &mut StyleQuery, entity: Id<Node>);
+	fn set(&self, cur_style_mark: &mut BitArray<[u32;3]>, buffer: &Vec<u8>, offset: usize, query: &mut StyleQuery, entity: Id<Node>);
+	/// 设置默认值
+	fn set_default<'a>(&self, buffer: &Vec<u8>, offset: usize, query: &mut DefaultStyle<'a>);
+	// /// 安全： entity必须存在
+	// fn reset(&self, cur_style_mark: BitArray<[u32;3]>, query: &mut StyleQuery, entity: Id<Node>);
 }
 
 macro_rules! get_type {
@@ -151,51 +191,61 @@ macro_rules! write_buffer {
 macro_rules! set {
 	// 整体插入
     ($name: ident, $value_ty: ident) => {
-        fn set(&self, buffer: &Vec<u8>, offset: usize, query: &mut StyleQuery, entity: Id<Node>){
+        fn set(&self, cur_style_mark: &mut BitArray<[u32;3]>, buffer: &Vec<u8>, offset: usize, query: &mut StyleQuery, entity: Id<Node>){
 			// 取不到说明实体已经销毁
 			let mut item = query.$name.get_unchecked_mut(entity);
 			let v = unsafe {buffer.as_ptr().add(offset).cast::<$value_ty>().read_unaligned()};
+			// println_any!("set======{:?}", &v);
+			// let name = std::any::type_name_of_val(&v);
+			// if name.find("BackgroundImage").is_some() {
+			// 	print!("zzzzzzzzzzzzzz");
+			// }
+			cur_style_mark.set(self.get_type() as usize, true);
 			item.write(v);
+			
 		}
 	};
 	// 属性修改
 	($name: ident, $feild: ident, $value_ty: ident) => {
-        fn set(&self, buffer: &Vec<u8>, offset: usize, query: &mut StyleQuery, entity: Id<Node>){
+        fn set(&self, cur_style_mark: &mut BitArray<[u32;3]>, buffer: &Vec<u8>, offset: usize, query: &mut StyleQuery, entity: Id<Node>) {
 			// 取不到说明实体已经销毁
 			let mut item = query.$name.get_unchecked_mut(entity);
 			let v = unsafe {buffer.as_ptr().add(offset).cast::<$value_ty>().read_unaligned()};
 			let component = item.get_mut_or_default();
-			component.$feild = v;
+			component.$feild = v; 
+			cur_style_mark.set(self.get_type() as usize, true);
 			item.notify_modify();
 		}
 	};
 	// 属性修改
 	(@func $name: ident, $set_func: ident, $value_ty: ident) => {
-        fn set(&self, buffer: &Vec<u8>, offset: usize, query: &mut StyleQuery, entity: Id<Node>){
+        fn set(&self, cur_style_mark: &mut BitArray<[u32;3]>, buffer: &Vec<u8>, offset: usize, query: &mut StyleQuery, entity: Id<Node>) {
 			// 取不到说明实体已经销毁
 			let mut item = query.$name.get_unchecked_mut(entity);
 			let v = unsafe {buffer.as_ptr().add(offset).cast::<$value_ty>().read_unaligned()};
 			let component = item.get_mut_or_default();
 			component.$set_func(v);
+			cur_style_mark.set(self.get_type() as usize, true);
 			item.notify_modify();
 		}
 	};
 
 	// 属性修改
 	($name: ident, $feild1: ident, $feild2: ident, $value_ty: ident) => {
-        fn set(&self, buffer: &Vec<u8>, offset: usize, query: &mut StyleQuery, entity: Id<Node>){
+        fn set(&self, cur_style_mark: &mut BitArray<[u32;3]>, buffer: &Vec<u8>, offset: usize, query: &mut StyleQuery, entity: Id<Node>) {
 			// 取不到说明实体已经销毁
 			let mut item = query.$name.get_unchecked_mut(entity);
 			let v = unsafe {buffer.as_ptr().add(offset).cast::<$value_ty>().read_unaligned()};
 			let component = item.get_mut_or_default();
 			component.$feild1.$feild2 = v;
+			cur_style_mark.set(self.get_type() as usize, true);
 			item.notify_modify();
 		}
 	};
 	
 	// 盒模属性（上右下左）
 	(@box_model $name: ident, $value_ty: ident) => {
-        fn set(&self, buffer: &Vec<u8>, offset: usize, query: &mut StyleQuery, entity: Id<Node>){
+        fn set(&self, cur_style_mark: &mut BitArray<[u32;3]>, buffer: &Vec<u8>, offset: usize, query: &mut StyleQuery, entity: Id<Node>){
 			// 取不到说明实体已经销毁
 			let mut item = query.$name.get_unchecked_mut(entity);
 			let v = unsafe {buffer.as_ptr().add(offset).cast::<$value_ty>().read_unaligned()};
@@ -204,14 +254,63 @@ macro_rules! set {
 			component.right = v.right;
 			component.bottom = v.bottom;
 			component.left = v.left;
+			cur_style_mark.set(self.get_type() as usize, true);
 			item.notify_modify();
 		}
 	};
 }
 
+// 设置默认值
+macro_rules! set_default {
+	(@empty) => {
+        fn set_default<'a>(&self, _buffer: &Vec<u8>, _offset: usize, _query: &mut DefaultStyle<'a>){}
+	};
+	// 整体插入
+    ($name: ident, $value_ty: ident) => {
+        fn set_default<'a>(&self, buffer: &Vec<u8>, offset: usize, query: &mut DefaultStyle<'a>){
+			*(query.$name) = DefaultComponent(unsafe {buffer.as_ptr().add(offset).cast::<$value_ty>().read_unaligned()});
+		}
+	};
+	// 属性修改
+	($name: ident, $feild: ident, $value_ty: ident) => {
+        fn set_default<'a>(&self, buffer: &Vec<u8>, offset: usize, query: &mut DefaultStyle<'a>){
+			query.$name.$feild =  unsafe {buffer.as_ptr().add(offset).cast::<$value_ty>().read_unaligned()};
+		}
+	};
+	// 属性修改
+	(@func $name: ident, $set_func: ident, $value_ty: ident) => {
+        fn set_default<'a>(&self, buffer: &Vec<u8>, offset: usize, query: &mut DefaultStyle<'a>){
+			query.$name.$set_func(unsafe {buffer.as_ptr().add(offset).cast::<$value_ty>().read_unaligned()});
+		}
+	};
+
+	// 属性修改
+	($name: ident, $feild1: ident, $feild2: ident, $value_ty: ident) => {
+        fn set_default<'a>(&self, buffer: &Vec<u8>, offset: usize, query: &mut DefaultStyle<'a>){
+			query.$name.$feild1.$feild2 = unsafe {buffer.as_ptr().add(offset).cast::<$value_ty>().read_unaligned()};
+		}
+	};
+	
+	// 盒模属性（上右下左）
+	(@box_model $name: ident, $value_ty: ident) => {
+        fn set_default<'a>(&self, buffer: &Vec<u8>, offset: usize, query: &mut DefaultStyle<'a>){
+			let v = unsafe {buffer.as_ptr().add(offset).cast::<$value_ty>().read_unaligned()};
+			let c = &mut query.$name;
+			c.top = v.top;
+			c.right = v.right;
+			c.bottom = v.bottom;
+			c.left = v.left;
+		}
+	};
+}
+
 macro_rules! reset {
+	// 空实现
+	(@empty) => {
+        fn set(&self, cur_style_mark: &mut BitArray<[u32;3]>, buffer: &Vec<u8>, offset: usize, query: &mut StyleQuery, entity: Id<Node>) {}
+	};
 	($name: ident, $value_ty: ident) => {
-        fn reset(&self, _cur_style_mark: BitArray<[u32;3]>, query: &mut StyleQuery, entity: Id<Node>) {
+        fn set(&self, cur_style_mark: &mut BitArray<[u32;3]>, buffer: &Vec<u8>, offset: usize, query: &mut StyleQuery, entity: Id<Node>) {
 			// 取不到说明实体已经销毁
 			let mut item = query.$name.get_unchecked_mut(entity);
 			let v = item.get_default().clone();
@@ -220,7 +319,7 @@ macro_rules! reset {
 	};
 	// 属性修改
 	($name: ident, $feild: ident) => {
-        fn reset(&self, _cur_style_mark: BitArray<[u32;3]>, query: &mut StyleQuery, entity: Id<Node>) {
+        fn set(&self, cur_style_mark: &mut BitArray<[u32;3]>, buffer: &Vec<u8>, offset: usize, query: &mut StyleQuery, entity: Id<Node>) {
 			// 取不到说明实体已经销毁
 			let mut item = query.$name.get_unchecked_mut(entity);
 			let v = item.get_default().$feild.clone();
@@ -231,7 +330,7 @@ macro_rules! reset {
 	};
 	// 属性修改
 	(@func $name: ident, $set_func: ident, $get_func: ident) => {
-        fn reset(&self, _cur_style_mark: BitArray<[u32;3]>, query: &mut StyleQuery, entity: Id<Node>) {
+        fn set(&self, cur_style_mark: &mut BitArray<[u32;3]>, buffer: &Vec<u8>, offset: usize, query: &mut StyleQuery, entity: Id<Node>) {
 			// 取不到说明实体已经销毁
 			let mut item = query.$name.get_unchecked_mut(entity);
 			let v = item.get_default().$get_func();
@@ -242,7 +341,7 @@ macro_rules! reset {
 	};
 	// 属性修改
 	($name: ident, $feild1: ident, $feild2: ident) => {
-        fn reset(&self, _cur_style_mark: BitArray<[u32;3]>, query: &mut StyleQuery, entity: Id<Node>) {
+        fn set(&self, cur_style_mark: &mut BitArray<[u32;3]>, buffer: &Vec<u8>, offset: usize, query: &mut StyleQuery, entity: Id<Node>) {
 			// 取不到说明实体已经销毁
 			let mut item = query.$name.get_unchecked_mut(entity);
 			let v = item.get_default().$feild1.$feild2.clone();
@@ -253,7 +352,7 @@ macro_rules! reset {
 	};
 	// 属性修改
 	(@box_model_single $name: ident, $feild: ident, $ty_all: ident) => {
-        fn reset(&self, cur_style_mark: BitArray<[u32;3]>, query: &mut StyleQuery, entity: Id<Node>) {
+        fn set(&self, cur_style_mark: &mut BitArray<[u32;3]>, buffer: &Vec<u8>, offset: usize, query: &mut StyleQuery, entity: Id<Node>) {
 			// 单个盒模型属性重置
 			// 如：重置MarginLeft，只有在没有设置Margin属性的时候才能够重置
 			if cur_style_mark[StyleType::$ty_all as usize] {
@@ -269,7 +368,7 @@ macro_rules! reset {
 	};
 
 	(@box_model $name: ident, $ty: ident) => {
-        fn reset(&self, cur_style_mark: BitArray<[u32;3]>, query: &mut StyleQuery, entity: Id<Node>) {
+        fn set(&self, cur_style_mark: &mut BitArray<[u32;3]>, buffer: &Vec<u8>, offset: usize, query: &mut StyleQuery, entity: Id<Node>) {
 			// 设置为默认值 TODO
 			let mut item = query.$name.get_unchecked_mut(entity);
 			let default_value = item.get_default().clone();
@@ -305,73 +404,262 @@ macro_rules! reset {
 
 macro_rules! impl_style {
 	($struct_name: ident, $name: ident, $ty: ident) => {
+		#[derive(Debug)]
 		pub struct $struct_name(pub $ty);
+		
 		impl Attr for $struct_name {
+			fn get_style_index(&self) -> u8 {
+				self.get_type() as u8
+			}
 			get_type!($ty);
 			size!($ty);
 			write_buffer!();
 			set!($name, $ty);
-			reset!($name, $ty);
+			// reset!($name, $ty);
+			set_default!($name, $ty);
+		}
+
+		$crate::paste::item! {
+			#[derive(Debug)]
+			pub struct[<Reset $struct_name>];
+			impl Attr for [<Reset $struct_name>] {
+				fn get_style_index(&self) -> u8 {
+					self.get_type() as u8 + 83
+				}
+				fn size(&self) -> usize {
+					0
+				}
+				get_type!($ty);
+				write_buffer!();
+				reset!($name, $ty);
+				set_default!($name, $ty);
+			}
 		}
 	};
 	($struct_name: ident, $name: ident, $ty: ident, $value_ty: ident) => {
+		#[derive(Debug)]
 		pub struct $struct_name(pub $value_ty);
 		impl Attr for $struct_name {
+			fn get_style_index(&self) -> u8 {
+				self.get_type() as u8
+			}
 			get_type!($ty);
 			size!($value_ty);
 			write_buffer!();
 			set!($name, $value_ty);
-			reset!($name);
+			// reset!($name);
+			set_default!($name, $value_ty);
+		}
+
+		$crate::paste::item! {
+			#[derive(Debug)]
+			pub struct[<Reset $struct_name>];
+			impl Attr for [<Reset $struct_name>] {
+				fn get_style_index(&self) -> u8 {
+					self.get_type() as u8 + 83
+				}
+				fn size(&self) -> usize {
+					0
+				}
+				get_type!($ty);
+				write_buffer!();
+				reset!($name);
+				set_default!($name, $value_ty);
+			}
 		}
 	};
 	($struct_name: ident, $name: ident, $feild: ident, $ty: ident, $value_ty: ident) => {
+		#[derive(Debug)]
 		pub struct $struct_name(pub $value_ty);
 		impl Attr for $struct_name {
+			fn get_style_index(&self) -> u8 {
+				self.get_type() as u8
+			}
 			get_type!($ty);
 			size!($value_ty);
 			write_buffer!();
 			set!($name, $feild, $value_ty);
-			reset!($name, $feild);
+			// reset!($name, $feild);
+			set_default!($name, $feild, $value_ty);
+		}
+
+		$crate::paste::item! {
+			#[derive(Debug)]
+			pub struct[<Reset $struct_name>];
+			impl Attr for [<Reset $struct_name>] {
+				fn get_style_index(&self) -> u8 {
+					self.get_type() as u8 + 83
+				}
+				fn size(&self) -> usize {
+					0
+				}
+				get_type!($ty);
+				write_buffer!();
+				reset!($name, $feild);
+				set_default!($name, $feild, $value_ty);
+			}
 		}
 	};
 	($struct_name: ident, $name: ident, $feild1: ident, $feild2: ident, $ty: ident, $value_ty: ident) => {
+		#[derive(Debug)]
 		pub struct $struct_name(pub $value_ty);
 		impl Attr for $struct_name {
+			fn get_style_index(&self) -> u8 {
+				self.get_type() as u8
+			}
 			get_type!($ty);
 			size!($value_ty);
 			write_buffer!();
 			set!($name, $feild1, $feild2, $value_ty);
-			reset!($name, $feild1, $feild2);
+			// reset!($name, $feild1, $feild2);
+			set_default!($name, $feild1, $feild2, $value_ty);
+		}
+
+		$crate::paste::item! {
+			#[derive(Debug)]
+			pub struct[<Reset $struct_name>];
+			impl Attr for [<Reset $struct_name>] {
+				fn get_style_index(&self) -> u8 {
+					self.get_type() as u8 + 83
+				}
+				fn size(&self) -> usize {
+					0
+				}
+				get_type!($ty);
+				write_buffer!();
+				reset!($name, $feild1, $feild2);
+				set_default!($name, $feild1, $feild2, $value_ty);
+			}
 		}
 	};
 	(@func $struct_name: ident,  $name: ident, $set_func: ident, $get_func: ident, $ty: ident, $value_ty: ident) => {
+		#[derive(Debug)]
 		pub struct $struct_name(pub $value_ty);
 		impl Attr for $struct_name {
+			fn get_style_index(&self) -> u8 {
+				self.get_type() as u8
+			}
 			get_type!($ty);
 			size!($value_ty);
 			write_buffer!();
 			set!(@func $name, $set_func, $value_ty);
-			reset!(@func $name, $set_func, $get_func);
+			// reset!(@func $name, $set_func, $get_func);
+			set_default!(@func $name, $set_func, $value_ty);
+		}
+
+		$crate::paste::item! {
+			#[derive(Debug)]
+			pub struct[<Reset $struct_name>];
+			impl Attr for [<Reset $struct_name>] {
+				fn get_style_index(&self) -> u8 {
+					self.get_type() as u8 + 83
+				}
+				fn size(&self) -> usize {
+					0
+				}
+				get_type!($ty);
+				write_buffer!();
+				reset!(@func $name, $set_func, $get_func);
+				set_default!(@func $name, $set_func, $value_ty);
+			}
 		}
 	};
-	(@box_model_single $struct_name: ident, $name: ident, $feild: ident, $ty: ident, $value_ty: ident, $ty_all: ident) => {
+	// 方法设置，并且不实现set_default和reset
+	(@func $struct_name: ident,  $name: ident, $set_func: ident, $ty: ident, $value_ty: ident) => {
+		#[derive(Debug)]
 		pub struct $struct_name(pub $value_ty);
 		impl Attr for $struct_name {
+			fn get_style_index(&self) -> u8 {
+				self.get_type() as u8
+			}
+			get_type!($ty);
+			size!($value_ty);
+			write_buffer!();
+			set!(@func $name, $set_func, $value_ty);
+			// reset!(@empty);
+			set_default!(@empty);
+		}
+
+		$crate::paste::item! {
+			#[derive(Debug)]
+			pub struct[<Reset $struct_name>];
+			impl Attr for [<Reset $struct_name>] {
+				fn get_style_index(&self) -> u8 {
+					self.get_type() as u8 + 83
+				}
+				fn size(&self) -> usize {
+					0
+				}
+				get_type!($ty);
+				write_buffer!();
+				reset!(@empty);
+				set_default!(@empty);
+			}
+		}
+	};
+
+	(@box_model_single $struct_name: ident, $name: ident, $feild: ident, $ty: ident, $value_ty: ident, $ty_all: ident) => {
+		#[derive(Debug)]
+		pub struct $struct_name(pub $value_ty);
+		impl Attr for $struct_name {
+			fn get_style_index(&self) -> u8 {
+				self.get_type() as u8
+			}
 			get_type!($ty);
 			size!($value_ty);
 			write_buffer!();
 			set!($name, $feild, $value_ty);
-			reset!(@box_model_single $name, $feild, $ty_all);
+			// reset!(@box_model_single $name, $feild, $ty_all);
+			set_default!($name, $feild, $value_ty);
+		}
+
+		$crate::paste::item! {
+			#[derive(Debug)]
+			pub struct[<Reset $struct_name>];
+			impl Attr for [<Reset $struct_name>] {
+				fn get_style_index(&self) -> u8 {
+					self.get_type() as u8 + 83
+				}
+				fn size(&self) -> usize {
+					0
+				}
+				get_type!($ty);
+				write_buffer!();
+				reset!(@box_model_single $name, $feild, $ty_all);
+				set_default!($name, $feild, $value_ty);
+			}
 		}
 	};
 	(@box_model $struct_name: ident, $name: ident, $ty: ident) => {
+		#[derive(Debug)]
 		pub struct $struct_name(pub $ty);
 		impl Attr for $struct_name {
+			fn get_style_index(&self) -> u8 {
+				self.get_type() as u8
+			}
 			get_type!($ty);
 			size!($ty);
 			write_buffer!();
 			set!(@box_model $name, $ty);
-			reset!(@box_model $name, $ty);
+			// reset!(@box_model $name, $ty);
+			set_default!(@box_model $name, $ty);
+		}
+
+		$crate::paste::item! {
+			#[derive(Debug)]
+			pub struct[<Reset $struct_name>];
+			impl Attr for [<Reset $struct_name>] {
+				fn get_style_index(&self) -> u8 {
+					self.get_type() as u8 + 83
+				}
+				fn size(&self) -> usize {
+					0
+				}
+				get_type!($ty);
+				write_buffer!();
+				reset!(@box_model $name, $ty);
+				set_default!(@box_model $name, $ty);
+			}
 		}
 	};
 }
@@ -445,6 +733,9 @@ impl_style!(@func DisplayType, show, set_display, get_display, Display, Display)
 impl_style!(@func VisibilityType, show, set_visibility, get_visibility, Visibility, bool);
 impl_style!(@func EnableType, show, set_enable, get_enable, Enable, Enable);
 
+impl_style!(@func TransformFuncType, transform, add_func, TransformFunc, TransformFunc);
+impl_style!(@func VNodeType, node_state, set_vnode, NodeState, bool);
+
 impl_style!(TransformWillChangeType, transform_will_change, TransformWillChange);
 
 impl_style!(ZIndexType, z_index, ZIndex);
@@ -492,7 +783,7 @@ impl_style!(FlexWrapType, flex_container, flex_wrap, FlexWrap, FlexWrap);
 
 
 lazy_static! {
-	static ref STYLE_ATTR: [Box<dyn Attr>; 82] = [
+	static ref STYLE_ATTR: [Box<dyn Attr>; 167] = [
 		Box::new(PaddingTopType(Dimension::default())), // 0 empty 占位， 无实际作用
 		Box::new(PaddingTopType(Dimension::default())), // 1 text
 		Box::new(FontStyleType(FontStyle::default())), // 2
@@ -592,6 +883,115 @@ lazy_static! {
 		Box::new(OpacityType(Opacity::default())), // 80
 		
 		Box::new(TextContentType(TextContent::default())), // 81
+
+		Box::new(VNodeType(false)), // 82
+
+		Box::new(TransformFuncType(TransformFunc::Scale(1.0, 1.0))), // 83
+
+	/******************************* reset ******************************************************/
+		Box::new(ResetPaddingTopType), // 1 text
+		Box::new(ResetFontStyleType), // 2
+		Box::new(ResetFontWeightType), // 3
+		Box::new(ResetFontSizeType), // 4
+		Box::new(FontFamilyType(Atom::from(""))), // 5
+		Box::new(LetterSpacingType(f32::default())), // 6
+		Box::new(WordSpacingType(f32::default())), // 7
+		Box::new(ResetLineHeightType), // 8
+		Box::new(TextIndentType(f32::default())), // 9
+		Box::new(ResetWhiteSpaceType), // 10
+
+		Box::new(ResetTextAlignType), // 11
+		Box::new(ResetVerticalAlignType), // 12
+		Box::new(ResetColorType), // 13
+		Box::new(ResetTextStrokeType), // 14
+		Box::new(ResetTextShadowType), // 15
+		
+		Box::new(ResetBackgroundImageType), // 16
+		Box::new(ResetBackgroundImageClipType), // 17
+		Box::new(ResetObjectFitType), // 18
+		Box::new(ResetBackgroundColorType), // 19
+		Box::new(ResetBoxShadowType), // 20
+		Box::new(ResetBorderImageType), // 21
+		Box::new(ResetBorderImageClipType), // 22
+		Box::new(ResetBorderImageSliceType), // 23
+		Box::new(ResetBorderImageRepeatType), // 24
+
+		Box::new(ResetBorderColorType), // 25
+		
+
+		Box::new(ResetHsiType), // 26
+		Box::new(ResetBlurType), // 27
+		Box::new(ResetMaskImageType), // 28
+		Box::new(ResetMaskImageClipType), // 29
+		Box::new(ResetMaskImageClipType), // 30 MaskTexture
+		Box::new(ResetTransformType), // 31
+		Box::new(ResetTransformOriginType), // 32
+		Box::new(ResetTransformWillChangeType), // 33
+		Box::new(ResetBorderRadiusType), // 34
+		Box::new(ResetZIndexType), // 35
+		Box::new(ResetOverflowType), // 36
+		
+		
+		Box::new(ResetBlendModeType), // 37
+		Box::new(ResetDisplayType), // 38
+		Box::new(ResetVisibilityType), // 39
+		Box::new(ResetEnableType), // 40
+
+		
+		Box::new(ResetWidthType), // 41
+		Box::new(ResetHeightType), // 42
+
+		Box::new(ResetMarginTopType), // 43
+		Box::new(ResetMarginRightType), // 44
+		Box::new(ResetMarginBottomType), // 45
+		Box::new(ResetMarginLeftType), // 46
+
+		Box::new(ResetPaddingTopType), // 47
+		Box::new(ResetPaddingRightType), // 48
+		Box::new(ResetPaddingBottomType), // 49
+		Box::new(ResetPaddingLeftType), // 50
+
+		Box::new(ResetBorderTopType), // 51
+		Box::new(ResetBorderRightType), // 52
+		Box::new(ResetBorderBottomType), // 53
+		Box::new(ResetBorderLeftType), // 54
+
+		Box::new(ResetPositionTopType), // 55
+		Box::new(ResetPositionRightType), // 56
+		Box::new(ResetPositionBottomType), // 57
+		Box::new(ResetPositionLeftType), // 58
+
+		Box::new(ResetMinWidthType), // 59
+		Box::new(ResetMinHeightType), // 60
+		Box::new(ResetMaxHeightType), // 61
+		Box::new(ResetMaxWidthType), // 62
+		Box::new(ResetDirectionType), // 63
+		Box::new(ResetFlexDirectionType), // 64
+		Box::new(ResetFlexWrapType), // 65
+		Box::new(ResetJustifyContentType), // 66
+		Box::new(ResetAlignContentType), // 67
+		Box::new(ResetAlignItemsType), // 68
+		
+
+		Box::new(PositionTypeType(PositionType1::default())), // 69
+		Box::new(ResetAlignSelfType), // 70
+		Box::new(FlexShrinkType(f32::default())), // 71
+		Box::new(FlexGrowType(f32::default())), // 72
+		Box::new(ResetAspectRatioType), // 73
+		Box::new(ResetOrderType), // 74
+		Box::new(ResetFlexBasisType), // 75
+		Box::new(ResetPositionType), // 76
+		Box::new(ResetBorderType), // 77
+		Box::new(ResetMarginType), // 78
+		Box::new(ResetPaddingType), // 79
+		Box::new(ResetOpacityType), // 80
+		
+		Box::new(ResetTextContentType), // 81
+
+		Box::new(VNodeType(false)), // 82
+
+		Box::new(TransformFuncType(TransformFunc::Scale(1.0, 1.0))), // 83
+		
 	];
 }
 impl_style!(FlexShrinkType, flex_normal, flex_shrink, FlexShrink, f32);
@@ -641,11 +1041,53 @@ pub struct StyleQuery {
 	pub text_style: Query<Node, Write<TextStyle>>,
 	pub transform_will_change: Query<Node, Write<TransformWillChange>>,
 	pub text_content: Query<Node, Write<TextContent>>,
+	pub node_state: Query<Node, Write<NodeState>>,
+}
+
+pub struct DefaultStyle<'a> {
+	pub size: ResMut<'a, DefaultComponent<Size>>,
+	pub margin: ResMut<'a, DefaultComponent<Margin>>,
+	pub padding: ResMut<'a, DefaultComponent<Padding>>,
+	pub border: ResMut<'a, DefaultComponent<Border>>,
+	pub position: ResMut<'a, DefaultComponent<Position>>,
+	pub min_max: ResMut<'a, DefaultComponent<MinMax>>,
+	pub flex_container: ResMut<'a, DefaultComponent<FlexContainer>>,
+	pub flex_normal: ResMut<'a, DefaultComponent<FlexNormal>>,
+	pub z_index: ResMut<'a, DefaultComponent<ZIndex>>,
+	pub overflow: ResMut<'a, DefaultComponent<Overflow>>,
+	pub opacity: ResMut<'a, DefaultComponent<Opacity>>,
+	pub blend_mode: ResMut<'a, DefaultComponent<BlendMode>>,
+	pub show: ResMut<'a, DefaultComponent<Show>>,
+	pub transform: ResMut<'a, DefaultComponent<Transform>>,
+	pub background_color: ResMut<'a, DefaultComponent<BackgroundColor>>,
+	pub border_color: ResMut<'a, DefaultComponent<BorderColor>>,
+	pub background_image: ResMut<'a, DefaultComponent<BackgroundImage>>,
+	pub background_image_clip: ResMut<'a, DefaultComponent<BackgroundImageClip>>,
+	pub mask_image: ResMut<'a, DefaultComponent<MaskImage>>,
+	pub mask_image_clip: ResMut<'a, DefaultComponent<MaskImageClip>>,
+	pub hsi: ResMut<'a, DefaultComponent<Hsi>>,
+	pub blur: ResMut<'a, DefaultComponent<Blur>>,
+	pub object_fit: ResMut<'a, DefaultComponent<ObjectFit>>,
+	pub border_image: ResMut<'a, DefaultComponent<BorderImage>>,
+	pub border_image_clip: ResMut<'a, DefaultComponent<BorderImageClip>>,
+	pub border_image_slice: ResMut<'a, DefaultComponent<BorderImageSlice>>,
+	pub border_image_repeat: ResMut<'a, DefaultComponent<BorderImageRepeat>>,
+	pub border_radius: ResMut<'a, DefaultComponent<BorderRadius>>,
+	pub box_shadow: ResMut<'a, DefaultComponent<BoxShadow>>,
+	pub text_style: ResMut<'a, DefaultComponent<TextStyle>>,
+	pub transform_will_change: ResMut<'a, DefaultComponent<TransformWillChange>>,
+	pub text_content: ResMut<'a, DefaultComponent<TextContent>>,
 }
 
 pub struct StyleAttr;
 
 impl StyleAttr {
+
+	#[inline]
+	pub fn get_type(style_type: u8) -> StyleType {
+		STYLE_ATTR[style_type as usize].get_type()
+	}
+
 	#[inline]
 	pub fn get_attr(style_type: StyleType) -> &'static Box<dyn Attr> {
 		&STYLE_ATTR[style_type as usize]
@@ -659,20 +1101,26 @@ impl StyleAttr {
 	}
 
 	#[inline]
-	pub fn set(style_type: StyleType, buffer: &Vec<u8>, offset: usize, query: &mut StyleQuery, entity: Id<Node>) {
-		STYLE_ATTR[style_type as usize].set(buffer, offset, query, entity);
+	pub fn set(cur_style_mark: &mut BitArray<[u32;3]>, style_index: u8, buffer: &Vec<u8>, offset: usize, query: &mut StyleQuery, entity: Id<Node>) {
+		STYLE_ATTR[style_index as usize].set(cur_style_mark, buffer, offset, query, entity)
 	}
 
 	#[inline]
-	pub fn size(style_type: StyleType) -> usize {
-		STYLE_ATTR[style_type as usize].size()
+	pub fn size(style_index: u8) -> usize {
+		STYLE_ATTR[style_index as usize].size()
 	}
 
 	#[inline]
-	pub fn reset(style_type: StyleType, cur_style_mark: BitArray<[u32;3]>, query: &mut StyleQuery, entity: Id<Node>) {
-		STYLE_ATTR[style_type as usize].reset(cur_style_mark, query, entity);
+	pub fn reset(cur_style_mark: &mut BitArray<[u32;3]>, style_index: u8, buffer: &Vec<u8>, offset: usize, query: &mut StyleQuery, entity: Id<Node>) {
+		STYLE_ATTR[style_index as usize + 83].set(cur_style_mark, buffer, offset, query, entity);
+	}
+
+	#[inline]
+	pub fn set_default(style_index: u8, buffer: &Vec<u8>, offset: usize, query: &mut DefaultStyle) {
+		STYLE_ATTR[style_index as usize].set_default(buffer, offset, query);
 	}
 }
+
 
 
 

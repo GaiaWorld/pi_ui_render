@@ -6,6 +6,7 @@ mod framework;
 use async_trait::async_trait;
 use font_kit::font::new_face_by_path;
 use framework::Example;
+use ordered_float::NotNan;
 use pi_atom::Atom;
 /// 渲染四边形 demo
 use pi_ecs::prelude::Id;
@@ -13,8 +14,8 @@ use pi_flex_layout::style::{Dimension, PositionType};
 use pi_null::Null;
 use pi_ui_render::{
 	gui::Gui, 
-	components::user::{Color, CgColor, TextContent, FontSize}, 
-	utils::style::style_sheet::{WidthType, HeightType, PositionTypeType, PositionLeftType, PositionTopType, MarginLeftType, MarginTopType, TextContentType, FontFamilyType, ColorType, FontSizeType}, resource::ClearColor
+	components::user::{Color, CgColor, TextContent, FontSize, Stroke, BackgroundColor}, 
+	utils::style::style_sheet::{WidthType, HeightType, PositionTypeType, PositionLeftType, PositionTopType, MarginLeftType, MarginTopType, TextContentType, FontFamilyType, ColorType, FontSizeType, TextStrokeType, BackgroundColorType}, resource::ClearColor
 };
 
 fn main() {
@@ -34,7 +35,8 @@ impl Example for QuadExample {
 		let mut dir = std::env::current_dir().unwrap();
 		log::info!("dir: {:?}", dir);
 		dir.push("examples/text/source/hwkt.ttf");
-		new_face_by_path("hwkt".to_string(), dir.to_str().unwrap());
+		// new_face_by_path("hwkt".to_string(), dir.to_str().unwrap());
+		new_face_by_path("hwkt".to_string(), "examples/common_play/source/SOURCEHANSANSK-MEDIUM.TTF");
 
 		// 设置清屏颜色为绿色
 		gui.world_mut().insert_resource(ClearColor(CgColor::new(0.0, 1.0, 1.0, 1.0)));
@@ -49,6 +51,7 @@ impl Example for QuadExample {
 		gui.set_style(root, PositionTopType(Dimension::Points(0.0)));
 		gui.set_style(root, MarginLeftType(Dimension::Points(0.0)));
 		gui.set_style(root, MarginTopType(Dimension::Points(0.0)));
+		gui.set_style(root, BackgroundColorType (BackgroundColor(Color::RGBA(CgColor::new(1.0, 0.0, 1.0, 1.0)) )));
 
 
 		// if style.position_left().is_points()
@@ -63,10 +66,13 @@ impl Example for QuadExample {
 		let div1 = gui.create_node();
 		gui.set_style(div1, WidthType(Dimension::Points(50.0)));
 		gui.set_style(div1, HeightType(Dimension::Points(100.0)));
-		gui.set_style(div1, TextContentType (TextContent("我是".to_string(), Atom::from("我是"))));
+		gui.set_style(div1, TextContentType (TextContent("注册".to_string(), Atom::from("注册"))));
 		gui.set_style(div1, FontFamilyType (Atom::from("hwkt")));
-		gui.set_style(div1, ColorType(Color::RGBA(CgColor::new(1.0, 0.0, 0.0, 1.0))));
+		gui.set_style(div1, ColorType(Color::RGBA(CgColor::new(0.0, 1.0, 0.0, 1.0))));
 		gui.set_style(div1, FontSizeType(FontSize::Length(32)));
+		gui.set_style(div1, TextStrokeType(Stroke {
+			width: unsafe {NotNan::new_unchecked(2.0)}, 
+			color: CgColor::new(1.0, 1.0, 0.0, 1.0)}));
 		gui.append(div1, root);
 	}
 	

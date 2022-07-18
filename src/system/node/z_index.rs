@@ -23,9 +23,11 @@
 //! 一类是节点重算zrange，重置全部的子节点的zrange。
 //! 另一类是父节点下的子节点局部比较：顺序找到没有脏标志的节点，将其前面的节点重算zrange，继续选择没有脏标志的节点。 需要保证，前后节点区间的zrange能装的下所在的递归子节点，如果装不下，则扩大区间。
 
+use std::intrinsics::transmute;
 use std::ops::Range;
 
 use pi_ecs::prelude::{Query, Write, Changed, Id};
+use pi_ecs::storage::Offset;
 use pi_slotmap::SecondaryMap;
 use pi_ecs_macros::setup;
 use pi_ecs_utils::prelude::{EntityTree, LayerDirty};
@@ -56,10 +58,8 @@ impl CalcZindex {
 		dirtys: LayerDirty<Node, Changed<ZIndex>>,
 		mut ranges: Query<Node, Write<ZRange>>,
 	) {
-		// println!("call zindex==========================");
 		let mut vec: Vec<ZSort> = vec![];
 		for (id, mark, _) in dirtys.iter_manual() {
-			// println!("dirty:{:?}", id.local().offset());
 			match tree.get_up(id) {
 				Some(up) => {
 					let parent = up.parent();
@@ -93,7 +93,7 @@ impl CalcZindex {
 							0,
 							children_count,
 							zrange,
-						);
+						);;
 					}
 				}
 				_ => {
@@ -400,6 +400,7 @@ fn set(
     }
     if children_count > 0 {
         r.write(zrange.clone());
+
         let len = vec.len();
         // 收集该节点的排序环境下的子节点
         collect(&query, &tree, vec, node, 0);

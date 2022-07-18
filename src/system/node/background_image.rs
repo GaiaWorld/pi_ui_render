@@ -1,7 +1,7 @@
 use std::io::Result;
 
 use ordered_float::NotNan;
-use pi_assets::asset::Handle;
+use pi_assets::asset::{Handle, Asset};
 use pi_assets::mgr::AssetMgr;
 use pi_atom::Atom;
 use pi_ecs::prelude::{Deleted, Or, ParamSet, With, OrDefault};
@@ -20,9 +20,9 @@ use pi_share::{Share, ShareMutex};
 use wgpu::IndexFormat;
 
 use crate::components::calc::{BackgroundImageTexture, LayoutResult};
-use crate::components::draw_obj::IsUnitQuad;
+use crate::components::draw_obj::BoxType;
 use crate::components::user::{
-    Aabb2, BackgroundImageClip, BorderRadius, FitType, ObjectFit, Point2, Vector2,
+    Aabb2, BackgroundImageClip, BorderRadius, FitType, ObjectFit, Point2, Vector2, Size,
 };
 use crate::resource::draw_obj::CommonSampler;
 use crate::system::shader_utils::image::{
@@ -30,7 +30,7 @@ use crate::system::shader_utils::image::{
 };
 
 use crate::system::shader_utils::StaticIndex;
-use crate::utils::tools::{calc_hash, get_content_radius};
+use crate::utils::tools::{calc_hash, get_content_radius, calc_float_hash};
 use crate::{
     components::{
         calc::{DrawList, NodeId},
@@ -46,7 +46,7 @@ pub struct CalcBackgroundImage;
 impl CalcBackgroundImage {
     /// 创建RenderObject，用于渲染背景颜色
     #[system]
-    pub async fn calc_background(
+    pub async fn calc_background_image(
         mut query: ParamSet<(
             // 布局修改、BackgroundImage修改、BackgroundImageClip修改、圆角修改或删除，需要修改或创建背景图片的DrawObject
             Query<
@@ -85,12 +85,12 @@ impl CalcBackgroundImage {
             >,
         )>,
 
-        query_draw: Query<DrawObject, (Write<DrawState>, &IsUnitQuad)>,
+        query_draw: Query<DrawObject, (Write<DrawState>, OrDefault<BoxType>)>,
         mut draw_obj_commands: EntityCommands<DrawObject>,
         mut draw_state_commands: Commands<DrawObject, DrawState>,
         mut node_id_commands: Commands<DrawObject, NodeId>,
         mut shader_static_commands: Commands<DrawObject, StaticIndex>,
-		mut is_unit_quad_commands: Commands<DrawObject, IsUnitQuad>,
+		mut is_unit_quad_commands: Commands<DrawObject, BoxType>,
 
         // load_mgr: ResMut<'a, LoadMgr>,
         device: Res<'static, RenderDevice>,
@@ -108,6 +108,7 @@ impl CalcBackgroundImage {
             if background_image.is_some() {
                 continue;
             };
+			
             // 删除对应的DrawObject
             if let Some(draw_index_item) = draw_index.get() {
                 draw_obj_commands.despawn(draw_index_item.0.clone());
@@ -160,7 +161,7 @@ impl CalcBackgroundImage {
                     .await;
                     draw_state_item.notify_modify();
 
-                    if old_unit_quad.0 != new_unit_quad.0 {
+                    if *old_unit_quad != new_unit_quad {
                         is_unit_quad_commands.insert(**r, new_unit_quad);
                     }
                 }
@@ -172,7 +173,6 @@ impl CalcBackgroundImage {
                 // * <DrawObject, NodeId>
                 // * <DrawObject, IsUnitQuad>
                 None => {
-                    // log::info!("create_background=================");
                     // 创建新的DrawObj
                     let new_draw_obj = draw_obj_commands.spawn();
                     // 设置DrawState（包含color group）
@@ -249,98 +249,89 @@ async fn modify<'a>(
     clip: &BackgroundImageClip,
     fit: &ObjectFit,
     common_sampler: &CommonSampler,
-) -> IsUnitQuad {
-    println!("=============background_image0");
-    // modify_radius_linear_geo
-    let vertex_key = calc_hash(&("background image", image));
-    let uv_key = calc_hash(&("background image uv", image));
-    let index_key = calc_hash(&("background image index", image));
+) -> BoxType {
 
-    let (pos, uv_aabb) = get_pos_uv(texture, clip, fit, layout);
-    let (mut vertex, mut uv, mut indices) = (
-        vec![
-            pos.mins.x, pos.mins.y, pos.maxs.x, pos.mins.y, pos.maxs.x, pos.maxs.y, pos.mins.x,
-            pos.maxs.y,
-        ],
-        vec![
-            uv_aabb.mins.x,
-            uv_aabb.mins.y,
-            uv_aabb.maxs.x,
-            uv_aabb.mins.y,
-            uv_aabb.maxs.x,
-            uv_aabb.maxs.y,
-            uv_aabb.mins.x,
-            uv_aabb.maxs.y,
-        ],
-        vec![0, 1, 2, 2, 3, 0],
-    );
     let radius = get_content_radius(radius, layout);
 
-    if radius.is_some() {
-        println!("============= 有圆角");
-        (vertex, uv, indices) = use_layout_pos(uv_aabb, layout, radius.as_ref().unwrap());
-    }
+	let (vertex_buffer, uv_buffer, index_buffer, is_unit) = if radius.is_some() || fit.0 != FitType::Fill {
+		let (pos, uv_aabb) = get_pos_uv(texture, clip, fit, layout);
+		// modify_radius_linear_geo
+		let vertex_key = calc_float_hash(&[pos.mins.x, pos.mins.y, pos.maxs.x, pos.maxs.y,uv_aabb.mins.x, uv_aabb.mins.y, uv_aabb.maxs.x, uv_aabb.maxs.y,], calc_hash(&("radius vert", radius), 0));
+		let uv_key =  calc_float_hash(&[pos.mins.x, pos.mins.y, pos.maxs.x, pos.maxs.y,uv_aabb.mins.x, uv_aabb.mins.y, uv_aabb.maxs.x, uv_aabb.maxs.y,], calc_hash(&("radius uv", radius), 0));
+		let index_key = calc_float_hash(&[pos.mins.x, pos.mins.y, pos.maxs.x, pos.maxs.y,uv_aabb.mins.x, uv_aabb.mins.y, uv_aabb.maxs.x, uv_aabb.maxs.y,], calc_hash(&("radius index", radius), 0));
 
-	
-	let (vertex_buffer, is_unit) = if radius.is_some() || fit.0 != FitType::Fill {
-		// 有圆角或适配方式为非填充，则需要创建buffer
-		(match buffer_assets.get(&vertex_key) {
+		
+		let (mut vertex, mut uv, mut indices) = (
+			vec![
+				pos.mins.x, pos.mins.y, pos.maxs.x, pos.mins.y, pos.maxs.x, pos.maxs.y, pos.mins.x,
+				pos.maxs.y,
+			],
+			vec![
+				uv_aabb.mins.x,
+				uv_aabb.mins.y,
+				uv_aabb.maxs.x,
+				uv_aabb.mins.y,
+				uv_aabb.maxs.x,
+				uv_aabb.maxs.y,
+				uv_aabb.mins.x,
+				uv_aabb.maxs.y,
+			],
+			vec![0, 1, 2, 2, 3, 0],
+		);
+
+		let v_buffer = match buffer_assets.get(&vertex_key) {
 			Some(r) => r,
 			None => {
-				println!("======= pos: {:?}", pos);
+				if radius.is_some() {
+					(vertex, uv, indices) = use_layout_pos(uv_aabb, layout, radius.as_ref().unwrap());
+				}
 	
 				let buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
 					label: Some("background image vert buffer init"),
 					contents: bytemuck::cast_slice(&vertex),
 					usage: wgpu::BufferUsages::VERTEX,
 				});
-				buffer_assets.cache(vertex_key, RenderRes::new(buf, vertex.len() * 4));
-				buffer_assets.get(&vertex_key).unwrap()
+				buffer_assets.insert(vertex_key, RenderRes::new(buf, vertex.len() * 4)).unwrap()
 			}
-		}, IsUnitQuad(false))
+		};
+		let uv_buffer = match buffer_assets.get(&uv_key) {
+			Some(r) => r,
+			None => {
+	
+				let buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
+					label: Some("background image uv buffer init"),
+					contents: bytemuck::cast_slice(&uv),
+					usage: wgpu::BufferUsages::VERTEX,
+				});
+				buffer_assets.insert(uv_key, RenderRes::new(buf, uv.len() * 2)).unwrap()
+			}
+		};
+		let index_buffer = match buffer_assets.get(&index_key) {
+			Some(r) => r,
+			None => {
+				let buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
+					label: Some("background image index buffer init"),
+					contents: bytemuck::cast_slice(&indices),
+					usage: wgpu::BufferUsages::INDEX,
+				});
+				buffer_assets.insert(index_key, RenderRes::new(buf, indices.len() * 2)).unwrap()
+			}
+		};
+		(v_buffer, uv_buffer, index_buffer, BoxType::None)
 	} else {
-		// 否则buffer可以是单位四边形
-		(unit_quad_buffer.index.clone(), IsUnitQuad(true))
+		(unit_quad_buffer.vertex.clone(), unit_quad_buffer.vertex.clone(), unit_quad_buffer.index.clone(), BoxType::Content)
 	};
 
     draw_state
         .vbs
         .insert(IMAGE_POSITION_LOCATION, (vertex_buffer, 0));
-
-    let uv_buffer = match buffer_assets.get(&uv_key) {
-        Some(r) => r,
-        None => {
-            println!("======= uv: {:?}", uv);
-
-            let buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
-                label: Some("background image uv buffer init"),
-                contents: bytemuck::cast_slice(&uv),
-                usage: wgpu::BufferUsages::VERTEX,
-            });
-            buffer_assets.cache(uv_key, RenderRes::new(buf, uv.len() * 2));
-            buffer_assets.get(&uv_key).unwrap()
-        }
-    };
-
     draw_state.vbs.insert(IMAGE_UV_LOCATION, (uv_buffer, 0));
+	let len = index_buffer.size() / 2;
+    draw_state.ib = Some((index_buffer, len as u64, IndexFormat::Uint16));
 
-    let index_buffer = match buffer_assets.get(&index_key) {
-        Some(r) => r,
-        None => {
-            let buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
-                label: Some("background image index buffer init"),
-                contents: bytemuck::cast_slice(&indices),
-                usage: wgpu::BufferUsages::INDEX,
-            });
-            buffer_assets.cache(index_key, RenderRes::new(buf, indices.len() * 2));
-            buffer_assets.get(&index_key).unwrap()
-        }
-    };
-
-    draw_state.ib = Some((index_buffer, indices.len() as u64, IndexFormat::Uint16));
-
+	let texture_group_key = calc_hash(&image.0.get_hash(), calc_hash(&"image texture", 0));
     // texture BindGroup
-    let texture_group = match group_assets.get(&vertex_key) {
+    let texture_group = match group_assets.get(&texture_group_key) {
         Some(r) => r,
         None => {
             let group = device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -348,7 +339,7 @@ async fn modify<'a>(
                 entries: &[
                     wgpu::BindGroupEntry {
                         binding: 0,
-                        resource: wgpu::BindingResource::Sampler(&common_sampler.pointer),
+                        resource: wgpu::BindingResource::Sampler(&common_sampler.default),
                     },
                     wgpu::BindGroupEntry {
                         binding: 1,
@@ -357,11 +348,9 @@ async fn modify<'a>(
                 ],
                 label: Some("border image group create"),
             });
-            group_assets.cache(vertex_key, RenderRes::new(group, 5));
-            group_assets.get(&vertex_key).unwrap().clone()
+            group_assets.insert(texture_group_key, RenderRes::new(group, 5)).unwrap()
         }
     };
-    println!("=============background_image1");
 
     draw_state
         .bind_groups

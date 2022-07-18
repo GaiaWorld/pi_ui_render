@@ -59,9 +59,9 @@ impl CalcLayout {
 				ChangeTrackers<Show>,
 				ChangeTrackers<TextContent>,
 				ChangeTrackers<TextStyle>,
-				// ChangeTrackers<CharNode>,
 			), 
 			Or<(
+				Changed<Layer>,
 				Changed<Size>, 
 				Changed<Margin>,
 				Changed<Padding>,
@@ -70,7 +70,6 @@ impl CalcLayout {
 				Changed<MinMax>,
 				Changed<FlexContainer>,
 				Changed<FlexNormal>,
-				Changed<Layer>,
 				Changed<Show>,
 				Changed<TextContent>,
 				Changed<TextStyle>,
@@ -130,10 +129,7 @@ impl CalcLayout {
 			text_style,
 			// char_node
 		) in dirtys.iter() {
-			// log::info!("calc layout===================={:?}", e.local().offset());
 			if size.is_changed() || position.is_changed() || margin.is_changed() || layer.is_changed() || min_max.is_changed() {
-				
-			// log::info!("calc layout1===================={:?}", e.local().offset());
 				layout.set_rect(&mut layer_dirty, LayoutKey{entity:e, text_index: usize::null()} , true, true);
 			}
 

@@ -1,9 +1,9 @@
-use std::io::Result;
+use std::{io::Result, intrinsics::transmute};
 
 use nalgebra::Orthographic3;
 use pi_assets::{mgr::AssetMgr, asset::Handle};
 use pi_atom::Atom;
-use pi_ecs::{prelude::{Join, Write, ResMut, OrDefault, Query, Res, ParamSet, res::WriteRes}, monitor::{Event, EventType}, storage::Offset, entity::Id};
+use pi_ecs::{prelude::{Join, Write, ResMut, OrDefault, Query, Res, ParamSet, res::WriteRes}, monitor::{Event, EventType}, storage::{Offset, Local}, entity::Id};
 use pi_ecs_macros::{listen, setup};
 use pi_null::Null;
 use pi_render::{
@@ -16,10 +16,10 @@ use wgpu::{IndexFormat, DepthStencilState, TextureFormat, CompareFunction, Stenc
 
 use crate::{
 	components::{
-		calc::{NodeId, ContentBox, DrawList, Visibility, WorldMatrix, Quad, InPassId, Pass2DId, TransformWillChangeMatrix, OverflowAabb}, 
+		calc::{NodeId, ContentBox, DrawList, Visibility, WorldMatrix, Quad, InPassId, Pass2DId, TransformWillChangeMatrix, OverflowAabb, DrawInfo, ZRange}, 
 		pass_2d::{Camera, DirtyRectState, GraphId, Draw2DList, ParentPassId, Pass2D, DirtyRect, DrawIndex, PostProcessList, LastDirtyRect, ViewMatrix}, 
 		user::{Matrix4, Node, CgColor, TransformWillChange, Aabb2, Point2}, 
-		draw_obj::{DrawState, DrawObject, VSDefines, FSDefines}
+		draw_obj::{DrawState, DrawObject, VSDefines, FSDefines, DrawKey}
 	}, 
 	utils::{
 		tools::{intersect, calc_aabb, calc_bound_box}, 
@@ -27,7 +27,7 @@ use crate::{
 	}, 
 	resource::{
 		draw_obj::{ShareLayout, UnitQuadBuffer, Shaders, PipelineMap, ShaderInfoMap, ShaderCatch, VertexBufferLayoutMap, StateMap, DynFboClearColorBindGroup, ClearColorBindGroup, PipelineState}, 
-		ClearColor, ClearDrawObj
+		ClearColor, ClearDrawObj, Viewport
 	}, 
 	system::{
 		node::background_color::{create_rgba_bind_group}, 
@@ -184,9 +184,11 @@ impl CalcRender{
 					Option<&'static TransformWillChange>
 				)>
 			)>,
-			Query<Node, (&'static InPassId, Option<&'static Pass2DId>, Option<&'static DrawList>, &'static Quad, OrDefault<Visibility>, Join<InPassId, Pass2D, &'static LastDirtyRect>)>,
+			Query<Node, (&'static InPassId, Option<&'static Pass2DId>, Option<&'static DrawList>, &'static Quad, &'static ZRange, OrDefault<Visibility>, Join<InPassId, Pass2D, &'static LastDirtyRect>)>,
 		)>,
-		mut draw_state: Query<DrawObject, &mut DrawState>,
+		mut draw_state: Query<DrawObject, (&mut DrawState, Option<&NodeId>)>,
+		mut draw_info: Query<DrawObject, OrDefault<DrawInfo>>,
+		// mut z_query1: Query<Pass2D, Join<NodeId, Node, &ZRange>>,
 		share_layout: Res<'a, ShareLayout>,
 		device: Res<'a, RenderDevice>,
 		global_dirty_rect: Res<'a, DirtyRect>,
@@ -194,8 +196,8 @@ impl CalcRender{
 		buffer_assets: Res<'a, Share<AssetMgr<RenderRes<Buffer>>>>,
 		bind_group_assets:  Res<'a, Share<AssetMgr<RenderRes<BindGroup>>>>,
 		mut depth_cache: ResMut<'a, DepthCache>,
+		viewport: Res<Viewport>, // 视口
 	) -> Result<()> {
-		// log::info!("calc_render=================");
 		// 不脏，不需要组织渲染图， 也不需要渲染
 		if global_dirty_rect.state == DirtyRectState::UnInit {
 			return Ok(());
@@ -231,7 +233,14 @@ impl CalcRender{
 				&aabb
 			};
 
-			let aabb = if let Some(aabb) = intersect(&global_dirty_rect.value, context_box) {
+			let context_box = match intersect(&context_box, &viewport.0) {
+				Some(r) => r,
+				None => Aabb2::new(
+					Point2::new(0.0, 0.0), 
+					Point2::new(0.0, 0.0))
+			};
+
+			let aabb = if let Some(aabb) = intersect(&global_dirty_rect.value, &context_box) {
 				// 如果存在transformwillchange，则需要算上脏区域
 				// no_will_change用于包围盒剔除渲染对象（渲染对象使用quad来剔除，quad是没有willchange_matrix的参与的）
 				let no_will_change = if let Some(r) = willchange_matrix {
@@ -332,12 +341,12 @@ impl CalcRender{
 		let p0 = query_draw2d_list.p0_mut();
 		// 组织渲染列表
 		// 用脏区域，查询到脏区域内的渲染节点，对其进行遍历，放入对应的pass中（TODO，aabb查询四叉树）
-		for (in_pass_id, pass_id, draw_list, quad, visibility, context_dirty) in query_pass.p1().iter() {
+		for (in_pass_id, pass_id, draw_list, quad, z_range, visibility, context_dirty) in query_pass.p1().iter() {
 			// global_dirty_rect应该是pass内部的aadd，（与TransformWillChange有关）
 			if let Some(draw_list) = draw_list {
 				if **visibility && intersects(quad, &context_dirty.no_will_change) {
 					for draw_id in draw_list.iter() {
-						p0.get_unchecked_mut(**in_pass_id).all_list.push(DrawIndex::DrawObj(*draw_id));
+						p0.get_unchecked_mut(**in_pass_id).all_list.push((DrawIndex::DrawObj(*draw_id), z_range.clone(), *draw_info.get_unchecked(*draw_id)));
 					}
 				}
 			}
@@ -345,32 +354,47 @@ impl CalcRender{
 			if let Some(pass_id) = pass_id {
 				if let Some(parent) = parent_pass_id.get_unchecked(pass_id.0) {
 					if let Some(mut p) = p0.get_mut(parent.0) {
-						p.all_list.push(DrawIndex::Pass2D(pass_id.0));
+						p.all_list.push((DrawIndex::Pass2D(pass_id.0), z_range.clone(), DrawInfo::new(0, false)));
 					}
 				}
 			}
 		}
 
 		// 遍历所有的pass，设置不透明渲染列表和候命渲染列表
-		for mut list in p0.iter_mut() {
+		for mut list in query_draw2d_list.p0_mut().iter_mut() {
 			list.opaque.clear();
 			list.transparent.clear();
 			if list.all_list.len() == 0 {
 				continue;
 			}
 
-			// TODO
-			// list.all_list.sort_by(|a, b| {
+			list.all_list.sort_by(|(a, a_z_depth, a_sort  ), (b, b_z_depth, b_sort  )| {
+				if a_z_depth.start < b_z_depth.start {
+					std::cmp::Ordering::Less
+				} else if a_z_depth.start > b_z_depth.start {
+					std::cmp::Ordering::Greater
+				} else {
+					if a_sort < b_sort {
+						std::cmp::Ordering::Less
+					} else if a_sort > b_sort {
+						std::cmp::Ordering::Greater
+					} else {
+						std::cmp::Ordering::Equal
+					}
+				}
+				// draw_state.get(a)
+			});
 
-			// });
-			
 			for i in 0..list.all_list.len() {
-				let entity = list.all_list[i];
+				let (entity, _, draw_info) = list.all_list[i];
 				// 暂时放入不透明列表，TODO
-				list.opaque.push(entity);
-			}
+				if draw_info.is_opacity() {
+					list.opaque.push(entity);
+				} else {
+					list.transparent.push(entity);
+				}
 
-			list.all_list.clear();
+			}
 		}
 
 		let p1 = query_draw2d_list.p1();
@@ -381,9 +405,16 @@ impl CalcRender{
 				continue; 
 			}
 
+			// println!("post======================");
 			alloc_depth(&device, p1, list, &share_layout, &mut draw_state, &buffer_assets, 
 				&bind_group_assets, &mut depth_cache, &mut 0);
 		}
+
+		// 清理列表
+		for mut list in query_draw2d_list.p0_mut().iter_mut() {
+			list.all_list.clear();
+		}
+
 		Ok(())
 	}
 	
@@ -395,8 +426,12 @@ impl CalcRender{
 		mut query: Query<Pass2D, (Write<GraphId>, Write<Draw2DList>)>,
 		mut rg: ResMut<RenderGraph<Option<ShareTargetView>>> ,
 	) {
-		// log::info!("create_graph_node================={:?}", e.id);
+		if unsafe {transmute::<_, u64>(e.id.local())} == 12884901891 {
+			log::info!("create_graph_node================={:?}", e.id);
+		}
+		log::info!("create_graph_node================={:?}", e.id);
 		let node = Pass2DNode::new(unsafe { Id::new(e.id.local()) });
+		// rg.reset();
 		let graph_id = rg.add_node(format!("Pass2D {:?}", e.id.local().offset()), node);
 		let (mut graph_id_item, mut list_item) = query.get_unchecked_mut_by_entity(e.id);
 		graph_id_item.write(GraphId(graph_id));
@@ -408,11 +443,11 @@ impl CalcRender{
 	pub fn delete_graph_node(
 		e: Event,
 		query: Query<Pass2D, &GraphId>,
-		// rg: Res<RenderGraph>,
+		mut rg: ResMut<RenderGraph<Option<ShareTargetView>>>,
 	) {
 		// log::info!("delete_graph_node================={:?}", e.id);
-		if let Some(_graph_id) = query.get_by_entity(e.id) {
-			// (*rg).remove_node(*graph_id); // TODO
+		if let Some(graph_id) = query.get_by_entity(e.id) {
+			rg.remove_node(**graph_id, format!("Pass2D {:?}", e.id.local().offset()));
 		}
 	}
 	
@@ -433,7 +468,7 @@ impl CalcRender{
 			// rg.set_node_finish(graph_id, false);
 			let parent_graph_id = query_graph.get_unchecked(**parent_id);
 			// 建立父子依赖关系，使得子pass先渲染
-			if let Err(e) = rg.set_depend(**graph_id, **parent_graph_id) {
+			if let Err(e) = rg.add_depend(**graph_id, **parent_graph_id) {
 				log::error!("{:?}", e);
 			}
 		}
@@ -491,17 +526,17 @@ fn alloc_depth<'a>(
 	pass2d: &'a Query<Pass2D, (&Draw2DList, Option<&PostProcessList>)>,
 	list: &'a Draw2DList,
 	share_layout: &'a ShareLayout,
-	draw_state: &'a mut Query<DrawObject, &mut DrawState>,
+	draw_state: &'a mut Query<DrawObject, (&mut DrawState, Option<&NodeId>)>,
 	buffer_assets: &'a Share<AssetMgr<RenderRes<Buffer>>>,
 	bind_group_assets: &'a Share<AssetMgr<RenderRes<BindGroup>>>,
 	depth_cache: &'a mut Vec<Handle<RenderRes<BindGroup>>>,
 	cur_depth: &'a mut usize,
 ) {
 	for index in list.all_list.iter() {
-		match index {
+		match &index.0 {
 			// 如果绘制索引是一个DrawObj，则设置该DrawObj的depth group
 			DrawIndex::DrawObj(draw_key) => {
-				let mut draw_state_item = match draw_state.get_mut(*draw_key) {
+				let (mut draw_state_item, node_id) = match draw_state.get_mut(*draw_key) {
 					Some(r) => r,
 					None => continue,
 				};
@@ -513,7 +548,10 @@ fn alloc_depth<'a>(
 					depth_cache,
 					device,
 					share_layout);
-				
+				// println!("drawobj======================{:?}, {:?}， {:?}, {:?}, {:?}", draw_key, cur_depth, node_id.map(|n|{
+				// 	let r: u64 = unsafe {transmute(n.clone())};
+				// 	(r - n.offset() as u64) >> 32
+				// }), node_id.map(|n|{n.offset()}) , node_id);
 				draw_state_item.bind_groups.insert(
 					DEPTH_GROUP, 
 					bind_group
@@ -522,15 +560,69 @@ fn alloc_depth<'a>(
 			},
 			// 如果绘制索引是一个pass2d，则为该pass2d中的渲染对象设置depth group
 			DrawIndex::Pass2D(pass2d_id) => {
-				let list = if let Some(r) = pass2d.get(pass2d_id.clone()) {
-					r.0
+				let list = if let Some((list, post)) = pass2d.get(pass2d_id.clone()) {
+					match post {
+						Some(r) => {
+							let len = r.0.len();
+							if r.0.len() > 0 {
+								let mut i = 0;
+								let mut key = r.1;
+								for k in r.0.keys() {
+									i += 1;
+						
+									// 最后一个后处理不执行，交给下一个节点渲染
+									if i == len {
+										key = k ;
+									}
+								}
+								let key = r.0[key].draw_obj_key;
+								alloc_depth_one(device, key, share_layout, draw_state, buffer_assets, bind_group_assets, depth_cache, cur_depth);
+							}
+							continue;
+						},
+						None => list,
+					}
 				} else {
 					continue;
 				};
+				// println!("pass2d_id======================{:?}", pass2d_id);
 				alloc_depth(device, pass2d, list, share_layout, draw_state, buffer_assets, bind_group_assets, depth_cache, cur_depth)
 			}
 		}
 	}
+}
+
+fn alloc_depth_one<'a>(
+	device: &'a RenderDevice,
+	draw_key: DrawKey,
+	share_layout: &'a ShareLayout,
+	draw_state: &'a mut Query<DrawObject, (&mut DrawState, Option<&NodeId>)>,
+	buffer_assets: &'a Share<AssetMgr<RenderRes<Buffer>>>,
+	bind_group_assets: &'a Share<AssetMgr<RenderRes<BindGroup>>>,
+	depth_cache: &'a mut Vec<Handle<RenderRes<BindGroup>>>,
+	cur_depth: &'a mut usize,
+) {
+	let (mut draw_state_item, node_id) = match draw_state.get_mut(draw_key) {
+		Some(r) => r,
+		None => return,
+	};
+
+	let bind_group = create_depth_group(
+		*cur_depth, 
+		buffer_assets, 
+		bind_group_assets, 
+		depth_cache,
+		device,
+		share_layout);
+	// println!("drawobj======================{:?}, {:?}， {:?}, {:?}, {:?}", draw_key, cur_depth, node_id.map(|n|{
+	// 	let r: u64 = unsafe {transmute(n.clone())};
+	// 	(r - n.offset() as u64) >> 32
+	// }), node_id.map(|n|{n.offset()}) , node_id);
+	draw_state_item.bind_groups.insert(
+		DEPTH_GROUP, 
+		bind_group
+	);
+	*cur_depth += 1;
 }
 
 lazy_static! {
@@ -545,7 +637,7 @@ pub struct DepthCache(Vec<Handle<RenderRes<BindGroup>>>);
 pub fn create_clear_pipeline_state() -> PipelineState {
 	PipelineState {
 		targets: vec![wgpu::ColorTargetState {
-			format: wgpu::TextureFormat::Bgra8UnormSrgb,
+			format: wgpu::TextureFormat::Bgra8Unorm,
 			blend: Some(wgpu::BlendState {
 				color: wgpu::BlendComponent {
 					operation: wgpu::BlendOperation::Add,

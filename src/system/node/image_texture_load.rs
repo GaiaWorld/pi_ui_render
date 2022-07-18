@@ -30,22 +30,23 @@ where S: std::ops::Deref<Target=Atom> + 'static + Send + Sync ,
 	/// 图片加载是异步，加载成功后，不能立即将图片对应的纹理设置到BorderImageTexture上
 	/// 因为BorderImageTexture未加锁，其他线程可能正在使用
 	/// 这里是将一个加载成功的Texture放入一个加锁的列表中，在system执行时，再放入到BorderImageTexture中
-	#[listen(component=(Node, S, Create))]
-	pub fn border_image_change(
+	#[listen(component=(Node, S, (Create, Modify)))]
+	pub fn image_change(
 		e: Event,
 		mut query: Query<Node, (&S, Write<D>)>,
 		texture_assets_mgr: Res<Share<AssetMgr<TextureRes>>>,
-		border_image_await: Res<ImageAwait<S>>,
+		image_await: Res<ImageAwait<S>>,
 		queue: Res<RenderQueue>,
 		device: Res<RenderDevice>,
 	) {
 		let (key, mut texture) = query.get_unchecked_mut_by_entity(e.id);
 		let result = AssetMgr::load(&texture_assets_mgr, &(key.get_hash() as u64));
+		// println!("load image!!!!!!!!!!!===={:?}", (*key).clone());
 		match result {
             LoadResult::Ok(r) => texture.write(D::from(r)),
 			_ => {
 				let (awaits, device, queue) =( 
-					(*border_image_await).clone(),  
+					(*image_await).clone(),  
 					(*device).clone(), 
 					(*queue).clone());
 				let (id, key) = (
@@ -58,9 +59,17 @@ where S: std::ops::Deref<Target=Atom> + 'static + Send + Sync ,
 						device: &device,
 						queue: &queue,
 					};
+
 					let r = TextureRes::async_load(desc, result).await;
 					match r {
-						Ok(r) => awaits.lock().unwrap().push((id, key.clone(), r)),
+						Ok(r) => {
+							let lock = awaits.lock();
+							let mut lock = match lock {
+								Ok(r) => r,
+								Err(r) => panic!("{:?}", r)
+							};
+							lock.push((id, key.clone(), r));
+						},
 						Err(e) => {
 							log::error!("load image fail, {:?}", e);
 						},
@@ -75,7 +84,6 @@ where S: std::ops::Deref<Target=Atom> + 'static + Send + Sync ,
 	pub fn check_await_texture(
 		border_image_await: Res<ImageAwait<S>>,
 		mut query: Query<Node, (&S, Write<D>)>,
-
 	) {
 		let awaits = {
 			let mut border_image_await = border_image_await.0.lock().unwrap();

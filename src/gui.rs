@@ -1,7 +1,9 @@
-use std::{any::TypeId, mem::replace};
+use std::{any::TypeId, mem::{replace, size_of}, sync::Arc};
 
-use pi_assets::{mgr::AssetMgr, asset::{GarbageEmpty, Handle}};
-use pi_ecs::prelude::{World, ArchetypeId, StageBuilder, Id, Setup, FromWorld};
+use pi_assets::{mgr::AssetMgr, asset::{GarbageEmpty, Handle}, homogeneous::HomogeneousMgr};
+use pi_ecs::{prelude::{World, ArchetypeId, StageBuilder, Id, Setup, FromWorld, QueryState, Join, OrDefault}, component::MultiCaseImpl};
+use pi_ecs_utils::prelude::{NodeDown, NodeUp, Layer};
+use pi_print_any::{println_any, out_any};
 use pi_render::{
 	rhi::{
 		asset::{RenderRes, TextureRes},
@@ -9,19 +11,19 @@ use pi_render::{
 		bind_group::BindGroup, 
 		device::RenderDevice, RenderQueue
 	}, 
-	components::view::target_alloc::{SafeAtlasAllocator, DEPTH_TEXTURE, ShareTargetView},
+	components::view::target_alloc::{SafeAtlasAllocator, DEPTH_TEXTURE, ShareTargetView, UnuseTexture},
 	font::FontSheet,
 };
-use pi_share::{Share, ShareCell};
+use pi_share::{Share, ShareCell, cell::TrustCell};
 use wgpu::TextureView;
 
 use crate::{
 	components::{
-		user::{ClassName, Aabb2, Point2, BorderImage, BackgroundImage}, 
-		pass_2d::{RenderTarget, ScreenTarget}, calc::{BorderImageTexture, BackgroundImageTexture}
+		user::{ClassName, Aabb2, Point2, BorderImage, BackgroundImage, Enable, Overflow}, 
+		pass_2d::{RenderTarget, ScreenTarget, Pass2D, ParentPassId}, calc::{BorderImageTexture, BackgroundImageTexture, LayoutResult, Quad, WorldMatrix, ZRange, IsEnable, InPassId, NodeId}
 	}, 
-	resource::{UserCommands, NodeCommand, Viewport, draw_obj::CommonSampler}, 
-	utils::{style::style_sheet::{StyleAttr, Attr}, tools::calc_hash}, 
+	resource::{UserCommands, NodeCommand, Viewport, draw_obj::CommonSampler, DefaultStyle}, 
+	utils::{style::{style_sheet::{StyleAttr, Attr, ClassSheet}, style_parse::parse_class_map_from_string}, tools::calc_hash, cmd::Command}, 
 	system::{
 		node::{user_setting::CalcUserSetting, context::CalcContext, z_index::CalcZindex, layout::CalcLayout, quad::CalcQuad, world_matrix::CalcMatrix, content_box::CalcContentBox, background_color::CalcBackGroundColor, context_opacity::{CalcOpacity, CalcOpacityPostProcess}, context_transform_will_change::CalcTransformWillChange, context_overflow::CalcOverflow, context_root::CalcRoot, text::CalcText, text_split::CalcTextSplit, text_glphy::CalcTextGlyph, border_image::CalcBorderImage, border_color::CalcBorderColor, box_shadow::CalcBoxShadow, background_image::CalcBackgroundImage, image_texture_load::CalcImageLoad}, 
 		draw_obj::{world_marix::CalcWorldMatrixGroup, pipeline::CalcPipeline}, 
@@ -37,11 +39,25 @@ use crate::{
 use crate::components::user::Node;
 
 pub struct Gui {
-	world: World,
+	pub world: World,
 
 	user_commands: UserCommands,
 
 	node_archetype_id: ArchetypeId,
+
+	pub down_query: QueryState<Node, &'static NodeDown<Node>>,
+	pub up_query: QueryState<Node, &'static NodeUp<Node>>,
+	pub layer_query: QueryState<Node, &'static Layer>,
+	pub enable_query: QueryState<Node, &'static IsEnable>,
+	pub depth_query: QueryState<Node, &'static ZRange>,
+	pub layout_query: QueryState<Node, &'static LayoutResult>,
+	pub quad_query: QueryState<Node, &'static Quad>,
+	pub matrix_query: QueryState<Node, &'static WorldMatrix>,
+	pub overflow_query: QueryState<Pass2D, Join<NodeId, Node, (&'static Quad, OrDefault<Overflow>, Option<&'static ParentPassId>)>>,
+	pub in_pass2d_query: QueryState<Node, &'static InPassId>,
+
+	// node_archetype: ArchetypeId,
+	pub quad_component_comtainer: Arc<TrustCell<MultiCaseImpl<Quad>>>,
 }
 
 impl Gui {
@@ -59,11 +75,34 @@ impl Gui {
 
 		// let dispatcher= SingleDispatcher::new(rt);
 
+		let archetype_id = world.archetypes_mut().get_or_create_archetype::<Node>();
+		let quad_id = world.get_or_register_component::<Quad>(archetype_id);
+		let c = unsafe { world.archetypes().get(archetype_id).unwrap().get_component(quad_id)};
+		let quad = match c.clone().downcast() {
+			Ok(r) => {
+				let r: Arc<TrustCell<MultiCaseImpl<Quad>>> = r;
+				r
+			},
+			Err(_) => panic!("downcast fail")
+		};
+		// let archetype = 
 		Gui {
 			world: world.clone(),
 			node_archetype_id,
 			user_commands: UserCommands::default(),
-			// dispatcher,
+
+			down_query: world.query(),
+			up_query: world.query(),
+			layer_query: world.query(),
+			enable_query: world.query(),
+			depth_query: world.query(),
+			layout_query: world.query(),
+			quad_query: world.query(),
+			matrix_query: world.query(),
+			in_pass2d_query: world.query(),
+			overflow_query: world.query(),
+
+			quad_component_comtainer: quad,
 		}
 	}
 
@@ -85,22 +124,26 @@ impl Gui {
 	// 创建节点
 	pub fn create_node(&mut self) -> Id<Node> {
 		let node_archetype_id = self.node_archetype_id;
-		unsafe { Id::new(self.world.archetypes_mut()[node_archetype_id].reserve_entity()) }
+		let r = unsafe { Id::new(self.world.archetypes_mut()[node_archetype_id].reserve_entity()) };
+		r
 	}
 
 	/// 将节点作为子节点挂在父上
 	pub fn append(&mut self, entity: Id<Node>, parent: Id<Node>) {
 		self.user_commands.node_commands.push(NodeCommand::AppendNode(entity, parent));
+		// println!("append====={:?}, {:?}", entity, parent);
 	}
 
 	/// 将节点插入到某个节点之前
 	pub fn insert_before(&mut self, entity: Id<Node>, anchor: Id<Node>) {
 		self.user_commands.node_commands.push(NodeCommand::InsertBefore(entity, anchor));
+		// println!("insert_before====={:?}, {:?}", entity, anchor);
 	}
 
 	/// 从父节点上移除节点
 	pub fn remove_node(&mut self, entity: Id<Node>) {
 		self.user_commands.node_commands.push(NodeCommand::RemoveNode(entity));
+		// println!("insert_before====={:?}", entity.clone());
 	}
 
 	/// 从父节点上移除节点，并销毁该节点及所有子节点
@@ -124,9 +167,55 @@ impl Gui {
 		self.user_commands.style_commands.commands.push((entity, start, self.user_commands.style_commands.style_buffer.len()));
 	}
 
+	/// 设置默认样式（二进制样式）
+	pub fn set_default_style_by_bin(&mut self, bin: &[u8]) {
+		let class_sheet_new: ClassSheet = match bincode::deserialize(bin) {
+			Ok(r) => r,
+			Err(e) => {
+				log::error!("deserialize ClassSheet error: {:?}", e);
+				return;
+			}
+		};
+
+		let class_sheet = self.world.get_resource_mut::<ClassSheet>();
+		let class_sheet = match class_sheet {
+			Some(r) => r,
+			None => {
+				self.world.insert_resource(ClassSheet::default());
+				self.world.get_resource_mut::<ClassSheet>().unwrap()
+			}
+		};
+		class_sheet.extend_from_class_sheet(class_sheet_new);
+
+	}
+
+	/// 设置默认样式（字符串）
+	pub fn set_default_style_by_str(&mut self, class: &str) {
+		let class_sheet = self.world.get_resource_mut::<ClassSheet>();
+		let class_sheet = match class_sheet {
+			Some(r) => r,
+			None => {
+				self.world.insert_resource(ClassSheet::default());
+				self.world.get_resource_mut::<ClassSheet>().unwrap()
+			}
+		};
+		match parse_class_map_from_string(class, class_sheet) {
+			Ok(_r) => self.world.insert_resource(DefaultStyle), // 触发DefaultStyle修改
+			Err(e) => {
+				log::error!("set_default_style_by_str fail, parse style err: {:?}", e);
+				return
+			},
+		};
+	}
+
 	/// 设置节点的class
 	pub fn set_class(&mut self, entity: Id<Node>, value: ClassName){
 		self.user_commands.class_commands.push((entity, value));
+	}
+
+	/// 添加指令
+	pub fn push_cmd<T: Command>(&mut self, cmd: T) {
+		self.user_commands.other_commands.push(cmd);
 	}
 
 	/// 推动gui运行
@@ -159,6 +248,11 @@ fn register_assets_mgr(world: &mut World) {
 		false,
 		60 * 1024 * 1024, 
 		3 * 60 * 1000));
+	world.insert_resource(HomogeneousMgr::<RenderRes<UnuseTexture>>::new(
+		pi_assets::homogeneous::GarbageEmpty(), 
+		10 * size_of::<UnuseTexture>(),
+		size_of::<UnuseTexture>(),
+		3 * 60 * 1000));
 }
 
 // 插入必须的资源
@@ -170,6 +264,8 @@ fn insert_resource(
 	height: u32,
 ) {
 	let texture_res_mgr = world.get_resource::<Share<AssetMgr<RenderRes<TextureView>>>>().unwrap().clone();
+	let texture_res_mgr1 = world.get_resource::<Share<AssetMgr<TextureRes>>>().unwrap().clone();
+	let unuse_texture_res_mgr = world.get_resource::<Share<HomogeneousMgr<RenderRes<UnuseTexture>>>>().unwrap().clone();
 	let device = world.get_resource::<RenderDevice>().unwrap().clone();
 	let queue = world.get_resource::<RenderQueue>().unwrap().clone();
 
@@ -183,7 +279,7 @@ fn insert_resource(
 		// depth: None,
 	});
 
-	let allocator = SafeAtlasAllocator::new(device.clone(), texture_res_mgr.clone());
+	let allocator = SafeAtlasAllocator::new(device.clone(), texture_res_mgr.clone(), unuse_texture_res_mgr);
 	let dyn_target_type = InitGraphData::create_dyn_target_type(&allocator, &view_port);
 
 	// 需要单独的一个target类型
@@ -214,7 +310,7 @@ fn insert_resource(
 	world.insert_resource(common_sampler);
 	
 	// 插入FontSheet
-	world.insert_resource(Share::new(ShareCell::new(FontSheet::new(&device,&texture_res_mgr, &queue))));
+	world.insert_resource(Share::new(ShareCell::new(FontSheet::new(&device,&texture_res_mgr1, &queue))));
 	
 }
 
@@ -240,9 +336,8 @@ fn create_depth_buffer(
 	});
 	let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
 
-	let hash = calc_hash(&(DEPTH_TEXTURE.get_hash(), width, height));
-	texture_res_mgr.cache(hash, RenderRes::new(texture_view, (width * height * 3) as usize));
-	texture_res_mgr.get(&hash).unwrap()
+	let hash = calc_hash(&(DEPTH_TEXTURE.get_hash(), width, height), calc_hash(&"depth texture", 0));
+	texture_res_mgr.insert(hash, RenderRes::new(texture_view, (width * height * 3) as usize)).unwrap()
 }
 
 // fn calc_texture

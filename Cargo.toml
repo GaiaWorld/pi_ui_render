@@ -5,12 +5,14 @@ authors = ["suncy <suncy@gmail.com>"]
 edition = "2021"
 
 [dependencies]
+pi_print_any= "0.1"
 pi_slotmap = "0.1"
 num-traits = "0.2.6"
 fnv = "1.0.6"
 lazy_static = "*"
 derive_deref = "1.1"
 paste = "0.1"
+bincode = "1.3"
 serde = { version = "1.0", features = ["derive"], option=true }
 ordered-float = { version = "3.0", default-features = false, features = ["serde"] }
 fxhash = "0.2.1"
@@ -46,6 +48,10 @@ naga = { version = "0.8", features = [
 pi_assets = "0.7"
 image = "0.23"
 polygon2 = "0.3"
+json ="0.12"
+pi_slab="0.1"
+pi_idtree="0.1"
+winit = "0.26"
 
 pi_spatialtree = { git = "https://github.com/GaiaWorld/pi_spatialtree.git" }
 pi_render = { git = "https://github.com/GaiaWorld/pi_render.git" }
@@ -56,26 +62,35 @@ pi_flex_layout = { git = "https://github.com/GaiaWorld/pi_flex_layout.git" }
 pi_slotmap_tree = { git = "https://github.com/GaiaWorld/pi_slotmap_tree.git" }
 pi_dirty = { git = "https://github.com/GaiaWorld/pi_dirty.git" }
 pi_hal={git="https://github.com/GaiaWorld/pi_hal.git"}
-# [patch."https://github.com/GaiaWorld/pi_ecs"]
-# pi_ecs = { path = "../pi_ecs" }
-# pi_ecs_macros = { path = "../pi_ecs/macros" }
+js_proxy_gen_macro={git="https://github.com/GaiaWorld/pi_lib.git"}
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = { version = "0.2.78", features = ["serde-serialize"] }
+
+[patch."https://github.com/GaiaWorld/pi_ecs"]
+pi_ecs = { path = "../pi_ecs" }
+pi_ecs_macros = { path = "../pi_ecs/macros" }
 
 
-# [patch."https://github.com/GaiaWorld/pi_ecs_utils"]
-# pi_ecs_utils = { path = "../pi_ecs_utils" }
+[patch."https://github.com/GaiaWorld/pi_ecs_utils"]
+pi_ecs_utils = { path = "../pi_ecs_utils" }
 
-# [patch."https://github.com/GaiaWorld/pi_render"]
-# pi_render = { path = "../pi_render" }
+[patch."https://github.com/GaiaWorld/pi_render"]
+pi_render = { path = "../pi_render" }
 
-# [patch."https://github.com/GaiaWorld/pi_slotmap_tree"]
-# pi_slotmap_tree = { path = "../pi_slotmap_tree" }
+[patch."https://github.com/GaiaWorld/pi_hal"]
+pi_hal = { path = "../pi_hal" }
+
+[patch."https://github.com/GaiaWorld/pi_slotmap_tree"]
+pi_slotmap_tree = { path = "../pi_slotmap_tree" }
 
 
-# [patch."https://github.com/GaiaWorld/pi_flex_layout"]
-# pi_flex_layout = { path = "../pi_flex_layout" }
+[patch."https://github.com/GaiaWorld/pi_flex_layout"]
+pi_flex_layout = { path = "../pi_flex_layout" }
 
-# [patch.crates-io]
-# pi_slotmap = { path = "../pi_slotmap" }
+[patch.crates-io]
+pi_slotmap = { path = "../pi_slotmap" }
+wgpu = { path = "../wgpu/wgpu" }
 
 
 [[example]]
@@ -83,8 +98,6 @@ name = "quad"
 test = true
 
 [dev-dependencies]
-winit = "0.26"
-wgpu = "0.12"
 env_logger = "0.9"
 float-ord = "0.3"
 async-trait="0.1"
@@ -133,3 +146,6 @@ font_kit = {git="http://ser.yinengyun.com:10082/tech/font_kit.git", branch="sunc
 # features = [
 # 	"console",
 # ]
+[net]
+git-fetch-with-cli = true
+offline = true

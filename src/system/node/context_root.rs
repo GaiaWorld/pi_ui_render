@@ -104,7 +104,7 @@ impl CalcRoot {
 			&share_layout);
 		draw_state.bind_groups.insert(DEPTH_GROUP, depth_bind_group);
 
-		let group_key = calc_hash(&("bind", target.target().colors[0].0.key() ));
+		let group_key = calc_hash(&("bind", target.target().colors[0].0.key() ), 0);
 
 		let texture_bind = match bind_group_assets.get(&group_key) {
 			Some(r) => r,
@@ -114,7 +114,7 @@ impl CalcRoot {
 					entries: &[
 						wgpu::BindGroupEntry {
 							binding: 0,
-							resource: wgpu::BindingResource::Sampler(&common_sampler.default),
+							resource: wgpu::BindingResource::Sampler(&common_sampler.pointer),
 						},
 						wgpu::BindGroupEntry {
 							binding: 1,
@@ -123,8 +123,7 @@ impl CalcRoot {
 					],
 					label: Some("post process texture bind group create"),
 				});
-				bind_group_assets.cache(group_key, RenderRes::new(group, 5));
-				bind_group_assets.get(&group_key).unwrap()
+				bind_group_assets.insert(group_key, RenderRes::new(group, 5)).unwrap()
 			},
 		};
 		draw_state.bind_groups.insert(POST_TEXTURE_GROUP, texture_bind);

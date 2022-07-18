@@ -20,7 +20,7 @@ pub type Point3 = nalgebra::Point3<f32>;
 pub type Vector2 = nalgebra::Vector2<f32>;
 pub type Vector3 = nalgebra::Vector3<f32>;
 pub type Vector4 = nalgebra::Vector4<f32>;
-#[derive(Default, Debug, Deref, DerefMut, Clone, Serialize, Deserialize)]
+#[derive(Debug, Deref, DerefMut, Clone, Serialize, Deserialize)]
 pub struct CgColor(nalgebra::Vector4<f32>);
 pub type Aabb2 = ncollide2d::bounding_volume::AABB<f32>;
 pub type NotNanRect = Rect<NotNan<f32>>;
@@ -40,6 +40,12 @@ impl CgColor {
 	pub fn new(x: f32, y: f32, z: f32, w: f32) -> Self {
 		Self(nalgebra::Vector4::new(x, y, z, w))
 	}
+}
+
+impl Default for CgColor {
+    fn default() -> Self {
+        Self(nalgebra::Vector4::new(1.0, 1.0, 1.0, 1.0))
+    }
 }
 
 #[derive(Default)]
@@ -163,6 +169,15 @@ pub struct Transform {
     pub origin: TransformOrigin,
 }
 
+impl Transform {
+	pub fn add_func(&mut self, f: TransformFunc) {
+		self.funcs.push(f);
+	}
+	pub fn set_origin(&mut self, o: TransformOrigin) {
+		self.origin = o;
+	}
+}
+
 pub type TransformFuncs = Vec<TransformFunc>;
 // 背景色和class
 #[derive(Debug, Clone, Default, Serialize, Deserialize, Deref)]
@@ -170,7 +185,7 @@ pub struct BackgroundColor(pub Color);
 
 // class名称， 支持多个class， 当只有一个或两个class时， 有优化
 #[derive(Debug, Clone, Default, Serialize, Deserialize, Deref, DerefMut)]
-pub struct ClassName(SmallVec<[usize; 1]>);
+pub struct ClassName(pub SmallVec<[usize; 1]>);
 
 // 边框颜色
 #[derive(Debug, Clone, Default, Serialize, Deserialize, Deref, DerefMut)]
@@ -183,7 +198,7 @@ pub struct BackgroundImage(pub Atom);
 // 遮罩图片是图片路径或线性渐变色
 #[derive(Clone, Debug, Serialize, Deserialize, EnumDefault)]
 pub enum MaskImage {
-	Path(usize),
+	Path(Atom),
 	LinearGradient(LinearGradientColor),
 }
 
@@ -193,7 +208,7 @@ pub struct MaskImageClip (pub Aabb2);
 
 impl Default for MaskImageClip {
 	fn default() -> Self {
-		MaskImageClip (Aabb2::new(Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)))
+		MaskImageClip (Aabb2::new(Point2::new(0.0, 0.0), Point2::new(1.0, 1.0)))
 	}
 }
 
@@ -507,7 +522,7 @@ pub struct Stroke {
 }
 
 // 图像填充的方式
-#[derive(Debug, Clone, EnumDefault, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum FitType {
     None,
     Fill,
@@ -517,6 +532,12 @@ pub enum FitType {
     Repeat,
     RepeatX,
     RepeatY,
+}
+
+impl Default for FitType {
+    fn default() -> Self {
+        FitType::Fill
+    }
 }
 
 #[derive(Debug, Clone, Copy, EnumDefault, Serialize, Deserialize, Hash)]
@@ -574,8 +595,13 @@ pub enum TransformOrigin {
 
 impl TransformOrigin {
     pub fn to_value(&self, width: f32, height: f32) -> Point2 {
+		if width > 150.0 && width < 160.0 {
+			println!("xxxxxxxxxxxxx");
+		}
         match self {
-            TransformOrigin::Center => Point2::new(0.5 * width, 0.5 * height),
+            TransformOrigin::Center => {
+				
+				Point2::new(0.5 * width, 0.5 * height)},
             TransformOrigin::XY(x, y) => Point2::new(
                 match x {
                     LengthUnit::Pixel(v) => v.clone(),
@@ -756,7 +782,7 @@ pub fn get_size(s: &FontSize) -> usize {
     match s {
         &FontSize::None => {
 			// size
-			panic!()
+			32 // 默认32px
 		},
         &FontSize::Length(r) => r,
         &FontSize::Percent(_r) => {

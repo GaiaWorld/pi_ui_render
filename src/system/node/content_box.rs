@@ -43,10 +43,16 @@ impl CalcContentBox {
 				// 如果存在子节点，求所有子节点的ContextBox和自身的Oct的并
 				if let Some(down_item) = down.get_unchecked(id) {
 					let mut child = down_item.head();
+					
 					while !child.is_null() {
-						box_and(&mut oct, &content_box.get_unchecked(child).get().unwrap().0);
-						let up = up.get_unchecked(child);
-						child = up.next();
+						// 如果content_box不存在，则节点不是一个真实的节点，可能是一个文字节点，不需要计算
+						if let Some(content_box_item) = content_box.get_unchecked(child).get() {
+							box_and(&mut oct, &content_box_item.0);
+							let up = up.get_unchecked(child);
+							child = up.next();
+						} else {
+							break;
+						}
 					}
 				}
 				

@@ -1,6 +1,8 @@
+use std::intrinsics::transmute;
 use std::marker::PhantomData;
 use std::io::Result;
 
+use ordered_float::NotNan;
 use pi_assets::asset::Handle;
 use pi_assets::mgr::AssetMgr;
 use pi_ecs::prelude::{Or, Deleted, With, ChangeTrackers, ParamSet, Local, FromWorld, OrDefault};
@@ -16,13 +18,13 @@ use pi_polygon::{find_lg_endp, split_by_lg, interp_mult_by_lg, LgCfg, mult_to_tr
 use pi_render::font::{ FontSheet, Glyph, GlyphId};
 use wgpu::IndexFormat;
 
-use crate::components::calc::{LayoutResult, NodeState};
+use crate::components::calc::{LayoutResult, NodeState, DrawInfo};
 use crate::components::user::{CgColor, TextContent, TextStyle};
 use crate::resource::draw_obj::CommonSampler;
 use crate::system::shader_utils::StaticIndex;
 use crate::system::shader_utils::text::{TextStaticIndex, TEXT_TEXTURE_SIZE_GROUP, TEXT_COLOR_GROUP, TEXT_POSITION_LOCATION, TEXT_UV_LOCATION, TEXT_TEXTURE_GROUP, TEXT_COLOR_LOCATION};
 use crate::utils::tools::{calc_hash, calc_float_hash, calc_hash_slice};
-use crate::{components::{user::{Node, BackgroundColor, Color}, calc::{NodeId, DrawList}, draw_obj::{IsUnitQuad, DrawObject, DrawState, VSDefines, FSDefines}}, resource::draw_obj::{Shaders, UnitQuadBuffer}};
+use crate::{components::{user::{Node, BackgroundColor, Color}, calc::{NodeId, DrawList}, draw_obj::{BoxType, DrawObject, DrawState, VSDefines, FSDefines}}, resource::draw_obj::{Shaders, UnitQuadBuffer}};
 
 pub struct CalcText;
 
@@ -64,9 +66,8 @@ impl FromWorld for TextShareBuffer {
 			mapped_at_creation: false,
 		});
 
-		let key = calc_hash(&"Text Gradient Empty");
-		buffer_assets.cache(key, RenderRes::new(gradient_buf, 0));
-		let gradient_buf = buffer_assets.get(&key).unwrap();
+		let key = calc_hash(&"Text Gradient Empty", 0);
+		let gradient_buf = buffer_assets.insert(key, RenderRes::new(gradient_buf, 0)).unwrap();
 
 		let size_group_layout = &shader_static.get(text_static_index.shader).unwrap().bind_group[TEXT_TEXTURE_SIZE_GROUP];
 
@@ -81,11 +82,11 @@ impl FromWorld for TextShareBuffer {
 			label: Some("Text TextrueSize group create"),
 		});
 
-		let key = calc_hash(&"TEXT_TEXTURE_SIZE_GROUP");
-		bind_group_assets.cache(key, RenderRes::new(group, 5));
+		let key = calc_hash(&"TEXT_TEXTURE_SIZE_GROUP", 0);
+		bind_group_assets.insert(key, RenderRes::new(group, 5)).unwrap();
 
 		let texture_group_layout = &shader_static.get(text_static_index.shader).unwrap().bind_group[TEXT_TEXTURE_GROUP];
-		let texture_group_key = calc_hash(&"TEXT TETURE");
+		let texture_group_key = calc_hash(&"TEXT TETURE", 0);
 		let texture_group = match bind_group_assets.get(&texture_group_key) {
 			Some(r) => r,
 			None => {
@@ -98,13 +99,12 @@ impl FromWorld for TextShareBuffer {
 						},
 						wgpu::BindGroupEntry {
 							binding: 1,
-							resource: wgpu::BindingResource::TextureView(font_sheet.texture_view()),
+							resource: wgpu::BindingResource::TextureView(&font_sheet.texture_view().texture_view),
 						},
 					],
 					label: Some("post process texture bind group create"),
 				});
-				bind_group_assets.cache(texture_group_key, RenderRes::new(group, 5));
-				bind_group_assets.get(&texture_group_key).unwrap()
+				bind_group_assets.insert(texture_group_key, RenderRes::new(group, 5)).unwrap()
 			},
 		};
 
@@ -115,7 +115,7 @@ impl FromWorld for TextShareBuffer {
 			usage: wgpu::BufferUsages::UNIFORM,
 		});
 		let color_group_layout = &shader_static.get(text_static_index.shader).unwrap().bind_group[TEXT_COLOR_GROUP];
-		let color_group_key = calc_hash(&"TEXT DEFAULT COLOR");
+		let color_group_key = calc_hash(&"TEXT DEFAULT COLOR", 0);
 		let color_group = match bind_group_assets.get(&color_group_key) {
 			Some(r) => r,
 			None => {
@@ -129,8 +129,7 @@ impl FromWorld for TextShareBuffer {
 					],
 					label: Some("post process texture bind group create"),
 				});
-				bind_group_assets.cache(texture_group_key, RenderRes::new(group, 5));
-				bind_group_assets.get(&texture_group_key).unwrap()
+				bind_group_assets.insert(color_group_key, RenderRes::new(group, 5)).unwrap()
 			},
 		};
 
@@ -156,6 +155,7 @@ impl CalcText {
 				&'static NodeState,
 				&'static LayoutResult,
 				OrDefault<TextStyle>,
+				&'static TextContent,
 				Write<TextDrawId>, 
 				Write<DrawList>,
 				ChangeTrackers<TextContent>,
@@ -176,14 +176,15 @@ impl CalcText {
 			), Deleted<TextContent>>
 		)>,
 
-		mut query_draw: Query<DrawObject, (Write<DrawState>, &'static IsUnitQuad, & 'static mut VSDefines, & 'static mut FSDefines)>,
+		mut query_draw: Query<DrawObject, (Write<DrawState>, OrDefault<BoxType>, & 'static mut VSDefines, & 'static mut FSDefines)>,
 		mut draw_obj_commands: EntityCommands<DrawObject>,
 		mut draw_state_commands: Commands<DrawObject, DrawState>,
 		mut node_id_commands: Commands<DrawObject, NodeId>,
-		mut is_unit_quad_commands: Commands<DrawObject, IsUnitQuad>,
+		mut is_unit_quad_commands: Commands<DrawObject, BoxType>,
 		mut shader_static_commands: Commands<DrawObject, StaticIndex>,
 		mut vs_defines_commands: Commands<DrawObject, VSDefines>,
 		mut fs_defines_commands: Commands<DrawObject, FSDefines>,
+		mut order_commands: Commands<DrawObject, DrawInfo>,
 		
 		// load_mgr: ResMut<'a, LoadMgr>,
 		device: Res<'static, RenderDevice>,
@@ -238,12 +239,15 @@ impl CalcText {
 			node_state, 
 			layout, 
 			text_style,
+			text_content,
 			mut draw_index, 
 			mut render_list, 
 			mut text_change,
 			style_change,
 			node_state_change) in query.p0_mut().iter_mut() {
-
+			if text_content.0.as_str().find("comm").is_some() {
+				println!("ccccccccccc");
+			}
 			match draw_index.get() {
 				// background_color已经存在一个对应的DrawObj， 则修改color group
 				Some(r) => {
@@ -280,6 +284,10 @@ impl CalcText {
 				// * <DrawObject, NodeId>
 				// * <DrawObject, IsUnitQuad>
 				None => {
+					if unsafe{transmute::<_, u64>(node)} == 4294967383{
+						println!("zzzzzzzzz:");
+					}
+					
 					// log::info!("create_background=================");
 					// 创建新的DrawObj
 					let new_draw_obj = draw_obj_commands.spawn();
@@ -316,6 +324,7 @@ impl CalcText {
 					shader_static_commands.insert(new_draw_obj, static_index.clone());
 					vs_defines_commands.insert(new_draw_obj, vs_defines);
 					fs_defines_commands.insert(new_draw_obj, fs_defines);
+					order_commands.insert(new_draw_obj, DrawInfo(1));
 
 					// 建立Node对DrawObj的索引
 					draw_index.write(TextDrawId(new_draw_obj));
@@ -413,26 +422,35 @@ fn modify<'a> (
 			index_buffer_max_len,
 			buffer_assets,
 			scale,
+			text_style.text_stroke.width,
 		);
 	}
 
 
 	// 修改color_group
 	let color_temp;
-	let (color, stroke) = match &text_style.color {
+	let color = match &text_style.color {
 		Color::RGBA(c) => {
 			vs_defines.remove("VERTEX_COLOR");
-			(c, &text_style.text_stroke.color)
+			c
 		},
 		Color::LinearGradient(_) => {
 			vs_defines.insert("VERTEX_COLOR".to_string());
 			color_temp = CgColor::default();
-			(&color_temp, &text_style.text_stroke.color)
+			&color_temp
 		}
 	};
 
+	let color_temp;
+	let stroke = if *text_style.text_stroke.width > 0.0 {
+		&text_style.text_stroke.color
+	} else {
+		color_temp = CgColor::new(0.0, 0.0, 0.0, 0.0);
+		&color_temp
+	};
+
 	let buffer = &[color.x, color.y, color.z, color.w, stroke.x, stroke.y,stroke.z,stroke.w];
-	let key = calc_float_hash(buffer);
+	let key = calc_float_hash(buffer, calc_hash(&"text color", 0));
 	let group = match bind_group_assets.get(&key) {
 		Some(r) => r,
 		None => {
@@ -455,8 +473,7 @@ fn modify<'a> (
 				label: Some("Text TextrueSize group create"),
 			});
 
-			bind_group_assets.cache(key, RenderRes::new(group, 5));
-			bind_group_assets.get(&key).unwrap()
+			bind_group_assets.insert(key, RenderRes::new(group, 5)).unwrap()
 		}
 	};
 	draw_state.bind_groups.insert(TEXT_COLOR_GROUP, group);
@@ -480,9 +497,10 @@ fn modify_geo(
 	index_buffer_max_len: &mut usize,
 	buffer_assets: &Share<AssetMgr<RenderRes<Buffer>>>,
 	scale: f32,
+	stroke_width: NotNan<f32>,
 ) {
 	let rect = &layout.rect;
-	let (mut positions, mut uvs) = text_vert(node_state, layout, font_sheet, scale);
+	let (mut positions, mut uvs) = text_vert(node_state, layout, font_sheet, scale, stroke_width);
     match color {
 		Color::RGBA(_) => {
 			
@@ -492,7 +510,7 @@ fn modify_geo(
 				*index_buffer_max_len = l + 50;
 			}
 			let index_buffer = get_or_create_index_buffer(*index_buffer_max_len, device, buffer_assets);
-			draw_state.ib = Some((index_buffer, (*index_buffer_max_len) as u64, IndexFormat::Uint16));
+			draw_state.ib = Some((index_buffer, (l * 6) as u64, IndexFormat::Uint16));
 		}
 		Color::LinearGradient(color) => {
 			let mut i = 0;
@@ -541,7 +559,7 @@ fn modify_geo(
 				data: lg_color,
 			}];
 			
-			let len = positions.len();
+			let len = positions.len() / 2;
 			while (i as usize) < len {
 				// log::info!("position: {:?}, {:?}, {:?}, {:?}, {:?}", positions, node_state.0.text, lg_pos, &endp.0, &endp.1);
 				let (ps, indices_arr) = split_by_lg(
@@ -570,6 +588,13 @@ fn modify_geo(
 				indices = mult_to_triangle(&indices_arr, indices);
 				i = i + 4;
 			}
+
+			let index_buffer = get_or_create_buffer_index(
+				bytemuck::cast_slice(&indices), 
+				"text vert index buffer", 
+				device, 
+				buffer_assets);
+			draw_state.ib = Some((index_buffer, indices.len() as u64, IndexFormat::Uint16));
 
 			let colors = colors.pop().unwrap();
 			let color_buffer = get_or_create_buffer(
@@ -656,13 +681,13 @@ fn get_or_create_index_buffer(
 	device: &RenderDevice, 
 	buffer_assets: &Share<AssetMgr<RenderRes<Buffer>>>
 ) -> Handle<RenderRes<Buffer>> {
-	let key = calc_hash(&("index buffer", count));
+	let key = calc_hash(&count, calc_hash(&"index", 0));
 	match buffer_assets.get(&key) {
 		Some(r) => r,
 		None => {
 			let mut index_data: Vec<u16> = Vec::with_capacity(count * 6);
 			let mut i: u16 = 0;
-			while (i as usize) < count * 4 {
+			while (i as usize) < count * 6 {
 				index_data.extend_from_slice(&[i, i + 1, i + 2, i, i + 2, i + 3]);
 				i += 4;
 			}
@@ -672,8 +697,7 @@ fn get_or_create_index_buffer(
 				contents: bytemuck::cast_slice(&index_data),
 				usage: wgpu::BufferUsages::INDEX,
 			});
-			buffer_assets.cache(key, RenderRes::new(uniform_buf, index_data.len() * 2));
-			buffer_assets.get(&key).unwrap()
+			buffer_assets.insert(key, RenderRes::new(uniform_buf, index_data.len() * 2)).unwrap()
 		}
 	}
 }
@@ -684,7 +708,7 @@ fn get_or_create_buffer(
 	device: &RenderDevice, 
 	buffer_assets: &Share<AssetMgr<RenderRes<Buffer>>>
 ) -> Handle<RenderRes<Buffer>> {
-	let key = calc_hash_slice(buffer);
+	let key = calc_hash_slice(buffer, calc_hash(&"vert", 0));
 	match buffer_assets.get(&key) {
 		Some(r) => r,
 		None => {
@@ -693,8 +717,27 @@ fn get_or_create_buffer(
 				contents: buffer,
 				usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
 			});
-			buffer_assets.cache(key, RenderRes::new(uniform_buf, buffer.len()));
-			buffer_assets.get(&key).unwrap()
+			buffer_assets.insert(key, RenderRes::new(uniform_buf, buffer.len())).unwrap()
+		}
+	}
+}
+
+fn get_or_create_buffer_index(
+	buffer: &[u8],
+	label: &'static str,
+	device: &RenderDevice, 
+	buffer_assets: &Share<AssetMgr<RenderRes<Buffer>>>
+) -> Handle<RenderRes<Buffer>> {
+	let key = calc_hash_slice(buffer, calc_hash(&"index", 0));
+	match buffer_assets.get(&key) {
+		Some(r) => r,
+		None => {
+			let uniform_buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
+				label: Some(label),
+				contents: buffer,
+				usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
+			});
+			buffer_assets.insert(key, RenderRes::new(uniform_buf, buffer.len())).unwrap()
 		}
 	}
 }
@@ -704,12 +747,14 @@ fn text_vert(
 	layout: &LayoutResult,
 	font_sheet: &FontSheet,
 	scale: f32,
+	stroke_width: NotNan<f32>,
 ) -> (Vec<f32>, Vec<f32>) {
 	let mut positions = Vec::new();
 	let mut uvs = Vec::new();
 
 	let mut word_pos = (0.0, 0.0);
 	let mut count = 0;
+	let half_stroke = *stroke_width/2.0;
 	for c in node_state.0.text.iter(){
 		if c.ch == char::from(0) {
 			if c.count > 0 {
@@ -728,7 +773,7 @@ fn text_vert(
 			push_pos_uv(
 				&mut positions,
 				&mut uvs,
-				word_pos.0 + c.pos.left,
+				word_pos.0 + c.pos.left - half_stroke,
 				word_pos.1 + c.pos.top,
 				&glyph,
 				c.pos.right - c.pos.left,
@@ -739,7 +784,7 @@ fn text_vert(
 			push_pos_uv(
 				&mut positions,
 				&mut uvs,
-				c.pos.left,
+				c.pos.left - half_stroke,
 				c.pos.top,
 				&glyph,
 				c.pos.right - c.pos.left,
@@ -761,11 +806,10 @@ fn push_pos_uv(
 	height: f32,
 	scale: f32,
 ) {
-	let font_ratio = width/glyph.width;
-	let w = glyph.width*font_ratio;
-	let h = glyph.height*font_ratio;
-	let gx = glyph.x as f32;
-	let gy = glyph.y as f32;
+	// let font_ratio = width/glyph.width;
+	let w = glyph.width/scale;
+	let h = glyph.height/scale;
+
 	// height为行高， 当行高高于字体高度时，需要居中
 	y += (height - h)/2.0;
     let left_top = (
@@ -773,8 +817,8 @@ fn push_pos_uv(
         (y * scale).round()/scale, // 保证顶点对应整数像素
     );
     let right_bootom = (
-        left_top.0 + (w*scale).round()/scale,
-        left_top.1 + (h*scale).round()/scale,
+        left_top.0 + w,
+        left_top.1 + h,
 	);
 
     let ps = [
@@ -787,15 +831,18 @@ fn push_pos_uv(
         right_bootom.0,
         left_top.1,
 	];
+
+	let gx = glyph.x as f32;
+	let gy = glyph.y as f32;
 	let uv = [
-        gx + 0.5,
-        gy + 0.5,
-        gx + 0.5,
+        gx,
+        gy,
+        gx,
         gy + glyph.height,
         gx + glyph.width,
         gy + glyph.height,
         gx + glyph.width,
-        gy + 0.5,
+        gy,
 	];
     uvs.extend_from_slice(&uv);
 	// log::info!("uv=================={:?}, {:?}, w:{:?},h:{:?},scale:{:?},glyph:{:?}", uv, ps, width, height, scale, glyph);

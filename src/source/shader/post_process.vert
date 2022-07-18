@@ -33,7 +33,7 @@ void main() {
 
 	gl_Position = projectMatrix * gl_Position;
 	
-	gl_Position.z = depth;
+	gl_Position.z = depth/60000.0;
 
 	vUv = uv;
 }

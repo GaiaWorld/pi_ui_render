@@ -29,11 +29,11 @@ void main() {
     // samp.b < 1时，sample.b参与颜色计算，否则边缘过度部分可能出现锯齿
     // c.rgb = c.a * alpha * (samp.r * strokeColor.rgb + samp.g * c.rgb);
 	// g表示填充分量
-	c.rgb = samp.g * c.rgb;
+	// c.rgb = samp.g * c.rgb;
 
 	// r表示描边分量
 	#ifdef STROKE
-		outcolor = samp.r * strokeColor.rgb;
+		c.rgb = c.rgb * samp.g  + samp.r * strokeColor.rgb;
 	#endif
 
 	
@@ -42,5 +42,9 @@ void main() {
 	// b表示背景分量
 	c.a = c.a * (1.0 - samp.b);
 
+	
+
 	o_Target = c;
+
+	// o_Target = vec4(1.0, 0.0,0.0,1,0);
 }

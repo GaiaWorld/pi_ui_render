@@ -99,7 +99,7 @@ pub fn set_gylph(
 		return Ok(());
 	}
 
-	let font_size = (get_size(&text_style.font_size) as f32 * scale) as usize;
+	let font_size = (get_size(&text_style.font_size) as f32 * scale).round() as usize;
 	let font_id = font_sheet.font_id(
 		Font::new(
 			text_style.font_family.clone(),

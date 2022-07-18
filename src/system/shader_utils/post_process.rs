@@ -174,7 +174,6 @@ fn create_shader_info(
 		fs_defines1.insert(f.clone(), f.clone());
 	}
 
-	println!("vs======{:?}", vs_defines1);
 	let vs = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
 		label: Some("post_process_vs_shader_module"),
 		source: wgpu::ShaderSource::Glsl {
@@ -184,7 +183,6 @@ fn create_shader_info(
 		},
 	});
 
-	println!("fs======{:?}", fs_defines1);
 	let fs = processor
             .process(&fs_shader_id, fs_defines, shaders, &imports)
             .unwrap();
@@ -201,18 +199,15 @@ fn create_shader_info(
 	
 	let mut v = Vec::new();
 	let mut i = 0;
-	println!("definesxx================={:?}, {:?}", &fs_defines.0, &vs_defines.0);
 	for r in bind_group_layout.iter() {
 		if let Some(r) = r {
 			if (i == OPACITY_GROUP && !fs_defines.contains("OPACITY")) || 
 				(i == VIEW_GROUP && !vs_defines.contains("VIEW")) {
 				
-				println!("defines================={}", i, );
 				v.push(&***empty_group_layout);
 				i += 1;
 				continue;
 			}
-			println!("definesdd================={}", i);
 			v.push(&***r);
 		}
 		i += 1;
@@ -227,7 +222,6 @@ fn create_shader_info(
 	// }
 	//list_share_as_ref(bind_group_layout.iter());
 	let slice = v.as_slice();
-	println!("len===={}, {}", slice.len(), v.len());
 	let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
 		label: Some("cerate post process pipeline_layout"),
 		bind_group_layouts: slice,
@@ -271,7 +265,7 @@ pub fn create_vertex_buffer_layout() -> VertexBufferLayouts {
 pub fn create_pipeline_state() -> PipelineState {
 	PipelineState {
 		targets: vec![wgpu::ColorTargetState {
-			format: wgpu::TextureFormat::Bgra8UnormSrgb,
+			format: wgpu::TextureFormat::Bgra8Unorm,
 			blend: Some(wgpu::BlendState {
 				color: wgpu::BlendComponent {
 					operation: wgpu::BlendOperation::Add,
@@ -295,7 +289,7 @@ pub fn create_pipeline_state() -> PipelineState {
 		depth_stencil: Some(DepthStencilState {
 			format: TextureFormat::Depth32Float,
 			depth_write_enabled: true,
-			depth_compare: CompareFunction::LessEqual,
+			depth_compare: CompareFunction::GreaterEqual,
 			stencil: StencilState::default(),
 			bias: DepthBiasState::default(),
 		}),
@@ -309,15 +303,14 @@ pub fn create_empty_bind_group(
 	group_layout: &BindGroupLayout,
 	bind_group_assets: &Share<AssetMgr<RenderRes<BindGroup>>>
 ) -> Handle<RenderRes<BindGroup>> {
-	let key = calc_hash(&"empty bind");
+	let key = calc_hash(&"empty bind", 0);
 	let r = device.create_bind_group(&wgpu::BindGroupDescriptor {
 		layout: group_layout,
 		entries: &[],
 		label: Some("color group create"),
 	});
 
-	bind_group_assets.cache(key, RenderRes::new(r, 5));
-	bind_group_assets.get(&key).unwrap()
+	bind_group_assets.insert(key, RenderRes::new(r, 5)).unwrap()
 }
 
 #[derive(Deref)]

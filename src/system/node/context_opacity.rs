@@ -8,7 +8,7 @@ use pi_share::Share;
 use pi_slotmap::{DefaultKey, KeyData};
 use wgpu::IndexFormat;
 
-use crate::{components::{user::{Node, Opacity}, calc::{RenderContextMark, Pass2DId, NodeId}, pass_2d::{PostProcessList, Pass2D, PostProcess}, draw_obj::{DrawObject, DrawState, FSDefines}}, resource::{RenderContextMarkType, draw_obj::{UnitQuadBuffer, Shaders, EmptyBind}}, system::shader_utils::{post_process::{PostProcessStaticIndex, POST_TEXTURE_GROUP, POST_UV_LOCATION, OPACITY_GROUP, CalcPostProcessShader}, StaticIndex}, utils::tools::calc_float_hash};
+use crate::{components::{user::{Node, Opacity}, calc::{RenderContextMark, Pass2DId, NodeId}, pass_2d::{PostProcessList, Pass2D, PostProcess}, draw_obj::{DrawObject, DrawState, FSDefines}}, resource::{RenderContextMarkType, draw_obj::{UnitQuadBuffer, Shaders, EmptyBind}}, system::shader_utils::{post_process::{PostProcessStaticIndex, POST_TEXTURE_GROUP, POST_UV_LOCATION, OPACITY_GROUP, CalcPostProcessShader}, StaticIndex}, utils::tools::{calc_float_hash, calc_hash}};
 
 pub struct CalcOpacity;
 
@@ -168,7 +168,7 @@ fn modify_opacity_group(
 	buffer_assets: &Share<AssetMgr<RenderRes<Buffer>>>,
 	bind_group_assets: &Share<AssetMgr<RenderRes<BindGroup>>>,
 ) {
-	let key = calc_float_hash(&[opacity.0]);
+	let key = calc_float_hash(&[opacity.0], calc_hash(&"color", 0));
 	let group = match bind_group_assets.get(&key) {
 		Some(r) => r,
 		None => {
@@ -180,8 +180,7 @@ fn modify_opacity_group(
 						contents: bytemuck::cast_slice(&[opacity.0]),
 						usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
 					});
-					buffer_assets.cache(key, RenderRes::new(uniform_buf, 5));
-					buffer_assets.get(&key).unwrap()
+					buffer_assets.insert(key, RenderRes::new(uniform_buf, 5)).unwrap()
 				}
 			};
 			let group = device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -194,8 +193,7 @@ fn modify_opacity_group(
 				],
 				label: Some("opacity group create"),
 			});
-			bind_group_assets.cache(key, RenderRes::new(group, 5));
-			bind_group_assets.get(&key).unwrap()
+			bind_group_assets.insert(key, RenderRes::new(group, 5)).unwrap()
 		}
 	};
 	// 插入到drawstate中

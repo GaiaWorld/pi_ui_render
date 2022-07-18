@@ -119,7 +119,7 @@ pub fn create_camera_bind_group(
 	buffer_assets: &Share<AssetMgr<RenderRes<Buffer>>>,
 	bind_group_assets: &Share<AssetMgr<RenderRes<BindGroup>>>,
 ) -> Handle<RenderRes<BindGroup>> {
-	let key = calc_float_hash(view.as_slice());
+	let key = calc_float_hash(view.as_slice(), calc_hash(&"camera", 0));
 
 	match bind_group_assets.get(&key) {
 		Some(r) => r,
@@ -132,8 +132,7 @@ pub fn create_camera_bind_group(
 						contents: bytemuck::cast_slice(view.as_slice()),
 						usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
 					});
-					buffer_assets.cache(key, RenderRes::new(buf, 5));
-					buffer_assets.get(&key).unwrap()
+					buffer_assets.insert(key, RenderRes::new(buf, 5)).unwrap()
 				}
 			};
 			let group = device.create_bind_group(
@@ -148,8 +147,7 @@ pub fn create_camera_bind_group(
 					label: Some("camera create"),
 				}
 			);
-			bind_group_assets.cache(key, RenderRes::new(group, 5));
-			bind_group_assets.get(&key).unwrap()
+			bind_group_assets.insert(key, RenderRes::new(group, 5)).unwrap()
 		}
 	}
 	
@@ -166,8 +164,8 @@ pub fn create_depth_group(
 	match depth_cache.get(cur_depth) {
 		Some(r) => r.clone(),
 		None => {
-			let value = cur_depth as f32 / 600000.0;
-			let key = calc_hash(&(DEPTH.clone(), cur_depth)); // TODO
+			// let value = cur_depth as f32 / 600000.0;
+			let key = calc_hash(&(DEPTH.clone(), cur_depth), calc_hash(&"depth uniform", 0)); // TODO
 			let d = match bind_group_assets.get(&key) {
 				Some(r) => r,
 				None => {
@@ -176,11 +174,10 @@ pub fn create_depth_group(
 						None => {
 							let uniform_buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
 								label: Some("depth buffer init"),
-								contents: bytemuck::cast_slice(&[value]),
+								contents: bytemuck::cast_slice(&[cur_depth as f32]),
 								usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
 							});
-							buffer_assets.cache(key, RenderRes::new(uniform_buf, 5));
-							buffer_assets.get(&key).unwrap()
+							buffer_assets.insert(key, RenderRes::new(uniform_buf, 5)).unwrap()
 						}
 					};
 					let group = device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -193,8 +190,7 @@ pub fn create_depth_group(
 						],
 						label: Some("depth group create"),
 					});
-					bind_group_assets.cache(key, RenderRes::new(group, 5));
-					bind_group_assets.get(&key).unwrap()
+					bind_group_assets.insert(key, RenderRes::new(group, 5)).unwrap()
 				},
 			};
 			depth_cache.push(d.clone());
@@ -206,7 +202,7 @@ pub fn create_depth_group(
 pub fn create_common_pipeline_state() -> PipelineState {
 	PipelineState {
 		targets: vec![wgpu::ColorTargetState {
-			format: wgpu::TextureFormat::Bgra8UnormSrgb,
+			format: wgpu::TextureFormat::Bgra8Unorm,
 			blend: Some(wgpu::BlendState {
 				color: wgpu::BlendComponent {
 					operation: wgpu::BlendOperation::Add,
@@ -230,7 +226,7 @@ pub fn create_common_pipeline_state() -> PipelineState {
 		depth_stencil: Some(DepthStencilState {
 			format: TextureFormat::Depth32Float,
 			depth_write_enabled: true,
-			depth_compare: CompareFunction::Always,
+			depth_compare: CompareFunction::GreaterEqual,
 			stencil: StencilState::default(),
 			bias: DepthBiasState::default(),
 		}),

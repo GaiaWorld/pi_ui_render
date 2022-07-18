@@ -8,21 +8,25 @@ use pi_hash::DefaultHasher;
 use crate::components::{user::{Aabb2, Point2, Vector4, Matrix4, BorderRadius, LengthUnit}, calc::{WorldMatrix, LayoutResult}};
 
 
-pub fn calc_hash<T: Hash>(v: &T)-> u64 {
+pub fn calc_hash<T: Hash>(v: &T, cur: u64)-> u64 {
 	let mut hasher = DefaultHasher::default();
+	cur.hash(&mut hasher);
 	v.hash(&mut hasher);
 	hasher.finish()
 }
-pub fn calc_hash_slice<T: Hash>(v: &[T])-> u64 {
+
+pub fn calc_hash_slice<T: Hash>(v: &[T], cur: u64)-> u64 {
 	let mut hasher = DefaultHasher::default();
+	cur.hash(&mut hasher);
 	for i in v.iter() {
 		i.hash(&mut hasher);
 	}
 	hasher.finish()
 }
 
-pub fn calc_float_hash<T: Float>(v: &[T])-> u64 {
+pub fn calc_float_hash<T: Float>(v: &[T], cur: u64)-> u64 {
 	let mut hasher = DefaultHasher::default();
+	cur.hash(&mut hasher);
 	for i in v.iter() {
 		unsafe{NotNan::new_unchecked(*i)}.hash(&mut hasher);
 	}
@@ -120,10 +124,10 @@ pub fn get_content_size(layout: &LayoutResult) -> Size<NotNan<f32>> {
 #[inline]
 pub fn get_content_rect(layout: &LayoutResult) -> Rect<NotNan<f32>> { 
 	Rect {
-		top: unsafe { NotNan::new_unchecked(layout.border.top)},
-		right: unsafe { NotNan::new_unchecked(layout.rect.right - layout.border.left - layout.border.right)},
-		bottom: unsafe { NotNan::new_unchecked(layout.rect.bottom - layout.border.top - layout.border.bottom)},
-		left: unsafe { NotNan::new_unchecked(layout.border.left)},
+		top: unsafe { NotNan::new_unchecked(layout.border.top + layout.border.top)},
+		right: unsafe { NotNan::new_unchecked(layout.rect.right - layout.border.right)},
+		bottom: unsafe { NotNan::new_unchecked(layout.rect.bottom - layout.border.bottom)},
+		left: unsafe { NotNan::new_unchecked(layout.rect.left + layout.border.left)},
 	}
 }
 

@@ -49,6 +49,29 @@ impl Default for ContentBox {
 #[derive(Default, Deref, DerefMut, Clone, PartialEq, Eq, Hash, Debug)]
 pub struct ZRange(pub std::ops::Range<usize>);
 
+/// 渲染顺序
+#[derive(Default, Deref, DerefMut, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Copy)]
+pub struct DrawInfo(pub u32);
+
+impl DrawInfo {
+	pub fn new(order: i8, is_opacity: bool) -> Self {
+		Self(order as u32 | ((unsafe { transmute::<_, u8>(is_opacity) } as u32) << 31))
+	}
+
+	pub fn order(&self) -> i8 {
+		self.0 as i8
+		// (self.0 << 24 >> 24) as i8
+	}
+
+	pub fn is_opacity(&self) -> bool {
+		(self.0 & (1<<31)) > 0
+	}
+
+	pub fn set_is_opacity(&mut self, value: bool) {
+		self.0 = self.0 << 1 >> 1 | ((unsafe { transmute::<_, u8>(value) } as u32) << 31);
+	}
+}
+
 // 世界矩阵，  WorldMatrix(矩阵, 矩阵描述的变换是存在旋转变换)， 如果不存在旋转变换， 可以简化矩阵的乘法
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorldMatrix(pub Matrix4<f32>, pub bool);
@@ -80,9 +103,9 @@ impl WorldMatrix {
 			*self = r;
 		} else {
 			let slice = self.0.as_mut_slice();
-			slice[12] += x;
-			slice[13] += y;
-			slice[14] += z;
+			slice[12] += slice[0] * x;
+			slice[13] += slice[5] * y;
+			slice[14] += slice[10] * z;
 		}
 	}
 
@@ -106,6 +129,8 @@ impl WorldMatrix {
         //     0.0, 0.0, 1.0, 0.0,
         //     0.0, 0.0, 0.0, 1.0,
         // ); 
+
+		
 			
 		// 矩阵变换是以父节点的左上角为原点变换的，left_top表明本节点左上角相对父节点左上角的位移
         let orgin_move_value = transform.origin.to_value(width, height);
@@ -342,6 +367,7 @@ impl DerefMut for Quad {
     }
 }
 
+#[derive(Deref, DerefMut)]
 pub struct QuadTree(QuadTree1<LocalVersion, f32, ()>);
 
 impl Map for QuadTree {
@@ -644,6 +670,9 @@ pub enum StyleType {
 	Opacity = 80,
 
 	TextContent = 81,
+	NodeState = 82,
+	
+	TransformFunc = 83,
 }
 
 pub enum FlexStyleType {
@@ -692,7 +721,7 @@ pub enum FlexStyleType {
 }
 
 /// 节点的实体id，作为RenderContext的组件，引用创建该渲染上下文的节点
-#[derive(Deref, DerefMut, Default)]
+#[derive(Deref, DerefMut, Default, Debug)]
 pub struct NodeId(pub Id<Node>);
 
 /// 宏标记(最多支持size::of::<usize>()个宏开关)
