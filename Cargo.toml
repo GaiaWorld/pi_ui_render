@@ -67,30 +67,30 @@ js_proxy_gen_macro={git="https://github.com/GaiaWorld/pi_lib.git"}
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = { version = "0.2.78", features = ["serde-serialize"] }
 
-[patch."https://github.com/GaiaWorld/pi_ecs"]
-pi_ecs = { path = "../pi_ecs" }
-pi_ecs_macros = { path = "../pi_ecs/macros" }
+# [patch."https://github.com/GaiaWorld/pi_ecs"]
+# pi_ecs = { path = "../pi_ecs" }
+# pi_ecs_macros = { path = "../pi_ecs/macros" }
 
 
-[patch."https://github.com/GaiaWorld/pi_ecs_utils"]
-pi_ecs_utils = { path = "../pi_ecs_utils" }
+# [patch."https://github.com/GaiaWorld/pi_ecs_utils"]
+# pi_ecs_utils = { path = "../pi_ecs_utils" }
 
-[patch."https://github.com/GaiaWorld/pi_render"]
-pi_render = { path = "../pi_render" }
+# [patch."https://github.com/GaiaWorld/pi_render"]
+# pi_render = { path = "../pi_render" }
 
-[patch."https://github.com/GaiaWorld/pi_hal"]
-pi_hal = { path = "../pi_hal" }
+# [patch."https://github.com/GaiaWorld/pi_hal"]
+# pi_hal = { path = "../pi_hal" }
 
-[patch."https://github.com/GaiaWorld/pi_slotmap_tree"]
-pi_slotmap_tree = { path = "../pi_slotmap_tree" }
+# [patch."https://github.com/GaiaWorld/pi_slotmap_tree"]
+# pi_slotmap_tree = { path = "../pi_slotmap_tree" }
 
 
-[patch."https://github.com/GaiaWorld/pi_flex_layout"]
-pi_flex_layout = { path = "../pi_flex_layout" }
+# [patch."https://github.com/GaiaWorld/pi_flex_layout"]
+# pi_flex_layout = { path = "../pi_flex_layout" }
 
-[patch.crates-io]
-pi_slotmap = { path = "../pi_slotmap" }
-wgpu = { path = "../wgpu/wgpu" }
+# [patch.crates-io]
+# pi_slotmap = { path = "../pi_slotmap" }
+# wgpu = { path = "../wgpu/wgpu" }
 
 
 [[example]]
