@@ -16,7 +16,7 @@ use std::{sync::Arc, intrinsics::transmute};
 use pi_ecs::{prelude::StageBuilder, storage::Local};
 
 #[pi_js_export]
-pub fn create_engine(win: ShareRefCell<Window>, r: usize) -> Engine {
+pub fn create_engine(win: &Arc<Window>, r: usize) -> Engine {
 	let runtime = AsyncRuntimeBuilder::default_worker_thread(
 		None,
 		None,
@@ -24,7 +24,7 @@ pub fn create_engine(win: ShareRefCell<Window>, r: usize) -> Engine {
 		None,
 	);
 	Engine {
-		win: win,
+		win: win.clone(),
 		dispatcher: ShareRefCell::new(SingleDispatcher::new(runtime.clone())),
 		world: World::new(),
 		rt: runtime.clone(),
@@ -57,7 +57,7 @@ pub fn bind_render_target(gui: &mut Gui) {
 }
 
 #[pi_js_export]
-pub fn clone_engine(engine: Engine) -> Engine {
+pub fn clone_engine(engine: &Engine) -> Engine {
 	Engine {
 		win: engine.win.clone(),
 		dispatcher: engine.dispatcher.clone(),
@@ -496,13 +496,13 @@ pub struct Size {
 }
 
 pub struct Engine {
-	win: ShareRefCell<Window>,
+	win: Arc<Window>,
 	dispatcher: ShareRefCell<SingleDispatcher<WorkerRuntime>>,
 	world: World,
 	rt: WorkerRuntime,
 }
 
-fn init_data(world: &mut World, win: ShareRefCell<Window>) {
+fn init_data(world: &mut World, win: Arc<Window>) {
 	// 创建 RenderWindow
 	let render_window = RenderWindow::new(win, PresentMode::Mailbox);
 	let render_windows = world.get_resource_mut::<RenderWindows>().unwrap();
