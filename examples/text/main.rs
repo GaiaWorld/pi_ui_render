@@ -66,13 +66,13 @@ impl Example for QuadExample {
 		let div1 = gui.create_node();
 		gui.set_style(div1, WidthType(Dimension::Points(50.0)));
 		gui.set_style(div1, HeightType(Dimension::Points(100.0)));
-		gui.set_style(div1, TextContentType (TextContent("注册".to_string(), Atom::from("注册"))));
+		gui.set_style(div1, TextContentType (TextContent("baseo".to_string(), Atom::from("base"))));
 		gui.set_style(div1, FontFamilyType (Atom::from("hwkt")));
 		gui.set_style(div1, ColorType(Color::RGBA(CgColor::new(0.0, 1.0, 0.0, 1.0))));
-		gui.set_style(div1, FontSizeType(FontSize::Length(32)));
-		gui.set_style(div1, TextStrokeType(Stroke {
-			width: unsafe {NotNan::new_unchecked(2.0)}, 
-			color: CgColor::new(1.0, 1.0, 0.0, 1.0)}));
+		gui.set_style(div1, FontSizeType(FontSize::Length(17)));
+		// gui.set_style(div1, TextStrokeType(Stroke {
+		// 	width: unsafe {NotNan::new_unchecked(2.0)}, 
+		// 	color: CgColor::new(1.0, 0.0, 0.0, 1.0)}));
 		gui.append(div1, root);
 	}
 	

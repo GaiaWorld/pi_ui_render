@@ -311,7 +311,7 @@ pub struct Text {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct TextContent(pub String, pub Atom);
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TextStyle {
 	pub color: Color,            //颜色
 	pub text_indent: f32,  
@@ -328,6 +328,12 @@ pub struct TextStyle {
     pub font_weight: usize,    //	规定字体粗细。参阅：font-weight 中可能的值。
     pub font_size: FontSize,   //
     pub font_family: Atom,     //	规定字体系列。参阅：font-family 中可能的值。
+}
+
+impl Default for TextStyle {
+    fn default() -> Self {
+        Self { color: Default::default(), text_indent: Default::default(), text_stroke: Default::default(), text_align: Default::default(), text_shadow: Default::default(), letter_spacing: Default::default(), word_spacing: Default::default(), white_space: Default::default(), line_height: Default::default(), vertical_align: Default::default(), font_style: Default::default(), font_weight: 500, font_size: Default::default(), font_family: Default::default() }
+    }
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, Deref, DerefMut)]

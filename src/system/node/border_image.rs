@@ -31,7 +31,7 @@ impl CalcBorderImage {
 	pub async fn calc_border_image(
 		mut query: ParamSet<(
 			// 布局修改、BorderImage修改、圆角修改或删除，需要修改或创建BorderImage的DrawObject
-			Query<Node, (
+			Query<'static, 'static, Node, (
 				Id<Node>, 
 				&'static BorderImage,
 				&'static BorderImageTexture,
@@ -53,14 +53,14 @@ impl CalcBorderImage {
 			)>)>,
 
 			// BorderImage删除，需要删除对应的DrawObject
-			Query<Node, (
+			Query<'static, 'static, Node, (
 				Option<&'static BorderImageTexture>,
 				Write<BorderImageDrawId>,
 				Write<DrawList>,
 			), Deleted<BorderImageTexture>>
 		)>,
 
-		query_draw: Query<DrawObject, Write<DrawState>>,
+		query_draw: Query<'static, 'static, DrawObject, Write<DrawState>>,
 		mut draw_obj_commands: EntityCommands<DrawObject>,
 		mut draw_state_commands: Commands<DrawObject, DrawState>,
 		mut node_id_commands: Commands<DrawObject, NodeId>,
@@ -171,7 +171,7 @@ impl CalcBorderImage {
 					node_id_commands.insert(new_draw_obj, NodeId(node));
 
 					shader_static_commands.insert(new_draw_obj, static_index.clone());
-					order_commands.insert(new_draw_obj, DrawInfo::new(2, border_texture.is_opacity));
+					order_commands.insert(new_draw_obj, DrawInfo::new(12, border_texture.is_opacity));
 
 					// 建立Node对DrawObj的索引
 					draw_index.write(BorderImageDrawId(new_draw_obj));

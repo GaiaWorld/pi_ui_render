@@ -11,7 +11,7 @@ use pi_render::{
     rhi::{CommandEncoder, bind_group_layout::BindGroupLayout, device::RenderDevice, asset::RenderRes, bind_group::BindGroup, buffer::Buffer, texture::ScreenTexture},
 };
 use futures::{future::BoxFuture, FutureExt};
-use pi_ecs::{prelude::{QueryState, FromWorld, World, Res, res::WriteRes}, monitor::Event, storage::Offset, entity::Id};
+use pi_ecs::{prelude::{QueryState, FromWorld, World, Res, res::WriteRes}, monitor::Event, storage::Offset};
 use pi_share::{ShareRefCell, Share,};
 use pi_slotmap::DefaultKey;
 use smallvec::SmallVec;

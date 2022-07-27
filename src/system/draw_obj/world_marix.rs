@@ -1,4 +1,4 @@
-use std::{io::Result, intrinsics::transmute};
+use std::io::Result;
 
 use pi_assets::{mgr::AssetMgr, asset::Handle};
 use pi_ecs::{prelude::{Query, Changed, Added, Write, Res, Or, OrDefault}, entity::Id, storage::Offset};
@@ -27,8 +27,8 @@ impl CalcWorldMatrixGroup {
 	/// 计算DrawObj的matrix group
 	#[system]
 	pub async fn calc_matrix_group<'a>(
-		mut query: Query<Node, (&WorldMatrix, &LayoutResult, &DrawList, Id<Node>), Or<(Added<Pass2DId>,Changed<DrawList>, Changed<WorldMatrix>)>>,
-		query_draw: Query<DrawObject, (Write<DrawState>, OrDefault<BoxType>, &StaticIndex)>,
+		mut query: Query<'a, 'a, Node, (&WorldMatrix, &LayoutResult, &DrawList, Id<Node>), Or<(Added<Pass2DId>,Changed<DrawList>, Changed<WorldMatrix>)>>,
+		query_draw: Query<'a, 'a, DrawObject, (Write<DrawState>, OrDefault<BoxType>, &StaticIndex)>,
 		device: Res<'a, RenderDevice>,
 		shader_static: Res<'a, Shaders>,
 
@@ -52,22 +52,32 @@ impl CalcWorldMatrixGroup {
 					// 如果，渲染对象的定点流为单位四边形，则需要将宽高乘到世界矩阵中
 					let matrix_slice = match box_type {
 						BoxType::Content => {
-							let matrix = create_unit_offset_matrix_by_layout(
-								layout_result,
-								layout_result.border.left, layout_result.border.top,
-								matrix
-							);
-							content_matrix = Some(matrix);
-							content_matrix.as_ref().unwrap()
+							match &content_matrix {
+								Some(r) => r,
+								None => {
+									let matrix = create_unit_offset_matrix_by_layout(
+										layout_result,
+										layout_result.border.left, layout_result.border.top,
+										matrix
+									);
+									content_matrix = Some(matrix);
+									content_matrix.as_ref().unwrap()
+								}
+							}
 						},
 						BoxType::Border => {
-							let matrix = create_unit_offset_matrix_by_layout(
-								layout_result,
-								0.0, 0.0,
-								matrix
-							);
-							border_matrix = Some(matrix);
-							border_matrix.as_ref().unwrap()
+							match &border_matrix {
+								Some(r) => r,
+								None => {
+									let matrix = create_unit_offset_matrix_by_layout(
+										layout_result,
+										0.0, 0.0,
+										matrix
+									);
+									border_matrix = Some(matrix);
+									border_matrix.as_ref().unwrap()
+								}
+							}
 						}
 						BoxType::None => matrix, // 否者，世界矩阵使用节点的世界矩阵
 						

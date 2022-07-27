@@ -7,7 +7,6 @@ use pi_atom::Atom;
 use pi_ecs::prelude::{Query, Write, DefaultComponent, Id, ResMut};
 use pi_flex_layout::{style::{Dimension, Direction, JustifyContent, FlexDirection, AlignItems, AlignContent, FlexWrap, AlignSelf, PositionType as PositionType1, Display}, prelude::Number};
 use pi_hash::XHashMap;
-use pi_print_any::{println_any, out_any};
 
 use crate::components::{user::{
 	Node, Size, Margin, Padding, Position, Border, MinMax, FlexContainer, FlexNormal, ZIndex, Overflow, Opacity, BlendMode, Transform, Show, BackgroundColor, BorderColor, BackgroundImage, MaskImage, MaskImageClip, Hsi, Blur, ObjectFit, BackgroundImageClip, BorderImage, BorderImageClip, BorderImageSlice, BorderImageRepeat, BorderRadius, BoxShadow, TextStyle, TransformOrigin, FontSize, FontStyle, LineHeight, TextAlign, VerticalAlign, Color, Stroke, TextShadows, TransformFuncs, WhiteSpace, Enable, TransformWillChange, TextContent, TransformFunc
@@ -76,7 +75,7 @@ impl<'a> StyleTypeReader<'a> {
 		let next_type = self.next_type();
 		// log::info!("write_to_component ty: {:?}, cursor:{}, buffer_len:{}", next_type, self.cursor, self.buffer.len());
 		if let Some(style_type) = next_type {
-			let set_type = StyleAttr::set(cur_style_mark, style_type, &self.buffer, self.cursor, query, entity);
+			StyleAttr::set(cur_style_mark, style_type, &self.buffer, self.cursor, query, entity);
 			let size = StyleAttr::size(style_type);
 			self.cursor += size;
 			return true;
@@ -307,10 +306,10 @@ macro_rules! set_default {
 macro_rules! reset {
 	// 空实现
 	(@empty) => {
-        fn set(&self, cur_style_mark: &mut BitArray<[u32;3]>, buffer: &Vec<u8>, offset: usize, query: &mut StyleQuery, entity: Id<Node>) {}
+        fn set(&self, _cur_style_mark: &mut BitArray<[u32;3]>, _buffer: &Vec<u8>, _offset: usize, _query: &mut StyleQuery, _entity: Id<Node>) {}
 	};
 	($name: ident, $value_ty: ident) => {
-        fn set(&self, cur_style_mark: &mut BitArray<[u32;3]>, buffer: &Vec<u8>, offset: usize, query: &mut StyleQuery, entity: Id<Node>) {
+        fn set(&self, _cur_style_mark: &mut BitArray<[u32;3]>, _buffer: &Vec<u8>, _offset: usize, query: &mut StyleQuery, entity: Id<Node>) {
 			// 取不到说明实体已经销毁
 			let mut item = query.$name.get_unchecked_mut(entity);
 			let v = item.get_default().clone();
@@ -330,7 +329,7 @@ macro_rules! reset {
 	};
 	// 属性修改
 	(@func $name: ident, $set_func: ident, $get_func: ident) => {
-        fn set(&self, cur_style_mark: &mut BitArray<[u32;3]>, buffer: &Vec<u8>, offset: usize, query: &mut StyleQuery, entity: Id<Node>) {
+        fn set(&self, _cur_style_mark: &mut BitArray<[u32;3]>, _buffer: &Vec<u8>, _offset: usize, query: &mut StyleQuery, entity: Id<Node>) {
 			// 取不到说明实体已经销毁
 			let mut item = query.$name.get_unchecked_mut(entity);
 			let v = item.get_default().$get_func();
@@ -341,7 +340,7 @@ macro_rules! reset {
 	};
 	// 属性修改
 	($name: ident, $feild1: ident, $feild2: ident) => {
-        fn set(&self, cur_style_mark: &mut BitArray<[u32;3]>, buffer: &Vec<u8>, offset: usize, query: &mut StyleQuery, entity: Id<Node>) {
+        fn set(&self, _cur_style_mark: &mut BitArray<[u32;3]>, _buffer: &Vec<u8>, _offset: usize, query: &mut StyleQuery, entity: Id<Node>) {
 			// 取不到说明实体已经销毁
 			let mut item = query.$name.get_unchecked_mut(entity);
 			let v = item.get_default().$feild1.$feild2.clone();
@@ -352,7 +351,7 @@ macro_rules! reset {
 	};
 	// 属性修改
 	(@box_model_single $name: ident, $feild: ident, $ty_all: ident) => {
-        fn set(&self, cur_style_mark: &mut BitArray<[u32;3]>, buffer: &Vec<u8>, offset: usize, query: &mut StyleQuery, entity: Id<Node>) {
+        fn set(&self, cur_style_mark: &mut BitArray<[u32;3]>, _buffer: &Vec<u8>, _offset: usize, query: &mut StyleQuery, entity: Id<Node>) {
 			// 单个盒模型属性重置
 			// 如：重置MarginLeft，只有在没有设置Margin属性的时候才能够重置
 			if cur_style_mark[StyleType::$ty_all as usize] {
@@ -368,7 +367,7 @@ macro_rules! reset {
 	};
 
 	(@box_model $name: ident, $ty: ident) => {
-        fn set(&self, cur_style_mark: &mut BitArray<[u32;3]>, buffer: &Vec<u8>, offset: usize, query: &mut StyleQuery, entity: Id<Node>) {
+        fn set(&self, cur_style_mark: &mut BitArray<[u32;3]>, _buffer: &Vec<u8>, _offset: usize, query: &mut StyleQuery, entity: Id<Node>) {
 			// 设置为默认值 TODO
 			let mut item = query.$name.get_unchecked_mut(entity);
 			let default_value = item.get_default().clone();
@@ -1009,39 +1008,39 @@ impl_style!(@box_model MarginType, margin, Margin);
 impl_style!(@box_model PaddingType, padding, Padding);
 
 pub struct StyleQuery {
-	pub size: Query<Node, Write<Size>>,
-	pub margin: Query<Node, Write<Margin>>,
-	pub padding: Query<Node, Write<Padding>>,
-	pub border: Query<Node, Write<Border>>,
-	pub position: Query<Node, Write<Position>>,
-	pub min_max: Query<Node, Write<MinMax>>,
-	pub flex_container: Query<Node, Write<FlexContainer>>,
-	pub flex_normal: Query<Node, Write<FlexNormal>>,
-	pub z_index: Query<Node, Write<ZIndex>>,
-	pub overflow: Query<Node, Write<Overflow>>,
-	pub opacity: Query<Node, Write<Opacity>>,
-	pub blend_mode: Query<Node, Write<BlendMode>>,
-	pub show: Query<Node, Write<Show>>,
-	pub transform: Query<Node, Write<Transform>>,
-	pub background_color: Query<Node, Write<BackgroundColor>>,
-	pub border_color: Query<Node, Write<BorderColor>>,
-	pub background_image: Query<Node, Write<BackgroundImage>>,
-	pub background_image_clip: Query<Node, Write<BackgroundImageClip>>,
-	pub mask_image: Query<Node, Write<MaskImage>>,
-	pub mask_image_clip: Query<Node, Write<MaskImageClip>>,
-	pub hsi: Query<Node, Write<Hsi>>,
-	pub blur: Query<Node, Write<Blur>>,
-	pub object_fit: Query<Node, Write<ObjectFit>>,
-	pub border_image: Query<Node, Write<BorderImage>>,
-	pub border_image_clip: Query<Node, Write<BorderImageClip>>,
-	pub border_image_slice: Query<Node, Write<BorderImageSlice>>,
-	pub border_image_repeat: Query<Node, Write<BorderImageRepeat>>,
-	pub border_radius: Query<Node, Write<BorderRadius>>,
-	pub box_shadow: Query<Node, Write<BoxShadow>>,
-	pub text_style: Query<Node, Write<TextStyle>>,
-	pub transform_will_change: Query<Node, Write<TransformWillChange>>,
-	pub text_content: Query<Node, Write<TextContent>>,
-	pub node_state: Query<Node, Write<NodeState>>,
+	pub size: Query<'static, 'static, Node, Write<Size>>,
+	pub margin: Query<'static, 'static,Node, Write<Margin>>,
+	pub padding: Query<'static, 'static,Node, Write<Padding>>,
+	pub border: Query<'static, 'static, Node, Write<Border>>,
+	pub position: Query<'static, 'static, Node, Write<Position>>,
+	pub min_max: Query<'static, 'static, Node, Write<MinMax>>,
+	pub flex_container: Query<'static, 'static, Node, Write<FlexContainer>>,
+	pub flex_normal: Query<'static, 'static, Node, Write<FlexNormal>>,
+	pub z_index: Query<'static, 'static, Node, Write<ZIndex>>,
+	pub overflow: Query<'static, 'static, Node, Write<Overflow>>,
+	pub opacity: Query<'static, 'static, Node, Write<Opacity>>,
+	pub blend_mode: Query<'static, 'static, Node, Write<BlendMode>>,
+	pub show: Query<'static, 'static, Node, Write<Show>>,
+	pub transform: Query<'static, 'static, Node, Write<Transform>>,
+	pub background_color: Query<'static, 'static, Node, Write<BackgroundColor>>,
+	pub border_color: Query<'static, 'static, Node, Write<BorderColor>>,
+	pub background_image: Query<'static, 'static, Node, Write<BackgroundImage>>,
+	pub background_image_clip: Query<'static, 'static, Node, Write<BackgroundImageClip>>,
+	pub mask_image: Query<'static, 'static, Node, Write<MaskImage>>,
+	pub mask_image_clip: Query<'static, 'static, Node, Write<MaskImageClip>>,
+	pub hsi: Query<'static, 'static, Node, Write<Hsi>>,
+	pub blur: Query<'static, 'static, Node, Write<Blur>>,
+	pub object_fit: Query<'static, 'static, Node, Write<ObjectFit>>,
+	pub border_image: Query<'static, 'static, Node, Write<BorderImage>>,
+	pub border_image_clip: Query<'static, 'static, Node, Write<BorderImageClip>>,
+	pub border_image_slice: Query<'static, 'static, Node, Write<BorderImageSlice>>,
+	pub border_image_repeat: Query<'static, 'static, Node, Write<BorderImageRepeat>>,
+	pub border_radius: Query<'static, 'static, Node, Write<BorderRadius>>,
+	pub box_shadow: Query<'static, 'static, Node, Write<BoxShadow>>,
+	pub text_style: Query<'static, 'static, Node, Write<TextStyle>>,
+	pub transform_will_change: Query<'static, 'static, Node, Write<TransformWillChange>>,
+	pub text_content: Query<'static, 'static, Node, Write<TextContent>>,
+	pub node_state: Query<'static, 'static, Node, Write<NodeState>>,
 }
 
 pub struct DefaultStyle<'a> {

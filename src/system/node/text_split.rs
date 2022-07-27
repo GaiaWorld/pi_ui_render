@@ -3,7 +3,7 @@
 use std::intrinsics::transmute;
 
 use ordered_float::NotNan;
-use pi_ecs::prelude::{Query, Changed, Or, ResMut, OrDefault, Write, Id, Component};
+use pi_ecs::prelude::{Query, Changed, Or, ResMut, OrDefault, Write, Id};
 use pi_ecs_macros::setup;
 use pi_ecs_utils::prelude::{EntityTree, Layer, NodeUp};
 use pi_flex_layout::{prelude::{CharNode, Size, Rect}, style::{Dimension, PositionType}};
@@ -12,12 +12,9 @@ use pi_slotmap::{DefaultKey, Key};
 use pi_slotmap_tree::Storage;
 use pi_render::font::{FontSheet, Font, FontId, split, SplitResult};
 
-use crate::{
-	components::{
-		user::{TextContent, Node, TextStyle, FontStyle, FlexNormal, Size as FlexSize, LineHeight, get_size}, 
-		calc::NodeState
-	}, 
-	utils::stdcell::StdCell,
+use crate::components::{
+	user::{TextContent, Node, TextStyle, FontStyle, FlexNormal, Size as FlexSize, LineHeight, get_size}, 
+	calc::NodeState
 };
 
 pub struct CalcTextSplit;
@@ -47,7 +44,7 @@ impl CalcTextSplit {
 			)
 		>,
 		tree: EntityTree<Node>,
-		mut node_states: Query<Node, Write<NodeState>>,
+		mut node_states: Query<'static, 'static, Node, Write<NodeState>>,
 		font_sheet: ResMut<Share<ShareCell<FontSheet>>>
 		
 	) {
@@ -55,24 +52,13 @@ impl CalcTextSplit {
 		for (
 			entity,
 			text_content, 
-			text_style, up) in query.iter() {
+			text_style,
+			up) in query.iter() {
 		
 			match tree.get_layer(entity) {
 				Some(r) => if *r == 0 {continue},
 				None => continue,
 			};
-			let up = tree.get_up(entity).unwrap();
-			// // 取到字体详情
-			// let tex_font: (TexFont<T>, usize) = match font_sheet.get_font_info(&text_style.font_family) {
-			// 	Some(r) => (r.0.clone(), r.1),
-			// 	None => {
-			// 		log::error!("font is not exist, face_name: {:?}, id: {:?}",
-			// 			text_style.font_family,
-			// 			entity,
-			// 		);
-			// 		panic!("");
-			// 	},
-			// };
 			
 			// 字体大小，根据font-size样式，计算字体的绝对大小
 			let font_size = get_size(&text_style.font_size);
@@ -138,7 +124,7 @@ struct Calc<'a> {
 	line_height: f32,
 	sw: NotNan<f32>,
 	char_margin: f32,
-	node_states: &'a mut Query<Node, Write<NodeState>>
+	node_states: &'a mut Query<'static, 'static, Node, Write<NodeState>>
 }
 
 impl<'a> Calc<'a> {

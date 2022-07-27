@@ -13,7 +13,7 @@ pub struct DataQuery {
 pub struct SingleCmd<T>(pub T);
 
 default impl<T: 'static + Send + Sync> Command for SingleCmd<T> {
-	default fn write(self, query: &mut DataQuery) {}
+	default fn write(self, _query: &mut DataQuery) {}
 }
 
 impl Command for SingleCmd<ClassSheet> {

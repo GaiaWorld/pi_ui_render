@@ -39,10 +39,7 @@
 //! 
 //! 可以考虑： 当父矩阵计算完成后，父节点所有子节点所形成的子树，可以并行计算（他们依赖的父矩阵已经计算完毕）
 
-use std::intrinsics::transmute;
-
 use pi_ecs::prelude::{Or, Query, Write};
-use pi_ecs::storage::Offset;
 use pi_ecs_macros::setup;
 use pi_ecs_utils::prelude::{LayerDirty, EntityTree};
 use pi_ecs::prelude::{Changed, Id};
@@ -57,14 +54,14 @@ use crate::components::calc:: {
 
 pub struct CalcMatrix;
 
-fn print_parent(idtree: &EntityTree<Node>, id: Id<Node>) {
-	let parent_id = idtree.get_up(id).map_or(Id::<Node>::null(), |up|{up.parent()});
-	if !parent_id.is_null() {
-		println!("parent======{:?}", parent_id);
-		print_parent(idtree, parent_id);
-	}
+// fn print_parent(idtree: &EntityTree<Node>, id: Id<Node>) {
+// 	let parent_id = idtree.get_up(id).map_or(Id::<Node>::null(), |up|{up.parent()});
+// 	if !parent_id.is_null() {
+// 		println!("parent======{:?}", parent_id);
+// 		print_parent(idtree, parent_id);
+// 	}
 	
-}
+// }
 
 #[setup]
 impl CalcMatrix {

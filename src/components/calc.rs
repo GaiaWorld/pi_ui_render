@@ -54,7 +54,10 @@ pub struct ZRange(pub std::ops::Range<usize>);
 pub struct DrawInfo(pub u32);
 
 impl DrawInfo {
-	pub fn new(order: i8, is_opacity: bool) -> Self {
+	pub fn new(order: u8, is_opacity: bool) -> Self {
+		// let r = unsafe { transmute::<_, u8>(false) };
+		// let r1 = unsafe { transmute::<_, u8>(true) };
+		// println!("xxxxxxxxx: {}, {}, {}, {}", r, r1,  ((unsafe { transmute::<_, u8>(is_opacity) } as u32) << 31), order as u32 | ((unsafe { transmute::<_, u8>(is_opacity) } as u32) << 31));
 		Self(order as u32 | ((unsafe { transmute::<_, u8>(is_opacity) } as u32) << 31))
 	}
 

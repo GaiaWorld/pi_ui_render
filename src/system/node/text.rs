@@ -1,5 +1,3 @@
-use std::intrinsics::transmute;
-use std::marker::PhantomData;
 use std::io::Result;
 
 use ordered_float::NotNan;
@@ -24,7 +22,7 @@ use crate::resource::draw_obj::CommonSampler;
 use crate::system::shader_utils::StaticIndex;
 use crate::system::shader_utils::text::{TextStaticIndex, TEXT_TEXTURE_SIZE_GROUP, TEXT_COLOR_GROUP, TEXT_POSITION_LOCATION, TEXT_UV_LOCATION, TEXT_TEXTURE_GROUP, TEXT_COLOR_LOCATION};
 use crate::utils::tools::{calc_hash, calc_float_hash, calc_hash_slice};
-use crate::{components::{user::{Node, BackgroundColor, Color}, calc::{NodeId, DrawList}, draw_obj::{BoxType, DrawObject, DrawState, VSDefines, FSDefines}}, resource::draw_obj::{Shaders, UnitQuadBuffer}};
+use crate::{components::{user::{Node, BackgroundColor, Color}, calc::{NodeId, DrawList}, draw_obj::{DrawObject, DrawState, VSDefines, FSDefines}}, resource::draw_obj::Shaders};
 
 pub struct CalcText;
 
@@ -150,12 +148,11 @@ impl CalcText {
 	pub async fn calc_text(
 		mut query: ParamSet<(
 			// 布局修改、文字属性，需要修改或创建背景色的DrawObject
-			Query<Node, (
+			Query<'static, 'static, Node, (
 				Id<Node>, 
 				&'static NodeState,
 				&'static LayoutResult,
 				OrDefault<TextStyle>,
-				&'static TextContent,
 				Write<TextDrawId>, 
 				Write<DrawList>,
 				ChangeTrackers<TextContent>,
@@ -169,18 +166,17 @@ impl CalcText {
 			)>)>,
 
 			// TextContent删除，需要删除对应的DrawObject
-			Query<Node, (
+			Query<'static, 'static, Node, (
 				Option<&'static TextContent>,
 				Write<TextDrawId>,
 				Write<DrawList>,
 			), Deleted<TextContent>>
 		)>,
 
-		mut query_draw: Query<DrawObject, (Write<DrawState>, OrDefault<BoxType>, & 'static mut VSDefines, & 'static mut FSDefines)>,
+		mut query_draw: Query<'static, 'static, DrawObject, (Write<DrawState>, & 'static mut VSDefines, & 'static mut FSDefines)>,
 		mut draw_obj_commands: EntityCommands<DrawObject>,
 		mut draw_state_commands: Commands<DrawObject, DrawState>,
 		mut node_id_commands: Commands<DrawObject, NodeId>,
-		mut is_unit_quad_commands: Commands<DrawObject, BoxType>,
 		mut shader_static_commands: Commands<DrawObject, StaticIndex>,
 		mut vs_defines_commands: Commands<DrawObject, VSDefines>,
 		mut fs_defines_commands: Commands<DrawObject, FSDefines>,
@@ -239,19 +235,16 @@ impl CalcText {
 			node_state, 
 			layout, 
 			text_style,
-			text_content,
 			mut draw_index, 
 			mut render_list, 
-			mut text_change,
+			text_change,
 			style_change,
 			node_state_change) in query.p0_mut().iter_mut() {
-			if text_content.0.as_str().find("comm").is_some() {
-				println!("ccccccccccc");
-			}
+
 			match draw_index.get() {
 				// background_color已经存在一个对应的DrawObj， 则修改color group
 				Some(r) => {
-					let (mut draw_state_item, old_unit_quad, mut vs_defines, mut fs_defines) = query_draw.get_unchecked_mut(**r);
+					let (mut draw_state_item, mut vs_defines, mut fs_defines) = query_draw.get_unchecked_mut(**r);
 					let draw_state = draw_state_item.get_mut().unwrap();
 					modify(
 						&font_sheet,
@@ -284,9 +277,6 @@ impl CalcText {
 				// * <DrawObject, NodeId>
 				// * <DrawObject, IsUnitQuad>
 				None => {
-					if unsafe{transmute::<_, u64>(node)} == 4294967383{
-						println!("zzzzzzzzz:");
-					}
 					
 					// log::info!("create_background=================");
 					// 创建新的DrawObj
@@ -432,10 +422,12 @@ fn modify<'a> (
 	let color = match &text_style.color {
 		Color::RGBA(c) => {
 			vs_defines.remove("VERTEX_COLOR");
+			fs_defines.remove("VERTEX_COLOR");
 			c
 		},
 		Color::LinearGradient(_) => {
 			vs_defines.insert("VERTEX_COLOR".to_string());
+			fs_defines.insert("VERTEX_COLOR".to_string());
 			color_temp = CgColor::default();
 			&color_temp
 		}
@@ -560,6 +552,7 @@ fn modify_geo(
 			}];
 			
 			let len = positions.len() / 2;
+			let mut old_len = positions.len();
 			while (i as usize) < len {
 				// log::info!("position: {:?}, {:?}, {:?}, {:?}, {:?}", positions, node_state.0.text, lg_pos, &endp.0, &endp.1);
 				let (ps, indices_arr) = split_by_lg(
@@ -571,9 +564,6 @@ fn modify_geo(
 				);
 				positions = ps;
 
-				// 尝试为新增的点计算uv
-				fill_uv(&mut positions, &mut uvs, i as usize);
-
 				// 颜色插值
 				colors = interp_mult_by_lg(
 					positions.as_slice(),
@@ -584,6 +574,12 @@ fn modify_geo(
 					endp.0.clone(),
 					endp.1.clone(),
 				);
+
+				// 尝试为新增的点计算uv
+				if positions.len() > old_len {
+					fill_uv(&mut positions, &mut uvs, i as usize, old_len);
+					old_len = positions.len();
+				}
 
 				indices = mult_to_triangle(&indices_arr, indices);
 				i = i + 4;
@@ -620,7 +616,7 @@ fn modify_geo(
 }
 
 #[inline]
-fn fill_uv(positions: &mut Vec<f32>, uvs: &mut Vec<f32>, i: usize) {
+fn fill_uv(positions: &mut Vec<f32>, uvs: &mut Vec<f32>, i: usize, mut start: usize) {
     let pi = i * 2;
     let uvi = i * 2;
     let len = positions.len() - pi;
@@ -630,8 +626,8 @@ fn fill_uv(positions: &mut Vec<f32>, uvs: &mut Vec<f32>, i: usize) {
     );
     let (u1, u4) = ((uvs[uvi], uvs[uvi + 1]), (uvs[uvi + 4], uvs[uvi + 5]));
     if len > 8 {
-        let mut i = pi + 8;
-        for _j in 0..(len - 8) / 2 {
+        let mut i = start;
+        while i < positions.len() {
             let pos_x = positions[i];
             let pos_y = positions[i + 1];
             let uv;

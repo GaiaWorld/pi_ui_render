@@ -3,7 +3,7 @@ use std::{io::Result, intrinsics::transmute};
 use nalgebra::Orthographic3;
 use pi_assets::{mgr::AssetMgr, asset::Handle};
 use pi_atom::Atom;
-use pi_ecs::{prelude::{Join, Write, ResMut, OrDefault, Query, Res, ParamSet, res::WriteRes}, monitor::{Event, EventType}, storage::{Offset, Local}, entity::Id};
+use pi_ecs::{prelude::{Join, Write, ResMut, OrDefault, Query, Res, ParamSet, res::WriteRes}, monitor::{Event, EventType}, storage::Offset, entity::Id};
 use pi_ecs_macros::{listen, setup};
 use pi_null::Null;
 use pi_render::{
@@ -186,8 +186,8 @@ impl CalcRender{
 			)>,
 			Query<Node, (&'static InPassId, Option<&'static Pass2DId>, Option<&'static DrawList>, &'static Quad, &'static ZRange, OrDefault<Visibility>, Join<InPassId, Pass2D, &'static LastDirtyRect>)>,
 		)>,
-		mut draw_state: Query<DrawObject, (&mut DrawState, Option<&NodeId>)>,
-		mut draw_info: Query<DrawObject, OrDefault<DrawInfo>>,
+		mut draw_state: Query<DrawObject, &mut DrawState>,
+		draw_info: Query<DrawObject, OrDefault<DrawInfo>>,
 		// mut z_query1: Query<Pass2D, Join<NodeId, Node, &ZRange>>,
 		share_layout: Res<'a, ShareLayout>,
 		device: Res<'a, RenderDevice>,
@@ -203,7 +203,7 @@ impl CalcRender{
 			return Ok(());
 		}
 	
-		for (mut camera, view_matrix, mut last_dirty, overflow_aabb, (context_box, quad, willchange_matrix, will_change)) in query_pass.p0_mut().iter_mut() {
+		for (mut camera, _view_matrix, mut last_dirty, overflow_aabb, (context_box, quad, willchange_matrix, will_change)) in query_pass.p0_mut().iter_mut() {
 			// 存在脏区域，与现有脏区域相交，得到最终脏区域
 			let mut c;
 
@@ -354,7 +354,7 @@ impl CalcRender{
 			if let Some(pass_id) = pass_id {
 				if let Some(parent) = parent_pass_id.get_unchecked(pass_id.0) {
 					if let Some(mut p) = p0.get_mut(parent.0) {
-						p.all_list.push((DrawIndex::Pass2D(pass_id.0), z_range.clone(), DrawInfo::new(0, false)));
+						p.all_list.push((DrawIndex::Pass2D(pass_id.0), z_range.clone(), DrawInfo::new(10, false)));
 					}
 				}
 			}
@@ -368,7 +368,7 @@ impl CalcRender{
 				continue;
 			}
 
-			list.all_list.sort_by(|(a, a_z_depth, a_sort  ), (b, b_z_depth, b_sort  )| {
+			list.all_list.sort_by(|(_a, a_z_depth, a_sort  ), (_b, b_z_depth, b_sort  )| {
 				if a_z_depth.start < b_z_depth.start {
 					std::cmp::Ordering::Less
 				} else if a_z_depth.start > b_z_depth.start {
@@ -382,6 +382,7 @@ impl CalcRender{
 						std::cmp::Ordering::Equal
 					}
 				}
+				// 用渲染管线排序，TODO
 				// draw_state.get(a)
 			});
 
@@ -526,7 +527,7 @@ fn alloc_depth<'a>(
 	pass2d: &'a Query<Pass2D, (&Draw2DList, Option<&PostProcessList>)>,
 	list: &'a Draw2DList,
 	share_layout: &'a ShareLayout,
-	draw_state: &'a mut Query<DrawObject, (&mut DrawState, Option<&NodeId>)>,
+	draw_state: &'a mut Query<DrawObject, &mut DrawState>,
 	buffer_assets: &'a Share<AssetMgr<RenderRes<Buffer>>>,
 	bind_group_assets: &'a Share<AssetMgr<RenderRes<BindGroup>>>,
 	depth_cache: &'a mut Vec<Handle<RenderRes<BindGroup>>>,
@@ -536,7 +537,7 @@ fn alloc_depth<'a>(
 		match &index.0 {
 			// 如果绘制索引是一个DrawObj，则设置该DrawObj的depth group
 			DrawIndex::DrawObj(draw_key) => {
-				let (mut draw_state_item, node_id) = match draw_state.get_mut(*draw_key) {
+				let mut draw_state_item = match draw_state.get_mut(*draw_key) {
 					Some(r) => r,
 					None => continue,
 				};
@@ -596,13 +597,13 @@ fn alloc_depth_one<'a>(
 	device: &'a RenderDevice,
 	draw_key: DrawKey,
 	share_layout: &'a ShareLayout,
-	draw_state: &'a mut Query<DrawObject, (&mut DrawState, Option<&NodeId>)>,
+	draw_state: &'a mut Query<DrawObject, &mut DrawState>,
 	buffer_assets: &'a Share<AssetMgr<RenderRes<Buffer>>>,
 	bind_group_assets: &'a Share<AssetMgr<RenderRes<BindGroup>>>,
 	depth_cache: &'a mut Vec<Handle<RenderRes<BindGroup>>>,
 	cur_depth: &'a mut usize,
 ) {
-	let (mut draw_state_item, node_id) = match draw_state.get_mut(draw_key) {
+	let mut draw_state_item = match draw_state.get_mut(draw_key) {
 		Some(r) => r,
 		None => return,
 	};

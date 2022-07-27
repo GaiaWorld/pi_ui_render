@@ -1,3 +1,4 @@
+use std::intrinsics::transmute;
 use std::io::Result;
 
 use ordered_float::NotNan;
@@ -34,7 +35,7 @@ impl CalcBackGroundColor {
 	pub async fn calc_background(
 		mut query: ParamSet<(
 			// 布局修改、颜色修改、圆角修改或删除，需要修改或创建背景色的DrawObject
-			Query<Node, (
+			Query<'static, 'static, Node, (
 				Id<Node>, 
 				&'static BackgroundColor,
 				Option<&'static BorderRadius>,
@@ -53,14 +54,14 @@ impl CalcBackGroundColor {
 			)>)>,
 
 			// BackgroundColor删除，需要删除对应的DrawObject
-			Query<Node, (
+			Query<'static, 'static, Node, (
 				Option<&'static BackgroundColor>,
 				Write<BackgroundDrawId>,
 				Write<DrawList>,
 			), Deleted<BackgroundColor>>
 		)>,
 
-		query_draw: Query<DrawObject, (Write<DrawState>, OrDefault<BoxType>, &'static StaticIndex)>,
+		query_draw: Query<'static, 'static, DrawObject, (Write<DrawState>, OrDefault<BoxType>, &'static StaticIndex)>,
 		mut draw_obj_commands: EntityCommands<DrawObject>,
 		mut draw_state_commands: Commands<DrawObject, DrawState>,
 		mut node_id_commands: Commands<DrawObject, NodeId>,
@@ -134,7 +135,9 @@ impl CalcBackGroundColor {
 						&shader_static,
 						&unit_quad_buffer).await;
 					draw_state_item.notify_modify();
-
+					if unsafe {transmute::<_, u64>(node)} == 4294967627 {
+						println!("xxxxxxxxxxx")
+					}
 					if *old_unit_quad != new_unit_quad {
 						is_unit_quad_commands.insert(**r, new_unit_quad);
 					}
@@ -178,7 +181,11 @@ impl CalcBackGroundColor {
 					is_unit_quad_commands.insert(new_draw_obj, new_unit_quad);
 
 					shader_static_commands.insert(new_draw_obj, new_static_index.clone());
-					order_commands.insert(new_draw_obj, DrawInfo::new(-1, background_color.is_opaque()));
+					if unsafe {transmute::<_, u64>(node)} == 4294967627 {
+						println!("xxxxxxxxxxx")
+					}
+					order_commands.insert(new_draw_obj, DrawInfo::new(9, background_color.is_opaque()));
+					
 
 					// 建立Node对DrawObj的索引
 					draw_index.write(BackgroundDrawId(new_draw_obj));

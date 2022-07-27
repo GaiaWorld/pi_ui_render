@@ -3,7 +3,6 @@ use std::{any::TypeId, mem::{replace, size_of}, sync::Arc};
 use pi_assets::{mgr::AssetMgr, asset::{GarbageEmpty, Handle}, homogeneous::HomogeneousMgr};
 use pi_ecs::{prelude::{World, ArchetypeId, StageBuilder, Id, Setup, FromWorld, QueryState, Join, OrDefault}, component::MultiCaseImpl};
 use pi_ecs_utils::prelude::{NodeDown, NodeUp, Layer};
-use pi_print_any::{println_any, out_any};
 use pi_render::{
 	rhi::{
 		asset::{RenderRes, TextureRes},
@@ -19,7 +18,7 @@ use wgpu::TextureView;
 
 use crate::{
 	components::{
-		user::{ClassName, Aabb2, Point2, BorderImage, BackgroundImage, Enable, Overflow}, 
+		user::{ClassName, Aabb2, Point2, BorderImage, BackgroundImage, Overflow}, 
 		pass_2d::{RenderTarget, ScreenTarget, Pass2D, ParentPassId}, calc::{BorderImageTexture, BackgroundImageTexture, LayoutResult, Quad, WorldMatrix, ZRange, IsEnable, InPassId, NodeId}
 	}, 
 	resource::{UserCommands, NodeCommand, Viewport, draw_obj::CommonSampler, DefaultStyle}, 

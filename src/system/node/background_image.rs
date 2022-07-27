@@ -22,7 +22,7 @@ use wgpu::IndexFormat;
 use crate::components::calc::{BackgroundImageTexture, LayoutResult};
 use crate::components::draw_obj::BoxType;
 use crate::components::user::{
-    Aabb2, BackgroundImageClip, BorderRadius, FitType, ObjectFit, Point2, Vector2, Size,
+    Aabb2, BackgroundImageClip, BorderRadius, FitType, ObjectFit, Point2, Vector2,
 };
 use crate::resource::draw_obj::CommonSampler;
 use crate::system::shader_utils::image::{
@@ -49,7 +49,7 @@ impl CalcBackgroundImage {
     pub async fn calc_background_image(
         mut query: ParamSet<(
             // 布局修改、BackgroundImage修改、BackgroundImageClip修改、圆角修改或删除，需要修改或创建背景图片的DrawObject
-            Query<
+            Query<'static, 'static, 
                 Node,
                 (
                     Id<Node>,
@@ -74,7 +74,7 @@ impl CalcBackgroundImage {
                 ),
             >,
             // BackgroundImage删除，需要删除对应的DrawObject
-            Query<
+            Query<'static, 'static, 
                 Node,
                 (
                     Option<&'static BackgroundImage>,
@@ -85,7 +85,7 @@ impl CalcBackgroundImage {
             >,
         )>,
 
-        query_draw: Query<DrawObject, (Write<DrawState>, OrDefault<BoxType>)>,
+        query_draw: Query<'static, 'static, DrawObject, (Write<DrawState>, OrDefault<BoxType>)>,
         mut draw_obj_commands: EntityCommands<DrawObject>,
         mut draw_state_commands: Commands<DrawObject, DrawState>,
         mut node_id_commands: Commands<DrawObject, NodeId>,

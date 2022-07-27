@@ -14,7 +14,7 @@ use pi_ecs_utils::prelude::{EntityTree, Layer};
 use pi_flex_layout::{
 	prelude::{
 		Dimension, FlexLayoutStyle, Get, GetMut, LayoutContext, INode, LayoutR, Layout, Rect, Display, FlexDirection, FlexWrap, AlignContent, AlignSelf, AlignItems, PositionType, Direction, JustifyContent, Overflow, Number,
-		TreeStorage, CharNode
+		TreeStorage, CharNode, INodeStateType
 	}
 };
 
@@ -41,7 +41,7 @@ impl CalcLayout {
 			OrDefault<FlexNormal>,
 			OrDefault<Show>,
 		)>,
-		mut inodes: Query<Node, &'static mut NodeState>,
+		mut inodes: Query<'static, 'static, Node, &'static mut NodeState>,
 		idtree: EntityTree<Node>,
 		dirtys: Query<
 			Node, 
@@ -76,7 +76,7 @@ impl CalcLayout {
 				// Changed<Show>,
 			)>
 		>,
-		mut layout_r: Query<Node, Write<LayoutResult>>,
+		mut layout_r: Query<'static, 'static, Node, Write<LayoutResult>>,
 		mut layer_dirty: Local<LayerDirty<LayoutKey>>,
 		default_style: Local<(
 			Size,
@@ -93,7 +93,7 @@ impl CalcLayout {
 		// log::info!("call layout==========================");
 		let node_states_ptr = &mut inodes as *mut Query<Node, &'static mut NodeState>;
 		let layout_styles = LayoutStyles{query: &query, char_nodes: unsafe{transmute(&mut inodes)} , default: &default_style };
-		let mut node_state = INodes(unsafe{transmute(&mut inodes)});
+		let mut node_state = INodes(unsafe{transmute(&mut inodes)}, NodeState(INode::new(INodeStateType::SelfDirty, 0)));
 		let mut layout_map = LayoutRs {style: &mut layout_r, default: LayoutResult::default(), char_nodes: node_states_ptr };
 		let tree = Tree {
 			tree: &idtree,
@@ -207,7 +207,7 @@ impl Null for LayoutKey {
 }
 
 pub struct LayoutStyles<'a, 'b> {
-	query: &'a Query<Node, (
+	query: &'a Query<'b, 'b, Node, (
 		OrDefault<Size>,
 		OrDefault<Margin>,
 		OrDefault<Padding>,
@@ -218,7 +218,7 @@ pub struct LayoutStyles<'a, 'b> {
 		OrDefault<FlexNormal>,
 		OrDefault<Show>,
 	)>,
-	char_nodes: &'a mut Query<Node, &'b mut NodeState>,
+	char_nodes: &'a mut Query<'b, 'b, Node, &'b mut NodeState>,
 	default: &'a (
 		Size,
 		Margin,
@@ -255,25 +255,33 @@ impl<'a, 'b> Get<LayoutKey> for LayoutStyles<'a, 'b> {
 	}
 }
 
-struct INodes<'a>(&'a mut Query<Node, &'static mut NodeState>);
+struct INodes<'a>(&'a mut Query<'static, 'static, Node, &'static mut NodeState>, NodeState);
 
 impl<'a> Index<LayoutKey> for INodes<'a> {
 	type Output = INode;
 	fn index(&self, index: LayoutKey) -> &Self::Output {
-		unsafe{transmute(& **self.0.get(index.entity).unwrap())}
+		if index.text_index.is_null() {
+			unsafe{transmute(& **self.0.get(index.entity).unwrap())}
+		} else {
+			unsafe{transmute(&self.1)}
+		}
 	}
 }
 
 impl<'a> IndexMut<LayoutKey> for INodes<'a> {
 	fn index_mut(&mut self, index: LayoutKey) -> &mut Self::Output {
-		unsafe{transmute(&mut **self.0.get_mut(index.entity).unwrap())} 
+		if index.text_index.is_null() {
+			unsafe{transmute(&mut **self.0.get_mut(index.entity).unwrap())}
+		} else {
+			unsafe{transmute(&mut self.1)}
+		}
 	}
 }
 
 pub struct LayoutRs<'a, 'b>{
-	style: &'a mut Query<Node, Write<LayoutResult>>,
+	style: &'a mut Query<'b, 'b, Node, Write<LayoutResult>>,
 	default: LayoutResult,
-	char_nodes: *mut Query<Node, &'b mut NodeState>
+	char_nodes: *mut Query<'b, 'b, Node, &'b mut NodeState>
 }
 
 impl<'a, 'b> GetMut<LayoutKey> for LayoutRs<'a, 'b> {
@@ -291,7 +299,7 @@ impl<'a, 'b> GetMut<LayoutKey> for LayoutRs<'a, 'b> {
 }
 
 pub enum LayoutRItem<'s, 'b> {
-	Node(WriteItem<'s, LayoutResult>, &'s mut LayoutResult, *mut Query<Node, &'b mut NodeState>, Id<Node>),
+	Node(WriteItem<'s, LayoutResult>, &'s mut LayoutResult, *mut Query<'b, 'b, Node, &'b mut NodeState>, Id<Node>),
 	Text(&'s mut CharNode, &'s Rect<f32>),
 } 
 
@@ -375,6 +383,7 @@ impl<'s, 'b> LayoutR for LayoutRItem<'s, 'b> {
 	}
 }
 
+#[derive(Debug)]
 pub struct LayoutStyle<'a>((
 	&'a Size, 
 	&'a Margin, 
@@ -512,7 +521,7 @@ impl<'a> FlexLayoutStyle for LayoutStyle<'a>  {
 
 pub struct Tree<'a, 'b>{
 	tree: &'a EntityTree<Node>,
-	char_nodes: &'a Query<Node, &'b mut NodeState>
+	char_nodes: &'a Query<'b, 'b, Node, &'b mut NodeState>
 }
 
 impl<'a, 'b> TreeStorage<LayoutKey> for Tree<'a, 'b> {

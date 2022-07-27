@@ -45,6 +45,7 @@ void main() {
 	
 
 	o_Target = c;
+	// o_Target = vec4(samp.r, samp.g, samp.b, 1.0);
 
 	// o_Target = vec4(1.0, 0.0,0.0,1,0);
 }

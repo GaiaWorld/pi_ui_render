@@ -8,35 +8,16 @@ pub extern crate lazy_static;
 use font_kit::font::new_face_by_path;
 use framework::Example;
 use pi_map::vecmap::VecMap;
-use std::{sync::{Arc, Mutex}, time::{Instant, Duration}, fs::{File, DirEntry, read}, intrinsics::{transmute}, collections::hash_map::Entry, path::Path};
+use std::{fs::{DirEntry, read}, collections::hash_map::Entry, path::Path};
 
 use async_trait::async_trait;
 use json::{JsonValue, number::Number, object::Object};
-use log::info;
-use ordered_float::NotNan;
-use pi_async::rt::{AsyncRuntime, AsyncRuntimeBuilder, worker_thread::WorkerRuntime};
 use pi_atom::Atom;
-use pi_ecs::{prelude::{World, SingleDispatcher, Dispatcher, Local, StageBuilder, IntoSystem}, entity::Id, storage::Offset};
-use pi_ecs::storage::Null;
-use pi_flex_layout::{style::{Dimension, PositionType}, prelude::{Rect, Size}};
+use pi_flex_layout::prelude::Size;
 use pi_hash::XHashMap;
 use pi_idtree::IdTree;
-use pi_render::{
-	components::view::{
-		render_window::{RenderWindow, RenderWindows}, 
-		target_alloc::ShareTargetView
-	}, 
-	rhi::options::RenderOptions, init_render
-};
-use pi_share::ShareRefCell;
-use pi_slab::Slab;
-use pi_ui_render::{gui::Gui, export::style::*, export::json_parse::as_value, utils::style::{style_sheet::{WidthType, HeightType, PositionTypeType, PositionLeftType, ClassSheet}, style_parse::parse_class_map_from_string}, components::user::{Position, Node}};
-use wgpu::PresentMode;
-use winit::{
-	event_loop::{EventLoop, ControlFlow}, 
-	window::Window, 
-	event::{WindowEvent, Event}
-};
+use pi_ui_render::{gui::Gui, export::style::*, export::json_parse::as_value, utils::style::{style_sheet::ClassSheet, style_parse::parse_class_map_from_string}};
+
 // 
 
 fn main() {
@@ -89,6 +70,9 @@ impl Example for ExampleCommonPlay {
 		dir.push("examples/common_play/source/");
 		std::env::set_current_dir(dir).unwrap();
 
+		// 设置默认字体
+		new_face_by_path("default".to_string(), "SOURCEHANSANSK-MEDIUM.TTF");
+
 		println!("view_port:{:?}", size);
 		// 设置class
 		let mut class_sheet = ClassSheet::default();
@@ -96,22 +80,19 @@ impl Example for ExampleCommonPlay {
 			let file = read(dwcss.path());
 			if let Ok(r) = file {
 				let file = String::from_utf8(r).unwrap();
-				parse_class_map_from_string(file.as_str(), &mut class_sheet);
+				parse_class_map_from_string(file.as_str(), &mut class_sheet).unwrap();
 			}
 		};
 		visit_dirs(&Path::new("dwcss/"), &mut cb).unwrap();
 
 		let full_screen_class = format!(".3165071837 {{position : absolute ;left : 0px ;top : 0px ;width : {:?}px ;height : {:?}px ;}}", self.width, self.height);
-		parse_class_map_from_string(full_screen_class.as_str(), &mut class_sheet);
+		parse_class_map_from_string(full_screen_class.as_str(), &mut class_sheet).unwrap();
 		
 
 		match gui.world_mut().get_resource_mut::<ClassSheet>() {
 			Some(r) => r.extend_from_class_sheet(class_sheet),
 			None => {gui.world_mut().insert_resource(class_sheet);},
 		};
-
-		// 设置默认字体
-		new_face_by_path("default".to_string(), "SOURCEHANSANSK-MEDIUM.TTF");
 		
 
 		let gui = unsafe { &mut *(gui as *mut Gui as usize as *mut pi_ui_render::export::Gui)};
@@ -120,7 +101,7 @@ impl Example for ExampleCommonPlay {
 
 		let mut json = Object::new();
 		json.insert("ret", JsonValue::Number(1.into()));
-		let root = play_create_node(gui, context, &vec![JsonValue::Object(json.clone())]);
+		let _root = play_create_node(gui, context, &vec![JsonValue::Object(json.clone())]);
 		play_width(gui, context, &vec![JsonValue::Number(Number::from(1)), JsonValue::Number(Number::from(self.width))]);
 		play_height(gui, context, &vec![JsonValue::Number(Number::from(1)), JsonValue::Number(Number::from(self.height))]);
 		play_transform_scale(gui, context, &vec![JsonValue::Number(Number::from(1)), JsonValue::Number(Number::from(self.scale)), JsonValue::Number(Number::from(self.scale))]);
@@ -140,7 +121,7 @@ impl Example for ExampleCommonPlay {
 
 		for i in 2..21 {
 			json.insert("ret", JsonValue::Number(i.into()));
-			let notchBar = play_create_node(gui, context, &vec![JsonValue::Object(json.clone())]);
+			let _notch_bar = play_create_node(gui, context, &vec![JsonValue::Object(json.clone())]);
 			play_width_percent(gui, context, &vec![JsonValue::Number(Number::from(i)), JsonValue::Number(Number::from(1.0))]);
 			play_height_percent(gui, context, &vec![JsonValue::Number(Number::from(i)), JsonValue::Number(Number::from(1.0))]);
 			play_position_type(gui, context, &vec![JsonValue::Number(Number::from(i)), JsonValue::Number(Number::from(1))]);
@@ -148,7 +129,7 @@ impl Example for ExampleCommonPlay {
 		}
 
 		json.insert("ret", JsonValue::Number(21.into()));
-		let body = play_create_node(gui, context, &vec![JsonValue::Object(json.clone())]);
+		let _body = play_create_node(gui, context, &vec![JsonValue::Object(json.clone())]);
 		play_width_percent(gui, context, &vec![JsonValue::Number(Number::from(21)), JsonValue::Number(Number::from(1.0))]);
 		play_height_percent(gui, context, &vec![JsonValue::Number(Number::from(21)), JsonValue::Number(Number::from(1.0))]);
 		play_position_type(gui, context, &vec![JsonValue::Number(Number::from(21)), JsonValue::Number(Number::from(1))]);

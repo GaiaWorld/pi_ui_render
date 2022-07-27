@@ -1,7 +1,7 @@
 use std::intrinsics::transmute;
 
 use bitvec::array::BitArray;
-use pi_ecs::{prelude::{Write, Query, ResMut, Res, EntityDelete, Id, Event, DefaultComponent, OrDefault}, storage::Offset};
+use pi_ecs::{prelude::{Write, Query, ResMut, Res, EntityDelete, Id, Event, DefaultComponent, OrDefault}};
 use pi_ecs_macros::{setup, listen};
 use pi_ecs_utils::prelude::EntityTreeMut;
 use pi_flex_layout::style::Dimension;
@@ -26,48 +26,48 @@ impl CalcUserSetting {
 
 	#[system]
 	pub fn user_setting(
-		entitys: Query<Node, Id<Node>>,
+		entitys: Query<'static, 'static, Node, Id<Node>>,
 	
-		size: Query<Node, Write<Size>>,
-		margin: Query<Node, Write<Margin>>,
-		padding: Query<Node, Write<Padding>>,
-		border: Query<Node, Write<Border>>,
-		position: Query<Node, Write<Position>>,
-		min_max: Query<Node, Write<MinMax>>,
-		flex_container: Query<Node, Write<FlexContainer>>,
-		flex_normal: Query<Node, Write<FlexNormal>>,
-		z_index: Query<Node, Write<ZIndex>>,
-		overflow: Query<Node, Write<Overflow>>,
-		opacity: Query<Node, Write<Opacity>>,
-		blend_mode: Query<Node, Write<BlendMode>>,
-		show: Query<Node, Write<Show>>,
-		transform: Query<Node, Write<Transform>>,
-		background_color: Query<Node, Write<BackgroundColor>>,
-		border_color: Query<Node, Write<BorderColor>>,
-		background_image: Query<Node, Write<BackgroundImage>>,
-		background_image_clip: Query<Node, Write<BackgroundImageClip>>,
-		mask_image: Query<Node, Write<MaskImage>>,
-		mask_image_clip: Query<Node, Write<MaskImageClip>>,
-		hsi: Query<Node, Write<Hsi>>,
-		blur: Query<Node, Write<Blur>>,
-		object_fit: Query<Node, Write<ObjectFit>>,
-		border_image: Query<Node, Write<BorderImage>>,
-		border_image_clip: Query<Node, Write<BorderImageClip>>,
-		border_image_slice: Query<Node, Write<BorderImageSlice>>,
-		border_image_repeat: Query<Node, Write<BorderImageRepeat>>,
-		border_radius: Query<Node, Write<BorderRadius>>,
-		box_shadow: Query<Node, Write<BoxShadow>>,
-		text_style: Query<Node, Write<TextStyle>>,
-		transform_will_change: Query<Node, Write<TransformWillChange>>,
-		node_state: Query<Node, Write<NodeState>>,
+		size: Query<'static, 'static,Node, Write<Size>>,
+		margin: Query<'static, 'static,Node, Write<Margin>>,
+		padding: Query<'static, 'static,Node, Write<Padding>>,
+		border: Query<'static, 'static,Node, Write<Border>>,
+		position: Query<'static, 'static,Node, Write<Position>>,
+		min_max: Query<'static, 'static,Node, Write<MinMax>>,
+		flex_container: Query<'static, 'static,Node, Write<FlexContainer>>,
+		flex_normal: Query<'static, 'static,Node, Write<FlexNormal>>,
+		z_index: Query<'static, 'static,Node, Write<ZIndex>>,
+		overflow: Query<'static, 'static,Node, Write<Overflow>>,
+		opacity: Query<'static, 'static,Node, Write<Opacity>>,
+		blend_mode: Query<'static, 'static,Node, Write<BlendMode>>,
+		show: Query<'static, 'static,Node, Write<Show>>,
+		transform: Query<'static, 'static,Node, Write<Transform>>,
+		background_color: Query<'static, 'static,Node, Write<BackgroundColor>>,
+		border_color: Query<'static, 'static,Node, Write<BorderColor>>,
+		background_image: Query<'static, 'static,Node, Write<BackgroundImage>>,
+		background_image_clip: Query<'static, 'static,Node, Write<BackgroundImageClip>>,
+		mask_image: Query<'static, 'static,Node, Write<MaskImage>>,
+		mask_image_clip: Query<'static, 'static,Node, Write<MaskImageClip>>,
+		hsi: Query<'static, 'static,Node, Write<Hsi>>,
+		blur: Query<'static, 'static,Node, Write<Blur>>,
+		object_fit: Query<'static, 'static,Node, Write<ObjectFit>>,
+		border_image: Query<'static, 'static,Node, Write<BorderImage>>,
+		border_image_clip: Query<'static, 'static,Node, Write<BorderImageClip>>,
+		border_image_slice: Query<'static, 'static,Node, Write<BorderImageSlice>>,
+		border_image_repeat: Query<'static, 'static,Node, Write<BorderImageRepeat>>,
+		border_radius: Query<'static, 'static,Node, Write<BorderRadius>>,
+		box_shadow: Query<'static, 'static,Node, Write<BoxShadow>>,
+		text_style: Query<'static, 'static,Node, Write<TextStyle>>,
+		transform_will_change: Query<'static, 'static,Node, Write<TransformWillChange>>,
+		node_state: Query<'static, 'static,Node, Write<NodeState>>,
 	
 		class_sheet: Res<ClassSheet>,
 	
-		mut class_query: Query<Node, Write<ClassName>>,
+		mut class_query: Query<'static, 'static,Node, Write<ClassName>>,
 	
-		mut style_mark: Query<Node, &mut StyleMark>, // TODO OrDefaultMut
+		mut style_mark: Query<'static, 'static,Node, &mut StyleMark>, // TODO OrDefaultMut
 	
-		text_content: Query<Node, Write<TextContent>>,
+		text_content: Query<'static, 'static,Node, Write<TextContent>>,
 	
 		mut tree: EntityTreeMut<Node>,
 	
@@ -155,7 +155,7 @@ impl CalcUserSetting {
 			let mut style_mark_item = style_mark.get_unchecked_mut(node);
 			
 			let mut style_reader = StyleTypeReader::new(style_buffer, start, end);
-			let mut style_mark = &mut style_mark_item.local_style;
+			let style_mark = &mut style_mark_item.local_style;
 			while style_reader.write_to_component(style_mark, node, &mut style_query) {
 			}
 			// 取消样式， TODO，注意，宽高取消时，还要考虑图片宽高的重置问题
@@ -176,9 +176,6 @@ impl CalcUserSetting {
 	
 		// 设置class样式
 		for (node, class) in user_commands.class_commands.drain(..) {
-			if unsafe {transmute::<_, u64>(node)} == 4294967330 {
-				println!("XXXXXXXXXXX");
-			}
 			set_class(
 				node, 
 				&mut style_query, 
