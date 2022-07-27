@@ -4,6 +4,10 @@ version = "0.1.0"
 authors = ["suncy <suncy@gmail.com>"]
 edition = "2021"
 
+[features]
+default = ["pi_js_export"]
+pi_js_export = []
+
 [dependencies]
 pi_print_any= "0.1"
 pi_slotmap = "0.1"
@@ -51,7 +55,7 @@ polygon2 = "0.3"
 json ="0.12"
 pi_slab="0.1"
 pi_idtree="0.1"
-winit = "0.26"
+winit = {git = "http://ser.yinengyun.com:10082/tech/winit.git"}
 pi_slotmap_tree ="0.2"
 pi_dirty="0.1"
 
@@ -104,8 +108,7 @@ test = true
 env_logger = "0.9"
 float-ord = "0.3"
 async-trait="0.1"
-# font_kit = {path="../font_kit"}
-# harfbuzz = "0.4.0"
+font_kit = {git="http://ser.yinengyun.com:10082/tech/font_kit.git"}
 
 # [patch.crates-io]
 # pi_ecs = { path = "../pi_ecs" }

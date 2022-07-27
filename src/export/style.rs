@@ -73,6 +73,7 @@ macro_rules! out_export {
 			}
 
 			#[cfg(not(target_arch = "wasm32"))]
+			#[cfg(feature="pi_js_export")]
 			pub fn [<set_ $attr_name>](gui: &mut Gui, node_id: f64, $($name: $ty,)*) {
 				let node_id = unsafe {Id::<Node>::new(LocalVersion::from_ffi(transmute::<f64, u64>(node_id)))};
 				gui.0.set_style(node_id, $last_ty($expr));
@@ -87,6 +88,7 @@ macro_rules! out_export {
 			}
 
 			#[cfg(not(target_arch = "wasm32"))]
+			#[cfg(feature="pi_js_export")]
 			pub fn [<reset_ $attr_name>](gui: &mut Gui, node_id: f64) {
 				let node_id = unsafe {Id::<Node>::new(LocalVersion::from_ffi(transmute::<f64, u64>(node_id)))};
 				gui.0.set_style(node_id, [<Reset $last_ty>]);
@@ -131,6 +133,7 @@ macro_rules! out_export {
 			}
 
 			#[cfg(not(target_arch = "wasm32"))]
+			#[cfg(feature="pi_js_export")]
 			pub fn [<set_ $attr_name>](gui: &mut Gui, node_id: f64, edge:u8, $($name: $ty,)*) {
 				let node_id = unsafe {Id::<Node>::new(LocalVersion::from_ffi(transmute::<f64, u64>(node_id)))};
 				match unsafe {transmute(edge)} {
@@ -164,6 +167,7 @@ macro_rules! out_export {
 			}
 
 			#[cfg(not(target_arch = "wasm32"))]
+			#[cfg(feature="pi_js_export")]
 			pub fn [<reset_ $attr_name>](gui: &mut Gui, node_id: f64, edge:u8) {
 				let node_id = unsafe {Id::<Node>::new(LocalVersion::from_ffi(transmute::<f64, u64>(node_id)))};
 				match unsafe {transmute(edge)} {
@@ -203,6 +207,7 @@ macro_rules! out_export {
 			}
 
 			#[cfg(not(target_arch = "wasm32"))]
+			#[cfg(feature="pi_js_export")]
 			pub fn [<set_ $attr_name>](gui: &mut Gui, node_id: f64, $($name: $ty,)*) {
 				let node_id = unsafe {Id::<Node>::new(LocalVersion::from_ffi(transmute::<f64, u64>(node_id)))};
 				gui.0.set_style(node_id, $last_ty($expr));
@@ -217,6 +222,7 @@ macro_rules! out_export {
 			}
 
 			#[cfg(not(target_arch = "wasm32"))]
+			#[cfg(feature="pi_js_export")]
 			pub fn [<reset_ $attr_name>](gui: &mut Gui, node_id: f64) {
 				let node_id = unsafe {Id::<Node>::new(LocalVersion::from_ffi(transmute::<f64, u64>(node_id)))};
 				gui.0.set_style(node_id, [<Reset $last_ty>]);
