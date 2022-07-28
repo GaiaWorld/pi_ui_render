@@ -68,8 +68,6 @@ pi_flex_layout = { git = "https://github.com/GaiaWorld/pi_flex_layout.git" }
 pi_hal={git="https://github.com/GaiaWorld/pi_hal.git"}
 js_proxy_gen_macro={git="https://github.com/GaiaWorld/pi_lib.git"}
 
-font_kit = {git="http://ser.yinengyun.com:10082/tech/font_kit.git", branch="suncy"}
-
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = { version = "0.2.78", features = ["serde-serialize"] }
 
@@ -81,8 +79,8 @@ pi_ecs_macros = { path = "../pi_ecs/macros" }
 # [patch."https://github.com/GaiaWorld/pi_ecs_utils"]
 # pi_ecs_utils = { path = "../pi_ecs_utils" }
 
-# [patch."https://github.com/GaiaWorld/pi_render"]
-# pi_render = { path = "../pi_render" }
+[patch."https://github.com/GaiaWorld/pi_render"]
+pi_render = { path = "../pi_render" }
 
 [patch."https://github.com/GaiaWorld/pi_hal"]
 pi_hal = { path = "../pi_hal" }
@@ -109,6 +107,7 @@ env_logger = "0.9"
 float-ord = "0.3"
 async-trait="0.1"
 font_kit = {git="http://ser.yinengyun.com:10082/tech/font_kit.git"}
+spin_sleep="1.1"
 
 # [patch.crates-io]
 # pi_ecs = { path = "../pi_ecs" }
