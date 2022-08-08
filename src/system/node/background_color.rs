@@ -4,7 +4,7 @@ use std::io::Result;
 use ordered_float::NotNan;
 use pi_assets::asset::{Handle, Asset};
 use pi_assets::mgr::AssetMgr;
-use pi_ecs::prelude::{Or, Deleted, With, ChangeTrackers, ParamSet, OrDefault};
+use pi_ecs::prelude::{Or, Deleted, With, ChangeTrackers, ParamSet, OrDefault, ResMut};
 use pi_ecs::prelude::{Query, Changed, EntityCommands, Commands, Write, Res, Event, Id};
 use pi_ecs_macros::{listen, setup};
 use pi_flex_layout::prelude::{Rect, Size};
@@ -12,16 +12,21 @@ use pi_render::rhi::asset::RenderRes;
 use pi_render::rhi::bind_group::BindGroup;
 use pi_render::rhi::buffer::Buffer;
 use pi_render::rhi::device::RenderDevice;
+use pi_render::rhi::dyn_uniform_buffer::{Bind, self, Group, BindOffset};
 use pi_share::Share;
 use pi_render::rhi::bind_group_layout::BindGroupLayout;
 use pi_polygon::{split_by_radius, find_lg_endp, split_by_lg, interp_mult_by_lg, LgCfg, mult_to_triangle, to_triangle};
+use smallvec::{SmallVec, smallvec};
 use wgpu::IndexFormat;
 
 use crate::components::calc::{LayoutResult, DrawInfo};
+use crate::components::draw_obj::{DrawGroup, DynDrawGroup, FSDefines, VSDefines};
 use crate::components::user::{CgColor, BorderRadius};
-use crate::system::shader_utils::StaticIndex;
-use crate::system::shader_utils::color::{ColorStaticIndex, COLOR_GROUP};
-use crate::system::shader_utils::with_vert_color::WithVertColorStaticIndex;
+use crate::resource::draw_obj::{ColorStaticIndex, StaticIndex, DynBindGroupIndex, DynUniformBuffer, GradientColorStaticIndex};
+use crate::shaders::color::{ColorMaterialBind, ColorShader, ColorUniform, ColorMaterialGroup};
+// use crate::system::shader_utils::StaticIndex;
+// use crate::system::shader_utils::color::{ColorStaticIndex, COLOR_GROUP};
+// use crate::system::shader_utils::with_vert_color::WithVertColorStaticIndex;
 use crate::utils::tools::{calc_hash, get_content_rect, get_content_radius};
 use crate::{components::{user::{Node, BackgroundColor, Color}, calc::{NodeId, DrawList}, draw_obj::{BoxType, DrawObject, DrawState}}, resource::draw_obj::{Shaders, UnitQuadBuffer}};
 // use crate::utils::tools::calc_hash;
@@ -61,25 +66,29 @@ impl CalcBackGroundColor {
 			), Deleted<BackgroundColor>>
 		)>,
 
-		query_draw: Query<'static, 'static, DrawObject, (Write<DrawState>, OrDefault<BoxType>, &'static StaticIndex)>,
+		query_draw: Query<'static, 'static, DrawObject, (Write<DrawState>, OrDefault<BoxType>, &'static StaticIndex,Write<FSDefines>, Write<VSDefines>)>,
 		mut draw_obj_commands: EntityCommands<DrawObject>,
 		mut draw_state_commands: Commands<DrawObject, DrawState>,
 		mut node_id_commands: Commands<DrawObject, NodeId>,
 		mut is_unit_quad_commands: Commands<DrawObject, BoxType>,
 		mut shader_static_commands: Commands<DrawObject, StaticIndex>,
 		mut order_commands: Commands<DrawObject, DrawInfo>,
+		mut fs_defines_commands: Commands<DrawObject, FSDefines>,
+		mut vs_defines_commands: Commands<DrawObject, VSDefines>,
 		
 		// load_mgr: ResMut<'a, LoadMgr>,
 		device: Res<'static, RenderDevice>,
-		bg_static_index: Res<'static, ColorStaticIndex>,
-		with_vert_color_static_index: Res<'static, WithVertColorStaticIndex>,
+		color_static_index: Res<'static, ColorStaticIndex>,
+		gradient_color_static_index: Res<'static, GradientColorStaticIndex>,
+		
 		shader_static: Res<'static, Shaders>,
 		unit_quad_buffer: Res<'static, UnitQuadBuffer>,
+		mut dyn_uniform_buffer: ResMut<'static, DynUniformBuffer>,
+		color_material_bind_group: Res<'static, DynBindGroupIndex<ColorMaterialGroup>>,
 
 		buffer_assets: Res<'static, Share<AssetMgr<RenderRes<Buffer>>>>,
-		bind_group_assets: Res<'static, Share<AssetMgr<RenderRes<BindGroup>>>>,
+		bind_group_assets:Res<'static, Share<AssetMgr<RenderRes<BindGroup>>>>,
 	) -> Result<()> {
-		// log::info!("calc_background=================");
 		for (
 			background_color,
 			mut draw_index,
@@ -117,9 +126,9 @@ impl CalcBackGroundColor {
 			match draw_index.get() {
 				// background_color已经存在一个对应的DrawObj， 则修改color group
 				Some(r) => {
-					let (mut draw_state_item, old_unit_quad, old_static_index) = query_draw.get_unchecked(**r);
+					let (mut draw_state_item, old_unit_quad, old_static_index, mut fs_defines, mut vs_defines) = query_draw.get_unchecked(**r);
 					let draw_state = draw_state_item.get_mut().unwrap();
-					let (new_static_index, new_unit_quad) = modify(
+					let new_unit_quad = modify(
 						&background_color, 
 						radius,
 						layout,
@@ -130,20 +139,30 @@ impl CalcBackGroundColor {
 						&background_color_change,
 						&radius_change,
 						&layout_change,
-						&bg_static_index,
-						&with_vert_color_static_index,
 						&shader_static,
-						&unit_quad_buffer).await;
+						&unit_quad_buffer,
+						&mut dyn_uniform_buffer).await;
 					draw_state_item.notify_modify();
-					if unsafe {transmute::<_, u64>(node)} == 4294967627 {
-						println!("xxxxxxxxxxx")
-					}
 					if *old_unit_quad != new_unit_quad {
 						is_unit_quad_commands.insert(**r, new_unit_quad);
 					}
 
-					if old_static_index != new_static_index {
-						shader_static_commands.insert(**r, new_static_index.clone());
+					let (static_index, has_vert) = match &**background_color {
+						Color::LinearGradient(_) => (&**gradient_color_static_index, true),
+						Color::RGBA (_) => (&**color_static_index, false)
+					};
+
+					if old_static_index != static_index {
+						shader_static_commands.insert(**r, static_index.clone());
+
+						if has_vert {
+							vs_defines.get_mut_or_default().insert("VERT_COLOR".to_string());
+							fs_defines.get_mut_or_default().insert("VERT_COLOR".to_string());
+						} else {
+							fs_defines.get_mut_or_default().remove(&"VERT_COLOR".to_string());
+							vs_defines.get_mut_or_default().remove(&"VERT_COLOR".to_string());
+						}
+						vs_defines.notify_modify();
 					}
 				},
 				// 否则，创建一个新的DrawObj，并设置color group; 
@@ -154,12 +173,21 @@ impl CalcBackGroundColor {
 				// * <DrawObject, NodeId>
 				// * <DrawObject, IsUnitQuad>
 				None => {
-					// log::info!("create_background=================");
 					// 创建新的DrawObj
 					let new_draw_obj = draw_obj_commands.spawn();
+
 					// 设置DrawState（包含color group）
 					let mut draw_state = DrawState::default();
-					let (new_static_index, new_unit_quad) = modify(
+
+					let color_material_dyn_offset = dyn_uniform_buffer.alloc_binding::<ColorMaterialBind>();
+					let group = DrawGroup::Dyn(
+						DynDrawGroup::new(
+							(*color_material_bind_group).clone(),
+							smallvec![color_material_dyn_offset]
+						));
+					draw_state.bind_groups.insert_group(ColorMaterialGroup::id(), group);
+
+					let new_unit_quad = modify(
 						&background_color, 
 						radius,
 						layout,
@@ -170,17 +198,30 @@ impl CalcBackGroundColor {
 						&background_color_change,
 						&radius_change,
 						&layout_change,
-						&bg_static_index,
-						&with_vert_color_static_index,
 						&shader_static,
-						&unit_quad_buffer).await;
+						&unit_quad_buffer,
+						&mut dyn_uniform_buffer).await;
 					
 					draw_state_commands.insert(new_draw_obj, draw_state);
 					// 建立DrawObj对Node的索引
 					node_id_commands.insert(new_draw_obj, NodeId(node));
 					is_unit_quad_commands.insert(new_draw_obj, new_unit_quad);
+					
+					let static_index = match &**background_color {
+						Color::LinearGradient(_) => {
+							let mut vs_defines = VSDefines::default();
+							vs_defines.insert("VERT_COLOR".to_string());
+							vs_defines_commands.insert(new_draw_obj, vs_defines);
 
-					shader_static_commands.insert(new_draw_obj, new_static_index.clone());
+							let mut fs_defines = FSDefines::default();
+							fs_defines.insert("VERT_COLOR".to_string());
+							fs_defines_commands.insert(new_draw_obj, fs_defines);
+							&**gradient_color_static_index
+						},
+						Color::RGBA (_) => &**color_static_index
+					};
+
+					shader_static_commands.insert(new_draw_obj, static_index.clone());
 					if unsafe {transmute::<_, u64>(node)} == 4294967627 {
 						println!("xxxxxxxxxxx")
 					}
@@ -235,27 +276,21 @@ async fn modify<'a> (
 	bg_color_change: &ChangeTrackers<BackgroundColor>,
 	border_change: &ChangeTrackers<BorderRadius>,
 	layout_change: &ChangeTrackers<LayoutResult>,
-	color_static: &'a StaticIndex,
-	linear_static: &'a StaticIndex,
 	shader_static: &Shaders,
 	unit_quad_buffer: &UnitQuadBuffer,
-) -> (&'a StaticIndex, BoxType) {
+
+	dyn_uniform_buffer: &mut DynUniformBuffer,
+) -> BoxType {
 	// modify_radius_linear_geo
-	let static_index = match color {
+	match color {
 		Color::RGBA(color) => {
 			// 颜色改变，重新设置color_group
 			if bg_color_change.is_changed() {
-				let color_group_layout = shader_static.get(color_static.shader).unwrap().bind_group.get(COLOR_GROUP).unwrap();
-				let color_bind_group = create_rgba_bind_group(color, device, color_group_layout, buffer_assets, bind_group_assets);
-				// 插入color_bind_group到drawstate中
-				draw_state.bind_groups.insert(COLOR_GROUP, color_bind_group);
+				let dyn_offset = draw_state.bind_groups.get_group(ColorMaterialGroup::id()).unwrap().get_offset(ColorMaterialBind::index()).unwrap();
+				dyn_uniform_buffer.set_uniform(dyn_offset, &ColorUniform(&[color.x, color.y, color.z, color.w]));
 			}
-			
-			color_static
 		},
-		_ => {
-			linear_static
-		},
+		_ => (),
 	};
 
 	let radius = get_content_radius(radius, layout);
@@ -267,7 +302,7 @@ async fn modify<'a> (
 				draw_state.vbs.insert(0, (unit_quad_buffer.vertex.clone(), 0));
 				draw_state.ib = Some((unit_quad_buffer.index.clone(), 6, IndexFormat::Uint16));
 			}
-			return (static_index, BoxType::Content);
+			return BoxType::Content;
 		}
 	}
 
@@ -284,47 +319,53 @@ async fn modify<'a> (
 		);
 	}
 
-	(static_index, BoxType::None)
+	BoxType::None
 }
 
-pub fn create_rgba_bind_group(
-	color: &CgColor,
-	device: &RenderDevice, 
-	color_group_layout: &BindGroupLayout,
-	buffer_assets: &Share<AssetMgr<RenderRes<Buffer>>>,
-	bind_group_assets: &Share<AssetMgr<RenderRes<BindGroup>>>,
-) -> Handle<RenderRes<BindGroup>> {
-	let key = calc_hash(&color, calc_hash(&"uniform", 0));
-	match bind_group_assets.get(&key) {
-		Some(r) => r,
-		None => {
-			let uniform_buf = match buffer_assets.get(&key) {
-				Some(r) => r,
-				None => {
-					let uniform_buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
-						label: Some("color buffer init"),
-						contents: bytemuck::cast_slice(&[color.x, color.y, color.z, color.w]),
-						usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-					});
-					buffer_assets.insert(key, RenderRes::new(uniform_buf, 5)).unwrap()
-				}
-			};
-			let group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-				layout: color_group_layout,
-				entries: &[
-					wgpu::BindGroupEntry {
-						binding: 0,
-						resource: uniform_buf.as_entire_binding(),
-					},
-				],
-				label: Some("color group create"),
-			});
-			bind_group_assets.insert(key, RenderRes::new(group, 5)).unwrap()
-		}
-	}
-}
+// pub fn create_rgba_bind_group(
+// 	color: &CgColor,
+// 	device: &RenderDevice, 
+// 	color_group_layout: &BindGroupLayout,
+// 	buffer_assets: &Share<AssetMgr<RenderRes<Buffer>>>,
+// 	bind_group_assets: &Share<AssetMgr<RenderRes<BindGroup>>>,
+// ) -> u32 {
+// 	// Handle<RenderRes<BindGroup>>
+// 	// let key = calc_hash(&color, calc_hash(&"uniform", 0));
+// 	match bind_group_assets.get(&key) {
+// 		Some(r) => r,
+// 		None => {
+			
+// 			let uniform_buf = match buffer_assets.get(&key) {
+// 				Some(r) => r,
+// 				None => {
+// 					// let time = std::time::Instant::now();
+// 					let uniform_buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
+// 						label: Some("color buffer init"),
+// 						contents: bytemuck::cast_slice(&[color.x, color.y, color.z, color.w]),
+// 						usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+// 					});
+// 					// log::warn!("create color_buffer_time: {:?}",  std::time::Instant::now()- time);
+// 					buffer_assets.insert(key, RenderRes::new(uniform_buf, 5)).unwrap()
+// 				}
+// 			};
+// 			// let time = std::time::Instant::now();
+// 			let group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+// 				layout: color_group_layout,
+// 				entries: &[
+// 					wgpu::BindGroupEntry {
+// 						binding: 0,
+// 						resource: uniform_buf.as_entire_binding(),
+// 					},
+// 				],
+// 				label: Some("color group create"),
+// 			});
+// 			// log::warn!("create color_group_time: {:?}",  std::time::Instant::now()- time);
+// 			bind_group_assets.insert(key, RenderRes::new(group, 5)).unwrap()
+// 		}
+// 	}
+// }
 
-
+ 
 #[inline]
 fn try_modify_as_radius_linear_geo(
     radius: &Option<Rect<NotNan<f32>>>,

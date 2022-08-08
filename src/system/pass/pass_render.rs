@@ -8,10 +8,11 @@ use pi_ecs_macros::{listen, setup};
 use pi_null::Null;
 use pi_render::{
 	graph::graph::RenderGraph, 
-	rhi::{device::RenderDevice, asset::RenderRes, bind_group::BindGroup, buffer::Buffer}, components::view::target_alloc::ShareTargetView
+	rhi::{device::RenderDevice, asset::RenderRes, bind_group::BindGroup, buffer::Buffer, RenderQueue, dyn_uniform_buffer::{Bind, self, Group}}, components::view::target_alloc::ShareTargetView
 };
 use pi_share::Share;
 use pi_spatialtree::quad_helper::intersects;
+use smallvec::smallvec;
 use wgpu::{IndexFormat, DepthStencilState, TextureFormat, CompareFunction, StencilState, DepthBiasState};
 
 use crate::{
@@ -19,20 +20,19 @@ use crate::{
 		calc::{NodeId, ContentBox, DrawList, Visibility, WorldMatrix, Quad, InPassId, Pass2DId, TransformWillChangeMatrix, OverflowAabb, DrawInfo, ZRange}, 
 		pass_2d::{Camera, DirtyRectState, GraphId, Draw2DList, ParentPassId, Pass2D, DirtyRect, DrawIndex, PostProcessList, LastDirtyRect, ViewMatrix}, 
 		user::{Matrix4, Node, CgColor, TransformWillChange, Aabb2, Point2}, 
-		draw_obj::{DrawState, DrawObject, VSDefines, FSDefines, DrawKey}
+		draw_obj::{DrawState, DrawObject, VSDefines, FSDefines, DrawKey, DrawGroup, DynDrawGroup}
 	}, 
 	utils::{
-		tools::{intersect, calc_aabb, calc_bound_box}, 
+		tools::{intersect, calc_aabb, calc_bound_box, calc_hash}, 
 		shader_helper::{DEPTH_GROUP, VIEW_GROUP, PROJECT_GROUP}
 	}, 
 	resource::{
-		draw_obj::{ShareLayout, UnitQuadBuffer, Shaders, PipelineMap, ShaderInfoMap, ShaderCatch, VertexBufferLayoutMap, StateMap, DynFboClearColorBindGroup, ClearColorBindGroup, PipelineState}, 
+		draw_obj::{ShareLayout, UnitQuadBuffer, Shaders, PipelineMap, ShaderInfoMap, ShaderCatch, VertexBufferLayoutMap, StateMap, DynFboClearColorBindGroup, ClearColorBindGroup, PipelineState, ColorStaticIndex, StaticIndex, DynUniformBuffer, ColorGroupLayout, DynBindGroupIndex, DynBindGroups}, 
 		ClearColor, ClearDrawObj, Viewport
 	}, 
 	system::{
-		node::background_color::{create_rgba_bind_group}, 
-		draw_obj::{pipeline::CalcPipeline, world_marix::modify_world_matrix}, shader_utils::{create_camera_bind_group, StaticIndex, create_depth_group, color::{ColorStaticIndex, COLOR_GROUP}}
-	}
+		draw_obj::{pipeline::CalcPipeline}
+	}, shaders::color::{ColorShader, CameraMatrixBind, ProjectUniform, ColorMaterialBind, WorldUniform, DepthUniform, ColorUniform, ViewUniform, CameraMatrixGroup, ColorMaterialGroup}
 };
 
 use super::pass_graph_node::{Pass2DNode};
@@ -53,6 +53,7 @@ impl CalcRender{
 		static_index: Res<ColorStaticIndex>,
 		shader_statics: Res<Shaders>,
 		device: Res<RenderDevice>,
+		queue: Res<RenderQueue>,
 		shader_catch: Res<ShaderCatch>,
 		vertex_buffer_layout_map: Res<VertexBufferLayoutMap>,
 		mut state_map: ResMut<StateMap>,
@@ -63,19 +64,20 @@ impl CalcRender{
 		
 		mut dyn_fbo_clear_color_bind_group: WriteRes<DynFboClearColorBindGroup>,
 		mut clear_draw_obj: WriteRes<ClearDrawObj>,
+
+		color_material_bind_group: Res<'static, DynBindGroupIndex<ColorMaterialGroup>>,
+		camera_bind_group: Res<'static, DynBindGroupIndex<CameraMatrixGroup>>,
+
+		mut dyn_uniform_buffer: ResMut<'static, DynUniformBuffer>,
 	) {
 		let pipeline_state = create_clear_pipeline_state();
 		let pipeline_state = state_map.insert(pipeline_state);
+		// 清屏使用的渲染状态不同
 		let static_index = StaticIndex { 
 			shader: static_index.shader,
 			pipeline_state: pipeline_state, 
 			vertex_buffer_index: static_index.vertex_buffer_index, 
-			name: "clear screen" 
-		};
-
-		let color_group_layout = match shader_statics.get(static_index.shader) {
-			Some(r) => r.bind_group.get(COLOR_GROUP).unwrap(),
-			None => return,
+			name: static_index.name, 
 		};
 		
 		// 设置清屏颜色的vb、ib
@@ -107,58 +109,29 @@ impl CalcRender{
 
 		// 设置清屏颜色的世界矩阵、投影矩阵、视图矩阵
 		// 视图矩阵和投影矩阵都设置为单位阵
-		let view = WorldMatrix::default().0; 
-		let project = WorldMatrix::default().0;
-		let view_bind_group = create_camera_bind_group(
-			&view, 
-			&share_layout.view, 
-			&device, 
-			&buffer_assets,
-			&bind_group_assets,);
-		let project_bind_group = create_camera_bind_group(
-			&project, 
-			&share_layout.project, 
-			&device, 
-			&buffer_assets,
-			&bind_group_assets,);
-		draw_state.bind_groups.insert(VIEW_GROUP, view_bind_group);
-		draw_state.bind_groups.insert(PROJECT_GROUP, project_bind_group);
+		let view_project = WorldMatrix::default().0;
+		let camera_dyn_offset = dyn_uniform_buffer.alloc_binding::<CameraMatrixBind>();
+		dyn_uniform_buffer.set_uniform(&camera_dyn_offset, &ProjectUniform(view_project.as_slice()));
+		dyn_uniform_buffer.set_uniform(&camera_dyn_offset, &ViewUniform(view_project.as_slice()));
 
+		draw_state.bind_groups.insert_group(CameraMatrixGroup::id(), DrawGroup::Dyn(DynDrawGroup::new(**camera_bind_group, smallvec![camera_dyn_offset])));
+
+		let color_dyn_offset = dyn_uniform_buffer.alloc_binding::<ColorMaterialBind>();
 		// 世界矩阵
-		let view = Matrix4::new(
+		let world = Matrix4::new(
 			2.0, 0.0, 0.0, -1.0,
 			0.0, 2.0, 0.0, -1.0,
 			0.0, 0.0, 1.0, 0.0,
 			0.0, 0.0, 0.0, 1.0,
 		);
-		modify_world_matrix(
-			&WorldMatrix(view, false),
-			&mut draw_state,
-			&device,
-			&share_layout.matrix,
-			&buffer_assets,
-			&bind_group_assets,
-		);
-
+		dyn_uniform_buffer.set_uniform(&color_dyn_offset, &WorldUniform(world.as_slice()));
 		// 深度设置为-1(最远)
-		let depth_bind_group = create_depth_group(
-			0,
-			&buffer_assets, 
-			&bind_group_assets, 
-			&mut depth_cache,
-			&device,
-			&share_layout);
-		draw_state.bind_groups.insert(DEPTH_GROUP, depth_bind_group);
+		dyn_uniform_buffer.set_uniform(&color_dyn_offset, &DepthUniform(&[0.0]));
+		dyn_uniform_buffer.set_uniform(&color_dyn_offset, &ColorUniform(&[0.0, 0.0, 0.0, 0.0]));
+		
+		let group = DrawGroup::Dyn(DynDrawGroup::new(**color_material_bind_group, smallvec![color_dyn_offset]));
+		dyn_fbo_clear_color_bind_group.write(DynFboClearColorBindGroup(group));
 
-		dyn_fbo_clear_color_bind_group.write(
-			DynFboClearColorBindGroup(create_rgba_bind_group(
-				&CgColor::new(0.0, 0.0, 0.0, 0.0),
-				&device,
-				color_group_layout,
-				&buffer_assets,
-				&bind_group_assets,
-			))
-		);
 		clear_draw_obj.write(ClearDrawObj(draw_state));
 	}
 
@@ -185,18 +158,23 @@ impl CalcRender{
 				)>
 			)>,
 			Query<Node, (&'static InPassId, Option<&'static Pass2DId>, Option<&'static DrawList>, &'static Quad, &'static ZRange, OrDefault<Visibility>, Join<InPassId, Pass2D, &'static LastDirtyRect>)>,
+			Query<Pass2D, &'static Camera>,
 		)>,
 		mut draw_state: Query<DrawObject, &mut DrawState>,
 		draw_info: Query<DrawObject, OrDefault<DrawInfo>>,
 		// mut z_query1: Query<Pass2D, Join<NodeId, Node, &ZRange>>,
 		share_layout: Res<'a, ShareLayout>,
 		device: Res<'a, RenderDevice>,
+		queue: Res<'a, RenderQueue>,
 		global_dirty_rect: Res<'a, DirtyRect>,
 
 		buffer_assets: Res<'a, Share<AssetMgr<RenderRes<Buffer>>>>,
 		bind_group_assets:  Res<'a, Share<AssetMgr<RenderRes<BindGroup>>>>,
 		mut depth_cache: ResMut<'a, DepthCache>,
+		mut dyn_uniform_buffer: ResMut<'static, DynUniformBuffer>,
+		camera_bind_group: Res<DynBindGroupIndex<CameraMatrixGroup>>,
 		viewport: Res<Viewport>, // 视口
+		mut dyn_bind_groups: ResMut<'static, DynBindGroups>,
 	) -> Result<()> {
 		// 不脏，不需要组织渲染图， 也不需要渲染
 		if global_dirty_rect.state == DirtyRectState::UnInit {
@@ -293,33 +271,29 @@ impl CalcRender{
 				&view
 			};
 
-			let project_bind_group = create_camera_bind_group(
-				&project, 
-				&share_layout.project, 
-				&device,
-				&buffer_assets,
-				&bind_group_assets,
-			);
-			let view_bind_group = create_camera_bind_group(
-				&view, 
-				&share_layout.view, 
-				&device,
-				&buffer_assets,
-				&bind_group_assets,
-			);
+			let camera_dyn_offset = dyn_uniform_buffer.alloc_binding::<CameraMatrixBind>();
+			dyn_uniform_buffer.set_uniform(&camera_dyn_offset, &ProjectUniform(project.as_slice()));
+			dyn_uniform_buffer.set_uniform(&camera_dyn_offset, &ViewUniform(view.as_slice()));
 
 			let aabb = Aabb2::new(
 				Point2::new(aabb.mins.x.floor(), aabb.mins.y.floor() ), 
 				Point2::new(aabb.maxs.x.ceil(), aabb.maxs.y.ceil() ));
 			
+			let world_matrix = Matrix4::new(
+				aabb.maxs.x-aabb.mins.x,0.0,0.0, aabb.mins.x,
+				0.0,aabb.maxs.y-aabb.mins.y,0.0, aabb.mins.y,
+				0.0,0.0,1.0, 0.0,
+				0.0,0.0,0.0,1.0,
+			);
 			camera.write(Camera {
 				// view: match willchange_matrix {
 				// 	Some(r) => r.0.clone(),
 				// 	Non
 				// }, 
-				view_bind_group: Some(view_bind_group),
-				project_bind_group: Some(project_bind_group),
+				bind_group: Some(DrawGroup::Dyn(DynDrawGroup::new(**camera_bind_group, smallvec![camera_dyn_offset]))),
 				view_port: aabb,
+				world_matrix
+
 			});
 
 			
@@ -399,6 +373,7 @@ impl CalcRender{
 		}
 
 		let p1 = query_draw2d_list.p1();
+		let camera_query = query_pass.p2();
 		for (list, post) in p1.iter() {
 			// 不存在后处理，不主动分配depth（需要pass2d分配）
 			// 如果post不为none，但长度大于0，表示根节点，也需要自己分配depth
@@ -407,13 +382,27 @@ impl CalcRender{
 			}
 
 			// println!("post======================");
-			alloc_depth(&device, p1, list, &share_layout, &mut draw_state, &buffer_assets, 
-				&bind_group_assets, &mut depth_cache, &mut 0);
+		let camera_query = query_pass.p2();
+			alloc_depth(&device, p1, camera_query, list, &share_layout, &mut draw_state, &buffer_assets, 
+				&bind_group_assets, &mut depth_cache, &mut 0, &mut dyn_uniform_buffer);
 		}
 
 		// 清理列表
 		for mut list in query_draw2d_list.p0_mut().iter_mut() {
 			list.all_list.clear();
+		}
+
+		// let time = std::time::Instant::now();
+		let r = dyn_uniform_buffer.write_buffer(&device, &queue);
+		// println!("time================={:?}, {:?}", std::time::Instant::now() - time, dyn_uniform_buffer.capacity());
+		// let time = std::time::Instant::now();
+		if r {
+			let buffer = dyn_uniform_buffer.buffer().unwrap();
+			// 返回true表示buffer已修改，需要重新创建bindgroup
+			for (group, layout, create_fn) in dyn_bind_groups.iter_mut() {
+				*group = Some(create_fn(&device, layout, buffer));
+			}
+			// println!("create group================={:?}, {:?}", std::time::Instant::now() - time, dyn_bind_groups.len());
 		}
 
 		Ok(())
@@ -427,10 +416,6 @@ impl CalcRender{
 		mut query: Query<Pass2D, (Write<GraphId>, Write<Draw2DList>)>,
 		mut rg: ResMut<RenderGraph<Option<ShareTargetView>>> ,
 	) {
-		if unsafe {transmute::<_, u64>(e.id.local())} == 12884901891 {
-			log::info!("create_graph_node================={:?}", e.id);
-		}
-		log::info!("create_graph_node================={:?}", e.id);
 		let node = Pass2DNode::new(unsafe { Id::new(e.id.local()) });
 		// rg.reset();
 		let graph_id = rg.add_node(format!("Pass2D {:?}", e.id.local().offset()), node);
@@ -480,31 +465,31 @@ impl CalcRender{
 		e: Event,
 		color: Option<Res<ClearColor>>,
 
-		mut bind_group: ResMut<ClearColorBindGroup>,
+		mut color_bind_group: ResMut<ClearColorBindGroup>,
 		device: Res<RenderDevice>,
 		buffer_assets: Res<Share<AssetMgr<RenderRes<Buffer>>>>,
 		bind_group_assets: Res<Share<AssetMgr<RenderRes<BindGroup>>>>,
 		static_index: Res<ColorStaticIndex>,
 		shader_statics: Res<Shaders>,
-
+		mut dyn_uniform_buffer: ResMut<'static, DynUniformBuffer>,
+		color_material_bind_group: Res<'static, DynBindGroupIndex<ColorMaterialGroup>>,
 	) {
 		match e.ty {
 			EventType::Create | EventType::Modify => {
-				let color_group_layout = match shader_statics.get(static_index.shader) {
-					Some(r) => r.bind_group.get(COLOR_GROUP).unwrap(),
-					None => return,
+				let color_bind_group = match &mut color_bind_group.0 {
+					Some(r) => r,
+					None => {
+						let color_dyn_offset = dyn_uniform_buffer.alloc_binding::<ColorMaterialBind>();
+						color_bind_group.0 = Some(DrawGroup::Dyn(DynDrawGroup::new(**color_material_bind_group, smallvec![color_dyn_offset] )));
+						color_bind_group.0.as_mut().unwrap()
+					},
 				};
-				bind_group.0 = Some(create_rgba_bind_group(
-					&color.unwrap(),
-					&device,
-					color_group_layout,
-					&buffer_assets,
-					&bind_group_assets,
-				));
+				let offset = color_bind_group.get_offset(ColorMaterialBind::index()).unwrap();
+				let color = color.unwrap();
+				dyn_uniform_buffer.set_uniform(offset, &ColorUniform(&[color.x, color.y, color.z, color.w]));
 			},
 			EventType::Delete => {},
 		};
-		
 		
 		// // log::info!("create_graph_node================={:?}", e.id);
 		// let node = Pass2DNode::new(unsafe { Id::new(e.id.local()) });
@@ -525,6 +510,7 @@ pub fn create_project(left: f32, right: f32, top: f32, bottom: f32) -> Matrix4 {
 fn alloc_depth<'a>(
 	device: &'a RenderDevice,
 	pass2d: &'a Query<Pass2D, (&Draw2DList, Option<&PostProcessList>)>,
+	camera_query: &'a Query<Pass2D, &Camera>,
 	list: &'a Draw2DList,
 	share_layout: &'a ShareLayout,
 	draw_state: &'a mut Query<DrawObject, &mut DrawState>,
@@ -532,32 +518,22 @@ fn alloc_depth<'a>(
 	bind_group_assets: &'a Share<AssetMgr<RenderRes<BindGroup>>>,
 	depth_cache: &'a mut Vec<Handle<RenderRes<BindGroup>>>,
 	cur_depth: &'a mut usize,
+	dyn_uniform_buffer: &'a mut DynUniformBuffer,
 ) {
 	for index in list.all_list.iter() {
 		match &index.0 {
 			// 如果绘制索引是一个DrawObj，则设置该DrawObj的depth group
 			DrawIndex::DrawObj(draw_key) => {
-				let mut draw_state_item = match draw_state.get_mut(*draw_key) {
-					Some(r) => r,
-					None => continue,
-				};
-	
-				let bind_group = create_depth_group(
-					*cur_depth, 
-					buffer_assets, 
-					bind_group_assets, 
-					depth_cache,
-					device,
-					share_layout);
-				// println!("drawobj======================{:?}, {:?}， {:?}, {:?}, {:?}", draw_key, cur_depth, node_id.map(|n|{
-				// 	let r: u64 = unsafe {transmute(n.clone())};
-				// 	(r - n.offset() as u64) >> 32
-				// }), node_id.map(|n|{n.offset()}) , node_id);
-				draw_state_item.bind_groups.insert(
-					DEPTH_GROUP, 
-					bind_group
-				);
-				*cur_depth += 1;
+				alloc_depth_one(device, *draw_key, share_layout, draw_state, buffer_assets, bind_group_assets, depth_cache, cur_depth, dyn_uniform_buffer);
+
+				// let mut draw_state_item = match draw_state.get_mut(*draw_key) {
+				// 	Some(r) => r,
+				// 	None => continue,
+				// };
+
+				// let color_dyn_offset = *draw_state_item.bind_groups.get_group(ColorShader::GROUP_COLORMATERIAL).unwrap().get_offset(ColorMaterialBind::index()).unwrap();
+				// dyn_uniform_buffer.set_uniform(color_dyn_offset, &DepthUniform(&[*cur_depth as f32]));
+				// *cur_depth += 1;
 			},
 			// 如果绘制索引是一个pass2d，则为该pass2d中的渲染对象设置depth group
 			DrawIndex::Pass2D(pass2d_id) => {
@@ -577,7 +553,16 @@ fn alloc_depth<'a>(
 									}
 								}
 								let key = r.0[key].draw_obj_key;
-								alloc_depth_one(device, key, share_layout, draw_state, buffer_assets, bind_group_assets, depth_cache, cur_depth);
+								alloc_depth_one(device, key, share_layout, draw_state, buffer_assets, bind_group_assets, depth_cache, cur_depth, dyn_uniform_buffer);
+
+								if let Some(camera) = camera_query.get(pass2d_id.clone()) {
+									let mut draw_state_item = match draw_state.get_mut(key) {
+										Some(r) => r,
+										None => return,
+									};
+									let dyn_offset = draw_state_item.bind_groups.get_group(ColorMaterialGroup::id()).unwrap().get_offset(ColorMaterialBind::index()).unwrap();
+									dyn_uniform_buffer.set_uniform(dyn_offset, &WorldUniform(camera.world_matrix.as_slice()));
+								}
 							}
 							continue;
 						},
@@ -587,7 +572,7 @@ fn alloc_depth<'a>(
 					continue;
 				};
 				// println!("pass2d_id======================{:?}", pass2d_id);
-				alloc_depth(device, pass2d, list, share_layout, draw_state, buffer_assets, bind_group_assets, depth_cache, cur_depth)
+				alloc_depth(device, pass2d, camera_query, list, share_layout, draw_state, buffer_assets, bind_group_assets, depth_cache, cur_depth, dyn_uniform_buffer)
 			}
 		}
 	}
@@ -602,27 +587,15 @@ fn alloc_depth_one<'a>(
 	bind_group_assets: &'a Share<AssetMgr<RenderRes<BindGroup>>>,
 	depth_cache: &'a mut Vec<Handle<RenderRes<BindGroup>>>,
 	cur_depth: &'a mut usize,
+	dyn_uniform_buffer: &'a mut DynUniformBuffer,
 ) {
 	let mut draw_state_item = match draw_state.get_mut(draw_key) {
 		Some(r) => r,
 		None => return,
 	};
+	let color_dyn_offset = draw_state_item.bind_groups.get_group(ColorMaterialGroup::id()).unwrap().get_offset(ColorMaterialBind::index()).unwrap();
+	dyn_uniform_buffer.set_uniform(color_dyn_offset, &DepthUniform(&[*cur_depth as f32]));
 
-	let bind_group = create_depth_group(
-		*cur_depth, 
-		buffer_assets, 
-		bind_group_assets, 
-		depth_cache,
-		device,
-		share_layout);
-	// println!("drawobj======================{:?}, {:?}， {:?}, {:?}, {:?}", draw_key, cur_depth, node_id.map(|n|{
-	// 	let r: u64 = unsafe {transmute(n.clone())};
-	// 	(r - n.offset() as u64) >> 32
-	// }), node_id.map(|n|{n.offset()}) , node_id);
-	draw_state_item.bind_groups.insert(
-		DEPTH_GROUP, 
-		bind_group
-	);
 	*cur_depth += 1;
 }
 

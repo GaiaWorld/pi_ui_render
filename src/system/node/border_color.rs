@@ -3,7 +3,7 @@ use std::io::Result;
 use ordered_float::NotNan;
 use pi_assets::asset::{Handle, Asset};
 use pi_assets::mgr::AssetMgr;
-use pi_ecs::prelude::{Or, Deleted, With, ChangeTrackers, ParamSet};
+use pi_ecs::prelude::{Or, Deleted, With, ChangeTrackers, ParamSet, ResMut};
 use pi_ecs::prelude::{Query, Changed, EntityCommands, Commands, Write, Res, Event, Id};
 use pi_ecs_macros::{listen, setup};
 use pi_flex_layout::prelude::Rect;
@@ -11,15 +11,18 @@ use pi_render::rhi::asset::RenderRes;
 use pi_render::rhi::bind_group::BindGroup;
 use pi_render::rhi::buffer::Buffer;
 use pi_render::rhi::device::RenderDevice;
+use pi_render::rhi::dyn_uniform_buffer::{Bind, Group};
 use pi_share::Share;
 use pi_render::rhi::bind_group_layout::BindGroupLayout;
 use pi_polygon::split_by_radius_border;
 use wgpu::IndexFormat;
+use smallvec::smallvec;
 
 use crate::components::calc::{LayoutResult, DrawInfo};
+use crate::components::draw_obj::{DrawGroup, DynDrawGroup};
 use crate::components::user::{CgColor, BorderRadius};
-use crate::system::shader_utils::StaticIndex;
-use crate::system::shader_utils::color::{ColorStaticIndex, COLOR_GROUP};
+use crate::resource::draw_obj::{StaticIndex, ColorStaticIndex, DynUniformBuffer, DynBindGroupIndex};
+use crate::shaders::color::{ColorMaterialGroup, ColorMaterialBind, ColorUniform};
 use crate::utils::tools::{calc_hash, get_content_radius, calc_float_hash};
 use crate::{
 	components::{
@@ -75,11 +78,14 @@ impl CalcBorderColor {
 		
 		// load_mgr: ResMut<'a, LoadMgr>,
 		device: Res<'static, RenderDevice>,
-		static_index: Res<'static, ColorStaticIndex>,
+		color_static_index: Res<'static, ColorStaticIndex>,
 		shader_static: Res<'static, Shaders>,
 
 		buffer_assets: Res<'static, Share<AssetMgr<RenderRes<Buffer>>>>,
 		bind_group_assets: Res<'static, Share<AssetMgr<RenderRes<BindGroup>>>>,
+
+		mut dyn_uniform_buffer: ResMut<'static, DynUniformBuffer>,
+		color_material_bind_group: Res<'static, DynBindGroupIndex<ColorMaterialGroup>>,
 	) -> Result<()> {
 		// log::info!("calc_background=================");
 		for (
@@ -132,8 +138,9 @@ impl CalcBorderColor {
 						&background_color_change,
 						&radius_change,
 						&layout_change,
-						&static_index,
-						&shader_static).await;
+						&color_static_index,
+						&shader_static,
+						&mut dyn_uniform_buffer).await;
 					draw_state_item.notify_modify();
 				},
 				// 否则，创建一个新的DrawObj，并设置color group; 
@@ -149,6 +156,16 @@ impl CalcBorderColor {
 					let new_draw_obj = draw_obj_commands.spawn();
 					// 设置DrawState（包含color group）
 					let mut draw_state = DrawState::default();
+
+					// 創建color材质
+					let color_material_dyn_offset = dyn_uniform_buffer.alloc_binding::<ColorMaterialBind>();
+					let group = DrawGroup::Dyn(
+						DynDrawGroup::new(
+							(*color_material_bind_group).clone(),
+							smallvec![color_material_dyn_offset]
+						));
+					draw_state.bind_groups.insert_group(ColorMaterialGroup::id(), group);
+
 					modify(
 						&border_color, 
 						radius,
@@ -160,13 +177,14 @@ impl CalcBorderColor {
 						&background_color_change,
 						&radius_change,
 						&layout_change,
-						&static_index,
-						&shader_static).await;
+						&color_static_index,
+						&shader_static,
+						&mut dyn_uniform_buffer).await;
 					
 					draw_state_commands.insert(new_draw_obj, draw_state);
 					// 建立DrawObj对Node的索引
 					node_id_commands.insert(new_draw_obj, NodeId(node));
-					shader_static_commands.insert(new_draw_obj, static_index.clone());
+					shader_static_commands.insert(new_draw_obj, color_static_index.clone());
 					order_commands.insert(new_draw_obj, DrawInfo::new(12, border_color.w >= 1.0));
 
 					// 建立Node对DrawObj的索引
@@ -219,13 +237,13 @@ async fn modify<'a> (
 	layout_change: &ChangeTrackers<LayoutResult>,
 	color_static: &'a StaticIndex,
 	shader_static: &Shaders,
+
+	dyn_uniform_buffer: &mut DynUniformBuffer,
 ) {
 	// 颜色改变，重新设置color_group
 	if bg_color_change.is_changed() {
-		let color_group_layout = shader_static.get(color_static.shader).unwrap().bind_group.get(COLOR_GROUP).unwrap();
-		let color_bind_group = create_rgba_bind_group(color, device, color_group_layout, buffer_assets, bind_group_assets);
-		// 插入color_bind_group到drawstate中
-		draw_state.bind_groups.insert(COLOR_GROUP, color_bind_group);
+		let dyn_offset = draw_state.bind_groups.get_group(ColorMaterialGroup::id()).unwrap().get_offset(ColorMaterialBind::index()).unwrap();
+				dyn_uniform_buffer.set_uniform(dyn_offset, &ColorUniform(&[color.x, color.y, color.z, color.w]));
 	}
 
 	// 否则，需要切分顶点，如果是渐变色，还要设置color vb

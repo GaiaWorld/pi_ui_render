@@ -24,14 +24,13 @@ use crate::{
 	resource::{UserCommands, NodeCommand, Viewport, draw_obj::CommonSampler, DefaultStyle}, 
 	utils::{style::{style_sheet::{StyleAttr, Attr, ClassSheet}, style_parse::parse_class_map_from_string}, tools::calc_hash, cmd::Command}, 
 	system::{
-		node::{user_setting::CalcUserSetting, context::CalcContext, z_index::CalcZindex, layout::CalcLayout, quad::CalcQuad, world_matrix::CalcMatrix, content_box::CalcContentBox, background_color::CalcBackGroundColor, context_opacity::{CalcOpacity, CalcOpacityPostProcess}, context_transform_will_change::CalcTransformWillChange, context_overflow::CalcOverflow, context_root::CalcRoot, text::CalcText, text_split::CalcTextSplit, text_glphy::CalcTextGlyph, border_image::CalcBorderImage, border_color::CalcBorderColor, box_shadow::CalcBoxShadow, background_image::CalcBackgroundImage, image_texture_load::CalcImageLoad}, 
+		node::{user_setting::CalcUserSetting, context::CalcContext, z_index::CalcZindex, layout::CalcLayout, quad::CalcQuad, world_matrix::CalcMatrix, content_box::CalcContentBox, background_color::CalcBackGroundColor, context_root::CalcRoot, border_color::CalcBorderColor, box_shadow::CalcBoxShadow, image_texture_load::CalcImageLoad, background_image::CalcBackgroundImage, border_image::CalcBorderImage, text_split::CalcTextSplit, text_glphy::CalcTextGlyph, text::CalcText, context_opacity::{CalcOpacity, CalcOpacityPostProcess}, context_transform_will_change::CalcTransformWillChange, context_overflow::CalcOverflow}, 
 		draw_obj::{world_marix::CalcWorldMatrixGroup, pipeline::CalcPipeline}, 
 		pass::{
 			pass_render::CalcRender, 
 			pass_dirty_rect::CalcDirtyRect, 
 			pass_graph_node::{InitGraphData, PostBindGroupLayout}
-		}, 
-		shader_utils::{post_process::CalcPostProcessShader, with_vert_color::WithColorShader, text::TextShader, color::ColorShader, image::ImageShader, color_shadow::ColorShadowShader}
+		}, shader_utils::{image::CalcImageShader, color::CalcColorShader, text::CalcTextShader}
 	}
 };
 
@@ -267,6 +266,8 @@ fn insert_resource(
 	let unuse_texture_res_mgr = world.get_resource::<Share<HomogeneousMgr<RenderRes<UnuseTexture>>>>().unwrap().clone();
 	let device = world.get_resource::<RenderDevice>().unwrap().clone();
 	let queue = world.get_resource::<RenderQueue>().unwrap().clone();
+	let limit = device.limits();
+	world.insert_resource(limit);
 
 	let view_port = Viewport(Aabb2::new(Point2::new(x as f32, y as f32), Point2::new((x + width) as f32, (y + height) as f32)));
 	
@@ -350,12 +351,12 @@ fn init_stage(world: &mut World) -> Vec<StageBuilder> {
 
 	// 初始化数据
 	InitGraphData::setup(world, &mut node_stage);
-	CalcPostProcessShader::setup(world, &mut node_stage);
-	WithColorShader::setup(world, &mut node_stage);
-	TextShader::setup(world, &mut node_stage);
-	ColorShader::setup(world, &mut node_stage);
-	ImageShader::setup(world, &mut node_stage);
-	ColorShadowShader::setup(world, &mut node_stage);
+	CalcImageShader::setup(world, &mut node_stage);
+	// WithColorShader::setup(world, &mut node_stage);
+	CalcTextShader::setup(world, &mut node_stage);
+	CalcColorShader::setup(world, &mut node_stage);
+	// ImageShader::setup(world, &mut node_stage);
+	// ColorShadowShader::setup(world, &mut node_stage);
 
 	
 	CalcUserSetting::setup(world, &mut node_stage);

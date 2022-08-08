@@ -8,7 +8,7 @@ use pi_render::{
         node::{Node, NodeRunError},
         RenderContext,
     },
-    rhi::{CommandEncoder, bind_group_layout::BindGroupLayout, device::RenderDevice, asset::RenderRes, bind_group::BindGroup, buffer::Buffer, texture::ScreenTexture},
+    rhi::{CommandEncoder, bind_group_layout::BindGroupLayout, device::RenderDevice, asset::RenderRes, bind_group::BindGroup, buffer::Buffer, texture::ScreenTexture, RenderQueue, dyn_uniform_buffer::Group},
 };
 use futures::{future::BoxFuture, FutureExt};
 use pi_ecs::{prelude::{QueryState, FromWorld, World, Res, res::WriteRes}, monitor::Event, storage::Offset};
@@ -17,7 +17,7 @@ use pi_slotmap::DefaultKey;
 use smallvec::SmallVec;
 use wgpu::RenderPass;
 
-use crate::{components::{draw_obj::{DrawObject, DrawState}, pass_2d::{Camera, Draw2DList, Pass2DKey, Pass2D, PostProcessList, PostProcess, RenderTarget, DrawIndex, PostTemp, ViewMatrix, ScreenTarget}, user::{Aabb2, Matrix4, Point2}, calc::NodeId}, resource::{Viewport, draw_obj::{DynFboClearColorBindGroup, ClearColorBindGroup, CommonSampler, ShareLayout, CopyFboToScreen}, ClearDrawObj}, utils::{tools::{calc_hash, calc_float_hash}, shader_helper::{WORLD_MATRIX_GROUP, PROJECT_GROUP, VIEW_GROUP}}, system::{ draw_obj::world_marix::create_world_matrix_bind, shader_utils::color::COLOR_GROUP}};
+use crate::{components::{draw_obj::{DrawObject, DrawState}, pass_2d::{Camera, Draw2DList, Pass2DKey, Pass2D, PostProcessList, PostProcess, RenderTarget, DrawIndex, PostTemp, ViewMatrix, ScreenTarget}, user::{Aabb2, Matrix4, Point2}, calc::NodeId}, resource::{Viewport, draw_obj::{DynFboClearColorBindGroup, ClearColorBindGroup, CommonSampler, ShareLayout, CopyFboToScreen, DynBindGroups}, ClearDrawObj}, utils::{tools::{calc_hash, calc_float_hash}, shader_helper::{WORLD_MATRIX_GROUP, PROJECT_GROUP, VIEW_GROUP}}, system::{ draw_obj::world_marix::create_world_matrix_bind}, shaders::{color::{ColorShader, ColorMaterialGroup, CameraMatrixGroup}}};
 
 
 /// Pass2D 渲染图节点
@@ -47,8 +47,10 @@ pub struct Param<'s> {
 	buffer_assets: &'s Share<AssetMgr<RenderRes<Buffer>>>,
 	bind_group_assets: &'s Share<AssetMgr<RenderRes<BindGroup>>>,
 	device: &'s RenderDevice,
+	queue: &'s RenderQueue,
 	post_bind_group_layout: &'s PostBindGroupLayout,
 	share_layout: &'s ShareLayout,
+	dyn_bind_groups: &'s DynBindGroups,
 
 	// 清屏相关参数
 	fbo_clear_color: &'s DynFboClearColorBindGroup,
@@ -80,7 +82,7 @@ impl Node for Pass2DNode {
         mut commands: ShareRefCell<CommandEncoder>,
         inputs: &'a [Self::Output],
     ) -> BoxFuture<'a, Result<Self::Output, NodeRunError>> {
-        let RenderContext { mut world, device,.. } = context;
+        let RenderContext { mut world, device, queue,.. } = context;
 		
 		let pass2d_id = self.pass2d_id;
         async move {
@@ -97,7 +99,9 @@ impl Node for Pass2DNode {
 				bind_group_assets: world.get_resource::<Share<AssetMgr<RenderRes<BindGroup>>>>().unwrap(),
 				post_bind_group_layout: world.get_resource::<PostBindGroupLayout>().unwrap(),
 				share_layout: world.get_resource::<ShareLayout>().unwrap(),
+				dyn_bind_groups: world.get_resource::<DynBindGroups>().unwrap(),
 				device: &device,
+				queue: &queue,
 				fbo_clear_color: world.get_resource::<DynFboClearColorBindGroup>().unwrap(),
 				clear_color: world.get_resource::<ClearColorBindGroup>().unwrap(),
 				clear_draw: world.get_resource::<ClearDrawObj>().unwrap(),
@@ -152,8 +156,8 @@ impl Node for Pass2DNode {
 					);
 					// 清屏
 					if let Some(clear_color) = clear_color {
-						rp.set_bind_group(COLOR_GROUP as u32, &clear_color, &[]);
-						param.clear_draw.0.draw(&mut rp); // 相机在drawObj中已经描述
+						clear_color.draw(&mut rp, &param.dyn_bind_groups, ColorMaterialGroup::id());
+						param.clear_draw.0.draw(&mut rp, &param.dyn_bind_groups); // 相机在drawObj中已经描述
 					}
 					
 					
@@ -183,7 +187,6 @@ impl Node for Pass2DNode {
 							post_process_mut.0[r.1].result = Some(PostTemp {
 								target: r.0.clone(),
 								texture_group: data.0,
-								matrix: data.2,
 								uv: data.1,
 							});
 							post_process_mut.1 = r.1;
@@ -225,7 +228,7 @@ impl Node for Pass2DNode {
 								1.0
 							);
 	
-							copy_fbo.0.draw(&mut rp);
+							copy_fbo.0.draw(&mut rp, &param.dyn_bind_groups);
 						}
 					}
 					
@@ -271,7 +274,7 @@ impl Pass2DNode {
 				// 如果存在后处理，则直接将后处理结果渲染出来(后处理结果)
 				if let Some(post) = r.0.get(r.1) {
 					if let Some(state) = param.draw_query.get(world, post.draw_obj_key) {
-						Self::draw_one_post_process(rp, state, post, last_camera);
+						Self::draw_one_post_process(rp, state, post, last_camera, param);
 						// 释放握住的上次的渲染结果
 						let post_process_mut = unsafe {&mut *( post as *const PostProcess as usize as *mut PostProcess)};
 						post_process_mut.result = None;
@@ -324,12 +327,8 @@ impl Pass2DNode {
 						cur_view_port.3, 
 						0.0,
 						1.0);
-					
-					if let Some(view_matrix) = &cur_camera.view_bind_group {
-						rp.set_bind_group(VIEW_GROUP as u32, view_matrix, &[])
-					}
-					if let Some(project_matrix) = &cur_camera.project_bind_group {
-						rp.set_bind_group(PROJECT_GROUP as u32, project_matrix, &[])
+					if let Some(camera) = &cur_camera.bind_group {
+						camera.draw(rp, param.dyn_bind_groups, CameraMatrixGroup::id());
 					}
 				}
 			},
@@ -404,10 +403,10 @@ impl Pass2DNode {
 					1.0
 				);
 				// 清屏
-				rp.set_bind_group(COLOR_GROUP as u32, &param.fbo_clear_color.0, &[]);
-				param.clear_draw.0.draw(&mut rp); // 相机在drawObj中已经描述
+				param.fbo_clear_color.0.draw(&mut rp, &param.dyn_bind_groups, ColorMaterialGroup::id());
+				param.clear_draw.0.draw(&mut rp, &param.dyn_bind_groups); // 相机在drawObj中已经描述
 
-				Self::draw_one_post_process(&mut rp, state, post_process, camera);
+				Self::draw_one_post_process(&mut rp, state, post_process, camera, param);
 			}
 			
 			// 释放握住的上次的渲染结果
@@ -510,28 +509,25 @@ impl Pass2DNode {
 		last_view_port: &(f32, f32, f32, f32),
 		cur_view_port: &(f32, f32, f32, f32),
 	) {
-
-		if let Some(r) = &cur_camera.project_bind_group {
-			rp.set_bind_group(PROJECT_GROUP as u32, r, &[]);
+		if let Some(camera) = &cur_camera.bind_group {
+			camera.draw(rp, &param.dyn_bind_groups, CameraMatrixGroup::id());
 		}
-		// if let Some(r) = &cur_camera.view_bind_group {
-		// 	println!("set cur_camera view======================");
-		// 	rp.set_bind_group(VIEW_GROUP as u32, r, &[]);
-		// }
 		
 		for e in list.opaque.iter().chain(list.transparent.iter()) {
 			match e {
 				DrawIndex::DrawObj(e) => {// 设置相机
 					if let Some(state) = param.draw_query.get(world, *e) {
-						if state.bind_groups.get(VIEW_GROUP).is_none() {
-							if let Some(r) = &cur_camera.view_bind_group {
-								rp.set_bind_group(VIEW_GROUP as u32, r, &[]);
+						if state.bind_groups.get_group(CameraMatrixGroup::id()).is_none() {
+							if let Some(r) = &cur_camera.bind_group {
+								r.draw(rp, &param.dyn_bind_groups, CameraMatrixGroup::id());
 							}
 						}
-						state.draw(rp);
+						state.draw(rp, &param.dyn_bind_groups );
 					}
 				},
-				DrawIndex::Pass2D(e) => self.render_pass_2d(*e, rp, world, param, last_camera, cur_camera, last_view_port, cur_view_port),
+				DrawIndex::Pass2D(e) => {
+					self.render_pass_2d(*e, rp, world, param, last_camera, cur_camera, last_view_port, cur_view_port)
+				},
 			}
 		}
 	}
@@ -541,13 +537,14 @@ impl Pass2DNode {
 		state: &'a DrawState,
 		post_process: &'a PostProcess,
 		camera: &'a Camera, // TODO 可能不是相机， 需要考虑TransformWillChange
+		param: &'a Param<'a>,
 	) {
 		// 后处理的投影矩阵设置， TODO
-		if let Some(PostTemp{texture_group, uv, matrix, ..}) = &post_process.result {
-			rp.set_bind_group(WORLD_MATRIX_GROUP as u32, matrix, &[]);
+		if let Some(PostTemp{texture_group, uv, ..}) = &post_process.result {
+			// rp.set_bind_group(WORLD_MATRIX_GROUP as u32, matrix, &[]);
 			rp.set_bind_group(post_process.texture_bind_index as u32, texture_group, &[]);
 			rp.set_vertex_buffer(post_process.uv_vb_index as u32, (*****uv).slice(..));
-			state.draw(rp);
+			state.draw(rp, &param.dyn_bind_groups);
 		}
 		
 	}
@@ -558,16 +555,16 @@ impl Pass2DNode {
 		param: &'s Param<'s>,
 		render_rect: &Aabb2,
 		node: Option<&NodeId>,
-	) -> (Handle<RenderRes<BindGroup>>, Handle<RenderRes<Buffer>>, Handle<RenderRes<BindGroup>>) {
+	) -> (Handle<RenderRes<BindGroup>>, Handle<RenderRes<Buffer>>) {
 		let uv = texture.uv();
 		let group_key = calc_hash(&(texture.ty_index(), texture.target_index()), calc_hash(&"render target", 0)); // TODO
 		let buffer_key = calc_float_hash(&uv, calc_hash(&"vert", 0));
-		let matrix = Matrix4::new(
-			render_rect.maxs.x-render_rect.mins.x,0.0,0.0, render_rect.mins.x,
-			0.0,render_rect.maxs.y-render_rect.mins.y,0.0, render_rect.mins.y,
-			0.0,0.0,1.0, node.map_or_else(|| {0}, |node| {node.offset()}) as f32,
-			0.0,0.0,0.0,1.0,
-		);
+		// let matrix = Matrix4::new(
+		// 	render_rect.maxs.x-render_rect.mins.x,0.0,0.0, render_rect.mins.x,
+		// 	0.0,render_rect.maxs.y-render_rect.mins.y,0.0, render_rect.mins.y,
+		// 	0.0,0.0,1.0, node.map_or_else(|| {0}, |node| {node.offset()}) as f32,
+		// 	0.0,0.0,0.0,1.0,
+		// );
 		(
 			match param.bind_group_assets.get(&group_key) {
 				Some(r) => r,
@@ -600,7 +597,7 @@ impl Pass2DNode {
 					param.buffer_assets.insert(buffer_key, RenderRes::new(uv_buf, 32)).unwrap()
 				}
 			},
-			create_world_matrix_bind(&matrix, param.device, &param.share_layout.matrix, param.buffer_assets, param.bind_group_assets)
+			// create_world_matrix_bind(param.device, param.queue, &param.share_layout.matrix, param.buffer_assets, param.bind_group_assets)
 		)
 	}
 	

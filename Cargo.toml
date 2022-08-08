@@ -71,25 +71,25 @@ js_proxy_gen_macro={git="https://github.com/GaiaWorld/pi_lib.git"}
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = { version = "0.2.78", features = ["serde-serialize"] }
 
-[patch."https://github.com/GaiaWorld/pi_ecs"]
-pi_ecs = { path = "../pi_ecs" }
-pi_ecs_macros = { path = "../pi_ecs/macros" }
+# [patch."https://github.com/GaiaWorld/pi_ecs"]
+# pi_ecs = { path = "../pi_ecs" }
+# pi_ecs_macros = { path = "../pi_ecs/macros" }
 
 
 # [patch."https://github.com/GaiaWorld/pi_ecs_utils"]
 # pi_ecs_utils = { path = "../pi_ecs_utils" }
 
-[patch."https://github.com/GaiaWorld/pi_render"]
-pi_render = { path = "../pi_render" }
+# [patch."https://github.com/GaiaWorld/pi_render"]
+# pi_render = { path = "../pi_render" }
 
-[patch."https://github.com/GaiaWorld/pi_hal"]
-pi_hal = { path = "../pi_hal" }
+# [patch."https://github.com/GaiaWorld/pi_hal"]
+# pi_hal = { path = "../pi_hal" }
 
-[patch."https://github.com/GaiaWorld/pi_flex_layout"]
-pi_flex_layout = { path = "../pi_flex_layout" }
+# [patch."https://github.com/GaiaWorld/pi_flex_layout"]
+# pi_flex_layout = { path = "../pi_flex_layout" }
 
-[patch."http://ser.yinengyun.com:10082/tech/font_kit.git"]
-font_kit = { path = "../font_kit" }
+# [patch."http://ser.yinengyun.com:10082/tech/font_kit.git"]
+# font_kit = { path = "../font_kit" }
 
 # [patch.crates-io]
 # pi_slotmap = { path = "../pi_slotmap" }
@@ -108,6 +108,17 @@ float-ord = "0.3"
 async-trait="0.1"
 font_kit = {git="http://ser.yinengyun.com:10082/tech/font_kit.git"}
 spin_sleep="1.1"
+num_cpus = "1.13"
+
+[build-dependencies]
+render_compile = { path = "../pi_render/crates/render_compile" }
+naga = { version = "0.8", features = [
+    "glsl-in",
+    "spv-in",
+    "spv-out",
+    "wgsl-in",
+    "wgsl-out",
+] }
 
 # [patch.crates-io]
 # pi_ecs = { path = "../pi_ecs" }

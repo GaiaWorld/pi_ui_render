@@ -4,7 +4,7 @@ use ordered_float::NotNan;
 use pi_assets::asset::{Handle, Asset};
 use pi_assets::mgr::AssetMgr;
 use pi_atom::Atom;
-use pi_ecs::prelude::{Deleted, Or, ParamSet, With, OrDefault};
+use pi_ecs::prelude::{Deleted, Or, ParamSet, With, OrDefault, ResMut};
 use pi_ecs::prelude::{Changed, Commands, EntityCommands, Event, Id, Query, Res, Write};
 use pi_ecs_macros::{listen, setup};
 use pi_flex_layout::prelude::Rect;
@@ -16,20 +16,19 @@ use pi_render::rhi::bind_group::BindGroup;
 use pi_render::rhi::bind_group_layout::BindGroupLayout;
 use pi_render::rhi::buffer::Buffer;
 use pi_render::rhi::device::RenderDevice;
+use pi_render::rhi::dyn_uniform_buffer::Group;
 use pi_share::{Share, ShareMutex};
 use wgpu::IndexFormat;
+use smallvec::smallvec;
 
 use crate::components::calc::{BackgroundImageTexture, LayoutResult};
-use crate::components::draw_obj::BoxType;
+use crate::components::draw_obj::{BoxType, DrawGroup, DynDrawGroup};
 use crate::components::user::{
     Aabb2, BackgroundImageClip, BorderRadius, FitType, ObjectFit, Point2, Vector2,
 };
-use crate::resource::draw_obj::CommonSampler;
-use crate::system::shader_utils::image::{
-    ImageStaticIndex, IMAGE_POSITION_LOCATION, IMAGE_TEXTURE_GROUP, IMAGE_UV_LOCATION,
-};
+use crate::resource::draw_obj::{CommonSampler, StaticIndex, ImageStaticIndex, DynUniformBuffer, DynBindGroupIndex};
 
-use crate::system::shader_utils::StaticIndex;
+use crate::shaders::image::{SampTex2DGroup, PositionVertexBuffer, UvVertexBuffer, ImageMaterialBind, ImageMaterialGroup};
 use crate::utils::tools::{calc_hash, get_content_radius, calc_float_hash};
 use crate::{
     components::{
@@ -101,8 +100,10 @@ impl CalcBackgroundImage {
 
         buffer_assets: Res<'static, Share<AssetMgr<RenderRes<Buffer>>>>,
         bind_group_assets: Res<'static, Share<AssetMgr<RenderRes<BindGroup>>>>,
+
+		mut dyn_uniform_buffer: ResMut<'static, DynUniformBuffer>,
+		image_material_bind_group: Res<'static, DynBindGroupIndex<ImageMaterialGroup>>,
     ) -> Result<()> {
-        // log::info!("calc_background================= image");
         for (background_image, mut draw_index, mut render_list) in query.p1_mut().iter_mut() {
             // BackgroundColor不存在时，删除对应DrawObject
             if background_image.is_some() {
@@ -124,7 +125,7 @@ impl CalcBackgroundImage {
             }
         }
         let texture_group_layout =
-            &shader_static.get(static_index.shader).unwrap().bind_group[IMAGE_TEXTURE_GROUP];
+            &shader_static.get(static_index.shader).unwrap().bind_group_layout[SampTex2DGroup::id() as usize];
 
         for (
             node,
@@ -177,6 +178,15 @@ impl CalcBackgroundImage {
                     let new_draw_obj = draw_obj_commands.spawn();
                     // 设置DrawState（包含color group）
                     let mut draw_state = DrawState::default();
+
+					let image_material_dyn_offset = dyn_uniform_buffer.alloc_binding::<ImageMaterialBind>();
+					let group = DrawGroup::Dyn(
+						DynDrawGroup::new(
+							(*image_material_bind_group).clone(),
+							smallvec![image_material_dyn_offset]
+						));
+					draw_state.bind_groups.insert_group(ImageMaterialGroup::id(), group);
+
                     let new_unit_quad = modify(
                         &background_image,
                         radius,
@@ -324,8 +334,8 @@ async fn modify<'a>(
 
     draw_state
         .vbs
-        .insert(IMAGE_POSITION_LOCATION, (vertex_buffer, 0));
-    draw_state.vbs.insert(IMAGE_UV_LOCATION, (uv_buffer, 0));
+        .insert(PositionVertexBuffer::id() as usize, (vertex_buffer, 0));
+    draw_state.vbs.insert(UvVertexBuffer::id() as usize, (uv_buffer, 0));
 	let len = index_buffer.size() / 2;
     draw_state.ib = Some((index_buffer, len as u64, IndexFormat::Uint16));
 
@@ -346,7 +356,7 @@ async fn modify<'a>(
                         resource: wgpu::BindingResource::TextureView(&texture.texture_view),
                     },
                 ],
-                label: Some("border image group create"),
+                label: Some("bg image group create"),
             });
             group_assets.insert(texture_group_key, RenderRes::new(group, 5)).unwrap()
         }
@@ -354,7 +364,7 @@ async fn modify<'a>(
 
     draw_state
         .bind_groups
-        .insert(IMAGE_TEXTURE_GROUP, texture_group);
+        .insert_group(SampTex2DGroup::id(), DrawGroup::Static(texture_group));
 
 	is_unit
 }

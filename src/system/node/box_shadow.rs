@@ -4,23 +4,25 @@ use std::slice;
 use pi_assets::asset::Asset;
 use pi_assets::mgr::AssetMgr;
 use pi_cg2d::Polygon;
-use pi_ecs::prelude::{Or, Deleted, With, ParamSet};
+use pi_ecs::prelude::{Or, Deleted, With, ParamSet, ResMut};
 use pi_ecs::prelude::{Query, Changed, EntityCommands, Commands, Write, Res, Event, Id};
 use pi_ecs_macros::{listen, setup};
 use pi_render::rhi::asset::RenderRes;
 use pi_render::rhi::bind_group::BindGroup;
 use pi_render::rhi::buffer::Buffer;
 use pi_render::rhi::device::RenderDevice;
+use pi_render::rhi::dyn_uniform_buffer::{Group, Bind};
 use pi_share::Share;
-use pi_render::rhi::bind_group_layout::BindGroupLayout;
 use pi_polygon::split_by_radius;
 use polygon2::difference;
 use wgpu::IndexFormat;
+use smallvec::smallvec;
 
 use crate::components::calc::{LayoutResult, DrawInfo};
+use crate::components::draw_obj::{DrawGroup, DynDrawGroup, FSDefines, VSDefines};
 use crate::components::user::{ BorderRadius, BoxShadow, Point2};
-use crate::system::shader_utils::StaticIndex;
-use crate::system::shader_utils::color_shadow::{POSITION_LOCATION, BLUR_GROUP, BoxShadowStaticIndex};
+use crate::resource::draw_obj::{StaticIndex, DynUniformBuffer, DynBindGroupIndex, ColorStaticIndex};
+use crate::shaders::color::{ColorMaterialGroup, PositionVertexBuffer, ColorMaterialBind, ColorUniform, UrectUniform, BlurUniform};
 use crate::utils::tools::{calc_hash, get_content_radius, get_box_rect, calc_float_hash};
 use crate::{components::{user::Node, calc::{NodeId, DrawList}, draw_obj::{DrawObject, DrawState}}, resource::draw_obj::Shaders};
 // use crate::utils::tools::calc_hash;
@@ -63,14 +65,20 @@ impl CalcBoxShadow {
 		mut node_id_commands: Commands<DrawObject, NodeId>,
 		mut shader_static_commands: Commands<DrawObject, StaticIndex>,
 		mut order_commands: Commands<DrawObject, DrawInfo>,
+		mut fs_defines_commands: Commands<DrawObject, FSDefines>,
+		mut vs_defines_commands: Commands<DrawObject, VSDefines>,
 		
 		// load_mgr: ResMut<'a, LoadMgr>,
 		device: Res<'static, RenderDevice>,
-		static_index: Res<'static, BoxShadowStaticIndex>,
 		shader_static: Res<'static, Shaders>,
 
 		buffer_assets: Res<'static, Share<AssetMgr<RenderRes<Buffer>>>>,
 		bind_group_assets: Res<'static, Share<AssetMgr<RenderRes<BindGroup>>>>,
+
+		color_static_index: Res<'static, ColorStaticIndex>,
+
+		mut dyn_uniform_buffer: ResMut<'static, DynUniformBuffer>,
+		color_material_bind_group: Res<'static, DynBindGroupIndex<ColorMaterialGroup>>,
 	) -> Result<()> {
 		// log::info!("calc_background=================");
 		for (
@@ -96,7 +104,6 @@ impl CalcBoxShadow {
 			}
 		}
 
-		let blur_group_layout = shader_static.get(static_index.shader).unwrap().bind_group.get(BLUR_GROUP).unwrap();
 		for (
 			node, 
 			box_shadow, 
@@ -116,9 +123,9 @@ impl CalcBoxShadow {
 						layout,
 						&box_shadow,
 						radius,
-						&blur_group_layout,
 						&buffer_assets,
-						&bind_group_assets);
+						&bind_group_assets,
+						&mut dyn_uniform_buffer);
 					draw_state_item.notify_modify();
 				},
 				// 否则，创建一个新的DrawObj，并设置color group; 
@@ -132,23 +139,42 @@ impl CalcBoxShadow {
 					// log::info!("create_background=================");
 					// 创建新的DrawObj
 					let new_draw_obj = draw_obj_commands.spawn();
+
+					let mut vs_defines = VSDefines::default();
+					vs_defines.insert("SHADOW".to_string());
+					vs_defines_commands.insert(new_draw_obj, vs_defines);
+
+					let mut fs_defines = FSDefines::default();
+					fs_defines.insert("SHADOW".to_string());
+					fs_defines_commands.insert(new_draw_obj, fs_defines);
+					
 					// 设置DrawState（包含color group）
 					let mut draw_state = DrawState::default();
+
+					// 创建color材质
+					let color_material_dyn_offset = dyn_uniform_buffer.alloc_binding::<ColorMaterialBind>();
+					let group = DrawGroup::Dyn(
+						DynDrawGroup::new(
+							(*color_material_bind_group).clone(),
+							smallvec![color_material_dyn_offset]
+						));
+					draw_state.bind_groups.insert_group(ColorMaterialGroup::id(), group);
+
 					modify(
 						&device, 
 						&mut draw_state,
 						layout,
 						&box_shadow,
 						radius, 
-						&blur_group_layout,
 						&buffer_assets,
-						&bind_group_assets);
+						&bind_group_assets,
+						&mut dyn_uniform_buffer);
 					
 					draw_state_commands.insert(new_draw_obj, draw_state);
 					// 建立DrawObj对Node的索引
 					node_id_commands.insert(new_draw_obj, NodeId(node));
 
-					shader_static_commands.insert(new_draw_obj, static_index.clone());
+					shader_static_commands.insert(new_draw_obj, (*color_static_index).clone());
 					order_commands.insert(new_draw_obj, DrawInfo::new(8, false));
 
 					// 建立Node对DrawObj的索引
@@ -194,9 +220,10 @@ fn modify(
     layout: &LayoutResult,
     shadow: &BoxShadow,
     radius: Option<&BorderRadius>,
-	blur_group_layout: &BindGroupLayout,
 	buffer_assets_mgr: &Share<AssetMgr<RenderRes<Buffer>>>,
 	bind_group_assets_mgr: &Share<AssetMgr<RenderRes<BindGroup>>>,
+	
+	dyn_uniform_buffer: &mut DynUniformBuffer,
 ) {
     let g_b = get_box_rect(layout);
     if *(g_b.right) - *(g_b.left) == 0.0 || *(g_b.bottom) - *(g_b.top) == 0.0 {
@@ -290,7 +317,7 @@ fn modify(
 			(vb, ib)
 		}
 	};
-	draw_state.vbs.insert(POSITION_LOCATION, (vb, 0));
+	draw_state.vbs.insert(PositionVertexBuffer::id() as usize, (vb, 0));
 	let size = ib.size()/2;
 	draw_state.ib = Some((ib, size as u64, IndexFormat::Uint16));
 
@@ -302,61 +329,11 @@ fn modify(
 	}
 	
 	// uniform
-	let u = [shadow.color.x, shadow.color.y, shadow.color.z, shadow.color.w, x + blur, y + blur, x + w - blur, y + h - blur, shadow.blur, 0.0, 0.0, 0.0];
-	let key = calc_float_hash(&u, calc_hash(&"shadow blur", 0));
-	let group = match bind_group_assets_mgr.get(&key) {
-		Some(r) => r,
-		None => {
-			let uniform_buf = match buffer_assets_mgr.get(&key) {
-				Some(r) => r,
-				None => {
-					let uniform_buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
-						label: Some("shadow blur buffer init"),
-						contents: bytemuck::cast_slice(&u),
-						usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-					});
-					buffer_assets_mgr.insert(key, RenderRes::new(uniform_buf, 5)).unwrap()
-				}
-			};
-			let group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-				layout: blur_group_layout,
-				entries: &[
-					wgpu::BindGroupEntry {
-						binding: 0,
-						resource: uniform_buf.as_entire_binding(),
-					},
-				],
-				label: Some("shadow blur buffer group create"),
-			});
-			bind_group_assets_mgr.insert(key, RenderRes::new(group, 5)).unwrap()
-		}
-	};
-	draw_state.bind_groups.insert(BLUR_GROUP, group);
-
-    // let polygon_shadow = Polygon2d::new(convert_to_point(shadow_pts.0.as_slice()));
-    // let polygon_bg = Polygon2d::new(convert_to_point(bg.0.as_slice()));
-
-    // let mut curr_index = 0;
-    // let mut pts: Vec<f32> = vec![];
-    // let mut indices: Vec<u16> = vec![];
-    // for p in Polygon2d::boolean(&polygon_shadow, &polygon_bg, BooleanOperation::Difference) {
-    //     pts.extend_from_slice(convert_to_f32(p.vertices.as_slice()));
-
-    //     let tri_indices = p.triangulation();
-    //     indices.extend_from_slice(
-    //         tri_indices
-    //             .iter()
-    //             .map(|&v| (v + curr_index) as u16)
-    //             .collect::<Vec<u16>>()
-    //             .as_slice(),
-    //     );
-
-    //     curr_index += p.vertices.len();
-    // }
-
-    // if pts.len() == 0 {
-    //     return;
-    // }
+	let color_dyn_offset = draw_state.bind_groups.get_group(ColorMaterialGroup::id()).unwrap().get_offset(ColorMaterialBind::index()).unwrap();
+	let color = &shadow.color;
+	dyn_uniform_buffer.set_uniform(color_dyn_offset, &ColorUniform(&[color.x, color.y, color.z, color.w]));
+	dyn_uniform_buffer.set_uniform(color_dyn_offset, &UrectUniform(&[x + blur, y + blur, x + w - blur, y + h - blur]));
+	dyn_uniform_buffer.set_uniform(color_dyn_offset, &BlurUniform(&[shadow.blur]));
 
 }
 

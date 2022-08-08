@@ -22,7 +22,7 @@ impl CalcTextGlyph {
 	/// 将可以简单布局的问文字节点转化为。。
 	/// 将需要图文混排的文字节点，劈分为单个文字节点
 	#[system]
-	pub fn text_split(
+	pub fn text_glyph(
 		mut query: Query<
 			Node, 
 			(

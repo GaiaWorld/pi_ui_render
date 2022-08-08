@@ -47,7 +47,7 @@ impl Default for ExampleCommonPlay {
 			},
 			list_index: 0, 
 			file_index: 0,
-			play_version: "base_all".to_string(), 
+			play_version: "login".to_string(), 
 			json_arr: JsonValue::Array(Vec::default()),
 			// width: 400,
 			// height: 750,
@@ -67,7 +67,7 @@ impl Example for ExampleCommonPlay {
 		size: (usize, usize),
 	) {
 		let mut dir = std::env::current_dir().unwrap();
-		dir.push("examples/common_play/source/");
+		dir.push("examples/cmd_play/source/");
 		std::env::set_current_dir(dir).unwrap();
 
 		// 设置默认字体

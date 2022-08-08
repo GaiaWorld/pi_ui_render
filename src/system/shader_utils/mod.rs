@@ -14,31 +14,22 @@ use pi_hash::XHashMap;
 use pi_map::vecmap::VecMap;
 use pi_render::rhi::{device::RenderDevice, shader::{ShaderId, Shader}, bind_group_layout::BindGroupLayout, asset::RenderRes, buffer::Buffer, bind_group::BindGroup};
 use pi_share::Share;
-use pi_slotmap::DefaultKey;
 use wgpu::{DepthStencilState, TextureFormat, CompareFunction, StencilState, DepthBiasState, MultisampleState};
 
 use crate::{resource::draw_obj::{ShareLayout, ShaderCatch, ShaderMap, ShaderStatic, Program, PipelineState}, utils::{shader_helper::{WORLD_MATRIX_GROUP, DEPTH_GROUP, PROJECT_GROUP, VIEW_GROUP}, tools::{calc_float_hash, calc_hash}}, components::{draw_obj::{FSDefines, VSDefines}, user::Matrix4}};
 
 use super::pass::pass_render::DEPTH;
 
-pub mod post_process;
-pub mod with_vert_color;
+pub mod image;
+// pub mod with_vert_color;
 pub mod text;
 pub mod color;
-pub mod image;
-pub mod color_shadow;
+// pub mod image;
+// pub mod color_shadow;
 
 pub struct GlslShaderStatic {
 	pub shader_vs: ShaderId,
 	pub shader_fs: ShaderId,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct StaticIndex {
-	pub shader: usize,
-	pub pipeline_state: DefaultKey,
-	pub vertex_buffer_index: DefaultKey,
-	pub name: &'static str,
 }
 
 impl GlslShaderStatic {
@@ -107,8 +98,7 @@ pub fn create_shader_common_static(
 	ShaderStatic {
 		vs_shader_soruce: shader.shader_vs,
 		fs_shader_soruce: shader.shader_fs,
-		bind_group: bind_group_layout,
-		create_shader_info,
+		bind_group_layout,
 	}
 }
 

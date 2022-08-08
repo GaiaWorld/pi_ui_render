@@ -8,8 +8,8 @@ use pi_render::{
 use pi_slotmap::{DefaultKey, SecondaryMap};
 
 use super::{
-	draw_obj::DrawKey, 
-	user::{Aabb2, Point2}, calc::{DrawInfo, ZRange}
+	draw_obj::{DrawKey, DrawGroup}, 
+	user::{Aabb2, Point2, Matrix4}, calc::{DrawInfo, ZRange}
 };
 
 /// 一个渲染Pass
@@ -22,19 +22,19 @@ pub type Pass2DKey = Id<Pass2D>;
 pub struct Camera {
 	// pub view: Option<Matrix4>,
     // pub project: Matrix4,
-	pub view_bind_group: Option<Handle<RenderRes<BindGroup>>>,
-	pub project_bind_group: Option<Handle<RenderRes<BindGroup>>>,
+	pub bind_group: Option< DrawGroup >,
 	pub view_port: Aabb2,
+	pub world_matrix: Matrix4, // 将该相机内容整体渲染到其他目标时，所用的世界矩阵
 }
 
 impl Default for Camera {
     fn default() -> Self {
         Self { 
 			// view: None, 
-			// project: Default::default(), 
-			view_bind_group: Default::default(), 
-			project_bind_group: Default::default(), 
+			// project: Default::default(),
+			bind_group: None,
 			view_port: Aabb2::new(Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)),
+			world_matrix: Matrix4::default(),
 		}
     }
 }
@@ -147,7 +147,7 @@ pub struct PostProcess {
 pub struct PostTemp {
 	pub target: ShareTargetView,
 	pub texture_group: Handle<RenderRes<BindGroup>>,
-	pub matrix: Handle<RenderRes<BindGroup>>,
+	// pub matrix: Handle<RenderRes<BindGroup>>,
 	pub uv: Handle<RenderRes<Buffer>>,
 }
 

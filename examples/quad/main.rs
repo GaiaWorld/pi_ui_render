@@ -29,6 +29,7 @@ impl Example for QuadExample {
 		gui: &mut Gui, 
 		size: (usize, usize),
 	) {
+		log::warn!("init============");
 
 		// 设置清屏颜色为绿色
 		gui.world_mut().insert_resource(ClearColor(CgColor::new(0.0, 1.0, 1.0, 1.0)));

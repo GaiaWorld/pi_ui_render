@@ -1,14 +1,15 @@
 //! 处理opacity属性，对opacity设置小于1.0的节点，标记为渲染上下文（设置RenderContextMark中的位标记）
 
 use pi_assets::mgr::AssetMgr;
-use pi_ecs::{monitor::Event, prelude::{Query, Write, Or, Changed, Deleted, FromWorld, Res, Commands, EntityCommands}, entity::Id};
+use pi_ecs::{monitor::Event, prelude::{Query, Write, Or, Changed, Deleted, FromWorld, Res, Commands, EntityCommands, ResMut}, entity::Id};
 use pi_ecs_macros::{listen, setup};
-use pi_render::rhi::{device::RenderDevice, bind_group_layout::BindGroupLayout, asset::RenderRes, buffer::Buffer, bind_group::BindGroup};
+use pi_render::rhi::{device::RenderDevice, asset::RenderRes, buffer::Buffer, bind_group::BindGroup, dyn_uniform_buffer::{Bind, Group}};
 use pi_share::Share;
 use pi_slotmap::{DefaultKey, KeyData};
 use wgpu::IndexFormat;
+use smallvec::smallvec;
 
-use crate::{components::{user::{Node, Opacity}, calc::{RenderContextMark, Pass2DId, NodeId}, pass_2d::{PostProcessList, Pass2D, PostProcess}, draw_obj::{DrawObject, DrawState, FSDefines}}, resource::{RenderContextMarkType, draw_obj::{UnitQuadBuffer, Shaders, EmptyBind}}, system::shader_utils::{post_process::{PostProcessStaticIndex, POST_TEXTURE_GROUP, POST_UV_LOCATION, OPACITY_GROUP, CalcPostProcessShader}, StaticIndex}, utils::tools::{calc_float_hash, calc_hash}};
+use crate::{components::{user::{Node, Opacity}, calc::{RenderContextMark, Pass2DId, NodeId}, pass_2d::{PostProcessList, Pass2D, PostProcess}, draw_obj::{DrawObject, DrawState, FSDefines, DrawGroup, DynDrawGroup}}, resource::{RenderContextMarkType, draw_obj::{UnitQuadBuffer, Shaders, StaticIndex, ImageStaticIndex, DynUniformBuffer, DynBindGroupIndex, CommonPipelineState}}, shaders::image::{ImageMaterialBind, ImageMaterialGroup, PositionVertexBuffer, OpacityUniform, SampTex2DGroup, UvVertexBuffer}};
 
 pub struct CalcOpacity;
 
@@ -72,13 +73,19 @@ impl CalcOpacityPostProcess {
 		mut fs_defines_commands: Commands<DrawObject, FSDefines>,
 
 		unit_quad_buffer: Res<UnitQuadBuffer>,
-		static_index: Res<PostProcessStaticIndex>,
+		static_index: Res<ImageStaticIndex>,
+		common_state: Res<CommonPipelineState>,
 		shader_static: Res<'static, Shaders>,
 
 		buffer_assets: Res<'static, Share<AssetMgr<RenderRes<Buffer>>>>,
 		bind_group_assets: Res<'static, Share<AssetMgr<RenderRes<BindGroup>>>>,
-		empty_group: Res<'static, EmptyBind>,
+
+		mut dyn_uniform_buffer: ResMut<'static, DynUniformBuffer>,
+		image_material_bind_group: Res<'static, DynBindGroupIndex<ImageMaterialGroup>>,
 	) {
+		let mut static_index = (*static_index).clone();
+		static_index.pipeline_state = common_state.premultiply.clone();
+
 		for (node, opacity, pass2d_id) in opacity_dirty.iter() {
 			let pass2d_id = match pass2d_id {
 				Some(r) => r,
@@ -89,37 +96,34 @@ impl CalcOpacityPostProcess {
 				(Some(opacity), Some(mut post_list)) if opacity.0 < 1.0 => {
 					let post_list = post_list.get_mut_or_default();
 					let post_key = DefaultKey::from(KeyData::from_ffi(***mark_type as u64));
-
-					let opacity_group_layout = match shader_static.get(static_index.shader) {
-						Some(r) => r.bind_group.get(OPACITY_GROUP).unwrap(),
-						None => return,
-					};
-
 					match post_list.0.get(post_key) {
 						Some(r) => {
 							let mut darw_obj = query_draw.get_unchecked_mut(r.draw_obj_key);
 							modify_opacity_group(
 								opacity, 
-								darw_obj.get_mut().unwrap(), 
-								&device, 
-								opacity_group_layout, 
-								&buffer_assets, 
-								&bind_group_assets);
+								darw_obj.get_mut().unwrap(),
+								&mut dyn_uniform_buffer);
 						},
 						None => {
 							let new_draw_obj = draw_obj_commands.spawn();
 							// 设置DrawState（包含color group）
-							let mut draw_state = CalcPostProcessShader::create_draw_state(&empty_group);
-							draw_state.vbs.insert(0, (unit_quad_buffer.vertex.clone(), 0));
+							let mut draw_state = DrawState::default();
+
+							let image_material_dyn_offset = dyn_uniform_buffer.alloc_binding::<ImageMaterialBind>();
+							let group = DrawGroup::Dyn(
+								DynDrawGroup::new(
+									(*image_material_bind_group).clone(),
+									smallvec![image_material_dyn_offset]
+								));
+							draw_state.bind_groups.insert_group(ImageMaterialGroup::id(), group);
+
+							draw_state.vbs.insert(PositionVertexBuffer::id() as usize, (unit_quad_buffer.vertex.clone(), 0));
 							draw_state.ib = Some((unit_quad_buffer.index.clone(), 6, IndexFormat::Uint16));
 							// opacity
 							modify_opacity_group(
 								opacity, 
 								&mut draw_state,
-								&device, 
-								opacity_group_layout,
-								&buffer_assets, 
-								&bind_group_assets);
+								&mut dyn_uniform_buffer);
 							
 							draw_state_commands.insert(new_draw_obj, draw_state);
 							// 建立DrawObj对Node的索引
@@ -134,8 +138,8 @@ impl CalcOpacityPostProcess {
 							// 创建PostPprocess,并插入后处理列表中
 							let post_process = PostProcess::new(
 								new_draw_obj,
-								POST_TEXTURE_GROUP,
-								POST_UV_LOCATION,
+								SampTex2DGroup::id() as usize,
+								UvVertexBuffer::id() as usize,
 								0,
 								0,
 							);
@@ -163,43 +167,9 @@ impl CalcOpacityPostProcess {
 fn modify_opacity_group(
 	opacity: &Opacity,
 	draw_state: &mut DrawState, 
-	device: &RenderDevice, 
-	opacity_group_layout: &BindGroupLayout,
-	buffer_assets: &Share<AssetMgr<RenderRes<Buffer>>>,
-	bind_group_assets: &Share<AssetMgr<RenderRes<BindGroup>>>,
+	dyn_uniform_buffer: &mut DynUniformBuffer,
 ) {
-	let key = calc_float_hash(&[opacity.0], calc_hash(&"color", 0));
-	let group = match bind_group_assets.get(&key) {
-		Some(r) => r,
-		None => {
-			let uniform_buf = match buffer_assets.get(&key) {
-				Some(r) => r,
-				None => {
-					let uniform_buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
-						label: Some("color buffer init"),
-						contents: bytemuck::cast_slice(&[opacity.0]),
-						usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-					});
-					buffer_assets.insert(key, RenderRes::new(uniform_buf, 5)).unwrap()
-				}
-			};
-			let group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-				layout: opacity_group_layout,
-				entries: &[
-					wgpu::BindGroupEntry {
-						binding: 0,
-						resource: uniform_buf.as_entire_binding(),
-					},
-				],
-				label: Some("opacity group create"),
-			});
-			bind_group_assets.insert(key, RenderRes::new(group, 5)).unwrap()
-		}
-	};
-	// 插入到drawstate中
-	draw_state.bind_groups.insert(OPACITY_GROUP, group);
+	let dyn_offset = draw_state.bind_groups.get_group(ImageMaterialGroup::id()).unwrap().get_offset(ImageMaterialBind::index()).unwrap();
+	dyn_uniform_buffer.set_uniform(dyn_offset, &OpacityUniform(&[opacity.0]));
 	
 }
-
-
-

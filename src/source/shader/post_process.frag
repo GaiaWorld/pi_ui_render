@@ -19,7 +19,7 @@ layout(location = 0) out vec4 o_Target;
 void main() {
 	o_Target = texture(sampler2D(tex2d, samp), vUv);
 	#ifdef OPACITY
-		o_Target.a = o_Target.a * opacity;
+		o_Target = o_Target * opacity;
 	#endif
 	// o_Target = vec4(1.0, 0.0, 0.0, 1.0);
 }

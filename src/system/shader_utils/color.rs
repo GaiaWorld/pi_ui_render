@@ -7,33 +7,37 @@ use pi_ecs::prelude::{ResMut, Res, res::WriteRes};
 use pi_ecs_macros::setup;
 use pi_hash::XHashMap;
 use pi_map::vecmap::VecMap;
-use pi_render::rhi::{device::RenderDevice, shader::{ShaderId, Shader, ShaderProcessor}, bind_group_layout::BindGroupLayout, bind_group::BindGroup, asset::RenderRes};
+use pi_render::rhi::{device::RenderDevice, shader::{ShaderId, Shader, ShaderProcessor}, bind_group_layout::BindGroupLayout, bind_group::BindGroup, asset::RenderRes, dyn_uniform_buffer::Group};
 use pi_share::Share;
+use pi_slotmap::{DefaultKey, Key};
 
 use crate::{
-	resource::draw_obj::{StateMap, Shaders, VertexBufferLayoutMap, ShareLayout, ShaderCatch, ShaderMap, Program, VertexBufferLayout, VertexBufferLayouts}, 
-	components::draw_obj::{VSDefines, FSDefines}, utils::tools::calc_hash
+	resource::draw_obj::{StateMap, Shaders, VertexBufferLayoutMap, ShareLayout, ShaderCatch, ShaderMap, Program, VertexBufferLayout, VertexBufferLayouts, StaticIndex, ShaderStatic, DynBindGroupLayout, ColorStaticIndex, GradientColorStaticIndex, CommonPipelineState}, 
+	components::draw_obj::{VSDefines, FSDefines}, utils::tools::calc_hash, shaders::color::{CameraMatrixGroup, ColorMaterialGroup}
 };
 
-use super::{GlslShaderStatic, create_shader_common_static, StaticIndex, create_common_pipeline_state};
+use super::{GlslShaderStatic, create_shader_common_static, create_common_pipeline_state};
 
 const COLOR_SHADER_VS: &'static str = "color_shader_vs";
 const COLOR_SHADER_FS: &'static str = "color_shader_fs";
-const COLOR_PILEPINE: &'static str = "color_pipeline";
+const COLOR_PIPELINE: &'static str = "color_pipeline";
 
-pub struct ColorShader;
+pub struct CalcColorShader;
 
 #[setup]
-impl ColorShader {
+impl CalcColorShader {
 	#[init]
 	pub fn init(
-		shader_static_map: ResMut<Shaders>,
-		state_map: ResMut<StateMap>,
-		vertex_buffer_map: ResMut<VertexBufferLayoutMap>,
-		share_layout: Res<ShareLayout>,
+		mut shader_static_map: ResMut<Shaders>,
+		mut state_map: ResMut<StateMap>,
+		mut vertex_buffer_map: ResMut<VertexBufferLayoutMap>,
+		color_layout: Res<DynBindGroupLayout<ColorMaterialGroup>>,
+		camera_layout: Res<DynBindGroupLayout<CameraMatrixGroup>>,
 		mut shader_catch: ResMut<ShaderCatch>,
 		mut shader_map: ResMut<ShaderMap>,
 		mut static_index: WriteRes<ColorStaticIndex>,
+		mut common_state: Res<CommonPipelineState>,
+		mut gradient_static_index: WriteRes<GradientColorStaticIndex>,
 		device: Res<RenderDevice>,
 	) {
 		let shader = GlslShaderStatic::init(
@@ -41,51 +45,40 @@ impl ColorShader {
 			COLOR_SHADER_FS,
 			&mut shader_catch, 
 			&mut shader_map, 
-			||{include_str!("../../source/shader/common.vert")}, 
-			||{include_str!("../../source/shader/color.frag")});
+			||{include_str!("../../../resource/color.vert")}, 
+			||{include_str!("../../../resource/color.frag")});
+	
+		let vertex_buffer = create_vertex_buffer_layout();
+		let vertex_buffer_index = vertex_buffer_map.insert(vertex_buffer);
+
+		let vertex_buffer1 = create_vertex_buffer_layout_with_color();
+		let vertex_buffer_index1 = vertex_buffer_map.insert(vertex_buffer1);
+
+		let mut bind_group_layout = VecMap::new();
+		bind_group_layout.insert(CameraMatrixGroup::id() as usize, (*camera_layout).clone());
+		bind_group_layout.insert(ColorMaterialGroup::id() as usize, (*color_layout).clone());
 		
-		let r = init_static(
-			shader_static_map,
-			state_map,
-			vertex_buffer_map,
-			&share_layout,
-			shader,
-			&device,
-		);
+		shader_static_map.0.push(ShaderStatic {
+			vs_shader_soruce: shader.shader_vs,
+			fs_shader_soruce: shader.shader_fs,
+			bind_group_layout,
+		});
 
 		// 插入背景颜色shader的索引
-		static_index.write(ColorStaticIndex(r));
+		let shader_index = shader_static_map.0.len() - 1;
+		static_index.write(ColorStaticIndex(StaticIndex {
+			shader: shader_index,
+			pipeline_state: common_state.common,
+			vertex_buffer_index,
+			name: COLOR_PIPELINE,
+		}));
 
-	}
-}
-
-pub fn init_static(
-	mut shader_static_map: ResMut<Shaders>,
-	mut state_map: ResMut<StateMap>,
-	mut vertex_buffer_map: ResMut<VertexBufferLayoutMap>,
-	share_layout: &ShareLayout,
-	shader: GlslShaderStatic,
-	device: &RenderDevice,
-) -> StaticIndex {
-	let mut shader_static = create_shader_common_static(
-		&share_layout,
-		shader,
-		create_shader_info);
-	shader_static.bind_group.insert(COLOR_GROUP, Share::new(create_color_group_layout(device)));
-	shader_static_map.0.push(shader_static);
-	let shader_index = shader_static_map.0.len() - 1;
-
-	let pipeline_state = create_common_pipeline_state();
-	let pipeline_state = state_map.insert(pipeline_state);
-
-	let vertex_buffer = create_vertex_buffer_layout();
-	let vertex_buffer_index = vertex_buffer_map.insert(vertex_buffer);
-
-	StaticIndex {
-		shader: shader_index,
-		pipeline_state,
-		vertex_buffer_index,
-		name: COLOR_PILEPINE,
+		gradient_static_index.write(GradientColorStaticIndex(StaticIndex {
+			shader: shader_index,
+			pipeline_state: common_state.common,
+			vertex_buffer_index: vertex_buffer_index1,
+			name: COLOR_PIPELINE,
+		}));
 	}
 }
 
@@ -185,6 +178,33 @@ pub fn create_vertex_buffer_layout() -> VertexBufferLayouts {
 	}]
 }
 
+pub fn create_vertex_buffer_layout_with_color() -> VertexBufferLayouts {
+	vec![
+		VertexBufferLayout {
+			array_stride: 8 as wgpu::BufferAddress,
+			step_mode: wgpu::VertexStepMode::Vertex,
+			attributes: vec![
+				wgpu::VertexAttribute {
+					format: wgpu::VertexFormat::Float32x2,
+					offset: 0,
+					shader_location: 0,
+				},
+			],
+		},
+		VertexBufferLayout {
+			array_stride: 16 as wgpu::BufferAddress,
+			step_mode: wgpu::VertexStepMode::Vertex,
+			attributes: vec![
+				wgpu::VertexAttribute {
+					format: wgpu::VertexFormat::Float32x4,
+					offset: 0,
+					shader_location: 1,
+				},
+			],
+		},
+	]
+}
+
 pub fn create_color_group_layout(device: &RenderDevice) -> BindGroupLayout {
 	device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
 		label: Some("color layout"),
@@ -217,9 +237,6 @@ pub fn create_empty_bind_group(
 
 	bind_group_assets.insert(key, RenderRes::new(r, 5)).unwrap()
 }
-
-#[derive(Deref)]
-pub struct ColorStaticIndex(pub StaticIndex);
 
 pub const COLOR_GROUP: usize = 4;
 pub const POSITION_LOCATION: usize = 0;

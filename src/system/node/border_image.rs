@@ -2,7 +2,7 @@ use std::io::Result;
 
 use bytemuck::{Pod, Zeroable};
 use pi_assets::mgr::AssetMgr;
-use pi_ecs::prelude::{Or, Deleted, With, ParamSet, OrDefault};
+use pi_ecs::prelude::{Or, Deleted, With, ParamSet, OrDefault, ResMut};
 use pi_ecs::prelude::{Query, Changed, EntityCommands, Commands, Write, Res, Event, Id};
 use pi_ecs_macros::{listen, setup};
 use pi_render::rhi::asset::RenderRes;
@@ -10,14 +10,16 @@ use pi_render::rhi::bind_group::BindGroup;
 use pi_render::rhi::bind_group_layout::BindGroupLayout;
 use pi_render::rhi::buffer::Buffer;
 use pi_render::rhi::device::RenderDevice;
+use pi_render::rhi::dyn_uniform_buffer::Group;
 use pi_share::Share;
 use wgpu::IndexFormat;
+use smallvec::smallvec;
 
 use crate::components::calc::{LayoutResult, BorderImageTexture, DrawInfo};
+use crate::components::draw_obj::{DrawGroup, DynDrawGroup};
 use crate::components::user::{BorderImageClip, BorderImageSlice, BorderImageRepeat, BorderImage, Polygon, Point2, BorderImageRepeatOption};
-use crate::resource::draw_obj::CommonSampler;
-use crate::system::shader_utils::StaticIndex;
-use crate::system::shader_utils::image::{ImageStaticIndex, PosUvVertexLayout, IMAGE_POSITION_LOCATION, IMAGE_TEXTURE_GROUP};
+use crate::resource::draw_obj::{CommonSampler, DynUniformBuffer, DynBindGroupIndex, StaticIndex, ImageStaticIndex, PosUvVertexLayout};
+use crate::shaders::image::{ImageMaterialGroup, PositionVertexBuffer, SampTex2DGroup, ImageMaterialBind};
 use crate::utils::tools::{calc_hash};
 use crate::{components::{user::Node, calc::{NodeId, DrawList}, draw_obj::{DrawObject, DrawState}}, resource::draw_obj::Shaders};
 // use crate::utils::tools::calc_hash;
@@ -76,14 +78,18 @@ impl CalcBorderImage {
 
 		buffer_assets: Res<'static, Share<AssetMgr<RenderRes<Buffer>>>>,
 		bind_group_assets: Res<'static, Share<AssetMgr<RenderRes<BindGroup>>>>,
+
+		mut dyn_uniform_buffer: ResMut<'static, DynUniformBuffer>,
+		image_material_bind_group: Res<'static, DynBindGroupIndex<ImageMaterialGroup>>,
 	) -> Result<()> {
 		
 		// border image 中的position和uv，完全是一一对应的，几乎不存在，position或uv单独被其他renderObj重用的情况
 		// 因此，position和uv的布局不使用默认的布局方式，而是将其放入同一个buffer中
 		let mut static_index = (*static_index).clone();
 		static_index.vertex_buffer_index = **vertex_layout;
+
 		// log::info!("calc_background=================");
-		// TODO: 删除逻辑在个system中重复，需要抽象出去
+		// TODO: 删除逻辑在多个system中重复，需要抽象出去
 		for (
 			border_image,
 			mut draw_index,
@@ -107,7 +113,7 @@ impl CalcBorderImage {
 			}
 		}
 
-		let texture_group_layout = &shader_static.get(static_index.shader).unwrap().bind_group[IMAGE_TEXTURE_GROUP];
+		let texture_group_layout = &shader_static.get(static_index.shader).unwrap().bind_group_layout[SampTex2DGroup::id() as usize];
 		for (
 			node,
 			border_image,
@@ -152,6 +158,15 @@ impl CalcBorderImage {
 					let new_draw_obj = draw_obj_commands.spawn();
 					// 设置DrawState（包含color group）
 					let mut draw_state = DrawState::default();
+
+					let image_material_dyn_offset = dyn_uniform_buffer.alloc_binding::<ImageMaterialBind>();
+					let group = DrawGroup::Dyn(
+						DynDrawGroup::new(
+							(*image_material_bind_group).clone(),
+							smallvec![image_material_dyn_offset]
+						));
+					draw_state.bind_groups.insert_group(ImageMaterialGroup::id(), group);
+					
 					modify(
 						&border_image, 
 						&border_texture, 
@@ -257,7 +272,7 @@ async fn modify<'a> (
 			buffer_assets.insert(buffer_key, RenderRes::new(buf, vertex.len() * 4)).unwrap()
 		}
 	};
-	draw_state.vbs.insert(IMAGE_POSITION_LOCATION, (vertex_buffer, 0));
+	draw_state.vbs.insert(PositionVertexBuffer::id() as usize, (vertex_buffer, 0));
 
 	let index_buffer = match buffer_assets.get(&index_key) {
 		Some(r) => r,
@@ -294,7 +309,7 @@ async fn modify<'a> (
 			group_assets.insert(buffer_key, RenderRes::new(group, 5)).unwrap()
 		},
 	};
-	draw_state.bind_groups.insert(IMAGE_TEXTURE_GROUP, texture_group);
+	draw_state.bind_groups.insert_group(SampTex2DGroup::id(), DrawGroup::Static(texture_group));
 }
 
 

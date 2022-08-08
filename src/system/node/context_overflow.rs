@@ -4,15 +4,16 @@
 
 use pi_assets::mgr::AssetMgr;
 use pi_dirty::LayerDirty;
-use pi_ecs::{monitor::Event, prelude::{Query, Write, Local, ChangeTrackers, With, ParamSet, Join, FromWorld, Res, Commands, EntityCommands}, entity::Id};
+use pi_ecs::{monitor::Event, prelude::{Query, Write, Local, ChangeTrackers, With, ParamSet, Join, FromWorld, Res, Commands, EntityCommands, ResMut}, entity::Id};
 use pi_ecs_macros::{listen, setup};
 use pi_ecs_utils::prelude::Layer;
-use pi_render::rhi::{asset::RenderRes, buffer::Buffer, bind_group::BindGroup, device::RenderDevice};
+use pi_render::rhi::{asset::RenderRes, buffer::Buffer, bind_group::BindGroup, device::RenderDevice, dyn_uniform_buffer::{Group, Bind}};
 use pi_share::Share;
 use pi_slotmap::{DefaultKey, KeyData};
 use wgpu::IndexFormat;
+use smallvec::smallvec;
 
-use crate::{components::{user::{Node, Overflow, Aabb2, Vector4, Point2, Matrix4}, calc::{RenderContextMark, WorldMatrix, Pass2DId, TransformWillChangeMatrix, NodeId, OverflowAabb, LayoutResult, Quad}, pass_2d::{Pass2D, ParentPassId, PostProcessList, PostProcess}, draw_obj::{DrawObject, DrawState, VSDefines}}, resource::{RenderContextMarkType, draw_obj::{UnitQuadBuffer, ShareLayout, EmptyBind}}, utils::{tools::intersect, shader_helper::VIEW_GROUP}, system::shader_utils::{post_process::{PostProcessStaticIndex, CalcPostProcessShader, POST_TEXTURE_GROUP, POST_UV_LOCATION}, create_camera_bind_group, StaticIndex}};
+use crate::{components::{user::{Node, Overflow, Aabb2, Vector4, Point2, Matrix4}, calc::{RenderContextMark, WorldMatrix, Pass2DId, TransformWillChangeMatrix, NodeId, OverflowAabb, LayoutResult, Quad}, pass_2d::{Pass2D, ParentPassId, PostProcessList, PostProcess}, draw_obj::{DrawObject, DrawState, VSDefines, DrawGroup, DynDrawGroup}}, resource::{RenderContextMarkType, draw_obj::{UnitQuadBuffer, ShareLayout, ImageStaticIndex, StaticIndex, DynUniformBuffer, DynBindGroupIndex}}, utils::{tools::intersect, shader_helper::VIEW_GROUP}, shaders::{image::{ImageMaterialGroup, ImageMaterialBind, TransformUniform, SampTex2DGroup, UvVertexBuffer}, color::ViewUniform}};
 
 pub struct CalcOverflow;
 
@@ -68,11 +69,13 @@ impl CalcOverflow {
 		share_layout: Res<ShareLayout>,
 
 		unit_quad_buffer: Res<UnitQuadBuffer>,
-		static_index: Res<PostProcessStaticIndex>,
+		static_index: Res<ImageStaticIndex>,
 
 		buffer_assets: Res<'static, Share<AssetMgr<RenderRes<Buffer>>>>,
 		bind_group_assets: Res<'static, Share<AssetMgr<RenderRes<BindGroup>>>>,
-		empty_group: Res<EmptyBind>,
+
+		mut dyn_uniform_buffer: ResMut<'static, DynUniformBuffer>,
+		image_material_bind_group: Res<'static, DynBindGroupIndex<ImageMaterialGroup>>,
 
 	) {
 		// 将overflow组织为层的形式，处理overflow是，从根开始处理（子节点会受父节点的影响）
@@ -147,30 +150,28 @@ impl CalcOverflow {
 						match post_list.0.get(post_key) {
 							Some(r) => {
 								let mut draw_state = query_draw.get_unchecked_mut(r.draw_obj_key);
-								let bind_group = create_camera_bind_group(
-									&rotate_matrix,
-									&share_layout.view,
-									&device,
-									&buffer_assets,
-									&bind_group_assets,
-								);
-								draw_state.get_mut().unwrap().bind_groups.insert(VIEW_GROUP, bind_group);
+								if let Some(draw_state) = draw_state.get() {
+									let image_material_dyn_offset = draw_state.bind_groups.get_group(ImageMaterialGroup::id()).unwrap().get_offset(ImageMaterialBind::index()).unwrap();
+									dyn_uniform_buffer.set_uniform(&image_material_dyn_offset, &TransformUniform(rotate_matrix.as_slice()));
+								}
+								draw_state.notify_modify();
 							},
 							None => {
 								let new_draw_obj = draw_obj_commands.spawn();
 								// 设置DrawState（包含color group）
-								let mut draw_state = CalcPostProcessShader::create_draw_state(&empty_group);
+								let mut draw_state = DrawState::default();
+
+								let image_material_dyn_offset = dyn_uniform_buffer.alloc_binding::<ImageMaterialBind>();
+								dyn_uniform_buffer.set_uniform(&image_material_dyn_offset, &TransformUniform(rotate_matrix.as_slice()));
+								let group = DrawGroup::Dyn(
+									DynDrawGroup::new(
+										(*image_material_bind_group).clone(),
+										smallvec![image_material_dyn_offset]
+									));
+								draw_state.bind_groups.insert_group(ImageMaterialGroup::id(), group);
+
 								draw_state.vbs.insert(0, (unit_quad_buffer.vertex.clone(), 0));
 								draw_state.ib = Some((unit_quad_buffer.index.clone(), 6, IndexFormat::Uint16));
-								// opacity
-								let bind_group = create_camera_bind_group(
-									&rotate_matrix,
-									&share_layout.view,
-									&device,
-									&buffer_assets,
-									&bind_group_assets,
-								);
-								draw_state.bind_groups.insert(VIEW_GROUP, bind_group);
 								
 								draw_state_commands.insert(new_draw_obj, draw_state);
 								// 建立DrawObj对Node的索引
@@ -178,14 +179,14 @@ impl CalcOverflow {
 								shader_static_commands.insert(new_draw_obj, static_index.clone());
 								// fs defines - OPACITY
 								let mut vs_defines = VSDefines::default();
-								vs_defines.insert("VIEW".to_string());
+								vs_defines.insert("TRANSFORM".to_string());
 								vs_defines_commands.insert(new_draw_obj, vs_defines);
 
 								// 创建PostPprocess,并插入后处理列表中
 								let post_process = PostProcess::new(
 									new_draw_obj,
-									POST_TEXTURE_GROUP,
-									POST_UV_LOCATION,
+									SampTex2DGroup::id() as usize,
+									UvVertexBuffer::id() as usize,
 									0,
 									0,
 								);

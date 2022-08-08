@@ -41,7 +41,6 @@ where S: std::ops::Deref<Target=Atom> + 'static + Send + Sync ,
 	) {
 		let (key, mut texture) = query.get_unchecked_mut_by_entity(e.id);
 		let result = AssetMgr::load(&texture_assets_mgr, &(key.get_hash() as u64));
-		// println!("load image!!!!!!!!!!!===={:?}", (*key).clone());
 		match result {
             LoadResult::Ok(r) => texture.write(D::from(r)),
 			_ => {
@@ -59,7 +58,6 @@ where S: std::ops::Deref<Target=Atom> + 'static + Send + Sync ,
 						device: &device,
 						queue: &queue,
 					};
-
 					let r = TextureRes::async_load(desc, result).await;
 					match r {
 						Ok(r) => {

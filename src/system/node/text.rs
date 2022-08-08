@@ -3,143 +3,116 @@ use std::io::Result;
 use ordered_float::NotNan;
 use pi_assets::asset::Handle;
 use pi_assets::mgr::AssetMgr;
-use pi_ecs::prelude::{Or, Deleted, With, ChangeTrackers, ParamSet, Local, FromWorld, OrDefault};
+use pi_ecs::prelude::res::WriteRes;
+use pi_ecs::prelude::{Or, Deleted, With, ChangeTrackers, ParamSet, Local, FromWorld, OrDefault, ResMut};
 use pi_ecs::prelude::{Query, Changed, EntityCommands, Commands, Write, Res, Event, Id};
 use pi_ecs_macros::{listen, setup};
 use pi_render::rhi::RenderQueue;
 use pi_render::rhi::asset::RenderRes;
 use pi_render::rhi::bind_group::BindGroup;
 use pi_render::rhi::buffer::Buffer;
+use pi_render::rhi::dyn_uniform_buffer::{Group, Bind};
 use pi_render::rhi::{device::RenderDevice};
 use pi_share::{Share, ShareCell};
 use pi_polygon::{find_lg_endp, split_by_lg, interp_mult_by_lg, LgCfg, mult_to_triangle};
 use pi_render::font::{ FontSheet, Glyph, GlyphId};
 use wgpu::IndexFormat;
+use smallvec::smallvec;
 
 use crate::components::calc::{LayoutResult, NodeState, DrawInfo};
+use crate::components::draw_obj::{DrawGroup, DynDrawGroup};
 use crate::components::user::{CgColor, TextContent, TextStyle};
-use crate::resource::draw_obj::CommonSampler;
-use crate::system::shader_utils::StaticIndex;
-use crate::system::shader_utils::text::{TextStaticIndex, TEXT_TEXTURE_SIZE_GROUP, TEXT_COLOR_GROUP, TEXT_POSITION_LOCATION, TEXT_UV_LOCATION, TEXT_TEXTURE_GROUP, TEXT_COLOR_LOCATION};
+use crate::resource::draw_obj::{CommonSampler, StaticIndex, DynUniformBuffer, DynBindGroupIndex, TextStaticIndex, TextTextureGroup, EmptyVertexBuffer};
+use crate::shaders::text::{SampTex2DGroup, TextMaterialBind, TextMaterialGroup, UcolorUniform, StrokeColorUniform, TextureSizeUniform, PositionVertexBuffer, UvVertexBuffer};
 use crate::utils::tools::{calc_hash, calc_float_hash, calc_hash_slice};
 use crate::{components::{user::{Node, BackgroundColor, Color}, calc::{NodeId, DrawList}, draw_obj::{DrawObject, DrawState, VSDefines, FSDefines}}, resource::draw_obj::Shaders};
 
 pub struct CalcText;
 
-pub struct TextShareBuffer {
-	size_buffer: Buffer,
-	size: Handle<RenderRes<BindGroup>>,
-	texture_group: Handle<RenderRes<BindGroup>>,
-	empty_gradient_vert_buffer: Handle<RenderRes<Buffer>>,
-	default_color: Handle<RenderRes<BindGroup>>, // 默认颜色Group
-}
+// pub struct TextShareBuffer {
+// 	size_buffer: Buffer,
+// 	size: Handle<RenderRes<BindGroup>>,
+// 	texture_group: Handle<RenderRes<BindGroup>>,
+// 	empty_gradient_vert_buffer: Handle<RenderRes<Buffer>>,
+// }
 
-impl FromWorld for TextShareBuffer {
-    fn from_world(world: &mut pi_ecs::prelude::World) -> Self {
-		world.get_or_insert_resource::<CommonSampler,
-		>();
-		let common_sampler = world.get_resource::<CommonSampler,
-		>().unwrap();
-        let device = world.get_resource::<RenderDevice>().unwrap();
-		let bind_group_assets = world.get_resource::<Share<AssetMgr<RenderRes<BindGroup>>>>().unwrap();
-		let buffer_assets = world.get_resource::<Share<AssetMgr<RenderRes<Buffer>>>>().unwrap();
-		let text_static_index = world.get_resource::<TextStaticIndex>().unwrap();
-		let shader_static = world.get_resource::<Shaders,
-		>().unwrap();
-		let font_sheet = world.get_resource::<Share<ShareCell<FontSheet<>>>,
-		>().unwrap();
-		let font_sheet = font_sheet.borrow();
+// impl FromWorld for TextShareBuffer {
+//     fn from_world(world: &mut pi_ecs::prelude::World) -> Self {
+// 		world.get_or_insert_resource::<CommonSampler,
+// 		>();
+// 		let common_sampler = world.get_resource::<CommonSampler,
+// 		>().unwrap();
+//         let device = world.get_resource::<RenderDevice>().unwrap();
+// 		let bind_group_assets = world.get_resource::<Share<AssetMgr<RenderRes<BindGroup>>>>().unwrap();
+// 		let buffer_assets = world.get_resource::<Share<AssetMgr<RenderRes<Buffer>>>>().unwrap();
+// 		let text_static_index = world.get_resource::<TextStaticIndex>().unwrap();
+// 		let shader_static = world.get_resource::<Shaders,
+// 		>().unwrap();
+// 		let font_sheet = world.get_resource::<Share<ShareCell<FontSheet<>>>,
+// 		>().unwrap();
+// 		let font_sheet = font_sheet.borrow();
 
-		let size = font_sheet.texture_size();
-		let buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
-			label: Some("Text TextrueSize  Buffer"),
-			contents: bytemuck::cast_slice(&[size.width as f32, size.height as f32]),
-			usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-		});
+// 		let size = font_sheet.texture_size();
+// 		let buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
+// 			label: Some("Text TextrueSize  Buffer"),
+// 			contents: bytemuck::cast_slice(&[size.width as f32, size.height as f32]),
+// 			usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+// 		});
 
-		let gradient_buf = device.create_buffer(&wgpu::BufferDescriptor {
-			label: Some("Text Gradient Empty Buffer"),
-			size: 0,
-			usage: wgpu::BufferUsages::VERTEX,
-			mapped_at_creation: false,
-		});
+// 		let size_group_layout = &shader_static.get(text_static_index.shader).unwrap().bind_group_layout[TEXT_TEXTURE_SIZE_GROUP];
 
-		let key = calc_hash(&"Text Gradient Empty", 0);
-		let gradient_buf = buffer_assets.insert(key, RenderRes::new(gradient_buf, 0)).unwrap();
+// 		let group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+// 			layout: &size_group_layout,
+// 			entries: &[
+// 				wgpu::BindGroupEntry {
+// 					binding: 0,
+// 					resource: buf.as_entire_binding(),
+// 				},
+// 			],
+// 			label: Some("Text TextrueSize group create"),
+// 		});
 
-		let size_group_layout = &shader_static.get(text_static_index.shader).unwrap().bind_group[TEXT_TEXTURE_SIZE_GROUP];
+// 		let key = calc_hash(&"TEXT_TEXTURE_SIZE_GROUP", 0);
+// 		bind_group_assets.insert(key, RenderRes::new(group, 5)).unwrap();
 
-		let group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-			layout: &size_group_layout,
-			entries: &[
-				wgpu::BindGroupEntry {
-					binding: 0,
-					resource: buf.as_entire_binding(),
-				},
-			],
-			label: Some("Text TextrueSize group create"),
-		});
-
-		let key = calc_hash(&"TEXT_TEXTURE_SIZE_GROUP", 0);
-		bind_group_assets.insert(key, RenderRes::new(group, 5)).unwrap();
-
-		let texture_group_layout = &shader_static.get(text_static_index.shader).unwrap().bind_group[TEXT_TEXTURE_GROUP];
-		let texture_group_key = calc_hash(&"TEXT TETURE", 0);
-		let texture_group = match bind_group_assets.get(&texture_group_key) {
-			Some(r) => r,
-			None => {
-				let group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-					layout: texture_group_layout,
-					entries: &[
-						wgpu::BindGroupEntry {
-							binding: 0,
-							resource: wgpu::BindingResource::Sampler(&common_sampler.pointer),
-						},
-						wgpu::BindGroupEntry {
-							binding: 1,
-							resource: wgpu::BindingResource::TextureView(&font_sheet.texture_view().texture_view),
-						},
-					],
-					label: Some("post process texture bind group create"),
-				});
-				bind_group_assets.insert(texture_group_key, RenderRes::new(group, 5)).unwrap()
-			},
-		};
+// 		let texture_group_layout = &shader_static.get(text_static_index.shader).unwrap().bind_group_layout[SampTex2DGroup::id() as usize];
+// 		let texture_group_key = calc_hash(&"TEXT TETURE", 0);
+// 		let texture_group = match bind_group_assets.get(&texture_group_key) {
+// 			Some(r) => r,
+// 			None => {
+// 				let group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+// 					layout: texture_group_layout,
+// 					entries: &[
+// 						wgpu::BindGroupEntry {
+// 							binding: 0,
+// 							resource: wgpu::BindingResource::Sampler(&common_sampler.pointer),
+// 						},
+// 						wgpu::BindGroupEntry {
+// 							binding: 1,
+// 							resource: wgpu::BindingResource::TextureView(&font_sheet.texture_view().texture_view),
+// 						},
+// 					],
+// 					label: Some("post process texture bind group create"),
+// 				});
+// 				bind_group_assets.insert(texture_group_key, RenderRes::new(group, 5)).unwrap()
+// 			},
+// 		};
 
 
-		let default_color_buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
-			label: Some("Text Default Color Buffer"),
-			contents: bytemuck::cast_slice(&[1.0 as f32, 1.0 as f32, 1.0 as f32, 1.0 as f32, 1.0 as f32, 1.0 as f32, 1.0 as f32, 1.0 as f32]),
-			usage: wgpu::BufferUsages::UNIFORM,
-		});
-		let color_group_layout = &shader_static.get(text_static_index.shader).unwrap().bind_group[TEXT_COLOR_GROUP];
-		let color_group_key = calc_hash(&"TEXT DEFAULT COLOR", 0);
-		let color_group = match bind_group_assets.get(&color_group_key) {
-			Some(r) => r,
-			None => {
-				let group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-					layout: color_group_layout,
-					entries: &[
-						wgpu::BindGroupEntry {
-							binding: 0,
-							resource: default_color_buf.as_entire_binding(),
-						},
-					],
-					label: Some("post process texture bind group create"),
-				});
-				bind_group_assets.insert(color_group_key, RenderRes::new(group, 5)).unwrap()
-			},
-		};
+// 		let default_color_buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
+// 			label: Some("Text Default Color Buffer"),
+// 			contents: bytemuck::cast_slice(&[1.0 as f32, 1.0 as f32, 1.0 as f32, 1.0 as f32, 1.0 as f32, 1.0 as f32, 1.0 as f32, 1.0 as f32]),
+// 			usage: wgpu::BufferUsages::UNIFORM,
+// 		});
 
-		Self {
-			size_buffer: buf,
-			size: bind_group_assets.get(&key).unwrap(),
-			texture_group,
-			empty_gradient_vert_buffer: gradient_buf,
-			default_color: color_group,
-		}
-    }
-}
+// 		Self {
+// 			size_buffer: buf,
+// 			size: bind_group_assets.get(&key).unwrap(),
+// 			texture_group,
+// 			empty_gradient_vert_buffer: gradient_buf,
+// 		}
+//     }
+// }
 
 #[setup]
 impl CalcText {
@@ -191,8 +164,12 @@ impl CalcText {
 
 		buffer_assets: Res<'static, Share<AssetMgr<RenderRes<Buffer>>>>,
 		bind_group_assets: Res<'static, Share<AssetMgr<RenderRes<BindGroup>>>>,
-		text_share: Local<'static, TextShareBuffer>,
-		mut texture_version: Local<'static, usize>,
+		mut text_texture_group: WriteRes<'static, TextTextureGroup>,
+		empty_vert_buffer: Res<'static, EmptyVertexBuffer>,
+		mut texture_size: Local<'static, (usize, usize)>,
+		mut dyn_uniform_buffer: ResMut<'static, DynUniformBuffer>,
+		text_material_bind_group: Res<'static, DynBindGroupIndex<TextMaterialGroup>>,
+		common_sampler: Res<'static, CommonSampler>,
 
 		queue: Res<'static, RenderQueue>,
 	) -> Result<()> {
@@ -201,11 +178,41 @@ impl CalcText {
 
 		// 更新纹理尺寸
 		let version = font_sheet.texture_version();
-		if version != *texture_version {
-			let size = font_sheet.texture_size();
-			queue.write_buffer(&text_share.size_buffer, 0, bytemuck::cast_slice(&[size.width as f32, size.height as f32]));
-			*texture_version = version;
+		let size = font_sheet.texture_size();
+		// if version != *texture_version {
+		// 	// let size = font_sheet.texture_size();
+		// 	// queue.write_buffer(&text_share.size_buffer, 0, bytemuck::cast_slice(&[size.width as f32, size.height as f32]));
+		// 	*texture_version = version;
+		// }
+		
+		// 纹理大小不同，需要重新创建bind_group
+		if size.width != texture_size.0 || size.height != texture_size.1 {
+			let texture_group_layout = &shader_static.get(static_index.shader).unwrap().bind_group_layout[SampTex2DGroup::id() as usize];
+			let texture_group_key = calc_hash(&("TEXT TETURE", size.width, size.height), 0);
+			let texture_group = match bind_group_assets.get(&texture_group_key) {
+				Some(r) => r,
+				None => {
+					let group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+						layout: texture_group_layout,
+						entries: &[
+							wgpu::BindGroupEntry {
+								binding: 0,
+								resource: wgpu::BindingResource::Sampler(&common_sampler.pointer),
+							},
+							wgpu::BindGroupEntry {
+								binding: 1,
+								resource: wgpu::BindingResource::TextureView(&font_sheet.texture_view().texture_view),
+							},
+						],
+						label: Some("post process texture bind group create"),
+					});
+					bind_group_assets.insert(texture_group_key, RenderRes::new(group, 5)).unwrap()
+				},
+			};
+			text_texture_group.write(TextTextureGroup(texture_group));
 		}
+
+		let texture_group = text_texture_group.get().unwrap();
 
 		for (
 			text_content,
@@ -263,7 +270,8 @@ impl CalcText {
 						&mut vs_defines,
 						&mut fs_defines,
 						&mut 100,
-						node_state.0.scale,);
+						node_state.0.scale,
+						&mut dyn_uniform_buffer,);
 					draw_state_item.notify_modify();
 
 					// 为了触发pipeline重新编译
@@ -285,10 +293,19 @@ impl CalcText {
 					let mut fs_defines = FSDefines::default();
 					// 设置DrawState（包含color group）
 					let mut draw_state = DrawState::default();
-					draw_state.vbs.insert(TEXT_COLOR_LOCATION, (text_share.empty_gradient_vert_buffer.clone(), 0));
-					draw_state.bind_groups.insert(TEXT_COLOR_GROUP, text_share.default_color.clone());
-					draw_state.bind_groups.insert(TEXT_TEXTURE_SIZE_GROUP, text_share.size.clone());
-					draw_state.bind_groups.insert(TEXT_TEXTURE_GROUP, text_share.texture_group.clone());
+
+					let text_material_dyn_offset = dyn_uniform_buffer.alloc_binding::<TextMaterialBind>();
+					dyn_uniform_buffer.set_uniform(&text_material_dyn_offset, &TextureSizeUniform(&[size.width as f32, size.height as f32]));
+					let group = DrawGroup::Dyn(
+						DynDrawGroup::new(
+							(*text_material_bind_group).clone(),
+							smallvec![text_material_dyn_offset]
+						));
+					draw_state.bind_groups.insert_group(TextMaterialGroup::id(), group);
+					draw_state.bind_groups.insert_group(SampTex2DGroup::id(), DrawGroup::Static((**texture_group).clone()));
+
+					draw_state.vbs.insert(2, ((*empty_vert_buffer).clone(), 0));
+
 					modify(
 						&font_sheet,
 						&node_state, 
@@ -306,7 +323,8 @@ impl CalcText {
 						&mut vs_defines,
 						&mut fs_defines,
 						&mut 100,
-						node_state.0.scale);
+						node_state.0.scale,
+						&mut dyn_uniform_buffer);
 					draw_state_commands.insert(new_draw_obj, draw_state);
 					// 建立DrawObj对Node的索引
 					node_id_commands.insert(new_draw_obj, NodeId(node));
@@ -386,6 +404,7 @@ fn modify<'a> (
 	fs_defines: &mut FSDefines,
 	index_buffer_max_len: &mut usize,
 	scale: f32,
+	dyn_uniform_buffer: &mut DynUniformBuffer,
 ) {
 
 	// 修改vert buffer
@@ -442,33 +461,9 @@ fn modify<'a> (
 	};
 
 	let buffer = &[color.x, color.y, color.z, color.w, stroke.x, stroke.y,stroke.z,stroke.w];
-	let key = calc_float_hash(buffer, calc_hash(&"text color", 0));
-	let group = match bind_group_assets.get(&key) {
-		Some(r) => r,
-		None => {
-			let buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
-				label: Some("Text Color Buffer"),
-				contents: bytemuck::cast_slice(buffer),
-				usage: wgpu::BufferUsages::UNIFORM,
-			});
-	
-			let color_group_layout = &shader_static.get(text_static_index.shader).unwrap().bind_group[TEXT_COLOR_GROUP];
-	
-			let group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-				layout: &color_group_layout,
-				entries: &[
-					wgpu::BindGroupEntry {
-						binding: 0,
-						resource: buf.as_entire_binding(),
-					},
-				],
-				label: Some("Text TextrueSize group create"),
-			});
-
-			bind_group_assets.insert(key, RenderRes::new(group, 5)).unwrap()
-		}
-	};
-	draw_state.bind_groups.insert(TEXT_COLOR_GROUP, group);
+	let dyn_offset = draw_state.bind_groups.get_group(TextMaterialGroup::id()).unwrap().get_offset(TextMaterialBind::index()).unwrap();
+	dyn_uniform_buffer.set_uniform(dyn_offset, &UcolorUniform(&[color.x, color.y, color.z, color.w]));
+	dyn_uniform_buffer.set_uniform(dyn_offset, &StrokeColorUniform(&[stroke.x, stroke.y,stroke.z,stroke.w]));
 
 	if *text_style.text_stroke.width > 0.0 {
 		fs_defines.insert("STROKE".to_string());
@@ -598,7 +593,7 @@ fn modify_geo(
 				"text vert color buffer", 
 				device, 
 				buffer_assets);
-			draw_state.vbs.insert(TEXT_COLOR_LOCATION, (color_buffer, 0));
+			draw_state.vbs.insert(2, (color_buffer, 0));
 		}
 	}
 	let positions_buffer = get_or_create_buffer(
@@ -611,8 +606,8 @@ fn modify_geo(
 		"text uv buffer", 
 		device, 
 		buffer_assets);
-	draw_state.vbs.insert(TEXT_POSITION_LOCATION, (positions_buffer, 0));
-	draw_state.vbs.insert(TEXT_UV_LOCATION, (uv_buffer, 0));
+	draw_state.vbs.insert(PositionVertexBuffer::id() as usize, (positions_buffer, 0));
+	draw_state.vbs.insert(UvVertexBuffer::id() as usize, (uv_buffer, 0));
 }
 
 #[inline]
@@ -841,7 +836,7 @@ fn push_pos_uv(
         gy,
 	];
     uvs.extend_from_slice(&uv);
-	// log::info!("uv=================={:?}, {:?}, w:{:?},h:{:?},scale:{:?},glyph:{:?}", uv, ps, width, height, scale, glyph);
+	// log::warn!("uv=================={:?}, {:?}, w:{:?},h:{:?},scale:{:?},glyph:{:?}", uv, ps, width, height, scale, glyph);
     positions.extend_from_slice(&ps[..]);
 }
 
