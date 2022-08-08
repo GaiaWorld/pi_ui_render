@@ -111,7 +111,7 @@ spin_sleep="1.1"
 num_cpus = "1.13"
 
 [build-dependencies]
-render_compile = { path = "../pi_render/crates/render_compile" }
+render_compile = { git = "https://github.com/GaiaWorld/pi_render.git" }
 naga = { version = "0.8", features = [
     "glsl-in",
     "spv-in",

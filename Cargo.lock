@@ -785,7 +785,7 @@ checksum = "00b0228411908ca8685dba7fc2cdd70ec9990a6e753e89b6ac91a84c40fbaf4b"
 [[package]]
 name = "freetype-sys"
 version = "0.13.1"
-source = "git+http://ser.yinengyun.com:10082/tech/freetype_sys.git#cc02d22af812dc812b7fecad837b874b7817c767"
+source = "git+http://ser.yinengyun.com:10082/tech/freetype_sys.git#eab14b011900c34d08d66e71491d051ee9482db8"
 dependencies = [
  "cmake",
  "libc",
@@ -2788,6 +2788,7 @@ checksum = "a3f87b73ce11b1619a3c6332f45341e0047173771e8b8b73f87bfeefb7b56244"
 [[package]]
 name = "render_compile"
 version = "0.1.0"
+source = "git+https://github.com/GaiaWorld/pi_render.git#6c05108ba9e1a53dc1558ca195654d7d342af130"
 dependencies = [
  "Inflector",
  "log",
