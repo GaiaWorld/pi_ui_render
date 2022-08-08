@@ -1,13 +1,13 @@
 use crate::{utils::{cmd::SingleCmd, style::{style_parse::parse_class_map_from_string, style_sheet::ClassSheet}}, resource::{ClearColor, Viewport}, components::{user::{CgColor, Aabb2, Point2, Node}, calc::{QuadTree, IsEnable}, pass_2d::Pass2D}};
 
-use super::Gui;
+pub use super::Gui;
 use js_proxy_gen_macro::pi_js_export;
 use pi_cg2d::include_quad2;
 use pi_null::Null;
 use pi_share::ShareRefCell;
 use pi_spatialtree::quad_helper::intersects;
 use wgpu::PresentMode;
-use winit::window::Window;
+pub use winit::window::Window;
 use pi_async::rt::{AsyncRuntimeBuilder, worker_thread::WorkerRuntime};
 use pi_ecs::{prelude::{World, SingleDispatcher, Dispatcher}, entity::Id, storage::LocalVersion};
 use pi_render::{init_render, components::view::{target_alloc::ShareTargetView, render_window::{RenderWindow, RenderWindows}}, rhi::options::RenderOptions};

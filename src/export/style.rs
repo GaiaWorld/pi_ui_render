@@ -18,7 +18,7 @@ use crate::{
 };
 use pi_flex_layout::prelude::*;
 use pi_ecs::{prelude::{Id, LocalVersion, SingleDispatcher, Dispatcher}, storage::Offset};
-use super::{Gui, json_parse::as_value};
+pub use super::{Gui, json_parse::as_value};
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::wasm_bindgen;
