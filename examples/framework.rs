@@ -153,7 +153,7 @@ pub fn start<T: Example + Sync + Send + 'static>(example: T) {
 						}
 					};
 					spin_sleep::sleep(duration);
-					log::warn!("frame time=============duration: {:?}, preframe_use: {:?},  sleep: {:?}", Instant::now() - *pre_frame_time1.lock().unwrap(), use_time, duration);
+					// log::warn!("frame time=============duration: {:?}, preframe_use: {:?},  sleep: {:?}", Instant::now() - *pre_frame_time1.lock().unwrap(), use_time, duration);
 					*pre_frame_time1.lock().unwrap() = Instant::now();
 					example.render(&mut gui1.0.borrow_mut());
 					dispatcher.0.borrow().run();

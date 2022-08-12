@@ -1,0 +1,148 @@
+.c2848432957{
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    flex-direction: row;
+    justify-content: center;
+    background-color: rgba(0,0,0,0.6);
+}
+.c2730177206{
+    position: absolute;
+    bottom: 130px;
+}
+.c211609997{
+    width: 100%;
+    height: 100%;
+    position: absolute;
+}
+.c3769571327{
+    right: -10px;
+    top: -5px;
+    width: 45px;
+    height: 40px;
+    position: absolute;
+    justify-content: center;
+}
+.c1873232240{
+    width: 100%;
+    height: 100%;
+    position: absolute;
+}
+.c3139934319{
+    position: absolute;
+}
+.c3963193173{
+    color: #ffffff;
+    font-size: 32px;
+    line-height: 32px;
+}
+.c1235534343{
+    top: 150px;
+    width: 660px;
+    height: 650px;
+    position: absolute;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+.c3569424899{
+    bottom: 30px;
+    width: 450px;
+    height: 50px;
+    position: absolute;
+    justify-content: center;
+}
+.c1621317832{
+    color: #D5E3EA;
+    line-height: 40px;
+    font-size: 40px;
+}
+.c3400271547{
+  position: absolute;
+  width: 100%;
+  height: 100%;
+}
+.c2529755405{
+  position: absolute;
+  width: 100%;
+  height: 100%;
+}
+
+.c988292225{
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  transform: translateX(100%);
+}
+.c1981362054{
+  height: 135px;
+  position: absolute;
+  width: 100%;
+  bottom: 0px;
+}
+.c1544334741{
+  width: 100%;
+  height: 100px;
+  background-color: #4196da;
+  position: absolute;
+  bottom: 0px;
+}
+.c2690618721{
+  height: 135px;
+  position: absolute;
+  width: 100%;
+  bottom: 0px;
+  padding: 0px 15px 0 15px;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  justify-content: space-between;
+  align-content: flex-end;
+}
+
+@keyframes enter {
+  0% {
+    transform: translateY(150px);
+  }
+  100% {
+    transform: translateY(0px);
+  }
+}
+@keyframes leave {
+  0% {
+    transform: translateY(0px);
+  }
+  100% {
+    transform: translateY(150px);
+  }
+}
+.c4246905833{
+  position: absolute;
+  width: 100%;
+  height: 100%;
+}
+.c3263990429{
+  position: absolute;
+  height: 45px;
+  width: 100px;
+  top: 10px;
+  left: 10px;
+}
+.c3186417848{
+  position: absolute;
+  top: 100px;
+  left: 100px;
+  background-color: #ff0000;
+  width: 800px;
+}
+.c3730912968{
+  position: absolute;
+  top: 500px;
+  left: 300px;
+}
+.c2114356791{
+    position: absolute;
+    width: 80px;
+    height: 80px;
+    right: 0px;
+    top: 0px
+}

@@ -14,11 +14,12 @@ use pi_slab::Slab;
 use smallvec::SmallVec;
 use crate::{
 	components::user::{Node, BackgroundColor, Color, CgColor, LinearGradientColor, ColorAndPosition, BorderColor, BorderRadius, LengthUnit, BoxShadow, BackgroundImageClip, Aabb2, Point2, MaskImageClip, BorderImageClip, NotNanRect, BorderImageSlice, BorderImageRepeat, Overflow, Opacity, ZIndex, Blur, Hsi, BorderImage, MaskImage, BackgroundImage, TransformFunc, TransformOrigin, LineHeight, FontSize, TextContent, Stroke, TextShadows, Position, Border, Margin, Padding, ClassName, Transform},
-	utils::style::{style_sheet::*, style_parse::parse_text_shadow},
 };
+use pi_style::{style_parse::parse_text_shadow, style_type::*};
 use pi_flex_layout::prelude::*;
 use pi_ecs::{prelude::{Id, LocalVersion, SingleDispatcher, Dispatcher}, storage::Offset};
-use super::{Gui, json_parse::as_value};
+use super::json_parse::as_value;
+pub use crate::export::Gui;
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::wasm_bindgen;
@@ -544,11 +545,14 @@ out_export!(@expr text_stroke, TextStrokeType, Stroke {
 }, width: f32, r: f32, g: f32, b: f32, a: f32,);
 out_export!(@cenum white_space, WhiteSpaceType);
 out_export!(@expr text_shadow, TextShadowType, {
-	let shadows = parse_text_shadow(s.as_str());
+	let mut input = cssparser::ParserInput::new(s.as_str());
+	let mut parse = cssparser::Parser::new(&mut input);
+
+	let shadows = parse_text_shadow(&mut parse);
 	if let Ok(value) = shadows {
-		TextShadows(value)
+		value
 	} else {
-		TextShadows(Default::default())
+		Default::default()
 	}
 }, s: String,);
 out_export!(@cenum font_style, FontStyleType);

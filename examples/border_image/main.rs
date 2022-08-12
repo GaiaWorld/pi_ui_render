@@ -14,8 +14,9 @@ use pi_null::Null;
 use pi_ui_render::{
 	gui::Gui, 
 	components::user::{ CgColor, BorderImage, BorderImageSlice, Border, BorderImageRepeat, BorderImageRepeatOption}, 
-	utils::style::style_sheet::{WidthType, HeightType, PositionTypeType, PositionLeftType, PositionTopType, MarginLeftType, MarginTopType, BorderImageType, BorderImageSliceType, BorderType, BorderImageRepeatType}, resource::ClearColor
+	resource::ClearColor
 };
+use pi_style::style_type::{WidthType, HeightType, PositionTypeType, PositionLeftType, PositionTopType, MarginLeftType, MarginTopType, BorderImageType, BorderImageSliceType, BorderType, BorderImageRepeatType};
 
 fn main() {
 	framework::start(QuadExample::default())

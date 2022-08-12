@@ -22,7 +22,7 @@ use crate::{
 		pass_2d::{RenderTarget, ScreenTarget, Pass2D, ParentPassId}, calc::{BorderImageTexture, BackgroundImageTexture, LayoutResult, Quad, WorldMatrix, ZRange, IsEnable, InPassId, NodeId}
 	}, 
 	resource::{UserCommands, NodeCommand, Viewport, draw_obj::CommonSampler, DefaultStyle}, 
-	utils::{style::{style_sheet::{StyleAttr, Attr, ClassSheet}, style_parse::parse_class_map_from_string}, tools::calc_hash, cmd::Command}, 
+	utils::{tools::calc_hash, cmd::Command}, 
 	system::{
 		node::{user_setting::CalcUserSetting, context::CalcContext, z_index::CalcZindex, layout::CalcLayout, quad::CalcQuad, world_matrix::CalcMatrix, content_box::CalcContentBox, background_color::CalcBackGroundColor, context_root::CalcRoot, border_color::CalcBorderColor, box_shadow::CalcBoxShadow, image_texture_load::CalcImageLoad, background_image::CalcBackgroundImage, border_image::CalcBorderImage, text_split::CalcTextSplit, text_glphy::CalcTextGlyph, text::CalcText, context_opacity::{CalcOpacity, CalcOpacityPostProcess}, context_transform_will_change::CalcTransformWillChange, context_overflow::CalcOverflow}, 
 		draw_obj::{world_marix::CalcWorldMatrixGroup, pipeline::CalcPipeline}, 
@@ -33,6 +33,8 @@ use crate::{
 		}, shader_utils::{image::CalcImageShader, color::CalcColorShader, text::CalcTextShader}
 	}
 };
+
+use pi_style::{style_type::{StyleAttr, Attr, ClassSheet}, style_parse::parse_class_map_from_string};
 
 use crate::components::user::Node;
 

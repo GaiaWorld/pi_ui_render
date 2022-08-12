@@ -13,7 +13,7 @@ pi_print_any= "0.1"
 pi_slotmap = "0.1"
 num-traits = "0.2.6"
 fnv = "1.0.6"
-lazy_static = "*"
+lazy_static = "1.4"
 derive_deref = "1.1"
 paste = "0.1"
 bincode = "1.3"
@@ -22,10 +22,11 @@ ordered-float = { version = "3.0", default-features = false, features = ["serde"
 fxhash = "0.2.1"
 nalgebra = {version = "0.24.0", features = ["serde", "serde-serialize"]}
 ncollide2d = {version = "0.27.0", features = ["serde"]}
-log="*"
+log="0.4"
 smallvec={version = "1.8", features = ["serde"]}
 getset="0.1"
 bitvec={version = "1.0", features = ["serde"]}
+cssparser = "0.29"
 pi_hash="0.1"
 pi_share="0.1"
 pi_atom={version="0.1", features = ["serde"]}
@@ -35,7 +36,7 @@ pi_map="0.1"
 pi_null="0.1"
 pi_ucd="0.1"
 pi_data_view = "0.1"
-pi_async = "0.2"
+pi_async = "0.4"
 futures = "0.3"
 pi_polygon = "0.1"
 pi_cg2d = "0.1"
@@ -67,6 +68,7 @@ pi_ecs = { git = "https://github.com/GaiaWorld/pi_ecs.git" }
 pi_flex_layout = { git = "https://github.com/GaiaWorld/pi_flex_layout.git" }
 pi_hal={git="https://github.com/GaiaWorld/pi_hal.git"}
 js_proxy_gen_macro={git="https://github.com/GaiaWorld/pi_lib.git"}
+pi_style={path="./style"}
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = { version = "0.2.78", features = ["serde-serialize"] }
@@ -82,14 +84,14 @@ wasm-bindgen = { version = "0.2.78", features = ["serde-serialize"] }
 # [patch."https://github.com/GaiaWorld/pi_render"]
 # pi_render = { path = "../pi_render" }
 
-# [patch."https://github.com/GaiaWorld/pi_hal"]
-# pi_hal = { path = "../pi_hal" }
+[patch."https://github.com/GaiaWorld/pi_hal"]
+pi_hal = { path = "../pi_hal" }
 
 # [patch."https://github.com/GaiaWorld/pi_flex_layout"]
 # pi_flex_layout = { path = "../pi_flex_layout" }
 
-# [patch."http://ser.yinengyun.com:10082/tech/font_kit.git"]
-# font_kit = { path = "../font_kit" }
+[patch."http://ser.yinengyun.com:10082/tech/font_kit.git"]
+font_kit = { path = "../font_kit" }
 
 # [patch.crates-io]
 # pi_slotmap = { path = "../pi_slotmap" }
@@ -119,6 +121,9 @@ naga = { version = "0.8", features = [
     "wgsl-in",
     "wgsl-out",
 ] }
+
+[patch.crates-io]
+wgpu = { path = "../wgpu/wgpu"}
 
 # [patch.crates-io]
 # pi_ecs = { path = "../pi_ecs" }

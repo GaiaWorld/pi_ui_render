@@ -51,7 +51,7 @@ where S: std::ops::Deref<Target=Atom> + 'static + Send + Sync ,
 				let (id, key) = (
 					unsafe { Id::new(e.id.local())}, 
 					(*key).clone());
-
+					
 					MULTI_MEDIA_RUNTIME.spawn(MULTI_MEDIA_RUNTIME.alloc(), async move {
 					let desc = ImageTextureDesc { 
 						url: &key,

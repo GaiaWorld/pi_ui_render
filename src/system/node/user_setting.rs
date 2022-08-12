@@ -13,11 +13,9 @@ use crate::{
 		user::{Node, Size, Margin, Padding, Position, Border, MinMax, FlexContainer, FlexNormal, ZIndex, Overflow, Opacity, BlendMode, Transform, Show, BackgroundColor, BorderColor, BackgroundImage, MaskImage, MaskImageClip, Hsi, Blur, ObjectFit, BackgroundImageClip, BorderImage, BorderImageClip, BorderImageSlice, BorderImageRepeat, BorderRadius, BoxShadow, TextContent, TextStyle, ClassName, TransformWillChange}, 
 		calc::{StyleMark, StyleType, NodeState, BackgroundImageTexture}
 	}, 
-	utils::style::{
-		style_sheet::{ClassSheet, StyleTypeReader, StyleQuery, StyleAttr}
-	}, 
 	resource::{UserCommands, NodeCommand, DefaultStyle},
 };
+use pi_style::style_type::{ClassSheet, StyleTypeReader, StyleQuery, StyleAttr};
 
 pub struct CalcUserSetting;
 
@@ -291,7 +289,7 @@ impl CalcUserSetting {
 		class_sheet: Res<'a, ClassSheet>,
 		// default_style_mark: ResMut<DefaultStyleMark>,
 	) {
-		let mut style_query = crate::utils::style::style_sheet::DefaultStyle{
+		let mut style_query = pi_style::style_type::DefaultStyle{
 			size,
 			margin,
 			padding,

@@ -1,6 +1,7 @@
-use crate::{utils::{cmd::SingleCmd, style::{style_parse::parse_class_map_from_string, style_sheet::ClassSheet}}, resource::{ClearColor, Viewport}, components::{user::{CgColor, Aabb2, Point2, Node}, calc::{QuadTree, IsEnable}, pass_2d::Pass2D}};
+use crate::{utils::cmd::SingleCmd, resource::{ClearColor, Viewport}, components::{user::{CgColor, Aabb2, Point2, Node}, calc::{QuadTree, IsEnable}, pass_2d::Pass2D}};
+use pi_style::{style_parse::parse_class_map_from_string, style_type::ClassSheet};
 
-use super::Gui;
+pub use crate::export::Gui;
 use js_proxy_gen_macro::pi_js_export;
 use pi_cg2d::include_quad2;
 use pi_null::Null;

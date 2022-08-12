@@ -2,7 +2,7 @@ use pi_ecs::prelude::res::WriteRes;
 
 use crate::resource::{ClearColor, Viewport};
 
-use super::style::style_sheet::ClassSheet;
+use pi_style::style_type::ClassSheet;
 
 pub struct DataQuery {
 	clear_color: WriteRes<'static, ClearColor>,

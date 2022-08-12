@@ -1,0 +1,2003 @@
+.c2141714214 {
+	width: 128px;
+	height: 128px;
+	position: absolute;
+}
+
+.c2099127891 {
+	width: 256px;
+	height: 256px;
+	position: absolute;
+}
+
+.c1479146580 {
+	image-clip: 29.1016% 85.6445% 35.3516% 53.6133%;
+	background-position: 78.8793% 31.0417%;
+	background-size: 312.1951% 1600.0000%;
+	width: 410px;
+	height: 80px;
+}
+
+.c997361895 {
+	image-clip: 9.1797% 85.4492% 12.6953% 81.9336%;
+	background-position: 84.9190% 9.5142%;
+	background-size: 2844.4444% 2844.4444%;
+	width: 45px;
+	height: 45px;
+}
+
+.c1601070375 {
+	image-clip: 71.6797% 99.3164% 74.3164% 97.3633%;
+	background-position: 99.3028% 73.6209%;
+	background-size: 5120.0000% 3792.5926%;
+	width: 25px;
+	height: 33px;
+}
+
+.c1885753934 {
+	image-clip: 76.6602% 99.1211% 78.3203% 97.3633%;
+	background-position: 99.1054% 77.9543%;
+	background-size: 5688.8889% 6023.5294%;
+	width: 22px;
+	height: 21px;
+}
+
+.c738715280 {
+	image-clip: 47.1680% 80.7617% 48.6328% 79.1992%;
+	background-position: 80.4563% 47.8692%;
+	background-size: 6400.0000% 6826.6667%;
+	width: 20px;
+	height: 18px;
+}
+
+.c114162455 {
+	image-clip: 84.9602% 95.7933% 88.1474% 91.8269%;
+	background-position: 95.6195% 87.7572%;
+	background-size: 2521.2121% 3137.5000%;
+	width: 41px;
+	height: 40px;
+}
+
+.c1112627881 {
+	image-clip: 84.9602% 100.0000% 88.1474% 96.0337%;
+	background-position: 100.0000% 87.7572%;
+	background-size: 2521.2121% 3137.5000%;
+	width: 41px;
+	height: 40px;
+}
+
+.c2849131351 {
+	image-clip: 95.0199% 16.4663% 99.7012% 10.6971%;
+	background-position: 11.3520% 99.6865%;
+	background-size: 1733.3333% 2136.1702%;
+	width: 60px;
+	height: 58px;
+}
+
+.c737437885 {
+	image-clip: 91.1133% 43.0664% 94.5313% 39.5508%;
+	background-position: 40.9919% 94.3377%;
+	background-size: 2844.4444% 2925.7143%;
+	width: 45px;
+	height: 43px;
+}
+
+.c96254610 {
+	image-clip: 91.1133% 48.3398% 95.3125% 44.0430%;
+	background-position: 46.0204% 95.1070%;
+	background-size: 2327.2727% 2381.3953%;
+	width: 55px;
+	height: 53px;
+}
+
+.c4104733279 {
+	image-clip: 49.5117% 95.8008% 49.8047% 53.6133%;
+	background-position: 92.7365% 49.6572%;
+	background-size: 237.0370% 34133.3333%;
+	width: 540px;
+	height: 3px;
+}
+
+.c201329806 {
+	image-clip: 87.9883% 48.9258% 90.0391% 0.0000%;
+	background-position: 0% 89.8305%;
+	background-size: 204.3912% 4876.1905%;
+	width: 626px;
+	height: 26px;
+}
+
+.c3984286169 {
+	image-clip: 36.9141% 99.8047% 41.3086% 95.7031%;
+	background-position: 99.7963% 38.6108%;
+	background-size: 2438.0952% 2275.5556%;
+	width: 52px;
+	height: 56px;
+}
+
+.c4140914904 {
+	image-clip: 0.0000% 85.5469% 4.3945% 81.9336%;
+	background-position: 85.0051% 0%;
+	background-size: 2767.5676% 2275.5556%;
+	width: 46px;
+	height: 56px;
+}
+
+.c3559194379 {
+	image-clip: 4.5898% 85.4492% 8.9844% 81.9336%;
+	background-position: 84.9190% 4.8008%;
+	background-size: 2844.4444% 2275.5556%;
+	width: 45px;
+	height: 56px;
+}
+
+.c3779774446 {
+	image-clip: 89.1434% 90.5048% 96.0159% 81.0096%;
+	background-position: 89.5086% 95.7219%;
+	background-size: 1053.1646% 1455.0725%;
+	width: 98px;
+	height: 86px;
+}
+
+.c1685223440 {
+	image-clip: 35.5469% 83.2031% 41.6992% 53.6133%;
+	background-position: 76.1442% 37.8772%;
+	background-size: 337.9538% 1625.3968%;
+	width: 378px;
+	height: 78px;
+}
+
+.c3169010260 {
+	image-clip: 12.3047% 92.2852% 12.5977% 85.8398%;
+	background-position: 91.7537% 12.3408%;
+	background-size: 1551.5152% 34133.3333%;
+	width: 82px;
+	height: 3px;
+}
+
+.c1751522127 {
+	image-clip: 9.6680% 92.3828% 12.1094% 85.8398%;
+	background-position: 91.8495% 9.9099%;
+	background-size: 1528.3582% 4096.0000%;
+	width: 83px;
+	height: 31px;
+}
+
+.c556510730 {
+	image-clip: 96.7773% 29.0039% 99.2188% 22.4609%;
+	background-position: 24.0334% 99.1992%;
+	background-size: 1528.3582% 4096.0000%;
+	width: 83px;
+	height: 31px;
+}
+
+.c3377819867 {
+	image-clip: 90.7371% 79.2067% 95.1195% 73.3173%;
+	background-position: 77.9055% 94.8958%;
+	background-size: 1697.9592% 2281.8182%;
+	width: 61px;
+	height: 55px;
+}
+
+.c3982805537 {
+	border-image-slice: 2.30% 0.00% 2.30% 0.00% fill;
+	border-image-clip: 51.2948% 100.0000% 68.6255% 98.7981%;
+	border-image-repeat: repeat;
+	border-width: 5px 0px 5px 0px;
+	width: 12px;
+	height: 217px;
+}
+
+.c784931926 {
+	border-image-slice: 2.06% 0.00% 2.06% 0.00% fill;
+	border-image-clip: 31.7729% 100.0000% 51.0956% 98.7981%;
+	border-image-repeat: repeat;
+	border-width: 5px 0px 5px 0px;
+	width: 12px;
+	height: 242px;
+}
+
+.c1054296704 {
+	image-clip: 59.1633% 62.9808% 65.9363% 59.6154%;
+	background-position: 61.6915% 63.4615%;
+	background-size: 2971.4286% 1476.4706%;
+	width: 35px;
+	height: 85px;
+}
+
+.c3850789315 {
+	image-clip: 90.9180% 99.4141% 97.5586% 94.0430%;
+	background-position: 99.3808% 97.3849%;
+	background-size: 1861.8182% 1505.8824%;
+	width: 68px;
+	height: 85px;
+}
+
+.c3898820578 {
+	image-clip: 90.9180% 71.2891% 98.4375% 48.6328%;
+	background-position: 62.8788% 98.3105%;
+	background-size: 441.3793% 1329.8701%;
+	width: 289px;
+	height: 96px;
+}
+
+.c1340849604 {
+	border-image-slice: 21.08% 29.87% 18.38% 31.39% fill;
+	border-image-clip: 0.0000% 63.1010% 58.9641% 0.0000%;
+	border-image-repeat: repeat;
+	border-width: 156px 196px 136px 206px;
+	width: 656px;
+	height: 739px;
+}
+
+.c1735151967 {
+	image-clip: 66.9922% 99.6094% 69.1406% 97.3633%;
+	background-position: 99.6004% 68.4631%;
+	background-size: 4452.1739% 4654.5455%;
+	width: 28px;
+	height: 27px;
+}
+
+.c484559223 {
+	image-clip: 69.3359% 99.5117% 71.4844% 97.3633%;
+	background-position: 99.5010% 70.8583%;
+	background-size: 4654.5455% 4654.5455%;
+	width: 27px;
+	height: 27px;
+}
+
+.c3280471714 {
+	image-clip: 91.1133% 22.2656% 98.6328% 0.0000%;
+	background-position: 0% 98.5216%;
+	background-size: 449.1228% 1329.8701%;
+	width: 284px;
+	height: 96px;
+}
+
+.c3192447602 {
+	image-clip: 96.7773% 38.7695% 99.5117% 34.0820%;
+	background-position: 35.7582% 99.4980%;
+	background-size: 2133.3333% 3657.1429%;
+	width: 59px;
+	height: 34px;
+}
+
+.c3654878477 {
+	image-clip: 96.7773% 33.8867% 99.6094% 29.1992%;
+	background-position: 30.6352% 99.5980%;
+	background-size: 2133.3333% 3531.0345%;
+	width: 59px;
+	height: 36px;
+}
+
+.c2797151001 {
+	image-clip: 74.5117% 99.3164% 76.4648% 97.3633%;
+	background-position: 99.3028% 75.9960%;
+	background-size: 5120.0000% 5120.0000%;
+	width: 24px;
+	height: 24px;
+}
+
+.c3284932326 {
+	image-clip: 85.1563% 73.3398% 86.7188% 51.8555%;
+	background-position: 66.0448% 86.5079%;
+	background-size: 465.4545% 6400.0000%;
+	width: 274px;
+	height: 19px;
+}
+
+.c1704495720 {
+	image-clip: 95.0195% 43.8477% 96.5820% 22.4609%;
+	background-position: 28.5714% 96.5278%;
+	background-size: 467.5799% 6400.0000%;
+	width: 273px;
+	height: 19px;
+}
+
+.c1958813959 {
+	image-clip: 86.4258% 93.2617% 87.4023% 83.4961%;
+	background-position: 92.5325% 87.2781%;
+	background-size: 1024.0000% 10240.0000%;
+	width: 124px;
+	height: 12px;
+}
+
+.c3455630417 {
+	image-clip: 86.4258% 83.3008% 87.4023% 73.5352%;
+	background-position: 81.4935% 87.2781%;
+	background-size: 1024.0000% 10240.0000%;
+	width: 124px;
+	height: 12px;
+}
+
+.c3339047189 {
+	image-clip: 40.6250% 93.1641% 41.6016% 83.3984%;
+	background-position: 92.4242% 41.0256%;
+	background-size: 1024.0000% 10240.0000%;
+	width: 124px;
+	height: 12px;
+}
+
+.c2692295250 {
+	image-clip: 47.1680% 99.1211% 48.5352% 89.0625%;
+	background-position: 99.0228% 47.8218%;
+	background-size: 994.1748% 7314.2857%;
+	width: 128px;
+	height: 17px;
+}
+
+.c3507427756 {
+	image-clip: 15.2390% 99.5192% 31.5737% 81.1298%;
+	background-position: 99.4109% 18.2143%;
+	background-size: 543.7908% 612.1951%;
+	width: 191px;
+	height: 205px;
+}
+
+.c1088590784 {
+	image-clip: 13.3789% 81.1523% 28.9063% 53.6133%;
+	background-position: 73.9892% 15.8382%;
+	background-size: 363.1206% 644.0252%;
+	width: 352px;
+	height: 198px;
+}
+
+.c2722295175 {
+	image-clip: 9.6680% 94.9219% 11.6211% 92.5781%;
+	background-position: 94.8000% 9.8606%;
+	background-size: 4266.6667% 5120.0000%;
+	width: 30px;
+	height: 25px;
+}
+
+.c3682651675 {
+	image-clip: 79.2829% 99.8798% 84.7610% 91.8269%;
+	background-position: 99.8693% 83.8778%;
+	background-size: 1241.7910% 1825.4545%;
+	width: 83px;
+	height: 68px;
+}
+
+.c2768395221 {
+	image-clip: 69.7211% 35.2163% 80.2789% 21.9952%;
+	background-position: 25.3463% 77.9510%;
+	background-size: 756.3636% 947.1698%;
+	width: 137px;
+	height: 132px;
+}
+
+.c1851637229 {
+	image-clip: 77.2908% 12.0192% 87.2510% 0.0000%;
+	background-position: 0% 85.8407%;
+	background-size: 832.0000% 1004.0000%;
+	width: 124px;
+	height: 124px;
+}
+
+.c1138251059 {
+	image-clip: 91.1133% 39.3555% 94.8242% 22.4609%;
+	background-position: 27.0270% 94.6247%;
+	background-size: 591.9075% 2694.7368%;
+	width: 216px;
+	height: 47px;
+}
+
+.c1599587634 {
+	border-image-slice: 13.08% 1.15% 13.08% 0.00% fill;
+	border-image-clip: 59.1633% 47.1154% 69.5219% 21.9952%;
+	border-image-repeat: stretch;
+	border-width: 17px 3px 17px 0px;
+	width: 261px;
+	height: 129px;
+}
+
+.c3972471979 {
+	image-clip: 96.7773% 41.9922% 99.7070% 38.9648%;
+	background-position: 40.1813% 99.6982%;
+	background-size: 3303.2258% 3413.3333%;
+	width: 38px;
+	height: 37px;
+}
+
+.c3059700729 {
+	image-clip: 66.1355% 62.9808% 68.8247% 59.6154%;
+	background-position: 61.6915% 67.9632%;
+	background-size: 2971.4286% 3718.5185%;
+	width: 34px;
+	height: 33px;
+}
+
+.c695545585 {
+	border-image-slice: 27.27% 0.00% 27.27% 0.00% fill;
+	border-image-clip: 76.1719% 50.4883% 84.7656% 0.0000%;
+	border-image-repeat: repeat;
+	border-width: 30px 0px 30px 0px;
+	width: 646px;
+	height: 110px;
+}
+
+.c4078235215 {
+	image-clip: 13.3789% 96.7773% 27.8320% 81.3477%;
+	background-position: 96.1894% 15.6393%;
+	background-size: 648.1013% 691.8919%;
+	width: 197px;
+	height: 185px;
+}
+
+.c145385598 {
+	image-clip: 0.0000% 99.7596% 15.0398% 81.1298%;
+	background-position: 99.7046% 0%;
+	background-size: 536.7742% 664.9007%;
+	width: 193px;
+	height: 188px;
+}
+
+.c3383193796 {
+	image-clip: 48.8281% 88.8672% 49.3164% 53.6133%;
+	background-position: 82.8054% 49.0677%;
+	background-size: 283.6565% 20480.0000%;
+	width: 451px;
+	height: 6px;
+}
+
+.c4093496577 {
+	image-clip: 90.2344% 48.4375% 90.9180% 0.0000%;
+	background-position: 0% 90.8555%;
+	background-size: 206.4516% 14628.5714%;
+	width: 619px;
+	height: 8px;
+}
+
+.c588779670 {
+	image-clip: 90.9180% 93.8477% 97.4609% 71.4844%;
+	background-position: 92.0755% 97.2832%;
+	background-size: 447.1616% 1528.3582%;
+	width: 286px;
+	height: 83px;
+}
+
+.c809786401 {
+	image-clip: 0.0000% 81.7383% 13.1836% 53.6133%;
+	background-position: 74.5924% 0%;
+	background-size: 355.5556% 758.5185%;
+	width: 359px;
+	height: 168px;
+}
+
+.c82819250 {
+	image-clip: 74.8047% 76.7578% 84.9609% 53.3203%;
+	background-position: 69.6429% 83.2609%;
+	background-size: 426.6667% 984.6154%;
+	width: 300px;
+	height: 129px;
+}
+
+.c580271560 {
+	image-clip: 90.7371% 73.0769% 96.4143% 65.6250%;
+	background-position: 70.9091% 96.1985%;
+	background-size: 1341.9355% 1761.4035%;
+	width: 77px;
+	height: 71px;
+}
+
+.c106648899 {
+	image-clip: 74.8047% 78.1250% 77.4414% 76.9531%;
+	background-position: 77.8656% 76.8305%;
+	background-size: 8533.3333% 3792.5926%;
+	width: 14px;
+	height: 33px;
+}
+
+.c441170992 {
+	image-clip: 11.8164% 93.4570% 12.5000% 92.5781%;
+	background-position: 93.3990% 11.8977%;
+	background-size: 11377.7778% 14628.5714%;
+	width: 11px;
+	height: 8px;
+}
+
+.c4166614584 {
+	image-clip: 95.5078% 47.2656% 99.2188% 44.0430%;
+	background-position: 45.5096% 99.1886%;
+	background-size: 3103.0303% 2694.7368%;
+	width: 41px;
+	height: 47px;
+}
+
+.c2189641097 {
+	border-image-slice: 0.39% 32.88% 0.39% 32.88% fill;
+	border-image-clip: 0.0000% 80.8894% 81.6733% 63.3413%;
+	border-image-repeat: stretch;
+	border-width: 4px 60px 4px 60px;
+	width: 182px;
+	height: 1024px;
+}
+
+.c214149313 {
+	image-clip: 95.3187% 78.9663% 100.0000% 73.3173%;
+	background-position: 77.7070% 100.0000%;
+	background-size: 1770.2128% 2136.1702%;
+	width: 58px;
+	height: 58px;
+}
+
+.c2316416640 {
+	image-clip: 53.6133% 53.1250% 75.9766% 0.0000%;
+	background-position: 0% 69.0566%;
+	background-size: 188.2353% 447.1616%;
+	width: 680px;
+	height: 286px;
+}
+
+.c3240654019 {
+	image-clip: 41.8945% 95.0195% 43.4570% 53.6133%;
+	background-position: 91.5000% 42.5595%;
+	background-size: 241.5094% 6400.0000%;
+	width: 529px;
+	height: 19px;
+}
+
+.c3137521947 {
+	image-clip: 45.4102% 95.0195% 46.9727% 53.6133%;
+	background-position: 91.5000% 46.1310%;
+	background-size: 241.5094% 6400.0000%;
+	width: 530px;
+	height: 19px;
+}
+
+.c2991798292 {
+	image-clip: 43.6523% 95.0195% 45.2148% 53.6133%;
+	background-position: 91.5000% 44.3452%;
+	background-size: 241.5094% 6400.0000%;
+	width: 530px;
+	height: 19px;
+}
+
+.c3509701757 {
+	image-clip: 84.9609% 51.6602% 87.7930% 0.0000%;
+	background-position: 0% 87.4372%;
+	background-size: 193.5728% 3531.0345%;
+	width: 661px;
+	height: 36px;
+}
+
+.c464878632 {
+	image-clip: 87.9883% 97.7539% 90.7227% 49.1211%;
+	background-position: 95.6274% 90.4618%;
+	background-size: 205.6225% 3657.1429%;
+	width: 622px;
+	height: 35px;
+}
+
+.c1964327106 {
+	image-clip: 0.0000% 96.7773% 4.1016% 95.9961%;
+	background-position: 96.7520% 0%;
+	background-size: 12800.0000% 2438.0952%;
+	width: 9px;
+	height: 52px;
+}
+
+.c704987872 {
+	image-clip: 69.7211% 47.1154% 92.2311% 46.1538%;
+	background-position: 46.6019% 89.9743%;
+	background-size: 10400.0000% 444.2478%;
+	width: 9px;
+	height: 282px;
+}
+
+.c172091690 {
+	image-clip: 47.1680% 79.0039% 48.6328% 53.6133%;
+	background-position: 71.8586% 47.8692%;
+	background-size: 393.8462% 6826.6667%;
+	width: 325px;
+	height: 18px;
+}
+
+.c2573596511 {
+	image-clip: 43.6523% 99.1211% 45.6055% 95.2148%;
+	background-position: 99.0854% 44.5219%;
+	background-size: 2560.0000% 5120.0000%;
+	width: 49px;
+	height: 25px;
+}
+
+.c3532766109 {
+	border-image-slice: 0.88% 24.00% 0.88% 24.00% fill;
+	border-image-clip: 59.1633% 59.3750% 95.4183% 47.3558%;
+	border-image-repeat: stretch;
+	border-width: 4px 30px 4px 30px;
+	width: 124px;
+	height: 455px;
+}
+
+.c2594819393 {
+	image-clip: 95.0199% 20.5529% 98.2072% 16.7067%;
+	background-position: 17.3750% 98.1481%;
+	background-size: 2600.0000% 3137.5000%;
+	width: 39px;
+	height: 40px;
+}
+
+.c2591890485 {
+	image-clip: 15.9375% 92.3387% 28.4375% 0.0000%;
+	background-position: 0% 18.2143%;
+	background-size: 108.2969% 800.0000%;
+	width: 858px;
+	height: 100px;
+}
+
+.c3160047086 {
+	image-clip: 0.0000% 100.0000% 100.0000% 0.0000%;
+	background-position: 0% 0%;
+	background-size: 100.0000% 100.0000%;
+	width: 1024px;
+	height: 150px;
+}
+
+.c178996450 {
+	image-clip: 92.5000% 100.0000% 99.6875% 0.0000%;
+	background-position: 0% 99.6633%;
+	background-size: 100.0000% 1391.3043%;
+	width: 930px;
+	height: 57px;
+}
+
+.c252325163 {
+	image-clip: 0.0000% 96.1022% 15.6250% 0.0000%;
+	background-position: 0% 0%;
+	background-size: 104.0559% 640.0000%;
+	width: 893px;
+	height: 124px;
+}
+
+.c3998769958 {
+	image-clip: 28.7500% 88.3065% 44.3750% 0.0000%;
+	background-position: 0% 34.0741%;
+	background-size: 113.2420% 640.0000%;
+	width: 821px;
+	height: 124px;
+}
+
+.c4010254800 {
+	image-clip: 44.6875% 88.3065% 60.3125% 0.0000%;
+	background-position: 0% 52.9630%;
+	background-size: 113.2420% 640.0000%;
+	width: 821px;
+	height: 124px;
+}
+
+.c545497238 {
+	image-clip: 60.6250% 88.3065% 76.2500% 0.0000%;
+	background-position: 0% 71.8519%;
+	background-size: 113.2420% 640.0000%;
+	width: 821px;
+	height: 124px;
+}
+
+.c4291067847 {
+	image-clip: 76.5625% 88.3065% 92.1875% 0.0000%;
+	background-position: 0% 90.7407%;
+	background-size: 113.2420% 640.0000%;
+	width: 821px;
+	height: 124px;
+}
+
+.c178568910 {
+	image-clip: 64.2241% 64.6154% 96.1207% 33.8462%;
+	background-position: 48.8889% 94.3038%;
+	background-size: 325.0000% 313.5135%;
+	width: 199px;
+	height: 185px;
+}
+
+.c121099373 {
+	image-clip: 64.2241% 33.4615% 99.3534% 0.0000%;
+	background-position: 0% 99.0033%;
+	background-size: 298.8506% 284.6626%;
+	width: 217px;
+	height: 203px;
+}
+
+.c1251624576 {
+	image-clip: 0.0000% 100.0000% 25.8621% 0.0000%;
+	background-position: 0% 0%;
+	background-size: 100.0000% 386.6667%;
+	width: 649px;
+	height: 149px;
+}
+
+.c3176948565 {
+	image-clip: 26.2931% 69.6154% 63.7931% 0.0000%;
+	background-position: 0% 42.0690%;
+	background-size: 143.6464% 266.6667%;
+	width: 452px;
+	height: 217px;
+}
+
+.c2581399411 {
+	image-clip: 0.0000% 99.5146% 100.0000% 0.0000%;
+	background-position: 0% 0%;
+	background-size: 100.4878% 100.0000%;
+	width: 512px;
+	height: 1024px;
+}
+
+.c2843675132 {
+	image-clip: 0.0000% 99.4186% 100.0000% 0.0000%;
+	background-position: 0% 0%;
+	background-size: 100.5848% 100.0000%;
+	width: 641px;
+	height: 1920px;
+}
+
+.c1186065128 {
+	image-clip: 0.0000% 100.0000% 100.0000% 0.0000%;
+	background-position: 0% 0%;
+	background-size: 100.0000% 100.0000%;
+	width: 645px;
+	height: 1920px;
+}
+
+.c1373673450 {
+	image-clip: 0.0000% 99.3151% 99.7024% 0.0000%;
+	background-position: 0% 0%;
+	background-size: 100.6897% 100.2985%;
+	width: 362px;
+	height: 418px;
+}
+
+.c1271812939 {
+	border-image-slice: 0.00% 11.51% 93.33% 11.51% fill;
+	border-image-clip: 35.5469% 96.9727% 36.7188% 83.3984%;
+	border-image-repeat: stretch;
+	border-width: 0px 20px 14px 20px;
+	width: 173px;
+	height: 15px;
+}
+
+.c3626856509 {
+	image-clip: 80.4781% 33.4135% 89.1434% 22.9567%;
+	background-position: 25.6376% 88.1134%;
+	background-size: 956.3218% 1154.0230%;
+	width: 108px;
+	height: 108px;
+}
+
+.c3409370927 {
+	image-clip: 79.6813% 45.9135% 88.3466% 35.4567%;
+	background-position: 39.5973% 87.2410%;
+	background-size: 956.3218% 1154.0230%;
+	width: 108px;
+	height: 108px;
+}
+
+.c843343067 {
+	image-clip: 81.8725% 80.7692% 90.5378% 70.3125%;
+	background-position: 78.5235% 89.6401%;
+	background-size: 956.3218% 1154.0230%;
+	width: 108px;
+	height: 108px;
+}
+
+.c4135558409 {
+	image-clip: 80.4781% 22.7163% 89.1434% 12.2596%;
+	background-position: 13.6913% 88.1134%;
+	background-size: 956.3218% 1154.0230%;
+	width: 108px;
+	height: 108px;
+}
+
+.c3463131839 {
+	image-clip: 87.4502% 10.4567% 96.1155% 0.0000%;
+	background-position: 0% 95.7470%;
+	background-size: 956.3218% 1154.0230%;
+	width: 108px;
+	height: 108px;
+}
+
+.c3672660196 {
+	image-clip: 81.8725% 70.0721% 90.5378% 59.6154%;
+	background-position: 66.5772% 89.6401%;
+	background-size: 956.3218% 1154.0230%;
+	width: 108px;
+	height: 108px;
+}
+
+.c372075231 {
+	image-clip: 72.4104% 100.0000% 76.1952% 93.5096%;
+	background-position: 100.0000% 75.2588%;
+	background-size: 1540.7407% 2642.1053%;
+	width: 67px;
+	height: 47px;
+}
+
+.c2430864556 {
+	image-clip: 0.0000% 53.4180% 53.4180% 0.0000%;
+	background-position: 0% 0%;
+	background-size: 187.2029% 187.2029%;
+	width: 683px;
+	height: 683px;
+}
+
+.c1944684195 {
+	image-clip: 50.0000% 78.2227% 74.6094% 53.6133%;
+	background-position: 71.1140% 66.3212%;
+	background-size: 406.3492% 406.3492%;
+	width: 315px;
+	height: 314px;
+}
+
+.c271329570 {
+	image-clip: 46.5517% 87.1154% 56.4655% 70.0000%;
+	background-position: 84.4548% 51.6746%;
+	background-size: 584.2697% 1008.6957%;
+	width: 111px;
+	height: 57px;
+}
+
+.c1286541537 {
+	image-clip: 36.9141% 95.5078% 40.4297% 83.3984%;
+	background-position: 94.8889% 38.2591%;
+	background-size: 825.8065% 2844.4444%;
+	width: 154px;
+	height: 44px;
+}
+
+.c1659391844 {
+	image-clip: 56.8966% 87.1154% 66.8103% 70.0000%;
+	background-position: 84.4548% 63.1579%;
+	background-size: 584.2697% 1008.6957%;
+	width: 111px;
+	height: 57px;
+}
+
+.c4230298413 {
+	image-clip: 46.5517% 99.0385% 58.4052% 87.5000%;
+	background-position: 98.9130% 52.8117%;
+	background-size: 866.6667% 843.6364%;
+	width: 74px;
+	height: 68px;
+}
+
+.c2755218886 {
+	image-clip: 58.8362% 97.6923% 70.0431% 87.5000%;
+	background-position: 97.4304% 66.2621%;
+	background-size: 981.1321% 892.3077%;
+	width: 66px;
+	height: 64px;
+}
+
+.c519930120 {
+	image-clip: 67.2414% 85.5769% 77.3707% 75.5769%;
+	background-position: 83.9744% 74.8201%;
+	background-size: 1000.0000% 987.2340%;
+	width: 64px;
+	height: 58px;
+}
+
+.c2042231830 {
+	image-clip: 67.2414% 75.1923% 78.0172% 65.0000%;
+	background-position: 72.3769% 75.3623%;
+	background-size: 981.1321% 928.0000%;
+	width: 66px;
+	height: 62px;
+}
+
+.c2626817414 {
+	image-clip: 70.4741% 94.4231% 80.3879% 85.9615%;
+	background-position: 93.9076% 78.2297%;
+	background-size: 1181.8182% 1008.6957%;
+	width: 54px;
+	height: 57px;
+}
+
+.c4025748711 {
+	image-clip: 26.2931% 96.5385% 32.9741% 90.9615%;
+	background-position: 96.3340% 28.1755%;
+	background-size: 1793.1034% 1496.7742%;
+	width: 36px;
+	height: 38px;
+}
+
+.c2746078486 {
+	image-clip: 0.0000% 100.0000% 24.2857% 0.0000%;
+	background-position: 0% 0%;
+	background-size: 100.0000% 411.7647%;
+	width: 84px;
+	height: 84px;
+}
+
+.c4010254177 {
+	image-clip: 25.0000% 100.0000% 49.2857% 0.0000%;
+	background-position: 0% 33.0189%;
+	background-size: 100.0000% 411.7647%;
+	width: 84px;
+	height: 84px;
+}
+
+.c621351591 {
+	image-clip: 50.0000% 100.0000% 74.2857% 0.0000%;
+	background-position: 0% 66.0377%;
+	background-size: 100.0000% 411.7647%;
+	width: 84px;
+	height: 84px;
+}
+
+.c2290725559 {
+	border-image-slice: 9.38% 25.00% 9.38% 25.00% fill;
+	border-image-clip: 71.1712% 17.9104% 100.0000% 0.0000%;
+	border-width: 15px 15px 15px 15px;
+	width: 59px;
+	height: 160px;
+}
+
+.c1574670451 {
+	border-image-slice: 1.78% 2.10% 1.78% 2.10% fill;
+	border-image-clip: 0.0000% 99.6269% 70.7207% 0.0000%;
+	border-width: 7px 7px 7px 7px;
+	width: 333px;
+	height: 392px;
+}
+
+.c3376596702 {
+	image-clip: 75.0000% 100.0000% 99.2857% 0.0000%;
+	background-position: 0% 99.0566%;
+	background-size: 100.0000% 411.7647%;
+	width: 84px;
+	height: 84px;
+}
+
+.c4259997350 {
+	image-clip: 26.2931% 90.5769% 46.1207% 70.0000%;
+	background-position: 88.1356% 32.7957%;
+	background-size: 485.9813% 504.3478%;
+	width: 133px;
+	height: 115px;
+}
+
+.c2284655352 {
+	image-clip: 0.0000% 94.8242% 9.4727% 85.8398%;
+	background-position: 94.3133% 0%;
+	background-size: 1113.0435% 1055.6701%;
+	position: absolute;
+	left: 5.47%;
+	top: 2.34%;
+	width: 89.84%;
+	height: 94.53%;
+}
+
+.c3191073223 {
+	image-clip: 69.7211% 45.9135% 79.4821% 35.4567%;
+	background-position: 39.5973% 77.2627%;
+	background-size: 956.3218% 1024.4898%;
+	position: absolute;
+	left: 6.25%;
+	top: 3.13%;
+	width: 84.38%;
+	height: 95.31%;
+}
+
+.c1535117123 {
+	image-clip: 79.2829% 91.5865% 88.9442% 81.1298%;
+	background-position: 90.6040% 87.7619%;
+	background-size: 956.3218% 1035.0515%;
+	position: absolute;
+	left: 7.81%;
+	top: 2.34%;
+	width: 84.38%;
+	height: 94.53%;
+}
+
+.c1865525569 {
+	image-clip: 89.3426% 20.9135% 94.8207% 10.6971%;
+	background-position: 11.9143% 94.5205%;
+	background-size: 978.8235% 1825.4545%;
+	position: absolute;
+	left: 8.59%;
+	top: 23.44%;
+	width: 82.81%;
+	height: 53.13%;
+}
+
+.c3409850065 {
+	image-clip: 72.4104% 93.2692% 79.0837% 81.1298%;
+	background-position: 92.3393% 77.5880%;
+	background-size: 823.7624% 1498.5075%;
+	position: absolute;
+	left: 1.56%;
+	top: 19.53%;
+	width: 98.44%;
+	height: 64.84%;
+}
+
+.c1561086628 {
+	image-clip: 32.9114% 46.1749% 62.9747% 0.0000%;
+	background-position: 0% 47.0588%;
+	background-size: 216.5680% 332.6316%;
+	width: 422px;
+	height: 118px;
+}
+
+.c2523462830 {
+	image-clip: 32.9114% 96.0383% 61.3924% 83.4699%;
+	background-position: 95.4688% 46.0177%;
+	background-size: 795.6522% 351.1111%;
+	width: 115px;
+	height: 112px;
+}
+
+.c3225782617 {
+	border-image-slice: 34.48% 45.45% 55.17% 45.45% fill;
+	border-image-clip: 62.0253% 95.4918% 98.7342% 83.4699%;
+	border-width: 50px 50px 80px 50px;
+	width: 110px;
+	height: 144px;
+}
+
+.c1720582693 {
+	image-clip: 63.6076% 42.8962% 88.9241% 36.8852%;
+	background-position: 39.2442% 85.1695%;
+	background-size: 1663.6364% 395.0000%;
+	width: 54px;
+	height: 100px;
+}
+
+.c3039691670 {
+	image-clip: 69.3038% 48.4973% 86.3924% 43.1694%;
+	background-position: 45.5988% 83.5878%;
+	background-size: 1876.9231% 585.1852%;
+	width: 48px;
+	height: 67px;
+}
+
+.c2640211379 {
+	image-clip: 63.6076% 36.6120% 99.3671% 0.0000%;
+	background-position: 0% 99.0148%;
+	background-size: 273.1343% 279.6460%;
+	width: 335px;
+	height: 141px;
+}
+
+.c4286376527 {
+	image-clip: 32.9114% 83.1967% 68.6709% 46.4481%;
+	background-position: 73.4341% 51.2315%;
+	background-size: 272.1190% 279.6460%;
+	width: 336px;
+	height: 141px;
+}
+
+.c1077893169 {
+	image-clip: 0.0000% 100.0000% 32.2785% 0.0000%;
+	background-position: 0% 0%;
+	background-size: 100.0000% 309.8039%;
+	width: 914px;
+	height: 127px;
+}
+
+.c66525497 {
+	image-clip: 89.3426% 26.9231% 96.2151% 21.1538%;
+	background-position: 22.4490% 95.9358%;
+	background-size: 1733.3333% 1455.0725%;
+	width: 59px;
+	height: 86px;
+}
+
+.c2609861132 {
+	image-clip: 89.3426% 32.9327% 96.2151% 27.1635%;
+	background-position: 28.8265% 95.9358%;
+	background-size: 1733.3333% 1455.0725%;
+	width: 59px;
+	height: 86px;
+}
+
+.c2663927355 {
+	image-clip: 89.1434% 100.0000% 96.8127% 90.7452%;
+	background-position: 100.0000% 96.5480%;
+	background-size: 1080.5195% 1303.8961%;
+	width: 96px;
+	height: 96px;
+}
+
+.c3345840519 {
+	image-clip: 90.7371% 65.3846% 97.6096% 59.6154%;
+	background-position: 63.2653% 97.4332%;
+	background-size: 1733.3333% 1455.0725%;
+	width: 59px;
+	height: 86px;
+}
+
+.c1084946933 {
+	image-clip: 88.5458% 43.8702% 97.0120% 33.6538%;
+	background-position: 37.4833% 96.7356%;
+	background-size: 978.8235% 1181.1765%;
+	width: 106px;
+	height: 106px;
+}
+
+.c2396162029 {
+	image-clip: 51.8924% 97.9567% 72.2112% 81.1298%;
+	background-position: 97.5434% 65.1250%;
+	background-size: 594.2857% 492.1569%;
+	position: absolute;
+	left: 16.02%;
+	top: 0.39%;
+	width: 68.36%;
+	height: 99.61%;
+}
+
+.c3446390847 {
+	image-clip: 59.1633% 21.7548% 77.0916% 0.0000%;
+	background-position: 0% 72.0874%;
+	background-size: 459.6685% 557.7778%;
+	position: absolute;
+	left: 4.69%;
+	top: 7.42%;
+	width: 88.28%;
+	height: 87.89%;
+}
+
+.c4078492476 {
+	image-clip: 31.7729% 98.5577% 51.6932% 81.1298%;
+	background-position: 98.2533% 39.6766%;
+	background-size: 573.7931% 502.0000%;
+	position: absolute;
+	left: 13.67%;
+	top: 0.39%;
+	width: 70.70%;
+	height: 97.66%;
+}
+
+.c263814886 {
+	image-clip: 50.0000% 98.3398% 66.7969% 78.4180%;
+	background-position: 97.9268% 60.0939%;
+	background-size: 501.9608% 595.3488%;
+	position: absolute;
+	left: -0.39%;
+	top: 7.42%;
+	width: 99.22%;
+	height: 83.59%;
+}
+
+.c938632757 {
+	image-clip: 66.9922% 97.1680% 86.2305% 78.4180%;
+	background-position: 96.5144% 82.9504%;
+	background-size: 533.3333% 519.7970%;
+	position: absolute;
+	left: 3.13%;
+	top: 1.95%;
+	width: 93.36%;
+	height: 96.09%;
+}
+
+.c2183016849 {
+	image-clip: 62.2024% 68.4932% 99.7024% 30.8219%;
+	background-position: 49.4505% 99.5238%;
+	background-size: 265.4545% 266.6667%;
+	width: 110px;
+	height: 126px;
+}
+
+.c1771603113 {
+	width: 105px;
+	height: 197px;
+	position: absolute;
+}
+
+.c133926275 {
+	width: 129px;
+	height: 192px;
+	position: absolute;
+}
+
+.c61985233 {
+	width: 209px;
+	height: 180px;
+	position: absolute;
+}
+
+.c3049089608 {
+	width: 248px;
+	height: 174px;
+	position: absolute;
+}
+
+.c3572680911 {
+	width: 512px;
+	height: 856px;
+	position: absolute;
+}
+
+@keyframes role1Move1 {
+	0.00% {
+		width: 98px;
+		height: 185px;
+		left: 6.67%;
+		top: 0.00%;
+		background-image: url(psd/3652127002.80.png);
+		image-clip: 16.9283% 30.8594% 33.5202% 0.0000%;
+	}
+
+	6.67% {
+		width: 96px;
+		height: 185px;
+		left: 8.57%;
+		top: 0.00%;
+		image-clip: 33.5202% 61.7188% 50.1121% 31.6406%;
+	}
+
+	13.33% {
+		width: 91px;
+		height: 185px;
+		left: 13.33%;
+		top: 0.00%;
+		image-clip: 50.3363% 58.2031% 66.9283% 29.6875%;
+	}
+
+	20.00% {
+		width: 87px;
+		height: 184px;
+		left: 17.14%;
+		top: 0.51%;
+		image-clip: 50.3363% 86.3281% 66.9283% 58.9844%;
+	}
+
+	26.67% {
+		width: 82px;
+		height: 183px;
+		left: 20.95%;
+		top: 2.54%;
+		image-clip: 67.0404% 25.7813% 83.5202% 0.0000%;
+	}
+
+	33.33% {
+		width: 79px;
+		height: 184px;
+		left: 23.81%;
+		top: 3.55%;
+		image-clip: 67.1525% 51.5625% 83.7444% 26.5625%;
+	}
+
+	40.00% {
+		width: 78px;
+		height: 182px;
+		left: 24.76%;
+		top: 5.08%;
+		image-clip: 83.6323% 76.9531% 100.0000% 52.3438%;
+	}
+
+	46.67% {
+		width: 80px;
+		height: 181px;
+		left: 22.86%;
+		top: 6.60%;
+		image-clip: 67.1525% 77.3438% 83.4081% 52.3438%;
+	}
+
+	53.33% {
+		width: 85px;
+		height: 182px;
+		left: 17.14%;
+		top: 7.11%;
+		image-clip: 50.4484% 26.5625% 66.8161% 0.0000%;
+	}
+
+	60.00% {
+		width: 92px;
+		height: 183px;
+		left: 11.43%;
+		top: 7.11%;
+		image-clip: 33.7444% 28.9063% 50.2242% 0.0000%;
+	}
+
+	66.67% {
+		width: 96px;
+		height: 183px;
+		left: 6.67%;
+		top: 6.60%;
+		image-clip: 33.6323% 92.5781% 50.1121% 62.5000%;
+	}
+
+	73.33% {
+		width: 102px;
+		height: 183px;
+		left: 1.90%;
+		top: 5.58%;
+		image-clip: 16.8161% 65.6250% 33.2960% 33.5938%;
+	}
+
+	80.00% {
+		width: 104px;
+		height: 184px;
+		left: 0.00%;
+		top: 4.57%;
+		image-clip: 0.0000% 100.0000% 16.5919% 67.1875%;
+	}
+
+	86.67% {
+		width: 104px;
+		height: 186px;
+		left: 0.00%;
+		top: 3.05%;
+		image-clip: 0.0000% 32.8125% 16.7040% 0.0000%;
+	}
+
+	93.33% {
+		width: 104px;
+		height: 185px;
+		left: 0.95%;
+		top: 1.52%;
+		image-clip: 0.0000% 66.4063% 16.5919% 33.5938%;
+	}
+
+	100.00% {
+		width: 101px;
+		height: 185px;
+		left: 3.81%;
+		top: 0.51%;
+		background-image: url(psd/3652127002.80.png);
+		image-clip: 16.8161% 98.0469% 33.4081% 66.4063%;
+	}
+}
+
+@keyframes role1Move2 {
+	0.00% {
+		width: 122px;
+		height: 181px;
+		left: 0.78%;
+		top: 0.00%;
+		background-image: url(psd/616892076.80.png);
+		image-clip: 17.0139% 97.7273% 33.7963% 65.9091%;
+	}
+
+	6.67% {
+		width: 118px;
+		height: 179px;
+		left: 0.78%;
+		top: 0.52%;
+		image-clip: 33.7963% 62.9870% 50.4630% 32.1429%;
+	}
+
+	13.33% {
+		width: 118px;
+		height: 180px;
+		left: 0.00%;
+		top: 0.52%;
+		image-clip: 34.0278% 94.4805% 50.6944% 63.6364%;
+	}
+
+	20.00% {
+		width: 109px;
+		height: 180px;
+		left: 0.00%;
+		top: 1.04%;
+		image-clip: 66.6667% 28.5714% 83.3333% 0.0000%;
+	}
+
+	26.67% {
+		width: 109px;
+		height: 178px;
+		left: 0.00%;
+		top: 3.13%;
+		image-clip: 67.4769% 57.7922% 84.0278% 29.2208%;
+	}
+
+	33.33% {
+		width: 109px;
+		height: 179px;
+		left: 0.00%;
+		top: 3.65%;
+		image-clip: 50.9259% 88.3117% 67.5926% 59.7403%;
+	}
+
+	40.00% {
+		width: 108px;
+		height: 176px;
+		left: 0.78%;
+		top: 5.73%;
+		image-clip: 83.5648% 28.2468% 99.8843% 0.0000%;
+	}
+
+	46.67% {
+		width: 109px;
+		height: 176px;
+		left: 0.78%;
+		top: 6.77%;
+		image-clip: 67.8241% 87.0130% 84.1435% 58.4416%;
+	}
+
+	53.33% {
+		width: 111px;
+		height: 178px;
+		left: 0.78%;
+		top: 7.29%;
+		image-clip: 50.6944% 59.0909% 67.2454% 30.1948%;
+	}
+
+	60.00% {
+		width: 113px;
+		height: 177px;
+		left: 0.78%;
+		top: 7.81%;
+		image-clip: 50.0000% 29.5455% 66.4352% 0.0000%;
+	}
+
+	66.67% {
+		width: 121px;
+		height: 178px;
+		left: 1.55%;
+		top: 7.29%;
+		image-clip: 33.2176% 31.4935% 49.7685% 0.0000%;
+	}
+
+	73.33% {
+		width: 125px;
+		height: 176px;
+		left: 1.55%;
+		top: 6.77%;
+		image-clip: 16.6667% 32.4675% 32.9861% 0.0000%;
+	}
+
+	80.00% {
+		width: 127px;
+		height: 177px;
+		left: 1.55%;
+		top: 5.21%;
+		image-clip: 0.0000% 33.1169% 16.4352% 0.0000%;
+	}
+
+	86.67% {
+		width: 126px;
+		height: 179px;
+		left: 1.55%;
+		top: 3.65%;
+		image-clip: 0.0000% 66.5584% 16.6667% 33.7662%;
+	}
+
+	93.33% {
+		width: 125px;
+		height: 181px;
+		left: 1.55%;
+		top: 2.08%;
+		image-clip: 0.0000% 99.6753% 16.7824% 67.2078%;
+	}
+
+	100.00% {
+		width: 123px;
+		height: 180px;
+		left: 0.78%;
+		top: 1.04%;
+		background-image: url(psd/616892076.80.png);
+		image-clip: 16.8981% 65.2597% 33.5648% 33.1169%;
+	}
+}
+
+@keyframes role1Move3 {
+	0.00% {
+		width: 197px;
+		height: 170px;
+		left: 1.91%;
+		top: 0.00%;
+		background-image: url(psd/669783094.80.png);
+		image-clip: 16.9554% 98.5772% 33.7871% 66.4634%;
+	}
+
+	6.67% {
+		width: 194px;
+		height: 169px;
+		left: 1.44%;
+		top: 0.00%;
+		image-clip: 50.4950% 31.7073% 67.3267% 0.0000%;
+	}
+
+	13.33% {
+		width: 197px;
+		height: 167px;
+		left: 0.00%;
+		top: 1.67%;
+		image-clip: 33.5396% 64.6341% 50.1238% 32.5203%;
+	}
+
+	20.00% {
+		width: 197px;
+		height: 168px;
+		left: 0.00%;
+		top: 2.22%;
+		image-clip: 33.5396% 32.1138% 50.2475% 0.0000%;
+	}
+
+	26.67% {
+		width: 196px;
+		height: 167px;
+		left: 0.00%;
+		top: 3.33%;
+		image-clip: 34.0347% 96.9512% 50.6188% 65.0407%;
+	}
+
+	33.33% {
+		width: 192px;
+		height: 166px;
+		left: 0.00%;
+		top: 5.00%;
+		image-clip: 67.4505% 95.3252% 83.9109% 64.0244%;
+	}
+
+	40.00% {
+		width: 189px;
+		height: 166px;
+		left: 1.44%;
+		top: 6.11%;
+		image-clip: 67.5743% 30.8943% 84.0347% 0.0000%;
+	}
+
+	46.67% {
+		width: 190px;
+		height: 165px;
+		left: 1.91%;
+		top: 7.78%;
+		image-clip: 83.5396% 62.1951% 99.8762% 31.3008%;
+	}
+
+	53.33% {
+		width: 193px;
+		height: 165px;
+		left: 1.91%;
+		top: 8.33%;
+		image-clip: 66.9554% 63.6179% 83.2921% 32.1138%;
+	}
+
+	60.00% {
+		width: 194px;
+		height: 164px;
+		left: 2.39%;
+		top: 8.89%;
+		image-clip: 50.8663% 96.5447% 67.2030% 64.8374%;
+	}
+
+	66.67% {
+		width: 196px;
+		height: 165px;
+		left: 2.87%;
+		top: 8.33%;
+		image-clip: 50.3713% 64.4309% 66.7079% 32.5203%;
+	}
+
+	73.33% {
+		width: 200px;
+		height: 164px;
+		left: 3.35%;
+		top: 7.22%;
+		image-clip: 16.9554% 32.5203% 33.2921% 0.0000%;
+	}
+
+	80.00% {
+		width: 202px;
+		height: 166px;
+		left: 3.35%;
+		top: 5.56%;
+		image-clip: 0.0000% 66.2602% 16.4604% 33.3333%;
+	}
+
+	86.67% {
+		width: 202px;
+		height: 168px;
+		left: 3.35%;
+		top: 3.89%;
+		image-clip: 0.0000% 32.9268% 16.7079% 0.0000%;
+	}
+
+	93.33% {
+		width: 201px;
+		height: 167px;
+		left: 2.87%;
+		top: 2.78%;
+		image-clip: 16.7079% 66.0569% 33.2921% 33.3333%;
+	}
+
+	100.00% {
+		width: 201px;
+		height: 168px;
+		left: 1.91%;
+		top: 1.67%;
+		background-image: url(psd/669783094.80.png);
+		image-clip: 0.0000% 99.3902% 16.7079% 66.6667%;
+	}
+}
+
+@keyframes role1Move4 {
+	0.00% {
+		width: 233px;
+		height: 164px;
+		left: 0.81%;
+		top: 0.00%;
+		background-image: url(psd/922215193.80.png);
+		image-clip: 14.3013% 66.0839% 28.7118% 33.3916%;
+	}
+
+	6.67% {
+		width: 232px;
+		height: 164px;
+		left: 0.40%;
+		top: 0.57%;
+		image-clip: 14.3013% 98.9510% 28.7118% 66.4336%;
+	}
+
+	13.33% {
+		width: 231px;
+		height: 163px;
+		left: 0.00%;
+		top: 1.15%;
+		image-clip: 28.9301% 65.2098% 43.2314% 32.8671%;
+	}
+
+	20.00% {
+		width: 230px;
+		height: 163px;
+		left: 0.00%;
+		top: 2.30%;
+		image-clip: 29.0393% 32.1678% 43.3406% 0.0000%;
+	}
+
+	26.67% {
+		width: 231px;
+		height: 161px;
+		left: 0.00%;
+		top: 4.60%;
+		image-clip: 28.9301% 97.9021% 43.0131% 65.5594%;
+	}
+
+	33.33% {
+		width: 232px;
+		height: 162px;
+		left: 0.00%;
+		top: 5.17%;
+		image-clip: 14.6288% 32.5175% 28.8210% 0.0000%;
+	}
+
+	40.00% {
+		width: 232px;
+		height: 159px;
+		left: 0.40%;
+		top: 7.47%;
+		image-clip: 85.8079% 65.5594% 99.7817% 33.0420%;
+	}
+
+	46.67% {
+		width: 233px;
+		height: 159px;
+		left: 0.81%;
+		top: 8.05%;
+		image-clip: 71.8341% 32.6923% 85.8079% 0.0000%;
+	}
+
+	53.33% {
+		width: 235px;
+		height: 161px;
+		left: 1.21%;
+		top: 7.47%;
+		image-clip: 0.0000% 99.6503% 14.0830% 66.7832%;
+	}
+
+	60.00% {
+		width: 237px;
+		height: 160px;
+		left: 2.02%;
+		top: 8.05%;
+		image-clip: 71.6157% 66.9580% 85.5895% 33.7413%;
+	}
+
+	66.67% {
+		width: 241px;
+		height: 158px;
+		left: 2.42%;
+		top: 8.05%;
+		image-clip: 43.5590% 33.7413% 57.4236% 0.0000%;
+	}
+
+	73.33% {
+		width: 241px;
+		height: 159px;
+		left: 2.82%;
+		top: 7.47%;
+		image-clip: 43.2314% 99.3007% 57.2052% 65.5594%;
+	}
+
+	80.00% {
+		width: 239px;
+		height: 160px;
+		left: 3.23%;
+		top: 5.75%;
+		image-clip: 57.4236% 67.6573% 71.3974% 34.0909%;
+	}
+
+	86.67% {
+		width: 238px;
+		height: 159px;
+		left: 2.82%;
+		top: 4.60%;
+		image-clip: 57.6419% 33.3916% 71.6157% 0.0000%;
+	}
+
+	93.33% {
+		width: 236px;
+		height: 161px;
+		left: 2.42%;
+		top: 2.30%;
+		image-clip: 0.0000% 66.4336% 14.0830% 33.3916%;
+	}
+
+	100.00% {
+		width: 236px;
+		height: 164px;
+		left: 1.61%;
+		top: 0.57%;
+		background-image: url(psd/922215193.80.png);
+		image-clip: 0.0000% 33.0420% 14.4105% 0.0000%;
+	}
+}
+
+@keyframes get_money {
+	0.00% {
+		width: 26px;
+		height: 26px;
+		left: 47.46%;
+		top: 61.80%;
+		background-image: url(psd/1216360125.80.png);
+		image-clip: 43.1535% 99.5117% 45.3320% 97.4609%;
+	}
+
+	3.23% {
+		width: 434px;
+		height: 433px;
+		left: 7.62%;
+		top: 38.08%;
+		background-image: url(psd/3491612277.80.png);
+		image-clip: 0.0000% 74.2188% 35.5533% 40.2344%;
+	}
+
+	6.45% {
+		width: 512px;
+		height: 527px;
+		left: 0.00%;
+		top: 32.59%;
+		image-clip: 0.0000% 40.0391% 43.2377% 0.0000%;
+	}
+
+	9.68% {
+		width: 512px;
+		height: 589px;
+		left: 0.00%;
+		top: 28.97%;
+		background-image: url(psd/1216360125.80.png);
+		image-clip: 50.9336% 80.2734% 99.8963% 40.2344%;
+	}
+
+	12.90% {
+		width: 512px;
+		height: 611px;
+		left: 0.00%;
+		top: 27.69%;
+		image-clip: 0.0000% 80.2734% 50.7261% 40.2344%;
+	}
+
+	16.13% {
+		width: 512px;
+		height: 627px;
+		left: 0.00%;
+		top: 26.75%;
+		image-clip: 0.0000% 40.0391% 52.0747% 0.0000%;
+	}
+
+	19.35% {
+		width: 512px;
+		height: 544px;
+		left: 0.00%;
+		top: 31.54%;
+		image-clip: 52.2822% 40.0391% 97.5104% 0.0000%;
+	}
+
+	22.58% {
+		width: 268px;
+		height: 213px;
+		left: 22.46%;
+		top: 47.78%;
+		background-image: url(psd/3491612277.80.png);
+		image-clip: 0.0000% 95.4102% 17.5205% 74.4141%;
+	}
+
+	25.81% {
+		width: 263px;
+		height: 208px;
+		left: 23.63%;
+		top: 46.73%;
+		image-clip: 17.7254% 95.0195% 34.8361% 74.4141%;
+	}
+
+	29.03% {
+		width: 258px;
+		height: 204px;
+		left: 24.80%;
+		top: 45.56%;
+		image-clip: 35.0410% 94.6289% 51.8443% 74.4141%;
+	}
+
+	32.26% {
+		width: 252px;
+		height: 200px;
+		left: 25.98%;
+		top: 44.04%;
+		image-clip: 35.7582% 59.9609% 52.1516% 40.2344%;
+	}
+
+	35.48% {
+		width: 245px;
+		height: 199px;
+		left: 27.34%;
+		top: 42.17%;
+		background-image: url(psd/1216360125.80.png);
+		image-clip: 57.2614% 99.6094% 73.8589% 80.4688%;
+	}
+
+	38.71% {
+		width: 237px;
+		height: 200px;
+		left: 28.91%;
+		top: 39.95%;
+		image-clip: 74.0664% 99.0234% 90.6639% 80.4688%;
+	}
+
+	41.94% {
+		width: 229px;
+		height: 208px;
+		left: 30.47%;
+		top: 36.80%;
+		background-image: url(psd/3491612277.80.png);
+		image-clip: 43.4426% 17.9688% 60.5533% 0.0000%;
+	}
+
+	45.16% {
+		width: 220px;
+		height: 224px;
+		left: 32.03%;
+		top: 32.59%;
+		image-clip: 43.4426% 35.3516% 61.8852% 18.1641%;
+	}
+
+	48.39% {
+		width: 212px;
+		height: 245px;
+		left: 33.59%;
+		top: 27.69%;
+		image-clip: 52.0492% 76.7578% 72.1311% 60.1563%;
+	}
+
+	51.61% {
+		width: 204px;
+		height: 270px;
+		left: 35.16%;
+		top: 22.31%;
+		image-clip: 52.0492% 92.9688% 74.1803% 76.9531%;
+	}
+
+	54.84% {
+		width: 194px;
+		height: 296px;
+		left: 36.91%;
+		top: 16.82%;
+		image-clip: 52.3566% 50.7813% 76.6393% 35.5469%;
+	}
+
+	58.06% {
+		width: 186px;
+		height: 319px;
+		left: 38.48%;
+		top: 11.68%;
+		image-clip: 60.7582% 14.5508% 86.9877% 0.0000%;
+	}
+
+	61.29% {
+		width: 176px;
+		height: 337px;
+		left: 40.23%;
+		top: 7.01%;
+		background-image: url(psd/1216360125.80.png);
+		image-clip: 0.0000% 94.2383% 28.0083% 80.4688%;
+	}
+
+	64.52% {
+		width: 168px;
+		height: 347px;
+		left: 41.80%;
+		top: 3.39%;
+		image-clip: 28.2158% 93.6523% 57.0539% 80.4688%;
+	}
+
+	67.74% {
+		width: 157px;
+		height: 348px;
+		left: 43.95%;
+		top: 0.93%;
+		background-image: url(psd/3491612277.80.png);
+		image-clip: 62.0902% 27.0508% 90.6762% 14.7461%;
+	}
+
+	70.97% {
+		width: 143px;
+		height: 335px;
+		left: 46.48%;
+		top: 0.00%;
+		image-clip: 72.3361% 62.2070% 99.7951% 50.9766%;
+	}
+
+	74.19% {
+		width: 128px;
+		height: 311px;
+		left: 49.41%;
+		top: 0.00%;
+		image-clip: 72.3361% 72.4609% 97.8484% 62.4023%;
+	}
+
+	77.42% {
+		width: 112px;
+		height: 279px;
+		left: 52.54%;
+		top: 0.00%;
+		image-clip: 74.3852% 81.4453% 97.3361% 72.6563%;
+	}
+
+	80.65% {
+		width: 95px;
+		height: 243px;
+		left: 55.86%;
+		top: 0.00%;
+		image-clip: 62.0902% 34.6680% 82.0697% 27.2461%;
+	}
+
+	83.87% {
+		width: 84px;
+		height: 209px;
+		left: 57.81%;
+		top: 0.00%;
+		image-clip: 52.0492% 99.8047% 69.2623% 93.1641%;
+	}
+
+	87.10% {
+		width: 74px;
+		height: 177px;
+		left: 59.77%;
+		top: 0.00%;
+		background-image: url(psd/1216360125.80.png);
+		image-clip: 28.2158% 99.7070% 42.9461% 93.8477%;
+	}
+
+	90.32% {
+		width: 64px;
+		height: 144px;
+		left: 61.72%;
+		top: 0.00%;
+		image-clip: 0.0000% 99.5117% 12.0332% 94.4336%;
+	}
+
+	93.55% {
+		width: 56px;
+		height: 113px;
+		left: 63.28%;
+		top: 0.00%;
+		image-clip: 12.2407% 98.8281% 21.6805% 94.4336%;
+	}
+
+	96.77% {
+		width: 47px;
+		height: 63px;
+		left: 65.04%;
+		top: 0.00%;
+		image-clip: 21.8880% 98.1445% 27.1784% 94.4336%;
+	}
+
+	100.00% {
+		width: 43px;
+		height: 43px;
+		left: 65.82%;
+		top: 0.00%;
+		background-image: url(psd/1216360125.80.png);
+		image-clip: 43.1535% 97.2656% 46.7842% 93.8477%;
+	}
+}

@@ -16,7 +16,9 @@ use pi_atom::Atom;
 use pi_flex_layout::prelude::Size;
 use pi_hash::XHashMap;
 use pi_idtree::IdTree;
-use pi_ui_render::{gui::Gui, export::style::*, export::json_parse::as_value, utils::style::{style_sheet::ClassSheet, style_parse::parse_class_map_from_string}};
+use pi_ui_render::{gui::Gui, export::style::*, export::json_parse::as_value};
+
+use pi_style::{style_type::ClassSheet, style_parse::parse_class_map_from_string};
 
 // 
 
@@ -47,7 +49,7 @@ impl Default for ExampleCommonPlay {
 			},
 			list_index: 0, 
 			file_index: 0,
-			play_version: "login".to_string(), 
+			play_version: "main".to_string(), 
 			json_arr: JsonValue::Array(Vec::default()),
 			// width: 400,
 			// height: 750,

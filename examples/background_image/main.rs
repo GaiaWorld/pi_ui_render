@@ -16,9 +16,9 @@ use pi_ui_render::{
     },
     gui::Gui,
     resource::ClearColor,
-    utils::style::style_sheet::{BackgroundImageType, BorderRadiusType, HeightType, MarginLeftType, MarginTopType,
-        PositionLeftType, PositionTopType, PositionTypeType, WidthType,
-    },
+};
+use pi_style::style_type::{BackgroundImageType, BorderRadiusType, HeightType, MarginLeftType, MarginTopType,
+	PositionLeftType, PositionTopType, PositionTypeType, WidthType,
 };
 
 fn main() {

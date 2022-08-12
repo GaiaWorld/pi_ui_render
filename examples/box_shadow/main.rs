@@ -12,8 +12,9 @@ use pi_null::Null;
 use pi_ui_render::{
 	gui::Gui, 
 	components::user::{ CgColor, BoxShadow}, 
-	utils::style::style_sheet::{WidthType, HeightType, PositionTypeType, PositionLeftType, PositionTopType, MarginLeftType, MarginTopType, BoxShadowType}, resource::ClearColor
+	resource::ClearColor
 };
+use pi_style::style_type::{WidthType, HeightType, PositionTypeType, PositionLeftType, PositionTopType, MarginLeftType, MarginTopType, BoxShadowType};
 
 fn main() {
 	framework::start(QuadExample::default())

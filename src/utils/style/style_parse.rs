@@ -3,6 +3,8 @@
 use std::intrinsics::transmute;
 use std::str::FromStr;
 
+use bitvec::prelude::BitArray;
+use cssparser::{Parser, BasicParseError, ParseError, Token, BasicParseErrorKind, ParseErrorKind, SourceLocation, Delimiter};
 use ordered_float::NotNan;
 use pi_atom::Atom;
 use pi_flex_layout::{style::{Display, Dimension, AlignItems, AlignSelf, AlignContent, FlexDirection, JustifyContent, PositionType, FlexWrap}, prelude::Rect};
@@ -10,7 +12,7 @@ use smallvec::SmallVec;
 
 use crate::components::{user::{BackgroundColor, Color, BorderColor, ObjectFit, BorderImageRepeat, MaskImage, BorderRadius, Opacity, Hsi, Blur, Enable, WhiteSpace, LinearGradientColor, CgColor, ColorAndPosition, BorderImageSlice, BlendMode, LineHeight, TextAlign, FontSize, TextShadow, BoxShadow, Stroke, TransformFunc, TransformOrigin, LengthUnit, FitType, BorderImageRepeatOption, BackgroundImage, BorderImage, MaskImageClip, BackgroundImageClip, BorderImageClip, Margin, Padding, Overflow, ZIndex, TextShadows, Border}, calc::StyleType};
 
-use super::style_sheet::*;
+use super::{style_sheet::*, style_attribute::Attribute};
 
 pub fn parse_class_map_from_string(value: &str, class_sheet: &mut ClassSheet) -> Result<(), String> {
     let mut parser = ClassMapParser(value);
@@ -850,6 +852,33 @@ fn trans_filter(mut h: f32, mut s: f32, mut i: f32) -> Hsi {
         saturate: s / 100.0,
         bright_ness: i / 100.0,
 	};
+}
+
+fn trans_hsi_h(mut h: f32) -> f32 {
+	if h > 180.0 {
+        h = 180.0;
+    } else if h < -180.0 {
+        h = -180.0
+    }
+    h / 360.0
+}
+
+fn trans_hsi_s(mut s: f32) -> f32 {
+    if s > 100.0 {
+        s = 100.0;
+    } else if s < -100.0 {
+        s = -100.0
+    }
+    s / 100.0
+}
+
+fn trans_hsi_i( mut i: f32) -> f32 {
+    if i > 100.0 {
+        i = 100.0;
+    } else if i < -100.0 {
+        i = -100.0
+    }
+    i / 100.0
 }
 
 fn parse_enable(value: &str) -> Result<Enable, String> {
@@ -2270,4 +2299,1187 @@ pub fn test() {
 	// let mut class = Class::default();
 	// let _r = parse_filter(s, &mut class);
 	// println!("test filter============{:?}", class);
+}
+
+// 解析class
+pub fn parse_class<'i, 't>(context: &mut ClassSheet, input: &mut Parser<'i, 't>) -> Result<(), BasicParseError<'i>> {
+	loop {
+		// println!("next==============={:?}", input.next());
+		input.expect_delim('.')?;
+
+		let class_name = input.expect_ident()?.as_ref();
+		let class_name = match usize::from_str(&class_name[1..class_name.len()]) {
+			Ok(r) => r,
+			Err(_) => usize::MAX,
+		};
+		input.expect_curly_bracket_block()?;
+
+		let mut class_meta = ClassMeta {
+			start: context.style_buffer.len(),
+			end: 0,
+			class_style_mark: BitArray::default(),
+		};
+
+		let r = match input.parse_nested_block::<_, _, ValueParseErrorKind>(|i| {
+			loop {
+				match parse_style_item(&mut context.style_buffer, &mut class_meta, i) {
+					Ok(r) => (),
+					Err(_) => break,
+				}
+			}
+			Ok(())
+		}) {
+			Ok(r) => r,
+			Err(r) => {
+				log::error!("parse_class fail, {:?}", r);
+				println!("parse_class fail, {:?}", r);
+			},
+		};
+
+		if class_name != usize::MAX {
+			println!("class: {}", class_name);
+			// for attr in r.into_iter() {
+			// 	unsafe { attr.write(&mut context.style_buffer) };
+			// 	class_meta.class_style_mark.set(attr.get_type() as usize, true);
+			// }
+			class_meta.end = context.style_buffer.len();
+	 
+			context.class_map.insert(class_name, class_meta);
+		}
+		//
+	}
+
+	// let class_name = input.try_parse(|input| input.expect_number())?;
+
+	Ok(())
+}
+
+// pub fn parse_style_list<'i, 't>(buffer: &mut Vec<u8>, class_meta: &mut ClassMeta, input: &mut Parser<'i, 't>) -> Result<(), ParseError<'i, String>> {
+// 	let mut vec = Vec::new();
+// 	loop {
+// 		match parse_style_item(input) {
+// 			Ok(r) => vec.push(r),
+// 			Err(_) => break,
+// 		}
+// 	}
+// 	Ok(vec)
+// }
+
+pub fn parse_style_item<'i, 't>(buffer: &mut Vec<u8>, class_meta: &mut ClassMeta, input: &mut Parser<'i, 't>) -> Result<(), ParseError<'i, ValueParseErrorKind>> {
+	let key = input.expect_ident()?;
+	match key.as_ref() {
+		"filter" => {
+			input.expect_colon()?;
+			parse_filter1(buffer, class_meta, input)?;
+        },
+        "background-color" => unsafe {
+			input.expect_colon()?;
+			let ty = BackgroundColorType (BackgroundColor(Color::RGBA(parse_color(input)?)));
+			println!("{:?}", ty);
+			unsafe { ty.write(buffer) };
+			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+        }
+        "background" => unsafe {
+			input.expect_colon()?;
+			let ty = BackgroundColorType (BackgroundColor(parse_background(input)?));
+			println!("{:?}", ty);
+			unsafe { ty.write(buffer) };
+			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+        }
+
+        "border-color" => unsafe {
+			input.expect_colon()?;
+			let ty = BorderColorType (BorderColor(parse_color(input)?));
+			println!("{:?}", ty);
+			unsafe { ty.write(buffer) };
+			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+        }
+        "box-shadow" => unsafe {
+			// StyleAttr::write(
+			// 	BoxShadowType(parse_box_shadow(value)?),
+			// 	&mut class_sheet.style_buffer,
+			// );
+            // class.class_style_mark.set(StyleType::BoxShadow as usize, true);
+        }
+
+        // "background-image" => unsafe {
+		// 	if value.starts_with("linear-gradient") {
+		// 		StyleAttr::write(
+		// 			BackgroundColorType(BackgroundColor(
+		// 				parse_linear_gradient_color_string(value)?,
+		// 			)),
+		// 			&mut class_sheet.style_buffer,
+		// 		);
+        //         class.class_style_mark.set(StyleType::BackgroundColor as usize, true);
+        //     } else {
+		// 		StyleAttr::write(
+		// 			BackgroundImageType(BackgroundImage(parse_url(value)?)),
+		// 			&mut class_sheet.style_buffer,
+		// 		);
+		// 		class.class_style_mark.set(StyleType::BackgroundImage as usize, true);
+		// 	}
+		// }
+		// "image-clip" => unsafe {
+		// 	StyleAttr::write(
+		// 		BackgroundImageClipType(BackgroundImageClip(
+		// 			transmute(f32_4_to_aabb(parse_percent_to_f32_4(value, " ")?))
+		// 		)),
+		// 		&mut class_sheet.style_buffer,
+		// 	);
+        //     // class.class_style_mark.set  |= StyleType::BackgroundColor as usize;
+		// 	class.class_style_mark.set(StyleType::BackgroundColor as usize, true)
+        // }
+        // "background-image-clip" => unsafe {
+		// 	StyleAttr::write(
+		// 		BackgroundImageClipType(BackgroundImageClip(
+		// 			transmute(f32_4_to_aabb(parse_percent_to_f32_4(value, " ")?))
+		// 		)),
+		// 		&mut class_sheet.style_buffer,
+		// 	);
+        //     class.class_style_mark.set(StyleType::BackgroundImageClip as usize, true);
+        // }
+        // "object-fit" => unsafe {
+		// 	StyleAttr::write(
+		// 		ObjectFitType(ObjectFit(parse_object_fit(value)?)),
+		// 		&mut class_sheet.style_buffer,
+		// 	);
+        //     class.class_style_mark.set(StyleType::ObjectFit as usize, true);
+        // }
+
+        // "border-image" => unsafe {
+		// 	StyleAttr::write(
+		// 		BorderImageType(BorderImage(parse_url(value)?)),
+		// 		&mut class_sheet.style_buffer,
+		// 	);
+        //     class.class_style_mark.set(StyleType::BorderImage as usize, true);
+        // }
+        // "border-image-clip" => unsafe {
+		// 	StyleAttr::write(
+		// 		BorderImageClipType(BorderImageClip(transmute(f32_4_to_aabb(parse_percent_to_f32_4(value, " ")?)))),
+		// 		&mut class_sheet.style_buffer,
+		// 	);
+        //     class.class_style_mark.set(StyleType::BorderImageClip as usize, true);
+        // }
+        // "border-image-slice" => unsafe {
+		// 	StyleAttr::write(
+		// 		BorderImageSliceType(parse_border_image_slice(value)?),
+		// 		&mut class_sheet.style_buffer,
+		// 	);
+        //     class.class_style_mark.set(StyleType::BorderImageSlice as usize, true);
+        // }
+        // "border-image-repeat" => unsafe {
+		// 	let ty = parse_border_image_repeat(value)?;
+		// 	StyleAttr::write(
+		// 		BorderImageRepeatType(BorderImageRepeat(ty, ty)),
+		// 		&mut class_sheet.style_buffer,
+		// 	);
+        //     class.class_style_mark.set(StyleType::BorderImageRepeat as usize, true);
+		// }
+		// "mask-image" => unsafe {
+		// 	if value.starts_with("linear-gradient") {
+		// 		StyleAttr::write(
+		// 			MaskImageType(MaskImage::LinearGradient(
+		// 				parse_linear_gradient_color(value)?
+		// 			)),
+		// 			&mut class_sheet.style_buffer,
+		// 		);
+		// 	} else {
+		// 		StyleAttr::write(
+		// 			MaskImageType(MaskImage::Path(parse_url(value)?)),
+		// 			&mut class_sheet.style_buffer,
+		// 		);
+		// 	}
+		// 	class.class_style_mark.set(StyleType::MaskImage as usize, true);
+		// }
+		// "mask-image-clip" => unsafe {
+		// 	StyleAttr::write(
+		// 		MaskImageClipType(MaskImageClip(
+		// 			transmute(f32_4_to_aabb(parse_percent_to_f32_4(value, " ")?))
+		// 		)),
+		// 		&mut class_sheet.style_buffer,
+		// 	);
+        //     class.class_style_mark.set(StyleType::MaskImageClip as usize, true);
+        // }
+		// "blend-mode" => unsafe {
+		// 	StyleAttr::write(
+		// 		BlendModeType(parse_blend_mode(value)?),
+		// 		&mut class_sheet.style_buffer,
+		// 	);
+        //     class.class_style_mark.set(StyleType::BlendMode as usize, true);
+        // }
+		// "text-gradient" => unsafe {
+		// 	StyleAttr::write(
+		// 		ColorType(parse_linear_gradient_color_string(value)?),
+		// 		&mut class_sheet.style_buffer,
+		// 	);
+		// 	class.class_style_mark.set(StyleType::Color as usize, true);
+		// }
+        // "color" => unsafe {
+		// 	StyleAttr::write(
+		// 		ColorType(Color::RGBA(parse_color_string(value)?)),
+		// 		&mut class_sheet.style_buffer,
+		// 	);
+        //     class.class_style_mark.set(StyleType::Color as usize, true);
+        // }
+        // "letter-spacing" => unsafe {
+		// 	StyleAttr::write(
+		// 		LetterSpacingType(parse_px(value)?),
+		// 		&mut class_sheet.style_buffer,
+		// 	);
+        //     class.class_style_mark.set(StyleType::LetterSpacing as usize, true);
+        // }
+        // "line-height" => unsafe {
+		// 	StyleAttr::write(
+		// 		LineHeightType(parse_line_height(value)?),
+		// 		&mut class_sheet.style_buffer,
+		// 	);
+        //     class.class_style_mark.set(StyleType::LineHeight as usize, true);
+        // }
+        // "text-align" => unsafe {
+		// 	StyleAttr::write(
+		// 		TextAlignType(parse_text_align(value)?),
+		// 		&mut class_sheet.style_buffer,
+		// 	);
+        //     class.class_style_mark.set(StyleType::TextAlign as usize, true);
+        // }
+        // "text-indent" => unsafe {
+		// 	StyleAttr::write(
+		// 		TextIndentType(parse_px(value)?),
+		// 		&mut class_sheet.style_buffer,
+		// 	);
+        //     class.class_style_mark.set(StyleType::TextIndent as usize, true);
+        // }
+        // "text-shadow" => unsafe {
+		// 	StyleAttr::write(
+		// 		TextShadowType(TextShadows(parse_text_shadow(value)?)),
+		// 		&mut class_sheet.style_buffer,
+		// 	);
+        //     class.class_style_mark.set(StyleType::TextShadow as usize, true);
+        // }
+        // // "vertical-align" => show_attr.push(Attribute::Color( Color::RGBA(parse_color_string(value)?) )),
+        // "white-space" => unsafe {
+		// 	StyleAttr::write(
+		// 		WhiteSpaceType(pasre_white_space(value)?),
+		// 		&mut class_sheet.style_buffer,
+		// 	);
+        //     class.class_style_mark.set(StyleType::WhiteSpace as usize, true);
+        // }
+        // "word-spacing" => unsafe {
+		// 	StyleAttr::write(
+		// 		WordSpacingType(parse_px(value)?),
+		// 		&mut class_sheet.style_buffer,
+		// 	);
+        //     class.class_style_mark.set(StyleType::WordSpacing as usize, true);
+        // }
+
+        // "text-stroke" => unsafe {
+		// 	StyleAttr::write(
+		// 		TextStrokeType(parse_text_stroke(value)?),
+		// 		&mut class_sheet.style_buffer,
+		// 	);
+        //     class.class_style_mark.set(StyleType::TextStroke as usize, true);
+        // }
+
+        // // "font-style" => show_attr.push(Attribute::FontStyle( Color::RGBA(parse_color_string(value)?) )),
+        // "font-weight" => unsafe {
+		// 	StyleAttr::write(
+		// 		FontWeightType(parse_font_weight(value)? as usize),
+		// 		&mut class_sheet.style_buffer,
+		// 	);
+        //     class.class_style_mark.set(StyleType::FontWeight as usize, true);
+        // }
+        // "font-size" => unsafe {
+		// 	StyleAttr::write(
+		// 		FontSizeType(parse_font_size(value)?),
+		// 		&mut class_sheet.style_buffer,
+		// 	);
+        //     class.class_style_mark.set(StyleType::FontSize as usize, true);
+        // }
+        // "font-family" => unsafe {
+		// 	StyleAttr::write(
+		// 		FontFamilyType(Atom::from(value)),
+		// 		&mut class_sheet.style_buffer,
+		// 	);
+        //     class.class_style_mark.set(StyleType::FontFamily as usize, true);
+        // }
+
+        // "border-radius" => unsafe {
+		// 	let v = parse_len_or_percent(value)?;
+		// 	StyleAttr::write(
+		// 		BorderRadiusType(BorderRadius {
+		// 			x: v.clone(),
+		// 			y: v,
+		// 		}),
+		// 		&mut class_sheet.style_buffer,
+		// 	);
+        //     class.class_style_mark.set(StyleType::BorderRadius as usize, true);
+        // }
+        // "opacity" => unsafe {
+		// 	StyleAttr::write(
+		// 		OpacityType(Opacity(parse_f32(value)?)),
+		// 		&mut class_sheet.style_buffer,
+		// 	);
+        //     class.class_style_mark.set(StyleType::Opacity as usize, true);
+        // }
+        // "transform" => unsafe {
+		// 	StyleAttr::write(
+		// 		TransformType(parse_transform(value)?),
+		// 		&mut class_sheet.style_buffer,
+		// 	);
+        //     class.class_style_mark.set(StyleType::Transform as usize, true);
+        // }
+        // "transform-origin" => unsafe {
+		// 	StyleAttr::write(
+		// 		TransformOriginType(parse_transform_origin(value)?),
+		// 		&mut class_sheet.style_buffer,
+		// 	);
+        //     class.class_style_mark.set(StyleType::TransformOrigin as usize, true);
+        // }
+        // "z-index" => unsafe {
+		// 	StyleAttr::write(
+		// 		ZIndexType(ZIndex(parse_f32(value)? as isize)),
+		// 		&mut class_sheet.style_buffer,
+		// 	);
+        //     class.class_style_mark.set(StyleType::ZIndex as usize, true);
+        // }
+        // "visibility" => unsafe {
+		// 	StyleAttr::write(
+		// 		VisibilityType(parse_visibility(value)?),
+		// 		&mut class_sheet.style_buffer,
+		// 	);
+        //     class.class_style_mark.set(StyleType::Visibility as usize, true);
+        // }
+        // "pointer-events" => unsafe {
+		// 	StyleAttr::write(
+		// 		EnableType(parse_enable(value)?),
+		// 		&mut class_sheet.style_buffer,
+		// 	);
+        //     class.class_style_mark.set(StyleType::Enable as usize, true);
+        // }
+        // "display" => unsafe {
+		// 	StyleAttr::write(
+		// 		DisplayType(parse_display(value)?),
+		// 		&mut class_sheet.style_buffer,
+		// 	);
+        //     class.class_style_mark.set(StyleType::Display as usize, true);
+        // }
+        // "overflow" => unsafe {
+		// 	StyleAttr::write(
+		// 		OverflowType(Overflow(parse_overflow(value)?)),
+		// 		&mut class_sheet.style_buffer,
+		// 	);
+        //     class.class_style_mark.set(StyleType::Overflow as usize, true);
+        // }
+        // "overflow-y" => unsafe {
+		// 	StyleAttr::write(
+		// 		OverflowType(Overflow(parse_overflow(value)?)),
+		// 		&mut class_sheet.style_buffer,
+		// 	);
+        //     class.class_style_mark.set(StyleType::Overflow as usize, true);
+        // }
+        "width" => {
+			input.expect_colon()?;
+			let ty = WidthType(Dimension::parse(input)?);
+			println!("{:?}", ty);
+			unsafe { ty.write(buffer) };
+			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+		},
+		"height" => {
+			input.expect_colon()?;
+			let ty = HeightType(Dimension::parse(input)?);
+			println!("{:?}", ty);
+			unsafe { ty.write(buffer) };
+			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+		},
+        // "height" => unsafe {
+		// 	StyleAttr::write(
+		// 		HeightType(parse_unity(value)?),
+		// 		&mut class_sheet.style_buffer,
+		// 	);
+        //     class.class_style_mark.set(StyleType::Height as usize, true);
+        // }
+        // "left" => unsafe {
+		// 	StyleAttr::write(
+		// 		PositionLeftType(parse_unity(value)?),
+		// 		&mut class_sheet.style_buffer,
+		// 	);
+        //     class.class_style_mark.set(StyleType::PositionLeft as usize, true);
+        // }
+        // "bottom" => unsafe {
+		// 	StyleAttr::write(
+		// 		PositionBottomType(parse_unity(value)?),
+		// 		&mut class_sheet.style_buffer,
+		// 	);
+        //     class.class_style_mark.set(StyleType::PositionBottom as usize, true);
+        // }
+        // "right" => unsafe {
+        //     StyleAttr::write(
+		// 		PositionRightType(parse_unity(value)?),
+		// 		&mut class_sheet.style_buffer,
+		// 	);
+        //     class.class_style_mark.set(StyleType::PositionRight as usize, true);
+        // }
+        // "top" => unsafe {
+        //     StyleAttr::write(
+		// 		PositionTopType(parse_unity(value)?),
+		// 		&mut class_sheet.style_buffer,
+		// 	);
+        //     class.class_style_mark.set(StyleType::PositionTop as usize, true);
+        // }
+        // "margin-left" => unsafe {
+        //     StyleAttr::write(
+		// 		MarginLeftType(parse_unity(value)?),
+		// 		&mut class_sheet.style_buffer,
+		// 	);
+        //     class.class_style_mark.set(StyleType::MarginLeft as usize, true);
+        // }
+        // "margin-bottom" => unsafe {
+        //     StyleAttr::write(
+		// 		MarginBottomType(parse_unity(value)?),
+		// 		&mut class_sheet.style_buffer,
+		// 	);
+        //     class.class_style_mark.set(StyleType::MarginBottom as usize, true);
+        // }
+        // "margin-right" => unsafe {
+        //     StyleAttr::write(
+		// 		MarginRightType(parse_unity(value)?),
+		// 		&mut class_sheet.style_buffer,
+		// 	);
+        //     class.class_style_mark.set(StyleType::MarginRight as usize, true);
+        // }
+        // "margin-top" => unsafe {
+        //     StyleAttr::write(
+		// 		MarginTopType(parse_unity(value)?),
+		// 		&mut class_sheet.style_buffer,
+		// 	);
+        //     class.class_style_mark.set(StyleType::MarginTop as usize, true);
+        // }
+        // "margin" => unsafe {
+        //     let [top, right, bottom, left] = parse_four_f32(value)?;
+		// 	StyleAttr::write(
+		// 		MarginType(Margin(Rect{top, right, bottom, left})),
+		// 		&mut class_sheet.style_buffer,
+		// 	);
+		// 	class.class_style_mark.set(StyleType::Margin as usize, true);
+        // }
+        // "padding-left" => unsafe {
+		// 	StyleAttr::write(
+		// 		PaddingLeftType(parse_unity(value)?),
+		// 		&mut class_sheet.style_buffer,
+		// 	);
+        //     class.class_style_mark.set(StyleType::PaddingLeft as usize, true);
+        // }
+        // "padding-bottom" => unsafe {
+        //     StyleAttr::write(
+		// 		PaddingBottomType(parse_unity(value)?),
+		// 		&mut class_sheet.style_buffer,
+		// 	);
+        //     class.class_style_mark.set(StyleType::PaddingBottom as usize, true);
+        // }
+        // "padding-right" => unsafe {
+        //     StyleAttr::write(
+		// 		PaddingRightType(parse_unity(value)?),
+		// 		&mut class_sheet.style_buffer,
+		// 	);
+        //     class.class_style_mark.set(StyleType::PaddingRight as usize, true);
+        // }
+        // "padding-top" => unsafe {
+        //     StyleAttr::write(
+		// 		PaddingTopType(parse_unity(value)?),
+		// 		&mut class_sheet.style_buffer,
+		// 	);
+        //     class.class_style_mark.set(StyleType::PaddingTop as usize, true);
+        // }
+        // "padding" => unsafe {
+		// 	let [top, right, bottom, left] = parse_four_f32(value)?;
+		// 	StyleAttr::write(
+		// 		PaddingType(Padding(Rect{top, right, bottom, left})),
+		// 		&mut class_sheet.style_buffer,
+		// 	);
+		// 	class.class_style_mark.set(StyleType::Padding as usize, true);
+        // }
+        // "border-left" => unsafe {
+        //     let r = parse_border(value)?;
+		// 	StyleAttr::write(
+		// 		BorderLeftType(r.0),
+		// 		&mut class_sheet.style_buffer,
+		// 	);
+		// 	StyleAttr::write(
+		// 		BorderColorType(BorderColor(r.1)),
+		// 		&mut class_sheet.style_buffer,
+		// 	);
+        //     class.class_style_mark.set(StyleType::BorderLeft as usize, true);
+        //     class.class_style_mark.set(StyleType::BorderColor as usize, true);
+        // }
+        // "border-bottom" => unsafe {
+        //     let r = parse_border(value)?;
+		// 	StyleAttr::write(
+		// 		BorderBottomType(r.0),
+		// 		&mut class_sheet.style_buffer,
+		// 	);
+		// 	StyleAttr::write(
+		// 		BorderColorType(BorderColor(r.1)),
+		// 		&mut class_sheet.style_buffer,
+		// 	);
+        //     class.class_style_mark.set(StyleType::BorderBottom as usize, true);
+        //     class.class_style_mark.set(StyleType::BorderColor as usize, true);
+        // }
+        // "border-right" => unsafe {
+        //     let r = parse_border(value)?;
+		// 	StyleAttr::write(
+		// 		BorderRightType(r.0),
+		// 		&mut class_sheet.style_buffer,
+		// 	);
+		// 	StyleAttr::write(
+		// 		BorderColorType(BorderColor(r.1)),
+		// 		&mut class_sheet.style_buffer,
+		// 	);
+        //     class.class_style_mark.set(StyleType::BorderRight as usize, true);
+        //     class.class_style_mark.set(StyleType::BorderColor as usize, true);
+        // }
+        // "border-top" => unsafe {
+        //     let r = parse_border(value)?;
+		// 	StyleAttr::write(
+		// 		BorderTopType(r.0),
+		// 		&mut class_sheet.style_buffer,
+		// 	);
+		// 	StyleAttr::write(
+		// 		BorderColorType(BorderColor(r.1)),
+		// 		&mut class_sheet.style_buffer,
+		// 	);
+        //     class.class_style_mark.set(StyleType::BorderTop as usize, true);
+        //     class.class_style_mark.set(StyleType::BorderColor as usize, true);
+        // }
+        // "border" => unsafe {
+        //     let r = parse_border(value)?;
+		// 	StyleAttr::write(
+		// 		BorderType(Border(Rect{top: r.0, right: r.0, bottom: r.0, left: r.0})),
+		// 		&mut class_sheet.style_buffer,
+		// 	);
+        //     StyleAttr::write(
+		// 		BorderColorType(BorderColor(r.1)),
+		// 		&mut class_sheet.style_buffer,
+		// 	);
+		// 	class.class_style_mark.set(StyleType::Border as usize, true);
+		// 	class.class_style_mark.set(StyleType::BorderColor as usize, true);
+        // }
+        // "border-width" => unsafe {
+        //     let [top, right, bottom, left] = parse_four_f32(value)?;
+        //     StyleAttr::write(
+		// 		BorderType(Border(Rect{top, right, bottom, left})),
+		// 		&mut class_sheet.style_buffer,
+		// 	);
+        //     class.class_style_mark.set(StyleType::Border as usize, true);
+        // }
+        // "min-width" => unsafe {
+		// 	StyleAttr::write(
+		// 		MinWidthType(parse_unity(value)?),
+		// 		&mut class_sheet.style_buffer,
+		// 	);
+        //     class.class_style_mark.set(StyleType::MinWidth as usize, true);
+        // }
+        // "min-height" => unsafe {
+        //     StyleAttr::write(
+		// 		MinHeightType(parse_unity(value)?),
+		// 		&mut class_sheet.style_buffer,
+		// 	);
+        //     class.class_style_mark.set(StyleType::MinHeight as usize, true);
+        // }
+        // "max-width" => unsafe {
+        //     StyleAttr::write(
+		// 		MaxWidthType(parse_unity(value)?),
+		// 		&mut class_sheet.style_buffer,
+		// 	);
+        //     class.class_style_mark.set(StyleType::MaxWidth as usize, true);
+        // }
+        // "max-height" => unsafe {
+        //     StyleAttr::write(
+		// 		MaxHeightType(parse_unity(value)?),
+		// 		&mut class_sheet.style_buffer,
+		// 	);
+        //     class.class_style_mark.set(StyleType::MaxHeight as usize, true);
+        // }
+        // "flex-basis" => unsafe {
+        //     StyleAttr::write(
+		// 		FlexBasisType(parse_unity(value)?),
+		// 		&mut class_sheet.style_buffer,
+		// 	);
+        //     class.class_style_mark.set(StyleType::FlexBasis as usize, true);
+        // }
+        // "flex-shrink" => unsafe {
+		// 	StyleAttr::write(
+		// 		FlexShrinkType(parse_f32(value)?),
+		// 		&mut class_sheet.style_buffer,
+		// 	);
+        //     class.class_style_mark.set(StyleType::FlexShrink as usize, true);
+        // }
+        // "flex-grow" => unsafe {
+		// 	StyleAttr::write(
+		// 		FlexGrowType(parse_f32(value)?),
+		// 		&mut class_sheet.style_buffer,
+		// 	);
+        //     class.class_style_mark.set(StyleType::FlexGrow as usize, true);
+        // }
+        // "position" => unsafe {
+		// 	StyleAttr::write(
+		// 		PositionTypeType(parse_yg_position_type(value)?),
+		// 		&mut class_sheet.style_buffer,
+		// 	);
+        //     class.class_style_mark.set(StyleType::PositionType as usize, true);
+        // }
+        // "flex-wrap" => unsafe {
+		// 	StyleAttr::write(
+		// 		FlexWrapType(parse_yg_wrap(value)?),
+		// 		&mut class_sheet.style_buffer,
+		// 	);
+        //     class.class_style_mark.set(StyleType::FlexWrap as usize, true);
+        // }
+        // "flex-direction" => unsafe {
+		// 	StyleAttr::write(
+		// 		FlexDirectionType(parse_yg_direction(value)?),
+		// 		&mut class_sheet.style_buffer,
+		// 	);
+        //     class.class_style_mark.set(StyleType::FlexDirection as usize, true);
+        // }
+        // "align-content" => unsafe {
+		// 	StyleAttr::write(
+		// 		AlignContentType(parse_yg_align_content(value)?),
+		// 		&mut class_sheet.style_buffer,
+		// 	);
+        //     class.class_style_mark.set(StyleType::AlignContent as usize, true);
+        // }
+        // "align-items" => unsafe {
+		// 	StyleAttr::write(
+		// 		AlignItemsType(parse_yg_align_items(value)?),
+		// 		&mut class_sheet.style_buffer,
+		// 	);
+        //     class.class_style_mark.set(StyleType::AlignItems as usize, true);
+        // }
+        // "align-self" => unsafe {
+		// 	StyleAttr::write(
+		// 		AlignSelfType(parse_yg_align_self(value)?),
+		// 		&mut class_sheet.style_buffer,
+		// 	);
+        //     class.class_style_mark.set(StyleType::AlignSelf as usize, true);
+        // }
+        // "justify-content" => unsafe {
+		// 	StyleAttr::write(
+		// 		JustifyContentType(parse_yg_justify_content(value)?),
+		// 		&mut class_sheet.style_buffer,
+		// 	);
+        //     class.class_style_mark.set(StyleType::JustifyContent as usize, true);
+		// },
+		_ => return Err(input.current_source_location().new_custom_error(ValueParseErrorKind::InvalidAttr)),
+	};
+	input.try_parse(|input| input.expect_semicolon());
+	Ok(())
+}
+
+
+// pub fn parse_len_percent_auto() {
+// 	pub fn parse_dimension(
+//         context: &ParserContext,
+//         value: CSSFloat,
+//         unit: &str,
+//     ) -> Result<Self, ()> {
+//         Ok()
+//     }
+// }
+
+pub trait StyleParse: Sized {
+	fn parse<'i, 't>(input: &mut Parser<'i, 't>) -> Result<Self, ParseError<'i, ValueParseErrorKind>>;
+}
+
+impl StyleParse for Dimension {
+    fn parse<'i, 't>(input: &mut Parser<'i, 't>) -> Result<Self, ParseError<'i, ValueParseErrorKind>> {
+        if input.try_parse(|i| i.expect_ident_matching("auto")).is_ok() {
+            return Ok(Dimension::Auto);
+        }
+		
+		let location = input.current_source_location();
+		let token = input.next()?;
+		let dimension = match *token {
+            Token::Dimension { value, ref unit, ..} => {
+				match unit.as_ref() {
+					"px" => Dimension::Points(value),
+					_ => return Err(location.new_unexpected_token_error(token.clone())),
+				}
+			},
+            Token::Percentage { unit_value, .. } => {
+				Dimension::Percent(unit_value / 100.0)
+            },
+            Token::Number { value, .. } => {
+				Dimension::Points(value)
+			},
+            _ => return Err(location.new_unexpected_token_error(token.clone())),
+        };
+		Ok(dimension)
+    }
+}
+
+fn parse_filter1<'i, 't>(buffer: &mut Vec<u8>, class_meta: &mut ClassMeta, input: &mut Parser<'i, 't>) -> Result<(), ParseError<'i, ValueParseErrorKind>> {
+	let mut hah_hsi = false;
+	let mut hsi = Hsi { hue_rotate: 0.0, saturate: 0.0, bright_ness: 0.0 };
+	loop {
+		let location = input.current_source_location();
+		let function = match input.expect_function() {
+			Ok(f) => f.clone(),
+			Err(_e) => break,
+		};
+		
+
+		input.parse_nested_block(|i| {
+			match function.as_ref() {
+				"blur" => {
+					let ty = BlurType(Blur( match i.try_parse(|i| Dimension::parse(i))? {
+						Dimension::Points(r) => r,
+						_ => return Err(location.new_custom_error(ValueParseErrorKind::InvalidBlur)),
+					}));
+					println!("{:?}", ty);
+					unsafe { ty.write(buffer) };
+					class_meta.class_style_mark.set(ty.get_type() as usize, true);
+				},
+				"hue-rotate" => {
+					let r = i.try_parse(|i| parse_angle(i))?;
+					hsi.hue_rotate = if r > 180.0 {r - 360.0}else{r};
+					hah_hsi = true;
+				},
+				"saturate" => {
+					hsi.saturate = i.try_parse(|i| i.expect_percentage())?*100.0 - 100.0;
+					hah_hsi = true;
+				},
+				"brightness" => {
+					hsi.bright_ness = i.try_parse(|i| i.expect_percentage())?*100.0 - 100.0;
+					hah_hsi = true;
+				},
+				"grayscale" => {
+					hsi.saturate = -i.try_parse(|i| i.expect_percentage())?*100.0;
+					hah_hsi = true;
+				},
+				"hsi" => {
+					i.try_parse(|i| {
+						let location = i.current_source_location(); 
+						i.skip_whitespace();
+						i.parse_until_before::<_, _, ValueParseErrorKind>(Delimiter::Comma, |i| {
+							hsi.hue_rotate = trans_hsi_h(i.expect_number()?);
+							Ok(())
+						})?;
+						match i.next() {
+							Ok(&Token::Comma) | Err(_) => (),
+							Ok(_) => return Err(location.new_custom_error(ValueParseErrorKind::InvalidFilter)),
+						}
+						i.skip_whitespace();
+						i.parse_until_before::<_, _, ValueParseErrorKind>(Delimiter::Comma, |i| {
+							hsi.saturate = trans_hsi_s(i.expect_number()?);
+							Ok(())
+						})?;
+						match i.next() {
+							Ok(&Token::Comma) | Err(_) => (),
+							Ok(_) => return Err(location.new_custom_error(ValueParseErrorKind::InvalidFilter)),
+						}
+						i.skip_whitespace();
+						i.parse_until_before::<_, _, ValueParseErrorKind>(Delimiter::Comma, |i| {
+							hsi.bright_ness = trans_hsi_i(i.expect_number()?);
+							Ok(())
+						})?;
+						match i.next() {
+							Ok(&Token::Comma) | Err(_) => (),
+							Ok(_) => return Err(location.new_custom_error(ValueParseErrorKind::InvalidFilter)),
+						}
+						hah_hsi = true;
+						Ok(())
+					})?;
+					
+				},
+				_ => return Err(location.new_custom_error(
+					ValueParseErrorKind::InvalidFilter
+				)),
+			};
+			Ok(())
+		})?;
+	}
+
+	if hah_hsi {
+		let ty = HsiType(hsi);
+		println!("{:?}", ty);
+		unsafe { ty.write(buffer) };
+		class_meta.class_style_mark.set(ty.get_type() as usize, true);
+	}
+
+	Ok(())
+}
+
+fn parse_color<'i, 't>(input: &mut Parser<'i, 't>) -> Result<CgColor, ParseError<'i, ValueParseErrorKind>> {
+	let location = input.current_source_location();
+	let token = input.next()?;
+	match *token {
+		Token::Hash(ref value) | Token::IDHash(ref value) => {
+			match parse_color_hex(value.as_ref()) {
+				Ok(r) => Ok(r),
+				Err(r) => Err(location.new_custom_error(ValueParseErrorKind::InvalidColor))
+			}
+		}
+		Token::Ident(ref value) => match parse_color_keyword(value.as_ref()) {
+			Ok(r) => Ok(r),
+			Err(r) => Err(location.new_custom_error(ValueParseErrorKind::InvalidColor))
+		},
+		Token::Function(ref name) => {
+			let name = name.clone();
+			input.parse_nested_block(|input| {
+				parse_color_function(&*name, input)
+			})
+		},
+		_ => Err(location.new_custom_error(ValueParseErrorKind::InvalidColor)),
+	}
+}
+
+fn parse_background<'i, 't>(input: &mut Parser<'i, 't>) -> Result<Color, ParseError<'i, ValueParseErrorKind>> {
+	let location = input.current_source_location();
+	let function = input.expect_function()?;
+	match function.as_ref(){
+		"linear-gradient" => input.parse_nested_block(parse_linear) ,
+		_ => Err(location.new_custom_error(ValueParseErrorKind::InvalidBackground)),
+	}
+}
+
+fn parse_linear<'i, 't>(
+	input: &mut Parser<'i, 't>,
+) -> Result<Color, ParseError<'i, ValueParseErrorKind>> {
+	let direction = if let Ok(d) =
+		input.try_parse(|i| parse_angle(i))
+	{
+		input.expect_comma()?;
+		d - 90.0
+	} else {
+		0.0
+	};
+
+	Ok(Color::LinearGradient(LinearGradientColor {
+		direction,
+		list: parse_stops(input)?
+	}))
+}
+
+fn parse_stops<'i, 't>(
+	input: &mut Parser<'i, 't>,
+) -> Result<Vec<ColorAndPosition>, ParseError<'i, ValueParseErrorKind>> {
+	let mut list = Vec::new();
+	let mut color_stop = Vec::new();
+	let mut pre_percent = 0.0;
+	let mut seen_stop = false;
+
+	let location = input.current_source_location();
+
+	loop {
+		input.parse_until_before(Delimiter::Comma, |input| {
+			let pos = input.try_parse(|i| i.expect_percentage());
+			let color = parse_color(input)?;
+
+			if let Ok(v) = pos {
+				if let Err(_) = parser_color_stop_last(
+					v,
+					&mut list,
+					&mut color_stop,
+					&mut pre_percent,
+					Some(color),
+				) {
+					return Err(location.new_custom_error(ValueParseErrorKind::InvalidLinear));
+				}
+			} else {
+				list.push(color);
+			}
+			Ok(())
+		})?;
+
+		match input.next() {
+			Err(_) => break,
+			Ok(&Token::Comma) => continue,
+			Ok(_) => unreachable!(),
+		}
+	}
+	if let Err(_) = parser_color_stop_last(1.0, &mut list, &mut color_stop, &mut pre_percent, None) {
+		return Err(location.new_custom_error(ValueParseErrorKind::InvalidLinear));
+	}
+
+	Ok(color_stop)
+}
+
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum ValueParseErrorKind {
+    /// An invalid token was encountered while parsing a color value.
+    InvalidColor,
+    /// An invalid filter value was encountered.
+    InvalidFilter,
+	InvalidBlur,
+	InvalidHsi,
+	InvalidAttr,
+	InvalidBackground,
+	InvalidLinear,
+}
+
+pub fn parse_angle<'i, 't>(input: &mut Parser<'i, 't>) -> Result<f32, ParseError<'i, ValueParseErrorKind>> {
+	let location = input.current_source_location();
+	let t = input.next()?;
+	match *t {
+		Token::Dimension {
+			value, ref unit, ..
+		} => {
+			match unit.as_ref() {
+				"deg" => Ok(value),
+				_ => Err(location.new_custom_error(ValueParseErrorKind::InvalidFilter)),
+			}
+		},
+		ref t => {
+			let t = t.clone();
+			Err(input.new_unexpected_token_error(t))
+		},
+	}
+
+}
+
+#[inline]
+pub fn parse_color_keyword(ident: &str) -> Result<CgColor, ()> {
+    macro_rules! rgb {
+        ($red: expr, $green: expr, $blue: expr) => {
+            CgColor::new(
+                $red as f32 / 255.0,
+                $green as f32 / 255.0,
+                $blue as f32 / 255.0,
+                1.0,
+            )
+        };
+    }
+    let color = match ident {
+		"black" => rgb!(0, 0, 0),
+		"silver" => rgb!(192, 192, 192),
+		"gray" => rgb!(128, 128, 128),
+		"white" => rgb!(255, 255, 255),
+		"maroon" => rgb!(128, 0, 0),
+		"red" => rgb!(255, 0, 0),
+		"purple" => rgb!(128, 0, 128),
+		"fuchsia" => rgb!(255, 0, 255),
+		"green" => rgb!(0, 128, 0),
+		"lime" => rgb!(0, 255, 0),
+		"olive" => rgb!(128, 128, 0),
+		"yellow" => rgb!(255, 255, 0),
+		"navy" => rgb!(0, 0, 128),
+		"blue" => rgb!(0, 0, 255),
+		"teal" => rgb!(0, 128, 128),
+		"aqua" => rgb!(0, 255, 255),
+
+		"aliceblue" => rgb!(240, 248, 255),
+		"antiquewhite" => rgb!(250, 235, 215),
+		"aquamarine" => rgb!(127, 255, 212),
+		"azure" => rgb!(240, 255, 255),
+		"beige" => rgb!(245, 245, 220),
+		"bisque" => rgb!(255, 228, 196),
+		"blanchedalmond" => rgb!(255, 235, 205),
+		"blueviolet" => rgb!(138, 43, 226),
+		"brown" => rgb!(165, 42, 42),
+		"burlywood" => rgb!(222, 184, 135),
+		"cadetblue" => rgb!(95, 158, 160),
+		"chartreuse" => rgb!(127, 255, 0),
+		"chocolate" => rgb!(210, 105, 30),
+		"coral" => rgb!(255, 127, 80),
+		"cornflowerblue" => rgb!(100, 149, 237),
+		"cornsilk" => rgb!(255, 248, 220),
+		"crimson" => rgb!(220, 20, 60),
+		"cyan" => rgb!(0, 255, 255),
+		"darkblue" => rgb!(0, 0, 139),
+		"darkcyan" => rgb!(0, 139, 139),
+		"darkgoldenrod" => rgb!(184, 134, 11),
+		"darkgray" => rgb!(169, 169, 169),
+		"darkgreen" => rgb!(0, 100, 0),
+		"darkgrey" => rgb!(169, 169, 169),
+		"darkkhaki" => rgb!(189, 183, 107),
+		"darkmagenta" => rgb!(139, 0, 139),
+		"darkolivegreen" => rgb!(85, 107, 47),
+		"darkorange" => rgb!(255, 140, 0),
+		"darkorchid" => rgb!(153, 50, 204),
+		"darkred" => rgb!(139, 0, 0),
+		"darksalmon" => rgb!(233, 150, 122),
+		"darkseagreen" => rgb!(143, 188, 143),
+		"darkslateblue" => rgb!(72, 61, 139),
+		"darkslategray" => rgb!(47, 79, 79),
+		"darkslategrey" => rgb!(47, 79, 79),
+		"darkturquoise" => rgb!(0, 206, 209),
+		"darkviolet" => rgb!(148, 0, 211),
+		"deeppink" => rgb!(255, 20, 147),
+		"deepskyblue" => rgb!(0, 191, 255),
+		"dimgray" => rgb!(105, 105, 105),
+		"dimgrey" => rgb!(105, 105, 105),
+		"dodgerblue" => rgb!(30, 144, 255),
+		"firebrick" => rgb!(178, 34, 34),
+		"floralwhite" => rgb!(255, 250, 240),
+		"forestgreen" => rgb!(34, 139, 34),
+		"gainsboro" => rgb!(220, 220, 220),
+		"ghostwhite" => rgb!(248, 248, 255),
+		"gold" => rgb!(255, 215, 0),
+		"goldenrod" => rgb!(218, 165, 32),
+		"greenyellow" => rgb!(173, 255, 47),
+		"grey" => rgb!(128, 128, 128),
+		"honeydew" => rgb!(240, 255, 240),
+		"hotpink" => rgb!(255, 105, 180),
+		"indianred" => rgb!(205, 92, 92),
+		"indigo" => rgb!(75, 0, 130),
+		"ivory" => rgb!(255, 255, 240),
+		"khaki" => rgb!(240, 230, 140),
+		"lavender" => rgb!(230, 230, 250),
+		"lavenderblush" => rgb!(255, 240, 245),
+		"lawngreen" => rgb!(124, 252, 0),
+		"lemonchiffon" => rgb!(255, 250, 205),
+		"lightblue" => rgb!(173, 216, 230),
+		"lightcoral" => rgb!(240, 128, 128),
+		"lightcyan" => rgb!(224, 255, 255),
+		"lightgoldenrodyellow" => rgb!(250, 250, 210),
+		"lightgray" => rgb!(211, 211, 211),
+		"lightgreen" => rgb!(144, 238, 144),
+		"lightgrey" => rgb!(211, 211, 211),
+		"lightpink" => rgb!(255, 182, 193),
+		"lightsalmon" => rgb!(255, 160, 122),
+		"lightseagreen" => rgb!(32, 178, 170),
+		"lightskyblue" => rgb!(135, 206, 250),
+		"lightslategray" => rgb!(119, 136, 153),
+		"lightslategrey" => rgb!(119, 136, 153),
+		"lightsteelblue" => rgb!(176, 196, 222),
+		"lightyellow" => rgb!(255, 255, 224),
+		"limegreen" => rgb!(50, 205, 50),
+		"linen" => rgb!(250, 240, 230),
+		"magenta" => rgb!(255, 0, 255),
+		"mediumaquamarine" => rgb!(102, 205, 170),
+		"mediumblue" => rgb!(0, 0, 205),
+		"mediumorchid" => rgb!(186, 85, 211),
+		"mediumpurple" => rgb!(147, 112, 219),
+		"mediumseagreen" => rgb!(60, 179, 113),
+		"mediumslateblue" => rgb!(123, 104, 238),
+		"mediumspringgreen" => rgb!(0, 250, 154),
+		"mediumturquoise" => rgb!(72, 209, 204),
+		"mediumvioletred" => rgb!(199, 21, 133),
+		"midnightblue" => rgb!(25, 25, 112),
+		"mintcream" => rgb!(245, 255, 250),
+		"mistyrose" => rgb!(255, 228, 225),
+		"moccasin" => rgb!(255, 228, 181),
+		"navajowhite" => rgb!(255, 222, 173),
+		"oldlace" => rgb!(253, 245, 230),
+		"olivedrab" => rgb!(107, 142, 35),
+		"orange" => rgb!(255, 165, 0),
+		"orangered" => rgb!(255, 69, 0),
+		"orchid" => rgb!(218, 112, 214),
+		"palegoldenrod" => rgb!(238, 232, 170),
+		"palegreen" => rgb!(152, 251, 152),
+		"paleturquoise" => rgb!(175, 238, 238),
+		"palevioletred" => rgb!(219, 112, 147),
+		"papayawhip" => rgb!(255, 239, 213),
+		"peachpuff" => rgb!(255, 218, 185),
+		"peru" => rgb!(205, 133, 63),
+		"pink" => rgb!(255, 192, 203),
+		"plum" => rgb!(221, 160, 221),
+		"powderblue" => rgb!(176, 224, 230),
+		"rebeccapurple" => rgb!(102, 51, 153),
+		"rosybrown" => rgb!(188, 143, 143),
+		"royalblue" => rgb!(65, 105, 225),
+		"saddlebrown" => rgb!(139, 69, 19),
+		"salmon" => rgb!(250, 128, 114),
+		"sandybrown" => rgb!(244, 164, 96),
+		"seagreen" => rgb!(46, 139, 87),
+		"seashell" => rgb!(255, 245, 238),
+		"sienna" => rgb!(160, 82, 45),
+		"skyblue" => rgb!(135, 206, 235),
+		"slateblue" => rgb!(106, 90, 205),
+		"slategray" => rgb!(112, 128, 144),
+		"slategrey" => rgb!(112, 128, 144),
+		"snow" => rgb!(255, 250, 250),
+		"springgreen" => rgb!(0, 255, 127),
+		"steelblue" => rgb!(70, 130, 180),
+		"tan" => rgb!(210, 180, 140),
+		"thistle" => rgb!(216, 191, 216),
+		"tomato" => rgb!(255, 99, 71),
+		"turquoise" => rgb!(64, 224, 208),
+		"violet" => rgb!(238, 130, 238),
+		"wheat" => rgb!(245, 222, 179),
+		"whitesmoke" => rgb!(245, 245, 245),
+		"yellowgreen" => rgb!(154, 205, 50),
+
+		"transparent" => CgColor::new(0.0, 0.0, 0.0, 0.0),
+		_ => return Err(()),
+    };
+	Ok(color)
+}
+
+fn parse_color_function<'i, 't>(
+    name: &str,
+    input: &mut Parser<'i, 't>,
+) -> Result<CgColor, ParseError<'i, ValueParseErrorKind>>
+{
+    let (red, green, blue, uses_commas) = match name {
+        "rgb" | "rgba" => parse_rgb_components_rgb(input)?,
+        // "hsl" | "hsla" => parse_rgb_components_hsl(input)?,
+        _ => return Err(input.new_unexpected_token_error(Token::Ident(name.to_owned().into()))),
+    };
+
+    let alpha = if !input.is_exhausted() {
+        if uses_commas {
+            input.expect_comma()?;
+        } else {
+            input.expect_delim('/')?;
+        };
+		input.expect_number()?
+    } else {
+        1.0
+    };
+
+    input.expect_exhausted()?;
+    Ok(CgColor::new(red, green, blue, alpha))
+}
+
+fn parse_rgb_components_rgb<'i, 't>(
+    input: &mut Parser<'i, 't>,
+) -> Result<(f32, f32, f32, bool), ParseError<'i, ValueParseErrorKind>>
+{
+    // Either integers or percentages, but all the same type.
+    // https://drafts.csswg.org/css-color/#rgb-functions
+    let red = input.expect_number()? ;
+    let uses_commas = input.try_parse(|i| i.expect_comma()).is_ok();
+
+	let green = input.expect_number()?/256.0;
+
+	if uses_commas {
+		input.expect_comma()?;
+	}
+	let blue = input.expect_number()?/256.0;
+
+    Ok((red, green, blue, uses_commas))
+}
+
+
+
+#[test]
+fn test1() {
+	let s = ".c123{
+		width: 10px;
+		height:20px;
+		filter:grayscale(50%) hue-rotate(90deg) saturate(20%) brightness(10%);
+		background-color: rgba(255, 155, 0, 0.5);
+		background-color: rgb(255, 155, 0);
+		background-color: #ff00ffff;
+		background-color: #ffff;
+		background-color: #555;
+		background-color: #ffffff;
+		background-color: blue;
+		background: linear-gradient(20deg, 10% #555, 100% #fff);
+	}.c456{width: 10px;height:20px;filter:blur(2px) hsi(10,10,10)}";
+	println!("xxxxxxxxxxxxxx");
+
+	let mut input = cssparser::ParserInput::new(s);
+	let mut parse = cssparser::Parser::new(&mut input);
+
+	let mut class_sheet = ClassSheet::default();
+
+	if let Err(r) = parse_class(&mut class_sheet, &mut parse) {
+		println!("bbbbbbbbbbbbb, {:?}", r);
+	}
+	
+	// println!("parse: {:?}", parse);
+
 }

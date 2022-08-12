@@ -10,7 +10,7 @@ pub mod style;
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
-pub struct Gui(pub(crate) pi_ui_render::gui::Gui);
+pub struct Gui(pub crate::gui::Gui);
 
 #[cfg(not(target_arch = "wasm32"))]
 pub struct Gui(pub crate::gui::Gui);

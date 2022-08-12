@@ -38,13 +38,14 @@ impl CalcWorldMatrixGroup {
 
 		mut dyn_uniform_buffer: ResMut<'static, DynUniformBuffer>,
 	) -> Result<()> {
+		// let mut i = 0;
 		for (matrix, layout_result, draw_list, node) in query.iter_mut() {
 			let mut content_matrix = None;
 			let mut border_matrix = None;
 			// 遍历当前节点下所有的DrawObject，为其设置
 			for draw_obj in draw_list.iter() {
 				if let Some((
-					mut draw_data, 
+					mut draw_data,
 					box_type, 
 					static_index,
 				)) = query_draw.get(*draw_obj) {
@@ -85,6 +86,7 @@ impl CalcWorldMatrixGroup {
 					let mut matrix_slice = matrix_slice.clone();
 					matrix_slice.column_mut(3)[2] = node.offset() as f32;
 
+					// i += 1;
 					dyn_uniform_buffer.set_uniform(
 						draw_data.get_mut().unwrap().bind_groups.get_group(ColorMaterialGroup::id()).unwrap().get_offset(ColorMaterialBind::index()).unwrap(),
 						&WorldUniform(matrix_slice.as_slice())
@@ -93,6 +95,7 @@ impl CalcWorldMatrixGroup {
 				}
 			}
 		}
+		// println!("matrix==============={}", i);
 		Ok(())
 	}
 }

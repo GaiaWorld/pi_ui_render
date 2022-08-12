@@ -17,6 +17,8 @@ use smallvec::SmallVec;
 use super::{user::*, pass_2d::Pass2D, draw_obj::DrawObject};
 use pi_flex_layout::prelude::*;
 
+pub use super::user::{StyleType, NodeState};
+
 /// 布局结果
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub struct LayoutResult {
@@ -480,9 +482,6 @@ pub struct StyleMark {
 	pub class_style: BitArray<[u32;3]>, // class样式， 表示节点样式中，哪些样式是由class设置的
 }
 
-#[derive(Clone, Default, Deref, DerefMut, Debug, Serialize, Deserialize)]
-pub struct NodeState(pub INode);
-
 /// 标记渲染context中需要的效果， 如Blur、Opacity、Hsi、MasImage等
 /// 此数据结构仅记录位标记，具体哪些属性用哪一位来标记，这里并不关心，由逻辑保证
 #[derive(Clone, Debug, Default, Deref, DerefMut, Serialize, Deserialize)]
@@ -558,125 +557,6 @@ pub struct Pass2DId(pub Id<Pass2D>);
 #[derive(Clone, Copy, Deref, DerefMut, Default, PartialEq, Eq)]
 pub struct InPassId(pub Id<Pass2D>);
 
-// 枚举样式的类型
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub enum StyleType {
-    Text = 1,
-    FontStyle = 2,
-    FontWeight = 3,
-    FontSize = 4,
-    FontFamily = 5,
-    LetterSpacing = 6,
-    WordSpacing = 7,
-    LineHeight = 8,
-    TextIndent = 9,
-    WhiteSpace = 10,
-    TextAlign = 11,
-    VerticalAlign = 12,
-    Color = 13,
-    TextStroke = 14,
-    TextShadow = 15,
-
-    BackgroundImage = 16,
-    BackgroundImageClip = 17,
-    ObjectFit = 18,
-
-	BackgroundColor = 19,
-    BoxShadow = 20,
-
-    BorderImage = 21,
-    BorderImageClip = 22,
-    BorderImageSlice = 23,
-    BorderImageRepeat = 24,
-
-    BorderColor = 25,
-
-    // Matrix = 26,
-    // Opacity = 27,
-    // Layout = 28,
-	// Oct = 32,
-	// ContentBox = 37,
-	// Create = 49,
-	// Delete = 50,
-	// BorderImageTexture = 34,
-	// ImageTexture = 35,
-	// ByOverflow = 30,
-   
-	Hsi = 26,
-	Blur = 27,
-	MaskImage = 28,
-	MaskImageClip = 29,
-	MaskTexture = 30,
-	
-	Transform = 31,
-	TransformOrigin = 32,
-    TransformWillChange = 33,
-
-	BorderRadius = 34,
-	ZIndex = 35,
-	Overflow = 36,
-	BlendMode = 37,
-
-    Display = 38,
-    Visibility = 39,
-    Enable = 40,
-
-	Width = 41,
-    Height = 42,
-	
-	MarginTop = 43,
-	MarginRight = 44,
-	MarginBottom = 45,
-	MarginLeft = 46,
-
-	PaddingTop = 47,
-	PaddingRight = 48,
-	PaddingBottom = 49,
-	PaddingLeft = 50,
-
-	BorderTop = 51,
-	BorderRight = 52,
-	BorderBottom = 53,
-	BorderLeft = 54,
-
-	PositionTop = 55,
-	PositionRight = 56,
-	PositionBottom = 57,
-	PositionLeft = 58,
-	
-    MinWidth = 59,
-    MinHeight = 60,
-    MaxHeight = 61,
-	MaxWidth = 62,
-
-	Direction = 63,
-	FlexDirection = 64,
-	FlexWrap = 65,
-	JustifyContent = 66,
-    AlignContent = 67,
-    AlignItems = 68,
-
-	PositionType = 69,
-    AlignSelf = 70,
-	FlexShrink = 71,
-	FlexGrow = 72,
-	AspectRatio = 73,
-	Order = 74,
-	FlexBasis = 75,
-
-	// 设置Position、Border、Margin、Padding的优先级比单独设置上右下左的优先级要低，所以有单独的标识，
-	// 假定Position属性的设置，作用到上由下左上，可能会覆盖单独设置的上右下左属性
-	Position = 76,
-	Border = 77,
-	Margin = 78,
-	Padding = 79,
-	Opacity = 80,
-
-	TextContent = 81,
-	NodeState = 82,
-	
-	TransformFunc = 83,
-}
 
 pub enum FlexStyleType {
 	Width = 54,

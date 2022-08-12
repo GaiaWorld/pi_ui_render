@@ -134,7 +134,7 @@ pub trait Attr: 'static + Sync + Send {
 	fn get_style_index(&self) -> u8;
 	fn size(&self) -> usize;
 	/// 序列化自身到buffer中
-	unsafe fn write(self, buffer: &mut Vec<u8>);
+	unsafe fn write(&self, buffer: &mut Vec<u8>);
 	/// 安全： entity必须存在
 	fn set(&self, cur_style_mark: &mut BitArray<[u32;3]>, buffer: &Vec<u8>, offset: usize, query: &mut StyleQuery, entity: Id<Node>);
 	/// 设置默认值
@@ -163,7 +163,7 @@ macro_rules! size {
 
 macro_rules! write_buffer {
     () => {
-        unsafe fn write(self, buffer: &mut Vec<u8>) {
+        unsafe fn write(&self, buffer: &mut Vec<u8>) {
 			let ty_size = std::mem::size_of::<StyleType>();
 			let value_size = self.size();
 			let len = buffer.len();
@@ -178,7 +178,7 @@ macro_rules! write_buffer {
 			);
 			
 			std::ptr::copy_nonoverlapping(
-				&self as *const Self as usize as *const u8,
+				self as *const Self as usize as *const u8,
 				buffer.as_mut_ptr().add(len + ty_size),
 				value_size,
 			);
@@ -403,7 +403,7 @@ macro_rules! reset {
 
 macro_rules! impl_style {
 	($struct_name: ident, $name: ident, $ty: ident) => {
-		#[derive(Debug)]
+		#[derive(Debug, Serialize, Deserialize, Clone)]
 		pub struct $struct_name(pub $ty);
 		
 		impl Attr for $struct_name {
@@ -436,7 +436,7 @@ macro_rules! impl_style {
 		}
 	};
 	($struct_name: ident, $name: ident, $ty: ident, $value_ty: ident) => {
-		#[derive(Debug)]
+		#[derive(Debug, Serialize, Deserialize, Clone)]
 		pub struct $struct_name(pub $value_ty);
 		impl Attr for $struct_name {
 			fn get_style_index(&self) -> u8 {
@@ -468,7 +468,7 @@ macro_rules! impl_style {
 		}
 	};
 	($struct_name: ident, $name: ident, $feild: ident, $ty: ident, $value_ty: ident) => {
-		#[derive(Debug)]
+		#[derive(Debug, Serialize, Deserialize, Clone)]
 		pub struct $struct_name(pub $value_ty);
 		impl Attr for $struct_name {
 			fn get_style_index(&self) -> u8 {
@@ -500,7 +500,7 @@ macro_rules! impl_style {
 		}
 	};
 	($struct_name: ident, $name: ident, $feild1: ident, $feild2: ident, $ty: ident, $value_ty: ident) => {
-		#[derive(Debug)]
+		#[derive(Debug, Serialize, Deserialize, Clone)]
 		pub struct $struct_name(pub $value_ty);
 		impl Attr for $struct_name {
 			fn get_style_index(&self) -> u8 {
@@ -532,7 +532,7 @@ macro_rules! impl_style {
 		}
 	};
 	(@func $struct_name: ident,  $name: ident, $set_func: ident, $get_func: ident, $ty: ident, $value_ty: ident) => {
-		#[derive(Debug)]
+		#[derive(Debug, Serialize, Deserialize, Clone)]
 		pub struct $struct_name(pub $value_ty);
 		impl Attr for $struct_name {
 			fn get_style_index(&self) -> u8 {
@@ -565,7 +565,7 @@ macro_rules! impl_style {
 	};
 	// 方法设置，并且不实现set_default和reset
 	(@func $struct_name: ident,  $name: ident, $set_func: ident, $ty: ident, $value_ty: ident) => {
-		#[derive(Debug)]
+		#[derive(Debug, Serialize, Deserialize, Clone)]
 		pub struct $struct_name(pub $value_ty);
 		impl Attr for $struct_name {
 			fn get_style_index(&self) -> u8 {
@@ -598,7 +598,7 @@ macro_rules! impl_style {
 	};
 
 	(@box_model_single $struct_name: ident, $name: ident, $feild: ident, $ty: ident, $value_ty: ident, $ty_all: ident) => {
-		#[derive(Debug)]
+		#[derive(Debug, Serialize, Deserialize, Clone)]
 		pub struct $struct_name(pub $value_ty);
 		impl Attr for $struct_name {
 			fn get_style_index(&self) -> u8 {
@@ -630,7 +630,7 @@ macro_rules! impl_style {
 		}
 	};
 	(@box_model $struct_name: ident, $name: ident, $ty: ident) => {
-		#[derive(Debug)]
+		#[derive(Debug, Serialize, Deserialize, Clone)]
 		pub struct $struct_name(pub $ty);
 		impl Attr for $struct_name {
 			fn get_style_index(&self) -> u8 {

@@ -17,8 +17,9 @@ use pi_share::{Share, ShareCell};
 use pi_ui_render::{
 	gui::Gui, 
 	components::user::{Color, CgColor, TextContent, FontSize, Stroke, BackgroundColor}, 
-	utils::style::style_sheet::{WidthType, HeightType, PositionTypeType, PositionLeftType, PositionTopType, MarginLeftType, MarginTopType, TextContentType, FontFamilyType, ColorType, FontSizeType, TextStrokeType, BackgroundColorType}, resource::ClearColor
+	resource::ClearColor
 };
+use pi_style::style_type::{WidthType, HeightType, PositionTypeType, PositionLeftType, PositionTopType, MarginLeftType, MarginTopType, TextContentType, FontFamilyType, ColorType, FontSizeType, TextStrokeType, BackgroundColorType};
 
 fn main() {
 	framework::start(QuadExample::default())
