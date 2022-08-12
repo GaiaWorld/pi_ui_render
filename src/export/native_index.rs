@@ -1,35 +1,18 @@
-use crate::{utils::cmd::SingleCmd, resource::{ClearColor, Viewport}, components::{user::{CgColor, Aabb2, Point2, Node}, calc::{QuadTree, IsEnable}, pass_2d::Pass2D}};
+use crate::{utils::cmd::SingleCmd, resource::{ClearColor, Viewport}, components::{user::{CgColor, Aabb2, Point2, Node}, calc::{QuadTree, IsEnable}}};
 use pi_style::{style_parse::parse_class_map_from_string, style_type::ClassSheet};
 
-pub use super::Gui;
+pub use super::Engine as Gui;
+// pub use crate::gui::Gui;
 use js_proxy_gen_macro::pi_js_export;
-use pi_cg2d::include_quad2;
 use pi_null::Null;
-use pi_share::ShareRefCell;
 use pi_spatialtree::quad_helper::intersects;
-use wgpu::PresentMode;
 pub use winit::window::Window;
-use pi_async::rt::{AsyncRuntimeBuilder, worker_thread::WorkerRuntime};
-use pi_ecs::{prelude::{World, SingleDispatcher, Dispatcher}, entity::Id, storage::LocalVersion};
-use pi_render::{init_render, components::view::{target_alloc::ShareTargetView, render_window::{RenderWindow, RenderWindows}}, rhi::options::RenderOptions};
+use pi_ecs::{entity::Id, storage::LocalVersion};
 use std::{sync::Arc, intrinsics::transmute};
 
-use pi_ecs::{prelude::StageBuilder, storage::Local};
-
 #[pi_js_export]
-pub fn create_engine(win: &Arc<Window>, r: usize) -> Engine {
-	let runtime = AsyncRuntimeBuilder::default_worker_thread(
-		None,
-		None,
-		None,
-		None,
-	);
-	Engine {
-		win: win.clone(),
-		dispatcher: ShareRefCell::new(SingleDispatcher::new(runtime.clone())),
-		world: World::new(),
-		rt: runtime.clone(),
-	}
+pub fn create_engine(win: &Arc<Window>, r: u32) -> Gui {
+	crate::export::create_engine(win, r)
 }
 
 #[pi_js_export]
@@ -58,44 +41,16 @@ pub fn bind_render_target(gui: &mut Gui) {
 }
 
 #[pi_js_export]
-pub fn clone_engine(engine: &Engine) -> Engine {
-	Engine {
-		win: engine.win.clone(),
-		dispatcher: engine.dispatcher.clone(),
-		world: engine.world.clone(),
-		rt: engine.rt.clone(),
-	}
+pub fn clone_engine(engine: &Gui) -> Gui {
+	todo!()
 }
 
-// TODO
-#[cfg(not(target_arch = "wasm32"))]
-#[allow(unused_unsafe)]
-#[pi_js_export]
-pub async fn create_gui(engine: &mut Engine, width: u32, height: u32, load_image_fun: u32, class_sheet: u32, font_sheet: u32) -> Gui {
-
-    let mut gui = Gui(crate::gui::Gui::new(&mut engine.world));
-
-	let world = &mut engine.world;
-
-	let options = RenderOptions::default();
-	let render_stages = init_render::<Option<ShareTargetView>, _>(world, options, engine.win.clone(), engine.rt.clone()).await;
-
-	init_data(world, engine.win.clone());
-
-	// 初始化gui stage
-	let gui_stages = gui.0.init(0, 0, width, height);
-	let mut stages = Vec::new();
-	for stage in gui_stages.into_iter() {
-		stages.push(Arc::new(stage.build(world)));
-	}
-	stages.push(Arc::new(render_stages.extract_stage.build(world)));
-	stages.push(Arc::new(render_stages.prepare_stage.build(world)));
-	stages.push(Arc::new(render_stages.render_stage.build(world)));
-
-	engine.dispatcher.0.borrow_mut().init(stages, world); // 应该由外部添加 TODO
-
-	gui
-}
+// // TODO
+// #[cfg(not(target_arch = "wasm32"))]
+// #[pi_js_export]
+// pub async fn create_gui(engine: &mut Engine, width: u32, height: u32, load_image_fun: u32, class_sheet: u32, font_sheet: u32) -> *const Gui {
+//     &engine.gui as *const Gui
+// }
 
 #[cfg(not(target_arch = "wasm32"))]
 #[allow(unused_unsafe)]
@@ -121,7 +76,7 @@ pub fn set_pixel_ratio(gui: &mut Gui, pixel_ratio: f32) {
 #[allow(unused_unsafe)]
 #[pi_js_export]
 pub fn set_clear_color(gui: &mut Gui, r: f32, g: f32, b: f32, a: f32) {
-	gui.0.push_cmd(SingleCmd(ClearColor(CgColor::new(r, g, b, a))));
+	gui.gui.push_cmd(SingleCmd(ClearColor(CgColor::new(r, g, b, a))));
 }
 
 #[allow(unused_attributes)]
@@ -132,7 +87,7 @@ pub fn nullify_clear_color(gui: &mut Gui) {
 
 #[pi_js_export]
 pub fn set_view_port(gui: &mut Gui, x: i32, y: i32, width: i32, height: i32) {
-	gui.0.push_cmd(SingleCmd(Viewport(Aabb2::new(Point2::new(x as f32, y as f32), Point2::new(width as f32, height as f32)))));
+	gui.gui.push_cmd(SingleCmd(Viewport(Aabb2::new(Point2::new(x as f32, y as f32), Point2::new(width as f32, height as f32)))));
 }
 
 /// 设置视口
@@ -160,7 +115,7 @@ pub fn force_update_text(gui: &mut Gui, node_id: u32) {
 
 #[pi_js_export]
 pub fn render(gui: &mut Gui) {
-	gui.0.run();
+	gui.gui.run();
 	// dispach run TODO
 }
 
@@ -180,7 +135,7 @@ pub fn cal_layout(gui: &mut Gui) {
 
 //设置shader
 #[pi_js_export]
-pub fn set_shader(engine: &mut Engine, shader_name: String, shader_code: String) {
+pub fn set_shader(engine: &mut Gui, shader_name: String, shader_code: String) {
 }
 
 // 创建class
@@ -195,7 +150,7 @@ pub fn create_class(gui: &mut Gui, css: &str) {
         }
     };
 
-	gui.0.push_cmd(SingleCmd(class_sheet));
+	gui.gui.push_cmd(SingleCmd(class_sheet));
 }
 
 /// 添加二进制格式的css表
@@ -209,7 +164,7 @@ pub fn create_class_by_bin(gui: &mut Gui, bin: &[u8]) {
         }
     };
 
-	gui.0.push_cmd(SingleCmd(class_sheet));
+	gui.gui.push_cmd(SingleCmd(class_sheet));
 }
 
 #[pi_js_export]
@@ -225,7 +180,7 @@ pub fn node_is_visibility(gui: &mut Gui, node: u32) -> bool {
 #[pi_js_export]
 pub fn first_child(gui: &mut Gui, parent: f64) -> Option<f64> {
 	let node: Id<Node> = unsafe { transmute(parent) };
-	match gui.0.down_query.get(&gui.0.world, node) {
+	match gui.gui.down_query.get(&gui.gui.world, node) {
 		Some(r) => if r.head.is_null() {
 			None
 		} else {
@@ -238,7 +193,7 @@ pub fn first_child(gui: &mut Gui, parent: f64) -> Option<f64> {
 #[pi_js_export]
 pub fn last_child(gui: &mut Gui, parent: f64) -> Option<f64> {
 	let node: Id<Node> = unsafe { transmute(parent) };
-	match gui.0.down_query.get(&gui.0.world, node) {
+	match gui.gui.down_query.get(&gui.gui.world, node) {
 		Some(r) => if r.tail.is_null() {
 			None
 		} else {
@@ -252,7 +207,7 @@ pub fn last_child(gui: &mut Gui, parent: f64) -> Option<f64> {
 #[pi_js_export]
 pub fn next_sibling(gui: &mut Gui, node: f64) -> Option<f64> {
 	let node: Id<Node> = unsafe { transmute(node) };
-	match gui.0.up_query.get(&gui.0.world, node) {
+	match gui.gui.up_query.get(&gui.gui.world, node) {
 		Some(r) => if r.next().is_null() {
 			None
 		} else {
@@ -265,7 +220,7 @@ pub fn next_sibling(gui: &mut Gui, node: f64) -> Option<f64> {
 #[pi_js_export]
 pub fn previous_sibling(gui: &mut Gui, node: f64) -> Option<f64> {
 	let node: Id<Node> = unsafe { transmute(node) };
-	match gui.0.up_query.get(&gui.0.world, node) {
+	match gui.gui.up_query.get(&gui.gui.world, node) {
 		Some(r) => if r.prev().is_null() {
 			None
 		} else {
@@ -278,7 +233,7 @@ pub fn previous_sibling(gui: &mut Gui, node: f64) -> Option<f64> {
 #[pi_js_export]
 pub fn get_layer(gui: &mut Gui, node: f64) -> usize {
 	let node: Id<Node> = unsafe { transmute(node) };
-	match gui.0.layer_query.get(&gui.0.world, node) {
+	match gui.gui.layer_query.get(&gui.gui.world, node) {
 		Some(r) => **r,
 		None => 0
 	}
@@ -289,7 +244,7 @@ pub fn get_layer(gui: &mut Gui, node: f64) -> usize {
 #[pi_js_export]
 pub fn offset_top(gui: &mut Gui, node: f64) -> usize {
 	let node: Id<Node> = unsafe { transmute(node) };
-	match gui.0.layout_query.get(&gui.0.world, node) {
+	match gui.gui.layout_query.get(&gui.gui.world, node) {
 		Some(r) => r.rect.top as usize,
 		None => 0
 	}
@@ -300,7 +255,7 @@ pub fn offset_top(gui: &mut Gui, node: f64) -> usize {
 #[pi_js_export]
 pub fn offset_left(gui: &mut Gui, node: f64) -> usize {
 	let node: Id<Node> = unsafe { transmute(node) };
-	match gui.0.layout_query.get(&gui.0.world, node) {
+	match gui.gui.layout_query.get(&gui.gui.world, node) {
 		Some(r) => r.rect.left as usize,
 		None => 0
 	}
@@ -311,7 +266,7 @@ pub fn offset_left(gui: &mut Gui, node: f64) -> usize {
 #[pi_js_export]
 pub fn offset_width(gui: &mut Gui, node: f64) -> usize {
 	let node: Id<Node> = unsafe { transmute(node) };
-	match gui.0.layout_query.get(&gui.0.world, node) {
+	match gui.gui.layout_query.get(&gui.gui.world, node) {
 		Some(r) => (r.rect.right - r.rect.left) as usize,
 		None => 0
 	}
@@ -322,7 +277,7 @@ pub fn offset_width(gui: &mut Gui, node: f64) -> usize {
 #[pi_js_export]
 pub fn offset_height(gui: &mut Gui, node: f64) -> usize {
 	let node: Id<Node> = unsafe { transmute(node) };
-	match gui.0.layout_query.get(&gui.0.world, node) {
+	match gui.gui.layout_query.get(&gui.gui.world, node) {
 		Some(r) => (r.rect.bottom - r.rect.top) as usize,
 		None => 0
 	}
@@ -411,7 +366,7 @@ pub fn offset_height(gui: &mut Gui, node: f64) -> usize {
 #[allow(unused_attributes)]
 #[pi_js_export]
 pub fn query(gui: &mut Gui, x: f32, y: f32) -> Option<f64> {
-	let quad = gui.0.quad_component_comtainer.clone();
+	let quad = gui.gui.quad_component_comtainer.clone();
     let quad = quad.borrow();
 	let quad: &QuadTree = quad.get_storage();
 
@@ -437,7 +392,7 @@ pub fn set_render_dirty(gui: &mut Gui) {
 
 /// aabb的ab查询函数, aabb的oct查询函数应该使用intersects
 fn ab_query_func(arg: &mut AbQueryArgs, id: LocalVersion, aabb: &Aabb2, bind: &()) {
-    match arg.gui.0.layer_query.get(&arg.gui.0.world, unsafe {Id::<Node>::new(id)}) {
+    match arg.gui.gui.layer_query.get(&arg.gui.gui.world, unsafe {Id::<Node>::new(id)}) {
         Some(layer) => {
             if **layer == 0 {
                 return;
@@ -446,8 +401,8 @@ fn ab_query_func(arg: &mut AbQueryArgs, id: LocalVersion, aabb: &Aabb2, bind: &(
         None => return,
     };
     if intersects(&arg.aabb, aabb) {
-		let enable = arg.gui.0.enable_query.get(&arg.gui.0.world, unsafe {Id::<Node>::new(id)});
-		let z_depth = arg.gui.0.depth_query.get(&arg.gui.0.world, unsafe {Id::<Node>::new(id)}).unwrap();
+		let enable = arg.gui.gui.enable_query.get(&arg.gui.gui.world, unsafe {Id::<Node>::new(id)});
+		let z_depth = arg.gui.gui.depth_query.get(&arg.gui.gui.world, unsafe {Id::<Node>::new(id)}).unwrap();
         // log::info!("enable----------id: {}, enable: {}, z_depth: {}, max_z: {}", bind, enable, z_depth,  arg.max_z);
         //如果enable true 表示不接收事件
 		if enable.unwrap_or(&IsEnable(false)).0 {
@@ -457,10 +412,10 @@ fn ab_query_func(arg: &mut AbQueryArgs, id: LocalVersion, aabb: &Aabb2, bind: &(
         // 取最大z的node
         if z_depth.start > arg.max_z {
             // 检查是否有裁剪，及是否在裁剪范围内
-			let mut inpass = arg.gui.0.in_pass2d_query.get(&arg.gui.0.world, unsafe {Id::<Node>::new(id)}).unwrap();
+			let mut inpass = arg.gui.gui.in_pass2d_query.get(&arg.gui.gui.world, unsafe {Id::<Node>::new(id)}).unwrap();
 
 			while !inpass.0.is_null() {
-				let (quad, oveflow, parent) = arg.gui.0.overflow_query.get(&arg.gui.0.world, inpass.0).unwrap();
+				let (quad, oveflow, parent) = arg.gui.gui.overflow_query.get(&arg.gui.gui.world, inpass.0).unwrap();
 				
 				if oveflow.0 {
 					if !intersects(&arg.aabb, quad) {
@@ -494,19 +449,4 @@ pub struct Rect {
 pub struct Size {
 	pub width: f32,
 	pub height: f32,
-}
-
-pub struct Engine {
-	win: Arc<Window>,
-	dispatcher: ShareRefCell<SingleDispatcher<WorkerRuntime>>,
-	world: World,
-	rt: WorkerRuntime,
-}
-
-fn init_data(world: &mut World, win: Arc<Window>) {
-	// 创建 RenderWindow
-	let render_window = RenderWindow::new(win, PresentMode::Mailbox);
-	let render_windows = world.get_resource_mut::<RenderWindows>().unwrap();
-	render_windows.insert(render_window);
-
 }

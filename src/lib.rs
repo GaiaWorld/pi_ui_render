@@ -2,6 +2,7 @@
 #![feature(proc_macro_hygiene)]
 #![feature(stmt_expr_attributes)]
 #![feature(type_name_of_val)]
+#![feature(box_into_inner)]
 
 
 #[macro_use]

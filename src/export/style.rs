@@ -18,7 +18,9 @@ use crate::{
 use pi_style::{style_parse::parse_text_shadow, style_type::*};
 use pi_flex_layout::prelude::*;
 use pi_ecs::{prelude::{Id, LocalVersion, SingleDispatcher, Dispatcher}, storage::Offset};
-pub use super::{Gui, json_parse::as_value};
+use super::{json_parse::as_value};
+use js_proxy_gen_macro::pi_js_export;
+pub use crate::export::Engine as Gui;
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::wasm_bindgen;
@@ -69,14 +71,14 @@ macro_rules! out_export {
        		#[wasm_bindgen]
 			pub fn [<set_ $attr_name>](gui: &mut Gui, node_id: f64, $($name: $ty,)*) {
 				let node_id = unsafe {Id::<Node>::new(LocalVersion::from_ffi(transmute::<f64, u64>(node_id)))};
-				gui.0.set_style(node_id, $last_ty($expr));
+				gui.gui.set_style(node_id, $last_ty($expr));
 			}
 
 			#[cfg(not(target_arch = "wasm32"))]
 			#[cfg(feature="pi_js_export")]
 			pub fn [<set_ $attr_name>](gui: &mut Gui, node_id: f64, $($name: $ty,)*) {
 				let node_id = unsafe {Id::<Node>::new(LocalVersion::from_ffi(transmute::<f64, u64>(node_id)))};
-				gui.0.set_style(node_id, $last_ty($expr));
+				gui.gui.set_style(node_id, $last_ty($expr));
 			}
 
 			#[cfg(target_arch = "wasm32")]
@@ -84,14 +86,14 @@ macro_rules! out_export {
        		#[wasm_bindgen]
 			pub fn [<reset_ $attr_name>](gui: &mut Gui, node_id: f64) {
 				let node_id = unsafe {Id::<Node>::new(LocalVersion::from_ffi(transmute::<f64, u64>(node_id)))};
-				gui.0.set_style(node_id, [<Reset $last_ty>]);
+				gui.gui.set_style(node_id, [<Reset $last_ty>]);
 			}
 
 			#[cfg(not(target_arch = "wasm32"))]
 			#[cfg(feature="pi_js_export")]
 			pub fn [<reset_ $attr_name>](gui: &mut Gui, node_id: f64) {
 				let node_id = unsafe {Id::<Node>::new(LocalVersion::from_ffi(transmute::<f64, u64>(node_id)))};
-				gui.0.set_style(node_id, [<Reset $last_ty>]);
+				gui.gui.set_style(node_id, [<Reset $last_ty>]);
 			}
 
 			#[allow(unused_variables)]
@@ -118,16 +120,16 @@ macro_rules! out_export {
 			pub fn [<set_ $attr_name>](gui: &mut Gui, node_id: f64, edge:u8, $($name: $ty,)*) {
 				let node_id = unsafe {Id::<Node>::new(LocalVersion::from_ffi(transmute::<f64, u64>(node_id)))};
 				match unsafe {transmute(edge)} {
-					Edge::All => gui.0.set_style(node_id, [<$last_ty Type>]($last_ty(Rect {
+					Edge::All => gui.gui.set_style(node_id, [<$last_ty Type>]($last_ty(Rect {
 						top: $expr,
 						right: $expr,
 						bottom: $expr,
 						left: $expr,
 					}))),
-					Edge::Top => gui.0.set_style(node_id, [<$last_ty TopType>]($expr)),
-					Edge::Right => gui.0.set_style(node_id, [<$last_ty RightType>]($expr)),
-					Edge::Bottom => gui.0.set_style(node_id, [<$last_ty BottomType>]($expr)),
-					Edge::Left => gui.0.set_style(node_id, [<$last_ty LeftType>]($expr)),
+					Edge::Top => gui.gui.set_style(node_id, [<$last_ty TopType>]($expr)),
+					Edge::Right => gui.gui.set_style(node_id, [<$last_ty RightType>]($expr)),
+					Edge::Bottom => gui.gui.set_style(node_id, [<$last_ty BottomType>]($expr)),
+					Edge::Left => gui.gui.set_style(node_id, [<$last_ty LeftType>]($expr)),
 					_ => return
 				};
 			}
@@ -137,16 +139,16 @@ macro_rules! out_export {
 			pub fn [<set_ $attr_name>](gui: &mut Gui, node_id: f64, edge:u8, $($name: $ty,)*) {
 				let node_id = unsafe {Id::<Node>::new(LocalVersion::from_ffi(transmute::<f64, u64>(node_id)))};
 				match unsafe {transmute(edge)} {
-					Edge::All => gui.0.set_style(node_id, [<$last_ty Type>]($last_ty(Rect {
+					Edge::All => gui.gui.set_style(node_id, [<$last_ty Type>]($last_ty(Rect {
 						top: $expr,
 						right: $expr,
 						bottom: $expr,
 						left: $expr,
 					}))),
-					Edge::Top => gui.0.set_style(node_id, [<$last_ty TopType>]($expr)),
-					Edge::Right => gui.0.set_style(node_id, [<$last_ty RightType>]($expr)),
-					Edge::Bottom => gui.0.set_style(node_id, [<$last_ty BottomType>]($expr)),
-					Edge::Left => gui.0.set_style(node_id, [<$last_ty LeftType>]($expr)),
+					Edge::Top => gui.gui.set_style(node_id, [<$last_ty TopType>]($expr)),
+					Edge::Right => gui.gui.set_style(node_id, [<$last_ty RightType>]($expr)),
+					Edge::Bottom => gui.gui.set_style(node_id, [<$last_ty BottomType>]($expr)),
+					Edge::Left => gui.gui.set_style(node_id, [<$last_ty LeftType>]($expr)),
 					_ => return
 				};
 			}
@@ -157,11 +159,11 @@ macro_rules! out_export {
 			pub fn [<reset_ $attr_name>](gui: &mut Gui, node_id: f64, edge:u8) {
 				let node_id = unsafe {Id::<Node>::new(LocalVersion::from_ffi(transmute::<f64, u64>(node_id)))};
 				match unsafe {transmute(edge)} {
-					Edge::All => gui.0.set_style(node_id, [<Reset $last_ty Type>]),
-					Edge::Top => gui.0.set_style(node_id, [<Reset $last_ty TopType>]),
-					Edge::Right => gui.0.set_style(node_id, [<Reset $last_ty RightType>]),
-					Edge::Bottom => gui.0.set_style(node_id, [<Reset $last_ty BottomType>]),
-					Edge::Left => gui.0.set_style(node_id, [<Reset $last_ty LeftType>]),
+					Edge::All => gui.gui.set_style(node_id, [<Reset $last_ty Type>]),
+					Edge::Top => gui.gui.set_style(node_id, [<Reset $last_ty TopType>]),
+					Edge::Right => gui.gui.set_style(node_id, [<Reset $last_ty RightType>]),
+					Edge::Bottom => gui.gui.set_style(node_id, [<Reset $last_ty BottomType>]),
+					Edge::Left => gui.gui.set_style(node_id, [<Reset $last_ty LeftType>]),
 					_ => return
 				};
 			}
@@ -171,11 +173,11 @@ macro_rules! out_export {
 			pub fn [<reset_ $attr_name>](gui: &mut Gui, node_id: f64, edge:u8) {
 				let node_id = unsafe {Id::<Node>::new(LocalVersion::from_ffi(transmute::<f64, u64>(node_id)))};
 				match unsafe {transmute(edge)} {
-					Edge::All => gui.0.set_style(node_id, [<Reset $last_ty Type>]),
-					Edge::Top => gui.0.set_style(node_id, [<Reset $last_ty TopType>]),
-					Edge::Right => gui.0.set_style(node_id, [<Reset $last_ty RightType>]),
-					Edge::Bottom => gui.0.set_style(node_id, [<Reset $last_ty BottomType>]),
-					Edge::Left => gui.0.set_style(node_id, [<Reset $last_ty LeftType>]),
+					Edge::All => gui.gui.set_style(node_id, [<Reset $last_ty Type>]),
+					Edge::Top => gui.gui.set_style(node_id, [<Reset $last_ty TopType>]),
+					Edge::Right => gui.gui.set_style(node_id, [<Reset $last_ty RightType>]),
+					Edge::Bottom => gui.gui.set_style(node_id, [<Reset $last_ty BottomType>]),
+					Edge::Left => gui.gui.set_style(node_id, [<Reset $last_ty LeftType>]),
 					_ => return
 				};
 			}
@@ -203,14 +205,14 @@ macro_rules! out_export {
        		#[wasm_bindgen]
 			pub fn [<set_ $attr_name>](gui: &mut Gui, node_id: f64, $($name: $ty,)*) {
 				let node_id = unsafe {Id::<Node>::new(LocalVersion::from_ffi(transmute::<f64, u64>(node_id)))};
-				gui.0.set_style(node_id, $last_ty($expr));
+				gui.gui.set_style(node_id, $last_ty($expr));
 			}
 
 			#[cfg(not(target_arch = "wasm32"))]
 			#[cfg(feature="pi_js_export")]
 			pub fn [<set_ $attr_name>](gui: &mut Gui, node_id: f64, $($name: $ty,)*) {
 				let node_id = unsafe {Id::<Node>::new(LocalVersion::from_ffi(transmute::<f64, u64>(node_id)))};
-				gui.0.set_style(node_id, $last_ty($expr));
+				gui.gui.set_style(node_id, $last_ty($expr));
 			}
 
 			#[cfg(target_arch = "wasm32")]
@@ -218,14 +220,14 @@ macro_rules! out_export {
        		#[wasm_bindgen]
 			pub fn [<reset_ $attr_name>](gui: &mut Gui, node_id: f64) {
 				let node_id = unsafe {Id::<Node>::new(LocalVersion::from_ffi(transmute::<f64, u64>(node_id)))};
-				gui.0.set_style(node_id, [<Reset $last_ty>]);
+				gui.gui.set_style(node_id, [<Reset $last_ty>]);
 			}
 
 			#[cfg(not(target_arch = "wasm32"))]
 			#[cfg(feature="pi_js_export")]
 			pub fn [<reset_ $attr_name>](gui: &mut Gui, node_id: f64) {
 				let node_id = unsafe {Id::<Node>::new(LocalVersion::from_ffi(transmute::<f64, u64>(node_id)))};
-				gui.0.set_style(node_id, [<Reset $last_ty>]);
+				gui.gui.set_style(node_id, [<Reset $last_ty>]);
 			}
 
 			#[allow(unused_variables)]
@@ -239,7 +241,7 @@ macro_rules! out_export {
 					None => return,
 				};
 				let atom_hash = context.atoms.get(&hash).unwrap().get_hash();
-				[<set_ $attr_name>](gui, node, atom_hash);
+				[<set_ $attr_name>](gui, node, atom_hash as u32);
 			}
 		}
     };
@@ -319,17 +321,17 @@ out_export!(@cenum object_fit, ObjectFitType);
 out_export!(@atom 
 	mask_image,
 	MaskImageType,
-	MaskImage::Path(Atom::get(image_hash).unwrap()),
-	image_hash: usize, );
+	MaskImage::Path(Atom::get(image_hash as usize).unwrap()),
+	image_hash: u32, );
 
 out_export!(@atom 
 	background_image,
 	BackgroundImageType,
 	{
 		// println!("set_image=============={:?}", image_hash);
-		BackgroundImage(Atom::get(image_hash).unwrap())
+		BackgroundImage(Atom::get(image_hash as usize).unwrap())
 	},
-	image_hash: usize, );
+	image_hash: u32, );
 
 out_export!(@expr 
 	mask_image_linenear,
@@ -343,8 +345,8 @@ out_export!(@expr
 out_export!(@atom 
 	border_image,
 	BorderImageType,
-	BorderImage (Atom::get(image_hash).unwrap()),
-	image_hash: usize, );
+	BorderImage (Atom::get(image_hash as usize).unwrap()),
+	image_hash: u32, );
 
 out_export!(@expr 
 	image_clip,
@@ -555,25 +557,44 @@ out_export!(@expr text_shadow, TextShadowType, {
 	}
 }, s: String,);
 out_export!(@cenum font_style, FontStyleType);
-out_export!(@expr font_weight, FontWeightType, v, v: usize,);
+out_export!(@expr font_weight, FontWeightType, v as usize, v: u32,);
 out_export!(@expr font_size_none, FontSizeType, FontSize::None,);
-out_export!(@expr font_size, FontSizeType, FontSize::Length(value), value: usize,);
+out_export!(@expr font_size, FontSizeType, FontSize::Length(value as usize), value: u32,);
 out_export!(@expr font_size_percent, FontSizeType, FontSize::Percent(value), value: f32,);
-out_export!(@atom font_family, FontFamilyType, Atom::get(name).unwrap(), name: usize,);
+out_export!(@atom font_family, FontFamilyType, Atom::get(name as usize).unwrap(), name: u32,);
 out_export!(@expr text_content, TextContentType,  TextContent(content, Atom::from("")), content: String,);
 out_export!(@expr text_content_utf8, TextContentType, {
 	let content = unsafe{String::from_utf8_unchecked(content)};
 	TextContent(content, Atom::from(""))
 }, content: Vec<u8>,);
 
-pub fn set_class(gui: &mut Gui, node_id: f64, class_name: Vec<usize> ) {
+
+#[cfg(not(target_arch = "wasm32"))]
+#[pi_js_export]
+pub fn set_class(gui: &mut Gui, node_id: f64, class_name: Vec<u32> ) {
+
 	let node_id = unsafe {Id::<Node>::new(LocalVersion::from_ffi(transmute::<f64, u64>(node_id)))};
-	gui.0.set_class(node_id, ClassName(SmallVec::from_slice(class_name.as_slice())) );
+	let mut s = SmallVec::with_capacity(class_name.len());
+	for i in class_name.iter() {
+		s.push(*i as usize);
+	}
+	gui.gui.set_class(node_id, ClassName(s) );
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub fn set_class(gui: &mut Gui, node_id: f64, class_name: Vec<u32> ) {
+	let node_id = unsafe {Id::<Node>::new(LocalVersion::from_ffi(transmute::<f64, u64>(node_id)))};
+	let mut s = SmallVec::with_capacity(class_name.len());
+	for i in class_name.iter() {
+		s.push(*i as usize);
+	}
+	gui.gui.set_class(node_id, ClassName(s) );
 }
 
 pub fn play_set_class(gui: &mut Gui, context: &mut PlayContext, json: &Vec<json::JsonValue>) {
 	let node = super::json_parse::as_value::<usize>(json, 0).unwrap();
-	let class = super::json_parse::as_value::<Vec<usize>>(json, 1).unwrap();
+	let class = super::json_parse::as_value::<Vec<u32>>(json, 1).unwrap();
 	// let node = context.nodes.get(node).unwrap().clone();
 	let node = match context.nodes.get(node) {
 		Some(r) => r.clone(),
@@ -586,16 +607,16 @@ pub fn play_set_class(gui: &mut Gui, context: &mut PlayContext, json: &Vec<json:
 /// 设置默认样式, 暂支持布局属性、 文本属性的设置
 /// __jsObj: class样式的二进制描述， 如".0{color:red}"生成的二进制， class名称必须是“0”
 pub fn set_default_style_by_bin(gui: &mut Gui, bin: &[u8]) {
-	gui.0.set_default_style_by_bin(bin);
+	gui.gui.set_default_style_by_bin(bin);
 }
 
 pub fn set_default_style_by_str(gui: &mut Gui, bin: &str) {
-	gui.0.set_default_style_by_str(bin);
+	gui.gui.set_default_style_by_str(bin);
 }
 
 /// 创建容器节点， 容器节点可设置背景颜色
 pub fn create_node(gui: &mut Gui) -> f64 {
-	unsafe { transmute(gui.0.create_node()) }
+	unsafe { transmute(gui.gui.create_node()) }
 }
 
 pub fn play_create_node(gui: &mut Gui, context: &mut PlayContext, json: &Vec<json::JsonValue>) {
@@ -607,8 +628,8 @@ pub fn play_create_node(gui: &mut Gui, context: &mut PlayContext, json: &Vec<jso
 
 /// 创建虚拟节点
 pub fn create_vnode(gui: &mut Gui) -> f64 {
-	let node = gui.0.create_node();
-	gui.0.set_style(node, VNodeType(true));
+	let node = gui.gui.create_node();
+	gui.gui.set_style(node, VNodeType(true));
 	unsafe { transmute(node) }
 }
 
@@ -621,8 +642,8 @@ pub fn play_create_vnode(gui: &mut Gui, context: &mut PlayContext, json: &Vec<js
 
 /// 创建文本节点
 pub fn create_text_node(gui: &mut Gui) -> f64 {
-    let node = gui.0.create_node();
-	gui.0.set_style(node, TextContentType(TextContent("".to_string(), Atom::from(""))));
+    let node = gui.gui.create_node();
+	gui.gui.set_style(node, TextContentType(TextContent("".to_string(), Atom::from(""))));
 	unsafe { transmute(node) }
 }
 
@@ -635,7 +656,7 @@ pub fn play_create_text_node(gui: &mut Gui, context: &mut PlayContext, json: &Ve
 
 /// 创建图片节点
 pub fn create_image_node(gui: &mut Gui) -> f64 {
-    unsafe { transmute(gui.0.create_node()) }
+    unsafe { transmute(gui.gui.create_node()) }
 }
 
 pub fn play_create_image_node(gui: &mut Gui, context: &mut PlayContext, json: &Vec<json::JsonValue>) {
@@ -647,7 +668,7 @@ pub fn play_create_image_node(gui: &mut Gui, context: &mut PlayContext, json: &V
 
 /// 创建图片节点
 pub fn create_canvas_node(gui: &mut Gui) -> f64 {
-    unsafe { transmute(gui.0.create_node()) }
+    unsafe { transmute(gui.gui.create_node()) }
 }
 
 pub fn play_create_canvas_node(gui: &mut Gui, context: &mut PlayContext, json: &Vec<json::JsonValue>) {
@@ -659,7 +680,7 @@ pub fn play_create_canvas_node(gui: &mut Gui, context: &mut PlayContext, json: &
 
 /// 移除节点
 pub fn remove_node(gui: &mut Gui, node_id: f64) {
-	gui.0.remove_node(unsafe { transmute(node_id)});
+	gui.gui.remove_node(unsafe { transmute(node_id)});
 }
 
 pub fn play_remove_node(gui: &mut Gui, context: &mut PlayContext, json: &Vec<json::JsonValue>) {
@@ -669,7 +690,7 @@ pub fn play_remove_node(gui: &mut Gui, context: &mut PlayContext, json: &Vec<jso
 }
 
 pub fn destroy_node(gui: &mut Gui, node_id: f64) {
-	gui.0.destroy_node(unsafe { transmute(node_id)});
+	gui.gui.destroy_node(unsafe { transmute(node_id)});
 }
 
 pub fn play_destroy_node(gui: &mut Gui, context: &mut PlayContext, json: &Vec<json::JsonValue>) {
@@ -698,7 +719,7 @@ pub fn play_destroy_node(gui: &mut Gui, context: &mut PlayContext, json: &Vec<js
 }
 
 pub fn append_child(gui: &mut Gui, node_id: f64, parent_id: f64 ) {
-	gui.0.append(unsafe { transmute(node_id)}, unsafe { transmute(parent_id)});
+	gui.gui.append(unsafe { transmute(node_id)}, unsafe { transmute(parent_id)});
 }
 
 pub fn play_append_child(gui: &mut Gui, context: &mut PlayContext, json: &Vec<json::JsonValue>) {
@@ -727,7 +748,7 @@ pub fn play_append_child(gui: &mut Gui, context: &mut PlayContext, json: &Vec<js
 }
 
 pub fn insert_before(gui: &mut Gui, node_id: f64, borther: f64 ) {
-	gui.0.insert_before(unsafe { transmute(node_id)}, unsafe { transmute(borther)});
+	gui.gui.insert_before(unsafe { transmute(node_id)}, unsafe { transmute(borther)});
 }
 
 pub fn play_insert_before(gui: &mut Gui, context: &mut PlayContext, json: &Vec<json::JsonValue>) {
@@ -751,14 +772,14 @@ pub fn play_insert_before(gui: &mut Gui, context: &mut PlayContext, json: &Vec<j
 #[allow(unused_attributes)]
 #[wasm_bindgen]
 pub fn set_default_style_by_bin(gui: &mut Gui, bin: &[u8]) {
-	gui.0.set_default_style_by_bin(bin);
+	gui.gui.set_default_style_by_bin(bin);
 }
 
 #[cfg(target_arch = "wasm32")]
 #[allow(unused_attributes)]
 #[wasm_bindgen]
 pub fn set_default_style_by_str(gui: &mut Gui, bin: &str) {
-	gui.0.set_default_style_by_str(bin);
+	gui.gui.set_default_style_by_str(bin);
 }
 
 
@@ -767,7 +788,7 @@ pub fn set_default_style_by_str(gui: &mut Gui, bin: &str) {
 #[allow(unused_attributes)]
 #[wasm_bindgen]
 pub fn create_node(gui: &mut Gui) -> f64 {
-	unsafe { transmute(gui.0.create_node()) }
+	unsafe { transmute(gui.gui.create_node()) }
 }
 
 /// 创建虚拟节点
@@ -775,8 +796,8 @@ pub fn create_node(gui: &mut Gui) -> f64 {
 #[allow(unused_attributes)]
 #[wasm_bindgen]
 pub fn create_vnode(gui: &mut Gui) -> f64 {
-	let node = gui.0.create_node();
-	gui.0.set_style(node, VNodeType(true));
+	let node = gui.gui.create_node();
+	gui.gui.set_style(node, VNodeType(true));
 	unsafe { transmute(node) }
 }
 
@@ -785,8 +806,8 @@ pub fn create_vnode(gui: &mut Gui) -> f64 {
 #[allow(unused_attributes)]
 #[wasm_bindgen]
 pub fn create_text_node(gui: &mut Gui) -> f64 {
-    let node = gui.0.create_node();
-	gui.0.set_style(node, TextContentType(TextContent("".to_string(), Atom::from(""))));
+    let node = gui.gui.create_node();
+	gui.gui.set_style(node, TextContentType(TextContent("".to_string(), Atom::from(""))));
 	unsafe { transmute(node) }
 }
 
@@ -795,7 +816,7 @@ pub fn create_text_node(gui: &mut Gui) -> f64 {
 #[allow(unused_attributes)]
 #[wasm_bindgen]
 pub fn create_image_node(gui: &mut Gui) -> f64 {
-    unsafe { transmute(gui.0.create_node()) }
+    unsafe { transmute(gui.gui.create_node()) }
 }
 
 /// 创建图片节点
@@ -803,7 +824,7 @@ pub fn create_image_node(gui: &mut Gui) -> f64 {
 #[allow(unused_attributes)]
 #[wasm_bindgen]
 pub fn create_canvas_node(gui: &mut Gui) -> f64 {
-    unsafe { transmute(gui.0.create_node()) }
+    unsafe { transmute(gui.gui.create_node()) }
 }
 
 pub fn to_linear_gradient_color(
