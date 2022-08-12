@@ -823,6 +823,7 @@ checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
 [[package]]
 name = "font_kit"
 version = "0.1.0"
+source = "git+http://ser.yinengyun.com:10082/tech/font_kit.git#1ceda3937f4cdbd849f975c9546fed541d5a88d6"
 dependencies = [
  "freetype-sys",
  "image",
@@ -2303,6 +2304,7 @@ dependencies = [
 [[package]]
 name = "pi_hal"
 version = "0.1.0"
+source = "git+https://github.com/GaiaWorld/pi_hal.git#7b23da51d551036493d556d9c086f9c2360a429f"
 dependencies = [
  "async-trait",
  "derive_deref",

@@ -84,14 +84,14 @@ wasm-bindgen = { version = "0.2.78", features = ["serde-serialize"] }
 # [patch."https://github.com/GaiaWorld/pi_render"]
 # pi_render = { path = "../pi_render" }
 
-[patch."https://github.com/GaiaWorld/pi_hal"]
-pi_hal = { path = "../pi_hal" }
+# [patch."https://github.com/GaiaWorld/pi_hal"]
+# pi_hal = { path = "../pi_hal" }
 
 # [patch."https://github.com/GaiaWorld/pi_flex_layout"]
 # pi_flex_layout = { path = "../pi_flex_layout" }
 
-[patch."http://ser.yinengyun.com:10082/tech/font_kit.git"]
-font_kit = { path = "../font_kit" }
+# [patch."http://ser.yinengyun.com:10082/tech/font_kit.git"]
+# font_kit = { path = "../font_kit" }
 
 # [patch.crates-io]
 # pi_slotmap = { path = "../pi_slotmap" }
