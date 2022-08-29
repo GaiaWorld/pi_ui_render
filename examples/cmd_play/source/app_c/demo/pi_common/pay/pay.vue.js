@@ -4,31 +4,32 @@ _$pi.define("app_c/demo/pi_common/pay/pay.vue", ["require", "exports", "module",
     exports.initMeta = void 0;
     const { logV, logD, logI, logW, logE } = logger_1.getLogger(module.name, "app");
     const func = r => {
-        setup_1.Global.sdk.pay.queryOrder('test', r.pt_oid).then(order => {
-            logD('查询订单成功', order);
+        setup_1.Global.sdk.pay.queryOrder("test", r.pt_oid).then(order => {
+            logD("查询订单成功", order);
         }).catch(err => {
-            logD('查询订单失败', err);
+            logD("查询订单失败", err);
         });
     };
     class Pay {
         constructor() {
-            this.msg = '点我支付';
+            this.msg = "点我支付";
         }
 
         click(type) {
             try {
                 let channel = pay_1.PayChannelName[type];
-                let { host, port, isTls } = index_1.PISYS.Env.get('platform_server').default;
+                let { host, port, isTls } = index_1.PISYS.Env.get("platform_server").default;
                 setup_1.Global.sdk.pay.setServer(host, port, isTls);
                 setup_1.Global.sdk.pay.unifiedOrder({
-                    app: 'test',
+                    app: "test",
                     channel,
                     amount: 1,
                     currency: "cny"
                 }).then(r => {
                     logD("下单成功", r);
                     const info = JSON.parse(r.credential).info;
-                    let payInfo = {
+                    let payInfo;
+                    payInfo = {
                         amount: 1,
                         orderID: r.pt_oid,
                         goodsID: "2",

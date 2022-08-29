@@ -3,12 +3,13 @@ use std::{any::TypeId, mem::{replace, size_of}, sync::Arc};
 use pi_assets::{mgr::AssetMgr, asset::{GarbageEmpty, Handle}, homogeneous::HomogeneousMgr};
 use pi_ecs::{prelude::{World, ArchetypeId, StageBuilder, Id, Setup, FromWorld, QueryState, Join, OrDefault}, component::MultiCaseImpl};
 use pi_ecs_utils::prelude::{NodeDown, NodeUp, Layer};
+use pi_print_any::{println_any, out_any};
 use pi_render::{
 	rhi::{
 		asset::{RenderRes, TextureRes},
 		buffer::Buffer, 
 		bind_group::BindGroup, 
-		device::RenderDevice, RenderQueue
+		device::RenderDevice, RenderQueue, pipeline::RenderPipeline
 	}, 
 	components::view::target_alloc::{SafeAtlasAllocator, DEPTH_TEXTURE, ShareTargetView, UnuseTexture},
 	font::FontSheet,
@@ -21,10 +22,10 @@ use crate::{
 		user::{ClassName, Aabb2, Point2, BorderImage, BackgroundImage, Overflow}, 
 		pass_2d::{RenderTarget, ScreenTarget, Pass2D, ParentPassId}, calc::{BorderImageTexture, BackgroundImageTexture, LayoutResult, Quad, WorldMatrix, ZRange, IsEnable, InPassId, NodeId}
 	}, 
-	resource::{UserCommands, NodeCommand, Viewport, draw_obj::CommonSampler, DefaultStyle}, 
+	resource::{UserCommands, NodeCommand, Viewport, draw_obj::{CommonSampler, Program}, DefaultStyle}, 
 	utils::{tools::calc_hash, cmd::Command}, 
 	system::{
-		node::{user_setting::CalcUserSetting, context::CalcContext, z_index::CalcZindex, layout::CalcLayout, quad::CalcQuad, world_matrix::CalcMatrix, content_box::CalcContentBox, background_color::CalcBackGroundColor, context_root::CalcRoot, border_color::CalcBorderColor, box_shadow::CalcBoxShadow, image_texture_load::CalcImageLoad, background_image::CalcBackgroundImage, border_image::CalcBorderImage, text_split::CalcTextSplit, text_glphy::CalcTextGlyph, text::CalcText, context_opacity::{CalcOpacity, CalcOpacityPostProcess}, context_transform_will_change::CalcTransformWillChange, context_overflow::CalcOverflow}, 
+		node::{user_setting::CalcUserSetting, context::CalcContext, z_index::CalcZindex, layout::CalcLayout, quad::CalcQuad, world_matrix::CalcMatrix, content_box::CalcContentBox, background_color::CalcBackGroundColor, context_root::CalcRoot, border_color::CalcBorderColor, box_shadow::CalcBoxShadow, image_texture_load::CalcImageLoad, background_image::CalcBackgroundImage, border_image::CalcBorderImage, text_split::CalcTextSplit, text_glphy::CalcTextGlyph, text::CalcText, context_opacity::{CalcOpacity, CalcOpacityPostProcess}, context_transform_will_change::CalcTransformWillChange, context_overflow::CalcOverflow, context_hsi::CalcHsi}, 
 		draw_obj::{world_marix::CalcWorldMatrixGroup, pipeline::CalcPipeline}, 
 		pass::{
 			pass_render::CalcRender, 
@@ -123,6 +124,7 @@ impl Gui {
 
 	// 创建节点
 	pub fn create_node(&mut self) -> Id<Node> {
+		// println!("create_node =====");
 		let node_archetype_id = self.node_archetype_id;
 		let r = unsafe { Id::new(self.world.archetypes_mut()[node_archetype_id].reserve_entity()) };
 		r
@@ -130,29 +132,34 @@ impl Gui {
 
 	/// 将节点作为子节点挂在父上
 	pub fn append(&mut self, entity: Id<Node>, parent: Id<Node>) {
+		// println!("append node ====={:?}, {:?}", entity, parent);
 		self.user_commands.node_commands.push(NodeCommand::AppendNode(entity, parent));
-		// println!("append====={:?}, {:?}", entity, parent);
+		
 	}
 
 	/// 将节点插入到某个节点之前
 	pub fn insert_before(&mut self, entity: Id<Node>, anchor: Id<Node>) {
+		// println!("insert_before node ====={:?}, {:?}", entity, anchor);
 		self.user_commands.node_commands.push(NodeCommand::InsertBefore(entity, anchor));
-		// println!("insert_before====={:?}, {:?}", entity, anchor);
+		
 	}
 
 	/// 从父节点上移除节点
 	pub fn remove_node(&mut self, entity: Id<Node>) {
+		// println!("remove_node====={:?}", entity.clone());
 		self.user_commands.node_commands.push(NodeCommand::RemoveNode(entity));
-		// println!("insert_before====={:?}", entity.clone());
+		
 	}
 
 	/// 从父节点上移除节点，并销毁该节点及所有子节点
 	pub fn destroy_node(&mut self, entity: Id<Node>) {
+		// println_any!("destroy_node===={:?}", &entity);
 		self.user_commands.node_commands.push(NodeCommand::DestroyNode(entity));
 	}
 
 	/// 设置节点样式
 	pub fn set_style<T: Attr>(&mut self, entity: Id<Node>, value: T){
+		println_any!("set_style===={:?}, {:?}", &value, entity);
 		let start = self.user_commands.style_commands.style_buffer.len();
 		unsafe {StyleAttr::write(
 			value,
@@ -169,6 +176,7 @@ impl Gui {
 
 	/// 设置默认样式（二进制样式）
 	pub fn set_default_style_by_bin(&mut self, bin: &[u8]) {
+		// println_any!("set_default_style_by_bin===={:?}", 1);
 		let class_sheet_new: ClassSheet = match bincode::deserialize(bin) {
 			Ok(r) => r,
 			Err(e) => {
@@ -191,6 +199,7 @@ impl Gui {
 
 	/// 设置默认样式（字符串）
 	pub fn set_default_style_by_str(&mut self, class: &str) {
+		// println_any!("set_default_style_by_str===={:?}", class);
 		let class_sheet = self.world.get_resource_mut::<ClassSheet>();
 		let class_sheet = match class_sheet {
 			Some(r) => r,
@@ -199,8 +208,11 @@ impl Gui {
 				self.world.get_resource_mut::<ClassSheet>().unwrap()
 			}
 		};
-		match parse_class_map_from_string(class, class_sheet) {
-			Ok(_r) => self.world.insert_resource(DefaultStyle), // 触发DefaultStyle修改
+		match parse_class_map_from_string(class) {
+			Ok(r) => {
+				r.to_class_sheet(class_sheet);
+				self.world.insert_resource(DefaultStyle);
+			}, // 触发DefaultStyle修改
 			Err(e) => {
 				log::error!("set_default_style_by_str fail, parse style err: {:?}", e);
 				return
@@ -210,20 +222,30 @@ impl Gui {
 
 	/// 设置节点的class
 	pub fn set_class(&mut self, entity: Id<Node>, value: ClassName){
+		// println_any!("set_class===={:?}", &value);
 		self.user_commands.class_commands.push((entity, value));
 	}
 
 	/// 添加指令
 	pub fn push_cmd<T: Command>(&mut self, cmd: T) {
+		// println_any!("push_cmd===={:?}", 1);
 		self.user_commands.other_commands.push(cmd);
+	}
+
+	/// add css
+	pub fn extend_css(&mut self, cmd: ClassSheet) {
+		// println_any!("push_cmd===={:?}", 1);
+		self.user_commands.css_commands.push(cmd);
 	}
 
 	/// 推动gui运行
 	pub fn run(&mut self) {
+		// println_any!("run===={:?}", 1);
 		let node_archetype_id = self.node_archetype_id;
 		self.world.archetypes_mut()[node_archetype_id].flush();
 		let commands = replace(&mut self.user_commands, UserCommands::default());
 		self.world.insert_resource(commands);
+		// println_any!("run===={:?}", 2);
 	}
 }
 
@@ -244,6 +266,16 @@ fn register_assets_mgr(world: &mut World) {
 		60 * 1024 * 1024, 
 		3 * 60 * 1000));
 	world.insert_resource(AssetMgr::<TextureRes>::new(
+		GarbageEmpty(), 
+		false,
+		60 * 1024 * 1024, 
+		3 * 60 * 1000));
+	world.insert_resource(AssetMgr::<RenderRes<RenderPipeline>>::new(
+		GarbageEmpty(), 
+		false,
+		60 * 1024 * 1024, 
+		3 * 60 * 1000));
+	world.insert_resource(AssetMgr::<RenderRes<Program>>::new(
 		GarbageEmpty(), 
 		false,
 		60 * 1024 * 1024, 
@@ -387,6 +419,7 @@ fn init_stage(world: &mut World) -> Vec<StageBuilder> {
 
 	let mut post_stage = StageBuilder::new();
 	CalcOpacityPostProcess::setup(world, &mut post_stage);
+	CalcHsi::setup(world, &mut post_stage);
 	CalcTransformWillChange::setup(world, &mut post_stage);
 	CalcOverflow::setup(world, &mut post_stage);
 

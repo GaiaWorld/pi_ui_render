@@ -8,7 +8,6 @@ use pi_ecs::prelude::{Or, Deleted, With, ParamSet, ResMut};
 use pi_ecs::prelude::{Query, Changed, EntityCommands, Commands, Write, Res, Event, Id};
 use pi_ecs_macros::{listen, setup};
 use pi_render::rhi::asset::RenderRes;
-use pi_render::rhi::bind_group::BindGroup;
 use pi_render::rhi::buffer::Buffer;
 use pi_render::rhi::device::RenderDevice;
 use pi_render::rhi::dyn_uniform_buffer::{Group, Bind};
@@ -24,7 +23,7 @@ use crate::components::user::{ BorderRadius, BoxShadow, Point2};
 use crate::resource::draw_obj::{StaticIndex, DynUniformBuffer, DynBindGroupIndex, ColorStaticIndex};
 use crate::shaders::color::{ColorMaterialGroup, PositionVertexBuffer, ColorMaterialBind, ColorUniform, UrectUniform, BlurUniform};
 use crate::utils::tools::{calc_hash, get_content_radius, get_box_rect, calc_float_hash};
-use crate::{components::{user::Node, calc::{NodeId, DrawList}, draw_obj::{DrawObject, DrawState}}, resource::draw_obj::Shaders};
+use crate::{components::{user::Node, calc::{NodeId, DrawList}, draw_obj::{DrawObject, DrawState}}};
 // use crate::utils::tools::calc_hash;
 
 pub struct CalcBoxShadow;
@@ -70,10 +69,8 @@ impl CalcBoxShadow {
 		
 		// load_mgr: ResMut<'a, LoadMgr>,
 		device: Res<'static, RenderDevice>,
-		shader_static: Res<'static, Shaders>,
 
 		buffer_assets: Res<'static, Share<AssetMgr<RenderRes<Buffer>>>>,
-		bind_group_assets: Res<'static, Share<AssetMgr<RenderRes<BindGroup>>>>,
 
 		color_static_index: Res<'static, ColorStaticIndex>,
 
@@ -124,7 +121,6 @@ impl CalcBoxShadow {
 						&box_shadow,
 						radius,
 						&buffer_assets,
-						&bind_group_assets,
 						&mut dyn_uniform_buffer);
 					draw_state_item.notify_modify();
 				},
@@ -167,7 +163,6 @@ impl CalcBoxShadow {
 						&box_shadow,
 						radius, 
 						&buffer_assets,
-						&bind_group_assets,
 						&mut dyn_uniform_buffer);
 					
 					draw_state_commands.insert(new_draw_obj, draw_state);
@@ -221,7 +216,6 @@ fn modify(
     shadow: &BoxShadow,
     radius: Option<&BorderRadius>,
 	buffer_assets_mgr: &Share<AssetMgr<RenderRes<Buffer>>>,
-	bind_group_assets_mgr: &Share<AssetMgr<RenderRes<BindGroup>>>,
 	
 	dyn_uniform_buffer: &mut DynUniformBuffer,
 ) {

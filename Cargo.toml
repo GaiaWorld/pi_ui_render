@@ -28,8 +28,8 @@ getset="0.1"
 bitvec={version = "1.0", features = ["serde"]}
 cssparser = "0.29"
 pi_hash="0.1"
-pi_share="0.1"
-pi_atom={version="0.1", features = ["serde"]}
+pi_share="0.4"
+pi_atom={version="0.2", features = ["serde"]}
 pi_enum_default_macro="0.1"
 pi_res="0.1"
 pi_map="0.1"
@@ -40,6 +40,8 @@ pi_async = "0.4"
 futures = "0.3"
 pi_polygon = "0.1"
 pi_cg2d = "0.1"
+crossbeam="0.8"
+pi_graph = "0.1"
 fixedbitset = {version="0.4", features = ["serde"]}
 wgpu = { version = "0.12", features = ["spirv", "glsl"] }
 bytemuck = { version = "1.4", features = ["derive"] }
@@ -50,7 +52,7 @@ naga = { version = "0.8", features = [
     "wgsl-in",
     "wgsl-out",
 ] }
-pi_assets = "0.7"
+pi_assets = "0.8"
 image = "0.23"
 polygon2 = "0.3"
 json ="0.12"
@@ -65,13 +67,18 @@ pi_render = { git = "https://github.com/GaiaWorld/pi_render.git" }
 pi_ecs_macros = { git = "https://github.com/GaiaWorld/pi_ecs.git" }
 pi_ecs_utils = { git = "https://github.com/GaiaWorld/pi_ecs_utils.git" }
 pi_ecs = { git = "https://github.com/GaiaWorld/pi_ecs.git" }
-pi_flex_layout = { git = "https://github.com/GaiaWorld/pi_flex_layout.git" }
+# pi_flex_layout = { git = "https://github.com/GaiaWorld/pi_flex_layout.git" }
+pi_flex_layout = { path = "../pi_flex_layout" }
 pi_hal={git="https://github.com/GaiaWorld/pi_hal.git"}
 js_proxy_gen_macro={git="https://github.com/GaiaWorld/pi_lib.git"}
 pi_style={path="./style"}
+pi_postprocess={git="https://github.com/GaiaWorld/pi_post_process.git"}
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = { version = "0.2.78", features = ["serde-serialize"] }
+
+[patch."https://github.com/GaiaWorld/pi_post_process"]
+pi_postprocess={path="../pi_post_process"}
 
 # [patch."https://github.com/GaiaWorld/pi_ecs"]
 # pi_ecs = { path = "../pi_ecs" }
@@ -90,10 +97,14 @@ wasm-bindgen = { version = "0.2.78", features = ["serde-serialize"] }
 # [patch."https://github.com/GaiaWorld/pi_flex_layout"]
 # pi_flex_layout = { path = "../pi_flex_layout" }
 
+
+
 # [patch."http://ser.yinengyun.com:10082/tech/font_kit.git"]
 # font_kit = { path = "../font_kit" }
 
 # [patch.crates-io]
+# pi_graph = {path = "../pi_graph"}
+# wgpu = { path = "../wgpu/wgpu"}
 # pi_slotmap = { path = "../pi_slotmap" }
 # pi_slotmap_tree = { path = "../pi_slotmap_tree" }
 # pi_dirty = { path = "../pi_dirty" }
@@ -122,8 +133,6 @@ naga = { version = "0.8", features = [
     "wgsl-out",
 ] }
 
-[patch.crates-io]
-wgpu = { path = "../wgpu/wgpu"}
 
 # [patch.crates-io]
 # pi_ecs = { path = "../pi_ecs" }
@@ -169,5 +178,5 @@ wgpu = { path = "../wgpu/wgpu"}
 # 	"console",
 # ]
 [net]
-git-fetch-with-cli = true
-offline = true
+# git-fetch-with-cli = true
+# offline = true

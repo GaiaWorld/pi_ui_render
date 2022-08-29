@@ -7,13 +7,14 @@ use pi_dirty::LayerDirty;
 use pi_ecs::{monitor::Event, prelude::{Query, Write, Local, ChangeTrackers, With, ParamSet, Join, FromWorld, Res, Commands, EntityCommands, ResMut}, entity::Id};
 use pi_ecs_macros::{listen, setup};
 use pi_ecs_utils::prelude::Layer;
+use pi_postprocess::effect::copy::CopyIntensity;
 use pi_render::rhi::{asset::RenderRes, buffer::Buffer, bind_group::BindGroup, device::RenderDevice, dyn_uniform_buffer::{Group, Bind}};
 use pi_share::Share;
 use pi_slotmap::{DefaultKey, KeyData};
 use wgpu::IndexFormat;
 use smallvec::smallvec;
 
-use crate::{components::{user::{Node, Overflow, Aabb2, Vector4, Point2, Matrix4}, calc::{RenderContextMark, WorldMatrix, Pass2DId, TransformWillChangeMatrix, NodeId, OverflowAabb, LayoutResult, Quad}, pass_2d::{Pass2D, ParentPassId, PostProcessList, PostProcess}, draw_obj::{DrawObject, DrawState, VSDefines, DrawGroup, DynDrawGroup}}, resource::{RenderContextMarkType, draw_obj::{UnitQuadBuffer, ShareLayout, ImageStaticIndex, StaticIndex, DynUniformBuffer, DynBindGroupIndex}}, utils::{tools::intersect, shader_helper::VIEW_GROUP}, shaders::{image::{ImageMaterialGroup, ImageMaterialBind, TransformUniform, SampTex2DGroup, UvVertexBuffer}, color::ViewUniform}};
+use crate::{components::{user::{Node, Overflow, Aabb2, Vector4, Point2, Matrix4}, calc::{RenderContextMark, WorldMatrix, Pass2DId, TransformWillChangeMatrix, NodeId, OverflowAabb, LayoutResult, Quad, OveflowRotate}, pass_2d::{Pass2D, ParentPassId, PostProcessList}, draw_obj::{DrawObject, DrawState, VSDefines, DrawGroup, DynDrawGroup}}, resource::{RenderContextMarkType, draw_obj::{UnitQuadBuffer, ShareLayout, ImageStaticIndex, StaticIndex, DynUniformBuffer, DynBindGroupIndex}}, utils::{tools::intersect, shader_helper::VIEW_GROUP}, shaders::{image::{ImageMaterialGroup, ImageMaterialBind, TransformUniform, SampTex2DGroup, UvVertexBuffer}, color::ViewUniform}};
 
 pub struct CalcOverflow;
 
@@ -31,7 +32,7 @@ impl FromWorld for OverflowRenderContextMarkType{
 impl CalcOverflow {
 	#[system]
 	pub fn calc_overflow(
-		mark_type: Res<OverflowRenderContextMarkType>,
+		// mark_type: Res<OverflowRenderContextMarkType>,
 		query: Query<Node, (
 			Id<Node>,
 			&Pass2DId,
@@ -141,58 +142,72 @@ impl CalcOverflow {
 
 						overflow_aabb.write(OverflowAabb {
 							aabb: Some(aabb),
-							matrix: Some(rotate_matrix_invert),
+							matrix: Some(OveflowRotate {rotate_matrix_invert, rotate_matrix}),
 						});
 
-						let post_list = post_list.get_mut_or_default();
-						let post_key = DefaultKey::from(KeyData::from_ffi(***mark_type as u64));
-
-						match post_list.0.get(post_key) {
+						let post_list = match post_list.get_mut() {
+							Some(r) => r,
+							None => {
+								post_list.write(PostProcessList::default());
+								post_list.get_mut().unwrap()
+							}
+						};
+						match &mut post_list.copy {
 							Some(r) => {
-								let mut draw_state = query_draw.get_unchecked_mut(r.draw_obj_key);
-								if let Some(draw_state) = draw_state.get() {
-									let image_material_dyn_offset = draw_state.bind_groups.get_group(ImageMaterialGroup::id()).unwrap().get_offset(ImageMaterialBind::index()).unwrap();
-									dyn_uniform_buffer.set_uniform(&image_material_dyn_offset, &TransformUniform(rotate_matrix.as_slice()));
-								}
-								draw_state.notify_modify();
+
 							},
 							None => {
-								let new_draw_obj = draw_obj_commands.spawn();
-								// 设置DrawState（包含color group）
-								let mut draw_state = DrawState::default();
-
-								let image_material_dyn_offset = dyn_uniform_buffer.alloc_binding::<ImageMaterialBind>();
-								dyn_uniform_buffer.set_uniform(&image_material_dyn_offset, &TransformUniform(rotate_matrix.as_slice()));
-								let group = DrawGroup::Dyn(
-									DynDrawGroup::new(
-										(*image_material_bind_group).clone(),
-										smallvec![image_material_dyn_offset]
-									));
-								draw_state.bind_groups.insert_group(ImageMaterialGroup::id(), group);
-
-								draw_state.vbs.insert(0, (unit_quad_buffer.vertex.clone(), 0));
-								draw_state.ib = Some((unit_quad_buffer.index.clone(), 6, IndexFormat::Uint16));
-								
-								draw_state_commands.insert(new_draw_obj, draw_state);
-								// 建立DrawObj对Node的索引
-								node_id_commands.insert(new_draw_obj, NodeId(*id));
-								shader_static_commands.insert(new_draw_obj, static_index.clone());
-								// fs defines - OPACITY
-								let mut vs_defines = VSDefines::default();
-								vs_defines.insert("TRANSFORM".to_string());
-								vs_defines_commands.insert(new_draw_obj, vs_defines);
-
-								// 创建PostPprocess,并插入后处理列表中
-								let post_process = PostProcess::new(
-									new_draw_obj,
-									SampTex2DGroup::id() as usize,
-									UvVertexBuffer::id() as usize,
-									0,
-									0,
-								);
-								post_list.0.insert(post_key, post_process);
-							},
+								post_list.copy = Some(CopyIntensity::default());
+							}
 						};
+						// let post_key = DefaultKey::from(KeyData::from_ffi(***mark_type as u64));
+
+						// match post_list.0.get(post_key) {
+						// 	Some(r) => {
+						// 		let mut draw_state = query_draw.get_unchecked_mut(r.draw_obj_key);
+						// 		if let Some(draw_state) = draw_state.get() {
+						// 			let image_material_dyn_offset = draw_state.bind_groups.get_group(ImageMaterialGroup::id()).unwrap().get_offset(ImageMaterialBind::index()).unwrap();
+						// 			dyn_uniform_buffer.set_uniform(&image_material_dyn_offset, &TransformUniform(rotate_matrix.as_slice()));
+						// 		}
+						// 		draw_state.notify_modify();
+						// 	},
+						// 	None => {
+						// 		let new_draw_obj = draw_obj_commands.spawn();
+						// 		// 设置DrawState（包含color group）
+						// 		let mut draw_state = DrawState::default();
+
+						// 		let image_material_dyn_offset = dyn_uniform_buffer.alloc_binding::<ImageMaterialBind>();
+						// 		dyn_uniform_buffer.set_uniform(&image_material_dyn_offset, &TransformUniform(rotate_matrix.as_slice()));
+						// 		let group = DrawGroup::Dyn(
+						// 			DynDrawGroup::new(
+						// 				(*image_material_bind_group).clone(),
+						// 				smallvec![image_material_dyn_offset]
+						// 			));
+						// 		draw_state.bind_groups.insert_group(ImageMaterialGroup::id(), group);
+
+						// 		draw_state.vbs.insert(0, (unit_quad_buffer.vertex.clone(), 0));
+						// 		draw_state.ib = Some((unit_quad_buffer.index.clone(), 6, IndexFormat::Uint16));
+								
+						// 		draw_state_commands.insert(new_draw_obj, draw_state);
+						// 		// 建立DrawObj对Node的索引
+						// 		node_id_commands.insert(new_draw_obj, NodeId(*id));
+						// 		shader_static_commands.insert(new_draw_obj, static_index.clone());
+						// 		// fs defines - OPACITY
+						// 		let mut vs_defines = VSDefines::default();
+						// 		vs_defines.insert("TRANSFORM".to_string());
+						// 		vs_defines_commands.insert(new_draw_obj, vs_defines);
+
+						// 		// 创建PostPprocess,并插入后处理列表中
+						// 		let post_process = PostProcess::new(
+						// 			new_draw_obj,
+						// 			SampTex2DGroup::id() as usize,
+						// 			UvVertexBuffer::id() as usize,
+						// 			0,
+						// 			0,
+						// 		);
+						// 		post_list.0.insert(post_key, post_process);
+						// 	},
+						// };
 					} else {
 						let quad_temp;
 						let quad = if left > 0.0 || top > 0.0 {

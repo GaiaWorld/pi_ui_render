@@ -6,7 +6,6 @@ use pi_ecs::entity::Id;
 use pi_hash::XHashSet;
 use pi_map::vecmap::VecMap;
 use pi_render::rhi::{buffer::Buffer, IndexFormat, pipeline::RenderPipeline, asset:: RenderRes, bind_group::BindGroup, dyn_uniform_buffer::{BindIndex, GroupId, BindOffset}};
-use pi_share::Share;
 use smallvec::SmallVec;
 use wgpu::RenderPass;
 
@@ -19,7 +18,7 @@ pub struct DrawObject;
 #[derive(Debug, Default)]
 pub struct DrawState {
     // 一个 Pipeleine
-    pub pipeline: Option<Share<RenderPipeline>>,
+    pub pipeline: Option<Handle<RenderRes<RenderPipeline>>>, //Option<Share<RenderPipeline>>,
 
     // 一堆 UBO
     pub bind_groups: Groups,

@@ -7,40 +7,15 @@ _$pi.define("app_b/main/main.vue.tpl", ["require", "exports", "module", "pi_gui/
         constructor(widget, ctx) {
             this.w = widget;
         }
-        s11() {
+        s13() {
             let w = this.w;
-            return w.offline ? B11 : null;
+            return w.offline ? B13 : null;
         }
         c() {
             let t = this,
                 w = t.w;
             t.n2 = direct_1.createDiv();
             direct_1.setAttr(t.n2, "isSendNextLayer", "true");
-            direct_1.setEvent(t.n2, "mousemove", $event => {
-                let r = w.mouseMove($event);
-                $event && typeof $event === "object" && ($event.stopPropagation = !r);
-                return r;
-            });
-            direct_1.setEvent(t.n2, "over", $event => {
-                let r = w.mouseOver($event);
-                $event && typeof $event === "object" && ($event.stopPropagation = !r);
-                return r;
-            });
-            direct_1.setEvent(t.n2, "out", $event => {
-                let r = w.mouseOut($event);
-                $event && typeof $event === "object" && ($event.stopPropagation = !r);
-                return r;
-            });
-            direct_1.setEvent(t.n2, "enter", $event => {
-                let r = w.mouseEnter($event);
-                $event && typeof $event === "object" && ($event.stopPropagation = !r);
-                return r;
-            });
-            direct_1.setEvent(t.n2, "leave", $event => {
-                let r = w.mouseLeave($event);
-                $event && typeof $event === "object" && ($event.stopPropagation = !r);
-                return r;
-            });
             direct_1.extendAttr(t.n2, w, 4246905833, true);
             t.n3 = direct_1.createDiv();
             direct_1.setStyle(t.n3, 7 /*top*/, w.barOffset + 10 + 'px');
@@ -55,11 +30,65 @@ _$pi.define("app_b/main/main.vue.tpl", ["require", "exports", "module", "pi_gui/
             direct_1.setStyle(t.n4, 42 /*fontSize*/, 30);
             direct_1.setText(t.n4, "金币" + w.gold);
             t.n5 = direct_1.createDiv();
-            direct_1.setStyle(t.n5, 6 /*position*/, 1);
-            direct_1.setStyle(t.n5, 9 /*bottom*/, staticObj[1]);
-            direct_1.setStyle(t.n5, 29 /*justifyContent*/, 2);
-            direct_1.setStyle(t.n5, 0 /*width*/, staticObj[2]);
-            t.n6 = direct_1.createWidget(btn_vue_1.default, w, {
+            direct_1.setEvent(t.n5, "mousemove", $event => {
+                let r = w.mouseMove($event);
+                $event && typeof $event === "object" && ($event.stopPropagation = !r);
+                return r;
+            });
+            direct_1.setEvent(t.n5, "over", $event => {
+                let r = w.mouseOver($event);
+                $event && typeof $event === "object" && ($event.stopPropagation = !r);
+                return r;
+            });
+            direct_1.setEvent(t.n5, "out", $event => {
+                let r = w.mouseOut($event);
+                $event && typeof $event === "object" && ($event.stopPropagation = !r);
+                return r;
+            });
+            direct_1.setEvent(t.n5, "enter", $event => {
+                let r = w.mouseEnter($event);
+                $event && typeof $event === "object" && ($event.stopPropagation = !r);
+                return r;
+            });
+            direct_1.setEvent(t.n5, "leave", $event => {
+                let r = w.mouseLeave($event);
+                $event && typeof $event === "object" && ($event.stopPropagation = !r);
+                return r;
+            });
+            direct_1.setEvent(t.n5, "pointerclick", $event => {
+                let r = w.mouseClick($event);
+                $event && typeof $event === "object" && ($event.stopPropagation = !r);
+                return r;
+            });
+            direct_1.setClass(t.n5, 3186417848);
+            t.n6 = direct_1.createSpan();
+            direct_1.setEvent(t.n6, "over", $event => {
+                let r = w.childMouseOver($event);
+                $event && typeof $event === "object" && ($event.stopPropagation = !r);
+                return r;
+            });
+            direct_1.setEvent(t.n6, "out", $event => {
+                let r = w.childMouseOut($event);
+                $event && typeof $event === "object" && ($event.stopPropagation = !r);
+                return r;
+            });
+            direct_1.setEvent(t.n6, "enter", $event => {
+                let r = w.childMouseEnter($event);
+                $event && typeof $event === "object" && ($event.stopPropagation = !r);
+                return r;
+            });
+            direct_1.setEvent(t.n6, "leave", $event => {
+                let r = w.childMouseLeave($event);
+                $event && typeof $event === "object" && ($event.stopPropagation = !r);
+                return r;
+            });
+            direct_1.setText(t.n6, "鼠标事件测试22222");
+            t.n7 = direct_1.createDiv();
+            direct_1.setStyle(t.n7, 6 /*position*/, 1);
+            direct_1.setStyle(t.n7, 9 /*bottom*/, staticObj[1]);
+            direct_1.setStyle(t.n7, 29 /*justifyContent*/, 2);
+            direct_1.setStyle(t.n7, 0 /*width*/, staticObj[2]);
+            t.n8 = direct_1.createWidget(btn_vue_1.default, w, {
                 attrs: {
                     text: "底层"
                 },
@@ -76,7 +105,7 @@ _$pi.define("app_b/main/main.vue.tpl", ["require", "exports", "module", "pi_gui/
                     }
                 }
             });
-            t.n7 = direct_1.createWidget(btn_vue_1.default, w, {
+            t.n9 = direct_1.createWidget(btn_vue_1.default, w, {
                 attrs: {
                     text: "音频播放"
                 },
@@ -93,7 +122,7 @@ _$pi.define("app_b/main/main.vue.tpl", ["require", "exports", "module", "pi_gui/
                     }
                 }
             });
-            t.n8 = direct_1.createWidget(btn_vue_1.default, w, {
+            t.n10 = direct_1.createWidget(btn_vue_1.default, w, {
                 attrs: {
                     text: "退出"
                 },
@@ -110,36 +139,38 @@ _$pi.define("app_b/main/main.vue.tpl", ["require", "exports", "module", "pi_gui/
                     }
                 }
             });
-            t.n9 = direct_1.createDiv();
-            direct_1.setStyle(t.n9, 6 /*position*/, 1);
-            direct_1.setStyle(t.n9, 9 /*bottom*/, staticObj[3]);
-            direct_1.setStyle(t.n9, 29 /*justifyContent*/, 2);
-            direct_1.setStyle(t.n9, 0 /*width*/, staticObj[2]);
-            t.n10 = direct_1.createFor(w, w.btnList, B10);
-            t.i11 = t.s11();
-            t.n11 = direct_1.createIf(w, t.i11);
+            t.n11 = direct_1.createDiv();
+            direct_1.setStyle(t.n11, 6 /*position*/, 1);
+            direct_1.setStyle(t.n11, 9 /*bottom*/, staticObj[3]);
+            direct_1.setStyle(t.n11, 29 /*justifyContent*/, 2);
+            direct_1.setStyle(t.n11, 0 /*width*/, staticObj[2]);
+            t.n12 = direct_1.createFor(w, w.btnList, B12);
+            t.i13 = t.s13();
+            t.n13 = direct_1.createIf(w, t.i13);
             return this.n2;
         }
         d() {
             let t = this;
-            direct_1.destroyContext(t.n6);
-            direct_1.destroyContext(t.n7);
             direct_1.destroyContext(t.n8);
+            direct_1.destroyContext(t.n9);
             direct_1.destroyContext(t.n10);
-            direct_1.destroyContext(t.n11);
+            direct_1.destroyContext(t.n12);
+            direct_1.destroyContext(t.n13);
         }
         m(target, anchor) {
             let t = this,
                 w = t.w;
             direct_1.append(t.n4, t.n3);
             direct_1.append(t.n3, t.n2);
-            direct_1.mountChildWidget(t.n6, t.n5);
-            direct_1.mountChildWidget(t.n7, t.n5);
-            direct_1.mountChildWidget(t.n8, t.n5);
+            direct_1.append(t.n6, t.n5);
             direct_1.append(t.n5, t.n2);
-            t.n10.m(t.n9);
-            direct_1.append(t.n9, t.n2);
-            t.n11.m(t.n2);
+            direct_1.mountChildWidget(t.n8, t.n7);
+            direct_1.mountChildWidget(t.n9, t.n7);
+            direct_1.mountChildWidget(t.n10, t.n7);
+            direct_1.append(t.n7, t.n2);
+            t.n12.m(t.n11);
+            direct_1.append(t.n11, t.n2);
+            t.n13.m(t.n2);
             direct_1.insertBefore(t.n2, target, anchor);
         }
         p() {
@@ -149,38 +180,38 @@ _$pi.define("app_b/main/main.vue.tpl", ["require", "exports", "module", "pi_gui/
             direct_1.extendAttr(t.n2, w, 4246905833);
             if (dirty0 & 1) direct_1.setStyle(t.n3, 7 /*top*/, w.barOffset + 10 + 'px');
             if (dirty0 & 2) direct_1.setText(t.n4, "金币" + w.gold);
-            direct_1.patchFor(w, t.n10, w.btnList, B10);
-            t.n11 = direct_1.patchIf(w, t.n11, t.i11, t.i11 = t.s11(), t.n2);
+            direct_1.patchFor(w, t.n12, w.btnList, B12);
+            t.n13 = direct_1.patchIf(w, t.n13, t.i13, t.i13 = t.s13(), t.n2);
             return this.n2;
         }
     }
     exports.BW2 = BW2;
-    class B11 {
+    class B13 {
         constructor(widget, ctx) {
             this.w = widget;
         }
         c() {
             let t = this,
                 w = t.w;
-            t.n11 = direct_1.createDiv();
-            direct_1.setClass(t.n11, 3730912968);
-            t.n12 = direct_1.createSpan();
-            direct_1.setStyle(t.n12, 42 /*fontSize*/, 30);
-            direct_1.setStyle(t.n12, 30 /*color*/, staticObj[4]);
-            direct_1.setText(t.n12, "断网重连中...");
-            return this.n11;
+            t.n13 = direct_1.createDiv();
+            direct_1.setClass(t.n13, 3730912968);
+            t.n14 = direct_1.createSpan();
+            direct_1.setStyle(t.n14, 42 /*fontSize*/, 30);
+            direct_1.setStyle(t.n14, 30 /*color*/, staticObj[4]);
+            direct_1.setText(t.n14, "断网重连中...");
+            return this.n13;
         }
         m(target, anchor) {
             let t = this,
                 w = t.w;
-            direct_1.append(t.n12, t.n11);
-            direct_1.insertBefore(t.n11, target, anchor);
+            direct_1.append(t.n14, t.n13);
+            direct_1.insertBefore(t.n13, target, anchor);
         }
         p() {
-            return this.n11;
+            return this.n13;
         }
     }
-    class B10 {
+    class B12 {
         constructor(widget, ctx) {
             this.w = widget;
             this._$ctx = ctx || widget._$info.ctx;
@@ -190,7 +221,7 @@ _$pi.define("app_b/main/main.vue.tpl", ["require", "exports", "module", "pi_gui/
                 w = t.w;
             let [v, i] = t._$ctx;
             this.$i = i;
-            t.n10 = direct_1.createWidget(btn_vue_1.default, w, {
+            t.n12 = direct_1.createWidget(btn_vue_1.default, w, {
                 attrs: {
                     key: i,
                     text: v[0]
@@ -209,16 +240,16 @@ _$pi.define("app_b/main/main.vue.tpl", ["require", "exports", "module", "pi_gui/
                     }
                 }
             });
-            return this.n10;
+            return this.n12;
         }
         d() {
             let t = this;
-            direct_1.destroyContext(t.n10);
+            direct_1.destroyContext(t.n12);
         }
         m(target, anchor) {
             let t = this,
                 w = t.w;
-            direct_1.mountChildWidget(t.n10, target, anchor);
+            direct_1.mountChildWidget(t.n12, target, anchor);
         }
         p() {
             let t = this,
@@ -234,8 +265,8 @@ _$pi.define("app_b/main/main.vue.tpl", ["require", "exports", "module", "pi_gui/
                 _$wAttrs.attrs = _$attrs;
             }
             ;
-            direct_1.patchAttrsForWidget(t.n10, _$wAttrs);
-            return this.n10;
+            direct_1.patchAttrsForWidget(t.n12, _$wAttrs);
+            return this.n12;
         }
         s(v, i) {
             let w = this.w;

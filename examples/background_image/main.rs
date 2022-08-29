@@ -14,8 +14,7 @@ use pi_ui_render::{
     components::user::{
          BackgroundImage, BorderRadius, CgColor, LengthUnit,
     },
-    gui::Gui,
-    resource::ClearColor,
+    resource::ClearColor, export::Engine,
 };
 use pi_style::style_type::{BackgroundImageType, BorderRadiusType, HeightType, MarginLeftType, MarginTopType,
 	PositionLeftType, PositionTopType, PositionTypeType, WidthType,
@@ -30,37 +29,37 @@ pub struct QuadExample;
 
 #[async_trait]
 impl Example for QuadExample {
-    async fn init(&mut self, gui: &mut Gui, size: (usize, usize)) {
+    async fn init(&mut self, gui: &mut Engine, size: (usize, usize)) {
         // 设置清屏颜色为绿色
-        gui.world_mut()
+        gui.gui.world_mut()
             .insert_resource(ClearColor(CgColor::new(0.0, 1.0, 1.0, 1.0)));
 
         // 添加根节点
-        let root = gui.create_node();
-        gui.set_style(root, WidthType(Dimension::Points(size.0 as f32)));
-        gui.set_style(root, HeightType(Dimension::Points(size.1 as f32)));
+        let root = gui.gui.create_node();
+        gui.gui.set_style(root, WidthType(Dimension::Points(size.0 as f32)));
+        gui.gui.set_style(root, HeightType(Dimension::Points(size.1 as f32)));
 
-        gui.set_style(root, PositionTypeType(PositionType::Absolute));
-        gui.set_style(root, PositionLeftType(Dimension::Points(0.0)));
-        gui.set_style(root, PositionTopType(Dimension::Points(0.0)));
-        gui.set_style(root, MarginLeftType(Dimension::Points(0.0)));
-        gui.set_style(root, MarginTopType(Dimension::Points(0.0)));
+        gui.gui.set_style(root, PositionTypeType(PositionType::Absolute));
+        gui.gui.set_style(root, PositionLeftType(Dimension::Points(0.0)));
+        gui.gui.set_style(root, PositionTopType(Dimension::Points(0.0)));
+        gui.gui.set_style(root, MarginLeftType(Dimension::Points(0.0)));
+        gui.gui.set_style(root, MarginTopType(Dimension::Points(0.0)));
 
-        gui.append(root, Id::null());
+        gui.gui.append(root, Id::null());
 
         // 添加一个红色div
-        let div1 = gui.create_node();
-        gui.set_style(div1, WidthType(Dimension::Points(50.0)));
-        gui.set_style(div1, HeightType(Dimension::Points(100.0)));
-        // gui.set_style(div1, BackgroundColorType (BackgroundColor(Color::RGBA(CgColor::new(1.0, 0.0, 0.0, 1.0)) )));
+        let div1 = gui.gui.create_node();
+        gui.gui.set_style(div1, WidthType(Dimension::Points(50.0)));
+        gui.gui.set_style(div1, HeightType(Dimension::Points(100.0)));
+        // gui.gui.set_style(div1, BackgroundColorType (BackgroundColor(Color::RGBA(CgColor::new(1.0, 0.0, 0.0, 1.0)) )));
 
-        gui.set_style(
+        gui.gui.set_style(
             div1,
             BackgroundImageType(BackgroundImage(Atom::from(
                 "examples/background_image/source/dialog_bg.png",
             ))),
         );
-        gui.set_style(
+        gui.gui.set_style(
             div1,
             BorderRadiusType(BorderRadius {
                 x: LengthUnit::Pixel(10.0),
@@ -68,10 +67,10 @@ impl Example for QuadExample {
             }),
         );
 
-        gui.append(div1, root);
+        gui.gui.append(div1, root);
     }
 
-    fn render(&mut self, gui: &mut Gui) {
-        gui.run();
+    fn render(&mut self, gui: &mut Engine) {
+        gui.gui.run();
     }
 }

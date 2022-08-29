@@ -1,15 +1,15 @@
 use bitvec::array::BitArray;
 use pi_assets::asset::Handle;
 use pi_ecs::entity::Id;
+use pi_postprocess::{postprocess::PostProcess};
 use pi_render::{
 	graph::node::NodeId, 
 	rhi::{bind_group::BindGroup, asset::RenderRes, buffer::Buffer}, components::view::target_alloc::ShareTargetView
 };
-use pi_slotmap::{DefaultKey, SecondaryMap};
 
 use super::{
 	draw_obj::{DrawKey, DrawGroup}, 
-	user::{Aabb2, Point2, Matrix4}, calc::{DrawInfo, ZRange}
+	user::{Aabb2, Point2, Matrix4}, calc::{DrawInfo, ZRange, WorldMatrix}
 };
 
 /// 一个渲染Pass
@@ -21,9 +21,9 @@ pub type Pass2DKey = Id<Pass2D>;
 #[derive(Debug)]
 pub struct Camera {
 	// pub view: Option<Matrix4>,
-    // pub project: Matrix4,
+    pub project: Matrix4,
 	pub bind_group: Option< DrawGroup >,
-	pub view_port: Aabb2,
+	pub view_port: Aabb2, // 视口区域（相对于全局的0,0点）
 	pub world_matrix: Matrix4, // 将该相机内容整体渲染到其他目标时，所用的世界矩阵
 }
 
@@ -31,7 +31,7 @@ impl Default for Camera {
     fn default() -> Self {
         Self { 
 			// view: None, 
-			// project: Default::default(),
+			project: Default::default(),
 			bind_group: None,
 			view_port: Aabb2::new(Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)),
 			world_matrix: Matrix4::default(),
@@ -130,18 +130,18 @@ pub enum DirtyRectState {
 	Inited,
 }
 
-/// 后处理
-#[derive(Clone)]
-pub struct PostProcess {
-	pub draw_obj_key: DrawKey, // 渲染对象的Key
-	pub texture_bind_index: usize, // 纹理bing_group的索引
-	pub uv_vb_index: usize, // uv buffer在vbs中的索引
+// /// 后处理
+// #[derive(Clone)]
+// pub struct PostProcess {
+// 	pub draw_obj_key: DrawKey, // 渲染对象的Key
+// 	pub texture_bind_index: usize, // 纹理bing_group的索引
+// 	pub uv_vb_index: usize, // uv buffer在vbs中的索引
 
-	pub result: Option<PostTemp>, // 处理目标
+// 	pub result: Option<PostTemp>, // 处理目标
 
-	pub width: u32, // 后处理渲染目标宽度
-	pub height: u32, // 后处理渲染目标高度
-}
+// 	pub width: u32, // 后处理渲染目标宽度
+// 	pub height: u32, // 后处理渲染目标高度
+// }
 
 #[derive(Clone)]
 pub struct PostTemp {
@@ -151,28 +151,56 @@ pub struct PostTemp {
 	pub uv: Handle<RenderRes<Buffer>>,
 }
 
-impl PostProcess {
-	pub fn new(
-		draw_obj_key: DrawKey, 
-		texture_bind_index: usize, 
-		uv_vb_index: usize,
-		width: u32,
-		height: u32,
-	) -> Self {
-		Self {
-			draw_obj_key,
-			texture_bind_index,
-			uv_vb_index,
-			width,
-			height,
-			result: None,
-		}
-	}
+// impl PostProcess {
+// 	pub fn new(
+// 		draw_obj_key: DrawKey, 
+// 		texture_bind_index: usize, 
+// 		uv_vb_index: usize,
+// 		width: u32,
+// 		height: u32,
+// 	) -> Self {
+// 		Self {
+// 			draw_obj_key,
+// 			texture_bind_index,
+// 			uv_vb_index,
+// 			width,
+// 			height,
+// 			result: None,
+// 		}
+// 	}
+// }
+
+// /// 后处理列表
+// #[derive(Default, Clone)]
+// pub struct PostProcessList(pub SecondaryMap<DefaultKey, PostProcess>, pub DefaultKey/*最后一个后处理的key */);
+pub struct PostProcessList {
+	post: PostProcess,
+	pub cur_result: Option<(ShareTargetView, Handle<RenderRes<BindGroup>>)>,
+	pub depth: f32,
+	pub view_port: Aabb2,
+	pub matrix: WorldMatrix, // 矩阵变换
+	// pub src: Option<ShareTargetView>,
 }
 
-/// 后处理列表
-#[derive(Default, Clone)]
-pub struct PostProcessList(pub SecondaryMap<DefaultKey, PostProcess>, pub DefaultKey/*最后一个后处理的key */);
+impl Default for PostProcessList {
+    fn default() -> Self {
+        Self { post: Default::default(), cur_result: Default::default(), depth: Default::default(), view_port: Aabb2::new(Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)), matrix: Default::default() }
+    }
+}
+
+impl std::ops::Deref for PostProcessList {
+    type Target = PostProcess;
+
+    fn deref(&self) -> &Self::Target {
+        &self.post
+    }
+}
+
+impl std::ops::DerefMut for PostProcessList {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.post
+    }
+}
 
 /// 
 pub enum RenderTarget {

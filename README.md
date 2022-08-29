@@ -3,6 +3,23 @@ TODO
 样式默认值
 文字阴影
 文字异步渲染
-样式解析
-每个renderObject判断是否半透明
+渲染管线异步
 圆角锯齿
+调试工具
+跑通项目
+ecs支持foreach
+文档
+border-image, fill时，使用repeat填充中间部分
+接入动画（动画运行system、动画css解析，js层兼容，构建系统兼容）
+
+
+
+1. 后处理， draw_final, src最好是所有权，否则会有生命周期问题
+2. 后处理， calc colorstate 最好是传引用
+3. 后处理， [Bgra8Unorm] != [Rgba8UnormSrgb]
+4. 后处理，min_uniform_buffer_offset_alignment问题
+5. 后处理，hsi问题
+6. PostProcessGeometryManager、PostProcessMaterialMgr实现default
+7. 后处理，Attempted to use texture (5, 1, Vulkan) mips 0..1 layers 0..1 as a combination of COLOR_TARGET within a usage scope.
+8. map_reduce必须事先指定任务数量的容量（但实际应用中，不容易事先确定任务数量）
+

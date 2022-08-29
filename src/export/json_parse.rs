@@ -44,6 +44,12 @@ impl FromJsonValue for u32 {
 	}
 }
 
+impl FromJsonValue for i32 {
+	fn from(json_value: &JsonValue) -> Option<Self> {
+		json_value.as_i32()
+	}
+}
+
 impl FromJsonValue for u8 {
 	fn from(json_value: &JsonValue) -> Option<Self> {
 		json_value.as_u8()

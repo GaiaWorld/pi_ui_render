@@ -51,18 +51,23 @@ _$pi.define("app_c/fight/ecs/round_skill/skillModel.struct", ["require", "export
     struct_mgr_1.structMgr.register(SkillModel._$info.name_hash, SkillModel, SkillModel._$info.name);
     SkillModel.prototype.__create = function (o) {
         let r = new SkillModel();
+        r.__ = o;
         r.id = o[0];
-        r.name = o[1];
-        r.castPreDelay = o[2];
-        r.castAfterDelay = o[3];
-        r.targetReSelect = o[4];
-        r.castBuffID = o[5];
-        r.hitBuffID = o[6];
-        r.beHitBuffID = o[7];
-        r.skillWay = o[8];
-        r.skillType = o[9];
-        r.skillGroup = o[10];
-        r.targetType = o[11];
         return r;
+    };
+    SkillModel.prototype.__init = function () {
+        this.name = this.__[1];
+        this.castPreDelay = this.__[2];
+        this.castAfterDelay = this.__[3];
+        this.targetReSelect = this.__[4];
+        this.castBuffID = this.__[5];
+        this.hitBuffID = this.__[6];
+        this.beHitBuffID = this.__[7];
+        this.skillWay = this.__[8];
+        this.skillType = this.__[9];
+        this.skillGroup = this.__[10];
+        this.targetType = this.__[11];
+        delete this.__;
+        return this;
     };
 });

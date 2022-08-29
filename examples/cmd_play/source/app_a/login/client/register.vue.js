@@ -1,4 +1,4 @@
-_$pi.define("app_a/login/client/register.vue", ["require", "exports", "module", "pi_gui/widget/direct", "./register.vue.tpl", "pi_common/sdk/index", "pi_gui/widget/direct", "pi_common/sso/sso_client", "pi_common/ui/main_root", "app_a/widget/tips/tips.vue"], function (require, exports, module, direct_1, register_vue_tpl_1, index_1, direct_2, sso_client_1, main_root_1, tips_vue_1) {
+_$pi.define("app_a/login/client/register.vue", ["require", "exports", "module", "pi_gui/widget/direct", "./register.vue.tpl", "pi_common/sdk/index", "pi_common/sso/sso_client", "pi_common/ui/main_root", "app_a/widget/tips/tips.vue"], function (require, exports, module, direct_1, register_vue_tpl_1, index_1, sso_client_1, main_root_1, tips_vue_1) {
     "use strict";
 
     exports.initMeta = exports.closeRegister = void 0;
@@ -40,7 +40,7 @@ _$pi.define("app_a/login/client/register.vue", ["require", "exports", "module", 
         }
 
         closeClick() {
-            direct_2.emit(this, "cancel");
+            main_root_1.close(w);
         }
     }
     exports.default = Register;

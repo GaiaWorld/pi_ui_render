@@ -19,7 +19,7 @@ impl CalcQuad {
 	#[listen(component = (Node, WorldMatrix, (Create, Modify)))]
 	pub fn calc_quad(e: Event, query: Query<Node, (&WorldMatrix, &LayoutResult)>, mut oct: Query<Node, Write<Quad>>) {
 		let id = e.id;
-		let (world_matrix, layout) = query.get_unchecked_by_entity(id);
+		let (world_matrix, layout ) = query.get_unchecked_by_entity(id);
 		let width = layout.rect.right - layout.rect.left;
 		let height = layout.rect.bottom - layout.rect.top;
 		let aabb = calc_bound_box(&Aabb2::new(Point2::new(0.0, 0.0), Point2::new(width, height)), world_matrix);

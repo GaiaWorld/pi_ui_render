@@ -4,22 +4,14 @@
 mod framework;
 
 use async_trait::async_trait;
-use font_kit::font::{new_face_by_path, Face};
+use font_kit::font::{new_face_by_path};
 use framework::Example;
 use ordered_float::NotNan;
 use pi_atom::Atom;
 /// 渲染四边形 demo
-use pi_ecs::prelude::Id;
-use pi_flex_layout::style::{Dimension, PositionType};
-use pi_null::Null;
 use pi_render::font::{FontSheet, Font};
 use pi_share::{Share, ShareCell};
-use pi_ui_render::{
-	gui::Gui, 
-	components::user::{Color, CgColor, TextContent, FontSize, Stroke, BackgroundColor}, 
-	resource::ClearColor
-};
-use pi_style::style_type::{WidthType, HeightType, PositionTypeType, PositionLeftType, PositionTopType, MarginLeftType, MarginTopType, TextContentType, FontFamilyType, ColorType, FontSizeType, TextStrokeType, BackgroundColorType};
+use pi_ui_render::export::Engine;
 
 fn main() {
 	framework::start(QuadExample::default())
@@ -32,8 +24,8 @@ pub struct QuadExample;
 impl Example for QuadExample {
     async fn init(
 		&mut self, 
-		gui: &mut Gui, 
-		size: (usize, usize),
+		gui: &mut Engine, 
+		_size: (usize, usize),
 	) {
 		let mut dir = std::env::current_dir().unwrap();
 		log::info!("dir: {:?}", dir);
@@ -66,7 +58,7 @@ impl Example for QuadExample {
 		// }
 		// println!("measure_width time, 10000 times: {:?}, {:?}", std::time::Instant::now() - time, r);
 		
-		let font_sheet = gui.world_mut().get_resource::<Share<ShareCell<FontSheet>>>().unwrap();
+		let font_sheet = gui.gui.world_mut().get_resource::<Share<ShareCell<FontSheet>>>().unwrap();
 		let mut font_sheet = font_sheet.borrow_mut();
 		
 		
@@ -105,8 +97,8 @@ impl Example for QuadExample {
 		
 	}
 	
-	fn render(&mut self, gui: &mut Gui) {
-		gui.run();
+	fn render(&mut self, gui: &mut Engine) {
+		gui.gui.run();
 	}
 }
 

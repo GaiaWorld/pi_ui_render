@@ -1,9 +1,38 @@
-.2007432099{
-		width:100%;
-		height:100%;
-		overflow: hidden;
-	}
-.1930344334{
+.c2007432099{
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+.c1788886023{
+  width: 150px;
+  height: 70px;
+  position: relative;
+  justify-content: center;
+  align-content: center;
+  align-items: center;
+  box-sizing: border-box;
+  border-radius: 4px;
+}
+
+.c2945504111{
+  background-color: #409eff;
+}
+
+.c762853237{
+  background-color: #66b1ff;
+}
+.c3335677674{
+  width: 100%;
+  height: 100%;
+  position: absolute;
+}
+.c1533485562{
+  font-size: 36px;
+  color: #ffffff;
+  letter-spacing: 6px;
+  font-weight: 500;
+}
+.c1930344334{
   position: absolute;
   top: 0;
   left: 0;
@@ -13,14 +42,14 @@
   display: flex;
   flex-direction: column;
 }
-.1416142503{
+.c1416142503{
   width: 100%;
   position: absolute;
   top: 200px;
   flex-direction: column;
   align-items: center;
 }
-.465260905{
+.c465260905{
   display: block;
   width: 100px;
   line-height: 100px;
@@ -29,32 +58,32 @@
   font-size: 30px;
   text-align: center;
 }
-.2832839680{
+.c2832839680{
   width: 400px;
   height: 100px;
   position: relative;
-  background-color: rgb(238, 224, 101);
+  background-color: rgb(238,224,101);
   border-width: 1px;
   border-color: #222;
   overflow: hidden;
   font-size: 26px;
 }
-.1241542540{
+.c1241542540{
   height: 100%;
   width: 100%;
   outline: none;
   color: #222;
   font-size: 26px;
 }
-.410461502{
+.c410461502{
   width: auto;
   font-size: 30px;
   color: #222;
   line-height: 100px;
 }
-.1125367651{
+.c1125367651{
   font-size: 30px;
-  background-color: rgb(8, 247, 167);
+  background-color: rgb(8,247,167);
   width: 200px;
   line-height: 100px;
   margin: 10px;

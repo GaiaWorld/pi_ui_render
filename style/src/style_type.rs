@@ -13,6 +13,8 @@ use crate::style::{
 
 };
 
+use pi_print_any::{println_any, out_any};
+
 // 全局Class样式表
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct ClassSheet {
@@ -170,10 +172,12 @@ macro_rules! write_buffer {
 			let len = buffer.len();
 			buffer.reserve(ty_size + value_size);
 			buffer.set_len(len + ty_size + value_size);
+
+			// println_any!("write, value: {:?}, start: {:?}, end: {:?}", Self, len, len + ty_size + value_size);
 	
-			let ty = self.get_type();
+			let ty = self.get_style_index();
 			std::ptr::copy_nonoverlapping(
-				&ty as *const StyleType as *const u8,
+				&ty as *const u8,
 				buffer.as_mut_ptr().add(len),
 				ty_size,
 			);
@@ -194,8 +198,11 @@ macro_rules! set {
         fn set(&self, cur_style_mark: &mut BitArray<[u32;3]>, buffer: &Vec<u8>, offset: usize, query: &mut StyleQuery, entity: Id<Node>){
 			// 取不到说明实体已经销毁
 			let mut item = query.$name.get_unchecked_mut(entity);
+			
+			println_any!("set======offset{:?}, end： {:?}, len:{:?}, type: {:?}", offset, offset + std::mem::size_of::<$value_ty>(), buffer.len(), std::any::type_name::<$value_ty>());
 			let v = unsafe {buffer.as_ptr().add(offset).cast::<$value_ty>().read_unaligned()};
-			// println_any!("set======{:?}", &v);
+			println_any!("set======{:?}, {:?}", &v, &entity);
+			
 			// let name = std::any::type_name_of_val(&v);
 			// if name.find("BackgroundImage").is_some() {
 			// 	print!("zzzzzzzzzzzzzz");
@@ -210,8 +217,10 @@ macro_rules! set {
         fn set(&self, cur_style_mark: &mut BitArray<[u32;3]>, buffer: &Vec<u8>, offset: usize, query: &mut StyleQuery, entity: Id<Node>) {
 			// 取不到说明实体已经销毁
 			let mut item = query.$name.get_unchecked_mut(entity);
+			println_any!("set======offset{:?}, end： {:?}, len:{:?}, type: {:?}", offset, offset + std::mem::size_of::<$value_ty>(), buffer.len(), std::any::type_name::<$value_ty>());
 			let v = unsafe {buffer.as_ptr().add(offset).cast::<$value_ty>().read_unaligned()};
 			let component = item.get_mut_or_default();
+			println_any!("set======{:?}, {:?}", &v, &entity);
 			component.$feild = v; 
 			cur_style_mark.set(self.get_type() as usize, true);
 			item.notify_modify();
@@ -222,8 +231,10 @@ macro_rules! set {
         fn set(&self, cur_style_mark: &mut BitArray<[u32;3]>, buffer: &Vec<u8>, offset: usize, query: &mut StyleQuery, entity: Id<Node>) {
 			// 取不到说明实体已经销毁
 			let mut item = query.$name.get_unchecked_mut(entity);
+			println_any!("set======offset{:?}, end： {:?}, len:{:?}, type: {:?}", offset, offset + std::mem::size_of::<$value_ty>(), buffer.len(), std::any::type_name::<$value_ty>());
 			let v = unsafe {buffer.as_ptr().add(offset).cast::<$value_ty>().read_unaligned()};
 			let component = item.get_mut_or_default();
+			println_any!("set======{:?}, {:?}", &v, &entity);
 			component.$set_func(v);
 			cur_style_mark.set(self.get_type() as usize, true);
 			item.notify_modify();
@@ -235,7 +246,9 @@ macro_rules! set {
         fn set(&self, cur_style_mark: &mut BitArray<[u32;3]>, buffer: &Vec<u8>, offset: usize, query: &mut StyleQuery, entity: Id<Node>) {
 			// 取不到说明实体已经销毁
 			let mut item = query.$name.get_unchecked_mut(entity);
+			println_any!("set======offset{:?}, end： {:?}, len:{:?}, type: {:?}", offset, offset + std::mem::size_of::<$value_ty>(), buffer.len(), std::any::type_name::<$value_ty>());
 			let v = unsafe {buffer.as_ptr().add(offset).cast::<$value_ty>().read_unaligned()};
+			println_any!("set======{:?}, {:?}", &v, &entity);
 			let component = item.get_mut_or_default();
 			component.$feild1.$feild2 = v;
 			cur_style_mark.set(self.get_type() as usize, true);
@@ -248,7 +261,9 @@ macro_rules! set {
         fn set(&self, cur_style_mark: &mut BitArray<[u32;3]>, buffer: &Vec<u8>, offset: usize, query: &mut StyleQuery, entity: Id<Node>){
 			// 取不到说明实体已经销毁
 			let mut item = query.$name.get_unchecked_mut(entity);
+			println_any!("set======offset{:?}, end： {:?}, len:{:?}, type: {:?}", offset, offset + std::mem::size_of::<$value_ty>(), buffer.len(), std::any::type_name::<$value_ty>());
 			let v = unsafe {buffer.as_ptr().add(offset).cast::<$value_ty>().read_unaligned()};
+			println_any!("set box======{:?}, {:?}, {:?}", &item, &v, entity);
 			let component = item.get_mut_or_default();
 			component.top = v.top;
 			component.right = v.right;
@@ -311,6 +326,7 @@ macro_rules! reset {
 	};
 	($name: ident, $value_ty: ident) => {
         fn set(&self, _cur_style_mark: &mut BitArray<[u32;3]>, _buffer: &Vec<u8>, _offset: usize, query: &mut StyleQuery, entity: Id<Node>) {
+			println_any!("reset set======offset{:?}", _offset);
 			// 取不到说明实体已经销毁
 			let mut item = query.$name.get_unchecked_mut(entity);
 			let v = item.get_default().clone();
@@ -320,6 +336,7 @@ macro_rules! reset {
 	// 属性修改
 	($name: ident, $feild: ident) => {
         fn set(&self, cur_style_mark: &mut BitArray<[u32;3]>, buffer: &Vec<u8>, offset: usize, query: &mut StyleQuery, entity: Id<Node>) {
+			println_any!("reset set======offset{:?}", _offset);
 			// 取不到说明实体已经销毁
 			let mut item = query.$name.get_unchecked_mut(entity);
 			let v = item.get_default().$feild.clone();
@@ -331,6 +348,7 @@ macro_rules! reset {
 	// 属性修改
 	(@func $name: ident, $set_func: ident, $get_func: ident) => {
         fn set(&self, _cur_style_mark: &mut BitArray<[u32;3]>, _buffer: &Vec<u8>, _offset: usize, query: &mut StyleQuery, entity: Id<Node>) {
+			println_any!("reset set======offset{:?}", _offset);
 			// 取不到说明实体已经销毁
 			let mut item = query.$name.get_unchecked_mut(entity);
 			let v = item.get_default().$get_func();
@@ -342,6 +360,7 @@ macro_rules! reset {
 	// 属性修改
 	($name: ident, $feild1: ident, $feild2: ident) => {
         fn set(&self, _cur_style_mark: &mut BitArray<[u32;3]>, _buffer: &Vec<u8>, _offset: usize, query: &mut StyleQuery, entity: Id<Node>) {
+			println_any!("reset set======offset{:?}", _offset);
 			// 取不到说明实体已经销毁
 			let mut item = query.$name.get_unchecked_mut(entity);
 			let v = item.get_default().$feild1.$feild2.clone();
@@ -353,6 +372,7 @@ macro_rules! reset {
 	// 属性修改
 	(@box_model_single $name: ident, $feild: ident, $ty_all: ident) => {
         fn set(&self, cur_style_mark: &mut BitArray<[u32;3]>, _buffer: &Vec<u8>, _offset: usize, query: &mut StyleQuery, entity: Id<Node>) {
+			println_any!("reset set======offset{:?}", _offset);
 			// 单个盒模型属性重置
 			// 如：重置MarginLeft，只有在没有设置Margin属性的时候才能够重置
 			if cur_style_mark[StyleType::$ty_all as usize] {
@@ -369,6 +389,7 @@ macro_rules! reset {
 
 	(@box_model $name: ident, $ty: ident) => {
         fn set(&self, cur_style_mark: &mut BitArray<[u32;3]>, _buffer: &Vec<u8>, _offset: usize, query: &mut StyleQuery, entity: Id<Node>) {
+			println_any!("reset set======offset{:?}", _offset);
 			// 设置为默认值 TODO
 			let mut item = query.$name.get_unchecked_mut(entity);
 			let default_value = item.get_default().clone();
@@ -1097,6 +1118,7 @@ impl StyleAttr {
 	pub unsafe fn write<T: Attr>(value: T, buffer: &mut Vec<u8>) {
 		// let start = buffer.len();
 		value.write(buffer);
+		forget(value);
 		// log::info!("write style: {:?}, start:{:?}, end: {}", std::any::type_name::<T>(), start, buffer.len());
 	}
 

@@ -2,9 +2,9 @@
 use std::{time::Instant, sync::{Arc, Mutex}};
 
 use pi_async::rt::{AsyncRuntimeBuilder, worker_thread::WorkerRuntime, AsyncRuntime};
-use pi_ecs::{prelude::{StageBuilder, SingleDispatcher, ResMut, IntoSystem}, world::World};
+use pi_ecs::{prelude::{StageBuilder, SingleDispatcher, ResMut, IntoSystem, Res}, world::World};
 use pi_render::{rhi::options::RenderOptions, init_render, components::view::{target_alloc::ShareTargetView, render_window::{RenderWindow, RenderWindows}}};
-use pi_share::{ShareRefCell, Share};
+use pi_share::{Share, ShareMutex, ShareRwLock};
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::wasm_bindgen;
 use wgpu::PresentMode;
@@ -26,14 +26,22 @@ pub mod style;
 // pub struct Gui(pub crate::gui::Gui);
 
 pub struct Engine {
-	win: Arc<Window>,
-	dispatcher: SingleDispatcher<WorkerRuntime>,
-	world: World,
-	rt: WorkerRuntime,
-	gui: crate::gui::Gui,
+	pub win: Arc<Window>,
+	pub dispatcher: SingleDispatcher<WorkerRuntime>,
+	pub world: World,
+	pub rt: WorkerRuntime,
+	pub gui: crate::gui::Gui,
 }
 
-pub fn create_engine(win: &Arc<Window>, r: u32) -> Engine {
+pub struct DispatchEnd(pub ShareMutex<bool>);
+
+impl Default for DispatchEnd {
+    fn default() -> Self {
+        Self(ShareMutex::new(true))
+    }
+}
+
+pub fn create_engine(win: &Arc<Window>, _r: f64) -> Engine {
 	let size = win.inner_size();
 	let runtime = AsyncRuntimeBuilder::default_worker_thread(
 		None,
@@ -44,11 +52,13 @@ pub fn create_engine(win: &Arc<Window>, r: u32) -> Engine {
 
 	let mut world = World::new();
 
+	world.insert_resource(DispatchEnd::default());
+
 	let mut world1 = world.clone();
-	let mut win1 = win.clone();
+	let win1 = win.clone();
 	let rt = runtime.clone();
 
-	let mut result: ShareRefCell<Option<(Gui, SingleDispatcher<WorkerRuntime>)>> = ShareRefCell::new(None);
+	let mut result: Share<ShareRwLock<Option<(Gui, SingleDispatcher<WorkerRuntime>)>>> = Share::new(ShareRwLock::new(None));
 	let result1 = result.clone();
 
 	let _ = runtime.spawn(runtime.alloc(), async move {
@@ -77,14 +87,24 @@ pub fn create_engine(win: &Arc<Window>, r: u32) -> Engine {
 		stages.push(Arc::new(render_stages.prepare_stage.build(world)));
 		stages.push(Arc::new(render_stages.render_stage.build(world)));
 
+		let mut last_stage = StageBuilder::new();
+
+		let last_run = move |end: Res<DispatchEnd>| {
+			let mut l = end.0.lock();
+			// println!("set end true, {:?}, {:p}", *l, &end.0);
+			*l = true;
+		};
+		last_stage.add_node(IntoSystem::system(last_run, world));
+		stages.push(Arc::new(last_stage.build(world)));
+
 		let mut dispatcher = SingleDispatcher::new(rt);
 		dispatcher.init(stages, world);
 
-		*result1.0.borrow_mut() = Some((gui, dispatcher));
+		*result1.write() = Some((gui, dispatcher));
 	});
 	loop {
-		if result.0.borrow().is_some() {
-			match Share::try_unwrap(result.0) {
+		if result.read().is_some() {
+			match Share::try_unwrap(result) {
 				Ok(r) => {
 					let r = r.into_inner().unwrap();
 					let engine = Box::new(Engine {
@@ -96,7 +116,7 @@ pub fn create_engine(win: &Arc<Window>, r: u32) -> Engine {
 					});
 					return Box::into_inner(engine);
 				}
-				Err(r) => result = ShareRefCell(r),
+				Err(r) => result = r,
 			}
 		}
 	}

@@ -16,12 +16,11 @@ use pi_atom::Atom;
 use pi_flex_layout::prelude::Size;
 use pi_hash::XHashMap;
 use pi_idtree::IdTree;
-use pi_ui_render::{gui::Gui, export::style::*, export::json_parse::as_value};
+use pi_ui_render::{export::{style::*, Engine}, export::json_parse::as_value};
 
 use pi_style::{style_type::ClassSheet, style_parse::parse_class_map_from_string};
 
 // 
-
 fn main() {
 	framework::start(ExampleCommonPlay::default())
 }
@@ -49,7 +48,7 @@ impl Default for ExampleCommonPlay {
 			},
 			list_index: 0, 
 			file_index: 0,
-			play_version: "main".to_string(), 
+			play_version: "test".to_string(), 
 			json_arr: JsonValue::Array(Vec::default()),
 			// width: 400,
 			// height: 750,
@@ -65,7 +64,7 @@ impl Default for ExampleCommonPlay {
 impl Example for ExampleCommonPlay {
 	async fn init(
 		&mut self, 
-		gui: &mut Gui, 
+		gui: &mut Engine, 
 		size: (usize, usize),
 	) {
 		let mut dir = std::env::current_dir().unwrap();
@@ -82,24 +81,26 @@ impl Example for ExampleCommonPlay {
 			let file = read(dwcss.path());
 			if let Ok(r) = file {
 				let file = String::from_utf8(r).unwrap();
-				parse_class_map_from_string(file.as_str(), &mut class_sheet).unwrap();
+				parse_class_map_from_string(file.as_str()).unwrap().to_class_sheet(&mut class_sheet);
 			}
 		};
 		visit_dirs(&Path::new("dwcss/"), &mut cb).unwrap();
 
-		let full_screen_class = format!(".3165071837 {{position : absolute ;left : 0px ;top : 0px ;width : {:?}px ;height : {:?}px ;}}", self.width, self.height);
-		parse_class_map_from_string(full_screen_class.as_str(), &mut class_sheet).unwrap();
+
+		let full_screen_class = format!(".c3165071837 {{position : absolute ;left : 0px ;top : 0px ;width : {:?}px ;height : {:?}px ;}}", self.width, self.height);
+		parse_class_map_from_string(full_screen_class.as_str()).unwrap().to_class_sheet(&mut class_sheet);
 		
 
-		match gui.world_mut().get_resource_mut::<ClassSheet>() {
+		match gui.gui.world_mut().get_resource_mut::<ClassSheet>() {
 			Some(r) => r.extend_from_class_sheet(class_sheet),
-			None => {gui.world_mut().insert_resource(class_sheet);},
+			None => {gui.gui.world_mut().insert_resource(class_sheet);},
 		};
 		
-
-		let gui = unsafe { &mut *(gui as *mut Gui as usize as *mut pi_ui_render::export::Gui)};
+		// let gui = &mut gui.gui;
+		// let gui = unsafe { &mut *(gui as *mut Gui as usize as *mut pi_ui_render::export::Gui)};
 		let context = &mut self.play_context;
 		context.atoms.insert(3781626326, Atom::from("_$text"));
+		context.atoms.insert(11, Atom::from(""));
 
 		let mut json = Object::new();
 		json.insert("ret", JsonValue::Number(1.into()));
@@ -121,7 +122,7 @@ impl Example for ExampleCommonPlay {
 		play_append_child(gui, context, &vec![JsonValue::Number(Number::from(1)), JsonValue::Number(Number::from(0))]);
 
 
-		for i in 2..21 {
+		for i in 2..22 {
 			json.insert("ret", JsonValue::Number(i.into()));
 			let _notch_bar = play_create_node(gui, context, &vec![JsonValue::Object(json.clone())]);
 			play_width_percent(gui, context, &vec![JsonValue::Number(Number::from(i)), JsonValue::Number(Number::from(1.0))]);
@@ -138,8 +139,9 @@ impl Example for ExampleCommonPlay {
 		play_append_child(gui, context, &vec![JsonValue::Number(Number::from(21)), JsonValue::Number(Number::from(1))]);
 	}
 	
-	fn render(&mut self, gui: &mut Gui) {
-		let gui = unsafe { &mut *(gui as *mut Gui as usize as *mut pi_ui_render::export::Gui)};
+	fn render(&mut self, gui: &mut Engine) {
+		// let gui1 = unsafe { &mut *(gui as *mut Engine as usize as  *mut Gui)};
+		// let gui = unsafe { &mut *(gui as *mut Gui as usize as *mut pi_ui_render::export::Gui)};
 		let (mut list_index, mut file_index, json_arr) = (self.list_index, self.file_index, &mut self.json_arr);
 
 		if list_index >= json_arr.len() {
@@ -191,8 +193,8 @@ impl Example for ExampleCommonPlay {
 		}
 		self.list_index += 1;
 
-		let gui = unsafe { &mut *(gui as *mut pi_ui_render::export::Gui as usize as  *mut Gui)};
-		gui.run();
+		
+		gui.gui.run();
 	}
 
 	fn get_init_size(&self) -> Option<Size<u32>> {
@@ -219,7 +221,7 @@ pub fn visit_dirs<F: FnMut(&DirEntry)>(path: &Path, cb: &mut F) -> std::io::Resu
 }
 
 lazy_static! {
-    pub static ref CMD_LIST: Vec<fn (&mut pi_ui_render::export::Gui, &mut PlayContext, &Vec<json::JsonValue>) > = vec![
+    pub static ref CMD_LIST: Vec<fn (&mut Engine, &mut PlayContext, &Vec<json::JsonValue>) > = vec![
 		// 布局
 		play_position_type, // 1
 		play_display, // 1
@@ -411,45 +413,45 @@ lazy_static! {
 		play_todo, //play_box_shadow_v,
 		play_todo, //play_box_shadow_blur,
 	
-		play_todo, //"reset_text_content",
-		play_todo, //"reset_font_style",
-		play_todo, //"reset_font_weight",
-		play_todo, //"reset_font_size",
-		play_todo, //"reset_font_family",
-		play_todo, //"reset_letter_spacing",
-		play_todo, //"reset_word_spacing",
-		play_todo, //"reset_line_height",
-		play_todo, //"reset_indent",
-		play_todo, //"reset_white_space",
-		play_todo, //"reset_text_align",
+		play_reset_text_content, //"reset_text_content",
+		play_reset_font_style, //"reset_font_style",
+		play_reset_font_weight, //"reset_font_weight",
+		play_reset_font_size, //"reset_font_size",
+		play_reset_font_family, //"reset_font_family",
+		play_reset_letter_spacing, //"reset_letter_spacing",
+		play_reset_word_spacing, //"reset_word_spacing",
+		play_reset_line_height, //"reset_line_height",
+		play_reset_text_indent, //"reset_indent",
+		play_reset_white_space, //"reset_white_space",
+		play_reset_text_align, //"reset_text_align",
 		play_todo, //"reset_vertical_align",
-		play_todo, //"reset_color",
-		play_todo, //"reset_stroke",
-		play_todo, //"reset_text_shadow",
-		play_todo, //"reset_image",
-		play_todo, //"reset_image_clip",
-		play_todo, //"reset_object_fit",
-		play_todo, //"reset_border_image",
-		play_todo, //"reset_border_image_clip",
-		play_todo, //"reset_border_image_slice",
-		play_todo, //"reset_border_image_repeat",
-		play_todo, //"reset_border_color",
-		play_todo, //"reset_border_radius",
-		play_todo, //"reset_background_color",
-		play_todo, //"reset_box_shadow",
+		play_reset_text_rgba_color, //"reset_color",
+		play_reset_text_stroke, //"reset_stroke",
+		play_reset_text_shadow, //"reset_text_shadow",
+		play_reset_background_image, //"reset_image",
+		play_reset_image_clip, //"reset_image_clip",
+		play_reset_object_fit, //"reset_object_fit",
+		play_reset_border_image, //"reset_border_image",
+		play_reset_border_image_clip, //"reset_border_image_clip",
+		play_reset_border_image_slice, //"reset_border_image_slice",
+		play_reset_border_image_repeat, //"reset_border_image_repeat",
+		play_reset_border_color, //"reset_border_color",
+		play_reset_border_radius, //"reset_border_radius",
+		play_reset_background_rgba_color, //"reset_background_color",
+		play_reset_box_shadow, //"reset_box_shadow",
 		play_todo, //"reset_filter",
-		play_todo, //"reset_opacity",
-		play_todo, //"reset_direction",
+		play_reset_opacity, //"reset_opacity",
+		play_reset_flex_direction, //"reset_direction",
 		play_todo, //"reset_order",
-		play_todo, //"reset_flex_basis",
-		play_todo, //"reset_z_index",
+		play_reset_flex_basis, //"reset_flex_basis",
+		play_reset_zindex, //"reset_z_index",
 		play_todo, //"reset_transform",
 		play_todo, //"reset_transform_will_change",
-		play_todo, //"reset_overflow",
-		play_todo, //"reset_mask_image",
-		play_todo, //"reset_mask_image_clip",
-		play_todo, //"reset_width",
-		play_todo, //"reset_height",
+		play_reset_overflow, //"reset_overflow",
+		play_reset_mask_image, //"reset_mask_image",
+		play_reset_mask_image_clip, //"reset_mask_image_clip",
+		play_reset_width, //"reset_width",
+		play_reset_height, //"reset_height",
 		play_todo, //"reset_margin_top",
 		play_todo, //"reset_margin_right",
 		play_todo, //"reset_margin_bottom",
@@ -466,30 +468,30 @@ lazy_static! {
 		play_todo, //"reset_border_right",
 		play_todo, //"reset_border_bottom",
 		play_todo, //"reset_border_left",
-		play_todo, //"reset_min_width",
-		play_todo, //"reset_min_height",
-		play_todo, //"reset_max_width",
-		play_todo, //"reset_max_height",
-		play_todo, //"reset_justify_content",
-		play_todo, //"reset_flex_shrink",
-		play_todo, //"reset_flex_grow",
-		play_todo, //"reset_position_type",
-		play_todo, //"reset_flex_wrap",
-		play_todo, //"reset_flex_direction",
-		play_todo, //"reset_align_content",
-		play_todo, //"reset_align_items",
-		play_todo, //"reset_align_self",
-		play_todo, //"reset_blend_mode",
-		play_todo, //"reset_display",
-		play_todo, //"reset_visibility",
-		play_todo, //"reset_enable",
+		play_reset_min_width, //"reset_min_width",
+		play_reset_min_height, //"reset_min_height",
+		play_reset_max_width, //"reset_max_width",
+		play_reset_max_height, //"reset_max_height",
+		play_reset_justify_content, //"reset_justify_content",
+		play_reset_flex_shrink, //"reset_flex_shrink",
+		play_reset_flex_grow, //"reset_flex_grow",
+		play_reset_position_type, //"reset_position_type",
+		play_reset_flex_wrap, //"reset_flex_wrap",
+		play_reset_flex_direction, //"reset_flex_direction",
+		play_reset_align_content, //"reset_align_content",
+		play_reset_align_items, //"reset_align_items",
+		play_reset_align_self, //"reset_align_self",
+		play_reset_blend_mode, //"reset_blend_mode",
+		play_reset_display, //"reset_display",
+		play_reset_visibility, //"reset_visibility",
+		play_reset_enable, //"reset_enable",
 	
 	
 		set_atom, //"__$set_atom",
 	];
 }
 
-pub fn play_todo(_gui: &mut pi_ui_render::export::Gui, _context: &mut PlayContext, _json: &Vec<json::JsonValue>) {
+pub fn play_todo(_gui: &mut Engine, _context: &mut PlayContext, _json: &Vec<json::JsonValue>) {
 	
 }
 
@@ -503,7 +505,7 @@ pub fn play_todo(_gui: &mut pi_ui_render::export::Gui, _context: &mut PlayContex
 // 	std::thread::sleep( Duration::from_millis(16));
 // }
 
-pub fn set_atom(_gui: &mut pi_ui_render::export::Gui, context: &mut PlayContext, json: &Vec<json::JsonValue>) {
+pub fn set_atom(_gui: &mut Engine, context: &mut PlayContext, json: &Vec<json::JsonValue>) {
 	let hash = as_value::<usize>(json, 0).unwrap();
 	
 	match context.atoms.entry(hash) {

@@ -31,6 +31,19 @@ _$pi.define("app_c/demo/pi_common/pay/pay.vue.tpl", ["require", "exports", "modu
             });
             t.n4 = direct_1.createWidget(btn_vue_1.default, w, {
                 attrs: {
+                    text: "ohy_sdk支付"
+                },
+                class: 1628997160,
+                events: {
+                    "pointerclick": $event => {
+                        let r = w.click('ohy_sdk');
+                        $event && typeof $event === "object" && ($event.stopPropagation = r);
+                        return r;
+                    }
+                }
+            });
+            t.n5 = direct_1.createWidget(btn_vue_1.default, w, {
+                attrs: {
                     text: "微信支付"
                 },
                 class: 1628997160,
@@ -42,7 +55,7 @@ _$pi.define("app_c/demo/pi_common/pay/pay.vue.tpl", ["require", "exports", "modu
                     }
                 }
             });
-            t.n5 = direct_1.createWidget(btn_vue_1.default, w, {
+            t.n6 = direct_1.createWidget(btn_vue_1.default, w, {
                 attrs: {
                     text: "支付宝支付"
                 },
@@ -55,7 +68,7 @@ _$pi.define("app_c/demo/pi_common/pay/pay.vue.tpl", ["require", "exports", "modu
                     }
                 }
             });
-            t.n6 = direct_1.createWidget(btn_vue_1.default, w, {
+            t.n7 = direct_1.createWidget(btn_vue_1.default, w, {
                 attrs: {
                     text: "微信网页支付 "
                 },
@@ -68,7 +81,7 @@ _$pi.define("app_c/demo/pi_common/pay/pay.vue.tpl", ["require", "exports", "modu
                     }
                 }
             });
-            t.n7 = direct_1.createWidget(btn_vue_1.default, w, {
+            t.n8 = direct_1.createWidget(btn_vue_1.default, w, {
                 attrs: {
                     text: "支付宝网页支付"
                 },
@@ -81,7 +94,7 @@ _$pi.define("app_c/demo/pi_common/pay/pay.vue.tpl", ["require", "exports", "modu
                     }
                 }
             });
-            t.n8 = direct_1.createWidget(btn_vue_1.default, w, {
+            t.n9 = direct_1.createWidget(btn_vue_1.default, w, {
                 attrs: {
                     text: "steam支付"
                 },
@@ -94,7 +107,7 @@ _$pi.define("app_c/demo/pi_common/pay/pay.vue.tpl", ["require", "exports", "modu
                     }
                 }
             });
-            t.n9 = direct_1.createWidget(btn_vue_1.default, w, {
+            t.n10 = direct_1.createWidget(btn_vue_1.default, w, {
                 attrs: {
                     text: "补单"
                 },
@@ -107,7 +120,7 @@ _$pi.define("app_c/demo/pi_common/pay/pay.vue.tpl", ["require", "exports", "modu
                     }
                 }
             });
-            t.n10 = direct_1.createWidget(btn_vue_1.default, w, {
+            t.n11 = direct_1.createWidget(btn_vue_1.default, w, {
                 attrs: {
                     text: "对账查询"
                 },
@@ -120,12 +133,12 @@ _$pi.define("app_c/demo/pi_common/pay/pay.vue.tpl", ["require", "exports", "modu
                     }
                 }
             });
-            t.n11 = direct_1.createDiv();
-            direct_1.setStyle(t.n11, 11 /*padding*/, staticObj[2]);
-            t.n12 = direct_1.createSpan();
-            direct_1.setClass(t.n12, 3769313102);
-            direct_1.setText(t.n12, "注：渠道包会默认使用渠道SDK支付");
-            t.n13 = direct_1.createWidget(imgmap_vue_1.default, w, {
+            t.n12 = direct_1.createDiv();
+            direct_1.setStyle(t.n12, 11 /*padding*/, staticObj[2]);
+            t.n13 = direct_1.createSpan();
+            direct_1.setClass(t.n13, 3769313102);
+            direct_1.setText(t.n13, "注：渠道包会默认使用渠道SDK支付");
+            t.n14 = direct_1.createWidget(imgmap_vue_1.default, w, {
                 attrs: {
                     name: "dialog_close_btn"
                 },
@@ -150,7 +163,8 @@ _$pi.define("app_c/demo/pi_common/pay/pay.vue.tpl", ["require", "exports", "modu
             direct_1.destroyContext(t.n8);
             direct_1.destroyContext(t.n9);
             direct_1.destroyContext(t.n10);
-            direct_1.destroyContext(t.n13);
+            direct_1.destroyContext(t.n11);
+            direct_1.destroyContext(t.n14);
         }
         m(target, anchor) {
             let t = this,
@@ -163,9 +177,10 @@ _$pi.define("app_c/demo/pi_common/pay/pay.vue.tpl", ["require", "exports", "modu
             direct_1.mountChildWidget(t.n8, t.n2);
             direct_1.mountChildWidget(t.n9, t.n2);
             direct_1.mountChildWidget(t.n10, t.n2);
-            direct_1.append(t.n12, t.n11);
-            direct_1.append(t.n11, t.n2);
-            direct_1.mountChildWidget(t.n13, t.n2);
+            direct_1.mountChildWidget(t.n11, t.n2);
+            direct_1.append(t.n13, t.n12);
+            direct_1.append(t.n12, t.n2);
+            direct_1.mountChildWidget(t.n14, t.n2);
             direct_1.insertBefore(t.n2, target, anchor);
         }
         p() {

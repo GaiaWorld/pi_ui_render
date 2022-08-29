@@ -6,6 +6,7 @@ use pi_atom::Atom;
 use pi_ecs::{prelude::{Join, Write, ResMut, OrDefault, Query, Res, ParamSet, res::WriteRes}, monitor::{Event, EventType}, storage::Offset, entity::Id};
 use pi_ecs_macros::{listen, setup};
 use pi_null::Null;
+use pi_postprocess::{postprocess_geometry::PostProcessGeometryManager, postprocess_pipeline::PostProcessMaterialMgr};
 use pi_render::{
 	graph::graph::RenderGraph, 
 	rhi::{device::RenderDevice, asset::RenderRes, bind_group::BindGroup, buffer::Buffer, RenderQueue, dyn_uniform_buffer::{Bind, self, Group}}, components::view::target_alloc::ShareTargetView
@@ -85,25 +86,26 @@ impl CalcRender{
 		draw_state.vbs.insert(0, (unit_quad_buffer.vertex.clone(), 0));
 		draw_state.ib = Some((unit_quad_buffer.index.clone(), 6, IndexFormat::Uint16));
 		
-		// 设置清屏颜色的pipeline
-		let (vs_defines, fs_defines) = (VSDefines::default(), FSDefines::default());
-		let pipeline = CalcPipeline::calc_pipeline(
-			&vs_defines,
-			&fs_defines,
-			&static_index,
+		// 暂时在pipeline system中创建pipeline， 考虑ecs新增只运行一次的system，将该逻辑放入这类system中（创建pipeline为异步操作， 当前方法为同步方法，而pipeline system每帧都会运行， 此pipeline最适合放入到一个只运行一次的system中）
+		// // 设置清屏颜色的pipeline
+		// let (vs_defines, fs_defines) = (VSDefines::default(), FSDefines::default());
+		// let pipeline = CalcPipeline::calc_pipeline(
+		// 	&vs_defines,
+		// 	&fs_defines,
+		// 	&static_index,
 
-			&shader_statics,
-			&device,
-			&vertex_buffer_layout_map,
-			&state_map,
-			&shader_catch,
+		// 	&shader_statics,
+		// 	&device,
+		// 	&vertex_buffer_layout_map,
+		// 	&state_map,
+		// 	&shader_catch,
 
-			&mut pipeline_map,
-			&mut shader_map,
-			&share_layout,
-		);
-		// 设置pipeline
-		draw_state.pipeline = Some(pipeline);
+		// 	&mut pipeline_map,
+		// 	&mut shader_map,
+		// 	&share_layout,
+		// );
+		// // 设置pipeline
+		// draw_state.pipeline = Some(pipeline);
 
 		// 设置清屏颜色的世界矩阵
 
@@ -132,18 +134,17 @@ impl CalcRender{
 		let group = DrawGroup::Dyn(DynDrawGroup::new(**color_material_bind_group, smallvec![color_dyn_offset]));
 		dyn_fbo_clear_color_bind_group.write(DynFboClearColorBindGroup(group));
 
-		clear_draw_obj.write(ClearDrawObj(draw_state));
+		clear_draw_obj.write(ClearDrawObj(draw_state, static_index));
 	}
 
 	
 	#[system]
 	pub fn calc_render<'a>(
 		parent_pass_id: Query<Pass2D, Option<&ParentPassId>>,
+		mut postprocess_lists: Query<Pass2D, Option<&mut PostProcessList>>,
 		mut query_draw2d_list: ParamSet<(
 			Query<Pass2D, &'static mut Draw2DList>, 
-			Query<Pass2D, (
-				&'static Draw2DList, 
-				Option<&'static PostProcessList>)>)>,
+			Query<Pass2D, (&'static Draw2DList, Id<Pass2D>)>)>,
 		mut query_pass: ParamSet<(
 			Query<Pass2D, (
 				Write<Camera>, 
@@ -155,14 +156,15 @@ impl CalcRender{
 					&'static Quad,
 					Option<&'static TransformWillChangeMatrix>, 
 					Option<&'static TransformWillChange>
-				)>
+				)>,
+				Option<&'static mut PostProcessList>,
 			)>,
 			Query<Node, (&'static InPassId, Option<&'static Pass2DId>, Option<&'static DrawList>, &'static Quad, &'static ZRange, OrDefault<Visibility>, Join<InPassId, Pass2D, &'static LastDirtyRect>)>,
-			Query<Pass2D, &'static Camera>,
+			Query<Pass2D, (&'static Camera, Option<&'static OverflowAabb>)>,
 		)>,
 		mut draw_state: Query<DrawObject, &mut DrawState>,
 		draw_info: Query<DrawObject, OrDefault<DrawInfo>>,
-		// mut z_query1: Query<Pass2D, Join<NodeId, Node, &ZRange>>,
+		// mut z_query1&: Query<Pass2D, Join<NodeId, Node, &mut &ZRange>>,
 		share_layout: Res<'a, ShareLayout>,
 		device: Res<'a, RenderDevice>,
 		queue: Res<'a, RenderQueue>,
@@ -175,13 +177,16 @@ impl CalcRender{
 		camera_bind_group: Res<DynBindGroupIndex<CameraMatrixGroup>>,
 		viewport: Res<Viewport>, // 视口
 		mut dyn_bind_groups: ResMut<'static, DynBindGroups>,
+
+		mut geometrys: ResMut<'static, PostProcessGeometryManager>,
+		mut postprocess_pipelines: ResMut<'static, PostProcessMaterialMgr>,
 	) -> Result<()> {
 		// 不脏，不需要组织渲染图， 也不需要渲染
 		if global_dirty_rect.state == DirtyRectState::UnInit {
 			return Ok(());
 		}
 	
-		for (mut camera, _view_matrix, mut last_dirty, overflow_aabb, (context_box, quad, willchange_matrix, will_change)) in query_pass.p0_mut().iter_mut() {
+		for (mut camera, _view_matrix, mut last_dirty, overflow_aabb, (context_box, quad, willchange_matrix, will_change), postprocess_list) in query_pass.p0_mut().iter_mut() {
 			// 存在脏区域，与现有脏区域相交，得到最终脏区域
 			let mut c;
 
@@ -235,7 +240,7 @@ impl CalcRender{
 				if let Some(overflow) = overflow_aabb {
 					// 存在裁剪区，并且旋转，
 					if let (Some(overflow), Some(r)) = (&overflow.aabb, &overflow.matrix) {
-						let r = calc_bound_box(&aabb, r);
+						let r = calc_bound_box(&aabb, &r.rotate_matrix_invert);
 						intersect(&overflow, &r).unwrap_or(
 							Aabb2::new(
 								Point2::new(0.0, 0.0), 
@@ -260,8 +265,8 @@ impl CalcRender{
 			
 			let view = if let Some(overflow) = overflow_aabb {
 				// 存在裁剪区，并且未旋转，则直接与视口相交
-				if let (Some(_aabb), Some(mtrix)) = (&overflow.aabb, &overflow.matrix) {
-					mtrix
+				if let (Some(_aabb), Some(matrix)) = (&overflow.aabb, &overflow.matrix) {
+					&matrix.rotate_matrix_invert
 				} else {
 					&view
 				}
@@ -279,9 +284,12 @@ impl CalcRender{
 				Point2::new(aabb.mins.x.floor(), aabb.mins.y.floor() ), 
 				Point2::new(aabb.maxs.x.ceil(), aabb.maxs.y.ceil() ));
 			
+			let scale_x = (aabb.maxs.x-aabb.mins.x)/2.0;
+			let scale_y = (aabb.maxs.y-aabb.mins.y)/2.0;
+			// 后处理效果与gui坐标系使用不一致，所以缩放为-scale_y
 			let world_matrix = Matrix4::new(
-				aabb.maxs.x-aabb.mins.x,0.0,0.0, aabb.mins.x,
-				0.0,aabb.maxs.y-aabb.mins.y,0.0, aabb.mins.y,
+				scale_x,0.0,0.0, aabb.mins.x + scale_x,
+				0.0,-scale_y,0.0, aabb.mins.y + scale_y,
 				0.0,0.0,1.0, 0.0,
 				0.0,0.0,0.0,1.0,
 			);
@@ -290,11 +298,45 @@ impl CalcRender{
 				// 	Some(r) => r.0.clone(),
 				// 	Non
 				// }, 
+				project,
 				bind_group: Some(DrawGroup::Dyn(DynDrawGroup::new(**camera_bind_group, smallvec![camera_dyn_offset]))),
 				view_port: aabb,
-				world_matrix
+				world_matrix: world_matrix.clone()
 
 			});
+
+			if let Some(mut postprocess) = postprocess_list {
+				postprocess.calc(16, &device, &mut postprocess_pipelines, &mut geometrys, wgpu::ColorTargetState {
+					format: wgpu::TextureFormat::Bgra8Unorm,
+					blend: Some(wgpu::BlendState {
+						color: wgpu::BlendComponent {
+							operation: wgpu::BlendOperation::Add,
+							src_factor: wgpu::BlendFactor::SrcAlpha,
+							dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+						},
+						alpha: wgpu::BlendComponent {
+							operation: wgpu::BlendOperation::Add,
+							src_factor: wgpu::BlendFactor::One,
+							dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+						},
+					}),
+					write_mask: wgpu::ColorWrites::ALL,
+				}, Some(wgpu::DepthStencilState {
+					format: TextureFormat::Depth32Float,
+					depth_write_enabled: true,
+					depth_compare: CompareFunction::GreaterEqual,
+					stencil: StencilState::default(),
+					bias: DepthBiasState::default(),
+				} ));
+				postprocess.view_port = aabb;
+				postprocess.matrix = WorldMatrix(world_matrix, false);
+				if let Some(overflow) = overflow_aabb {
+					// 存在裁剪区，并且未旋转，则直接与视口相交
+					if let Some(matrix) = &overflow.matrix {
+						postprocess.matrix = WorldMatrix(&matrix.rotate_matrix * &postprocess.matrix.0, true);
+					}
+				}
+			}
 
 			
 			// if let (Some(willchange_matrix), Some(_)) = (willchange_matrix, will_change) {
@@ -374,17 +416,17 @@ impl CalcRender{
 
 		let p1 = query_draw2d_list.p1();
 		let camera_query = query_pass.p2();
-		for (list, post) in p1.iter() {
+		for (list, pass_id) in p1.iter() {
 			// 不存在后处理，不主动分配depth（需要pass2d分配）
 			// 如果post不为none，但长度大于0，表示根节点，也需要自己分配depth
-			if let None = post {
+			if let None = postprocess_lists.get(pass_id) {
 				continue; 
 			}
 
 			// println!("post======================");
 		let camera_query = query_pass.p2();
-			alloc_depth(&device, p1, camera_query, list, &share_layout, &mut draw_state, &buffer_assets, 
-				&bind_group_assets, &mut depth_cache, &mut 0, &mut dyn_uniform_buffer);
+			alloc_depth(&device, p1, &mut postprocess_lists, camera_query, list, &share_layout, &mut draw_state, &buffer_assets, 
+				&bind_group_assets, &mut depth_cache, &mut 0, &mut dyn_uniform_buffer, &mut geometrys, &mut postprocess_pipelines);
 		}
 
 		// 清理列表
@@ -509,8 +551,9 @@ pub fn create_project(left: f32, right: f32, top: f32, bottom: f32) -> Matrix4 {
 
 fn alloc_depth<'a>(
 	device: &'a RenderDevice,
-	pass2d: &'a Query<Pass2D, (&Draw2DList, Option<&PostProcessList>)>,
-	camera_query: &'a Query<Pass2D, &Camera>,
+	pass2d: &'a Query<Pass2D, (&Draw2DList, Id<Pass2D>)>,
+	post_process_list: &mut Query<Pass2D, Option<&mut PostProcessList> >,
+	camera_query: &'a Query<Pass2D, (&Camera, Option<&OverflowAabb>)>,
 	list: &'a Draw2DList,
 	share_layout: &'a ShareLayout,
 	draw_state: &'a mut Query<DrawObject, &mut DrawState>,
@@ -519,6 +562,8 @@ fn alloc_depth<'a>(
 	depth_cache: &'a mut Vec<Handle<RenderRes<BindGroup>>>,
 	cur_depth: &'a mut usize,
 	dyn_uniform_buffer: &'a mut DynUniformBuffer,
+	geometrys: &mut PostProcessGeometryManager,
+    postprocess_pipelines: &mut PostProcessMaterialMgr,
 ) {
 	for index in list.all_list.iter() {
 		match &index.0 {
@@ -537,33 +582,39 @@ fn alloc_depth<'a>(
 			},
 			// 如果绘制索引是一个pass2d，则为该pass2d中的渲染对象设置depth group
 			DrawIndex::Pass2D(pass2d_id) => {
-				let list = if let Some((list, post)) = pass2d.get(pass2d_id.clone()) {
+				let list = if let Some((list, pass_id)) = pass2d.get(pass2d_id.clone()) {
+					let post = post_process_list.get_unchecked_mut(pass_id);
 					match post {
-						Some(r) => {
-							let len = r.0.len();
-							if r.0.len() > 0 {
-								let mut i = 0;
-								let mut key = r.1;
-								for k in r.0.keys() {
-									i += 1;
+						Some(mut r) => {
+							// let len = r.0.len();
+							// if r.0.len() > 0 {
+							// 	let mut i = 0;
+							// 	let mut key = r.1;
+							// 	for k in r.0.keys() {
+							// 		i += 1;
 						
-									// 最后一个后处理不执行，交给下一个节点渲染
-									if i == len {
-										key = k ;
-									}
-								}
-								let key = r.0[key].draw_obj_key;
-								alloc_depth_one(device, key, share_layout, draw_state, buffer_assets, bind_group_assets, depth_cache, cur_depth, dyn_uniform_buffer);
+							// 		// 最后一个后处理不执行，交给下一个节点渲染
+							// 		if i == len {
+							// 			key = k ;
+							// 		}
+							// 	}
+								// let key = r.0[key].draw_obj_key;
+								// alloc_depth_one(device, key, share_layout, draw_state, buffer_assets, bind_group_assets, depth_cache, cur_depth, dyn_uniform_buffer);
+								r.depth = *cur_depth as f32;
+								*cur_depth += 1;
 
-								if let Some(camera) = camera_query.get(pass2d_id.clone()) {
-									let mut draw_state_item = match draw_state.get_mut(key) {
-										Some(r) => r,
-										None => return,
-									};
-									let dyn_offset = draw_state_item.bind_groups.get_group(ColorMaterialGroup::id()).unwrap().get_offset(ColorMaterialBind::index()).unwrap();
-									dyn_uniform_buffer.set_uniform(dyn_offset, &WorldUniform(camera.world_matrix.as_slice()));
+								if let Some((camera, overflow)) = camera_query.get(pass2d_id.clone()) {
+									// let ma
+									// let rotate_matrix = rotate_matrix_invert.try_inverse().unwrap();
+
+									// let mut draw_state_item = match draw_state.get_mut(key) {
+									// 	Some(r) => r,
+									// 	None => return,
+									// };
+									// let dyn_offset = draw_state_item.bind_groups.get_group(ColorMaterialGroup::id()).unwrap().get_offset(ColorMaterialBind::index()).unwrap();
+									// dyn_uniform_buffer.set_uniform(dyn_offset, &WorldUniform(camera.world_matrix.as_slice()));
 								}
-							}
+							// }
 							continue;
 						},
 						None => list,
@@ -572,7 +623,7 @@ fn alloc_depth<'a>(
 					continue;
 				};
 				// println!("pass2d_id======================{:?}", pass2d_id);
-				alloc_depth(device, pass2d, camera_query, list, share_layout, draw_state, buffer_assets, bind_group_assets, depth_cache, cur_depth, dyn_uniform_buffer)
+				alloc_depth(device, pass2d, post_process_list, camera_query, list, share_layout, draw_state, buffer_assets, bind_group_assets, depth_cache, cur_depth, dyn_uniform_buffer, geometrys, postprocess_pipelines);
 			}
 		}
 	}
@@ -608,6 +659,7 @@ lazy_static! {
 pub struct DepthCache(Vec<Handle<RenderRes<BindGroup>>>);
 
 
+
 pub fn create_clear_pipeline_state() -> PipelineState {
 	PipelineState {
 		targets: vec![wgpu::ColorTargetState {
@@ -632,15 +684,14 @@ pub fn create_clear_pipeline_state() -> PipelineState {
 			polygon_mode: wgpu::PolygonMode::Fill,
 			..Default::default()
 		},
-		depth_stencil: Some(DepthStencilState {
-			format: TextureFormat::Depth32Float,
+		depth_stencil: Some(wgpu::DepthStencilState {
+			format: wgpu::TextureFormat::Depth32Float,
 			depth_write_enabled: true,
-			depth_compare: CompareFunction::Always,
-			stencil: StencilState::default(),
-			bias: DepthBiasState::default(),
+			depth_compare: wgpu::CompareFunction::Always,
+			stencil: wgpu::StencilState::default(),
+			bias: wgpu::DepthBiasState::default(),
 		}),
 		multisample: wgpu::MultisampleState::default(),
 		multiview: None,
 	}
 }
-

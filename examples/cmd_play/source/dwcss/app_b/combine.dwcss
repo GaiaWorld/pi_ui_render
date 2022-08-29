@@ -1,21 +1,21 @@
-.2848432957{
+.c2848432957{
     position: absolute;
     width: 100%;
     height: 100%;
     flex-direction: row;
     justify-content: center;
-    background-color: rgba(0, 0, 0, 0.6);
+    background-color: rgba(0,0,0,0.6);
 }
-.2730177206{
+.c2730177206{
     position: absolute;
     bottom: 130px;
 }
-.211609997{
+.c211609997{
     width: 100%;
     height: 100%;
     position: absolute;
 }
-.3769571327{
+.c3769571327{
     right: -10px;
     top: -5px;
     width: 45px;
@@ -23,20 +23,20 @@
     position: absolute;
     justify-content: center;
 }
-.1873232240{
+.c1873232240{
     width: 100%;
     height: 100%;
     position: absolute;
 }
-.3139934319{
+.c3139934319{
     position: absolute;
 }
-.3963193173{
+.c3963193173{
     color: #ffffff;
     font-size: 32px;
     line-height: 32px;
 }
-.1235534343{
+.c1235534343{
     top: 150px;
     width: 660px;
     height: 650px;
@@ -45,49 +45,49 @@
     flex-wrap: wrap;
     justify-content: center;
 }
-.3569424899{
+.c3569424899{
     bottom: 30px;
     width: 450px;
     height: 50px;
     position: absolute;
     justify-content: center;
 }
-.1621317832{
+.c1621317832{
     color: #D5E3EA;
     line-height: 40px;
     font-size: 40px;
 }
-.3400271547{
+.c3400271547{
   position: absolute;
   width: 100%;
   height: 100%;
 }
-.2529755405{
+.c2529755405{
   position: absolute;
   width: 100%;
   height: 100%;
 }
 
-.988292225{
+.c988292225{
   position: absolute;
   width: 100%;
   height: 100%;
   transform: translateX(100%);
 }
-.1981362054{
+.c1981362054{
   height: 135px;
   position: absolute;
   width: 100%;
   bottom: 0px;
 }
-.1544334741{
+.c1544334741{
   width: 100%;
   height: 100px;
   background-color: #4196da;
   position: absolute;
   bottom: 0px;
 }
-.2690618721{
+.c2690618721{
   height: 135px;
   position: absolute;
   width: 100%;
@@ -115,24 +115,31 @@
     transform: translateY(150px);
   }
 }
-.4246905833{
+.c4246905833{
   position: absolute;
   width: 100%;
   height: 100%;
 }
-.3263990429{
+.c3263990429{
   position: absolute;
   height: 45px;
   width: 100px;
   top: 10px;
   left: 10px;
 }
-.3730912968{
+.c3186417848{
+  position: absolute;
+  top: 100px;
+  left: 100px;
+  background-color: #ff0000;
+  width: 800px;
+}
+.c3730912968{
   position: absolute;
   top: 500px;
   left: 300px;
 }
-.2114356791{
+.c2114356791{
     position: absolute;
     width: 80px;
     height: 80px;

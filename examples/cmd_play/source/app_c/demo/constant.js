@@ -1,4 +1,4 @@
-_$pi.define("app_c/demo/constant", ["require", "exports", "module", "pi_common/ui/main_root", "pi_utils/util/logger", "app_a/util/setup", "app_c/demo/pi_common/server/pi_common.topic", "app_c/demo/pi_common/pay/pay.vue", "app_c/demo/pi_common/leaderboard/leaderboard.vue", "app_b/feat/page/test.vue", "pi_common/sdk/index", "pi_sys/index", "pi_common/sso/sso_client", "pi_common/sdk/interface/index", "pi_common/id_verify/id_verify", "pi_common/id_verify/verify.vue", "app_c/chat/world_chat.vue", "app_c/demo/pi_common/tween/tween.vue", "app_c/fight/fight_main.vue"], function (require, exports, module, main_root_1, logger_1, setup_1, pi_common_topic_1, pay_vue_1, leaderboard_vue_1, test_vue_1, index_1, index_2, sso_client_1, index_3, id_verify_1, verify_vue_1, world_chat_vue_1, tween_vue_1, fight_main_vue_1) {
+_$pi.define("app_c/demo/constant", ["require", "exports", "module", "pi_common/ui/main_root", "pi_utils/util/logger", "app_a/util/setup", "app_c/demo/pi_common/server/pi_common.topic", "app_c/demo/pi_common/pay/pay.vue", "app_c/demo/pi_common/leaderboard/leaderboard.vue", "app_b/feat/page/test.vue", "pi_common/sdk/index", "pi_sys/index", "pi_common/sso/sso_client", "pi_common/sdk/interface/index", "pi_common/id_verify/id_verify", "pi_common/id_verify/verify.vue", "app_c/chat/world_chat.vue", "app_c/demo/pi_common/tween/tween.vue", "app_c/demo/pi_common/web3/web3.vue", "app_c/fight/fight_main.vue"], function (require, exports, module, main_root_1, logger_1, setup_1, pi_common_topic_1, pay_vue_1, leaderboard_vue_1, test_vue_1, index_1, index_2, sso_client_1, index_3, id_verify_1, verify_vue_1, world_chat_vue_1, tween_vue_1, web3_vue_1, fight_main_vue_1) {
     "use strict";
 
     exports.ServerCfgList = exports.PiCommonCfgList = void 0;
@@ -61,6 +61,12 @@ _$pi.define("app_c/demo/constant", ["require", "exports", "module", "pi_common/u
     }], ['登出', () => {
         // 没有返回值；成功与否通过 onLogout 判断
         sdk.login.logout();
+    }], ['修改密码', () => {
+        sdk.login.changePwd('aaa', 'aaa', '888888').then(r => {
+            console.log('修改成功', r);
+        }).catch(err => {
+            console.log('修改失败', err);
+        });
     }], ['分享', function () {
         try {
             return Promise.resolve(new Promise(resolve => {
@@ -132,6 +138,8 @@ _$pi.define("app_c/demo/constant", ["require", "exports", "module", "pi_common/u
         main_root_1.open(fight_main_vue_1.default);
     }], ['测试', () => {
         main_root_1.open(test_vue_1.default);
+    }], ['web3测试', () => {
+        main_root_1.open(web3_vue_1.default);
     }]];
     // 服务器相关的功能
     exports.ServerCfgList = [];

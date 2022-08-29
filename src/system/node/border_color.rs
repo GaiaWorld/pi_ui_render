@@ -29,8 +29,7 @@ use crate::{
 		user::{Node, BorderColor}, 
 		calc::{NodeId, DrawList}, 
 		draw_obj::{DrawObject, DrawState}
-	}, 
-	resource::draw_obj::Shaders,
+	},
 };
 // use crate::utils::tools::calc_hash;
 
@@ -79,10 +78,8 @@ impl CalcBorderColor {
 		// load_mgr: ResMut<'a, LoadMgr>,
 		device: Res<'static, RenderDevice>,
 		color_static_index: Res<'static, ColorStaticIndex>,
-		shader_static: Res<'static, Shaders>,
 
 		buffer_assets: Res<'static, Share<AssetMgr<RenderRes<Buffer>>>>,
-		bind_group_assets: Res<'static, Share<AssetMgr<RenderRes<BindGroup>>>>,
 
 		mut dyn_uniform_buffer: ResMut<'static, DynUniformBuffer>,
 		color_material_bind_group: Res<'static, DynBindGroupIndex<ColorMaterialGroup>>,
@@ -134,12 +131,9 @@ impl CalcBorderColor {
 						draw_state,
 						&device, 
 						&buffer_assets, 
-						&bind_group_assets,
 						&background_color_change,
 						&radius_change,
 						&layout_change,
-						&color_static_index,
-						&shader_static,
 						&mut dyn_uniform_buffer).await;
 					draw_state_item.notify_modify();
 				},
@@ -173,12 +167,9 @@ impl CalcBorderColor {
 						&mut draw_state,
 						&device, 
 						&buffer_assets, 
-						&bind_group_assets,
 						&background_color_change,
 						&radius_change,
 						&layout_change,
-						&color_static_index,
-						&shader_static,
 						&mut dyn_uniform_buffer).await;
 					
 					draw_state_commands.insert(new_draw_obj, draw_state);
@@ -231,12 +222,9 @@ async fn modify<'a> (
 	draw_state: &mut DrawState, 
 	device: &RenderDevice, 
 	buffer_assets: &Share<AssetMgr<RenderRes<Buffer>>>,
-	bind_group_assets: &'a Share<AssetMgr<RenderRes<BindGroup>>>,
 	bg_color_change: &ChangeTrackers<BorderColor>,
 	border_change: &ChangeTrackers<BorderRadius>,
 	layout_change: &ChangeTrackers<LayoutResult>,
-	color_static: &'a StaticIndex,
-	shader_static: &Shaders,
 
 	dyn_uniform_buffer: &mut DynUniformBuffer,
 ) {

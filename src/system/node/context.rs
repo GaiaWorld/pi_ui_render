@@ -125,7 +125,7 @@ impl CalcContext {
 		mut pass2d_query: ParamSet<(
 			EntityInsert<Pass2D>,
 			EntityDelete<Pass2D>,
-			Query<Pass2D, (Write<NodeId>, Write<PostProcessList>)>,
+			Query<Pass2D, Write<NodeId>>,
 		)>,
 
 		mut node_query: Query<Node, Write<Pass2DId>>,
@@ -134,9 +134,8 @@ impl CalcContext {
 			EventType::Create =>{
 				let id = pass2d_query.p0_mut().spawn();
 				node_query.get_unchecked_mut_by_entity(e.id).write(Pass2DId(id));
-				let (mut node_id, mut post_list) = pass2d_query.p2_mut().get_unchecked_mut(id);
+				let mut node_id = pass2d_query.p2_mut().get_unchecked_mut(id);
 				node_id.write(NodeId(unsafe { Id::<Node>::new(e.id.local()) }));
-				post_list.write(PostProcessList::default());
 			},
 			EventType::Delete => {
 				let id = node_query.get_unchecked_mut_by_entity(e.id);

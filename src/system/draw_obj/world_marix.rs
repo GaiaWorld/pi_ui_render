@@ -1,7 +1,7 @@
 use std::io::Result;
 
 use pi_assets::{mgr::AssetMgr, asset::Handle};
-use pi_ecs::{prelude::{Query, Changed, Added, Write, Res, Or, OrDefault, ResMut}, entity::Id, storage::Offset};
+use pi_ecs::{prelude::{Query, Changed, Added, Write, Or, OrDefault, ResMut}, entity::Id, storage::Offset};
 use pi_ecs_macros::setup;
 use pi_render::rhi::{
 	device::RenderDevice, 
@@ -18,7 +18,7 @@ use crate::{
 		calc::{DrawList, WorldMatrix, LayoutResult, Pass2DId}, 
 		draw_obj::{BoxType, DrawObject, DrawState}
 	}, 
-	utils::{shader_helper::WORLD_MATRIX_GROUP, tools::{calc_float_hash, calc_hash}}, resource::draw_obj::{Shaders, StaticIndex, DynUniformBuffer}, shaders::color::{WorldUniform, ColorShader, ColorMaterialBind, CameraMatrixGroup, ColorMaterialGroup}};
+	utils::{tools::{calc_float_hash, calc_hash}}, resource::draw_obj::{DynUniformBuffer}, shaders::color::{WorldUniform, ColorMaterialBind, ColorMaterialGroup}};
 
 pub struct CalcWorldMatrixGroup;
 
@@ -28,14 +28,7 @@ impl CalcWorldMatrixGroup {
 	#[system]
 	pub async fn calc_matrix_group<'a>(
 		mut query: Query<'a, 'a, Node, (&WorldMatrix, &LayoutResult, &DrawList, Id<Node>), Or<(Added<Pass2DId>,Changed<DrawList>, Changed<WorldMatrix>)>>,
-		query_draw: Query<'a, 'a, DrawObject, (Write<DrawState>, OrDefault<BoxType>, &StaticIndex)>,
-		device: Res<'a, RenderDevice>,
-		queue: Res<'a, RenderQueue>,
-		shader_static: Res<'a, Shaders>,
-
-		buffer_assets: Res<'a, Share<AssetMgr<RenderRes<Buffer>>>>,
-		bind_group_assets: Res<'a, Share<AssetMgr<RenderRes<BindGroup>>>>,
-
+		query_draw: Query<'a, 'a, DrawObject, (Write<DrawState>, OrDefault<BoxType>)>,
 		mut dyn_uniform_buffer: ResMut<'static, DynUniformBuffer>,
 	) -> Result<()> {
 		// let mut i = 0;
@@ -47,7 +40,6 @@ impl CalcWorldMatrixGroup {
 				if let Some((
 					mut draw_data,
 					box_type, 
-					static_index,
 				)) = query_draw.get(*draw_obj) {
 
 					// 如果，渲染对象的顶点流为单位四边形，则需要将宽高乘到世界矩阵中

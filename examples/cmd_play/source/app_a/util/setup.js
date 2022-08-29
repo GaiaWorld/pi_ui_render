@@ -16,8 +16,32 @@ _$pi.define("app_a/util/setup", ["require", "exports", "module", "pi_common/ui/m
     exports.init = function () {
         try {
             logI("app_a init start");
+            index_1.PISYS.Logger.privacyInfoUpload();
             // PISYS.Native.KeyBoard.onKeyDown(e => {
             //     console.log("====== ", e);
+            // })
+            // const res = new ResTab();
+            // res.load(RES_VIDEO, "app_a/Video3.mp4", []).then(r => {
+            //     const video = r.link;
+            //     console.log("loadVideo success ", video);
+            //     video.width = "1000"
+            //     video.height = "800"
+            //     video.autoplay = true;
+            //     video.controls = "controls"
+            //     document.body.appendChild(video as any);
+            //     setTimeout(() => {
+            //         res.clear()
+            //     }, 3000);
+            // })
+            // PISYS.ResLoadTool.loadVideo("app_a/Video3.mp4", []).then(r => {
+            //     console.log("loadVideo success ", r);
+            //     r.width = "1000"
+            //     r.height = "800"
+            //     r.autoplay = true;
+            //     r.controls = "controls"
+            //     document.body.appendChild(r as any);
+            // }).catch(e => {
+            //     console.log("loadVideo faile ", e);
             // })
             hot_key_1.registerHotKey("Control+a", () => {
                 console.log("Control+a 11111111111");
@@ -57,13 +81,11 @@ _$pi.define("app_a/util/setup", ["require", "exports", "module", "pi_common/ui/m
                 return Promise.resolve(lastLoad.then(() => {
                     removeLogo();
                     index_4.initDebug(); // 如果要播放gui，应该保证gui使用的资源就绪，如字体、图片等
-                    // open(TextTetxure, null, "connect");
                 }));
                 ;
             } else {
                 // 初始化gui的debug信息（可传入一个包含如上字段的对象给initDebug方法，如果这些字段不存在，则会从env中		读取对应的控制参数）
                 index_4.initDebug();
-                // open(TextTetxure, null, "connect");
             }
             main_1.PluginManager.use(tips_1.TipsPlugin);
             // 打开登录页面

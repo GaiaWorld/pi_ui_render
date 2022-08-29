@@ -2,7 +2,7 @@ _$pi.define("app_a/login/client/login.vue.tpl", ["require", "exports", "module",
     "use strict";
 
     exports.BW2 = void 0;
-    const staticObj = [[4, 0.17, 0.57, 0.88, 1], [0, 150], [1, 1]];
+    const staticObj = [[4, 0.17, 0.57, 0.88, 1], [0, 150], [1, 1], [0, 250], [0, 340], [0, 20]];
     class BW2 {
         constructor(widget, ctx) {
             this.w = widget;
@@ -54,7 +54,7 @@ _$pi.define("app_a/login/client/login.vue.tpl", ["require", "exports", "module",
             direct_1.setClass(t.n12, 2829921613);
             t.n13 = direct_1.createSpan();
             direct_1.setClass(t.n13, 3664070929);
-            direct_1.setText(t.n13, w.loginType === '3' ? '手机号' : '账号');
+            direct_1.setText(t.n13, w.loginType === "3" ? "手机号" : "账号");
             t.n14 = direct_1.createDiv();
             direct_1.setClass(t.n14, 695472355);
             t.n15 = direct_1.createInput();
@@ -80,7 +80,7 @@ _$pi.define("app_a/login/client/login.vue.tpl", ["require", "exports", "module",
             direct_1.setClass(t.n19, 2829921613);
             t.n20 = direct_1.createSpan();
             direct_1.setClass(t.n20, 3664070929);
-            direct_1.setText(t.n20, w.loginType === '3' ? '验证码' : '密码');
+            direct_1.setText(t.n20, w.loginType === "3" ? "验证码" : "密码");
             t.n21 = direct_1.createDiv();
             direct_1.setClass(t.n21, 695472355);
             t.n22 = direct_1.createInput();
@@ -155,12 +155,12 @@ _$pi.define("app_a/login/client/login.vue.tpl", ["require", "exports", "module",
                     text: "游客"
                 },
                 style: {
-                    width /*width*/: "150px",
+                    width /*width*/: "200px",
                     height /*height*/: "70px"
                 },
                 events: {
                     "ev-click": $event => {
-                        let r = w.touristLoginClick($event);
+                        let r = w.doLogin('1');
                         $event && typeof $event === "object" && ($event.stopPropagation = r);
                         return r;
                     }
@@ -171,7 +171,7 @@ _$pi.define("app_a/login/client/login.vue.tpl", ["require", "exports", "module",
                     text: "QQ"
                 },
                 style: {
-                    width /*width*/: "150px",
+                    width /*width*/: "200px",
                     height /*height*/: "70px"
                 },
                 events: {
@@ -187,7 +187,7 @@ _$pi.define("app_a/login/client/login.vue.tpl", ["require", "exports", "module",
                     text: "微信"
                 },
                 style: {
-                    width /*width*/: "150px",
+                    width /*width*/: "200px",
                     height /*height*/: "70px"
                 },
                 events: {
@@ -203,12 +203,107 @@ _$pi.define("app_a/login/client/login.vue.tpl", ["require", "exports", "module",
                     text: "微博"
                 },
                 style: {
-                    width /*width*/: "150px",
+                    width /*width*/: "250px",
                     height /*height*/: "70px"
                 },
                 events: {
                     "ev-click": $event => {
                         let r = w.doLogin('6');
+                        $event && typeof $event === "object" && ($event.stopPropagation = r);
+                        return r;
+                    }
+                }
+            });
+            t.n34 = direct_1.createDiv();
+            direct_1.setStyle(t.n34, 6 /*position*/, 1);
+            direct_1.setStyle(t.n34, 9 /*bottom*/, staticObj[3]);
+            direct_1.setStyle(t.n34, 29 /*justifyContent*/, 2);
+            direct_1.setStyle(t.n34, 0 /*width*/, staticObj[2]);
+            t.n35 = direct_1.createWidget(btn_vue_1.default, w, {
+                attrs: {
+                    text: "Google"
+                },
+                style: {
+                    width /*width*/: "250px",
+                    height /*height*/: "70px"
+                },
+                events: {
+                    "ev-click": $event => {
+                        let r = w.doLogin('17');
+                        $event && typeof $event === "object" && ($event.stopPropagation = r);
+                        return r;
+                    }
+                }
+            });
+            t.n36 = direct_1.createWidget(btn_vue_1.default, w, {
+                attrs: {
+                    text: "Facebook"
+                },
+                style: {
+                    width /*width*/: "250px",
+                    height /*height*/: "70px"
+                },
+                events: {
+                    "ev-click": $event => {
+                        let r = w.doLogin('18');
+                        $event && typeof $event === "object" && ($event.stopPropagation = r);
+                        return r;
+                    }
+                }
+            });
+            t.n37 = direct_1.createDiv();
+            direct_1.setStyle(t.n37, 6 /*position*/, 1);
+            direct_1.setStyle(t.n37, 9 /*bottom*/, staticObj[4]);
+            direct_1.setStyle(t.n37, 29 /*justifyContent*/, 2);
+            direct_1.setStyle(t.n37, 0 /*width*/, staticObj[2]);
+            t.n38 = direct_1.createWidget(btn_vue_1.default, w, {
+                attrs: {
+                    text: "支付测试"
+                },
+                style: {
+                    width /*width*/: "200px",
+                    height /*height*/: "70px"
+                },
+                events: {
+                    "ev-click": $event => {
+                        let r = w.payTest();
+                        $event && typeof $event === "object" && ($event.stopPropagation = r);
+                        return r;
+                    }
+                }
+            });
+            t.n39 = direct_1.createDiv();
+            direct_1.setStyle(t.n39, 6 /*position*/, 1);
+            direct_1.setStyle(t.n39, 9 /*bottom*/, staticObj[5]);
+            direct_1.setStyle(t.n39, 29 /*justifyContent*/, 2);
+            direct_1.setStyle(t.n39, 0 /*width*/, staticObj[2]);
+            t.n40 = direct_1.createWidget(btn_vue_1.default, w, {
+                attrs: {
+                    text: "微信小游戏"
+                },
+                style: {
+                    width /*width*/: "250px",
+                    height /*height*/: "70px"
+                },
+                events: {
+                    "ev-click": $event => {
+                        let r = w.doLogin('wx_minigame');
+                        $event && typeof $event === "object" && ($event.stopPropagation = r);
+                        return r;
+                    }
+                }
+            });
+            t.n41 = direct_1.createWidget(btn_vue_1.default, w, {
+                attrs: {
+                    text: "qq游戏大厅"
+                },
+                style: {
+                    width /*width*/: "250px",
+                    height /*height*/: "70px"
+                },
+                events: {
+                    "ev-click": $event => {
+                        let r = w.doLogin('qq_game');
                         $event && typeof $event === "object" && ($event.stopPropagation = r);
                         return r;
                     }
@@ -226,6 +321,11 @@ _$pi.define("app_a/login/client/login.vue.tpl", ["require", "exports", "module",
             direct_1.destroyContext(t.n31);
             direct_1.destroyContext(t.n32);
             direct_1.destroyContext(t.n33);
+            direct_1.destroyContext(t.n35);
+            direct_1.destroyContext(t.n36);
+            direct_1.destroyContext(t.n38);
+            direct_1.destroyContext(t.n40);
+            direct_1.destroyContext(t.n41);
         }
         m(target, anchor) {
             let t = this,
@@ -260,6 +360,14 @@ _$pi.define("app_a/login/client/login.vue.tpl", ["require", "exports", "module",
             direct_1.mountChildWidget(t.n32, t.n29);
             direct_1.mountChildWidget(t.n33, t.n29);
             direct_1.append(t.n29, t.n3);
+            direct_1.mountChildWidget(t.n35, t.n34);
+            direct_1.mountChildWidget(t.n36, t.n34);
+            direct_1.append(t.n34, t.n3);
+            direct_1.mountChildWidget(t.n38, t.n37);
+            direct_1.append(t.n37, t.n3);
+            direct_1.mountChildWidget(t.n40, t.n39);
+            direct_1.mountChildWidget(t.n41, t.n39);
+            direct_1.append(t.n39, t.n3);
             direct_1.append(t.n3, t.n2);
             direct_1.insertBefore(t.n2, target, anchor);
         }
@@ -270,10 +378,10 @@ _$pi.define("app_a/login/client/login.vue.tpl", ["require", "exports", "module",
             direct_1.extendAttr(t.n2, w, 2639313270);
             if (dirty0 & 1) direct_1.setClass(t.n6, direct_1.classHash(w.loginType === '3' ? 'login_tab_item_active' : 'login_tab_item', w));
             if (dirty0 & 1) direct_1.setClass(t.n8, direct_1.classHash(w.loginType === '3' ? 'login_tab_item' : 'login_tab_item_active', w));
-            if (dirty0 & 1) direct_1.setText(t.n13, w.loginType === '3' ? '手机号' : '账号');
+            if (dirty0 & 1) direct_1.setText(t.n13, w.loginType === "3" ? "手机号" : "账号");
             if (dirty0 & 2) direct_1.setAttr(t.n15, "value", w.input1);
             t.n17 = direct_1.patchIf(w, t.n17, t.i17, t.i17 = t.s17(), t.n16);
-            if (dirty0 & 1) direct_1.setText(t.n20, w.loginType === '3' ? '验证码' : '密码');
+            if (dirty0 & 1) direct_1.setText(t.n20, w.loginType === "3" ? "验证码" : "密码");
             if (dirty0 & 8) direct_1.setAttr(t.n22, "value", w.input2);
             return this.n2;
         }
@@ -288,7 +396,7 @@ _$pi.define("app_a/login/client/login.vue.tpl", ["require", "exports", "module",
                 w = t.w;
             t.n17 = direct_1.createSpan();
             direct_1.setClass(t.n17, 2185224117);
-            direct_1.setText(t.n17, w.countDown ? '重新获取（' + w.countDown + 's）' : '获取验证码');
+            direct_1.setText(t.n17, w.countDown ? "重新获取（" + w.countDown + "s）" : "获取验证码");
             return this.n17;
         }
         m(target, anchor) {
@@ -300,7 +408,7 @@ _$pi.define("app_a/login/client/login.vue.tpl", ["require", "exports", "module",
             let t = this,
                 w = t.w;
             let { dirty0 } = w._$info;
-            if (dirty0 & 4) direct_1.setText(t.n17, w.countDown ? '重新获取（' + w.countDown + 's）' : '获取验证码');
+            if (dirty0 & 4) direct_1.setText(t.n17, w.countDown ? "重新获取（" + w.countDown + "s）" : "获取验证码");
             return this.n17;
         }
     }

@@ -12,13 +12,14 @@ _$pi.define("app_c/demo/ui/show/base/wclass.vue", ["require", "exports", "module
         tap(e, i) {
             console.log(e, i);
             const target = e.current;
-            // moveElement2topLayer(target);
-            if (this.curLang === 'zh') {
-                this.curLang = 'en';
-            } else {
-                this.curLang = 'zh';
-            }
-            element_tools_1.switchLang(this.curLang);
+            const tipElement = e.current.document.body.firstChild.childNodes[9];
+            element_tools_1.moveElement2topLayer(target, tipElement, true, { zIndex: 11 });
+            // if (this.curLang === 'zh') {
+            //   this.curLang = 'en';
+            // } else {
+            //   this.curLang = 'zh';
+            // }
+            // switchLang(this.curLang);
         }
     }
     exports.default = ResetWidget;

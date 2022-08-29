@@ -7,8 +7,11 @@
 pub mod draw_obj;
 
 use pi_ecs::prelude::{World, FromWorld, Id};
+use pi_style::style_type::ClassSheet;
 
 use crate::{components::{user::{TextContent, ClassName, Aabb2, Point2, Node, CgColor}, draw_obj::DrawState, calc::StyleMark}, utils::cmd::CommandQueue};
+
+use self::draw_obj::StaticIndex;
 
 /// 用户指令
 
@@ -22,6 +25,9 @@ pub struct UserCommands {
 	pub text_commands: Vec<(Id<Node>, Option<TextContent>)>,
 	/// class指令
 	pub class_commands: Vec<(Id<Node>, ClassName)>,
+
+	// css 内容增加指令
+	pub css_commands: Vec<ClassSheet>,
 
 	/// single指令
 	pub other_commands: CommandQueue,
@@ -91,5 +97,5 @@ impl Default for Viewport {
 pub struct ClearColor(pub CgColor);
 
 // 清屏的DrawObj（wgpu不支持清屏，因此用画矩形的方式模拟清屏）
-pub struct ClearDrawObj(pub DrawState);
+pub struct ClearDrawObj(pub DrawState, pub StaticIndex);
 

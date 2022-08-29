@@ -1,4 +1,4 @@
-// 一个简单的四边形渲染
+// 半透明渲染
 
 #[path ="../framework.rs"]
 mod framework;
@@ -10,10 +10,10 @@ use pi_ecs::prelude::Id;
 use pi_flex_layout::style::{Dimension, PositionType};
 use pi_null::Null;
 use pi_ui_render::{
-	components::user::{BackgroundColor, Color, CgColor, LinearGradientColor, ColorAndPosition}, 
+	components::user::{BackgroundColor, Color, CgColor}, 
 	resource::ClearColor, export::Engine
 };
-use pi_style::style_type::{WidthType, HeightType, BackgroundColorType, PositionTypeType, PositionLeftType, PositionTopType, MarginLeftType, MarginTopType};
+use pi_style::{style_type::{WidthType, HeightType, BackgroundColorType, PositionTypeType, PositionLeftType, PositionTopType, MarginLeftType, MarginTopType, HsiType, OpacityType}, style::{Hsi, Opacity}};
 
 fn main() {
 	framework::start(QuadExample::default())
@@ -57,24 +57,41 @@ impl Example for QuadExample {
 		let div1 = gui.gui.create_node();
 		gui.gui.set_style(div1, WidthType(Dimension::Points(50.0)));
 		gui.gui.set_style(div1, HeightType(Dimension::Points(100.0)));
-		gui.gui.set_style(div1, BackgroundColorType (BackgroundColor(Color::LinearGradient(LinearGradientColor{
-			direction: 0.0, 
-			list: vec![
-				ColorAndPosition{
-					position: 0.0,
-					rgba: CgColor::new(1.0, 0.0, 0.0,1.0),
-				},
-				ColorAndPosition{
-					position: 1.0,
-					rgba: CgColor::new(0.0, 1.0, 0.0,1.0),
-				}]}) )));
+		gui.gui.set_style(div1, BackgroundColorType (BackgroundColor(Color::RGBA(CgColor::new(1.0, 0.0, 0.0, 1.0)) )));
 		gui.gui.append(div1, root);
+
+		
+		let div1 = gui.gui.create_node();
+		gui.gui.set_style(div1, PositionTopType(Dimension::Points(100.0)));
+		gui.gui.set_style(div1, WidthType(Dimension::Points(100.0)));
+		gui.gui.set_style(div1, HeightType(Dimension::Points(200.0)));
+		gui.gui.set_style(div1, HsiType(Hsi { hue_rotate: 0.0, saturate: -1.0, bright_ness: 0.0 }));
+		gui.gui.set_style(div1, OpacityType(Opacity(0.5)));
+
+		// 添加一个绿色div
+		let div2 = gui.gui.create_node();
+		gui.gui.set_style(div2, WidthType(Dimension::Points(50.0)));
+		gui.gui.set_style(div2, HeightType(Dimension::Points(100.0)));
+		gui.gui.set_style(div2, BackgroundColorType (BackgroundColor(Color::RGBA(CgColor::new(0.0, 1.0, 0.0, 1.0)) )));
+		gui.gui.append(div2, div1);
+
+		// 添加一个黄色
+		let div3 = gui.gui.create_node();
+		gui.gui.set_style(div3, PositionTopType(Dimension::Points(100.0)));
+		gui.gui.set_style(div3, WidthType(Dimension::Points(50.0)));
+		gui.gui.set_style(div3, HeightType(Dimension::Points(100.0)));
+		gui.gui.set_style(div3, BackgroundColorType (BackgroundColor(Color::RGBA(CgColor::new(1.0, 1.0, 0.0, 1.0)) )));
+		gui.gui.append(div3, div1);
+
+		gui.gui.append(div1, root);
+
 	}
 	
 	fn render(&mut self, gui: &mut Engine) {
 		gui.gui.run();
 	}
 }
+
 
 
 

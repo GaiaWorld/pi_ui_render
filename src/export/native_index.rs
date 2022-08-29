@@ -1,5 +1,5 @@
-use crate::{utils::cmd::SingleCmd, resource::{ClearColor, Viewport}, components::{user::{CgColor, Aabb2, Point2, Node}, calc::{QuadTree, IsEnable}}};
-use pi_style::{style_parse::parse_class_map_from_string, style_type::ClassSheet};
+use crate::{utils::cmd::SingleCmd, resource::{ClearColor, Viewport}, components::{user::{CgColor, Aabb2, Point2, Node}, calc::{QuadTree, IsEnable}}, export::DispatchEnd};
+use pi_style::{style_parse::{parse_class_map_from_string, ClassMap}, style_type::ClassSheet};
 
 pub use super::Engine as Gui;
 // pub use crate::gui::Gui;
@@ -7,11 +7,12 @@ use js_proxy_gen_macro::pi_js_export;
 use pi_null::Null;
 use pi_spatialtree::quad_helper::intersects;
 pub use winit::window::Window;
-use pi_ecs::{entity::Id, storage::LocalVersion};
+use pi_ecs::{entity::Id, storage::LocalVersion, prelude::Dispatcher};
 use std::{sync::Arc, intrinsics::transmute};
+pub use pi_atom::Atom;
 
 #[pi_js_export]
-pub fn create_engine(win: &Arc<Window>, r: u32) -> Gui {
+pub fn create_engine(win: &Arc<Window>, r: f64) -> Gui {
 	crate::export::create_engine(win, r)
 }
 
@@ -26,13 +27,13 @@ pub fn get_class_sheet(gui: &mut Gui) -> u32 {
 }
 
 #[pi_js_export]
-pub fn create_render_target(gui: &mut Gui, fbo: u32) -> u32 {
+pub fn create_render_target(gui: &mut Gui, fbo: f64) -> u32 {
 	0
 }
 
 
 #[pi_js_export]
-pub fn destroy_render_target(gui: &mut Gui, fbo: u32) -> u32 {
+pub fn destroy_render_target(gui: &mut Gui, fbo: f64) -> u32 {
 	0
 }
 
@@ -45,11 +46,11 @@ pub fn clone_engine(engine: &Gui) -> Gui {
 	todo!()
 }
 
-// // TODO
+// TODO
 // #[cfg(not(target_arch = "wasm32"))]
 // #[pi_js_export]
-// pub async fn create_gui(engine: &mut Engine, width: u32, height: u32, load_image_fun: u32, class_sheet: u32, font_sheet: u32) -> *const Gui {
-//     &engine.gui as *const Gui
+// pub fn create_gui(engine: &mut Engine, width: f64, height: f64, load_image_fun: f64, class_sheet: f64, font_sheet: f64) {
+    
 // }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -95,6 +96,20 @@ pub fn set_view_port(gui: &mut Gui, x: i32, y: i32, width: i32, height: i32) {
 pub fn set_scissor(gui: &mut Gui, x: i32, y: i32, width: i32, height: i32) {
 }
 
+// use std::io::Result;
+
+#[pi_js_export]
+pub fn aaaaaa() -> Result<u32,String> {
+	return Err("aaa !!!!!!!!!!!!!! err".to_string());
+	// return Err(std::io::Error::new(ErrorKind::Other, "aaa !!!!!!!!!!!!!! err".to_string()));
+}
+
+#[pi_js_export]
+pub async fn bbbbbb() -> Result<u32,String> {
+	return Err("bbb !!!!!!!!!!!!!! err".to_string());
+	// return Err(std::io::Error::new(ErrorKind::Other, "bbbbbbbbbbbbbbb!!!!!!!!!".to_string()));
+}
+
 #[pi_js_export]
 pub fn set_project_transfrom(
     gui: &mut Gui,
@@ -103,20 +118,38 @@ pub fn set_project_transfrom(
     translate_x: f32,
     translate_y: f32,
 	rotate: f32,
-	width: u32,
-	height: u32,
+	width: f64,
+	height: f64,
 ) {
 }
 
 #[pi_js_export]
-pub fn force_update_text(gui: &mut Gui, node_id: u32) {
+pub fn force_update_text(gui: &mut Gui, node_id: f64) {
 }
 
 
 #[pi_js_export]
 pub fn render(gui: &mut Gui) {
+	// println_any!("run===={:?}", 0);
+	let end = gui.gui.world.get_or_insert_resource::<DispatchEnd>();
+	loop {
+		{
+			// 前一帧未结束，后一帧不能开始
+			let mut r = end.0.lock();
+			// println!("loop end {}, {:p}", *r, &end.0);
+			if *r {
+				// println!("set end false");
+				*r = false;
+				break;
+			}
+		}
+		std::thread::sleep(std::time::Duration::from_millis(1000));
+	}
+	// println_any!("run===={:?} 00", "");
 	gui.gui.run();
-	// dispach run TODO
+	// println_any!("run===={:?}", 4);
+	gui.dispatcher.run();
+	// println_any!("run===={:?}", 5);
 }
 
 /// 强制计算一次
@@ -142,38 +175,42 @@ pub fn set_shader(engine: &mut Gui, shader_name: String, shader_code: String) {
 #[pi_js_export]
 pub fn create_class(gui: &mut Gui, css: &str) {
 	let mut class_sheet = ClassSheet::default();
-   	match parse_class_map_from_string(css, &mut class_sheet) {
-        Ok(r) => r,
+   	match parse_class_map_from_string(css) {
+        Ok(r) => r.to_class_sheet(&mut class_sheet),
         Err(e) => {
 			log::warn!("{:?}", e);
             return;
         }
     };
-
 	gui.gui.push_cmd(SingleCmd(class_sheet));
 }
 
 /// 添加二进制格式的css表
 #[pi_js_export]
 pub fn create_class_by_bin(gui: &mut Gui, bin: &[u8]) {
-    let class_sheet: ClassSheet = match bincode::deserialize(bin) {
-        Ok(r) => r,
+	let mut class_sheet = ClassSheet::default();
+    match bincode::deserialize::<ClassMap>(bin) {
+        Ok(r) => {
+			r.to_class_sheet(&mut class_sheet);
+		},
         Err(e) => {
-			log::warn!("deserialize_class_map error: {:?}", e);
+			log::warn!("deserialize_class_map error: {:?}, {:?}", e, bin);
             return;
         }
     };
 
-	gui.gui.push_cmd(SingleCmd(class_sheet));
+	// log::warn!("deserialize_class_map success, class_sheet: {:?}", class_sheet.class_map);
+
+	gui.gui.extend_css(class_sheet);
 }
 
 #[pi_js_export]
-pub fn node_is_exist(gui: &mut Gui, node: u32) -> bool {
+pub fn node_is_exist(gui: &mut Gui, node: f64) -> bool {
 	return true
 }
 
 #[pi_js_export]
-pub fn node_is_visibility(gui: &mut Gui, node: u32) -> bool {
+pub fn node_is_visibility(gui: &mut Gui, node: f64) -> bool {
 	true
 }
 
@@ -283,10 +320,20 @@ pub fn offset_height(gui: &mut Gui, node: f64) -> usize {
 	}
 }
 
+#[pi_js_export]
+pub fn get_atom(s: &str) -> Atom {
+	Atom::from(s)
+}
+
+#[pi_js_export]
+pub fn get_atom_hash(s: &Atom) -> f64 {
+	s.get_hash() as f64
+}
+
 // /// 等同于html的getBoundingClientRect TODO
 // /// left top width height
 // #[pi_js_export]
-// pub fn offset_document(gui: &mut Gui, node_id: u32) -> JsValue {
+// pub fn offset_document(gui: &mut Gui, node_id: f64) -> JsValue {
 //     let node_id = node_id as usize;
 //     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
 //     let world = &mut world.gui;
@@ -333,7 +380,7 @@ pub fn offset_height(gui: &mut Gui, node: f64) -> usize {
 // /// content宽高的累加值
 // #[allow(unused_attributes)]
 // #[wasm_bindgen]
-// pub fn content_box(gui: &mut Gui, node: u32) -> JsValue {
+// pub fn content_box(gui: &mut Gui, node: f64) -> JsValue {
 //     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
 //     let world = &mut world.gui;
 //     let layout = world.layout.lend();

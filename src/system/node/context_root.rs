@@ -3,12 +3,12 @@
 use pi_assets::mgr::AssetMgr;
 use pi_ecs::prelude::{Res, ResMut, res::WriteRes};
 use pi_ecs_macros::setup;
-use pi_render::rhi::{device::RenderDevice, asset::RenderRes, bind_group::BindGroup, buffer::Buffer, RenderQueue, dyn_uniform_buffer::Group};
+use pi_render::rhi::{device::RenderDevice, asset::RenderRes, bind_group::BindGroup, buffer::Buffer, RenderQueue, dyn_uniform_buffer::Group, pipeline::RenderPipeline};
 use pi_share::Share;
 use smallvec::smallvec;
 use wgpu::IndexFormat;
 
-use crate::{components::{user::Matrix4, calc::{ WorldMatrix}, pass_2d::RenderTarget, draw_obj::{VSDefines, FSDefines, DrawState, DrawGroup, DynDrawGroup}}, resource::{draw_obj::{PipelineMap, ShaderInfoMap, UnitQuadBuffer, Shaders, ShaderCatch, VertexBufferLayoutMap, StateMap, ShareLayout, CopyFboToScreen, CommonSampler, ImageStaticIndex, DynUniformBuffer, DynBindGroupIndex, CommonPipelineState}}, system::{pass::{ pass_graph_node::PostBindGroupLayout, pass_render::DepthCache}, draw_obj::{pipeline::CalcPipeline}}, utils::tools::calc_hash, shaders::{image::{CameraMatrixBind, ProjectUniform, ImageMaterialBind, WorldUniform, DepthUniform, ImageMaterialGroup, SampTex2DGroup, ViewUniform}, color::CameraMatrixGroup}};
+use crate::{components::{user::Matrix4, calc::{ WorldMatrix}, pass_2d::RenderTarget, draw_obj::{VSDefines, FSDefines, DrawState, DrawGroup, DynDrawGroup}}, resource::{draw_obj::{UnitQuadBuffer, Shaders, ShaderCatch, VertexBufferLayoutMap, StateMap, ShareLayout, CopyFboToScreen, CommonSampler, ImageStaticIndex, DynUniformBuffer, DynBindGroupIndex, CommonPipelineState, Program}}, system::{pass::{ pass_graph_node::PostBindGroupLayout}, draw_obj::{pipeline::CalcPipeline}}, utils::tools::calc_hash, shaders::{image::{CameraMatrixBind, ProjectUniform, ImageMaterialBind, WorldUniform, DepthUniform, ImageMaterialGroup, SampTex2DGroup, ViewUniform}, color::CameraMatrixGroup}};
 
 
 pub struct CalcRoot;
@@ -16,47 +16,43 @@ pub struct CalcRoot;
 #[setup]
 impl CalcRoot {
 	#[system]
-	pub fn render_change(
-		mut pipeline_map: ResMut<PipelineMap>,
-		mut shader_map: ResMut<ShaderInfoMap>,
+	pub async fn render_change<'a>(
+		pipeline_map: Res<'static, Share<AssetMgr<RenderRes<RenderPipeline>>>>,
+		shader_map: Res<'static, Share<AssetMgr<RenderRes<Program>>>>,
 
-		unit_quad_buffer: Res<UnitQuadBuffer>,
-		image_static_index: Res<ImageStaticIndex>,
-		shader_statics: Res<Shaders>,
-		device: Res<RenderDevice>,
-		queue: Res<RenderQueue>,
-		shader_catch: Res<ShaderCatch>,
-		vertex_buffer_layout_map: Res<VertexBufferLayoutMap>,
-		state_map: Res<StateMap>,
-		share_layout: Res<ShareLayout>,
-
-		buffer_assets: Res<Share<AssetMgr<RenderRes<Buffer>>>>,
-		bind_group_assets: Res<Share<AssetMgr<RenderRes<BindGroup>>>>,
+		unit_quad_buffer: Res<'a, UnitQuadBuffer>,
+		image_static_index: Res<'a, ImageStaticIndex>,
+		shader_statics: Res<'a, Shaders>,
+		device: Res<'a, RenderDevice>,
+		shader_catch: Res<'a, ShaderCatch>,
+		vertex_buffer_layout_map: Res<'a, VertexBufferLayoutMap>,
+		state_map: Res<'a, StateMap>,
+		bind_group_assets: Res<'a, Share<AssetMgr<RenderRes<BindGroup>>>>,
 		
-		mut copy_draw_obj: WriteRes<CopyFboToScreen>,
-		post_bind_group_layout: Res<PostBindGroupLayout>,
-		common_sampler: Res<CommonSampler>,
-		mut depth_cache: ResMut<DepthCache>,
+		mut copy_draw_obj: WriteRes<'a, CopyFboToScreen>,
+		post_bind_group_layout: Res<'a, PostBindGroupLayout>,
+		common_sampler: Res<'a, CommonSampler>,
 
-		render_target: Res<RenderTarget>,
-		camera_bind_group: Res<DynBindGroupIndex<CameraMatrixGroup>>,
-		post_bind_group: Res<DynBindGroupIndex<ImageMaterialGroup>>,
-		common_state: Res<CommonPipelineState>,
+		render_target: Res<'a, RenderTarget>,
+		camera_bind_group: Res<'a, DynBindGroupIndex<CameraMatrixGroup>>,
+		post_bind_group: Res<'a, DynBindGroupIndex<ImageMaterialGroup>>,
+		common_state: Res<'a, CommonPipelineState>,
 
 		mut dyn_uniform_buffer: ResMut<'static, DynUniformBuffer>,
-	) {
+	) -> std::io::Result<()> {
 		if !render_target.is_changed() {
-			return;
+			return Ok(());
 		}
 
 		let target = if let RenderTarget::OffScreen(target) = &*render_target {
 			target
 		} else {
-			return;
+			return Ok(());
 		};
 
 		// 如果渲染目标不是一个离屏Target，则需要创建一个离屏fbo， 将gui渲染到离屏fbo上，再将fbo渲染到最终目标上
 		// 原因是，gui的渲染机制为局部脏更机制，需要保留上一帧的画面，如果不用离屏fbo，在多缓冲模式下，不能保留原有画面
+		// 此逻辑创建一个drawobj，用于将离屏的fbo渲染到最终目标上
 		let mut draw_state = DrawState::default();
 		draw_state.vbs.insert(0, (unit_quad_buffer.vertex.clone(), 0));
 		draw_state.vbs.insert(1, (unit_quad_buffer.uv.clone(), 0));
@@ -65,7 +61,7 @@ impl CalcRoot {
 		let mut image_static_index = image_static_index.clone();
 		image_static_index.pipeline_state = common_state.premultiply;
 
-		let pipeline = CalcPipeline::calc_pipeline(
+		let pipeline = match CalcPipeline::calc_pipeline(
 			&VSDefines::default(),
 			&FSDefines::default(),
 			&image_static_index,
@@ -76,10 +72,12 @@ impl CalcRoot {
 			&state_map,
 			&shader_catch,
 
-			&mut pipeline_map,
-			&mut shader_map,
-			&share_layout,
-		);
+			&pipeline_map,
+			&shader_map,
+		).await {
+			Ok(r) => r,
+			Err(e) => panic!("create CopyFboToScreen pipeline fail, {:?}", e)
+		};
 		draw_state.pipeline = Some(pipeline);
 
 		let camera_dyn_offset = dyn_uniform_buffer.alloc_binding::<CameraMatrixBind>();
@@ -126,6 +124,8 @@ impl CalcRoot {
 		draw_state.bind_groups.insert_group(SampTex2DGroup::id(), DrawGroup::Static(texture_bind));
 
 		copy_draw_obj.write(CopyFboToScreen(draw_state));
+
+		Ok(())
 	}
 
 	// #[listen(component=(Node, Root, (Create, Delete)))]

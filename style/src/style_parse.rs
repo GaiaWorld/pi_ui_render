@@ -1,6 +1,6 @@
 //! 解析字符串格式的样式
 
-use std::intrinsics::transmute;
+use std::{intrinsics::transmute, collections::VecDeque};
 use std::str::FromStr;
 
 use bitvec::prelude::BitArray;
@@ -15,23 +15,465 @@ use crate::style::{BackgroundColor, Color, BorderColor, ObjectFit, BorderImageRe
 
 use super::style_type::*;
 
-pub fn parse_class_map_from_string(value: &str, class_sheet: &mut ClassSheet) -> Result<(), String> {
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub enum Attribute {
+    PositionType(PositionTypeType),
+    FlexWrap(FlexWrapType),
+    FlexDirection(FlexDirectionType),
+    AlignContent(AlignContentType),
+    AlignItems(AlignItemsType),
+    AlignSelf(AlignSelfType),
+    JustifyContent(JustifyContentType),
+
+    ObjectFit(ObjectFitType),
+    TextAlign(TextAlignType),
+    VerticalAlign(VerticalAlignType),
+    WhiteSpace(WhiteSpaceType),
+    FontStyle(FontStyleType),
+    Enable(EnableType),
+    Display(DisplayType),
+
+    Visibility(VisibilityType),
+    Overflow(OverflowType),
+    LetterSpacing(LetterSpacingType),
+    TextIndent(TextIndentType),
+    WordSpacing(WordSpacingType),
+    FontWeight(FontWeightType),
+    FontFamily(FontFamilyType),
+    ZIndex(ZIndexType),
+	BackgroundImage(BackgroundImageType),
+    BorderImage(BorderImageType),
+	FlexShrink(FlexShrinkType),
+    FlexGrow(FlexGrowType),
+
+    Opacity(OpacityType),
+    BorderImageRepeat(BorderImageRepeatType),
+	FontSize(FontSizeType),
+	Blur(BlurType),
+	LineHeight(LineHeightType),
+	
+    Width(WidthType),
+    Height(HeightType),
+    MarginLeft(MarginLeftType),
+    MarginTop(MarginTopType),
+    MarginBottom(MarginBottomType),
+    MarginRight(MarginRightType),
+    Margin(MarginType),
+    PaddingLeft(PaddingLeftType),
+    PaddingTop(PaddingTopType),
+    PaddingBottom(PaddingBottomType),
+    PaddingRight(PaddingRightType),
+    Padding(PaddingType),
+    BorderLeft(BorderLeftType),
+    BorderTop(BorderTopType),
+    BorderBottom(BorderBottomType),
+    BorderRight(BorderRightType),
+    Border(BorderType),
+    MinWidth(MinWidthType),
+    MinHeight(MinHeightType),
+    MaxHeight(MaxHeightType),
+    MaxWidth(MaxWidthType),
+    FlexBasis(FlexBasisType),
+    PositionLeft(PositionLeftType),
+    PositionTop(PositionTopType),
+    PositionRight(PositionRightType),
+    PositionBottom(PositionBottomType),
+
+	MaskImage(MaskImageType),
+	BlendMode(BlendModeType),
+
+	BackgroundColor(BackgroundColorType),
+    BorderColor(BorderColorType),
+    BoxShadow(BoxShadowType),
+
+    BackgroundImageClip(BackgroundImageClipType),
+
+    BorderImageClip(BorderImageClipType),
+    BorderImageSlice(BorderImageSliceType),
+
+    Color(ColorType),
+    TextShadow(TextShadowType),
+    TextStroke(TextStrokeType),
+
+    BorderRadius(BorderRadiusType),
+    Transform(TransformType),
+    TransformOrigin(TransformOriginType),
+    Hsi(HsiType),
+
+	MaskImageClip(MaskImageClipType),
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ClassMap{
+	attrs: VecDeque<Attribute>,
+	classes: Vec<ClassItem>, 
+}
+
+impl ClassMap {
+	pub fn to_class_sheet(mut self, class_sheet: &mut ClassSheet) {
+
+		for class in self.classes.iter() {
+			let mut count = class.count;
+			let start = class_sheet.style_buffer.len();
+			let mut class_meta = ClassMeta {
+				start: start,
+				end: start,
+				class_style_mark: BitArray::default(),
+			};
+			log::debug!("write_style class: {:?}", class.class_name);
+
+			loop {
+				if count == 0 {
+					break;
+				}
+
+				let mut r = self.attrs.pop_front().unwrap();
+				log::debug!("write_style: {:?}", r);
+				match &mut r {
+					Attribute::PositionType(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					}
+					Attribute::FlexWrap(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+					Attribute::FlexDirection(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+					Attribute::AlignContent(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+					Attribute::AlignItems(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+					Attribute::AlignSelf(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+					Attribute::JustifyContent(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+
+					Attribute::ObjectFit(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+					Attribute::TextAlign(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+					Attribute::VerticalAlign(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+					Attribute::WhiteSpace(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+					Attribute::FontStyle(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+					Attribute::Enable(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+					Attribute::Display(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+
+					Attribute::Visibility(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+					Attribute::Overflow(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+					Attribute::LetterSpacing(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+					Attribute::TextIndent(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+					Attribute::WordSpacing(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+					Attribute::FontWeight(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+					Attribute::FontFamily(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+					Attribute::ZIndex(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+					Attribute::BackgroundImage(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+					Attribute::BorderImage(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+					Attribute::FlexShrink(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+					Attribute::FlexGrow(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+
+					Attribute::Opacity(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+					Attribute::BorderImageRepeat(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+					Attribute::FontSize(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+					Attribute::Blur(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+					Attribute::LineHeight(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+					
+					Attribute::Width(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+					Attribute::Height(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+					Attribute::MarginLeft(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+					Attribute::MarginTop(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+					Attribute::MarginBottom(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+					Attribute::MarginRight(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+					Attribute::Margin(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+					Attribute::PaddingLeft(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+					Attribute::PaddingTop(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+					Attribute::PaddingBottom(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+					Attribute::PaddingRight(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+					Attribute::Padding(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+					Attribute::BorderLeft(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+					Attribute::BorderTop(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+					Attribute::BorderBottom(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+					Attribute::BorderRight(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+					Attribute::Border(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+					Attribute::MinWidth(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+					Attribute::MinHeight(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+					Attribute::MaxHeight(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+					Attribute::MaxWidth(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+					Attribute::FlexBasis(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+					Attribute::PositionLeft(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+					Attribute::PositionTop(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+					Attribute::PositionRight(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+					Attribute::PositionBottom(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+
+					Attribute::MaskImage(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+					Attribute::BlendMode(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+
+					Attribute::BackgroundColor(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+					Attribute::BorderColor(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+					Attribute::BoxShadow(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+
+					Attribute::BackgroundImageClip(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+
+					Attribute::BorderImageClip(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+					Attribute::BorderImageSlice(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+
+					Attribute::Color(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+					Attribute::TextShadow(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+					Attribute::TextStroke(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+
+					Attribute::BorderRadius(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+					Attribute::Transform(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+					Attribute::TransformOrigin(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+					Attribute::Hsi(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+
+					Attribute::MaskImageClip(r) => unsafe {
+						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+				}
+
+				std::mem::forget(r);
+
+				count -= 1;
+			}
+			
+
+			class_meta.end = class_sheet.style_buffer.len();
+
+			class_sheet.class_map.insert(class.class_name, class_meta);
+		}
+	}
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ClassItem{
+	count: usize,
+	class_name: usize,
+}
+
+pub fn parse_class_map_from_string(value: &str) -> Result<ClassMap, String> {
+	let mut classes = ClassMap {
+		attrs: VecDeque::default(),
+		classes: Vec::default(),
+	};
 	let mut input = ParserInput::new(value);
 	let mut parse = Parser::new(&mut input);
 
 	loop {
 		if parse.is_exhausted() {
-			return Ok(());
+			return Ok(classes);
 		}
 
-		if let Err(e) = parse_class(class_sheet, &mut parse) {
+		if let Err(e) = parse_class(&mut classes, &mut parse) {
 			log::error!("parse class err: {:?}", e);
 		}
 	}
 }
 
-// 解析class
-pub fn parse_class<'i, 't>(context: &mut ClassSheet, input: &mut Parser<'i, 't>) -> Result<(), BasicParseError<'i>> {
+pub fn parse_class<'i, 't>(context: &mut ClassMap, input: &mut Parser<'i, 't>) -> Result<(), BasicParseError<'i>> {
 	// log::debug!("next==============={:?}", input.next());
 	if let Err(r) = input.expect_delim('.') {
 		// 不以"."开头，则不是class（目前只解析class，keyframe、id等不解析）， 不是class则跳过
@@ -54,17 +496,14 @@ pub fn parse_class<'i, 't>(context: &mut ClassSheet, input: &mut Parser<'i, 't>)
 		Err(_) => usize::MAX,
 	};
 
+	let start = context.attrs.len();
+
 	input.expect_curly_bracket_block()?;
 
-	let mut class_meta = ClassMeta {
-		start: context.style_buffer.len(),
-		end: 0,
-		class_style_mark: BitArray::default(),
-	};
 
 	match input.parse_nested_block::<_, _, ValueParseErrorKind>(|i| {
 		loop {
-			if let Err(e) = parse_style_item(&mut context.style_buffer, &mut class_meta, i) {
+			if let Err(e) = parse_style_item(&mut context.attrs, i) {
 				if i.is_exhausted() {
 					break;
 				} else {
@@ -81,12 +520,84 @@ pub fn parse_class<'i, 't>(context: &mut ClassSheet, input: &mut Parser<'i, 't>)
 	};
 
 	if class_name != usize::MAX {
-		class_meta.end = context.style_buffer.len();
 	
-		context.class_map.insert(class_name, class_meta);
+		context.classes.push(ClassItem { count: context.attrs.len() - start, class_name: class_name });
 	}
 	Ok(())
 }
+
+// pub fn parse_class_map_from_string(value: &str, class_sheet: &mut ClassSheet) -> Result<(), String> {
+// 	let mut input = ParserInput::new(value);
+// 	let mut parse = Parser::new(&mut input);
+
+// 	loop {
+// 		if parse.is_exhausted() {
+// 			return Ok(());
+// 		}
+
+// 		if let Err(e) = parse_class(class_sheet, &mut parse) {
+// 			log::error!("parse class err: {:?}", e);
+// 		}
+// 	}
+// }
+
+// // 解析class
+// pub fn parse_class<'i, 't>(context: &mut ClassSheet, input: &mut Parser<'i, 't>) -> Result<(), BasicParseError<'i>> {
+// 	// log::debug!("next==============={:?}", input.next());
+// 	if let Err(r) = input.expect_delim('.') {
+// 		// 不以"."开头，则不是class（目前只解析class，keyframe、id等不解析）， 不是class则跳过
+// 		log::info!("Unexpected css: {:?}", r);
+// 		loop {
+// 			if input.is_exhausted() {
+// 				return Ok(());
+// 			}
+// 			if let Ok(_) = input.expect_curly_bracket_block() {
+// 				return Ok(());
+// 			}
+// 		}
+// 	}
+
+// 	let class_name = input.expect_ident()?.as_ref();
+// 	log::info!("class: {}", class_name);
+
+// 	let class_name = match usize::from_str(&class_name[1..class_name.len()]) {
+// 		Ok(r) => r,
+// 		Err(_) => usize::MAX,
+// 	};
+
+// 	input.expect_curly_bracket_block()?;
+
+// 	let mut class_meta = ClassMeta {
+// 		start: context.style_buffer.len(),
+// 		end: 0,
+// 		class_style_mark: BitArray::default(),
+// 	};
+
+// 	match input.parse_nested_block::<_, _, ValueParseErrorKind>(|i| {
+// 		loop {
+// 			if let Err(e) = parse_style_item(&mut context.style_buffer, &mut class_meta, i) {
+// 				if i.is_exhausted() {
+// 					break;
+// 				} else {
+// 					log::error!("parse_style error: {:?}", e);
+// 				}
+// 			}
+// 		}
+// 		Ok(())
+// 	}) {
+// 		Ok(r) => r,
+// 		Err(r) => {
+// 			log::error!("parse_class fail, {:?}", r);
+// 		},
+// 	};
+
+// 	if class_name != usize::MAX {
+// 		class_meta.end = context.style_buffer.len();
+	
+// 		context.class_map.insert(class_name, class_meta);
+// 	}
+// 	Ok(())
+// }
 
 fn parse_border_image_slice<'i, 't>(input: &mut Parser<'i, 't>) -> Result<BorderImageSlice, ParseError<'i, ValueParseErrorKind>> {
 	let r = match input.try_parse(|input| {input.expect_percentage()}) {
@@ -323,7 +834,7 @@ fn parse_line_height<'i, 't>(input: &mut Parser<'i, 't>) -> Result<LineHeight, P
 				_ => Err(location.new_custom_error(ValueParseErrorKind::InvalidFilter)),
 			}
 		},
-		Token::Percentage{unit_value,..} => Ok(LineHeight::Percent(*unit_value / 100.0)),
+		Token::Percentage{unit_value,..} => Ok(LineHeight::Percent(*unit_value)),
 		Token::Dimension{value,..} => Ok(LineHeight::Length(*value)),
 		Token::Number{value,..} => Ok(LineHeight::Length(*value)),
         _ => Err(location.new_custom_error(ValueParseErrorKind::InvalidFilter)),
@@ -334,7 +845,7 @@ fn parse_font_size<'i, 't>(input: &mut Parser<'i, 't>) -> Result<FontSize, Parse
 	let location = input.current_source_location();
 	let toke = input.next()?;
 	match toke {
-		Token::Percentage{unit_value,..} => Ok(FontSize::Percent(*unit_value / 100.0)),
+		Token::Percentage{unit_value,..} => Ok(FontSize::Percent(*unit_value)),
 		Token::Dimension{value,..} => Ok(FontSize::Length(*value as usize)),
 		Token::Number{value,..} => Ok(FontSize::Length(*value as usize)),
 		_ => Err(location.new_custom_error(ValueParseErrorKind::InvalidFilter)),
@@ -373,7 +884,7 @@ fn parse_transform_origin1<'i, 't>(input: &mut Parser<'i, 't>) -> Result<LengthU
 				_ => return Err(location.new_custom_error(ValueParseErrorKind::InvalidFilter)),
 			}
 		},
-		Token::Percentage{unit_value,..} => Ok(LengthUnit::Percent(*unit_value / 100.0)),
+		Token::Percentage{unit_value,..} => Ok(LengthUnit::Percent(*unit_value)),
 		Token::Dimension{value,..} => Ok(LengthUnit::Pixel(*value)),
 		Token::Number{value,..} => Ok(LengthUnit::Pixel(*value)),
         _ => Err(location.new_custom_error(ValueParseErrorKind::InvalidFilter)),
@@ -384,7 +895,7 @@ pub fn parse_len_or_percent<'i, 't>(input: &mut Parser<'i, 't>) -> Result<Length
 	let location = input.current_source_location();
 	let toke = input.next()?;
 	match toke {
-		Token::Percentage{unit_value,..} => Ok(LengthUnit::Percent(*unit_value / 100.0)),
+		Token::Percentage{unit_value,..} => Ok(LengthUnit::Percent(*unit_value)),
 		Token::Dimension{value,..} => Ok(LengthUnit::Pixel(*value)),
 		Token::Number{value,..} => Ok(LengthUnit::Pixel(*value)),
         _ => Err(location.new_custom_error(ValueParseErrorKind::InvalidFilter)),
@@ -608,57 +1119,51 @@ fn trans_hsi_i( mut i: f32) -> f32 {
 }
 
 
-pub fn parse_style_item<'i, 't>(buffer: &mut Vec<u8>, class_meta: &mut ClassMeta, input: &mut Parser<'i, 't>) -> Result<(), ParseError<'i, ValueParseErrorKind>> {
+pub fn parse_style_item<'i, 't>(buffer: &mut VecDeque<Attribute>, input: &mut Parser<'i, 't>) -> Result<(), ParseError<'i, ValueParseErrorKind>> {
 	let key = input.expect_ident()?;
 	match key.as_ref() {
 		"filter" => {
 			input.expect_colon()?;
-			parse_filter1(buffer, class_meta, input)?;
+			parse_filter1(buffer, input)?;
         },
-        "background-color" => unsafe {
+        "background-color" => {
 			input.expect_colon()?;
 			let ty = BackgroundColorType (BackgroundColor(Color::RGBA(parse_color(input)?)));
 			log::debug!("{:?}", ty);
-			ty.write(buffer);
-			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+			buffer.push_back(Attribute::BackgroundColor(ty));
         }
-        "background" => unsafe {
+        "background" => {
 			input.expect_colon()?;
 			let ty = BackgroundColorType (BackgroundColor(parse_background(input)?));
 			log::debug!("{:?}", ty);
-			ty.write(buffer);
-			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+			buffer.push_back(Attribute::BackgroundColor(ty));
         }
 
-        "border-color" => unsafe {
+        "border-color" => {
 			input.expect_colon()?;
 			let ty = BorderColorType (BorderColor(parse_color(input)?));
 			log::debug!("{:?}", ty);
-			ty.write(buffer);
-			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+			buffer.push_back(Attribute::BorderColor(ty));
         }
-        "box-shadow" => unsafe {
+        "box-shadow" => {
 			input.expect_colon()?;
 			let ty = BoxShadowType(parse_box_shadow(input)?);
 			log::debug!("{:?}", ty);
-			ty.write(buffer);
-			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+			buffer.push_back(Attribute::BoxShadow(ty));
         }
 
-        "background-image" => unsafe {
+        "background-image" => {
 			input.expect_colon()?;
 			match parse_gradient_image(input)? {
 				GradientImage::Linear(gradient) => {
 					let ty = BackgroundColorType(BackgroundColor(Color::LinearGradient(gradient)));
 					log::debug!("{:?}", ty);
-					ty.write(buffer);
-					class_meta.class_style_mark.set(ty.get_type() as usize, true);
+					buffer.push_back(Attribute::BackgroundColor(ty));
 				},
 				GradientImage::Url(image) => {
 					let ty = BackgroundImageType (BackgroundImage(Atom::from(image.as_ref().to_string())));
 					log::debug!("{:?}", ty);
-					ty.write(buffer);
-					class_meta.class_style_mark.set(ty.get_type() as usize, true);
+					buffer.push_back(Attribute::BackgroundImage(ty));
 				},
 			}
 		}
@@ -668,23 +1173,20 @@ pub fn parse_style_item<'i, 't>(buffer: &mut Vec<u8>, class_meta: &mut ClassMeta
 				rect_to_aabb(transmute::<_, Rect<f32>>(parse_top_right_bottom_left::<Percentage>(input)?))
 			));
 			log::debug!("{:?}", ty);
-			ty.write(buffer);
-			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+			buffer.push_back(Attribute::BackgroundImageClip(ty));
         }
-        "object-fit" => unsafe {
+        "object-fit" => {
 			input.expect_colon()?;
 			let ty = ObjectFitType(ObjectFit(parse_object_fit(input)?));
 			log::debug!("{:?}", ty);
-			ty.write(buffer);
-			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+			buffer.push_back(Attribute::ObjectFit(ty));
         }
 
-        "border-image" => unsafe {
+        "border-image" => {
 			input.expect_colon()?;
 			let ty = BorderImageType(BorderImage(Atom::from( input.expect_url()?.as_ref().to_string())));
 			log::debug!("{:?}", ty);
-			ty.write(buffer);
-			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+			buffer.push_back(Attribute::BorderImage(ty));
 
         }
         "border-image-clip" => unsafe {
@@ -693,38 +1195,33 @@ pub fn parse_style_item<'i, 't>(buffer: &mut Vec<u8>, class_meta: &mut ClassMeta
 				transmute::<_, Rect<NotNan<f32>>>(parse_top_right_bottom_left::<Percentage>(input)?)
 			));
 			log::debug!("{:?}", ty);
-			ty.write(buffer);
-			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+			buffer.push_back(Attribute::BorderImageClip(ty));
         }
-        "border-image-slice" => unsafe {
+        "border-image-slice" => {
 			input.expect_colon()?;
 			let ty = BorderImageSliceType(parse_border_image_slice(input)?);
 			log::debug!("{:?}", ty);
-			ty.write(buffer);
-			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+			buffer.push_back(Attribute::BorderImageSlice(ty));
         }
-        "border-image-repeat" => unsafe {
+        "border-image-repeat" => {
 			input.expect_colon()?;
 			let repeat = parse_border_image_repeat(input)?;
 			let ty = BorderImageRepeatType(BorderImageRepeat(repeat, repeat));
 			log::debug!("{:?}", ty);
-			ty.write(buffer);
-			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+			buffer.push_back(Attribute::BorderImageRepeat(ty));
 		}
-		"mask-image" => unsafe {
+		"mask-image" => {
 			input.expect_colon()?;
 			match parse_gradient_image(input)? {
 				GradientImage::Linear(gradient) => {
 					let ty = MaskImageType(MaskImage::LinearGradient(gradient));
 					log::debug!("{:?}", ty);
-					ty.write(buffer);
-					class_meta.class_style_mark.set(ty.get_type() as usize, true);
+					buffer.push_back(Attribute::MaskImage(ty));
 				},
 				GradientImage::Url(image) => {
 					let ty = MaskImageType (MaskImage::Path(Atom::from(image.as_ref().to_string())));
 					log::debug!("{:?}", ty);
-					ty.write(buffer);
-					class_meta.class_style_mark.set(ty.get_type() as usize, true);
+					buffer.push_back(Attribute::MaskImage(ty));
 				},
 			}
 		}
@@ -734,113 +1231,98 @@ pub fn parse_style_item<'i, 't>(buffer: &mut Vec<u8>, class_meta: &mut ClassMeta
 				rect_to_aabb(transmute::<_, Rect<f32>>(parse_top_right_bottom_left::<Percentage>(input)?))
 			));
 			log::debug!("{:?}", ty);
-			ty.write(buffer);
-			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+			buffer.push_back(Attribute::MaskImageClip(ty));
         }
-		"blend-mode" => unsafe {
+		"blend-mode" => {
 			input.expect_colon()?;
 			let ty = BlendModeType(parse_blend_mode(input)?);
 			log::debug!("{:?}", ty);
-			ty.write(buffer);
-			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+			buffer.push_back(Attribute::BlendMode(ty));
         },
-		"text-gradient" => unsafe {
+		"text-gradient" => {
 			input.expect_colon()?;
 			let ty = ColorType(parse_background(input)?);
 			log::debug!("{:?}", ty);
-			ty.write(buffer);
-			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+			buffer.push_back(Attribute::Color(ty));
 		}
-        "color" => unsafe {
+        "color" => {
 			input.expect_colon()?;
 			let ty = ColorType(Color::RGBA(parse_color(input)?));
 			log::debug!("{:?}", ty);
-			ty.write(buffer);
-			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+			buffer.push_back(Attribute::Color(ty));
         }
-        "letter-spacing" => unsafe {
+        "letter-spacing" => {
 			input.expect_colon()?;
 			let ty = LetterSpacingType(parse_len(input)?);
 			log::debug!("{:?}", ty);
-			ty.write(buffer);
-			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+			buffer.push_back(Attribute::LetterSpacing(ty));
         }
-        "line-height" => unsafe {
+        "line-height" => {
 			input.expect_colon()?;
 			let ty = LineHeightType(parse_line_height(input)?);
 			log::debug!("{:?}", ty);
-			ty.write(buffer);
-			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+			buffer.push_back(Attribute::LineHeight(ty));
         }
-        "text-align" => unsafe {
+        "text-align" => {
 			input.expect_colon()?;
 			let ty = TextAlignType(parse_text_align(input)?);
 			log::debug!("{:?}", ty);
-			ty.write(buffer);
-			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+			buffer.push_back(Attribute::TextAlign(ty));
         }
-        "text-indent" => unsafe {
+        "text-indent" => {
 			input.expect_colon()?;
 			let ty = TextIndentType(parse_len(input)?);
 			log::debug!("{:?}", ty);
-			ty.write(buffer);
-			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+			buffer.push_back(Attribute::TextIndent(ty));
         }
-        "text-shadow" => unsafe {
+        "text-shadow" => {
 			input.expect_colon()?;
 			let ty = TextShadowType(parse_text_shadow(input)?);
 			log::debug!("{:?}", ty);
-			ty.write(buffer);
-			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+			buffer.push_back(Attribute::TextShadow(ty));
         }
         // "vertical-align" => show_attr.push(Attribute::Color( Color::RGBA(parse_color_string(value)?) )),
-        "white-space" => unsafe {
+        "white-space" => {
 			input.expect_colon()?;
 			let ty = WhiteSpaceType(pasre_white_space(input)?);
 			log::debug!("{:?}", ty);
-			ty.write(buffer);
-			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+			buffer.push_back(Attribute::WhiteSpace(ty));
         }
-        "word-spacing" => unsafe {
+        "word-spacing" => {
 			input.expect_colon()?;
 			let ty = WordSpacingType(parse_len(input)?);
 			log::debug!("{:?}", ty);
-			ty.write(buffer);
-			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+			buffer.push_back(Attribute::WordSpacing(ty));
         }
 
-        "text-stroke" => unsafe {
+        "text-stroke" => {
 			input.expect_colon()?;
 			let ty = TextStrokeType(parse_text_stroke(input)?);
 			log::debug!("{:?}", ty);
-			ty.write(buffer);
-			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+			buffer.push_back(Attribute::TextStroke(ty));
         }
 
         // "font-style" => show_attr.push(Attribute::FontStyle( Color::RGBA(parse_color_string(value)?) )),
-        "font-weight" => unsafe {
+        "font-weight" => {
 			input.expect_colon()?;
 			let ty = FontWeightType(parse_font_weight(input)? as usize);
 			log::debug!("{:?}", ty);
-			ty.write(buffer);
-			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+			buffer.push_back(Attribute::FontWeight(ty));
         }
-        "font-size" => unsafe {
+        "font-size" => {
 			input.expect_colon()?;
 			let ty = FontSizeType(parse_font_size(input)?);
 			log::debug!("{:?}", ty);
-			ty.write(buffer);
-			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+			buffer.push_back(Attribute::FontSize(ty));
         }
-        "font-family" => unsafe {
+        "font-family" => {
 			input.expect_colon()?;
 			let ty = FontFamilyType(Atom::from(input.expect_ident()?.as_ref().to_string()));
 			log::debug!("{:?}", ty);
-			ty.write(buffer);
-			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+			buffer.push_back(Attribute::FontFamily(ty));
         }
 
-        "border-radius" => unsafe {
+        "border-radius" => {
 			input.expect_colon()?;
 			let value = LengthUnit::Pixel(parse_len(input)?);
 			let ty = BorderRadiusType(BorderRadius {
@@ -848,323 +1330,277 @@ pub fn parse_style_item<'i, 't>(buffer: &mut Vec<u8>, class_meta: &mut ClassMeta
 				y: value,
 			});
 			log::debug!("{:?}", ty);
-			ty.write(buffer);
-			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+			buffer.push_back(Attribute::BorderRadius(ty));
         }
-        "opacity" => unsafe {
+        "opacity" => {
 			input.expect_colon()?;
 			let ty = OpacityType(Opacity(input.expect_number()?));
 			log::debug!("{:?}", ty);
-			ty.write(buffer);
-			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+			buffer.push_back(Attribute::Opacity(ty));
         }
-        "transform" => unsafe {
+        "transform" => {
 			input.expect_colon()?;
 			let ty = TransformType(parse_transform(input)?);
 			log::debug!("{:?}", ty);
-			ty.write(buffer);
-			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+			buffer.push_back(Attribute::Transform(ty));
         }
-        "transform-origin" => unsafe {
+        "transform-origin" => {
 			input.expect_colon()?;
 			let ty = TransformOriginType(parse_transform_origin(input)?);
 			log::debug!("{:?}", ty);
-			ty.write(buffer);
-			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+			buffer.push_back(Attribute::TransformOrigin(ty));
         }
-        "z-index" => unsafe {
+        "z-index" => {
 			input.expect_colon()?;
 			let ty = ZIndexType(ZIndex(input.expect_number()? as isize));
 			log::debug!("{:?}", ty);
-			ty.write(buffer);
-			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+			buffer.push_back(Attribute::ZIndex(ty));
         }
-        "visibility" => unsafe {
+        "visibility" => {
 			input.expect_colon()?;
 			let ty = VisibilityType(parse_visibility(input)?);
 			log::debug!("{:?}", ty);
-			ty.write(buffer);
-			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+			buffer.push_back(Attribute::Visibility(ty));
         }
-        "pointer-events" => unsafe {
+        "pointer-events" => {
 			input.expect_colon()?;
 			let ty = EnableType(parse_enable(input)?);
 			log::debug!("{:?}", ty);
-			ty.write(buffer);
-			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+			buffer.push_back(Attribute::Enable(ty));
         }
-        "display" => unsafe {
+        "display" => {
 			input.expect_colon()?;
 			let ty = DisplayType(parse_display(input)?);
 			log::debug!("{:?}", ty);
-			ty.write(buffer);
-			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+			buffer.push_back(Attribute::Display(ty));
         }
-        "overflow" => unsafe {
+        "overflow" => {
 			input.expect_colon()?;
 			let ty = OverflowType(Overflow(parse_overflow(input)?));
 			log::debug!("{:?}", ty);
-			ty.write(buffer);
-			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+			buffer.push_back(Attribute::Overflow(ty));
         }
-        "overflow-y" => unsafe {
+        "overflow-y" => {
 			input.expect_colon()?;
 			let ty = OverflowType(Overflow(parse_overflow(input)?));
 			log::debug!("{:?}", ty);
-			ty.write(buffer);
-			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+			buffer.push_back(Attribute::Overflow(ty));
         }
-        "width" => unsafe {
+        "width" => {
 			input.expect_colon()?;
 			let ty = WidthType(Dimension::parse(input)?);
 			log::debug!("{:?}", ty);
-			ty.write(buffer);
-			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+			buffer.push_back(Attribute::Width(ty));
 		},
-		"height" => unsafe {
+		"height" => {
 			input.expect_colon()?;
 			let ty = HeightType(Dimension::parse(input)?);
 			log::debug!("{:?}", ty);
-			ty.write(buffer);
-			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+			buffer.push_back(Attribute::Height(ty));
 		},
-        "left" => unsafe {
+        "left" => {
 			input.expect_colon()?;
 			let ty = PositionLeftType(Dimension::parse(input)?);
 			log::debug!("{:?}", ty);
-			ty.write(buffer);
-			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+			buffer.push_back(Attribute::PositionLeft(ty));
         }
-        "bottom" => unsafe {
+        "bottom" => {
 			input.expect_colon()?;
 			let ty = PositionBottomType(Dimension::parse(input)?);
 			log::debug!("{:?}", ty);
-			ty.write(buffer);
-			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+			buffer.push_back(Attribute::PositionBottom(ty));
         }
-        "right" => unsafe {
+        "right" => {
 			input.expect_colon()?;
 			let ty = PositionRightType(Dimension::parse(input)?);
 			log::debug!("{:?}", ty);
-			ty.write(buffer);
-			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+			buffer.push_back(Attribute::PositionRight(ty));
         }
-        "top" => unsafe {
+        "top" => {
 			input.expect_colon()?;
 			let ty = PositionTopType(Dimension::parse(input)?);
 			log::debug!("{:?}", ty);
-			ty.write(buffer);
-			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+			buffer.push_back(Attribute::PositionTop(ty));
         }
-        "margin-left" => unsafe {
+        "margin-left" => {
 			input.expect_colon()?;
 			let ty = MarginLeftType(Dimension::parse(input)?);
 			log::debug!("{:?}", ty);
-			ty.write(buffer);
-			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+			buffer.push_back(Attribute::MarginLeft(ty));
         }
-        "margin-bottom" => unsafe {
+        "margin-bottom" => {
 			input.expect_colon()?;
 			let ty = MarginBottomType(Dimension::parse(input)?);
 			log::debug!("{:?}", ty);
-			ty.write(buffer);
-			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+			buffer.push_back(Attribute::MarginBottom(ty));
         }
-        "margin-right" => unsafe {
+        "margin-right" => {
 			input.expect_colon()?;
 			let ty = MarginRightType(Dimension::parse(input)?);
 			log::debug!("{:?}", ty);
-			ty.write(buffer);
-			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+			buffer.push_back(Attribute::MarginRight(ty));
         }
-        "margin-top" => unsafe {
+        "margin-top" => {
 			input.expect_colon()?;
 			let ty = MarginTopType(Dimension::parse(input)?);
 			log::debug!("{:?}", ty);
-			ty.write(buffer);
-			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+			buffer.push_back(Attribute::MarginTop(ty));
         }
-        "margin" => unsafe {
+        "margin" => {
 			input.expect_colon()?;
 			let ty = MarginType(Margin(parse_top_right_bottom_left(input)?));
 			log::debug!("{:?}", ty);
-			ty.write(buffer);
-			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+			buffer.push_back(Attribute::Margin(ty));
         }
-        "padding-left" => unsafe {
+        "padding-left" => {
 			input.expect_colon()?;
 			let ty = PaddingLeftType(Dimension::parse(input)?);
 			log::debug!("{:?}", ty);
-			ty.write(buffer);
-			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+			buffer.push_back(Attribute::PaddingLeft(ty));
         }
-        "padding-bottom" => unsafe {
+        "padding-bottom" => {
 			input.expect_colon()?;
 			let ty = PaddingBottomType(Dimension::parse(input)?);
 			log::debug!("{:?}", ty);
-			ty.write(buffer);
-			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+			buffer.push_back(Attribute::PaddingBottom(ty));
         }
-        "padding-right" => unsafe {
+        "padding-right" => {
 			input.expect_colon()?;
 			let ty = PaddingRightType(Dimension::parse(input)?);
 			log::debug!("{:?}", ty);
-			ty.write(buffer);
-			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+			buffer.push_back(Attribute::PaddingRight(ty));
         }
-        "padding-top" => unsafe {
+        "padding-top" => {
 			input.expect_colon()?;
 			let ty = PaddingTopType(Dimension::parse(input)?);
 			log::debug!("{:?}", ty);
-			ty.write(buffer);
-			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+			buffer.push_back(Attribute::PaddingTop(ty));
         }
-        "padding" => unsafe {
+        "padding" => {
 			input.expect_colon()?;
 			let ty = PaddingType(Padding(parse_top_right_bottom_left(input)?));
 			log::debug!("{:?}", ty);
-			ty.write(buffer);
-			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+			buffer.push_back(Attribute::Padding(ty));
         }
-        "border-left" => unsafe {
+        "border-left" => {
 			input.expect_colon()?;
 			let ty = BorderLeftType(Dimension::parse(input)?);
 			log::debug!("{:?}", ty);
-			ty.write(buffer);
-			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+			buffer.push_back(Attribute::BorderLeft(ty));
         }
-        "border-bottom" => unsafe {
+        "border-bottom" => {
 			input.expect_colon()?;
 			let ty = BorderBottomType(Dimension::parse(input)?);
 			log::debug!("{:?}", ty);
-			ty.write(buffer);
-			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+			buffer.push_back(Attribute::BorderBottom(ty));
         }
-        "border-right" => unsafe {
+        "border-right" => {
 			input.expect_colon()?;
 			let ty = BorderRightType(Dimension::parse(input)?);
 			log::debug!("{:?}", ty);
-			ty.write(buffer);
-			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+			buffer.push_back(Attribute::BorderRight(ty));
         }
-        "border-top" => unsafe {
+        "border-top" => {
 			input.expect_colon()?;
 			let ty = BorderTopType(Dimension::parse(input)?);
 			log::debug!("{:?}", ty);
-			ty.write(buffer);
-			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+			buffer.push_back(Attribute::BorderTop(ty));
         }
-        "border" => unsafe {
+        "border" => {
 			input.expect_colon()?;
 			let ty = BorderType(Border(parse_top_right_bottom_left(input)?));
 			log::debug!("{:?}", ty);
-			ty.write(buffer);
-			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+			buffer.push_back(Attribute::Border(ty));
         }
-        "border-width" => unsafe {
+        "border-width" => {
 			input.expect_colon()?;
 			let ty = BorderType(Border(parse_top_right_bottom_left(input)?));
 			log::debug!("{:?}", ty);
-			ty.write(buffer);
-			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+			buffer.push_back(Attribute::Border(ty));
         }
-        "min-width" => unsafe {
+        "min-width" => {
 			input.expect_colon()?;
 			let ty = MinWidthType(Dimension::parse(input)?);
 			log::debug!("{:?}", ty);
-			ty.write(buffer);
-			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+			buffer.push_back(Attribute::MinWidth(ty));
         }
-        "min-height" => unsafe {
+        "min-height" => {
 			input.expect_colon()?;
 			let ty = MinHeightType(Dimension::parse(input)?);
 			log::debug!("{:?}", ty);
-			ty.write(buffer);
-			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+			buffer.push_back(Attribute::MinHeight(ty));
         }
-        "max-width" => unsafe {
+        "max-width" => {
 			input.expect_colon()?;
 			let ty = MaxWidthType(Dimension::parse(input)?);
 			log::debug!("{:?}", ty);
-			ty.write(buffer);
-			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+			buffer.push_back(Attribute::MaxWidth(ty));
         }
-        "max-height" => unsafe {
+        "max-height" => {
 			input.expect_colon()?;
 			let ty = MaxHeightType(Dimension::parse(input)?);
 			log::debug!("{:?}", ty);
-			ty.write(buffer);
-			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+			buffer.push_back(Attribute::MaxHeight(ty));
         }
-        "flex-basis" => unsafe {
+        "flex-basis" => {
 			input.expect_colon()?;
 			let ty = FlexBasisType(Dimension::parse(input)?);
 			log::debug!("{:?}", ty);
-			ty.write(buffer);
-			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+			buffer.push_back(Attribute::FlexBasis(ty));
         }
-        "flex-shrink" => unsafe {
+        "flex-shrink" => {
 			input.expect_colon()?;
 			let ty = FlexShrinkType(input.expect_number()?);
 			log::debug!("{:?}", ty);
-			ty.write(buffer);
-			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+			buffer.push_back(Attribute::FlexShrink(ty));
         }
-        "flex-grow" => unsafe {
+        "flex-grow" => {
 			input.expect_colon()?;
 			let ty = FlexGrowType(input.expect_number()?);
 			log::debug!("{:?}", ty);
-			ty.write(buffer);
-			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+			buffer.push_back(Attribute::FlexGrow(ty));
         }
-        "position" => unsafe {
+        "position" => {
 			input.expect_colon()?;
 			let ty = PositionTypeType(parse_yg_position_type(input)?);
 			log::debug!("{:?}", ty);
-			ty.write(buffer);
-			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+			buffer.push_back(Attribute::PositionType(ty));
         }
-        "flex-wrap" => unsafe {
+        "flex-wrap" => {
 			input.expect_colon()?;
 			let ty = FlexWrapType(parse_yg_wrap(input)?);
 			log::debug!("{:?}", ty);
-			ty.write(buffer);
-			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+			buffer.push_back(Attribute::FlexWrap(ty));
         }
-        "flex-direction" => unsafe {
+        "flex-direction" => {
 			input.expect_colon()?;
 			let ty = FlexDirectionType(parse_yg_direction(input)?);
 			log::debug!("{:?}", ty);
-			ty.write(buffer);
-			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+			buffer.push_back(Attribute::FlexDirection(ty));
         }
-        "align-content" => unsafe {
+        "align-content" => {
 			input.expect_colon()?;
 			let ty = AlignContentType(parse_yg_align_content(input)?);
 			log::debug!("{:?}", ty);
-			ty.write(buffer);
-			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+			buffer.push_back(Attribute::AlignContent(ty));
         }
-        "align-items" => unsafe {
+        "align-items" => {
 			input.expect_colon()?;
 			let ty = AlignItemsType(parse_yg_align_items(input)?);
 			log::debug!("{:?}", ty);
-			ty.write(buffer);
-			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+			buffer.push_back(Attribute::AlignItems(ty));
         }
-        "align-self" => unsafe {
+        "align-self" => {
 			input.expect_colon()?;
 			let ty = AlignSelfType(parse_yg_align_self(input)?);
 			log::debug!("{:?}", ty);
-			ty.write(buffer);
-			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+			buffer.push_back(Attribute::AlignSelf(ty));
         }
-        "justify-content" => unsafe {
+        "justify-content" => {
 			input.expect_colon()?;
 			let ty = JustifyContentType(parse_yg_justify_content(input)?);
 			log::debug!("{:?}", ty);
-			ty.write(buffer);
-			class_meta.class_style_mark.set(ty.get_type() as usize, true);
+			buffer.push_back(Attribute::JustifyContent(ty));
 		},
 		key_name => {
 			log::info!("Unexpected attribute: {:?}", key_name);
@@ -1202,7 +1638,7 @@ impl StyleParse for Dimension {
 				}
 			},
             Token::Percentage { unit_value, .. } => {
-				Dimension::Percent(unit_value / 100.0)
+				Dimension::Percent(unit_value)
             },
             Token::Number { value, .. } => {
 				Dimension::Points(value)
@@ -1240,7 +1676,7 @@ fn parse_len<'i, 't>(input: &mut Parser<'i, 't>) -> Result<f32, ParseError<'i, V
 	Ok(dimension)
 }
 
-fn parse_filter1<'i, 't>(buffer: &mut Vec<u8>, class_meta: &mut ClassMeta, input: &mut Parser<'i, 't>) -> Result<(), ParseError<'i, ValueParseErrorKind>> {
+fn parse_filter1<'i, 't>(buffer: &mut VecDeque<Attribute>, input: &mut Parser<'i, 't>) -> Result<(), ParseError<'i, ValueParseErrorKind>> {
 	let mut hah_hsi = false;
 	let mut hsi = Hsi { hue_rotate: 0.0, saturate: 0.0, bright_ness: 0.0 };
 	loop {
@@ -1259,8 +1695,7 @@ fn parse_filter1<'i, 't>(buffer: &mut Vec<u8>, class_meta: &mut ClassMeta, input
 						_ => return Err(location.new_custom_error(ValueParseErrorKind::InvalidBlur)),
 					}));
 					log::debug!("{:?}", ty);
-					unsafe { ty.write(buffer) };
-					class_meta.class_style_mark.set(ty.get_type() as usize, true);
+					buffer.push_back(Attribute::Blur(ty));
 				},
 				"hue-rotate" => {
 					let r = i.try_parse(|i| parse_angle(i))?;
@@ -1325,8 +1760,7 @@ fn parse_filter1<'i, 't>(buffer: &mut Vec<u8>, class_meta: &mut ClassMeta, input
 	if hah_hsi {
 		let ty = HsiType(hsi);
 		log::debug!("{:?}", ty);
-		unsafe { ty.write(buffer) };
-		class_meta.class_style_mark.set(ty.get_type() as usize, true);
+		buffer.push_back(Attribute::Hsi(ty));
 	}
 
 	Ok(())
@@ -1802,7 +2236,7 @@ fn test1() {
 
 	let mut class_sheet = ClassSheet::default();
 
-	if let Err(_r) = parse_class_map_from_string(s, &mut class_sheet) {
+	if let Err(_r) = parse_class_map_from_string(s) {
 	}
 	
 	// log::debug!("parse: {:?}", parse);
@@ -1824,7 +2258,7 @@ fn test2() {
 			height: 185px;}";
 	let mut class_sheet = ClassSheet::default();
 
-	if let Err(_r) = parse_class_map_from_string(s, &mut class_sheet) {
+	if let Err(_r) = parse_class_map_from_string(s) {
 	}
 }
 
@@ -1836,7 +2270,7 @@ fn test3() {
 	}";
 	let mut class_sheet = ClassSheet::default();
 
-	if let Err(_r) = parse_class_map_from_string(s, &mut class_sheet) {
+	if let Err(_r) = parse_class_map_from_string(s) {
 	}
 }
 
@@ -1848,7 +2282,7 @@ fn test4() {
 	}";
 	let mut class_sheet = ClassSheet::default();
 
-	if let Err(_r) = parse_class_map_from_string(s, &mut class_sheet) {
+	if let Err(_r) = parse_class_map_from_string(s) {
 	}
 }
 
@@ -1860,7 +2294,7 @@ fn test5() {
 	}";
 	let mut class_sheet = ClassSheet::default();
 
-	if let Err(_r) = parse_class_map_from_string(s, &mut class_sheet) {
+	if let Err(_r) = parse_class_map_from_string(s) {
 	}
 }
 

@@ -2,33 +2,31 @@ use std::intrinsics::transmute;
 use std::io::Result;
 
 use ordered_float::NotNan;
-use pi_assets::asset::{Handle, Asset};
+use pi_assets::asset::Asset;
 use pi_assets::mgr::AssetMgr;
 use pi_ecs::prelude::{Or, Deleted, With, ChangeTrackers, ParamSet, OrDefault, ResMut};
 use pi_ecs::prelude::{Query, Changed, EntityCommands, Commands, Write, Res, Event, Id};
 use pi_ecs_macros::{listen, setup};
 use pi_flex_layout::prelude::{Rect, Size};
 use pi_render::rhi::asset::RenderRes;
-use pi_render::rhi::bind_group::BindGroup;
 use pi_render::rhi::buffer::Buffer;
 use pi_render::rhi::device::RenderDevice;
-use pi_render::rhi::dyn_uniform_buffer::{Bind, self, Group, BindOffset};
+use pi_render::rhi::dyn_uniform_buffer::{Bind, Group,};
 use pi_share::Share;
-use pi_render::rhi::bind_group_layout::BindGroupLayout;
 use pi_polygon::{split_by_radius, find_lg_endp, split_by_lg, interp_mult_by_lg, LgCfg, mult_to_triangle, to_triangle};
-use smallvec::{SmallVec, smallvec};
+use smallvec::smallvec;
 use wgpu::IndexFormat;
 
 use crate::components::calc::{LayoutResult, DrawInfo};
 use crate::components::draw_obj::{DrawGroup, DynDrawGroup, FSDefines, VSDefines};
-use crate::components::user::{CgColor, BorderRadius};
+use crate::components::user::BorderRadius;
 use crate::resource::draw_obj::{ColorStaticIndex, StaticIndex, DynBindGroupIndex, DynUniformBuffer, GradientColorStaticIndex};
-use crate::shaders::color::{ColorMaterialBind, ColorShader, ColorUniform, ColorMaterialGroup};
+use crate::shaders::color::{ColorMaterialBind, ColorUniform, ColorMaterialGroup};
 // use crate::system::shader_utils::StaticIndex;
 // use crate::system::shader_utils::color::{ColorStaticIndex, COLOR_GROUP};
 // use crate::system::shader_utils::with_vert_color::WithVertColorStaticIndex;
 use crate::utils::tools::{calc_hash, get_content_rect, get_content_radius};
-use crate::{components::{user::{Node, BackgroundColor, Color}, calc::{NodeId, DrawList}, draw_obj::{BoxType, DrawObject, DrawState}}, resource::draw_obj::{Shaders, UnitQuadBuffer}};
+use crate::{components::{user::{Node, BackgroundColor, Color}, calc::{NodeId, DrawList}, draw_obj::{BoxType, DrawObject, DrawState}}, resource::draw_obj::{UnitQuadBuffer}};
 // use crate::utils::tools::calc_hash;
 
 pub struct CalcBackGroundColor;
@@ -81,13 +79,11 @@ impl CalcBackGroundColor {
 		color_static_index: Res<'static, ColorStaticIndex>,
 		gradient_color_static_index: Res<'static, GradientColorStaticIndex>,
 		
-		shader_static: Res<'static, Shaders>,
 		unit_quad_buffer: Res<'static, UnitQuadBuffer>,
 		mut dyn_uniform_buffer: ResMut<'static, DynUniformBuffer>,
 		color_material_bind_group: Res<'static, DynBindGroupIndex<ColorMaterialGroup>>,
 
 		buffer_assets: Res<'static, Share<AssetMgr<RenderRes<Buffer>>>>,
-		bind_group_assets:Res<'static, Share<AssetMgr<RenderRes<BindGroup>>>>,
 	) -> Result<()> {
 		for (
 			background_color,
@@ -135,11 +131,9 @@ impl CalcBackGroundColor {
 						draw_state,
 						&device, 
 						&buffer_assets, 
-						&bind_group_assets,
 						&background_color_change,
 						&radius_change,
 						&layout_change,
-						&shader_static,
 						&unit_quad_buffer,
 						&mut dyn_uniform_buffer).await;
 					draw_state_item.notify_modify();
@@ -194,11 +188,9 @@ impl CalcBackGroundColor {
 						&mut draw_state,
 						&device, 
 						&buffer_assets, 
-						&bind_group_assets,
 						&background_color_change,
 						&radius_change,
 						&layout_change,
-						&shader_static,
 						&unit_quad_buffer,
 						&mut dyn_uniform_buffer).await;
 					
@@ -272,11 +264,9 @@ async fn modify<'a> (
 	draw_state: &mut DrawState, 
 	device: &RenderDevice, 
 	buffer_assets: &Share<AssetMgr<RenderRes<Buffer>>>,
-	bind_group_assets: &'a Share<AssetMgr<RenderRes<BindGroup>>>,
 	bg_color_change: &ChangeTrackers<BackgroundColor>,
 	border_change: &ChangeTrackers<BorderRadius>,
 	layout_change: &ChangeTrackers<LayoutResult>,
-	shader_static: &Shaders,
 	unit_quad_buffer: &UnitQuadBuffer,
 
 	dyn_uniform_buffer: &mut DynUniformBuffer,

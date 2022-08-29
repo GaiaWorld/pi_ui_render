@@ -59,7 +59,7 @@ impl CalcUserSetting {
 		transform_will_change: Query<'static, 'static,Node, Write<TransformWillChange>>,
 		node_state: Query<'static, 'static,Node, Write<NodeState>>,
 	
-		class_sheet: Res<ClassSheet>,
+		mut class_sheet: ResMut<ClassSheet>,
 	
 		mut class_query: Query<'static, 'static,Node, Write<ClassName>>,
 	
@@ -139,6 +139,11 @@ impl CalcUserSetting {
 					}
 				},
 			};
+		}
+
+
+		for c in user_commands.css_commands.drain(..) {
+			class_sheet.extend_from_class_sheet(c);
 		}
 	
 		// 设置style只要节点存在,样式一定能设置成功
@@ -356,8 +361,12 @@ fn set_class(
 		// 设置class样式
 		for i in class.iter() {
 			if let Some(class) = class_sheet.class_map.get(i) {
+				// println!("set class1==========={}", i);
 				let mut style_reader = StyleTypeReader::new(&class_sheet.style_buffer, class.start, class.end);
 				let is_write = |ty: StyleType| {
+					// if local_style_mark[ty as usize] {
+					// 	log::warn!("!==========={:?}", ty);
+					// }
 					// 本地样式不存在，才会设置class样式
 					!local_style_mark[ty as usize]
 				};

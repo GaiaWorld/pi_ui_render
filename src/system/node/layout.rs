@@ -8,7 +8,7 @@
 
 use std::{ops::{Index, IndexMut}, marker::PhantomData, intrinsics::transmute};
 
-use pi_ecs::prelude::{OrDefault, Query, Changed, Or, Write, WriteItem, Local, ChangeTrackers, Id, Event};
+use pi_ecs::{prelude::{OrDefault, Query, Changed, Or, Write, WriteItem, Local, ChangeTrackers, Id, Event}, storage::Offset};
 use pi_ecs_macros::{setup, listen};
 use pi_ecs_utils::prelude::{EntityTree, Layer};
 use pi_flex_layout::{
@@ -23,6 +23,12 @@ use pi_null::Null;
 use pi_slotmap_tree::{Storage, Up, Down};
 use crate::components::{user::{Node, Size, Margin, Padding, Border, Position, MinMax, FlexContainer, FlexNormal, Show, TextContent, TextStyle}, calc::{LayoutResult, NodeState}};
 
+// =LayoutKey { entity: Id(LocalVersion(4607182418800017408)), text_index: 18446744073709551615 }
+#[test]
+fn test() {
+	println!("id: {:?}", LayoutKey::null());
+	
+}
 pub struct CalcLayout;
 
 #[setup]
@@ -129,6 +135,7 @@ impl CalcLayout {
 			text_style,
 			// char_node
 		) in dirtys.iter() {
+			println!("set layout==============={:?}, {}, {}, {}, {}, {}, {}", e, size.is_changed() || position.is_changed() || margin.is_changed() || layer.is_changed() || min_max.is_changed(), text_context.is_changed() || text_style.is_changed(), flex_normal.is_changed() , padding.is_changed() || border.is_changed(), flex_container.is_changed(), show.is_changed() );
 			if size.is_changed() || position.is_changed() || margin.is_changed() || layer.is_changed() || min_max.is_changed() {
 				layout.set_rect(&mut layer_dirty, LayoutKey{entity:e, text_index: usize::null()} , true, true);
 			}
@@ -162,9 +169,9 @@ impl CalcLayout {
 			// log::info!("calc layout5===================={:?}", e.local().offset());
 				layout.set_display(LayoutKey{entity:e, text_index: usize::null()} , &mut layer_dirty);
 			}
+			// println!("set layout end==============={:?}", e);
 		}
 
-		
 		// log::info!("calc layout6===================={:?}", layer_dirty.count());
 		// 计算布局
 		layout.compute(&mut layer_dirty);
@@ -287,11 +294,14 @@ pub struct LayoutRs<'a, 'b>{
 impl<'a, 'b> GetMut<LayoutKey> for LayoutRs<'a, 'b> {
 	type Target = LayoutRItem<'a, 'b>;
 	fn get_mut(&mut self, index: LayoutKey) -> Self::Target {
+		
 		if index.text_index.is_null() {
 			let mut item = self.style.get_mut(index.entity).unwrap();
 			let r = unsafe { transmute(item.get_mut_or_default())};
+			println!("get layout node ==============={:?}, {:?}", index.entity, r);
 			LayoutRItem::Node(unsafe { transmute(item) }, r, self.char_nodes, index.entity)
 		} else {
+			println!("get text node ==============={:?}", index.entity);
 			let node_states = unsafe { &mut *self.char_nodes};
 			LayoutRItem::Text(unsafe {transmute(&mut (**node_states.get_mut(index.entity).unwrap()).text[index.text_index])}, unsafe { transmute(&self.default.border)})
 		}

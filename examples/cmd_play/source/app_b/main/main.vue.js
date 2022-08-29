@@ -1,4 +1,4 @@
-_$pi.define("app_b/main/main.vue", ["require", "exports", "module", "pi_gui/widget/direct", "./main.vue.tpl", "app_a/login/server/user.topic", "app_a/struct/db_role.struct", "app_a/util/db_tool", "app_a/util/setup", "app_b/meteor/main", "pi_common/store/store", "pi_common/ui/main_root", "app_a/audio_test/audio_test.vue", "pi_utils/util/logger", "pi_common/ui/main_root", "app_b/main_container/main_container.vue", "app_a/native_test/native_test.vue", "pi_common/client_net/network", "pi_common/client_net/constant", "app_c/demo/constant", "app_c/demo/ui/menu/root.vue", "app_c/demo/demo_single.vue"], function (require, exports, module, direct_1, main_vue_tpl_1, user_topic_1, db_role_struct_1, db_tool_1, setup_1, main_1, store_1, main_root_1, audio_test_vue_1, logger_1, main_root_2, main_container_vue_1, native_test_vue_1, network_1, constant_1, constant_2, root_vue_1, demo_single_vue_1) {
+_$pi.define("app_b/main/main.vue", ["require", "exports", "module", "pi_gui/widget/direct", "./main.vue.tpl", "app_a/login/server/user.topic", "app_a/struct/db_role.struct", "app_a/util/db_tool", "app_a/util/setup", "app_b/meteor/main", "pi_common/store/store", "pi_common/ui/main_root", "app_a/audio_test/audio_test.vue", "pi_utils/util/logger", "pi_common/ui/main_root", "app_b/main_container/main_container.vue", "app_a/native_test/native_test.vue", "pi_common/client_net/network", "pi_common/client_net/constant", "app_c/demo/constant", "app_c/demo/ui/menu/root.vue", "app_c/demo/demo_single.vue", "pi_common/ui/hot_key"], function (require, exports, module, direct_1, main_vue_tpl_1, user_topic_1, db_role_struct_1, db_tool_1, setup_1, main_1, store_1, main_root_1, audio_test_vue_1, logger_1, main_root_2, main_container_vue_1, native_test_vue_1, network_1, constant_1, constant_2, root_vue_1, demo_single_vue_1, hot_key_1) {
     "use strict";
 
     exports.initMeta = void 0;
@@ -31,8 +31,24 @@ _$pi.define("app_b/main/main.vue", ["require", "exports", "module", "pi_gui/widg
                 main_root_1.open(native_test_vue_1.default);
             };
         }
+        mouseClick(e) {
+            console.log('======== mouseClick =======', e);
+            if (!this.currentNode) {
+                this.currentNode = e.current;
+                this.currentNode.document.addEventListener('lockchange', e => {
+                    console.log('======== lockchange =======', this.currentNode.document.pointerLockElement);
+                });
+                hot_key_1.registerHotKey('Enter', () => {
+                    this.currentNode.requestPointerLock();
+                });
+                hot_key_1.registerHotKey('a', () => {
+                    this.currentNode.document.exitPointerLock();
+                });
+            }
+            // currentNode.requestPointerLock();
+        }
         mouseMove(e) {
-            // console.log('======== mouseMove ', e);
+            console.log('======== mouseMove ', e);
         }
         mouseOver(e) {
             // console.log('======== mouseOver ', e);
@@ -45,6 +61,22 @@ _$pi.define("app_b/main/main.vue", ["require", "exports", "module", "pi_gui/widg
         }
         mouseLeave(e) {
             // console.log('======== mouseLeave ', e);
+        }
+        childMouseOver(e) {
+            // console.log('======== childMouseOver ', e);
+            return true;
+        }
+        childMouseOut(e) {
+            // console.log('======== childMouseOut ', e);
+            return true;
+        }
+        childMouseEnter(e) {
+            // console.log('======== childMouseEnter ', e);
+            return true;
+        }
+        childMouseLeave(e) {
+            // console.log('======== childMouseLeave ', e);
+            return true;
         }
         create() {
             this._$info.document.eventMgr.startMoveCheckLoop();
@@ -94,5 +126,5 @@ _$pi.define("app_b/main/main.vue", ["require", "exports", "module", "pi_gui/widg
     };
     exports.initMeta();
     direct_1.defineAccessors(Main, ["barOffset", "gold", "btnList", "offline"]);
-    direct_1.addField(Main, ['beforeSlideOut', 'afterSlideIn', 'addMoney', 'audioClick', 'nativeClick']);
+    direct_1.addField(Main, ['currentNode', 'beforeSlideOut', 'afterSlideIn', 'addMoney', 'audioClick', 'nativeClick']);
 });

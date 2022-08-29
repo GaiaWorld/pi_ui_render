@@ -7,13 +7,13 @@ use pi_assets::{mgr::AssetMgr, asset::Handle};
 use pi_dirty::LayerDirty;
 use pi_ecs::{world::FromWorld, prelude::World, entity::Id};
 use pi_hash::XHashMap;
-use pi_map::{vecmap::VecMap, hashmap::HashMap};
+use pi_map::{vecmap::VecMap};
 use pi_render::rhi::{bind_group_layout::BindGroupLayout, bind_group::BindGroup, shader::{ShaderId, Shader, ShaderProcessor}, device::RenderDevice, pipeline::RenderPipeline, buffer::Buffer, asset::RenderRes, dyn_uniform_buffer::Group};
 use pi_share::Share;
 use pi_slotmap::{SlotMap, DefaultKey};
 use wgpu::{PipelineLayout, ShaderModule, Sampler, DepthStencilState, TextureFormat, CompareFunction, StencilState, DepthBiasState, MultisampleState};
 
-use crate::{components::{draw_obj::{VSDefines, FSDefines, DrawState, DrawGroup, Groups}, pass_2d::Pass2D}, utils::{tools::{calc_hash, calc_float_hash}, shader_helper::{create_matrix_group_layout, create_depth_layout, create_view_layout, create_project_layout, create_empty_layout}}, shaders::color::{ColorMaterialGroup, ColorShader}};
+use crate::{components::{draw_obj::{VSDefines, FSDefines, DrawState, DrawGroup}, pass_2d::Pass2D}, utils::{tools::{calc_hash, calc_float_hash}, shader_helper::{create_matrix_group_layout, create_depth_layout, create_view_layout, create_project_layout, create_empty_layout}}};
 use pi_render::rhi::dyn_uniform_buffer::BufferGroup;
 
 /// viewMatrix、projectMatrix 的BindGroupLayout
@@ -279,16 +279,6 @@ impl FromWorld for UnitQuadBuffer {
 			contents: bytemuck::cast_slice(&uv_data),
 			usage: wgpu::BufferUsages::VERTEX,
 		});
-
-		let time = std::time::Instant::now();
-		let mut vec: Vec<f32> = Vec::with_capacity(10000);
-		unsafe {vec.set_len(10000);}
-		let uniform_buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
-			label: Some("color buffer init"),
-			contents: bytemuck::cast_slice(vec.as_slice()),
-			usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-		});
-		log::warn!("create color_buffer_time11: {:?}",  std::time::Instant::now()- time);
 	
 		let index_buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
 			label: Some("Unit Quad Index Buffer"),

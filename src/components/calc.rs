@@ -620,7 +620,13 @@ pub struct DrawList(SmallVec<[Id<DrawObject>; 1]>);
 #[derive(Clone, Default)]
 pub struct OverflowAabb {
 	pub aabb: Option<Aabb2>,
-	pub matrix: Option<Matrix4<f32>>,
+	pub matrix: Option<OveflowRotate>,
+}
+
+#[derive(Clone, Default)]
+pub struct OveflowRotate {
+	pub rotate_matrix: Matrix4<f32>,
+	pub rotate_matrix_invert: Matrix4<f32>,
 }
 
 #[derive(Deref, DerefMut)]

@@ -3,20 +3,21 @@ use std::marker::PhantomData;
 use pi_assets::{asset::Handle, mgr::{AssetMgr, LoadResult}};
 use pi_async::rt::AsyncRuntime;
 use pi_atom::Atom;
-use pi_ecs::{entity::Id, monitor::Event, prelude::{Query, Write, Res}};
+use pi_ecs::{entity::Id, monitor::Event, prelude::{Query, Write, Res, ResMut}};
 use pi_ecs_macros::{setup, listen};
 use pi_hal::{runtime::MULTI_MEDIA_RUNTIME, loader::AsyncLoader};
 use pi_render::rhi::{asset::{TextureRes, ImageTextureDesc}, RenderQueue, device::RenderDevice};
-use pi_share::{Share, ShareMutex};
+use pi_share::{Share};
+use crossbeam::queue::SegQueue;
 
 use crate::components::user::Node;
 
 #[derive(Clone, DerefMut, Deref)]
-pub struct ImageAwait<T>(Share<ShareMutex<Vec<(Id<Node>, Atom, Handle<TextureRes>)>>>, PhantomData<T>);
+pub struct ImageAwait<T>(Share<SegQueue<(Id<Node>, Atom, Handle<TextureRes>)>>, PhantomData<T>);
 
 impl<T> Default for ImageAwait<T> {
     fn default() -> Self {
-        Self(Share::new(ShareMutex::new(Vec::new())), PhantomData)
+        Self(Share::new(SegQueue::new()), PhantomData)
     }
 }
 
@@ -58,15 +59,13 @@ where S: std::ops::Deref<Target=Atom> + 'static + Send + Sync ,
 						device: &device,
 						queue: &queue,
 					};
+
+					// log::warn!("load image start {:?}", key);
 					let r = TextureRes::async_load(desc, result).await;
 					match r {
 						Ok(r) => {
-							let lock = awaits.lock();
-							let mut lock = match lock {
-								Ok(r) => r,
-								Err(r) => panic!("{:?}", r)
-							};
-							lock.push((id, key.clone(), r));
+							// log::warn!("load image ok {:?}", key);
+							awaits.push((id, key.clone(), r));
 						},
 						Err(e) => {
 							log::error!("load image fail, {:?}", e);
@@ -83,12 +82,11 @@ where S: std::ops::Deref<Target=Atom> + 'static + Send + Sync ,
 		border_image_await: Res<ImageAwait<S>>,
 		mut query: Query<Node, (&S, Write<D>)>,
 	) {
-		let awaits = {
-			let mut border_image_await = border_image_await.0.lock().unwrap();
-			std::mem::replace(&mut *border_image_await, Vec::new())
-		};
-		
-		for (id, key, texture) in awaits.into_iter() {
+		// let awaits = std::mem::replace(&mut border_image_await.0, Share::new(SegQueue::new()));
+		let mut r = border_image_await.0.pop();
+		while let Some((id, key, texture)) = r {
+			r = border_image_await.0.pop();
+			
 			let mut texture_item = match query.get_mut(id) {
 				Some((img, texture_item)) => {
 					// image已经修改，不需要设置texture
@@ -101,6 +99,8 @@ where S: std::ops::Deref<Target=Atom> + 'static + Send + Sync ,
 				None => continue,
 			};
 			texture_item.write(D::from(texture));
+
+
 		}
 	}
 }
