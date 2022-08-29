@@ -20,7 +20,7 @@ pub type Pass2DKey = Id<Pass2D>;
 /// 相机
 #[derive(Debug)]
 pub struct Camera {
-	// pub view: Option<Matrix4>,
+	pub view: Matrix4,
     pub project: Matrix4,
 	pub bind_group: Option< DrawGroup >,
 	pub view_port: Aabb2, // 视口区域（相对于全局的0,0点）
@@ -30,7 +30,7 @@ pub struct Camera {
 impl Default for Camera {
     fn default() -> Self {
         Self { 
-			// view: None, 
+			view: Matrix4::default(), 
 			project: Default::default(),
 			bind_group: None,
 			view_port: Aabb2::new(Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)),

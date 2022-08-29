@@ -2,7 +2,7 @@ use std::mem::transmute;
 
 use crossbeam::queue::SegQueue;
 use pi_assets::{mgr::{AssetMgr, LoadResult, Receiver}, asset::{Handle, GarbageEmpty}};
-use pi_async::rt::{AsyncRuntime};
+use pi_async::rt::{AsyncRuntime, AsyncVariable};
 use pi_ecs::prelude::{Query, Changed, Added, Res, OrDefault, Or, Id, ParamSet, ResMut};
 use pi_ecs_macros::setup;
 use pi_render::rhi::{device::RenderDevice, pipeline::RenderPipeline, asset::RenderRes};
@@ -51,6 +51,7 @@ impl CalcPipeline {
 	) -> std::io::Result<()> {
 		let mut map_reduce = RENDER_RUNTIME.map_reduce(10);
 		let pipeline_await: Share<SegQueue<(Id<DrawObject>, Handle<RenderRes<RenderPipeline>>)>> = Share::new(SegQueue::new());
+		let mut value = AsyncVariable::<(Id<DrawObject>, Handle<RenderRes<RenderPipeline>>)>::new();
 		let (
 			shader_statics, 
 			state_map, 

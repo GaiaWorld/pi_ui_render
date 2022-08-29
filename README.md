@@ -9,7 +9,7 @@ TODO
 跑通项目
 ecs支持foreach
 文档
-border-image, fill时，使用repeat填充中间部分
+新老版本都支持 background-image-repeat、border-image,fill修改为repeat行为
 接入动画（动画运行system、动画css解析，js层兼容，构建系统兼容）
 
 

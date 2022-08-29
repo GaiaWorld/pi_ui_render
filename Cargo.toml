@@ -67,8 +67,8 @@ pi_render = { git = "https://github.com/GaiaWorld/pi_render.git" }
 pi_ecs_macros = { git = "https://github.com/GaiaWorld/pi_ecs.git" }
 pi_ecs_utils = { git = "https://github.com/GaiaWorld/pi_ecs_utils.git" }
 pi_ecs = { git = "https://github.com/GaiaWorld/pi_ecs.git" }
-# pi_flex_layout = { git = "https://github.com/GaiaWorld/pi_flex_layout.git" }
-pi_flex_layout = { path = "../pi_flex_layout" }
+pi_flex_layout = { git = "https://github.com/GaiaWorld/pi_flex_layout.git" }
+# pi_flex_layout = { path = "../pi_flex_layout" }
 pi_hal={git="https://github.com/GaiaWorld/pi_hal.git"}
 js_proxy_gen_macro={git="https://github.com/GaiaWorld/pi_lib.git"}
 pi_style={path="./style"}

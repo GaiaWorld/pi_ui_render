@@ -2402,6 +2402,7 @@ dependencies = [
 [[package]]
 name = "pi_flex_layout"
 version = "0.2.1"
+source = "git+https://github.com/GaiaWorld/pi_flex_layout.git#b08835c2eb73f9a87c46fb54f02d3adeb1e0569f"
 dependencies = [
  "debugit",
  "libm 0.1.4",

@@ -297,7 +297,8 @@ impl CalcRender{
 				// view: match willchange_matrix {
 				// 	Some(r) => r.0.clone(),
 				// 	Non
-				// }, 
+				// },
+				view: view.clone(), 
 				project,
 				bind_group: Some(DrawGroup::Dyn(DynDrawGroup::new(**camera_bind_group, smallvec![camera_dyn_offset]))),
 				view_port: aabb,
@@ -306,7 +307,7 @@ impl CalcRender{
 			});
 
 			if let Some(mut postprocess) = postprocess_list {
-				postprocess.calc(16, &device, &mut postprocess_pipelines, &mut geometrys, wgpu::ColorTargetState {
+				postprocess.calc(16, &device, &mut postprocess_pipelines, &mut geometrys, &[wgpu::ColorTargetState {
 					format: wgpu::TextureFormat::Bgra8Unorm,
 					blend: Some(wgpu::BlendState {
 						color: wgpu::BlendComponent {
@@ -321,7 +322,7 @@ impl CalcRender{
 						},
 					}),
 					write_mask: wgpu::ColorWrites::ALL,
-				}, Some(wgpu::DepthStencilState {
+				}], Some(wgpu::DepthStencilState {
 					format: TextureFormat::Depth32Float,
 					depth_write_enabled: true,
 					depth_compare: CompareFunction::GreaterEqual,

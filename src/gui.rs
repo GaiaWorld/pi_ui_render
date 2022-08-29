@@ -25,7 +25,7 @@ use crate::{
 	resource::{UserCommands, NodeCommand, Viewport, draw_obj::{CommonSampler, Program}, DefaultStyle}, 
 	utils::{tools::calc_hash, cmd::Command}, 
 	system::{
-		node::{user_setting::CalcUserSetting, context::CalcContext, z_index::CalcZindex, layout::CalcLayout, quad::CalcQuad, world_matrix::CalcMatrix, content_box::CalcContentBox, background_color::CalcBackGroundColor, context_root::CalcRoot, border_color::CalcBorderColor, box_shadow::CalcBoxShadow, image_texture_load::CalcImageLoad, background_image::CalcBackgroundImage, border_image::CalcBorderImage, text_split::CalcTextSplit, text_glphy::CalcTextGlyph, text::CalcText, context_opacity::{CalcOpacity, CalcOpacityPostProcess}, context_transform_will_change::CalcTransformWillChange, context_overflow::CalcOverflow, context_hsi::CalcHsi}, 
+		node::{user_setting::CalcUserSetting, context::CalcContext, z_index::CalcZindex, layout::CalcLayout, quad::CalcQuad, world_matrix::CalcMatrix, content_box::CalcContentBox, background_color::CalcBackGroundColor, context_root::CalcRoot, border_color::CalcBorderColor, box_shadow::CalcBoxShadow, image_texture_load::CalcImageLoad, background_image::CalcBackgroundImage, border_image::CalcBorderImage, text_split::CalcTextSplit, text_glphy::CalcTextGlyph, text::CalcText, context_opacity::{CalcOpacity, CalcOpacityPostProcess}, context_transform_will_change::CalcTransformWillChange, context_overflow::CalcOverflow, context_hsi::CalcHsi, context_blur::CalcBlur}, 
 		draw_obj::{world_marix::CalcWorldMatrixGroup, pipeline::CalcPipeline}, 
 		pass::{
 			pass_render::CalcRender, 
@@ -420,6 +420,7 @@ fn init_stage(world: &mut World) -> Vec<StageBuilder> {
 	let mut post_stage = StageBuilder::new();
 	CalcOpacityPostProcess::setup(world, &mut post_stage);
 	CalcHsi::setup(world, &mut post_stage);
+	CalcBlur::setup(world, &mut post_stage);
 	CalcTransformWillChange::setup(world, &mut post_stage);
 	CalcOverflow::setup(world, &mut post_stage);
 

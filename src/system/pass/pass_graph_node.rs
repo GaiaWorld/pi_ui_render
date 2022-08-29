@@ -331,7 +331,7 @@ impl Pass2DNode {
 				rp, 
 				EPostprocessTarget::from_share_target(src.0.clone(), wgpu::TextureFormat::Bgra8Unorm),
 				&src.1,
-				&wgpu::ColorTargetState {
+				&[wgpu::ColorTargetState {
 					format: wgpu::TextureFormat::Bgra8Unorm,
 					blend: Some(wgpu::BlendState {
 						color: wgpu::BlendComponent {
@@ -346,7 +346,7 @@ impl Pass2DNode {
 						},
 					}),
 					write_mask: wgpu::ColorWrites::ALL,
-				}, 
+				}], 
 				&Some(wgpu::DepthStencilState {
 					format: wgpu::TextureFormat::Depth32Float,
 					depth_write_enabled: true,

@@ -23,8 +23,8 @@ pi_share="0.4"
 pi_atom={version="0.2", features = ["serde"]}
 pi_enum_default_macro="0.1"
 pi_hash="0.1"
-# pi_flex_layout = { git = "https://github.com/GaiaWorld/pi_flex_layout.git" }
-pi_flex_layout = { path = "../../pi_flex_layout" }
+pi_flex_layout = { git = "https://github.com/GaiaWorld/pi_flex_layout.git" }
+# pi_flex_layout = { path = "../../pi_flex_layout" }
 pi_ecs = { git = "https://github.com/GaiaWorld/pi_ecs.git" }
 
 pi_print_any="0.1"
