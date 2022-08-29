@@ -1,12 +1,11 @@
-use std::mem::transmute;
+use std::{mem::transmute, sync::atomic::{AtomicUsize, Ordering}};
 
-use crossbeam::queue::SegQueue;
 use pi_assets::{mgr::{AssetMgr, LoadResult, Receiver}, asset::{Handle, GarbageEmpty}};
 use pi_async::rt::{AsyncRuntime, AsyncVariable};
 use pi_ecs::prelude::{Query, Changed, Added, Res, OrDefault, Or, Id, ParamSet, ResMut};
 use pi_ecs_macros::setup;
 use pi_render::rhi::{device::RenderDevice, pipeline::RenderPipeline, asset::RenderRes};
-use pi_share::{Share, ShareMutex};
+use pi_share::Share;
 use pi_hal::runtime::RENDER_RUNTIME;
 
 use crate::{
@@ -49,9 +48,9 @@ impl CalcPipeline {
 
 		mut clear_color_obj: ResMut<'static, ClearDrawObj>,
 	) -> std::io::Result<()> {
-		let mut map_reduce = RENDER_RUNTIME.map_reduce(10);
-		let pipeline_await: Share<SegQueue<(Id<DrawObject>, Handle<RenderRes<RenderPipeline>>)>> = Share::new(SegQueue::new());
-		let mut value = AsyncVariable::<(Id<DrawObject>, Handle<RenderRes<RenderPipeline>>)>::new();
+		let value = AsyncVariable::<(Vec<(Id<DrawObject>, Handle<RenderRes<RenderPipeline>>)>, usize, Option<Handle<RenderRes<RenderPipeline>>>)>::new();
+		let count = Share::new(AtomicUsize::new(0));
+		
 		let (
 			shader_statics, 
 			state_map, 
@@ -79,13 +78,31 @@ impl CalcPipeline {
 					continue;
 				},
 				LoadResult::Wait(r) => {
-					let pipeline_await = pipeline_await.clone();
-					map_reduce.map(RENDER_RUNTIME.clone(), async move {
+					let value_copy = value.clone();
+					let count_copy = count.clone();
+					count_copy.fetch_add(1, Ordering::Relaxed);
+					RENDER_RUNTIME.spawn(RENDER_RUNTIME.alloc(), async move {
 						match r.await {
-							Ok(r) => pipeline_await.push((id, r)) ,
-							Err(e) => log::error!("{:?}", e)
+							Ok(r) => {
+								let mut locked = value_copy.lock().unwrap();
+								if let &None = &*locked {
+									*locked = Some((Vec::new(), 0, None));
+								}
+								let value = locked.as_mut().unwrap();
+								value.0.push((id, r));
+
+								if count_copy.fetch_sub(1, Ordering::Relaxed) == 1 {
+									locked.finish();
+								}
+							},
+							Err(e) => {
+								let locked = value_copy.lock().unwrap();
+								if count_copy.fetch_sub(1, Ordering::Relaxed) == 1 {
+									locked.finish();
+								}
+								log::error!("{:?}", e);
+							},
 						};
-						Ok(())
 					}).unwrap();
 					continue;
 				},
@@ -98,8 +115,10 @@ impl CalcPipeline {
 				static_index, 
 				shader_map
 			) = (vs_defines.clone(), fs_defines.clone(), static_index.clone(), shader_map.clone());
-			let pipeline_await = pipeline_await.clone();
-			map_reduce.map(RENDER_RUNTIME.clone(), async move {
+			let value_copy = value.clone();
+			let count_copy = count.clone();
+			count_copy.fetch_add(1, Ordering::Relaxed);
+			RENDER_RUNTIME.spawn(RENDER_RUNTIME.alloc(), async move {
 				match Self::async_calc_pipeline(
 					&vs_defines,
 					&fs_defines,
@@ -115,33 +134,29 @@ impl CalcPipeline {
 					pipeline_receiver,
 					hash
 				).await {
-					Ok(r) => pipeline_await.push((id, r)),
-					Err(e) => log::error!("{:?}", e),
+					Ok(r) => {
+						let mut locked = value_copy.lock().unwrap();
+						if let &None = &*locked {
+							*locked = Some((Vec::new(), 0, None));
+						}
+						let value = locked.as_mut().unwrap();
+						value.0.push((id, r));
+						if count_copy.fetch_sub(1, Ordering::Relaxed) == 1 {
+							locked.finish();
+						}
+					},
+					Err(e) => {
+						let locked = value_copy.lock().unwrap();
+						if count_copy.fetch_sub(1, Ordering::Relaxed) == 1 {
+							locked.finish();
+						}
+						log::error!("{:?}", e);
+					},
 				}
-				Ok(())
 			}).unwrap();
-			// // 根据shader_id、vs_defines、fs_defines、pipeline_state的hash命中RenderPipeline
-			// let pipeline = Self::calc_pipeline(
-			// 	&vs_defines,
-			// 	&fs_defines,
-			// 	&static_index,
-
-			// 	&shader_statics,
-			// 	&device,
-			// 	&vertex_buffer_layout_map,
-			// 	&state_map,
-			// 	&shader_catch,
-
-			// 	&mut pipeline_map,
-			// 	&mut shader_map,
-			// 	&share_layout,
-			// );
-
-			// // 设置pipeline
-			// draw_state.pipeline = Some(pipeline);
 		}
 
-		let clear_pipeline = Share::new(ShareMutex::new(None));
+		// let clear_pipeline = Share::new(ShareMutex::new(None));
 		if let None = clear_color_obj.0.pipeline {
 			let (vs_defines, fs_defines) = (VSDefines::default(), FSDefines::default());
 			let static_index = &clear_color_obj.1;
@@ -153,24 +168,45 @@ impl CalcPipeline {
 					clear_color_obj.0.pipeline = Some(pipeline);
 				},
 				LoadResult::Wait(r) => {
-					let clear_pipeline = clear_pipeline.clone();
-					map_reduce.map(RENDER_RUNTIME.clone(), async move {
+					let value_copy = value.clone();
+					let count_copy = count.clone();
+					count_copy.fetch_add(1, Ordering::Relaxed);
+					RENDER_RUNTIME.spawn(RENDER_RUNTIME.alloc(), async move {
 						match r.await {
-							Ok(r) => *clear_pipeline.lock() = Some(r) ,
-							Err(e) => log::error!("{:?}", e)
+							Ok(r) => {
+								let mut locked = value_copy.lock().unwrap();
+								if let &None = &*locked {
+									*locked = Some((Vec::new(), 0, None));
+								}
+								let value = locked.as_mut().unwrap();
+								value.2 = Some(r);
+								if count_copy.fetch_sub(1, Ordering::Relaxed) == 1 {
+									locked.finish();
+								}
+								
+							},
+							Err(e) => {
+								let locked = value_copy.lock().unwrap();
+								if count_copy.fetch_sub(1, Ordering::Relaxed) == 1 {
+									locked.finish();
+								}
+								log::error!("{:?}", e);
+							}
 						};
-						Ok(())
+						()
 					}).unwrap();
 				},
 				LoadResult::Receiver(r) => {
-					let clear_pipeline = clear_pipeline.clone();
+					let value_copy = value.clone();
+					let count_copy = count.clone();
+					count_copy.fetch_add(1, Ordering::Relaxed);
 					let (
 						vs_defines, 
 						fs_defines, 
 						static_index, 
 						shader_map
 					) = (vs_defines.clone(), fs_defines.clone(), static_index.clone(), shader_map.clone());
-					map_reduce.map(RENDER_RUNTIME.clone(), async move {
+					RENDER_RUNTIME.spawn(RENDER_RUNTIME.alloc(), async move {
 						match Self::async_calc_pipeline(
 							&vs_defines,
 							&fs_defines,
@@ -186,31 +222,55 @@ impl CalcPipeline {
 							r,
 							hash
 						).await {
-							Ok(r) => *clear_pipeline.lock() = Some(r),
-							Err(e) => log::error!("{:?}", e),
+							Ok(r) => {
+								let mut locked = value_copy.lock().unwrap();
+								if let &None = &*locked {
+									*locked = Some((Vec::new(), 0, None));
+								}
+								let value = locked.as_mut().unwrap();
+								value.2 = Some(r);
+								if count_copy.fetch_sub(1, Ordering::Relaxed) == 1 {
+									locked.finish();
+								}
+							},
+							Err(e) => {
+								let locked = value_copy.lock().unwrap();
+								if count_copy.fetch_sub(1, Ordering::Relaxed) == 1 {
+									locked.finish();
+								}
+								log::error!("{:?}", e);
+							},
 						}
-						Ok(())
+						()
 					}).unwrap();
 				}
 			};
 		}
 
-		map_reduce.reduce(false).await.unwrap();
+		// 没有任务，返回
+		if count.load(Ordering::Relaxed) == 0 {
+			return Ok(());
+		}
 
-		let p1 = query_draw.p1_mut();
-		let mut r = pipeline_await.pop();
-		while let Some((id, pipeline)) = r {
-			if let Some(mut draw_state) = p1.get_mut(id) {
+		let mut result = value.await;
+		Self::set_result(query_draw.p1_mut(), &mut clear_color_obj, &mut result);
+		Ok(())
+	}
+
+	fn set_result(
+		query_draw: &mut Query<'static, 'static, DrawObject, &'static mut DrawState>,
+		clear_color_obj: &mut ClearDrawObj,
+		result: &mut (Vec<(Id<DrawObject>, Handle<RenderRes<RenderPipeline>>)>, usize, Option<Handle<RenderRes<RenderPipeline>>>),
+	) {
+		while let Some((id, pipeline)) = result.0.pop() {
+			if let Some(mut draw_state) = query_draw.get_mut(id) {
 				draw_state.pipeline = Some(pipeline);
 			}
-			r = pipeline_await.pop();
 		}
 
-		if let None = clear_color_obj.0.pipeline { 
-			clear_color_obj.0.pipeline = Some(clear_pipeline.lock().as_ref().unwrap().clone());
+		if let Some(r) = &result.2 { 
+			clear_color_obj.0.pipeline = Some(r.clone());
 		}
-
-		Ok(())
 	}
 
 	async fn async_calc_pipeline(
