@@ -23,3 +23,6 @@ ecs支持foreach
 7. 后处理，Attempted to use texture (5, 1, Vulkan) mips 0..1 layers 0..1 as a combination of COLOR_TARGET within a usage scope.
 8. map_reduce必须事先指定任务数量的容量（但实际应用中，不容易事先确定任务数量）
 
+
+1. start方法， isloop和ELoopMode::Not重复
+

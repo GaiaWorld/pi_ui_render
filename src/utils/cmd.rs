@@ -1,13 +1,18 @@
-use pi_ecs::prelude::res::WriteRes;
+use std::collections::VecDeque;
 
-use crate::resource::{ClearColor, Viewport};
+use ordered_float::NotNan;
+use pi_ecs::prelude::{res::WriteRes, ResMut};
+use pi_hash::XHashMap;
 
-use pi_style::style_type::ClassSheet;
+use crate::resource::{ClearColor, Viewport, animation_sheet::KeyFramesSheet};
+
+use pi_style::{style_type::ClassSheet, style_parse::Attribute};
 
 pub struct DataQuery {
-	clear_color: WriteRes<'static, ClearColor>,
-	view_port: WriteRes<'static, Viewport>,
-	class_sheet: WriteRes<'static, ClassSheet>,
+	pub clear_color: WriteRes<'static, ClearColor>,
+	pub view_port: WriteRes<'static, Viewport>,
+	pub class_sheet: ResMut<'static, ClassSheet>,
+	pub keyframes_sheet: ResMut<'static, KeyFramesSheet>,
 }
 
 pub struct SingleCmd<T>(pub T);
@@ -18,12 +23,20 @@ default impl<T: 'static + Send + Sync> Command for SingleCmd<T> {
 
 impl Command for SingleCmd<ClassSheet> {
 	fn write(self, query: &mut DataQuery) {
-		match query.class_sheet.get_mut() {
-			Some(r) => r.extend_from_class_sheet(self.0),
-			None => query.class_sheet.write(self.0)
-		};
+		query.class_sheet.extend_from_class_sheet(self.0);
 	}
 }
+
+impl Command for SingleCmd<XHashMap<usize, XHashMap<NotNan<f32>, VecDeque<Attribute>>>> {
+	fn write(self, query: &mut DataQuery) {
+		let sheet = &mut *query.keyframes_sheet;
+		for (name, value) in self.0.into_iter() {
+			sheet.add_keyframes(name, value);
+		}
+		// query.keyframes_sheet.write(self.0);
+	}
+}
+
 
 macro_rules! impl_single_cmd {
 	// 整体插入
@@ -38,9 +51,6 @@ macro_rules! impl_single_cmd {
 
 impl_single_cmd!(view_port, Viewport);
 impl_single_cmd!(clear_color, ClearColor);
-
-
-
 
 
 
@@ -113,7 +123,7 @@ impl CommandQueue {
     /// Execute the queued [`Command`]s in the world.
     /// This clears the queue.
     #[inline]
-    pub fn apply(&mut self, world: &mut DataQuery) {
+    pub fn apply(&mut self, data_query: &mut DataQuery) {
         // flush the previously queued entities
         // world.flush();
 
@@ -142,7 +152,7 @@ impl CommandQueue {
             // SAFE: The implementation of `write_command` is safe for the according Command type.
             // The bytes are safely cast to their original type, safely read, and then dropped.
             unsafe {
-                (meta.func)(byte_ptr.add(meta.offset), world);
+                (meta.func)(byte_ptr.add(meta.offset), data_query);
             }
         }
     }

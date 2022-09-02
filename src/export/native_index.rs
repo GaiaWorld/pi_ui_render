@@ -1,4 +1,5 @@
 use crate::{utils::cmd::SingleCmd, resource::{ClearColor, Viewport}, components::{user::{CgColor, Aabb2, Point2, Node}, calc::{QuadTree, IsEnable}}, export::DispatchEnd};
+use pi_hash::XHashMap;
 use pi_style::{style_parse::{parse_class_map_from_string, ClassMap}, style_type::ClassSheet};
 
 pub use super::Engine as Gui;
@@ -190,7 +191,8 @@ pub fn create_class(gui: &mut Gui, css: &str) {
 pub fn create_class_by_bin(gui: &mut Gui, bin: &[u8]) {
 	let mut class_sheet = ClassSheet::default();
     match bincode::deserialize::<ClassMap>(bin) {
-        Ok(r) => {
+        Ok(mut r) => {
+			gui.gui.push_cmd(SingleCmd(std::mem::replace(&mut r.key_frames, XHashMap::default())));
 			r.to_class_sheet(&mut class_sheet);
 		},
         Err(e) => {

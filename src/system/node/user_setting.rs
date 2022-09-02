@@ -1,7 +1,7 @@
 use std::intrinsics::transmute;
 
 use bitvec::array::BitArray;
-use pi_ecs::{prelude::{Write, Query, ResMut, Res, EntityDelete, Id, Event, DefaultComponent, OrDefault}};
+use pi_ecs::{prelude::{Write, Query, ResMut, Res, EntityDelete, Id, Event, DefaultComponent, OrDefault, res::WriteRes}};
 use pi_ecs_macros::{setup, listen};
 use pi_ecs_utils::prelude::EntityTreeMut;
 use pi_flex_layout::style::Dimension;
@@ -13,9 +13,9 @@ use crate::{
 		user::{Node, Size, Margin, Padding, Position, Border, MinMax, FlexContainer, FlexNormal, ZIndex, Overflow, Opacity, BlendMode, Transform, Show, BackgroundColor, BorderColor, BackgroundImage, MaskImage, MaskImageClip, Hsi, Blur, ObjectFit, BackgroundImageClip, BorderImage, BorderImageClip, BorderImageSlice, BorderImageRepeat, BorderRadius, BoxShadow, TextContent, TextStyle, ClassName, TransformWillChange}, 
 		calc::{StyleMark, StyleType, NodeState, BackgroundImageTexture}
 	}, 
-	resource::{UserCommands, NodeCommand, DefaultStyle},
+	resource::{UserCommands, NodeCommand, DefaultStyle, Viewport, ClearColor, animation_sheet::KeyFramesSheet, StyleCommands}, utils::cmd::DataQuery,
 };
-use pi_style::style_type::{ClassSheet, StyleTypeReader, StyleQuery, StyleAttr};
+use pi_style::{style_type::{ClassSheet, StyleTypeReader, StyleQuery, StyleAttr}, style::Animation};
 
 pub struct CalcUserSetting;
 
@@ -24,8 +24,6 @@ impl CalcUserSetting {
 
 	#[system]
 	pub fn user_setting(
-		entitys: Query<'static, 'static, Node, Id<Node>>,
-	
 		size: Query<'static, 'static,Node, Write<Size>>,
 		margin: Query<'static, 'static,Node, Write<Margin>>,
 		padding: Query<'static, 'static,Node, Write<Padding>>,
@@ -58,14 +56,18 @@ impl CalcUserSetting {
 		text_style: Query<'static, 'static,Node, Write<TextStyle>>,
 		transform_will_change: Query<'static, 'static,Node, Write<TransformWillChange>>,
 		node_state: Query<'static, 'static,Node, Write<NodeState>>,
+		text_content: Query<'static, 'static,Node, Write<TextContent>>,
+		mut animation: Query<'static, 'static,Node, Write<Animation>>,
 	
-		mut class_sheet: ResMut<ClassSheet>,
+		class_sheet: ResMut<'static, ClassSheet>,
+		view_port: WriteRes<'static, Viewport>,
+		clear_color: WriteRes<'static, ClearColor>,
+		keyframes_sheet: ResMut<'static, KeyFramesSheet>,
 	
 		mut class_query: Query<'static, 'static,Node, Write<ClassName>>,
-	
+		
+		entitys: Query<'static, 'static, Node, Id<Node>>,
 		mut style_mark: Query<'static, 'static,Node, &mut StyleMark>, // TODO OrDefaultMut
-	
-		text_content: Query<'static, 'static,Node, Write<TextContent>>,
 	
 		mut tree: EntityTreeMut<Node>,
 	
@@ -106,7 +108,21 @@ impl CalcUserSetting {
 			transform_will_change,
 			text_content,
 			node_state,
+			animation: &mut animation,
 		};
+		let mut data_query = DataQuery { 
+			clear_color,
+			view_port, 
+			class_sheet, 
+			keyframes_sheet
+		};
+
+		for c in user_commands.css_commands.drain(..) {
+			data_query.class_sheet.extend_from_class_sheet(c);
+		}
+
+		// 先作用other_commands（通常是修改单例， 如动画表，css表）
+		user_commands.other_commands.apply(&mut data_query);
 	
 		// 操作节点(节点的创建、销毁、挂载、删除)
 		for c in user_commands.node_commands.drain(..) {
@@ -140,42 +156,9 @@ impl CalcUserSetting {
 				},
 			};
 		}
-
-
-		for c in user_commands.css_commands.drain(..) {
-			class_sheet.extend_from_class_sheet(c);
-		}
 	
 		// 设置style只要节点存在,样式一定能设置成功
-		let style_commands = &mut user_commands.style_commands;
-		let (style_buffer, commands) = (&mut style_commands.style_buffer, &mut style_commands.commands);
-		for (node, start, end) in commands.drain(..) {
-			// 不存在实体，不处理
-			if entitys.get(node).is_none() {
-				log::error!("node is not exist: {:?}", node);
-				continue;
-			}
-			let mut style_mark_item = style_mark.get_unchecked_mut(node);
-			
-			let mut style_reader = StyleTypeReader::new(style_buffer, start, end);
-			let style_mark = &mut style_mark_item.local_style;
-			while style_reader.write_to_component(style_mark, node, &mut style_query) {
-			}
-			// 取消样式， TODO，注意，宽高取消时，还要考虑图片宽高的重置问题
-		}
-		unsafe { style_buffer.set_len(0) };
-	
-		// // 设置文字
-		// for (node, text) in user_commands.text_commands.drain(..) {
-		// 	match text {
-		// 		Some(r) => if let Some(mut t) = text_content.get_mut(node) {
-		// 			t.write(r);
-		// 		},
-		// 		None => if let Some(mut t) = text_content.get_mut(node) {
-		// 			t.remove();
-		// 		}
-		// 	}
-		// }
+		set_style(&mut user_commands.style_commands, &mut style_query, &entitys, &mut style_mark);
 	
 		// 设置class样式
 		for (node, class) in user_commands.class_commands.drain(..) {
@@ -185,7 +168,7 @@ impl CalcUserSetting {
 				&mut class_query,
 				class, 
 				&mut style_mark,
-				&class_sheet,
+				&data_query.class_sheet,
 			)
 		}
 	}
@@ -290,6 +273,7 @@ impl CalcUserSetting {
 		text_style: ResMut<'a, DefaultComponent<TextStyle>>,
 		transform_will_change: ResMut<'a, DefaultComponent<TransformWillChange>>,
 		text_content: ResMut<'a, DefaultComponent<TextContent>>,
+		animation: ResMut<'a, DefaultComponent<Animation>>,
 	
 		class_sheet: Res<'a, ClassSheet>,
 		// default_style_mark: ResMut<DefaultStyleMark>,
@@ -327,6 +311,7 @@ impl CalcUserSetting {
 			text_style,
 			transform_will_change,
 			text_content,
+			animation
 		};
 		// let old_class_style_mark = default_style_mark.0; // 旧的class样式
 		// let mut new_class_style_mark: BitArray<[u32;3]> = BitArray::new([0, 0, 0]);
@@ -341,6 +326,25 @@ impl CalcUserSetting {
 
 		// 是否需要将
 	}
+}
+
+pub fn set_style(style_commands: &mut StyleCommands, style_query: &mut StyleQuery, entitys: &Query<'static, 'static, Node, Id<Node>>, style_mark: &mut Query<'static, 'static,Node, &mut StyleMark>) {
+	let (style_buffer, commands) = (&mut style_commands.style_buffer, &mut style_commands.commands);
+	for (node, start, end) in commands.drain(..) {
+		// 不存在实体，不处理
+		if entitys.get(node).is_none() {
+			log::error!("node is not exist: {:?}", node);
+			continue;
+		}
+		let mut style_mark_item = style_mark.get_unchecked_mut(node);
+		
+		let mut style_reader = StyleTypeReader::new(style_buffer, start, end);
+		let style_mark = &mut style_mark_item.local_style;
+		while style_reader.write_to_component(style_mark, node, style_query) {
+		}
+		// 取消样式， TODO，注意，宽高取消时，还要考虑图片宽高的重置问题
+	}
+	unsafe { style_buffer.set_len(0) };
 }
 
 

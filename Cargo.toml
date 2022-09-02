@@ -68,17 +68,25 @@ pi_ecs_macros = { git = "https://github.com/GaiaWorld/pi_ecs.git" }
 pi_ecs_utils = { git = "https://github.com/GaiaWorld/pi_ecs_utils.git" }
 pi_ecs = { git = "https://github.com/GaiaWorld/pi_ecs.git" }
 pi_flex_layout = { git = "https://github.com/GaiaWorld/pi_flex_layout.git" }
-# pi_flex_layout = { path = "../pi_flex_layout" }
 pi_hal={git="https://github.com/GaiaWorld/pi_hal.git"}
 js_proxy_gen_macro={git="https://github.com/GaiaWorld/pi_lib.git"}
 pi_style={path="./style"}
 pi_postprocess={git="https://github.com/GaiaWorld/pi_post_process.git"}
+pi_curves = { git="https://github.com/GaiaWorld/pi_curves.git"}
+pi_animation = {git="https://github.com/GaiaWorld/pi_animation.git"}
+
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = { version = "0.2.78", features = ["serde-serialize"] }
 
 [patch."https://github.com/GaiaWorld/pi_post_process"]
-pi_postprocess={path="../pi_post_process"}
+pi_postprocess ={path="../pi_post_process"}
+
+# [patch."https://github.com/GaiaWorld/pi_curves"]
+# pi_curves  = {path="../pi_curves"}
+
+# [patch."https://github.com/GaiaWorld/pi_animation"]
+# pi_animation = { path="../pi_animation"}
 
 # [patch."https://github.com/GaiaWorld/pi_ecs"]
 # pi_ecs = { path = "../pi_ecs" }

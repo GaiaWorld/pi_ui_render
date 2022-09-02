@@ -1,14 +1,16 @@
 //! 解析字符串格式的样式
 
+use std::collections::hash_map::Entry;
 use std::{intrinsics::transmute, collections::VecDeque};
 use std::str::FromStr;
 
 use bitvec::prelude::BitArray;
-use cssparser::{Parser, BasicParseError, ParseError, Token, Delimiter, CowRcStr, ParserInput};
+use cssparser::{Parser, ParseError, Token, Delimiter, CowRcStr, ParserInput};
 use nalgebra::{RealField, Point2};
 use ordered_float::NotNan;
 use pi_atom::Atom;
 use pi_flex_layout::{style::{Display, Dimension, AlignItems, AlignSelf, AlignContent, FlexDirection, JustifyContent, PositionType, FlexWrap}, prelude::Rect};
+use pi_hash::XHashMap;
 use smallvec::SmallVec;
 
 use crate::style::{BackgroundColor, Color, BorderColor, ObjectFit, BorderImageRepeat, MaskImage, BorderRadius, Opacity, Hsi, Blur, Enable, WhiteSpace, LinearGradientColor, CgColor, ColorAndPosition, BorderImageSlice, BlendMode, LineHeight, TextAlign, FontSize, TextShadow, BoxShadow, Stroke, TransformFunc, TransformOrigin, LengthUnit, FitType, BorderImageRepeatOption, BackgroundImage, BorderImage, MaskImageClip, BackgroundImageClip, BorderImageClip, Margin, Padding, Overflow, ZIndex, TextShadows, Border};
@@ -17,96 +19,210 @@ use super::style_type::*;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum Attribute {
-    PositionType(PositionTypeType),
-    FlexWrap(FlexWrapType),
-    FlexDirection(FlexDirectionType),
-    AlignContent(AlignContentType),
-    AlignItems(AlignItemsType),
-    AlignSelf(AlignSelfType),
-    JustifyContent(JustifyContentType),
+	// PaddingTop(PaddingTopType), // 0 empty 占位， 无实际作用
+	FontStyle(FontStyleType), // 2
+	FontWeight(FontWeightType), // 3
+	FontSize(FontSizeType), // 4
+	FontFamily(FontFamilyType), // 5
+	LetterSpacing(LetterSpacingType), // 6
+	WordSpacing(WordSpacingType), // 7
+	LineHeight(LineHeightType), // 8
+	TextIndent(TextIndentType), // 9
+	WhiteSpace(WhiteSpaceType), // 10
 
-    ObjectFit(ObjectFitType),
-    TextAlign(TextAlignType),
-    VerticalAlign(VerticalAlignType),
-    WhiteSpace(WhiteSpaceType),
-    FontStyle(FontStyleType),
-    Enable(EnableType),
-    Display(DisplayType),
-
-    Visibility(VisibilityType),
-    Overflow(OverflowType),
-    LetterSpacing(LetterSpacingType),
-    TextIndent(TextIndentType),
-    WordSpacing(WordSpacingType),
-    FontWeight(FontWeightType),
-    FontFamily(FontFamilyType),
-    ZIndex(ZIndexType),
-	BackgroundImage(BackgroundImageType),
-    BorderImage(BorderImageType),
-	FlexShrink(FlexShrinkType),
-    FlexGrow(FlexGrowType),
-
-    Opacity(OpacityType),
-    BorderImageRepeat(BorderImageRepeatType),
-	FontSize(FontSizeType),
-	Blur(BlurType),
-	LineHeight(LineHeightType),
+	TextAlign(TextAlignType), // 11
+	VerticalAlign(VerticalAlignType), // 12
+	Color(ColorType), // 13
+	TextStroke(TextStrokeType), // 14
+	TextShadow(TextShadowType), // 15
 	
-    Width(WidthType),
-    Height(HeightType),
-    MarginLeft(MarginLeftType),
-    MarginTop(MarginTopType),
-    MarginBottom(MarginBottomType),
-    MarginRight(MarginRightType),
-    Margin(MarginType),
-    PaddingLeft(PaddingLeftType),
-    PaddingTop(PaddingTopType),
-    PaddingBottom(PaddingBottomType),
-    PaddingRight(PaddingRightType),
-    Padding(PaddingType),
-    BorderLeft(BorderLeftType),
-    BorderTop(BorderTopType),
-    BorderBottom(BorderBottomType),
-    BorderRight(BorderRightType),
-    Border(BorderType),
-    MinWidth(MinWidthType),
-    MinHeight(MinHeightType),
-    MaxHeight(MaxHeightType),
-    MaxWidth(MaxWidthType),
-    FlexBasis(FlexBasisType),
-    PositionLeft(PositionLeftType),
-    PositionTop(PositionTopType),
-    PositionRight(PositionRightType),
-    PositionBottom(PositionBottomType),
+	BackgroundImage(BackgroundImageType), // 16
+	BackgroundImageClip(BackgroundImageClipType), // 17
+	ObjectFit(ObjectFitType), // 18
+	BackgroundColor(BackgroundColorType), // 19
+	BoxShadow(BoxShadowType), // 20
+	BorderImage(BorderImageType), // 21
+	BorderImageClip(BorderImageClipType), // 22
+	BorderImageSlice(BorderImageSliceType), // 23
+	BorderImageRepeat(BorderImageRepeatType), // 24
 
-	MaskImage(MaskImageType),
-	BlendMode(BlendModeType),
+	BorderColor(BorderColorType), // 25
+	
 
-	BackgroundColor(BackgroundColorType),
-    BorderColor(BorderColorType),
-    BoxShadow(BoxShadowType),
+	Hsi(HsiType), // 26
+	Blur(BlurType), // 27
+	MaskImage(MaskImageType), // 28
+	MaskImageClip(MaskImageClipType), // 29
+	Transform(TransformType), // 31
+	TransformOrigin(TransformOriginType), // 32
+	TransformWillChange(TransformWillChangeType), // 33
+	BorderRadius(BorderRadiusType), // 34
+	ZIndex(ZIndexType), // 35
+	Overflow(OverflowType), // 36
+	
+	
+	BlendMode(BlendModeType), // 37
+	Display(DisplayType), // 38
+	Visibility(VisibilityType), // 39
+	Enable(EnableType), // 40
 
-    BackgroundImageClip(BackgroundImageClipType),
+	
+	Width(WidthType), // 41
+	Height(HeightType), // 42
 
-    BorderImageClip(BorderImageClipType),
-    BorderImageSlice(BorderImageSliceType),
+	MarginTop(MarginTopType), // 43
+	MarginRight(MarginRightType), // 44
+	MarginBottom(MarginBottomType), // 45
+	MarginLeft(MarginLeftType), // 46
 
-    Color(ColorType),
-    TextShadow(TextShadowType),
-    TextStroke(TextStrokeType),
+	PaddingTop(PaddingTopType), // 47
+	PaddingRight(PaddingRightType), // 48
+	PaddingBottom(PaddingBottomType), // 49
+	PaddingLeft(PaddingLeftType), // 50
 
-    BorderRadius(BorderRadiusType),
-    Transform(TransformType),
-    TransformOrigin(TransformOriginType),
-    Hsi(HsiType),
+	BorderTop(BorderTopType), // 51
+	BorderRight(BorderRightType), // 52
+	BorderBottom(BorderBottomType), // 53
+	BorderLeft(BorderLeftType), // 54
 
-	MaskImageClip(MaskImageClipType),
+	PositionTop(PositionTopType), // 55
+	PositionRight(PositionRightType), // 56
+	PositionBottom(PositionBottomType), // 57
+	PositionLeft(PositionLeftType), // 58
+
+	MinWidth(MinWidthType), // 59
+	MinHeight(MinHeightType), // 60
+	MaxHeight(MaxHeightType), // 61
+	MaxWidth(MaxWidthType), // 62
+	Direction(DirectionType), // 63
+	FlexDirection(FlexDirectionType), // 64
+	FlexWrap(FlexWrapType), // 65
+	JustifyContent(JustifyContentType), // 66
+	AlignContent(AlignContentType), // 67
+	AlignItems(AlignItemsType), // 68
+	
+
+	PositionType(PositionTypeType), // 69
+	AlignSelf(AlignSelfType), // 70
+	FlexShrink(FlexShrinkType), // 71
+	FlexGrow(FlexGrowType), // 72
+	AspectRatio(AspectRatioType), // 73
+	Order(OrderType), // 74
+	FlexBasis(FlexBasisType), // 75
+	Position(crate::style_type::PositionType), // 76
+	Border(BorderType), // 77
+	Margin(MarginType), // 78
+	Padding(PaddingType), // 79
+	Opacity(OpacityType), // 80
+	
+	TextContent(TextContentType), // 81
+
+	VNode(VNodeType), // 82
+
+	TransformFunc(TransformFuncType), // 83
+    // PositionType(PositionTypeType),
+    // FlexWrap(FlexWrapType),
+    // FlexDirection(FlexDirectionType),
+    // AlignContent(AlignContentType),
+    // AlignItems(AlignItemsType),
+    // AlignSelf(AlignSelfType),
+    // JustifyContent(JustifyContentType),
+
+    // ObjectFit(ObjectFitType),
+    // TextAlign(TextAlignType),
+    // VerticalAlign(VerticalAlignType),
+    // WhiteSpace(WhiteSpaceType),
+    // FontStyle(FontStyleType),
+    // Enable(EnableType),
+    // Display(DisplayType),
+
+    // Visibility(VisibilityType),
+    // Overflow(OverflowType),
+    // LetterSpacing(LetterSpacingType),
+    // TextIndent(TextIndentType),
+    // WordSpacing(WordSpacingType),
+    // FontWeight(FontWeightType),
+    // FontFamily(FontFamilyType),
+    // ZIndex(ZIndexType),
+	// BackgroundImage(BackgroundImageType),
+    // BorderImage(BorderImageType),
+	// FlexShrink(FlexShrinkType),
+    // FlexGrow(FlexGrowType),
+
+    // Opacity(OpacityType),
+    // BorderImageRepeat(BorderImageRepeatType),
+	// FontSize(FontSizeType),
+	// Blur(BlurType),
+	// LineHeight(LineHeightType),
+	
+    // Width(WidthType),
+    // Height(HeightType),
+    // MarginLeft(MarginLeftType),
+    // MarginTop(MarginTopType),
+    // MarginBottom(MarginBottomType),
+    // MarginRight(MarginRightType),
+    // Margin(MarginType),
+    // PaddingLeft(PaddingLeftType),
+    // PaddingTop(PaddingTopType),
+    // PaddingBottom(PaddingBottomType),
+    // PaddingRight(PaddingRightType),
+    // Padding(PaddingType),
+    // BorderLeft(BorderLeftType),
+    // BorderTop(BorderTopType),
+    // BorderBottom(BorderBottomType),
+    // BorderRight(BorderRightType),
+    // Border(BorderType),
+    // MinWidth(MinWidthType),
+    // MinHeight(MinHeightType),
+    // MaxHeight(MaxHeightType),
+    // MaxWidth(MaxWidthType),
+    // FlexBasis(FlexBasisType),
+    // PositionLeft(PositionLeftType),
+    // PositionTop(PositionTopType),
+    // PositionRight(PositionRightType),
+    // PositionBottom(PositionBottomType),
+
+	// MaskImage(MaskImageType),
+	// BlendMode(BlendModeType),
+
+	// BackgroundColor(BackgroundColorType),
+    // BorderColor(BorderColorType),
+    // BoxShadow(BoxShadowType),
+
+    // BackgroundImageClip(BackgroundImageClipType),
+
+    // BorderImageClip(BorderImageClipType),
+    // BorderImageSlice(BorderImageSliceType),
+
+    // Color(ColorType),
+    // TextShadow(TextShadowType),
+    // TextStroke(TextStrokeType),
+
+    // BorderRadius(BorderRadiusType),
+    // Transform(TransformType),
+    // TransformOrigin(TransformOriginType),
+    // Hsi(HsiType),
+
+	// MaskImageClip(MaskImageClipType),
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct KeyFrames {
+	frames: XHashMap<NotNan<f32>, VecDeque<Attribute>>,
+}
+
+// #[derive(Debug, Serialize, Deserialize, Default)]
+// pub struct KeyFrame {
+// 	// progress: f32, // 0~1, 进度
+// 	attrs: VecDeque<Attribute>, // 属性, key为属性索引
+// }
+
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct ClassMap{
 	attrs: VecDeque<Attribute>,
 	classes: Vec<ClassItem>, 
+
+	pub key_frames: XHashMap<usize, XHashMap<NotNan<f32>, VecDeque<Attribute>>>,
 }
 
 impl ClassMap {
@@ -131,306 +247,338 @@ impl ClassMap {
 				log::debug!("write_style: {:?}", r);
 				match &mut r {
 					Attribute::PositionType(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(PositionTypeType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					}
 					Attribute::FlexWrap(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(FlexWrapType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					},
 					Attribute::FlexDirection(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(FlexDirectionType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					},
 					Attribute::AlignContent(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(AlignContentType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					},
 					Attribute::AlignItems(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(AlignItemsType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					},
 					Attribute::AlignSelf(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(AlignSelfType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					},
 					Attribute::JustifyContent(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(JustifyContentType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					},
 
 					Attribute::ObjectFit(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(ObjectFitType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					},
 					Attribute::TextAlign(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(TextAlignType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					},
 					Attribute::VerticalAlign(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(VerticalAlignType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					},
 					Attribute::WhiteSpace(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(WhiteSpaceType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					},
 					Attribute::FontStyle(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(FontStyleType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					},
 					Attribute::Enable(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(EnableType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					},
 					Attribute::Display(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(DisplayType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					},
 
 					Attribute::Visibility(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(VisibilityType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					},
 					Attribute::Overflow(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(OverflowType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					},
 					Attribute::LetterSpacing(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(LetterSpacingType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					},
 					Attribute::TextIndent(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(TextIndentType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					},
 					Attribute::WordSpacing(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(WordSpacingType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					},
 					Attribute::FontWeight(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(FontWeightType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					},
 					Attribute::FontFamily(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(FontFamilyType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					},
 					Attribute::ZIndex(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(ZIndexType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					},
 					Attribute::BackgroundImage(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(BackgroundImageType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					},
 					Attribute::BorderImage(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(BorderImageType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					},
 					Attribute::FlexShrink(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(FlexShrinkType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					},
 					Attribute::FlexGrow(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(FlexGrowType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					},
 
 					Attribute::Opacity(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(OpacityType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					},
 					Attribute::BorderImageRepeat(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(BorderImageRepeatType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					},
 					Attribute::FontSize(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(FontSizeType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					},
 					Attribute::Blur(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(BlurType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					},
 					Attribute::LineHeight(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(LineHeightType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					},
 					
 					Attribute::Width(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(WidthType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					},
 					Attribute::Height(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(HeightType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					},
 					Attribute::MarginLeft(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(MarginLeftType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					},
 					Attribute::MarginTop(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(MarginTopType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					},
 					Attribute::MarginBottom(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(MarginBottomType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					},
 					Attribute::MarginRight(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(MarginRightType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					},
 					Attribute::Margin(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(MarginType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					},
 					Attribute::PaddingLeft(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(PaddingLeftType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					},
 					Attribute::PaddingTop(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(PaddingTopType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					},
 					Attribute::PaddingBottom(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(PaddingBottomType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					},
 					Attribute::PaddingRight(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(PaddingRightType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					},
 					Attribute::Padding(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(PaddingType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					},
 					Attribute::BorderLeft(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(BorderLeftType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					},
 					Attribute::BorderTop(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(BorderTopType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					},
 					Attribute::BorderBottom(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(BorderBottomType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					},
 					Attribute::BorderRight(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(BorderRightType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					},
 					Attribute::Border(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(BorderType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					},
 					Attribute::MinWidth(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(MinWidthType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					},
 					Attribute::MinHeight(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(MinHeightType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					},
 					Attribute::MaxHeight(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(MaxHeightType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					},
 					Attribute::MaxWidth(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(MaxWidthType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					},
 					Attribute::FlexBasis(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(FlexBasisType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					},
 					Attribute::PositionLeft(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(PositionLeftType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					},
 					Attribute::PositionTop(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(PositionTopType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					},
 					Attribute::PositionRight(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(PositionRightType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					},
 					Attribute::PositionBottom(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(PositionBottomType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					},
 
 					Attribute::MaskImage(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(MaskImageType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					},
 					Attribute::BlendMode(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(BlendModeType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					},
 
 					Attribute::BackgroundColor(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(BackgroundColorType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					},
 					Attribute::BorderColor(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(BorderColorType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					},
 					Attribute::BoxShadow(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(BoxShadowType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					},
 
 					Attribute::BackgroundImageClip(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(BackgroundImageClipType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					},
 
 					Attribute::BorderImageClip(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(BorderImageClipType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					},
 					Attribute::BorderImageSlice(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(BorderImageSliceType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					},
 
 					Attribute::Color(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(ColorType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					},
 					Attribute::TextShadow(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(TextShadowType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					},
 					Attribute::TextStroke(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(TextStrokeType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					},
 
 					Attribute::BorderRadius(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(BorderRadiusType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					},
 					Attribute::Transform(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(TransformType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					},
 					Attribute::TransformOrigin(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(TransformOriginType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					},
 					Attribute::Hsi(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(HsiType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					},
 
 					Attribute::MaskImageClip(r) => unsafe {
-						class_meta.class_style_mark.set(r.get_type() as usize, true);
+						class_meta.class_style_mark.set(MaskImageClipType::get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+					Attribute::TransformWillChange(r) => unsafe {
+						class_meta.class_style_mark.set(TransformWillChangeType::get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+					Attribute::Direction(r) => unsafe {
+						class_meta.class_style_mark.set(TransformWillChangeType::get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+					Attribute::AspectRatio(r) => unsafe {
+						class_meta.class_style_mark.set(TransformWillChangeType::get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+					Attribute::Order(r) => unsafe {
+						class_meta.class_style_mark.set(TransformWillChangeType::get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+					Attribute::Position(r) => unsafe {
+						class_meta.class_style_mark.set(crate::style_type::PositionType::get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+					Attribute::TextContent(r) => unsafe {
+						class_meta.class_style_mark.set(TextContentType::get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+					Attribute::VNode(r) => unsafe {
+						class_meta.class_style_mark.set(VNodeType::get_type() as usize, true);
+						r.write(&mut class_sheet.style_buffer);
+					},
+					Attribute::TransformFunc(r) => unsafe {
+						class_meta.class_style_mark.set(TransformFuncType::get_type() as usize, true);
 						r.write(&mut class_sheet.style_buffer);
 					},
 				}
@@ -455,10 +603,7 @@ pub struct ClassItem{
 }
 
 pub fn parse_class_map_from_string(value: &str) -> Result<ClassMap, String> {
-	let mut classes = ClassMap {
-		attrs: VecDeque::default(),
-		classes: Vec::default(),
-	};
+	let mut classes = ClassMap::default();
 	let mut input = ParserInput::new(value);
 	let mut parse = Parser::new(&mut input);
 
@@ -467,137 +612,141 @@ pub fn parse_class_map_from_string(value: &str) -> Result<ClassMap, String> {
 			return Ok(classes);
 		}
 
-		if let Err(e) = parse_class(&mut classes, &mut parse) {
+		if let Err(e) = parse_css_item(&mut classes, &mut parse) {
 			log::error!("parse class err: {:?}", e);
 		}
 	}
 }
 
-pub fn parse_class<'i, 't>(context: &mut ClassMap, input: &mut Parser<'i, 't>) -> Result<(), BasicParseError<'i>> {
+// 解析css文件中的每一项
+pub fn parse_css_item<'i, 't>(context: &mut ClassMap, input: &mut Parser<'i, 't>) -> Result<(), ParseError<'i, ValueParseErrorKind>> {
 	// log::debug!("next==============={:?}", input.next());
-	if let Err(r) = input.expect_delim('.') {
-		// 不以"."开头，则不是class（目前只解析class，keyframe、id等不解析）， 不是class则跳过
-		log::info!("Unexpected css: {:?}", r);
-		loop {
-			if input.is_exhausted() {
-				return Ok(());
-			}
-			if let Ok(_) = input.expect_curly_bracket_block() {
-				return Ok(());
-			}
-		}
-	}
+	let next = input.next()?;
+	match next {
+		Token::Delim(r) if r == &'.' =>  {
+			// 解析class
+			let class_name = input.expect_ident()?.as_ref();
+			log::info!("class: {}", class_name);
 
-	let class_name = input.expect_ident()?.as_ref();
-	log::info!("class: {}", class_name);
+			let class_name = match usize::from_str(&class_name[1..class_name.len()]) {
+				Ok(r) => r,
+				Err(_) => usize::MAX,
+			};
 
-	let class_name = match usize::from_str(&class_name[1..class_name.len()]) {
-		Ok(r) => r,
-		Err(_) => usize::MAX,
+			let start = context.attrs.len();
+			input.expect_curly_bracket_block()?;
+			match input.parse_nested_block::<_, _, ValueParseErrorKind>(|i| {
+				loop {
+					if let Err(e) = parse_style_item(&mut context.attrs, i) {
+						if i.is_exhausted() {
+							break;
+						} else {
+							log::error!("parse_style error: {:?}", e);
+						}
+					}
+				}
+				Ok(())
+			}) {
+				Ok(r) => r,
+				Err(r) => {
+					log::error!("parse_class fail, {:?}", r);
+				},
+			};
+
+			if class_name != usize::MAX {
+				context.classes.push(ClassItem { count: context.attrs.len() - start, class_name: class_name });
+			}
+		},
+		Token::AtKeyword(name) if &**name == "keyframes" => {
+			// 解析keyframes
+			let name = input.expect_ident()?;
+			log::debug!("parse keyframes start: {:?}", name);
+			let name = Atom::from(&**name).get_hash();
+			let key_frames = parse_key_frames(input)?;
+			if key_frames.len() > 0 {
+				context.key_frames.insert(name, key_frames);
+			}
+		},
+		ref i => {
+			log::info!("Unexpected css: {:?}", i);
+			loop {
+				if input.is_exhausted() {
+					return Ok(());
+				}
+				if let Ok(_) = input.expect_curly_bracket_block() {
+					return Ok(());
+				}
+			}
+		},
 	};
 
-	let start = context.attrs.len();
+	Ok(())
+}
 
+pub fn parse_key_frames<'i, 't>(input: &mut Parser<'i, 't>) -> Result<XHashMap<NotNan<f32>, VecDeque<Attribute>>, ParseError<'i, ValueParseErrorKind>> {
+	let mut key_frames: XHashMap<NotNan<f32>, VecDeque<Attribute>> = XHashMap::default();
 	input.expect_curly_bracket_block()?;
-
-
-	match input.parse_nested_block::<_, _, ValueParseErrorKind>(|i| {
+	input.parse_nested_block::<_, _, ValueParseErrorKind>(|i| {
 		loop {
-			if let Err(e) = parse_style_item(&mut context.attrs, i) {
+			match parse_key_frame( i) {
+				Ok((progress, attrs)) => {
+					if attrs.len() > 0 {
+						match key_frames.entry(progress) {
+							Entry::Occupied(mut r) => r.get_mut().extend(attrs),
+							Entry::Vacant(r) => {r.insert(attrs);},
+						};
+					}
+				},
+				Err(e) => if i.is_exhausted() {
+					break;
+				} else {
+					log::error!("parse_key_frames style error: {:?}", e);
+				}
+			}
+		}
+		Ok(key_frames)
+	})
+}
+
+pub fn parse_key_frame<'i, 't>(input: &mut Parser<'i, 't>) -> Result<(NotNan<f32>, VecDeque<Attribute>), ParseError<'i, ValueParseErrorKind>> {
+	let progress = parse_key_frame_progress(input)?;
+	let mut attrs = VecDeque::default();
+	input.expect_curly_bracket_block()?;
+	if let Err(r) = input.parse_nested_block::<_, _, ValueParseErrorKind>(|i| {
+		loop {
+			if let Err(e) = parse_style_item(&mut attrs, i) {
 				if i.is_exhausted() {
 					break;
 				} else {
-					log::error!("parse_style error: {:?}", e);
+					log::error!("parse_key_frames style error: {:?}", e);
 				}
 			}
 		}
 		Ok(())
 	}) {
-		Ok(r) => r,
-		Err(r) => {
-			log::error!("parse_class fail, {:?}", r);
-		},
-	};
-
-	if class_name != usize::MAX {
-	
-		context.classes.push(ClassItem { count: context.attrs.len() - start, class_name: class_name });
+		log::error!("parse_key_frames fail, {:?}", r);
 	}
-	Ok(())
+
+	Ok((progress, attrs))
 }
 
-// pub fn parse_class_map_from_string(value: &str, class_sheet: &mut ClassSheet) -> Result<(), String> {
-// 	let mut input = ParserInput::new(value);
-// 	let mut parse = Parser::new(&mut input);
-
-// 	loop {
-// 		if parse.is_exhausted() {
-// 			return Ok(());
-// 		}
-
-// 		if let Err(e) = parse_class(class_sheet, &mut parse) {
-// 			log::error!("parse class err: {:?}", e);
-// 		}
-// 	}
-// }
-
-// // 解析class
-// pub fn parse_class<'i, 't>(context: &mut ClassSheet, input: &mut Parser<'i, 't>) -> Result<(), BasicParseError<'i>> {
-// 	// log::debug!("next==============={:?}", input.next());
-// 	if let Err(r) = input.expect_delim('.') {
-// 		// 不以"."开头，则不是class（目前只解析class，keyframe、id等不解析）， 不是class则跳过
-// 		log::info!("Unexpected css: {:?}", r);
-// 		loop {
-// 			if input.is_exhausted() {
-// 				return Ok(());
-// 			}
-// 			if let Ok(_) = input.expect_curly_bracket_block() {
-// 				return Ok(());
-// 			}
-// 		}
-// 	}
-
-// 	let class_name = input.expect_ident()?.as_ref();
-// 	log::info!("class: {}", class_name);
-
-// 	let class_name = match usize::from_str(&class_name[1..class_name.len()]) {
-// 		Ok(r) => r,
-// 		Err(_) => usize::MAX,
-// 	};
-
-// 	input.expect_curly_bracket_block()?;
-
-// 	let mut class_meta = ClassMeta {
-// 		start: context.style_buffer.len(),
-// 		end: 0,
-// 		class_style_mark: BitArray::default(),
-// 	};
-
-// 	match input.parse_nested_block::<_, _, ValueParseErrorKind>(|i| {
-// 		loop {
-// 			if let Err(e) = parse_style_item(&mut context.style_buffer, &mut class_meta, i) {
-// 				if i.is_exhausted() {
-// 					break;
-// 				} else {
-// 					log::error!("parse_style error: {:?}", e);
-// 				}
-// 			}
-// 		}
-// 		Ok(())
-// 	}) {
-// 		Ok(r) => r,
-// 		Err(r) => {
-// 			log::error!("parse_class fail, {:?}", r);
-// 		},
-// 	};
-
-// 	if class_name != usize::MAX {
-// 		class_meta.end = context.style_buffer.len();
-	
-// 		context.class_map.insert(class_name, class_meta);
-// 	}
-// 	Ok(())
-// }
+/// 解析KeyFrame进度
+pub fn parse_key_frame_progress<'i, 't>(input: &mut Parser<'i, 't>) -> Result<NotNan<f32>, ParseError<'i, ValueParseErrorKind>> {
+	let location = input.current_source_location();
+	let r = input.next()?;
+	let r = match r {
+		Token::Ident(r) => if (&**r) == "from" {
+			0.0
+		} else if (&**r) == "to" {
+			1.0
+		} else {
+			return Err(location.new_custom_error::<_, ValueParseErrorKind>(ValueParseErrorKind::InvalidAttr)); 
+		},
+		Token::Percentage { unit_value, .. } => *unit_value,
+		_ => return Err(location.new_custom_error::<_, ValueParseErrorKind>(ValueParseErrorKind::InvalidAttr)),
+	};
+	Ok(unsafe { NotNan::new_unchecked(r) })
+}
 
 fn parse_border_image_slice<'i, 't>(input: &mut Parser<'i, 't>) -> Result<BorderImageSlice, ParseError<'i, ValueParseErrorKind>> {
 	let r = match input.try_parse(|input| {input.expect_percentage()}) {
@@ -2234,8 +2383,6 @@ fn test1() {
 		text-shadow: 2px 2px #ff0000;
 	}.c456{width: 10px;height:20px;filter:blur(2px) hsi(10,10,10)}";
 
-	let mut class_sheet = ClassSheet::default();
-
 	if let Err(_r) = parse_class_map_from_string(s) {
 	}
 	
@@ -2256,9 +2403,9 @@ fn test2() {
 			image-clip: 16.9283% 30.8594% 33.5202% 0.0000%;
 		}}.c123{width: 98px;
 			height: 185px;}";
-	let mut class_sheet = ClassSheet::default();
 
-	if let Err(_r) = parse_class_map_from_string(s) {
+	if let Ok(r) = parse_class_map_from_string(s) {
+		log::info!("parser result: {:?}", r);
 	}
 }
 
@@ -2268,7 +2415,6 @@ fn test3() {
 	let s = ".c112024820{
 		color: #00ffff;
 	}";
-	let mut class_sheet = ClassSheet::default();
 
 	if let Err(_r) = parse_class_map_from_string(s) {
 	}
@@ -2280,7 +2426,6 @@ fn test4() {
 	let s = ".c1203870451{
 		transform: scale(0.8,0.8);
 	}";
-	let mut class_sheet = ClassSheet::default();
 
 	if let Err(_r) = parse_class_map_from_string(s) {
 	}
@@ -2292,7 +2437,6 @@ fn test5() {
 	let s = ".c2677724671{
 		text-shadow: rgb(255,0,0) 0px 0px 5px,rgb(255,0,0) 0px 0px 3px,rgb(255,255,255) 0px 0px 1px;
 	}";
-	let mut class_sheet = ClassSheet::default();
 
 	if let Err(_r) = parse_class_map_from_string(s) {
 	}

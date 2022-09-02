@@ -8,6 +8,9 @@ use std::{
 };
 
 use ordered_float::NotNan;
+use pi_animation::loop_mode::ELoopMode;
+use pi_curves::easing::EEasingMode;
+use pi_curves::steps::EStepMode;
 use pi_flex_layout::style::{AlignContent, Dimension, AlignSelf, PositionType, Direction, AlignItems, FlexWrap, FlexDirection, JustifyContent, Display};
 use smallvec::SmallVec;
 
@@ -50,6 +53,63 @@ impl Default for CgColor {
 
 #[derive(Default)]
 pub struct Node;
+
+
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
+pub struct Animation {
+	pub name: usize, // 指定要绑定到选择器的关键帧的名称
+	pub duration: usize,	// 动画指定需要多少毫秒完成
+	pub timing_function: TimingFunction,	// 设置动画将如何完成一个周期(插值函数)
+	pub delay: usize,	// 设置动画在启动前的延迟间隔。
+	pub iteration_count: usize, //	定义动画的播放次数。
+	pub direction: ELoopMode, // 指定是否应该轮流反向播放动画。
+	pub fill_mode: FillMode, // 规定当动画不播放时（当动画完成时，或当动画有一个延迟未开始播放时），要应用到元素的样式。
+	pub play_state: PalyState, // 指定动画是否正在运行或已暂停
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, EnumDefault)]
+
+pub enum PalyState {
+	Running,
+	Paused,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, EnumDefault)]
+pub enum FillMode {
+	None,
+	Forwards,
+	Backwards,
+	Both,
+}
+
+// 淡入淡出方式
+#[derive(EnumDefault, Debug, Clone, Serialize, Deserialize)]
+pub enum EaseFunction {
+	Back,
+	Circle,
+	Cubic,
+	Sine,
+	Quad,
+	Quart,
+	Quint,
+	Expo,
+	Elastic,
+	Bounce,
+}
+
+/// 插值函数
+#[derive(EnumDefault, Debug, Clone, Serialize, Deserialize)]
+pub enum TimingFunction {
+	Linear, // 匀速
+	Ease(EEasingMode),
+	// EaseIn(EaseFunction), // 淡入
+	// EaseOut(EaseFunction), // 淡出
+	// EaseInOut(EaseFunction), // 淡入淡出
+	Step(usize, EStepMode), // 跳跃
+	CubicBezier(f32, f32, f32, f32), // 贝塞尔曲线
+}
+
+
 
 /// 布局大小
 #[derive(Default, Deref, DerefMut, Clone, Serialize, Deserialize, Debug)]
@@ -833,8 +893,83 @@ pub enum StyleType {
     BorderImageRepeat = 24,
 
     BorderColor = 25,
+   
+	Hsi = 26,
+	Blur = 27,
+	MaskImage = 28,
+	MaskImageClip = 29,
+	
+	Transform = 30,
+	TransformOrigin = 31,
+    TransformWillChange = 32,
 
-    // Matrix = 26,
+	BorderRadius = 33,
+	ZIndex = 34,
+	Overflow = 35,
+	BlendMode = 36,
+
+    Display = 37,
+    Visibility = 38,
+    Enable = 39,
+
+	Width = 40,
+    Height = 41,
+	
+	MarginTop = 42,
+	MarginRight = 43,
+	MarginBottom = 44,
+	MarginLeft = 45,
+
+	PaddingTop = 46,
+	PaddingRight = 47,
+	PaddingBottom = 48,
+	PaddingLeft = 49,
+
+	BorderTop = 50,
+	BorderRight = 51,
+	BorderBottom = 52,
+	BorderLeft = 53,
+
+	PositionTop = 54,
+	PositionRight = 55,
+	PositionBottom = 56,
+	PositionLeft = 57,
+	
+    MinWidth = 58,
+    MinHeight = 59,
+    MaxHeight = 60,
+	MaxWidth = 61,
+
+	Direction = 62,
+	FlexDirection = 63,
+	FlexWrap = 64,
+	JustifyContent = 65,
+    AlignContent = 66,
+    AlignItems = 67,
+
+	PositionType = 68,
+    AlignSelf = 69,
+	FlexShrink = 70,
+	FlexGrow = 71,
+	AspectRatio = 72,
+	Order = 73,
+	FlexBasis = 74,
+
+	// 设置Position、Border、Margin、Padding的优先级比单独设置上右下左的优先级要低，所以有单独的标识，
+	// 假定Position属性的设置，作用到上由下左上，可能会覆盖单独设置的上右下左属性
+	Position = 75,
+	Border = 76,
+	Margin = 77,
+	Padding = 78,
+	Opacity = 79,
+
+	TextContent = 80,
+	NodeState = 81,
+	
+	TransformFunc = 82,
+	Animation = 83,
+	// MaskTexture = 83,
+	// Matrix = 26,
     // Opacity = 27,
     // Layout = 28,
 	// Oct = 32,
@@ -844,80 +979,5 @@ pub enum StyleType {
 	// BorderImageTexture = 34,
 	// ImageTexture = 35,
 	// ByOverflow = 30,
-   
-	Hsi = 26,
-	Blur = 27,
-	MaskImage = 28,
-	MaskImageClip = 29,
-	MaskTexture = 30,
-	
-	Transform = 31,
-	TransformOrigin = 32,
-    TransformWillChange = 33,
-
-	BorderRadius = 34,
-	ZIndex = 35,
-	Overflow = 36,
-	BlendMode = 37,
-
-    Display = 38,
-    Visibility = 39,
-    Enable = 40,
-
-	Width = 41,
-    Height = 42,
-	
-	MarginTop = 43,
-	MarginRight = 44,
-	MarginBottom = 45,
-	MarginLeft = 46,
-
-	PaddingTop = 47,
-	PaddingRight = 48,
-	PaddingBottom = 49,
-	PaddingLeft = 50,
-
-	BorderTop = 51,
-	BorderRight = 52,
-	BorderBottom = 53,
-	BorderLeft = 54,
-
-	PositionTop = 55,
-	PositionRight = 56,
-	PositionBottom = 57,
-	PositionLeft = 58,
-	
-    MinWidth = 59,
-    MinHeight = 60,
-    MaxHeight = 61,
-	MaxWidth = 62,
-
-	Direction = 63,
-	FlexDirection = 64,
-	FlexWrap = 65,
-	JustifyContent = 66,
-    AlignContent = 67,
-    AlignItems = 68,
-
-	PositionType = 69,
-    AlignSelf = 70,
-	FlexShrink = 71,
-	FlexGrow = 72,
-	AspectRatio = 73,
-	Order = 74,
-	FlexBasis = 75,
-
-	// 设置Position、Border、Margin、Padding的优先级比单独设置上右下左的优先级要低，所以有单独的标识，
-	// 假定Position属性的设置，作用到上由下左上，可能会覆盖单独设置的上右下左属性
-	Position = 76,
-	Border = 77,
-	Margin = 78,
-	Padding = 79,
-	Opacity = 80,
-
-	TextContent = 81,
-	NodeState = 82,
-	
-	TransformFunc = 83,
 }
 

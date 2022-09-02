@@ -26,8 +26,17 @@ pi_hash="0.1"
 pi_flex_layout = { git = "https://github.com/GaiaWorld/pi_flex_layout.git" }
 # pi_flex_layout = { path = "../../pi_flex_layout" }
 pi_ecs = { git = "https://github.com/GaiaWorld/pi_ecs.git" }
+pi_curves = { git="https://github.com/GaiaWorld/pi_curves.git"}
+pi_animation = { git="https://github.com/GaiaWorld/pi_animation.git"}
 
 pi_print_any="0.1"
 
+# [patch."https://github.com/GaiaWorld/pi_curves"]
+# pi_curves  = {path="../../pi_curves"}
+
+# [patch."https://github.com/GaiaWorld/pi_animation"]
+# pi_animation = { path="../../pi_animation"}
+
 [dev-dependencies]
 env_logger = "0.9"
+
