@@ -1,57 +1,53 @@
 use std::collections::VecDeque;
 
 use ordered_float::NotNan;
+use pi_atom::Atom;
 use pi_ecs::prelude::{res::WriteRes, ResMut};
 use pi_hash::XHashMap;
 
-use crate::resource::{ClearColor, Viewport, animation_sheet::KeyFramesSheet};
+use crate::resource::{animation_sheet::KeyFramesSheet, ClearColor, Viewport};
 
-use pi_style::{style_type::ClassSheet, style_parse::Attribute};
+use pi_style::{style_parse::Attribute, style_type::ClassSheet};
 
 pub struct DataQuery {
-	pub clear_color: WriteRes<'static, ClearColor>,
-	pub view_port: WriteRes<'static, Viewport>,
-	pub class_sheet: ResMut<'static, ClassSheet>,
-	pub keyframes_sheet: ResMut<'static, KeyFramesSheet>,
+    pub clear_color: WriteRes<'static, ClearColor>,
+    pub view_port: WriteRes<'static, Viewport>,
+    pub class_sheet: ResMut<'static, ClassSheet>,
+    pub keyframes_sheet: ResMut<'static, KeyFramesSheet>,
 }
 
 pub struct SingleCmd<T>(pub T);
 
 default impl<T: 'static + Send + Sync> Command for SingleCmd<T> {
-	default fn write(self, _query: &mut DataQuery) {}
+    default fn write(self, _query: &mut DataQuery) {}
 }
 
 impl Command for SingleCmd<ClassSheet> {
-	fn write(self, query: &mut DataQuery) {
-		query.class_sheet.extend_from_class_sheet(self.0);
-	}
+    fn write(self, query: &mut DataQuery) { query.class_sheet.extend_from_class_sheet(self.0); }
 }
 
-impl Command for SingleCmd<XHashMap<usize, XHashMap<NotNan<f32>, VecDeque<Attribute>>>> {
-	fn write(self, query: &mut DataQuery) {
-		let sheet = &mut *query.keyframes_sheet;
-		for (name, value) in self.0.into_iter() {
-			sheet.add_keyframes(name, value);
-		}
-		// query.keyframes_sheet.write(self.0);
-	}
+impl Command for SingleCmd<XHashMap<Atom, XHashMap<NotNan<f32>, VecDeque<Attribute>>>> {
+    fn write(self, query: &mut DataQuery) {
+        let sheet = &mut *query.keyframes_sheet;
+        for (name, value) in self.0.into_iter() {
+            sheet.add_keyframes(name, value);
+        }
+        // query.keyframes_sheet.write(self.0);
+    }
 }
 
 
 macro_rules! impl_single_cmd {
-	// 整体插入
+    // 整体插入
     ($name: ident, $value_ty: ident) => {
-		impl Command for SingleCmd<$value_ty> {
-			fn write(self, query: &mut DataQuery) {
-				query.$name.write(self.0);
-			}
-		}
-	}
+        impl Command for SingleCmd<$value_ty> {
+            fn write(self, query: &mut DataQuery) { query.$name.write(self.0); }
+        }
+    };
 }
 
 impl_single_cmd!(view_port, Viewport);
 impl_single_cmd!(clear_color, ClearColor);
-
 
 
 /// A [`World`] mutation.
@@ -108,11 +104,7 @@ impl CommandQueue {
             // Also `command` is forgotten at the end of this function so that
             // when `apply` is called later, a double `drop` does not occur.
             unsafe {
-                std::ptr::copy_nonoverlapping(
-                    &command as *const C as *const u8,
-                    self.bytes.as_mut_ptr().add(old_len),
-                    size,
-                );
+                std::ptr::copy_nonoverlapping(&command as *const C as *const u8, self.bytes.as_mut_ptr().add(old_len), size);
                 self.bytes.set_len(old_len + size);
             }
         }

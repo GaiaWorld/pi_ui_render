@@ -1,21 +1,15 @@
 
 pub struct PositionVertexBuffer;
 impl PositionVertexBuffer {
-	pub fn id() -> u32 {
-		0
-	}
+	pub fn id() -> u32 { 0 }
 }
+
 
 pub struct CameraMatrixGroup;
 impl pi_render::rhi::dyn_uniform_buffer::Group for CameraMatrixGroup {
-	fn id() -> u32 {
-		0
-	}
+	fn id() -> u32 { 0 }
 
-	fn create_layout(
-		device: &pi_render::rhi::device::RenderDevice,
-		has_dynamic_offset: bool,
-	) -> pi_render::rhi::bind_group_layout::BindGroupLayout {
+	fn create_layout(device: &pi_render::rhi::device::RenderDevice, has_dynamic_offset: bool) -> pi_render::rhi::bind_group_layout::BindGroupLayout {
 		device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
 			label: Some("camera_matrix bindgroup layout"),
 			entries: &[wgpu::BindGroupLayoutEntry {
@@ -31,6 +25,7 @@ impl pi_render::rhi::dyn_uniform_buffer::Group for CameraMatrixGroup {
 		})
 	}
 }
+
 
 impl pi_render::rhi::dyn_uniform_buffer::BufferGroup for CameraMatrixGroup {
 	fn create_bind_group(
@@ -53,16 +48,12 @@ impl pi_render::rhi::dyn_uniform_buffer::BufferGroup for CameraMatrixGroup {
 	}
 }
 
+
 pub struct ColorMaterialGroup;
 impl pi_render::rhi::dyn_uniform_buffer::Group for ColorMaterialGroup {
-	fn id() -> u32 {
-		1
-	}
+	fn id() -> u32 { 1 }
 
-	fn create_layout(
-		device: &pi_render::rhi::device::RenderDevice,
-		has_dynamic_offset: bool,
-	) -> pi_render::rhi::bind_group_layout::BindGroupLayout {
+	fn create_layout(device: &pi_render::rhi::device::RenderDevice, has_dynamic_offset: bool) -> pi_render::rhi::bind_group_layout::BindGroupLayout {
 		device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
 			label: Some("color_material bindgroup layout"),
 			entries: &[wgpu::BindGroupLayoutEntry {
@@ -78,6 +69,7 @@ impl pi_render::rhi::dyn_uniform_buffer::Group for ColorMaterialGroup {
 		})
 	}
 }
+
 
 impl pi_render::rhi::dyn_uniform_buffer::BufferGroup for ColorMaterialGroup {
 	fn create_bind_group(
@@ -100,118 +92,77 @@ impl pi_render::rhi::dyn_uniform_buffer::BufferGroup for ColorMaterialGroup {
 	}
 }
 
+
 pub struct CameraMatrixBind;
 impl pi_render::rhi::dyn_uniform_buffer::Bind for CameraMatrixBind {
 	#[inline]
-	fn min_size() -> usize {
-		128
-	}
+	fn min_size() -> usize { 128 }
 
-	fn index() -> pi_render::rhi::dyn_uniform_buffer::BindIndex {
-		pi_render::rhi::dyn_uniform_buffer::BindIndex::new(0)
-	}
+	fn index() -> pi_render::rhi::dyn_uniform_buffer::BindIndex { pi_render::rhi::dyn_uniform_buffer::BindIndex::new(0) }
 }
+
 
 pub struct ColorMaterialBind;
 impl pi_render::rhi::dyn_uniform_buffer::Bind for ColorMaterialBind {
 	#[inline]
-	fn min_size() -> usize {
-		128
-	}
+	fn min_size() -> usize { 128 }
 
-	fn index() -> pi_render::rhi::dyn_uniform_buffer::BindIndex {
-		pi_render::rhi::dyn_uniform_buffer::BindIndex::new(0)
-	}
+	fn index() -> pi_render::rhi::dyn_uniform_buffer::BindIndex { pi_render::rhi::dyn_uniform_buffer::BindIndex::new(0) }
 }
+
 
 pub struct ProjectUniform<'a>(pub &'a [f32]);
 impl<'a> pi_render::rhi::dyn_uniform_buffer::Uniform for ProjectUniform<'a> {
 	fn write_into(&self, index: u32, buffer: &mut [u8]) {
-		unsafe {
-			std::ptr::copy_nonoverlapping(
-				self.0.as_ptr() as usize as *const u8,
-				buffer.as_mut_ptr().add(index as usize + 0),
-				64,
-			)
-		};
+		unsafe { std::ptr::copy_nonoverlapping(self.0.as_ptr() as usize as *const u8, buffer.as_mut_ptr().add(index as usize + 0), 64) };
 	}
 }
+
 
 pub struct ViewUniform<'a>(pub &'a [f32]);
 impl<'a> pi_render::rhi::dyn_uniform_buffer::Uniform for ViewUniform<'a> {
 	fn write_into(&self, index: u32, buffer: &mut [u8]) {
-		unsafe {
-			std::ptr::copy_nonoverlapping(
-				self.0.as_ptr() as usize as *const u8,
-				buffer.as_mut_ptr().add(index as usize + 64),
-				64,
-			)
-		};
+		unsafe { std::ptr::copy_nonoverlapping(self.0.as_ptr() as usize as *const u8, buffer.as_mut_ptr().add(index as usize + 64), 64) };
 	}
 }
+
 
 pub struct WorldUniform<'a>(pub &'a [f32]);
 impl<'a> pi_render::rhi::dyn_uniform_buffer::Uniform for WorldUniform<'a> {
 	fn write_into(&self, index: u32, buffer: &mut [u8]) {
-		unsafe {
-			std::ptr::copy_nonoverlapping(
-				self.0.as_ptr() as usize as *const u8,
-				buffer.as_mut_ptr().add(index as usize + 0),
-				64,
-			)
-		};
+		unsafe { std::ptr::copy_nonoverlapping(self.0.as_ptr() as usize as *const u8, buffer.as_mut_ptr().add(index as usize + 0), 64) };
 	}
 }
+
 
 pub struct DepthUniform<'a>(pub &'a [f32]);
 impl<'a> pi_render::rhi::dyn_uniform_buffer::Uniform for DepthUniform<'a> {
 	fn write_into(&self, index: u32, buffer: &mut [u8]) {
-		unsafe {
-			std::ptr::copy_nonoverlapping(
-				self.0.as_ptr() as usize as *const u8,
-				buffer.as_mut_ptr().add(index as usize + 64),
-				4,
-			)
-		};
+		unsafe { std::ptr::copy_nonoverlapping(self.0.as_ptr() as usize as *const u8, buffer.as_mut_ptr().add(index as usize + 64), 4) };
 	}
 }
+
 
 pub struct ColorUniform<'a>(pub &'a [f32]);
 impl<'a> pi_render::rhi::dyn_uniform_buffer::Uniform for ColorUniform<'a> {
 	fn write_into(&self, index: u32, buffer: &mut [u8]) {
-		unsafe {
-			std::ptr::copy_nonoverlapping(
-				self.0.as_ptr() as usize as *const u8,
-				buffer.as_mut_ptr().add(index as usize + 80),
-				16,
-			)
-		};
+		unsafe { std::ptr::copy_nonoverlapping(self.0.as_ptr() as usize as *const u8, buffer.as_mut_ptr().add(index as usize + 80), 16) };
 	}
 }
+
 
 pub struct UrectUniform<'a>(pub &'a [f32]);
 impl<'a> pi_render::rhi::dyn_uniform_buffer::Uniform for UrectUniform<'a> {
 	fn write_into(&self, index: u32, buffer: &mut [u8]) {
-		unsafe {
-			std::ptr::copy_nonoverlapping(
-				self.0.as_ptr() as usize as *const u8,
-				buffer.as_mut_ptr().add(index as usize + 96),
-				16,
-			)
-		};
+		unsafe { std::ptr::copy_nonoverlapping(self.0.as_ptr() as usize as *const u8, buffer.as_mut_ptr().add(index as usize + 96), 16) };
 	}
 }
+
 
 pub struct BlurUniform<'a>(pub &'a [f32]);
 impl<'a> pi_render::rhi::dyn_uniform_buffer::Uniform for BlurUniform<'a> {
 	fn write_into(&self, index: u32, buffer: &mut [u8]) {
-		unsafe {
-			std::ptr::copy_nonoverlapping(
-				self.0.as_ptr() as usize as *const u8,
-				buffer.as_mut_ptr().add(index as usize + 112),
-				4,
-			)
-		};
+		unsafe { std::ptr::copy_nonoverlapping(self.0.as_ptr() as usize as *const u8, buffer.as_mut_ptr().add(index as usize + 112), 4) };
 	}
 }
 

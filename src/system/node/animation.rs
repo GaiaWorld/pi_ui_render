@@ -14,13 +14,16 @@ use crate::{
         calc::{NodeState, StyleMark},
         user::{
             BackgroundColor, BackgroundImage, BackgroundImageClip, BlendMode, Blur, Border, BorderColor, BorderImage, BorderImageClip,
-            BorderImageRepeat, BorderImageSlice, BorderRadius, BoxShadow, FlexContainer, FlexNormal, Hsi, Margin, MaskImage, MaskImageClip, MinMax,
-            Node, ObjectFit, Opacity, Overflow, Padding, Position, Show, Size, TextContent, TextStyle, Transform, TransformWillChange, ZIndex,
+            BorderImageSlice, BorderRadius, BoxShadow, FlexContainer, FlexNormal, Hsi, Margin, MaskImage, MaskImageClip, MinMax, Node, Opacity,
+            Overflow, Padding, Position, Show, Size, TextContent, TextStyle, Transform, TransformWillChange, ZIndex,
         },
     },
     resource::{animation_sheet::KeyFramesSheet, TimeInfo, UserCommands},
 };
-use pi_style::{style::Animation, style_type::StyleQuery};
+use pi_style::{
+    style::{Animation, BackgroundImageMod, BorderImageRepeat},
+    style_type::StyleQuery,
+};
 
 use super::user_setting::set_style;
 
@@ -52,7 +55,7 @@ impl CalcAnimation {
         mask_image_clip: Query<'static, 'static, Node, Write<MaskImageClip>>,
         hsi: Query<'static, 'static, Node, Write<Hsi>>,
         blur: Query<'static, 'static, Node, Write<Blur>>,
-        object_fit: Query<'static, 'static, Node, Write<ObjectFit>>,
+        background_image_mod: Query<'static, 'static, Node, Write<BackgroundImageMod>>,
         border_image: Query<'static, 'static, Node, Write<BorderImage>>,
         border_image_clip: Query<'static, 'static, Node, Write<BorderImageClip>>,
         border_image_slice: Query<'static, 'static, Node, Write<BorderImageSlice>>,
@@ -100,7 +103,7 @@ impl CalcAnimation {
             mask_image_clip,
             hsi,
             blur,
-            object_fit,
+            background_image_mod,
             border_image,
             border_image_clip,
             border_image_slice,

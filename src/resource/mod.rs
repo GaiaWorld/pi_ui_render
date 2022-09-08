@@ -4,10 +4,7 @@ pub mod draw_obj;
 
 use std::time::Instant;
 
-use pi_animation::animation_result_pool::TypeAnimationResultPool;
-use pi_curves::curve::frame::FrameDataValue;
 use pi_ecs::prelude::{FromWorld, Id, World};
-use pi_print_any::println_any;
 use pi_style::style_type::*;
 
 use crate::{

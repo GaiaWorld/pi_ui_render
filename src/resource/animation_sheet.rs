@@ -11,24 +11,21 @@ use pi_animation::{
     animation_group_manager::AnimationGroupManagerDefault,
     animation_result_pool::TypeAnimationResultPool,
     frame_curve_manager::FrameCurveInfoManager,
+    loop_mode::ELoopMode,
     runtime_info::RuntimeInfoMap,
 };
+use pi_atom::Atom;
 use pi_curves::{
-    curve::{
-        frame::{FrameDataValue, KeyFrameCurveValue},
-        frame_curve::FrameCurve,
-    },
+    curve::{frame::FrameDataValue, frame_curve::FrameCurve},
     easing::EEasingMode,
 };
 use pi_ecs::{prelude::Id, storage::SecondaryMap};
 use pi_hash::XHashMap;
 use pi_map::{vecmap::VecMap, Map};
 use pi_print_any::out_any;
-use pi_style::{
-    style::{Animation, TimingFunction},
-    style_parse::Attribute,
-    style_type::*,
-};
+use pi_style::style::{AnimationDirection, AnimationTimingFunction};
+use pi_style::{style::Animation, style_parse::Attribute, style_type::*};
+use smallvec::SmallVec;
 
 use crate::components::user::Node;
 
@@ -37,14 +34,14 @@ use super::StyleCommands;
 pub struct KeyFramesSheet {
     animation_attr_types: Vec<AnimationType>, // Vec<TypeAnimationContext<T>>,
 
-    key_frames_map: XHashMap<usize, KeyFrames>, // 帧动画列表
+    key_frames_map: XHashMap<Atom, KeyFrames>, // 帧动画列表
     curve_infos: FrameCurveInfoManager,
     type_use_mark: BitVec, // 标记被使用的TypeAnimationContext，加速run（只有被使用到的TypeAnimationContext才会被嗲用run方法）
 
     runtime_info_map: RuntimeInfoMap<Id<Node>>,
     animation_context_amount: AnimationContextAmount<AnimationManagerDefault, Id<Node>, AnimationGroupManagerDefault<Id<Node>>>,
 
-    animation_bind: SecondaryMap<Id<Node>, (AnimationGroupID, Animation)>, // 描述节点上绑定了什么动画
+    animation_bind: SecondaryMap<Id<Node>, SmallVec<[AnimationGroupID; 1]>>, // 描述节点上绑定了什么动画
 
     temp_keyframes_ptr: VecMap<usize>, // 临时帧动画指针（添加帧动画时用到）
     temp_keyframes_mark: BitVec,       // 临时帧动画标记，表示哪些属性存在曲线（加帧动画时用到）
@@ -58,8 +55,8 @@ impl Default for KeyFramesSheet {
         let mut b = RuntimeInfoMap::<Id<Node>>::default();
         let mut c = FrameCurveInfoManager::default();
         let animation_attr_types = vec![
-            AnimationType::new::<PaddingTopType>(&mut b, &mut c), // 占位
-            AnimationType::new::<PaddingTopType>(&mut b, &mut c), // 占位
+            AnimationType::new::<PaddingTopType>(&mut b, &mut c),       // 占位
+            AnimationType::new::<BackgroundRepeatType>(&mut b, &mut c), // 占位
             AnimationType::new::<FontStyleType>(&mut b, &mut c),
             AnimationType::new::<FontWeightType>(&mut b, &mut c),
             AnimationType::new::<FontSizeType>(&mut b, &mut c),
@@ -133,10 +130,6 @@ impl Default for KeyFramesSheet {
             AnimationType::new::<AspectRatioType>(&mut b, &mut c),
             AnimationType::new::<OrderType>(&mut b, &mut c),
             AnimationType::new::<FlexBasisType>(&mut b, &mut c),
-            AnimationType::new::<PositionType>(&mut b, &mut c),
-            AnimationType::new::<BorderType>(&mut b, &mut c),
-            AnimationType::new::<MarginType>(&mut b, &mut c),
-            AnimationType::new::<PaddingType>(&mut b, &mut c),
             AnimationType::new::<OpacityType>(&mut b, &mut c),
             AnimationType::new::<TextContentType>(&mut b, &mut c),
             AnimationType::new::<VNodeType>(&mut b, &mut c),
@@ -162,7 +155,7 @@ impl Default for KeyFramesSheet {
 
 #[derive(Debug, Clone)]
 pub enum KeyFrameError {
-    InvalidKeyFrameName,
+    InvalidKeyFrameName(Atom),
 }
 
 impl KeyFramesSheet {
@@ -179,57 +172,76 @@ impl KeyFramesSheet {
 
     // 将动画绑定到目标上
     pub fn bind_animation(&mut self, target: Id<Node>, animation: &Animation) -> Result<(), KeyFrameError> {
-        let curves = match self.key_frames_map.get(&animation.name) {
-            Some(r) => r,
-            None => return Err(KeyFrameError::InvalidKeyFrameName),
-        };
+        log::warn!("bind_animation====={:?}", animation);
+        // 先解绑节点上的动画
+        self.unbind_animation(target);
 
+        let mut err = None;
+        let mut groups = SmallVec::with_capacity(animation.name.len());
+        // 然后重新将动画绑定上去
+        for i in 0..animation.name.len() {
+            let name = &animation.name[i];
+            let curves = match self.key_frames_map.get(name) {
+                Some(r) => r,
+                None => {
+                    err = Some(KeyFrameError::InvalidKeyFrameName(name.clone()));
+                    break;
+                }
+            };
 
-        if let Some(r) = self.animation_bind.get(&target) {
-            if r.1.name == animation.name {
-                trace!("update_animation, target: {:?}, animation: {:?}", target, animation);
-                // 更新， TODO
-                return Ok(());
+            trace!("bind_animation, target: {:?}, animation: {:?}", target, animation);
+            let group0 = self.animation_context_amount.create_animation_group();
+            groups.push(group0);
+            for (attr_animation_id, curve_id) in curves.0.iter() {
+                // 向动画组添加 动画
+                self.animation_context_amount
+                    .add_target_animation(*attr_animation_id, group0, target)
+                    .unwrap();
+                self.type_use_mark.set(*curve_id, true);
             }
-        }
 
-        trace!("bind_animation, target: {:?}, animation: {:?}", target, animation);
-        let group0 = self.animation_context_amount.create_animation_group();
-        for (attr_animation_id, curve_id) in curves.0.iter() {
-            // 向动画组添加 动画
-            self.animation_context_amount
-                .add_target_animation(*attr_animation_id, group0, target)
-                .unwrap();
-            self.type_use_mark.set(*curve_id, true);
-        }
-        // 启动动画组
-        let is_loop = animation.iteration_count > 1;
-        trace!(
-            "start anim, direction: {:?}, frame_per_second: {}, from: {}, to:  {}, duration: {}s",
-            animation.direction,
-            (FRAME_COUNT / (animation.duration as f32 / 1000.0)).round() as u16,
-            0.0,
-            FRAME_COUNT,
-            animation.duration as f32 / 1000.0
-        );
-        // TODO
-        self.animation_context_amount
-            .start(
-                group0,
-                is_loop,
-                1.0,
+            // 启动动画组
+            trace!(
+                "start anim, direction: {:?}, frame_per_second: {}, from: {}, to:  {}, duration: {}s",
                 animation.direction,
+                (FRAME_COUNT / (*Animation::get_attr(i, &animation.duration) as f32 / 1000.0)).round() as u16,
                 0.0,
                 FRAME_COUNT,
-                (FRAME_COUNT / (animation.duration as f32 / 1000.0)).round() as u16,
-                match animation.timing_function {
-                    TimingFunction::Linear => AnimationAmountCalc::from_easing(EEasingMode::None),
-                    TimingFunction::Ease(r) => AnimationAmountCalc::from_easing(r),
-                    TimingFunction::Step(step, mode) => AnimationAmountCalc::from_steps(step as u16, mode),
-                    TimingFunction::CubicBezier(x1, y1, x2, y2) => AnimationAmountCalc::from_cubic_bezier(x1, y1, x2, y2),
-                },
-            )
-            .unwrap();
+                *Animation::get_attr(i, &animation.duration) as f32 / 1000.0
+            );
+            let iter_count = *Animation::get_attr(i, &animation.iteration_count);
+            let iter_count = if f32::is_infinite(iter_count) { None } else { Some(iter_count as u32) };
+            let direction = Animation::get_attr(i, &animation.direction);
+            let direction = match direction {
+                AnimationDirection::Normal => ELoopMode::Positive(iter_count),
+                AnimationDirection::Reverse => ELoopMode::OppositePly(iter_count),
+                AnimationDirection::Alternate => ELoopMode::Opposite(iter_count),
+                AnimationDirection::AlternateReverse => ELoopMode::OppositePly(iter_count),
+            };
+            let duration = *Animation::get_attr(i, &animation.duration) as f32 / 1000.0;
+            let timing_function = Animation::get_attr(i, &animation.timing_function);
+            // TODO
+            self.animation_context_amount
+                .start_complete(
+                    group0,
+                    duration,
+                    direction,
+                    10,
+                    match timing_function {
+                        AnimationTimingFunction::Linear => AnimationAmountCalc::from_easing(EEasingMode::None),
+                        AnimationTimingFunction::Ease(r) => AnimationAmountCalc::from_easing(r),
+                        AnimationTimingFunction::Step(step, mode) => AnimationAmountCalc::from_steps(step as u16, mode),
+                        AnimationTimingFunction::CubicBezier(x1, y1, x2, y2) => AnimationAmountCalc::from_cubic_bezier(x1, y1, x2, y2),
+                    },
+                )
+                .unwrap();
+        }
+
+        self.animation_bind.insert(target, groups);
+        if let Some(err) = err {
+            self.unbind_animation(target);
+            return Err(err);
+        }
 
         Ok(())
     }
@@ -237,12 +249,15 @@ impl KeyFramesSheet {
     // 解绑定动画
     pub fn unbind_animation(&mut self, target: Id<Node>) {
         if let Some(r) = self.animation_bind.remove(&target) {
-            self.animation_context_amount.del_animation_group(r.0);
+            // 移除目标上绑定的所有动画
+            for single_animation in r {
+                self.animation_context_amount.del_animation_group(single_animation);
+            }
         }
     }
 
     // 添加一个帧动画
-    pub fn add_keyframes(&mut self, name: usize, value: XHashMap<NotNan<f32>, VecDeque<Attribute>>) {
+    pub fn add_keyframes(&mut self, name: Atom, value: XHashMap<NotNan<f32>, VecDeque<Attribute>>) {
         trace!("add_keyframes, name: {:?}", name);
         fn add_progress<T: Attr + FrameDataValue>(progress: u16, value: T, temp_keyframes_ptr: &mut VecMap<usize>, temp_keyframes_mark: &mut BitVec) {
             let index = T::get_style_index() as usize;
@@ -264,6 +279,7 @@ impl KeyFramesSheet {
             let progress = (progress * FRAME_COUNT).round() as u16;
             for attr in attrs.into_iter() {
                 match attr {
+                    Attribute::BackgroundRepeat(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
                     Attribute::FontStyle(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
                     Attribute::FontWeight(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
                     Attribute::FontSize(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
@@ -337,14 +353,18 @@ impl KeyFramesSheet {
                     Attribute::AspectRatio(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
                     Attribute::Order(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
                     Attribute::FlexBasis(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::Position(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::Border(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::Margin(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::Padding(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
                     Attribute::Opacity(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
                     Attribute::TextContent(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
                     Attribute::VNode(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
                     Attribute::TransformFunc(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+                    Attribute::AnimationName(_) => (),
+                    Attribute::AnimationDuration(_) => (),
+                    Attribute::AnimationTimingFunction(_) => (),
+                    Attribute::AnimationDelay(_) => (),
+                    Attribute::AnimationIterationCount(_) => (),
+                    Attribute::AnimationDirection(_) => (),
+                    Attribute::AnimationFillMode(_) => (),
+                    Attribute::AnimationPlayState(_) => (),
                 }
             }
         }
@@ -363,7 +383,7 @@ impl KeyFramesSheet {
         self.temp_keyframes_mark.fill(false);
 
         // 记录KeyFrames
-        self.key_frames_map.insert(name, key_frame);
+        self.key_frames_map.insert(name.clone(), key_frame);
     }
 }
 

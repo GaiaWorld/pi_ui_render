@@ -79,8 +79,8 @@ pi_animation = {git="https://github.com/GaiaWorld/pi_animation.git"}
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = { version = "0.2.78", features = ["serde-serialize"] }
 
-[patch."https://github.com/GaiaWorld/pi_post_process"]
-pi_postprocess ={path="../pi_post_process"}
+# [patch."https://github.com/GaiaWorld/pi_post_process"]
+# pi_postprocess ={path="../pi_post_process"}
 
 # [patch."https://github.com/GaiaWorld/pi_curves"]
 # pi_curves  = {path="../pi_curves"}

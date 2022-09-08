@@ -51,13 +51,13 @@ use crate::components::user::{Node, Point2, Transform};
 
 pub struct CalcMatrix;
 
-fn print_parent(idtree: &EntityTree<Node>, id: Id<Node>) {
-    let parent_id = idtree.get_up(id).map_or(Id::<Node>::null(), |up| up.parent());
-    if !parent_id.is_null() {
-        println!("parent======{:?}", parent_id);
-        print_parent(idtree, parent_id);
-    }
-}
+// fn print_parent(idtree: &EntityTree<Node>, id: Id<Node>) {
+//     let parent_id = idtree.get_up(id).map_or(Id::<Node>::null(), |up| up.parent());
+//     if !parent_id.is_null() {
+//         println!("parent======{:?}", parent_id);
+//         print_parent(idtree, parent_id);
+//     }
+// }
 
 #[setup]
 impl CalcMatrix {

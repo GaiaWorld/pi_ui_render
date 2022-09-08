@@ -48,10 +48,11 @@ pub fn start<T: Example + Sync + Send + 'static>(example: T) {
         // .filter(Some("wgpu_hal"), log::LevelFilter::Warn)
         // .filter(Some("pi_graph"), log::LevelFilter::Warn)
         .filter(None, log::LevelFilter::Warn)
-        .filter(Some("pi_ui_render"), log::LevelFilter::Trace)
-        .filter(Some("pi_animation"), log::LevelFilter::Trace)
-        .filter(Some("pi_curves"), log::LevelFilter::Trace)
-        .filter(Some("pi_style"), log::LevelFilter::Trace)
+        // .filter(Some("pi_ui_render"), log::LevelFilter::Trace)
+        // .filter(Some("pi_animation"), log::LevelFilter::Trace)
+        // .filter(Some("pi_curves"), log::LevelFilter::Trace)
+        // .filter(Some("pi_style"), log::LevelFilter::Trace)
+        .filter(Some("pi_ui_render"), log::LevelFilter::Info)
         .init();
     // env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
     // 单线程运行时
@@ -155,7 +156,7 @@ pub fn start<T: Example + Sync + Send + 'static>(example: T) {
             let mut last_stage = StageBuilder::new();
 
             let last_run = move |pre_frame_time: Local<PreFrameTime>, frame_start_time: Res<FrameStartTime>| {
-                let use_time = Instant::now() - frame_start_time.0;
+                let _use_time = Instant::now() - frame_start_time.0;
                 let pre_frame_time1 = pre_frame_time.0.clone();
 
                 let mut example = example.clone();

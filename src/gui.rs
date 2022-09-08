@@ -15,7 +15,7 @@ use pi_ecs::{
     prelude::{ArchetypeId, FromWorld, Id, Join, OrDefault, QueryState, Setup, StageBuilder, World},
 };
 use pi_ecs_utils::prelude::{Layer, NodeDown, NodeUp};
-use pi_print_any::{out_any, println_any};
+use pi_print_any::out_any;
 use pi_render::{
     components::view::target_alloc::{SafeAtlasAllocator, ShareTargetView, UnuseTexture, DEPTH_TEXTURE},
     font::FontSheet,

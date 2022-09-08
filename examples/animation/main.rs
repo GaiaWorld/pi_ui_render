@@ -5,17 +5,17 @@ mod framework;
 
 use async_trait::async_trait;
 use framework::Example;
-use pi_animation::loop_mode::ELoopMode;
 use pi_atom::Atom;
 /// 渲染四边形 demo
 use pi_ecs::prelude::Id;
 use pi_flex_layout::style::{Dimension, PositionType};
 use pi_null::Null;
 use pi_style::{
-    style::{Animation, FillMode, PalyState, TimingFunction},
+    style::{AnimationDirection, IterationCount, Time},
     style_parse::parse_class_map_from_string,
     style_type::{
-        AnimationType, BackgroundColorType, HeightType, MarginLeftType, MarginTopType, PositionLeftType, PositionTopType, PositionTypeType, WidthType,
+        AnimationDirectionType, AnimationDurationType, AnimationIterationCountType, AnimationNameType, BackgroundColorType, HeightType,
+        MarginLeftType, MarginTopType, PositionLeftType, PositionTopType, PositionTypeType, WidthType,
     },
 };
 use pi_ui_render::{
@@ -24,6 +24,7 @@ use pi_ui_render::{
     resource::ClearColor,
     utils::cmd::SingleCmd,
 };
+use smallvec::smallvec;
 
 fn main() { framework::start(QuadExample::default()) }
 
@@ -62,19 +63,11 @@ impl Example for QuadExample {
         gui.gui.set_style(div1, HeightType(Dimension::Points(100.0)));
         gui.gui
             .set_style(div1, BackgroundColorType(BackgroundColor(Color::RGBA(CgColor::new(1.0, 0.0, 1.0, 1.0)))));
-        gui.gui.set_style(
-            div1,
-            AnimationType(Animation {
-                name: Atom::from("test-animation").get_hash(),
-                duration: 10000,
-                timing_function: TimingFunction::Linear,
-                delay: 0,
-                iteration_count: 1000000,
-                direction: ELoopMode::PositivePly,
-                fill_mode: FillMode::None,
-                play_state: PalyState::Running,
-            }),
-        );
+        gui.gui.set_style(div1, AnimationNameType(smallvec![Atom::from("test-animation")]));
+        gui.gui
+            .set_style(div1, AnimationIterationCountType(smallvec![IterationCount(f32::INFINITY)]));
+        gui.gui.set_style(div1, AnimationDirectionType(smallvec![AnimationDirection::Reverse]));
+        gui.gui.set_style(div1, AnimationDurationType(smallvec![Time(3000)]));
 
         gui.gui.append(div1, root);
     }

@@ -1,3 +1,6 @@
+# 运行quad demo： cargo run --example quad
+
+
 
 TODO
 样式默认值
@@ -11,6 +14,7 @@ ecs支持foreach
 文档
 新老版本都支持 background-image-repeat、border-image,fill修改为repeat行为
 接入动画（动画运行system、动画css解析，js层兼容，构建系统兼容）
+psd 加快构建速度
 
 
 
@@ -24,5 +28,9 @@ ecs支持foreach
 8. map_reduce必须事先指定任务数量的容量（但实际应用中，不容易事先确定任务数量）
 
 
-1. start方法， isloop和ELoopMode::Not重复
+9. start方法， isloop和ELoopMode::Not重复
+
+
+# 动画TODO
+iterator_count 支持浮点数和负数
 
