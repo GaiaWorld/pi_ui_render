@@ -10,8 +10,8 @@ use pi_ecs::prelude::Id;
 use pi_flex_layout::style::{Dimension, PositionType};
 use pi_null::Null;
 use pi_ui_render::{
-	components::user::{BackgroundColor, Color, CgColor, LinearGradientColor, ColorAndPosition}, 
-	resource::ClearColor, export::Engine
+	components::user::{Color, CgColor, LinearGradientColor, ColorAndPosition, ClearColor}, 
+	export::Engine
 };
 use pi_style::style_type::{WidthType, HeightType, BackgroundColorType, PositionTypeType, PositionLeftType, PositionTopType, MarginLeftType, MarginTopType};
 
@@ -31,7 +31,7 @@ impl Example for QuadExample {
 	) {
 
 		// 设置清屏颜色为绿色
-		gui.gui.world_mut().insert_resource(ClearColor(CgColor::new(0.0, 1.0, 1.0, 1.0)));
+		gui.gui.world_mut().insert_resource(ClearColor(CgColor::new(0.0, 1.0, 1.0, 1.0), true));
 		
 		// 添加根节点
 		let root = gui.gui.create_node();
@@ -57,7 +57,7 @@ impl Example for QuadExample {
 		let div1 = gui.gui.create_node();
 		gui.gui.set_style(div1, WidthType(Dimension::Points(50.0)));
 		gui.gui.set_style(div1, HeightType(Dimension::Points(100.0)));
-		gui.gui.set_style(div1, BackgroundColorType (BackgroundColor(Color::LinearGradient(LinearGradientColor{
+		gui.gui.set_style(div1, BackgroundColorType (Color::LinearGradient(LinearGradientColor{
 			direction: 0.0, 
 			list: vec![
 				ColorAndPosition{
@@ -67,7 +67,7 @@ impl Example for QuadExample {
 				ColorAndPosition{
 					position: 1.0,
 					rgba: CgColor::new(0.0, 1.0, 0.0,1.0),
-				}]}) )));
+				}]}) ));
 		gui.gui.append(div1, root);
 	}
 	

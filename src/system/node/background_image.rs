@@ -16,7 +16,7 @@ use pi_render::rhi::buffer::Buffer;
 use pi_render::rhi::device::RenderDevice;
 use pi_render::rhi::dyn_uniform_buffer::Group;
 use pi_share::{Share, ShareMutex};
-use pi_style::style::{BackgroundImageMod, ImageRepeatOption};
+use pi_style::style::{BackgroundImageMod, ImageRepeatOption, NotNanRect};
 use smallvec::smallvec;
 use wgpu::IndexFormat;
 
@@ -132,7 +132,7 @@ impl CalcBackgroundImage {
             layout,
             mut draw_index,
             mut render_list,
-            background_image_clip_change,
+            background_image_clip,
             background_image_mod,
             background_image_texture,
         ) in query.p0_mut().iter_mut()
@@ -153,7 +153,7 @@ impl CalcBackgroundImage {
                         &bind_group_assets,
                         &texture_group_layout,
                         &background_image_texture,
-                        background_image_clip_change,
+                        background_image_clip,
                         background_image_mod,
                         &common_sampler,
                     )
@@ -195,7 +195,7 @@ impl CalcBackgroundImage {
                         &bind_group_assets,
                         &texture_group_layout,
                         &background_image_texture,
-                        background_image_clip_change,
+                        background_image_clip,
                         background_image_mod,
                         &common_sampler,
                     )
@@ -259,8 +259,10 @@ async fn modify<'a>(
         || background_image_mod.object_fit != FitType::Fill
         || background_image_mod.repeat.x != ImageRepeatOption::Stretch
         || background_image_mod.repeat.y != ImageRepeatOption::Stretch
+		|| !clip.is_unit()
     {
-        let (vertex, uvs, indices) = get_pos_uv(texture, &clip.0, background_image_mod, layout);
+		
+        let (mut vertex, mut uvs, mut indices) = get_pos_uv(texture, &clip.0, background_image_mod, layout);
         // modify_radius_linear_geo
         let vertex_key = calc_float_hash(vertex.as_slice(), calc_hash(&("image vert", radius), 0));
         let index_key = calc_hash(&("image index", radius, indices.as_slice()), 0);
@@ -269,9 +271,9 @@ async fn modify<'a>(
         let v_buffer = match buffer_assets.get(&vertex_key) {
             Some(r) => r,
             None => {
-                // if radius.is_some() {
-                //     (vertex, uv, indices) = use_layout_pos(uv_aabb, layout, radius.as_ref().unwrap());
-                // }
+                if radius.is_some() && uvs.len() == 8 {
+                    (vertex, uvs, indices) = use_layout_pos(Aabb2::new(Point2::new(uvs[0], uvs[1]), Point2::new(uvs[4], uvs[5])), layout, radius.as_ref().unwrap());
+                }
 
                 let buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
                     label: Some("background image vert buffer init"),
@@ -284,6 +286,7 @@ async fn modify<'a>(
         let uv_buffer = match buffer_assets.get(&uv_key) {
             Some(r) => r,
             None => {
+				
                 let buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
                     label: Some("background image uv buffer init"),
                     contents: bytemuck::cast_slice(uvs.as_slice()),
@@ -453,13 +456,13 @@ impl Default for BackgroundImageAwait {
 // }
 
 // 获得图片的4个点(逆时针)的坐标和uv的Aabb
-fn get_pos_uv(img: &BackgroundImageTexture, clip: &Aabb2, image_mod: &BackgroundImageMod, layout: &LayoutResult) -> (Vec<f32>, Vec<f32>, Vec<u16>) {
+fn get_pos_uv(img: &BackgroundImageTexture, clip: &NotNanRect, image_mod: &BackgroundImageMod, layout: &LayoutResult) -> (Vec<f32>, Vec<f32>, Vec<u16>) {
     let src = img.0.as_ref();
     let size = Vector2::new(
-        src.width as f32 * (clip.maxs.x - clip.mins.x).abs(),
-        src.height as f32 * (clip.maxs.y - clip.mins.y).abs(),
+        src.width as f32 * (*clip.right - *clip.left).abs(),
+        src.height as f32 * (*clip.bottom - *clip.top).abs(),
     );
-    let (mut uv1, mut uv2) = (clip.mins, clip.maxs);
+    let (mut uv1, mut uv2) = (Point2::new(*clip.left, *clip.top), Point2::new(*clip.right, *clip.bottom));
 
     let w = layout.rect.right - layout.rect.left - layout.border.right - layout.border.left;
     let h = layout.rect.bottom - layout.rect.top - layout.border.bottom - layout.border.top;
@@ -540,12 +543,12 @@ fn get_pos_uv(img: &BackgroundImageTexture, clip: &Aabb2, image_mod: &Background
         let (voffset, vspace, vstep) = calc_step(h, size.y, image_mod.repeat.y);
 
         let (mut cur_y, mut next_y) = (p1.y, p1.y + vstep);
-        let mut v2 = clip.maxs.y;
+        let mut v2 = *clip.bottom;
         let mut v_end = p2.y;
 
-        let mut u2 = clip.maxs.x;
+        let mut u2 = *clip.right;
         if uoffset > 0.0 {
-            u2 = clip.mins.x + uoffset / ustep * (clip.maxs.x - clip.mins.x);
+            u2 = *clip.left + uoffset / ustep * (*clip.right - *clip.left);
         }
         let mut u_end = p2.x;
 
@@ -559,17 +562,17 @@ fn get_pos_uv(img: &BackgroundImageTexture, clip: &Aabb2, image_mod: &Background
         loop {
             if next_y > v_end {
                 next_y = v_end;
-                v2 = clip.mins.y + voffset / vstep * (clip.maxs.y - clip.mins.y);
+                v2 = *clip.top + voffset / vstep * (*clip.bottom - *clip.top);
             }
 
             let p_left_top = push_vertex(&mut vert_arr, p1.x, cur_y, &mut index);
             let p_right_top = push_vertex(&mut vert_arr, u_end, cur_y, &mut index);
-            uv_arr.extend_from_slice(&[clip.mins.x, clip.mins.y]);
-            uv_arr.extend_from_slice(&[u2, clip.mins.y]);
+            uv_arr.extend_from_slice(&[*clip.left, *clip.top]);
+            uv_arr.extend_from_slice(&[u2, *clip.top]);
 
             let p_left_bootom = push_vertex(&mut vert_arr, p1.x, next_y, &mut index);
             let p_right_bottom = push_vertex(&mut vert_arr, u_end, next_y, &mut index);
-            uv_arr.extend_from_slice(&[clip.mins.x, v2]);
+            uv_arr.extend_from_slice(&[*clip.left, v2]);
             uv_arr.extend_from_slice(&[u2, v2]);
 
             push_u_arr(
@@ -580,9 +583,9 @@ fn get_pos_uv(img: &BackgroundImageTexture, clip: &Aabb2, image_mod: &Background
                 p_left_bootom,
                 p_right_bottom,
                 p_right_top,
-                clip.mins.x,
-                clip.mins.y,
-                clip.maxs.x,
+                *clip.left,
+                *clip.top,
+                *clip.right,
                 v2,
                 ustep,
                 uspace,

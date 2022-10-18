@@ -8,7 +8,7 @@ use pi_dirty::LayerDirty;
 use pi_ecs::{world::FromWorld, prelude::World, entity::Id};
 use pi_hash::XHashMap;
 use pi_map::{vecmap::VecMap};
-use pi_render::rhi::{bind_group_layout::BindGroupLayout, bind_group::BindGroup, shader::{ShaderId, Shader, ShaderProcessor}, device::RenderDevice, pipeline::RenderPipeline, buffer::Buffer, asset::RenderRes, dyn_uniform_buffer::Group};
+use pi_render::rhi::{bind_group_layout::BindGroupLayout, bind_group::BindGroup, shader::{ShaderId, Shader, ShaderProcessor}, device::RenderDevice, pipeline::RenderPipeline, buffer::Buffer, asset::RenderRes, dyn_uniform_buffer::Group, texture::PiRenderDefault};
 use pi_share::Share;
 use pi_slotmap::{SlotMap, DefaultKey};
 use wgpu::{PipelineLayout, ShaderModule, Sampler, DepthStencilState, TextureFormat, CompareFunction, StencilState, DepthBiasState, MultisampleState};
@@ -87,7 +87,7 @@ impl ShaderStatic {
 		// 	fs_defines1.insert(f.clone(), f.clone());
 		// }
 	
-		let vs = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
+		let vs = device.create_shader_module(wgpu::ShaderModuleDescriptor {
 			label: Some("post_process_vs_shader_module"),
 			source: wgpu::ShaderSource::Glsl {
 				shader: Cow::Borrowed(vs),
@@ -100,7 +100,7 @@ impl ShaderStatic {
 				.process(&self.fs_shader_soruce, fs_defines, shaders, &imports)
 				.unwrap();
 		let fs = fs.get_glsl_source().unwrap();
-		let fs = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
+		let fs = device.create_shader_module(wgpu::ShaderModuleDescriptor {
 			label: Some("post_process_fs_shader_module"),
 			source: wgpu::ShaderSource::Glsl {
 				shader: Cow::Borrowed(fs),
@@ -226,7 +226,7 @@ impl<T: Hash> ResMap<T> {
 /// 渲染状态
 #[derive(Clone, Debug)]
 pub struct PipelineState {
-	pub targets: Vec<wgpu::ColorTargetState>,
+	pub targets: Vec<Option<wgpu::ColorTargetState>>,
 	pub primitive: wgpu::PrimitiveState,
 	pub depth_stencil: Option<wgpu::DepthStencilState>,
 	pub multisample: wgpu::MultisampleState,
@@ -326,15 +326,6 @@ impl FromWorld for ShareLayout {
 // #[derive(Debug, Clone)]
 // pub struct EmptyBind(pub Handle<RenderRes<BindGroup>>);
 
-/// 清屏颜色的bindgroup（用户设置）
-pub struct ClearColorBindGroup(pub Option<DrawGroup>);
-
-impl FromWorld for ClearColorBindGroup {
-    fn from_world(_world: &mut pi_ecs::prelude::World) -> Self {
-        ClearColorBindGroup(None)
-    }
-}
-
 /// 动态分配的纹理，清屏颜色的bindgroup（透明色）
 pub struct DynFboClearColorBindGroup(pub DrawGroup);
 
@@ -423,8 +414,6 @@ impl FromWorld for CommonSampler {
 #[derive(Deref, Default, DerefMut)]
 pub struct LayerPass2D (LayerDirty<Id<Pass2D>>);
 
-pub struct CopyFboToScreen(pub DrawState);
-
 #[derive(Deref, DerefMut)]
 pub struct TextTextureGroup(pub Handle<RenderRes<BindGroup>>);
 
@@ -471,8 +460,8 @@ impl FromWorld for CommonPipelineState {
 
 pub fn create_common_pipeline_state() -> PipelineState {
 	PipelineState {
-		targets: vec![wgpu::ColorTargetState {
-			format: wgpu::TextureFormat::Bgra8Unorm,
+		targets: vec![Some(wgpu::ColorTargetState {
+			format: wgpu::TextureFormat::pi_render_default(),
 			blend: Some(wgpu::BlendState {
 				color: wgpu::BlendComponent {
 					operation: wgpu::BlendOperation::Add,
@@ -486,7 +475,7 @@ pub fn create_common_pipeline_state() -> PipelineState {
 				},
 			}),
 			write_mask: wgpu::ColorWrites::ALL,
-		}],
+		})],
 		primitive: wgpu::PrimitiveState {
 			front_face: wgpu::FrontFace::Ccw,
 			cull_mode: None,
@@ -507,8 +496,8 @@ pub fn create_common_pipeline_state() -> PipelineState {
 
 pub fn create_premultiply_pipeline_state() -> PipelineState {
 	PipelineState {
-		targets: vec![wgpu::ColorTargetState {
-			format: wgpu::TextureFormat::Bgra8Unorm,
+		targets: vec![Some(wgpu::ColorTargetState {
+			format: wgpu::TextureFormat::pi_render_default(),
 			blend: Some(wgpu::BlendState {
 				color: wgpu::BlendComponent {
 					operation: wgpu::BlendOperation::Add,
@@ -522,7 +511,7 @@ pub fn create_premultiply_pipeline_state() -> PipelineState {
 				},
 			}),
 			write_mask: wgpu::ColorWrites::ALL,
-		}],
+		})],
 		primitive: wgpu::PrimitiveState {
 			front_face: wgpu::FrontFace::Ccw,
 			cull_mode: None,
@@ -539,6 +528,16 @@ pub fn create_premultiply_pipeline_state() -> PipelineState {
 		multisample: MultisampleState::default(),
 		multiview: None,
 	}
+}
+
+// 清屏的DrawObj（wgpu不支持清屏，因此用画矩形的方式模拟清屏）
+pub struct ClearDrawObj(pub DrawState, pub StaticIndex);
+
+// 最大视口尺寸（gui中，各渲染共用同一个深度缓冲区， 统计各视口的最大尺寸，用该尺寸作为深度缓冲区的大小）
+#[derive(Debug, Default, Clone)]
+pub struct MaxViewSize {
+	pub width: u32,
+	pub height: u32,
 }
 
 

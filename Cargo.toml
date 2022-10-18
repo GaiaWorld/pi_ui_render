@@ -4,6 +4,9 @@ version = "0.1.0"
 authors = ["suncy <suncy@gmail.com>"]
 edition = "2021"
 
+[lib]
+crate-type = ["lib"]
+
 [features]
 default = ["pi_js_export"]
 pi_js_export = []
@@ -20,15 +23,14 @@ bincode = "1.3"
 serde = { version = "1.0", features = ["derive"], option=true }
 ordered-float = { version = "3.0", default-features = false, features = ["serde"] }
 fxhash = "0.2.1"
-nalgebra = {version = "0.24.0", features = ["serde", "serde-serialize"]}
-ncollide2d = {version = "0.27.0", features = ["serde"]}
+nalgebra = {version = "0.30", features = ["serde", "serde-serialize"]}
+ncollide2d = {version = "0.33", features = ["serde"]}
 log="0.4"
 smallvec={version = "1.8", features = ["serde"]}
 getset="0.1"
 bitvec={version = "1.0", features = ["serde"]}
 cssparser = "0.29"
-pi_hash="0.1"
-pi_share="0.4"
+pi_hash="0.1" 
 pi_atom={version="0.2", features = ["serde"]}
 pi_enum_default_macro="0.1"
 pi_res="0.1"
@@ -36,48 +38,71 @@ pi_map="0.1"
 pi_null="0.1"
 pi_ucd="0.1"
 pi_data_view = "0.1"
-pi_async = "0.4"
 futures = "0.3"
 pi_polygon = "0.1"
-pi_cg2d = "0.1"
+pi_cg2d = "0.2"
 crossbeam="0.8"
 pi_graph = "0.1"
 fixedbitset = {version="0.4", features = ["serde"]}
-wgpu = { version = "0.12", features = ["spirv", "glsl"] }
 bytemuck = { version = "1.4", features = ["derive"] }
-naga = { version = "0.8", features = [
+naga = { version = "0.9", features = [
     "glsl-in",
     "spv-in",
     "spv-out",
     "wgsl-in",
     "wgsl-out",
 ] }
-pi_assets = "0.8"
-image = "0.23"
+pi_assets = "0.10"
+image = "0.24"
 polygon2 = "0.3"
 json ="0.12"
 pi_slab="0.1"
 pi_idtree="0.1"
-winit = {git = "http://ser.yinengyun.com:10082/tech/winit.git"}
-pi_slotmap_tree ="0.2"
+pi_slotmap_tree ="0.3"
 pi_dirty="0.1"
 
 pi_spatialtree = { git = "https://github.com/GaiaWorld/pi_spatialtree.git" }
-pi_render = { git = "https://github.com/GaiaWorld/pi_render.git" }
 pi_ecs_macros = { git = "https://github.com/GaiaWorld/pi_ecs.git" }
 pi_ecs_utils = { git = "https://github.com/GaiaWorld/pi_ecs_utils.git" }
 pi_ecs = { git = "https://github.com/GaiaWorld/pi_ecs.git" }
 pi_flex_layout = { git = "https://github.com/GaiaWorld/pi_flex_layout.git" }
 pi_hal={git="https://github.com/GaiaWorld/pi_hal.git"}
 js_proxy_gen_macro={git="https://github.com/GaiaWorld/pi_lib.git"}
-pi_style={path="./style"}
 pi_postprocess={git="https://github.com/GaiaWorld/pi_post_process.git"}
 pi_curves = { git="https://github.com/GaiaWorld/pi_curves.git"}
 pi_animation = {git="https://github.com/GaiaWorld/pi_animation.git"}
-
+render_derive = {git="https://github.com/GaiaWorld/pi_render.git"}
+pi_style = {path="./style"}
+pi_futures="0.1"
+pi_time="0.2"
+siphasher = {version="0.3", features=["serde_no_std"]}
+wasm-bindgen = { version = "0.2", features = ["serde-serialize"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-wasm-bindgen = { version = "0.2.78", features = ["serde-serialize"] }
+# wasm-bindgen = { version = "0.2", features = ["serde-serialize"] }
+winit = {git = "http://ser.yinengyun.com:10082/tech/winit.git", features=["web-sys"]}
+uuid = { version = "1", features = ["js"] }
+pi_share = {version="0.4", features=["serial", "rc"]}
+pi_async = {version = "0.5", features = ["serial"]}
+web-sys = {version="0.3", features = [
+	"HtmlCanvasElement"
+]}
+js-sys = "0.3"
+wgpu = { version = "0.13", features = ["spirv", "glsl", "webgl"] }
+pi_render = { git = "https://github.com/GaiaWorld/pi_render.git", features=["webgl"] }
+flume = {version="0.10", features=["spin"]}
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+winit = {git = "http://ser.yinengyun.com:10082/tech/winit.git"}
+pi_share = {version="0.4"}
+pi_async = "0.5"
+wgpu = { version = "0.13", features = ["spirv", "glsl"] }
+pi_render = { git = "https://github.com/GaiaWorld/pi_render.git"}
+flume = "0.10"
+
+
+# [patch."https://github.com/GaiaWorld/pi_spatialtree"]
+# pi_spatialtree ={path="../pi_spatialtree"}
 
 # [patch."https://github.com/GaiaWorld/pi_post_process"]
 # pi_postprocess ={path="../pi_post_process"}
@@ -98,6 +123,7 @@ wasm-bindgen = { version = "0.2.78", features = ["serde-serialize"] }
 
 # [patch."https://github.com/GaiaWorld/pi_render"]
 # pi_render = { path = "../pi_render" }
+# render_derive = {path = "../pi_render/crates/render_derive"}
 
 # [patch."https://github.com/GaiaWorld/pi_hal"]
 # pi_hal = { path = "../pi_hal" }
@@ -105,14 +131,14 @@ wasm-bindgen = { version = "0.2.78", features = ["serde-serialize"] }
 # [patch."https://github.com/GaiaWorld/pi_flex_layout"]
 # pi_flex_layout = { path = "../pi_flex_layout" }
 
-
-
 # [patch."http://ser.yinengyun.com:10082/tech/font_kit.git"]
 # font_kit = { path = "../font_kit" }
 
-# [patch.crates-io]
+[patch.crates-io]
+# pi_assets = {path="../pi_assets"}
 # pi_graph = {path = "../pi_graph"}
-# wgpu = { path = "../wgpu/wgpu"}
+# wgpu = { path = "../wgpu1/wgpu"}
+# pi_assets = {path = "../pi_assets"}
 # pi_slotmap = { path = "../pi_slotmap" }
 # pi_slotmap_tree = { path = "../pi_slotmap_tree" }
 # pi_dirty = { path = "../pi_dirty" }
@@ -132,8 +158,9 @@ spin_sleep="1.1"
 num_cpus = "1.13"
 
 [build-dependencies]
-render_compile = { git = "https://github.com/GaiaWorld/pi_render.git" }
-naga = { version = "0.8", features = [
+# render_compile = { git = "https://github.com/GaiaWorld/pi_render.git" }
+render_compile = {path="../pi_render/crates/render_compile"}
+naga = { version = "0.9", features = [
     "glsl-in",
     "spv-in",
     "spv-out",
@@ -188,3 +215,4 @@ naga = { version = "0.8", features = [
 [net]
 # git-fetch-with-cli = true
 # offline = true
+

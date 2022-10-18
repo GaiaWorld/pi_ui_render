@@ -23,7 +23,7 @@ use pi_ecs::{
     prelude::{Added, Commands, Deleted, EntityCommands, EntityDelete, EntityInsert, Event, Id, Or, ParamSet, Query, ResMut, Write},
 };
 use pi_ecs_macros::{listen, setup};
-use pi_ecs_utils::prelude::{EntityTree, Layer, LayerDirty as LayerDirtyParam, NodeDown, NodeUp, Root};
+use pi_ecs_utils::prelude::{EntityTree, Layer, LayerDirty as LayerDirtyParam, Down, Up, Root};
 use pi_null::Null;
 
 use crate::components::user::Node;
@@ -47,10 +47,10 @@ impl CalcContext {
     pub fn cal_in_context_id(
         mut layer_pass_2d: ResMut<LayerPass2D>,
         mut command: EntityCommands<Pass2D>,
-        dirty: LayerDirtyParam<Node, Or<(Added<RenderContextMark>, Deleted<RenderContextMark>)>>,
+        mut dirty: LayerDirtyParam<Node, Or<(Added<RenderContextMark>, Deleted<RenderContextMark>)>>,
         idtree: EntityTree<Node>,
-        query: Query<Node, (Option<&NodeDown<Node>>, Option<&RenderContextMark>, Option<&Pass2DId>)>,
-        up: Query<Node, &NodeUp<Node>>,
+        query: Query<Node, (Option<&Down<Node>>, Option<&RenderContextMark>, Option<&Pass2DId>)>,
+        up: Query<Node, &Up<Node>>,
         mut in_context: Query<Node, Write<InPassId>>,
         mut query_pass: Commands<Pass2D, ParentPassId>,
 
@@ -111,11 +111,11 @@ impl CalcContext {
     // }
 
     /// 监听RenderContextMark、Layer、Node的移除事件，移除对应的渲染上下文
-    #[listen(component=(Node, RenderContextMark, Delete), component=(Node, Layer, Delete), entity=(Node, Delete))]
+    #[listen(component=(Node, RenderContextMark, Delete), component=(Node, Layer<Node>, Delete), entity=(Node, Delete))]
     pub fn context_mark_remove(
         e: Event,
         context_id: Query<Node, Write<Pass2DId>>,
-        layer: Query<Node, &Layer>,
+        layer: Query<Node, &Layer<Node>>,
         mut command: EntityDelete<Pass2D>,
         mut layer_pass_2d: ResMut<LayerPass2D>,
         // mut render_context_layer_list: ResMut<RenderContextLayerList>,
@@ -126,7 +126,7 @@ impl CalcContext {
         ) {
             // 删除RenderContext实体
             command.despawn(*context);
-            layer_pass_2d.delete(*context, **layer);
+            layer_pass_2d.delete(*context, layer.layer());
             // render_context_layer_list.delete(*context, **layer);
         }
     }
@@ -171,7 +171,7 @@ impl Default for DirtyRect {
 fn recursive_set_node_context<'s>(
     node: Id<Node>,
     idtree: &EntityTree<Node>,
-    query: &Query<Node, (Option<&NodeDown<Node>>, Option<&RenderContextMark>, Option<&Pass2DId>)>,
+    query: &Query<Node, (Option<&Down<Node>>, Option<&RenderContextMark>, Option<&Pass2DId>)>,
     query_pass: &mut Commands<Pass2D, ParentPassId>,
     in_context: &mut Query<Node, Write<InPassId>>,
     parent_context_id: InPassId,

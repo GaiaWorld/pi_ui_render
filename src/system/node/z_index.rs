@@ -53,7 +53,7 @@ impl CalcZindex {
 	pub fn calc_zindex(
 		query: Query<Node, Option<&ZIndex>>,
 		tree: EntityTree<Node>,
-		dirtys: LayerDirty<Node, Changed<ZIndex>>,
+		mut dirtys: LayerDirty<Node, Changed<ZIndex>>,
 		mut ranges: Query<Node, Write<ZRange>>,
 	) {
 		let mut vec: Vec<ZSort> = vec![];
@@ -423,7 +423,7 @@ mod test {
 		Dispatcher, In, Query, QueryState, SingleDispatcher, StageBuilder,
 		World, Setup, Id, Offset, IntoSystem, System
 	};
-    use pi_ecs_utils::prelude::{EntityTreeMut, Layer, NodeDown, NodeUp};
+    use pi_ecs_utils::prelude::{EntityTreeMut, Layer, Down, Up};
     use pi_null::Null;
 
     use crate::components::{
@@ -458,9 +458,9 @@ mod test {
         // 创建原型
         world
             .new_archetype::<Node>()
-            .register::<Layer>()
-            .register::<NodeUp<Node>>()
-            .register::<NodeDown<Node>>()
+            .register::<Layer<Node>>()
+            .register::<Up<Node>>()
+            .register::<Down<Node>>()
             .register::<ZIndex>()
             .register::<ZRange>()
             .create();

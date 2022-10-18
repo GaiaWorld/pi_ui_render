@@ -1,3 +1,4 @@
+pub mod flush;
 pub mod world_matrix;
 pub mod layout;
 pub mod text_split;
@@ -23,5 +24,6 @@ pub mod text;
 pub mod background_image;
 pub mod image_texture_load;
 pub mod animation;
+pub mod canvas;
 
 

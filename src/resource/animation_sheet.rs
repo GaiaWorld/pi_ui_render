@@ -1,7 +1,7 @@
 use std::{any::Any, collections::VecDeque};
 
 use bitvec::vec::BitVec;
-use log::trace;
+use log::debug;
 use ordered_float::NotNan;
 use pi_animation::{
     amount::AnimationAmountCalc,
@@ -12,29 +12,30 @@ use pi_animation::{
     animation_result_pool::TypeAnimationResultPool,
     frame_curve_manager::FrameCurveInfoManager,
     loop_mode::ELoopMode,
-    runtime_info::RuntimeInfoMap,
+    runtime_info::RuntimeInfoMap, animation_listener::EAnimationEvent,
 };
 use pi_atom::Atom;
 use pi_curves::{
     curve::{frame::FrameDataValue, frame_curve::FrameCurve},
     easing::EEasingMode,
 };
-use pi_ecs::{prelude::Id, storage::SecondaryMap};
+use pi_ecs::{prelude::Id};
 use pi_hash::XHashMap;
-use pi_map::{vecmap::VecMap, Map};
+use pi_map::vecmap::VecMap;
 use pi_print_any::out_any;
+use pi_slotmap::SecondaryMap;
 use pi_style::style::{AnimationDirection, AnimationTimingFunction};
 use pi_style::{style::Animation, style_parse::Attribute, style_type::*};
 use smallvec::SmallVec;
 
-use crate::components::user::Node;
+use crate::components::user::{serialize::StyleAttr, Node};
 
 use super::StyleCommands;
 
 pub struct KeyFramesSheet {
     animation_attr_types: Vec<AnimationType>, // Vec<TypeAnimationContext<T>>,
 
-    key_frames_map: XHashMap<Atom, KeyFrames>, // 帧动画列表
+    key_frames_map: XHashMap<(usize, Atom), KeyFrames>, // 帧动画列表, key为（作用域hash，动画名称）
     curve_infos: FrameCurveInfoManager,
     type_use_mark: BitVec, // 标记被使用的TypeAnimationContext，加速run（只有被使用到的TypeAnimationContext才会被嗲用run方法）
 
@@ -42,9 +43,12 @@ pub struct KeyFramesSheet {
     animation_context_amount: AnimationContextAmount<AnimationManagerDefault, Id<Node>, AnimationGroupManagerDefault<Id<Node>>>,
 
     animation_bind: SecondaryMap<Id<Node>, SmallVec<[AnimationGroupID; 1]>>, // 描述节点上绑定了什么动画
+	group_bind: SecondaryMap<AnimationGroupID, (Id<Node>, Atom)>, // 描述group对应的节点， 以及group的名称
 
     temp_keyframes_ptr: VecMap<usize>, // 临时帧动画指针（添加帧动画时用到）
     temp_keyframes_mark: BitVec,       // 临时帧动画标记，表示哪些属性存在曲线（加帧动画时用到）
+
+	animation_events_callback: Option<Box<dyn Fn(&Vec<(AnimationGroupID, EAnimationEvent, u32)>, &SecondaryMap<AnimationGroupID, (Id<Node>, Atom)>)>> // 动画事件回调函数
 }
 
 unsafe impl Send for KeyFramesSheet {}
@@ -142,12 +146,14 @@ impl Default for KeyFramesSheet {
             animation_attr_types,
             key_frames_map: Default::default(),
             animation_bind: SecondaryMap::with_capacity(0),
+			group_bind: SecondaryMap::with_capacity(0),
             animation_context_amount: AnimationContextAmount::default(AnimationManagerDefault::default(), AnimationGroupManagerDefault::default()),
             curve_infos: c,
             type_use_mark: temp_keyframes_mark.clone(),
             runtime_info_map: b,
             temp_keyframes_ptr: Default::default(),
             temp_keyframes_mark: temp_keyframes_mark,
+			animation_events_callback: None,
         }
     }
 }
@@ -164,11 +170,22 @@ impl KeyFramesSheet {
         self.runtime_info_map.reset();
         self.animation_context_amount.anime_curve_calc(delta_ms, &mut self.runtime_info_map);
         for i in self.type_use_mark.iter_ones() {
-            log::debug!("KeyFramesSheet run: {:?}", i);
             let ty = &self.animation_attr_types[i];
             (ty.run)(&ty.context, &self.runtime_info_map, style_commands);
         }
+
+		// 通知动画监听器
+		if let Some(r) = &self.animation_events_callback {
+			if self.animation_context_amount.group_events.len() > 0 {
+				r(&self.animation_context_amount.group_events, &self.group_bind);
+			}
+		}
     }
+
+	/// 设置事件监听回调
+	pub fn set_event_listener(&mut self, callback: Box<dyn Fn(&Vec<(AnimationGroupID, EAnimationEvent, u32)>, &SecondaryMap<AnimationGroupID, (Id<Node>, Atom)>)>) {
+		self.animation_events_callback = Some(callback);
+	}
 
     // 将动画绑定到目标上
     pub fn bind_animation(&mut self, target: Id<Node>, animation: &Animation) -> Result<(), KeyFrameError> {
@@ -177,19 +194,19 @@ impl KeyFramesSheet {
         self.unbind_animation(target);
 
         let mut err = None;
-        let mut groups = SmallVec::with_capacity(animation.name.len());
+        let mut groups = SmallVec::with_capacity(animation.name.value.len());
         // 然后重新将动画绑定上去
-        for i in 0..animation.name.len() {
-            let name = &animation.name[i];
-            let curves = match self.key_frames_map.get(name) {
+        for i in 0..animation.name.value.len() {
+            let name = (animation.name.scope_hash, animation.name.value[i].clone());
+            let curves = match self.key_frames_map.get(&name) {
                 Some(r) => r,
                 None => {
-                    err = Some(KeyFrameError::InvalidKeyFrameName(name.clone()));
+                    err = Some(KeyFrameError::InvalidKeyFrameName(name.1.clone()));
                     break;
                 }
             };
 
-            trace!("bind_animation, target: {:?}, animation: {:?}", target, animation);
+            debug!("bind_animation, target: {:?}, animation: {:?}", target, animation);
             let group0 = self.animation_context_amount.create_animation_group();
             groups.push(group0);
             for (attr_animation_id, curve_id) in curves.0.iter() {
@@ -199,9 +216,10 @@ impl KeyFramesSheet {
                     .unwrap();
                 self.type_use_mark.set(*curve_id, true);
             }
+			self.group_bind.insert(group0, (target, name.1.clone()));
 
             // 启动动画组
-            trace!(
+            debug!(
                 "start anim, direction: {:?}, frame_per_second: {}, from: {}, to:  {}, duration: {}s",
                 animation.direction,
                 (FRAME_COUNT / (*Animation::get_attr(i, &animation.duration) as f32 / 1000.0)).round() as u16,
@@ -248,17 +266,19 @@ impl KeyFramesSheet {
 
     // 解绑定动画
     pub fn unbind_animation(&mut self, target: Id<Node>) {
-        if let Some(r) = self.animation_bind.remove(&target) {
+        if let Some(r) = self.animation_bind.remove(target) {
             // 移除目标上绑定的所有动画
             for single_animation in r {
+				debug!("unbind_animation, name: {:?}", self.group_bind.get(single_animation));
                 self.animation_context_amount.del_animation_group(single_animation);
+				self.group_bind.remove(single_animation);
             }
         }
     }
 
     // 添加一个帧动画
-    pub fn add_keyframes(&mut self, name: Atom, value: XHashMap<NotNan<f32>, VecDeque<Attribute>>) {
-        trace!("add_keyframes, name: {:?}", name);
+    pub fn add_keyframes(&mut self, scope_hash: usize, name: Atom, value: XHashMap<NotNan<f32>, VecDeque<Attribute>>) {
+        debug!("add_keyframes, name: {:?}, scope_hash: {:?}", name, scope_hash);
         fn add_progress<T: Attr + FrameDataValue>(progress: u16, value: T, temp_keyframes_ptr: &mut VecMap<usize>, temp_keyframes_mark: &mut BitVec) {
             let index = T::get_style_index() as usize;
             let ptr = match temp_keyframes_ptr.get_mut(index) {
@@ -268,7 +288,7 @@ impl KeyFramesSheet {
                         index,
                         Box::into_raw(Box::new(FrameCurve::<T>::curve_frame_values(FRAME_COUNT as u16))) as usize,
                     );
-                    temp_keyframes_mark.insert(index, true);
+                    temp_keyframes_mark.set(index, true);
                     &mut temp_keyframes_ptr[index]
                 }
             };
@@ -383,7 +403,7 @@ impl KeyFramesSheet {
         self.temp_keyframes_mark.fill(false);
 
         // 记录KeyFrames
-        self.key_frames_map.insert(name.clone(), key_frame);
+        self.key_frames_map.insert((scope_hash, name.clone()), key_frame);
     }
 }
 
@@ -424,7 +444,6 @@ trait AnimationTypeInterface {
 
 impl<T: Attr + FrameDataValue> AnimationTypeInterface for T {
     fn run(context: &Box<dyn Any>, runtime_infos: &RuntimeInfoMap<Id<Node>>, style_commands: &mut StyleCommands) {
-        trace!("anime run");
         if let Err(e) = context
             .downcast_ref::<TypeAnimationContext<Self>>()
             .unwrap()
@@ -436,7 +455,7 @@ impl<T: Attr + FrameDataValue> AnimationTypeInterface for T {
 
     fn add_frame_curve(context: &mut Box<dyn Any>, curve_infos: &mut FrameCurveInfoManager, curve_ptr: usize) -> CurveId {
         let curve = unsafe { std::ptr::read(curve_ptr as *const FrameCurve<Self>) };
-        out_any!(trace, "add_frame_curve, curve: {:?}", &curve);
+        out_any!(debug, "add_frame_curve, curve: {:?}", &curve);
         CurveId {
             ty: T::get_style_index() as usize,
             id: context
@@ -458,7 +477,7 @@ impl<F: Attr + FrameDataValue> TypeAnimationResultPool<F, Id<Node>> for StyleCom
         _id_attr: pi_animation::target_modifier::IDAnimatableAttr,
         result: pi_animation::animation_context::AnimeResult<F>,
     ) -> Result<(), pi_animation::error::EAnimationError> {
-        out_any!(log::debug, "record animation result===={:?}, {:?}", &result.value, &entity);
+        // out_any!(log::debug, "record animation result===={:?}, {:?}", &result.value, &entity);
         let start = self.style_buffer.len();
         unsafe { StyleAttr::write(result.value, &mut self.style_buffer) };
         if let Some(r) = self.commands.last_mut() {

@@ -11,7 +11,7 @@ use pi_ecs::prelude::Id;
 use pi_flex_layout::style::{Dimension, PositionType};
 use pi_null::Null;
 use pi_style::{
-    style::{AnimationDirection, IterationCount, Time},
+    style::{AnimationDirection, IterationCount, Time, AnimationName, Aabb2},
     style_parse::parse_class_map_from_string,
     style_type::{
         AnimationDirectionType, AnimationDurationType, AnimationIterationCountType, AnimationNameType, BackgroundColorType, HeightType,
@@ -19,10 +19,9 @@ use pi_style::{
     },
 };
 use pi_ui_render::{
-    components::user::{BackgroundColor, CgColor, Color},
+    components::user::{CgColor, Color, ClearColor, Viewport, Point2},
     export::Engine,
-    resource::ClearColor,
-    utils::cmd::SingleCmd,
+    utils::cmd::{SingleCmd, NodeCmd},
 };
 use smallvec::smallvec;
 
@@ -38,15 +37,17 @@ impl Example for QuadExample {
 			0% {left: 0px;}
 			100% {left: 300px}
 		}";
-        let class_map = parse_class_map_from_string(css).unwrap();
+        let class_map = parse_class_map_from_string(css, 0).unwrap();
         gui.gui.push_cmd(SingleCmd(class_map.key_frames));
 
 
         // 设置清屏颜色为绿色
-        gui.gui.world_mut().insert_resource(ClearColor(CgColor::new(0.0, 1.0, 1.0, 1.0)));
+        // gui.gui.world_mut().insert_resource(ClearColor(CgColor::new(0.0, 1.0, 1.0, 1.0)));
 
         // 添加根节点
         let root = gui.gui.create_node();
+		gui.gui.push_cmd(NodeCmd(ClearColor(CgColor::new(0.0, 1.0, 1.0, 1.0), true), root));
+		gui.gui.push_cmd(NodeCmd(Viewport(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(size.0 as f32, size.1 as f32))), root));
         gui.gui.set_style(root, WidthType(Dimension::Points(size.0 as f32)));
         gui.gui.set_style(root, HeightType(Dimension::Points(size.1 as f32)));
 
@@ -62,10 +63,10 @@ impl Example for QuadExample {
         gui.gui.set_style(div1, WidthType(Dimension::Points(100.0)));
         gui.gui.set_style(div1, HeightType(Dimension::Points(100.0)));
         gui.gui
-            .set_style(div1, BackgroundColorType(BackgroundColor(Color::RGBA(CgColor::new(1.0, 0.0, 1.0, 1.0)))));
-        gui.gui.set_style(div1, AnimationNameType(smallvec![Atom::from("test-animation")]));
+            .set_style(div1, BackgroundColorType(Color::RGBA(CgColor::new(1.0, 0.0, 1.0, 1.0))));
+        gui.gui.set_style(div1, AnimationNameType(AnimationName{scope_hash: 0, value: smallvec![Atom::from("test-animation")]} ));
         gui.gui
-            .set_style(div1, AnimationIterationCountType(smallvec![IterationCount(f32::INFINITY)]));
+            .set_style(div1, AnimationIterationCountType(smallvec![IterationCount(1.0)]));
         gui.gui.set_style(div1, AnimationDirectionType(smallvec![AnimationDirection::Reverse]));
         gui.gui.set_style(div1, AnimationDurationType(smallvec![Time(3000)]));
 

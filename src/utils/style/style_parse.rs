@@ -3469,7 +3469,6 @@ fn test1() {
 		background-color: blue;
 		background: linear-gradient(20deg, 10% #555, 100% #fff);
 	}.c456{width: 10px;height:20px;filter:blur(2px) hsi(10,10,10)}";
-	println!("xxxxxxxxxxxxxx");
 
 	let mut input = cssparser::ParserInput::new(s);
 	let mut parse = cssparser::Parser::new(&mut input);

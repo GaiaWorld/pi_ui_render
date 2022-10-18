@@ -16,7 +16,7 @@ use pi_render::rhi::{
     bind_group_layout::BindGroupLayout,
     buffer::Buffer,
     device::RenderDevice,
-    shader::{Shader, ShaderId},
+    shader::{Shader, ShaderId}, texture::PiRenderDefault,
 };
 use pi_share::Share;
 use wgpu::{CompareFunction, DepthBiasState, DepthStencilState, MultisampleState, StencilState, TextureFormat};
@@ -158,8 +158,8 @@ pub fn create_depth_group(
 
 pub fn create_common_pipeline_state() -> PipelineState {
     PipelineState {
-        targets: vec![wgpu::ColorTargetState {
-            format: wgpu::TextureFormat::Bgra8Unorm,
+        targets: vec![Some(wgpu::ColorTargetState {
+            format: wgpu::TextureFormat::pi_render_default(),
             blend: Some(wgpu::BlendState {
                 color: wgpu::BlendComponent {
                     operation: wgpu::BlendOperation::Add,
@@ -173,7 +173,7 @@ pub fn create_common_pipeline_state() -> PipelineState {
                 },
             }),
             write_mask: wgpu::ColorWrites::ALL,
-        }],
+        })],
         primitive: wgpu::PrimitiveState {
             front_face: wgpu::FrontFace::Ccw,
             cull_mode: None,

@@ -23,22 +23,16 @@ impl CalcQuad {
 		let width = layout.rect.right - layout.rect.left;
 		let height = layout.rect.bottom - layout.rect.top;
 		let aabb = calc_bound_box(&Aabb2::new(Point2::new(0.0, 0.0), Point2::new(width, height)), world_matrix);
-	
-		oct.get_unchecked_mut_by_entity(id).write(Quad::new(aabb));
+		
+		let mut oct_item = oct.get_unchecked_mut_by_entity(id);
+		// 在修改oct前，先发出一个删除事件，一些sys能够通过监听该事件知道在删除前，quad的值（如脏区域系统，需要了解oct在修改之前的值，来更新脏区域）
+		if oct_item.get().is_some() { 
+			oct_item.notify_delete();
+		}
+
+		oct_item.write(Quad::new(aabb));
 	}
 }
-
-// fn cal_bound_box(size: (f32, f32), matrix: &WorldMatrix) -> Aabb2 {
-// 	let left_top = matrix * Vector4::new(0.0, 0.0, 0.0, 1.0);
-// 	let right_bottom = matrix * Vector4::new(size.0,  size.1, 0.0, 1.0);
-
-// 	let min = Point2::new(left_top.x, left_top.y);
-// 	let max = Point2::new(right_bottom.x, right_bottom.y);
-
-// 	Aabb2::new(min, max)
-// }
-
-
 
 #[cfg(test)]
 mod test {

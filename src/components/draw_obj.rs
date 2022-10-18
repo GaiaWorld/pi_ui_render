@@ -5,11 +5,12 @@ use pi_assets::asset::Handle;
 use pi_ecs::entity::Id;
 use pi_hash::XHashSet;
 use pi_map::vecmap::VecMap;
-use pi_render::rhi::{buffer::Buffer, IndexFormat, pipeline::RenderPipeline, asset:: RenderRes, bind_group::BindGroup, dyn_uniform_buffer::{BindIndex, GroupId, BindOffset}};
+use pi_render::{rhi::{buffer::Buffer, IndexFormat, pipeline::RenderPipeline, asset:: RenderRes, bind_group::BindGroup, dyn_uniform_buffer::{BindIndex, GroupId, BindOffset}}};
 use smallvec::SmallVec;
 use wgpu::RenderPass;
 
 use crate::resource::draw_obj::DynBindGroups;
+pub use super::root::{ClearColorBindGroup, DynTargetType, CopyFboToScreen};
 
 pub type DrawKey = Id<DrawObject>;
 

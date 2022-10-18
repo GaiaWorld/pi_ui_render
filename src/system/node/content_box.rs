@@ -3,7 +3,7 @@
 
 use pi_ecs::prelude::{Changed, Query, Write};
 use pi_ecs_macros::setup;
-use pi_ecs_utils::prelude::{LayerDirty, NodeDown, NodeUp, Layer};
+use pi_ecs_utils::prelude::{LayerDirty, Down, Up, Layer};
 use pi_null::Null;
 
 use crate::components::{calc::{Quad, ContentBox}, user::{Node, Aabb2}};
@@ -16,9 +16,9 @@ impl CalcContentBox {
 	pub fn calc_content_box(
 		mut dirty: LayerDirty<Node, Changed<Quad>>,
 		oct: Query<Node, &Quad>,
-		down: Query<Node, Option<&NodeDown<Node>>>,
-		up: Query<Node, &NodeUp<Node>>,
-		layer: Query<Node, &Layer>,
+		down: Query<Node, Option<&Down<Node>>>,
+		up: Query<Node, &Up<Node>>,
+		layer: Query<Node, &Layer<Node>>,
 		content_box: Query<Node, Write<ContentBox>>
 	) {
 		if dirty.count() == 0 {
@@ -30,7 +30,7 @@ impl CalcContentBox {
 		while end > 0 {
 			// 将脏劈分为两部分：1.当前迭代的层， 2.剩余部分
 			// 在迭代当前层的过程中，可能继续设置父脏，因此将当前迭代层劈分出来
-			let (mut remain, out) = dirty.split(end - 1);
+			let (mut remain, mut out) = dirty.split(end - 1);
 			for id in out.iter() {
 				let mut chilren_change = false;
 				
@@ -72,7 +72,7 @@ impl CalcContentBox {
 					if let Some(up) = up.get(id) {
 						if !up.parent().is_null() {
 							let layer = layer.get_unchecked(id);
-							remain.mark(up.parent(), **layer);
+							remain.mark(up.parent(), layer.layer());
 						}
 					}
 				}

@@ -1,7 +1,7 @@
 use std::{mem::transmute, sync::atomic::{AtomicUsize, Ordering}};
 
 use pi_assets::{mgr::{AssetMgr, LoadResult, Receiver}, asset::{Handle, GarbageEmpty}};
-use pi_async::rt::{AsyncRuntime, AsyncVariable};
+use pi_async::prelude::{AsyncRuntime, AsyncVariable};
 use pi_ecs::prelude::{Query, Changed, Added, Res, OrDefault, Or, Id, ParamSet, ResMut};
 use pi_ecs_macros::setup;
 use pi_render::rhi::{device::RenderDevice, pipeline::RenderPipeline, asset::RenderRes};
@@ -10,7 +10,7 @@ use pi_hal::runtime::RENDER_RUNTIME;
 
 use crate::{
 	components::draw_obj::{VSDefines, FSDefines, DrawObject, DrawState}, 
-	resource::{draw_obj::{Shaders, VertexBufferLayoutMap, StateMap, ShaderCatch, StaticIndex, Program}, ClearDrawObj}
+	resource::{draw_obj::{Shaders, VertexBufferLayoutMap, StateMap, ShaderCatch, StaticIndex, Program, ClearDrawObj}}
 };
 use crate::utils::tools::calc_hash;
 

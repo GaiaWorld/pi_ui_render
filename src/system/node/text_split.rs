@@ -5,7 +5,7 @@ use std::intrinsics::transmute;
 use ordered_float::NotNan;
 use pi_ecs::prelude::{Query, Changed, Or, ResMut, OrDefault, Write, Id};
 use pi_ecs_macros::setup;
-use pi_ecs_utils::prelude::{EntityTree, Layer, NodeUp};
+use pi_ecs_utils::prelude::{EntityTree, Layer, Up};
 use pi_flex_layout::{prelude::{CharNode, Size, Rect}, style::{Dimension, PositionType}};
 use pi_share::{Share, ShareCell};
 use pi_slotmap::{DefaultKey, Key};
@@ -32,9 +32,9 @@ impl CalcTextSplit {
 				Id<Node>,
 				&TextContent,
 				OrDefault<TextStyle>,
-				&NodeUp<Node>,
+				&Up<Node>,
 			), 
-			Or<(Changed<TextContent>, Changed<FontStyle>, Changed<Layer>)>
+			Or<(Changed<TextContent>, Changed<FontStyle>, Changed<Layer<Node>>)>
 		>,
 		style: Query<
 			Node, 
@@ -56,7 +56,7 @@ impl CalcTextSplit {
 			up) in query.iter() {
 		
 			match tree.get_layer(entity) {
-				Some(r) => if *r == 0 {continue},
+				Some(r) => if r.layer() == 0 {continue},
 				None => continue,
 			};
 			
@@ -132,8 +132,8 @@ impl<'a> Calc<'a> {
 	// 与图文混排的布局方式不同，该布局不需要为每个字符节点创建实体
 	fn cacl_simple(&mut self) {
 		let (id, text_style, text) = (self.id, self.text_style, self.text);
-		let mut node_state = self.node_states.get_unchecked_mut(id);
-		let node_state = node_state.get_mut().unwrap();
+		let mut node_state_item = self.node_states.get_unchecked_mut(id);
+		let node_state = node_state_item.get_mut().unwrap();
 		
 		let chars: &'static mut Vec<CharNode> = unsafe { transmute( &mut node_state.text ) };
 		let (mut word_index, mut p_x, mut word_margin_start, mut char_index) = (0, 0.0, 0.0, 0);
@@ -195,6 +195,7 @@ impl<'a> Calc<'a> {
 		while char_index < chars.len() {
 			chars.pop();
 		}
+		self.node_states.get_unchecked_mut(id).notify_modify();
 	}
 
 	fn create_char_node(&mut self, ch: char, p_x: f32, char_i: isize) -> CharNode {

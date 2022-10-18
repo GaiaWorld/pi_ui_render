@@ -68,14 +68,14 @@ impl CalcMatrix {
         query: Query<Node, (Option<&Transform>, &LayoutResult)>,
         query_layout: Query<Node, &LayoutResult>,
         idtree: EntityTree<Node>,
-        dirtys: LayerDirty<Node, Or<(Changed<Transform>, Changed<LayoutResult>)>>,
+        mut dirtys: LayerDirty<Node, Or<(Changed<Transform>, Changed<LayoutResult>)>>,
         mut matrixs: Query<Node, Write<WorldMatrix>>,
     ) {
         for id in dirtys.iter() {
-            // println!("start parent==========={:?}",id);
+            // log::warn!("start parent==========={:?}",id);
+
             // print_parent(&idtree, id);
             let (transform, layout) = query.get_unchecked(id);
-
             let parent_id = idtree.get_up(id).map_or(Id::<Node>::null(), |up| up.parent());
 
             let width = layout.rect.right - layout.rect.left;
@@ -85,7 +85,13 @@ impl CalcMatrix {
                 // 父为空，则其为根节点，其世界矩阵为单位阵
                 let mut r = WorldMatrix::default();
                 if let Some(transform) = transform {
-                    r = r * WorldMatrix::form_transform_layout(transform, width, height, &Point2::new(layout.rect.left, layout.rect.top));
+                    r = r * WorldMatrix::form_transform_layout(
+                        &transform.funcs,
+                        &transform.origin,
+                        width,
+                        height,
+                        &Point2::new(layout.rect.left, layout.rect.top),
+                    );
                 }
                 r
             } else {
@@ -106,7 +112,14 @@ impl CalcMatrix {
                 match transform {
                     // transform存在时，根据transform和布局计算得到变换矩阵，再乘以父矩阵
                     Some(transform) => {
-                        let r = parent_world_matrix * WorldMatrix::form_transform_layout(transform, width, height, &Point2::new(offset.0, offset.1));
+                        let r = parent_world_matrix
+                            * WorldMatrix::form_transform_layout(
+                                &transform.funcs,
+                                &transform.origin,
+                                width,
+                                height,
+                                &Point2::new(offset.0, offset.1),
+                            );
                         r
                     }
                     // transform不存在时，节点的变换矩阵可以直接由布局结果得出，世界矩阵计算更快，大部分情况也是走这条快速路径
@@ -128,7 +141,7 @@ impl CalcMatrix {
 pub mod test {
     use std::sync::Arc;
 
-    use pi_async::rt::{multi_thread::MultiTaskRuntime, AsyncRuntimeBuilder};
+    use pi_async::prelude::{multi_thread::MultiTaskRuntime, AsyncRuntimeBuilder};
     use pi_ecs::prelude::{Dispatcher, Id, In, IntoSystem, Query, QueryState, Setup, SingleDispatcher, StageBuilder, System, World, Write};
     use pi_ecs_utils::prelude::EntityTreeMut;
     use pi_flex_layout::prelude::Rect;

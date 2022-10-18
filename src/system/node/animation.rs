@@ -4,10 +4,10 @@
 use std::mem::transmute;
 
 use pi_ecs::{
-    prelude::{Id, ParamSet, Query, Res, ResMut, Write},
+    prelude::{Id, ParamSet, Query, Res, ResMut, Write, Event},
     query::{Changed, Deleted, Or},
 };
-use pi_ecs_macros::setup;
+use pi_ecs_macros::{setup, listen};
 
 use crate::{
     components::{
@@ -15,14 +15,13 @@ use crate::{
         user::{
             BackgroundColor, BackgroundImage, BackgroundImageClip, BlendMode, Blur, Border, BorderColor, BorderImage, BorderImageClip,
             BorderImageSlice, BorderRadius, BoxShadow, FlexContainer, FlexNormal, Hsi, Margin, MaskImage, MaskImageClip, MinMax, Node, Opacity,
-            Overflow, Padding, Position, Show, Size, TextContent, TextStyle, Transform, TransformWillChange, ZIndex,
+            Overflow, Padding, Position, Show, Size, TextContent, TextStyle, Transform, TransformWillChange, ZIndex, serialize::StyleQuery,
         },
     },
     resource::{animation_sheet::KeyFramesSheet, TimeInfo, UserCommands},
 };
 use pi_style::{
     style::{Animation, BackgroundImageMod, BorderImageRepeat},
-    style_type::StyleQuery,
 };
 
 use super::user_setting::set_style;
@@ -127,12 +126,15 @@ impl CalcAnimation {
             }
         }
 
-        log::trace!("cur time: {:?}", &*cur_time);
-
         // 推动动画执行
         keyframes_sheet.run(&mut user_commands.style_commands, cur_time.delta);
 
         // 设置style只要节点存在,样式一定能设置成功
         set_style(&mut user_commands.style_commands, &mut style_query, &entitys, &mut style_mark);
     }
+
+	#[listen(entity=(Node, Delete))]
+    pub fn prepare_data(e: Event, mut keyframes_sheet: ResMut<'static, KeyFramesSheet>,) { 
+		keyframes_sheet.unbind_animation(unsafe { Id::new(e.id.local()) });
+	}
 }

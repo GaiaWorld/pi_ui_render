@@ -20,7 +20,7 @@ use wgpu::IndexFormat;
 
 use crate::components::calc::{BorderImageTexture, DrawInfo, LayoutResult};
 use crate::components::draw_obj::{DrawGroup, DynDrawGroup};
-use crate::components::user::{BorderImage, BorderImageClip, BorderImageSlice, ImageRepeat, ImageRepeatOption, Point2, Polygon};
+use crate::components::user::{BorderImage, BorderImageClip, BorderImageSlice, ImageRepeat, ImageRepeatOption, Point2};
 use crate::resource::draw_obj::{CommonSampler, DynBindGroupIndex, DynUniformBuffer, ImageStaticIndex, PosUvVertexLayout, StaticIndex};
 use crate::shaders::image::{ImageMaterialBind, ImageMaterialGroup, PositionVertexBuffer, SampTex2DGroup};
 use crate::utils::tools::{calc_hash, eq_f32};
@@ -349,9 +349,9 @@ fn get_border_image_stream(
     slice: &BorderImageSlice,
     repeat: &ImageRepeat,
     layout: &LayoutResult,
-    mut vert_arr: Polygon,
+    mut vert_arr: Vec<f32>,
     mut index_arr: Vec<u16>,
-) -> (Polygon, Vec<u16>) {
+) -> (Vec<f32>, Vec<u16>) {
     let width = layout.rect.right - layout.rect.left;
     let height = layout.rect.bottom - layout.rect.top;
     let p1 = Point2::new(0.0, 0.0);
@@ -510,6 +510,12 @@ fn get_border_image_stream(
 
     // 处理中间
     if slice.fill {
+		if repeat.x == ImageRepeatOption::Stretch {
+			ustep_top = right - left;
+		}
+		if repeat.y == ImageRepeatOption::Stretch {
+			vstep_left = bottom - top;
+		}
         if vstep_left > 0.0 && ustep_top > 0.0 {
             let mut cur_y = top;
             let mut y_end = bottom;
@@ -581,7 +587,7 @@ fn get_border_image_stream(
     (vert_arr, index_arr)
 }
 // 将四边形放进数组中
-pub fn push_vertex(point_arr: &mut Polygon, x: f32, y: f32, u: f32, v: f32, i: &mut u16) -> u16 {
+pub fn push_vertex(point_arr: &mut Vec<f32>, x: f32, y: f32, u: f32, v: f32, i: &mut u16) -> u16 {
     point_arr.extend_from_slice(&[x, y]);
     point_arr.extend_from_slice(&[u, v]);
     // uv_arr.extend_from_slice(&[u, v]);
@@ -623,7 +629,7 @@ pub fn calc_step(csize: f32, img_size: f32, rtype: ImageRepeatOption) -> (f32, f
 
 // 将指定区域按u切开
 pub fn push_u_arr(
-    point_arr: &mut Polygon,
+    point_arr: &mut Vec<f32>,
     index_arr: &mut Vec<u16>,
     mut p1: u16,
     mut p2: u16,
@@ -681,7 +687,7 @@ pub fn push_u_arr(
 }
 // 将指定区域按v切开
 pub fn push_v_arr(
-    point_arr: &mut Polygon,
+    point_arr: &mut Vec<f32>,
     index_arr: &mut Vec<u16>,
     mut p1: u16,
     mut p2: u16,
@@ -722,7 +728,7 @@ pub fn push_v_arr(
 
 #[inline]
 pub fn push_v_box(
-    point_arr: &mut Polygon,
+    point_arr: &mut Vec<f32>,
     p1: &mut u16,
     p2: &mut u16,
     p3: &mut u16,

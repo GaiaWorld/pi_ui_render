@@ -10,10 +10,10 @@ use pi_ecs::prelude::Id;
 use pi_flex_layout::style::{Dimension, PositionType};
 use pi_null::Null;
 use pi_ui_render::{
-	components::user::{BackgroundColor, Color, CgColor}, 
-	resource::ClearColor, export::Engine
+	components::user::{Color, CgColor, Viewport, ClearColor}, 
+	export::{Engine, query}, utils::cmd::NodeCmd
 };
-use pi_style::style_type::{WidthType, HeightType, BackgroundColorType, PositionTypeType, PositionLeftType, PositionTopType, MarginLeftType, MarginTopType};
+use pi_style::{style_type::{WidthType, HeightType, BackgroundColorType, PositionTypeType, PositionLeftType, PositionTopType, MarginLeftType, MarginTopType}, style::{Aabb2, Point2}};
 
 fn main() {
 	framework::start(QuadExample::default())
@@ -30,10 +30,13 @@ impl Example for QuadExample {
 		size: (usize, usize),
 	) {
 		// 设置清屏颜色为绿色
-		gui.gui.world_mut().insert_resource(ClearColor(CgColor::new(0.0, 1.0, 1.0, 1.0)));
+		// gui.gui.world_mut().insert_resource(ClearColor(CgColor::new(0.0, 1.0, 1.0, 1.0)));
 		
 		// 添加根节点
 		let root = gui.gui.create_node();
+		gui.gui.push_cmd(NodeCmd(ClearColor(CgColor::new(0.0, 1.0, 1.0, 1.0), true), root));
+		gui.gui.push_cmd(NodeCmd(Viewport(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(size.0 as f32, size.1 as f32))), root));
+		
 		gui.gui.set_style(root, WidthType(Dimension::Points(size.0 as f32)));
 		gui.gui.set_style(root, HeightType(Dimension::Points(size.1 as f32)));
 		
@@ -48,7 +51,7 @@ impl Example for QuadExample {
 		let div1 = gui.gui.create_node();
 		gui.gui.set_style(div1, WidthType(Dimension::Points(300.0)));
 		gui.gui.set_style(div1, HeightType(Dimension::Points(300.0)));
-		gui.gui.set_style(div1, BackgroundColorType (BackgroundColor(Color::RGBA(CgColor::new(1.0, 0.0, 1.0, 1.0)) )));
+		gui.gui.set_style(div1, BackgroundColorType (Color::RGBA(CgColor::new(1.0, 0.0, 1.0, 1.0)) ));
 
 		gui.gui.append(div1, root);
 
@@ -56,7 +59,7 @@ impl Example for QuadExample {
 		let div2 = gui.gui.create_node();
 		gui.gui.set_style(div2, WidthType(Dimension::Points(50.0)));
 		gui.gui.set_style(div2, HeightType(Dimension::Points(100.0)));
-		gui.gui.set_style(div2, BackgroundColorType (BackgroundColor(Color::RGBA(CgColor::new(1.0, 0.0, 0.0, 1.0)) )));
+		gui.gui.set_style(div2, BackgroundColorType (Color::RGBA(CgColor::new(1.0, 0.0, 0.0, 1.0)) ));
 		gui.gui.append(div2, div1);
 
 		// 添加一个容器节点，其下有一个绿色节点，一个黄色节点， 对本节点添加TransformWillchange
@@ -69,21 +72,24 @@ impl Example for QuadExample {
 		let div4 = gui.gui.create_node();
 		gui.gui.set_style(div4, WidthType(Dimension::Points(50.0)));
 		gui.gui.set_style(div4, HeightType(Dimension::Points(100.0)));
-		gui.gui.set_style(div4, BackgroundColorType (BackgroundColor(Color::RGBA(CgColor::new(0.0, 1.0, 0.0, 1.0)) )));
+		gui.gui.set_style(div4, BackgroundColorType (Color::RGBA(CgColor::new(0.0, 1.0, 0.0, 1.0)) ));
 		gui.gui.append(div4, div3);
 
 		// 添加一个黄色
 		let div5 = gui.gui.create_node();
-		gui.gui.set_style(div5, PositionTopType(Dimension::Points(100.0)));
+		gui.gui.set_style(div5, PositionLeftType(Dimension::Points(50.0)));
 		gui.gui.set_style(div5, WidthType(Dimension::Points(50.0)));
 		gui.gui.set_style(div5, HeightType(Dimension::Points(100.0)));
-		gui.gui.set_style(div5, BackgroundColorType (BackgroundColor(Color::RGBA(CgColor::new(1.0, 1.0, 0.0, 1.0)) )));
+		gui.gui.set_style(div5, BackgroundColorType (Color::RGBA(CgColor::new(1.0, 1.0, 0.0, 1.0)) ));
 		// 设置opacity，测试Pass2d在父上存在TransformWillChange的情况下能否正确渲染
 		// gui.gui.set_style(div5, OpacityType(Opacity(0.5)));
 
 		gui.gui.append(div5, div3);
 
 		gui.gui.append(div3, div1);
+
+		query(gui, 30.0, 50.0);
+		log::warn!("end=====");
 	}
 	
 	fn render(&mut self, gui: &mut Engine) {

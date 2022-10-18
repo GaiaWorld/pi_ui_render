@@ -12,16 +12,14 @@ use pi_ecs::prelude::Id;
 use pi_flex_layout::style::{Dimension, FlexWrap, PositionType};
 use pi_null::Null;
 use pi_style::{
-    style::BorderImageRepeat,
     style_type::{
         BorderBottomType, BorderImageRepeatType, BorderImageSliceType, BorderImageType, BorderLeftType, BorderRightType, BorderTopType, FlexWrapType,
         HeightType, MarginLeftType, MarginTopType, PositionLeftType, PositionTopType, PositionTypeType, WidthType,
     },
 };
 use pi_ui_render::{
-    components::user::{BorderImage, BorderImageSlice, CgColor, ImageRepeat, ImageRepeatOption},
+    components::user::{BorderImageSlice, CgColor, ImageRepeat, ImageRepeatOption, ClearColor},
     export::Engine,
-    resource::ClearColor,
 };
 
 fn main() { framework::start(QuadExample::default()) }
@@ -33,7 +31,7 @@ pub struct QuadExample;
 impl Example for QuadExample {
     async fn init(&mut self, gui: &mut Engine, size: (usize, usize)) {
         // 设置清屏颜色为绿色
-        gui.gui.world_mut().insert_resource(ClearColor(CgColor::new(0.0, 1.0, 1.0, 1.0)));
+        gui.gui.world_mut().insert_resource(ClearColor(CgColor::new(0.0, 1.0, 1.0, 1.0), true));
 
         // 添加根节点
         let root = gui.gui.create_node();
@@ -54,7 +52,7 @@ impl Example for QuadExample {
         gui.gui.set_style(div2, HeightType(Dimension::Points(200.0)));
         gui.gui.set_style(div2, PositionTypeType(PositionType::Relative));
         gui.gui
-            .set_style(div2, BorderImageType(BorderImage(Atom::from("examples/border_image/source/border.png"))));
+            .set_style(div2, BorderImageType(Atom::from("examples/border_image/source/border.png")));
         gui.gui.set_style(
             div2,
             BorderImageSliceType(BorderImageSlice {
@@ -71,10 +69,10 @@ impl Example for QuadExample {
         gui.gui.set_style(div2, BorderLeftType(Dimension::Points(40.0)));
         gui.gui.set_style(
             div2,
-            BorderImageRepeatType(BorderImageRepeat(ImageRepeat {
+            BorderImageRepeatType(ImageRepeat {
                 x: ImageRepeatOption::Repeat,
                 y: ImageRepeatOption::Repeat,
-            })),
+            }),
         );
         gui.gui.append(div2, root);
 
@@ -84,7 +82,7 @@ impl Example for QuadExample {
         gui.gui.set_style(div3, HeightType(Dimension::Points(220.0)));
         gui.gui.set_style(div3, PositionTypeType(PositionType::Relative));
         gui.gui
-            .set_style(div3, BorderImageType(BorderImage(Atom::from("examples/border_image/source/border.png"))));
+            .set_style(div3, BorderImageType(Atom::from("examples/border_image/source/border.png")));
         gui.gui.set_style(
             div3,
             BorderImageSliceType(BorderImageSlice {
@@ -101,10 +99,10 @@ impl Example for QuadExample {
         gui.gui.set_style(div3, BorderLeftType(Dimension::Points(40.0)));
         gui.gui.set_style(
             div3,
-            BorderImageRepeatType(BorderImageRepeat(ImageRepeat {
+            BorderImageRepeatType(ImageRepeat {
                 x: ImageRepeatOption::Repeat,
                 y: ImageRepeatOption::Repeat,
-            })),
+            }),
         );
         gui.gui.append(div3, root);
 
@@ -114,7 +112,7 @@ impl Example for QuadExample {
         gui.gui.set_style(div4, HeightType(Dimension::Points(220.0)));
         gui.gui.set_style(div4, PositionTypeType(PositionType::Relative));
         gui.gui
-            .set_style(div4, BorderImageType(BorderImage(Atom::from("examples/border_image/source/border.png"))));
+            .set_style(div4, BorderImageType(Atom::from("examples/border_image/source/border.png")));
         gui.gui.set_style(
             div4,
             BorderImageSliceType(BorderImageSlice {
@@ -131,10 +129,10 @@ impl Example for QuadExample {
         gui.gui.set_style(div4, BorderLeftType(Dimension::Points(40.0)));
         gui.gui.set_style(
             div4,
-            BorderImageRepeatType(BorderImageRepeat(ImageRepeat {
+            BorderImageRepeatType(ImageRepeat {
                 x: ImageRepeatOption::Space,
                 y: ImageRepeatOption::Space,
-            })),
+            }),
         );
         gui.gui.append(div4, root);
 
@@ -144,7 +142,7 @@ impl Example for QuadExample {
         gui.gui.set_style(div5, HeightType(Dimension::Points(220.0)));
         gui.gui.set_style(div5, PositionTypeType(PositionType::Relative));
         gui.gui
-            .set_style(div5, BorderImageType(BorderImage(Atom::from("examples/border_image/source/border.png"))));
+            .set_style(div5, BorderImageType(Atom::from("examples/border_image/source/border.png")));
         gui.gui.set_style(
             div5,
             BorderImageSliceType(BorderImageSlice {
@@ -161,10 +159,10 @@ impl Example for QuadExample {
         gui.gui.set_style(div5, BorderLeftType(Dimension::Points(40.0)));
         gui.gui.set_style(
             div5,
-            BorderImageRepeatType(BorderImageRepeat(ImageRepeat {
+            BorderImageRepeatType(ImageRepeat {
                 x: ImageRepeatOption::Round,
                 y: ImageRepeatOption::Round,
-            })),
+            }),
         );
         gui.gui.append(div5, root);
 
@@ -174,7 +172,7 @@ impl Example for QuadExample {
         gui.gui.set_style(div6, HeightType(Dimension::Points(95.0)));
         gui.gui.set_style(div6, PositionTypeType(PositionType::Relative));
         gui.gui
-            .set_style(div6, BorderImageType(BorderImage(Atom::from("examples/border_image/source/border.png"))));
+            .set_style(div6, BorderImageType(Atom::from("examples/border_image/source/border.png")));
         gui.gui.set_style(
             div6,
             BorderImageSliceType(BorderImageSlice {
@@ -191,10 +189,10 @@ impl Example for QuadExample {
         gui.gui.set_style(div6, BorderLeftType(Dimension::Points(40.0)));
         gui.gui.set_style(
             div6,
-            BorderImageRepeatType(BorderImageRepeat(ImageRepeat {
+            BorderImageRepeatType(ImageRepeat {
                 x: ImageRepeatOption::Repeat,
                 y: ImageRepeatOption::Repeat,
-            })),
+            }),
         );
         gui.gui.append(div6, root);
 
@@ -204,7 +202,7 @@ impl Example for QuadExample {
         gui.gui.set_style(div7, HeightType(Dimension::Points(95.0)));
         gui.gui.set_style(div7, PositionTypeType(PositionType::Relative));
         gui.gui
-            .set_style(div7, BorderImageType(BorderImage(Atom::from("examples/border_image/source/border.png"))));
+            .set_style(div7, BorderImageType(Atom::from("examples/border_image/source/border.png")));
         gui.gui.set_style(
             div7,
             BorderImageSliceType(BorderImageSlice {
@@ -221,10 +219,10 @@ impl Example for QuadExample {
         gui.gui.set_style(div7, BorderLeftType(Dimension::Points(40.0)));
         gui.gui.set_style(
             div7,
-            BorderImageRepeatType(BorderImageRepeat(ImageRepeat {
+            BorderImageRepeatType(ImageRepeat {
                 x: ImageRepeatOption::Round,
                 y: ImageRepeatOption::Round,
-            })),
+            }),
         );
         gui.gui.append(div7, root);
 
@@ -234,7 +232,7 @@ impl Example for QuadExample {
         gui.gui.set_style(div8, HeightType(Dimension::Points(95.0)));
         gui.gui.set_style(div8, PositionTypeType(PositionType::Relative));
         gui.gui
-            .set_style(div8, BorderImageType(BorderImage(Atom::from("examples/border_image/source/border.png"))));
+            .set_style(div8, BorderImageType(Atom::from("examples/border_image/source/border.png")));
         gui.gui.set_style(
             div8,
             BorderImageSliceType(BorderImageSlice {
@@ -251,12 +249,36 @@ impl Example for QuadExample {
         gui.gui.set_style(div8, BorderLeftType(Dimension::Points(40.0)));
         gui.gui.set_style(
             div8,
-            BorderImageRepeatType(BorderImageRepeat(ImageRepeat {
+            BorderImageRepeatType(ImageRepeat {
                 x: ImageRepeatOption::Space,
                 y: ImageRepeatOption::Space,
-            })),
+            }),
         );
         gui.gui.append(div8, root);
+
+
+		// 测试top\bottom为0，并且为Stretch的情况
+        let div9 = gui.gui.create_node();
+        gui.gui.set_style(div9, WidthType(Dimension::Points(448.0)));
+        gui.gui.set_style(div9, HeightType(Dimension::Points(62.0)));
+        gui.gui.set_style(div9, PositionTypeType(PositionType::Relative));
+        gui.gui
+            .set_style(div9, BorderImageType(Atom::from("examples/border_image/source/chuangjianjuese_shuxingbg.png")));
+        gui.gui.set_style(
+            div9,
+            BorderImageSliceType(BorderImageSlice {
+                top: unsafe { NotNan::new_unchecked(0.0) },
+                right: unsafe { NotNan::new_unchecked(0.4464) },
+                bottom: unsafe { NotNan::new_unchecked(0.0) },
+                left: unsafe { NotNan::new_unchecked(0.4464) },
+                fill: true,
+            }),
+        );
+        gui.gui.set_style(div9, BorderTopType(Dimension::Points(0.0)));
+        gui.gui.set_style(div9, BorderRightType(Dimension::Points(200.0)));
+        gui.gui.set_style(div9, BorderBottomType(Dimension::Points(0.0)));
+        gui.gui.set_style(div9, BorderLeftType(Dimension::Points(200.0)));
+        gui.gui.append(div9, root);
     }
 
     fn render(&mut self, gui: &mut Engine) { gui.gui.run(); }

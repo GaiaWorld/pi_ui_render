@@ -12,8 +12,8 @@ use pi_ecs::prelude::Id;
 use pi_flex_layout::style::{Dimension, PositionType};
 use pi_null::Null;
 use pi_ui_render::{
-	components::user::{Color, CgColor, TextContent, FontSize, BackgroundColor}, 
-	resource::ClearColor, export::Engine
+	components::user::{Color, CgColor, TextContent, FontSize, ClearColor}, 
+	export::Engine
 };
 
 fn main() {
@@ -38,7 +38,7 @@ impl Example for QuadExample {
 		new_face_by_path("hwkt".to_string(), "examples/common_play/source/SOURCEHANSANSK-MEDIUM.TTF");
 
 		// 设置清屏颜色为绿色
-		gui.gui.world_mut().insert_resource(ClearColor(CgColor::new(0.0, 1.0, 1.0, 1.0)));
+		gui.gui.world_mut().insert_resource(ClearColor(CgColor::new(0.0, 1.0, 1.0, 1.0), true));
 		
 		// 添加根节点
 		let root = gui.gui.create_node();
@@ -50,7 +50,7 @@ impl Example for QuadExample {
 		gui.gui.set_style(root, PositionTopType(Dimension::Points(0.0)));
 		gui.gui.set_style(root, MarginLeftType(Dimension::Points(0.0)));
 		gui.gui.set_style(root, MarginTopType(Dimension::Points(0.0)));
-		gui.gui.set_style(root, BackgroundColorType (BackgroundColor(Color::RGBA(CgColor::new(1.0, 0.0, 1.0, 1.0)) )));
+		gui.gui.set_style(root, BackgroundColorType (Color::RGBA(CgColor::new(1.0, 0.0, 1.0, 1.0)) ));
 
 
 		// if style.position_left().is_points()

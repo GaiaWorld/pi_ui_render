@@ -2,7 +2,7 @@ pub mod animation_sheet;
 pub mod draw_obj;
 
 
-use std::time::Instant;
+use pi_time::Instant;
 
 use pi_ecs::prelude::{FromWorld, Id, World};
 use pi_style::style_type::*;
@@ -10,15 +10,14 @@ use pi_style::style_type::*;
 use crate::{
     components::{
         calc::StyleMark,
-        draw_obj::DrawState,
-        user::{Aabb2, CgColor, ClassName, Node, Point2, TextContent},
+        user::{ClassName, Node, TextContent},
     },
     utils::cmd::CommandQueue,
 };
 
-use self::draw_obj::StaticIndex;
-
-
+/// 用户指令缓冲区
+#[derive(Default)]
+pub struct UserCommandsCache(pub UserCommands);
 /// 用户指令
 
 #[derive(Default)]
@@ -87,21 +86,6 @@ impl FromWorld for RenderContextMarkType {
         Self(**cur_mark_index)
     }
 }
-
-/// 视口
-#[derive(Clone, Serialize, Deserialize, Deref, DerefMut)]
-pub struct Viewport(pub Aabb2);
-
-impl Default for Viewport {
-    fn default() -> Self { Self(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(100.0, 100.0))) }
-}
-
-// 清屏颜色(rgba)
-#[derive(Clone, Serialize, Deserialize, Deref, DerefMut)]
-pub struct ClearColor(pub CgColor);
-
-// 清屏的DrawObj（wgpu不支持清屏，因此用画矩形的方式模拟清屏）
-pub struct ClearDrawObj(pub DrawState, pub StaticIndex);
 
 // 当前时间
 #[derive(Clone, Debug)]

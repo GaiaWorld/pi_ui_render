@@ -1,4 +1,4 @@
-use std::intrinsics::transmute;
+
 use std::io::Result;
 
 use ordered_float::NotNan;
@@ -214,9 +214,6 @@ impl CalcBackGroundColor {
 					};
 
 					shader_static_commands.insert(new_draw_obj, static_index.clone());
-					if unsafe {transmute::<_, u64>(node)} == 4294967627 {
-						println!("xxxxxxxxxxx")
-					}
 					order_commands.insert(new_draw_obj, DrawInfo::new(9, background_color.is_opaque()));
 					
 

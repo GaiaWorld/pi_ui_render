@@ -147,7 +147,7 @@ impl CalcText {
                 ),
                 (
                     With<TextContent>,
-                    Or<(Changed<TextStyle>, Deleted<TextStyle>, Changed<TextContent>, Changed<LayoutResult>)>,
+                    Or<(Changed<TextStyle>, Deleted<TextContent>, Changed<NodeState>)>,
                 ),
             >,
             // TextContent删除，需要删除对应的DrawObject
@@ -241,8 +241,11 @@ impl CalcText {
         }
 
         for (node, node_state, layout, text_style, mut draw_index, mut render_list, text_change, node_state_change) in query.p0_mut().iter_mut() {
+			if node_state.0.scale < 0.000001 {
+				continue;
+			}
             match draw_index.get() {
-                // background_color已经存在一个对应的DrawObj， 则修改color group
+                // text已经存在一个对应的DrawObj， 则修改color group
                 Some(r) => {
                     let (mut draw_state_item, mut vs_defines, mut fs_defines) = query_draw.get_unchecked_mut(**r);
                     let draw_state = draw_state_item.get_mut().unwrap();
@@ -357,7 +360,7 @@ pub const COLOR_GROUP: usize = 4;
 
 /// 实体删除，背景颜色删除时，删除对应的DrawObject
 #[listen(component=(Node, BackgroundColor, Delete), component=(Node, Node, Delete))]
-pub fn background_color_delete(e: Event, query: Query<Node, &TextDrawId>, mut draw_obj: EntityCommands<DrawObject>) {
+pub fn text_delete(e: Event, query: Query<Node, &TextDrawId>, mut draw_obj: EntityCommands<DrawObject>) {
     if let Some(index) = query.get_by_entity(e.id) {
         draw_obj.despawn(**index);
     }
@@ -687,6 +690,7 @@ fn text_vert(node_state: &NodeState, layout: &LayoutResult, font_sheet: &FontShe
             continue;
         }
 
+		// log::warn!("glyph!!!==================={:?}, {:?}", c.ch_id, c.ch);
         let glyph = font_sheet.glyph(GlyphId(c.ch_id));
         if count > 0 {
             count -= 1;

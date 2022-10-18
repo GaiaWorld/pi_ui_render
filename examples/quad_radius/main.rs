@@ -10,8 +10,8 @@ use pi_ecs::prelude::Id;
 use pi_flex_layout::style::{Dimension, PositionType};
 use pi_null::Null;
 use pi_ui_render::{
-	components::user::{BackgroundColor, Color, CgColor, BorderRadius, LengthUnit}, 
-	resource::ClearColor, export::Engine
+	components::user::{Color, CgColor, BorderRadius, LengthUnit, ClearColor}, 
+	export::Engine
 };
 use pi_style::style_type::{WidthType, HeightType, BackgroundColorType, PositionTypeType, PositionLeftType, PositionTopType, MarginLeftType, MarginTopType, BorderRadiusType};
 
@@ -29,7 +29,7 @@ impl Example for QuadExample {
 		gui: &mut Engine, 
 		size: (usize, usize),
 	) {		// 设置清屏颜色为绿色
-		gui.gui.world_mut().insert_resource(ClearColor(CgColor::new(0.0, 1.0, 1.0, 1.0)));
+		gui.gui.world_mut().insert_resource(ClearColor(CgColor::new(0.0, 1.0, 1.0, 1.0), true));
 		
 		// 添加根节点
 		let root = gui.gui.create_node();
@@ -48,7 +48,7 @@ impl Example for QuadExample {
 		let div1 = gui.gui.create_node();
 		gui.gui.set_style(div1, WidthType(Dimension::Points(50.0)));
 		gui.gui.set_style(div1, HeightType(Dimension::Points(100.0)));
-		gui.gui.set_style(div1, BackgroundColorType (BackgroundColor(Color::RGBA(CgColor::new(1.0, 0.0, 0.0, 1.0)) )));
+		gui.gui.set_style(div1, BackgroundColorType (Color::RGBA(CgColor::new(1.0, 0.0, 0.0, 1.0)) ));
 		gui.gui.set_style(div1, BorderRadiusType(BorderRadius{
 			x: LengthUnit::Pixel(10.0),
 			y: LengthUnit::Pixel(10.0),

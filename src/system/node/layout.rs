@@ -12,7 +12,7 @@ use std::{
     ops::{Index, IndexMut},
 };
 
-use pi_ecs::prelude::{ChangeTrackers, Changed, Event, Id, Local, Or, OrDefault, Query, Write, WriteItem};
+use pi_ecs::{prelude::{ChangeTrackers, Changed, Event, Id, Local, Or, OrDefault, Query, Write, WriteItem}};
 use pi_ecs_macros::{listen, setup};
 use pi_ecs_utils::prelude::{EntityTree, Layer};
 use pi_flex_layout::prelude::{
@@ -68,13 +68,13 @@ impl CalcLayout {
                 ChangeTrackers<MinMax>,
                 ChangeTrackers<FlexContainer>,
                 ChangeTrackers<FlexNormal>,
-                ChangeTrackers<Layer>,
+                ChangeTrackers<Layer<Node>>,
                 ChangeTrackers<Show>,
                 ChangeTrackers<TextContent>,
                 ChangeTrackers<TextStyle>,
             ),
             Or<(
-                Changed<Layer>,
+                Changed<Layer<Node>>,
                 Changed<Size>,
                 Changed<Margin>,
                 Changed<Padding>,
@@ -86,7 +86,6 @@ impl CalcLayout {
                 Changed<Show>,
                 Changed<TextContent>,
                 Changed<TextStyle>,
-                // Changed<Show>,
             )>,
         >,
         mut layout_r: Query<'static, 'static, Node, Write<LayoutResult>>,
@@ -153,8 +152,8 @@ impl CalcLayout {
                 );
             }
 
-            // 文字修改，标记子脏
-            if text_context.is_changed() || text_style.is_changed() {
+            // 文字修改，容器属性修改、层脏，则需要标记子脏
+            if text_context.is_changed() || text_style.is_changed() || flex_container.is_changed() || layer.is_changed(){
                 layout.mark_children_dirty(
                     &mut layer_dirty,
                     LayoutKey {
@@ -166,7 +165,7 @@ impl CalcLayout {
 
 
             if flex_normal.is_changed() {
-                // log::info!("calc layout2===================={:?}", e.local().offset());
+                // log::info!("calc layout2===================={:?}", e.offset());
                 layout.set_normal_style(
                     &mut layer_dirty,
                     LayoutKey {
@@ -177,18 +176,7 @@ impl CalcLayout {
             }
 
             if padding.is_changed() || border.is_changed() {
-                // log::info!("calc layout3===================={:?}", e.local().offset());
-                layout.set_self_style(
-                    LayoutKey {
-                        entity: e,
-                        text_index: usize::null(),
-                    },
-                    &mut layer_dirty,
-                );
-            }
-
-            if flex_container.is_changed() {
-                // log::info!("calc layout4===================={:?}", e.local().offset());
+                // log::info!("calc layout3===================={:?}", e.offset());
                 layout.set_self_style(
                     LayoutKey {
                         entity: e,
@@ -199,7 +187,7 @@ impl CalcLayout {
             }
 
             if show.is_changed() {
-                // log::info!("calc layout5===================={:?}", e.local().offset());
+                // log::info!("calc layout5===================={:?}", e.offset());
                 layout.set_display(
                     LayoutKey {
                         entity: e,
@@ -487,7 +475,7 @@ impl<'a> FlexLayoutStyle for LayoutStyle<'a> {
 }
 
 pub struct Tree<'a, 'b> {
-    tree: &'a EntityTree<Node>,
+    tree: &'a EntityTree<'b, Node>,
     char_nodes: &'a Query<'b, 'b, Node, &'b mut NodeState>,
 }
 
@@ -567,7 +555,7 @@ impl<'a, 'b> TreeStorage<LayoutKey> for Tree<'a, 'b> {
     fn get_layer(&self, k: LayoutKey) -> Option<usize> {
         if k.text_index.is_null() {
             match self.tree.get_layer(k.entity) {
-                Some(r) => Some(*r),
+                Some(r) => Some(r.layer()),
                 None => None,
             }
         } else {
@@ -855,3 +843,10 @@ impl<'a, 'b> TreeStorage<LayoutKey> for Tree<'a, 'b> {
 // 	// println!("notify======================={}, layout:{:?}", id, layout);
 // 	// context.get_notify_ref().modify_event(id, "", 0);
 // }
+
+
+#[test]
+fn test1() {
+	let i = Id::<usize>::null();
+	println!("i===================={:?}", i);
+}

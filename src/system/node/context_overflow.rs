@@ -43,13 +43,13 @@ impl CalcOverflow {
             (
                 Id<Node>,
                 &Pass2DId,
-                &Layer,
+                &Layer<Node>,
                 // transform_willchange_matrix在父节点的WorldMatrix、节点自身的TransformWillChange， Layer修改时，需要改变
                 // 父节点的WorldMatrix, 子节点的WorldMatrix一定改变，因此这里拿到本节点的节拍
                 ChangeTrackers<WorldMatrix>,
                 ChangeTrackers<TransformWillChangeMatrix>,
                 ChangeTrackers<Overflow>,
-                ChangeTrackers<Layer>,
+                ChangeTrackers<Layer<Node>>,
             ),
             With<Overflow>,
         >,
@@ -83,7 +83,7 @@ impl CalcOverflow {
                     **pass_id,
                     tracker_overflow.is_changed() || tracker_willchange.is_changed() || tracker_layer.is_changed() || tracker_matrix.is_changed(),
                 ),
-                **layer,
+                layer.layer(),
             );
         }
 

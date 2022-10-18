@@ -6,7 +6,6 @@ use std::{collections::VecDeque, intrinsics::transmute};
 
 use bitvec::prelude::BitArray;
 use cssparser::{CowRcStr, Delimiter, ParseError, Parser, ParserInput, Token};
-use nalgebra::{Point2, RealField};
 use ordered_float::NotNan;
 use pi_atom::Atom;
 use pi_curves::steps::EStepMode;
@@ -18,11 +17,9 @@ use pi_hash::XHashMap;
 use smallvec::SmallVec;
 
 use crate::style::{
-    Animation, AnimationDirection, AnimationFillMode, AnimationPlayState, AnimationTimingFunction, BackgroundColor, BackgroundImage,
-    BackgroundImageClip, BlendMode, Blur, BorderColor, BorderImage, BorderImageClip, BorderImageRepeat, BorderImageSlice, BorderRadius, BoxShadow,
-    CgColor, Color, ColorAndPosition, Enable, FitType, FontSize, Hsi, ImageRepeat, ImageRepeatOption, IterationCount, LengthUnit, LineHeight,
-    LinearGradientColor, MaskImage, MaskImageClip, Opacity, Overflow, Stroke, TextAlign, TextShadow, TextShadows, Time, TransformFunc,
-    TransformOrigin, WhiteSpace, ZIndex,
+    Animation, AnimationDirection, AnimationFillMode, AnimationPlayState, AnimationTimingFunction, BlendMode, BorderImageSlice, BorderRadius,
+    BoxShadow, CgColor, Color, ColorAndPosition, Enable, FitType, FontSize, Hsi, ImageRepeat, ImageRepeatOption, IterationCount, LengthUnit,
+    LineHeight, LinearGradientColor, MaskImage, NotNanRect, Stroke, TextAlign, TextShadow, Time, TransformFunc, TransformOrigin, WhiteSpace, AnimationName,
 };
 
 use super::style_type::*;
@@ -133,10 +130,11 @@ pub enum Attribute {
     AnimationPlayState(AnimationPlayStateType),           // 86
 }
 
-// #[derive(Debug, Serialize, Deserialize, Default)]
-// pub struct KeyFrames {
-//     frames: XHashMap<NotNan<f32>, VecDeque<Attribute>>,
-// }
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct KeyFrameList {
+    pub frames: XHashMap<Atom, XHashMap<NotNan<f32>, VecDeque<Attribute>>>,
+	pub scope_hash: usize,
+}
 
 // #[derive(Debug, Serialize, Deserialize, Default)]
 // pub struct KeyFrame {
@@ -149,7 +147,7 @@ pub struct ClassMap {
     attrs: VecDeque<Attribute>,
     classes: Vec<ClassItem>,
 
-    pub key_frames: XHashMap<Atom, XHashMap<NotNan<f32>, VecDeque<Attribute>>>,
+    pub key_frames: KeyFrameList,
 }
 
 impl ClassMap {
@@ -162,7 +160,6 @@ impl ClassMap {
                 end: start,
                 class_style_mark: BitArray::default(),
             };
-            log::debug!("write_style class: {:?}", class.class_name);
 
             loop {
                 if count == 0 {
@@ -170,7 +167,6 @@ impl ClassMap {
                 }
 
                 let mut r = self.attrs.pop_front().unwrap();
-                log::debug!("write_style: {:?}", r);
                 match &mut r {
                     Attribute::BackgroundRepeat(r) => unsafe {
                         class_meta.class_style_mark.set(BackgroundRepeatType::get_type() as usize, true);
@@ -548,24 +544,34 @@ pub struct ClassItem {
     class_name: usize,
 }
 
-pub fn parse_class_map_from_string(value: &str) -> Result<ClassMap, String> {
+pub fn parse_class_map_from_string(value: &str, scope_hash: usize) -> Result<ClassMap, String> {
     let mut classes = ClassMap::default();
     let mut input = ParserInput::new(value);
     let mut parse = Parser::new(&mut input);
 
+	classes.key_frames.scope_hash = scope_hash;
     loop {
         if parse.is_exhausted() {
             return Ok(classes);
         }
 
-        if let Err(e) = parse_css_item(&mut classes, &mut parse) {
+        if let Err(e) = parse_css_item(&mut classes, &mut parse, scope_hash) {
             log::error!("parse class err: {:?}", e);
         }
     }
 }
 
+pub fn parse_style_list_from_string(value: &str, scope_hash: usize) -> Result<VecDeque<Attribute>, String> {
+    let mut list = VecDeque::default();
+    let mut input = ParserInput::new(value);
+    let mut parse = Parser::new(&mut input);
+
+    let _ = parser_style_items(&mut parse, &mut list, scope_hash);
+    Ok(list)
+}
+
 // 解析css文件中的每一项
-pub fn parse_css_item<'i, 't>(context: &mut ClassMap, input: &mut Parser<'i, 't>) -> Result<(), ParseError<'i, ValueParseErrorKind<'i>>> {
+pub fn parse_css_item<'i, 't>(context: &mut ClassMap, input: &mut Parser<'i, 't>, scope_hash: usize) -> Result<(), ParseError<'i, ValueParseErrorKind<'i>>> {
     // log::debug!("next==============={:?}", input.next());
     let next = input.next()?;
     match next {
@@ -582,15 +588,7 @@ pub fn parse_css_item<'i, 't>(context: &mut ClassMap, input: &mut Parser<'i, 't>
             let start = context.attrs.len();
             input.expect_curly_bracket_block()?;
             match input.parse_nested_block::<_, _, ValueParseErrorKind<'i>>(|i| {
-                loop {
-                    if let Err(e) = parse_style_item(&mut context.attrs, i) {
-                        if i.is_exhausted() {
-                            break;
-                        } else {
-                            log::error!("parse_style error: {:?}", e);
-                        }
-                    }
-                }
+                parser_style_items(i, &mut context.attrs, scope_hash)?;
                 Ok(())
             }) {
                 Ok(r) => r,
@@ -611,9 +609,9 @@ pub fn parse_css_item<'i, 't>(context: &mut ClassMap, input: &mut Parser<'i, 't>
             let name = input.expect_ident()?;
             log::debug!("parse keyframes start: {:?}", name);
             let name = Atom::from(&**name);
-            let key_frames = parse_key_frames(input)?;
+            let key_frames = parse_key_frames(input, scope_hash)?;
             if key_frames.len() > 0 {
-                context.key_frames.insert(name, key_frames);
+                context.key_frames.frames.insert(name, key_frames);
             }
         }
         ref i => {
@@ -632,14 +630,31 @@ pub fn parse_css_item<'i, 't>(context: &mut ClassMap, input: &mut Parser<'i, 't>
     Ok(())
 }
 
+pub fn parser_style_items<'i, 't>(input: &mut Parser<'i, 't>, arr: &mut VecDeque<Attribute>, scope_hash: usize) -> Result<(), ParseError<'i, ValueParseErrorKind<'i>>> {
+    loop {
+        if let Err(e) = parse_style_item(arr, scope_hash, input) {
+            log::error!("parse style error: {:?}", e);
+            end_cur_attr(input);
+        } else {
+            // 成功后，尝试解析一个或多个分号
+            let _r = input.try_parse(|i| i.expect_semicolon());
+        }
+        if input.is_exhausted() {
+            break;
+        }
+    }
+    return Ok(());
+}
+
 pub fn parse_key_frames<'i, 't>(
     input: &mut Parser<'i, 't>,
+	scope_hash: usize,
 ) -> Result<XHashMap<NotNan<f32>, VecDeque<Attribute>>, ParseError<'i, ValueParseErrorKind<'i>>> {
     let mut key_frames: XHashMap<NotNan<f32>, VecDeque<Attribute>> = XHashMap::default();
     input.expect_curly_bracket_block()?;
     input.parse_nested_block::<_, _, ValueParseErrorKind<'i>>(|i| {
         loop {
-            match parse_key_frame(i) {
+            match parse_key_frame(i, scope_hash) {
                 Ok((progress, attrs)) => {
                     if attrs.len() > 0 {
                         match key_frames.entry(progress) {
@@ -663,18 +678,21 @@ pub fn parse_key_frames<'i, 't>(
     })
 }
 
-pub fn parse_key_frame<'i, 't>(input: &mut Parser<'i, 't>) -> Result<(NotNan<f32>, VecDeque<Attribute>), ParseError<'i, ValueParseErrorKind<'i>>> {
+pub fn parse_key_frame<'i, 't>(input: &mut Parser<'i, 't>, scope_hash: usize) -> Result<(NotNan<f32>, VecDeque<Attribute>), ParseError<'i, ValueParseErrorKind<'i>>> {
     let progress = parse_key_frame_progress(input)?;
     let mut attrs = VecDeque::default();
     input.expect_curly_bracket_block()?;
     if let Err(r) = input.parse_nested_block::<_, _, ValueParseErrorKind<'i>>(|i| {
         loop {
-            if let Err(e) = parse_style_item(&mut attrs, i) {
-                if i.is_exhausted() {
-                    break;
-                } else {
-                    log::error!("parse_key_frames style error: {:?}", e);
-                }
+            if let Err(e) = parse_style_item(&mut attrs,  scope_hash, i) {
+                log::error!("parse_key_frames style error: {:?}", e);
+                end_cur_attr(i);
+            } else {
+                // 成功后，尝试解析一个分号
+                let _r = i.try_parse(|i| i.expect_semicolon());
+            }
+            if i.is_exhausted() {
+                break;
             }
         }
         Ok(())
@@ -685,22 +703,33 @@ pub fn parse_key_frame<'i, 't>(input: &mut Parser<'i, 't>) -> Result<(NotNan<f32
     Ok((progress, attrs))
 }
 
+pub fn end_cur_attr<'i, 't>(input: &mut Parser<'i, 't>) {
+    loop {
+        if input.is_exhausted() {
+            break;
+        }
+        if let Ok(_) = input.expect_semicolon() {
+            break;
+        }
+    }
+}
+
 /// 解析KeyFrame进度
 pub fn parse_key_frame_progress<'i, 't>(input: &mut Parser<'i, 't>) -> Result<NotNan<f32>, ParseError<'i, ValueParseErrorKind<'i>>> {
     let location = input.current_source_location();
-    let r = input.next()?;
-    let r = match r {
+    let item = input.next()?;
+    let r = match item {
         Token::Ident(r) => {
             if (&**r) == "from" {
                 0.0
             } else if (&**r) == "to" {
                 1.0
             } else {
-                return Err(location.new_custom_error::<_, ValueParseErrorKind<'i>>(ValueParseErrorKind::InvalidAttr));
+                return Err(location.new_custom_error::<_, ValueParseErrorKind<'i>>(ValueParseErrorKind::InvalidKeyFrameProgress(item.clone())));
             }
         }
         Token::Percentage { unit_value, .. } => *unit_value,
-        _ => return Err(location.new_custom_error::<_, ValueParseErrorKind<'i>>(ValueParseErrorKind::InvalidAttr)),
+        _ => return Err(location.new_custom_error::<_, ValueParseErrorKind<'i>>(ValueParseErrorKind::InvalidKeyFrameProgress(item.clone()))),
     };
     Ok(unsafe { NotNan::new_unchecked(r) })
 }
@@ -1086,20 +1115,22 @@ fn parse_transform<'i, 't>(input: &mut Parser<'i, 't>) -> Result<Vec<TransformFu
 
 fn parse_object_fit<'i, 't>(input: &mut Parser<'i, 't>) -> Result<FitType, ParseError<'i, ValueParseErrorKind<'i>>> {
     let location = input.current_source_location();
-    let r = match input.expect_ident()?.as_ref() {
+    let item = input.expect_ident()?;
+    let r = match item.as_ref() {
         "contain" => FitType::Contain,
         "cover" => FitType::Cover,
         "fill" => FitType::Fill,
         "none" => FitType::None,
         "scale-down" => FitType::ScaleDown,
-        _ => return Err(location.new_custom_error(ValueParseErrorKind::InvalidObjectFit)),
+        _ => return Err(location.new_custom_error(ValueParseErrorKind::InvalidObjectFit(Token::Ident(item.clone())))),
     };
     Ok(r)
 }
 
 fn parse_image_repeat<'i, 't>(input: &mut Parser<'i, 't>) -> Result<ImageRepeat, ParseError<'i, ValueParseErrorKind<'i>>> {
     let location = input.current_source_location();
-    let mut r = match input.expect_ident()?.as_ref() {
+    let item = input.expect_ident()?;
+    let mut r = match item.as_ref() {
         "no-repeat" => ImageRepeat {
             x: ImageRepeatOption::Stretch,
             y: ImageRepeatOption::Stretch,
@@ -1128,17 +1159,18 @@ fn parse_image_repeat<'i, 't>(input: &mut Parser<'i, 't>) -> Result<ImageRepeat,
             x: ImageRepeatOption::Repeat,
             y: ImageRepeatOption::Repeat,
         },
-        _ => return Err(location.new_custom_error(ValueParseErrorKind::InvalidObjectFit)),
+        _ => return Err(location.new_custom_error(ValueParseErrorKind::InvalidRepeat(Token::Ident(item.clone())))),
     };
 
     let _ = input.try_parse::<_, _, ParseError<ValueParseErrorKind<'i>>>(|input| {
         let location = input.current_source_location();
-        match input.expect_ident()?.as_ref() {
+        let item = input.expect_ident()?;
+        match item.as_ref() {
             "no-repeat" => r.y = ImageRepeatOption::Stretch,
             "space" => r.y = ImageRepeatOption::Space,
             "round" => r.y = ImageRepeatOption::Round,
             "repeat" => r.y = ImageRepeatOption::Repeat,
-            _ => return Err(location.new_custom_error(ValueParseErrorKind::InvalidObjectFit)),
+            _ => return Err(location.new_custom_error(ValueParseErrorKind::InvalidRepeat(Token::Ident(item.clone())))),
         }
         Ok(())
     });
@@ -1216,10 +1248,6 @@ fn parser_color_stop_last(
     Ok(())
 }
 
-fn rect_to_aabb<T: RealField>(value: Rect<T>) -> ncollide2d::bounding_volume::AABB<T> {
-    ncollide2d::bounding_volume::AABB::new(Point2::new(value.left, value.top), Point2::new(value.right, value.bottom))
-}
-
 fn from_hex(c: u8) -> Result<u8, String> {
     match c {
         b'0'..=b'9' => Ok(c - b'0'),
@@ -1257,8 +1285,13 @@ fn trans_hsi_i(mut i: f32) -> f32 {
 }
 
 
-pub fn parse_style_item<'i, 't>(buffer: &mut VecDeque<Attribute>, input: &mut Parser<'i, 't>) -> Result<(), ParseError<'i, ValueParseErrorKind<'i>>> {
-    let key = input.expect_ident()?;
+pub fn parse_style_item<'i, 't>(buffer: &mut VecDeque<Attribute>, scope_hash: usize, input: &mut Parser<'i, 't>) -> Result<(), ParseError<'i, ValueParseErrorKind<'i>>> {
+    let location = input.current_source_location();
+    let key = match input.next()? {
+        Token::Semicolon => return Ok(()), // 如果是分号，直接结束本次匹配
+        Token::Ident(r) => r,
+        token => return Err(location.new_unexpected_token_error(token.clone())),
+    };
     match key.as_ref() {
         "filter" => {
             input.expect_colon()?;
@@ -1266,20 +1299,20 @@ pub fn parse_style_item<'i, 't>(buffer: &mut VecDeque<Attribute>, input: &mut Pa
         }
         "background-color" => {
             input.expect_colon()?;
-            let ty = BackgroundColorType(BackgroundColor(Color::RGBA(parse_color(input)?)));
+            let ty = BackgroundColorType(Color::RGBA(parse_color(input)?));
             log::debug!("{:?}", ty);
             buffer.push_back(Attribute::BackgroundColor(ty));
         }
         "background" => {
             input.expect_colon()?;
-            let ty = BackgroundColorType(BackgroundColor(parse_background(input)?));
+            let ty = BackgroundColorType(parse_background(input)?);
             log::debug!("{:?}", ty);
             buffer.push_back(Attribute::BackgroundColor(ty));
         }
 
         "border-color" => {
             input.expect_colon()?;
-            let ty = BorderColorType(BorderColor(parse_color(input)?));
+            let ty = BorderColorType(parse_color(input)?);
             log::debug!("{:?}", ty);
             buffer.push_back(Attribute::BorderColor(ty));
         }
@@ -1294,12 +1327,12 @@ pub fn parse_style_item<'i, 't>(buffer: &mut VecDeque<Attribute>, input: &mut Pa
             input.expect_colon()?;
             match parse_gradient_image(input)? {
                 GradientImage::Linear(gradient) => {
-                    let ty = BackgroundColorType(BackgroundColor(Color::LinearGradient(gradient)));
+                    let ty = BackgroundColorType(Color::LinearGradient(gradient));
                     log::debug!("{:?}", ty);
                     buffer.push_back(Attribute::BackgroundColor(ty));
                 }
                 GradientImage::Url(image) => {
-                    let ty = BackgroundImageType(BackgroundImage(Atom::from(image.as_ref().to_string())));
+                    let ty = BackgroundImageType(Atom::from(image.as_ref().to_string()));
                     log::debug!("{:?}", ty);
                     buffer.push_back(Attribute::BackgroundImage(ty));
                 }
@@ -1307,9 +1340,7 @@ pub fn parse_style_item<'i, 't>(buffer: &mut VecDeque<Attribute>, input: &mut Pa
         }
         "image-clip" | "background-image-clip" => unsafe {
             input.expect_colon()?;
-            let ty = BackgroundImageClipType(BackgroundImageClip(rect_to_aabb(transmute::<_, Rect<f32>>(
-                parse_top_right_bottom_left::<Percentage>(input)?,
-            ))));
+            let ty = BackgroundImageClipType(transmute::<_, NotNanRect>(parse_top_right_bottom_left::<Percentage>(input)?));
             log::debug!("{:?}", ty);
             buffer.push_back(Attribute::BackgroundImageClip(ty));
         },
@@ -1328,15 +1359,13 @@ pub fn parse_style_item<'i, 't>(buffer: &mut VecDeque<Attribute>, input: &mut Pa
 
         "border-image" => {
             input.expect_colon()?;
-            let ty = BorderImageType(BorderImage(Atom::from(input.expect_url()?.as_ref().to_string())));
+            let ty = BorderImageType(Atom::from(input.expect_url()?.as_ref().to_string()));
             log::debug!("{:?}", ty);
             buffer.push_back(Attribute::BorderImage(ty));
         }
         "border-image-clip" => unsafe {
             input.expect_colon()?;
-            let ty = BorderImageClipType(BorderImageClip(transmute::<_, Rect<NotNan<f32>>>(parse_top_right_bottom_left::<
-                Percentage,
-            >(input)?)));
+            let ty = BorderImageClipType(transmute::<_, NotNanRect>(parse_top_right_bottom_left::<Percentage>(input)?));
             log::debug!("{:?}", ty);
             buffer.push_back(Attribute::BorderImageClip(ty));
         },
@@ -1349,7 +1378,7 @@ pub fn parse_style_item<'i, 't>(buffer: &mut VecDeque<Attribute>, input: &mut Pa
         "border-image-repeat" => {
             input.expect_colon()?;
             let repeat = parse_image_repeat(input)?;
-            let ty = BorderImageRepeatType(BorderImageRepeat(repeat));
+            let ty = BorderImageRepeatType(repeat);
             log::debug!("{:?}", ty);
             buffer.push_back(Attribute::BorderImageRepeat(ty));
         }
@@ -1370,9 +1399,7 @@ pub fn parse_style_item<'i, 't>(buffer: &mut VecDeque<Attribute>, input: &mut Pa
         }
         "mask-image-clip" => unsafe {
             input.expect_colon()?;
-            let ty = MaskImageClipType(MaskImageClip(rect_to_aabb(transmute::<_, Rect<f32>>(parse_top_right_bottom_left::<
-                Percentage,
-            >(input)?))));
+            let ty = MaskImageClipType(transmute::<_, NotNanRect>(parse_top_right_bottom_left::<Percentage>(input)?));
             log::debug!("{:?}", ty);
             buffer.push_back(Attribute::MaskImageClip(ty));
         },
@@ -1474,7 +1501,7 @@ pub fn parse_style_item<'i, 't>(buffer: &mut VecDeque<Attribute>, input: &mut Pa
         }
         "opacity" => {
             input.expect_colon()?;
-            let ty = OpacityType(Opacity(input.expect_number()?));
+            let ty = OpacityType(input.expect_number()?);
             log::debug!("{:?}", ty);
             buffer.push_back(Attribute::Opacity(ty));
         }
@@ -1492,7 +1519,7 @@ pub fn parse_style_item<'i, 't>(buffer: &mut VecDeque<Attribute>, input: &mut Pa
         }
         "z-index" => {
             input.expect_colon()?;
-            let ty = ZIndexType(ZIndex(input.expect_number()? as isize));
+            let ty = ZIndexType(input.expect_number()? as isize);
             log::debug!("{:?}", ty);
             buffer.push_back(Attribute::ZIndex(ty));
         }
@@ -1516,13 +1543,13 @@ pub fn parse_style_item<'i, 't>(buffer: &mut VecDeque<Attribute>, input: &mut Pa
         }
         "overflow" => {
             input.expect_colon()?;
-            let ty = OverflowType(Overflow(parse_overflow(input)?));
+            let ty = OverflowType(parse_overflow(input)?);
             log::debug!("{:?}", ty);
             buffer.push_back(Attribute::Overflow(ty));
         }
         "overflow-y" => {
             input.expect_colon()?;
-            let ty = OverflowType(Overflow(parse_overflow(input)?));
+            let ty = OverflowType(parse_overflow(input)?);
             log::debug!("{:?}", ty);
             buffer.push_back(Attribute::Overflow(ty));
         }
@@ -1756,7 +1783,7 @@ pub fn parse_style_item<'i, 't>(buffer: &mut VecDeque<Attribute>, input: &mut Pa
         }
         "animation-name" => {
             input.expect_colon()?;
-            let ty = AnimationNameType(parse_comma_separated(input, |input| Ok(Atom::from(input.expect_ident()?.as_ref())))?);
+            let ty = AnimationNameType(AnimationName{ scope_hash, value: parse_comma_separated(input, |input| Ok(Atom::from(input.expect_ident()?.as_ref())))?});
             log::debug!("{:?}", ty);
             buffer.push_back(Attribute::AnimationName(ty));
         }
@@ -1804,133 +1831,10 @@ pub fn parse_style_item<'i, 't>(buffer: &mut VecDeque<Attribute>, input: &mut Pa
         }
         "animation" => {
             input.expect_colon()?;
-
-            let mut animations = Animation::default();
-            parse_comma_separated::<_, (), ValueParseErrorKind<'i>>(input, |input| {
-                let mut has_duration = false;
-                let location = input.current_source_location();
-                let mut name = Atom::from("");
-                let mut duration = Time::default();
-                let mut timing_function = AnimationTimingFunction::default();
-                let mut iteration_count = IterationCount(1 as f32);
-                let mut delay = Time::default();
-                let mut direction = AnimationDirection::default();
-                let mut fill_mode = AnimationFillMode::default();
-                let mut play_state = AnimationPlayState::default();
-                loop {
-                    let token = match input.next() {
-                        Ok(r) => r,
-                        Err(_r) => break,
-                    };
-
-                    match token {
-                        Token::Ident(r) => match r.as_ref() {
-                            "normal" => direction = AnimationDirection::Normal,
-                            "reverse" => direction = AnimationDirection::Reverse,
-                            "alternate" => direction = AnimationDirection::Alternate,
-                            "alternate-reverse" => direction = AnimationDirection::AlternateReverse,
-                            "ease" => timing_function = AnimationTimingFunction::CubicBezier(0.25, 0.1, 0.25, 1.0),
-                            "ease-in" => timing_function = AnimationTimingFunction::CubicBezier(0.42, 0.0, 1.0, 1.0),
-                            "ease-out" => timing_function = AnimationTimingFunction::CubicBezier(0.0, 0.0, 0.58, 1.0),
-                            "ease-in-out" => timing_function = AnimationTimingFunction::CubicBezier(0.42, 0.0, 0.58, 1.0),
-                            "linear" => timing_function = AnimationTimingFunction::Linear,
-                            "step-start" => timing_function = AnimationTimingFunction::Step(1, EStepMode::JumpStart),
-                            "step-end" => timing_function = AnimationTimingFunction::Step(1, EStepMode::JumpEnd),
-                            "none" => fill_mode = AnimationFillMode::None,
-                            "forwards" => fill_mode = AnimationFillMode::Forwards,
-                            "backwards" => fill_mode = AnimationFillMode::Backwards,
-                            "both" => fill_mode = AnimationFillMode::Both,
-                            "paused" => play_state = AnimationPlayState::Paused,
-                            "running" => play_state = AnimationPlayState::Running,
-                            ref name_str => {
-                                if name.as_ref() != "" {
-                                    return Err(location.new_unexpected_token_error(token.clone()));
-                                } else {
-                                    name = Atom::from(*name_str);
-                                }
-                            }
-                        },
-                        Token::Dimension { value, unit, .. } => {
-                            let time = if unit.as_ref() == "s" {
-                                Time((value * 1000.0) as usize)
-                            } else if unit.as_ref() == "ms" {
-                                Time(*value as usize)
-                            } else {
-                                return Err(location.new_custom_error(ValueParseErrorKind::InvalidTime(token.clone())));
-                            };
-                            if has_duration {
-                                delay = time;
-                            } else {
-                                duration = time;
-                                has_duration = true;
-                            }
-                        }
-                        Token::Function(name) => {
-                            timing_function = match name.as_ref() {
-                                "cubic-bezier" => input.parse_nested_block(|input| {
-                                    Ok(AnimationTimingFunction::CubicBezier(
-                                        input.expect_number()?,
-                                        {
-                                            input.expect_comma()?;
-                                            input.expect_number()?
-                                        },
-                                        {
-                                            input.expect_comma()?;
-                                            input.expect_number()?
-                                        },
-                                        {
-                                            input.expect_comma()?;
-                                            input.expect_number()?
-                                        },
-                                    ))
-                                })?,
-                                "linear" => {
-                                    // input.parse_nested_block(|input| {
-
-                                    // })?
-                                    // TODO
-                                    return Err(location.new_unexpected_token_error(token.clone()));
-                                }
-                                "steps" => input.parse_nested_block::<_, _, ValueParseErrorKind<'i>>(|input| {
-                                    let location = input.current_source_location();
-                                    Ok(AnimationTimingFunction::Step(input.expect_number()? as usize, {
-                                        if let Ok(_r) = input.expect_comma() {
-                                            let p = input.expect_ident()?;
-                                            match p.as_ref() {
-                                                "jump-start" | "start" => EStepMode::JumpStart,
-                                                "jump-end" | "end" => EStepMode::JumpEnd,
-                                                "jump-none" => EStepMode::JumpNone,
-                                                "jump-both" => EStepMode::JumpEnd,
-                                                _ => {
-                                                    return Err(
-                                                        location.new_custom_error(ValueParseErrorKind::InvalidStepPosition(Token::Ident(p.clone())))
-                                                    )
-                                                }
-                                            }
-                                        } else {
-                                            EStepMode::JumpStart
-                                        }
-                                    }))
-                                })?,
-                                _ => return Err(location.new_custom_error(ValueParseErrorKind::InvalidTimingFunction(token.clone()))),
-                            }
-                        }
-                        Token::Number { value, .. } => iteration_count = IterationCount(*value),
-                        _ => break, // 可能是分号，在这里结束解析
-                    };
-                }
-                animations.name.push(name);
-                animations.duration.push(duration);
-                animations.timing_function.push(timing_function);
-                animations.iteration_count.push(iteration_count);
-                animations.delay.push(delay);
-                animations.direction.push(direction);
-                animations.fill_mode.push(fill_mode);
-                animations.play_state.push(play_state);
-                Ok(())
-            })?;
+            let mut animations = parse_animation(input)?;
+			animations.name.scope_hash = scope_hash;
             log::debug!("{:?}", animations);
-            if animations.name.len() > 0 {
+            if animations.name.value.len() > 0 {
                 buffer.push_back(Attribute::AnimationName(AnimationNameType(animations.name)));
                 buffer.push_back(Attribute::AnimationDuration(AnimationDurationType(animations.duration)));
                 buffer.push_back(Attribute::AnimationTimingFunction(AnimationTimingFunctionType(
@@ -1946,20 +1850,144 @@ pub fn parse_style_item<'i, 't>(buffer: &mut VecDeque<Attribute>, input: &mut Pa
             }
         }
 
-        key_name => {
-            log::info!("Unexpected attribute: {:?}", key_name);
-            loop {
-                if input.is_exhausted() {
-                    return Ok(());
-                }
-                if let Ok(_) = input.expect_semicolon() {
-                    return Ok(());
-                }
-            }
+        _ => {
+            log::info!("{:?}", ValueParseErrorKind::InvalidAttr(Token::Ident(key.clone())));
+            end_cur_attr(input);
         }
     };
-    let _r = input.try_parse(|input| input.expect_semicolon());
     Ok(())
+}
+
+pub fn parse_animation<'i, 't>(input: &mut Parser<'i, 't>) -> Result<Animation, ParseError<'i, ValueParseErrorKind<'i>>> {
+    let mut animations = Animation::default();
+    parse_comma_separated::<_, (), ValueParseErrorKind<'i>>(input, |input| {
+        let mut has_duration = false;
+        let location = input.current_source_location();
+        let mut name = Atom::from("");
+        let mut duration = Time::default();
+        let mut timing_function = AnimationTimingFunction::default();
+        let mut iteration_count = IterationCount(1 as f32);
+        let mut delay = Time::default();
+        let mut direction = AnimationDirection::default();
+        let mut fill_mode = AnimationFillMode::default();
+        let mut play_state = AnimationPlayState::default();
+        loop {
+            let token = match input.next() {
+                Ok(r) => r,
+                Err(_r) => break,
+            };
+
+            match token {
+                Token::Ident(r) => match r.as_ref() {
+                    "normal" => direction = AnimationDirection::Normal,
+                    "reverse" => direction = AnimationDirection::Reverse,
+                    "alternate" => direction = AnimationDirection::Alternate,
+                    "alternate-reverse" => direction = AnimationDirection::AlternateReverse,
+					// 兼容老的gui的错误写法
+					"direction" => direction = AnimationDirection::Normal,
+                    "ease" => timing_function = AnimationTimingFunction::CubicBezier(0.25, 0.1, 0.25, 1.0),
+                    "ease-in" => timing_function = AnimationTimingFunction::CubicBezier(0.42, 0.0, 1.0, 1.0),
+                    "ease-out" => timing_function = AnimationTimingFunction::CubicBezier(0.0, 0.0, 0.58, 1.0),
+                    "ease-in-out" => timing_function = AnimationTimingFunction::CubicBezier(0.42, 0.0, 0.58, 1.0),
+                    "linear" => timing_function = AnimationTimingFunction::Linear,
+                    "step-start" => timing_function = AnimationTimingFunction::Step(1, EStepMode::JumpStart),
+                    "step-end" => timing_function = AnimationTimingFunction::Step(1, EStepMode::JumpEnd),
+                    "none" => fill_mode = AnimationFillMode::None,
+                    "forwards" => fill_mode = AnimationFillMode::Forwards,
+                    "backwards" => fill_mode = AnimationFillMode::Backwards,
+                    "both" => fill_mode = AnimationFillMode::Both,
+                    "paused" => play_state = AnimationPlayState::Paused,
+                    "running" => play_state = AnimationPlayState::Running,
+					"infinite" => iteration_count = IterationCount( f32::INFINITY),
+                    ref name_str => {
+                        if name.as_ref() != "" {
+                            return Err(location.new_unexpected_token_error(token.clone()));
+                        } else {
+                            name = Atom::from(*name_str);
+                        }
+                    }
+                },
+                Token::Dimension { value, unit, .. } => {
+                    let time = if unit.as_ref() == "s" {
+                        Time((value * 1000.0) as usize)
+                    } else if unit.as_ref() == "ms" {
+                        Time(*value as usize)
+                    } else {
+                        return Err(location.new_custom_error(ValueParseErrorKind::InvalidTime(token.clone())));
+                    };
+                    if has_duration {
+                        delay = time;
+                    } else {
+                        duration = time;
+                        has_duration = true;
+                    }
+                }
+                Token::Function(name) => {
+                    timing_function = match name.as_ref() {
+                        "cubic-bezier" => input.parse_nested_block(|input| {
+                            Ok(AnimationTimingFunction::CubicBezier(
+                                input.expect_number()?,
+                                {
+                                    input.expect_comma()?;
+                                    input.expect_number()?
+                                },
+                                {
+                                    input.expect_comma()?;
+                                    input.expect_number()?
+                                },
+                                {
+                                    input.expect_comma()?;
+                                    input.expect_number()?
+                                },
+                            ))
+                        })?,
+                        "linear" => {
+                            // input.parse_nested_block(|input| {
+
+                            // })?
+                            // TODO
+                            return Err(location.new_unexpected_token_error(token.clone()));
+                        }
+                        "steps" => input.parse_nested_block::<_, _, ValueParseErrorKind<'i>>(|input| {
+                            let location = input.current_source_location();
+                            Ok(AnimationTimingFunction::Step(input.expect_number()? as usize, {
+                                if let Ok(_r) = input.expect_comma() {
+                                    let p = input.expect_ident()?;
+                                    match p.as_ref() {
+                                        "jump-start" | "start" => EStepMode::JumpStart,
+                                        "jump-end" | "end" => EStepMode::JumpEnd,
+                                        "jump-none" => EStepMode::JumpNone,
+                                        "jump-both" => EStepMode::JumpEnd,
+                                        _ => return Err(location.new_custom_error(ValueParseErrorKind::InvalidStepPosition(Token::Ident(p.clone())))),
+                                    }
+                                } else {
+                                    EStepMode::JumpStart
+                                }
+                            }))
+                        })?,
+                        _ => return Err(location.new_custom_error(ValueParseErrorKind::InvalidTimingFunction(token.clone()))),
+                    }
+                }
+				// 支持老版本gui的写法， 小于0表示无穷次迭代
+                Token::Number { value, .. } => if *value < 0.0 {
+					iteration_count = IterationCount( f32::INFINITY);
+				} else {
+					iteration_count = IterationCount(*value)
+				},
+                _ => break, // 可能是分号，在这里结束解析
+            };
+        }
+        animations.name.value.push(name);
+        animations.duration.push(duration);
+        animations.timing_function.push(timing_function);
+        animations.iteration_count.push(iteration_count);
+        animations.delay.push(delay);
+        animations.direction.push(direction);
+        animations.fill_mode.push(fill_mode);
+        animations.play_state.push(play_state);
+        Ok(())
+    })?;
+    Ok(animations)
 }
 
 pub trait StyleParse: Sized {
@@ -1992,7 +2020,12 @@ impl StyleParse for IterationCount {
         let location = input.current_source_location();
         let r = match input.next()? {
             Token::Ident(r) if r.as_ref() == "infinite" => f32::INFINITY,
-            Token::Number { value, .. } => *value,
+			// 支持老版本gui的写法， 小于0表示无穷次迭代
+            Token::Number { value, .. } => if *value < 0.0 {
+				f32::INFINITY
+			} else {
+				*value
+			},
             token => return Err(location.new_custom_error(ValueParseErrorKind::InvalidAnimationIterationCount(token.clone()))),
         };
         Ok(IterationCount(r))
@@ -2039,6 +2072,8 @@ impl StyleParse for AnimationDirection {
             "reverse" => Ok(AnimationDirection::Reverse),
             "alternate" => Ok(AnimationDirection::Alternate),
             "alternate-reverse" => Ok(AnimationDirection::AlternateReverse),
+			// 兼容老的gui的错误写法
+			"direction" => Ok(AnimationDirection::Normal),
             _ => return Err(location.new_custom_error(ValueParseErrorKind::InvalidAnimationDirection(Token::Ident(p.clone())))),
         }
     }
@@ -2188,10 +2223,10 @@ fn parse_filter1<'i, 't>(buffer: &mut VecDeque<Attribute>, input: &mut Parser<'i
         input.parse_nested_block(|i| {
             match function.as_ref() {
                 "blur" => {
-                    let ty = BlurType(Blur(match i.try_parse(|i| Dimension::parse(i))? {
+                    let ty = BlurType(match i.try_parse(|i| Dimension::parse(i))? {
                         Dimension::Points(r) => r,
                         _ => return Err(location.new_custom_error(ValueParseErrorKind::InvalidBlur)),
-                    }));
+                    });
                     log::debug!("{:?}", ty);
                     buffer.push_back(Attribute::Blur(ty));
                 }
@@ -2348,7 +2383,7 @@ fn parse_stop_item<'i, 't>(
     Ok(())
 }
 
-pub fn parse_text_shadow<'i, 't>(input: &mut Parser<'i, 't>) -> Result<TextShadows, ParseError<'i, ValueParseErrorKind<'i>>> {
+pub fn parse_text_shadow<'i, 't>(input: &mut Parser<'i, 't>) -> Result<SmallVec<[TextShadow; 1]>, ParseError<'i, ValueParseErrorKind<'i>>> {
     let mut arr = SmallVec::default();
     let location = input.current_source_location();
     loop {
@@ -2363,7 +2398,7 @@ pub fn parse_text_shadow<'i, 't>(input: &mut Parser<'i, 't>) -> Result<TextShado
         }
     }
     if arr.len() > 0 {
-        Ok(TextShadows(arr))
+        Ok(arr)
     } else {
         Err(location.new_custom_error(ValueParseErrorKind::InvalidTextShadow))
     }
@@ -2446,13 +2481,14 @@ pub enum ValueParseErrorKind<'i> {
     InvalidFilter,
     InvalidBlur,
     InvalidHsi,
-    InvalidAttr,
+    InvalidAttr(Token<'i>),
     InvalidBackground,
     InvalidLinear,
     InvalidTextShadow,
     InvalidImage,
-    InvalidObjectFit,
-    InvalidRepeat,
+    InvalidObjectFit(Token<'i>),
+    InvalidRepeat(Token<'i>),
+    InvalidKeyFrameProgress(Token<'i>),
 }
 
 pub fn parse_angle<'i, 't>(input: &mut Parser<'i, 't>) -> Result<f32, ParseError<'i, ValueParseErrorKind<'i>>> {
@@ -2702,7 +2738,7 @@ fn test1() {
 		text-shadow: 2px 2px #ff0000;
 	}.c456{width: 10px;height:20px;filter:blur(2px) hsi(10,10,10)}";
 
-    if let Err(_r) = parse_class_map_from_string(s) {}
+    if let Err(_r) = parse_class_map_from_string(s, 0) {}
 
     // log::debug!("parse: {:?}", parse);
 }
@@ -2721,7 +2757,7 @@ fn test2() {
 		}}.c123{width: 98px;
 			height: 185px;}";
 
-    if let Ok(r) = parse_class_map_from_string(s) {
+    if let Ok(r) = parse_class_map_from_string(s, 0) {
         log::info!("parser result: {:?}", r);
     }
 }
@@ -2733,7 +2769,7 @@ fn test3() {
 		color: #00ffff;
 	}";
 
-    if let Err(_r) = parse_class_map_from_string(s) {}
+    if let Err(_r) = parse_class_map_from_string(s, 0) {}
 }
 
 #[test]
@@ -2743,7 +2779,7 @@ fn test4() {
 		transform: scale(0.8,0.8);
 	}";
 
-    if let Err(_r) = parse_class_map_from_string(s) {}
+    if let Err(_r) = parse_class_map_from_string(s, 0) {}
 }
 
 #[test]
@@ -2753,7 +2789,15 @@ fn test5() {
 		text-shadow: rgb(255,0,0) 0px 0px 5px,rgb(255,0,0) 0px 0px 3px,rgb(255,255,255) 0px 0px 1px;
 	}";
 
-    if let Err(_r) = parse_class_map_from_string(s) {}
+    if let Err(_r) = parse_class_map_from_string(s, 0) {}
+}
+
+#[test]
+fn test6() {
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug")).init();
+    let s = "left: 20px;";
+
+    if let Err(_r) = parse_class_map_from_string(s, 0) {}
 }
 
 #[test]
@@ -2774,5 +2818,21 @@ fn test_animation() {
 		animation-play-state: running, paused ;
 	}";
 
-    if let Err(_r) = parse_class_map_from_string(s) {}
+    if let Err(_r) = parse_class_map_from_string(s, 0) {}
+}
+
+#[test]
+fn test_mul_semicolon() {
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug")).init();
+    let s = "
+	.c1363885129{
+		position: absolute;
+		left:25px;
+		right: 25px;;
+		height: 100%;
+	  }";
+
+    if let Ok(r) = parse_class_map_from_string(s, 0) {
+        println!("ret: {:?}", r);
+    }
 }

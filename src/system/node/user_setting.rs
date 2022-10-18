@@ -1,28 +1,29 @@
 use std::intrinsics::transmute;
 
 use bitvec::array::BitArray;
-use pi_ecs::prelude::{res::WriteRes, DefaultComponent, EntityDelete, Event, Id, OrDefault, Query, Res, ResMut, Write};
+use pi_ecs::prelude::{DefaultComponent, EntityDelete, Event, Id, OrDefault, Query, Res, ResMut, Write};
 use pi_ecs_macros::{listen, setup};
 use pi_ecs_utils::prelude::EntityTreeMut;
 use pi_flex_layout::style::Dimension;
 use pi_null::Null;
 use pi_slotmap_tree::{InsertType, Storage};
+use pi_time::Instant;
 
 use crate::{
     components::{
-        calc::{BackgroundImageTexture, NodeState, StyleMark, StyleType},
+        calc::{BackgroundImageTexture, NodeState, StyleMark, StyleType, DrawList},
         user::{
             BackgroundColor, BackgroundImage, BackgroundImageClip, BlendMode, Blur, Border, BorderColor, BorderImage, BorderImageClip,
             BorderImageSlice, BorderRadius, BoxShadow, ClassName, FlexContainer, FlexNormal, Hsi, Margin, MaskImage, MaskImageClip, MinMax, Node,
-            Opacity, Overflow, Padding, Position, Show, Size, TextContent, TextStyle, Transform, TransformWillChange, ZIndex,
-        },
+            Opacity, Overflow, Padding, Position, Show, Size, TextContent, TextStyle, Transform, TransformWillChange, ZIndex, ClearColor, Viewport, serialize::{StyleQuery, StyleTypeReader, StyleAttr}, RenderTargetType, Canvas,
+        }, draw_obj::DrawObject
     },
-    resource::{animation_sheet::KeyFramesSheet, ClearColor, DefaultStyle, NodeCommand, StyleCommands, UserCommands, Viewport},
+    resource::{animation_sheet::KeyFramesSheet, DefaultStyle, NodeCommand, StyleCommands, UserCommands, TimeInfo},
     utils::cmd::DataQuery,
 };
 use pi_style::{
     style::{Animation, BackgroundImageMod, BorderImageRepeat},
-    style_type::{ClassSheet, StyleAttr, StyleQuery, StyleTypeReader},
+    style_type::{ClassSheet},
 };
 
 pub struct CalcUserSetting;
@@ -65,10 +66,14 @@ impl CalcUserSetting {
         node_state: Query<'static, 'static, Node, Write<NodeState>>,
         text_content: Query<'static, 'static, Node, Write<TextContent>>,
         mut animation: Query<'static, 'static, Node, Write<Animation>>,
+		view_port: Query<'static, 'static, Node, Write<Viewport>>,
+		clear_color: Query<'static, 'static, Node, Write<ClearColor>>,
+		render_target_type: Query<'static, 'static, Node, Write<RenderTargetType>>,
+		canvas: Query<'static, 'static, Node, Write<Canvas>>,
+
+		mut draw_list: Query<'static, 'static, Node, &'static mut DrawList>,
 
         class_sheet: ResMut<'static, ClassSheet>,
-        view_port: WriteRes<'static, Viewport>,
-        clear_color: WriteRes<'static, ClearColor>,
         keyframes_sheet: ResMut<'static, KeyFramesSheet>,
 
         mut class_query: Query<'static, 'static, Node, Write<ClassName>>,
@@ -79,8 +84,16 @@ impl CalcUserSetting {
         mut tree: EntityTreeMut<Node>,
 
         mut entity_delete: EntityDelete<Node>,
+		mut draw_obj_delete: EntityDelete<DrawObject>,
+
         mut user_commands: ResMut<UserCommands>,
+		mut time_info: ResMut<TimeInfo>,
     ) {
+		let time = Instant::now();
+		*time_info = TimeInfo {
+			cur_time: time,
+			delta: (time - time_info.cur_time).as_millis() as u64,
+		};
         let mut style_query = StyleQuery {
             size,
             margin,
@@ -120,6 +133,8 @@ impl CalcUserSetting {
         let mut data_query = DataQuery {
             clear_color,
             view_port,
+			render_target_type,
+			canvas,
             class_sheet,
             keyframes_sheet,
         };
@@ -145,21 +160,27 @@ impl CalcUserSetting {
                     }
                 }
                 NodeCommand::RemoveNode(node) => {
+					// log::warn!("RemoveNode================={:?}", node);
                     tree.remove(node);
                 }
                 NodeCommand::DestroyNode(node) => {
                     tree.remove(node);
-                    entity_delete.despawn(node);
-
+					
                     // 删除所有子节点对应的实体
                     if let Some(down) = tree.get_down(node) {
                         let head = down.head();
                         if !head.is_null() {
                             for node in tree.recursive_iter(head) {
+								delete_draw_list(node, &mut draw_list, &mut draw_obj_delete);
+								// log::warn!("DestroyNode================={:?}", node);
                                 entity_delete.despawn(node);
                             }
                         }
                     }
+
+					delete_draw_list(node, &mut draw_list, &mut draw_obj_delete);
+					// log::warn!("DestroyNode================={:?}", node);
+                    entity_delete.despawn(node);
                 }
             };
         }
@@ -174,7 +195,9 @@ impl CalcUserSetting {
     }
 
     #[listen(entity=(Node, Create))]
-    pub fn prepare_data(e: Event, mut query: Query<Node, Write<StyleMark>>) { query.get_unchecked_mut_by_entity(e.id).write(StyleMark::default()); }
+    pub fn prepare_data(e: Event, mut query: Query<Node, Write<StyleMark>>) { 
+		query.get_unchecked_mut_by_entity(e.id).write(StyleMark::default()); 
+	}
 
     // 设置图片节点的默认大小
     #[listen(component=(Node, BackgroundImageTexture, (Create, Modify)), component=(Node, BackgroundImageClip, (Create, Modify, Delete)))]
@@ -184,13 +207,13 @@ impl CalcUserSetting {
             let mut is_change = false;
             // 本地样式和class样式都未设置宽度，设置默认图片宽度
             if style_mark.local_style[StyleType::Width as usize] == false && style_mark.class_style[StyleType::Width as usize] == false {
-                size.width = Dimension::Points(texture.width as f32 * (clip.maxs.x - clip.mins.x));
+                size.width = Dimension::Points(texture.width as f32 * (*clip.right - *clip.left));
                 is_change = true;
             }
 
             // 本地样式和class样式都未设置高度，设置默认图片高度
             if style_mark.local_style[StyleType::Height as usize] == false && style_mark.class_style[StyleType::Height as usize] == false {
-                size.height = Dimension::Points(texture.height as f32 * (clip.maxs.y - clip.mins.y));
+                size.height = Dimension::Points(texture.height as f32 * (*clip.bottom - *clip.top));
                 is_change = true;
             }
 
@@ -265,7 +288,7 @@ impl CalcUserSetting {
         class_sheet: Res<'a, ClassSheet>,
         // default_style_mark: ResMut<DefaultStyleMark>,
     ) {
-        let mut style_query = pi_style::style_type::DefaultStyle {
+        let mut style_query = crate::components::user::serialize::DefaultStyle {
             size,
             margin,
             padding,
@@ -328,6 +351,7 @@ pub fn set_style(
             log::error!("node is not exist: {:?}", node);
             continue;
         }
+
         let mut style_mark_item = style_mark.get_unchecked_mut(node);
 
         let mut style_reader = StyleTypeReader::new(style_buffer, start, end);
@@ -347,14 +371,16 @@ fn set_class(
     style_mark: &mut Query<Node, &mut StyleMark>,
     class_sheet: &ClassSheet,
 ) {
-    if let Some(mut component) = class_query.get(node) {
-        let mut style_mark = style_mark.get_unchecked_mut(node);
+    if let (Some(mut component), Some(mut style_mark)) = (class_query.get(node), style_mark.get_mut(node)) {
         let old_class_style_mark = style_mark.class_style; // 旧的class样式
         let local_style_mark = style_mark.local_style;
         let mut new_class_style_mark: BitArray<[u32; 3]> = BitArray::new([0, 0, 0]);
 
         // 设置class样式
         for i in class.iter() {
+			if *i == 1100330128 {
+				log::warn!("zzz:{:?}", node);
+			}
             if let Some(class) = class_sheet.class_map.get(i) {
                 // println!("set class1==========={}", i);
                 let mut style_reader = StyleTypeReader::new(&class_sheet.style_buffer, class.start, class.end);
@@ -384,4 +410,15 @@ fn set_class(
         style_mark.class_style = new_class_style_mark;
         component.write(class);
     }
+}
+
+
+fn delete_draw_list(id: Id<Node>, draw_list: &mut Query<'static, 'static, Node, &'static mut DrawList>,
+draw_objects: &mut EntityDelete<DrawObject>) {
+	if let Some(mut list) = draw_list.get(id) {
+		for i in list.iter() {
+			draw_objects.despawn(i.clone())
+		}
+		list.clear()
+	}
 }

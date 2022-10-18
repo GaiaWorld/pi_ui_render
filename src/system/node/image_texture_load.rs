@@ -5,7 +5,7 @@ use pi_assets::{
     asset::Handle,
     mgr::{AssetMgr, LoadResult},
 };
-use pi_async::rt::AsyncRuntime;
+use pi_async::prelude::AsyncRuntime;
 use pi_atom::Atom;
 use pi_ecs::{
     entity::Id,
@@ -19,7 +19,7 @@ use pi_render::rhi::{
     device::RenderDevice,
     RenderQueue,
 };
-use pi_share::Share;
+use pi_share::{Share, ThreadSync};
 
 use crate::components::user::Node;
 
@@ -35,8 +35,8 @@ pub struct CalcImageLoad<S: std::ops::Deref<Target = Atom>, D: From<Handle<Textu
 #[setup]
 impl<S, D> CalcImageLoad<S, D>
 where
-    S: std::ops::Deref<Target = Atom> + 'static + Send + Sync,
-    D: From<Handle<TextureRes>> + 'static + Send + Sync,
+    S: std::ops::Deref<Target = Atom> + 'static + ThreadSync,
+    D: From<Handle<TextureRes>> + 'static + ThreadSync,
 {
     /// Image创建，加载对应的图片
     /// 图片加载是异步，加载成功后，不能立即将图片对应的纹理设置到BorderImageTexture上
@@ -67,11 +67,9 @@ where
                             queue: &queue,
                         };
 
-                        // log::warn!("load image start {:?}", key);
                         let r = TextureRes::async_load(desc, result).await;
                         match r {
                             Ok(r) => {
-                                // log::warn!("load image ok {:?}", key);
                                 awaits.push((id, key.clone(), r));
                             }
                             Err(e) => {
@@ -86,11 +84,11 @@ where
 
     //
     #[system]
-    pub fn check_await_texture(border_image_await: Res<ImageAwait<S>>, mut query: Query<Node, (&S, Write<D>)>) {
+    pub fn check_await_texture(image_await: Res<ImageAwait<S>>, mut query: Query<Node, (&S, Write<D>)>) {
         // let awaits = std::mem::replace(&mut border_image_await.0, Share::new(SegQueue::new()));
-        let mut r = border_image_await.0.pop();
+        let mut r = image_await.0.pop();
         while let Some((id, key, texture)) = r {
-            r = border_image_await.0.pop();
+            r = image_await.0.pop();
 
             let mut texture_item = match query.get_mut(id) {
                 Some((img, texture_item)) => {

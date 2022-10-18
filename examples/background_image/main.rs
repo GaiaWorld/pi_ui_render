@@ -5,22 +5,22 @@ mod framework;
 
 use async_trait::async_trait;
 use framework::Example;
+use ordered_float::NotNan;
 use pi_atom::Atom;
 /// 渲染四边形 demo
 use pi_ecs::prelude::Id;
-use pi_flex_layout::style::{Dimension, FlexWrap, PositionType};
+use pi_flex_layout::{style::{Dimension, FlexWrap, PositionType}, prelude::Rect};
 use pi_null::Null;
 use pi_style::{
-    style::{ImageRepeat, ImageRepeatOption},
+    style::{ImageRepeat, ImageRepeatOption, NotNanRect},
     style_type::{
         BackgroundImageType, BackgroundRepeatType, BorderRadiusType, FlexWrapType, HeightType, MarginLeftType, MarginTopType, PositionLeftType,
-        PositionTopType, PositionTypeType, WidthType,
+        PositionTopType, PositionTypeType, WidthType, BackgroundImageClipType,
     },
 };
 use pi_ui_render::{
-    components::user::{BackgroundImage, BorderRadius, CgColor, LengthUnit},
+    components::user::{BorderRadius, CgColor, LengthUnit, ClearColor},
     export::Engine,
-    resource::ClearColor,
 };
 
 fn main() { framework::start(QuadExample::default()) }
@@ -32,7 +32,7 @@ pub struct QuadExample;
 impl Example for QuadExample {
     async fn init(&mut self, gui: &mut Engine, size: (usize, usize)) {
         // 设置清屏颜色为绿色
-        gui.gui.world_mut().insert_resource(ClearColor(CgColor::new(0.0, 1.0, 1.0, 1.0)));
+        gui.gui.world_mut().insert_resource(ClearColor(CgColor::new(0.0, 1.0, 1.0, 1.0), true));
 
         // 添加根节点
         let root = gui.gui.create_node();
@@ -54,7 +54,7 @@ impl Example for QuadExample {
         gui.gui.set_style(div1, PositionTypeType(PositionType::Relative));
         gui.gui.set_style(
             div1,
-            BackgroundImageType(BackgroundImage(Atom::from("examples/background_image/source/dialog_bg.png"))),
+            BackgroundImageType(Atom::from("examples/background_image/source/dialog_bg.png")),
         );
         gui.gui.set_style(
             div1,
@@ -72,7 +72,7 @@ impl Example for QuadExample {
         gui.gui.set_style(div2, PositionTypeType(PositionType::Relative));
         gui.gui.set_style(
             div2,
-            BackgroundImageType(BackgroundImage(Atom::from("examples/background_image/source/dialog_bg1.png"))),
+            BackgroundImageType(Atom::from("examples/background_image/source/dialog_bg.png")),
         );
         gui.gui.set_style(
             div2,
@@ -90,7 +90,7 @@ impl Example for QuadExample {
         gui.gui.set_style(div3, PositionTypeType(PositionType::Relative));
         gui.gui.set_style(
             div3,
-            BackgroundImageType(BackgroundImage(Atom::from("examples/background_image/source/dialog_bg1.png"))),
+            BackgroundImageType(Atom::from("examples/background_image/source/dialog_bg.png")),
         );
         gui.gui.set_style(
             div3,
@@ -108,7 +108,7 @@ impl Example for QuadExample {
         gui.gui.set_style(div4, PositionTypeType(PositionType::Relative));
         gui.gui.set_style(
             div4,
-            BackgroundImageType(BackgroundImage(Atom::from("examples/background_image/source/dialog_bg1.png"))),
+            BackgroundImageType(Atom::from("examples/background_image/source/dialog_bg.png")),
         );
         gui.gui.set_style(
             div4,
@@ -126,7 +126,7 @@ impl Example for QuadExample {
         gui.gui.set_style(div5, PositionTypeType(PositionType::Relative));
         gui.gui.set_style(
             div5,
-            BackgroundImageType(BackgroundImage(Atom::from("examples/background_image/source/dialog_bg1.png"))),
+            BackgroundImageType(Atom::from("examples/background_image/source/dialog_bg.png")),
         );
         gui.gui.set_style(
             div5,
@@ -136,6 +136,38 @@ impl Example for QuadExample {
             }),
         );
         gui.gui.append(div5, root);
+
+		// imageclip
+		let div6 = gui.gui.create_node();
+        gui.gui.set_style(div6, WidthType(Dimension::Points(50.0)));
+        gui.gui.set_style(div6, HeightType(Dimension::Points(100.0)));
+        gui.gui.set_style(div6, PositionTypeType(PositionType::Relative));
+        gui.gui.set_style(
+            div6,
+            BackgroundImageType(Atom::from("examples/background_image/source/dialog_bg.png")),
+        );
+		gui.gui.set_style(
+            div6,
+            BackgroundImageClipType(NotNanRect(unsafe {Rect {
+                top: NotNan::new_unchecked(0.0),
+                right: NotNan::new_unchecked(0.5),
+                bottom: NotNan::new_unchecked(0.5),
+                left: NotNan::new_unchecked(0.0),
+            }})),
+        );
+        gui.gui.append(div6, root);
+
+		// 圆角
+		let div7 = gui.gui.create_node();
+        gui.gui.set_style(div7, WidthType(Dimension::Points(100.0)));
+        gui.gui.set_style(div7, HeightType(Dimension::Points(100.0)));
+        gui.gui.set_style(div7, PositionTypeType(PositionType::Relative));
+		gui.gui.set_style(div7, BorderRadiusType(BorderRadius {x: LengthUnit::Pixel(50.0), y: LengthUnit::Pixel(50.0)}));
+        gui.gui.set_style(
+            div7,
+            BackgroundImageType(Atom::from("examples/background_image/source/dialog_bg.png")),
+        );
+        gui.gui.append(div7, root);
     }
 
     fn render(&mut self, gui: &mut Engine) { gui.gui.run(); }

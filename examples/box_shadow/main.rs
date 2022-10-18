@@ -10,8 +10,8 @@ use pi_ecs::prelude::Id;
 use pi_flex_layout::style::{Dimension, PositionType};
 use pi_null::Null;
 use pi_ui_render::{
-	components::user::{ CgColor, BoxShadow}, 
-	resource::ClearColor, export::Engine
+	components::user::{ CgColor, BoxShadow, ClearColor}, 
+	export::Engine
 };
 use pi_style::style_type::{WidthType, HeightType, PositionTypeType, PositionLeftType, PositionTopType, MarginLeftType, MarginTopType, BoxShadowType};
 
@@ -31,7 +31,7 @@ impl Example for QuadExample {
 	) {
 
 		// 设置清屏颜色为绿色
-		gui.gui.world_mut().insert_resource(ClearColor(CgColor::new(0.0, 1.0, 1.0, 1.0)));
+		gui.gui.world_mut().insert_resource(ClearColor(CgColor::new(0.0, 1.0, 1.0, 1.0), true));
 		
 		// 添加根节点
 		let root = gui.gui.create_node();

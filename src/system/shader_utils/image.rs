@@ -2,7 +2,7 @@ use pi_assets::{asset::Handle, mgr::AssetMgr};
 use pi_ecs::prelude::{res::WriteRes, Res, ResMut};
 use pi_ecs_macros::setup;
 use pi_map::vecmap::VecMap;
-use pi_render::rhi::{asset::RenderRes, bind_group::BindGroup, bind_group_layout::BindGroupLayout, device::RenderDevice, dyn_uniform_buffer::Group};
+use pi_render::rhi::{asset::RenderRes, bind_group::BindGroup, bind_group_layout::BindGroupLayout, device::RenderDevice, dyn_uniform_buffer::Group, texture::PiRenderDefault};
 use pi_share::Share;
 use wgpu::{CompareFunction, DepthBiasState, DepthStencilState, MultisampleState, StencilState, TextureFormat};
 
@@ -127,8 +127,8 @@ pub fn create_vertex_buffer_layout_p_v() -> VertexBufferLayouts {
 
 pub fn create_pipeline_state() -> PipelineState {
     PipelineState {
-        targets: vec![wgpu::ColorTargetState {
-            format: wgpu::TextureFormat::Bgra8Unorm,
+        targets: vec![Some(wgpu::ColorTargetState {
+            format: wgpu::TextureFormat::pi_render_default(),
             blend: Some(wgpu::BlendState {
                 color: wgpu::BlendComponent {
                     operation: wgpu::BlendOperation::Add,
@@ -142,7 +142,7 @@ pub fn create_pipeline_state() -> PipelineState {
                 },
             }),
             write_mask: wgpu::ColorWrites::ALL,
-        }],
+        })],
         primitive: wgpu::PrimitiveState {
             front_face: wgpu::FrontFace::Ccw,
             cull_mode: None,

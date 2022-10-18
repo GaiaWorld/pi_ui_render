@@ -121,11 +121,11 @@ impl WorldMatrix {
         }
     }
 
-    pub fn form_transform(transform: &Transform, width: f32, height: f32) -> WorldMatrix {
-        if transform.funcs.len() > 0 {
-            let mut m = Self::get_matrix(&transform.funcs[0], width, height);
-            for i in 1..transform.funcs.len() {
-                m = m * Self::get_matrix(&transform.funcs[i], width, height);
+    pub fn form_transform_funcs(transformfuncs: &TransformFuncs, width: f32, height: f32) -> WorldMatrix {
+        if transformfuncs.len() > 0 {
+            let mut m = Self::get_matrix(&transformfuncs[0], width, height);
+            for i in 1..transformfuncs.len() {
+                m = m * Self::get_matrix(&transformfuncs[i], width, height);
             }
             m
         } else {
@@ -133,7 +133,26 @@ impl WorldMatrix {
         }
     }
 
-    pub fn form_transform_layout(transform: &Transform, width: f32, height: f32, left_top: &Point2) -> WorldMatrix {
+
+    // pub fn form_transform(transform: &Transform, width: f32, height: f32) -> WorldMatrix {
+    //     if transform.funcs.len() > 0 {
+    //         let mut m = Self::get_matrix(&transform.funcs[0], width, height);
+    //         for i in 1..transform.funcs.len() {
+    //             m = m * Self::get_matrix(&transform.funcs[i], width, height);
+    //         }
+    //         m
+    //     } else {
+    //         WorldMatrix::default()
+    //     }
+    // }
+
+    pub fn form_transform_layout(
+        transform_funcs: &TransformFuncs,
+        origin: &TransformOrigin,
+        width: f32,
+        height: f32,
+        left_top: &Point2,
+    ) -> WorldMatrix {
         // M = T * R * S
         // let mut m = cg::Matrix4::new(
         //     1.0, 0.0, 0.0, 0.0,
@@ -144,14 +163,14 @@ impl WorldMatrix {
 
 
         // 矩阵变换是以父节点的左上角为原点变换的，left_top表明本节点左上角相对父节点左上角的位移
-        let orgin_move_value = transform.origin.to_value(width, height);
+        let orgin_move_value = origin.to_value(width, height);
         let move_value = Point2::new(left_top.x + orgin_move_value.x, left_top.y + orgin_move_value.y);
 
         // 变换前先将transform描述的原点位置移动到父节点的左上角
         let mut m = WorldMatrix(Matrix4::new_translation(&Vector3::new(move_value.x, move_value.y, 0.0)), false);
 
         // 计算tranform
-        for func in transform.funcs.iter() {
+        for func in transform_funcs.iter() {
             m = m * Self::get_matrix(func, width, height);
         }
 
@@ -301,7 +320,7 @@ impl WorldMatrix {
 }
 
 // #[storage = ]
-#[derive(Clone, Debug, Component)]
+#[derive(Clone, Debug, Component, Serialize, Deserialize)]
 #[storage(QuadTree)]
 pub struct Quad(Aabb2, ());
 
@@ -351,7 +370,7 @@ impl Map for QuadTree {
     unsafe fn get_unchecked_mut(&mut self, key: &Self::Key) -> &mut Self::Val { transmute(self.0.get_unchecked_mut(key.clone())) }
     unsafe fn remove_unchecked(&mut self, key: &Self::Key) -> Self::Val { transmute(self.0.remove(key.clone()).unwrap()) }
     fn insert(&mut self, key: Self::Key, val: Self::Val) -> Option<Self::Val> {
-        if self.0.contains_key(key) {
+		if self.0.contains_key(key) {
             self.0.update(key, val.0);
         } else {
             self.0.add(key, val.0, val.1);
@@ -470,11 +489,11 @@ pub struct TransformWillChangeMatrixInner {
 pub struct MaskTexture;
 
 /// 上下文的实体ID，作为Node的组件，关联由其创建的渲染上下文
-#[derive(Deref, DerefMut, Default)]
+#[derive(Deref, DerefMut, Default, Debug)]
 pub struct Pass2DId(pub Id<Pass2D>);
 
 /// 作为Node的组件，表示节点所在的渲染上下文的实体
-#[derive(Clone, Copy, Deref, DerefMut, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Deref, DerefMut, Default, PartialEq, Eq, Debug)]
 pub struct InPassId(pub Id<Pass2D>);
 
 
@@ -531,19 +550,19 @@ pub struct NodeId(pub Id<Node>);
 pub struct DefineMark(bitvec::prelude::BitArray);
 
 /// 每节点的渲染列表
-#[derive(Deref, DerefMut, Default)]
-pub struct DrawList(SmallVec<[Id<DrawObject>; 1]>);
+#[derive(Deref, DerefMut, Default, Debug)]
+pub struct DrawList(pub SmallVec<[Id<DrawObject>; 1]>);
 
 /// 裁剪框
 /// 非旋转情况下，由世界矩阵、布局、TarnsformWillChange（包含父）计算、并与父的裁剪框相交而得
 /// 旋转情况下，由世界矩阵、布局、TarnsformWillChange（自身）计算，并逆旋转为矩形而得
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Debug)]
 pub struct OverflowAabb {
     pub aabb: Option<Aabb2>,
     pub matrix: Option<OveflowRotate>,
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Debug)]
 pub struct OveflowRotate {
     pub rotate_matrix: Matrix4<f32>,
     pub rotate_matrix_invert: Matrix4<f32>,

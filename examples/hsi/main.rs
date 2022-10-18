@@ -16,9 +16,8 @@ use pi_style::{
     },
 };
 use pi_ui_render::{
-    components::user::{BackgroundColor, CgColor, Color},
+    components::user::{CgColor, Color, ClearColor},
     export::Engine,
-    resource::ClearColor,
 };
 
 fn main() { framework::start(QuadExample::default()) }
@@ -30,7 +29,7 @@ pub struct QuadExample;
 impl Example for QuadExample {
     async fn init(&mut self, gui: &mut Engine, size: (usize, usize)) {
         // 设置清屏颜色为绿色
-        gui.gui.world_mut().insert_resource(ClearColor(CgColor::new(0.0, 1.0, 1.0, 1.0)));
+        gui.gui.world_mut().insert_resource(ClearColor(CgColor::new(0.0, 1.0, 1.0, 1.0), true));
 
         // 添加根节点
         let root = gui.gui.create_node();
@@ -57,7 +56,7 @@ impl Example for QuadExample {
         gui.gui.set_style(div1, WidthType(Dimension::Points(50.0)));
         gui.gui.set_style(div1, HeightType(Dimension::Points(100.0)));
         gui.gui
-            .set_style(div1, BackgroundColorType(BackgroundColor(Color::RGBA(CgColor::new(1.0, 0.0, 0.0, 1.0)))));
+            .set_style(div1, BackgroundColorType(Color::RGBA(CgColor::new(1.0, 0.0, 0.0, 1.0))));
         gui.gui.append(div1, root);
 
 
@@ -80,7 +79,7 @@ impl Example for QuadExample {
         gui.gui.set_style(div2, WidthType(Dimension::Points(50.0)));
         gui.gui.set_style(div2, HeightType(Dimension::Points(100.0)));
         gui.gui
-            .set_style(div2, BackgroundColorType(BackgroundColor(Color::RGBA(CgColor::new(0.0, 1.0, 0.0, 1.0)))));
+            .set_style(div2, BackgroundColorType(Color::RGBA(CgColor::new(0.0, 1.0, 0.0, 1.0))));
         gui.gui.append(div2, div1);
 
         // 添加一个黄色
@@ -89,7 +88,7 @@ impl Example for QuadExample {
         gui.gui.set_style(div3, WidthType(Dimension::Points(50.0)));
         gui.gui.set_style(div3, HeightType(Dimension::Points(100.0)));
         gui.gui
-            .set_style(div3, BackgroundColorType(BackgroundColor(Color::RGBA(CgColor::new(1.0, 1.0, 0.0, 1.0)))));
+            .set_style(div3, BackgroundColorType(Color::RGBA(CgColor::new(1.0, 1.0, 0.0, 1.0))));
         gui.gui.append(div3, div1);
 
         gui.gui.append(div1, root);

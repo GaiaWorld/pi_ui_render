@@ -2,7 +2,7 @@
 
 use pi_ecs::{prelude::{Join, Write, Query}, monitor::Event};
 use pi_ecs_macros::{listen, setup};
-use pi_ecs_utils::prelude::NodeUp;
+use pi_ecs_utils::prelude::Up;
 
 use crate::components::{calc::{InPassId, NodeId}, draw_obj::{DrawObject}, pass_2d::{DirtyMark, DirtyType, Pass2D}, user::Node};
 
@@ -38,7 +38,7 @@ impl CalcMark {
 	pub fn pass2d_create_or_delete(
 		e: Event,
 		query_pass2d: Query<Pass2D, &NodeId>,
-		up: Query<Node, &NodeUp<Node>>,
+		up: Query<Node, &Up<Node>>,
 		in_pass_id: Query<Node, &InPassId>,
 		mut dirty_mark: Query<Pass2D, &mut DirtyMark>,
 	) {

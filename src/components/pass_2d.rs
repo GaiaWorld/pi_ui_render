@@ -11,6 +11,7 @@ use super::{
 	draw_obj::{DrawKey, DrawGroup}, 
 	user::{Aabb2, Point2, Matrix4}, calc::{DrawInfo, ZRange, WorldMatrix}
 };
+pub use super::root::RenderTarget;
 
 /// 一个渲染Pass
 pub struct Pass2D;
@@ -25,6 +26,7 @@ pub struct Camera {
 	pub bind_group: Option< DrawGroup >,
 	pub view_port: Aabb2, // 视口区域（相对于全局的0,0点）
 	pub world_matrix: Matrix4, // 将该相机内容整体渲染到其他目标时，所用的世界矩阵
+	pub is_active: bool,
 }
 
 impl Default for Camera {
@@ -35,6 +37,7 @@ impl Default for Camera {
 			bind_group: None,
 			view_port: Aabb2::new(Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)),
 			world_matrix: Matrix4::default(),
+			is_active: false,
 		}
     }
 }
@@ -175,7 +178,6 @@ pub struct PostTemp {
 // pub struct PostProcessList(pub SecondaryMap<DefaultKey, PostProcess>, pub DefaultKey/*最后一个后处理的key */);
 pub struct PostProcessList {
 	post: PostProcess,
-	pub cur_result: Option<(ShareTargetView, Handle<RenderRes<BindGroup>>)>,
 	pub depth: f32,
 	pub view_port: Aabb2,
 	pub matrix: WorldMatrix, // 矩阵变换
@@ -184,7 +186,7 @@ pub struct PostProcessList {
 
 impl Default for PostProcessList {
     fn default() -> Self {
-        Self { post: Default::default(), cur_result: Default::default(), depth: Default::default(), view_port: Aabb2::new(Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)), matrix: Default::default() }
+        Self { post: Default::default(), depth: Default::default(), view_port: Aabb2::new(Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)), matrix: Default::default() }
     }
 }
 
@@ -200,16 +202,6 @@ impl std::ops::DerefMut for PostProcessList {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.post
     }
-}
-
-/// 
-pub enum RenderTarget {
-	// 渲染到一个指定的离屏fbo
-	OffScreen(ShareTargetView),
-	// 渲染到屏幕
-	Screen,
-	// // 自动分配一个fbo来进行渲染
-	// Auto(Option<ShareTargetView>),
 }
 
 pub struct ScreenTarget {

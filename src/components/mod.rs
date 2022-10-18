@@ -5,3 +5,4 @@ pub mod calc;
 // DrawObject属性
 pub mod draw_obj;
 pub mod pass_2d;
+mod root;

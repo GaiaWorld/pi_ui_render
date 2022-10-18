@@ -2,15 +2,15 @@ use json::JsonValue;
 use ordered_float::NotNan;
 use pi_atom::Atom;
 
-pub trait FromJsonValue
+pub trait FromJsonValue<'a>
 where
     Self: Sized,
 {
-    fn from(json_value: &JsonValue) -> Option<Self>;
+    fn from(json_value: &'a JsonValue) -> Option<Self>;
 }
 
-impl FromJsonValue for String {
-    fn from(json_value: &JsonValue) -> Option<Self> {
+impl<'a> FromJsonValue<'a> for String {
+    fn from(json_value: &'a JsonValue) -> Option<Self> {
         match json_value.as_str() {
             Some(r) => Some(r.to_string()),
             None => None,
@@ -18,12 +18,12 @@ impl FromJsonValue for String {
     }
 }
 
-impl FromJsonValue for bool {
-    fn from(json_value: &JsonValue) -> Option<Self> { json_value.as_bool() }
+impl<'a> FromJsonValue<'a> for bool {
+    fn from(json_value: &'a JsonValue) -> Option<Self> { json_value.as_bool() }
 }
 
-impl FromJsonValue for Atom {
-    fn from(json_value: &JsonValue) -> Option<Self> {
+impl<'a> FromJsonValue<'a> for Atom {
+    fn from(json_value: &'a JsonValue) -> Option<Self> {
         match json_value.as_str() {
             Some(r) => Some(<Atom as From<&str>>::from(r)),
             None => None,
@@ -31,36 +31,40 @@ impl FromJsonValue for Atom {
     }
 }
 
-impl FromJsonValue for f32 {
-    fn from(json_value: &JsonValue) -> Option<Self> { json_value.as_f32() }
+impl<'a> FromJsonValue<'a> for &'a str {
+    fn from(json_value: &'a JsonValue) -> Option<Self> { json_value.as_str() }
 }
 
-impl FromJsonValue for f64 {
-    fn from(json_value: &JsonValue) -> Option<Self> { json_value.as_f64() }
+impl<'a> FromJsonValue<'a> for f32 {
+    fn from(json_value: &'a JsonValue) -> Option<Self> { json_value.as_f32() }
 }
 
-impl FromJsonValue for usize {
-    fn from(json_value: &JsonValue) -> Option<Self> { json_value.as_usize() }
+impl<'a> FromJsonValue<'a> for f64 {
+    fn from(json_value: &'a JsonValue) -> Option<Self> { json_value.as_f64() }
 }
 
-impl FromJsonValue for u32 {
-    fn from(json_value: &JsonValue) -> Option<Self> { json_value.as_u32() }
+impl<'a> FromJsonValue<'a> for usize {
+    fn from(json_value: &'a JsonValue) -> Option<Self> { json_value.as_usize() }
 }
 
-impl FromJsonValue for i32 {
-    fn from(json_value: &JsonValue) -> Option<Self> { json_value.as_i32() }
+impl<'a> FromJsonValue<'a> for u32 {
+    fn from(json_value: &'a JsonValue) -> Option<Self> { json_value.as_u32() }
 }
 
-impl FromJsonValue for u8 {
-    fn from(json_value: &JsonValue) -> Option<Self> { json_value.as_u8() }
+impl<'a> FromJsonValue<'a> for i32 {
+    fn from(json_value: &'a JsonValue) -> Option<Self> { json_value.as_i32() }
 }
 
-impl FromJsonValue for isize {
-    fn from(json_value: &JsonValue) -> Option<Self> { json_value.as_isize() }
+impl<'a> FromJsonValue<'a> for u8 {
+    fn from(json_value: &'a JsonValue) -> Option<Self> { json_value.as_u8() }
 }
 
-impl FromJsonValue for NotNan<f32> {
-    fn from(json_value: &JsonValue) -> Option<Self> {
+impl<'a> FromJsonValue<'a> for isize {
+    fn from(json_value: &'a JsonValue) -> Option<Self> { json_value.as_isize() }
+}
+
+impl<'a> FromJsonValue<'a> for NotNan<f32> {
+    fn from(json_value: &'a JsonValue) -> Option<Self> {
         match json_value.as_f32() {
             Some(r) => Some(unsafe { NotNan::new_unchecked(r) }),
             None => None,
@@ -68,10 +72,10 @@ impl FromJsonValue for NotNan<f32> {
     }
 }
 
-pub fn as_value<T: FromJsonValue>(json_value: &[JsonValue], i: usize) -> Option<T> { T::from(&json_value[i]) }
+pub fn as_value<'a, T: FromJsonValue<'a>>(json_value: &'a [JsonValue], i: usize) -> Option<T> { T::from(&json_value[i]) }
 
-impl<T: FromJsonValue> FromJsonValue for Vec<T> {
-    fn from(json_value: &JsonValue) -> Option<Self> {
+impl<'a, T: FromJsonValue<'a>> FromJsonValue<'a> for Vec<T> {
+    fn from(json_value: &'a JsonValue) -> Option<Self> {
         // {
         // 	"ty": "Uint32Array",
         // 	"value": [3069761967]

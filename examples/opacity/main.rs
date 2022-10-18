@@ -10,8 +10,8 @@ use pi_ecs::prelude::Id;
 use pi_flex_layout::style::{Dimension, PositionType};
 use pi_null::Null;
 use pi_ui_render::{
-	components::user::{BackgroundColor, Color, CgColor, Opacity}, 
-	resource::ClearColor, export::Engine
+	components::user::{Color, CgColor, ClearColor}, 
+	export::Engine
 };
 use pi_style::style_type::{WidthType, HeightType, BackgroundColorType, PositionTypeType, PositionLeftType, PositionTopType, MarginLeftType, MarginTopType, OpacityType};
 
@@ -31,7 +31,7 @@ impl Example for QuadExample {
 	) {
 
 		// 设置清屏颜色为绿色
-		gui.gui.world_mut().insert_resource(ClearColor(CgColor::new(0.0, 1.0, 1.0, 1.0)));
+		gui.gui.world_mut().insert_resource(ClearColor(CgColor::new(0.0, 1.0, 1.0, 1.0), true));
 		
 		// 添加根节点
 		let root = gui.gui.create_node();
@@ -57,7 +57,7 @@ impl Example for QuadExample {
 		let div1 = gui.gui.create_node();
 		gui.gui.set_style(div1, WidthType(Dimension::Points(50.0)));
 		gui.gui.set_style(div1, HeightType(Dimension::Points(100.0)));
-		gui.gui.set_style(div1, BackgroundColorType (BackgroundColor(Color::RGBA(CgColor::new(1.0, 0.0, 0.0, 1.0)) )));
+		gui.gui.set_style(div1, BackgroundColorType (Color::RGBA(CgColor::new(1.0, 0.0, 0.0, 1.0)) ));
 		gui.gui.append(div1, root);
 
 		
@@ -65,13 +65,13 @@ impl Example for QuadExample {
 		gui.gui.set_style(div1, PositionTopType(Dimension::Points(100.0)));
 		gui.gui.set_style(div1, WidthType(Dimension::Points(100.0)));
 		gui.gui.set_style(div1, HeightType(Dimension::Points(200.0)));
-		gui.gui.set_style(div1, OpacityType(Opacity(0.5)));
+		gui.gui.set_style(div1, OpacityType(0.5));
 
 		// 添加一个绿色div
 		let div2 = gui.gui.create_node();
 		gui.gui.set_style(div2, WidthType(Dimension::Points(50.0)));
 		gui.gui.set_style(div2, HeightType(Dimension::Points(100.0)));
-		gui.gui.set_style(div2, BackgroundColorType (BackgroundColor(Color::RGBA(CgColor::new(0.0, 1.0, 0.0, 1.0)) )));
+		gui.gui.set_style(div2, BackgroundColorType (Color::RGBA(CgColor::new(0.0, 1.0, 0.0, 1.0)) ));
 		gui.gui.append(div2, div1);
 
 		// 添加一个黄色
@@ -79,7 +79,7 @@ impl Example for QuadExample {
 		gui.gui.set_style(div3, PositionTopType(Dimension::Points(100.0)));
 		gui.gui.set_style(div3, WidthType(Dimension::Points(50.0)));
 		gui.gui.set_style(div3, HeightType(Dimension::Points(100.0)));
-		gui.gui.set_style(div3, BackgroundColorType (BackgroundColor(Color::RGBA(CgColor::new(1.0, 1.0, 0.0, 1.0)) )));
+		gui.gui.set_style(div3, BackgroundColorType (Color::RGBA(CgColor::new(1.0, 1.0, 0.0, 1.0)) ));
 		gui.gui.append(div3, div1);
 
 		gui.gui.append(div1, root);

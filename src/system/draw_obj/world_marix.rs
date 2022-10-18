@@ -3,6 +3,7 @@ use std::io::Result;
 use pi_assets::{mgr::AssetMgr, asset::Handle};
 use pi_ecs::{prelude::{Query, Changed, Added, Write, Or, OrDefault, ResMut}, entity::Id, storage::Offset};
 use pi_ecs_macros::setup;
+use pi_ecs_utils::prelude::Up;
 use pi_render::rhi::{
 	device::RenderDevice, 
 	asset::RenderRes, 
@@ -10,6 +11,7 @@ use pi_render::rhi::{
 	bind_group::BindGroup, RenderQueue, dyn_uniform_buffer::{Bind, Group}};
 use pi_share::Share;
 use pi_render::rhi::bind_group_layout::BindGroupLayout;
+use pi_style::style::NodeState;
 // use wgpu::BindGroupLayout;
 
 use crate::{
@@ -27,12 +29,21 @@ impl CalcWorldMatrixGroup {
 	/// 计算DrawObj的matrix group
 	#[system]
 	pub async fn calc_matrix_group<'a>(
-		mut query: Query<'a, 'a, Node, (&WorldMatrix, &LayoutResult, &DrawList, Id<Node>), Or<(Added<Pass2DId>,Changed<DrawList>, Changed<WorldMatrix>)>>,
+		query: Query<'a, 'a, Node, (&WorldMatrix, &LayoutResult, &DrawList, Id<Node>, &NodeState), Or<(Added<Pass2DId>,Changed<DrawList>, Changed<WorldMatrix>)>>,
+		query_parent: Query<'a, 'a, Node, &Up<Node>>,
+		query_matrix: Query<'a, 'a, Node, &WorldMatrix>,
 		query_draw: Query<'a, 'a, DrawObject, (Write<DrawState>, OrDefault<BoxType>)>,
 		mut dyn_uniform_buffer: ResMut<'static, DynUniformBuffer>,
 	) -> Result<()> {
 		// let mut i = 0;
-		for (matrix, layout_result, draw_list, node) in query.iter_mut() {
+		for (mut matrix, layout_result, draw_list, node, state) in query.iter() {
+			if state.is_vnode() { // 虚拟节点，现阶段只有图文混排的文字节点，直接使用父节点的世界矩阵
+				if let Some(up) = query_parent.get(node) {
+					if let Some(r) = query_matrix.get(up.parent()) {
+						matrix = r;
+					}
+				}
+			}
 			let mut content_matrix = None;
 			let mut border_matrix = None;
 			// 遍历当前节点下所有的DrawObject，为其设置
