@@ -3,60 +3,31 @@
 use std::default::Default;
 use std::{
     hash::{Hash, Hasher},
+    mem::transmute,
 };
 
-// use ordered_float::NotNan;
+use ordered_float::NotNan;
 use pi_curves::easing::EEasingMode;
 use pi_curves::steps::EStepMode;
 use pi_flex_layout::style::{
-    AlignContent, AlignItems, AlignSelf, Dimension, Direction, FlexDirection, FlexWrap, JustifyContent, PositionType,
+    AlignContent, AlignItems, AlignSelf, Dimension, Direction, Display, FlexDirection, FlexWrap, JustifyContent, PositionType,
 };
 use smallvec::SmallVec;
 
 use pi_atom::Atom;
 use pi_flex_layout::prelude::{INode, Number, Rect, Size as FlexSize};
-use bevy_reflect::{Reflect, impl_reflect_value, ReflectDeserialize, prelude::ReflectDefault};
 
+pub type Matrix4 = nalgebra::Matrix4<f32>;
 pub type Point2 = nalgebra::Point2<f32>;
-pub type Aabb2 = ncollide2d::bounding_volume::AABB<f32>;
-
-
-#[derive(Debug, Deref, DerefMut, Clone, Serialize, Deserialize, Hash)]
-pub struct NotNan<T: ordered_float::Float + Reflect>(ordered_float::NotNan<T>);
-impl_reflect_value!(NotNan<T: ordered_float::Float + Reflect>);
-
-
-// #[derive(Reflect, Debug, Deref, DerefMut, Clone, Serialize, Deserialize, Hash)]
-// pub struct NotNanRect(Rect<NotNan<f32>>);
-
-// impl Default for NotNanRect {
-//     fn default() -> Self {
-//         Self(unsafe {
-//             Rect {
-//                 top: NotNan::new_unchecked(0.0),
-//                 right: NotNan::new_unchecked(1.0),
-//                 bottom: NotNan::new_unchecked(1.0),
-//                 left: NotNan::new_unchecked(0.0),
-//             }
-//         })
-//     }
-// }
-
-// impl NotNanRect {
-//     pub fn new(top: NotNan<f32>, right: NotNan<f32>, bottom: NotNan<f32>, left: NotNan<f32>) -> Self { Self(Rect { top, right, bottom, left }) }
-
-//     /// 是否为单位rect（0~1）
-//     pub fn is_unit(&self) -> bool {
-//         if *self.left == 0.0 && *self.top == 0.0 && *self.right == 1.0 && *self.bottom == 1.0 {
-//             true
-//         } else {
-//             false
-//         }
-//     }
-// }
-
+pub type Point3 = nalgebra::Point3<f32>;
+pub type Vector2 = nalgebra::Vector2<f32>;
+pub type Vector3 = nalgebra::Vector3<f32>;
+pub type Vector4 = nalgebra::Vector4<f32>;
 #[derive(Debug, Deref, DerefMut, Clone, Serialize, Deserialize)]
 pub struct CgColor(nalgebra::Vector4<f32>);
+pub type Aabb2 = ncollide2d::bounding_volume::AABB<f32>;
+pub type NotNanRect = Rect<NotNan<f32>>;
+
 impl Hash for CgColor {
     fn hash<H: Hasher>(&self, state: &mut H) {
         unsafe {
@@ -82,7 +53,7 @@ pub struct Node;
 
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub struct Animation {
-    pub name: AnimationName,                               // 指定要绑定到选择器的关键帧的名称
+    pub name: SmallVec<[Atom; 1]>,                               // 指定要绑定到选择器的关键帧的名称
     pub duration: SmallVec<[Time; 1]>,                           // 动画指定需要多少毫秒完成
     pub timing_function: SmallVec<[AnimationTimingFunction; 1]>, // 设置动画将如何完成一个周期(插值函数)
     pub iteration_count: SmallVec<[IterationCount; 1]>,
@@ -90,12 +61,6 @@ pub struct Animation {
     pub direction: SmallVec<[AnimationDirection; 1]>,  // 指定是否应该轮流反向播放动画。
     pub fill_mode: SmallVec<[AnimationFillMode; 1]>,   // 规定当动画不播放时（当动画完成时，或当动画有一个延迟未开始播放时），要应用到元素的样式。
     pub play_state: SmallVec<[AnimationPlayState; 1]>, // 指定动画是否正在运行或已暂停
-}
-
-#[derive(Debug, Default, Serialize, Clone, Deserialize)]
-pub struct AnimationName {
-	pub value: SmallVec<[Atom; 1]>,
-	pub scope_hash: usize,
 }
 
 impl Animation {
@@ -177,13 +142,18 @@ pub enum EaseFunction {
 pub enum AnimationTimingFunction {
     /// 匀速
     Linear,
-    /// 淡入淡出
+	/// 淡入淡出
     Ease(EEasingMode),
     /// 跳跃
     Step(usize, EStepMode),
     /// 贝塞尔曲线
     CubicBezier(f32, f32, f32, f32),
 }
+
+
+/// 布局大小
+#[derive(Default, Deref, DerefMut, Clone, Serialize, Deserialize, Debug)]
+pub struct Size(pub FlexSize<Dimension>);
 
 /// 布局外边距
 #[derive(Default, Deref, DerefMut, Clone, Serialize, Deserialize, Debug)]
@@ -267,6 +237,17 @@ impl Default for FlexNormal {
     }
 }
 
+//================================== 组件
+#[derive(Deref, DerefMut, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize, Debug)]
+pub struct ZIndex(pub isize);
+
+//超出部分的裁剪方式
+#[derive(Deref, DerefMut, Clone, Default, Serialize, Deserialize, Debug)]
+pub struct Overflow(pub bool);
+//不透明度
+#[derive(Deref, DerefMut, Clone, Debug, Serialize, Deserialize)]
+pub struct Opacity(pub f32);
+
 /// 渲染模式
 #[derive(Clone, Debug, Serialize, Deserialize, EnumDefault)]
 pub enum BlendMode {
@@ -277,11 +258,52 @@ pub enum BlendMode {
     OneOne,
 }
 
+// 将display、visibility、enable合并为show组件
+#[derive(Deref, DerefMut, Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Show(pub usize);
+
+// 变换
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct Transform {
+    pub funcs: Vec<TransformFunc>,
+    pub origin: TransformOrigin,
+}
+
+impl Transform {
+    pub fn add_func(&mut self, f: TransformFunc) { self.funcs.push(f); }
+    pub fn set_origin(&mut self, o: TransformOrigin) { self.origin = o; }
+}
+
+pub type TransformFuncs = Vec<TransformFunc>;
+// 背景色和class
+#[derive(Debug, Clone, Default, Serialize, Deserialize, Deref)]
+pub struct BackgroundColor(pub Color);
+
+// class名称， 支持多个class， 当只有一个或两个class时， 有优化
+#[derive(Debug, Clone, Default, Serialize, Deserialize, Deref, DerefMut)]
+pub struct ClassName(pub SmallVec<[usize; 1]>);
+
+// 边框颜色
+#[derive(Debug, Clone, Default, Serialize, Deserialize, Deref, DerefMut)]
+pub struct BorderColor(pub CgColor);
+
+// 图片路劲及纹理
+#[derive(Debug, Deref, DerefMut, Clone, Serialize, Deserialize, Default, Hash)]
+pub struct BackgroundImage(pub Atom);
+
 // 遮罩图片是图片路径或线性渐变色
 #[derive(Clone, Debug, Serialize, Deserialize, EnumDefault)]
 pub enum MaskImage {
     Path(Atom),
     LinearGradient(LinearGradientColor),
+}
+
+
+#[derive(Debug, Deref, DerefMut, Clone, Serialize, Deserialize)]
+pub struct MaskImageClip(pub Aabb2);
+
+impl Default for MaskImageClip {
+    fn default() -> Self { MaskImageClip(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(1.0, 1.0))) }
 }
 
 // 滤镜， 与CSS的Filter不同， 该滤镜不依赖Filter 函数的先后顺序， 且同种滤镜设置多次，会覆盖前面的设置（css是一种叠加效果）
@@ -292,13 +314,37 @@ pub struct Hsi {
     pub bright_ness: f32, //亮度 -1。0 ~1.0 ， 对应ps的 -100 ~ 100
 }
 
-pub type TransformFuncs = Vec<TransformFunc>;
+#[derive(Clone, Debug, Default, Serialize, Deserialize, Deref, DerefMut)]
+pub struct Blur(pub f32);
 
 //ObjectFit
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct BackgroundImageMod {
     pub object_fit: FitType,
     pub repeat: ImageRepeat,
+}
+
+// image图像的uv（仅支持百分比， 不支持像素值）
+#[derive(Debug, Deref, DerefMut, Clone, Serialize, Deserialize)]
+pub struct BackgroundImageClip(pub Aabb2);
+
+// 边框图片
+#[derive(Debug, Deref, DerefMut, Clone, Serialize, Deserialize, Default, Hash)]
+pub struct BorderImage(pub Atom);
+
+// borderImage图像的uv（仅支持百分比， 不支持像素值）
+#[derive(Debug, Deref, DerefMut, Clone, Serialize, Deserialize, Hash)]
+pub struct BorderImageClip(pub NotNanRect);
+
+impl Default for BorderImageClip {
+    fn default() -> Self {
+        Self(NotNanRect {
+            left: unsafe { NotNan::new_unchecked(0.0) },
+            top: unsafe { NotNan::new_unchecked(0.0) },
+            right: unsafe { NotNan::new_unchecked(1.0) },
+            bottom: unsafe { NotNan::new_unchecked(1.0) },
+        })
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Hash)]
@@ -321,6 +367,9 @@ impl Default for BorderImageSlice {
         }
     }
 }
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, Hash, Deref, DerefMut)]
+pub struct BorderImageRepeat(pub ImageRepeat);
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, Hash)]
 pub struct ImageRepeat {
@@ -345,10 +394,6 @@ pub struct BoxShadow {
     pub color: CgColor, // 阴影颜色
 }
 
-// 文本内容
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct TextContent(pub String, pub Atom);
-
 // 文字样式
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Text {
@@ -363,6 +408,53 @@ pub struct Text {
     pub vertical_align: VerticalAlign,
 }
 
+// 文本内容
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct TextContent(pub String, pub Atom);
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TextStyle {
+    pub color: Color, //颜色
+    pub text_indent: f32,
+    pub text_stroke: Stroke,
+    pub text_align: TextAlign,
+    pub text_shadow: TextShadows, // 缩进， 单位： 像素
+    pub letter_spacing: f32,      //字符间距， 单位：像素
+    pub word_spacing: f32,        //字符间距， 单位：像素
+    pub white_space: WhiteSpace,  //空白处理
+    pub line_height: LineHeight,  //设置行高
+    pub vertical_align: VerticalAlign,
+
+    pub font_style: FontStyle, //	规定字体样式。参阅：font-style 中可能的值。
+    pub font_weight: usize,    //	规定字体粗细。参阅：font-weight 中可能的值。
+    pub font_size: FontSize,   //
+    pub font_family: Atom,     //	规定字体系列。参阅：font-family 中可能的值。
+}
+
+impl Default for TextStyle {
+    fn default() -> Self {
+        Self {
+            color: Default::default(),
+            text_indent: Default::default(),
+            text_stroke: Default::default(),
+            text_align: Default::default(),
+            text_shadow: Default::default(),
+            letter_spacing: Default::default(),
+            word_spacing: Default::default(),
+            white_space: Default::default(),
+            line_height: Default::default(),
+            vertical_align: Default::default(),
+            font_style: Default::default(),
+            font_weight: 500,
+            font_size: Default::default(),
+            font_family: Default::default(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, Deref, DerefMut)]
+pub struct TextShadows(pub SmallVec<[TextShadow; 1]>);
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct TextShadow {
     pub h: f32,         //	必需。水平阴影的位置。允许负值。	测试
@@ -371,9 +463,36 @@ pub struct TextShadow {
     pub color: CgColor, //	可选。阴影的颜色。参阅 CSS 颜色值。
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Font {
+    pub style: FontStyle, //	规定字体样式。参阅：font-style 中可能的值。
+    pub weight: usize,    //	规定字体粗细。参阅：font-weight 中可能的值。
+    pub size: FontSize,   //
+    pub family: usize,    //	规定字体系列。参阅：font-family 中可能的值。
+}
+
+// TransformWillChange， 用于优化频繁变化的Transform
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
+pub struct TransformWillChange(pub Transform);
+
+impl Default for Font {
+    fn default() -> Self {
+        Self {
+            style: FontStyle::default(),
+            weight: 500,
+            size: FontSize::default(),
+            family: 0,
+        }
+    }
+}
+
 // #[derive(Debug)]
 // pub struct Quad(pub Point2, pub Point2, pub Point2, pub Point2);
 
+pub enum LengthUnitType {
+    Pixel,
+    Percent,
+}
 #[derive(Clone, Copy, Debug, EnumDefault, Serialize, Deserialize)]
 pub enum LengthUnit {
     Pixel(f32),
@@ -465,6 +584,49 @@ pub enum RadialGradientShape {
     Ellipse,
     Circle,
 }
+pub type Polygon = Vec<f32>;
+
+// color_and_positions: [r, g, b, a, pos,   r, g, b, a, pos], direction: 0-360度
+pub fn to_linear_gradient_color(color_and_positions: &[f32], direction: f32) -> LinearGradientColor {
+    let arr = color_and_positions;
+    let len = arr.len();
+    let count = len / 5;
+    let mut list = Vec::with_capacity(count);
+    for i in 0..count {
+        let start = i * 5;
+        let color_pos = ColorAndPosition {
+            rgba: CgColor::new(arr[start], arr[start + 1], arr[start + 2], arr[start + 3]),
+            position: arr[start + 4],
+        };
+        list.push(color_pos);
+    }
+    LinearGradientColor {
+        direction: direction,
+        list: list,
+    }
+}
+
+// color_and_positions: [r, g, b, a, pos,   r, g, b, a, pos], center_x: 0~1, center_y: 0~1, shape: RadialGradientShape, size: RadialGradientSize
+pub fn to_radial_gradient_color(color_and_positions: &[f32], center_x: f32, center_y: f32, shape: u8, size: u8) -> RadialGradientColor {
+    let arr = color_and_positions;
+    let len = arr.len();
+    let count = len / 5;
+    let mut list = Vec::with_capacity(count);
+    for i in 0..count {
+        let start = i * 5;
+        let color_pos = ColorAndPosition {
+            rgba: CgColor::new(arr[start], arr[start + 1], arr[start + 2], arr[start + 3]),
+            position: arr[start + 4],
+        };
+        list.push(color_pos);
+    }
+    RadialGradientColor {
+        center: (center_x, center_y),
+        shape: unsafe { transmute(shape) },
+        size: unsafe { transmute(size) },
+        list: list,
+    }
+}
 
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub struct Stroke {
@@ -517,7 +679,7 @@ pub enum LineHeight {
     Percent(f32), //	基于当前字体尺寸的百分比行间距.
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, EnumDefault)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum TransformFunc {
     TranslateX(f32),
     TranslateY(f32),
@@ -565,7 +727,7 @@ impl TransformOrigin {
 }
 
 #[derive(Debug)]
-pub enum ShowType {
+enum ShowType {
     Display = 1,    // 0表示 Flex
     Visibility = 2, // 0表示no Visible
     Enable = 12,    // 0表示no Enable
@@ -667,6 +829,65 @@ pub enum VerticalAlign {
     Top,
     Middle,
     Bottom,
+}
+
+impl Default for Opacity {
+    fn default() -> Opacity { Opacity(1.0) }
+}
+
+impl Show {
+    #[inline]
+    pub fn get_display(&self) -> Display { unsafe { transmute((self.0 & (ShowType::Display as usize)) as u8) } }
+
+    #[inline]
+    pub fn set_display(&mut self, display: Display) {
+        match display {
+            Display::Flex => self.0 &= !(ShowType::Display as usize),
+            Display::None => self.0 |= ShowType::Display as usize,
+        }
+    }
+
+    #[inline]
+    pub fn get_visibility(&self) -> bool { (self.0 & (ShowType::Visibility as usize)) != 0 }
+
+    #[inline]
+    pub fn set_visibility(&mut self, visibility: bool) {
+        if visibility {
+            self.0 |= ShowType::Visibility as usize;
+        } else {
+            self.0 &= !(ShowType::Visibility as usize);
+        }
+    }
+
+    #[inline]
+    pub fn get_enable(&self) -> Enable {
+        let r = unsafe { transmute(((self.0 & (ShowType::Enable as usize)) >> 2) as u8) };
+        r
+    }
+
+    #[inline]
+    pub fn set_enable(&mut self, enable: Enable) { self.0 = self.0 & !(ShowType::Enable as usize) | ((enable as usize) << 2); }
+}
+
+impl Default for Show {
+    fn default() -> Show { Show(ShowType::Visibility as usize) }
+}
+impl Default for BackgroundImageClip {
+    fn default() -> BackgroundImageClip { BackgroundImageClip(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(1.0, 1.0))) }
+}
+
+pub fn get_size(s: &FontSize) -> usize {
+    match s {
+        &FontSize::None => {
+            // size
+            32 // 默认32px
+        }
+        &FontSize::Length(r) => r,
+        &FontSize::Percent(_r) => {
+            // (r * size as f32).round() as usize;
+            panic!()
+        }
+    }
 }
 
 #[derive(Clone, Default, Deref, DerefMut, Debug, Serialize, Deserialize)]

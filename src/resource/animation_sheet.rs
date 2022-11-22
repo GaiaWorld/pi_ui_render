@@ -1,5 +1,6 @@
 use std::{any::Any, collections::VecDeque};
 
+use bevy::prelude::{Resource, Entity};
 use bitvec::vec::BitVec;
 use log::debug;
 use ordered_float::NotNan;
@@ -19,19 +20,43 @@ use pi_curves::{
     curve::{frame::FrameDataValue, frame_curve::FrameCurve},
     easing::EEasingMode,
 };
-use pi_ecs::{prelude::Id};
 use pi_hash::XHashMap;
 use pi_map::vecmap::VecMap;
 use pi_print_any::out_any;
-use pi_slotmap::SecondaryMap;
+use pi_slotmap::{SecondaryMap, Key};
 use pi_style::style::{AnimationDirection, AnimationTimingFunction};
 use pi_style::{style::Animation, style_parse::Attribute, style_type::*};
 use smallvec::SmallVec;
+use pi_null::Null;
 
-use crate::components::user::{serialize::StyleAttr, Node};
+use crate::components::user::serialize::StyleAttr;
 
 use super::StyleCommands;
 
+#[derive(Debug, Clone, Deref, PartialEq, Eq, Copy, Hash, PartialOrd, Ord)]
+pub struct ObjKey(pub Entity);
+
+unsafe impl Key for ObjKey {
+    fn data(&self) -> pi_slotmap::KeyData {
+		// (u64::from(self.version.get()) << 32) | u64::from(self.idx)
+
+        pi_slotmap::KeyData::from_ffi(u64::from(self.0.generation() << 32) | u64::from(self.0.index()))
+    }
+}
+
+impl From<pi_slotmap::KeyData> for ObjKey {
+    fn from(value: pi_slotmap::KeyData) -> Self {
+        Self (Entity::from_bits(value.as_ffi()))
+    }
+}
+
+impl Default for ObjKey {
+    fn default() -> Self {
+		Self (Entity::from_bits(u64::null()))
+    }
+}
+
+#[derive(Resource)]
 pub struct KeyFramesSheet {
     animation_attr_types: Vec<AnimationType>, // Vec<TypeAnimationContext<T>>,
 
@@ -39,16 +64,16 @@ pub struct KeyFramesSheet {
     curve_infos: FrameCurveInfoManager,
     type_use_mark: BitVec, // 标记被使用的TypeAnimationContext，加速run（只有被使用到的TypeAnimationContext才会被嗲用run方法）
 
-    runtime_info_map: RuntimeInfoMap<Id<Node>>,
-    animation_context_amount: AnimationContextAmount<AnimationManagerDefault, Id<Node>, AnimationGroupManagerDefault<Id<Node>>>,
+    runtime_info_map: RuntimeInfoMap<ObjKey>,
+    animation_context_amount: AnimationContextAmount<AnimationManagerDefault, ObjKey, AnimationGroupManagerDefault<ObjKey>>,
 
-    animation_bind: SecondaryMap<Id<Node>, SmallVec<[AnimationGroupID; 1]>>, // 描述节点上绑定了什么动画
-	group_bind: SecondaryMap<AnimationGroupID, (Id<Node>, Atom)>, // 描述group对应的节点， 以及group的名称
+    animation_bind: SecondaryMap<ObjKey, SmallVec<[AnimationGroupID; 1]>>, // 描述节点上绑定了什么动画
+	group_bind: SecondaryMap<AnimationGroupID, (ObjKey, Atom)>, // 描述group对应的节点， 以及group的名称
 
     temp_keyframes_ptr: VecMap<usize>, // 临时帧动画指针（添加帧动画时用到）
     temp_keyframes_mark: BitVec,       // 临时帧动画标记，表示哪些属性存在曲线（加帧动画时用到）
 
-	animation_events_callback: Option<Box<dyn Fn(&Vec<(AnimationGroupID, EAnimationEvent, u32)>, &SecondaryMap<AnimationGroupID, (Id<Node>, Atom)>)>> // 动画事件回调函数
+	animation_events_callback: Option<Box<dyn Fn(&Vec<(AnimationGroupID, EAnimationEvent, u32)>, &SecondaryMap<AnimationGroupID, (ObjKey, Atom)>)>> // 动画事件回调函数
 }
 
 unsafe impl Send for KeyFramesSheet {}
@@ -56,7 +81,7 @@ unsafe impl Sync for KeyFramesSheet {}
 
 impl Default for KeyFramesSheet {
     fn default() -> Self {
-        let mut b = RuntimeInfoMap::<Id<Node>>::default();
+        let mut b = RuntimeInfoMap::<ObjKey>::default();
         let mut c = FrameCurveInfoManager::default();
         let animation_attr_types = vec![
             AnimationType::new::<PaddingTopType>(&mut b, &mut c),       // 占位
@@ -183,12 +208,12 @@ impl KeyFramesSheet {
     }
 
 	/// 设置事件监听回调
-	pub fn set_event_listener(&mut self, callback: Box<dyn Fn(&Vec<(AnimationGroupID, EAnimationEvent, u32)>, &SecondaryMap<AnimationGroupID, (Id<Node>, Atom)>)>) {
+	pub fn set_event_listener(&mut self, callback: Box<dyn Fn(&Vec<(AnimationGroupID, EAnimationEvent, u32)>, &SecondaryMap<AnimationGroupID, (ObjKey, Atom)>)>) {
 		self.animation_events_callback = Some(callback);
 	}
 
     // 将动画绑定到目标上
-    pub fn bind_animation(&mut self, target: Id<Node>, animation: &Animation) -> Result<(), KeyFrameError> {
+    pub fn bind_animation(&mut self, target: ObjKey, animation: &Animation) -> Result<(), KeyFrameError> {
         log::warn!("bind_animation====={:?}", animation);
         // 先解绑节点上的动画
         self.unbind_animation(target);
@@ -265,7 +290,7 @@ impl KeyFramesSheet {
     }
 
     // 解绑定动画
-    pub fn unbind_animation(&mut self, target: Id<Node>) {
+    pub fn unbind_animation(&mut self, target: ObjKey) {
         if let Some(r) = self.animation_bind.remove(target) {
             // 移除目标上绑定的所有动画
             for single_animation in r {
@@ -416,7 +441,7 @@ pub struct CurveId {
 
 impl AnimationType {
     fn new<T: AnimationTypeInterface + Attr + FrameDataValue>(
-        runtime_info_map: &mut RuntimeInfoMap<Id<Node>>,
+        runtime_info_map: &mut RuntimeInfoMap<ObjKey>,
         curve_infos: &mut FrameCurveInfoManager,
     ) -> Self {
         Self {
@@ -433,17 +458,17 @@ impl AnimationType {
 
 pub struct AnimationType {
     context: Box<dyn Any>, // TypeAnimationContext<T>
-    run: fn(context: &Box<dyn Any>, runtime_infos: &RuntimeInfoMap<Id<Node>>, style_commands: &mut StyleCommands),
+    run: fn(context: &Box<dyn Any>, runtime_infos: &RuntimeInfoMap<ObjKey>, style_commands: &mut StyleCommands),
     add_frame_curve: fn(&mut Box<dyn Any>, curve_infos: &mut FrameCurveInfoManager, curve_ptr: usize) -> CurveId,
 }
 
 trait AnimationTypeInterface {
-    fn run(context: &Box<dyn Any>, runtime_infos: &RuntimeInfoMap<Id<Node>>, style_commands: &mut StyleCommands);
+    fn run(context: &Box<dyn Any>, runtime_infos: &RuntimeInfoMap<ObjKey>, style_commands: &mut StyleCommands);
     fn add_frame_curve(context: &mut Box<dyn Any>, curve_infos: &mut FrameCurveInfoManager, curve_ptr: usize) -> CurveId;
 }
 
 impl<T: Attr + FrameDataValue> AnimationTypeInterface for T {
-    fn run(context: &Box<dyn Any>, runtime_infos: &RuntimeInfoMap<Id<Node>>, style_commands: &mut StyleCommands) {
+    fn run(context: &Box<dyn Any>, runtime_infos: &RuntimeInfoMap<ObjKey>, style_commands: &mut StyleCommands) {
         if let Err(e) = context
             .downcast_ref::<TypeAnimationContext<Self>>()
             .unwrap()
@@ -466,27 +491,27 @@ impl<T: Attr + FrameDataValue> AnimationTypeInterface for T {
     }
 }
 
-impl<F: Attr + FrameDataValue> TypeAnimationResultPool<F, Id<Node>> for StyleCommands {
-    fn record_target(&mut self, _id_target: Id<Node>) {
+impl<F: Attr + FrameDataValue> TypeAnimationResultPool<F, ObjKey> for StyleCommands {
+    fn record_target(&mut self, _id_target: ObjKey) {
         // todo!()
     }
 
     fn record_result(
         &mut self,
-        entity: Id<Node>,
+        entity: ObjKey,
         _id_attr: pi_animation::target_modifier::IDAnimatableAttr,
         result: pi_animation::animation_context::AnimeResult<F>,
     ) -> Result<(), pi_animation::error::EAnimationError> {
-        // out_any!(log::debug, "record animation result===={:?}, {:?}", &result.value, &entity);
+        // out_any!(log::debug, "record animation result===={:?}, {:?}", &result.value, &ObjKey);
         let start = self.style_buffer.len();
         unsafe { StyleAttr::write(result.value, &mut self.style_buffer) };
         if let Some(r) = self.commands.last_mut() {
-            if r.0 == entity {
+            if r.0 == entity.0 {
                 r.2 = self.style_buffer.len();
                 return Ok(());
             }
         }
-        self.commands.push((entity, start, self.style_buffer.len()));
+        self.commands.push((entity.0, start, self.style_buffer.len()));
         Ok(())
     }
 }

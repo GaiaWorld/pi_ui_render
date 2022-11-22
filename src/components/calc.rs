@@ -4,13 +4,13 @@ use std::{
     intrinsics::transmute,
     ops::{Deref, DerefMut, Index, IndexMut, Mul},
 };
+use bevy::prelude::{Component, Entity};
 
 use bitvec::prelude::BitArray;
 use nalgebra::Matrix4;
 use ordered_float::NotNan;
 use pi_assets::asset::Handle;
 use pi_ecs::prelude::{Id, LocalVersion};
-use pi_ecs_macros::Component;
 use pi_map::Map;
 use pi_render::rhi::asset::TextureRes;
 use pi_share::Share;
@@ -321,7 +321,7 @@ impl WorldMatrix {
 
 // #[storage = ]
 #[derive(Clone, Debug, Component, Serialize, Deserialize)]
-#[storage(QuadTree)]
+// #[storage(QuadTree)]
 pub struct Quad(Aabb2, ());
 
 impl Quad {
@@ -415,7 +415,7 @@ pub struct Culling(pub bool);
 pub struct ByOverflow(pub usize);
 
 // 样式标记
-#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, Component)]
 pub struct StyleMark {
     pub local_style: BitArray<[u32; 3]>, // 本地样式， 表示节点样式中，哪些样式是由style设置的（而非class设置）
     pub class_style: BitArray<[u32; 3]>, // class样式， 表示节点样式中，哪些样式是由class设置的
@@ -550,8 +550,8 @@ pub struct NodeId(pub Id<Node>);
 pub struct DefineMark(bitvec::prelude::BitArray);
 
 /// 每节点的渲染列表
-#[derive(Deref, DerefMut, Default, Debug)]
-pub struct DrawList(pub SmallVec<[Id<DrawObject>; 1]>);
+#[derive(Deref, DerefMut, Default, Debug, Component)]
+pub struct DrawList(pub SmallVec<[Entity; 1]>);
 
 /// 裁剪框
 /// 非旋转情况下，由世界矩阵、布局、TarnsformWillChange（包含父）计算、并与父的裁剪框相交而得
@@ -575,7 +575,7 @@ impl From<Handle<TextureRes>> for BorderImageTexture {
     fn from(h: Handle<TextureRes>) -> Self { Self(h) }
 }
 
-#[derive(Deref, DerefMut)]
+#[derive(Deref, DerefMut, Component)]
 pub struct BackgroundImageTexture(pub Handle<TextureRes>);
 
 impl From<Handle<TextureRes>> for BackgroundImageTexture {

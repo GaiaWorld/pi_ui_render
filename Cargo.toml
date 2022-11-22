@@ -63,7 +63,8 @@ pi_dirty="0.1"
 
 pi_spatialtree = { git = "https://github.com/GaiaWorld/pi_spatialtree.git" }
 pi_ecs_macros = { git = "https://github.com/GaiaWorld/pi_ecs.git" }
-pi_ecs_utils = { git = "https://github.com/GaiaWorld/pi_ecs_utils.git" }
+# pi_ecs_utils = { git = "https://github.com/GaiaWorld/pi_ecs_utils.git" }
+pi_ecs_utils = {path="../pi_ecs_utils"}
 pi_ecs = { git = "https://github.com/GaiaWorld/pi_ecs.git" }
 pi_flex_layout = { git = "https://github.com/GaiaWorld/pi_flex_layout.git" }
 pi_hal={git="https://github.com/GaiaWorld/pi_hal.git"}
@@ -72,15 +73,16 @@ pi_postprocess={git="https://github.com/GaiaWorld/pi_post_process.git"}
 pi_curves = { git="https://github.com/GaiaWorld/pi_curves.git"}
 pi_animation = {git="https://github.com/GaiaWorld/pi_animation.git"}
 render_derive = {git="https://github.com/GaiaWorld/pi_render.git"}
-pi_style = {path="./style"}
+pi_style = {path="../pi_style"}
 pi_futures="0.1"
 pi_time="0.2"
 siphasher = {version="0.3", features=["serde_no_std"]}
 wasm-bindgen = { version = "0.2", features = ["serde-serialize"] }
+bevy="0.9"
+winit = {git = "http://ser.yinengyun.com:10082/tech/winit.git"}
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 # wasm-bindgen = { version = "0.2", features = ["serde-serialize"] }
-winit = {git = "http://ser.yinengyun.com:10082/tech/winit.git", features=["web-sys"]}
 uuid = { version = "1", features = ["js"] }
 pi_share = {version="0.4", features=["serial", "rc"]}
 pi_async = {version = "0.5", features = ["serial"]}
@@ -93,7 +95,6 @@ pi_render = { git = "https://github.com/GaiaWorld/pi_render.git", features=["web
 flume = {version="0.10", features=["spin"]}
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-winit = {git = "http://ser.yinengyun.com:10082/tech/winit.git"}
 pi_share = {version="0.4"}
 pi_async = "0.5"
 wgpu = { version = "0.13", features = ["spirv", "glsl"] }
@@ -128,19 +129,20 @@ flume = "0.10"
 # [patch."https://github.com/GaiaWorld/pi_hal"]
 # pi_hal = { path = "../pi_hal" }
 
-# [patch."https://github.com/GaiaWorld/pi_flex_layout"]
-# pi_flex_layout = { path = "../pi_flex_layout" }
+[patch."https://github.com/GaiaWorld/pi_flex_layout"]
+pi_flex_layout = { path = "../pi_flex_layout" }
 
 # [patch."http://ser.yinengyun.com:10082/tech/font_kit.git"]
 # font_kit = { path = "../font_kit" }
 
 [patch.crates-io]
+# pi_slotmap_tree = { path = "../pi_slotmap_tree" }
 # pi_assets = {path="../pi_assets"}
 # pi_graph = {path = "../pi_graph"}
 # wgpu = { path = "../wgpu1/wgpu"}
 # pi_assets = {path = "../pi_assets"}
 # pi_slotmap = { path = "../pi_slotmap" }
-# pi_slotmap_tree = { path = "../pi_slotmap_tree" }
+
 # pi_dirty = { path = "../pi_dirty" }
 # wgpu = { path = "../wgpu/wgpu" }
 

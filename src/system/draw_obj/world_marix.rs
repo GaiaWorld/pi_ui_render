@@ -28,11 +28,11 @@ pub struct CalcWorldMatrixGroup;
 impl CalcWorldMatrixGroup {
 	/// 计算DrawObj的matrix group
 	#[system]
-	pub async fn calc_matrix_group<'a>(
-		query: Query<'a, 'a, Node, (&WorldMatrix, &LayoutResult, &DrawList, Id<Node>, &NodeState), Or<(Added<Pass2DId>,Changed<DrawList>, Changed<WorldMatrix>)>>,
-		query_parent: Query<'a, 'a, Node, &Up<Node>>,
-		query_matrix: Query<'a, 'a, Node, &WorldMatrix>,
-		query_draw: Query<'a, 'a, DrawObject, (Write<DrawState>, OrDefault<BoxType>)>,
+	pub async fn calc_matrix_group(
+		query: Query<'static, 'static, Node, (&WorldMatrix, &LayoutResult, &DrawList, Id<Node>, &NodeState), Or<(Added<Pass2DId>,Changed<DrawList>, Changed<WorldMatrix>)>>,
+		query_parent: Query<'static, 'static, Node, &Up<Node>>,
+		query_matrix: Query<'static, 'static, Node, &WorldMatrix>,
+		query_draw: Query<'static, 'static, DrawObject, (Write<DrawState>, OrDefault<BoxType>)>,
 		mut dyn_uniform_buffer: ResMut<'static, DynUniformBuffer>,
 	) -> Result<()> {
 		// let mut i = 0;

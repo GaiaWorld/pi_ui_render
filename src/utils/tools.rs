@@ -78,7 +78,7 @@ pub fn box_aabb(aabb1: &mut Aabb2, aabb2: &Aabb2) {
     aabb1.maxs.y = aabb1.maxs.y.max(aabb2.maxs.y);
 }
 
-pub fn get_radius(radius: &BorderRadius, layout: &LayoutResult) -> Rect<NotNan<f32>> {
+pub fn get_radius(radius: &BorderRadius, layout: &LayoutResult) -> Rect<f32> {
     let width = layout.rect.right - layout.rect.left;
     let height = layout.rect.bottom - layout.rect.top;
     let half_width = width / 2.0;
@@ -86,52 +86,52 @@ pub fn get_radius(radius: &BorderRadius, layout: &LayoutResult) -> Rect<NotNan<f
 
     Rect {
         top: match radius.y {
-            LengthUnit::Pixel(v) => unsafe { NotNan::new_unchecked(half_height.min(v)) },
-            LengthUnit::Percent(v) => unsafe { NotNan::new_unchecked(half_height.min(v * height)) },
+            LengthUnit::Pixel(v) => half_height.min(v),
+            LengthUnit::Percent(v) => half_height.min(v * height),
         },
         right: match radius.x {
-            LengthUnit::Pixel(v) => unsafe { NotNan::new_unchecked(half_width.min(v)) },
-            LengthUnit::Percent(v) => unsafe { NotNan::new_unchecked(half_width.min(v * width)) },
+            LengthUnit::Pixel(v) => half_width.min(v),
+            LengthUnit::Percent(v) => half_width.min(v * width),
         },
         bottom: match radius.y {
-            LengthUnit::Pixel(v) => unsafe { NotNan::new_unchecked(half_height.min(v)) },
-            LengthUnit::Percent(v) => unsafe { NotNan::new_unchecked(half_height.min(v * height)) },
+            LengthUnit::Pixel(v) => half_height.min(v),
+            LengthUnit::Percent(v) => half_height.min(v * height),
         },
         left: match radius.x {
-            LengthUnit::Pixel(v) => unsafe { NotNan::new_unchecked(half_width.min(v)) },
-            LengthUnit::Percent(v) => unsafe { NotNan::new_unchecked(half_width.min(v * width)) },
+            LengthUnit::Pixel(v) => half_width.min(v),
+            LengthUnit::Percent(v) => half_width.min(v * width),
         },
     }
 }
 
-pub fn get_content_size(layout: &LayoutResult) -> Size<NotNan<f32>> {
+pub fn get_content_size(layout: &LayoutResult) -> Size<f32> {
     Size {
-        width: unsafe { NotNan::new_unchecked(layout.rect.right - layout.rect.left - layout.border.left - layout.border.right) },
-        height: unsafe { NotNan::new_unchecked(layout.rect.bottom - layout.rect.top - layout.border.bottom - layout.border.top) },
+        width: layout.rect.right - layout.rect.left - layout.border.left - layout.border.right,
+        height: layout.rect.bottom - layout.rect.top - layout.border.bottom - layout.border.top,
     }
 }
 
 #[inline]
-pub fn get_content_rect(layout: &LayoutResult) -> Rect<NotNan<f32>> {
+pub fn get_content_rect(layout: &LayoutResult) -> Rect<f32> {
     Rect {
-        top: unsafe { NotNan::new_unchecked(layout.border.top + layout.border.top) },
-        right: unsafe { NotNan::new_unchecked(layout.rect.right - layout.border.right) },
-        bottom: unsafe { NotNan::new_unchecked(layout.rect.bottom - layout.border.bottom) },
-        left: unsafe { NotNan::new_unchecked(layout.rect.left + layout.border.left) },
+        top: layout.border.top + layout.border.top,
+        right: layout.rect.right - layout.border.right,
+        bottom: layout.rect.bottom - layout.border.bottom,
+        left: layout.rect.left + layout.border.left,
     }
 }
 
 #[inline]
-pub fn get_box_rect(layout: &LayoutResult) -> Rect<NotNan<f32>> {
+pub fn get_box_rect(layout: &LayoutResult) -> Rect<f32> {
     Rect {
-        top: unsafe { NotNan::new_unchecked(0.0) },
-        right: unsafe { NotNan::new_unchecked(layout.rect.right - layout.rect.left) },
-        bottom: unsafe { NotNan::new_unchecked(layout.rect.bottom - layout.rect.top) },
-        left: unsafe { NotNan::new_unchecked(0.0) },
+        top: 0.0,
+        right: layout.rect.right - layout.rect.left,
+        bottom: layout.rect.bottom - layout.rect.top,
+        left: 0.0,
     }
 }
 
-pub fn get_content_radius(radius: Option<&BorderRadius>, layout: &LayoutResult) -> Option<Rect<NotNan<f32>>> {
+pub fn get_content_radius(radius: Option<&BorderRadius>, layout: &LayoutResult) -> Option<Rect<f32>> {
     let radius = match radius {
         None => return None,
         Some(radius) => radius,
@@ -142,20 +142,20 @@ pub fn get_content_radius(radius: Option<&BorderRadius>, layout: &LayoutResult) 
     r.bottom = r.bottom - layout.border.bottom;
     r.left = r.left - layout.border.left;
 
-    if *r.top < 0.0 {
-        r.top = unsafe { NotNan::new_unchecked(0.0) };
+    if r.top < 0.0 {
+        r.top = 0.0;
     }
-    if *r.right < 0.0 {
-        r.right = unsafe { NotNan::new_unchecked(0.0) };
+    if r.right < 0.0 {
+        r.right = 0.0;
     }
-    if *r.bottom < 0.0 {
-        r.bottom = unsafe { NotNan::new_unchecked(0.0) };
+    if r.bottom < 0.0 {
+        r.bottom = 0.0;
     }
-    if *r.left < 0.0 {
-        r.left = unsafe { NotNan::new_unchecked(0.0) };
+    if r.left < 0.0 {
+        r.left = 0.0;
     }
 
-    if *r.top == 0.0 && *r.right == 0.0 && *r.bottom == 0.0 && *r.left == 0.0 {
+    if r.top == 0.0 && r.right == 0.0 && r.bottom == 0.0 && r.left == 0.0 {
         return None;
     } else {
         return Some(r);

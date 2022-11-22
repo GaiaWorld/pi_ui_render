@@ -20,8 +20,8 @@ pub mod components;
 pub mod resource;
 pub mod system;
 pub mod utils;
-pub mod gui;
-pub mod export;
+// pub mod gui;
+// pub mod export;
 pub mod shaders;
 
 
