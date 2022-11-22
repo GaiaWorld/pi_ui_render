@@ -107,8 +107,8 @@ pub fn create_engine(win: &Arc<Window>, _r: f64) -> Engine {
 
     let _ = runtime.spawn(runtime.alloc(), async move {
         let world = &mut world1;
-        let options = RenderOptions::default();
-        let mut dispatcher_mgr = DispatcherMgr::default();
+        let mut options = RenderOptions::default();
+		let mut dispatcher_mgr = DispatcherMgr::default();
         let render_stages = init_render(world, options, win1.clone(), rt.clone()).await;
 
         init_data(world, win1);

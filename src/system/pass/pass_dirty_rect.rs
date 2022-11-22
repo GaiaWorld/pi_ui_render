@@ -7,7 +7,7 @@ use pi_ecs_utils::prelude::Layer;
 use pi_null::Null;
 use pi_style::style::Aabb2;
 
-use crate::{components::{user::{Viewport, ShowChange}, pass_2d::{Pass2D, DirtyRect, DirtyRectState, ParentPassId}, draw_obj::{DrawObject, DrawState}, calc::{NodeId, Quad, InPassId, TransformWillChangeMatrix, ContentBox}, user::Node}, utils::tools::{box_aabb, calc_aabb}};
+use crate::{components::{user::{Viewport, ShowChange}, pass_2d::{Pass2D, DirtyRect, DirtyRectState, ParentPassId}, draw_obj::{DrawObject, DrawState}, calc::{NodeId, Quad, InPassId, TransformWillChangeMatrix, ContentBox, Pass2DId}, user::Node}, utils::tools::{box_aabb, calc_aabb}};
 
 pub struct CalcDirtyRect;
 

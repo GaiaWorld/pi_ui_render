@@ -50,8 +50,8 @@ impl Example for QuadExample {
 		gui.gui.set_style(div1, HeightType(Dimension::Points(100.0)));
 		gui.gui.set_style(div1, BackgroundColorType (Color::RGBA(CgColor::new(1.0, 0.0, 0.0, 1.0)) ));
 		gui.gui.set_style(div1, BorderRadiusType(BorderRadius{
-			x: LengthUnit::Pixel(10.0),
-			y: LengthUnit::Pixel(10.0),
+			x: [LengthUnit::Pixel(10.0), LengthUnit::Pixel(10.0), LengthUnit::Pixel(10.0), LengthUnit::Pixel(10.0)],
+			y: [LengthUnit::Pixel(10.0), LengthUnit::Pixel(10.0), LengthUnit::Pixel(10.0), LengthUnit::Pixel(10.0)],
 		}));
 		gui.gui.append(div1, root);
 	}

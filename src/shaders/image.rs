@@ -55,13 +55,13 @@ impl pi_render::rhi::dyn_uniform_buffer::BufferGroup for CameraMatrixGroup {
 }
 
 
-pub struct ImageMaterialGroup;
-impl pi_render::rhi::dyn_uniform_buffer::Group for ImageMaterialGroup {
+pub struct UiMaterialGroup;
+impl pi_render::rhi::dyn_uniform_buffer::Group for UiMaterialGroup {
 	fn id() -> u32 { 1 }
 
 	fn create_layout(device: &pi_render::rhi::device::RenderDevice, has_dynamic_offset: bool) -> pi_render::rhi::bind_group_layout::BindGroupLayout {
 		device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-			label: Some("image_material bindgroup layout"),
+			label: Some("ui_material bindgroup layout"),
 			entries: &[wgpu::BindGroupLayoutEntry {
 				binding: 0,
 				visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
@@ -77,7 +77,7 @@ impl pi_render::rhi::dyn_uniform_buffer::Group for ImageMaterialGroup {
 }
 
 
-impl pi_render::rhi::dyn_uniform_buffer::BufferGroup for ImageMaterialGroup {
+impl pi_render::rhi::dyn_uniform_buffer::BufferGroup for UiMaterialGroup {
 	fn create_bind_group(
 		device: &pi_render::rhi::device::RenderDevice,
 		layout: &pi_render::rhi::bind_group_layout::BindGroupLayout,
@@ -93,7 +93,7 @@ impl pi_render::rhi::dyn_uniform_buffer::BufferGroup for ImageMaterialGroup {
 					size: Some(std::num::NonZeroU64::new(144).unwrap()),
 				}),
 			}],
-			label: Some("image_material bindgroup"),
+			label: Some("ui_material bindgroup"),
 		})
 	}
 }
@@ -138,8 +138,8 @@ impl pi_render::rhi::dyn_uniform_buffer::Bind for CameraMatrixBind {
 }
 
 
-pub struct ImageMaterialBind;
-impl pi_render::rhi::dyn_uniform_buffer::Bind for ImageMaterialBind {
+pub struct UiMaterialBind;
+impl pi_render::rhi::dyn_uniform_buffer::Bind for UiMaterialBind {
 	#[inline]
 	fn min_size() -> usize { 144 }
 
@@ -171,26 +171,18 @@ impl<'a> pi_render::rhi::dyn_uniform_buffer::Uniform for WorldUniform<'a> {
 }
 
 
+pub struct ClipSdfUniform<'a>(pub &'a [f32]);
+impl<'a> pi_render::rhi::dyn_uniform_buffer::Uniform for ClipSdfUniform<'a> {
+	fn write_into(&self, index: u32, buffer: &mut [u8]) {
+		unsafe { std::ptr::copy_nonoverlapping(self.0.as_ptr() as usize as *const u8, buffer.as_mut_ptr().add(index as usize + 64), 64) };
+	}
+}
+
+
 pub struct DepthUniform<'a>(pub &'a [f32]);
 impl<'a> pi_render::rhi::dyn_uniform_buffer::Uniform for DepthUniform<'a> {
 	fn write_into(&self, index: u32, buffer: &mut [u8]) {
-		unsafe { std::ptr::copy_nonoverlapping(self.0.as_ptr() as usize as *const u8, buffer.as_mut_ptr().add(index as usize + 64), 4) };
-	}
-}
-
-
-pub struct OpacityUniform<'a>(pub &'a [f32]);
-impl<'a> pi_render::rhi::dyn_uniform_buffer::Uniform for OpacityUniform<'a> {
-	fn write_into(&self, index: u32, buffer: &mut [u8]) {
-		unsafe { std::ptr::copy_nonoverlapping(self.0.as_ptr() as usize as *const u8, buffer.as_mut_ptr().add(index as usize + 68), 4) };
-	}
-}
-
-
-pub struct TransformUniform<'a>(pub &'a [f32]);
-impl<'a> pi_render::rhi::dyn_uniform_buffer::Uniform for TransformUniform<'a> {
-	fn write_into(&self, index: u32, buffer: &mut [u8]) {
-		unsafe { std::ptr::copy_nonoverlapping(self.0.as_ptr() as usize as *const u8, buffer.as_mut_ptr().add(index as usize + 80), 64) };
+		unsafe { std::ptr::copy_nonoverlapping(self.0.as_ptr() as usize as *const u8, buffer.as_mut_ptr().add(index as usize + 128), 4) };
 	}
 }
 

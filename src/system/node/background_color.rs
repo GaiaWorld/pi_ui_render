@@ -1,31 +1,29 @@
 
 use std::io::Result;
 
-use ordered_float::NotNan;
+use smallvec::smallvec;
 use pi_assets::asset::Asset;
 use pi_assets::mgr::AssetMgr;
 use pi_ecs::prelude::{Or, Deleted, With, ChangeTrackers, ParamSet, OrDefault, ResMut};
 use pi_ecs::prelude::{Query, Changed, EntityCommands, Commands, Write, Res, Event, Id};
 use pi_ecs_macros::{listen, setup};
-use pi_flex_layout::prelude::{Rect, Size};
+use pi_flex_layout::prelude::Size;
 use pi_render::rhi::asset::RenderRes;
 use pi_render::rhi::buffer::Buffer;
 use pi_render::rhi::device::RenderDevice;
 use pi_render::rhi::dyn_uniform_buffer::{Bind, Group,};
 use pi_share::Share;
-use pi_polygon::{split_by_radius, find_lg_endp, split_by_lg, interp_mult_by_lg, LgCfg, mult_to_triangle, to_triangle};
-use smallvec::smallvec;
+use pi_polygon::{find_lg_endp, split_by_lg, interp_mult_by_lg, LgCfg, mult_to_triangle, to_triangle};
 use wgpu::IndexFormat;
 
 use crate::components::calc::{LayoutResult, DrawInfo};
-use crate::components::draw_obj::{DrawGroup, DynDrawGroup, FSDefines, VSDefines};
-use crate::components::user::BorderRadius;
+use crate::components::draw_obj::{FSDefines, VSDefines, DrawGroup, DynDrawGroup};
 use crate::resource::draw_obj::{ColorStaticIndex, StaticIndex, DynBindGroupIndex, DynUniformBuffer, GradientColorStaticIndex};
 use crate::shaders::color::{ColorMaterialBind, ColorUniform, ColorMaterialGroup};
 // use crate::system::shader_utils::StaticIndex;
 // use crate::system::shader_utils::color::{ColorStaticIndex, COLOR_GROUP};
 // use crate::system::shader_utils::with_vert_color::WithVertColorStaticIndex;
-use crate::utils::tools::{calc_hash, get_content_rect, get_content_radius};
+use crate::utils::tools::{calc_hash, get_content_rect};
 use crate::{components::{user::{Node, BackgroundColor, Color}, calc::{NodeId, DrawList}, draw_obj::{BoxType, DrawObject, DrawState}}, resource::draw_obj::{UnitQuadBuffer}};
 // use crate::utils::tools::calc_hash;
 
@@ -41,18 +39,14 @@ impl CalcBackGroundColor {
 			Query<'static, 'static, Node, (
 				Id<Node>, 
 				&'static BackgroundColor,
-				Option<&'static BorderRadius>,
 				&'static LayoutResult,
 				Write<BackgroundDrawId>, 
 				Write<DrawList>,
 				ChangeTrackers<BackgroundColor>,
-				ChangeTrackers<BorderRadius>,
 				ChangeTrackers<LayoutResult>,
 			), (With<BackgroundColor>, Or<(
 				
 				Changed<BackgroundColor>,
-				Changed<BorderRadius>,
-				Deleted<BorderRadius>,
 				Changed<LayoutResult>,
 			)>)>,
 
@@ -111,12 +105,10 @@ impl CalcBackGroundColor {
 		for (
 			node, 
 			background_color, 
-			radius, 
 			layout, 
 			mut draw_index, 
 			mut render_list,
 			background_color_change,
-			radius_change,
 			layout_change) in query.p0_mut().iter_mut() {
 			
 			match draw_index.get() {
@@ -126,13 +118,11 @@ impl CalcBackGroundColor {
 					let draw_state = draw_state_item.get_mut().unwrap();
 					let new_unit_quad = modify(
 						&background_color, 
-						radius,
 						layout,
 						draw_state,
 						&device, 
 						&buffer_assets, 
 						&background_color_change,
-						&radius_change,
 						&layout_change,
 						&unit_quad_buffer,
 						&mut dyn_uniform_buffer).await;
@@ -183,13 +173,11 @@ impl CalcBackGroundColor {
 
 					let new_unit_quad = modify(
 						&background_color, 
-						radius,
 						layout,
 						&mut draw_state,
 						&device, 
 						&buffer_assets, 
 						&background_color_change,
-						&radius_change,
 						&layout_change,
 						&unit_quad_buffer,
 						&mut dyn_uniform_buffer).await;
@@ -256,13 +244,11 @@ pub fn background_color_delete(
 // 返回当前需要的StaticIndex
 async fn modify<'a> (
 	color: &Color, 
-	radius: Option<&BorderRadius>, 
 	layout: &LayoutResult,
 	draw_state: &mut DrawState, 
 	device: &RenderDevice, 
 	buffer_assets: &Share<AssetMgr<RenderRes<Buffer>>>,
 	bg_color_change: &ChangeTrackers<BackgroundColor>,
-	border_change: &ChangeTrackers<BorderRadius>,
 	layout_change: &ChangeTrackers<LayoutResult>,
 	unit_quad_buffer: &UnitQuadBuffer,
 
@@ -280,24 +266,19 @@ async fn modify<'a> (
 		_ => (),
 	};
 
-	let radius = get_content_radius(radius, layout);
-	// 如果既没有圆角，也不是渐变色，则不需要切分顶点,直接设置单位四边形的ib、vb
-	if radius.is_none() {
-		if let Color::LinearGradient(_) = color{} 
-		else{
-			if border_change.is_changed() || bg_color_change.is_changed() {
-				draw_state.vbs.insert(0, (unit_quad_buffer.vertex.clone(), 0));
-				draw_state.ib = Some((unit_quad_buffer.index.clone(), 6, IndexFormat::Uint16));
-			}
-			return BoxType::Content;
+	if let Color::LinearGradient(_) = color{} 
+	else{
+		if  bg_color_change.is_changed() {
+			draw_state.vbs.insert(0, (unit_quad_buffer.vertex.clone(), 0));
+			draw_state.ib = Some((unit_quad_buffer.index.clone(), 6, IndexFormat::Uint16));
 		}
+		return BoxType::ContentRect;
 	}
 
 	// 否则，需要切分顶点，如果是渐变色，还要设置color vb
 	// ib、position vb、color vb
-	if border_change.is_changed() || bg_color_change.is_changed() || layout_change.is_changed() {
+	if bg_color_change.is_changed() || layout_change.is_changed() {
 		try_modify_as_radius_linear_geo(
-			&radius, 
 			layout,
 			device,
 			draw_state,
@@ -306,56 +287,11 @@ async fn modify<'a> (
 		);
 	}
 
-	BoxType::None
+	BoxType::ContentNone
 }
-
-// pub fn create_rgba_bind_group(
-// 	color: &CgColor,
-// 	device: &RenderDevice, 
-// 	color_group_layout: &BindGroupLayout,
-// 	buffer_assets: &Share<AssetMgr<RenderRes<Buffer>>>,
-// 	bind_group_assets: &Share<AssetMgr<RenderRes<BindGroup>>>,
-// ) -> u32 {
-// 	// Handle<RenderRes<BindGroup>>
-// 	// let key = calc_hash(&color, calc_hash(&"uniform", 0));
-// 	match bind_group_assets.get(&key) {
-// 		Some(r) => r,
-// 		None => {
-			
-// 			let uniform_buf = match buffer_assets.get(&key) {
-// 				Some(r) => r,
-// 				None => {
-// 					// let time = std::time::Instant::now();
-// 					let uniform_buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
-// 						label: Some("color buffer init"),
-// 						contents: bytemuck::cast_slice(&[color.x, color.y, color.z, color.w]),
-// 						usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-// 					});
-// 					// log::warn!("create color_buffer_time: {:?}",  std::time::Instant::now()- time);
-// 					buffer_assets.insert(key, RenderRes::new(uniform_buf, 5)).unwrap()
-// 				}
-// 			};
-// 			// let time = std::time::Instant::now();
-// 			let group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-// 				layout: color_group_layout,
-// 				entries: &[
-// 					wgpu::BindGroupEntry {
-// 						binding: 0,
-// 						resource: uniform_buf.as_entire_binding(),
-// 					},
-// 				],
-// 				label: Some("color group create"),
-// 			});
-// 			// log::warn!("create color_group_time: {:?}",  std::time::Instant::now()- time);
-// 			bind_group_assets.insert(key, RenderRes::new(group, 5)).unwrap()
-// 		}
-// 	}
-// }
-
  
 #[inline]
 fn try_modify_as_radius_linear_geo(
-    radius: &Option<Rect<NotNan<f32>>>,
     layout: &LayoutResult,
     device: &RenderDevice,
 	darw_state: &mut DrawState,
@@ -364,31 +300,21 @@ fn try_modify_as_radius_linear_geo(
 ) {
 	let rect = get_content_rect(layout);
 	let size = Size {width: rect.right - rect.left, height: rect.bottom - rect.top};
-	let vb_hash = calc_hash(&(radius, rect), calc_hash(&"radius vert", 0));
-	let ib_hash = calc_hash(&(radius, rect), calc_hash(&"radius index", 0));
+	let vb_hash = calc_hash(&rect, calc_hash( &"color vert", 0));
+	let ib_hash = calc_hash(&rect, calc_hash(&"color index", 0)); // 计算颜色hash， TODO
 
 	let (vb, ib, ) = match (buffer_asset_mgr.get(&vb_hash), buffer_asset_mgr.get(&ib_hash)) {
 		(Some(vb), Some(ib)) => (vb, ib),
 		(vb, ib) => {
-			let (mut positions, mut indices) = match radius {
-				Some(radius) => split_by_radius(
-					layout.border.left,
-					layout.border.top,
-					*size.width,
-					*size.height,
-					*radius.left,
-					None,
-				),
-				None => (
-					vec![
-                        *rect.left, *rect.top, // left_top
-                        *rect.left, *rect.bottom, // left_bootom
-                        *rect.right, *rect.bottom, // right_bootom
-                        *rect.right, *rect.top, // right_top
-                    ],
-                    vec![0, 1, 2, 3],
-				)
-			};
+			let (mut positions, mut indices) = (
+				vec![
+					*rect.left, *rect.top, // left_top
+					*rect.left, *rect.bottom, // left_bootom
+					*rect.right, *rect.bottom, // right_bootom
+					*rect.right, *rect.top, // right_top
+				],
+				vec![0, 1, 2, 3],
+			);
 			if let Color::LinearGradient(color) = color {
 				let mut lg_pos = Vec::with_capacity(color.list.len());
 				let mut colors = Vec::with_capacity(color.list.len() * 4);
@@ -442,7 +368,7 @@ fn try_modify_as_radius_linear_geo(
 					contents: bytemuck::cast_slice(colors.as_slice()),
 					usage: wgpu::BufferUsages::VERTEX,
 				});
-				let color_hash = calc_hash(&(radius, rect), calc_hash(&"radius vert color", 0));
+				let color_hash = calc_hash(&rect, calc_hash(&"vert color", 0));
 
 				let color = buffer_asset_mgr.get(&color_hash).unwrap_or_else(|| {buffer_asset_mgr.insert(color_hash, RenderRes::new(buf, colors.len() * 4)).unwrap()});
 				darw_state.vbs.insert(1, (color, 0));

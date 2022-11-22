@@ -2387,9 +2387,9 @@ checksum = "eb24378a9838a3f29b4c10efbe9b807bbb90c533a776f295268bdc972ddebbf9"
 
 [[package]]
 name = "pi_ordmap"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c912209ad7c35606501b0199e81d3fbf789f3559d2e6cba72d310539d793d170"
+checksum = "c1dbb53e1259e7c63faae4d0112d1291bc01cab7231d6a5051025c58862e1a96"
 
 [[package]]
 name = "pi_polygon"

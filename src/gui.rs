@@ -46,7 +46,7 @@ use crate::{
         DefaultStyle, NodeCommand, animation_sheet::KeyFramesSheet, UserCommandsCache,
     },
     system::{
-        draw_obj::{pipeline::CalcPipeline, world_marix::CalcWorldMatrixGroup},
+        draw_obj::{pipeline::CalcPipeline, world_marix::CalcWorldMatrixGroup, border_radius::CalcBorderRadius},
         node::{
             animation::CalcAnimation,
             background_color::CalcBackGroundColor,
@@ -464,6 +464,7 @@ impl Gui {
 		// 渲染对象计算
 		let mut draw_stage = StageBuilder::new();
 		CalcWorldMatrixGroup::setup(world, &mut draw_stage);
+		CalcBorderRadius::setup(world, &mut draw_stage);
 		CalcPipeline::setup(world, &mut draw_stage);
 	
 	

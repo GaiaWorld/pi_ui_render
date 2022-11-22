@@ -28,11 +28,11 @@ pub struct CalcWorldMatrixGroup;
 impl CalcWorldMatrixGroup {
 	/// 计算DrawObj的matrix group
 	#[system]
-	pub async fn calc_matrix_group<'a>(
-		query: Query<'a, 'a, Node, (&WorldMatrix, &LayoutResult, &DrawList, Id<Node>, &NodeState), Or<(Added<Pass2DId>,Changed<DrawList>, Changed<WorldMatrix>)>>,
-		query_parent: Query<'a, 'a, Node, &Up<Node>>,
-		query_matrix: Query<'a, 'a, Node, &WorldMatrix>,
-		query_draw: Query<'a, 'a, DrawObject, (Write<DrawState>, OrDefault<BoxType>)>,
+	pub async fn calc_matrix_group(
+		query: Query<'static, 'static, Node, (&WorldMatrix, &LayoutResult, &DrawList, Id<Node>, &NodeState), Or<(Added<Pass2DId>,Changed<DrawList>, Changed<WorldMatrix>)>>,
+		query_parent: Query<'static, 'static, Node, &Up<Node>>,
+		query_matrix: Query<'static, 'static, Node, &WorldMatrix>,
+		query_draw: Query<'static, 'static, DrawObject, (Write<DrawState>, OrDefault<BoxType>)>,
 		mut dyn_uniform_buffer: ResMut<'static, DynUniformBuffer>,
 	) -> Result<()> {
 		// let mut i = 0;
@@ -44,7 +44,7 @@ impl CalcWorldMatrixGroup {
 					}
 				}
 			}
-			let mut content_matrix = None;
+			// let mut content_matrix = None;
 			let mut border_matrix = None;
 			// 遍历当前节点下所有的DrawObject，为其设置
 			for draw_obj in draw_list.iter() {
@@ -55,21 +55,21 @@ impl CalcWorldMatrixGroup {
 
 					// 如果，渲染对象的顶点流为单位四边形，则需要将宽高乘到世界矩阵中
 					let matrix_slice = match box_type {
-						BoxType::Content => {
-							match &content_matrix {
-								Some(r) => r,
-								None => {
-									let matrix = create_unit_offset_matrix_by_layout(
-										layout_result,
-										layout_result.border.left, layout_result.border.top,
-										matrix
-									);
-									content_matrix = Some(matrix);
-									content_matrix.as_ref().unwrap()
-								}
-							}
-						},
-						BoxType::Border => {
+						// BoxType::Content => {
+						// 	match &content_matrix {
+						// 		Some(r) => r,
+						// 		None => {
+						// 			let matrix = create_unit_offset_matrix_by_layout(
+						// 				layout_result,
+						// 				layout_result.border.left, layout_result.border.top,
+						// 				matrix
+						// 			);
+						// 			content_matrix = Some(matrix);
+						// 			content_matrix.as_ref().unwrap()
+						// 		}
+						// 	}
+						// },
+						BoxType::ContentRect | BoxType::BorderRect => {
 							match &border_matrix {
 								Some(r) => r,
 								None => {
@@ -83,7 +83,7 @@ impl CalcWorldMatrixGroup {
 								}
 							}
 						}
-						BoxType::None => matrix, // 否者，世界矩阵使用节点的世界矩阵
+						BoxType::ContentNone | BoxType::BorderNone | BoxType::Border => matrix, // 否者，世界矩阵使用节点的世界矩阵
 						
 					};
 					let mut matrix_slice = matrix_slice.clone();

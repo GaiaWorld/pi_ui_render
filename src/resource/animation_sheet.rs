@@ -385,6 +385,7 @@ impl KeyFramesSheet {
                     Attribute::AnimationDirection(_) => (),
                     Attribute::AnimationFillMode(_) => (),
                     Attribute::AnimationPlayState(_) => (),
+					Attribute::ClipPath(_) => (),
                 }
             }
         }

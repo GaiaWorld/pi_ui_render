@@ -19,7 +19,7 @@ use smallvec::SmallVec;
 use crate::style::{
     Animation, AnimationDirection, AnimationFillMode, AnimationPlayState, AnimationTimingFunction, BlendMode, BorderImageSlice, BorderRadius,
     BoxShadow, CgColor, Color, ColorAndPosition, Enable, FitType, FontSize, Hsi, ImageRepeat, ImageRepeatOption, IterationCount, LengthUnit,
-    LineHeight, LinearGradientColor, MaskImage, NotNanRect, Stroke, TextAlign, TextShadow, Time, TransformFunc, TransformOrigin, WhiteSpace, AnimationName,
+    LineHeight, LinearGradientColor, MaskImage, NotNanRect, Stroke, TextAlign, TextShadow, Time, TransformFunc, TransformOrigin, WhiteSpace, AnimationName, BaseShape, Center,
 };
 
 use super::style_type::*;
@@ -128,6 +128,7 @@ pub enum Attribute {
     AnimationDirection(AnimationDirectionType),           // 84
     AnimationFillMode(AnimationFillModeType),             // 85
     AnimationPlayState(AnimationPlayStateType),           // 86
+	ClipPath(ClipPathType),   // 87
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -523,6 +524,10 @@ impl ClassMap {
                         class_meta.class_style_mark.set(AnimationPlayStateType::get_type() as usize, true);
                         r.write(&mut class_sheet.style_buffer);
                     },
+					Attribute::ClipPath(r) => unsafe {
+                        class_meta.class_style_mark.set(ClipPathType::get_type() as usize, true);
+                        r.write(&mut class_sheet.style_buffer);
+                    },
                 }
 
                 std::mem::forget(r);
@@ -817,6 +822,37 @@ fn parse_top_right_bottom_left<'i, 't, T: StyleParse + Copy + Default>(
         },
     };
     Ok(r)
+}
+
+pub fn parse_border_radius<'i, 't>(
+    input: &mut Parser<'i, 't>,
+) -> Result<BorderRadius, ParseError<'i, ValueParseErrorKind<'i>>> {
+    let x = parse_top_right_bottom_left(input)?;
+	let y = input.next();
+	let y = if let Ok(&Token::Delim('/')) = y {
+		parse_top_right_bottom_left(input)?
+	} else {
+		x.clone()
+	};
+	
+    Ok(BorderRadius {
+		x: [x.top, x.right, x.bottom, x.left],
+		y: [y.top, y.right, y.bottom, y.left],
+	})
+}
+
+fn to_four<T: Clone + Copy>(
+    value: Vec<T>,
+) -> [T; 4] {
+	if value.len() == 1 {
+		return [value[0].clone(), value[0].clone(), value[0].clone(), value[0]];
+	} else if value.len() == 2 {
+		return [value[0].clone(), value[1].clone(), value[0], value[1]];
+	} else if value.len() == 3 {
+		return [value[0], value[1].clone(), value[2], value[1]];
+	} else {
+		return [value[0], value[1], value[2], value[3]];
+	}
 }
 
 fn parse_enable<'i, 't>(input: &mut Parser<'i, 't>) -> Result<Enable, ParseError<'i, ValueParseErrorKind<'i>>> {
@@ -1494,8 +1530,7 @@ pub fn parse_style_item<'i, 't>(buffer: &mut VecDeque<Attribute>, scope_hash: us
 
         "border-radius" => {
             input.expect_colon()?;
-            let value = LengthUnit::Pixel(parse_len(input)?);
-            let ty = BorderRadiusType(BorderRadius { x: value, y: value });
+            let ty = BorderRadiusType(parse_border_radius(input)?);
             log::debug!("{:?}", ty);
             buffer.push_back(Attribute::BorderRadius(ty));
         }
@@ -1849,6 +1884,12 @@ pub fn parse_style_item<'i, 't>(buffer: &mut VecDeque<Attribute>, scope_hash: us
                 buffer.push_back(Attribute::AnimationPlayState(AnimationPlayStateType(animations.play_state)));
             }
         }
+		"clip-path" => {
+			input.expect_colon()?;
+			let shape = BaseShape::parse(input)?;
+			log::debug!("{:?}", shape);
+			buffer.push_back(Attribute::ClipPath(ClipPathType(shape)));
+		}
 
         _ => {
             log::info!("{:?}", ValueParseErrorKind::InvalidAttr(Token::Ident(key.clone())));
@@ -2014,6 +2055,20 @@ impl StyleParse for Dimension {
         Ok(dimension)
     }
 }
+
+impl StyleParse for LengthUnit {
+    fn parse<'i, 't>(input: &mut Parser<'i, 't>) -> Result<Self, ParseError<'i, ValueParseErrorKind<'i>>> {
+        let location = input.current_source_location();
+		let toke = input.next()?;
+		match toke {
+			Token::Percentage { unit_value, .. } => Ok(LengthUnit::Percent(*unit_value)),
+			Token::Dimension { value, .. } => Ok(LengthUnit::Pixel(*value)),
+			Token::Number { value, .. } => Ok(LengthUnit::Pixel(*value)),
+			_ => Err(location.new_custom_error(ValueParseErrorKind::InvalidFilter)),
+		}
+    }
+}
+
 
 impl StyleParse for IterationCount {
     fn parse<'i, 't>(input: &mut Parser<'i, 't>) -> Result<Self, ParseError<'i, ValueParseErrorKind<'i>>> {
@@ -2189,6 +2244,71 @@ impl StyleParse for AnimationPlayState {
             _ => Err(location.new_custom_error(ValueParseErrorKind::InvalidFilter)),
         }
     }
+}
+
+impl StyleParse for BaseShape {
+    fn parse<'i, 't>(input: &mut Parser<'i, 't>) -> Result<Self, ParseError<'i, ValueParseErrorKind<'i>>> {
+        let location = input.current_source_location();
+		let func_name = input.expect_function()?;
+		match func_name.as_ref() {
+			"inset" => input.parse_nested_block(|input| {
+				let mut rect = vec![parse_len_or_percent(input)?];
+				while let Ok(r) = input.try_parse(|input| {parse_len_or_percent(input)})  {
+					rect.push(r);
+				}
+				let radius = input.try_parse(|input| {
+					let location1 = input.current_source_location();
+					let ident = input.expect_ident()?;
+					if ident.as_ref() == "round" {
+						Ok(parse_border_radius(input)?)
+					} else {
+						Err(location1.new_custom_error(ValueParseErrorKind::InvalidFilter))
+					}
+				});
+				Ok(BaseShape::Inset { rect_box: to_four(rect), border_radius: match radius {
+					Ok(r) => r,
+					_ => BorderRadius::default(),
+				} })
+			}),
+			"circle" => input.parse_nested_block(|input| {
+				let radius = parse_len_or_percent(input)?;
+				let center = parse_center(input);
+				Ok(BaseShape::Circle { radius, center })
+			}),
+			"ellipse" => input.parse_nested_block(|input| {
+				let rx = parse_len_or_percent(input)?;
+				let ry = parse_len_or_percent(input)?;
+				let center = parse_center(input);
+				Ok(BaseShape::Ellipse { rx, ry, center })
+			}),
+			"sector" => input.parse_nested_block(|input| {
+				let rotate = parse_angle(input)?/180.0 * 3.1415926535;
+				let angle = parse_angle(input)?/180.0 * 3.1415926535;
+				let radius = parse_len_or_percent(input)?;
+				let center = parse_center(input);
+				Ok(BaseShape::Sector { rotate, angle, radius, center: center })
+			}),
+			_ => Err(location.new_custom_error(ValueParseErrorKind::InvalidFilter)),
+		}
+    }
+}
+
+fn parse_center<'i, 't>(input: &mut Parser<'i, 't>) -> Center {
+    let mut center = Center {x: LengthUnit::Percent(0.5), y: LengthUnit::Percent(0.5)};
+	let _ = input.try_parse(|input| {
+		let location1 = input.current_source_location();
+		let ident = input.expect_ident()?;
+		if ident.as_ref() == "at" {
+			center.x = parse_len_or_percent(input)?;
+			if let Ok(r) = parse_len_or_percent(input) {
+				center.y = r;
+			};
+			Ok(())
+		} else {
+			Err(location1.new_custom_error(ValueParseErrorKind::InvalidFilter))
+		}
+	});
+	center
 }
 
 fn parse_len<'i, 't>(input: &mut Parser<'i, 't>) -> Result<f32, ParseError<'i, ValueParseErrorKind<'i>>> {
@@ -2830,6 +2950,48 @@ fn test_mul_semicolon() {
 		left:25px;
 		right: 25px;;
 		height: 100%;
+	  }";
+
+    if let Ok(r) = parse_class_map_from_string(s, 0) {
+        println!("ret: {:?}", r);
+    }
+}
+
+#[test]
+fn test_border_radius() {
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug")).init();
+    let s = "
+	.c1363885129{
+		border-radius: 10% / 14% 9%;
+	  }";
+
+    if let Ok(r) = parse_class_map_from_string(s, 0) {
+        println!("ret: {:?}", r);
+    }
+}
+
+#[test]
+fn test_clip_path() {
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug")).init();
+    let s = "
+	.c1363885129{
+		clip-path: circle(10px);
+		clip-path: circle(10%);
+		clip-path: circle(10% at 50px);
+		clip-path: circle(10% at 50px 20%);
+
+		clip-path: ellipse(10% 20px);
+		clip-path: ellipse(10% 20px at 50px);
+		clip-path: ellipse(10% 20px at 50px 20%);
+
+		clip-path: inset(30px);
+		clip-path: inset(30px 20%);
+		clip-path: inset(30px 20% 10%);
+		clip-path: inset(30px 20% 10% 50% round 20px);
+
+		clip-path: sector(30deg 20deg 50px);
+		clip-path: sector(30deg 20deg 50px  at 50px);
+		clip-path: sector(30deg 20deg 20px at 50px 50px);
 	  }";
 
     if let Ok(r) = parse_class_map_from_string(s, 0) {

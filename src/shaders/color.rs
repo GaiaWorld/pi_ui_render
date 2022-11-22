@@ -62,7 +62,7 @@ impl pi_render::rhi::dyn_uniform_buffer::Group for ColorMaterialGroup {
 				ty: wgpu::BindingType::Buffer {
 					ty: wgpu::BufferBindingType::Uniform,
 					has_dynamic_offset,
-					min_binding_size: wgpu::BufferSize::new(128),
+					min_binding_size: wgpu::BufferSize::new(176),
 				},
 				count: None, // TODO
 			}],
@@ -84,7 +84,7 @@ impl pi_render::rhi::dyn_uniform_buffer::BufferGroup for ColorMaterialGroup {
 				resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
 					buffer,
 					offset: 0,
-					size: Some(std::num::NonZeroU64::new(128).unwrap()),
+					size: Some(std::num::NonZeroU64::new(176).unwrap()),
 				}),
 			}],
 			label: Some("color_material bindgroup"),
@@ -105,7 +105,7 @@ impl pi_render::rhi::dyn_uniform_buffer::Bind for CameraMatrixBind {
 pub struct ColorMaterialBind;
 impl pi_render::rhi::dyn_uniform_buffer::Bind for ColorMaterialBind {
 	#[inline]
-	fn min_size() -> usize { 128 }
+	fn min_size() -> usize { 176 }
 
 	fn index() -> pi_render::rhi::dyn_uniform_buffer::BindIndex { pi_render::rhi::dyn_uniform_buffer::BindIndex::new(0) }
 }
@@ -135,26 +135,18 @@ impl<'a> pi_render::rhi::dyn_uniform_buffer::Uniform for WorldUniform<'a> {
 }
 
 
+pub struct ClipSdfUniform<'a>(pub &'a [f32]);
+impl<'a> pi_render::rhi::dyn_uniform_buffer::Uniform for ClipSdfUniform<'a> {
+	fn write_into(&self, index: u32, buffer: &mut [u8]) {
+		unsafe { std::ptr::copy_nonoverlapping(self.0.as_ptr() as usize as *const u8, buffer.as_mut_ptr().add(index as usize + 64), 64) };
+	}
+}
+
+
 pub struct DepthUniform<'a>(pub &'a [f32]);
 impl<'a> pi_render::rhi::dyn_uniform_buffer::Uniform for DepthUniform<'a> {
 	fn write_into(&self, index: u32, buffer: &mut [u8]) {
-		unsafe { std::ptr::copy_nonoverlapping(self.0.as_ptr() as usize as *const u8, buffer.as_mut_ptr().add(index as usize + 64), 4) };
-	}
-}
-
-
-pub struct ColorUniform<'a>(pub &'a [f32]);
-impl<'a> pi_render::rhi::dyn_uniform_buffer::Uniform for ColorUniform<'a> {
-	fn write_into(&self, index: u32, buffer: &mut [u8]) {
-		unsafe { std::ptr::copy_nonoverlapping(self.0.as_ptr() as usize as *const u8, buffer.as_mut_ptr().add(index as usize + 80), 16) };
-	}
-}
-
-
-pub struct UrectUniform<'a>(pub &'a [f32]);
-impl<'a> pi_render::rhi::dyn_uniform_buffer::Uniform for UrectUniform<'a> {
-	fn write_into(&self, index: u32, buffer: &mut [u8]) {
-		unsafe { std::ptr::copy_nonoverlapping(self.0.as_ptr() as usize as *const u8, buffer.as_mut_ptr().add(index as usize + 96), 16) };
+		unsafe { std::ptr::copy_nonoverlapping(self.0.as_ptr() as usize as *const u8, buffer.as_mut_ptr().add(index as usize + 128), 4) };
 	}
 }
 
@@ -162,7 +154,31 @@ impl<'a> pi_render::rhi::dyn_uniform_buffer::Uniform for UrectUniform<'a> {
 pub struct BlurUniform<'a>(pub &'a [f32]);
 impl<'a> pi_render::rhi::dyn_uniform_buffer::Uniform for BlurUniform<'a> {
 	fn write_into(&self, index: u32, buffer: &mut [u8]) {
-		unsafe { std::ptr::copy_nonoverlapping(self.0.as_ptr() as usize as *const u8, buffer.as_mut_ptr().add(index as usize + 112), 4) };
+		unsafe { std::ptr::copy_nonoverlapping(self.0.as_ptr() as usize as *const u8, buffer.as_mut_ptr().add(index as usize + 132), 4) };
+	}
+}
+
+
+pub struct BottomLeftBorderUniform<'a>(pub &'a [f32]);
+impl<'a> pi_render::rhi::dyn_uniform_buffer::Uniform for BottomLeftBorderUniform<'a> {
+	fn write_into(&self, index: u32, buffer: &mut [u8]) {
+		unsafe { std::ptr::copy_nonoverlapping(self.0.as_ptr() as usize as *const u8, buffer.as_mut_ptr().add(index as usize + 136), 8) };
+	}
+}
+
+
+pub struct ColorUniform<'a>(pub &'a [f32]);
+impl<'a> pi_render::rhi::dyn_uniform_buffer::Uniform for ColorUniform<'a> {
+	fn write_into(&self, index: u32, buffer: &mut [u8]) {
+		unsafe { std::ptr::copy_nonoverlapping(self.0.as_ptr() as usize as *const u8, buffer.as_mut_ptr().add(index as usize + 144), 16) };
+	}
+}
+
+
+pub struct UrectUniform<'a>(pub &'a [f32]);
+impl<'a> pi_render::rhi::dyn_uniform_buffer::Uniform for UrectUniform<'a> {
+	fn write_into(&self, index: u32, buffer: &mut [u8]) {
+		unsafe { std::ptr::copy_nonoverlapping(self.0.as_ptr() as usize as *const u8, buffer.as_mut_ptr().add(index as usize + 160), 16) };
 	}
 }
 

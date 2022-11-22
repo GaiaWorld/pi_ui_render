@@ -13,6 +13,8 @@ fn main() {
 		// ["color", "resource/common.vert", "resource/color.frag"],
 		// ["color", "resource/common.vert", "resource/color.frag"],
 	];
+	
+	
 
 	for item in sharder_infos.iter() {
 		render_compile::compile_and_out(

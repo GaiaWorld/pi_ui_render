@@ -22,7 +22,7 @@ use crate::components::calc::{BorderImageTexture, DrawInfo, LayoutResult};
 use crate::components::draw_obj::{DrawGroup, DynDrawGroup};
 use crate::components::user::{BorderImage, BorderImageClip, BorderImageSlice, ImageRepeat, ImageRepeatOption, Point2};
 use crate::resource::draw_obj::{CommonSampler, DynBindGroupIndex, DynUniformBuffer, ImageStaticIndex, PosUvVertexLayout, StaticIndex};
-use crate::shaders::image::{ImageMaterialBind, ImageMaterialGroup, PositionVertexBuffer, SampTex2DGroup};
+use crate::shaders::image::{UiMaterialBind, UiMaterialGroup, PositionVertexBuffer, SampTex2DGroup};
 use crate::utils::tools::{calc_hash, eq_f32};
 use crate::{
     components::{
@@ -100,7 +100,7 @@ impl CalcBorderImage {
         bind_group_assets: Res<'static, Share<AssetMgr<RenderRes<BindGroup>>>>,
 
         mut dyn_uniform_buffer: ResMut<'static, DynUniformBuffer>,
-        image_material_bind_group: Res<'static, DynBindGroupIndex<ImageMaterialGroup>>,
+        image_material_bind_group: Res<'static, DynBindGroupIndex<UiMaterialGroup>>,
     ) -> Result<()> {
         // border image 中的position和uv，完全是一一对应的，几乎不存在，position或uv单独被其他renderObj重用的情况
         // 因此，position和uv的布局不使用默认的布局方式，而是将其放入同一个buffer中
@@ -178,12 +178,12 @@ impl CalcBorderImage {
                     // 设置DrawState（包含color group）
                     let mut draw_state = DrawState::default();
 
-                    let image_material_dyn_offset = dyn_uniform_buffer.alloc_binding::<ImageMaterialBind>();
+                    let image_material_dyn_offset = dyn_uniform_buffer.alloc_binding::<UiMaterialBind>();
                     let group = DrawGroup::Dyn(DynDrawGroup::new(
                         (*image_material_bind_group).clone(),
                         smallvec![image_material_dyn_offset],
                     ));
-                    draw_state.bind_groups.insert_group(ImageMaterialGroup::id(), group);
+                    draw_state.bind_groups.insert_group(UiMaterialGroup::id(), group);
 
                     modify(
                         &border_image,

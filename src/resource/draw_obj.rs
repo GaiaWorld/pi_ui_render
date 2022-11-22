@@ -100,6 +100,7 @@ impl ShaderStatic {
 				.process(&self.fs_shader_soruce, fs_defines, shaders, &imports)
 				.unwrap();
 		let fs = fs.get_glsl_source().unwrap();
+		
 		let fs = device.create_shader_module(wgpu::ShaderModuleDescriptor {
 			label: Some("post_process_fs_shader_module"),
 			source: wgpu::ShaderSource::Glsl {

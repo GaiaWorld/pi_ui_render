@@ -50,6 +50,44 @@ impl NotNanRect {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum BaseShape {
+	Circle {
+		radius: LengthUnit,
+		center: Center,
+	},
+	Ellipse {
+		rx: LengthUnit,
+		ry: LengthUnit,
+		center: Center,
+	},
+	Inset {
+		rect_box: [LengthUnit;4],
+		border_radius: BorderRadius,
+	},
+	Sector {
+		rotate: f32, // 旋转 （单位： 弧度）
+		angle: f32, // 弧度角
+		radius: LengthUnit, // 半径
+		center: Center
+	}
+}
+
+impl Default for BaseShape {
+    fn default() -> Self {
+        BaseShape::Circle {
+			radius: Default::default(),
+			center: Default::default(),
+		}
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct Center {
+	pub x: LengthUnit,
+	pub y: LengthUnit
+}
+
 #[derive(Debug, Deref, DerefMut, Clone, Serialize, Deserialize)]
 pub struct CgColor(nalgebra::Vector4<f32>);
 impl Hash for CgColor {
@@ -344,7 +382,7 @@ pub struct Hsi {
 pub struct Blur(pub f32);
 
 //ObjectFit
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, Hash)]
 pub struct BackgroundImageMod {
     pub object_fit: FitType,
     pub repeat: ImageRepeat,
@@ -396,8 +434,8 @@ pub struct ImageRepeat {
 // 圆角， 目前仅支持x分量
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct BorderRadius {
-    pub x: LengthUnit,
-    pub y: LengthUnit,
+    pub x: [LengthUnit; 4],
+	pub y: [LengthUnit; 4],
 }
 
 // 参考CSS的box-shadow的语法
@@ -505,6 +543,21 @@ pub enum Color {
     LinearGradient(LinearGradientColor),
     // RadialGradient(RadialGradientColor),
 }
+impl Hash for Color {
+    fn hash<H: Hasher>(&self, hasher: &mut H) {
+		match self {
+			Color::RGBA(color) => {
+				NotNan::new(color.x).unwrap().hash(hasher);
+				NotNan::new(color.y).unwrap().hash(hasher);
+				NotNan::new(color.z).unwrap().hash(hasher);
+				NotNan::new(color.w).unwrap().hash(hasher);
+			},
+			Color::LinearGradient(color) =>  {
+				color.hash(hasher);
+			},
+		}
+    }
+}
 
 impl Color {
     #[inline]
@@ -585,7 +638,7 @@ pub struct Stroke {
 }
 
 // 图像填充的方式
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum FitType {
     None,
     Fill,
@@ -934,4 +987,6 @@ pub enum StyleType {
     AnimationDirection = 84,
     AnimationFillMode = 85,
     AnimationPlayState = 86,
+
+	ClipPath = 87,
 }

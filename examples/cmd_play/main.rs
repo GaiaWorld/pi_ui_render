@@ -465,7 +465,7 @@ lazy_static! {
         play_mask_image_linenear, // 1
 
         play_border_color, // 1
-        play_border_radius, // 1
+        play_todo, //play_border_radius, // 1
         play_border_image, // 1
         play_border_image_slice, // 1
         play_border_image_clip, // 1
@@ -535,7 +535,7 @@ lazy_static! {
         play_reset_border_image_slice, //"reset_border_image_slice",
         play_reset_border_image_repeat, //"reset_border_image_repeat",
         play_reset_border_color, //"reset_border_color",
-        play_reset_border_radius, //"reset_border_radius",
+        play_todo, // play_reset_border_radius, //"reset_border_radius",
         play_reset_background_rgba_color, //"reset_background_color",
         play_reset_box_shadow, //"reset_box_shadow",
         play_todo, //"reset_filter",

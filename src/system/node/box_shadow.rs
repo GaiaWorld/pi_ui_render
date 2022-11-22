@@ -12,17 +12,16 @@ use pi_render::rhi::buffer::Buffer;
 use pi_render::rhi::device::RenderDevice;
 use pi_render::rhi::dyn_uniform_buffer::{Group, Bind};
 use pi_share::Share;
-use pi_polygon::split_by_radius;
 use polygon2::difference;
 use wgpu::IndexFormat;
 use smallvec::smallvec;
 
 use crate::components::calc::{LayoutResult, DrawInfo};
 use crate::components::draw_obj::{DrawGroup, DynDrawGroup, FSDefines, VSDefines};
-use crate::components::user::{ BorderRadius, BoxShadow, Point2};
+use crate::components::user::{ BoxShadow, Point2};
 use crate::resource::draw_obj::{StaticIndex, DynUniformBuffer, DynBindGroupIndex, ColorStaticIndex};
 use crate::shaders::color::{ColorMaterialGroup, PositionVertexBuffer, ColorMaterialBind, ColorUniform, UrectUniform, BlurUniform};
-use crate::utils::tools::{calc_hash, get_content_radius, get_box_rect, calc_float_hash};
+use crate::utils::tools::{calc_hash, get_box_rect, calc_float_hash};
 use crate::{components::{user::Node, calc::{NodeId, DrawList}, draw_obj::{DrawObject, DrawState}}};
 // use crate::utils::tools::calc_hash;
 
@@ -38,15 +37,12 @@ impl CalcBoxShadow {
 			Query<'static, 'static, Node, (
 				Id<Node>, 
 				&'static BoxShadow,
-				Option<&'static BorderRadius>,
 				&'static LayoutResult,
 				Write<BoxShadowDrawId>, 
 				Write<DrawList>
 			), (With<BoxShadow>, Or<(
 				
 				Changed<BoxShadow>,
-				Changed<BorderRadius>,
-				Deleted<BorderRadius>,
 				Changed<LayoutResult>,
 			)>)>,
 
@@ -104,7 +100,6 @@ impl CalcBoxShadow {
 		for (
 			node, 
 			box_shadow, 
-			radius, 
 			layout, 
 			mut draw_index, 
 			mut render_list) in query.p0_mut().iter_mut() {
@@ -119,7 +114,6 @@ impl CalcBoxShadow {
 						draw_state,
 						layout,
 						&box_shadow,
-						radius,
 						&buffer_assets,
 						&mut dyn_uniform_buffer);
 					draw_state_item.notify_modify();
@@ -161,7 +155,6 @@ impl CalcBoxShadow {
 						&mut draw_state,
 						layout,
 						&box_shadow,
-						radius, 
 						&buffer_assets,
 						&mut dyn_uniform_buffer);
 					
@@ -214,7 +207,6 @@ fn modify(
     draw_state: &mut DrawState,
     layout: &LayoutResult,
     shadow: &BoxShadow,
-    radius: Option<&BorderRadius>,
 	buffer_assets_mgr: &Share<AssetMgr<RenderRes<Buffer>>>,
 	
 	dyn_uniform_buffer: &mut DynUniformBuffer,
@@ -224,44 +216,33 @@ fn modify(
 		return;
     }
 
-	let radius = get_content_radius(radius, layout);
+    let left = *(g_b.left) + shadow.h - shadow.spread - (shadow.blur/2.0);
+    let top = *(g_b.top) + shadow.v - shadow.spread - (shadow.blur/2.0);
+    let right = *g_b.right + shadow.spread + shadow.blur;
+    let bottom = *g_b.bottom + shadow.spread + shadow.blur;
 
-    let x = *(g_b.left) + shadow.h - shadow.spread - (shadow.blur/2.0);
-    let y = *(g_b.top) + shadow.v - shadow.spread - (shadow.blur/2.0);
-    let w = *(g_b.right) - *(g_b.left) + 2.0 * shadow.spread + shadow.blur;
-    let h = *(g_b.bottom) - *(g_b.top) + 2.0 * shadow.spread + shadow.blur;
-
-	let vb_hash = calc_hash(&(radius, calc_float_hash(&[x, y, h, w, shadow.blur], 0)), calc_hash(&"vert", 0));
-	let ib_hash = calc_hash(&(radius, calc_float_hash(&[x, y, h, w, shadow.blur], 0)), calc_hash(&"index", 0));
+	let vb_hash = calc_hash(&"shadow vert", calc_float_hash(&[left, top, right, bottom, shadow.blur], 0));
+	let ib_hash = calc_hash(&"shadow vert", calc_float_hash(&[left, top, right, bottom, shadow.blur],  0));
 	
 	let (vb, ib) = match (buffer_assets_mgr.get(&vb_hash), buffer_assets_mgr.get(&ib_hash)) {
 		(Some(vb), Some(ib)) => (vb, ib),
 		(vb, ib) => {
-			let radius = match radius {
-				Some(r) => *(r.left),
-				None => 0.0
-			};
-			// geo
-			let x1 = *g_b.left;
-			let y1 = *g_b.top;
-			let w1 = *g_b.right - *g_b.left;
-			let h1 = *g_b.bottom - *g_b.top;
-			let bg = split_by_radius(x1, y1, w1, h1, radius, Some(16));
-			if bg.0.len() == 0 {
-				return;
-			}
+			let bg = vec![
+				*g_b.left, *g_b.top,
+				*g_b.left, *g_b.bottom,
+				*g_b.right, *g_b.bottom,
+				*g_b.right, *g_b.top,
+			];
+			let shadow = vec![
+				left, top,
+				left, bottom,
+				right, bottom,
+				right, top,
+			];
 
-			let shadow_pts = split_by_radius(x, y, w, h, radius, Some(16));
-			if bg.0.len() == 0 {
-				return;
-			}
-
-			let polygon_shadow = convert_to_f32_tow(shadow_pts.0.as_slice());
-			let polygon_bg = convert_to_f32_tow(bg.0.as_slice());
+			let polygon_shadow = convert_to_f32_tow(shadow.as_slice());
+			let polygon_bg = convert_to_f32_tow(bg.as_slice());
 			let difference_polygons = difference (polygon_shadow, polygon_bg);
-
-			// let polygon_shadow = Polygon::new(convert_to_point(shadow_pts.0.as_slice()));
-			// let polygon_bg = Polygon::new(convert_to_point(bg.0.as_slice()));
 
 			let mut curr_index = 0;
 			let mut positions: Vec<f32> = vec![];
@@ -317,7 +298,7 @@ fn modify(
 
 	let mut blur = shadow.blur;
 
-	let min_size = w.min(h);
+	let min_size = (right - left).min(bottom - top);
 	if blur * 2.0 > min_size {
 		blur = min_size / 2.0
 	}
@@ -326,7 +307,7 @@ fn modify(
 	let color_dyn_offset = draw_state.bind_groups.get_group(ColorMaterialGroup::id()).unwrap().get_offset(ColorMaterialBind::index()).unwrap();
 	let color = &shadow.color;
 	dyn_uniform_buffer.set_uniform(color_dyn_offset, &ColorUniform(&[color.x, color.y, color.z, color.w]));
-	dyn_uniform_buffer.set_uniform(color_dyn_offset, &UrectUniform(&[x + blur, y + blur, x + w - blur, y + h - blur]));
+	dyn_uniform_buffer.set_uniform(color_dyn_offset, &UrectUniform(&[left + blur, top + blur, right - blur, bottom - blur]));
 	dyn_uniform_buffer.set_uniform(color_dyn_offset, &BlurUniform(&[shadow.blur]));
 
 }

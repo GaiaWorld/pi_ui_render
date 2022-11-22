@@ -137,10 +137,12 @@ impl DrawState {
 /// 是否使用单位四边形渲染
 #[derive(EnumDefault, PartialEq, Eq)]
 pub enum BoxType {
-	None,
-	Content,
-	Border,
-	
+	ContentNone, // 渲染为content区，世界矩阵不变换
+	BorderNone, // 渲染为border区，世界矩阵不变换
+	ContentRect, // 渲染为content区，世界矩阵需要变换
+	BorderRect,	// 渲染为border区，世界矩阵需要变换
+
+	Border, // 渲染为边框部分
 }
 
 /// vs shader的宏开关

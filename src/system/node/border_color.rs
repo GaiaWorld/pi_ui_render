@@ -1,12 +1,10 @@
 use std::io::Result;
 
-use ordered_float::NotNan;
 use pi_assets::asset::{Handle, Asset};
 use pi_assets::mgr::AssetMgr;
 use pi_ecs::prelude::{Or, Deleted, With, ChangeTrackers, ParamSet, ResMut};
 use pi_ecs::prelude::{Query, Changed, EntityCommands, Commands, Write, Res, Event, Id};
 use pi_ecs_macros::{listen, setup};
-use pi_flex_layout::prelude::Rect;
 use pi_render::rhi::asset::RenderRes;
 use pi_render::rhi::bind_group::BindGroup;
 use pi_render::rhi::buffer::Buffer;
@@ -14,16 +12,15 @@ use pi_render::rhi::device::RenderDevice;
 use pi_render::rhi::dyn_uniform_buffer::{Bind, Group};
 use pi_share::Share;
 use pi_render::rhi::bind_group_layout::BindGroupLayout;
-use pi_polygon::split_by_radius_border;
 use wgpu::IndexFormat;
 use smallvec::smallvec;
 
 use crate::components::calc::{LayoutResult, DrawInfo};
-use crate::components::draw_obj::{DrawGroup, DynDrawGroup};
+use crate::components::draw_obj::{DrawGroup, DynDrawGroup, FSDefines, BoxType};
 use crate::components::user::{CgColor, BorderRadius};
 use crate::resource::draw_obj::{StaticIndex, ColorStaticIndex, DynUniformBuffer, DynBindGroupIndex};
-use crate::shaders::color::{ColorMaterialGroup, ColorMaterialBind, ColorUniform};
-use crate::utils::tools::{calc_hash, get_content_radius, calc_float_hash};
+use crate::shaders::color::{ColorMaterialGroup, ColorMaterialBind, ColorUniform, ClipSdfUniform, BottomLeftBorderUniform};
+use crate::utils::tools::{calc_hash, calc_float_hash, cal_border_radius, BorderRadiusPixel};
 use crate::{
 	components::{
 		user::{Node, BorderColor}, 
@@ -33,7 +30,12 @@ use crate::{
 };
 // use crate::utils::tools::calc_hash;
 
+lazy_static! {
+	static ref BORDER: String = "BORDER".to_string();
+}
+
 pub struct CalcBorderColor;
+
 
 #[setup]
 impl CalcBorderColor {
@@ -68,12 +70,14 @@ impl CalcBorderColor {
 			), Deleted<BorderColor>>
 		)>,
 
-		query_draw: Query<'static, 'static, DrawObject, Write<DrawState>>,
+		query_draw: Query<'static, 'static, DrawObject, (Write<DrawState>, Write<FSDefines>)>,
 		mut draw_obj_commands: EntityCommands<DrawObject>,
 		mut draw_state_commands: Commands<DrawObject, DrawState>,
 		mut node_id_commands: Commands<DrawObject, NodeId>,
 		mut shader_static_commands: Commands<DrawObject, StaticIndex>,
 		mut order_commands: Commands<DrawObject, DrawInfo>,
+		mut fs_defines_commands: Commands<DrawObject, FSDefines>,
+		mut is_unit_quad_commands: Commands<DrawObject, BoxType>,
 		
 		// load_mgr: ResMut<'a, LoadMgr>,
 		device: Res<'static, RenderDevice>,
@@ -122,8 +126,10 @@ impl CalcBorderColor {
 			match draw_index.get() {
 				// background_color已经存在一个对应的DrawObj， 则修改color group
 				Some(r) => {
-					let mut draw_state_item = query_draw.get_unchecked(**r);
+					let (mut draw_state_item, mut fs_defines_item) = query_draw.get_unchecked(**r);
 					let draw_state = draw_state_item.get_mut().unwrap();
+					let fs_defines = fs_defines_item.get_mut().unwrap();
+					let count = fs_defines.0.len();
 					modify(
 						border_color, 
 						radius,
@@ -134,8 +140,13 @@ impl CalcBorderColor {
 						&background_color_change,
 						&radius_change,
 						&layout_change,
-						&mut dyn_uniform_buffer).await;
+						fs_defines,
+						&mut dyn_uniform_buffer,).await;
 					draw_state_item.notify_modify();
+					// 如果宏的数量发生变化，需要发送童子
+					if count != fs_defines.0.len() {
+						fs_defines_item.notify_modify();
+					}
 				},
 				// 否则，创建一个新的DrawObj，并设置color group; 
 				// 修改以下组件：
@@ -150,6 +161,7 @@ impl CalcBorderColor {
 					let new_draw_obj = draw_obj_commands.spawn();
 					// 设置DrawState（包含color group）
 					let mut draw_state = DrawState::default();
+					let mut fs_defines = FSDefines::default();
 
 					// 創建color材质
 					let color_material_dyn_offset = dyn_uniform_buffer.alloc_binding::<ColorMaterialBind>();
@@ -170,9 +182,12 @@ impl CalcBorderColor {
 						&background_color_change,
 						&radius_change,
 						&layout_change,
+						&mut fs_defines,
 						&mut dyn_uniform_buffer).await;
 					
 					draw_state_commands.insert(new_draw_obj, draw_state);
+					fs_defines_commands.insert(new_draw_obj, fs_defines);
+					is_unit_quad_commands.insert(new_draw_obj, BoxType::Border);
 					// 建立DrawObj对Node的索引
 					node_id_commands.insert(new_draw_obj, NodeId(node));
 					shader_static_commands.insert(new_draw_obj, color_static_index.clone());
@@ -217,7 +232,7 @@ pub fn background_color_delete(
 // 返回当前需要的StaticIndex
 async fn modify<'a> (
 	color: &CgColor, 
-	radius: Option<&BorderRadius>, 
+	border_radius: Option<&BorderRadius>, 
 	layout: &LayoutResult,
 	draw_state: &mut DrawState, 
 	device: &RenderDevice, 
@@ -225,25 +240,50 @@ async fn modify<'a> (
 	bg_color_change: &ChangeTrackers<BorderColor>,
 	border_change: &ChangeTrackers<BorderRadius>,
 	layout_change: &ChangeTrackers<LayoutResult>,
+	fs_defines: &mut FSDefines,
 
 	dyn_uniform_buffer: &mut DynUniformBuffer,
 ) {
 	// 颜色改变，重新设置color_group
-	if bg_color_change.is_changed() {
+	if bg_color_change.is_changed() || border_change.is_changed() || layout_change.is_changed() {
 		let dyn_offset = draw_state.bind_groups.get_group(ColorMaterialGroup::id()).unwrap().get_offset(ColorMaterialBind::index()).unwrap();
-				dyn_uniform_buffer.set_uniform(dyn_offset, &ColorUniform(&[color.x, color.y, color.z, color.w]));
+		dyn_uniform_buffer.set_uniform(dyn_offset, &ColorUniform(&[color.x, color.y, color.z, color.w]));
+
+		if let Some(border_radius) = border_radius {
+			let border_radius = cal_border_radius(border_radius, layout);
+			let (width, height)  = (layout.rect.right - layout.rect.left, layout.rect.bottom - layout.rect.top);
+			dyn_uniform_buffer.set_uniform(dyn_offset, &ClipSdfUniform(&[
+				width/2.0, height/2.0, 1.0, 1.0,
+				width/2.0, height/2.0, layout.border.top, layout.border.right,
+				border_radius.y[0], border_radius.x[0], border_radius.x[1], border_radius.y[1],
+				border_radius.y[2], border_radius.x[2], border_radius.x[3], border_radius.y[3],
+			]));
+			dyn_uniform_buffer.set_uniform(dyn_offset, &BottomLeftBorderUniform(&[layout.border.bottom, layout.border.left]));
+		}
 	}
 
 	// 否则，需要切分顶点，如果是渐变色，还要设置color vb
 	// ib、position vb、color vb
 	if border_change.is_changed() || layout_change.is_changed() {
-		let radius = get_content_radius(radius, layout);
-		let vert_key = calc_float_hash(&[layout.rect.left, layout.rect.right, layout.rect.bottom, layout.rect.top, layout.border.top, layout.border.right,layout.border.bottom, layout.border.left], calc_hash(&("vert radius", radius), 0)); // layout TODO
-		let index_key = calc_float_hash(&[layout.rect.left, layout.rect.right, layout.rect.bottom, layout.rect.top, layout.border.top, layout.border.right,layout.border.bottom, layout.border.left], calc_hash(&("index radius", radius), 0)); // layout TODO
+
+		let (radius_hash, border_radius) = match border_radius {
+			Some(r) => {
+				let r = cal_border_radius(r, layout);
+				fs_defines.insert(BORDER.clone());
+				(calc_float_hash(&r.y, calc_float_hash(&r.x, 0)), Some(r))
+			},
+			None => {
+				fs_defines.remove(&*BORDER);
+				(0, None)
+			}
+		};
+
+		let vert_key = calc_float_hash(&[layout.rect.right - layout.rect.left, layout.rect.bottom - layout.rect.top, layout.border.top, layout.border.right,layout.border.bottom, layout.border.left], calc_hash(&("vert radius", radius_hash), 0)); // layout TODO
+		let index_key = calc_float_hash(&[layout.rect.right - layout.rect.left, layout.rect.bottom - layout.rect.top, layout.border.top, layout.border.right,layout.border.bottom, layout.border.left], calc_hash(&("index radius", radius_hash), 0)); // layout TODO
 		let (vert, index) = match (buffer_assets.get(&vert_key), buffer_assets.get(&index_key)) {
 			(Some(v), Some(i)) => (v, i),
 			(v, i) => {
-				let (vert, indices) = get_geo_flow(&radius, layout);
+				let (vert, indices) = get_geo_flow(&border_radius, layout);
 				(
 					match v {
 						Some(r) => r,
@@ -317,16 +357,19 @@ pub fn create_rgba_bind_group(
 
 #[inline]
 /// 取几何体的顶点流和属性流
-fn get_geo_flow(radius: &Option<Rect<NotNan<f32>>>, layout: &LayoutResult) -> (Vec<f32>, Vec<u16>) {
+fn get_geo_flow(radius: &Option<BorderRadiusPixel>, layout: &LayoutResult) -> (Vec<f32>, Vec<u16>) {
 
 	let width = layout.rect.right - layout.rect.left;
 	let height = layout.rect.bottom - layout.rect.top;
+
+	let border = &layout.border;
+
+	let border_start_x = border.left;
+	let border_start_y = border.top;
+	let border_end_x = width - border.right;
+	let border_end_y = height - border.bottom;
 	match radius {
 		None => {
-			let border_start_x = layout.border.left;
-			let border_start_y = layout.border.top;
-			let border_end_x = width - layout.border.right;
-			let border_end_y = height - layout.border.bottom;
 
 			(
 				vec![
@@ -353,15 +396,63 @@ fn get_geo_flow(radius: &Option<Rect<NotNan<f32>>>, layout: &LayoutResult) -> (V
 			)
 		},
 		Some(radius) => {
-			split_by_radius_border(
-				0.0,
-				0.0,
-				width,
-				height,
-				*radius.left,
-				layout.border.left,
-				None,
-			)
+			let mut vert = Vec::new();
+			let mut index = Vec::new();
+
+			// 索引位置
+			// 0         4      5       9
+			//   ________|______|________
+			//  |                        |
+			//  |        3      6        |
+			//  |     ___|______|___     |
+			//  |    |              |    |
+			//1 |-   |-2          7-|   -|8
+			//  |    |              |    |
+			//15|-   |-19        14-|   -|13
+			//  |    |              |    |
+			//  |    |___|_______|__|    |
+			//  |        18     10       |
+			//  |                        |
+			//16|_______|_______|________|
+			//         17     11     12
+			vert.extend_from_slice(&[
+				0.0, 0.0, // 0
+				0.0, radius.y[0], // 1
+				border.left, radius.y[0], // 2
+				radius.x[0], border.top, // 3
+				radius.x[0], 0.0, // 4
+
+				width - radius.x[1], 0.0, // 5
+				width - radius.x[1], border.top, // 6
+				width - border.right, radius.y[1], // 7
+				width, radius.y[1], // 8
+				width, 0.0, // 9
+
+
+				width - radius.x[2], height - border.bottom, // 10
+				width - radius.x[2], height, // 11
+				width, height, // 12
+				width, height - radius.y[2], // 13
+				width - border.right, height - radius.y[2], // 14
+
+				0.0, height - radius.y[3], // 15
+				0.0, height, // 16
+				radius.x[3], height, // 17
+				radius.x[3], height - border.bottom, // 18
+				border.left, height - radius.y[3], // 19
+				]);
+				log::warn!("slice==============={:?}", vert);
+			index.extend_from_slice(&[
+				0, 1, 2, 0, 2, 3, 0, 3, 4, // 左上
+				5, 6, 9, 6, 7, 9, 7, 8, 9, // 右上
+				10, 11, 12, 10, 12, 14, 14, 12, 13, // 右下
+				15, 16, 19, 19, 16, 18, 18, 16, 17, // 左下
+				4, 3, 6, 4, 6, 5, // 上
+				7, 14, 13, 7, 13, 8, // 右
+				18, 17, 11, 18, 11, 10, // 下
+				1, 15, 19, 1, 19, 2, // 左
+				]);
+			(vert, index)
 		}
 	}
 }

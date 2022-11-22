@@ -597,10 +597,14 @@ impl CalcRender {
                     Some(r) => r,
                     None => {
                         let color_dyn_offset = dyn_uniform_buffer.alloc_binding::<ColorMaterialBind>();
+						let world = Matrix4::new(2.0, 0.0, 0.0, -1.0, 0.0, 2.0, 0.0, -1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0);
+						dyn_uniform_buffer.set_uniform(&color_dyn_offset, &WorldUniform(world.as_slice()));
+
                         color_bind_group.0 = Some(DrawGroup::Dyn(DynDrawGroup::new(
                             **color_material_bind_group,
                             smallvec![color_dyn_offset],
                         )));
+
                         color_bind_group.0.as_mut().unwrap()
                     }
                 };

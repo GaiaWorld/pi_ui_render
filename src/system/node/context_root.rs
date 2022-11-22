@@ -22,7 +22,7 @@ use crate::{
     },
     shaders::{
         color::CameraMatrixGroup,
-        image::{CameraMatrixBind, DepthUniform, ImageMaterialBind, ImageMaterialGroup, ProjectUniform, SampTex2DGroup, ViewUniform, WorldUniform},
+        image::{CameraMatrixBind, DepthUniform, UiMaterialBind, UiMaterialGroup, ProjectUniform, SampTex2DGroup, ViewUniform, WorldUniform},
     },
     system::{draw_obj::pipeline::CalcPipeline, pass::pass_graph_node::PostBindGroupLayout},
     utils::tools::calc_hash,
@@ -53,7 +53,7 @@ impl CalcRoot {
 
         // render_target: Res<'static, RenderTarget>,
         camera_bind_group: Res<'static, DynBindGroupIndex<CameraMatrixGroup>>,
-        post_bind_group: Res<'static, DynBindGroupIndex<ImageMaterialGroup>>,
+        post_bind_group: Res<'static, DynBindGroupIndex<UiMaterialGroup>>,
         common_state: Res<'static, CommonPipelineState>,
 
         mut dyn_uniform_buffer: ResMut<'static, DynUniformBuffer>,
@@ -137,11 +137,11 @@ impl CalcRoot {
 	
 			// 世界矩阵
 			let world_matrix = Matrix4::new(2.0, 0.0, 0.0, -1.0, 0.0, 2.0, 0.0, -1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0);
-			let post_dyn_offset = dyn_uniform_buffer.alloc_binding::<ImageMaterialBind>();
+			let post_dyn_offset = dyn_uniform_buffer.alloc_binding::<UiMaterialBind>();
 			dyn_uniform_buffer.set_uniform(&post_dyn_offset, &WorldUniform(world_matrix.as_slice()));
 			dyn_uniform_buffer.set_uniform(&post_dyn_offset, &DepthUniform(&[0.0]));
 			draw_state.bind_groups.insert_group(
-				ImageMaterialGroup::id(),
+				UiMaterialGroup::id(),
 				DrawGroup::Dyn(DynDrawGroup::new(**post_bind_group, smallvec![post_dyn_offset])),
 			);
 	

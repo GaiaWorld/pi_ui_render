@@ -247,7 +247,7 @@ impl Node for Pass2DNode {
 								return Ok(RenderResult { result: None });
 							} else {
 								out = Some(param.last_rt.0.clone());
-								// 如果后处理为None，且不存在父节点，渲染到最终目标上(返回渲染目标为None)，并且清屏色为用户这只的清屏色
+								// 如果后处理为None，且不存在父节点，渲染到最终目标上(返回渲染目标为None)，清屏色为用户设置的清屏色
 								(None, match param.clear_color_group {
 									Some(r) => r.0.as_ref(),
 									None => None

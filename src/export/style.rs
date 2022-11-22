@@ -387,23 +387,23 @@ style_out_export!(@expr
 	CgColor::new(r, g, b, a),
 	r: f32, g: f32, b: f32, a: f32,);
 
-style_out_export!(@expr 
-	border_radius,
-	BorderRadiusType,
-	BorderRadius {
-		x: LengthUnit::Pixel(x),
-		y: LengthUnit::Pixel(y)
-	},
-	x: f32, y: f32,);
+// style_out_export!(@expr 
+// 	border_radius,
+// 	BorderRadiusType,
+// 	BorderRadius {
+// 		x: LengthUnit::Pixel(x),
+// 		y: LengthUnit::Pixel(y)
+// 	},
+// 	x: f32, y: f32,);
 
-style_out_export!(@expr 
-	border_radius_percent,
-	BorderRadiusType,
-	BorderRadius {
-		x: LengthUnit::Percent(x),
-		y: LengthUnit::Percent(y)
-	},
-	x: f32, y: f32,);
+// style_out_export!(@expr 
+// 	border_radius_percent,
+// 	BorderRadiusType,
+// 	BorderRadius {
+// 		x: LengthUnit::Percent(x),
+// 		y: LengthUnit::Percent(y)
+// 	},
+// 	x: f32, y: f32,);
 
 style_out_export!(@expr 
 	box_shadow,

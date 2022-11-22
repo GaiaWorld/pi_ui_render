@@ -111,12 +111,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "debugit"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2367905bd536c33554396370f16f7643083a14f95aebadb36572b66c6748f126"
-
-[[package]]
 name = "derive_deref"
 version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -264,12 +258,6 @@ name = "libc"
 version = "0.2.132"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8371e4e5341c3a96db127eb2465ac681ced4c433e01dd0e938adbef26ba93ba5"
-
-[[package]]
-name = "libm"
-version = "0.1.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7fc7aa29613bd6a620df431842069224d8bc9011086b1db4c0e0cd47fa03ec9a"
 
 [[package]]
 name = "lock_api"
@@ -594,12 +582,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "161a4a73b261910576a9c511b799d94b873e84141830085f4eaa79cf712fe80e"
 
 [[package]]
-name = "pi_debug_info"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "68d94ce05afc31df7597c0b5dec25fd14ace4790aec72102f3aa967cb95de35e"
-
-[[package]]
 name = "pi_dirty"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -633,20 +615,16 @@ dependencies = [
 [[package]]
 name = "pi_flex_layout"
 version = "0.2.1"
-source = "git+https://github.com/GaiaWorld/pi_flex_layout.git#b08835c2eb73f9a87c46fb54f02d3adeb1e0569f"
+source = "git+https://github.com/GaiaWorld/pi_flex_layout.git#ba09037971ef58c66e59db7a92900a437cdca64e"
 dependencies = [
- "debugit",
- "libm",
  "log",
  "paste 0.1.18",
- "pi_debug_info",
  "pi_dirty",
  "pi_enum_default_macro",
  "pi_heap",
  "pi_map",
  "pi_null",
  "pi_print_any",
- "pi_slab",
  "pi_slotmap",
  "pi_slotmap_tree",
  "serde",
@@ -719,9 +697,9 @@ dependencies = [
 
 [[package]]
 name = "pi_slotmap_tree"
-version = "0.2.2"
+version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ab243a763485e2e94334924bfd52143091314b8670f07e1e945111bf1dea97e1"
+checksum = "a8d0b67834d76b436a26be7da12f31409ae63028026717d70c1e84ea1a959954"
 dependencies = [
  "log",
  "pi_null",

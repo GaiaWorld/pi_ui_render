@@ -13,7 +13,7 @@ use crate::{
     },
     shaders::{
         color::CameraMatrixGroup,
-        image::{ImageMaterialGroup, SampTex2DGroup},
+        image::{UiMaterialGroup, SampTex2DGroup},
     },
     utils::tools::calc_hash,
 };
@@ -32,7 +32,7 @@ impl CalcImageShader {
     pub fn init(
         mut shader_static_map: ResMut<Shaders>,
         mut vertex_buffer_map: ResMut<VertexBufferLayoutMap>,
-        post_layout: Res<DynBindGroupLayout<ImageMaterialGroup>>,
+        post_layout: Res<DynBindGroupLayout<UiMaterialGroup>>,
         camera_layout: Res<DynBindGroupLayout<CameraMatrixGroup>>,
         mut shader_catch: ResMut<ShaderCatch>,
         mut shader_map: ResMut<ShaderMap>,
@@ -56,7 +56,7 @@ impl CalcImageShader {
 
         let mut bind_group_layout = VecMap::new();
         bind_group_layout.insert(CameraMatrixGroup::id() as usize, (*camera_layout).clone());
-        bind_group_layout.insert(ImageMaterialGroup::id() as usize, (*post_layout).clone());
+        bind_group_layout.insert(UiMaterialGroup::id() as usize, (*post_layout).clone());
         bind_group_layout.insert(SampTex2DGroup::id() as usize, SampTex2DGroup::create_layout(&device, false));
 
         shader_static_map.0.push(ShaderStatic {

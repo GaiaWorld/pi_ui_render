@@ -25,5 +25,6 @@ pub mod background_image;
 pub mod image_texture_load;
 pub mod animation;
 pub mod canvas;
+pub mod clip_path;
 
 
