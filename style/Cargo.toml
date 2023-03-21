@@ -30,7 +30,9 @@ pi_curves = { git="https://github.com/GaiaWorld/pi_curves.git"}
 pi_animation = { git="https://github.com/GaiaWorld/pi_animation.git"}
 
 pi_print_any="0.1"
-bevy_reflect = "0.8"
+# bevy_reflect = "0.9"
+# bevy_reflect={path="../../bevy/crates/bevy_reflect"}
+bevy={version="0.9", default-features = false}
 
 # [patch."https://github.com/GaiaWorld/pi_curves"]
 # pi_curves  = {path="../../pi_curves"}

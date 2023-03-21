@@ -1,17 +1,13 @@
+use bevy::ecs::prelude::World;
 
-use pi_ecs::{prelude::{ResMut, Id, Query}, query::Write};
-
-use crate::{resource::{animation_sheet::KeyFramesSheet}, components::{user::{Node, ClearColor, Viewport, RenderTargetType, Canvas}}};
-
-use pi_style::{style_parse::{KeyFrameList}, style_type::ClassSheet};
-
-pub struct DataQuery {
-    pub clear_color: Query<'static, 'static, Node, Write<ClearColor>>,
-	pub view_port: Query<'static, 'static, Node,  Write<Viewport>>,
-	pub render_target_type: Query<'static, 'static, Node, Write<RenderTargetType>>,
-	pub canvas: Query<'static, 'static, Node, Write<Canvas>>,
-    pub class_sheet: ResMut<'static, ClassSheet>,
-    pub keyframes_sheet: ResMut<'static, KeyFramesSheet>,
+pub struct DataQuery<'a> {
+    pub world: &'a mut World,
+    // pub clear_color: Query<'static, 'static, Node, Write<ClearColor>>,
+    // pub view_port: Query<'static, 'static, Node,  Write<Viewport>>,
+    // pub render_target_type: Query<'static, 'static, Node, Write<RenderTargetType>>,
+    // pub canvas: Query<'static, 'static, Node, Write<Canvas>>,
+    // pub class_sheet: ResMut<'static, ClassSheet>,
+    // pub keyframes_sheet: ResMut<'static, KeyFramesSheet>,
 }
 
 pub struct SingleCmd<T>(pub T);
@@ -20,51 +16,34 @@ default impl<T: 'static + Send + Sync> Command for SingleCmd<T> {
     default fn write(self, _query: &mut DataQuery) {}
 }
 
-impl Command for SingleCmd<ClassSheet> {
-    fn write(self, query: &mut DataQuery) { query.class_sheet.extend_from_class_sheet(self.0); }
-}
+// impl Command for SingleCmd<ClassSheet> {
+//     fn write(self, query: &mut DataQuery) { query.class_sheet.extend_from_class_sheet(self.0); }
+// }
 
-impl Command for SingleCmd<KeyFrameList> {
-    fn write(self, query: &mut DataQuery) {
-        let sheet = &mut *query.keyframes_sheet;
-        for (name, value) in self.0.frames.into_iter() {
-            sheet.add_keyframes(self.0.scope_hash, name, value);
-        }
-        // query.keyframes_sheet.write(self.0);
-    }
-}
+// impl Command for SingleCmd<KeyFrameList> {
+//     fn write(self, query: &mut DataQuery) {
+//         let sheet = &mut *query.keyframes_sheet;
+//         for (name, value) in self.0.frames.into_iter() {
+//             sheet.add_keyframes(self.0.scope_hash, name, value);
+//         }
+//         // query.keyframes_sheet.write(self.0);
+//     }
+// }
 
-pub struct NodeCmd<T>(pub T, pub Id<Node>);
+// pub struct NodeCmd<T>(pub T, pub Id<Node>);
 
 // macro_rules! impl_single_cmd {
 //     // 整体插入
 //     ($name: ident, $value_ty: ident) => {
 //         impl Command for SingleCmd<($value_ty, Id<Node>)> {
-//             fn write(self, query: &mut DataQuery) { 
+//             fn write(self, query: &mut DataQuery) {
 // 				if let Some(r) = query.$name.get(self.0.1) {
 // 					r.write(self.0.0);
-// 				}; 
+// 				};
 // 			}
 //         }
 //     };
 // }
-
-macro_rules! impl_root_cmd {
-    // 整体插入
-    ($name: ident, $value_ty: ident) => {
-        impl Command for NodeCmd<$value_ty> {
-            fn write(self, query: &mut DataQuery) { 
-				if let Some(mut r) = query.$name.get_mut(self.1) {
-					r.write(self.0);
-				}; 
-			}
-        }
-    };
-}
-impl_root_cmd!(view_port, Viewport);
-impl_root_cmd!(clear_color, ClearColor);
-impl_root_cmd!(render_target_type, RenderTargetType);
-impl_root_cmd!(canvas, Canvas);
 
 
 /// A [`World`] mutation.

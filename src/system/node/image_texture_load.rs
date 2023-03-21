@@ -1,5 +1,10 @@
 use std::marker::PhantomData;
 
+use bevy::ecs::{
+    prelude::{Component, Entity, EventWriter},
+    query::Changed,
+    system::{Commands, Query, RemovedComponents, Res, Resource},
+};
 use crossbeam::queue::SegQueue;
 use pi_assets::{
     asset::Handle,
@@ -7,24 +12,15 @@ use pi_assets::{
 };
 use pi_async::prelude::AsyncRuntime;
 use pi_atom::Atom;
-use pi_ecs::{
-    entity::Id,
-    monitor::Event,
-    prelude::{Query, Res, Write},
-};
-use pi_ecs_macros::{listen, setup};
+use pi_bevy_assert::ShareAssetMgr;
+use pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent;
+use pi_bevy_render_plugin::{PiRenderDevice, PiRenderQueue};
 use pi_hal::{loader::AsyncLoader, runtime::MULTI_MEDIA_RUNTIME};
-use pi_render::rhi::{
-    asset::{ImageTextureDesc, TextureRes},
-    device::RenderDevice,
-    RenderQueue,
-};
-use pi_share::{Share, ThreadSync};
+use pi_render::rhi::asset::{ImageTextureDesc, TextureRes};
+use pi_share::Share;
 
-use crate::components::user::Node;
-
-#[derive(Clone, DerefMut, Deref)]
-pub struct ImageAwait<T>(Share<SegQueue<(Id<Node>, Atom, Handle<TextureRes>)>>, PhantomData<T>);
+#[derive(Clone, DerefMut, Deref, Resource)]
+pub struct ImageAwait<T>(Share<SegQueue<(Entity, Atom, Handle<TextureRes>)>>, PhantomData<T>);
 
 impl<T> Default for ImageAwait<T> {
     fn default() -> Self { Self(Share::new(SegQueue::new()), PhantomData) }
@@ -32,32 +28,37 @@ impl<T> Default for ImageAwait<T> {
 
 pub struct CalcImageLoad<S: std::ops::Deref<Target = Atom>, D: From<Handle<TextureRes>>>(PhantomData<(S, D)>);
 
-#[setup]
-impl<S, D> CalcImageLoad<S, D>
-where
-    S: std::ops::Deref<Target = Atom> + 'static + ThreadSync,
-    D: From<Handle<TextureRes>> + 'static + ThreadSync,
-{
-    /// Image创建，加载对应的图片
-    /// 图片加载是异步，加载成功后，不能立即将图片对应的纹理设置到BorderImageTexture上
-    /// 因为BorderImageTexture未加锁，其他线程可能正在使用
-    /// 这里是将一个加载成功的Texture放入一个加锁的列表中，在system执行时，再放入到BorderImageTexture中
-    #[listen(component=(Node, S, (Create, Modify)))]
-    pub fn image_change(
-        e: Event,
-        mut query: Query<Node, (&S, Write<D>)>,
-        texture_assets_mgr: Res<Share<AssetMgr<TextureRes>>>,
-        image_await: Res<ImageAwait<S>>,
-        queue: Res<RenderQueue>,
-        device: Res<RenderDevice>,
-    ) {
-        let (key, mut texture) = query.get_unchecked_mut_by_entity(e.id);
+/// Image创建，加载对应的图片
+/// 图片加载是异步，加载成功后，不能立即将图片对应的纹理设置到BorderImageTexture上
+/// 因为BorderImageTexture未加锁，其他线程可能正在使用
+/// 这里是将一个加载成功的Texture放入一个加锁的列表中，在system执行时，再放入到BorderImageTexture中
+pub fn image_change<S: Component + std::ops::Deref<Target = Atom>, D: Component + From<Handle<TextureRes>>>(
+    query: Query<(Entity, &S), Changed<S>>,
+    query1: Query<(Entity, &S)>,
+    del: RemovedComponents<S>,
+    texture_assets_mgr: Res<ShareAssetMgr<TextureRes>>,
+    image_await: Res<ImageAwait<S>>,
+    queue: Res<PiRenderQueue>,
+    device: Res<PiRenderDevice>,
+
+    mut commands: Commands,
+    mut event_writer: EventWriter<ComponentEvent<Changed<D>>>,
+) {
+    // 图片删除，则删除对应的Texture
+    for del in del.iter() {
+        commands.entity(del).remove::<D>();
+    }
+
+    let mut insert = Vec::new();
+
+    // 处理图片路径修改，尝试加载图片（异步加载，加载完成后，放入image_await中）
+    for (entity, key) in query.iter() {
         let result = AssetMgr::load(&texture_assets_mgr, &(key.get_hash() as u64));
         match result {
-            LoadResult::Ok(r) => texture.write(D::from(r)),
+            LoadResult::Ok(r) => insert.push((entity, D::from(r))),
             _ => {
                 let (awaits, device, queue) = ((*image_await).clone(), (*device).clone(), (*queue).clone());
-                let (id, key) = (unsafe { Id::new(e.id.local()) }, (*key).clone());
+                let (id, key) = (entity, (*key).clone());
 
                 MULTI_MEDIA_RUNTIME
                     .spawn(MULTI_MEDIA_RUNTIME.alloc(), async move {
@@ -82,26 +83,25 @@ where
         }
     }
 
-    //
-    #[system]
-    pub fn check_await_texture(image_await: Res<ImageAwait<S>>, mut query: Query<Node, (&S, Write<D>)>) {
-        // let awaits = std::mem::replace(&mut border_image_await.0, Share::new(SegQueue::new()));
-        let mut r = image_await.0.pop();
-        while let Some((id, key, texture)) = r {
-            r = image_await.0.pop();
-
-            let mut texture_item = match query.get_mut(id) {
-                Some((img, texture_item)) => {
-                    // image已经修改，不需要设置texture
-                    if **img != key {
-                        continue;
-                    }
-                    texture_item
+    // 处理已经成功加载的图片，放入到对应组件中
+    while let Some((id, key, texture)) = image_await.0.pop() {
+        match query1.get(id) {
+            Ok((_, img)) => {
+                // image已经修改，不需要设置texture
+                if **img != key {
+                    continue;
                 }
-                // 节点已经销毁，或image已经被删除，不需要设置texture
-                None => continue,
-            };
-            texture_item.write(D::from(texture));
-        }
+
+                // log::info!("load success====================:{:?}", key);
+                insert.push((id, D::from(texture)));
+                event_writer.send(ComponentEvent::new(id));
+            }
+            // 节点已经销毁，或image已经被删除，不需要设置texture
+            _ => continue,
+        };
+    }
+
+    if insert.len() > 0 {
+        commands.insert_or_spawn_batch(insert.into_iter());
     }
 }

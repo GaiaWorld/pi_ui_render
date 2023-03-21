@@ -11,7 +11,7 @@ use pi_render::rhi::{device::RenderDevice, shader::{ShaderId, Shader, ShaderProc
 use pi_share::Share;
 
 use crate::{
-	resource::draw_obj::{StateMap, Shaders, VertexBufferLayoutMap, ShareLayout, ShaderCatch, ShaderMap, Program, VertexBufferLayout, VertexBufferLayouts}, 
+	resource::draw_obj::{StateMap, Shaders, ShareLayout, ShaderCatch, ShaderMap, Program, VertexBufferLayout, VertexBufferLayouts}, 
 	components::draw_obj::{VSDefines, FSDefines}, utils::tools::calc_hash
 };
 
@@ -29,7 +29,6 @@ impl ColorShadowShader {
 	pub fn init(
 		shader_static_map: ResMut<Shaders>,
 		state_map: ResMut<StateMap>,
-		vertex_buffer_map: ResMut<VertexBufferLayoutMap>,
 		share_layout: Res<ShareLayout>,
 		mut shader_catch: ResMut<ShaderCatch>,
 		mut shader_map: ResMut<ShaderMap>,

@@ -12,21 +12,28 @@ use std::{
     ops::{Index, IndexMut},
 };
 
-use pi_ecs::{prelude::{ChangeTrackers, Changed, Event, Id, Local, Or, OrDefault, Query, Write, WriteItem}};
-use pi_ecs_macros::{listen, setup};
-use pi_ecs_utils::prelude::{EntityTree, Layer};
+use bevy::ecs::{
+    prelude::{Entity, EventWriter},
+    query::{ChangeTrackers, Changed, Or},
+    system::{Local, Query},
+    world::Mut,
+};
+use pi_bevy_ecs_extend::{
+    prelude::{EntityTree, Layer, OrDefault},
+    system_param::layer_dirty::ComponentEvent,
+};
 use pi_flex_layout::prelude::{
     AlignContent, AlignItems, AlignSelf, CharNode, Dimension, Direction, Display, FlexDirection, FlexLayoutStyle, FlexWrap, Get, GetMut, INode,
     INodeStateType, JustifyContent, Layout, LayoutContext, LayoutR, Number, Overflow, PositionType, Rect, TreeStorage,
 };
 
 use crate::components::{
-    calc::{LayoutResult, NodeState},
-    user::{Border, FlexContainer, FlexNormal, Margin, MinMax, Node, Padding, Position, Show, Size, TextContent, TextStyle},
+    calc::{EntityKey, LayoutResult, NodeState},
+    user::{Border, FlexContainer, FlexNormal, Margin, MinMax, Padding, Position, Show, Size, TextContent, TextStyle},
 };
 use pi_dirty::LayerDirty;
 use pi_null::Null;
-use pi_slotmap_tree::{Down, Storage, Up};
+use pi_slotmap_tree::{Down, Up};
 
 // =LayoutKey { entity: Id(LocalVersion(4607182418800017408)), text_index: 18446744073709551615 }
 #[test]
@@ -35,188 +42,193 @@ fn test() {
 }
 pub struct CalcLayout;
 
-#[setup]
-impl CalcLayout {
-    /// 根据布局样式，计算布局
-    #[system]
-    pub fn calc_layout(
-        query: Query<
-            Node,
-            (
-                OrDefault<Size>,
-                OrDefault<Margin>,
-                OrDefault<Padding>,
-                OrDefault<Border>,
-                OrDefault<Position>,
-                OrDefault<MinMax>,
-                OrDefault<FlexContainer>,
-                OrDefault<FlexNormal>,
-                OrDefault<Show>,
-            ),
-        >,
-        mut inodes: Query<'static, 'static, Node, &'static mut NodeState>,
-        idtree: EntityTree<Node>,
-        dirtys: Query<
-            Node,
-            (
-                Id<Node>,
-                ChangeTrackers<Size>,
-                ChangeTrackers<Margin>,
-                ChangeTrackers<Padding>,
-                ChangeTrackers<Border>,
-                ChangeTrackers<Position>,
-                ChangeTrackers<MinMax>,
-                ChangeTrackers<FlexContainer>,
-                ChangeTrackers<FlexNormal>,
-                ChangeTrackers<Layer<Node>>,
-                ChangeTrackers<Show>,
-                ChangeTrackers<TextContent>,
-                ChangeTrackers<TextStyle>,
-            ),
-            Or<(
-                Changed<Layer<Node>>,
-                Changed<Size>,
-                Changed<Margin>,
-                Changed<Padding>,
-                Changed<Border>,
-                Changed<Position>,
-                Changed<MinMax>,
-                Changed<FlexContainer>,
-                Changed<FlexNormal>,
-                Changed<Show>,
-                Changed<TextContent>,
-                Changed<TextStyle>,
-            )>,
-        >,
-        mut layout_r: Query<'static, 'static, Node, Write<LayoutResult>>,
-        mut layer_dirty: Local<LayerDirty<LayoutKey>>,
-        default_style: Local<(Size, Margin, Padding, Border, Position, MinMax, FlexContainer, FlexNormal, Show)>,
-    ) {
-        // log::info!("call layout==========================");
-        let node_states_ptr = &mut inodes as *mut Query<Node, &'static mut NodeState>;
-        let layout_styles = LayoutStyles {
-            query: &query,
-            char_nodes: unsafe { transmute(&mut inodes) },
-            default: &default_style,
-        };
-        let mut node_state = INodes(unsafe { transmute(&mut inodes) }, NodeState(INode::new(INodeStateType::SelfDirty, 0)));
-        let mut layout_map = LayoutRs {
-            style: &mut layout_r,
-            default: LayoutResult::default(),
-            char_nodes: node_states_ptr,
-        };
-        let tree = Tree {
-            tree: &idtree,
-            char_nodes: unsafe { transmute(&mut inodes) },
-        };
+/// 根据布局样式，计算布局
+#[allow(unused_variables)]
+pub fn calc_layout(
+    query: Query<(
+        OrDefault<Size>,
+        OrDefault<Margin>,
+        OrDefault<Padding>,
+        OrDefault<Border>,
+        OrDefault<Position>,
+        OrDefault<MinMax>,
+        OrDefault<FlexContainer>,
+        OrDefault<FlexNormal>,
+        OrDefault<Show>,
+    )>,
+    mut inodes: Query<&'static mut NodeState>,
+    idtree: EntityTree,
+    dirtys: Query<
+        (
+            Entity,
+            &'static Size,
+            Option<ChangeTrackers<Size>>,
+            Option<ChangeTrackers<Margin>>,
+            Option<ChangeTrackers<Padding>>,
+            Option<ChangeTrackers<Border>>,
+            Option<ChangeTrackers<Position>>,
+            Option<ChangeTrackers<MinMax>>,
+            Option<ChangeTrackers<FlexContainer>>,
+            Option<ChangeTrackers<FlexNormal>>,
+            Option<ChangeTrackers<Layer>>,
+            Option<ChangeTrackers<Show>>,
+            Option<ChangeTrackers<TextContent>>,
+            Option<ChangeTrackers<TextStyle>>,
+        ),
+        Or<(
+            Changed<Layer>,
+            Changed<Size>,
+            Changed<Margin>,
+            Changed<Padding>,
+            Changed<Border>,
+            Changed<Position>,
+            Changed<MinMax>,
+            Changed<FlexContainer>,
+            Changed<FlexNormal>,
+            Changed<Show>,
+            Changed<TextContent>,
+            Changed<TextStyle>,
+        )>,
+    >,
+    mut layout_r: Query<&'static mut LayoutResult>,
+    mut layer_dirty: Local<LayerDirty<LayoutKey>>,
+    default_style: Local<(Size, Margin, Padding, Border, Position, MinMax, FlexContainer, FlexNormal, Show)>,
+    mut event_write: EventWriter<ComponentEvent<Changed<LayoutResult>>>,
+) {
+    // let node_states_ptr = &mut inodes as *mut Query<&'static mut NodeState>;
+    let layout_styles = LayoutStyles {
+        query: &query,
+        char_nodes: unsafe { transmute(&mut inodes) },
+        default: &default_style,
+    };
+    let mut node_state = INodes(unsafe { transmute(&mut inodes) }, NodeState(INode::new(INodeStateType::SelfDirty, 0)));
+    let mut layout_map = LayoutRs {
+        style: unsafe { transmute(&mut layout_r) },
+        default: LayoutResult::default(),
+        char_nodes: unsafe { transmute(&mut inodes) },
+    };
+    let tree = Tree {
+        tree: &idtree,
+        char_nodes: unsafe { transmute(&mut inodes) },
+    };
 
-        let mut aa = 0;
-        let layout_context = LayoutContext {
-            mark: PhantomData,
-            i_nodes: &mut node_state,
-            layout_map: &mut layout_map,
-            notify_arg: &mut aa,
-            notify: notify,
-            tree: &tree,
-            style: &layout_styles,
-        };
-        let mut layout = Layout(layout_context);
+    let layout_context = LayoutContext {
+        mark: PhantomData,
+        i_nodes: &mut node_state,
+        layout_map: &mut layout_map,
+        notify_arg: &mut event_write,
+        notify: notify,
+        tree: &tree,
+        style: &layout_styles,
+    };
+    let mut layout = Layout(layout_context);
 
-        // 遍历布局脏节点，重新设置脏为层次脏
-        for (
-            e,
-            size,
-            margin,
-            padding,
-            border,
-            position,
-            min_max,
-            flex_container,
-            flex_normal,
-            layer,
-            show,
-            text_context,
-            text_style,
-            // char_node
-        ) in dirtys.iter()
+    // 遍历布局脏节点，重新设置脏为层次脏
+    for (
+        e,
+        s,
+        size,
+        margin,
+        padding,
+        border,
+        position,
+        min_max,
+        flex_container,
+        flex_normal,
+        layer,
+        show,
+        text_context,
+        text_style,
+        // char_node
+    ) in dirtys.iter()
+    {
+        if size.map_or(false, |size| size.is_changed())
+            || position.map_or(false, |position| position.is_changed())
+            || margin.map_or(false, |margin| margin.is_changed())
+            || layer.map_or(false, |layer| layer.is_changed())
+            || min_max.map_or(false, |min_max| min_max.is_changed())
         {
-            if size.is_changed() || position.is_changed() || margin.is_changed() || layer.is_changed() || min_max.is_changed() {
-                layout.set_rect(
-                    &mut layer_dirty,
-                    LayoutKey {
-                        entity: e,
-                        text_index: usize::null(),
-                    },
-                    true,
-                    true,
-                );
-            }
+            // log::warn!("set rect ===================={:?}, {:?}, {:?}, {:?}", e, layout.0.style.get(LayoutKey {
+            // 	entity: e,
+            // 	text_index: usize::null(),
+            // }), size.map_or(false, |size| size.is_changed() ), s);
 
-            // 文字修改，容器属性修改、层脏，则需要标记子脏
-            if text_context.is_changed() || text_style.is_changed() || flex_container.is_changed() || layer.is_changed(){
-                layout.mark_children_dirty(
-                    &mut layer_dirty,
-                    LayoutKey {
-                        entity: e,
-                        text_index: usize::null(),
-                    },
-                );
-            }
-
-
-            if flex_normal.is_changed() {
-                // log::info!("calc layout2===================={:?}", e.offset());
-                layout.set_normal_style(
-                    &mut layer_dirty,
-                    LayoutKey {
-                        entity: e,
-                        text_index: usize::null(),
-                    },
-                );
-            }
-
-            if padding.is_changed() || border.is_changed() {
-                // log::info!("calc layout3===================={:?}", e.offset());
-                layout.set_self_style(
-                    LayoutKey {
-                        entity: e,
-                        text_index: usize::null(),
-                    },
-                    &mut layer_dirty,
-                );
-            }
-
-            if show.is_changed() {
-                // log::info!("calc layout5===================={:?}", e.offset());
-                layout.set_display(
-                    LayoutKey {
-                        entity: e,
-                        text_index: usize::null(),
-                    },
-                    &mut layer_dirty,
-                );
-            }
-            // println!("set layout end==============={:?}", e);
+            layout.set_rect(
+                &mut layer_dirty,
+                LayoutKey {
+                    entity: e,
+                    text_index: usize::null(),
+                },
+                true,
+                true,
+            );
         }
 
-        // log::info!("calc layout6===================={:?}", layer_dirty.count());
-        // 计算布局
-        layout.compute(&mut layer_dirty);
+        // 文字修改，容器属性修改、层脏，则需要标记子脏
+        if text_context.map_or(false, |text_context| text_context.is_changed())
+            || text_style.map_or(false, |text_style| text_style.is_changed())
+            || flex_container.map_or(false, |flex_container| flex_container.is_changed())
+            || layer.map_or(false, |layer| layer.is_changed())
+        {
+            // log::info!("mark_children_dirty ===================={:?}", e);
+            layout.mark_children_dirty(
+                &mut layer_dirty,
+                LayoutKey {
+                    entity: e,
+                    text_index: usize::null(),
+                },
+            );
+        }
+
+
+        if flex_normal.map_or(false, |flex_normal| flex_normal.is_changed()) {
+            // log::info!("calc layout2===================={:?}", e);
+            layout.set_normal_style(
+                &mut layer_dirty,
+                LayoutKey {
+                    entity: e,
+                    text_index: usize::null(),
+                },
+            );
+        }
+
+        if padding.map_or(false, |padding| padding.is_changed()) || border.map_or(false, |border| border.is_changed()) {
+            // log::info!("calc layout3===================={:?}", e);
+            layout.set_self_style(
+                LayoutKey {
+                    entity: e,
+                    text_index: usize::null(),
+                },
+                &mut layer_dirty,
+            );
+        }
+
+        if show.map_or(false, |show| show.is_changed()) {
+            // log::info!("calc layout5===================={:?}", e);
+            layout.set_display(
+                LayoutKey {
+                    entity: e,
+                    text_index: usize::null(),
+                },
+                &mut layer_dirty,
+            );
+        }
+        // println!("set layout end==============={:?}", e);
     }
 
-    #[listen(entity=(Node, Create))]
-    pub fn prepare_data(e: Event, mut query: Query<Node, Write<NodeState>>) {
-        // log::info!("create inode!!!!!!!!!!!!!!!!!!!!!, {:?}", e.id.local().offset());
-        query.get_unchecked_mut_by_entity(e.id).write(NodeState::default());
-    }
+    // log::info!("calc layout6===================={:?}", layer_dirty.count());
+    // 计算布局
+    layout.compute(&mut layer_dirty);
 }
 
 
-fn notify(_t: &mut i32, _entity: LayoutKey, _layout: &LayoutRItem) {}
+fn notify(event_writer: &mut EventWriter<ComponentEvent<Changed<LayoutResult>>>, entity: LayoutKey, _layout: &LayoutRItem) {
+    event_writer.send(ComponentEvent::new(entity.entity));
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct LayoutKey {
-    entity: Id<Node>,
+    entity: Entity,
     text_index: usize,
 }
 
@@ -224,19 +236,18 @@ impl Null for LayoutKey {
     /// 判断当前值是否空
     fn null() -> Self {
         LayoutKey {
-            entity: Id::<Node>::null(),
+            entity: EntityKey::null().0,
             text_index: usize::null(),
         }
     }
     /// 判断当前值是否空
-    fn is_null(&self) -> bool { self.text_index.is_null() && self.entity.is_null() }
+    fn is_null(&self) -> bool { self.text_index.is_null() && EntityKey(self.entity).is_null() }
 }
 
 pub struct LayoutStyles<'a, 'b> {
     query: &'a Query<
         'b,
         'b,
-        Node,
         (
             OrDefault<Size>,
             OrDefault<Margin>,
@@ -249,7 +260,7 @@ pub struct LayoutStyles<'a, 'b> {
             OrDefault<Show>,
         ),
     >,
-    char_nodes: &'a mut Query<'b, 'b, Node, &'b mut NodeState>,
+    char_nodes: &'a mut Query<'b, 'b, &'static mut NodeState>,
     default: &'a (Size, Margin, Padding, Border, Position, MinMax, FlexContainer, FlexNormal, Show),
 }
 
@@ -276,7 +287,7 @@ impl<'a, 'b> Get<LayoutKey> for LayoutStyles<'a, 'b> {
     }
 }
 
-struct INodes<'a>(&'a mut Query<'static, 'static, Node, &'static mut NodeState>, NodeState);
+struct INodes<'a>(&'a mut Query<'a, 'a, &'static mut NodeState>, NodeState);
 
 impl<'a> Index<LayoutKey> for INodes<'a> {
     type Output = INode;
@@ -299,21 +310,20 @@ impl<'a> IndexMut<LayoutKey> for INodes<'a> {
     }
 }
 
-pub struct LayoutRs<'a, 'b> {
-    style: &'a mut Query<'b, 'b, Node, Write<LayoutResult>>,
+pub struct LayoutRs<'a, 'w: 'a, 's: 'w> {
+    style: &'a mut Query<'w, 's, &'static mut LayoutResult>,
     default: LayoutResult,
-    char_nodes: *mut Query<'b, 'b, Node, &'b mut NodeState>,
+    char_nodes: &'a mut Query<'w, 's, &'static mut NodeState>,
 }
 
-impl<'a, 'b> GetMut<LayoutKey> for LayoutRs<'a, 'b> {
-    type Target = LayoutRItem<'a, 'b>;
+impl<'a, 'w, 's> GetMut<LayoutKey> for LayoutRs<'a, 'w, 's> {
+    type Target = LayoutRItem<'a, 'w, 's>;
     fn get_mut(&mut self, index: LayoutKey) -> Self::Target {
         if index.text_index.is_null() {
-            let mut item = self.style.get_mut(index.entity).unwrap();
-            let r = unsafe { transmute(item.get_mut_or_default()) };
-            LayoutRItem::Node(unsafe { transmute(item) }, r, self.char_nodes, index.entity)
+            let item = self.style.get_mut(index.entity).unwrap();
+            unsafe { transmute(LayoutRItem::Node(item, self.char_nodes, index.entity)) }
         } else {
-            let node_states = unsafe { &mut *self.char_nodes };
+            let node_states = &mut *self.char_nodes;
             LayoutRItem::Text(
                 unsafe { transmute(&mut (**node_states.get_mut(index.entity).unwrap()).text[index.text_index]) },
                 unsafe { transmute(&self.default.border) },
@@ -322,34 +332,29 @@ impl<'a, 'b> GetMut<LayoutKey> for LayoutRs<'a, 'b> {
     }
 }
 
-pub enum LayoutRItem<'s, 'b> {
-    Node(
-        WriteItem<'s, LayoutResult>,
-        &'s mut LayoutResult,
-        *mut Query<'b, 'b, Node, &'b mut NodeState>,
-        Id<Node>,
-    ),
-    Text(&'s mut CharNode, &'s Rect<f32>),
+pub enum LayoutRItem<'a, 'w, 's> {
+    Node(Mut<'a, LayoutResult>, &'a mut Query<'w, 's, &'static mut NodeState>, Entity),
+    Text(&'a mut CharNode, &'a Rect<f32>),
 }
 
 // pub struct LayoutRItem<'s>(WriteItem<LayoutResult>, &'s mut LayoutResult);
 
-impl<'s, 'b> LayoutR for LayoutRItem<'s, 'b> {
+impl<'a, 'w, 's> LayoutR for LayoutRItem<'a, 'w, 's> {
     fn rect(&self) -> &Rect<f32> {
         match self {
-            LayoutRItem::Node(_, r, _, _) => &r.rect,
+            LayoutRItem::Node(r, _, _) => &r.rect,
             LayoutRItem::Text(char_node, _) => &char_node.pos,
         }
     }
     fn border(&self) -> &Rect<f32> {
         match self {
-            LayoutRItem::Node(_, r, _, _) => &r.border,
+            LayoutRItem::Node(r, _, _) => &r.border,
             LayoutRItem::Text(_, r) => r,
         }
     }
     fn padding(&self) -> &Rect<f32> {
         match self {
-            LayoutRItem::Node(_, r, _, _) => &r.padding,
+            LayoutRItem::Node(r, _, _) => &r.padding,
             LayoutRItem::Text(_, r) => r,
         }
     }
@@ -357,28 +362,28 @@ impl<'s, 'b> LayoutR for LayoutRItem<'s, 'b> {
     // 设置布局属性
     fn set_rect(&mut self, v: Rect<f32>) {
         match self {
-            LayoutRItem::Node(_, r, _, _) => r.rect = v,
+            LayoutRItem::Node(r, _, _) => r.rect = v,
             LayoutRItem::Text(char_node, _r) => {
                 char_node.pos = v;
             }
         };
     }
     fn set_border(&mut self, v: Rect<f32>) {
-        if let LayoutRItem::Node(_, r, _, _) = self {
+        if let LayoutRItem::Node(r, _, _) = self {
             r.border = v;
         }
     }
     fn set_padding(&mut self, v: Rect<f32>) {
-        if let LayoutRItem::Node(_, r, _, _) = self {
+        if let LayoutRItem::Node(r, _, _) = self {
             r.padding = v;
         }
     }
 
     fn set_finish(&mut self) {
-        if let LayoutRItem::Node(r, l, node_states, e) = self {
+        if let LayoutRItem::Node(r, node_states, e) = self {
             // log::info!("set_finish=================={:?}", e.local().offset());
             let e = e.clone();
-            let state = unsafe { &mut **node_states }.get(e).unwrap();
+            let state = (&mut **node_states).get(e).unwrap();
             if state.is_vnode() && state.text.len() > 0 {
                 //
                 let mut rect = Rect {
@@ -403,9 +408,9 @@ impl<'s, 'b> LayoutR for LayoutRItem<'s, 'b> {
                         rect.bottom = l.bottom;
                     }
                 }
-                l.rect = rect;
+                r.rect = rect;
             }
-            r.notify_modify();
+            // r.notify_modify();
         }
     }
 }
@@ -475,8 +480,8 @@ impl<'a> FlexLayoutStyle for LayoutStyle<'a> {
 }
 
 pub struct Tree<'a, 'b> {
-    tree: &'a EntityTree<'b, Node>,
-    char_nodes: &'a Query<'b, 'b, Node, &'b mut NodeState>,
+    tree: &'a EntityTree<'b, 'b>,
+    char_nodes: &'a Query<'b, 'b, &'static mut NodeState>,
 }
 
 impl<'a, 'b> TreeStorage<LayoutKey> for Tree<'a, 'b> {
@@ -502,7 +507,7 @@ impl<'a, 'b> TreeStorage<LayoutKey> for Tree<'a, 'b> {
             }
         } else {
             // 文字
-            let char_node = self.char_nodes.get_unchecked(k.entity);
+            let char_node = self.char_nodes.get(k.entity).unwrap();
             let char = &char_node.text[k.text_index];
 
             let prev = if k.text_index == 0 {
@@ -540,11 +545,11 @@ impl<'a, 'b> TreeStorage<LayoutKey> for Tree<'a, 'b> {
                     text_index: usize::null(),
                 },
                 LayoutKey {
-                    entity: if prev.is_null() { Id::<Node>::null() } else { k.entity },
+                    entity: if prev.is_null() { EntityKey::null().0 } else { k.entity },
                     text_index: prev,
                 },
                 LayoutKey {
-                    entity: if next.is_null() { Id::<Node>::null() } else { k.entity },
+                    entity: if next.is_null() { EntityKey::null().0 } else { k.entity },
                     text_index: next,
                 },
             ));
@@ -568,7 +573,7 @@ impl<'a, 'b> TreeStorage<LayoutKey> for Tree<'a, 'b> {
         if k.text_index.is_null() {
             let char_node = self.char_nodes.get(k.entity);
             match char_node {
-                Some(chars) if chars.text.len() != 0 => {
+                Ok(chars) if chars.text.len() != 0 => {
                     let last = &chars.text[chars.text.len() - 1];
                     let last_index = if last.context_id.is_null() {
                         chars.text.len() - 1
@@ -843,10 +848,3 @@ impl<'a, 'b> TreeStorage<LayoutKey> for Tree<'a, 'b> {
 // 	// println!("notify======================={}, layout:{:?}", id, layout);
 // 	// context.get_notify_ref().modify_event(id, "", 0);
 // }
-
-
-#[test]
-fn test1() {
-	let i = Id::<usize>::null();
-	println!("i===================={:?}", i);
-}

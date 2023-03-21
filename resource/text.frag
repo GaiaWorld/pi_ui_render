@@ -11,6 +11,7 @@ layout(location = 0) out vec4 o_Target;
 // set 1
 layout(set = 1, binding = 0) uniform TextMaterial {
 	mat4 world; // 世界矩阵
+	mat4 clipSdf; // border_radius | ellipse | circle | sector | rect | border
 	float depth; // 深度
 	// 纹理尺寸
 	// 由于纹理纹理的尺寸会发生改变，一旦改变，每个文字的uv会随之而变
@@ -52,6 +53,7 @@ void main() {
 	
 
 	o_Target = c;
+	// o_Target = vec4(1.0, 0.0, 0.0, 1.0);
 	// o_Target = vec4(samp.r, samp.g, samp.b, 1.0);
 
 	// o_Target = vec4(1.0, 0.0,0.0,1,0);

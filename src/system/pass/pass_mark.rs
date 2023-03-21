@@ -2,9 +2,9 @@
 
 use pi_ecs::{prelude::{Join, Write, Query}, monitor::Event};
 use pi_ecs_macros::{listen, setup};
-use pi_ecs_utils::prelude::Up;
+use pi_bevy_ecs_extend::prelude::Up;
 
-use crate::components::{calc::{InPassId, NodeId}, draw_obj::{DrawObject}, pass_2d::{DirtyMark, DirtyType, Pass2D}, user::Node};
+use crate::components::{calc::{InPassId, NodeId}, draw_obj::{DrawObject}, pass_2d::{DirtyMark, DirtyType, Pass2D}};
 
 pub struct CalcMark;
 

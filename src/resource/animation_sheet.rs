@@ -1,19 +1,18 @@
 use std::{any::Any, collections::VecDeque};
 
-use bevy::prelude::{Resource, Entity};
+use bevy::ecs::prelude::{Entity, Resource};
 use bitvec::vec::BitVec;
 use log::debug;
 use ordered_float::NotNan;
 use pi_animation::{
     amount::AnimationAmountCalc,
-    animation::AnimationManagerDefault,
-    animation_context::{AnimationContextAmount, TypeAnimationContext},
+    type_animation_context::{AnimationContextAmount, TypeAnimationContext},
     animation_group::AnimationGroupID,
     animation_group_manager::AnimationGroupManagerDefault,
+    animation_listener::EAnimationEvent,
     animation_result_pool::TypeAnimationResultPool,
-    frame_curve_manager::FrameCurveInfoManager,
     loop_mode::ELoopMode,
-    runtime_info::RuntimeInfoMap, animation_listener::EAnimationEvent,
+    runtime_info::RuntimeInfoMap, animation::AnimationInfo,
 };
 use pi_atom::Atom;
 use pi_curves::{
@@ -22,14 +21,14 @@ use pi_curves::{
 };
 use pi_hash::XHashMap;
 use pi_map::vecmap::VecMap;
-use pi_print_any::out_any;
-use pi_slotmap::{SecondaryMap, Key};
-use pi_style::style::{AnimationDirection, AnimationTimingFunction};
-use pi_style::{style::Animation, style_parse::Attribute, style_type::*};
-use smallvec::SmallVec;
 use pi_null::Null;
+use pi_print_any::out_any;
+use pi_slotmap::{Key, SecondaryMap};
+use pi_style::style::{AnimationDirection, AnimationTimingFunction};
+use pi_style::{style_parse::Attribute, style_type::*};
+use smallvec::SmallVec;
 
-use crate::components::user::serialize::StyleAttr;
+use crate::components::user::{serialize::StyleAttr, Animation};
 
 use super::StyleCommands;
 
@@ -38,22 +37,18 @@ pub struct ObjKey(pub Entity);
 
 unsafe impl Key for ObjKey {
     fn data(&self) -> pi_slotmap::KeyData {
-		// (u64::from(self.version.get()) << 32) | u64::from(self.idx)
+        // (u64::from(self.version.get()) << 32) | u64::from(self.idx)
 
-        pi_slotmap::KeyData::from_ffi(u64::from(self.0.generation() << 32) | u64::from(self.0.index()))
+        pi_slotmap::KeyData::from_ffi((u64::from(self.0.generation()) << 32) | u64::from(self.0.index()))
     }
 }
 
 impl From<pi_slotmap::KeyData> for ObjKey {
-    fn from(value: pi_slotmap::KeyData) -> Self {
-        Self (Entity::from_bits(value.as_ffi()))
-    }
+    fn from(value: pi_slotmap::KeyData) -> Self { Self(Entity::from_bits(value.as_ffi())) }
 }
 
 impl Default for ObjKey {
-    fn default() -> Self {
-		Self (Entity::from_bits(u64::null()))
-    }
+    fn default() -> Self { Self(Entity::from_bits(u64::null())) }
 }
 
 #[derive(Resource)]
@@ -61,19 +56,20 @@ pub struct KeyFramesSheet {
     animation_attr_types: Vec<AnimationType>, // Vec<TypeAnimationContext<T>>,
 
     key_frames_map: XHashMap<(usize, Atom), KeyFrames>, // 帧动画列表, key为（作用域hash，动画名称）
-    curve_infos: FrameCurveInfoManager,
+    // curve_infos: FrameCurveInfoManager,
     type_use_mark: BitVec, // 标记被使用的TypeAnimationContext，加速run（只有被使用到的TypeAnimationContext才会被嗲用run方法）
 
     runtime_info_map: RuntimeInfoMap<ObjKey>,
-    animation_context_amount: AnimationContextAmount<AnimationManagerDefault, ObjKey, AnimationGroupManagerDefault<ObjKey>>,
+    animation_context_amount: AnimationContextAmount<ObjKey, AnimationGroupManagerDefault<ObjKey>>,
 
     animation_bind: SecondaryMap<ObjKey, SmallVec<[AnimationGroupID; 1]>>, // 描述节点上绑定了什么动画
-	group_bind: SecondaryMap<AnimationGroupID, (ObjKey, Atom)>, // 描述group对应的节点， 以及group的名称
+    group_bind: SecondaryMap<AnimationGroupID, (ObjKey, Atom)>,            // 描述group对应的节点， 以及group的名称
 
     temp_keyframes_ptr: VecMap<usize>, // 临时帧动画指针（添加帧动画时用到）
     temp_keyframes_mark: BitVec,       // 临时帧动画标记，表示哪些属性存在曲线（加帧动画时用到）
 
-	animation_events_callback: Option<Box<dyn Fn(&Vec<(AnimationGroupID, EAnimationEvent, u32)>, &SecondaryMap<AnimationGroupID, (ObjKey, Atom)>)>> // 动画事件回调函数
+	// animation_events: Vec<(AnimationGroupID, EAnimationEvent, u32)>,
+    // animation_events_callback: Option<Share<dyn Fn(&Vec<(AnimationGroupID, EAnimationEvent, u32)>, &SecondaryMap<AnimationGroupID, (ObjKey, Atom)>)>>, // 动画事件回调函数
 }
 
 unsafe impl Send for KeyFramesSheet {}
@@ -82,87 +78,86 @@ unsafe impl Sync for KeyFramesSheet {}
 impl Default for KeyFramesSheet {
     fn default() -> Self {
         let mut b = RuntimeInfoMap::<ObjKey>::default();
-        let mut c = FrameCurveInfoManager::default();
         let animation_attr_types = vec![
-            AnimationType::new::<PaddingTopType>(&mut b, &mut c),       // 占位
-            AnimationType::new::<BackgroundRepeatType>(&mut b, &mut c), // 占位
-            AnimationType::new::<FontStyleType>(&mut b, &mut c),
-            AnimationType::new::<FontWeightType>(&mut b, &mut c),
-            AnimationType::new::<FontSizeType>(&mut b, &mut c),
-            AnimationType::new::<FontFamilyType>(&mut b, &mut c),
-            AnimationType::new::<LetterSpacingType>(&mut b, &mut c),
-            AnimationType::new::<WordSpacingType>(&mut b, &mut c),
-            AnimationType::new::<LineHeightType>(&mut b, &mut c),
-            AnimationType::new::<TextIndentType>(&mut b, &mut c),
-            AnimationType::new::<WhiteSpaceType>(&mut b, &mut c),
-            AnimationType::new::<TextAlignType>(&mut b, &mut c),
-            AnimationType::new::<VerticalAlignType>(&mut b, &mut c),
-            AnimationType::new::<ColorType>(&mut b, &mut c),
-            AnimationType::new::<TextStrokeType>(&mut b, &mut c),
-            AnimationType::new::<TextShadowType>(&mut b, &mut c),
-            AnimationType::new::<BackgroundImageType>(&mut b, &mut c),
-            AnimationType::new::<BackgroundImageClipType>(&mut b, &mut c),
-            AnimationType::new::<ObjectFitType>(&mut b, &mut c),
-            AnimationType::new::<BackgroundColorType>(&mut b, &mut c),
-            AnimationType::new::<BoxShadowType>(&mut b, &mut c),
-            AnimationType::new::<BorderImageType>(&mut b, &mut c),
-            AnimationType::new::<BorderImageClipType>(&mut b, &mut c),
-            AnimationType::new::<BorderImageSliceType>(&mut b, &mut c),
-            AnimationType::new::<BorderImageRepeatType>(&mut b, &mut c),
-            AnimationType::new::<BorderColorType>(&mut b, &mut c),
-            AnimationType::new::<HsiType>(&mut b, &mut c),
-            AnimationType::new::<BlurType>(&mut b, &mut c),
-            AnimationType::new::<MaskImageType>(&mut b, &mut c),
-            AnimationType::new::<MaskImageClipType>(&mut b, &mut c),
-            AnimationType::new::<TransformType>(&mut b, &mut c),
-            AnimationType::new::<TransformOriginType>(&mut b, &mut c),
-            AnimationType::new::<TransformWillChangeType>(&mut b, &mut c),
-            AnimationType::new::<BorderRadiusType>(&mut b, &mut c),
-            AnimationType::new::<ZIndexType>(&mut b, &mut c),
-            AnimationType::new::<OverflowType>(&mut b, &mut c),
-            AnimationType::new::<BlendModeType>(&mut b, &mut c),
-            AnimationType::new::<DisplayType>(&mut b, &mut c),
-            AnimationType::new::<VisibilityType>(&mut b, &mut c),
-            AnimationType::new::<EnableType>(&mut b, &mut c),
-            AnimationType::new::<WidthType>(&mut b, &mut c),
-            AnimationType::new::<HeightType>(&mut b, &mut c),
-            AnimationType::new::<MarginTopType>(&mut b, &mut c),
-            AnimationType::new::<MarginRightType>(&mut b, &mut c),
-            AnimationType::new::<MarginBottomType>(&mut b, &mut c),
-            AnimationType::new::<MarginLeftType>(&mut b, &mut c),
-            AnimationType::new::<PaddingTopType>(&mut b, &mut c),
-            AnimationType::new::<PaddingRightType>(&mut b, &mut c),
-            AnimationType::new::<PaddingBottomType>(&mut b, &mut c),
-            AnimationType::new::<PaddingLeftType>(&mut b, &mut c),
-            AnimationType::new::<BorderTopType>(&mut b, &mut c),
-            AnimationType::new::<BorderRightType>(&mut b, &mut c),
-            AnimationType::new::<BorderBottomType>(&mut b, &mut c),
-            AnimationType::new::<BorderLeftType>(&mut b, &mut c),
-            AnimationType::new::<PositionTopType>(&mut b, &mut c),
-            AnimationType::new::<PositionRightType>(&mut b, &mut c),
-            AnimationType::new::<PositionBottomType>(&mut b, &mut c),
-            AnimationType::new::<PositionLeftType>(&mut b, &mut c),
-            AnimationType::new::<MinWidthType>(&mut b, &mut c),
-            AnimationType::new::<MinHeightType>(&mut b, &mut c),
-            AnimationType::new::<MaxHeightType>(&mut b, &mut c),
-            AnimationType::new::<MaxWidthType>(&mut b, &mut c),
-            AnimationType::new::<DirectionType>(&mut b, &mut c),
-            AnimationType::new::<FlexDirectionType>(&mut b, &mut c),
-            AnimationType::new::<FlexWrapType>(&mut b, &mut c),
-            AnimationType::new::<JustifyContentType>(&mut b, &mut c),
-            AnimationType::new::<AlignContentType>(&mut b, &mut c),
-            AnimationType::new::<AlignItemsType>(&mut b, &mut c),
-            AnimationType::new::<PositionTypeType>(&mut b, &mut c),
-            AnimationType::new::<AlignSelfType>(&mut b, &mut c),
-            AnimationType::new::<FlexShrinkType>(&mut b, &mut c),
-            AnimationType::new::<FlexGrowType>(&mut b, &mut c),
-            AnimationType::new::<AspectRatioType>(&mut b, &mut c),
-            AnimationType::new::<OrderType>(&mut b, &mut c),
-            AnimationType::new::<FlexBasisType>(&mut b, &mut c),
-            AnimationType::new::<OpacityType>(&mut b, &mut c),
-            AnimationType::new::<TextContentType>(&mut b, &mut c),
-            AnimationType::new::<VNodeType>(&mut b, &mut c),
-            AnimationType::new::<TransformFuncType>(&mut b, &mut c),
+            AnimationType::new::<PaddingTopType>(&mut b),       // 占位
+            AnimationType::new::<BackgroundRepeatType>(&mut b), // 占位
+            AnimationType::new::<FontStyleType>(&mut b),
+            AnimationType::new::<FontWeightType>(&mut b),
+            AnimationType::new::<FontSizeType>(&mut b),
+            AnimationType::new::<FontFamilyType>(&mut b),
+            AnimationType::new::<LetterSpacingType>(&mut b),
+            AnimationType::new::<WordSpacingType>(&mut b),
+            AnimationType::new::<LineHeightType>(&mut b),
+            AnimationType::new::<TextIndentType>(&mut b),
+            AnimationType::new::<WhiteSpaceType>(&mut b),
+            AnimationType::new::<TextAlignType>(&mut b),
+            AnimationType::new::<VerticalAlignType>(&mut b),
+            AnimationType::new::<ColorType>(&mut b),
+            AnimationType::new::<TextStrokeType>(&mut b),
+            AnimationType::new::<TextShadowType>(&mut b),
+            AnimationType::new::<BackgroundImageType>(&mut b),
+            AnimationType::new::<BackgroundImageClipType>(&mut b),
+            AnimationType::new::<ObjectFitType>(&mut b),
+            AnimationType::new::<BackgroundColorType>(&mut b),
+            AnimationType::new::<BoxShadowType>(&mut b),
+            AnimationType::new::<BorderImageType>(&mut b),
+            AnimationType::new::<BorderImageClipType>(&mut b),
+            AnimationType::new::<BorderImageSliceType>(&mut b),
+            AnimationType::new::<BorderImageRepeatType>(&mut b),
+            AnimationType::new::<BorderColorType>(&mut b),
+            AnimationType::new::<HsiType>(&mut b),
+            AnimationType::new::<BlurType>(&mut b),
+            AnimationType::new::<MaskImageType>(&mut b),
+            AnimationType::new::<MaskImageClipType>(&mut b),
+            AnimationType::new::<TransformType>(&mut b),
+            AnimationType::new::<TransformOriginType>(&mut b),
+            AnimationType::new::<TransformWillChangeType>(&mut b),
+            AnimationType::new::<BorderRadiusType>(&mut b),
+            AnimationType::new::<ZIndexType>(&mut b),
+            AnimationType::new::<OverflowType>(&mut b),
+            AnimationType::new::<BlendModeType>(&mut b),
+            AnimationType::new::<DisplayType>(&mut b),
+            AnimationType::new::<VisibilityType>(&mut b),
+            AnimationType::new::<EnableType>(&mut b),
+            AnimationType::new::<WidthType>(&mut b),
+            AnimationType::new::<HeightType>(&mut b),
+            AnimationType::new::<MarginTopType>(&mut b),
+            AnimationType::new::<MarginRightType>(&mut b),
+            AnimationType::new::<MarginBottomType>(&mut b),
+            AnimationType::new::<MarginLeftType>(&mut b),
+            AnimationType::new::<PaddingTopType>(&mut b),
+            AnimationType::new::<PaddingRightType>(&mut b),
+            AnimationType::new::<PaddingBottomType>(&mut b),
+            AnimationType::new::<PaddingLeftType>(&mut b),
+            AnimationType::new::<BorderTopType>(&mut b),
+            AnimationType::new::<BorderRightType>(&mut b),
+            AnimationType::new::<BorderBottomType>(&mut b),
+            AnimationType::new::<BorderLeftType>(&mut b),
+            AnimationType::new::<PositionTopType>(&mut b),
+            AnimationType::new::<PositionRightType>(&mut b),
+            AnimationType::new::<PositionBottomType>(&mut b),
+            AnimationType::new::<PositionLeftType>(&mut b),
+            AnimationType::new::<MinWidthType>(&mut b),
+            AnimationType::new::<MinHeightType>(&mut b),
+            AnimationType::new::<MaxHeightType>(&mut b),
+            AnimationType::new::<MaxWidthType>(&mut b),
+            AnimationType::new::<DirectionType>(&mut b),
+            AnimationType::new::<FlexDirectionType>(&mut b),
+            AnimationType::new::<FlexWrapType>(&mut b),
+            AnimationType::new::<JustifyContentType>(&mut b),
+            AnimationType::new::<AlignContentType>(&mut b),
+            AnimationType::new::<AlignItemsType>(&mut b),
+            AnimationType::new::<PositionTypeType>(&mut b),
+            AnimationType::new::<AlignSelfType>(&mut b),
+            AnimationType::new::<FlexShrinkType>(&mut b),
+            AnimationType::new::<FlexGrowType>(&mut b),
+            AnimationType::new::<AspectRatioType>(&mut b),
+            AnimationType::new::<OrderType>(&mut b),
+            AnimationType::new::<FlexBasisType>(&mut b),
+            AnimationType::new::<OpacityType>(&mut b),
+            AnimationType::new::<TextContentType>(&mut b),
+            AnimationType::new::<VNodeType>(&mut b),
+            AnimationType::new::<TransformFuncType>(&mut b),
         ];
         let mut temp_keyframes_mark = BitVec::with_capacity(animation_attr_types.len());
         unsafe { temp_keyframes_mark.set_len(animation_attr_types.len()) };
@@ -171,14 +166,14 @@ impl Default for KeyFramesSheet {
             animation_attr_types,
             key_frames_map: Default::default(),
             animation_bind: SecondaryMap::with_capacity(0),
-			group_bind: SecondaryMap::with_capacity(0),
-            animation_context_amount: AnimationContextAmount::default(AnimationManagerDefault::default(), AnimationGroupManagerDefault::default()),
-            curve_infos: c,
+            group_bind: SecondaryMap::with_capacity(0),
+            animation_context_amount: AnimationContextAmount::default(AnimationGroupManagerDefault::default()),
+            // curve_infos: c,
             type_use_mark: temp_keyframes_mark.clone(),
             runtime_info_map: b,
             temp_keyframes_ptr: Default::default(),
             temp_keyframes_mark: temp_keyframes_mark,
-			animation_events_callback: None,
+            // animation_events:  Vec::new(),
         }
     }
 }
@@ -199,22 +194,40 @@ impl KeyFramesSheet {
             (ty.run)(&ty.context, &self.runtime_info_map, style_commands);
         }
 
-		// 通知动画监听器
-		if let Some(r) = &self.animation_events_callback {
-			if self.animation_context_amount.group_events.len() > 0 {
-				r(&self.animation_context_amount.group_events, &self.group_bind);
-			}
-		}
+        // // 通知动画监听器
+		// if self.animation_context_amount.group_events.len() > 0 {
+		// 	r(&self.animation_context_amount.group_events, &self.group_bind);
+		// }
+        // if let Some(r) = &self.animation_events_callback {
+        //     if self.animation_context_amount.group_events.len() > 0 {
+        //         r(&self.animation_context_amount.group_events, &self.group_bind);
+        //     }
+        // }
     }
 
-	/// 设置事件监听回调
-	pub fn set_event_listener(&mut self, callback: Box<dyn Fn(&Vec<(AnimationGroupID, EAnimationEvent, u32)>, &SecondaryMap<AnimationGroupID, (ObjKey, Atom)>)>) {
-		self.animation_events_callback = Some(callback);
+	pub fn get_animation_events(
+		&self,
+	) -> &Vec<(AnimationGroupID, EAnimationEvent, u32)> {
+		&self.animation_context_amount.group_events
 	}
+
+	pub fn get_group_bind(
+		&self,
+	) -> &SecondaryMap<AnimationGroupID, (ObjKey, Atom)> {
+		&self.group_bind
+	}
+
+    /// 设置事件监听回调
+    // pub fn set_event_listener(
+    //     &mut self,
+    //     callback: Share<dyn Fn(&Vec<(AnimationGroupID, EAnimationEvent, u32)>, &SecondaryMap<AnimationGroupID, (ObjKey, Atom)>)>,
+    // ) {
+    //     // self.animation_events_callback = Some(callback);
+    // }
 
     // 将动画绑定到目标上
     pub fn bind_animation(&mut self, target: ObjKey, animation: &Animation) -> Result<(), KeyFrameError> {
-        log::warn!("bind_animation====={:?}", animation);
+        log::debug!("bind_animation====={:?}", animation);
         // 先解绑节点上的动画
         self.unbind_animation(target);
 
@@ -234,14 +247,14 @@ impl KeyFramesSheet {
             debug!("bind_animation, target: {:?}, animation: {:?}", target, animation);
             let group0 = self.animation_context_amount.create_animation_group();
             groups.push(group0);
-            for (attr_animation_id, curve_id) in curves.0.iter() {
+            for (attr_animation, curve_id) in curves.0.iter() {
                 // 向动画组添加 动画
                 self.animation_context_amount
-                    .add_target_animation(*attr_animation_id, group0, target)
+                    .add_target_animation(attr_animation.clone(), group0, target)
                     .unwrap();
                 self.type_use_mark.set(*curve_id, true);
             }
-			self.group_bind.insert(group0, (target, name.1.clone()));
+            self.group_bind.insert(group0, (target, name.1.clone()));
 
             // 启动动画组
             debug!(
@@ -294,9 +307,9 @@ impl KeyFramesSheet {
         if let Some(r) = self.animation_bind.remove(target) {
             // 移除目标上绑定的所有动画
             for single_animation in r {
-				debug!("unbind_animation, name: {:?}", self.group_bind.get(single_animation));
+                debug!("unbind_animation, name: {:?}", self.group_bind.get(single_animation));
                 self.animation_context_amount.del_animation_group(single_animation);
-				self.group_bind.remove(single_animation);
+                self.group_bind.remove(single_animation);
             }
         }
     }
@@ -410,6 +423,7 @@ impl KeyFramesSheet {
                     Attribute::AnimationDirection(_) => (),
                     Attribute::AnimationFillMode(_) => (),
                     Attribute::AnimationPlayState(_) => (),
+                    Attribute::ClipPath(_) => (),
                 }
             }
         }
@@ -418,11 +432,8 @@ impl KeyFramesSheet {
         for i in self.temp_keyframes_mark.iter_ones() {
             let curve = self.temp_keyframes_ptr.remove(i).unwrap();
             let ctx = &mut self.animation_attr_types[i];
-            let curve_id = (ctx.add_frame_curve)(&mut ctx.context, &mut self.curve_infos, curve);
-            let attr_animation_id = self
-                .animation_context_amount
-                .add_animation(&mut self.curve_infos, curve_id.id, 0, curve_id.ty)
-                .unwrap();
+            // let curve_id = (ctx.create_animation)(&mut ctx.context, &mut self.curve_infos, curve);
+            let attr_animation_id = (ctx.create_animation)(&mut ctx.context, curve);
             key_frame.0.push((attr_animation_id, i));
         }
         self.temp_keyframes_mark.fill(false);
@@ -432,26 +443,30 @@ impl KeyFramesSheet {
     }
 }
 
-pub struct KeyFrames(Vec<(usize, usize)>); // (动画属性id， 曲线类型)
+pub struct KeyFrames(Vec<(AnimationInfo, usize)>); // (动画属性id， 曲线类型)
 
 pub struct CurveId {
     pub ty: usize,
     pub id: usize,
 }
 
+pub struct TypeAnimationMgr<F: FrameDataValue> {
+	context: TypeAnimationContext<F, FrameCurve<F>>,
+}
+
 impl AnimationType {
-    fn new<T: AnimationTypeInterface + Attr + FrameDataValue>(
+    fn new<F: AnimationTypeInterface + Attr + FrameDataValue>(
         runtime_info_map: &mut RuntimeInfoMap<ObjKey>,
-        curve_infos: &mut FrameCurveInfoManager,
     ) -> Self {
         Self {
-            context: Box::new(TypeAnimationContext::<T>::new(
-                T::get_style_index() as usize,
-                runtime_info_map,
-                curve_infos,
-            )),
-            run: T::run,
-            add_frame_curve: T::add_frame_curve,
+            context: Box::new(TypeAnimationMgr{
+				context: TypeAnimationContext::<F, FrameCurve<F>>::new(
+					F::get_style_index() as usize,
+					runtime_info_map,
+				)
+			}),
+            run: F::run,
+            create_animation: F::create_animation,
         }
     }
 }
@@ -459,35 +474,38 @@ impl AnimationType {
 pub struct AnimationType {
     context: Box<dyn Any>, // TypeAnimationContext<T>
     run: fn(context: &Box<dyn Any>, runtime_infos: &RuntimeInfoMap<ObjKey>, style_commands: &mut StyleCommands),
-    add_frame_curve: fn(&mut Box<dyn Any>, curve_infos: &mut FrameCurveInfoManager, curve_ptr: usize) -> CurveId,
+    create_animation: fn(context: &mut Box<dyn Any>, curve_ptr: usize) -> AnimationInfo,
 }
 
 trait AnimationTypeInterface {
     fn run(context: &Box<dyn Any>, runtime_infos: &RuntimeInfoMap<ObjKey>, style_commands: &mut StyleCommands);
-    fn add_frame_curve(context: &mut Box<dyn Any>, curve_infos: &mut FrameCurveInfoManager, curve_ptr: usize) -> CurveId;
+    // fn add_frame_curve(context: &mut Box<dyn Any>, curve_infos: &mut FrameCurveInfoManager, curve_ptr: usize) -> CurveId;
+	fn create_animation(context: &mut Box<dyn Any>, curve_ptr: usize) -> AnimationInfo;
 }
 
 impl<T: Attr + FrameDataValue> AnimationTypeInterface for T {
     fn run(context: &Box<dyn Any>, runtime_infos: &RuntimeInfoMap<ObjKey>, style_commands: &mut StyleCommands) {
         if let Err(e) = context
-            .downcast_ref::<TypeAnimationContext<Self>>()
+            .downcast_ref::<TypeAnimationMgr<Self>>()
             .unwrap()
-            .anime(runtime_infos, style_commands)
+            .context.anime(runtime_infos, style_commands)
         {
             log::error!("{:?}", e);
         }
     }
 
-    fn add_frame_curve(context: &mut Box<dyn Any>, curve_infos: &mut FrameCurveInfoManager, curve_ptr: usize) -> CurveId {
+    fn create_animation(context: &mut Box<dyn Any>, curve_ptr: usize) -> AnimationInfo {
         let curve = unsafe { std::ptr::read(curve_ptr as *const FrameCurve<Self>) };
         out_any!(debug, "add_frame_curve, curve: {:?}", &curve);
-        CurveId {
-            ty: T::get_style_index() as usize,
-            id: context
-                .downcast_mut::<TypeAnimationContext<Self>>()
-                .unwrap()
-                .add_frame_curve(curve_infos, curve),
-        }
+		let mgr = context
+		.downcast_mut::<TypeAnimationMgr<Self>>()
+		.unwrap();
+		// mgr.curves.push(curve);
+		mgr.context.create_animation(T::get_style_index(), curve)
+        // CurveId {
+        //     ty: T::get_style_index() as usize,
+        //     id: curves.len() - 1,
+        // }
     }
 }
 
@@ -500,9 +518,9 @@ impl<F: Attr + FrameDataValue> TypeAnimationResultPool<F, ObjKey> for StyleComma
         &mut self,
         entity: ObjKey,
         _id_attr: pi_animation::target_modifier::IDAnimatableAttr,
-        result: pi_animation::animation_context::AnimeResult<F>,
+        result: pi_animation::animation_result_pool::AnimeResult<F>,
     ) -> Result<(), pi_animation::error::EAnimationError> {
-        // out_any!(log::debug, "record animation result===={:?}, {:?}", &result.value, &ObjKey);
+        // out_any!(log::trace, "record animation result===={:?}, {:?}", &result.value, &ObjKey);
         let start = self.style_buffer.len();
         unsafe { StyleAttr::write(result.value, &mut self.style_buffer) };
         if let Some(r) = self.commands.last_mut() {

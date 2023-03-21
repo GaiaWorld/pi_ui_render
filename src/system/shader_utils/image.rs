@@ -1,6 +1,6 @@
+use bevy::ecs::system::{ResMut, Res, Commands};
 use pi_assets::{asset::Handle, mgr::AssetMgr};
-use pi_ecs::prelude::{res::WriteRes, Res, ResMut};
-use pi_ecs_macros::setup;
+use pi_bevy_render_plugin::PiRenderDevice;
 use pi_map::vecmap::VecMap;
 use pi_render::rhi::{asset::RenderRes, bind_group::BindGroup, bind_group_layout::BindGroupLayout, device::RenderDevice, dyn_uniform_buffer::Group, texture::PiRenderDefault};
 use pi_share::Share;
@@ -8,14 +8,13 @@ use wgpu::{CompareFunction, DepthBiasState, DepthStencilState, MultisampleState,
 
 use crate::{
     resource::draw_obj::{
-        CommonPipelineState, DynBindGroupLayout, ImageStaticIndex, PipelineState, PosUvVertexLayout, ShaderCatch, ShaderMap, ShaderStatic, Shaders,
-        StaticIndex, VertexBufferLayout, VertexBufferLayoutMap, VertexBufferLayouts,
+        DynBindGroupLayout, ImageStaticIndex, PipelineState, PosUvVertexLayout, ShaderStatic, VertexBufferLayout, VertexBufferLayouts, Shaders, ShaderMap, CommonPipelineState, ShaderCatch, VertexBufferLayoutMap,
     },
     shaders::{
         color::CameraMatrixGroup,
-        image::{ImageMaterialGroup, SampTex2DGroup},
+        image::{SampTex2DGroup, UiMaterialGroup},
     },
-    utils::tools::calc_hash,
+    utils::tools::calc_hash, components::draw_obj::StaticIndex,
 };
 
 use super::GlslShaderStatic;
@@ -24,60 +23,55 @@ const IMAGE_SHADER_VS: &'static str = "image_shader_vs";
 const IMAGE_SHADER_FS: &'static str = "image_shader_fs";
 const IMAGE_PIPELINE: &'static str = "image_pipeline";
 
-pub struct CalcImageShader;
+pub fn init(
+	mut shader_static_map: ResMut<Shaders>,
+	mut vertex_buffer_map: ResMut<VertexBufferLayoutMap>,
+	post_layout: Res<DynBindGroupLayout<UiMaterialGroup>>,
+	camera_layout: Res<DynBindGroupLayout<CameraMatrixGroup>>,
+	mut shader_catch: ResMut<ShaderCatch>,
+	mut shader_map: ResMut<ShaderMap>,
+	device: Res<PiRenderDevice>,
+	// mut static_index: WriteRes<ImageStaticIndex>,
 
-#[setup]
-impl CalcImageShader {
-    #[init]
-    pub fn init(
-        mut shader_static_map: ResMut<Shaders>,
-        mut vertex_buffer_map: ResMut<VertexBufferLayoutMap>,
-        post_layout: Res<DynBindGroupLayout<ImageMaterialGroup>>,
-        camera_layout: Res<DynBindGroupLayout<CameraMatrixGroup>>,
-        mut shader_catch: ResMut<ShaderCatch>,
-        mut shader_map: ResMut<ShaderMap>,
-        device: Res<RenderDevice>,
-        mut static_index: WriteRes<ImageStaticIndex>,
+	// mut pos_uv_vertex_layout: WriteRes<PosUvVertexLayout>,
+	common_state: Res<CommonPipelineState>,
+	mut command: Commands,
+) {
+	// let shader = GlslShaderStatic::init(
+	// 	IMAGE_SHADER_VS,
+	// 	IMAGE_SHADER_FS,
+	// 	&mut shader_catch,
+	// 	&mut shader_map,
+	// 	|| include_str!("../../../resource/image.vert"),
+	// 	|| include_str!("../../../resource/image.frag"),
+	// );
 
-        mut pos_uv_vertex_layout: WriteRes<PosUvVertexLayout>,
-        common_state: Res<CommonPipelineState>,
-    ) {
-        let shader = GlslShaderStatic::init(
-            IMAGE_SHADER_VS,
-            IMAGE_SHADER_FS,
-            &mut shader_catch,
-            &mut shader_map,
-            || include_str!("../../../resource/image.vert"),
-            || include_str!("../../../resource/image.frag"),
-        );
+	let vertex_buffer = create_vertex_buffer_layout();
+	let vertex_buffer_index = vertex_buffer_map.insert(vertex_buffer);
 
-        let vertex_buffer = create_vertex_buffer_layout();
-        let vertex_buffer_index = vertex_buffer_map.insert(vertex_buffer);
+	let mut bind_group_layout = VecMap::new();
+	bind_group_layout.insert(CameraMatrixGroup::id() as usize, (*camera_layout).clone());
+	bind_group_layout.insert(UiMaterialGroup::id() as usize, (*post_layout).clone());
+	bind_group_layout.insert(SampTex2DGroup::id() as usize, SampTex2DGroup::create_layout(&device, false));
 
-        let mut bind_group_layout = VecMap::new();
-        bind_group_layout.insert(CameraMatrixGroup::id() as usize, (*camera_layout).clone());
-        bind_group_layout.insert(ImageMaterialGroup::id() as usize, (*post_layout).clone());
-        bind_group_layout.insert(SampTex2DGroup::id() as usize, SampTex2DGroup::create_layout(&device, false));
+	shader_static_map.0.push(ShaderStatic {
+		vs_shader_soruce: shader.shader_vs,
+		fs_shader_soruce: shader.shader_fs,
+		bind_group_layout,
+	});
 
-        shader_static_map.0.push(ShaderStatic {
-            vs_shader_soruce: shader.shader_vs,
-            fs_shader_soruce: shader.shader_fs,
-            bind_group_layout,
-        });
+	// 插入背景颜色shader的索引
+	let shader_index = shader_static_map.0.len() - 1;
+	command.insert_resource(ImageStaticIndex(StaticIndex {
+		shader: shader_index,
+		pipeline_state: common_state.common,
+		vertex_buffer_index,
+		name: IMAGE_PIPELINE,
+	}));
 
-        // 插入背景颜色shader的索引
-        let shader_index = shader_static_map.0.len() - 1;
-        static_index.write(ImageStaticIndex(StaticIndex {
-            shader: shader_index,
-            pipeline_state: common_state.common,
-            vertex_buffer_index,
-            name: IMAGE_PIPELINE,
-        }));
-
-        let vertex_buffer_layout = create_vertex_buffer_layout_p_v();
-        let vertex_buffer_index = vertex_buffer_map.insert(vertex_buffer_layout);
-        pos_uv_vertex_layout.write(PosUvVertexLayout(vertex_buffer_index));
-    }
+	let vertex_buffer_layout = create_vertex_buffer_layout_p_v();
+	let vertex_buffer_index = vertex_buffer_map.insert(vertex_buffer_layout);
+	command.insert_resource(PosUvVertexLayout(vertex_buffer_index));
 }
 
 pub fn create_vertex_buffer_layout() -> VertexBufferLayouts {

@@ -1,20 +1,14 @@
-
 use std::mem::transmute;
 use std::sync::Arc;
 
 use pi_async::prelude::SingleTaskRunner;
 use pi_async::prelude::SingleTaskRuntime;
-use pi_ecs::prelude::DispatcherMgr;
-use pi_ecs::prelude::Id;
-use pi_ecs::storage::LocalVersion;
-use pi_ecs::world::World;
-use pi_ecs_utils::prelude::Down;
-use pi_ecs_utils::prelude::Up;
+use pi_bevy_ecs_extend::prelude::Down;
+use pi_bevy_ecs_extend::prelude::Up;
+use pi_flex_layout::prelude::*;
 use pi_null::Null;
 use pi_slotmap::DefaultKey;
 use pi_style::style_parse::Attribute;
-use pi_style::style_type::ClassSheet;
-use pi_flex_layout::prelude::*;
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsValue;
@@ -23,22 +17,22 @@ use pi_style::style::Point2;
 use winit::window::Window;
 
 use crate::components::calc::ContentBox;
-use crate::components::calc::IsEnable;
+use crate::components::calc::IsShow;
 use crate::components::calc::LayoutResult;
-use crate::components::calc::Visibility;
 use crate::components::calc::WorldMatrix;
-use crate::components::calc::{ZRange, DrawList};
-use crate::components::draw_obj::{DrawState, DrawObject};
+use crate::components::calc::{DrawList, EntityKey, ZRange};
+use crate::components::draw_obj::PipelineMeta;
+use crate::components::draw_obj::{DrawObject, DrawState};
+use crate::components::user::serialize::StyleTypeReader;
 use crate::components::user::Vector4;
 use crate::components::user::*;
-use pi_style::style::Size;
-use crate::components::user::Overflow;
-use crate::components::user::serialize::StyleTypeReader;
-use crate::export::Engine as Gui;
-use crate::resource::draw_obj::StaticIndex;
+use crate::components::user::{Overflow, Size};
+use crate::export::{Engine, Gui};
+use crate::resource::ClassSheet;
+use bevy::ecs::prelude::Entity;
+use pi_map::vecmap::VecMap;
+use pi_style::style::ImageRepeatOption;
 use smallvec::SmallVec;
-
-
 
 #[derive(Serialize, Deserialize, Debug)]
 struct Quad {
@@ -100,13 +94,13 @@ struct Info {
     pub transform_will_change: Option<TransformWillChange>,
     pub parent_id: Option<f64>,
     pub content_bound_box: Option<ContentBox>,
-	pub quad: Option<crate::components::calc::Quad>,
+    pub quad: Option<crate::components::calc::Quad>,
 
     text: Option<TextStyle>,
     text_content: Option<TextContent>,
     // style_mark: StyleMark,
     children: Vec<f64>,
-	pub render_obj: Vec<RenderObject>,
+    pub render_obj: Vec<RenderObject>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -130,7 +124,7 @@ struct RenderObject {
     // pub post: bool,
     // pub post_copy: usize,
     pub id: String,
-	pub name: String
+    pub name: String,
 }
 
 // #[derive(Serialize, Deserialize, Debug)]
@@ -216,9 +210,9 @@ pub struct CharNode {
 
 #[allow(unused_attributes)]
 #[wasm_bindgen]
-pub fn get_layout(gui: &mut Gui, node_id: f64) -> JsValue {
-    let node_id = unsafe {Id::<Node>::new(LocalVersion::from_ffi(transmute::<f64, u64>(node_id)))};
-    
+pub fn get_layout(engine: &mut Engine, node_id: f64) -> JsValue {
+    let node_id = Entity::from_bits(unsafe { transmute(node_id) });
+
     // let rect_layout_style = gui.gui.rect_layout_style.lend();
     // let other_layout_style = gui.gui.other_layout_style.lend();
     // let layouts = gui.gui.layout.lend();
@@ -226,57 +220,35 @@ pub fn get_layout(gui: &mut Gui, node_id: f64) -> JsValue {
     //     Some(r) => Some(r.clone()),
     //     None => None,
     // };
-    let is_vnode = match gui.gui.world.query::<Node, &NodeState>().get(&gui.gui.world, node_id) {
-        Some(r) => r.0.is_vnode(),
-        None => false,
-    };
+    let mut query = engine.world.query::<(
+        Option<&NodeState>,
+        Option<&Size>,
+        Option<&Margin>,
+        Option<&Padding>,
+        Option<&Border>,
+        Option<&Position>,
+        Option<&MinMax>,
+        Option<&FlexContainer>,
+        Option<&FlexNormal>,
+        Option<&Show>,
+        Option<&LayoutResult>,
+    )>();
+    let (node_state, size, margin, padding, border, position, minmax, flex_container, flex_normal, show, layout_ret) =
+        query.get(&engine.world, node_id).unwrap();
 
     JsValue::from_serde(&Layout {
-		size: match gui.gui.world.query::<Node, &Size>().get(&gui.gui.world, node_id) {
-			Some(r) => Some(r.clone()),
-			None => None,
-		},
-		margin: match gui.gui.world.query::<Node, &Margin>().get(&gui.gui.world, node_id) {
-			Some(r) => Some(r.clone()),
-			None => None,
-		},
-		padding: match gui.gui.world.query::<Node, &Padding>().get(&gui.gui.world, node_id) {
-			Some(r) => Some(r.clone()),
-			None => None,
-		},
-		border: match gui.gui.world.query::<Node, &Border>().get(&gui.gui.world, node_id) {
-			Some(r) => Some(r.clone()),
-			None => None,
-		},
-		position: match gui.gui.world.query::<Node, &Position>().get(&gui.gui.world, node_id) {
-			Some(r) => Some(r.clone()),
-			None => None,
-		},
-		minmax: match gui.gui.world.query::<Node, &MinMax>().get(&gui.gui.world, node_id) {
-			Some(r) => Some(r.clone()),
-			None => None,
-		},
-		flex_container: match gui.gui.world.query::<Node, &FlexContainer>().get(&gui.gui.world, node_id) {
-			Some(r) => Some(r.clone()),
-			None => None,
-		},
-		flex_normal: match gui.gui.world.query::<Node, &FlexNormal>().get(&gui.gui.world, node_id) {
-			Some(r) => Some(r.clone()),
-			None => None,
-		},
-		show: match gui.gui.world.query::<Node, &Show>().get(&gui.gui.world, node_id) {
-			Some(r) => Some(r.clone()),
-			None => None,
-		},
-		node_state: match gui.gui.world.query::<Node, &NodeState>().get(&gui.gui.world, node_id) {
-			Some(r) => Some(r.clone()),
-			None => None,
-		},
-		is_vnode,
-		layoutRet: match gui.gui.world.query::<Node, &LayoutResult>().get(&gui.gui.world, node_id) {
-			Some(r) => Some(r.clone()),
-			None => None,
-		},
+        size: size.map(|r| r.clone()),
+        margin: margin.map(|r| r.clone()),
+        padding: padding.map(|r| r.clone()),
+        border: border.map(|r| r.clone()),
+        position: position.map(|r| r.clone()),
+        minmax: minmax.map(|r| r.clone()),
+        flex_container: flex_container.map(|r| r.clone()),
+        flex_normal: flex_normal.map(|r| r.clone()),
+        show: show.map(|r| r.clone()),
+        node_state: node_state.map(|r| r.clone()),
+        is_vnode: node_state.map_or(false, |r| r.0.is_vnode()),
+        layout_ret: layout_ret.map(|r| r.clone()),
     })
     .unwrap()
 }
@@ -284,9 +256,9 @@ pub fn get_layout(gui: &mut Gui, node_id: f64) -> JsValue {
 
 // #[wasm_bindgen]
 // pub fn get_layout(gui: &Gui, node_id: f64) {
-//     let node_id = unsafe {Id::<Node>::new(LocalVersion::from_ffi(transmute::<f64, u64>(node_id)))};
-//     
-//     
+//     let node_id = Entity::from_bits(unsafe {transmute(node_id)});
+//
+//
 // 	let rect_layout_style = gui.gui.rect_layout_style.lend();
 // 	let other_layout_style = gui.gui.other_layout_style.lend();
 // 	let layouts = gui.gui.layout.lend();
@@ -301,19 +273,21 @@ pub fn get_layout(gui: &mut Gui, node_id: f64) -> JsValue {
 
 
 #[wasm_bindgen]
-pub fn get_class_name(gui: &mut Gui, node_id: f64) -> JsValue {
-    let node_id = unsafe {Id::<Node>::new(LocalVersion::from_ffi(transmute::<f64, u64>(node_id)))};
-    JsValue::from_serde::<Option<&ClassName>>(&gui.gui.world.query::<Node, &ClassName>().get(&gui.gui.world, node_id)).unwrap()
+pub fn get_class_name(engine: &mut Engine, node_id: f64) -> JsValue {
+    let node_id = Entity::from_bits(unsafe { transmute(node_id) });
+    JsValue::from_serde::<Option<&ClassName>>(&match engine.world.query::<&ClassName>().get(&engine.world, node_id) {
+        Ok(r) => Some(r),
+        _ => None,
+    })
+    .unwrap()
 }
 
 #[allow(unused_attributes)]
 #[wasm_bindgen]
-pub fn get_class(gui: &mut Gui, class_name: u32) -> JsValue {
-    let class_sheet = gui.gui.world.get_or_insert_resource::<ClassSheet>();
-
-    let class = match class_sheet.class_map.get(&(class_name as usize)) {
-        Some(class) => {
-            let mut ret = "".to_string();
+pub fn get_class(engine: &mut Engine, class_name: u32) -> JsValue {
+    let class = match engine.world.get_resource::<ClassSheet>() {
+		Some(class_sheet) if let Some(class) = class_sheet.class_map.get(&(class_name as usize)) => {
+			let mut ret = "".to_string();
             // println!("set class1==========={}", i);
             let mut style_reader = StyleTypeReader::new(&class_sheet.style_buffer, class.start, class.end);
             while let Some(r) = style_reader.to_attr() {
@@ -323,15 +297,16 @@ pub fn get_class(gui: &mut Gui, class_name: u32) -> JsValue {
                 }
             }
             Some(ret)
-        }
-        None => None,
-    };
+		},
+		_ => None
+	};
 
     JsValue::from_serde(&class).unwrap()
 }
 
 fn to_css_str(attr: Attribute) -> String {
     match attr {
+        Attribute::ClipPath(_) => todo!(),
         Attribute::PositionType(r) => match r.0 {
             PositionType::Relative => "position:relative".to_string(),
             PositionType::Absolute => "position:absolute".to_string(),
@@ -797,33 +772,33 @@ fn to_css_str(attr: Attribute) -> String {
 // 打印节点信息
 #[allow(unused_attributes)]
 #[wasm_bindgen]
-pub fn node_info(gui: &mut Gui, node_id: f64) -> JsValue {
-    let node_id = unsafe {Id::<Node>::new(LocalVersion::from_ffi(transmute::<f64, u64>(node_id)))};
-    
-    
-    // let down = gui.gui.world.query::<Node, &Down<Node>>().get(&gui.gui.world, node_id);
-	// let up = gui.gui.world.query::<Node, &Up<Node>>().get(&gui.gui.world, node_id);
+pub fn node_info(engine: &mut Engine, node_id: f64) -> JsValue {
+    let node_id = Entity::from_bits(unsafe { transmute(node_id) });
 
-    // let z_depth = unsafe { gui.gui.world.z_depth.lend()[node_id]}.0;
 
-    // let enable =  gui.gui.world.query::<Node, &crate::components::calc::IsEnable>().get(&gui.gui.world, node_id);
-    // let visibility =   gui.gui.world.query::<Node, &Visibility>().get(&gui.gui.world, node_id);
+    // let down = engine.world.query::<&Down<Node>>().get(&engine.world, node_id);
+    // let up = engine.world.query::<&Up<Node>>().get(&engine.world, node_id);
 
-    // let opacity =  gui.gui.world.query::<Node, &Opacity>().get(&gui.gui.world, node_id);
+    // let z_depth = unsafe { engine.world.z_depth.lend()[node_id]}.0;
 
-    let layout =  gui.gui.world.query::<Node, &LayoutResult>().get(&gui.gui.world, node_id).unwrap().clone();
+    // let enable =  engine.world.query::<&crate::components::calc::IsEnable>().get(&engine.world, node_id);
+    // let visibility =   engine.world.query::<&Visibility>().get(&engine.world, node_id);
 
-    let world_matrix = &gui.gui.world.query::<Node, &WorldMatrix>().get(&gui.gui.world, node_id).unwrap().clone();
+    // let opacity =  engine.world.query::<&Opacity>().get(&engine.world, node_id);
 
-    // let transform =  gui.gui.world.query::<Node, &Transform>();
+    let layout = engine.world.query::<&LayoutResult>().get(&engine.world, node_id).unwrap().clone();
 
-	// let draw_list =  gui.gui.world.query::<Node, &DrawList>();
+    let world_matrix = &engine.world.query::<&WorldMatrix>().get(&engine.world, node_id).unwrap().clone();
 
-	// let mask_image =  gui.gui.world.query::<Node, &MaskImage>();
+    // let transform =  engine.world.query::<&Transform>();
 
-	// let mask_image_clip =  gui.gui.world.query::<Node, &MaskImageClip>();
+    // let draw_list =  engine.world.query::<&DrawList>();
 
-	// let content_boxs = gui.gui.world.query::<Node, &ContentBox>();
+    // let mask_image =  engine.world.query::<&MaskImage>();
+
+    // let mask_image_clip =  engine.world.query::<&MaskImageClip>();
+
+    // let content_boxs = engine.world.query::<&ContentBox>();
 
     let width = layout.rect.right - layout.rect.left;
     let height = layout.rect.bottom - layout.rect.top;
@@ -891,182 +866,117 @@ pub fn node_info(gui: &mut Gui, node_id: f64) -> JsValue {
     // let octs = gui.gui.oct.lend();
     // let oct = octs[node_id];
 
-	let draw_list = match gui.gui.world.query::<Node, &DrawList>().get(&gui.gui.world, node_id) {
-		Some(r) => r.0.clone(),
-		None => SmallVec::default(),
-	};
-    
-	let mut draw_objs = Vec::new();
-	for i in draw_list.iter() {
-		if let Some(static_index) = gui.gui.world.query::<DrawObject, &StaticIndex>().get(&gui.gui.world, i.clone()) {
-			draw_objs.push(RenderObject {
-				id: format!("{:?}", i),
-				name: static_index.name.to_string(),
-			});
-			// if let Some(state) = gui.gui.world.query::<DrawObject, &DrawState>().get(&gui.gui.world, node_id) {
+    let draw_list = match engine.world.query::<&DrawList>().get(&engine.world, node_id) {
+        Ok(r) => r.0.clone(),
+        _ => VecMap::default(),
+    };
 
-			// };
-		}
-		
-	}
-     
-    // if let Some(arr) = map.get(node_id) {
-    //     for id in arr.iter() {
-    //         let v = match render_objs.get(*id) {
-    //             Some(r) => r,
-    //             None => continue,
-    //         };
-    //         let mut paramter = XHashMap::default();
-    //         // let pt = v.paramter.get_texture_layout();
-
-    //         let val = v.paramter.get_values();
-    //         let vals = v.paramter.get_single_uniforms();
-    //         // let valt = v.paramter.get_textures();
-    //         let mut i = 0;
-    //         for name in v.paramter.get_layout() {
-    //             let mut ubo = XHashMap::default();
-    //             let ubo_val = val[i].get_values();
-    //             let mut j = 0;
-    //             for n in val[i].get_layout() {
-    //                 ubo.insert(n.to_string(), ubo_val[j].clone());
-    //                 j += 1;
-    //             }
-    //             paramter.insert(name.to_string(), Paramter::Ubo(ubo));
-    //             i += 1;
-    //         }
-
-    //         i = 0;
-    //         for name in v.paramter.get_single_uniform_layout() {
-    //             paramter.insert(name.to_string(), Paramter::Uniform(vals[i].clone()));
-    //             i += 1;
-    //         }
-
-    //         let rs = engine.gl.rs_get_desc(&v.state.rs);
-    //         let bs = engine.gl.bs_get_desc(&v.state.bs);
-
-    //         let mut vs_defines = Vec::new();
-    //         for n in v.vs_defines.list().iter() {
-    //             if let Some(r) = n {
-    //                 vs_defines.push(r.to_string())
-    //             }
-    //         }
-
-    //         let mut fs_defines = Vec::new();
-    //         for n in v.fs_defines.list().iter() {
-    //             if let Some(r) = n {
-    //                 fs_defines.push(r.to_string())
-    //             }
-    //         }
-
-    //         // let projectMatrix = gui.gui.gui.gui.fetch_single::<ProjectionMatrix>();
-    //         // let viewMatrux = gui.gui.gui.gui.fetch_single::<ViewMatrix>();
-    //         // let worldMatrix = gui.gui.gui.gui.fetch_single::<ViewMatrix>();
-
-    //         let obj = RenderObject {
-    //             id: *id,
-    //             depth: v.depth,
-    //             depth_diff: v.depth_diff,
-    //             visibility: v.visibility,
-    //             is_opacity: v.is_opacity,
-    //             vs_name: v.vs_name.as_ref().to_string(),
-    //             fs_name: v.fs_name.as_ref().to_string(),
-    //             vs_defines: vs_defines,
-    //             fs_defines: fs_defines,
-    //             // paramter: paramter,
-    //             program_dirty: v.program_dirty,
-
-    //             program: v.program.is_some(),
-    //             geometry: v.geometry.is_some(),
-    //             // state: State {
-    //             //     rs: unsafe { transmute(rs.clone()) },
-    //             //     bs: unsafe { transmute(bs.clone()) },
-    //             //     ss: engine.gl.ss_get_desc(&v.state.ss).clone(),
-    //             //     ds: engine.gl.ds_get_desc(&v.state.ds).clone(),
-    //             // },
-
-    //             context: v.context,
-    //             post: v.post_process.is_none(),
-    //             post_copy: v.post_process.as_ref().map_or(0, |r| r.copy),
-    //         };
-    //         render_map.push(obj);
-    //     }
-    // }
-
-    // let char_block = world
-    //     .world
-    //     .fetch_multi::<Node, CharBlock<YgNode>>()
-    //     .unwrap();
-    // let char_block = char_block.lend();
-    // let char_block = match char_block.get(node_id) {
-    //     Some(r) => {
-    //         let mut c = CharBlock1 {
-    //             font_size: r.font_size,
-    //             font_height: r.font_height,
-    //             stroke_width: r.stroke_width,
-    //             line_height: r.line_height,
-    //             chars: Vec::default(),
-    //             lines: r.lines.clone(),
-    //             last_line: r.last_line,
-    //             size: r.size,
-    //             wrap_size: r.wrap_size,
-    //             pos: r.pos,
-    //             line_count: r.line_count,
-    //             fix_width: r.fix_width,
-    //             style_class: r.style_class,
-    //             is_pixel: r.is_pixel,
-    //         };
-    //         for i in r.chars.iter() {
-    //             c.chars.push(CharNode {
-    //                 ch: i.ch,
-    //                 width: i.width,
-    //                 pos: i.pos,
-    //                 ch_id_or_count: i.ch_id_or_count,
-    //                 base_width: i.base_width,
-    //             });
-    //         }
-    //         Some(c)
-    //     }
-    //     None => None,
-    // };
+    let mut draw_objs = Vec::new();
+    for i in draw_list.iter() {
+        if let Some(i) = i {
+            if let Ok(pipeline_meta) = engine.world.query::<&PipelineMeta>().get(&engine.world, i.clone()) {
+                draw_objs.push(RenderObject {
+                    id: format!("{:?}", i),
+                    name: pipeline_meta.program.shader_meta.name.clone(),
+                });
+            }
+        }
+    }
     let mut children = Vec::new();
-	
-	let down_list = gui.gui.world.query::<Node, &Down<Node>>();
-	let up = gui.gui.world.query::<Node, &Up<Node>>();
-	if let Some(down) = down_list.get(&gui.gui.world, node_id) {
-		let mut n = down.head;
-		while !n.is_null() {
-			children.push(unsafe { transmute::<_, f64>(n)});
-			n = match up.get(&gui.gui.world, n) {
-				Some(r) => r.next(),
-				None => break,
-			};
-		}
-	}
-	let parent = match up.get(&gui.gui.world, node_id) {
-		Some(r) => r.parent(),
-		None => Id::<Node>::null(),
-	};
 
-    // let context_marks = gui.gui.gui.gui.fetch_multi::<Node, RenderContextMark>().unwrap();
-    // let context_marks = context_marks.lend();
+    let mut down_list = engine.world.query::<&Down>();
+    if let Ok(down) = down_list.get(&engine.world, node_id) {
+        let mut n = down.head();
+        let mut up = engine.world.query::<&Up>();
+        while !EntityKey(n).is_null() {
+            children.push(unsafe { transmute::<_, f64>(n) });
+            n = match up.get(&engine.world, n) {
+                Ok(r) => r.next(),
+                _ => break,
+            };
+        }
+    }
+    let mut up = engine.world.query::<&Up>();
+    let parent = match up.get(&engine.world, node_id) {
+        Ok(r) => r.parent(),
+        __ => EntityKey::null().0,
+    };
 
-    // let render_contexts = gui.gui.gui.gui.fetch_multi::<Node, RenderContext>().unwrap();
-    // let render_contexts = render_contexts.lend();
+    let mut query = engine.world.query::<(
+        (
+            Option<&Overflow>,
+            Option<&IsShow>,
+            Option<&MaskImage>,
+            Option<&MaskImageClip>,
+            Option<&Blur>,
+            Option<&ZIndex>,
+            Option<&ZRange>,
+            Option<&ContentBox>,
+            Option<&crate::components::calc::Quad>,
+            Option<&TextStyle>,
+            Option<&TextContent>,
+            Option<&ClassName>,
+            Option<&BackgroundImage>,
+            Option<&BorderImage>,
+            Option<&BackgroundColor>,
+        ),
+        (
+            Option<&BorderColor>,
+            Option<&Opacity>,
+            Option<&Transform>,
+            Option<&BoxShadow>,
+            Option<&BorderImageClip>,
+            Option<&BorderImageSlice>,
+            Option<&BorderImageRepeat>,
+            Option<&BackgroundImageClip>,
+            Option<&BorderRadius>,
+            Option<&BackgroundImageMod>,
+            Option<&Hsi>,
+            Option<&TransformWillChange>,
+        ),
+    )>();
+    let (
+        (
+            overflow,
+            is_show,
+            mask_image,
+            mask_image_clip,
+            blur,
+            zindex,
+            z_range,
+            content_box,
+            quad,
+            text_style,
+            text_content,
+            class_name,
+            background_image,
+            border_image,
+            background_color,
+        ),
+        (
+            border_color,
+            opacity,
+            transform,
+            box_shadow,
+            border_image_clip,
+            border_image_slice,
+            border_image_repeat,
+            background_image_clip,
+            border_radius,
+            background_image_mod,
+            hsi,
+            transform_will_change,
+        ),
+    ) = query.get(&engine.world, node_id).unwrap();
 
     let info = Info {
         // char_block: char_block,
-        overflow: gui.gui.world.query::<Node, &Overflow>().get(&gui.gui.world, node_id).map_or(false, |r| {r.0}),
+        overflow: overflow.map_or(false, |r| r.0),
         // by_overflow: by_overflow,
-        visibility: gui.gui.world.query::<Node, &Visibility>().get(&gui.gui.world, node_id).map_or(false, |r| {r.0}),
-        enable: gui.gui.world.query::<Node, &IsEnable>().get(&gui.gui.world, node_id).map_or(false, |r| {r.0}),
-        mask_image: match gui.gui.world.query::<Node, &MaskImage>().get(&gui.gui.world, node_id) {
-            Some(r) => Some(r.clone()),
-            None => None,
-        },
-        mask_image_clip: match gui.gui.world.query::<Node, &MaskImageClip>().get(&gui.gui.world, node_id) {
-            Some(r) => Some(r.clone()),
-            None => None,
-        },
+        visibility: is_show.map_or(false, |r| r.get_visibility()),
+        enable: is_show.map_or(false, |r| r.get_enable()),
+        mask_image: mask_image.map(|r| r.clone()),
+        mask_image_clip: mask_image_clip.map(|r| r.clone()),
         // context_mark: match context_marks.get(node_id) {
         //     Some(r) => Some(r.clone()),
         //     None => None,
@@ -1075,97 +985,37 @@ pub fn node_info(gui: &mut Gui, node_id: f64) -> JsValue {
         //     Some(r) => true,
         //     None => false,
         // },
-        opacity: gui.gui.world.query::<Node, &Opacity>().get(&gui.gui.world, node_id).map_or(1.0, |r| {r.0}),
-        blur: gui.gui.world.query::<Node, &Blur>().get(&gui.gui.world, node_id).map_or(0.0, |r| {r.0}),
-        zindex: gui.gui.world.query::<Node, &ZIndex>().get(&gui.gui.world, node_id).map_or(0, |r| {r.0}),
-        zdepth: gui.gui.world.query::<Node, &ZRange>().get(&gui.gui.world, node_id).map_or(0.0, |r| {r.0.start as f32}),
+        opacity: opacity.map_or(1.0, |r| r.0),
+        blur: blur.map_or(0.0, |r| r.0),
+        zindex: zindex.map_or(0, |r| r.0),
+        zdepth: z_range.map_or(0.0, |r| r.start as f32),
         layout: unsafe { transmute(layout.clone()) },
         border_box: absolute_b_box,
         padding_box: absolute_p_box,
         content_box: absolute_c_box,
-        content_bound_box: match gui.gui.world.query::<Node, &ContentBox>().get(&gui.gui.world, node_id) {
-            Some(r) => Some(r.clone()),
-            None => None,
-        },
-		quad: match gui.gui.world.query::<Node, &crate::components::calc::Quad>().get(&gui.gui.world, node_id) {
-            Some(r) => Some(r.clone()),
-            None => None,
-        },
+        content_bound_box: content_box.map(|r| r.clone()),
+        quad: quad.map(|r| r.clone()),
         // culling: gui.gui.culling.lend()[node_id].0,
-        text: match gui.gui.world.query::<Node, &TextStyle>().get(&gui.gui.world, node_id) {
-            Some(r) => Some(r.clone()),
-            None => None,
-        },
-        text_content: match gui.gui.world.query::<Node, &TextContent>().get(&gui.gui.world, node_id) {
-            Some(r) => Some(r.clone()),
-            None => None,
-        },
+        text: text_style.map(|r| r.clone()),
+        text_content: text_content.map(|r| r.clone()),
         render_obj: draw_objs,
-        class_name: match gui.gui.world.query::<Node, &ClassName>().get(&gui.gui.world, node_id) {
-            Some(r) => Some(r.clone()),
-            None => None,
-        },
-        image: match gui.gui.world.query::<Node, &BackgroundImage>().get(&gui.gui.world, node_id) {
-            Some(r) => Some(r.0.as_str().to_string()),
-            None => None,
-        },
-        border_image: match gui.gui.world.query::<Node, &BorderImage>().get(&gui.gui.world, node_id) {
-            Some(r) => Some(r.0.as_str().to_string()),
-            None => None,
-        },
-        background_color: match gui.gui.world.query::<Node, &BackgroundColor>().get(&gui.gui.world, node_id) {
-            Some(r) => Some(r.clone()),
-            None => None,
-        },
-        border_color: match gui.gui.world.query::<Node, &BorderColor>().get(&gui.gui.world, node_id) {
-            Some(r) => Some(r.clone()),
-            None => None,
-        },
-        transform: match gui.gui.world.query::<Node, &Transform>().get(&gui.gui.world, node_id) {
-            Some(r) => Some(r.clone()),
-            None => None,
-        },
-        box_shadow: match gui.gui.world.query::<Node, &BoxShadow>().get(&gui.gui.world, node_id) {
-            Some(r) => Some(r.clone()),
-            None => None,
-        },
-        border_image_clip:match gui.gui.world.query::<Node, &BorderImageClip>().get(&gui.gui.world, node_id) {
-            Some(r) => Some(r.clone()),
-            None => None,
-        },
-        border_image_slice: match gui.gui.world.query::<Node, &BorderImageSlice>().get(&gui.gui.world, node_id) {
-            Some(r) => Some(r.clone()),
-            None => None,
-        },
-        border_image_repeat: match gui.gui.world.query::<Node, &BorderImageRepeat>().get(&gui.gui.world, node_id) {
-            Some(r) => Some(r.clone()),
-            None => None,
-        },
-        image_clip: match gui.gui.world.query::<Node, &BackgroundImageClip>().get(&gui.gui.world, node_id) {
-            Some(r) => Some(r.clone()),
-            None => None,
-        },
-        border_radius: match gui.gui.world.query::<Node, &BorderRadius>().get(&gui.gui.world, node_id) {
-            Some(r) => Some(r.clone()),
-            None => None,
-        },
-        object_fit: match gui.gui.world.query::<Node, &BackgroundImageMod>().get(&gui.gui.world, node_id) {
-            Some(r) => Some(r.object_fit.clone()),
-            None => None,
-        },
-        background_repeat: match gui.gui.world.query::<Node, &BackgroundImageMod>().get(&gui.gui.world, node_id) {
-            Some(r) => Some(r.repeat.clone()),
-            None => None,
-        },
-        filter: match gui.gui.world.query::<Node, &Hsi>().get(&gui.gui.world, node_id) {
-            Some(r) => Some(r.clone()),
-            None => None,
-        },
+        class_name: class_name.map(|r| r.clone()),
+        image: background_image.map(|r| r.0.as_str().to_string()),
+        border_image: border_image.map(|r| r.0.as_str().to_string()),
+        background_color: background_color.map(|r| r.clone()),
+        border_color: border_color.map(|r| r.clone()),
+        transform: transform.map(|r| r.clone()),
+        box_shadow: box_shadow.map(|r| r.clone()),
+        border_image_clip: border_image_clip.map(|r| r.clone()),
+        border_image_slice: border_image_slice.map(|r| r.clone()),
+        border_image_repeat: border_image_repeat.map(|r| r.clone()),
+        image_clip: background_image_clip.map(|r| r.clone()),
+        border_radius: border_radius.map(|r| r.clone()),
+        object_fit: background_image_mod.map(|r| r.object_fit.clone()),
+        background_repeat: background_image_mod.map(|r| r.repeat.clone()),
+        filter: hsi.map(|r| r.clone()),
         // style_mark: gui.gui.style_mark.lend()[node_id],
-        transform_will_change: match gui.gui.world.query::<Node, &TransformWillChange>().get(&gui.gui.world, node_id) {
-            Some(r) => Some(r.clone()),
-            None => None,
-        },
+        transform_will_change: transform_will_change.map(|r| r.clone()),
         parent_id: Some(unsafe { transmute::<_, f64>(parent) }),
         children: children,
     };
@@ -1176,8 +1026,8 @@ pub fn node_info(gui: &mut Gui, node_id: f64) -> JsValue {
 // #[allow(unused_attributes)]
 // #[wasm_bindgen]
 // pub fn overflow_clip(gui: &Gui) -> JsValue {
-    
-    
+
+
 //     let overflow_clip = gui.gui.overflow_clip.lend();
 
 //     let mut clips: Vec<(usize, Clip)> = Vec::new();
@@ -1205,7 +1055,7 @@ pub fn node_info(gui: &mut Gui, node_id: f64) -> JsValue {
 // pub fn open_performance_inspector(gui: &Gui, width: f32, height: f32) -> u32 {
 // 	let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
 // 	if gui.gui.performance_inspector == 0 {
-// 		
+//
 // 		let performance_gui = create_gui(Box::into_raw(Box::new((*gui.gui.engine).clone()) as u32, width, height);
 // 		let performance_gui = unsafe {&mut *(performance_gui as usize as *mut GuiWorld)};
 // 		gui_tool::open_performance_inspection(world, PerformanceStatisticians::new(&mut performance_gui.gui));
@@ -1221,15 +1071,15 @@ pub fn node_info(gui: &mut Gui, node_id: f64) -> JsValue {
 // 	let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
 // 	if gui.gui.performance_inspector > 0 {
 // 		let world = Box::from_raw(unsafe {world as usize as *mut GuiWorld});
-// 		
+//
 // 		gui_tool::close_performance_inspection(world);
 // 	}
 // }
 
 // #[wasm_bindgen]
 // pub fn res_size(gui: &Gui) -> JsValue {
-    
-    
+
+
 //     let engine = gui.gui.engine.lend();
 //     let mut size = ResMgrSize::default();
 
@@ -1377,8 +1227,8 @@ pub fn node_info(gui: &mut Gui, node_id: f64) -> JsValue {
 // #[allow(non_snake_case)]
 // #[wasm_bindgen]
 // pub fn list_texture(gui: &Gui) -> JsValue {
-    
-    
+
+
 //     let engine = gui.gui.engine.lend();
 //     let sys_time = gui.gui.system_time.lend_mut();
 
@@ -1405,7 +1255,7 @@ pub fn node_info(gui: &mut Gui, node_id: f64) -> JsValue {
 // #[allow(non_snake_case)]
 // #[wasm_bindgen]
 // pub fn common_statistics(gui: &Gui) -> JsValue {
-    
+
 //     let world = &mut gui.gui.gui;
 
 //     let mut all_run_time = std::time::Duration::from_micros(0);
@@ -1425,7 +1275,7 @@ pub fn node_info(gui: &mut Gui, node_id: f64) -> JsValue {
 
 // #[wasm_bindgen]
 // pub fn is_dirty(gui: &Gui) -> bool {
-    
+
 //     if gui.gui.gui.dirty_list.lend().0.len() > 0 {
 //         true
 //     } else {
@@ -1468,7 +1318,7 @@ pub struct MemStatistics {
 
 // #[wasm_bindgen]
 // pub fn get_debug_dyn_texture(gui: &Gui) -> Option<Vec<u8>> {
-// 	
+//
 // 	let mut dyn_texture = gui.gui.gui.gui.gui.fetch_single::<Share<RefCell<DynAtlasSet>>>().unwrap();
 // 	let dyn_texture = dyn_texture.lend_mut();
 // 	let dyn_texture = &***dyn_texture;
@@ -1521,7 +1371,7 @@ pub struct MemStatistics {
 
 // #[wasm_bindgen]
 // pub fn get_font_sheet_debug(gui: &Gui) {
-    
+
 //     let font_sheet = gui.gui.gui.font_sheet.lend();
 //     log::info!("char_slab: {:?}", font_sheet.borrow().char_slab);
 // }
@@ -1529,7 +1379,7 @@ pub struct MemStatistics {
 
 // #[wasm_bindgen]
 // pub fn get_opcaity(gui: &Gui) {
-    
+
 
 //     let itree = gui.gui.gui.idtree.lend();
 //     let opacity = gui.gui.gui.opacity.lend();
@@ -1546,8 +1396,8 @@ pub struct MemStatistics {
 // #[allow(unused_attributes)]
 // #[wasm_bindgen]
 // pub fn print_memory(gui: &Gui) {
-    
-    
+
+
 //     log::info!("print_memory begin");
 
 //     let mut total = 0;
@@ -1796,7 +1646,7 @@ pub struct MemStatistics {
 // pub fn bound_box(gui: &Gui, node_id: f64) {
 //     let node_id = node_id as usize
 //     let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
-// 
+//
 //     let overflow_clip = gui.gui.fetch_single::<OverflowClip>().unwrap();
 //     js!{
 //         console.log("overflow_clip:", @{format!("{:?}", &overflow_clip.value)});
@@ -1804,12 +1654,12 @@ pub struct MemStatistics {
 // }
 
 #[wasm_bindgen]
-pub fn get_world_matrix(gui: &mut Gui, node_id: f64) -> JsValue {
-    let node_id = unsafe {Id::<Node>::new(LocalVersion::from_ffi(transmute::<f64, u64>(node_id)))};
-    
-    let world_matrix = match gui.gui.world.query::<Node, &WorldMatrix>().get(&gui.gui.world, node_id) {
-        Some(r) => r,
-        None => return JsValue::null(),
+pub fn get_world_matrix(engine: &mut Engine, node_id: f64) -> JsValue {
+    let node_id = Entity::from_bits(unsafe { transmute(node_id) });
+
+    let world_matrix = match engine.world.query::<&WorldMatrix>().get(&engine.world, node_id) {
+        Ok(r) => r,
+        _ => return JsValue::null(),
     };
 
     JsValue::from_serde(world_matrix).unwrap()
@@ -1817,13 +1667,13 @@ pub fn get_world_matrix(gui: &mut Gui, node_id: f64) -> JsValue {
 
 #[allow(unused_attributes)]
 #[wasm_bindgen]
-pub fn get_transform(gui: &mut Gui, node_id: f64) -> JsValue {
-    let node_id = unsafe {Id::<Node>::new(LocalVersion::from_ffi(transmute::<f64, u64>(node_id)))};
-    
-    
-    let transform = match gui.gui.world.query::<Node, &Transform>().get(&gui.gui.world, node_id) {
-        Some(r) => r,
-        None => return JsValue::null(),
+pub fn get_transform(engine: &mut Engine, node_id: f64) -> JsValue {
+    let node_id = Entity::from_bits(unsafe { transmute(node_id) });
+
+
+    let transform = match engine.world.query::<&Transform>().get(&engine.world, node_id) {
+        Ok(r) => r,
+        _ => return JsValue::null(),
     };
     JsValue::from_serde(transform).unwrap()
 }
@@ -1832,17 +1682,17 @@ pub fn get_transform(gui: &mut Gui, node_id: f64) -> JsValue {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Layout {
     pub size: Option<Size>,
-	pub margin: Option<Margin>,
-	pub padding: Option<Padding>,
-	pub border: Option<Border>,
-	pub position: Option<Position>,
-	pub minmax: Option<MinMax>,
-	pub flex_container: Option<FlexContainer>,
-	pub flex_normal: Option< FlexNormal>,
-	pub show: Option<Show>,
+    pub margin: Option<Margin>,
+    pub padding: Option<Padding>,
+    pub border: Option<Border>,
+    pub position: Option<Position>,
+    pub minmax: Option<MinMax>,
+    pub flex_container: Option<FlexContainer>,
+    pub flex_normal: Option<FlexNormal>,
+    pub show: Option<Show>,
     pub node_state: Option<NodeState>,
     pub is_vnode: bool,
-    pub layoutRet: Option<LayoutResult>,
+    pub layout_ret: Option<LayoutResult>,
 }
 
 // #[derive(Serialize, Deserialize, Debug)]
@@ -1863,7 +1713,7 @@ pub struct Layout {
 // #[js_export]
 // // pub fn test_create_render_obj(gui: &Gui, count: u32) {
 // 	let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
-// 	
+//
 
 // 	let default_state = gui.gui.gui.gui.fetch_single::<gui::single::DefaultState>().unwrap();
 // 	let default_state = default_state.lend();

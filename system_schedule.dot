@@ -1,0 +1,129 @@
+digraph "schedule" {
+	"fontsize"="16";
+	"fontname"="Helvetica";
+	"rankdir"="LR";
+	"nodesep"="0.05";
+	"bgcolor"="#35393F";
+	"compound"="true";
+	node ["shape"="box", "margin"="0", "height"="0.4"];
+	edge ["color"="white"];
+	subgraph "cluster_\"CoreStage::First\"" {
+		"style"="rounded";
+		"color"="#99aab5";
+		"bgcolor"="#99aab5";
+		"rankdir"="TD";
+		"label"="CoreStage::First";
+		node ["style"="filled", "color"="#eff1f3", "bgcolor"="#eff1f3"];
+		"MARKER_schedule_CoreStage::First" ["style"="invis"]
+		"schedule_pi_ui_render::system::node::animation::calc_animation_0" ["label"=<calc_animation<BR /><FONT COLOR="red" POINT-SIZE="11">Exclusive at start</FONT>>, "tooltip"="calc_animation"]
+		"schedule_pi_ui_render::system::node::user_setting::user_setting_1" ["label"=<user_setting<BR /><FONT COLOR="red" POINT-SIZE="11">Exclusive at start</FONT>>, "tooltip"="user_setting"]
+		"schedule_bevy_ecs::event::Events<bevy_app::app::AppExit>::update_system_0" ["label"="Events<AppExit>update_system", "tooltip"="ResMut [Events<AppExit>]\n"]
+		"schedule_bevy_ecs::event::Events<bevy_window::event::CreateWindow>::update_system_1" ["label"="Events<CreateWindow>update_system", "tooltip"="ResMut [Events<CreateWindow>]\n"]
+		"schedule_bevy_ecs::event::Events<bevy_window::event::CursorEntered>::update_system_2" ["label"="Events<CursorEntered>update_system", "tooltip"="ResMut [Events<CursorEntered>]\n"]
+		"schedule_bevy_ecs::event::Events<bevy_window::event::CursorLeft>::update_system_3" ["label"="Events<CursorLeft>update_system", "tooltip"="ResMut [Events<CursorLeft>]\n"]
+		"schedule_bevy_ecs::event::Events<bevy_window::event::CursorMoved>::update_system_4" ["label"="Events<CursorMoved>update_system", "tooltip"="ResMut [Events<CursorMoved>]\n"]
+		"schedule_bevy_ecs::event::Events<bevy_window::event::FileDragAndDrop>::update_system_5" ["label"="Events<FileDragAndDrop>update_system", "tooltip"="ResMut [Events<FileDragAndDrop>]\n"]
+		"schedule_bevy_ecs::event::Events<bevy_window::event::ReceivedCharacter>::update_system_6" ["label"="Events<ReceivedCharacter>update_system", "tooltip"="ResMut [Events<ReceivedCharacter>]\n"]
+		"schedule_bevy_ecs::event::Events<bevy_window::event::RequestRedraw>::update_system_7" ["label"="Events<RequestRedraw>update_system", "tooltip"="ResMut [Events<RequestRedraw>]\n"]
+		"schedule_bevy_ecs::event::Events<bevy_window::event::WindowBackendScaleFactorChanged>::update_system_8" ["label"="Events<WindowBackendScaleFactorChanged>update_system", "tooltip"="ResMut [Events<WindowBackendScaleFactorChanged>]\n"]
+		"schedule_bevy_ecs::event::Events<bevy_window::event::WindowCloseRequested>::update_system_9" ["label"="Events<WindowCloseRequested>update_system", "tooltip"="ResMut [Events<WindowCloseRequested>]\n"]
+		"schedule_bevy_ecs::event::Events<bevy_window::event::WindowClosed>::update_system_10" ["label"="Events<WindowClosed>update_system", "tooltip"="ResMut [Events<WindowClosed>]\n"]
+		"schedule_bevy_ecs::event::Events<bevy_window::event::WindowCreated>::update_system_11" ["label"="Events<WindowCreated>update_system", "tooltip"="ResMut [Events<WindowCreated>]\n"]
+		"schedule_bevy_ecs::event::Events<bevy_window::event::WindowFocused>::update_system_12" ["label"="Events<WindowFocused>update_system", "tooltip"="ResMut [Events<WindowFocused>]\n"]
+		"schedule_bevy_ecs::event::Events<bevy_window::event::WindowMoved>::update_system_13" ["label"="Events<WindowMoved>update_system", "tooltip"="ResMut [Events<WindowMoved>]\n"]
+		"schedule_bevy_ecs::event::Events<bevy_window::event::WindowResized>::update_system_14" ["label"="Events<WindowResized>update_system", "tooltip"="ResMut [Events<WindowResized>]\n"]
+		"schedule_bevy_ecs::event::Events<bevy_window::event::WindowScaleFactorChanged>::update_system_15" ["label"="Events<WindowScaleFactorChanged>update_system", "tooltip"="ResMut [Events<WindowScaleFactorChanged>]\n"]
+		"schedule_bevy_ecs::event::Events<pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent<bevy_ecs::query::filter::Changed<pi_bevy_ecs_extend::system_param::tree::Layer>>>::update_system_16" ["label"="Events<ComponentEvent<Changed<Layer>>>update_system", "tooltip"="ResMut [Events<ComponentEvent<Changed<Layer>>>]\n"]
+		"schedule_bevy_ecs::event::Events<pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent<bevy_ecs::query::filter::Changed<pi_ui_render::components::calc::ContentBox>>>::update_system_17" ["label"="Events<ComponentEvent<Changed<ContentBox>>>update_system", "tooltip"="ResMut [Events<ComponentEvent<Changed<ContentBox>>>]\n"]
+		"schedule_bevy_ecs::event::Events<pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent<bevy_ecs::query::filter::Changed<pi_ui_render::components::calc::LayoutResult>>>::update_system_18" ["label"="Events<ComponentEvent<Changed<LayoutResult>>>update_system", "tooltip"="ResMut [Events<ComponentEvent<Changed<LayoutResult>>>]\n"]
+		"schedule_bevy_ecs::event::Events<pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent<bevy_ecs::query::filter::Changed<pi_ui_render::components::calc::Quad>>>::update_system_19" ["label"="Events<ComponentEvent<Changed<Quad>>>update_system", "tooltip"="ResMut [Events<ComponentEvent<Changed<Quad>>>]\n"]
+		"schedule_bevy_ecs::event::Events<pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent<bevy_ecs::query::filter::Changed<pi_ui_render::components::calc::RenderContextMark>>>::update_system_20" ["label"="Events<ComponentEvent<Changed<RenderContextMark>>>update_system", "tooltip"="ResMut [Events<ComponentEvent<Changed<RenderContextMark>>>]\n"]
+		"schedule_bevy_ecs::event::Events<pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent<bevy_ecs::query::filter::Changed<pi_ui_render::components::pass_2d::ParentPassId>>>::update_system_21" ["label"="Events<ComponentEvent<Changed<ParentPassId>>>update_system", "tooltip"="ResMut [Events<ComponentEvent<Changed<ParentPassId>>>]\n"]
+		"schedule_bevy_ecs::event::Events<pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent<bevy_ecs::query::filter::Changed<pi_ui_render::components::user::NodeState>>>::update_system_22" ["label"="Events<ComponentEvent<Changed<NodeState>>>update_system", "tooltip"="ResMut [Events<ComponentEvent<Changed<NodeState>>>]\n"]
+		"schedule_bevy_ecs::event::Events<pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent<bevy_ecs::query::filter::Changed<pi_ui_render::components::user::Transform>>>::update_system_23" ["label"="Events<ComponentEvent<Changed<Transform>>>update_system", "tooltip"="ResMut [Events<ComponentEvent<Changed<Transform>>>]\n"]
+		"schedule_pi_ui_render::system::node::image_texture_load::image_change<pi_ui_render::components::user::BackgroundImage, pi_ui_render::components::calc::BackgroundImageTexture>_24" ["label"="image_change<BackgroundImage, BackgroundImageTexture>", "tooltip"="Components [BackgroundImage]\nRes [ShareAssetMgr<TextureRes>, PiRenderDevice, PiRenderQueue, ImageAwait<BackgroundImage>]\n"]
+		"schedule_pi_ui_render::system::node::image_texture_load::image_change<pi_ui_render::components::user::BorderImage, pi_ui_render::components::calc::BorderImageTexture>_25" ["label"="image_change<BorderImage, BorderImageTexture>", "tooltip"="Components [BorderImage]\nRes [ShareAssetMgr<TextureRes>, PiRenderDevice, PiRenderQueue, ImageAwait<BorderImage>]\n"]
+		"schedule_test::framework::start<test::QuadExample>::{{closure}}_26" ["label"="start<QuadExample>{{closure}}", "tooltip"="ResMut [UserCommands]\n"]
+	}
+	
+	subgraph "cluster_\"CoreStage::PreUpdate\"" {
+		"style"="rounded";
+		"color"="#99aab5";
+		"bgcolor"="#99aab5";
+		"rankdir"="TD";
+		"label"="CoreStage::PreUpdate";
+		node ["style"="filled", "color"="#eff1f3", "bgcolor"="#eff1f3"];
+		"MARKER_schedule_CoreStage::PreUpdate" ["style"="invis"]
+		"schedule_pi_ui_render::system::node::background_color::calc_background_0" ["label"="calc_background", "tooltip"="Components [LayoutResult, BackgroundColor]\nComponentsMut [DrawList, DrawState, BoxType, StaticIndex, FSDefines, VSDefines]\nRes [ShareAssetMgr<RenderRes<Buffer>>, PiRenderDevice, DynBindGroupIndex<ColorMaterialGroup>, UnitQuadBuffer, ColorStaticIndex, GradientColorStaticIndex]\nResMut [DynUniformBuffer]\n"]
+		"schedule_pi_ui_render::system::node::background_image::calc_background_image_1" ["label"="calc_background_image", "tooltip"="Components [LayoutResult, BackgroundImage, BackgroundImageClip, BackgroundImageMod, BackgroundImageTexture]\nComponentsMut [DrawList, DrawState, BoxType]\nRes [ShareAssetMgr<RenderRes<Buffer>>, ShareAssetMgr<RenderRes<BindGroup>>, PiRenderDevice, Shaders, DynBindGroupIndex<UiMaterialGroup>, CommonSampler, UnitQuadBuffer, DefaultComponent<BackgroundImageClip>, DefaultComponent<BackgroundImageMod>, ImageStaticIndex]\nResMut [DynUniformBuffer]\n"]
+		"schedule_pi_ui_render::system::node::border_color::calc_border_color_2" ["label"="calc_border_color", "tooltip"="Components [LayoutResult, BorderColor, BorderRadius]\nComponentsMut [DrawList, DrawState, FSDefines]\nRes [ShareAssetMgr<RenderRes<Buffer>>, PiRenderDevice, DynBindGroupIndex<ColorMaterialGroup>, ColorStaticIndex]\nResMut [DynUniformBuffer]\n"]
+		"schedule_pi_ui_render::system::node::border_image::calc_border_image_3" ["label"="calc_border_image", "tooltip"="Components [LayoutResult, BorderImage, BorderImageClip, BorderImageSlice, BorderImageRepeat, BorderImageTexture]\nComponentsMut [DrawList, DrawState]\nRes [ShareAssetMgr<RenderRes<Buffer>>, ShareAssetMgr<RenderRes<BindGroup>>, PiRenderDevice, Shaders, DynBindGroupIndex<UiMaterialGroup>, CommonSampler, DefaultComponent<BorderImageClip>, DefaultComponent<BorderImageSlice>, DefaultComponent<BorderImageRepeat>, ImageStaticIndex, PosUvVertexLayout]\nResMut [DynUniformBuffer]\n"]
+		"schedule_pi_ui_render::system::node::box_shadow::calc_box_shadow_4" ["label"="calc_box_shadow", "tooltip"="Components [LayoutResult, BoxShadow]\nComponentsMut [DrawList, DrawState]\nRes [ShareAssetMgr<RenderRes<Buffer>>, PiRenderDevice, DynBindGroupIndex<ColorMaterialGroup>, ColorStaticIndex]\nResMut [DynUniformBuffer]\n"]
+		"schedule_pi_ui_render::system::node::content_box::calc_content_box_5" ["label"="calc_content_box", "tooltip"="Components [Quad, Down, Up, Layer]\nComponentsMut [ContentBox]\nRes [Events<ComponentEvent<Changed<Quad>>>]\nResMut [Events<ComponentEvent<Changed<ContentBox>>>]\n"]
+		"schedule_pi_ui_render::system::node::context::cal_context_6" ["label"="cal_context", "tooltip"="Components [Down, Up, Layer, RenderContextMark, Pass2DId, Camera]\nComponentsMut [InPassId, ParentPassId]\nRes [Events<ComponentEvent<Changed<RenderContextMark>>>]\nResMut [Events<ComponentEvent<Changed<ParentPassId>>>]\n"]
+		"schedule_pi_ui_render::system::node::context_blur::blur_calc_7" ["label"="blur_calc", "tooltip"="Components [Blur]\nComponentsMut [RenderContextMark]\nResMut [Events<ComponentEvent<Changed<RenderContextMark>>>]\n"]
+		"schedule_pi_ui_render::system::node::context_hsi::hsi_calc_8" ["label"="hsi_calc", "tooltip"="Components [Hsi]\nComponentsMut [RenderContextMark]\nResMut [Events<ComponentEvent<Changed<RenderContextMark>>>]\n"]
+		"schedule_pi_ui_render::system::node::context_opacity::opacity_calc_9" ["label"="opacity_calc", "tooltip"="Components [Opacity]\nComponentsMut [RenderContextMark]\nResMut [Events<ComponentEvent<Changed<RenderContextMark>>>]\n"]
+		"schedule_pi_ui_render::system::node::context_overflow::overflow_calc_10" ["label"="overflow_calc", "tooltip"="Components [Overflow]\nComponentsMut [RenderContextMark]\nResMut [Events<ComponentEvent<Changed<RenderContextMark>>>]\n"]
+		"schedule_pi_ui_render::system::node::context_root::root_calc_11" ["label"="root_calc", "tooltip"="Components [Root]\nComponentsMut [RenderContextMark]\nResMut [Events<ComponentEvent<Changed<RenderContextMark>>>]\n"]
+		"schedule_pi_ui_render::system::node::context_transform_will_change::transform_willchange_calc_12" ["label"="transform_willchange_calc", "tooltip"="Components [TransformWillChange]\nComponentsMut [RenderContextMark]\nResMut [Events<ComponentEvent<Changed<RenderContextMark>>>]\n"]
+		"schedule_pi_ui_render::system::node::layout::calc_layout_13" ["label"="calc_layout", "tooltip"="Components [Size, Down, Up, Layer, Margin, Padding, Border, Position, MinMax, FlexContainer, FlexNormal, Show, TextStyle, TextContent]\nComponentsMut [LayoutResult, NodeState]\nRes [DefaultComponent<Size>, DefaultComponent<Margin>, DefaultComponent<Padding>, DefaultComponent<Border>, DefaultComponent<Position>, DefaultComponent<MinMax>, DefaultComponent<FlexContainer>, DefaultComponent<FlexNormal>, DefaultComponent<Show>]\nResMut [Events<ComponentEvent<Changed<LayoutResult>>>]\n"]
+		"schedule_pi_ui_render::system::node::show::calc_show_14" ["label"="calc_show", "tooltip"="Components [Down, Up, Layer, Show]\nComponentsMut [IsShow]\nRes [Events<ComponentEvent<Changed<Layer>>>, DefaultComponent<Show>]\n"]
+		"schedule_pi_ui_render::system::node::text_glyph::text_glyph_15" ["label"="text_glyph", "tooltip"="Components [WorldMatrix, TextStyle, TextContent]\nComponentsMut [NodeState]\nRes [DefaultComponent<TextStyle>]\nResMut [ShareFontSheet, Events<ComponentEvent<Changed<NodeState>>>]\n"]
+		"schedule_pi_ui_render::system::node::text_split::text_split_16" ["label"="text_split", "tooltip"="Components [Size, Down, Up, Layer, FlexNormal, TextStyle, TextContent]\nComponentsMut [NodeState]\nRes [DefaultComponent<Size>, DefaultComponent<FlexNormal>, DefaultComponent<TextStyle>]\nResMut [ShareFontSheet, Events<ComponentEvent<Changed<NodeState>>>]\n"]
+		"schedule_pi_ui_render::system::node::world_matrix::cal_matrix_17" ["label"="cal_matrix", "tooltip"="Components [LayoutResult, Down, Up, Layer, Transform]\nComponentsMut [WorldMatrix, Quad]\nRes [Events<ComponentEvent<Changed<Layer>>>, Events<ComponentEvent<Changed<LayoutResult>>>]\nResMut [Events<ComponentEvent<Changed<Quad>>>, QuadTree]\n"]
+		"schedule_pi_ui_render::system::node::z_index::calc_zindex_18" ["label"="calc_zindex", "tooltip"="Components [Down, Up, Layer, ZIndex]\nComponentsMut [ZRange]\nRes [Events<ComponentEvent<Changed<Layer>>>]\n"]
+	}
+	
+	subgraph "cluster_\"CoreStage::Update\"" {
+		"style"="rounded";
+		"color"="#99aab5";
+		"bgcolor"="#99aab5";
+		"rankdir"="TD";
+		"label"="CoreStage::Update";
+		node ["style"="filled", "color"="#eff1f3", "bgcolor"="#eff1f3"];
+		"MARKER_schedule_CoreStage::Update" ["style"="invis"]
+		"schedule_bevy_window::system::close_when_requested_0" ["label"="close_when_requested", "tooltip"="Res [Events<WindowCloseRequested>]\nResMut [Windows]\n"]
+	}
+	
+	subgraph "cluster_\"CoreStage::PostUpdate\"" {
+		"style"="rounded";
+		"color"="#99aab5";
+		"bgcolor"="#99aab5";
+		"rankdir"="TD";
+		"label"="CoreStage::PostUpdate";
+		node ["style"="filled", "color"="#eff1f3", "bgcolor"="#eff1f3"];
+		"MARKER_schedule_CoreStage::PostUpdate" ["style"="invis"]
+		"schedule_bevy_window::system::exit_on_all_closed_0" ["label"="exit_on_all_closed", "tooltip"="Res [Windows]\nResMut [Events<AppExit>]\n"]
+		"schedule_bevy_winit::change_window_1" -> "schedule_bevy_window::system::exit_on_all_closed_0" ["constraint"="false"]
+		"schedule_bevy_winit::change_window_1" ["label"="change_window", "tooltip"="ResMut [Events<WindowClosed>, Events<WindowScaleFactorChanged>, Windows, WinitWindows]\n"]
+	}
+	
+	subgraph "cluster_\"CoreStage::Last\"" {
+		"style"="rounded";
+		"color"="#99aab5";
+		"bgcolor"="#99aab5";
+		"rankdir"="TD";
+		"label"="CoreStage::Last";
+		node ["style"="filled", "color"="#eff1f3", "bgcolor"="#eff1f3"];
+		"MARKER_schedule_CoreStage::Last" ["style"="invis"]
+		"schedule_bevy_ecs::world::World::clear_trackers_0" ["label"=<clear_trackers<BR /><FONT COLOR="red" POINT-SIZE="11">Exclusive at start</FONT>>, "tooltip"="clear_trackers"]
+	}
+	
+	subgraph "cluster_\"PiRenderStage\"" {
+		"style"="rounded";
+		"color"="#99aab5";
+		"bgcolor"="#99aab5";
+		"rankdir"="TD";
+		"label"="PiRenderStage";
+		node ["style"="filled", "color"="#eff1f3", "bgcolor"="#eff1f3"];
+		"MARKER_schedule_PiRenderStage" ["style"="invis"]
+		"schedule_pi_bevy_render_plugin::system::run_frame_system<pi_async::rt::multi_thread::MultiTaskRuntime>_0" ["label"=<run_frame_system&lt;MultiTaskRuntime&gt;<BR /><FONT COLOR="red" POINT-SIZE="11">Exclusive at start</FONT>>, "tooltip"="run_frame_system<MultiTaskRuntime>"]
+	}
+	
+	"MARKER_schedule_CoreStage::First" -> "MARKER_schedule_CoreStage::PreUpdate" []
+	"MARKER_schedule_CoreStage::PreUpdate" -> "MARKER_schedule_CoreStage::Update" []
+	"MARKER_schedule_CoreStage::Update" -> "MARKER_schedule_CoreStage::PostUpdate" []
+	"MARKER_schedule_CoreStage::PostUpdate" -> "MARKER_schedule_CoreStage::Last" []
+	"MARKER_schedule_CoreStage::Last" -> "MARKER_schedule_PiRenderStage" []
+}

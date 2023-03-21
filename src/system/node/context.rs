@@ -16,214 +16,271 @@
 //!
 //!
 
-use pi_dirty::LayerDirty;
-use pi_ecs::storage::SecondaryMap;
-use pi_ecs::{
-    monitor::EventType,
-    prelude::{Added, Commands, Deleted, EntityCommands, EntityDelete, EntityInsert, Event, Id, Or, ParamSet, Query, ResMut, Write},
+use bevy::ecs::{
+    prelude::{Component, Entity, EventReader, EventWriter},
+    query::Changed,
+    system::{Commands, Local, ParamSet, Query, RemovedComponents},
+    world::Mut,
 };
-use pi_ecs_macros::{listen, setup};
-use pi_ecs_utils::prelude::{EntityTree, Layer, LayerDirty as LayerDirtyParam, Down, Up, Root};
+use pi_bevy_ecs_extend::{
+    prelude::{Down, EntityTree, Up, Layer},
+    system_param::layer_dirty::ComponentEvent,
+};
 use pi_null::Null;
 
-use crate::components::user::Node;
 use crate::{
     components::{
-        calc::{InPassId, NodeId, Pass2DId, RenderContextMark},
-        pass_2d::{ParentPassId, Pass2D},
-        user::{Aabb2, Point2},
+        calc::{EntityKey, InPassId, RenderContextMark},
+        pass_2d::{Camera, ParentPassId},
+        PassBundle,
     },
-    resource::draw_obj::LayerPass2D,
+    utils::tools::LayerDirty,
 };
 
-pub struct CalcContext;
+/// system
+/// 记录RenderContext添加和删除的脏，同时记录节点添加到树上的脏
+/// 根据脏，从父向子递归，设置节点所在的渲染上下文（节点的渲染目标）
+pub fn cal_context(
+    mut command: Commands,
+    mut layer_dirty: Local<LayerDirty<Entity>>,
+    mut context_mark1: ParamSet<(
+        Query<(Entity, &RenderContextMark, Option<&Camera>)>,
+        Query<(&'static mut InPassId, Option<&'static Camera>, &RenderContextMark)>,
+    )>,
+    idtree: EntityTree,
+    down: Query<&'static Down>,
+    up: Query<&Up>,
+    mut parent_pass_id: Query<&'static mut ParentPassId>,
+    mut event_reader: EventReader<ComponentEvent<Changed<RenderContextMark>>>,
+    mut event_writer: EventWriter<ComponentEvent<Changed<ParentPassId>>>,
+	mut layer_change: EventReader<ComponentEvent<Changed<Layer>>>,
+) {
+    layer_dirty.clear();
+    let mut pass_2d_init = Vec::new();
+    // let mut pass_2d_id_insert = Vec::new();
 
-#[setup]
-impl CalcContext {
-    /// system
-    /// 记录RenderContext添加和删除的脏，同时记录节点添加到树上的脏
-    /// 根据脏，从父向子递归，设置节点所在的渲染上下文（节点的渲染目标）
-    #[system]
-    pub fn cal_in_context_id(
-        mut layer_pass_2d: ResMut<LayerPass2D>,
-        mut command: EntityCommands<Pass2D>,
-        mut dirty: LayerDirtyParam<Node, Or<(Added<RenderContextMark>, Deleted<RenderContextMark>)>>,
-        idtree: EntityTree<Node>,
-        query: Query<Node, (Option<&Down<Node>>, Option<&RenderContextMark>, Option<&Pass2DId>)>,
-        up: Query<Node, &Up<Node>>,
-        mut in_context: Query<Node, Write<InPassId>>,
-        mut query_pass: Commands<Pass2D, ParentPassId>,
 
-        // context_id: Query<Node, Write<Pass2DId>>,
-        mut mark_context: Query<Node, (Option<&RenderContextMark>, Write<Pass2DId>)>,
-        mut node_id: Commands<Pass2D, NodeId>,
-    ) {
-        // 当节点被挂在主树上，或者
-        for (node, mark, layer) in dirty.iter_manual() {
-            if let (Some(_mark), mut pass2d_id_item) = mark_context.get_unchecked_mut(node) {
-                // 创建Pass2D
-                if pass2d_id_item.get().is_none() {
-                    let context = command.spawn();
-                    // 建立Node到RenderContext的索引关系
-                    pass2d_id_item.write(Pass2DId(context));
-                    // 建立RenderContext到Node的索引关系
-                    node_id.insert(context, NodeId(node));
-                    layer_pass_2d.mark(context, layer);
-                }
+    // 如果mark修改，加入层脏
+    for change in event_reader.iter() {
+        let p0 = context_mark1.p0();
+        if let Ok((entity, mark, camera)) = p0.get(change.id) {
+            if camera.is_some() && mark.not_any() {
+                // 删除pass
+                layer_dirty.marked_dirty(entity, entity, &idtree);
+            } else if camera.is_none() && mark.any() {
+                // 不存在对应的pass2D， 则创建(放入层脏，按层创建)
+                layer_dirty.marked_dirty(entity, entity, &idtree);
             }
+        }
+    }
 
-            let parent_context_id = match up.get(node) {
-                Some(r) =>
-                // 自身已经不是一个Pass，则取父节点的InPassId
-                {
-                    in_context.get_unchecked(r.parent()).get().unwrap().clone()
-                }
-                None => InPassId(Id::<Pass2D>::null()),
+	// 迭代所有layer改变的节点， 如果layer不为null，则添加到层脏
+	for i in layer_change.iter() {
+		layer_dirty.marked_dirty(i.id, i.id, &idtree);
+	}
+
+    // 按层迭代
+    for (node, _layer) in layer_dirty.dirty.iter() {
+        let parent_context_id = match up.get(*node) {
+			Ok(r) if let Ok((in_pass_id, _, _)) = context_mark1.p1().get(r.parent()) => **in_pass_id,
+			_ => EntityKey::null(),
+		};
+
+        if let Ok((mut in_pass_id, camera, mark)) = context_mark1.p1().get_mut(*node) {
+            // mark已清空，但相机依然存在，则删除pass, 重新设置pass字节点的in_pass_id
+            let in_pass_id = if camera.is_some() && mark.not_any() {
+                // // 删除pass
+                // if in_pass_id.is_null() {
+                // 	continue;
+                // }
+                // command.entity(***camera.unwrap()).despawn();
+                // 修改in_pass_id为父的Pass2D
+                *in_pass_id = InPassId(parent_context_id);
+                // 移除Pass2D
+                command.entity(*node).remove::<PassBundle>();
+                // 删除后，其子节点的in_pass_id修改为parent_context_id
+                parent_context_id.0
+            } else if mark.any() {
+				pass_2d_init.push((*node, PassBundle::new(*parent_context_id)));
+				// 修改in_pass_id为当前Pass2D
+				*in_pass_id = InPassId(EntityKey(*node));
+                
+                // 父的
+                event_writer.send(ComponentEvent::new(*node));
+                // 添加后，其子节点的in_pass_id修改为当前创建的parent_context_id
+                *node
+            } else {
+				// 不是一个renderContext， 则其in_pass_id为parent_context_id
+				*in_pass_id = InPassId(parent_context_id);
+				parent_context_id.0
+			};
+
+            let children_item = match down.get(*node) {
+                Ok(r) => r,
+                _ => continue,
             };
-            recursive_set_node_context(node, &idtree, &query, &mut query_pass, &mut in_context, parent_context_id, mark);
+
+            recursive_set_node_context(
+                children_item.head(),
+                &idtree,
+                &down,
+                &mut context_mark1.p1(),
+                &mut parent_pass_id,
+                EntityKey(in_pass_id),
+            );
         }
     }
 
-    // /// 监听RenderContextMark和Layer的创建方法，创建渲染上下文（未考虑层修改的情况，是否需要？ TODO）
-    // #[listen(component=(Node, RenderContextMark, Create), component=(Node, Layer, Create))]
-    // pub fn context_mark_create(
-    // 	e: Event,
-    // 	context_id: Query<Node, Write<Pass2DId>>,
-    // 	mark_layer: Query<Node, (&RenderContextMark, &Layer)>,
-    // 	mut command: EntityCommands<Pass2D>,
-    // 	mut node_id: Commands<NodeId>,
-
-    // 	// mut render_context_layer_list: ResMut<RenderContextLayerList>,
-    // ) {
-    // 	// 不存在RenderContextMark或者不存在Layer，都不处理
-    // 	// 成为渲染上下文的充要条件是：RenderContextMark组件存在，并且节点在渲染树上
-    // 	if let Some((_, layer)) = mark_layer.get(e.id) {
-    // 		// 创建一个RenderContext
-    // 		let context = command.spawn();
-    // 		// 建立Node到RenderContext的索引关系
-    // 		context_id.get_unchecked(e.id).write(Pass2DId(context));
-    // 		// 建立RenderContext到Node的索引关系
-    // 		node_id.insert(context, NodeId(e.id));
-
-    // 		// // 添加到渲染列表中（伴随着层信息，可以按层进行迭代）
-    // 		// render_context_layer_list.mark(context, **layer);
-    // 	}
-    // }
-
-    /// 监听RenderContextMark、Layer、Node的移除事件，移除对应的渲染上下文
-    #[listen(component=(Node, RenderContextMark, Delete), component=(Node, Layer<Node>, Delete), entity=(Node, Delete))]
-    pub fn context_mark_remove(
-        e: Event,
-        context_id: Query<Node, Write<Pass2DId>>,
-        layer: Query<Node, &Layer<Node>>,
-        mut command: EntityDelete<Pass2D>,
-        mut layer_pass_2d: ResMut<LayerPass2D>,
-        // mut render_context_layer_list: ResMut<RenderContextLayerList>,
-    ) {
-        if let (Some(context), Some(layer)) = (
-            context_id.get_unchecked_by_entity(e.id).remove(),
-            layer.get(unsafe { Id::<Node>::new(e.id.local()) }),
-        ) {
-            // 删除RenderContext实体
-            command.despawn(*context);
-            layer_pass_2d.delete(*context, layer.layer());
-            // render_context_layer_list.delete(*context, **layer);
-        }
-    }
-
-    #[listen(component=(Node, Root, (Create, Delete)))]
-    pub fn root_change(
-        e: Event,
-        mut pass2d_query: ParamSet<(EntityInsert<Pass2D>, EntityDelete<Pass2D>, Query<Pass2D, Write<NodeId>>)>,
-
-        mut node_query: Query<Node, Write<Pass2DId>>,
-    ) {
-        match e.ty {
-            EventType::Create => {
-                let id = pass2d_query.p0_mut().spawn();
-                node_query.get_unchecked_mut_by_entity(e.id).write(Pass2DId(id));
-                let mut node_id = pass2d_query.p2_mut().get_unchecked_mut(id);
-                node_id.write(NodeId(unsafe { Id::<Node>::new(e.id.local()) }));
-            }
-            EventType::Delete => {
-                let id = node_query.get_unchecked_mut_by_entity(e.id);
-                pass2d_query.p1_mut().despawn(id.get().unwrap().0);
-            }
-            _ => (),
-        }
+    // 批量设置插入指令（PassBundle）
+    if pass_2d_init.len() > 0 {
+        command.insert_or_spawn_batch(pass_2d_init.into_iter());
     }
 }
 
 
-/// 渲染上下文列表，组织为层的结构，渲染时，按照层的顺序，从大到小渲染（因为父上下文的渲染依赖子上下文的渲染）
-#[derive(Deref, DerefMut, Default)]
-pub struct RenderContextLayerList(LayerDirty<Id<Node>>);
+// /// 监听RenderContextMark和Layer的创建方法，创建渲染上下文（未考虑层修改的情况，是否需要？ TODO）
+// #[listen(component=(Node, RenderContextMark, Create), component=(Node, Layer, Create))]
+// pub fn context_mark_create(
+// 	e: Event,
+// 	context_id: Query<Node, Write<Pass2DId>>,
+// 	mark_layer: Query<Node, (&RenderContextMark, &Layer)>,
+// 	mut command: EntityCommands<Pass2D>,
+// 	mut node_id: Commands<NodeId>,
 
-/// 脏区域
-#[derive(Deref, DerefMut)]
-pub struct DirtyRect(Aabb2);
+// 	// mut render_context_layer_list: ResMut<RenderContextLayerList>,
+// ) {
+// 	// 不存在RenderContextMark或者不存在Layer，都不处理
+// 	// 成为渲染上下文的充要条件是：RenderContextMark组件存在，并且节点在渲染树上
+// 	if let Some((_, layer)) = mark_layer.get(e.id) {
+// 		// 创建一个RenderContext
+// 		let context = command.spawn();
+// 		// 建立Node到RenderContext的索引关系
+// 		context_id.get_unchecked(e.id).write(Pass2DId(context));
+// 		// 建立RenderContext到Node的索引关系
+// 		node_id.insert(context, NodeId(e.id));
 
-impl Default for DirtyRect {
-    fn default() -> Self { Self(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(0.0, 0.0))) }
-}
+// 		// // 添加到渲染列表中（伴随着层信息，可以按层进行迭代）
+// 		// render_context_layer_list.mark(context, **layer);
+// 	}
+// }
+
+// /// 监听RenderContextMark、Layer、Node的移除事件，移除对应的渲染上下文
+// #[listen(component=(Node, RenderContextMark, Delete), component=(Node, Layer<Node>, Delete), entity=(Node, Delete))]
+// pub fn context_mark_remove(
+//     e: Event,
+//     context_id: Query<Node, Write<Pass2DId>>,
+//     layer: Query<Node, &Layer<Node>>,
+//     mut command: EntityDelete<Pass2D>,
+//     mut layer_pass_2d: ResMut<LayerPass2D>,
+//     // mut render_context_layer_list: ResMut<RenderContextLayerList>,
+// ) {
+//     if let (Some(context), Some(layer)) = (
+//         context_id.get_unchecked_by_entity(e.id).remove(),
+//         layer.get(unsafe { Id::<Node>::new(e.id.local()) }),
+//     ) {
+//         // 删除RenderContext实体
+//         command.despawn(*context);
+//         layer_pass_2d.delete(*context, layer.layer());
+//         // render_context_layer_list.delete(*context, **layer);
+//     }
+// }
+
+// #[listen(component=(Node, Root, (Create, Delete)))]
+// pub fn root_change(
+//     e: Event,
+//     mut pass2d_query: ParamSet<(EntityInsert<Pass2D>, EntityDelete<Pass2D>, Query<Pass2D, Write<NodeId>>)>,
+
+//     mut node_query: Query<Node, Write<Pass2DId>>,
+// ) {
+//     match e.ty {
+//         EventType::Create => {
+//             let id = pass2d_query.p0_mut().spawn();
+//             node_query.get_unchecked_mut_by_entity(e.id).write(Pass2DId(id));
+//             let mut node_id = pass2d_query.p2_mut().get_unchecked_mut(id);
+//             node_id.write(NodeId(unsafe { Id::<Node>::new(e.id.local()) }));
+//         }
+//         EventType::Delete => {
+//             let id = node_query.get_unchecked_mut_by_entity(e.id);
+//             pass2d_query.p1_mut().despawn(id.get().unwrap().0);
+//         }
+//         _ => (),
+//     }
+// }
+
 
 /// 递归设置节点的上下文
-fn recursive_set_node_context<'s>(
-    node: Id<Node>,
-    idtree: &EntityTree<Node>,
-    query: &Query<Node, (Option<&Down<Node>>, Option<&RenderContextMark>, Option<&Pass2DId>)>,
-    query_pass: &mut Commands<Pass2D, ParentPassId>,
-    in_context: &mut Query<Node, Write<InPassId>>,
-    parent_context_id: InPassId,
-    dirty_mark: &mut SecondaryMap<Id<Node>, usize>,
+fn recursive_set_node_context(
+    head: Entity,
+    idtree: &EntityTree,
+    down: &Query<&Down>,
+    in_context: &mut Query<(&'static mut InPassId, Option<&Camera>, &RenderContextMark)>,
+    parent_pass_id: &mut Query<&'static mut ParentPassId>,
+    parent_context_id: EntityKey,
 ) {
-    if node.is_null() {
+    if EntityKey(head).is_null() {
         return;
     }
-    let (children_item, mark, pass2d_id) = query.get_unchecked(node);
-    let in_context_id = match pass2d_id {
-        Some(r) => {
-            query_pass.insert(**r, ParentPassId(*parent_context_id));
-
-            let in_context_item = in_context.get_unchecked(node);
-            if let Some(in_pass_id) = in_context_item.get() {
-                // 已经正确设置过in_pass_id, 则返回
-                if **in_pass_id == **r {
-                    return;
-                }
-            }
-            InPassId(**r)
-        }
-        None => {
-            if let Some(_r) = mark {
-                // 如果存在context_mark,则返回，将在接下来的迭代中处理
-                return;
-            } else {
-                parent_context_id
-            }
-        }
-    };
-    set_node_context(node, in_context, in_context_id);
-
-    // 如果不是RenderContext，才会移除脏标记
-    dirty_mark.remove(node);
-
-
     // 递归设置子节点
-    if let Some(children_item) = children_item {
-        for c in idtree.iter(children_item.head()) {
-            recursive_set_node_context(c, idtree, query, query_pass, in_context, in_context_id, dirty_mark);
+    for node in idtree.iter(head) {
+        if let Ok((mut in_pass_id, _, mark)) = in_context.get_mut(node) {
+            if mark.any() {
+                // 如果存在context_mark, 设置其对应的pass的parent_id
+                if let Ok(mut parent_pass_id) = parent_pass_id.get_mut(***in_pass_id) {
+                    parent_pass_id.0 = parent_context_id;
+                }
+                // 如果存在context_mark,则返回，将在接下来的迭代中处理
+                continue;
+            } else {
+                in_pass_id.0 = parent_context_id;
+            }
+        }
+
+        let children_item = match down.get(node) {
+            Ok(r) => r,
+            _ => continue,
+        };
+
+        recursive_set_node_context(children_item.head(), idtree, down, in_context, parent_pass_id, parent_context_id);
+    }
+}
+
+pub fn context_attr_del<T: Component>(
+    dels: RemovedComponents<T>,
+    mark_type: usize,
+    event_writer: &mut EventWriter<ComponentEvent<Changed<RenderContextMark>>>,
+    render_context: &mut Query<&'static mut RenderContextMark>,
+) {
+    // Opacity组件删除，取消渲染上下文标记
+    for del in dels.iter() {
+        if let Ok(mut render_mark_value) = render_context.get_mut(del) {
+            if unsafe { render_mark_value.replace_unchecked(mark_type, false) } {
+                // 通知（RenderContextMark组件在每个节点上都存在， 但实际上，是渲染上下文的节点不多，基于通知的改变更高效）
+                event_writer.send(ComponentEvent::new(del));
+            }
         }
     }
 }
 
-fn set_node_context(node: Id<Node>, in_context: &mut Query<Node, Write<InPassId>>, context_id: InPassId) {
-    let mut in_context_id_item = in_context.get_unchecked(node);
-    match in_context_id_item.get() {
-        Some(r) if *r == context_id => {}
-        _ => {
-            // 如果与旧的context_id不相等，则重新写入
-            in_context_id_item.write(context_id);
-        }
-    };
+#[inline]
+pub fn render_mark_true(
+    id: Entity,
+    mark_type: usize,
+    event_writer: &mut EventWriter<ComponentEvent<Changed<RenderContextMark>>>,
+    render_mark_value: &mut Mut<RenderContextMark>,
+) {
+    if !unsafe { render_mark_value.replace_unchecked(mark_type, true) } {
+        event_writer.send(ComponentEvent::new(id));
+    }
+}
+
+#[inline]
+pub fn render_mark_false(
+    id: Entity,
+    mark_type: usize,
+    event_writer: &mut EventWriter<ComponentEvent<Changed<RenderContextMark>>>,
+    render_mark_value: &mut Mut<RenderContextMark>,
+) {
+    if unsafe { render_mark_value.replace_unchecked(mark_type, false) } {
+        event_writer.send(ComponentEvent::new(id));
+    }
 }

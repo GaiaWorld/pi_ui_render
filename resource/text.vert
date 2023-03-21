@@ -22,6 +22,7 @@ layout(set = 0, binding = 0) uniform CameraMatrix {
 // set 1
 layout(set = 1, binding = 0) uniform TextMaterial {
 	mat4 world; // 世界矩阵
+	mat4 clipSdf; // border_radius | ellipse | circle | sector | rect | border
 	float depth; // 深度
 	// 纹理尺寸
 	// 由于纹理纹理的尺寸会发生改变，一旦改变，每个文字的uv会随之而变

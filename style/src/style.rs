@@ -15,7 +15,7 @@ use smallvec::SmallVec;
 
 use pi_atom::Atom;
 use pi_flex_layout::prelude::{INode, Number, Rect, Size as FlexSize};
-use bevy_reflect::{Reflect, impl_reflect_value, ReflectDeserialize, prelude::ReflectDefault};
+use bevy::reflect::{Reflect, impl_reflect_value, ReflectDeserialize, prelude::ReflectDefault};
 
 pub type Point2 = nalgebra::Point2<f32>;
 pub type Aabb2 = ncollide2d::bounding_volume::AABB<f32>;

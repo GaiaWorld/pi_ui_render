@@ -1,242 +1,173 @@
-use std::io::Result;
-
+use bevy::ecs::prelude::Entity;
+use bevy::ecs::query::{Changed, Or, With};
+use bevy::ecs::system::{Commands, Local, ParamSet, Query, RemovedComponents, Res};
 use bytemuck::{Pod, Zeroable};
 use ordered_float::NotNan;
 use pi_assets::asset::Asset;
-use pi_assets::mgr::{AssetMgr, LoadResult};
-use pi_ecs::prelude::{Changed, Commands, EntityCommands, Event, Id, Query, Res, Write};
-use pi_ecs::prelude::{Deleted, Or, OrDefault, ParamSet, ResMut, With};
-use pi_ecs_macros::{listen, setup};
+use pi_assets::mgr::AssetMgr;
+use pi_bevy_assert::ShareAssetMgr;
+use pi_bevy_ecs_extend::prelude::OrDefault;
+use pi_bevy_ecs_extend::system_param::res::OrInitRes;
+use pi_bevy_render_plugin::PiRenderDevice;
+use pi_render::renderer::vertices::{RenderVertices, EVerticesBufferUsage, RenderIndices};
 use pi_render::rhi::asset::RenderRes;
 use pi_render::rhi::bind_group::BindGroup;
 use pi_render::rhi::bind_group_layout::BindGroupLayout;
 use pi_render::rhi::buffer::Buffer;
 use pi_render::rhi::device::RenderDevice;
-use pi_render::rhi::dyn_uniform_buffer::Group;
+use pi_render::renderer::draw_obj::DrawBindGroup;
+use pi_render::rhi::shader::{BindLayout, Input};
 use pi_share::Share;
-use pi_style::style::BorderImageRepeat;
-use smallvec::smallvec;
+use pi_style::style::ImageRepeatOption;
 use wgpu::IndexFormat;
 
-use crate::components::calc::{BorderImageTexture, DrawInfo, LayoutResult};
-use crate::components::draw_obj::{DrawGroup, DynDrawGroup};
-use crate::components::user::{BorderImage, BorderImageClip, BorderImageSlice, ImageRepeat, ImageRepeatOption, Point2};
-use crate::resource::draw_obj::{CommonSampler, DynBindGroupIndex, DynUniformBuffer, ImageStaticIndex, PosUvVertexLayout, StaticIndex};
-use crate::shaders::image::{ImageMaterialBind, ImageMaterialGroup, PositionVertexBuffer, SampTex2DGroup};
-use crate::utils::tools::{calc_hash, eq_f32};
-use crate::{
-    components::{
-        calc::{DrawList, NodeId},
-        draw_obj::{DrawObject, DrawState},
-        user::Node,
-    },
-    resource::draw_obj::Shaders,
+use crate::components::calc::{BorderImageTexture, DrawInfo, EntityKey, LayoutResult};
+use crate::components::draw_obj::{BoxType, PipelineMeta};
+use crate::components::user::{BorderImage, BorderImageClip, BorderImageSlice, ImageRepeat, Point2};
+use crate::components::DrawBundle;
+use crate::components::{
+    calc::{DrawList, NodeId},
+    draw_obj::DrawState,
+    user::BorderImageRepeat,
 };
-// use crate::utils::tools::calc_hash;
+use crate::resource::draw_obj::{CommonSampler, PosUv2VertexLayout, ProgramMetaRes, ShaderInfoCache, ShareGroupAlloter, UiMaterialGroup};
+use crate::resource::RenderObjType;
+use crate::shader::image::{PositionVert, ProgramMeta, SampBind};
+use crate::shader::ui_meterial::UiMaterialBind;
+use crate::system::utils::clear_draw_obj;
+use crate::utils::tools::{calc_hash, eq_f32};
 
-pub struct CalcBorderImage;
+/// 创建RenderObject，用于渲染背景颜色
+pub fn calc_border_image(
+    render_type: Local<RenderObjType>,
+    del: RemovedComponents<BorderImageTexture>,
+    mut query: ParamSet<(
+        // 布局修改、BorderImage修改、圆角修改或删除，需要修改或创建BorderImage的DrawObject
+        Query<
+            (
+                Entity,
+                &BorderImage,
+                &BorderImageTexture,
+                OrDefault<BorderImageClip>,
+                OrDefault<BorderImageSlice>,
+                OrDefault<BorderImageRepeat>,
+                &'static LayoutResult,
+                &mut DrawList,
+            ),
+            (
+                With<BorderImageTexture>,
+                Or<(
+                    Changed<BorderImageTexture>,
+                    Changed<BorderImageClip>,
+                    Changed<BorderImageSlice>,
+                    Changed<BorderImageRepeat>,
+                    Changed<LayoutResult>,
+                )>,
+            ),
+        >,
+        // BorderImage删除，需要删除对应的DrawObject
+        Query<(Option<&'static BorderImageTexture>, &'static mut DrawList)>,
+    )>,
 
-#[setup]
-impl CalcBorderImage {
-    /// 创建RenderObject，用于渲染背景颜色
-    #[system]
-    pub async fn calc_border_image(
-        mut query: ParamSet<(
-            // 布局修改、BorderImage修改、圆角修改或删除，需要修改或创建BorderImage的DrawObject
-            Query<
-                'static,
-                'static,
-                Node,
-                (
-                    Id<Node>,
-                    &'static BorderImage,
-                    &'static BorderImageTexture,
-                    OrDefault<BorderImageClip>,
-                    OrDefault<BorderImageSlice>,
-                    OrDefault<BorderImageRepeat>,
-                    &'static LayoutResult,
-                    Write<BorderImageDrawId>,
-                    Write<DrawList>,
-                ),
-                (
-                    With<BorderImageTexture>,
-                    Or<(
-                        Changed<BorderImageTexture>,
-                        Changed<BorderImageClip>,
-                        Deleted<BorderImageClip>,
-                        Changed<BorderImageSlice>,
-                        Deleted<BorderImageSlice>,
-                        Changed<BorderImageRepeat>,
-                        Deleted<BorderImageRepeat>,
-                        Changed<LayoutResult>,
-                    )>,
-                ),
-            >,
-            // BorderImage删除，需要删除对应的DrawObject
-            Query<
-                'static,
-                'static,
-                Node,
-                (Option<&'static BorderImageTexture>, Write<BorderImageDrawId>, Write<DrawList>),
-                Deleted<BorderImageTexture>,
-            >,
-        )>,
+    mut query_draw: Query<&'static mut DrawState>,
 
-        query_draw: Query<'static, 'static, DrawObject, Write<DrawState>>,
-        mut draw_obj_commands: EntityCommands<DrawObject>,
-        mut draw_state_commands: Commands<DrawObject, DrawState>,
-        mut node_id_commands: Commands<DrawObject, NodeId>,
-        mut shader_static_commands: Commands<DrawObject, StaticIndex>,
-        mut order_commands: Commands<DrawObject, DrawInfo>,
+    mut commands: Commands,
 
-        // load_mgr: ResMut<'a, LoadMgr>,
-        device: Res<'static, RenderDevice>,
-        static_index: Res<'static, ImageStaticIndex>,
-        vertex_layout: Res<'static, PosUvVertexLayout>,
-        shader_static: Res<'static, Shaders>,
-        common_sampler: Res<'static, CommonSampler>,
+    device: Res<PiRenderDevice>,
 
-        buffer_assets: Res<'static, Share<AssetMgr<RenderRes<Buffer>>>>,
-        bind_group_assets: Res<'static, Share<AssetMgr<RenderRes<BindGroup>>>>,
+    ui_material_group: OrInitRes<ShareGroupAlloter<UiMaterialGroup>>,
 
-        mut dyn_uniform_buffer: ResMut<'static, DynUniformBuffer>,
-        image_material_bind_group: Res<'static, DynBindGroupIndex<ImageMaterialGroup>>,
-    ) -> Result<()> {
-        // border image 中的position和uv，完全是一一对应的，几乎不存在，position或uv单独被其他renderObj重用的情况
-        // 因此，position和uv的布局不使用默认的布局方式，而是将其放入同一个buffer中
-        let mut static_index = (*static_index).clone();
-        static_index.vertex_buffer_index = **vertex_layout;
+    buffer_assets: Res<ShareAssetMgr<RenderRes<Buffer>>>,
+    bind_group_assets: Res<ShareAssetMgr<RenderRes<BindGroup>>>,
+    common_sampler: Res<CommonSampler>,
+    program_meta: OrInitRes<ProgramMetaRes<ProgramMeta>>,
+    vert_layout: OrInitRes<PosUv2VertexLayout>,
+    shader_catch: OrInitRes<ShaderInfoCache>,
+) {
+    // 删除对应的DrawObject
+    clear_draw_obj(*render_type, &del, &mut query.p1(), &mut commands);
 
-        // log::info!("calc_background=================");
-        // TODO: 删除逻辑在多个system中重复，需要抽象出去
-        for (border_image, mut draw_index, mut render_list) in query.p1_mut().iter_mut() {
-            if border_image.is_some() {
-                // 可能存在border_image删除后，再创建的情况，跳过该情况
-                continue;
-            };
-            // 删除对应的DrawObject
-            if let Some(draw_index_item) = draw_index.get() {
-                draw_obj_commands.despawn(draw_index_item.0.clone());
-                if let Some(r) = render_list.get_mut() {
-                    for i in 0..r.len() {
-                        let item = &r[i];
-                        if item == &draw_index_item.0 {
-                            r.swap_remove(i);
-                        }
-                    }
-                }
-                draw_index.remove();
+    let texture_group_layout = &program_meta.bind_group_layout[SampBind::set() as usize];
+    let mut init_spawn_drawobj = Vec::new();
+    for (node_id, border_image, border_texture, border_image_clip, border_image_slice, border_image_repeat, layout, mut draw_list) in
+        query.p0().iter_mut()
+    {
+        match draw_list.get(**render_type) {
+            // borderimage已经存在一个对应的DrawObj， 则修改color group
+            Some(r) => {
+                let mut draw_state = match query_draw.get_mut(*r) {
+                    Ok(r) => r,
+                    _ => continue,
+                };
+
+                modify(
+                    &border_image,
+                    &border_texture,
+                    &border_image_clip,
+                    &border_image_slice,
+                    &border_image_repeat,
+                    layout,
+                    &mut draw_state,
+                    &device,
+                    &buffer_assets,
+                    &bind_group_assets,
+                    texture_group_layout,
+                    &common_sampler,
+                );
             }
-        }
+            // 否则，创建一个新的DrawObj，并设置color group;
+            // 修改以下组件：
+            // * <Node, BackgroundDrawId>
+            // * <Node, DrawList>
+            // * <DrawObject, DrawState>
+            // * <DrawObject, NodeId>
+            // * <DrawObject, IsUnitQuad>
+            None => {
+                // 创建新的DrawObj
+                let new_draw_obj = commands.spawn_empty().id();
+                // 设置DrawState（包含color group）
+                let mut draw_state = DrawState::default();
 
-        let texture_group_layout = &shader_static.get(static_index.shader).unwrap().bind_group_layout[SampTex2DGroup::id() as usize];
-        for (
-            node,
-            border_image,
-            border_texture,
-            border_image_clip,
-            border_image_slice,
-            border_image_repeat,
-            layout,
-            mut draw_index,
-            mut render_list,
-        ) in query.p0_mut().iter_mut()
-        {
-            match draw_index.get() {
-                // borderimage已经存在一个对应的DrawObj， 则修改color group
-                Some(r) => {
-                    let mut draw_state_item = query_draw.get_unchecked(**r);
-                    let draw_state = draw_state_item.get_mut().unwrap();
-                    modify(
-                        &border_image,
-                        &border_texture,
-                        &border_image_clip,
-                        &border_image_slice,
-                        &border_image_repeat,
-                        layout,
+                let ui_material_group = ui_material_group.alloc();
+                draw_state.bindgroups.insert_group(UiMaterialBind::set(), ui_material_group);
+
+                modify(
+                    &border_image,
+                    &border_texture,
+                    &border_image_clip,
+                    &border_image_slice,
+                    &border_image_repeat,
+                    layout,
+                    &mut draw_state,
+                    &device,
+                    &buffer_assets,
+                    &bind_group_assets,
+                    texture_group_layout,
+                    &common_sampler,
+                );
+
+                init_spawn_drawobj.push((
+                    new_draw_obj,
+                    DrawBundle {
+                        node_id: NodeId(EntityKey(node_id)),
                         draw_state,
-                        &device,
-                        &buffer_assets,
-                        &bind_group_assets,
-                        texture_group_layout,
-                        &common_sampler,
-                    )
-                    .await;
-                    draw_state_item.notify_modify();
-                }
-                // 否则，创建一个新的DrawObj，并设置color group;
-                // 修改以下组件：
-                // * <Node, BackgroundDrawId>
-                // * <Node, DrawList>
-                // * <DrawObject, DrawState>
-                // * <DrawObject, NodeId>
-                // * <DrawObject, IsUnitQuad>
-                None => {
-                    // log::info!("create_background=================");
-                    // 创建新的DrawObj
-                    let new_draw_obj = draw_obj_commands.spawn();
-                    // 设置DrawState（包含color group）
-                    let mut draw_state = DrawState::default();
-
-                    let image_material_dyn_offset = dyn_uniform_buffer.alloc_binding::<ImageMaterialBind>();
-                    let group = DrawGroup::Dyn(DynDrawGroup::new(
-                        (*image_material_bind_group).clone(),
-                        smallvec![image_material_dyn_offset],
-                    ));
-                    draw_state.bind_groups.insert_group(ImageMaterialGroup::id(), group);
-
-                    modify(
-                        &border_image,
-                        &border_texture,
-                        &border_image_clip,
-                        &border_image_slice,
-                        &border_image_repeat,
-                        layout,
-                        &mut draw_state,
-                        &device,
-                        &buffer_assets,
-                        &bind_group_assets,
-                        texture_group_layout,
-                        &common_sampler,
-                    )
-                    .await;
-
-                    draw_state_commands.insert(new_draw_obj, draw_state);
-                    // 建立DrawObj对Node的索引
-                    node_id_commands.insert(new_draw_obj, NodeId(node));
-
-                    shader_static_commands.insert(new_draw_obj, static_index.clone());
-                    order_commands.insert(new_draw_obj, DrawInfo::new(12, border_texture.is_opacity));
-
-                    // 建立Node对DrawObj的索引
-                    draw_index.write(BorderImageDrawId(new_draw_obj));
-
-                    match render_list.get_mut() {
-                        Some(r) => {
-                            r.push(new_draw_obj);
-                            render_list.notify_modify();
-                        }
-                        None => {
-                            let mut r = DrawList::default();
-                            r.push(new_draw_obj);
-                            render_list.write(r);
-                        }
-                    };
-                }
+                        box_type: BoxType::default(),
+                        pipeline_meta: PipelineMeta {
+                            program: program_meta.clone(),
+                            state: shader_catch.common.clone(),
+                            vert_layout: vert_layout.clone(),
+                            defines: Default::default(),
+                        },
+                        draw_info: DrawInfo::new(12, border_texture.is_opacity), //TODO
+                    },
+                ));
+                // 建立Node对DrawObj的索引
+                draw_list.insert(**render_type, new_draw_obj);
             }
         }
-        return Ok(());
     }
-}
-
-#[derive(Deref, Default)]
-pub struct BorderImageDrawId(Id<DrawObject>);
-
-/// 实体删除，背景颜色删除时，删除对应的DrawObject
-#[listen(component=(Node, BorderImageTexture, Delete), component=(Node, Node, Delete))]
-pub fn background_color_delete(e: Event, query: Query<Node, &BorderImageDrawId>, mut draw_obj: EntityCommands<DrawObject>) {
-    if let Some(index) = query.get_by_entity(e.id) {
-        draw_obj.despawn(**index);
+    if init_spawn_drawobj.len() > 0 {
+        commands.insert_or_spawn_batch(init_spawn_drawobj.into_iter());
     }
 }
 
@@ -248,7 +179,7 @@ struct Vertex {
 }
 
 // 返回当前需要的StaticIndex
-async fn modify<'a>(
+fn modify<'a>(
     image: &BorderImage,
     texture: &BorderImageTexture,
     clip: &BorderImageClip,
@@ -277,34 +208,32 @@ async fn modify<'a>(
     // TODO, layout 使用NotNan
     let buffer_key = calc_hash(&("border image", image, clip, slice, repeat, &layout_data), 0);
     let index_key = calc_hash(&("border image index", image, clip, slice, repeat, &layout_data), 0);
-    let (index_len, vertex_buffer, index_buffer) = match (AssetMgr::load(buffer_assets, &buffer_key), AssetMgr::load(buffer_assets, &index_key)) {
-        (LoadResult::Ok(r1), LoadResult::Ok(r2)) => (r2.size() / 2, r1, r2),
+    let (index_len, vertex_buffer, index_buffer) = match (buffer_assets.get(&buffer_key), buffer_assets.get(&index_key)) {
+        (Some(r1), Some(r2)) => (r2.size() / 2, r1, r2),
         (buffer, index) => {
             let (vertex, indices) = get_border_image_stream(texture, clip, slice, repeat, layout, Vec::new(), Vec::new());
             let index = match index {
-                LoadResult::Ok(r1) => r1,
-                LoadResult::Wait(r1) => r1.await.unwrap(),
-                LoadResult::Receiver(r1) => {
+                Some(r1) => r1,
+                _ => {
                     let buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
                         label: Some("border image index buffer init"),
                         contents: bytemuck::cast_slice(&indices),
                         usage: wgpu::BufferUsages::INDEX,
                     });
-                    r1.receive(index_key, Ok(RenderRes::new(buf, indices.len() * 2))).await.unwrap()
+                    buffer_assets.insert(index_key, RenderRes::new(buf, indices.len() * 2)).unwrap()
                 }
             };
             (
                 index.size() / 2,
                 match buffer {
-                    LoadResult::Ok(r1) => r1,
-                    LoadResult::Wait(r1) => r1.await.unwrap(),
-                    LoadResult::Receiver(r1) => {
+                    Some(r1) => r1,
+                    None => {
                         let buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
                             label: Some("border image vert buffer init"),
                             contents: bytemuck::cast_slice(&vertex),
                             usage: wgpu::BufferUsages::VERTEX,
                         });
-                        r1.receive(buffer_key, Ok(RenderRes::new(buf, vertex.len() * 4))).await.unwrap()
+                        buffer_assets.insert(buffer_key, RenderRes::new(buf, vertex.len() * 4)).unwrap()
                     }
                 },
                 index,
@@ -312,8 +241,8 @@ async fn modify<'a>(
         }
     };
 
-    draw_state.vbs.insert(PositionVertexBuffer::id() as usize, (vertex_buffer, 0));
-    draw_state.ib = Some((index_buffer, index_len as u64, IndexFormat::Uint16));
+	draw_state.insert_vertices(RenderVertices { slot: PositionVert::location(), buffer: EVerticesBufferUsage::GUI(vertex_buffer), buffer_range: None, size_per_value: 8 });
+	draw_state.indices = Some(RenderIndices { buffer: EVerticesBufferUsage::GUI(index_buffer), buffer_range: None, format: IndexFormat::Uint16 } );
 
     // texture BindGroup
     let texture_group = match group_assets.get(&buffer_key) {
@@ -336,10 +265,102 @@ async fn modify<'a>(
             group_assets.insert(buffer_key, RenderRes::new(group, 5)).unwrap()
         }
     };
-    draw_state
-        .bind_groups
-        .insert_group(SampTex2DGroup::id(), DrawGroup::Static(texture_group));
+    draw_state.bindgroups.insert_group(SampBind::set(), DrawBindGroup::Independ(texture_group));
 }
+
+// // 返回当前需要的StaticIndex
+// fn modify<'a>(
+//     image: &BorderImage,
+//     texture: &BorderImageTexture,
+//     clip: &BorderImageClip,
+//     slice: &BorderImageSlice,
+//     repeat: &ImageRepeat,
+//     layout: &LayoutResult,
+//     draw_state: &mut DrawState,
+//     device: &RenderDevice,
+//     buffer_assets: &Share<AssetMgr<RenderRes<Buffer>>>,
+//     group_assets: &Share<AssetMgr<RenderRes<BindGroup>>>,
+//     texture_group_layout: &BindGroupLayout,
+//     common_sampler: &CommonSampler,
+// ) {
+//     // key TODO
+//     // &layout.border, &layout.rect
+//     let layout_data = [
+//         NotNan::new(layout.rect.top).unwrap(),
+//         NotNan::new(layout.rect.right).unwrap(),
+//         NotNan::new(layout.rect.bottom).unwrap(),
+//         NotNan::new(layout.rect.left).unwrap(),
+//         NotNan::new(layout.border.top).unwrap(),
+//         NotNan::new(layout.border.right).unwrap(),
+//         NotNan::new(layout.border.bottom).unwrap(),
+//         NotNan::new(layout.border.left).unwrap(),
+//     ];
+//     // TODO, layout 使用NotNan
+//     let buffer_key = calc_hash(&("border image", image, clip, slice, repeat, &layout_data), 0);
+//     let index_key = calc_hash(&("border image index", image, clip, slice, repeat, &layout_data), 0);
+//     let (index_len, vertex_buffer, index_buffer) = match (AssetMgr::load(buffer_assets, &buffer_key), AssetMgr::load(buffer_assets, &index_key)) {
+//         (LoadResult::Ok(r1), LoadResult::Ok(r2)) => (r2.size() / 2, r1, r2),
+//         (buffer, index) => {
+//             let (vertex, indices) = get_border_image_stream(texture, clip, slice, repeat, layout, Vec::new(), Vec::new());
+//             let index = match index {
+//                 LoadResult::Ok(r1) => r1,
+//                 LoadResult::Wait(r1) => r1.await.unwrap(),
+//                 LoadResult::Receiver(r1) => {
+//                     let buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
+//                         label: Some("border image index buffer init"),
+//                         contents: bytemuck::cast_slice(&indices),
+//                         usage: wgpu::BufferUsages::INDEX,
+//                     });
+//                     r1.receive(index_key, Ok(RenderRes::new(buf, indices.len() * 2))).await.unwrap()
+//                 }
+//             };
+//             (
+//                 index.size() / 2,
+//                 match buffer {
+//                     LoadResult::Ok(r1) => r1,
+//                     LoadResult::Wait(r1) => r1.await.unwrap(),
+//                     LoadResult::Receiver(r1) => {
+//                         let buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
+//                             label: Some("border image vert buffer init"),
+//                             contents: bytemuck::cast_slice(&vertex),
+//                             usage: wgpu::BufferUsages::VERTEX,
+//                         });
+//                         r1.receive(buffer_key, Ok(RenderRes::new(buf, vertex.len() * 4))).await.unwrap()
+//                     }
+//                 },
+//                 index,
+//             )
+//         }
+//     };
+
+//     draw_state.vertices.insert(PositionVertexBuffer::id() as usize, (vertex_buffer, 0));
+//     draw_state.indices = Some((index_buffer, index_len as u64, IndexFormat::Uint16));
+
+//     // texture BindGroup
+//     let texture_group = match group_assets.get(&buffer_key) {
+//         Some(r) => r,
+//         None => {
+//             let group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+//                 layout: texture_group_layout,
+//                 entries: &[
+//                     wgpu::BindGroupEntry {
+//                         binding: 0,
+//                         resource: wgpu::BindingResource::Sampler(&common_sampler.default),
+//                     },
+//                     wgpu::BindGroupEntry {
+//                         binding: 1,
+//                         resource: wgpu::BindingResource::TextureView(&texture.texture_view),
+//                     },
+//                 ],
+//                 label: Some("border image group create"),
+//             });
+//             group_assets.insert(buffer_key, RenderRes::new(group, 5)).unwrap()
+//         }
+//     };
+//     draw_state
+//         .bindgroups
+//         .insert_group(SampTex2DGroup::id(), DrawBindGroup::Static(texture_group));
+// }
 
 
 #[inline]
@@ -510,12 +531,12 @@ fn get_border_image_stream(
 
     // 处理中间
     if slice.fill {
-		if repeat.x == ImageRepeatOption::Stretch {
-			ustep_top = right - left;
-		}
-		if repeat.y == ImageRepeatOption::Stretch {
-			vstep_left = bottom - top;
-		}
+        if repeat.x == ImageRepeatOption::Stretch {
+            ustep_top = right - left;
+        }
+        if repeat.y == ImageRepeatOption::Stretch {
+            vstep_left = bottom - top;
+        }
         if vstep_left > 0.0 && ustep_top > 0.0 {
             let mut cur_y = top;
             let mut y_end = bottom;

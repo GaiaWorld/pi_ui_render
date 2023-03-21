@@ -4,22 +4,36 @@ mod framework;
 #[macro_use]
 pub extern crate lazy_static;
 
+use bevy::ecs::{
+    prelude::Entity,
+    system::{Commands},
+};
 use font_kit::font::new_face_by_path;
 use framework::Example;
-use pi_map::vecmap::VecMap;
-use std::{
-    fs::{read, DirEntry},
-    path::Path, mem::transmute,
-};
-
-use async_trait::async_trait;
 use json::{number::Number, object::Object, JsonValue};
 use pi_flex_layout::prelude::Size;
 use pi_hash::XHashMap;
 use pi_idtree::IdTree;
-use pi_ui_render::{export::json_parse::as_value, export::*, utils::cmd::SingleCmd};
+use pi_map::vecmap::VecMap;
+use pi_ui_render::{
+    components::{
+        user::{ClearColor, RenderDirty, Viewport},
+    },
+    export::json_parse::as_value,
+    export::*,
+    resource::{ExtendCssCmd, NodeCmd, UserCommands},
+};
+use std::{
+    fs::{read, DirEntry},
+    mem::{swap, transmute, replace},
+    path::Path,
+};
 
-use pi_style::{style_parse::parse_class_map_from_string, style_type::ClassSheet};
+use pi_style::{
+    style::{Aabb2, CgColor, Point2},
+    style_parse::parse_class_map_from_string,
+    style_type::ClassSheet,
+};
 
 //
 fn main() { framework::start(ExampleCommonPlay::default()) }
@@ -30,13 +44,15 @@ pub struct ExampleCommonPlay {
     list_index: usize,
     file_index: usize,
     play_version: &'static str,
-	play_path: &'static str,
-	cmd_path: Option<&'static str>,
+    play_path: &'static str,
+    cmd_path: Option<&'static str>,
     json_arr: JsonValue,
 
     width: usize,
     height: usize,
     scale: f32,
+
+    cmd: UserCommands,
 }
 
 impl Default for ExampleCommonPlay {
@@ -49,9 +65,9 @@ impl Default for ExampleCommonPlay {
             },
             list_index: 0,
             file_index: 0,
-            play_version: "1665324171798",
-			play_path: "G://cdqxz_new/dst",
-			cmd_path: Some("G://cdqxz_new/src"),
+            play_version: "1671364756197",
+            play_path: "G://pi_demo_m/dst",
+            cmd_path: Some("E://pi_ui_render_new/examples/cmd_play/source/cmds"),
             json_arr: JsonValue::Array(Vec::default()),
             // width: 400,
             // height: 750,
@@ -59,39 +75,46 @@ impl Default for ExampleCommonPlay {
             width: 1024,
             height: 1920,
             scale: 0.5,
+            cmd: UserCommands::default(),
         }
     }
 }
 
-#[async_trait]
+// pub struct Commands1 {
+//     queue: &'static mut CommandQueue,
+//     entities: &'static Entities,
+// }
+
 impl Example for ExampleCommonPlay {
-    async fn init(&mut self, gui: &mut Engine, size: (usize, usize)) {
-		let mut ttf = std::env::current_dir().unwrap();
+    fn init(&mut self, _command: Commands, gui: &mut Gui, mut size: (usize, usize)) {
+        size = (512, 960);
+        // let r: Commands1 = unsafe { transmute(command) };
+        let mut ttf = std::env::current_dir().unwrap();
         ttf.push("examples/cmd_play/source/SOURCEHANSANSK-MEDIUM.TTF");
-		// 设置默认字体
+        // 设置默认字体
         new_face_by_path("default".to_string(), ttf.to_str().unwrap());
-        
+
         std::env::set_current_dir(self.play_path).unwrap();
-		let dir = std::env::current_dir().unwrap();
-		log::warn!("current_dir: {:?}", dir);
+        let dir = std::env::current_dir().unwrap();
+        log::warn!("current_dir: {:?}", dir);
 
         println!("view_port:{:?}", size);
         // 设置class
         let mut class_sheet = ClassSheet::default();
         let mut cb = |dwcss: &DirEntry| {
-			if let Some(r)  = dwcss.path().extension() {
-				if r != "dcss" {
-					return;
-				}
-			} else {
-				return;
-			}
+            if let Some(r) = dwcss.path().extension() {
+                if r != "dcss" {
+                    return;
+                }
+            } else {
+                return;
+            }
             let file = read(dwcss.path());
             if let Ok(r) = file {
-				create_class_by_bin(gui, r.as_slice());
+                create_class_by_bin(gui, r.as_slice());
                 // let file = String::from_utf8(r).unwrap();
                 // let mut r = parse_class_map_from_string(file.as_str(), 0).unwrap();
-                // gui.gui.push_cmd(SingleCmd(std::mem::replace(&mut r.key_frames, KeyFrameList::default())));
+                // self.cmd.push_cmd(SingleCmd(std::mem::replace(&mut r.key_frames, KeyFrameList::default())));
                 // r.to_class_sheet(&mut class_sheet);
             }
         };
@@ -102,22 +125,30 @@ impl Example for ExampleCommonPlay {
             ".c3165071837 {{position : absolute ;left : 0px ;top : 0px ;width : {:?}px ;height : {:?}px ;}}",
             self.width, self.height
         );
-        parse_class_map_from_string(full_screen_class.as_str(), 0)
-            .unwrap()
-            .to_class_sheet(&mut class_sheet);
+        let class_map = parse_class_map_from_string(full_screen_class.as_str(), 0).unwrap();
 
-        gui.gui.push_cmd(SingleCmd(class_sheet));
+        gui.commands.push_cmd(ExtendCssCmd(vec![class_map]));
 
-        // let gui = &mut gui.gui;
+        // let gui = &mut self.cmd;
         // let gui = unsafe { &mut *(gui as *mut Gui as usize as *mut pi_ui_render::export::Gui)};
         let context = &mut self.play_context;
         context.atoms.insert(3781626326, Atom::new(pi_atom::Atom::from("_$text")));
         context.atoms.insert(11, Atom::new(pi_atom::Atom::from("")));
 
         let mut json = Object::new();
-		let id: f64 = unsafe{transmute::<u64, f64>(1 + (1 << 32))};
+        let id: f64 = unsafe { transmute::<u64, f64>(1) };
         json.insert("ret", JsonValue::Number(id.into()));
-        let root = play_create_node(gui, context, &vec![JsonValue::Object(json.clone())]);
+        play_create_node(gui, context, &vec![JsonValue::Object(json.clone())]);
+
+        let root_entity = Entity::from_raw(0);
+        gui.commands
+            .push_cmd(NodeCmd(ClearColor(CgColor::new(1.0, 1.0, 1.0, 1.0), true), root_entity));
+        gui.commands.push_cmd(NodeCmd(
+            Viewport(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(size.0 as f32, size.1 as f32))),
+            root_entity,
+        ));
+        gui.commands.push_cmd(NodeCmd(RenderDirty(true), root_entity));
+
         play_width(
             gui,
             context,
@@ -192,108 +223,39 @@ impl Example for ExampleCommonPlay {
         play_append_child(
             gui,
             context,
-            &vec![JsonValue::Number(Number::from(id)), JsonValue::Number(Number::from(0))],
+            &vec![
+                JsonValue::Number(Number::from(id)),
+                JsonValue::Number(Number::from(unsafe { transmute::<u64, f64>(Entity::from_raw(u32::MAX).to_bits()) })),
+            ],
         );
 
+        let (list_index, file_index, json_arr) = (&mut self.list_index, &mut self.file_index, &mut self.json_arr);
+        while setting(
+            list_index,
+            json_arr,
+            self.cmd_path,
+            self.play_path,
+            self.play_version,
+            file_index,
+            gui,
+            &mut self.play_context,
+        ) {}
 
-        // for j in 2..26
-        // /*22*/
-        // {
-        //     let i = 27 - j;
-        //     json.insert("ret", JsonValue::Number(i.into()));
-        //     let _notch_bar = play_create_node(gui, context, &vec![JsonValue::Object(json.clone())]);
-        //     play_width_percent(
-        //         gui,
-        //         context,
-        //         &vec![JsonValue::Number(Number::from(i)), JsonValue::Number(Number::from(1.0))],
-        //     );
-        //     play_height_percent(
-        //         gui,
-        //         context,
-        //         &vec![JsonValue::Number(Number::from(i)), JsonValue::Number(Number::from(1.0))],
-        //     );
-        //     play_position_type(
-        //         gui,
-        //         context,
-        //         &vec![JsonValue::Number(Number::from(i)), JsonValue::Number(Number::from(1))],
-        //     );
-        //     play_append_child(
-        //         gui,
-        //         context,
-        //         &vec![JsonValue::Number(Number::from(i)), JsonValue::Number(Number::from(1))],
-        //     );
-        // }
-
-        // json.insert("ret", JsonValue::Number(21.into()));
-        // let _body = play_create_node(gui, context, &vec![JsonValue::Object(json.clone())]);
-        // play_width_percent(gui, context, &vec![JsonValue::Number(Number::from(21)), JsonValue::Number(Number::from(1.0))]);
-        // play_height_percent(gui, context, &vec![JsonValue::Number(Number::from(21)), JsonValue::Number(Number::from(1.0))]);
-        // play_position_type(gui, context, &vec![JsonValue::Number(Number::from(21)), JsonValue::Number(Number::from(1))]);
-        // play_append_child(gui, context, &vec![JsonValue::Number(Number::from(21)), JsonValue::Number(Number::from(1))]);
+        self.cmd = replace(&mut gui.commands, UserCommands::default()) ;
     }
 
-    fn render(&mut self, gui: &mut Engine) {
-        // let gui1 = unsafe { &mut *(gui as *mut Engine as usize as  *mut Gui)};
-        // let gui = unsafe { &mut *(gui as *mut Gui as usize as *mut pi_ui_render::export::Gui)};
-        let (mut list_index, mut file_index, json_arr) = (self.list_index, self.file_index, &mut self.json_arr);
+    fn render(&mut self, cmd: &mut UserCommands, _cmd1: &mut Commands) {
+        // let s = replace(&mut self.cmd, UserCommands::default());
+        // let r: &'static mut Commands1 = unsafe { transmute(cmd1) };
+        // let mut gui = Gui {
+        // 	entitys: r.entities,
+        // 	commands: s,
+        // };
+        // let (list_index, file_index, json_arr) = (&mut self.list_index, &mut self.file_index, &mut self.json_arr);
+        // while setting(list_index, json_arr, self.cmd_path, self.play_path, self.play_version, file_index, gui, &mut self.play_context) {}
+        // swap(&mut self.cmd, gui.commands);
 
-        if list_index >= json_arr.len() {
-            if list_index == json_arr.len() {
-				let dir = match self.cmd_path {
-					Some(r) => r.to_string(),
-					None => self.play_path.to_string(),
-				};
-                let path = dir + "/gui_cmd/cmd_" + self.play_version + "_" + file_index.to_string().as_str() + ".gui_cmd.json";
-                match std::fs::read(path.clone()) {
-                    Ok(r) => {
-                        *json_arr = json::parse(String::from_utf8(r).unwrap().as_str()).unwrap();
-                        list_index = 0;
-                        file_index += 1;
-                        self.list_index = list_index;
-                        self.file_index = file_index;
-                    }
-                    Err(_) =>  {
-						query(gui, 540.0, 278.0);
-						log::warn!("play end, {:?}", path);
-					},
-                };
-            }
-        }
-
-        if list_index < json_arr.len() {
-            let cur_play = &json_arr[list_index];
-            if let JsonValue::Array(cur_play) = cur_play {
-                for play_item in cur_play.iter() {
-                    if let JsonValue::Object(r) = play_item {
-                        let ty = r.get("type").unwrap().as_usize().unwrap();
-                        let param = r.get("param").unwrap();
-                        let ret = match r.get("ret") {
-                            Some(r) => match r.as_f64() {
-                                Some(r) => r,
-                                None => 0.0,
-                            },
-                            None => 0.0,
-                        };
-
-                        if ret == 0.0 {
-                            if let JsonValue::Array(param) = param {
-                                if let Some(cmd) = CMD_LIST.get(ty) {
-                                    cmd(gui, &mut self.play_context, param);
-                                }
-                            }
-                        } else {
-                            if let Some(cmd) = CMD_LIST.get(ty) {
-                                cmd(gui, &mut self.play_context, &vec![play_item.clone()]);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        self.list_index += 1;
-
-
-        gui.gui.run();
+        swap(&mut self.cmd, cmd);
     }
 
     fn get_init_size(&self) -> Option<Size<u32>> {
@@ -319,8 +281,78 @@ pub fn visit_dirs<F: FnMut(&DirEntry)>(path: &Path, cb: &mut F) -> std::io::Resu
     Ok(())
 }
 
+pub fn setting(
+    list_index1: &mut usize,
+    json_arr: &mut JsonValue,
+    cmd_path: Option<&str>,
+    play_path: &str,
+    play_version: &str,
+    file_index1: &mut usize,
+    gui: &mut Gui,
+    play_context: &mut PlayContext,
+) -> bool {
+    let (mut list_index, mut file_index) = (*list_index1, *file_index1);
+    if list_index >= json_arr.len() {
+        if list_index == json_arr.len() {
+            let dir = match cmd_path {
+                Some(r) => r.to_string(),
+                None => play_path.to_string(),
+            };
+            let path = dir + "/cmd_" + play_version + "_" + file_index.to_string().as_str() + ".gui_cmd.json";
+
+            match std::fs::read(path.clone()) {
+                Ok(r) => {
+                    *json_arr = json::parse(String::from_utf8(r).unwrap().as_str()).unwrap();
+                    list_index = 0;
+                    file_index += 1;
+                    *list_index1 = list_index;
+                    *file_index1 = file_index;
+                }
+                Err(_) => {
+                    log::warn!("play end, {:?}", path);
+                    return false;
+                }
+            };
+        }
+    }
+
+    if list_index < json_arr.len() {
+        let cur_play = &json_arr[list_index];
+        if let JsonValue::Array(cur_play) = cur_play {
+            for play_item in cur_play.iter() {
+                if let JsonValue::Object(r) = play_item {
+                    let ty = r.get("type").unwrap().as_usize().unwrap();
+                    let param = r.get("param").unwrap();
+                    let ret = match r.get("ret") {
+                        Some(r) => match r.as_f64() {
+                            Some(r) => r,
+                            None => 0.0,
+                        },
+                        None => 0.0,
+                    };
+
+                    if ret == 0.0 {
+                        if let JsonValue::Array(param) = param {
+                            if let Some(cmd) = CMD_LIST.get(ty) {
+                                cmd(gui, play_context, param);
+                            }
+                        }
+                    } else {
+                        if let Some(cmd) = CMD_LIST.get(ty) {
+                            cmd(gui, play_context, &vec![play_item.clone()]);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    *list_index1 += 1;
+
+    return true;
+}
+
 lazy_static! {
-    pub static ref CMD_LIST: Vec<fn (&mut Engine, &mut PlayContext, &Vec<json::JsonValue>) > = vec![
+    pub static ref CMD_LIST: Vec<fn (&mut Gui, &mut PlayContext, &Vec<json::JsonValue>) > = vec![
         // 布局
         play_position_type, // 1
         play_display, // 1
@@ -420,9 +452,9 @@ lazy_static! {
         play_todo, //"force_update_text",
         play_todo, //play_render_dirty,
         play_todo, //"render",
-        play_calc, //"calc",
-        play_calc_geo, //"calc_geo",
-        play_cal_layout, //"cal_layout",
+        play_todo, //"calc",
+        play_todo, //"calc_geo",
+        play_todo, //"cal_layout",
         // "create_render_target",
         // "bind_render_target",
 
@@ -590,7 +622,7 @@ lazy_static! {
     ];
 }
 
-pub fn play_todo(_gui: &mut Engine, _context: &mut PlayContext, _json: &Vec<json::JsonValue>) {}
+pub fn play_todo(_gui: &mut Gui, _context: &mut PlayContext, _json: &Vec<json::JsonValue>) {}
 
 // pub fn render(gui: &mut pi_ui_render::export::Gui, context: &mut PlayContext, _json: &Vec<json::JsonValue>) {
 // 	{
@@ -602,7 +634,7 @@ pub fn play_todo(_gui: &mut Engine, _context: &mut PlayContext, _json: &Vec<json
 // 	std::thread::sleep( Duration::from_millis(16));
 // }
 
-pub fn set_atom(_gui: &mut Engine, context: &mut PlayContext, json: &Vec<json::JsonValue>) {
+pub fn set_atom(_gui: &mut Gui, context: &mut PlayContext, json: &Vec<json::JsonValue>) {
     // 这里必须要在json中存在两个字段，分别是hash和字符串，而不能只有字符串
     // 因为hash有其他地方生成，比如32位的wasm生成，与当前64位程序计算出来的hash不同
     let key = as_value::<usize>(json, 0).unwrap();

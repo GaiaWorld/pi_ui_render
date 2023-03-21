@@ -4,7 +4,7 @@
 //  * 获取canvas资源
 //  */
 // pub fn get_canvas_source(
-//     gui: &mut Gui,
+//     commands: &mut UserCommands,
 //     soruce: u32, // 是否缓存
 // ) -> i32 {
 //     -1
@@ -15,7 +15,7 @@
 //  * @return __jsObj 纹理
 // */
 // pub fn set_canvas_size(
-//     gui: &mut Gui,
+//     commands: &mut UserCommands,
 //     node: f64,
 //     width: u32,
 //     height: u32,
@@ -28,13 +28,13 @@
 // }
 
 // #[allow(unused_attributes)]
-// pub fn get_canvas_target(gui: &mut Gui, index: usize) -> Option<usize> {
+// pub fn get_canvas_target(commands: &mut UserCommands, index: usize) -> Option<usize> {
 //     None
 // }
 
 // #[allow(unused_attributes)]
-// pub fn get_canvas_rect(gui: &mut Gui, index: usize) -> JsValue {
-    
+// pub fn get_canvas_rect(commands: &mut UserCommands, index: usize) -> JsValue {
+
 //     let mut dyn_atlas_set = gui.gui.dyn_atlas_set.lend_mut();
 //     let dyn_atlas_set = dyn_atlas_set.borrow_mut();
 //     let rect = dyn_atlas_set.get_rect(index).unwrap();
@@ -51,5 +51,5 @@
 // /**
 //  * canvas内容发生改变时，应该调用此方法更新gui渲染
 // */
-// pub fn update_canvas(gui: &mut Gui, _node: u32) {
+// pub fn update_canvas(commands: &mut UserCommands, _node: u32) {
 // }

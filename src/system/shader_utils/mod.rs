@@ -6,74 +6,222 @@
 //! TODO: 后续，可能将不可变因素通过shader静态编译出来（尚不确定哪些通常不变），当前通过手动编写代码的方式来确定
 //!
 
-use std::collections::hash_map::Entry;
-
-use naga::ShaderStage;
-use pi_assets::{asset::Handle, mgr::AssetMgr};
-use pi_render::rhi::{
-    asset::RenderRes,
-    bind_group::BindGroup,
-    bind_group_layout::BindGroupLayout,
-    buffer::Buffer,
-    device::RenderDevice,
-    shader::{Shader, ShaderId}, texture::PiRenderDefault,
+use bevy::app::{CoreStage, Plugin};
+use bevy::ecs::{
+    prelude::EventReader,
+    system::{Commands, Res, ResMut},
+};
+use bevy::window::{WindowCreated, WindowResized, Windows};
+use pi_assets::{
+    asset::{GarbageEmpty, Handle},
+    mgr::AssetMgr,
+};
+use pi_bevy_assert::ShareAssetMgr;
+use pi_bevy_render_plugin::{PiRenderDevice};
+use pi_render::{
+    components::view::target_alloc::DEPTH_TEXTURE,
+    rhi::{
+        asset::RenderRes, bind_group::BindGroup, bind_group_layout::BindGroupLayout, buffer::Buffer, device::RenderDevice, texture::PiRenderDefault,
+    },
 };
 use pi_share::Share;
-use wgpu::{CompareFunction, DepthBiasState, DepthStencilState, MultisampleState, StencilState, TextureFormat};
+use pi_style::style::Aabb2;
+use wgpu::{CompareFunction, DepthBiasState, DepthStencilState, MultisampleState, StencilState, TextureFormat, TextureView};
 
 use crate::{
-    components::user::Matrix4,
-    resource::draw_obj::{PipelineState, ShaderCatch, ShaderMap, ShareLayout},
+    components::{
+        pass_2d::ScreenTarget,
+        user::{Matrix4, Point2},
+    },
+    resource::draw_obj::{CommonSampler, PipelineState, Program, ShareLayout, UnitQuadBuffer},
     utils::tools::{calc_float_hash, calc_hash},
 };
 
-use super::pass::pass_render::DEPTH;
-
-pub mod image;
+// pub mod image;
+// pub mod color;
+// pub mod text;
+// pub mod post;
 // pub mod with_vert_color;
-pub mod color;
-pub mod text;
+
 // pub mod image;
 // pub mod color_shadow;
 
-pub struct GlslShaderStatic {
-    pub shader_vs: ShaderId,
-    pub shader_fs: ShaderId,
+pub struct UiShaderPlugin;
+
+impl Plugin for UiShaderPlugin {
+    fn build(&self, app: &mut bevy::app::App) {
+        // let texture_res_mgr = app.world.get_resource::<ShareAssetMgr<RenderRes<TextureView>>>().unwrap().clone();
+        // let device = app.world.get_resource::<PiRenderDevice>().unwrap().clone();
+        // let window = app.world.get_resource::<PiRenderWindow>().unwrap().clone();
+
+        // let width = window.width;
+        // let height = window.height;
+
+        // log::info!("xxxxxxxxxxxxxxxxxxxxxxxx========={:?}, {:?}", width, height);
+
+        // window宽高变化时，需要重新创建，TODO
+        // let depth_buffer = create_depth_buffer(&texture_res_mgr, &device, width, height);
+        // app.world.insert_resource(ScreenTarget {
+        // 	aabb: Aabb2::new(Point2::new(0.0, 0.0), Point2::new(width as f32, height as f32)),
+        // 	depth: Some(depth_buffer), // 深度缓冲区
+        // 								// depth: None,
+        // });
+
+        app
+			// .init_resource::<Shaders>()
+			// .init_resource::<ShaderCatch>()
+			// .init_resource::<ShaderMap>()
+			// .init_resource::<StateMap>()
+			// .init_resource::<DynBindGroups>()
+			// .init_resource::<VertexBufferLayoutMap>()
+			// .init_resource::<post::PostBindGroupLayout>()
+			// .init_resource::<DynBindGroupLayout<ColorMaterialGroup>>()
+			// .init_resource::<DynBindGroupLayout<CameraMatrixGroup>>()
+			// .init_resource::<DynBindGroupLayout<UiMaterialGroup>>()
+			// .init_resource::<DynBindGroupLayout<TextMaterialGroup>>()
+			// .init_resource::<CommonPipelineState>()
+			// .init_resource::<DynUniformBuffer>()
+
+			// .init_resource::<DynBindGroupIndex<ColorMaterialGroup>>()
+			// .init_resource::<DynBindGroupIndex<CameraMatrixGroup>>()
+			// .init_resource::<DynBindGroupIndex<UiMaterialGroup>>()
+			// .init_resource::<DynBindGroupIndex<TextMaterialGroup>>()
+
+			.init_resource::<CommonSampler>()
+			.insert_resource(ShareAssetMgr(AssetMgr::<RenderRes<Program>>::new(
+				GarbageEmpty(),
+				false,
+				60 * 1024 * 1024,
+				3 * 60 * 1000,
+			)))
+			.init_resource::<ShareLayout>()
+			.init_resource::<UnitQuadBuffer>()
+
+			.add_system_to_stage(CoreStage::First, screen_target_resize)
+			// .add_startup_system(color::init)
+			// .add_startup_system(image::init)
+			// .add_startup_system(text::init)
+		;
+    }
 }
 
-impl GlslShaderStatic {
-    fn init(
-        vs_name: &'static str,
-        fs_name: &'static str,
-        shader_catch: &mut ShaderCatch,
-        shader_map: &mut ShaderMap,
-        load_vs: impl Fn() -> &'static str,
-        load_fs: impl Fn() -> &'static str,
-    ) -> Self {
-        let (shader_vs, shader_fs) = {
-            (
-                match shader_map.entry(vs_name) {
-                    Entry::Vacant(r) => {
-                        let shader = Shader::from_glsl(load_vs(), ShaderStage::Vertex);
-                        let r = r.insert(shader.id()).clone();
-                        shader_catch.insert(shader.id(), shader);
-                        r
-                    }
-                    Entry::Occupied(r) => r.get().clone(),
-                },
-                match shader_map.entry(fs_name) {
-                    Entry::Vacant(r) => {
-                        let shader = Shader::from_glsl(load_fs(), ShaderStage::Fragment);
-                        let r = r.insert(shader.id()).clone();
-                        shader_catch.insert(shader.id(), shader);
-                        r
-                    }
-                    Entry::Occupied(r) => r.get().clone(),
-                },
-            )
+pub fn screen_target_resize(
+    mut command: Commands,
+    events: EventReader<WindowCreated>,
+    resize_events: EventReader<WindowResized>,
+    windows: Res<Windows>,
+    screen_target: Option<ResMut<ScreenTarget>>,
+    texture_res_mgr: Res<ShareAssetMgr<RenderRes<TextureView>>>,
+    device: Res<PiRenderDevice>,
+) {
+    if events.len() > 0 || resize_events.len() > 0 {
+        let window = match windows.get_primary() {
+            Some(r) => r,
+            None => return,
         };
-        Self { shader_vs, shader_fs }
+        if window.physical_width() == 0 || window.physical_height() == 0 {
+            return;
+        }
+
+        match screen_target {
+            Some(mut r) => {
+                if r.aabb.maxs.x - r.aabb.mins.x != window.physical_width() as f32 || r.aabb.maxs.y - r.aabb.mins.y != window.physical_height() as f32
+                {
+                    let depth_buffer = create_depth_buffer(&texture_res_mgr, &device, window.physical_width(), window.physical_height());
+                    *r = ScreenTarget {
+                        aabb: Aabb2::new(
+                            Point2::new(0.0, 0.0),
+                            Point2::new(window.physical_width() as f32, window.physical_height() as f32),
+                        ),
+                        depth: Some(depth_buffer), // 深度缓冲区
+                                                   // depth: None,
+                    }
+                }
+            }
+            None => {
+                let depth_buffer = create_depth_buffer(&texture_res_mgr, &device, window.physical_width(), window.physical_height());
+                let r = ScreenTarget {
+                    aabb: Aabb2::new(
+                        Point2::new(0.0, 0.0),
+                        Point2::new(window.physical_width() as f32, window.physical_height() as f32),
+                    ),
+                    depth: Some(depth_buffer), // 深度缓冲区
+                                               // depth: None,
+                };
+                command.insert_resource(r);
+            }
+        }
     }
+}
+
+// pub fn
+
+// pub struct GlslShaderStatic {
+//     pub shader_vs: ShaderId,
+//     pub shader_fs: ShaderId,
+// }
+
+// impl GlslShaderStatic {
+//     fn init(
+//         vs_name: &'static str,
+//         fs_name: &'static str,
+//         shader_catch: &mut ShaderCatch,
+//         shader_map: &mut ShaderMap,
+//         load_vs: impl Fn() -> &'static str,
+//         load_fs: impl Fn() -> &'static str,
+//     ) -> Self {
+//         let (shader_vs, shader_fs) = {
+//             (
+//                 match shader_map.entry(vs_name) {
+//                     Entry::Vacant(r) => {
+//                         let shader = Shader::from_glsl(load_vs(), ShaderStage::Vertex);
+//                         let r = r.insert(shader.id()).clone();
+//                         shader_catch.insert(shader.id(), shader);
+//                         r
+//                     }
+//                     Entry::Occupied(r) => r.get().clone(),
+//                 },
+//                 match shader_map.entry(fs_name) {
+//                     Entry::Vacant(r) => {
+//                         let shader = Shader::from_glsl(load_fs(), ShaderStage::Fragment);
+//                         let r = r.insert(shader.id()).clone();
+//                         shader_catch.insert(shader.id(), shader);
+//                         r
+//                     }
+//                     Entry::Occupied(r) => r.get().clone(),
+//                 },
+//             )
+//         };
+//         Self { shader_vs, shader_fs }
+//     }
+// }
+
+// 创建深度缓冲区
+fn create_depth_buffer(
+    texture_res_mgr: &Share<AssetMgr<RenderRes<TextureView>>>,
+    device: &RenderDevice,
+    width: u32,
+    height: u32,
+) -> Handle<RenderRes<TextureView>> {
+    let texture = (**device).create_texture(&wgpu::TextureDescriptor {
+        label: Some("first depth buffer"),
+        size: wgpu::Extent3d {
+            width,
+            height,
+            depth_or_array_layers: 1,
+        },
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: wgpu::TextureDimension::D2,
+        format: wgpu::TextureFormat::Depth32Float,
+        usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST | wgpu::TextureUsages::RENDER_ATTACHMENT,
+    });
+    let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+
+    let hash = calc_hash(&(DEPTH_TEXTURE.get_hash(), width, height), calc_hash(&"depth texture", 0));
+    texture_res_mgr
+        .insert(hash, RenderRes::new(texture_view, (width * height * 3) as usize))
+        .unwrap()
 }
 
 pub fn create_camera_bind_group(
@@ -124,7 +272,7 @@ pub fn create_depth_group(
         Some(r) => r.clone(),
         None => {
             // let value = cur_depth as f32 / 600000.0;
-            let key = calc_hash(&(DEPTH.clone(), cur_depth), calc_hash(&"depth uniform", 0)); // TODO
+            let key = calc_hash(&cur_depth, calc_hash(&"depth uniform", 0)); // TODO
             let d = match bind_group_assets.get(&key) {
                 Some(r) => r,
                 None => {

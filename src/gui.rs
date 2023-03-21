@@ -4,6 +4,7 @@ use std::{
     sync::Arc,
 };
 
+use bevy::prelude::App;
 use pi_animation::{animation_group::AnimationGroupID, animation_listener::EAnimationEvent};
 use pi_assets::{
     asset::{GarbageEmpty, Handle},
@@ -16,7 +17,7 @@ use pi_ecs::{
     component::MultiCaseImpl,
     prelude::{ArchetypeId, FromWorld, Id, Join, OrDefault, QueryState, Setup, StageBuilder, World, SingleDispatcher, DispatcherMgr}, resource::ResourceId,
 };
-use pi_ecs_utils::prelude::{Layer, Down, Up};
+use pi_bevy_ecs_extend::prelude::{Layer, Down, Up};
 use pi_print_any::out_any;
 use pi_render::{
     components::view::target_alloc::{SafeAtlasAllocator, UnuseTexture, DEPTH_TEXTURE},
@@ -46,38 +47,38 @@ use crate::{
         DefaultStyle, NodeCommand, animation_sheet::KeyFramesSheet, UserCommandsCache,
     },
     system::{
-        draw_obj::{pipeline::CalcPipeline, world_marix::CalcWorldMatrixGroup},
-        node::{
-            animation::CalcAnimation,
-            background_color::CalcBackGroundColor,
-            background_image::CalcBackgroundImage,
-            border_color::CalcBorderColor,
-            border_image::CalcBorderImage,
-            box_shadow::CalcBoxShadow,
-            content_box::CalcContentBox,
-            context::CalcContext,
-            context_blur::CalcBlur,
-            context_hsi::CalcHsi,
-            context_opacity::{CalcOpacity, CalcOpacityPostProcess},
-            context_overflow::CalcOverflow,
-            context_root::CalcRoot,
-            context_transform_will_change::CalcTransformWillChange,
-            image_texture_load::CalcImageLoad,
-            layout::CalcLayout,
-            quad::CalcQuad,
-            text::CalcText,
-            text_glphy::CalcTextGlyph,
-            text_split::CalcTextSplit,
-            user_setting::CalcUserSetting,
-            world_matrix::CalcMatrix,
-            z_index::CalcZindex, flush::{CalcFlush}, show::CalcShow, canvas::CalcCanvas,
-        },
-        pass::{
-            pass_dirty_rect::CalcDirtyRect,
-            pass_graph_node::{InitGraphData, PostBindGroupLayout},
-            pass_render::CalcRender, pass_render_clear::CalcRenderClear,
-        },
-        shader_utils::{color::CalcColorShader, image::CalcImageShader, text::CalcTextShader},
+        // draw_obj::{pipeline::CalcPipeline, world_marix::CalcWorldMatrixGroup},
+        // node::{
+        //     animation::CalcAnimation,
+        //     background_color::CalcBackGroundColor,
+        //     background_image::CalcBackgroundImage,
+        //     border_color::CalcBorderColor,
+        //     border_image::CalcBorderImage,
+        //     box_shadow::CalcBoxShadow,
+        //     content_box::CalcContentBox,
+        //     context::CalcContext,
+        //     context_blur::CalcBlur,
+        //     context_hsi::CalcHsi,
+        //     context_opacity::{CalcOpacity, CalcOpacityPostProcess},
+        //     context_overflow::CalcOverflow,
+        //     context_root::CalcRoot,
+        //     context_transform_will_change::CalcTransformWillChange,
+        //     image_texture_load::CalcImageLoad,
+        //     layout::CalcLayout,
+        //     quad::CalcQuad,
+        //     text::CalcText,
+        //     text_glphy::CalcTextGlyph,
+        //     text_split::CalcTextSplit,
+        //     user_setting::CalcUserSetting,
+        //     world_matrix::CalcMatrix,
+        //     z_index::CalcZindex, flush::{CalcFlush}, show::CalcShow, canvas::CalcCanvas,
+        // },
+        // pass::{
+        //     pass_dirty_rect::CalcDirtyRect,
+        //     pass_graph_node::{InitGraphData, PostBindGroupLayout},
+        //     pass_render::CalcRender, pass_render_clear::CalcRenderClear,
+        // },
+        // shader_utils::{color::CalcColorShader, image::CalcImageShader, text::CalcTextShader},
     },
     utils::{cmd::Command, tools::calc_hash},
 };
@@ -90,32 +91,32 @@ use pi_style::{
 use crate::components::user::Node;
 
 pub struct Gui {
-    pub world: World,
+    pub app: App,
 
     // user_commands: UserCommands,
 
-    node_archetype_id: ArchetypeId,
-	cmd_id: ResourceId,
+    // node_archetype_id: ArchetypeId,
+	// cmd_id: ResourceId,
 
-    pub down_query: QueryState<Node, &'static Down<Node>>,
-    pub up_query: QueryState<Node, &'static Up<Node>>,
-    pub layer_query: QueryState<Node, &'static Layer<Node>>,
-    pub enable_query: QueryState<Node, &'static IsEnable>,
-	pub visibility_query: QueryState<Node, &'static Visibility>,
-    pub depth_query: QueryState<Node, &'static ZRange>,
-    pub layout_query: QueryState<Node, &'static LayoutResult>,
-    pub quad_query: QueryState<Node, &'static Quad>,
-    pub matrix_query: QueryState<Node, &'static WorldMatrix>,
-    pub overflow_query: QueryState<Pass2D, (OrDefault<ParentPassId>, Join<NodeId, Node, (&'static Quad, OrDefault<Overflow>)>)>,
-    pub in_pass2d_query: QueryState<Node, &'static InPassId>,
-	pub graph_id: QueryState<Node, Join<Pass2DId, Pass2D, &'static GraphId>>,
+    // pub down_query: QueryState<Node, &'static Down<Node>>,
+    // pub up_query: QueryState<Node, &'static Up<Node>>,
+    // pub layer_query: QueryState<Node, &'static Layer<Node>>,
+    // pub enable_query: QueryState<Node, &'static IsEnable>,
+	// pub visibility_query: QueryState<Node, &'static Visibility>,
+    // pub depth_query: QueryState<Node, &'static ZRange>,
+    // pub layout_query: QueryState<Node, &'static LayoutResult>,
+    // pub quad_query: QueryState<Node, &'static Quad>,
+    // pub matrix_query: QueryState<Node, &'static WorldMatrix>,
+    // pub overflow_query: QueryState<Pass2D, (OrDefault<ParentPassId>, Join<NodeId, Node, (&'static Quad, OrDefault<Overflow>)>)>,
+    // pub in_pass2d_query: QueryState<Node, &'static InPassId>,
+	// pub graph_id: QueryState<Node, Join<Pass2DId, Pass2D, &'static GraphId>>,
 
-    // node_archetype: ArchetypeId,
-    pub quad_component_comtainer: Arc<TrustCell<MultiCaseImpl<Quad>>>,
+    // // node_archetype: ArchetypeId,
+    // pub quad_component_comtainer: Arc<TrustCell<MultiCaseImpl<Quad>>>,
 
-	pub layout_dispacher: DefaultKey,
-	pub geo_dispacher: DefaultKey,
-	pub calc_dispacher: DefaultKey,
+	// pub layout_dispacher: DefaultKey,
+	// pub geo_dispacher: DefaultKey,
+	// pub calc_dispacher: DefaultKey,
 }
 
 pub struct GuiStages {
@@ -234,7 +235,7 @@ impl Gui {
 
     /// 设置节点样式
     pub fn set_style<T: Attr>(&mut self, entity: Id<Node>, value: T) {
-		out_any!(log::info, "set_style, entity: {:?}, value: {:?}", entity, &value);
+		// out_any!(log::info, "set_style, entity: {:?}, value: {:?}", entity, &value);
 		let cmd_id = self.cmd_id;
 		let user_commands = &mut unsafe { self.world.archetypes_mut().get_resource_mut::<UserCommandsCache>(cmd_id)}.unwrap().0;
 		// let user_commands = &mut unsafe { self.world.archetypes_mut().get_resource_unchecked_mut::<UserCommandsCache>(cmd_id)}.0;
@@ -321,14 +322,6 @@ impl Gui {
         user_commands.other_commands.push(cmd);
     }
 
-    /// add css
-    pub fn extend_css(&mut self, cmd: ClassSheet) {
-        // println_any!("push_cmd===={:?}", 1);
-		let cmd_id = self.cmd_id;
-		let user_commands = &mut unsafe { self.world.archetypes_mut().get_resource_unchecked_mut::<UserCommandsCache>(cmd_id)}.0;
-        user_commands.css_commands.push(cmd);
-    }
-
     /// 推动gui运行
     pub fn run(&mut self) {
         // log::info!("run user_commands ===={:?}", self.user_commands.style_commands.commands.len());
@@ -376,6 +369,15 @@ impl Gui {
 	
 		// 节点属性计算阶段
 		let mut node_stage = StageBuilder::new();
+
+		return GuiStages {
+			node_stage,
+			draw_obj_stage: StageBuilder::new(),
+			pass_2d_stage: StageBuilder::new(),
+			post_stage:StageBuilder::new(),
+			clear_stage: StageBuilder::new(),
+
+		};
 	
 		// 初始化数据
 		InitGraphData::setup(world, &mut node_stage);

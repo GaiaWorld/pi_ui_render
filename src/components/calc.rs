@@ -1,29 +1,28 @@
+use bevy::ecs::prelude::{Component, Entity};
 use std::hash::Hash;
 /// 中间计算的组件
 use std::{
     intrinsics::transmute,
-    ops::{Deref, DerefMut, Index, IndexMut, Mul},
+    ops::{Deref, DerefMut, Mul},
 };
-use bevy::prelude::{Component, Entity};
 
 use bitvec::prelude::BitArray;
 use nalgebra::Matrix4;
 use ordered_float::NotNan;
 use pi_assets::asset::Handle;
-use pi_ecs::prelude::{Id, LocalVersion};
-use pi_map::Map;
+use pi_map::vecmap::VecMap;
+use pi_null::Null;
 use pi_render::rhi::asset::TextureRes;
 use pi_share::Share;
-use pi_spatialtree::QuadTree as QuadTree1;
-use smallvec::SmallVec;
+use pi_slotmap::Key;
 
-use super::{draw_obj::DrawObject, pass_2d::Pass2D, user::*};
-use pi_flex_layout::prelude::*;
+use super::user::*;
 
+pub use super::root::RootDirtyRect;
 pub use super::user::{NodeState, StyleType};
 
 /// 布局结果
-#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize, Component)]
 pub struct LayoutResult {
     pub rect: Rect<f32>,
     pub border: Rect<f32>,
@@ -56,19 +55,27 @@ impl Default for LayoutResult {
 }
 
 /// 内容最大包围盒范围(所有递归子节点的包围盒的最大范围，不包含自身)
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ContentBox(pub Aabb2);
+#[derive(Clone, Debug, Serialize, Deserialize, Component)]
+pub struct ContentBox {
+	pub oct: Aabb2,
+	pub layout: Aabb2,
+}
 
 impl Default for ContentBox {
-    fn default() -> Self { Self(Aabb2::new(Point2::new(f32::MAX, f32::MAX), Point2::new(f32::MIN, f32::MIN))) }
+    fn default() -> Self { 
+		Self {
+			oct: Aabb2::new(Point2::new(f32::MAX, f32::MAX), Point2::new(f32::MIN, f32::MIN)),
+			layout: Aabb2::new(Point2::new(f32::MAX, f32::MAX), Point2::new(f32::MIN, f32::MIN)),
+		} 
+	}
 }
 
 // ZIndex计算结果， 按照节点的ZIndex分配的一个全局唯一的深度表示
-#[derive(Default, Deref, DerefMut, Clone, PartialEq, Eq, Hash, Debug)]
+#[derive(Default, Deref, DerefMut, Clone, PartialEq, Eq, Hash, Debug, Component)]
 pub struct ZRange(pub std::ops::Range<usize>);
 
 /// 渲染顺序
-#[derive(Default, Deref, DerefMut, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Copy)]
+#[derive(Default, Deref, DerefMut, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Copy, Component)]
 pub struct DrawInfo(pub u32);
 
 impl DrawInfo {
@@ -90,7 +97,7 @@ impl DrawInfo {
 }
 
 // 世界矩阵，  WorldMatrix(矩阵, 矩阵描述的变换是存在旋转变换)， 如果不存在旋转变换， 可以简化矩阵的乘法
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Component)]
 pub struct WorldMatrix(pub Matrix4<f32>, pub bool);
 
 impl Hash for WorldMatrix {
@@ -305,6 +312,11 @@ impl<'a> Mul<&'a Vector4> for WorldMatrix {
     fn mul(self, other: &'a Vector4) -> Vector4 { self.0 * other }
 }
 
+impl<'a> Mul<&'a Vector4> for &'a WorldMatrix {
+    type Output = Vector4;
+    fn mul(self, other: &'a Vector4) -> Vector4 { &self.0 * other }
+}
+
 impl<'a> Mul<Vector4> for &'a WorldMatrix {
     type Output = Vector4;
     fn mul(self, other: Vector4) -> Vector4 { self.0 * other }
@@ -322,7 +334,7 @@ impl WorldMatrix {
 // #[storage = ]
 #[derive(Clone, Debug, Component, Serialize, Deserialize)]
 // #[storage(QuadTree)]
-pub struct Quad(Aabb2, ());
+pub struct Quad(pub Aabb2, ());
 
 impl Quad {
     pub fn new(aabb: Aabb2) -> Quad { Quad(aabb, ()) }
@@ -342,77 +354,38 @@ impl DerefMut for Quad {
     fn deref_mut(&mut self) -> &mut Self::Target { &mut self.0 }
 }
 
-#[derive(Deref, DerefMut)]
-pub struct QuadTree(QuadTree1<LocalVersion, f32, ()>);
+#[derive(Debug, Component)]
+pub struct IsShow(usize);
 
-impl Map for QuadTree {
-    type Key = LocalVersion;
-    type Val = Quad;
-    fn len(&self) -> usize { self.0.len() }
-    fn with_capacity(_capacity: usize) -> Self {
-        let max = Vector2::new(100f32, 100f32);
-        let min = max / 100f32;
-        Self(QuadTree1::new(
-            Aabb2::new(Point2::new(-1024f32, -1024f32), Point2::new(4096f32, 4096f32)),
-            max,
-            min,
-            0,
-            0,
-            16, //????
-        ))
-    }
-    fn capacity(&self) -> usize { 0 }
-    fn mem_size(&self) -> usize { 0 }
-    fn contains(&self, key: &Self::Key) -> bool { self.0.contains_key(key.clone()) }
-    fn get(&self, key: &Self::Key) -> Option<&Self::Val> { unsafe { transmute(self.0.get(key.clone())) } }
-    fn get_mut(&mut self, key: &Self::Key) -> Option<&mut Self::Val> { unsafe { transmute(self.0.get_mut(key.clone())) } }
-    unsafe fn get_unchecked(&self, key: &Self::Key) -> &Self::Val { transmute(self.0.get_unchecked(key.clone())) }
-    unsafe fn get_unchecked_mut(&mut self, key: &Self::Key) -> &mut Self::Val { transmute(self.0.get_unchecked_mut(key.clone())) }
-    unsafe fn remove_unchecked(&mut self, key: &Self::Key) -> Self::Val { transmute(self.0.remove(key.clone()).unwrap()) }
-    fn insert(&mut self, key: Self::Key, val: Self::Val) -> Option<Self::Val> {
-		if self.0.contains_key(key) {
-            self.0.update(key, val.0);
+impl Default for IsShow {
+    fn default() -> IsShow { IsShow(ShowType::Visibility as usize | ShowType::Enable as usize) }
+}
+
+impl IsShow {
+    #[inline]
+    pub fn get_visibility(&self) -> bool { (self.0 & (ShowType::Visibility as usize)) != 0 }
+
+    #[inline]
+    pub fn set_visibility(&mut self, visibility: bool) {
+        if visibility {
+            self.0 |= ShowType::Visibility as usize;
         } else {
-            self.0.add(key, val.0, val.1);
+            self.0 &= !(ShowType::Visibility as usize);
         }
-        return None;
     }
-    fn remove(&mut self, key: &Self::Key) -> Option<Self::Val> { unsafe { transmute(self.0.remove(key.clone())) } }
+
+    #[inline]
+    pub fn get_enable(&self) -> bool { (self.0 & (ShowType::Enable as usize)) != 0 }
+
+    #[inline]
+    pub fn set_enable(&mut self, enable: bool) {
+        if enable {
+            self.0 |= ShowType::Enable as usize;
+        } else {
+            self.0 &= !(ShowType::Enable as usize);
+        }
+    }
 }
-
-impl Index<LocalVersion> for QuadTree {
-    type Output = Quad;
-
-    fn index(&self, index: LocalVersion) -> &Self::Output { unsafe { self.get_unchecked(&index) } }
-}
-
-impl IndexMut<LocalVersion> for QuadTree {
-    fn index_mut(&mut self, index: LocalVersion) -> &mut Self::Output { unsafe { self.get_unchecked_mut(&index) } }
-}
-
-//是否可见,
-#[derive(Deref, DerefMut, Clone, Debug)]
-pub struct Visibility(pub bool);
-
-impl Default for Visibility {
-    fn default() -> Self { Self(true) }
-}
-
-//是否响应事件
-#[derive(Deref, DerefMut, Clone, Debug)]
-pub struct IsEnable(pub bool);
-
-impl Default for IsEnable {
-    fn default() -> Self { Self(true) }
-}
-
-// 是否被裁剪
-#[derive(Clone, Debug, Default)]
-pub struct Culling(pub bool);
-
-// gui支持最多32个裁剪面， 该值按位表示节点被哪些裁剪面裁剪， 等于0时， 表示不被任何裁剪面裁剪， 等于1时， 被第一个裁剪面裁剪， 等于2时，表示被第二个裁剪面裁剪， 等于3表示被第一个和第二个裁剪面共同裁剪。。。。。
-#[derive(Clone, Default, Deref, DerefMut, Debug)]
-pub struct ByOverflow(pub usize);
 
 // 样式标记
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, Component)]
@@ -423,7 +396,7 @@ pub struct StyleMark {
 
 /// 标记渲染context中需要的效果， 如Blur、Opacity、Hsi、MasImage等
 /// 此数据结构仅记录位标记，具体哪些属性用哪一位来标记，这里并不关心，由逻辑保证
-#[derive(Clone, Debug, Default, Deref, DerefMut, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Deref, DerefMut, Serialize, Deserialize, Component)]
 pub struct RenderContextMark(bitvec::prelude::BitArray);
 
 // // 字符节点， 对应一个字符的
@@ -465,16 +438,16 @@ pub struct RenderContextMark(bitvec::prelude::BitArray);
 // pub struct TextChars(Vec<CharNode>);
 
 // TransformWillChange的矩阵计算结果， 用于优化Transform的频繁改变
-#[derive(Debug, Clone, Default, Deref)]
-pub struct TransformWillChangeMatrix(Share<TransformWillChangeMatrixInner>);
+#[derive(Debug, Clone, Default, Deref, Component, DerefMut)]
+pub struct TransformWillChangeMatrix(pub Option<Share<TransformWillChangeMatrixInner>>);
 
 impl TransformWillChangeMatrix {
     pub fn new(will_change_invert: WorldMatrix, will_change: WorldMatrix, primitive: WorldMatrix) -> TransformWillChangeMatrix {
-        TransformWillChangeMatrix(Share::new(TransformWillChangeMatrixInner {
-            will_change_invert,
+        TransformWillChangeMatrix(Some(Share::new(TransformWillChangeMatrixInner {
             will_change,
+            will_change_invert,
             primitive,
-        }))
+        })))
     }
 }
 
@@ -485,16 +458,41 @@ pub struct TransformWillChangeMatrixInner {
     pub primitive: WorldMatrix,          // = Parent1.primitive * Parent2.primitive * ... * Transform
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Component)]
 pub struct MaskTexture;
 
-/// 上下文的实体ID，作为Node的组件，关联由其创建的渲染上下文
-#[derive(Deref, DerefMut, Default, Debug)]
-pub struct Pass2DId(pub Id<Pass2D>);
+#[derive(Deref, DerefMut, Debug, PartialEq, Eq, Hash, Ord, PartialOrd, Copy, Clone)]
+pub struct EntityKey(pub Entity);
+
+unsafe impl Key for EntityKey {
+    fn data(&self) -> pi_slotmap::KeyData {
+        // (u64::from(self.version.get()) << 32) | u64::from(self.idx)
+
+        pi_slotmap::KeyData::from_ffi((u64::from(self.0.generation()) << 32) | u64::from(self.0.index()))
+    }
+}
+
+impl From<pi_slotmap::KeyData> for EntityKey {
+    fn from(value: pi_slotmap::KeyData) -> Self { Self(Entity::from_bits(value.as_ffi())) }
+}
+
+impl Default for EntityKey {
+    fn default() -> Self { Self(Entity::from_bits(u64::null())) }
+}
+
+impl Null for EntityKey {
+    fn null() -> Self { Self(Entity::from_bits(u64::null())) }
+
+    fn is_null(&self) -> bool { self.0.to_bits().is_null() }
+}
+
+// /// 上下文的实体ID，作为Node的组件，关联由其创建的渲染上下文
+// #[derive(Deref, DerefMut, Default, Debug, Hash, Clone, Copy, Component)]
+// pub struct Pass2DId(pub EntityKey);
 
 /// 作为Node的组件，表示节点所在的渲染上下文的实体
-#[derive(Clone, Copy, Deref, DerefMut, Default, PartialEq, Eq, Debug)]
-pub struct InPassId(pub Id<Pass2D>);
+#[derive(Clone, Copy, Deref, DerefMut, Default, PartialEq, Eq, Debug, Hash, Component)]
+pub struct InPassId(pub EntityKey);
 
 
 pub enum FlexStyleType {
@@ -543,32 +541,51 @@ pub enum FlexStyleType {
 }
 
 /// 节点的实体id，作为RenderContext的组件，引用创建该渲染上下文的节点
-#[derive(Deref, DerefMut, Default, Debug)]
-pub struct NodeId(pub Id<Node>);
+#[derive(Deref, DerefMut, Debug, Clone, Copy, Hash, Default, Component)]
+pub struct NodeId(pub EntityKey);
 
 /// 宏标记(最多支持size::of::<usize>()个宏开关)
 pub struct DefineMark(bitvec::prelude::BitArray);
 
 /// 每节点的渲染列表
 #[derive(Deref, DerefMut, Default, Debug, Component)]
-pub struct DrawList(pub SmallVec<[Entity; 1]>);
+pub struct DrawList(pub VecMap<Entity>); // SmallVec, TODO
 
-/// 裁剪框
-/// 非旋转情况下，由世界矩阵、布局、TarnsformWillChange（包含父）计算、并与父的裁剪框相交而得
-/// 旋转情况下，由世界矩阵、布局、TarnsformWillChange（自身）计算，并逆旋转为矩形而得
-#[derive(Clone, Default, Debug)]
-pub struct OverflowAabb {
-    pub aabb: Option<Aabb2>,
+/// 视图
+/// 每个Pass2d都必须存在一个视图
+#[derive(Clone, Default, Debug, Component)]
+pub struct View {
+    /// 为some时，节点山下文渲染需要新的视口，否则应该继承父节点的视口
+	pub view_box: ViewBox,
+	/// 旋转情况下是Some， 记录旋转矩阵和旋转逆矩阵
     pub matrix: Option<OveflowRotate>,
+}
+
+/// 可视包围盒
+/// 已经考虑了Overflow、TransformWillChange因素，得到了该节点的真实可视区域
+#[derive(Clone, Debug)]
+pub struct ViewBox {
+	/// 当前节点的可视包围盒（如果该节点overflow为false， 则该包围盒还包含内容区域；该包围盒坐标不以世界原点作为原点）
+	/// 其原点位置是对世界原点作本节点旋转变换的逆变换所得
+	pub aabb: Aabb2,
+	/// 当前节点的可视矩形区域(相对于世界坐标)
+	pub quad: (Vector2, Vector2, Vector2, Vector2),
+}
+
+impl Default for ViewBox {
+    fn default() -> Self {
+        Self { aabb: Aabb2::new(Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)), quad: Default::default() }
+    }
 }
 
 #[derive(Clone, Default, Debug)]
 pub struct OveflowRotate {
-    pub rotate_matrix: Matrix4<f32>,
-    pub rotate_matrix_invert: Matrix4<f32>,
+    pub from_context_rotate: Matrix4<f32>,
+    pub world_rotate_invert: Matrix4<f32>,
+	pub world_rotate: Matrix4<f32>,
 }
 
-#[derive(Deref, DerefMut)]
+#[derive(Deref, DerefMut, Component)]
 pub struct BorderImageTexture(pub Handle<TextureRes>);
 
 impl From<Handle<TextureRes>> for BorderImageTexture {

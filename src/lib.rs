@@ -3,6 +3,12 @@
 #![feature(stmt_expr_attributes)]
 #![feature(type_name_of_val)]
 #![feature(box_into_inner)]
+#![feature(if_let_guard)]
+#![feature(core_panic)]
+#![feature(fmt_internals)]
+#![feature(fmt_helpers_for_derive)]
+#![feature(print_internals)]
+
 
 
 #[macro_use]
@@ -22,16 +28,47 @@ pub mod system;
 pub mod utils;
 // pub mod gui;
 // pub mod export;
-pub mod shaders;
-
+pub mod shader;
 
 
 pub mod prelude {
-    // pub use crate::{
-    //     system::world_matrix::cal_matrix,
-    // };
+    use bevy::app::{App, Plugin};
+
+    pub use crate::resource::UserCommands;
+    use crate::system::{
+        /*shader_utils::UiShaderPlugin, */ draw_obj::UiReadyDrawPlugin, node::UiNodePlugin, pass::UiPassPlugin, shader_utils::UiShaderPlugin, RunState,
+    };
+
+    #[derive(Default)]
+    pub struct UiPlugin;
+    impl Plugin for UiPlugin {
+        fn build(&self, app: &mut App) {
+			app.init_resource::<RunState>();
+            app.add_plugin(UiShaderPlugin)
+                .add_plugin(UiNodePlugin)
+                .add_plugin(UiReadyDrawPlugin)
+                .add_plugin(UiPassPlugin);
+        }
+    }
 }
 
-
-
-
+#[test]
+fn test() {
+    let r = r#"#version 450
+	layout(set=1,binding=0) uniform M_1_0{
+	mat4 world;
+	mat4 clipSdf;
+	vec4 color;
+	vec4 strokeColorOrURect;
+	vec2 textureSizeOrBottomLeftBorder;
+	float depth;
+	float blur;
+	};
+	void main(){
+			
+	
+	}"#;
+    let mut parser = naga::front::glsl::Parser::default();
+    let modlue = parser.parse(&naga::front::glsl::Options::from(naga::ShaderStage::Vertex), r);
+    println!("modle================={:?}, \nmodle================={:?}", modlue, parser);
+}

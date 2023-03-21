@@ -1,20 +1,27 @@
+## 运行quad demo： cargo run --example quad
+
+## 测试性能（chrome://tracing）
+例： cargo run --example cmd_play --release --features trace
+
+## 
+
 ## 编译为wasm
 
 1. set RUST_LOG=info
 2. set RUSTFLAGS=--cfg=web_sys_unstable_apis
-2. 根据需求编译
+3. 根据需求编译
     + 构建： cargo build --target wasm32-unknown-unknown
     + 编译release版本： wasm-pack build --release  --target web --out-dir pkg_release --out-name gui
 	+ 编译profiling版本： wasm-pack build --profiling  --target web --out-dir pkg_profiling --out-name gui
 	+ 编译debug版本： wasm-pack build --debug  --target web --out-dir pkg_pdebug --out-name gui
-  
-## 运行quad demo： cargo run --example quad
-
-
-
+4. 编译为pi可用的wasm：wasm_engine中执行编译脚本
 
 
 TODO
+overflow优化： 如果一个设置了overflow的旋转节点，相对于父上下文未旋转，这该节点不需要成为一个renderPass
+旋转时的抗锯齿
+dyn_uniform_buffer， 未使用的buffer进入到资源管理器进行回收
+层脏的mark使用bitvec？
 样式默认值
 文字阴影
 文字异步渲染
@@ -35,6 +42,8 @@ css 解析，友好的错误提示
 gui支持多个根
 thread 'Default-Single-Worker' panicked at 'Error in Surface::configure: Both `Surface` width and height must be non-zero. Wait to recreate the `Surface` until the window has non-zero area.
 重置gui大小
+设备丢失
+实例化
 指令录制优化
 文字清晰度问题
 旧的gui，接入rust动画

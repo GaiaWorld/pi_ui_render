@@ -1,375 +1,238 @@
-use std::io::Result;
-
+use bevy::ecs::prelude::{DetectChanges, Entity};
+use bevy::ecs::query::{ChangeTrackers, Changed, Or, With};
+use bevy::ecs::system::{Commands, Local, ParamSet, Query, RemovedComponents, Res};
 use ordered_float::NotNan;
 use pi_assets::asset::Handle;
 use pi_assets::mgr::AssetMgr;
-use pi_ecs::prelude::res::WriteRes;
-use pi_ecs::prelude::{ChangeTrackers, Deleted, Local, Or, OrDefault, ParamSet, ResMut, With};
-use pi_ecs::prelude::{Changed, Commands, EntityCommands, Event, Id, Query, Res, Write};
-use pi_ecs_macros::{listen, setup};
+use pi_atom::Atom;
+use pi_bevy_assert::ShareAssetMgr;
+use pi_bevy_ecs_extend::prelude::OrDefault;
+use pi_bevy_ecs_extend::system_param::res::OrInitRes;
+use pi_bevy_render_plugin::PiRenderDevice;
 use pi_polygon::{find_lg_endp, interp_mult_by_lg, mult_to_triangle, split_by_lg, LgCfg};
 use pi_render::font::{FontSheet, Glyph, GlyphId};
+use pi_render::renderer::vertices::{RenderVertices, EVerticesBufferUsage, RenderIndices};
 use pi_render::rhi::asset::RenderRes;
 use pi_render::rhi::bind_group::BindGroup;
 use pi_render::rhi::buffer::Buffer;
 use pi_render::rhi::device::RenderDevice;
-use pi_render::rhi::dyn_uniform_buffer::{Bind, Group};
-use pi_share::{Share, ShareCell};
-use smallvec::smallvec;
+use pi_render::renderer::draw_obj::DrawBindGroup;
+use pi_render::rhi::shader::{BindLayout, Input};
+use pi_share::Share;
 use wgpu::IndexFormat;
 
-use crate::components::calc::{DrawInfo, LayoutResult, NodeState};
-use crate::components::draw_obj::{DrawGroup, DynDrawGroup};
+use crate::components::calc::{DrawInfo, EntityKey, LayoutResult, NodeState};
+use crate::components::draw_obj::PipelineMeta;
 use crate::components::user::{CgColor, TextContent, TextStyle};
+use crate::components::DrawBundle;
 use crate::resource::draw_obj::{
-    CommonSampler, DynBindGroupIndex, DynUniformBuffer, EmptyVertexBuffer, StaticIndex, TextStaticIndex, TextTextureGroup,
+    CommonSampler, EmptyVertexBuffer, PosUvColorVertexLayout, ProgramMetaRes, ShaderInfoCache, ShareGroupAlloter, TextTextureGroup, UiMaterialGroup,
 };
-use crate::shaders::text::{
-    PositionVertexBuffer, SampTex2DGroup, StrokeColorUniform, TextMaterialBind, TextMaterialGroup, TextureSizeUniform, UcolorUniform, UvVertexBuffer,
+use crate::resource::{RenderObjType, ShareFontSheet};
+use crate::shader::text::{PositionVert, ProgramMeta, SampBind, UvVert};
+use crate::shader::ui_meterial::{ColorUniform, StrokeColorOrURectUniform, TextureSizeOrBottomLeftBorderUniform, UiMaterialBind};
+// use crate::shaders::text::{
+//     PositionVertexBuffer, SampTex2DGroup, StrokeColorUniform, TextMaterialBind, TextMaterialGroup, TextureSizeUniform, UcolorUniform, UvVertexBuffer,
+// };
+use crate::components::{
+    calc::{DrawList, NodeId},
+    draw_obj::DrawState,
+    user::Color,
 };
+use crate::system::utils::clear_draw_obj;
 use crate::utils::tools::{calc_hash, calc_hash_slice};
-use crate::{
-    components::{
-        calc::{DrawList, NodeId},
-        draw_obj::{DrawObject, DrawState, FSDefines, VSDefines},
-        user::{BackgroundColor, Color, Node},
-    },
-    resource::draw_obj::Shaders,
-};
-
-pub struct CalcText;
-
-// pub struct TextShareBuffer {
-// 	size_buffer: Buffer,
-// 	size: Handle<RenderRes<BindGroup>>,
-// 	texture_group: Handle<RenderRes<BindGroup>>,
-// 	empty_gradient_vert_buffer: Handle<RenderRes<Buffer>>,
-// }
-
-// impl FromWorld for TextShareBuffer {
-//     fn from_world(world: &mut pi_ecs::prelude::World) -> Self {
-// 		world.get_or_insert_resource::<CommonSampler,
-// 		>();
-// 		let common_sampler = world.get_resource::<CommonSampler,
-// 		>().unwrap();
-//         let device = world.get_resource::<RenderDevice>().unwrap();
-// 		let bind_group_assets = world.get_resource::<Share<AssetMgr<RenderRes<BindGroup>>>>().unwrap();
-// 		let buffer_assets = world.get_resource::<Share<AssetMgr<RenderRes<Buffer>>>>().unwrap();
-// 		let text_static_index = world.get_resource::<TextStaticIndex>().unwrap();
-// 		let shader_static = world.get_resource::<Shaders,
-// 		>().unwrap();
-// 		let font_sheet = world.get_resource::<Share<ShareCell<FontSheet<>>>,
-// 		>().unwrap();
-// 		let font_sheet = font_sheet.borrow();
-
-// 		let size = font_sheet.texture_size();
-// 		let buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
-// 			label: Some("Text TextrueSize  Buffer"),
-// 			contents: bytemuck::cast_slice(&[size.width as f32, size.height as f32]),
-// 			usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-// 		});
-
-// 		let size_group_layout = &shader_static.get(text_static_index.shader).unwrap().bind_group_layout[TEXT_TEXTURE_SIZE_GROUP];
-
-// 		let group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-// 			layout: &size_group_layout,
-// 			entries: &[
-// 				wgpu::BindGroupEntry {
-// 					binding: 0,
-// 					resource: buf.as_entire_binding(),
-// 				},
-// 			],
-// 			label: Some("Text TextrueSize group create"),
-// 		});
-
-// 		let key = calc_hash(&"TEXT_TEXTURE_SIZE_GROUP", 0);
-// 		bind_group_assets.insert(key, RenderRes::new(group, 5)).unwrap();
-
-// 		let texture_group_layout = &shader_static.get(text_static_index.shader).unwrap().bind_group_layout[SampTex2DGroup::id() as usize];
-// 		let texture_group_key = calc_hash(&"TEXT TETURE", 0);
-// 		let texture_group = match bind_group_assets.get(&texture_group_key) {
-// 			Some(r) => r,
-// 			None => {
-// 				let group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-// 					layout: texture_group_layout,
-// 					entries: &[
-// 						wgpu::BindGroupEntry {
-// 							binding: 0,
-// 							resource: wgpu::BindingResource::Sampler(&common_sampler.pointer),
-// 						},
-// 						wgpu::BindGroupEntry {
-// 							binding: 1,
-// 							resource: wgpu::BindingResource::TextureView(&font_sheet.texture_view().texture_view),
-// 						},
-// 					],
-// 					label: Some("post process texture bind group create"),
-// 				});
-// 				bind_group_assets.insert(texture_group_key, RenderRes::new(group, 5)).unwrap()
-// 			},
-// 		};
 
 
-// 		let default_color_buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
-// 			label: Some("Text Default Color Buffer"),
-// 			contents: bytemuck::cast_slice(&[1.0 as f32, 1.0 as f32, 1.0 as f32, 1.0 as f32, 1.0 as f32, 1.0 as f32, 1.0 as f32, 1.0 as f32]),
-// 			usage: wgpu::BufferUsages::UNIFORM,
-// 		});
+/// 创建RenderObject，用于渲染文字
+#[allow(unused_must_use)]
+pub fn calc_text(
+    render_type: Local<RenderObjType>,
+    shadow_render_type: Local<RenderObjType>,
+    texture_size: Local<(usize, usize)>,
+    del: RemovedComponents<TextContent>,
+    mut query: ParamSet<(
+        // 布局修改、文字属性，需要修改或创建背景色的DrawObject
+        Query<
+            (
+                Entity,
+                &NodeState,
+                &LayoutResult,
+                OrDefault<TextStyle>,
+                &mut DrawList,
+                ChangeTrackers<TextContent>,
+                ChangeTrackers<NodeState>,
+            ),
+            (With<TextContent>, Or<(Changed<TextStyle>, Changed<NodeState>)>),
+        >,
+        // TextContent删除，需要删除对应的DrawObject
+        Query<(Option<&'static TextContent>, &'static mut DrawList)>,
+    )>,
 
-// 		Self {
-// 			size_buffer: buf,
-// 			size: bind_group_assets.get(&key).unwrap(),
-// 			texture_group,
-// 			empty_gradient_vert_buffer: gradient_buf,
-// 		}
-//     }
-// }
+    mut query_draw: Query<(&mut DrawState, &mut PipelineMeta)>,
 
-#[setup]
-impl CalcText {
-    /// 创建RenderObject，用于渲染文字
-    #[system]
-    pub async fn calc_text(
-        mut query: ParamSet<(
-            // 布局修改、文字属性，需要修改或创建背景色的DrawObject
-            Query<
-                'static,
-                'static,
-                Node,
-                (
-                    Id<Node>,
-                    &'static NodeState,
-                    &'static LayoutResult,
-                    OrDefault<TextStyle>,
-                    Write<TextDrawId>,
-                    Write<DrawList>,
-                    ChangeTrackers<TextContent>,
-                    ChangeTrackers<NodeState>,
-                ),
-                (
-                    With<TextContent>,
-                    Or<(Changed<TextStyle>, Deleted<TextContent>, Changed<NodeState>)>,
-                ),
-            >,
-            // TextContent删除，需要删除对应的DrawObject
-            Query<'static, 'static, Node, (Option<&'static TextContent>, Write<TextDrawId>, Write<DrawList>), Deleted<TextContent>>,
-        )>,
+    mut commands: Commands,
 
-        mut query_draw: Query<'static, 'static, DrawObject, (Write<DrawState>, &'static mut VSDefines, &'static mut FSDefines)>,
-        mut draw_obj_commands: EntityCommands<DrawObject>,
-        mut draw_state_commands: Commands<DrawObject, DrawState>,
-        mut node_id_commands: Commands<DrawObject, NodeId>,
-        mut shader_static_commands: Commands<DrawObject, StaticIndex>,
-        mut vs_defines_commands: Commands<DrawObject, VSDefines>,
-        mut fs_defines_commands: Commands<DrawObject, FSDefines>,
-        mut order_commands: Commands<DrawObject, DrawInfo>,
+    ui_material_alloter: OrInitRes<ShareGroupAlloter<UiMaterialGroup>>,
+    text_texture_group: Option<Res<TextTextureGroup>>,
 
-        // load_mgr: ResMut<'a, LoadMgr>,
-        device: Res<'static, RenderDevice>,
-        static_index: Res<'static, TextStaticIndex>,
-        shader_static: Res<'static, Shaders>,
+    res: (
+        Res<PiRenderDevice>,
+        Res<ShareAssetMgr<RenderRes<Buffer>>>,
+        Res<ShareAssetMgr<RenderRes<BindGroup>>>,
+        Res<CommonSampler>,
+        OrInitRes<ProgramMetaRes<ProgramMeta>>,
+        OrInitRes<PosUvColorVertexLayout>,
+        OrInitRes<ShaderInfoCache>,
+        Res<ShareFontSheet>,
+        Res<EmptyVertexBuffer>,
+    ),
+) {
+    let (device, buffer_assets, bind_group_assets, common_sampler, shader_static, vert_layout, shader_catch, font_sheet, empty_vert_buffer) = res;
+    let font_sheet = font_sheet.borrow();
 
-        font_sheet: Res<'static, Share<ShareCell<FontSheet>>>,
+    // 更新纹理尺寸
+    let _version = font_sheet.texture_version();
+    let size = font_sheet.texture_size();
+    // if version != *texture_version {
+    // 	// let size = font_sheet.texture_size();
+    // 	// queue.write_buffer(&text_share.size_buffer, 0, bytemuck::cast_slice(&[size.width as f32, size.height as f32]));
+    // 	*texture_version = version;
+    // }
 
-        buffer_assets: Res<'static, Share<AssetMgr<RenderRes<Buffer>>>>,
-        bind_group_assets: Res<'static, Share<AssetMgr<RenderRes<BindGroup>>>>,
-        mut text_texture_group: WriteRes<'static, TextTextureGroup>,
-        empty_vert_buffer: Res<'static, EmptyVertexBuffer>,
-        texture_size: Local<'static, (usize, usize)>,
-        mut dyn_uniform_buffer: ResMut<'static, DynUniformBuffer>,
-        text_material_bind_group: Res<'static, DynBindGroupIndex<TextMaterialGroup>>,
-        common_sampler: Res<'static, CommonSampler>,
-    ) -> Result<()> {
-        // log::info!("calc_background=================");
-        let font_sheet = font_sheet.borrow();
-
-        // 更新纹理尺寸
-        let _version = font_sheet.texture_version();
-        let size = font_sheet.texture_size();
-        // if version != *texture_version {
-        // 	// let size = font_sheet.texture_size();
-        // 	// queue.write_buffer(&text_share.size_buffer, 0, bytemuck::cast_slice(&[size.width as f32, size.height as f32]));
-        // 	*texture_version = version;
-        // }
-
-        // 纹理大小不同，需要重新创建bind_group
-        if size.width != texture_size.0 || size.height != texture_size.1 {
-            let texture_group_layout = &shader_static.get(static_index.shader).unwrap().bind_group_layout[SampTex2DGroup::id() as usize];
-            let texture_group_key = calc_hash(&("TEXT TETURE", size.width, size.height), 0);
-            let texture_group = match bind_group_assets.get(&texture_group_key) {
-                Some(r) => r,
-                None => {
-                    let group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-                        layout: texture_group_layout,
-                        entries: &[
-                            wgpu::BindGroupEntry {
-                                binding: 0,
-                                resource: wgpu::BindingResource::Sampler(&common_sampler.pointer),
-                            },
-                            wgpu::BindGroupEntry {
-                                binding: 1,
-                                resource: wgpu::BindingResource::TextureView(&font_sheet.texture_view().texture_view),
-                            },
-                        ],
-                        label: Some("post process texture bind group create"),
-                    });
-                    bind_group_assets.insert(texture_group_key, RenderRes::new(group, 5)).unwrap()
-                }
-            };
-            text_texture_group.write(TextTextureGroup(texture_group));
-        }
-
-        let texture_group = text_texture_group.get().unwrap();
-
-        for (text_content, mut draw_index, mut render_list) in query.p1_mut().iter_mut() {
-            // TextContent不存在时，删除对应DrawObject
-            if text_content.is_some() {
-                continue;
-            };
-            // 删除对应的DrawObject
-            if let Some(draw_index_item) = draw_index.get() {
-                draw_obj_commands.despawn(draw_index_item.0.clone());
-                if let Some(r) = render_list.get_mut() {
-                    for i in 0..r.len() {
-                        let item = &r[i];
-                        if item == &draw_index_item.0 {
-                            r.swap_remove(i);
-                        }
-                    }
-                }
-                draw_index.remove();
+    // 纹理大小不同，需要重新创建bind_group
+    let texture_group = if size.width != texture_size.0 || size.height != texture_size.1 || text_texture_group.is_none() {
+        let texture_group_layout = &shader_static.bind_group_layout[SampBind::set() as usize];
+        let texture_group_key = calc_hash(&("TEXT TETURE", size.width, size.height), 0);
+        let texture_group = match bind_group_assets.get(&texture_group_key) {
+            Some(r) => r,
+            None => {
+                let group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+                    layout: texture_group_layout,
+                    entries: &[
+                        wgpu::BindGroupEntry {
+                            binding: 0,
+                            resource: wgpu::BindingResource::Sampler(&common_sampler.pointer),
+                        },
+                        wgpu::BindGroupEntry {
+                            binding: 1,
+                            resource: wgpu::BindingResource::TextureView(&font_sheet.texture_view().texture_view),
+                        },
+                    ],
+                    label: Some("post process texture bind group create"),
+                });
+                bind_group_assets.insert(texture_group_key, RenderRes::new(group, 5)).unwrap()
             }
-        }
+        };
+        commands.insert_resource(TextTextureGroup(texture_group.clone()));
+        texture_group
+    } else {
+        text_texture_group.as_ref().unwrap().0.clone()
+    };
 
-        for (node, node_state, layout, text_style, mut draw_index, mut render_list, text_change, node_state_change) in query.p0_mut().iter_mut() {
-			if node_state.0.scale < 0.000001 {
-				continue;
-			}
-            match draw_index.get() {
-                // text已经存在一个对应的DrawObj， 则修改color group
-                Some(r) => {
-                    let (mut draw_state_item, mut vs_defines, mut fs_defines) = query_draw.get_unchecked_mut(**r);
-                    let draw_state = draw_state_item.get_mut().unwrap();
-                    modify(
-                        &font_sheet,
-                        &node_state,
-                        &text_style,
-                        layout,
+    // 删除对应的DrawObject
+    clear_draw_obj(*render_type, &del, &mut query.p1(), &mut commands);
+    // 删除阴影对应的DrawObject
+    clear_draw_obj(*shadow_render_type, &del, &mut query.p1(), &mut commands);
+
+    let mut init_spawn_drawobj = Vec::new();
+    for (node_id, node_state, layout, text_style, mut draw_list, text_change, node_state_change) in query.p0().iter_mut() {
+        if node_state.0.scale < 0.000001 {
+            continue;
+        }
+        match draw_list.get(**render_type) {
+            // text已经存在一个对应的DrawObj， 则修改color group
+            Some(r) => {
+                let (mut draw_state, mut pipeline_meta) = match query_draw.get_mut(*r) {
+                    Ok(r) => r,
+                    _ => continue,
+                };
+                let old_hash = calc_hash(&*pipeline_meta, 0);
+                let pipeline_meta1 = pipeline_meta.bypass_change_detection();
+                modify(
+                    &font_sheet,
+                    &node_state,
+                    &text_style,
+                    layout,
+                    &mut draw_state,
+                    &device,
+                    &buffer_assets,
+                    &text_change,
+                    &node_state_change,
+                    pipeline_meta1,
+                    &mut 100,
+                    node_state.0.scale,
+                );
+                if old_hash != calc_hash(pipeline_meta1, 0) {
+                    pipeline_meta.set_changed()
+                }
+
+                // // 为了触发pipeline重新编译
+                // shader_static_commands.insert(**r, static_index.clone());
+            }
+            // 否则，创建一个新的DrawObj，并设置color group;
+            // 修改以下组件：
+            // * <Node, BackgroundDrawId>
+            // * <Node, DrawList>
+            // * <DrawObject, DrawState>
+            // * <DrawObject, NodeId>
+            // * <DrawObject, IsUnitQuad>
+            None => {
+                // 创建新的DrawObj
+                let new_draw_obj = commands.spawn_empty().id();
+                // 设置DrawState（包含color group）
+                let mut draw_state = DrawState::default();
+
+                let mut ui_material_group = ui_material_alloter.alloc();
+                ui_material_group.set_uniform(&TextureSizeOrBottomLeftBorderUniform(&[size.width as f32, size.height as f32]));
+                draw_state.bindgroups.insert_group(UiMaterialBind::set(), ui_material_group);
+                draw_state
+                    .bindgroups
+                    .insert_group(SampBind::set(), DrawBindGroup::Independ(texture_group.clone()));
+
+				draw_state.insert_vertices(RenderVertices { slot: 2, buffer: EVerticesBufferUsage::GUI((*empty_vert_buffer).clone()), buffer_range: None, size_per_value: 8 });
+
+                let mut pipeline_meta = PipelineMeta {
+                    program: shader_static.clone(),
+                    state: shader_catch.common.clone(),
+                    vert_layout: vert_layout.clone(),
+                    defines: Default::default(),
+                };
+
+                modify(
+                    &font_sheet,
+                    &node_state,
+                    &text_style,
+                    layout,
+                    &mut draw_state,
+                    &device,
+                    &buffer_assets,
+                    &text_change,
+                    &node_state_change,
+                    &mut pipeline_meta,
+                    &mut 100,
+                    node_state.0.scale,
+                );
+
+                init_spawn_drawobj.push((
+                    new_draw_obj,
+                    DrawBundle {
+                        node_id: NodeId(EntityKey(node_id)),
                         draw_state,
-                        &device,
-                        &buffer_assets,
-                        &text_change,
-                        &node_state_change,
-                        &mut vs_defines,
-                        &mut fs_defines,
-                        &mut 100,
-                        node_state.0.scale,
-                        &mut dyn_uniform_buffer,
-                    );
-                    draw_state_item.notify_modify();
-
-                    // 为了触发pipeline重新编译
-                    shader_static_commands.insert(**r, static_index.clone());
-                }
-                // 否则，创建一个新的DrawObj，并设置color group;
-                // 修改以下组件：
-                // * <Node, BackgroundDrawId>
-                // * <Node, DrawList>
-                // * <DrawObject, DrawState>
-                // * <DrawObject, NodeId>
-                // * <DrawObject, IsUnitQuad>
-                None => {
-                    // log::info!("create_background=================");
-                    // 创建新的DrawObj
-                    let new_draw_obj = draw_obj_commands.spawn();
-                    let mut vs_defines = VSDefines::default();
-                    let mut fs_defines = FSDefines::default();
-                    // 设置DrawState（包含color group）
-                    let mut draw_state = DrawState::default();
-
-                    let text_material_dyn_offset = dyn_uniform_buffer.alloc_binding::<TextMaterialBind>();
-                    dyn_uniform_buffer.set_uniform(&text_material_dyn_offset, &TextureSizeUniform(&[size.width as f32, size.height as f32]));
-                    let group = DrawGroup::Dyn(DynDrawGroup::new(
-                        (*text_material_bind_group).clone(),
-                        smallvec![text_material_dyn_offset],
-                    ));
-                    draw_state.bind_groups.insert_group(TextMaterialGroup::id(), group);
-                    draw_state
-                        .bind_groups
-                        .insert_group(SampTex2DGroup::id(), DrawGroup::Static((**texture_group).clone()));
-
-                    draw_state.vbs.insert(2, ((*empty_vert_buffer).clone(), 0));
-
-                    modify(
-                        &font_sheet,
-                        &node_state,
-                        &text_style,
-                        layout,
-                        &mut draw_state,
-                        &device,
-                        &buffer_assets,
-                        &text_change,
-                        &node_state_change,
-                        &mut vs_defines,
-                        &mut fs_defines,
-                        &mut 100,
-                        node_state.0.scale,
-                        &mut dyn_uniform_buffer,
-                    );
-                    draw_state_commands.insert(new_draw_obj, draw_state);
-                    // 建立DrawObj对Node的索引
-                    node_id_commands.insert(new_draw_obj, NodeId(node));
-
-                    shader_static_commands.insert(new_draw_obj, static_index.clone());
-                    vs_defines_commands.insert(new_draw_obj, vs_defines);
-                    fs_defines_commands.insert(new_draw_obj, fs_defines);
-                    order_commands.insert(new_draw_obj, DrawInfo(1));
-
-                    // 建立Node对DrawObj的索引
-                    draw_index.write(TextDrawId(new_draw_obj));
-
-                    match render_list.get_mut() {
-                        Some(r) => {
-                            r.push(new_draw_obj);
-                            render_list.notify_modify();
-                        }
-                        None => {
-                            let mut r = DrawList::default();
-                            r.push(new_draw_obj);
-                            render_list.write(r);
-                        }
-                    };
-                }
+                        box_type: Default::default(),
+                        pipeline_meta,
+                        draw_info: DrawInfo(1),
+                    },
+                ));
+                // 建立Node对DrawObj的索引
+                draw_list.insert(**render_type, new_draw_obj);
             }
         }
-        return Ok(());
+    }
+    if init_spawn_drawobj.len() > 0 {
+        commands.insert_or_spawn_batch(init_spawn_drawobj.into_iter());
     }
 }
 
-pub struct GradientOrRadius;
-
-#[derive(Deref, Default)]
-pub struct TextDrawId(Id<DrawObject>);
-
-// 背景颜色 ShaderInfo的索引
-#[derive(Deref, Clone, Debug)]
-pub struct BackgroundStaticIndex {
-    pub color: StaticIndex,
-}
-
-pub const COLOR_GROUP: usize = 4;
-
-/// 实体删除，背景颜色删除时，删除对应的DrawObject
-#[listen(component=(Node, BackgroundColor, Delete), component=(Node, Node, Delete))]
-pub fn text_delete(e: Event, query: Query<Node, &TextDrawId>, mut draw_obj: EntityCommands<DrawObject>) {
-    if let Some(index) = query.get_by_entity(e.id) {
-        draw_obj.despawn(**index);
-    }
-}
-
-// struct Info {
-// 	is_quad: IsUnitQuad,
-// 	vb: xxx
-// }
 // 返回当前需要的StaticIndex
 fn modify<'a>(
     font_sheet: &FontSheet,
@@ -381,17 +244,15 @@ fn modify<'a>(
     buffer_assets: &Share<AssetMgr<RenderRes<Buffer>>>,
     text_change: &ChangeTrackers<TextContent>,
     node_state_change: &ChangeTrackers<NodeState>,
-    vs_defines: &mut VSDefines,
-    fs_defines: &mut FSDefines,
+    pipeline_meta: &mut PipelineMeta,
     index_buffer_max_len: &mut usize,
     scale: f32,
-    dyn_uniform_buffer: &mut DynUniformBuffer,
 ) {
     // 修改vert buffer
     let is_change_geo = match &text_style.color {
         // 如果是rgba颜色，只有当文字内容、文字布局修改时，或上一次为渐变色时，才会重新计算顶点流
         Color::RGBA(_) => {
-            if text_change.is_changed() || node_state_change.is_changed() || vs_defines.get("VERTEX_COLOR").is_some() {
+            if text_change.is_changed() || node_state_change.is_changed() || pipeline_meta.defines.get(&Atom::from("VERTEX_COLOR")).is_some() {
                 true
             } else {
                 false
@@ -422,13 +283,11 @@ fn modify<'a>(
     let color_temp;
     let color = match &text_style.color {
         Color::RGBA(c) => {
-            vs_defines.remove("VERTEX_COLOR");
-            fs_defines.remove("VERTEX_COLOR");
+            pipeline_meta.defines.remove(&Atom::from("VERTEX_COLOR"));
             c
         }
         Color::LinearGradient(_) => {
-            vs_defines.insert("VERTEX_COLOR".to_string());
-            fs_defines.insert("VERTEX_COLOR".to_string());
+            pipeline_meta.defines.insert(Atom::from("VERTEX_COLOR".to_string()));
             color_temp = CgColor::default();
             &color_temp
         }
@@ -442,20 +301,16 @@ fn modify<'a>(
         &color_temp
     };
 
-    let buffer = &[color.x, color.y, color.z, color.w, stroke.x, stroke.y, stroke.z, stroke.w];
-    let dyn_offset = draw_state
-        .bind_groups
-        .get_group(TextMaterialGroup::id())
-        .unwrap()
-        .get_offset(TextMaterialBind::index())
-        .unwrap();
-    dyn_uniform_buffer.set_uniform(dyn_offset, &UcolorUniform(&[color.x, color.y, color.z, color.w]));
-    dyn_uniform_buffer.set_uniform(dyn_offset, &StrokeColorUniform(&[stroke.x, stroke.y, stroke.z, stroke.w]));
+    // let buffer = &[color.x, color.y, color.z, color.w, stroke.x, stroke.y, stroke.z, stroke.w];
+    draw_state.bindgroups.set_uniform(&ColorUniform(&[color.x, color.y, color.z, color.w]));
+    draw_state
+        .bindgroups
+        .set_uniform(&StrokeColorOrURectUniform(&[stroke.x, stroke.y, stroke.z, stroke.w]));
 
     if *text_style.text_stroke.width > 0.0 {
-        fs_defines.insert("STROKE".to_string());
+        pipeline_meta.defines.insert(Atom::from("STROKE"));
     } else {
-        fs_defines.remove("STROKE");
+        pipeline_meta.defines.remove(&Atom::from("STROKE"));
     }
 }
 
@@ -475,6 +330,13 @@ fn modify_geo(
 ) {
     let rect = &layout.rect;
     let (mut positions, mut uvs) = text_vert(node_state, layout, font_sheet, scale, stroke_width);
+
+	// 顶点长度为0，删除geo
+	if positions.len() == 0 {
+		draw_state.indices = None;
+		draw_state.vertices.clear();
+	}
+
     match color {
         Color::RGBA(_) => {
             // 更新ib
@@ -483,7 +345,7 @@ fn modify_geo(
                 *index_buffer_max_len = l + 50;
             }
             let index_buffer = get_or_create_index_buffer(*index_buffer_max_len, device, buffer_assets);
-            draw_state.ib = Some((index_buffer, (l * 6) as u64, IndexFormat::Uint16));
+			draw_state.indices = Some(RenderIndices { buffer: EVerticesBufferUsage::GUI(index_buffer), buffer_range: Some(0..(l*6* 2) as u64), format: IndexFormat::Uint16 } );
         }
         Color::LinearGradient(color) => {
             let mut i = 0;
@@ -558,17 +420,17 @@ fn modify_geo(
             }
 
             let index_buffer = get_or_create_buffer_index(bytemuck::cast_slice(&indices), "text vert index buffer", device, buffer_assets);
-            draw_state.ib = Some((index_buffer, indices.len() as u64, IndexFormat::Uint16));
+			draw_state.indices = Some(RenderIndices { buffer: EVerticesBufferUsage::GUI(index_buffer), buffer_range: None, format: IndexFormat::Uint16 } );
 
             let colors = colors.pop().unwrap();
             let color_buffer = get_or_create_buffer(bytemuck::cast_slice(&colors), "text vert color buffer", device, buffer_assets);
-            draw_state.vbs.insert(2, (color_buffer, 0));
+			draw_state.insert_vertices(RenderVertices { slot: 2, buffer: EVerticesBufferUsage::GUI(color_buffer), buffer_range: None, size_per_value: 16 });
         }
     }
     let positions_buffer = get_or_create_buffer(bytemuck::cast_slice(&positions), "text position buffer", device, buffer_assets);
     let uv_buffer = get_or_create_buffer(bytemuck::cast_slice(&uvs), "text uv buffer", device, buffer_assets);
-    draw_state.vbs.insert(PositionVertexBuffer::id() as usize, (positions_buffer, 0));
-    draw_state.vbs.insert(UvVertexBuffer::id() as usize, (uv_buffer, 0));
+	draw_state.insert_vertices(RenderVertices { slot: PositionVert::location(), buffer: EVerticesBufferUsage::GUI(positions_buffer), buffer_range: None, size_per_value: 8 });
+	draw_state.insert_vertices(RenderVertices { slot: UvVert::location(), buffer: EVerticesBufferUsage::GUI(uv_buffer), buffer_range: None, size_per_value: 8 });
 }
 
 #[inline]
@@ -671,6 +533,7 @@ fn get_or_create_buffer_index(
     }
 }
 
+#[allow(unused_variables)]
 fn text_vert(node_state: &NodeState, layout: &LayoutResult, font_sheet: &FontSheet, scale: f32, stroke_width: NotNan<f32>) -> (Vec<f32>, Vec<f32>) {
     let mut positions = Vec::new();
     let mut uvs = Vec::new();
@@ -690,7 +553,7 @@ fn text_vert(node_state: &NodeState, layout: &LayoutResult, font_sheet: &FontShe
             continue;
         }
 
-		// log::warn!("glyph!!!==================={:?}, {:?}", c.ch_id, c.ch);
+        // log::warn!("glyph!!!==================={:?}, {:?}", c.ch_id, c.ch);
         let glyph = font_sheet.glyph(GlyphId(c.ch_id));
         if count > 0 {
             count -= 1;
@@ -720,6 +583,7 @@ fn text_vert(node_state: &NodeState, layout: &LayoutResult, font_sheet: &FontShe
     (positions, uvs)
 }
 
+#[allow(unused_variables)]
 fn push_pos_uv(positions: &mut Vec<f32>, uvs: &mut Vec<f32>, x: f32, mut y: f32, glyph: &Glyph, width: f32, height: f32, scale: f32) {
     // let font_ratio = width/glyph.width;
     let w = glyph.width / scale;
