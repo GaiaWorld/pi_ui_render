@@ -76,7 +76,7 @@ js_proxy_gen_macro={git="https://github.com/GaiaWorld/pi_lib.git"}
 pi_postprocess={git="https://github.com/GaiaWorld/pi_post_process.git", branch="bevy"}
 pi_curves = { git="https://github.com/GaiaWorld/pi_curves.git"}
 pi_animation = {git="https://github.com/GaiaWorld/pi_animation.git"}
-render_derive = {git="https://github.com/GaiaWorld/pi_render.git"}
+render_derive = {git="https://github.com/GaiaWorld/pi_render.git", branch="bevy_shader"}
 pi_style = {git="https://github.com/GaiaWorld/pi_style.git"}
 pi_densevec = "0.1.2"
 pi_futures="0.1"
@@ -104,13 +104,13 @@ web-sys = {version="0.3", features = [
 js-sys = "0.3"
 wgpu = { version = "0.14", features = ["spirv", "glsl", "webgl"] }
 flume = {version="0.10", features=["spin"]}
-pi_render = { git = "https://github.com/GaiaWorld/pi_render.git", features=["webgl"] }
+pi_render = { git = "https://github.com/GaiaWorld/pi_render.git", branch="bevy_shader", features=["webgl"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 pi_share = {version="0.4"}
 pi_async = "0.5"
 wgpu = { version = "0.14", features = ["spirv", "glsl"] }
-pi_render = { git = "https://github.com/GaiaWorld/pi_render.git" }
+pi_render = { git = "https://github.com/GaiaWorld/pi_render.git", branch="bevy_shader" }
 flume = "0.10"
 
 
