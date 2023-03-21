@@ -3392,6 +3392,7 @@ dependencies = [
 [[package]]
 name = "pi_naga"
 version = "0.9.0"
+source = "git+https://github.com/GaiaWorld/pi_naga.git#cae41a3e15377f4451fa04bd8bb1d677246375b7"
 dependencies = [
  "bit-set",
  "bitflags",
@@ -4082,6 +4083,7 @@ checksum = "456c603be3e8d448b072f410900c09faf164fbce2d480456f50eea6e25f9c848"
 [[package]]
 name = "render_compile"
 version = "0.1.0"
+source = "git+https://github.com/GaiaWorld/pi_render.git?branch=bevy_shader#1f7581e072702b2235eb1a8ce4f5604266a2f460"
 dependencies = [
  "Inflector",
  "log",

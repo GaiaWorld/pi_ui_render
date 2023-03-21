@@ -185,8 +185,7 @@ num_cpus = "1.13"
 # bevy_internal={path="../bevy/crates/bevy_internal", features=["bevy_winit"]}
 
 [build-dependencies]
-# render_compile = { git = "https://github.com/GaiaWorld/pi_render.git" }
-render_compile = {path="../pi_render_bevy_shader/crates/render_compile"}
+render_compile = { git = "https://github.com/GaiaWorld/pi_render.git", branch="bevy_shader" }
 naga = { version = "0.10", features = [
     "glsl-in",
     "spv-in",
