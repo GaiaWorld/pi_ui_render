@@ -62,7 +62,7 @@ image = "0.24"
 polygon2 = "0.3"
 json ="0.12"
 pi_slab="0.1"
-pi_idtree={path="../pi_idtree"}
+pi_idtree = { git = "https://github.com/GaiaWorld/pi_idtree.git" }
 pi_slotmap_tree ="0.3"
 pi_dirty="0.1"
 
