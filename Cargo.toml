@@ -178,7 +178,7 @@ async-trait="0.1"
 font_kit = {git="http://ser.yinengyun.com:10082/tech/font_kit.git"}
 spin_sleep="1.1"
 num_cpus = "1.13"
-pi_export_gui = {path="../pi_export/crates/gui"}
+# pi_export_gui = {path="../pi_export/crates/gui"}
 # bevy_mod_debugdump = "0.6"
 # bevy-inspector-egui="0.14"
 # bevy_internal={version="0.9", features=["bevy_winit"]}
