@@ -188,7 +188,7 @@ pub fn calc_text(
                 draw_state
                     .bindgroups
                     .insert_group(SampBind::set(), DrawBindGroup::Independ(texture_group.clone()));
-
+				
 				draw_state.insert_vertices(RenderVertices { slot: 2, buffer: EVerticesBufferUsage::GUI((*empty_vert_buffer).clone()), buffer_range: None, size_per_value: 8 });
 
                 let mut pipeline_meta = PipelineMeta {
@@ -428,6 +428,7 @@ fn modify_geo(
         }
     }
     let positions_buffer = get_or_create_buffer(bytemuck::cast_slice(&positions), "text position buffer", device, buffer_assets);
+	draw_state.vertex = 0..(positions_buffer.size()/8) as u32;
     let uv_buffer = get_or_create_buffer(bytemuck::cast_slice(&uvs), "text uv buffer", device, buffer_assets);
 	draw_state.insert_vertices(RenderVertices { slot: PositionVert::location(), buffer: EVerticesBufferUsage::GUI(positions_buffer), buffer_range: None, size_per_value: 8 });
 	draw_state.insert_vertices(RenderVertices { slot: UvVert::location(), buffer: EVerticesBufferUsage::GUI(uv_buffer), buffer_range: None, size_per_value: 8 });

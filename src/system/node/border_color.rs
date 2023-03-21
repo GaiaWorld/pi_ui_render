@@ -285,6 +285,7 @@ fn modify<'a>(
                 )
             }
         };
+		draw_state.vertex = 0..(vert.size()/8) as u32;
 		draw_state.insert_vertices(RenderVertices { slot: 0, buffer: EVerticesBufferUsage::GUI(vert), buffer_range: None, size_per_value: 8 });
 		draw_state.indices = Some(RenderIndices { buffer: EVerticesBufferUsage::GUI(index), buffer_range: None, format: IndexFormat::Uint16 } );
     }

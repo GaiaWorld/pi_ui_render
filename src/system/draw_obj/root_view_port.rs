@@ -249,6 +249,7 @@ fn render_change_async(
         // 原因是，gui的渲染机制为局部脏更机制，需要保留上一帧的画面，如果不用离屏fbo，在多缓冲模式下，不能保留原有画面
         // 此逻辑创建一个drawobj，用于将离屏的fbo渲染到最终目标上
         let mut draw_state = DrawState::default();
+		draw_state.vertex = 0..4;
 		draw_state.insert_vertices(RenderVertices { slot: 0, buffer: EVerticesBufferUsage::GUI(unit_quad_buffer.vertex.clone()), buffer_range: None, size_per_value: 8 });
 		draw_state.insert_vertices(RenderVertices { slot: 1, buffer: EVerticesBufferUsage::GUI(unit_quad_buffer.uv.clone()), buffer_range: None, size_per_value: 8 });
     	draw_state.indices = Some(RenderIndices { buffer: EVerticesBufferUsage::GUI(unit_quad_buffer.index.clone()), buffer_range: None, format: IndexFormat::Uint16 } );

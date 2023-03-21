@@ -51,9 +51,9 @@ pub fn init(
 
     // 设置清屏颜色的vb、ib
     let mut draw_state = DrawState::default();
+	draw_state.vertex = 0..4;
     draw_state.insert_vertices(RenderVertices { slot: 0, buffer: EVerticesBufferUsage::GUI(unit_quad_buffer.vertex.clone()), buffer_range: None, size_per_value: 8 });
     draw_state.indices = Some(RenderIndices { buffer: EVerticesBufferUsage::GUI(unit_quad_buffer.index.clone()), buffer_range: None, format: IndexFormat::Uint16 } );
-
     // 暂时在pipeline system中创建pipeline， 考虑ecs新增只运行一次的system，将该逻辑放入这类system中（创建pipeline为异步操作， 当前方法为同步方法，而pipeline system每帧都会运行， 此pipeline最适合放入到一个只运行一次的system中）
     // // 设置清屏颜色的pipeline
     // let (vs_defines, fs_defines) = (VSDefines::default(), FSDefines::default());

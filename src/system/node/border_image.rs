@@ -241,6 +241,7 @@ fn modify<'a>(
         }
     };
 
+	draw_state.vertex = 0..(vertex_buffer.size()/8) as u32;
 	draw_state.insert_vertices(RenderVertices { slot: PositionVert::location(), buffer: EVerticesBufferUsage::GUI(vertex_buffer), buffer_range: None, size_per_value: 8 });
 	draw_state.indices = Some(RenderIndices { buffer: EVerticesBufferUsage::GUI(index_buffer), buffer_range: None, format: IndexFormat::Uint16 } );
 

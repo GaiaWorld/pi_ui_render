@@ -208,6 +208,7 @@ fn modify<'a>(
     if let Color::LinearGradient(_) = color {
     } else {
         if bg_color_change.is_changed() {
+			draw_state.vertex = 0..4;
 			draw_state.insert_vertices(RenderVertices { slot: 0, buffer: EVerticesBufferUsage::GUI(unit_quad_buffer.vertex.clone()), buffer_range: None, size_per_value: 16 });
     		draw_state.indices = Some(RenderIndices { buffer: EVerticesBufferUsage::GUI(unit_quad_buffer.index.clone()), buffer_range: None, format: IndexFormat::Uint16 } );
         }
