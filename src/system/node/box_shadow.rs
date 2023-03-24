@@ -8,7 +8,7 @@ use pi_atom::Atom;
 use pi_bevy_ecs_extend::system_param::res::OrInitRes;
 use pi_cg2d::Polygon;
 
-use pi_bevy_assert::ShareAssetMgr;
+use pi_bevy_asset::ShareAssetMgr;
 use pi_bevy_render_plugin::PiRenderDevice;
 use pi_render::renderer::vertices::{RenderVertices, RenderIndices, EVerticesBufferUsage};
 use pi_render::rhi::asset::RenderRes;
@@ -113,7 +113,7 @@ pub fn calc_box_shadow(
                         draw_state,
                         box_type: Default::default(),
                         pipeline_meta: program_meta,
-                        draw_info: DrawInfo::new(8, false), //TODO
+                        draw_info: DrawInfo::new(1, false), //TODO
                     },
                 ));
                 // 建立Node对DrawObj的索引

@@ -10,7 +10,7 @@ use pi_render::renderer::vertices::{RenderVertices, EVerticesBufferUsage, Render
 use pi_render::rhi::shader::{BindLayout, Input};
 use wgpu::IndexFormat;
 
-use crate::components::calc::{EntityKey, LayoutResult};
+use crate::components::calc::{EntityKey, LayoutResult, DrawInfo};
 use crate::components::draw_obj::{BoxType, GraphOut, PipelineMeta};
 use crate::components::user::Canvas;
 use crate::components::DrawBundle;
@@ -90,7 +90,7 @@ pub fn calc_background_image(
                                 vert_layout: vert_layout.clone(),
                                 defines: Default::default(),
                             },
-                            draw_info: Default::default(),
+                            draw_info: DrawInfo::new(5, true),
                         },
                         GraphOut(canvas.0.clone()),
                     ),

@@ -35,6 +35,7 @@ pub fn user_setting(
 
     state: &mut SystemState<(ResMut<TimeInfo>, Query<&DrawList>, Query<Entity>, EntityTreeMut)>,
     style_query: Local<StyleQuery>,
+	mut destroy_entity_list: Local<Vec<Entity>>, // 需要销毁的实体列表作为本地变量，避免每次重新分配内存
 ) {
 	
     let time = Instant::now();
@@ -55,7 +56,6 @@ pub fn user_setting(
     };
 
 
-    let mut destroy_node_list = Vec::new();
     // 操作节点(节点的创建、销毁、挂载、删除)
     for c in user_commands.node_commands.drain(..) {
         match c {
@@ -71,26 +71,33 @@ pub fn user_setting(
                 }
             }
             NodeCommand::RemoveNode(node) => {
-                // log::warn!("RemoveNode================={:?}", node);
                 tree.remove(node);
             }
             NodeCommand::DestroyNode(node) => {
-                tree.remove(node);
-
                 // 删除所有子节点对应的实体
                 if let Some(down) = tree.get_down(node) {
                     let head = down.head();
                     if !TreeKey(head).is_null() {
                         for node in tree.recursive_iter(head) {
-                            delete_draw_list(node, &draw_list, &mut destroy_node_list);
+                            delete_draw_list(node, &draw_list, &mut destroy_entity_list);
                         }
                     }
                 }
-
-                delete_draw_list(node, &draw_list, &mut destroy_node_list);
+				tree.remove(node);
+                delete_draw_list(node, &draw_list, &mut destroy_entity_list);
             }
         };
     }
+
+	// 删除需要销毁的实体
+	if destroy_entity_list.len() > 0 {
+		log::info!("destroy_node_list=========={:?},", destroy_entity_list);
+		for entity in destroy_entity_list.iter() {
+			world.despawn(*entity);
+		}
+		log::info!("destroy_node_list1==========");
+		destroy_entity_list.clear();
+	}
 
     let mut setting = Setting { style: &style_query, world };
 
@@ -246,7 +253,6 @@ fn set_class(node: Entity, style_query: &mut Setting, class: ClassName, class_sh
         },
     );
 }
-
 
 fn delete_draw_list(id: Entity, draw_list: &Query<&DrawList>, draw_objects: &mut Vec<Entity>) {
     draw_objects.push(id);

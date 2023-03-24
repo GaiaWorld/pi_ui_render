@@ -2,7 +2,7 @@ pub mod animation_sheet;
 pub mod cmd;
 pub mod draw_obj;
 pub use cmd::*;
-use pi_bevy_assert::ShareAssetMgr;
+use pi_bevy_asset::ShareAssetMgr;
 use pi_bevy_render_plugin::{PiRenderDevice, PiRenderQueue};
 use pi_map::Map;
 use pi_render::font::FontSheet;

@@ -19,7 +19,10 @@ pub fn update_graph(
     mut pass_query: ParamSet<(
         Query<(&mut GraphId, Entity, &ParentPassId, &PostProcessList), Or<(Added<Camera>, Changed<RenderContextMark>)>>,
         Query<&mut GraphId>,
-        Query<(&ParentPassId, &GraphId), Changed<ParentPassId>>,
+        (
+			Query<(&ParentPassId, &GraphId), Changed<ParentPassId>>,
+			Query<(&ParentPassId, &GraphId)>,
+		),
     )>,
     del: RemovedComponents<Camera>,
     canvas_query: Query<(&Canvas, &InPassId), Changed<Canvas>>,
@@ -34,14 +37,14 @@ pub fn update_graph(
                 continue;
             }
 
-            let graph_node_id = match rg.add_node(format!("Pass2D {:?}", entity), Pass2DNode::new(entity)) {
+            let graph_node_id = match rg.add_node(format!("Pass2D_{:?}", entity), Pass2DNode::new(entity)) {
                 Ok(r) => r,
                 Err(e) => {
-                    log::error!("{:?}", e);
+                    log::error!("node: {:?}, {:?}", format!("Pass2D_{:?}", entity), e);
                     return;
                 }
             };
-			log::warn!("add_node=====entity: {:?}, node_id: {:?}", entity, graph_node_id);
+
             *graph_id = GraphId(graph_node_id);
         } else {
             if graph_id.0.is_null() {
@@ -55,12 +58,12 @@ pub fn update_graph(
 
     // 移除渲染图节点
     for id in del.iter() {
-        let _ = rg.remove_node(format!("Pass2D {:?}", id));
+        let _ = rg.remove_node(format!("Pass2D_{:?}", id));
     }
 
     let p2 = pass_query.p2();
     // 父修改设置图节点依赖
-    for (parent_id, graph_id) in p2.iter() {
+    for (parent_id, graph_id) in p2.0.iter() {
         if graph_id.0.is_null() {
             continue;
         }
@@ -69,10 +72,10 @@ pub fn update_graph(
                 log::error!("{:?}", e);
             }
         } else {
-            if let Ok((mut parent_id, mut parent_graph_id)) = p2.get(***parent_id) {
+            if let Ok((mut parent_id, mut parent_graph_id)) = p2.1.get(***parent_id) {
                 // 父的pass2d不存在图节点， 继续找父
                 while parent_graph_id.0.is_null() {
-                    if let Ok((parent_id1, parent_graph_id1)) = p2.get(***parent_id) {
+                    if let Ok((parent_id1, parent_graph_id1)) = p2.1.get(***parent_id) {
                         parent_id = parent_id1;
                         parent_graph_id = parent_graph_id1;
                     } else {

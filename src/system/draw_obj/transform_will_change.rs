@@ -161,7 +161,7 @@ pub fn recursive_set_matrix(
 
     // 设置子节点
     if let Ok(children) = query_children.get(id) {
-		log::warn!("id===={:?}, {:?}", id, children);
+		// log::warn!("id===={:?}, {:?}", id, children);
         for i in children.iter() {
             recursive_set_matrix(
                 **i,

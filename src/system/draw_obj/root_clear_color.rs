@@ -2,7 +2,7 @@ use bevy::ecs::{
     query::Changed,
     system::{Query, RemovedComponents, Res},
 };
-use pi_bevy_assert::ShareAssetMgr;
+use pi_bevy_asset::ShareAssetMgr;
 use pi_bevy_ecs_extend::system_param::res::{OrInitRes, OrInitResMut};
 use pi_bevy_render_plugin::PiRenderDevice;
 use pi_render::{rhi::{asset::RenderRes, bind_group::BindGroup}, renderer::draw_obj::DrawBindGroup};

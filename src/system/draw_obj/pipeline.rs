@@ -13,7 +13,7 @@ use pi_assets::{
     mgr::{AssetMgr, LoadResult, Receiver},
 };
 use pi_async::prelude::{AsyncRuntime, AsyncRuntimeExt, AsyncVariableNonBlocking};
-use pi_bevy_assert::ShareAssetMgr;
+use pi_bevy_asset::ShareAssetMgr;
 use pi_bevy_render_plugin::PiRenderDevice;
 use pi_hal::runtime::RENDER_RUNTIME;
 use pi_render::rhi::{asset::RenderRes, device::RenderDevice, pipeline::RenderPipeline};

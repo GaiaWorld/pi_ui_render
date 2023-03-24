@@ -5,7 +5,7 @@ use ordered_float::NotNan;
 use pi_assets::asset::Handle;
 use pi_assets::mgr::AssetMgr;
 use pi_atom::Atom;
-use pi_bevy_assert::ShareAssetMgr;
+use pi_bevy_asset::ShareAssetMgr;
 use pi_bevy_ecs_extend::prelude::OrDefault;
 use pi_bevy_ecs_extend::system_param::res::OrInitRes;
 use pi_bevy_render_plugin::PiRenderDevice;
@@ -220,7 +220,7 @@ pub fn calc_text(
                         draw_state,
                         box_type: Default::default(),
                         pipeline_meta,
-                        draw_info: DrawInfo(1),
+                        draw_info: DrawInfo(8),
                     },
                 ));
                 // 建立Node对DrawObj的索引

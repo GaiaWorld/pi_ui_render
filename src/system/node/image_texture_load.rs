@@ -12,7 +12,7 @@ use pi_assets::{
 };
 use pi_async::prelude::AsyncRuntime;
 use pi_atom::Atom;
-use pi_bevy_assert::ShareAssetMgr;
+use pi_bevy_asset::ShareAssetMgr;
 use pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent;
 use pi_bevy_render_plugin::{PiRenderDevice, PiRenderQueue};
 use pi_hal::{loader::AsyncLoader, runtime::MULTI_MEDIA_RUNTIME};

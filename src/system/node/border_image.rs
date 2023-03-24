@@ -5,7 +5,7 @@ use bytemuck::{Pod, Zeroable};
 use ordered_float::NotNan;
 use pi_assets::asset::Asset;
 use pi_assets::mgr::AssetMgr;
-use pi_bevy_assert::ShareAssetMgr;
+use pi_bevy_asset::ShareAssetMgr;
 use pi_bevy_ecs_extend::prelude::OrDefault;
 use pi_bevy_ecs_extend::system_param::res::OrInitRes;
 use pi_bevy_render_plugin::PiRenderDevice;
@@ -158,7 +158,7 @@ pub fn calc_border_image(
                             vert_layout: vert_layout.clone(),
                             defines: Default::default(),
                         },
-                        draw_info: DrawInfo::new(12, border_texture.is_opacity), //TODO
+                        draw_info: DrawInfo::new(4, border_texture.is_opacity), //TODO
                     },
                 ));
                 // 建立Node对DrawObj的索引

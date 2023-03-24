@@ -7,12 +7,12 @@ use bevy::ecs::{
     world::World,
 };
 use pi_assets::asset::Handle;
-use pi_bevy_assert::ShareAssetMgr;
+use pi_bevy_asset::ShareAssetMgr;
 use pi_bevy_ecs_extend::{
     prelude::{Layer, OrDefault},
     system_param::res::OrInitRes,
 };
-use pi_bevy_post_process::{PiPostProcessGeometryManager, PiPostProcessMaterialMgr};
+use pi_bevy_post_process:: {PostprocessResource};
 use pi_bevy_render_plugin::{
     node::{Node, NodeId as GraphNodeId, ParamUsage},
     param::InParamCollector,
@@ -24,7 +24,8 @@ use pi_bevy_render_plugin::{
 use pi_futures::BoxFuture;
 use pi_hash::XHashMap;
 use pi_null::Null;
-use pi_postprocess::temprory_render_target::EPostprocessTarget;
+// use pi_postprocess::
+use pi_postprocess::{temprory_render_target::PostprocessTexture};
 use pi_render::{
     components::view::target_alloc::{GetTargetView, ShareTargetView, TargetView},
     rhi::{
@@ -33,8 +34,9 @@ use pi_render::{
         device::RenderDevice,
         shader::BindLayout,
         texture::{PiRenderDefault, ScreenTexture},
-        CommandEncoder, RenderQueue,
+        CommandEncoder, RenderQueue, pipeline::RenderPipeline,
     },
+	renderer::{texture::texture_view::ETextureViewUsage, draw_obj::DrawObj},
 };
 use pi_share::ShareRefCell;
 use render_derive::NodeParam;
@@ -92,14 +94,20 @@ pub struct QueryParam<'w, 's> {
     atlas_allocator: Res<'w, PiSafeAtlasAllocator>,
     bind_group_assets: Res<'w, ShareAssetMgr<RenderRes<BindGroup>>>,
     post_bind_group_layout: OrInitRes<'w, PostBindGroupLayout>,
-    postprocess_pipelines: Res<'w, PiPostProcessMaterialMgr>,
-    geometrys: Res<'w, PiPostProcessGeometryManager>,
+    // postprocess_pipelines: Res<'w, My PiPostProcessMaterialMgr>,
+    post_resource: Res<'w, PostprocessResource>,
+	pipline_assets: Res<'w, ShareAssetMgr<RenderRes<RenderPipeline>>>,
 
     // 清屏相关参数
     fbo_clear_color: Res<'w, DynFboClearColorBindGroup>,
     clear_draw: Res<'w, ClearDrawObj>,
     common_sampler: Res<'w, CommonSampler>,
 }
+
+// vballocator: &mut VertexBufferAllocator,
+// safeatlas: &SafeAtlasAllocator,
+// resources: &SingleImageEffectResource,
+// pipelines: &Share<AssetMgr<RenderRes<RenderPipeline>>>,
 
 
 pub struct Param<'w, 's> {
@@ -111,8 +119,10 @@ pub struct Param<'w, 's> {
     atlas_allocator: Res<'s, PiSafeAtlasAllocator>,
     bind_group_assets: Res<'s, ShareAssetMgr<RenderRes<BindGroup>>>,
     post_bind_group_layout: OrInitRes<'s, PostBindGroupLayout>,
-    postprocess_pipelines: Res<'s, PiPostProcessMaterialMgr>,
-    geometrys: Res<'s, PiPostProcessGeometryManager>,
+    // postprocess_pipelines: Res<'s, PiPostProcessMaterialMgr>,
+    // geometrys: Res<'s, PiPostProcessGeometryManager>,
+	post_resource: Res<'w, PostprocessResource>,
+	pipline_assets: Res<'w, ShareAssetMgr<RenderRes<RenderPipeline>>>,
 
     // 清屏相关参数
     fbo_clear_color: Res<'s, DynFboClearColorBindGroup>,
@@ -221,8 +231,10 @@ impl Node for Pass2DNode {
                 t_type: &t_type,
                 bind_group_assets: query_param.bind_group_assets,
                 post_bind_group_layout: query_param.post_bind_group_layout,
-                postprocess_pipelines: query_param.postprocess_pipelines,
-                geometrys: query_param.geometrys,
+                // postprocess_pipelines: query_param.postprocess_pipelines,
+                // geometrys: query_param.geometrys,
+				post_resource: query_param.post_resource,
+				pipline_assets: query_param.pipline_assets,
 
                 device: &device,
                 queue: &queue,
@@ -243,23 +255,30 @@ impl Node for Pass2DNode {
                     let (rt, clear_color) = match post_list {
                         // 渲染类型为新建渲染目标对其进行渲染，则从纹理分配器中分配一个fbo矩形区
                         Ok(r) => {
-							
-                            if r.0.has_effect() {
+							let has_effect = r.0.has_effect();
+                            if has_effect {
                                 (
-                                    Some(param.atlas_allocator.allocate(
+                                    // has_effect,
+									Some(param.atlas_allocator.allocate(
                                         (camera.view_port.maxs.x - camera.view_port.mins.x).ceil() as u32,
                                         (camera.view_port.maxs.y - camera.view_port.mins.y).ceil() as u32,
                                         param.t_type.has_depth,
                                         input.0.values(),
                                     )),
+									// Some((
+									// 	(camera.view_port.maxs.x - camera.view_port.mins.x).ceil() as u32,
+									// 	(camera.view_port.maxs.y - camera.view_port.mins.y).ceil() as u32,
+									// 	param.t_type.has_depth,
+									// )),
                                     Some(&param.fbo_clear_color.0),
                                 )
                             } else {
                                 if parent_pass2d_id.is_null() {
                                     out = param.last_rt.0.clone();
-                                    // 如果后处理为None，且不存在父节点，渲染到最终目标上(返回渲染目标为None)，并且清屏色为用户设置的清屏色
+                                    // 如果没有设置任何一个后处理效果，且不存在父节点，渲染到最终目标上(返回渲染目标为None)，并且清屏色为用户设置的清屏色
                                     (
                                         None,
+										// has_effect,
                                         match param.clear_color_group {
                                             Some(r) => r.0.as_ref(),
                                             None => None,
@@ -279,6 +298,7 @@ impl Node for Pass2DNode {
 
                     {
                         let input_groups = Vec::with_capacity(input.0.len());
+						let post_draw = Vec::with_capacity(input.0.len());
                         // 创建一个渲染Pass
                         let (mut rp, view_port) = create_rp(
                             rt.as_ref(),
@@ -302,8 +322,10 @@ impl Node for Pass2DNode {
 
                         Self::draw_list(
                             &input.0,
+							&post_draw,
                             &input_groups,
                             &mut rp,
+							(view_port.2 as u32, view_port.3 as u32),	
                             &world,
                             list,
                             &param,
@@ -314,25 +336,33 @@ impl Node for Pass2DNode {
                         );
                     }
 
+		// 			vballocator: &mut VertexBufferAllocator,
+					// safeatlas: &SafeAtlasAllocator,
+					// resources: &SingleImageEffectResource,
+					// pipelines: &Share<AssetMgr<RenderRes<RenderPipeline>>>,
+					// target_type: TargetType,
 
                     if let Ok((post_process, _graph_id)) = post_list {
-                        if let Some(r) = rt {
-                            let rect = r.rect().clone();
+                        if let Some(rt) = rt {
+                            let rect = rt.rect().clone();
+							let (w, h) = ((rect.max.x - rect.min.x) as u32, (rect.max.y - rect.min.y) as u32);
                             // 渲染后处理
                             if let Ok(r) = post_process.draw_front(
                                 param.device,
                                 param.queue,
                                 commands.borrow_mut(),
+								PostprocessTexture::from_share_target(rt, wgpu::TextureFormat::pi_render_default()),
+								(w, h),
                                 &param.atlas_allocator,
-                                &param.postprocess_pipelines,
-                                &param.geometrys,
-                                EPostprocessTarget::from_share_target(r, wgpu::TextureFormat::pi_render_default()),
-                                ((rect.max.x - rect.min.x) as u32, (rect.max.y - rect.min.y) as u32),
+                                &param.post_resource.resources,
+                                &param.pipline_assets,
+								param.t_type.no_depth,
                             ) {
-                                if let EPostprocessTarget::ShareTarget(r) = r {
-                                    out = Some(r.view);
+                                if let ETextureViewUsage::SRT(r) = r.view {
+                                    out = Some(r);
                                 }
                             };
+
                             // let r = self.post_process(
                             // 	commands.borrow_mut(),
                             // 	r,
@@ -404,8 +434,10 @@ impl Pass2DNode {
     pub fn render_pass_2d<'a>(
         pass2d_id: EntityKey,
         input: &'a XHashMap<GraphNodeId, RenderResult>,
-        input_groups: &'a Vec<Handle<RenderRes<BindGroup>>>,
+        post_draw: &'a Vec<DrawObj>,
+		input_groups: &'a Vec<Handle<RenderRes<BindGroup>>>,
         rp: &mut RenderPass<'a>,
+		target_size: (u32, u32),
         world: &'a World,
         param: &'a Param<'a, 'a>,
         last_camera: &'a Camera,
@@ -427,9 +459,9 @@ impl Pass2DNode {
                     }
                 };
                 // 这里使用非安全的方式将不可变引用转为可变引用的前提是，Vec在创建时容量足够，使得push时不需要扩容，同时使用Vec的地方不能多线程
-                unsafe { &mut *(input_groups as *const Vec<Handle<RenderRes<BindGroup>>> as usize as *mut Vec<Handle<RenderRes<BindGroup>>>) }
-                    .push(Self::create_post_process_data(src, &param, &param.common_sampler.pointer));
-                let index = input_groups.len() - 1;
+                // unsafe { &mut *(post_draw as *const Vec<DrawObj> as usize as *mut Vec<DrawObj>) }
+                //     .push(Self::create_post_process_data(src, &param, &param.common_sampler.pointer));
+                // let index = post_draw.len() - 1;
 
                 // let offset_x = last_view_port.0 as f32 - last_camera.view_port.mins.x;
                 // let offset_y = last_view_port.1 as f32 - last_camera.view_port.mins.y;
@@ -448,15 +480,19 @@ impl Pass2DNode {
                 // let post_process_mut = unsafe { &mut *(post_process as *const PostProcessList as usize as *mut PostProcessList) };
                 // post_process_mut.cur_result = Some((r.clone(), data));
 
-                if let Err(e) = r.draw_final(
+				// &input_groups[index],
+                if let Some(draw_obj) = r.draw_final(
                     param.device,
                     param.queue,
-                    &param.postprocess_pipelines,
-                    &param.geometrys,
-                    rp,
-                    EPostprocessTarget::from_share_target(src.clone(), wgpu::TextureFormat::pi_render_default()),
-                    &input_groups[index],
-                    &[Some(wgpu::ColorTargetState {
+					matrix.as_slice(),
+                    r.depth as f32 / 60000.0,
+					&param.atlas_allocator,
+					&PostprocessTexture::from_share_target(src.clone(), wgpu::TextureFormat::pi_render_default()),
+					target_size,
+					&param.post_resource.resources,
+                    
+                    &param.pipline_assets,
+                    wgpu::ColorTargetState {
                         format: wgpu::TextureFormat::pi_render_default(),
                         blend: Some(wgpu::BlendState {
                             color: wgpu::BlendComponent {
@@ -471,18 +507,24 @@ impl Pass2DNode {
                             },
                         }),
                         write_mask: wgpu::ColorWrites::ALL,
-                    })],
-                    &Some(wgpu::DepthStencilState {
+                    },
+                    Some(pi_render::renderer::pipeline::DepthStencilState {
                         format: wgpu::TextureFormat::Depth32Float,
                         depth_write_enabled: true,
                         depth_compare: wgpu::CompareFunction::GreaterEqual,
                         stencil: wgpu::StencilState::default(),
-                        bias: wgpu::DepthBiasState::default(),
+                        bias: pi_render::renderer::pipeline::DepthBiasState::default(),
                     }),
-                    matrix.as_slice(),
-                    r.depth as f32 / 60000.0,
+                    param.t_type.has_depth
                 ) {
-                    log::error!("draw_final fail, {:?} ", e);
+
+					// 这里使用非安全的方式将不可变引用转为可变引用的前提是，Vec在创建时容量足够，使得push时不需要扩容，同时使用Vec的地方不能多线程
+					unsafe { &mut *(post_draw as *const Vec<DrawObj> as usize as *mut Vec<DrawObj>) }
+					    .push(draw_obj);
+					let index = post_draw.len() - 1;
+
+					post_draw[index].draw(rp);
+                    // log::error!("draw_final fail, {:?} ", e);
                 }
                 // // 还原视口
                 // rp.set_viewport(
@@ -518,6 +560,10 @@ impl Pass2DNode {
                         camera_new.view_port.maxs.y - camera_new.view_port.mins.y,
                     );
 
+					if v.2 <= 0.0 || v.3 <= 0.0 {
+						return;
+					}
+
                     rp.set_viewport(v.0, v.1, v.2, v.3, 0.0, 1.0);
 
                     // if let Some(view_matrix) = &camera_new.view_bind_group {
@@ -534,8 +580,10 @@ impl Pass2DNode {
 
                     Self::draw_list(
                         input,
-                        input_groups,
+                        post_draw,
+						input_groups,
                         rp,
+						target_size,
                         world,
                         list,
                         param,
@@ -556,8 +604,10 @@ impl Pass2DNode {
 
     fn draw_list<'a, 'w>(
         input: &'a XHashMap<GraphNodeId, RenderResult>,
-        input_groups: &'a Vec<Handle<RenderRes<BindGroup>>>,
+        post_draw: &'a Vec<DrawObj>,
+		input_groups: &'a Vec<Handle<RenderRes<BindGroup>>>,
         rp: &'w mut RenderPass<'a>,
+		target_size: (u32, u32),
         world: &'a World,
         list: &Draw2DList,
 
@@ -605,7 +655,7 @@ impl Pass2DNode {
                                 &mut *(input_groups as *const Vec<Handle<RenderRes<BindGroup>>> as usize as *mut Vec<Handle<RenderRes<BindGroup>>>)
                             }
                             .push(Self::create_post_process_data(src, &param, s));
-                            let index = input_groups.len() - 1;
+                            let index = post_draw.len() - 1;
                             rp.set_bind_group(SampBind::set(), &input_groups[index], &[])
                         }
 
@@ -622,8 +672,10 @@ impl Pass2DNode {
                     Self::render_pass_2d(
                         *e,
                         input,
-                        input_groups,
+                        post_draw,
+						input_groups,
                         rp,
+						target_size,
                         world,
                         param,
                         last_camera,

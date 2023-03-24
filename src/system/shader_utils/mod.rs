@@ -16,7 +16,7 @@ use pi_assets::{
     asset::{GarbageEmpty, Handle},
     mgr::AssetMgr,
 };
-use pi_bevy_assert::ShareAssetMgr;
+use pi_bevy_asset::ShareAssetMgr;
 use pi_bevy_render_plugin::{PiRenderDevice};
 use pi_render::{
     components::view::target_alloc::DEPTH_TEXTURE,

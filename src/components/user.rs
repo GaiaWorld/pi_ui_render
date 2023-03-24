@@ -456,7 +456,7 @@ pub mod serialize {
         v: V,
         mut f: F,
     ) {
-        log::debug!("set_style, type: {:?}, value: {:?}, entity: {:?}", std::any::type_name::<C>(), v, entity);
+        log::debug!("set_style_attr, type: {:?}, value: {:?}, entity: {:?}", std::any::type_name::<C>(), v, entity);
         match world.get_mut_by_id(entity, component_id) {
             Some(mut component) => {
                 component.set_changed();

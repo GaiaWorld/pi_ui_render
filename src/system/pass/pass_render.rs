@@ -11,19 +11,19 @@ use bevy::ecs::{
 };
 use nalgebra::Orthographic3;
 use pi_assets::{mgr::AssetMgr};
-use pi_bevy_assert::ShareAssetMgr;
+use pi_bevy_asset::ShareAssetMgr;
 use pi_bevy_ecs_extend::{
     prelude::{Layer, OrDefault},
     system_param::res::{OrInitRes, OrInitResMut},
 };
-use pi_bevy_post_process::{PiPostProcessGeometryManager, PiPostProcessMaterialMgr};
+use pi_bevy_post_process::PostprocessResource;
 use pi_bevy_render_plugin::{PiRenderDevice, PiRenderQueue};
 use pi_null::Null;
-use pi_postprocess::{postprocess_geometry::PostProcessGeometryManager, postprocess_pipeline::PostProcessMaterialMgr};
-use pi_render::{rhi::{asset::RenderRes, bind_group::BindGroup, buffer::Buffer, device::RenderDevice, texture::PiRenderDefault, shader::{BindLayout}}, renderer::draw_obj::DrawBindGroup};
+use pi_render::{
+	rhi::{asset::RenderRes, bind_group::BindGroup, buffer::Buffer, device::RenderDevice, shader::{BindLayout}}, renderer::draw_obj::DrawBindGroup,
+};
 use pi_share::Share;
 use pi_spatialtree::quad_helper::intersects;
-use wgpu::{CompareFunction, DepthBiasState, StencilState, TextureFormat};
 
 use crate::{
     components::{
@@ -81,8 +81,9 @@ pub fn calc_camera_depth_and_renderlist(
     mut depth_cache: OrInitResMut<DepthCache>,
     camera_material_alloter: OrInitRes<ShareGroupAlloter<CameraGroup>>,
 
-    mut geometrys: ResMut<PiPostProcessGeometryManager>,
-    mut postprocess_pipelines: ResMut<PiPostProcessMaterialMgr>,
+	mut post_resource: ResMut<PostprocessResource>,
+    // mut geometrys: ResMut<PiPostProcessGeometryManager>,
+    // mut postprocess_pipelines: ResMut<PiPostProcessMaterialMgr>,
 ) {
     let (share_layout, device, queue, buffer_assets, bind_group_assets, group_alloc_center) = res;
     for (
@@ -234,31 +235,33 @@ pub fn calc_camera_depth_and_renderlist(
             postprocess_list.calc(
                 16,
                 &device,
-                &mut postprocess_pipelines,
-                &mut geometrys,
-                &[Some(wgpu::ColorTargetState {
-                    format: wgpu::TextureFormat::pi_render_default(),
-                    blend: Some(wgpu::BlendState {
-                        color: wgpu::BlendComponent {
-                            operation: wgpu::BlendOperation::Add,
-                            src_factor: wgpu::BlendFactor::SrcAlpha,
-                            dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
-                        },
-                        alpha: wgpu::BlendComponent {
-                            operation: wgpu::BlendOperation::Add,
-                            src_factor: wgpu::BlendFactor::One,
-                            dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
-                        },
-                    }),
-                    write_mask: wgpu::ColorWrites::ALL,
-                })],
-                Some(wgpu::DepthStencilState {
-                    format: TextureFormat::Depth32Float,
-                    depth_write_enabled: true,
-                    depth_compare: CompareFunction::GreaterEqual,
-                    stencil: StencilState::default(),
-                    bias: DepthBiasState::default(),
-                }),
+				&queue,
+				&mut post_resource.vballocator,
+                // &mut postprocess_pipelines,
+                // &mut geometrys,
+                // &[Some(wgpu::ColorTargetState {
+                //     format: wgpu::TextureFormat::pi_render_default(),
+                //     blend: Some(wgpu::BlendState {
+                //         color: wgpu::BlendComponent {
+                //             operation: wgpu::BlendOperation::Add,
+                //             src_factor: wgpu::BlendFactor::SrcAlpha,
+                //             dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+                //         },
+                //         alpha: wgpu::BlendComponent {
+                //             operation: wgpu::BlendOperation::Add,
+                //             src_factor: wgpu::BlendFactor::One,
+                //             dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+                //         },
+                //     }),
+                //     write_mask: wgpu::ColorWrites::ALL,
+                // })],
+                // Some(wgpu::DepthStencilState {
+                //     format: TextureFormat::Depth32Float,
+                //     depth_write_enabled: true,
+                //     depth_compare: CompareFunction::GreaterEqual,
+                //     stencil: StencilState::default(),
+                //     bias: DepthBiasState::default(),
+                // }),
             );
             postprocess_list.view_port = aabb;
             postprocess_list.matrix = WorldMatrix(world_matrix, false);
@@ -374,8 +377,8 @@ pub fn calc_camera_depth_and_renderlist(
             &bind_group_assets,
             &mut depth_cache,
             &mut 0,
-            &mut geometrys,
-            &mut postprocess_pipelines,
+            // &mut geometrys,
+            // &mut postprocess_pipelines,
         );
     }
 
@@ -404,8 +407,8 @@ fn alloc_depth<'a>(
     bind_group_assets: &'a Share<AssetMgr<RenderRes<BindGroup>>>,
     depth_cache: &'a mut DepthCache,
     cur_depth: &'a mut usize,
-    geometrys: &mut PostProcessGeometryManager,
-    postprocess_pipelines: &mut PostProcessMaterialMgr,
+    // geometrys: &mut PostProcessGeometryManager,
+    // postprocess_pipelines: &mut PostProcessMaterialMgr,
 ) {
     for index in list.all_list.iter() {
         match &index.0 {
@@ -442,8 +445,8 @@ fn alloc_depth<'a>(
                     bind_group_assets,
                     depth_cache,
                     cur_depth,
-                    geometrys,
-                    postprocess_pipelines,
+                    // geometrys,
+                    // postprocess_pipelines,
                 );
             }
         }

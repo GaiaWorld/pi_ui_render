@@ -9,7 +9,7 @@ use bevy::ecs::{
 use ordered_float::NotNan;
 use pi_assets::{asset::Handle, mgr::AssetMgr};
 use pi_atom::Atom;
-use pi_bevy_assert::ShareAssetMgr;
+use pi_bevy_asset::ShareAssetMgr;
 use pi_bevy_render_plugin::{PiRenderDevice, PiRenderQueue};
 use pi_hash::{XHashMap, XHashSet};
 use pi_map::vecmap::VecMap;

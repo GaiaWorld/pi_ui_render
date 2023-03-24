@@ -13,7 +13,7 @@ use pi_async::{
     prelude::AsyncVariableNonBlocking,
     prelude::{AsyncRuntime, AsyncRuntimeExt},
 };
-use pi_bevy_assert::ShareAssetMgr;
+use pi_bevy_asset::ShareAssetMgr;
 use pi_bevy_ecs_extend::{prelude::OrDefault, system_param::res::{OrInitRes, OrInitResMut}};
 use pi_bevy_render_plugin::{PiRenderDevice, PiSafeAtlasAllocator};
 use pi_hal::runtime::RENDER_RUNTIME;

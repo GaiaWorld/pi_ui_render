@@ -3,7 +3,7 @@ use bevy::ecs::query::{ChangeTrackers, Changed, Or, With};
 use bevy::ecs::system::{Commands, Local, ParamSet, Query, RemovedComponents, Res};
 use pi_assets::mgr::AssetMgr;
 use pi_atom::Atom;
-use pi_bevy_assert::ShareAssetMgr;
+use pi_bevy_asset::ShareAssetMgr;
 use pi_bevy_ecs_extend::system_param::res::OrInitRes;
 use pi_bevy_render_plugin::PiRenderDevice;
 use pi_flex_layout::prelude::Size;
@@ -168,7 +168,7 @@ pub fn calc_background(
                     }
                     Color::RGBA(_) => vert_layout1.clone(),
                 };
-                draw_bundle.draw_info = DrawInfo::new(9, background_color.is_opaque());
+                draw_bundle.draw_info = DrawInfo::new(2, background_color.is_opaque());
 
 
                 // 建立Node对DrawObj的索引
