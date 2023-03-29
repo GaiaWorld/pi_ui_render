@@ -15,7 +15,7 @@ use pi_null::Null;
 use pi_slotmap_tree::InsertType;
 use pi_time::Instant;
 
-use crate::resource::ClassSheet;
+use crate::{resource::{ClassSheet, QuadTree}, components::calc::EntityKey};
 use crate::{
     components::{
         calc::{BackgroundImageTexture, DrawList, StyleMark, StyleType},
@@ -34,6 +34,7 @@ pub fn user_setting(
     commands: &mut SystemState<(ResMut<UserCommands>, ResMut<ClassSheet>)>,
 
     state: &mut SystemState<(ResMut<TimeInfo>, Query<&DrawList>, Query<Entity>, EntityTreeMut)>,
+	quad_tree: &mut SystemState<ResMut<QuadTree>>,
     style_query: Local<StyleQuery>,
 	mut destroy_entity_list: Local<Vec<Entity>>, // 需要销毁的实体列表作为本地变量，避免每次重新分配内存
 ) {
@@ -61,12 +62,13 @@ pub fn user_setting(
         match c {
             NodeCommand::AppendNode(node, parent) => {
                 if entitys.get(node).is_ok() {
+					log::debug!("AppendNode node====================node： {:?}, parent： {:?}", node, parent);
                     tree.insert_child(node, parent, std::usize::MAX);
                 }
             }
             NodeCommand::InsertBefore(node, anchor) => {
                 if entitys.get(node).is_ok() {
-                    // log::warn!("InsertBefore node===================={:?}, {:?}", node, anchor);
+                    log::debug!("InsertBefore node====================node：{:?}, anchor： {:?}", node, anchor);
                     tree.insert_brother(node, anchor, InsertType::Front);
                 }
             }
@@ -91,11 +93,15 @@ pub fn user_setting(
 
 	// 删除需要销毁的实体
 	if destroy_entity_list.len() > 0 {
-		log::info!("destroy_node_list=========={:?},", destroy_entity_list);
 		for entity in destroy_entity_list.iter() {
 			world.despawn(*entity);
 		}
-		log::info!("destroy_node_list1==========");
+
+		// 删除包围盒
+		let mut quad_tree = quad_tree.get_mut(world);
+		for entity in destroy_entity_list.iter() {
+			quad_tree.remove(EntityKey(*entity));
+		}
 		destroy_entity_list.clear();
 	}
 

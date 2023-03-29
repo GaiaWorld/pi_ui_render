@@ -178,7 +178,6 @@ pub fn calc_quad(
     }
     event_writer.send(ComponentEvent::new(id));
 
-    log::warn!("calc_quad=================={:?}, {:?}, {:?}, {:?}", id, item, world_matrix, layout);
     quad_tree.insert(EntityKey(id), item.clone());
     *quad = item;
 }
