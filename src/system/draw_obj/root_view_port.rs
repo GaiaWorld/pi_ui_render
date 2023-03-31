@@ -3,11 +3,11 @@ use std::{
     sync::atomic::{AtomicUsize, Ordering},
 };
 
-use bevy::ecs::{
-    prelude::Entity,
-    query::{ChangeTrackers, Changed, Or, With},
+use bevy::{ecs::{
+    prelude::{Entity, Ref},
+    query::{Changed, Or, With},
     system::{Commands, ParamSet, Query, Res, ResMut},
-};
+}, prelude::DetectChanges};
 use pi_assets::asset::Handle;
 use pi_async::{
     prelude::AsyncVariableNonBlocking,
@@ -77,7 +77,7 @@ pub fn view_port_change(
                 &'static mut RenderTarget,
                 OrDefault<RenderTargetType>,
                 &'static Viewport,
-                ChangeTrackers<Viewport>,
+                Ref<Viewport>,
                 &'static DynTargetType,
             ),
             (With<Viewport>, Or<(Changed<Viewport>, Changed<RenderTargetType>)>),
@@ -118,7 +118,7 @@ pub fn view_port_change(
             &'static mut RenderTarget,
             OrDefault<RenderTargetType>,
             &'static Viewport,
-            ChangeTrackers<Viewport>,
+            Ref<Viewport>,
             &'static DynTargetType,
         ),
         (With<Viewport>, Or<(Changed<Viewport>, Changed<RenderTargetType>)>),
@@ -198,7 +198,7 @@ fn render_change_async(
             &'static mut RenderTarget,
             OrDefault<RenderTargetType>,
             &'static Viewport,
-            ChangeTrackers<Viewport>,
+            Ref<Viewport>,
             &'static DynTargetType,
         ),
         (With<Viewport>, Or<(Changed<Viewport>, Changed<RenderTargetType>)>),

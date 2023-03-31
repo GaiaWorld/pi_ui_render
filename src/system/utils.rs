@@ -1,6 +1,7 @@
 use bevy::ecs::{
+	prelude::RemovedComponents,
     prelude::Component,
-    system::{Commands, Query, RemovedComponents},
+    system::{Commands, Query},
 };
 use geo::BooleanOps;
 use pi_style::style::Aabb2;
@@ -9,8 +10,8 @@ use crate::{components::{calc::DrawList, user::{Vector4, Matrix4, Point2, Vector
 
 pub fn clear_draw_obj<'w, 's, T: Component>(
     render_type: RenderObjType,
-    del: &RemovedComponents<'w, T>,
-    query: &mut Query<'w, 's, (Option<&'static T>, &'static mut DrawList)>,
+    mut del: RemovedComponents<'w, 's, T>,
+    mut query: Query<'w, 's, (Option<&T>, &mut DrawList)>,
     commands: &mut Commands,
 ) {
     for del in del.iter() {
@@ -22,6 +23,27 @@ pub fn clear_draw_obj<'w, 's, T: Component>(
             if let Some(draw_obj) = draw_list.remove(*render_type) {
                 commands.entity(draw_obj).despawn();
             }
+        }
+    }
+}
+
+pub fn clear_draw_obj_mul<'w, 's, T: Component>(
+    render_types: &[RenderObjType],
+    mut del: RemovedComponents<'w, 's, T>,
+    mut query: Query<'w, 's, (Option<&'static T>, &'static mut DrawList)>,
+    commands: &mut Commands,
+) {
+    for del in del.iter() {
+        if let Ok((bg_color, mut draw_list)) = query.get_mut(del) {
+            if bg_color.is_some() {
+                continue;
+            }
+            // 删除对应的DrawObject
+			for i in render_types.iter() {
+				if let Some(draw_obj) = draw_list.remove(**i) {
+					commands.entity(draw_obj).despawn();
+				}
+			}
         }
     }
 }

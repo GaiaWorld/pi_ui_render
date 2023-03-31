@@ -32,11 +32,11 @@ pub mod shader;
 
 
 pub mod prelude {
-    use bevy::app::{App, Plugin};
+    use bevy::{app::{App, Plugin}, prelude::{IntoSystemSetConfigs, apply_system_buffers, IntoSystemConfig}};
 
     pub use crate::resource::UserCommands;
     use crate::system::{
-        /*shader_utils::UiShaderPlugin, */ draw_obj::UiReadyDrawPlugin, node::UiNodePlugin, pass::UiPassPlugin, shader_utils::UiShaderPlugin, RunState,
+        /*shader_utils::UiShaderPlugin, */ draw_obj::UiReadyDrawPlugin, node::UiNodePlugin, pass::UiPassPlugin, shader_utils::UiShaderPlugin, RunState, system_set::UiSystemSet,
     };
 
     #[derive(Default)]
@@ -44,10 +44,25 @@ pub mod prelude {
     impl Plugin for UiPlugin {
         fn build(&self, app: &mut App) {
 			app.init_resource::<RunState>();
-            app.add_plugin(UiShaderPlugin)
+            app
+				.configure_sets(
+					(
+						UiSystemSet::Setting,
+						UiSystemSet::Load,
+						UiSystemSet::Layout,
+						UiSystemSet::Matrix,
+						UiSystemSet::BaseCalc,
+						UiSystemSet::PrepareDrawOb,
+						UiSystemSet::PreparePass,
+					)
+						.chain())
+				.add_plugin(UiShaderPlugin)
                 .add_plugin(UiNodePlugin)
                 .add_plugin(UiReadyDrawPlugin)
-                .add_plugin(UiPassPlugin);
+                .add_plugin(UiPassPlugin)
+				.add_system(apply_system_buffers.in_set(UiSystemSet::BaseCalc))
+				.add_system(apply_system_buffers.in_set(UiSystemSet::PrepareDrawOb))
+				.add_system(apply_system_buffers.in_set(UiSystemSet::PreparePass));
         }
     }
 }

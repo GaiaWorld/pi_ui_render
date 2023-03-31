@@ -1,6 +1,7 @@
-use bevy::ecs::prelude::DetectChanges;
+use bevy::ecs::prelude::{RemovedComponents};
 use bevy::ecs::query::{Changed, Or};
-use bevy::ecs::system::{Query, RemovedComponents};
+use bevy::ecs::system::{Query};
+use bevy::prelude::DetectChangesMut;
 use pi_bevy_ecs_extend::prelude::OrDefault;
 
 use crate::components::calc::LayoutResult;
@@ -11,7 +12,7 @@ use crate::shader::{ui_meterial::ClipSdfUniform, sdf::BORDER_RADIUS_DEFINE};
 use crate::utils::tools::{cal_border_radius, cal_content_border_radius};
 
 pub fn calc_border_radius(
-    remove: RemovedComponents<BorderRadius>,
+    mut remove: RemovedComponents<BorderRadius>,
     query_delete: Query<(Option<&'static BorderRadius>, &'static DrawList)>,
     query: Query<(&'static BorderRadius, &'static LayoutResult, &'static DrawList), Or<(Changed<BorderRadius>, Changed<LayoutResult>)>>,
 

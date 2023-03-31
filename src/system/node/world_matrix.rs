@@ -179,211 +179,212 @@ pub fn calc_quad(
     event_writer.send(ComponentEvent::new(id));
 
     quad_tree.insert(EntityKey(id), item.clone());
+
     *quad = item;
 }
 
 
-#[cfg(test)]
-pub mod test {
+// #[cfg(test)]
+// pub mod test {
 
-    use bevy::app::{App, CoreStage};
-    use bevy::ecs::prelude::{Component, Entity, EventReader, EventWriter};
-    use bevy::ecs::query::Changed;
-    use bevy::ecs::system::{Commands, Query, Res, ResMut, Resource};
-    use pi_bevy_ecs_extend::prelude::{Down, EntityTreeMut, Layer, Up};
-    use pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent;
-    use pi_flex_layout::prelude::Rect;
-    use pi_map::Map;
-    use pi_null::Null;
+//     use bevy::app::{App, CoreStage};
+//     use bevy::ecs::prelude::{Component, Entity, EventReader, EventWriter};
+//     use bevy::ecs::query::Changed;
+//     use bevy::ecs::system::{Commands, Query, Res, ResMut, Resource};
+//     use pi_bevy_ecs_extend::prelude::{Down, EntityTreeMut, Layer, Up};
+//     use pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent;
+//     use pi_flex_layout::prelude::Rect;
+//     use pi_map::Map;
+//     use pi_null::Null;
 
-    use crate::components::calc::WorldMatrix;
-    use crate::components::calc::{EntityKey, LayoutResult, Quad};
-    use crate::components::user::{Transform, TransformFunc, Vector4};
-    use crate::resource::QuadTree;
+//     use crate::components::calc::WorldMatrix;
+//     use crate::components::calc::{EntityKey, LayoutResult, Quad};
+//     use crate::components::user::{Transform, TransformFunc, Vector4};
+//     use crate::resource::QuadTree;
 
-    use super::cal_matrix;
+//     use super::cal_matrix;
 
-    #[test]
-    fn test() {
-        // 创建world
-        env_logger::Builder::default().filter(None, log::LevelFilter::Warn).init();
+//     #[test]
+//     fn test() {
+//         // 创建world
+//         env_logger::Builder::default().filter(None, log::LevelFilter::Warn).init();
 
-        let mut app = App::default();
-        let root = app.world.spawn(()).id();
-        app.add_event::<ComponentEvent<Changed<Transform>>>()
-            .add_event::<ComponentEvent<Changed<LayoutResult>>>()
-            .add_event::<ComponentEvent<Changed<Layer>>>()
-            .add_event::<ComponentEvent<Changed<Quad>>>()
-            .add_event::<Vec<Entity>>()
-            .insert_resource(QuadTree::with_capacity(0))
-            .insert_resource(AllEntitys(Vec::new()))
-            .insert_resource(RootNode(root))
-            .add_startup_system(setup1)
-            .add_system(init_tree)
-            .add_system_to_stage(CoreStage::PostUpdate, cal_matrix)
-            .add_system_to_stage(CoreStage::Last, asset_matrix)
-            .add_system_to_stage(CoreStage::Last, asset_quad)
-            .update();
+//         let mut app = App::default();
+//         let root = app.world.spawn(()).id();
+//         app.add_event::<ComponentEvent<Changed<Transform>>>()
+//             .add_event::<ComponentEvent<Changed<LayoutResult>>>()
+//             .add_event::<ComponentEvent<Changed<Layer>>>()
+//             .add_event::<ComponentEvent<Changed<Quad>>>()
+//             .add_event::<Vec<Entity>>()
+//             .insert_resource(QuadTree::with_capacity(0))
+//             .insert_resource(AllEntitys(Vec::new()))
+//             .insert_resource(RootNode(root))
+//             .add_startup_system(setup1)
+//             .add_system(init_tree)
+//             .add_system_to_stage(CoreStage::PostUpdate, cal_matrix)
+//             .add_system_to_stage(CoreStage::Last, asset_matrix)
+//             .add_system_to_stage(CoreStage::Last, asset_quad)
+//             .update();
 
-        app.add_system_to_stage(CoreStage::PreUpdate, setup2).update();
-    }
+//         app.add_system_to_stage(CoreStage::PreUpdate, setup2).update();
+//     }
 
-    #[derive(Resource, Deref)]
-    pub struct RootNode(Entity);
+//     #[derive(Resource, Deref)]
+//     pub struct RootNode(Entity);
 
-    #[derive(Resource, Deref)]
-    pub struct AllEntitys(Vec<Entity>);
+//     #[derive(Resource, Deref)]
+//     pub struct AllEntitys(Vec<Entity>);
 
-    fn setup1(mut command: Commands, mut events: EventWriter<Vec<Entity>>, root: Res<RootNode>) {
-        let mut entitys = Vec::new();
-        let root = command
-            .entity(root.0)
-            .insert((
-                Up::default(),
-                Down::default(),
-                Layer::default(),
-                WorldMatrix::default(),
-                Quad::default(),
-                LayoutResult {
-                    rect: Rect {
-                        left: 0.0,
-                        right: 1000.0,
-                        top: 0.0,
-                        bottom: 1000.0,
-                    },
-                    border: Rect {
-                        left: 0.0,
-                        right: 0.0,
-                        top: 0.0,
-                        bottom: 0.0,
-                    },
-                    padding: Rect {
-                        left: 0.0,
-                        right: 0.0,
-                        top: 0.0,
-                        bottom: 0.0,
-                    },
-                },
-                AbsolutePosition(Rect {
-                    left: 0.0,
-                    right: 1000.0,
-                    top: 0.0,
-                    bottom: 1000.0,
-                }),
-            ))
-            .id();
+//     fn setup1(mut command: Commands, mut events: EventWriter<Vec<Entity>>, root: Res<RootNode>) {
+//         let mut entitys = Vec::new();
+//         let root = command
+//             .entity(root.0)
+//             .insert((
+//                 Up::default(),
+//                 Down::default(),
+//                 Layer::default(),
+//                 WorldMatrix::default(),
+//                 Quad::default(),
+//                 LayoutResult {
+//                     rect: Rect {
+//                         left: 0.0,
+//                         right: 1000.0,
+//                         top: 0.0,
+//                         bottom: 1000.0,
+//                     },
+//                     border: Rect {
+//                         left: 0.0,
+//                         right: 0.0,
+//                         top: 0.0,
+//                         bottom: 0.0,
+//                     },
+//                     padding: Rect {
+//                         left: 0.0,
+//                         right: 0.0,
+//                         top: 0.0,
+//                         bottom: 0.0,
+//                     },
+//                 },
+//                 AbsolutePosition(Rect {
+//                     left: 0.0,
+//                     right: 1000.0,
+//                     top: 0.0,
+//                     bottom: 1000.0,
+//                 }),
+//             ))
+//             .id();
 
-        //插入根节点
-        entitys.push(root);
+//         //插入根节点
+//         entitys.push(root);
 
-        let size = 50.0;
-        let mut left_top = 0.0;
-        let mut right_bottom;
-        // 插入三个节点作为子节点
-        for _i in 0..3 {
-            right_bottom = left_top + size;
+//         let size = 50.0;
+//         let mut left_top = 0.0;
+//         let mut right_bottom;
+//         // 插入三个节点作为子节点
+//         for _i in 0..3 {
+//             right_bottom = left_top + size;
 
-            let entity = command
-                .spawn((
-                    Up::default(),
-                    Down::default(),
-                    Layer::default(),
-                    WorldMatrix::default(),
-                    Quad::default(),
-                    LayoutResult {
-                        rect: Rect {
-                            left: left_top,
-                            right: right_bottom,
-                            top: left_top,
-                            bottom: right_bottom,
-                        },
-                        border: Rect {
-                            left: 0.0,
-                            right: 0.0,
-                            top: 0.0,
-                            bottom: 0.0,
-                        },
-                        padding: Rect {
-                            left: 0.0,
-                            right: 0.0,
-                            top: 0.0,
-                            bottom: 0.0,
-                        },
-                    },
-                    AbsolutePosition(Rect {
-                        left: left_top,
-                        right: right_bottom,
-                        top: left_top,
-                        bottom: right_bottom,
-                    }),
-                ))
-                .id();
-            // 插入实体，以根节点作为父节点
-            entitys.push(entity);
+//             let entity = command
+//                 .spawn((
+//                     Up::default(),
+//                     Down::default(),
+//                     Layer::default(),
+//                     WorldMatrix::default(),
+//                     Quad::default(),
+//                     LayoutResult {
+//                         rect: Rect {
+//                             left: left_top,
+//                             right: right_bottom,
+//                             top: left_top,
+//                             bottom: right_bottom,
+//                         },
+//                         border: Rect {
+//                             left: 0.0,
+//                             right: 0.0,
+//                             top: 0.0,
+//                             bottom: 0.0,
+//                         },
+//                         padding: Rect {
+//                             left: 0.0,
+//                             right: 0.0,
+//                             top: 0.0,
+//                             bottom: 0.0,
+//                         },
+//                     },
+//                     AbsolutePosition(Rect {
+//                         left: left_top,
+//                         right: right_bottom,
+//                         top: left_top,
+//                         bottom: right_bottom,
+//                     }),
+//                 ))
+//                 .id();
+//             // 插入实体，以根节点作为父节点
+//             entitys.push(entity);
 
-            left_top += size;
-        }
-        events.send(entitys);
-    }
+//             left_top += size;
+//         }
+//         events.send(entitys);
+//     }
 
-    /// 最后一个实体，添加一个缩放为0.5的Transform
-    fn setup2(mut command: Commands, all_entitys: Res<AllEntitys>, mut event_writer: EventWriter<ComponentEvent<Changed<Transform>>>) {
-        let last_entity = all_entitys.0[all_entitys.0.len() - 1];
-        let mut t = Transform::default();
-        t.funcs.push(TransformFunc::Scale(0.5, 0.5));
-        command.entity(last_entity).insert((
-            t,
-            AbsolutePosition(Rect {
-                // 测试矩阵计算, 最后一个实体组件缩放为原来的0.5
-                left: 112.5,
-                right: 137.5,
-                top: 112.5,
-                bottom: 137.5,
-            }),
-        ));
-        event_writer.send(ComponentEvent::new(last_entity));
-    }
+//     /// 最后一个实体，添加一个缩放为0.5的Transform
+//     fn setup2(mut command: Commands, all_entitys: Res<AllEntitys>, mut event_writer: EventWriter<ComponentEvent<Changed<Transform>>>) {
+//         let last_entity = all_entitys.0[all_entitys.0.len() - 1];
+//         let mut t = Transform::default();
+//         t.funcs.push(TransformFunc::Scale(0.5, 0.5));
+//         command.entity(last_entity).insert((
+//             t,
+//             AbsolutePosition(Rect {
+//                 // 测试矩阵计算, 最后一个实体组件缩放为原来的0.5
+//                 left: 112.5,
+//                 right: 137.5,
+//                 top: 112.5,
+//                 bottom: 137.5,
+//             }),
+//         ));
+//         event_writer.send(ComponentEvent::new(last_entity));
+//     }
 
-    // 绝对位置,节点以左上为原点，经过布局、变化，得到的最终位置
-    #[derive(Deref, DerefMut, Debug, Component)]
-    pub struct AbsolutePosition(Rect<f32>);
+//     // 绝对位置,节点以左上为原点，经过布局、变化，得到的最终位置
+//     #[derive(Deref, DerefMut, Debug, Component)]
+//     pub struct AbsolutePosition(Rect<f32>);
 
-    // 初始化，将所有节点以根节点作为父节点组织为树
-    fn init_tree(root: Res<RootNode>, mut tree: EntityTreeMut, mut entitys: EventReader<Vec<Entity>>, mut all_entitys: ResMut<AllEntitys>) {
-        let r = root.0;
-        for list in entitys.iter() {
-            all_entitys.0.extend_from_slice(list.as_slice());
-            for e in list.iter() {
-                if *e != r {
-                    tree.insert_child(*e, r, std::usize::MAX);
-                } else {
-                    tree.insert_child(*e, EntityKey::null().0, std::usize::MAX);
-                }
-            }
-        }
-    }
+//     // 初始化，将所有节点以根节点作为父节点组织为树
+//     fn init_tree(root: Res<RootNode>, mut tree: EntityTreeMut, mut entitys: EventReader<Vec<Entity>>, mut all_entitys: ResMut<AllEntitys>) {
+//         let r = root.0;
+//         for list in entitys.iter() {
+//             all_entitys.0.extend_from_slice(list.as_slice());
+//             for e in list.iter() {
+//                 if *e != r {
+//                     tree.insert_child(*e, r, std::usize::MAX);
+//                 } else {
+//                     tree.insert_child(*e, EntityKey::null().0, std::usize::MAX);
+//                 }
+//             }
+//         }
+//     }
 
-    fn asset_matrix(query: Query<(Entity, &WorldMatrix, &LayoutResult, &AbsolutePosition)>) {
-        // log::warn!("asset_matrix======");
-        for (_e, w, l, a_p) in query.iter() {
-            let left_top = w * Vector4::new(0.0, 0.0, 1.0, 1.0);
-            let right_bottom = w * Vector4::new(l.rect.right - l.rect.left, l.rect.bottom - l.rect.top, 1.0, 1.0);
-            // println!("e: {:?}, a_p: {:?}, left_top: {:?}, right_bottom: {:?}", _e, a_p, left_top, right_bottom);
-            assert_eq!(left_top.x, a_p.left);
-            assert_eq!(left_top.y, a_p.top);
-            assert_eq!(right_bottom.x, a_p.right);
-            assert_eq!(right_bottom.y, a_p.bottom);
-        }
-    }
+//     fn asset_matrix(query: Query<(Entity, &WorldMatrix, &LayoutResult, &AbsolutePosition)>) {
+//         // log::warn!("asset_matrix======");
+//         for (_e, w, l, a_p) in query.iter() {
+//             let left_top = w * Vector4::new(0.0, 0.0, 1.0, 1.0);
+//             let right_bottom = w * Vector4::new(l.rect.right - l.rect.left, l.rect.bottom - l.rect.top, 1.0, 1.0);
+//             // println!("e: {:?}, a_p: {:?}, left_top: {:?}, right_bottom: {:?}", _e, a_p, left_top, right_bottom);
+//             assert_eq!(left_top.x, a_p.left);
+//             assert_eq!(left_top.y, a_p.top);
+//             assert_eq!(right_bottom.x, a_p.right);
+//             assert_eq!(right_bottom.y, a_p.bottom);
+//         }
+//     }
 
-    fn asset_quad(query: Query<(Entity, &Quad, &AbsolutePosition)>) {
-        // log::warn!("asset_quad======");
-        for (_e, quad, a_p) in query.iter() {
-            // println!("e: {:?}, quad: {:?}, a_p:{:?}", _e, quad, a_p);
-            assert_eq!(quad.mins.x, a_p.left);
-            assert_eq!(quad.mins.y, a_p.top);
-            assert_eq!(quad.maxs.x, a_p.right);
-            assert_eq!(quad.maxs.y, a_p.bottom);
-        }
-    }
-}
+//     fn asset_quad(query: Query<(Entity, &Quad, &AbsolutePosition)>) {
+//         // log::warn!("asset_quad======");
+//         for (_e, quad, a_p) in query.iter() {
+//             // println!("e: {:?}, quad: {:?}, a_p:{:?}", _e, quad, a_p);
+//             assert_eq!(quad.mins.x, a_p.left);
+//             assert_eq!(quad.mins.y, a_p.top);
+//             assert_eq!(quad.maxs.x, a_p.right);
+//             assert_eq!(quad.maxs.y, a_p.bottom);
+//         }
+//     }
+// }

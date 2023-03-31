@@ -1,9 +1,9 @@
 use std::marker::PhantomData;
 
 use bevy::ecs::{
-    prelude::{Component, Entity, EventWriter},
+    prelude::{Component, Entity, EventWriter, RemovedComponents},
     query::Changed,
-    system::{Commands, Query, RemovedComponents, Res, Resource},
+    system::{Commands, Query, Res, Resource},
 };
 use crossbeam::queue::SegQueue;
 use pi_assets::{
@@ -35,7 +35,7 @@ pub struct CalcImageLoad<S: std::ops::Deref<Target = Atom>, D: From<Handle<Textu
 pub fn image_change<S: Component + std::ops::Deref<Target = Atom>, D: Component + From<Handle<TextureRes>>>(
     query: Query<(Entity, &S), Changed<S>>,
     query1: Query<(Entity, &S)>,
-    del: RemovedComponents<S>,
+    mut del: RemovedComponents<S>,
     texture_assets_mgr: Res<ShareAssetMgr<TextureRes>>,
     image_await: Res<ImageAwait<S>>,
     queue: Res<PiRenderQueue>,

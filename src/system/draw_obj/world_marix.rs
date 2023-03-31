@@ -1,8 +1,8 @@
-use bevy::ecs::{
-    prelude::{DetectChanges, Entity},
+use bevy::{ecs::{
+    prelude::{Entity},
     query::{Added, Changed, Or},
     system::Query,
-};
+}, prelude::DetectChangesMut};
 use pi_assets::{asset::Handle, mgr::AssetMgr};
 use pi_bevy_ecs_extend::prelude::{OrDefault, Up};
 use pi_render::rhi::bind_group_layout::BindGroupLayout;

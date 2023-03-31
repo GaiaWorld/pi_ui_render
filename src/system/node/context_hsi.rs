@@ -1,9 +1,9 @@
 //! 处理hsi属性，对hsi中存在不为0的属性时，标记为渲染上下文（设置RenderContextMark中的位标记）
 
 use bevy::ecs::{
-    prelude::{Entity, EventWriter},
+    prelude::{Entity, EventWriter, RemovedComponents},
     query::Changed,
-    system::{Query, RemovedComponents},
+    system::{Query},
 };
 use pi_bevy_ecs_extend::system_param::{layer_dirty::ComponentEvent, res::OrInitRes};
 
@@ -17,7 +17,7 @@ use super::context::{context_attr_del, render_mark_false, render_mark_true};
 pub fn hsi_calc(
     mut query_set: bevy::ecs::system::ParamSet<(
         Query<(Entity, &Hsi, &mut RenderContextMark), Changed<Hsi>>,
-        Query<&'static mut RenderContextMark>,
+        Query<&mut RenderContextMark>,
     )>,
     del: RemovedComponents<Hsi>,
     mark_type: OrInitRes<RenderContextMarkType<Hsi>>,

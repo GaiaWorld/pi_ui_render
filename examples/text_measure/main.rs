@@ -9,9 +9,9 @@ use framework::Example;
 use ordered_float::NotNan;
 use pi_atom::Atom;
 /// 渲染四边形 demo
-use pi_render::font::{Font, FontSheet};
-use pi_share::{Share, ShareCell};
-use pi_ui_render::export::Engine;
+use pi_render::font::{Font};
+use bevy::prelude::{World, Commands};
+use pi_ui_render::resource::{ShareFontSheet, UserCommands};
 
 fn main() { framework::start(QuadExample::default()) }
 
@@ -20,7 +20,7 @@ pub struct QuadExample;
 
 #[async_trait]
 impl Example for QuadExample {
-    async fn init(&mut self, gui: &mut Engine, _size: (usize, usize)) {
+    fn init(&mut self, world: &mut World, _size: (usize, usize)) {
         let mut dir = std::env::current_dir().unwrap();
         log::info!("dir: {:?}", dir);
         dir.push("examples\\text\\source\\hwkt.ttf");
@@ -52,7 +52,7 @@ impl Example for QuadExample {
         // }
         // println!("measure_width time, 10000 times: {:?}, {:?}", std::time::Instant::now() - time, r);
 
-        let font_sheet = gui.gui.world_mut().get_resource::<Share<ShareCell<FontSheet>>>().unwrap();
+        let font_sheet = world.get_resource::<ShareFontSheet>().unwrap();
         let mut font_sheet = font_sheet.borrow_mut();
 
 
@@ -87,5 +87,7 @@ impl Example for QuadExample {
         println!("measure_width time, 10000 times: {:?}, {:?}", std::time::Instant::now() - time, r);
     }
 
-    fn render(&mut self, gui: &mut Engine) { gui.gui.run(); }
+    fn render(&mut self, _cmd: &mut UserCommands, _cmd1: &mut Commands) { 
+		//swap(&mut self.cmd, cmd); 
+	}
 }

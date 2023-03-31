@@ -1,8 +1,8 @@
-use bevy::ecs::{
-    prelude::Entity,
-    query::{ChangeTrackers, Changed, With},
+use bevy::{ecs::{
+    prelude::{Entity, Ref},
+    query::{Changed, With},
     system::{ParamSet, Query},
-};
+}, prelude::DetectChanges};
 
 use pi_bevy_ecs_extend::prelude::Layer;
 use pi_style::style::Aabb2;
@@ -40,7 +40,7 @@ pub fn calc_global_dirty_rect(
         Query<&mut DirtyRect>,
         Query<(&'static NodeId, &'static mut DirtyRect), Changed<ChildrenPass>>,
     )>,
-    mut query_root: Query<(&mut RootDirtyRect, &'static Viewport, ChangeTrackers<Viewport>), With<Viewport>>,
+    mut query_root: Query<(&mut RootDirtyRect, &'static Viewport, Ref<Viewport>), With<Viewport>>,
 ) {
     // 如果有节点修改了ShowChange，需要设置脏区域
     let mut p2 = query_pass.p2();

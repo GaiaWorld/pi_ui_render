@@ -115,7 +115,7 @@ pub fn calc_camera_depth_and_renderlist(
             dirty_rect = viewport.0;
         }
 
-        // log::warn!("pass_id1========={:?}, {:?}, {:?}, {:?}, {:?}", context_box, dirty_rect, intersect(&context_box, &dirty_rect), willchange_matrix, will_change);
+        // log::warn!("pass_id1========={:?}, {:?}", dirty_rect, willchange_matrix);
 		// 计算视图区域（坐标系为本节点的非旋转坐标系）
 		let view_aabb = if let Some(oveflow_rotate) = &overflow_aabb.matrix {
 			// let mins = oveflow_rotate.rotate_matrix_invert * Vector4::new(aabb.mins.x, aabb.mins.y, 0.0, 1.0);

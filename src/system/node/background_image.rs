@@ -1,6 +1,6 @@
-use bevy::ecs::prelude::Entity;
+use bevy::ecs::prelude::{Entity, RemovedComponents};
 use bevy::ecs::query::{Changed, Or, With};
-use bevy::ecs::system::{Commands, Local, ParamSet, Query, RemovedComponents, Res};
+use bevy::ecs::system::{Commands, Local, ParamSet, Query, Res};
 use pi_assets::asset::Handle;
 use pi_assets::mgr::AssetMgr;
 use pi_atom::Atom;
@@ -79,7 +79,7 @@ pub fn calc_background_image(
     shader_catch: OrInitRes<ShaderInfoCache>,
 ) {
     // 删除对应的DrawObject
-    clear_draw_obj(*render_type, &del, &mut query.p1(), &mut commands);
+    clear_draw_obj(*render_type, del, query.p1(), &mut commands);
 
     let texture_group_layout = &program_meta.bind_group_layout[SampBind::set() as usize];
 

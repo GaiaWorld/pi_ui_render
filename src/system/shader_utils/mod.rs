@@ -6,12 +6,13 @@
 //! TODO: 后续，可能将不可变因素通过shader静态编译出来（尚不确定哪些通常不变），当前通过手动编写代码的方式来确定
 //!
 
-use bevy::app::{CoreStage, Plugin};
+use bevy::app::Plugin;
 use bevy::ecs::{
     prelude::EventReader,
     system::{Commands, Res, ResMut},
 };
-use bevy::window::{WindowCreated, WindowResized, Windows};
+use bevy::prelude::{Query, With, IntoSystemConfig};
+use bevy::window::{WindowCreated, WindowResized, Window, PrimaryWindow};
 use pi_assets::{
     asset::{GarbageEmpty, Handle},
     mgr::AssetMgr,
@@ -36,6 +37,9 @@ use crate::{
     resource::draw_obj::{CommonSampler, PipelineState, Program, ShareLayout, UnitQuadBuffer},
     utils::tools::{calc_float_hash, calc_hash},
 };
+
+use super::render_run;
+use super::system_set::UiSystemSet;
 
 // pub mod image;
 // pub mod color;
@@ -97,7 +101,7 @@ impl Plugin for UiShaderPlugin {
 			.init_resource::<ShareLayout>()
 			.init_resource::<UnitQuadBuffer>()
 
-			.add_system_to_stage(CoreStage::First, screen_target_resize)
+			.add_system(screen_target_resize.run_if(render_run).before(UiSystemSet::Setting))
 			// .add_startup_system(color::init)
 			// .add_startup_system(image::init)
 			// .add_startup_system(text::init)
@@ -109,15 +113,15 @@ pub fn screen_target_resize(
     mut command: Commands,
     events: EventReader<WindowCreated>,
     resize_events: EventReader<WindowResized>,
-    windows: Res<Windows>,
+    windows: Query<&Window, With<PrimaryWindow>>,
     screen_target: Option<ResMut<ScreenTarget>>,
     texture_res_mgr: Res<ShareAssetMgr<RenderRes<TextureView>>>,
     device: Res<PiRenderDevice>,
 ) {
     if events.len() > 0 || resize_events.len() > 0 {
-        let window = match windows.get_primary() {
-            Some(r) => r,
-            None => return,
+        let window = match windows.get_single() {
+            Ok(r) => r,
+            _ => return,
         };
         if window.physical_width() == 0 || window.physical_height() == 0 {
             return;
@@ -215,6 +219,7 @@ fn create_depth_buffer(
         dimension: wgpu::TextureDimension::D2,
         format: wgpu::TextureFormat::Depth32Float,
         usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST | wgpu::TextureUsages::RENDER_ATTACHMENT,
+		view_formats: &[],
     });
     let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
 

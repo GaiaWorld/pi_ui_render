@@ -8,7 +8,7 @@ use crate::components::{calc::{RenderContextMark, EntityKey}, pass_2d::{Children
 
 /// Pass2D设置children
 pub fn calc_pass_children_and_clear(
-    event_reader: EventReader<ComponentEvent<Changed<RenderContextMark>>>,
+    mut event_reader: EventReader<ComponentEvent<Changed<RenderContextMark>>>,
     mut query: Query<&mut ChildrenPass>,
     query_pass: Query<(Entity, &ParentPassId)>,
     mut local: Local<DenseVecMap<(Entity, ChildrenPass)>>,

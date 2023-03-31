@@ -12,12 +12,12 @@ use std::{
     ops::{Index, IndexMut},
 };
 
-use bevy::ecs::{
-    prelude::{Entity, EventWriter},
-    query::{ChangeTrackers, Changed, Or},
+use bevy::{ecs::{
+    prelude::{Entity, EventWriter, Ref},
+    query::{Changed, Or},
     system::{Local, Query},
     world::Mut,
-};
+}, prelude::DetectChanges};
 use pi_bevy_ecs_extend::{
     prelude::{EntityTree, Layer, OrDefault},
     system_param::layer_dirty::ComponentEvent,
@@ -62,18 +62,18 @@ pub fn calc_layout(
         (
             Entity,
             &'static Size,
-            Option<ChangeTrackers<Size>>,
-            Option<ChangeTrackers<Margin>>,
-            Option<ChangeTrackers<Padding>>,
-            Option<ChangeTrackers<Border>>,
-            Option<ChangeTrackers<Position>>,
-            Option<ChangeTrackers<MinMax>>,
-            Option<ChangeTrackers<FlexContainer>>,
-            Option<ChangeTrackers<FlexNormal>>,
-            Option<ChangeTrackers<Layer>>,
-            Option<ChangeTrackers<Show>>,
-            Option<ChangeTrackers<TextContent>>,
-            Option<ChangeTrackers<TextStyle>>,
+            Option<Ref<Size>>,
+            Option<Ref<Margin>>,
+            Option<Ref<Padding>>,
+            Option<Ref<Border>>,
+            Option<Ref<Position>>,
+            Option<Ref<MinMax>>,
+            Option<Ref<FlexContainer>>,
+            Option<Ref<FlexNormal>>,
+            Option<Ref<Layer>>,
+            Option<Ref<Show>>,
+            Option<Ref<TextContent>>,
+            Option<Ref<TextStyle>>,
         ),
         Or<(
             Changed<Layer>,
@@ -145,7 +145,7 @@ pub fn calc_layout(
         if size.map_or(false, |size| size.is_changed())
             || position.map_or(false, |position| position.is_changed())
             || margin.map_or(false, |margin| margin.is_changed())
-            || layer.map_or(false, |layer| layer.is_changed())
+            || layer.as_ref().map_or(false, |layer| layer.is_changed())
             || min_max.map_or(false, |min_max| min_max.is_changed())
         {
             // log::warn!("set rect ===================={:?}, {:?}, {:?}, {:?}", e, layout.0.style.get(LayoutKey {

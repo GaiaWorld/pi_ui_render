@@ -1,7 +1,8 @@
-use bevy::app::{CoreStage, Plugin};
-use bevy::ecs::schedule::IntoSystemDescriptor;
+use bevy::app::Plugin;
+use bevy::prelude::{IntoSystemConfig, IntoSystemSetConfig};
 
 use super::render_run;
+use super::system_set::UiSystemSet;
 
 // pub mod pass_mark;
 pub mod pass_dirty_rect;
@@ -13,11 +14,11 @@ pub struct UiPassPlugin;
 
 impl Plugin for UiPassPlugin {
     fn build(&self, app: &mut bevy::app::App) {
-        app.add_system_to_stage(CoreStage::PostUpdate, update_graph::update_graph.with_run_criteria(render_run))
-            .add_system_to_stage(CoreStage::PostUpdate, pass_dirty_rect::calc_global_dirty_rect.with_run_criteria(render_run))
-            .add_system_to_stage(
-                CoreStage::PostUpdate,
-                pass_render::calc_camera_depth_and_renderlist.after(pass_dirty_rect::calc_global_dirty_rect).with_run_criteria(render_run),
-            );
+		app.configure_set(UiSystemSet::PreparePass.run_if(render_run));
+
+        app
+			.add_system(update_graph::update_graph.in_set(UiSystemSet::PreparePass))
+            .add_system(pass_dirty_rect::calc_global_dirty_rect.in_set(UiSystemSet::PreparePass))
+            .add_system(pass_render::calc_camera_depth_and_renderlist.after(pass_dirty_rect::calc_global_dirty_rect).in_set(UiSystemSet::PreparePass));
     }
 }

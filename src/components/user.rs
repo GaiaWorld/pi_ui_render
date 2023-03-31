@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 use std::mem::transmute;
 
-use bevy::ecs::prelude::{Component, DetectChanges};
+use bevy::ecs::prelude::{Component, DetectChangesMut};
 use bitvec::prelude::BitArray;
 use ordered_float::NotNan;
 use pi_atom::Atom;

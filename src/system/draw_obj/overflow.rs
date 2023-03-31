@@ -1,8 +1,8 @@
-use bevy::ecs::{
-    prelude::Entity,
-    query::{ChangeTrackers, With},
+use bevy::{ecs::{
+    prelude::{Entity, Ref},
+    query::{With},
     system::Query,
-};
+}, prelude::DetectChanges};
 
 use crate::{components::{pass_2d::{PostProcessList, ChildrenPass}, calc::{ViewBox, ContentBox}, user::Vector2}, system::utils::rotatequad_quad_intersection, resource::RenderContextMarkType, utils::tools::intersect_or_zero};
 
@@ -33,10 +33,10 @@ pub fn overflow_post_process(
 		&'static ChildrenPass,
 		OrDefault<Overflow>,
 
-		ChangeTrackers<WorldMatrix>,
-		ChangeTrackers<TransformWillChangeMatrix>,
-		Option<ChangeTrackers<Overflow>>,
-		ChangeTrackers<Layer>
+		Ref<WorldMatrix>,
+		Ref<TransformWillChangeMatrix>,
+		Option<Ref<Overflow>>,
+		Ref<Layer>
 	)>,
 	mark_type: OrInitRes<RenderContextMarkType<Overflow>>,
 ) {
@@ -81,10 +81,10 @@ fn recursive_cal_overflow(
 		&'static ChildrenPass,
 		OrDefault<Overflow>,
 
-		ChangeTrackers<WorldMatrix>,
-		ChangeTrackers<TransformWillChangeMatrix>,
-		Option<ChangeTrackers<Overflow>>,
-		ChangeTrackers<Layer>
+		Ref<WorldMatrix>,
+		Ref<TransformWillChangeMatrix>,
+		Option<Ref<Overflow>>,
+		Ref<Layer>
 	)>,
 	mark_type: &RenderContextMarkType<Overflow>,
 ) {

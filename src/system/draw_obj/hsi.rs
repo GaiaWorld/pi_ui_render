@@ -1,6 +1,7 @@
 use bevy::ecs::{
     query::Changed,
-    system::{ParamSet, Query, RemovedComponents},
+    system::{ParamSet, Query},
+	prelude::RemovedComponents,
 };
 use pi_bevy_ecs_extend::system_param::res::OrInitRes;
 use pi_postprocess::effect::hsb::HSB;
@@ -8,7 +9,7 @@ use pi_postprocess::effect::hsb::HSB;
 use crate::{components::{pass_2d::PostProcessList, user::Hsi}, resource::RenderContextMarkType};
 
 pub fn hsi_post_process(
-    del: RemovedComponents<Hsi>,
+    mut del: RemovedComponents<Hsi>,
 	mark_type: OrInitRes<RenderContextMarkType<Hsi>>,
     mut query: ParamSet<(Query<(&Hsi, &mut PostProcessList), Changed<Hsi>>, Query<&mut PostProcessList>)>,
 ) {

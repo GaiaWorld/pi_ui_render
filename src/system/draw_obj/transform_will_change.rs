@@ -1,8 +1,8 @@
-use bevy::ecs::{
-    prelude::{Entity, EventReader},
-    query::{ChangeTrackers, Changed, With},
-    system::{Local, Query, RemovedComponents},
-};
+use bevy::{ecs::{
+    prelude::{Entity, EventReader, RemovedComponents, Ref},
+    query::{Changed, With},
+    system::{Local, Query},
+}, prelude::DetectChanges};
 use pi_bevy_ecs_extend::{system_param::layer_dirty::{ComponentEvent, DirtyMark}, prelude::OrDefault};
 use pi_hash::XHashMap;
 
@@ -32,13 +32,13 @@ pub fn transform_will_change_post_process(
             &Layer,
             // transform_willchange_matrix在父节点的WorldMatrix、节点自身的TransformWillChange， Layer修改时，需要改变
             // 父节点的WorldMatrix, 子节点的WorldMatrix一定改变，因此这里拿到本节点的节拍
-            ChangeTrackers<WorldMatrix>,
-            ChangeTrackers<TransformWillChange>,
-            ChangeTrackers<Layer>,
+            Ref<WorldMatrix>,
+            Ref<TransformWillChange>,
+            Ref<Layer>,
         ),
         With<TransformWillChange>,
     >,
-    del: RemovedComponents<TransformWillChange>,
+    mut del: RemovedComponents<TransformWillChange>,
 
     mut event_reader: EventReader<ComponentEvent<Changed<ParentPassId>>>,
     mut layer_dirty: Local<LayerDirty<Entity>>,

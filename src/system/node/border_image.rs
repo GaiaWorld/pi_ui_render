@@ -1,6 +1,6 @@
-use bevy::ecs::prelude::Entity;
+use bevy::ecs::prelude::{Entity, RemovedComponents};
 use bevy::ecs::query::{Changed, Or, With};
-use bevy::ecs::system::{Commands, Local, ParamSet, Query, RemovedComponents, Res};
+use bevy::ecs::system::{Commands, Local, ParamSet, Query, Res};
 use bytemuck::{Pod, Zeroable};
 use ordered_float::NotNan;
 use pi_assets::asset::Asset;
@@ -51,7 +51,7 @@ pub fn calc_border_image(
                 OrDefault<BorderImageClip>,
                 OrDefault<BorderImageSlice>,
                 OrDefault<BorderImageRepeat>,
-                &'static LayoutResult,
+                &LayoutResult,
                 &mut DrawList,
             ),
             (
@@ -66,7 +66,7 @@ pub fn calc_border_image(
             ),
         >,
         // BorderImage删除，需要删除对应的DrawObject
-        Query<(Option<&'static BorderImageTexture>, &'static mut DrawList)>,
+        Query<(Option<&BorderImageTexture>, &mut DrawList)>,
     )>,
 
     mut query_draw: Query<&'static mut DrawState>,
@@ -85,7 +85,7 @@ pub fn calc_border_image(
     shader_catch: OrInitRes<ShaderInfoCache>,
 ) {
     // 删除对应的DrawObject
-    clear_draw_obj(*render_type, &del, &mut query.p1(), &mut commands);
+    clear_draw_obj(*render_type, del, query.p1(), &mut commands);
 
     let texture_group_layout = &program_meta.bind_group_layout[SampBind::set() as usize];
     let mut init_spawn_drawobj = Vec::new();
@@ -208,8 +208,8 @@ fn modify<'a>(
     // TODO, layout 使用NotNan
     let buffer_key = calc_hash(&("border image", image, clip, slice, repeat, &layout_data), 0);
     let index_key = calc_hash(&("border image index", image, clip, slice, repeat, &layout_data), 0);
-    let (index_len, vertex_buffer, index_buffer) = match (buffer_assets.get(&buffer_key), buffer_assets.get(&index_key)) {
-        (Some(r1), Some(r2)) => (r2.size() / 2, r1, r2),
+    let (vertex_buffer, index_buffer) = match (buffer_assets.get(&buffer_key), buffer_assets.get(&index_key)) {
+        (Some(r1), Some(r2)) => (r1, r2),
         (buffer, index) => {
             let (vertex, indices) = get_border_image_stream(texture, clip, slice, repeat, layout, Vec::new(), Vec::new());
             let index = match index {
@@ -224,7 +224,6 @@ fn modify<'a>(
                 }
             };
             (
-                index.size() / 2,
                 match buffer {
                     Some(r1) => r1,
                     None => {

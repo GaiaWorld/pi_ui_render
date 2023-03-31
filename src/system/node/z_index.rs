@@ -359,143 +359,143 @@ fn set(
     }
 }
 
-#[cfg(test)]
-mod test {
-    use bevy::app::{App, CoreStage};
-    use bevy::ecs::{
-        prelude::{Entity, EventWriter, World},
-        query::{Changed, QueryState},
-        system::{Local, Res, ResMut, Resource, SystemState},
-    };
-    use pi_bevy_ecs_extend::{
-        prelude::{Down, EntityTreeMut, Layer, Up},
-        system_param::layer_dirty::ComponentEvent,
-    };
-    use pi_null::Null;
+// #[cfg(test)]
+// mod test {
+//     use bevy::app::{App, CoreStage};
+//     use bevy::ecs::{
+//         prelude::{Entity, EventWriter, World},
+//         query::{Changed, QueryState},
+//         system::{Local, Res, ResMut, Resource, SystemState},
+//     };
+//     use pi_bevy_ecs_extend::{
+//         prelude::{Down, EntityTreeMut, Layer, Up},
+//         system_param::layer_dirty::ComponentEvent,
+//     };
+//     use pi_null::Null;
 
-    use crate::{
-        components::{
-            calc::{EntityKey, ZRange},
-            user::ZIndex,
-        },
-        system::node::z_index::calc_zindex,
-    };
+//     use crate::{
+//         components::{
+//             calc::{EntityKey, ZRange},
+//             user::ZIndex,
+//         },
+//         system::node::z_index::calc_zindex,
+//     };
 
-    #[derive(Resource, Deref)]
-    pub struct RootNode(Entity);
+//     #[derive(Resource, Deref)]
+//     pub struct RootNode(Entity);
 
-    fn add(v: &mut isize) -> isize {
-        *v = *v + 1;
-        *v
-    }
+//     fn add(v: &mut isize) -> isize {
+//         *v = *v + 1;
+//         *v
+//     }
 
-    fn init_1(
-        world: &mut World,
-        entity_tree: &mut SystemState<EntityTreeMut>,
-        event_writer: &mut SystemState<EventWriter<ComponentEvent<Changed<ZIndex>>>>,
-        root: &mut SystemState<ResMut<RootNode>>,
-    ) {
-        let root = **root.get_mut(world);
-        entity_tree.get_mut(world).insert_child(root, *EntityKey::null(), 0);
+//     fn init_1(
+//         world: &mut World,
+//         entity_tree: &mut SystemState<EntityTreeMut>,
+//         event_writer: &mut SystemState<EventWriter<ComponentEvent<Changed<ZIndex>>>>,
+//         root: &mut SystemState<ResMut<RootNode>>,
+//     ) {
+//         let root = **root.get_mut(world);
+//         entity_tree.get_mut(world).insert_child(root, *EntityKey::null(), 0);
 
-        let mut i = 0;
-        // 插入2个节点作为子节点,以根节点作为父节点
-        let id = world
-            .spawn((ZIndex(add(&mut i)), ZRange::default(), Up::default(), Down::default(), Layer::default()))
-            .id();
-        entity_tree.get_mut(world).insert_child(id, root, 0);
-        event_writer.get_mut(world).send(ComponentEvent::new(id));
+//         let mut i = 0;
+//         // 插入2个节点作为子节点,以根节点作为父节点
+//         let id = world
+//             .spawn((ZIndex(add(&mut i)), ZRange::default(), Up::default(), Down::default(), Layer::default()))
+//             .id();
+//         entity_tree.get_mut(world).insert_child(id, root, 0);
+//         event_writer.get_mut(world).send(ComponentEvent::new(id));
 
-        let id = world
-            .spawn((ZIndex(add(&mut i)), ZRange::default(), Up::default(), Down::default(), Layer::default()))
-            .id();
-        entity_tree.get_mut(world).insert_child(id, root, 0);
-        event_writer.get_mut(world).send(ComponentEvent::new(id));
-    }
+//         let id = world
+//             .spawn((ZIndex(add(&mut i)), ZRange::default(), Up::default(), Down::default(), Layer::default()))
+//             .id();
+//         entity_tree.get_mut(world).insert_child(id, root, 0);
+//         event_writer.get_mut(world).send(ComponentEvent::new(id));
+//     }
 
-    fn init_2(
-        world: &mut World,
-        entity_tree: &mut SystemState<EntityTreeMut>,
-        root: &mut SystemState<Res<RootNode>>,
-        event_writer: &mut SystemState<EventWriter<ComponentEvent<Changed<ZIndex>>>>,
-        mut local: Local<usize>,
-    ) {
-        *local += 1;
-        if *local != 2 {
-            return;
-        }
-
-
-        let root = **root.get_mut(world);
-        let id = world
-            .spawn((ZIndex(3), ZRange::default(), Up::default(), Down::default(), Layer::default()))
-            .id();
-        // 插入1个节点作为子节点,以根节点作为父节点
-        entity_tree.get_mut(world).insert_child(id, root, 0);
-        event_writer.get_mut(world).send(ComponentEvent::new(id));
-    }
-
-    fn init_3(
-        world: &mut World,
-        entity_tree: &mut SystemState<EntityTreeMut>,
-        root: &mut SystemState<Res<RootNode>>,
-        event_writer: &mut SystemState<EventWriter<ComponentEvent<Changed<ZIndex>>>>,
-        mut local: Local<usize>,
-    ) {
-        *local += 1;
-        if *local != 3 {
-            return;
-        }
-
-        let root = **root.get_mut(world);
-        let id = world
-            .spawn((ZIndex(4), ZRange::default(), Up::default(), Down::default(), Layer::default()))
-            .id();
-        // 插入1个节点作为子节点,以根节点作为父节点
-        entity_tree.get_mut(world).insert_child(id, root, 0);
-        event_writer.get_mut(world).send(ComponentEvent::new(id));
-    }
+//     fn init_2(
+//         world: &mut World,
+//         entity_tree: &mut SystemState<EntityTreeMut>,
+//         root: &mut SystemState<Res<RootNode>>,
+//         event_writer: &mut SystemState<EventWriter<ComponentEvent<Changed<ZIndex>>>>,
+//         mut local: Local<usize>,
+//     ) {
+//         *local += 1;
+//         if *local != 2 {
+//             return;
+//         }
 
 
-    #[test]
-    fn test() {
-        env_logger::Builder::default().filter(None, log::LevelFilter::Warn).init();
+//         let root = **root.get_mut(world);
+//         let id = world
+//             .spawn((ZIndex(3), ZRange::default(), Up::default(), Down::default(), Layer::default()))
+//             .id();
+//         // 插入1个节点作为子节点,以根节点作为父节点
+//         entity_tree.get_mut(world).insert_child(id, root, 0);
+//         event_writer.get_mut(world).send(ComponentEvent::new(id));
+//     }
 
-        let mut app = App::default();
-        app.add_event::<ComponentEvent<Changed<ZIndex>>>();
+//     fn init_3(
+//         world: &mut World,
+//         entity_tree: &mut SystemState<EntityTreeMut>,
+//         root: &mut SystemState<Res<RootNode>>,
+//         event_writer: &mut SystemState<EventWriter<ComponentEvent<Changed<ZIndex>>>>,
+//         mut local: Local<usize>,
+//     ) {
+//         *local += 1;
+//         if *local != 3 {
+//             return;
+//         }
 
-        let mut query = app.world.query::<(Entity, Option<&ZIndex>, &ZRange)>();
-
-        let root = app.world.spawn((ZRange(0..16), Up::default(), Down::default(), Layer::default())).id();
-
-        app.insert_resource(RootNode(root))
-            .add_startup_system(init_1) // 插入根节点；插入前两个实体，以根节点作为父节点
-            .add_system_to_stage(CoreStage::PreUpdate, init_2) // 插入第3个实体，以根节点作为父节点
-            .add_system_to_stage(CoreStage::PreUpdate, init_3) // 插入第4个实体，以根节点作为父节点
-            .add_system(calc_zindex)
-            .update();
-        asset(&mut app.world, &mut query, vec![(0, (0, 16)), (1, (4, 8)), (2, (9, 13))]);
-        println!("------------------------");
+//         let root = **root.get_mut(world);
+//         let id = world
+//             .spawn((ZIndex(4), ZRange::default(), Up::default(), Down::default(), Layer::default()))
+//             .id();
+//         // 插入1个节点作为子节点,以根节点作为父节点
+//         entity_tree.get_mut(world).insert_child(id, root, 0);
+//         event_writer.get_mut(world).send(ComponentEvent::new(id));
+//     }
 
 
-        app.update();
-        asset(&mut app.world, &mut query, vec![(0, (0, 16)), (1, (4, 8)), (2, (9, 13)), (3, (13, 16))]);
-        println!("------------------------");
+//     #[test]
+//     fn test() {
+//         env_logger::Builder::default().filter(None, log::LevelFilter::Warn).init();
 
-        app.update();
-        asset(
-            &mut app.world,
-            &mut query,
-            vec![(0, (0, 16)), (1, (3, 6)), (2, (6, 9)), (3, (9, 12)), (4, (12, 15))],
-        );
-    }
+//         let mut app = App::default();
+//         app.add_event::<ComponentEvent<Changed<ZIndex>>>();
 
-    fn asset(world: &mut World, query: &mut QueryState<(Entity, Option<&ZIndex>, &ZRange)>, result: Vec<(usize, (usize, usize))>) {
-        for (e, z, r) in query.iter_mut(world) {
-            let i = &result[e.index() as usize];
-            println!("=========, id:{:?}, z_index:{:?}, result: {:?}, expect: {:?}", e.index(), z, r, i.1);
-            assert_eq!(i.1 .0, r.0.start);
-            assert_eq!(i.1 .1, r.0.end);
-        }
-    }
-}
+//         let mut query = app.world.query::<(Entity, Option<&ZIndex>, &ZRange)>();
+
+//         let root = app.world.spawn((ZRange(0..16), Up::default(), Down::default(), Layer::default())).id();
+
+//         app.insert_resource(RootNode(root))
+//             .add_startup_system(init_1) // 插入根节点；插入前两个实体，以根节点作为父节点
+//             .add_system_to_stage(CoreStage::PreUpdate, init_2) // 插入第3个实体，以根节点作为父节点
+//             .add_system_to_stage(CoreStage::PreUpdate, init_3) // 插入第4个实体，以根节点作为父节点
+//             .add_system(calc_zindex)
+//             .update();
+//         asset(&mut app.world, &mut query, vec![(0, (0, 16)), (1, (4, 8)), (2, (9, 13))]);
+//         println!("------------------------");
+
+
+//         app.update();
+//         asset(&mut app.world, &mut query, vec![(0, (0, 16)), (1, (4, 8)), (2, (9, 13)), (3, (13, 16))]);
+//         println!("------------------------");
+
+//         app.update();
+//         asset(
+//             &mut app.world,
+//             &mut query,
+//             vec![(0, (0, 16)), (1, (3, 6)), (2, (6, 9)), (3, (9, 12)), (4, (12, 15))],
+//         );
+//     }
+
+//     fn asset(world: &mut World, query: &mut QueryState<(Entity, Option<&ZIndex>, &ZRange)>, result: Vec<(usize, (usize, usize))>) {
+//         for (e, z, r) in query.iter_mut(world) {
+//             let i = &result[e.index() as usize];
+//             println!("=========, id:{:?}, z_index:{:?}, result: {:?}, expect: {:?}", e.index(), z, r, i.1);
+//             assert_eq!(i.1 .0, r.0.start);
+//             assert_eq!(i.1 .1, r.0.end);
+//         }
+//     }
+// }

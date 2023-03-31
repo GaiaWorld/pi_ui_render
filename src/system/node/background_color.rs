@@ -1,6 +1,11 @@
 use bevy::ecs::prelude::Entity;
-use bevy::ecs::query::{ChangeTrackers, Changed, Or, With};
-use bevy::ecs::system::{Commands, Local, ParamSet, Query, RemovedComponents, Res};
+use bevy::ecs::query::{Changed, Or, With};
+use bevy::ecs::{
+	prelude::Ref,
+	system::{Commands, Local, ParamSet, Query, Res},
+	removal_detection::RemovedComponents,
+};
+use bevy::prelude::DetectChanges;
 use pi_assets::mgr::AssetMgr;
 use pi_atom::Atom;
 use pi_bevy_asset::ShareAssetMgr;
@@ -46,20 +51,20 @@ pub fn calc_background(
         Query<
             (
                 Entity,
-                &'static BackgroundColor,
-                &'static LayoutResult,
-                &'static mut DrawList,
-                ChangeTrackers<BackgroundColor>,
-                ChangeTrackers<LayoutResult>,
+                &BackgroundColor,
+                &LayoutResult,
+                &mut DrawList,
+                Ref<BackgroundColor>,
+                Ref<LayoutResult>,
             ),
             (With<BackgroundColor>, Or<(Changed<BackgroundColor>, Changed<LayoutResult>)>),
         >,
         // BackgroundColor删除，需要删除对应的DrawObject
-        Query<(Option<&'static BackgroundColor>, &mut DrawList)>,
+        Query<(Option<&BackgroundColor>, &mut DrawList)>,
     )>,
     mut commands: Commands,
 
-    mut query_draw: Query<(&'static mut DrawState, &mut BoxType, &'static mut PipelineMeta)>,
+    mut query_draw: Query<(&mut DrawState, &mut BoxType, &mut PipelineMeta)>,
     // mut draw_obj_commands: EntityCommands<DrawObject>,
     // mut draw_state_commands: Commands<DrawObject, DrawState>,
     // mut node_id_commands: Commands<DrawObject, NodeId>,
@@ -83,7 +88,7 @@ pub fn calc_background(
     shader_catch: OrInitRes<ShaderInfoCache>,
 ) {
     // 删除对应的DrawObject
-    clear_draw_obj(*render_type, &del, &mut query.p1(), &mut commands);
+    clear_draw_obj(*render_type, del, query.p1(), &mut commands);
 
     let mut init_spawn_drawobj = Vec::new();
     for (node, background_color, layout, mut draw_list, background_color_change, layout_change) in query.p0().iter_mut() {
@@ -190,8 +195,8 @@ fn modify<'a>(
     draw_state: &mut DrawState,
     device: &RenderDevice,
     buffer_assets: &Share<AssetMgr<RenderRes<Buffer>>>,
-    bg_color_change: &ChangeTrackers<BackgroundColor>,
-    layout_change: &ChangeTrackers<LayoutResult>,
+    bg_color_change: &Ref<BackgroundColor>,
+    layout_change: &Ref<LayoutResult>,
     unit_quad_buffer: &UnitQuadBuffer,
 ) -> BoxType {
     // modify_radius_linear_geo

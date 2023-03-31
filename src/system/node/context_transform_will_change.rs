@@ -10,9 +10,9 @@
 //!
 //!
 use bevy::ecs::{
-    prelude::{Entity, EventWriter},
+    prelude::{Entity, EventWriter, RemovedComponents},
     query::Changed,
-    system::{ParamSet, Query, RemovedComponents},
+    system::{ParamSet, Query},
 };
 use pi_bevy_ecs_extend::system_param::{layer_dirty::ComponentEvent, res::OrInitRes};
 

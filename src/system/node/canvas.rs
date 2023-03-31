@@ -2,9 +2,10 @@
 //! canvas暂不支持圆角
 use std::io::Result;
 
-use bevy::ecs::prelude::{DetectChanges, Entity};
+use bevy::ecs::prelude::{Entity, RemovedComponents};
 use bevy::ecs::query::{Changed, With};
-use bevy::ecs::system::{Commands, Local, ParamSet, Query, RemovedComponents, Res};
+use bevy::ecs::system::{Commands, Local, ParamSet, Query, Res};
+use bevy::prelude::DetectChangesMut;
 use pi_bevy_ecs_extend::system_param::res::OrInitRes;
 use pi_render::renderer::vertices::{RenderVertices, EVerticesBufferUsage, RenderIndices};
 use pi_render::rhi::shader::{BindLayout, Input};
@@ -36,7 +37,7 @@ pub fn calc_background_image(
         // 布局修改、BackgroundImage修改、BackgroundImageClip修改、圆角修改或删除，需要修改或创建背景图片的DrawObject
         Query<(Entity, &Canvas, &mut DrawList), (With<Canvas>, With<LayoutResult>, Changed<Canvas>)>,
         // Canvas删除，需要删除对应的DrawObject
-        Query<(Option<&'static Canvas>, &'static mut DrawList)>,
+        Query<(Option<&Canvas>, &mut DrawList)>,
     )>,
 
     mut query_draw: Query<&mut DrawState>,
@@ -50,7 +51,7 @@ pub fn calc_background_image(
     shader_catch: OrInitRes<ShaderInfoCache>,
 ) -> Result<()> {
     // 删除对应的DrawObject
-    clear_draw_obj(*render_type, &del, &mut query.p1(), &mut commands);
+    clear_draw_obj(*render_type, del, query.p1(), &mut commands);
 
     let mut init_spawn_drawobj = Vec::new();
     for (node_id, canvas, mut draw_list) in query.p0().iter_mut() {

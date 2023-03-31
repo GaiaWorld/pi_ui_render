@@ -1,7 +1,7 @@
 use bevy::ecs::{
-    prelude::Entity,
+    prelude::{Entity, RemovedComponents},
     query::{Added, Changed, Or},
-    system::{ParamSet, Query, RemovedComponents, ResMut},
+    system::{ParamSet, Query, ResMut},
 };
 use pi_bevy_render_plugin::{NodeId, PiRenderGraph};
 use pi_slotmap::Key;
@@ -24,7 +24,7 @@ pub fn update_graph(
 			Query<(&ParentPassId, &GraphId)>,
 		),
     )>,
-    del: RemovedComponents<Camera>,
+    mut del: RemovedComponents<Camera>,
     canvas_query: Query<(&Canvas, &InPassId), Changed<Canvas>>,
     mut rg: ResMut<PiRenderGraph>,
 ) {

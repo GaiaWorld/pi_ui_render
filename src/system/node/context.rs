@@ -17,9 +17,9 @@
 //!
 
 use bevy::ecs::{
-    prelude::{Component, Entity, EventReader, EventWriter},
+    prelude::{Component, Entity, EventReader, EventWriter, RemovedComponents},
     query::Changed,
-    system::{Commands, Local, ParamSet, Query, RemovedComponents},
+    system::{Commands, Local, ParamSet, Query},
     world::Mut,
 };
 use pi_bevy_ecs_extend::{
@@ -245,7 +245,7 @@ fn recursive_set_node_context(
 }
 
 pub fn context_attr_del<T: Component>(
-    dels: RemovedComponents<T>,
+    mut dels: RemovedComponents<T>,
     mark_type: usize,
     event_writer: &mut EventWriter<ComponentEvent<Changed<RenderContextMark>>>,
     render_context: &mut Query<&'static mut RenderContextMark>,

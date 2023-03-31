@@ -1,6 +1,7 @@
 use bevy::ecs::{
     query::Changed,
-    system::{Query, RemovedComponents, Res},
+    system::{Query, Res},
+	prelude::RemovedComponents,
 };
 use pi_bevy_asset::ShareAssetMgr;
 use pi_bevy_ecs_extend::system_param::res::{OrInitRes, OrInitResMut};
@@ -20,7 +21,7 @@ use crate::{
 #[allow(unused_must_use)]
 pub fn clear_change(
     mut query: Query<(&ClearColor, &mut ClearColorBindGroup), Changed<ClearColor>>,
-    dels: RemovedComponents<ClearColor>,
+    mut dels: RemovedComponents<ClearColor>,
     ui_meterial_alloter: OrInitRes<ShareGroupAlloter<UiMaterialGroup>>,
     // color_material_bind_group: Res<DynBindGroupIndex<ColorMaterialGroup>>,
 

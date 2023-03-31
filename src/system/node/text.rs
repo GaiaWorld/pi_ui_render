@@ -1,6 +1,7 @@
-use bevy::ecs::prelude::{DetectChanges, Entity};
-use bevy::ecs::query::{ChangeTrackers, Changed, Or, With};
-use bevy::ecs::system::{Commands, Local, ParamSet, Query, RemovedComponents, Res};
+use bevy::ecs::prelude::{DetectChanges, Entity, Ref, RemovedComponents};
+use bevy::ecs::query::{Changed, Or, With};
+use bevy::ecs::system::{Commands, Local, ParamSet, Query, Res};
+use bevy::prelude::DetectChangesMut;
 use ordered_float::NotNan;
 use pi_assets::asset::Handle;
 use pi_assets::mgr::AssetMgr;
@@ -39,7 +40,7 @@ use crate::components::{
     draw_obj::DrawState,
     user::Color,
 };
-use crate::system::utils::clear_draw_obj;
+use crate::system::utils::{clear_draw_obj_mul};
 use crate::utils::tools::{calc_hash, calc_hash_slice};
 
 
@@ -59,13 +60,13 @@ pub fn calc_text(
                 &LayoutResult,
                 OrDefault<TextStyle>,
                 &mut DrawList,
-                ChangeTrackers<TextContent>,
-                ChangeTrackers<NodeState>,
+                Ref<TextContent>,
+                Ref<NodeState>,
             ),
             (With<TextContent>, Or<(Changed<TextStyle>, Changed<NodeState>)>),
         >,
         // TextContent删除，需要删除对应的DrawObject
-        Query<(Option<&'static TextContent>, &'static mut DrawList)>,
+        Query<(Option<&TextContent>, &mut DrawList)>,
     )>,
 
     mut query_draw: Query<(&mut DrawState, &mut PipelineMeta)>,
@@ -130,9 +131,8 @@ pub fn calc_text(
     };
 
     // 删除对应的DrawObject
-    clear_draw_obj(*render_type, &del, &mut query.p1(), &mut commands);
-    // 删除阴影对应的DrawObject
-    clear_draw_obj(*shadow_render_type, &del, &mut query.p1(), &mut commands);
+	// 删除阴影对应的DrawObject
+    clear_draw_obj_mul(&[*render_type, *shadow_render_type], del, query.p1(), &mut commands);
 
     let mut init_spawn_drawobj = Vec::new();
     for (node_id, node_state, layout, text_style, mut draw_list, text_change, node_state_change) in query.p0().iter_mut() {
@@ -242,8 +242,8 @@ fn modify<'a>(
     draw_state: &mut DrawState,
     device: &RenderDevice,
     buffer_assets: &Share<AssetMgr<RenderRes<Buffer>>>,
-    text_change: &ChangeTrackers<TextContent>,
-    node_state_change: &ChangeTrackers<NodeState>,
+    text_change: &Ref<TextContent>,
+    node_state_change: &Ref<NodeState>,
     pipeline_meta: &mut PipelineMeta,
     index_buffer_max_len: &mut usize,
     scale: f32,

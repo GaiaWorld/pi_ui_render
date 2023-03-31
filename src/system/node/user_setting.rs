@@ -135,7 +135,7 @@ pub fn set_image_default_size(
     mut event_reader: EventReader<ComponentEvent<Changed<BackgroundImageTexture>>>,
     mut query: Query<(&mut Size, &BackgroundImageTexture, OrDefault<BackgroundImageClip>, &StyleMark)>,
 
-    removed_components: RemovedComponents<BackgroundImageTexture>,
+    mut removed_components: RemovedComponents<BackgroundImageTexture>,
 ) {
     // 处理删除的图片纹理
     for removed in removed_components.iter() {

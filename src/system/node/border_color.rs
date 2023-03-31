@@ -1,8 +1,9 @@
 //! 圆角从有到删除，没有正确处理顶点（TODO）
 
-use bevy::ecs::prelude::{DetectChanges, Entity};
-use bevy::ecs::query::{ChangeTrackers, Changed, Or, With};
-use bevy::ecs::system::{Commands, Local, ParamSet, Query, RemovedComponents, Res};
+use bevy::ecs::prelude::{DetectChanges, Entity, RemovedComponents, Ref};
+use bevy::ecs::query::{Changed, Or, With};
+use bevy::ecs::system::{Commands, Local, ParamSet, Query, Res};
+use bevy::prelude::DetectChangesMut;
 use pi_assets::asset::Handle;
 use pi_assets::mgr::AssetMgr;
 use pi_atom::Atom;
@@ -53,9 +54,9 @@ pub fn calc_border_color(
                 Option<&BorderRadius>,
                 &LayoutResult,
                 &mut DrawList,
-                ChangeTrackers<BorderColor>,
-                Option<ChangeTrackers<BorderRadius>>,
-                ChangeTrackers<LayoutResult>,
+                Ref<BorderColor>,
+                Option<Ref<BorderRadius>>,
+                Ref<LayoutResult>,
             ),
             (
                 With<BorderColor>,
@@ -81,7 +82,7 @@ pub fn calc_border_color(
     shader_catch: OrInitRes<ShaderInfoCache>,
 ) {
     // 删除对应的DrawObject
-    clear_draw_obj(*render_type, &del, &mut query.p1(), &mut commands);
+    clear_draw_obj(*render_type, del, query.p1(), &mut commands);
 
     let mut init_spawn_drawobj = Vec::new();
     for (node_id, border_color, radius, layout, mut draw_list, background_color_change, radius_change, layout_change) in query.p0().iter_mut() {
@@ -182,13 +183,13 @@ fn modify<'a>(
     draw_state: &mut DrawState,
     device: &RenderDevice,
     buffer_assets: &Share<AssetMgr<RenderRes<Buffer>>>,
-    bg_color_change: &ChangeTrackers<BorderColor>,
-    border_change: &Option<ChangeTrackers<BorderRadius>>,
-    layout_change: &ChangeTrackers<LayoutResult>,
+    bg_color_change: &Ref<BorderColor>,
+    border_change: &Option<Ref<BorderRadius>>,
+    layout_change: &Ref<LayoutResult>,
     pipeline_meta: &mut PipelineMeta,
 ) {
     // 颜色改变，重新设置color_group
-    if bg_color_change.is_changed() || border_change.map_or(false, |r| r.is_changed()) || layout_change.is_changed() {
+    if bg_color_change.is_changed() || border_change.as_ref().map_or(false, |r| r.is_changed()) || layout_change.is_changed() {
         draw_state.bindgroups.set_uniform(&ColorUniform(&[color.x, color.y, color.z, color.w]));
 
         if let Some(border_radius) = border_radius {
@@ -220,7 +221,7 @@ fn modify<'a>(
 
     // 否则，需要切分顶点，如果是渐变色，还要设置color vb
     // ib、position vb、color vb
-    if border_change.map_or(false, |r| r.is_changed()) || layout_change.is_changed() {
+    if border_change.as_ref().map_or(false, |r| r.is_changed()) || layout_change.is_changed() {
         let (radius_hash, border_radius) = match border_radius {
             Some(r) => {
                 let r = cal_border_radius(r, layout);

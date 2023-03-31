@@ -6,7 +6,8 @@ use std::mem::replace;
 use bevy::ecs::{
     prelude::{Entity, World},
     query::Changed,
-    system::{Local, Query, RemovedComponents, Res, ResMut, SystemState},
+    system::{Local, Query, Res, ResMut, SystemState},
+	removal_detection::RemovedComponents,
 };
 
 use crate::{
@@ -37,7 +38,7 @@ pub fn calc_animation(
 
     user_commands: &mut SystemState<ResMut<UserCommands>>,
 ) {
-    let (animation, del, mut keyframes_sheet, cur_time, mut user_commands1) = animation.get_mut(world);
+    let (animation, mut del, mut keyframes_sheet, cur_time, mut user_commands1) = animation.get_mut(world);
     // 解绑定动画
     for del in del.iter() {
         if let Err(_) = animation.get(del) {

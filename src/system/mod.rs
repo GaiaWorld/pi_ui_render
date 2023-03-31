@@ -1,12 +1,15 @@
-use bevy::{prelude::{Resource, App, Events, CoreStage, IntoSystemDescriptor}, ecs::{schedule::ShouldRun, event::Event}};
+use bevy::{prelude::{Resource, App, Events, IntoSystemConfig}, ecs::{event::Event}};
 use pi_bevy_ecs_extend::system_param::res::OrInitRes;
 use pi_bevy_render_plugin::should_run;
+
+use self::system_set::UiSystemSet;
 
 pub mod draw_obj;
 pub mod node;
 pub mod pass;
 pub mod shader_utils;
 pub mod utils;
+pub mod system_set;
 
 // 运行状态
 bitflags::bitflags! {
@@ -30,40 +33,40 @@ impl AddEvent for App {
 	fn add_frame_event<T: Event>(&mut self) -> &mut Self {
 		if !self.world.contains_resource::<Events<T>>() {
 			self.init_resource::<Events<T>>()
-				.add_system_to_stage(CoreStage::Last, Events::<T>::update_system.with_run_criteria(should_run));
+				.add_system(Events::<T>::update_system.run_if(should_run).after(UiSystemSet::PreparePass));
 		}
 		self
 	}
 }
 
 
-pub fn setting_run(state: OrInitRes<RunState>) -> ShouldRun {
+pub fn setting_run(state: OrInitRes<RunState>) -> bool {
 	if **state >= RunState::SETTING {
-		ShouldRun::Yes
+		true
 	} else {
-		ShouldRun::No
+		false
 	}
 }
 
-pub fn layout_run(state: OrInitRes<RunState>) -> ShouldRun {
+pub fn layout_run(state: OrInitRes<RunState>) -> bool {
 	if **state >= RunState::LAYOUT {
-		ShouldRun::Yes
+		true
 	} else {
-		ShouldRun::No
+		false
 	}
 }
 
-pub fn matrix_run(state: OrInitRes<RunState>) -> ShouldRun {
+pub fn matrix_run(state: OrInitRes<RunState>) -> bool {
 	if **state >= RunState::MATRIX {
-		ShouldRun::Yes
+		true
 	} else {
-		ShouldRun::No
+		false
 	}
 }
-pub fn render_run(state: OrInitRes<RunState>) -> ShouldRun {
+pub fn render_run(state: OrInitRes<RunState>) -> bool {
 	if **state >= RunState::RENDER {
-		ShouldRun::Yes
+		true
 	} else {
-		ShouldRun::No
+		false
 	}
 }

@@ -1,9 +1,9 @@
 //! 处理root节点，将root节点标记为渲染上下文（设置RenderContextMark中的位标记）
 
 use bevy::ecs::{
-    prelude::{Entity, EventWriter},
+    prelude::{Entity, EventWriter, RemovedComponents},
     query::{Added, Changed},
-    system::{Commands, ParamSet, Query, RemovedComponents},
+    system::{Commands, ParamSet, Query},
 };
 use pi_bevy_ecs_extend::{prelude::Root, system_param::{layer_dirty::ComponentEvent, res::OrInitRes}};
 
@@ -20,7 +20,7 @@ pub fn root_calc(
         Query<&'static mut RenderContextMark>,
     )>,
 
-    del: RemovedComponents<Root>,
+    mut del: RemovedComponents<Root>,
     mark_type: OrInitRes<RenderContextMarkType<Root>>,
 
     mut event_writer: EventWriter<ComponentEvent<Changed<RenderContextMark>>>,

@@ -1,8 +1,8 @@
 use std::slice;
 
-use bevy::ecs::prelude::Entity;
+use bevy::ecs::prelude::{Entity, RemovedComponents};
 use bevy::ecs::query::{Changed, Or, With};
-use bevy::ecs::system::{Commands, Local, ParamSet, Query, RemovedComponents, Res};
+use bevy::ecs::system::{Commands, Local, ParamSet, Query, Res};
 use pi_assets::mgr::AssetMgr;
 use pi_atom::Atom;
 use pi_bevy_ecs_extend::system_param::res::OrInitRes;
@@ -45,7 +45,7 @@ pub fn calc_box_shadow(
         // 布局修改、颜色修改、圆角修改或删除，需要修改或创建背景色的DrawObject
         Query<(Entity, &BoxShadow, &LayoutResult, &mut DrawList), (With<BoxShadow>, Or<(Changed<BoxShadow>, Changed<LayoutResult>)>)>,
         // BackgroundColor删除，需要删除对应的DrawObject
-        Query<(Option<&'static BoxShadow>, &mut DrawList)>,
+        Query<(Option<&BoxShadow>, &mut DrawList)>,
     )>,
     mut commands: Commands,
 
@@ -62,7 +62,7 @@ pub fn calc_box_shadow(
     shader_catch: OrInitRes<ShaderInfoCache>,
 ) {
     // 删除对应的DrawObject
-    clear_draw_obj(*render_type, &del, &mut query.p1(), &mut commands);
+    clear_draw_obj(*render_type, del, query.p1(), &mut commands);
 
     let mut init_spawn_drawobj = Vec::new();
 
