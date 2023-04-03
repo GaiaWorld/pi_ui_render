@@ -66,8 +66,8 @@ pub fn start<T: Example + Sync + Send + 'static>(example: T) {
 		.add_system(exmple_run.before(user_setting).in_set(UiSystemSet::Setting))
 		.add_startup_system(move |world: &mut World| {
 			exmple1.lock().init(world, (500, 500));
-		})
-		.run();
+		});
+	app.run();
 	
     // let system_schedule = bevy_mod_debugdump::get_schedule(&mut app);
     // let mut file = File::create("system_schedule.dot").unwrap();

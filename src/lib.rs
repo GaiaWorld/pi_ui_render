@@ -32,6 +32,7 @@ pub mod shader;
 
 
 pub mod prelude {
+	use pi_bevy_render_plugin::PiRenderSystemSet;
     use bevy::{app::{App, Plugin}, prelude::{IntoSystemSetConfigs, apply_system_buffers, IntoSystemConfig}};
 
     pub use crate::resource::UserCommands;
@@ -54,6 +55,7 @@ pub mod prelude {
 						UiSystemSet::BaseCalc,
 						UiSystemSet::PrepareDrawOb,
 						UiSystemSet::PreparePass,
+						PiRenderSystemSet,
 					)
 						.chain())
 				.add_plugin(UiShaderPlugin)
@@ -63,6 +65,7 @@ pub mod prelude {
 				.add_system(apply_system_buffers.in_set(UiSystemSet::BaseCalc))
 				.add_system(apply_system_buffers.in_set(UiSystemSet::PrepareDrawOb))
 				.add_system(apply_system_buffers.in_set(UiSystemSet::PreparePass));
+				
         }
     }
 }

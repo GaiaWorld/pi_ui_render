@@ -82,7 +82,7 @@ impl Plugin for UiNodePlugin {
             .add_system(content_box::calc_content_box.after(world_matrix::cal_matrix).in_set(UiSystemSet::BaseCalc))
             .init_resource::<ShareFontSheet>()
             .add_frame_event::<ComponentEvent<Changed<NodeState>>>()
-            .add_system(text_split::text_split.in_set(UiSystemSet::Layout))
+            .add_system(text_split::text_split.before(layout::calc_layout).in_set(UiSystemSet::Layout))
             .add_system(
                 text_glyph::text_glyph.after(world_matrix::cal_matrix).after(text_split::text_split).in_set(UiSystemSet::Matrix),
             )
@@ -103,7 +103,7 @@ impl Plugin for UiNodePlugin {
             .add_system(background_image::calc_background_image.after(layout::calc_layout).in_set(UiSystemSet::BaseCalc))
             .add_system(border_image::calc_border_image.after(layout::calc_layout).in_set(UiSystemSet::BaseCalc))
             .init_resource::<EmptyVertexBuffer>()
-            .add_system(text::calc_text.after(text_glyph::text_glyph).in_set(UiSystemSet::BaseCalc))
+            .add_system(text::calc_text.in_set(UiSystemSet::BaseCalc))
             .add_system(show::calc_show.in_set(UiSystemSet::BaseCalc));
     }
 }

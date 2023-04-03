@@ -46,7 +46,9 @@ pub fn image_change<S: Component + std::ops::Deref<Target = Atom>, D: Component 
 ) {
     // 图片删除，则删除对应的Texture
     for del in del.iter() {
-        commands.entity(del).remove::<D>();
+        if let Some(mut r) = commands.get_entity(del) {
+			r.remove::<D>();
+		};
     }
 
     let mut insert = Vec::new();

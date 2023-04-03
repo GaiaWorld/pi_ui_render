@@ -11,7 +11,7 @@ use bevy::ecs::{
     prelude::EventReader,
     system::{Commands, Res, ResMut},
 };
-use bevy::prelude::{Query, With, IntoSystemConfig};
+use bevy::prelude::{Query, With, IntoSystemConfig, Events};
 use bevy::window::{WindowCreated, WindowResized, Window, PrimaryWindow};
 use pi_assets::{
     asset::{GarbageEmpty, Handle},
@@ -111,6 +111,7 @@ impl Plugin for UiShaderPlugin {
 
 pub fn screen_target_resize(
     mut command: Commands,
+	events1: Res<Events<WindowCreated>>,
     events: EventReader<WindowCreated>,
     resize_events: EventReader<WindowResized>,
     windows: Query<&Window, With<PrimaryWindow>>,
