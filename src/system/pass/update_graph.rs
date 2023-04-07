@@ -18,7 +18,7 @@ use crate::{
 pub fn update_graph(
     mut pass_query: ParamSet<(
         Query<(&mut GraphId, Entity, &ParentPassId, &PostProcessList), Or<(Added<Camera>, Changed<RenderContextMark>)>>,
-        Query<&mut GraphId>,
+        Query<&GraphId>,
         (
 			Query<(&ParentPassId, &GraphId), Changed<ParentPassId>>,
 			Query<(&ParentPassId, &GraphId)>,
@@ -98,10 +98,12 @@ pub fn update_graph(
     // canvas的图节点id由外部系统设置
     let graph_id_query = pass_query.p1();
     for (canvas, in_pass_id) in canvas_query.iter() {
-        if let Ok(parent_graph_id) = graph_id_query.get(***in_pass_id) {
-            if let Err(e) = rg.add_depend(canvas.0, **parent_graph_id) {
-                log::error!("{:?}", e);
-            }
+		if let Ok(from_graph_id) = graph_id_query.get(canvas.0) {
+            if let Ok(to_graph_id) = graph_id_query.get(***in_pass_id) {
+				if let Err(e) = rg.add_depend(**from_graph_id, **to_graph_id) {
+					log::error!("{:?}", e);
+				}
+			}
         }
     }
 }

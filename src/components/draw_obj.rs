@@ -88,6 +88,3 @@ impl Hash for PipelineMeta {
         }
     }
 }
-
-#[derive(Clone, Debug, PartialEq, Eq, Component, Deref, DerefMut)]
-pub struct GraphOut(pub pi_bevy_render_plugin::node::NodeId);

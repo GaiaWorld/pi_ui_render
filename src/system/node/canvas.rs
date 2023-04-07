@@ -1,6 +1,5 @@
 //! 为canvas创建DrawObj
 //! canvas暂不支持圆角
-use std::io::Result;
 
 use bevy::ecs::prelude::{Entity, RemovedComponents};
 use bevy::ecs::query::{Changed, With};
@@ -12,7 +11,7 @@ use pi_render::rhi::shader::{BindLayout, Input};
 use wgpu::IndexFormat;
 
 use crate::components::calc::{EntityKey, LayoutResult, DrawInfo};
-use crate::components::draw_obj::{BoxType, GraphOut, PipelineMeta};
+use crate::components::draw_obj::{BoxType, PipelineMeta};
 use crate::components::user::Canvas;
 use crate::components::DrawBundle;
 use crate::resource::draw_obj::{PosUv1VertexLayout, ProgramMetaRes, ShaderInfoCache, ShareGroupAlloter, UiMaterialGroup};
@@ -30,17 +29,17 @@ use crate::{
 };
 
 /// 创建RenderObject，用于渲染背景颜色
-pub fn calc_background_image(
+pub fn calc_canvas(
     render_type: Local<RenderObjType>,
     del: RemovedComponents<Canvas>,
     mut query: ParamSet<(
         // 布局修改、BackgroundImage修改、BackgroundImageClip修改、圆角修改或删除，需要修改或创建背景图片的DrawObject
-        Query<(Entity, &Canvas, &mut DrawList), (With<Canvas>, With<LayoutResult>, Changed<Canvas>)>,
+        Query<(Entity, &'static Canvas, &'static mut DrawList), (With<Canvas>, With<LayoutResult>, Changed<Canvas>)>,
         // Canvas删除，需要删除对应的DrawObject
-        Query<(Option<&Canvas>, &mut DrawList)>,
+        Query<(Option<&'static Canvas>, &'static mut DrawList)>,
     )>,
 
-    mut query_draw: Query<&mut DrawState>,
+    mut query_draw: Query<&'static mut DrawState>,
     mut commands: Commands,
 
     unit_quad_buffer: Res<UnitQuadBuffer>,
@@ -49,7 +48,7 @@ pub fn calc_background_image(
     program_meta: OrInitRes<ProgramMetaRes<ProgramMeta>>,
     vert_layout: OrInitRes<PosUv1VertexLayout>,
     shader_catch: OrInitRes<ShaderInfoCache>,
-) -> Result<()> {
+) {
     // 删除对应的DrawObject
     clear_draw_obj(*render_type, del, query.p1(), &mut commands);
 
@@ -80,28 +79,27 @@ pub fn calc_background_image(
 
                 init_spawn_drawobj.push((
                     new_draw_obj,
-                    (
-                        DrawBundle {
-                            node_id: NodeId(EntityKey(node_id)),
-                            draw_state,
-                            box_type,
-                            pipeline_meta: PipelineMeta {
-                                program: program_meta.clone(),
-                                state: shader_catch.premultiply.clone(),
-                                vert_layout: vert_layout.clone(),
-                                defines: Default::default(),
-                            },
-                            draw_info: DrawInfo::new(5, true),
-                        },
-                        GraphOut(canvas.0.clone()),
-                    ),
+                    DrawBundle {
+						node_id: NodeId(EntityKey(node_id)),
+						draw_state,
+						box_type,
+						pipeline_meta: PipelineMeta {
+							program: program_meta.clone(),
+							state: shader_catch.premultiply.clone(),
+							vert_layout: vert_layout.clone(),
+							defines: Default::default(),
+						},
+						draw_info: DrawInfo::new(5, true),
+					},
                 ));
                 // 建立Node对DrawObj的索引
                 draw_list.insert(**render_type, new_draw_obj);
             }
         }
     }
-    return Ok(());
+	if init_spawn_drawobj.len() > 0 {
+        commands.insert_or_spawn_batch(init_spawn_drawobj.into_iter());
+    }
 }
 
 // 返回当前需要的StaticIndex

@@ -1,7 +1,7 @@
 use bevy::ecs::{prelude::Component, system::Resource};
 use bitvec::array::BitArray;
 use pi_assets::asset::Handle;
-use pi_bevy_render_plugin::NodeId;
+pub use pi_bevy_render_plugin::component::GraphId;
 use pi_postprocess::postprocess::PostProcess;
 use pi_render::{
     components::view::target_alloc::ShareTargetView,
@@ -52,10 +52,6 @@ pub struct ParentPassId(pub EntityKey);
 
 #[derive(Debug, Default, Deref, DerefMut, Component, Clone)]
 pub struct ChildrenPass(pub Vec<EntityKey>);
-
-/// 渲染图节点
-#[derive(Debug, Default, Deref, DerefMut, Component)]
-pub struct GraphId(pub NodeId);
 
 // 渲染 物件 列表
 #[derive(Debug, Component)]

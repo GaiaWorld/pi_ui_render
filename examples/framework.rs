@@ -16,6 +16,7 @@ use pi_ui_render::system::{RunState, system_set::UiSystemSet};
 use pi_ui_render::{prelude::UiPlugin, resource::UserCommands, system::node::user_setting::user_setting};
 
 pub trait Example: 'static + Sized {
+	// fn setting(world: &mut App) {}
     fn init(&mut self, world: &mut World, size: (usize, usize));
     fn render(&mut self, commands: &mut UserCommands, cmd1: &mut Commands);
 

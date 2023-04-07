@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 use std::mem::transmute;
 
-use bevy::ecs::prelude::{Component, DetectChangesMut};
+use bevy::{ecs::prelude::{Component, DetectChangesMut}, prelude::Entity};
 use bitvec::prelude::BitArray;
 use ordered_float::NotNan;
 use pi_atom::Atom;
@@ -367,7 +367,7 @@ impl Default for FlexNormal {
 
 /// 绘制canvas的图节点
 #[derive(Debug, Clone, Serialize, Deserialize, Component, Deref, DerefMut)]
-pub struct Canvas(pub GraphId);
+pub struct Canvas(pub Entity);
 
 /// 显示改变（一般是指canvas，gui不能感知除了style属性以外的属性改变，如果canvas内容发生改变，应该通过style设置，以便gui能感知，从而设置脏区域）
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Component)]

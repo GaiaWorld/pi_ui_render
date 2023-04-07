@@ -104,6 +104,8 @@ impl Plugin for UiNodePlugin {
             .add_system(border_image::calc_border_image.after(layout::calc_layout).in_set(UiSystemSet::BaseCalc))
             .init_resource::<EmptyVertexBuffer>()
             .add_system(text::calc_text.in_set(UiSystemSet::BaseCalc))
-            .add_system(show::calc_show.in_set(UiSystemSet::BaseCalc));
+            .add_system(show::calc_show.in_set(UiSystemSet::BaseCalc))
+			.add_system(canvas::calc_canvas.in_set(UiSystemSet::BaseCalc))
+			;
     }
 }

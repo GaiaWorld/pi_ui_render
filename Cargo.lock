@@ -3172,19 +3172,6 @@ dependencies = [
 
 [[package]]
 name = "pi_async_graph"
-version = "0.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4330423e5480c24200a1c6eed1260a54eb2f4a4af1c2eda62d1d8c8fabe45268"
-dependencies = [
- "flume",
- "pi_async",
- "pi_futures",
- "pi_graph",
- "pi_share 0.4.4",
-]
-
-[[package]]
-name = "pi_async_graph"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8164fe7fda488f517e70079a07830cd2ea33bc1898db715992d071c288021b3d"
@@ -3230,7 +3217,7 @@ dependencies = [
 [[package]]
 name = "pi_bevy_asset"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_render_bevy.git#6319c6e82905f145732ae4a689eddd9fb649c840"
+source = "git+https://github.com/GaiaWorld/pi_render_bevy.git#f375c7da501a82b1e92afa40df12dc71727b9aa7"
 dependencies = [
  "bevy",
  "pi_assets",
@@ -3242,7 +3229,7 @@ dependencies = [
 [[package]]
 name = "pi_bevy_ecs_extend"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_render_bevy.git#6319c6e82905f145732ae4a689eddd9fb649c840"
+source = "git+https://github.com/GaiaWorld/pi_render_bevy.git#f375c7da501a82b1e92afa40df12dc71727b9aa7"
 dependencies = [
  "bevy",
  "derive_deref",
@@ -3251,7 +3238,7 @@ dependencies = [
  "log",
  "pi_assets",
  "pi_async",
- "pi_async_graph 0.3.3",
+ "pi_async_graph",
  "pi_bevy_ecs_macro",
  "pi_dirty",
  "pi_futures",
@@ -3270,7 +3257,7 @@ dependencies = [
 [[package]]
 name = "pi_bevy_ecs_macro"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_render_bevy.git#6319c6e82905f145732ae4a689eddd9fb649c840"
+source = "git+https://github.com/GaiaWorld/pi_render_bevy.git#f375c7da501a82b1e92afa40df12dc71727b9aa7"
 dependencies = [
  "quote",
  "syn",
@@ -3280,7 +3267,7 @@ dependencies = [
 [[package]]
 name = "pi_bevy_post_process"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_render_bevy.git#6319c6e82905f145732ae4a689eddd9fb649c840"
+source = "git+https://github.com/GaiaWorld/pi_render_bevy.git#f375c7da501a82b1e92afa40df12dc71727b9aa7"
 dependencies = [
  "bevy",
  "pi_assets",
@@ -3295,7 +3282,7 @@ dependencies = [
 [[package]]
 name = "pi_bevy_render_plugin"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_render_bevy.git#6319c6e82905f145732ae4a689eddd9fb649c840"
+source = "git+https://github.com/GaiaWorld/pi_render_bevy.git#f375c7da501a82b1e92afa40df12dc71727b9aa7"
 dependencies = [
  "bevy",
  "crossbeam",
@@ -3318,10 +3305,11 @@ dependencies = [
 [[package]]
 name = "pi_bevy_winit_window"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_render_bevy.git#6319c6e82905f145732ae4a689eddd9fb649c840"
+source = "git+https://github.com/GaiaWorld/pi_render_bevy.git#f375c7da501a82b1e92afa40df12dc71727b9aa7"
 dependencies = [
  "bevy",
  "glam 0.22.0",
+ "log",
  "raw-window-handle 0.5.0",
  "web-sys",
  "winit 0.27.4",
@@ -4333,7 +4321,7 @@ dependencies = [
  "pi_any",
  "pi_assets",
  "pi_async",
- "pi_async_graph 0.4.2",
+ "pi_async_graph",
  "pi_atom 0.2.3",
  "pi_ecs_macros",
  "pi_futures",

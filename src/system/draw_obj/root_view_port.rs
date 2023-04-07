@@ -109,6 +109,10 @@ pub fn view_port_change(
     let ui_meterial_group_alloter: OrInitRes<'static, ShareGroupAlloter<UiMaterialGroup>> = unsafe { transmute(ui_meterial_group_alloter) };
     let allocator: Res<'static, PiSafeAtlasAllocator> = unsafe { transmute(allocator) };
 
+	let pipeline_map: &'static Res<'static, ShareAssetMgr<RenderRes<RenderPipeline>>> = unsafe { transmute(&pipeline_map) };
+    let shader_map: &'static Res<'static, ShareAssetMgr<RenderRes<Program>>> = unsafe { transmute(&shader_map) };
+    let device: &'static Res<'static, PiRenderDevice> = unsafe { transmute(&device) };
+
     let query0: Query<
         'static,
         'static,
@@ -167,14 +171,14 @@ fn render_change_async(
     value: AsyncVariableNonBlocking<Vec<(Entity, Handle<RenderRes<RenderPipeline>>)>>,
     count: Share<AtomicUsize>,
     task_count: &mut usize,
-    pipeline_map: Res<'static, ShareAssetMgr<RenderRes<RenderPipeline>>>,
-    shader_map: Res<'static, ShareAssetMgr<RenderRes<Program>>>,
+    pipeline_map: &'static Res<'static, ShareAssetMgr<RenderRes<RenderPipeline>>>,
+    shader_map: &'static Res<'static, ShareAssetMgr<RenderRes<Program>>>,
 
     unit_quad_buffer: Res<'static, UnitQuadBuffer>,
     image_program_meta: OrInitRes<'static, ProgramMetaRes<ProgramMeta>>,
     vert_layout: OrInitRes<'static, PosUv1VertexLayout>,
     shader_info_catch: OrInitRes<'static, ShaderInfoCache>,
-    device: Res<'static, PiRenderDevice>,
+    device: &'static Res<'static, PiRenderDevice>,
     bind_group_assets: Res<'static, ShareAssetMgr<RenderRes<BindGroup>>>,
 
     // mut copy_draw_obj: WriteRes<'static, CopyFboToScreen>,
@@ -205,9 +209,6 @@ fn render_change_async(
     >,
 ) {
     // let queue = Share::new(SegQueue::new());
-    let pipeline_map: &'static Res<'static, ShareAssetMgr<RenderRes<RenderPipeline>>> = unsafe { transmute(&pipeline_map) };
-    let shader_map: &'static Res<'static, ShareAssetMgr<RenderRes<Program>>> = unsafe { transmute(&shader_map) };
-    let device: &'static Res<'static, PiRenderDevice> = unsafe { transmute(&device) };
 
     for (entity, mut copy_draw_obj, mut render_target, render_target_type, view_port, view_port_ticker, dyn_target_type) in query.iter_mut() {
         if view_port_ticker.is_changed() {
@@ -310,7 +311,7 @@ fn render_change_async(
         let count_copy = count.clone();
         count_copy.fetch_add(1, Ordering::Relaxed);
         *task_count += 1;
-        // log::warn!("zzzzzzzzzzzzzzzzzzzzzzzzzzz====={:p}", &shader_statics.0);
+        
         RENDER_RUNTIME
             .spawn(RENDER_RUNTIME.alloc(), async move {
                 match calc_pipeline(&image_static_index, device, pipeline_map, shader_map).await {

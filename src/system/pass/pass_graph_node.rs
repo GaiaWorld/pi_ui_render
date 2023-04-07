@@ -89,6 +89,7 @@ pub struct QueryParam<'w, 's> {
     ),
     draw_query: Query<'w, 's, (&'static DrawState, &'static NodeId)>,
     node_query: Query<'w, 's, (Option<&'static Canvas>, &'static Quad)>,
+	graph_id_query: Query<'w, 's, &'static GraphId>,
     screen: Res<'w, ScreenTarget>,
     surface: Res<'w, PiScreenTexture>,
     atlas_allocator: Res<'w, PiSafeAtlasAllocator>,
@@ -114,6 +115,7 @@ pub struct Param<'w, 's> {
     pass2d_query: Query<'w, 's, (&'static Camera, &'static Draw2DList, &'static ParentPassId)>,
     draw_query: Query<'w, 's, (&'static DrawState, &'static NodeId)>,
     node_query: Query<'w, 's, (Option<&'static Canvas>, &'static Quad)>,
+	graph_id_query: Query<'w, 's, &'static GraphId>,
     post_query: Query<'w, 's, (&'static PostProcessList, &'static GraphId)>,
     screen: Res<'s, ScreenTarget>,
     atlas_allocator: Res<'s, PiSafeAtlasAllocator>,
@@ -222,6 +224,7 @@ impl Node for Pass2DNode {
                 draw_query: query_param.draw_query,
                 post_query: query_param.pass2d_query.2,
                 node_query: query_param.node_query,
+				graph_id_query: query_param.graph_id_query,
                 last_rt: last_rt,
                 last_rt_type,
                 copy_fbo,
@@ -627,36 +630,38 @@ impl Pass2DNode {
             match e {
                 DrawIndex::DrawObj(e) => {
                     if let Ok((state, node_id)) = param.draw_query.get(**e) {
-                        let (graph_id, quad) = match param.node_query.get(***node_id) {
+                        let (canvas, quad) = match param.node_query.get(***node_id) {
                             Ok(r) => r,
                             _ => continue,
                         };
                         // 如果存在graph_id，表示该渲染对象将输入的一个ShareTargetView作为纹理，渲染到gui上
-                        if let Some(graph_id) = graph_id {
-                            let src = match input.get(&**graph_id) {
-                                Some(r) => match &r.result {
-                                    Some(r) => r,
-                                    None => continue,
-                                },
-                                None => continue,
-                            };
-                            let rect = src.rect();
-                            // 根据纹理大小和渲染目标大小，来确定过滤方式
-                            // 如果大小近似相等，则使用点过滤，否则使用双线性过滤
-                            let s = if ((quad.maxs.x - quad.mins.x) as i32 - rect.width()).abs() <= 1
-                                && ((quad.maxs.y - quad.mins.y) as i32 - rect.height()).abs() <= 1
-                            {
-                                &param.common_sampler.pointer
-                            } else {
-                                &param.common_sampler.default
-                            };
-                            // 这里使用非安全的方式将不可变引用转为可变引用的前提是，Vec在创建时容量足够，使得push时不需要扩容，同时使用Vec的地方不能多线程
-                            unsafe {
-                                &mut *(input_groups as *const Vec<Handle<RenderRes<BindGroup>>> as usize as *mut Vec<Handle<RenderRes<BindGroup>>>)
-                            }
-                            .push(Self::create_post_process_data(src, &param, s));
-                            let index = post_draw.len() - 1;
-                            rp.set_bind_group(SampBind::set(), &input_groups[index], &[])
+                        if let Some(canvas) = canvas {
+							if let Ok(graph_id) = param.graph_id_query.get(canvas.0) {
+								let src = match input.get(&**graph_id) {
+									Some(r) => match &r.result {
+										Some(r) => r,
+										None => continue,
+									},
+									None => continue,
+								};
+								let rect = src.rect();
+								// 根据纹理大小和渲染目标大小，来确定过滤方式
+								// 如果大小近似相等，则使用点过滤，否则使用双线性过滤
+								let s = if ((quad.maxs.x - quad.mins.x) as i32 - rect.width()).abs() <= 1
+									&& ((quad.maxs.y - quad.mins.y) as i32 - rect.height()).abs() <= 1
+								{
+									&param.common_sampler.pointer
+								} else {
+									&param.common_sampler.default
+								};
+								// 这里使用非安全的方式将不可变引用转为可变引用的前提是，Vec在创建时容量足够，使得push时不需要扩容，同时使用Vec的地方不能多线程
+								unsafe {
+									&mut *(input_groups as *const Vec<Handle<RenderRes<BindGroup>>> as usize as *mut Vec<Handle<RenderRes<BindGroup>>>)
+								}
+								.push(Self::create_post_process_data(src, &param, s));
+								let index = input_groups.len() - 1;
+								rp.set_bind_group(SampBind::set(), &input_groups[index], &[])
+							}
                         }
 
 

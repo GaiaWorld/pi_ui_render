@@ -3,8 +3,11 @@
 #[path = "../framework.rs"]
 mod framework;
 
+use std::mem::swap;
+
 use async_trait::async_trait;
-use bevy::prelude::{World, Commands};
+use bevy::{prelude::{World, Commands, Component, Deref}};
+use derive_deref::DerefMut;
 use framework::Example;
 /// 渲染四边形 demo
 use pi_flex_layout::style::{Dimension, PositionType};
@@ -14,7 +17,7 @@ use pi_style::{
     style_type::{BackgroundColorType, HeightType, MarginLeftType, MarginTopType, PositionLeftType, PositionTopType, PositionTypeType, WidthType},
 };
 use pi_ui_render::{
-    components::{user::{CgColor, ClearColor, Color, RenderTargetType, Viewport}, calc::EntityKey, NodeBundle}, resource::{UserCommands, NodeCmd},
+    components::{user::{CgColor, ClearColor, Color, RenderTargetType, Viewport, Canvas}, calc::EntityKey, NodeBundle}, resource::{UserCommands, NodeCmd},
 };
 
 fn main() { framework::start(QuadExample::default()) }
@@ -35,8 +38,24 @@ impl Default for QuadExample {
     }
 }
 
+#[derive(Debug, Component, Deref, DerefMut)]
+pub struct RootTarget(EntityKey);
+
+// pub fn add_root_depend(
+// 	query: Query<(&RootTarget, &GraphId), Changed<RootTarget>>, 
+// 	commands: Commands,
+// 	query_graphid: Query<&GraphId>,
+// ) {
+// 	for root in query.iter() {
+// 		if let Err(e) = rg.add_depend(**graph_id, **parent_graph_id) {
+// 			log::error!("{:?}", e);
+// 		}
+// 	}
+// }
+
 #[async_trait]
 impl Example for QuadExample {
+	
     fn init(&mut self, world: &mut World, size: (usize, usize)) {
         // 设置清屏颜色为绿色
         // self.cmd.world_mut().insert_resource(ClearColor(CgColor::new(0.0, 1.0, 1.0, 1.0)));
@@ -84,7 +103,7 @@ impl Example for QuadExample {
         self.cmd.set_style(root_tow, MarginTopType(Dimension::Points(0.0)));
         self.cmd.append(root_tow, EntityKey::null().0);
 
-        // 添加一个绿红色div到根节点
+        // 添加一个绿色div到根节点
         let div1 = world.spawn(NodeBundle::default()).id();
         self.cmd.set_style(div1, WidthType(Dimension::Points(300.0)));
         self.cmd.set_style(div1, HeightType(Dimension::Points(300.0)));
@@ -93,23 +112,17 @@ impl Example for QuadExample {
         self.cmd.append(div1, root_tow);
 
         self.root_tow = EntityKey(root_tow);
+
+		// 创建一个canvas节点
+		let canvas = world.spawn(NodeBundle::default()).id();
+		self.cmd.set_style(canvas, PositionTypeType(PositionType::Absolute));
+		self.cmd.set_style(canvas, WidthType(Dimension::Points(300.0)));
+		self.cmd.set_style(canvas, HeightType(Dimension::Points(300.0)));
+		self.cmd.set_style(canvas, PositionLeftType(Dimension::Points(100.0)));
+		self.cmd.set_style(canvas, PositionTopType(Dimension::Points(100.0)));
+		self.cmd.push_cmd(NodeCmd(Canvas(root_tow), canvas));
+		self.cmd.append(canvas, self.root_one.0);
     }
 
-    fn render(&mut self, _cmd: &mut UserCommands, _cmd1: &mut Commands) {
-        // if !self.root_tow.is_null() {
-        //     if let Some(r) = self.cmd.get_graph_node_id(self.root_tow.clone()) {
-        //         let canvas = world.spawn(NodeBundle::default()).id();
-        //         self.cmd.set_style(canvas, PositionTypeType(PositionType::Absolute));
-        //         self.cmd.set_style(canvas, WidthType(Dimension::Points(300.0)));
-        //         self.cmd.set_style(canvas, HeightType(Dimension::Points(300.0)));
-        //         self.cmd.set_style(canvas, PositionLeftType(Dimension::Points(100.0)));
-        //         self.cmd.set_style(canvas, PositionTopType(Dimension::Points(100.0)));
-
-        //         self.cmd.push_cmd(NodeCmd(Canvas(r), canvas));
-
-        //         self.cmd.append(canvas, self.root_one);
-        //         self.root_tow = Id::null();
-        //     }
-        // }
-    }
+	fn render(&mut self, cmd: &mut UserCommands, _cmd1: &mut Commands) { swap(&mut self.cmd, cmd); }
 }
