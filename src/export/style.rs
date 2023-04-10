@@ -7578,10 +7578,9 @@
         };
         let atom_hash = match context.atoms.get(&hash) {
             Some(r) => r.get_hash(),
-            None => ::core::panicking::panic_fmt(::core::fmt::Arguments::new_v1(
-                &["can not find atom, hash: "],
-                &[::core::fmt::ArgumentV1::new_display(&hash)],
-            )),
+            None => {
+                ::core::panicking::panic_fmt(format_args!("can not find atom, hash: {0}", hash))
+            }
         };
         set_mask_image(
             gui,
@@ -7648,10 +7647,9 @@
         };
         let atom_hash = match context.atoms.get(&hash) {
             Some(r) => r.get_hash(),
-            None => ::core::panicking::panic_fmt(::core::fmt::Arguments::new_v1(
-                &["can not find atom, hash: "],
-                &[::core::fmt::ArgumentV1::new_display(&hash)],
-            )),
+            None => {
+                ::core::panicking::panic_fmt(format_args!("can not find atom, hash: {0}", hash))
+            }
         };
         set_background_image(
             gui,
@@ -7718,10 +7716,9 @@
         };
         let atom_hash = match context.atoms.get(&hash) {
             Some(r) => r.get_hash(),
-            None => ::core::panicking::panic_fmt(::core::fmt::Arguments::new_v1(
-                &["can not find atom, hash: "],
-                &[::core::fmt::ArgumentV1::new_display(&hash)],
-            )),
+            None => {
+                ::core::panicking::panic_fmt(format_args!("can not find atom, hash: {0}", hash))
+            }
         };
         set_border_image(
             gui,
@@ -7866,10 +7863,9 @@
         };
         let atom_hash = match context.atoms.get(&hash) {
             Some(r) => r.get_hash(),
-            None => ::core::panicking::panic_fmt(::core::fmt::Arguments::new_v1(
-                &["can not find atom, hash: "],
-                &[::core::fmt::ArgumentV1::new_display(&hash)],
-            )),
+            None => {
+                ::core::panicking::panic_fmt(format_args!("can not find atom, hash: {0}", hash))
+            }
         };
         set_font_family(
             gui,
@@ -9194,11 +9190,11 @@
                 f,
                 "Rect",
                 "left",
-                &&self.left,
+                &self.left,
                 "top",
-                &&self.top,
+                &self.top,
                 "width",
-                &&self.width,
+                &self.width,
                 "height",
                 &&self.height,
             )
@@ -9215,7 +9211,7 @@
                 f,
                 "Size",
                 "width",
-                &&self.width,
+                &self.width,
                 "height",
                 &&self.height,
             )

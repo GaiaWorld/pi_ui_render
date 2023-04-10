@@ -3217,7 +3217,7 @@ dependencies = [
 [[package]]
 name = "pi_bevy_asset"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_render_bevy.git#b89d1b4e295f6869a3eb0ad4a79577e4fb90f069"
+source = "git+https://github.com/GaiaWorld/pi_render_bevy.git#c25e034ac94a35a48c77bc3756ee87174e376f40"
 dependencies = [
  "bevy",
  "pi_assets",
@@ -3229,7 +3229,7 @@ dependencies = [
 [[package]]
 name = "pi_bevy_ecs_extend"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_render_bevy.git#b89d1b4e295f6869a3eb0ad4a79577e4fb90f069"
+source = "git+https://github.com/GaiaWorld/pi_render_bevy.git#c25e034ac94a35a48c77bc3756ee87174e376f40"
 dependencies = [
  "bevy",
  "derive_deref",
@@ -3257,7 +3257,7 @@ dependencies = [
 [[package]]
 name = "pi_bevy_ecs_macro"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_render_bevy.git#b89d1b4e295f6869a3eb0ad4a79577e4fb90f069"
+source = "git+https://github.com/GaiaWorld/pi_render_bevy.git#c25e034ac94a35a48c77bc3756ee87174e376f40"
 dependencies = [
  "quote",
  "syn",
@@ -3267,7 +3267,7 @@ dependencies = [
 [[package]]
 name = "pi_bevy_post_process"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_render_bevy.git#b89d1b4e295f6869a3eb0ad4a79577e4fb90f069"
+source = "git+https://github.com/GaiaWorld/pi_render_bevy.git#c25e034ac94a35a48c77bc3756ee87174e376f40"
 dependencies = [
  "bevy",
  "pi_assets",
@@ -3282,7 +3282,7 @@ dependencies = [
 [[package]]
 name = "pi_bevy_render_plugin"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_render_bevy.git#b89d1b4e295f6869a3eb0ad4a79577e4fb90f069"
+source = "git+https://github.com/GaiaWorld/pi_render_bevy.git#c25e034ac94a35a48c77bc3756ee87174e376f40"
 dependencies = [
  "bevy",
  "crossbeam",
@@ -3305,7 +3305,7 @@ dependencies = [
 [[package]]
 name = "pi_bevy_winit_window"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_render_bevy.git#b89d1b4e295f6869a3eb0ad4a79577e4fb90f069"
+source = "git+https://github.com/GaiaWorld/pi_render_bevy.git#c25e034ac94a35a48c77bc3756ee87174e376f40"
 dependencies = [
  "bevy",
  "glam 0.22.0",
@@ -3570,11 +3570,13 @@ dependencies = [
 
 [[package]]
 name = "pi_map"
-version = "0.1.2"
+version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f328630515ae2d03c4f35542d931eb35d6dc0cbcbc68a3c8be024f13e59d4689"
+checksum = "b3ee9d74e43ccbd97f906ed32424eb7ee33763ecbda62d9660b8e99901079a7a"
 dependencies = [
  "pi_hash",
+ "pi_null",
+ "smallvec",
 ]
 
 [[package]]
@@ -3606,9 +3608,9 @@ checksum = "eb24378a9838a3f29b4c10efbe9b807bbb90c533a776f295268bdc972ddebbf9"
 
 [[package]]
 name = "pi_ordmap"
-version = "0.2.0"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c1dbb53e1259e7c63faae4d0112d1291bc01cab7231d6a5051025c58862e1a96"
+checksum = "cc704f4fae1ab08fc45da841fb93e977408a7d4a3e0d9843c26d976abdecbab3"
 
 [[package]]
 name = "pi_polygon"
@@ -5281,7 +5283,7 @@ dependencies = [
  "js-sys",
  "log",
  "naga",
- "parking_lot 0.11.2",
+ "parking_lot 0.12.1",
  "profiling",
  "raw-window-handle 0.5.0",
  "smallvec",
@@ -5307,7 +5309,7 @@ dependencies = [
  "fxhash",
  "log",
  "naga",
- "parking_lot 0.11.2",
+ "parking_lot 0.12.1",
  "profiling",
  "raw-window-handle 0.5.0",
  "smallvec",
@@ -5346,7 +5348,7 @@ dependencies = [
  "metal",
  "naga",
  "objc",
- "parking_lot 0.11.2",
+ "parking_lot 0.12.1",
  "profiling",
  "range-alloc",
  "raw-window-handle 0.5.0",
