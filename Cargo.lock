@@ -3217,7 +3217,7 @@ dependencies = [
 [[package]]
 name = "pi_bevy_asset"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_render_bevy.git#f375c7da501a82b1e92afa40df12dc71727b9aa7"
+source = "git+https://github.com/GaiaWorld/pi_render_bevy.git#b89d1b4e295f6869a3eb0ad4a79577e4fb90f069"
 dependencies = [
  "bevy",
  "pi_assets",
@@ -3229,7 +3229,7 @@ dependencies = [
 [[package]]
 name = "pi_bevy_ecs_extend"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_render_bevy.git#f375c7da501a82b1e92afa40df12dc71727b9aa7"
+source = "git+https://github.com/GaiaWorld/pi_render_bevy.git#b89d1b4e295f6869a3eb0ad4a79577e4fb90f069"
 dependencies = [
  "bevy",
  "derive_deref",
@@ -3257,7 +3257,7 @@ dependencies = [
 [[package]]
 name = "pi_bevy_ecs_macro"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_render_bevy.git#f375c7da501a82b1e92afa40df12dc71727b9aa7"
+source = "git+https://github.com/GaiaWorld/pi_render_bevy.git#b89d1b4e295f6869a3eb0ad4a79577e4fb90f069"
 dependencies = [
  "quote",
  "syn",
@@ -3267,7 +3267,7 @@ dependencies = [
 [[package]]
 name = "pi_bevy_post_process"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_render_bevy.git#f375c7da501a82b1e92afa40df12dc71727b9aa7"
+source = "git+https://github.com/GaiaWorld/pi_render_bevy.git#b89d1b4e295f6869a3eb0ad4a79577e4fb90f069"
 dependencies = [
  "bevy",
  "pi_assets",
@@ -3282,7 +3282,7 @@ dependencies = [
 [[package]]
 name = "pi_bevy_render_plugin"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_render_bevy.git#f375c7da501a82b1e92afa40df12dc71727b9aa7"
+source = "git+https://github.com/GaiaWorld/pi_render_bevy.git#b89d1b4e295f6869a3eb0ad4a79577e4fb90f069"
 dependencies = [
  "bevy",
  "crossbeam",
@@ -3305,7 +3305,7 @@ dependencies = [
 [[package]]
 name = "pi_bevy_winit_window"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_render_bevy.git#f375c7da501a82b1e92afa40df12dc71727b9aa7"
+source = "git+https://github.com/GaiaWorld/pi_render_bevy.git#b89d1b4e295f6869a3eb0ad4a79577e4fb90f069"
 dependencies = [
  "bevy",
  "glam 0.22.0",

@@ -6,6 +6,7 @@ use bevy::ecs::query::{Changed, With};
 use bevy::ecs::system::{Commands, Local, ParamSet, Query, Res};
 use bevy::prelude::DetectChangesMut;
 use pi_bevy_ecs_extend::system_param::res::OrInitRes;
+use pi_bevy_render_plugin::component::GraphId;
 use pi_render::renderer::vertices::{RenderVertices, EVerticesBufferUsage, RenderIndices};
 use pi_render::rhi::shader::{BindLayout, Input};
 use wgpu::IndexFormat;
@@ -39,6 +40,7 @@ pub fn calc_canvas(
         Query<(Option<&'static Canvas>, &'static mut DrawList)>,
     )>,
 
+	mut query_graph: Query<&'static GraphId>,
     mut query_draw: Query<&'static mut DrawState>,
     mut commands: Commands,
 
@@ -54,9 +56,9 @@ pub fn calc_canvas(
 
     let mut init_spawn_drawobj = Vec::new();
     for (node_id, canvas, mut draw_list) in query.p0().iter_mut() {
-        match draw_list.get(**render_type) {
+        match (draw_list.get(**render_type),  query_graph.get(canvas.0)) {
             // canvas修改，只需要发出通知（canvas使用单位矩形渲染，没有需要修改的其他属性）
-            Some(r) => {
+            (Some(r), _) => {
                 let mut draw_state = match query_draw.get_mut(*r) {
                     Ok(r) => r,
                     _ => continue,
@@ -66,7 +68,7 @@ pub fn calc_canvas(
                 draw_state.set_changed();
             }
             // 否则，创建一个新的DrawObj;
-            None => {
+            (None, Ok(graph_id)) => {
                 // 创建新的DrawObj
                 let new_draw_obj = commands.spawn_empty().id();
                 // 设置DrawState（包含color group）
@@ -79,22 +81,26 @@ pub fn calc_canvas(
 
                 init_spawn_drawobj.push((
                     new_draw_obj,
-                    DrawBundle {
-						node_id: NodeId(EntityKey(node_id)),
-						draw_state,
-						box_type,
-						pipeline_meta: PipelineMeta {
-							program: program_meta.clone(),
-							state: shader_catch.premultiply.clone(),
-							vert_layout: vert_layout.clone(),
-							defines: Default::default(),
-						},
-						draw_info: DrawInfo::new(5, true),
-					},
+                    (
+						DrawBundle {
+							node_id: NodeId(EntityKey(node_id)),
+							draw_state,
+							box_type,
+							pipeline_meta: PipelineMeta {
+								program: program_meta.clone(),
+								state: shader_catch.premultiply.clone(),
+								vert_layout: vert_layout.clone(),
+								defines: Default::default(),
+							},
+							draw_info: DrawInfo::new(5, true),
+						}, 
+						graph_id.clone()
+					),
                 ));
                 // 建立Node对DrawObj的索引
                 draw_list.insert(**render_type, new_draw_obj);
-            }
+            },
+			_ => ()
         }
     }
 	if init_spawn_drawobj.len() > 0 {

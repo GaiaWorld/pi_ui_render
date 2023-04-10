@@ -101,7 +101,7 @@ pub fn update_graph(
 		if let Ok(from_graph_id) = graph_id_query.get(canvas.0) {
             if let Ok(to_graph_id) = graph_id_query.get(***in_pass_id) {
 				if let Err(e) = rg.add_depend(**from_graph_id, **to_graph_id) {
-					log::error!("{:?}", e);
+					log::error!("add_depend fail, {:?}", e);
 				}
 			}
         }
