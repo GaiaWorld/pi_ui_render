@@ -158,7 +158,7 @@ pub fn calc_border_image(
                             vert_layout: vert_layout.clone(),
                             defines: Default::default(),
                         },
-                        draw_info: DrawInfo::new(4, border_texture.is_opacity), //TODO
+                        draw_info: DrawInfo::new(5, border_texture.is_opacity), //TODO
                     },
                 ));
                 // 建立Node对DrawObj的索引

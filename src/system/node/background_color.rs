@@ -139,7 +139,7 @@ pub fn calc_background(
                         vert_layout: vert_layout1.clone(),
                         defines: Default::default(),
                     },
-                    draw_info: DrawInfo::new(9, false), //TODO
+                    draw_info: DrawInfo::new(2, false), //TODO
                 };
                 draw_bundle.node_id = NodeId(EntityKey(node));
 

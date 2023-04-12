@@ -92,7 +92,7 @@ pub fn calc_canvas(
 								vert_layout: vert_layout.clone(),
 								defines: Default::default(),
 							},
-							draw_info: DrawInfo::new(5, true),
+							draw_info: DrawInfo::new(6, true),
 						}, 
 						graph_id.clone()
 					),

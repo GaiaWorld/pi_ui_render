@@ -319,15 +319,16 @@ pub fn calc_camera_depth_and_renderlist(
             continue;
         }
 
+		// 按深度从小到大排序
         list.all_list.sort_by(|(_a, a_z_depth, a_sort), (_b, b_z_depth, b_sort)| {
             if a_z_depth.start < b_z_depth.start {
                 std::cmp::Ordering::Less
             } else if a_z_depth.start > b_z_depth.start {
                 std::cmp::Ordering::Greater
             } else {
-                if a_sort < b_sort {
+                if a_sort.order() < b_sort.order() {
                     std::cmp::Ordering::Less
-                } else if a_sort > b_sort {
+                } else if a_sort.order() > b_sort.order() {
                     std::cmp::Ordering::Greater
                 } else {
                     std::cmp::Ordering::Equal
