@@ -97,13 +97,13 @@ impl Plugin for UiNodePlugin {
                 context_transform_will_change::transform_willchange_calc.before(context::cal_context).in_set(UiSystemSet::BaseCalc),
             )
             .add_system(context_root::root_calc.before(context::cal_context).in_set(UiSystemSet::BaseCalc))
+			.init_resource::<EmptyVertexBuffer>()
+			.add_system(background_image::calc_background_image.after(layout::calc_layout).in_set(UiSystemSet::BaseCalc))
+			.add_system(text::calc_text.in_set(UiSystemSet::BaseCalc))
             .add_system(background_color::calc_background.after(layout::calc_layout).in_set(UiSystemSet::BaseCalc))
             .add_system(border_color::calc_border_color.after(layout::calc_layout).in_set(UiSystemSet::BaseCalc))
+			.add_system(border_image::calc_border_image.after(layout::calc_layout).in_set(UiSystemSet::BaseCalc))
             .add_system(box_shadow::calc_box_shadow.after(layout::calc_layout).in_set(UiSystemSet::BaseCalc))
-            .add_system(background_image::calc_background_image.after(layout::calc_layout).in_set(UiSystemSet::BaseCalc))
-            .add_system(border_image::calc_border_image.after(layout::calc_layout).in_set(UiSystemSet::BaseCalc))
-            .init_resource::<EmptyVertexBuffer>()
-            .add_system(text::calc_text.in_set(UiSystemSet::BaseCalc))
             .add_system(show::calc_show.in_set(UiSystemSet::BaseCalc))
 			.add_system(canvas::calc_canvas.in_set(UiSystemSet::BaseCalc))
 			;

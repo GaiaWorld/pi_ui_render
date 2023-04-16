@@ -304,7 +304,7 @@ async fn async_calc_pipeline(
 
     // 创建pipline
     let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-        label: None,
+        label: Some(&pipeline_meta.program.shader_meta.name),
         layout: Some(&shader_info.pipeline_layout),
         vertex: wgpu::VertexState {
             module: &shader_info.vs_shader,

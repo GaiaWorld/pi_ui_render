@@ -2,9 +2,9 @@ use bevy::{ecs::{
     prelude::{Entity, Ref},
     query::{Changed, With},
     system::{ParamSet, Query},
-}, prelude::DetectChanges};
+}, prelude::{DetectChanges, EventReader}};
 
-use pi_bevy_ecs_extend::prelude::Layer;
+use pi_bevy_ecs_extend::{prelude::Layer};
 use pi_style::style::Aabb2;
 
 use crate::{
@@ -14,7 +14,7 @@ use crate::{
         pass_2d::{ChildrenPass, DirtyRect, DirtyRectState},
         user::{ShowChange, Viewport},
     },
-    utils::tools::{box_aabb, calc_aabb},
+    utils::tools::{box_aabb, calc_aabb}, system::node::world_matrix::OldQuad,
 };
 
 pub struct CalcDirtyRect;
@@ -28,6 +28,7 @@ pub struct CalcDirtyRect;
 /// 根据每个Pass的脏区域，计算全局脏区域
 pub fn calc_global_dirty_rect(
     query_draw_obj: Query<&NodeId, Changed<DrawState>>,
+	mut _quad_olds: EventReader<OldQuad>,
     query_node1: Query<(&InPassId, &Quad)>,
     query_node_content_box: Query<&ContentBox>,
 
@@ -42,7 +43,7 @@ pub fn calc_global_dirty_rect(
     )>,
     mut query_root: Query<(&mut RootDirtyRect, &'static Viewport, Ref<Viewport>), With<Viewport>>,
 ) {
-    // 如果有节点修改了ShowChange，需要设置脏区域
+	// 如果有节点修改了ShowChange，需要设置脏区域
     let mut p2 = query_pass.p2();
     for (quad, in_pass_id) in query_show_change.iter() {
         mark_pass_dirty_rect(***in_pass_id, &*quad, &mut p2);
@@ -106,6 +107,27 @@ pub fn calc_global_dirty_rect(
             pass_dirty_rect.state = DirtyRectState::UnInit;
         }
     }
+
+	// // 处理包围盒改变前的区域，与脏区域求并
+	// for OldQuad{ quad, entity, root} in quad_olds.iter() {
+	// 	let (mut dirty_rect, _viewport, viewport_tracker) = match query_root.get_mut(*root) {
+    //         Ok(r) => r,
+    //         _ => continue,
+    //     };
+	// 	// 视口改变，全局脏区域就为视口
+    //     if viewport_tracker.is_changed() {
+    //         continue;
+    //     }
+
+	// 	let aabb = match &will_change_matrix.0 {
+	// 		Some(matrix) => calc_aabb(&pass_dirty_rect.value, &matrix.will_change),
+	// 		None => pass_dirty_rect.value.clone(),
+	// 	};
+
+	// 	box_aabb(&mut dirty_rect.value, &aabb);
+	// 	dirty_rect.state = DirtyRectState::Inited;
+	// 	pass_dirty_rect.state = DirtyRectState::UnInit;
+    // }
 }
 
 /// 本函数执行先决条件： Quad、ContentBox已经准备好

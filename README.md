@@ -18,18 +18,24 @@
 
 
 TODO
+测试gui性能 
+	+ 利用feature屏蔽掉info一下的日志（性能将大幅度提升， 以layout为例，可以从400ms降为10ms）
+	+ 谨慎使用bevy command的**insert_or_spawn_batch**方法， 可能进入巨大的性能陷阱
+	+ 某些场景smallvecmap代替vecmap（calc_background_image system从48ms降低至35ms）
+	+ 利用par_iter, 充分并行任务
+fbo分配， 增加padding（已知项目有黑线问题）
+sdf文字
 overflow优化： 如果一个设置了overflow的旋转节点，相对于父上下文未旋转，这该节点不需要成为一个renderPass
 旋转时的抗锯齿
 dyn_uniform_buffer， 未使用的buffer进入到资源管理器进行回收
-层脏的mark使用bitvec？
+层脏的mark使用bitvec？（不合理， mark中需要记录层）
 样式默认值
 文字阴影
 文字异步渲染
 渲染管线异步
-圆角锯齿
 调试工具
 跑通项目
-ecs支持foreach
+ecs支持foreach（不需要， 现在使用bevy）
 文档
 接入动画（动画运行system、动画css解析，js层兼容，构建系统兼容） 事件
 psd 加快构建速度
@@ -39,7 +45,7 @@ set_canvas_size(支持canvas TODO)
 DispatcherMgr 优化循环
 css 解析，友好的错误提示
 依赖库去重
-gui支持多个根
+gui支持多个根 （完成）
 thread 'Default-Single-Worker' panicked at 'Error in Surface::configure: Both `Surface` width and height must be non-zero. Wait to recreate the `Surface` until the window has non-zero area.
 重置gui大小
 设备丢失

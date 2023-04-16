@@ -67,7 +67,7 @@ pub fn calc_box_shadow(
     let mut init_spawn_drawobj = Vec::new();
 
     for (node_id, box_shadow, layout, mut draw_list) in query.p0().iter_mut() {
-        match draw_list.get(**render_type) {
+        match draw_list.get(**render_type as u32) {
             // background_color已经存在一个对应的DrawObj， 则修改color group
             Some(r) => {
                 let mut draw_state = match query_draw.get_mut(*r) {
@@ -117,7 +117,7 @@ pub fn calc_box_shadow(
                     },
                 ));
                 // 建立Node对DrawObj的索引
-                draw_list.insert(**render_type, new_draw_obj);
+                draw_list.insert(**render_type as u32, new_draw_obj);
             }
         }
     }

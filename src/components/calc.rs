@@ -1,4 +1,5 @@
 use bevy::ecs::prelude::{Component, Entity};
+use pi_map::smallvecmap::SmallVecMap;
 use std::hash::Hash;
 /// 中间计算的组件
 use std::{
@@ -10,7 +11,6 @@ use bitvec::prelude::BitArray;
 use nalgebra::Matrix4;
 use ordered_float::NotNan;
 use pi_assets::asset::Handle;
-use pi_map::vecmap::VecMap;
 use pi_null::Null;
 use pi_render::rhi::asset::TextureRes;
 use pi_share::Share;
@@ -334,14 +334,14 @@ impl WorldMatrix {
 // #[storage = ]
 #[derive(Clone, Debug, Component, Serialize, Deserialize)]
 // #[storage(QuadTree)]
-pub struct Quad(pub Aabb2, ());
+pub struct Quad(pub Aabb2);
 
 impl Quad {
-    pub fn new(aabb: Aabb2) -> Quad { Quad(aabb, ()) }
+    pub fn new(aabb: Aabb2) -> Quad { Quad(aabb) }
 }
 
 impl Default for Quad {
-    fn default() -> Self { Self(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)), ()) }
+    fn default() -> Self { Self(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(0.0, 0.0))) }
 }
 
 impl Deref for Quad {
@@ -549,7 +549,7 @@ pub struct DefineMark(bitvec::prelude::BitArray);
 
 /// 每节点的渲染列表
 #[derive(Deref, DerefMut, Default, Debug, Component)]
-pub struct DrawList(pub VecMap<Entity>); // SmallVec, TODO
+pub struct DrawList(pub SmallVecMap<Entity, 3>); // SmallVec, TODO
 
 /// 视图
 /// 每个Pass2d都必须存在一个视图

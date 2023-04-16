@@ -58,10 +58,20 @@ pub fn calc_layout(
     )>,
     mut inodes: Query<&'static mut NodeState>,
     idtree: EntityTree,
+
     dirtys: Query<
         (
             Entity,
-            &'static Size,
+			(OrDefault<Size>,
+			OrDefault<Margin>,
+			OrDefault<Padding>,
+			OrDefault<Border>,
+			OrDefault<Position>,
+			OrDefault<MinMax>,
+			OrDefault<FlexContainer>,
+			OrDefault<FlexNormal>,
+			OrDefault<Show>),
+
             Option<Ref<Size>>,
             Option<Ref<Margin>>,
             Option<Ref<Padding>>,
@@ -70,8 +80,8 @@ pub fn calc_layout(
             Option<Ref<MinMax>>,
             Option<Ref<FlexContainer>>,
             Option<Ref<FlexNormal>>,
+			Option<Ref<Show>>,
             Option<Ref<Layer>>,
-            Option<Ref<Show>>,
             Option<Ref<TextContent>>,
             Option<Ref<TextStyle>>,
         ),
@@ -122,102 +132,144 @@ pub fn calc_layout(
         style: &layout_styles,
     };
     let mut layout = Layout(layout_context);
+	let mut count = 0;
 
     // 遍历布局脏节点，重新设置脏为层次脏
-    for (
-        e,
-        s,
-        size,
-        margin,
-        padding,
-        border,
-        position,
-        min_max,
-        flex_container,
-        flex_normal,
-        layer,
-        show,
-        text_context,
-        text_style,
-        // char_node
-    ) in dirtys.iter()
-    {
-        if size.map_or(false, |size| size.is_changed())
-            || position.map_or(false, |position| position.is_changed())
-            || margin.map_or(false, |margin| margin.is_changed())
-            || layer.as_ref().map_or(false, |layer| layer.is_changed())
-            || min_max.map_or(false, |min_max| min_max.is_changed())
-        {
-            // log::warn!("set rect ===================={:?}, {:?}, {:?}, {:?}", e, layout.0.style.get(LayoutKey {
-            // 	entity: e,
-            // 	text_index: usize::null(),
-            // }), size.map_or(false, |size| size.is_changed() ), s);
+	{
+		#[cfg(feature="trace")]
+		let _ss = tracing::info_span!("layout set dirty").entered();
+		for (
+			e,
 
-            layout.set_rect(
-                &mut layer_dirty,
-                LayoutKey {
-                    entity: e,
-                    text_index: usize::null(),
-                },
-                true,
-                true,
-            );
-        }
+			(size,
+			margin,
+			padding,
+			border,
+			position,
+			min_max,
+			flex_container,
+			flex_normal,
+			show),
 
-        // 文字修改，容器属性修改、层脏，则需要标记子脏
-        if text_context.map_or(false, |text_context| text_context.is_changed())
-            || text_style.map_or(false, |text_style| text_style.is_changed())
-            || flex_container.map_or(false, |flex_container| flex_container.is_changed())
-            || layer.map_or(false, |layer| layer.is_changed())
-        {
-            // log::info!("mark_children_dirty ===================={:?}", e);
-            layout.mark_children_dirty(
-                &mut layer_dirty,
-                LayoutKey {
-                    entity: e,
-                    text_index: usize::null(),
-                },
-            );
-        }
+			size_dirty,
+			margin_dirty,
+			padding_dirty,
+			border_dirty,
+			position_dirty,
+			min_max_dirty,
+			flex_container_dirty,
+			flex_normal_dirty,
+			show_dirty,
+			layer,
+			text_context,
+			text_style,
+			
+			// char_node
+		) in dirtys.iter()
+		{	
+			let (rect_dirty, children_dirty, normal_style_dirty, self_style_dirty, display_dirty) = (
+				size_dirty.map_or(false, |size| size.is_changed())
+				|| position_dirty.map_or(false, |position| position.is_changed())
+				|| margin_dirty.map_or(false, |margin| margin.is_changed())
+				|| layer.as_ref().map_or(false, |layer| layer.is_changed())
+				|| min_max_dirty.map_or(false, |min_max| min_max.is_changed()),
+
+				text_context.map_or(false, |text_context| text_context.is_changed())
+				|| text_style.map_or(false, |text_style| text_style.is_changed())
+				|| flex_container_dirty.map_or(false, |flex_container| flex_container.is_changed())
+				|| layer.map_or(false, |layer| layer.is_changed()),
+
+				flex_normal_dirty.map_or(false, |flex_normal| flex_normal.is_changed()),
+
+				padding_dirty.map_or(false, |padding| padding.is_changed()) || border_dirty.map_or(false, |border| border.is_changed()) ,
+
+				show_dirty.map_or(false, |show| show.is_changed()),
+			);
+
+			if !(rect_dirty || children_dirty || normal_style_dirty || self_style_dirty || display_dirty) {
+				continue;
+			}
+
+			let k = LayoutKey {
+				entity: e,
+				text_index: usize::null(),
+			};
+			let style = LayoutStyle ((
+				size,
+				margin,
+				padding,
+				border,
+				position,
+				min_max,
+				flex_container,
+				flex_normal,
+				show,
+			));
+
+			if rect_dirty {
+				// let __ss = inodes.get_mut(e).map(|mut s| s.state.self_dirty_true());
+				// layer_dirty.
+				// log::warn!("set rect ===================={:?}, {:?}, {:?}, {:?}", e, layout.0.style.get(LayoutKey {
+				// 	entity: e,
+				// 	text_index: usize::null(),
+				// }), size.map_or(false, |size| size.is_changed() ), s);
+
+				layout.set_rect(
+					&mut layer_dirty,
+					k,
+					true,
+					true,
+					&style,
+				);
+			}
+
+			// 文字修改，容器属性修改、层脏，则需要标记子脏
+			if children_dirty {
+				// log::info!("mark_children_dirty ===================={:?}", e);
+				layout.mark_children_dirty(
+					&mut layer_dirty,
+					k,
+				);
+			}
 
 
-        if flex_normal.map_or(false, |flex_normal| flex_normal.is_changed()) {
-            // log::info!("calc layout2===================={:?}", e);
-            layout.set_normal_style(
-                &mut layer_dirty,
-                LayoutKey {
-                    entity: e,
-                    text_index: usize::null(),
-                },
-            );
-        }
+			if normal_style_dirty {
+				// log::info!("calc layout2===================={:?}", e);
+				layout.set_normal_style(
+					&mut layer_dirty,
+					k,
+					&style,
+				);
+			}
 
-        if padding.map_or(false, |padding| padding.is_changed()) || border.map_or(false, |border| border.is_changed()) {
-            // log::info!("calc layout3===================={:?}", e);
-            layout.set_self_style(
-                LayoutKey {
-                    entity: e,
-                    text_index: usize::null(),
-                },
-                &mut layer_dirty,
-            );
-        }
+			if self_style_dirty {
+				// log::info!("calc layout3===================={:?}", e);
+				layout.set_self_style(
+					k,
+					&mut layer_dirty,
+					&style,
+				);
+			}
 
-        if show.map_or(false, |show| show.is_changed()) {
-            // log::info!("calc layout5===================={:?}", e);
-            layout.set_display(
-                LayoutKey {
-                    entity: e,
-                    text_index: usize::null(),
-                },
-                &mut layer_dirty,
-            );
-        }
-        // println!("set layout end==============={:?}", e);
-    }
+			if display_dirty {
+				// log::info!("calc layout5===================={:?}", e);
+				layout.set_display(
+					k,
+					&mut layer_dirty,
+					&style,
+				);
+			}
 
-    // log::info!("calc layout6===================={:?}", layer_dirty.count());
+			count += 1;
+			// println!("set layout end==============={:?}", e);
+		}
+	}
+
+	#[cfg(feature="trace")]
+	let layer_dirty_count = layer_dirty.count();
     // 计算布局
+	#[cfg(feature="trace")]
+	let _sss = tracing::info_span!("layout compute", count, layer_dirty_count).entered();
     layout.compute(&mut layer_dirty);
 }
 

@@ -5,10 +5,10 @@
 //! 4. 为pass2D创建对应的图节点，并添加依赖关系
 //! 5. 为删除的pass2D删除图节点，并建立正确的依赖关系
 
-use bevy::ecs::{
+use bevy::{ecs::{
     prelude::Entity,
     system::{ParamSet, Query, Res, ResMut},
-};
+}, prelude::DetectChangesMut};
 use nalgebra::Orthographic3;
 use pi_assets::{mgr::AssetMgr};
 use pi_bevy_asset::ShareAssetMgr;
@@ -66,7 +66,7 @@ pub fn calc_camera_depth_and_renderlist(
         ),
         (Query<(&Camera, &View)>, Query<&'static mut PostProcessList>),
     )>,
-    query_node: Query<(&RootDirtyRect, OrDefault<RenderDirty>, &Viewport)>,
+    mut query_root: ParamSet<(Query<(&RootDirtyRect, OrDefault<RenderDirty>, &Viewport)>, Query<&mut RenderDirty>)>,
     mut draw_state: Query<&'static mut DrawState>,
     draw_info: Query<&DrawInfo>,
 
@@ -86,6 +86,7 @@ pub fn calc_camera_depth_and_renderlist(
     // mut postprocess_pipelines: ResMut<PiPostProcessMaterialMgr>,
 ) {
     let (share_layout, device, queue, buffer_assets, bind_group_assets, group_alloc_center) = res;
+	let p0 = query_root.p0();
     for (
         entity,
         mut camera,
@@ -99,7 +100,7 @@ pub fn calc_camera_depth_and_renderlist(
     {
         camera.is_active = false;
 
-        let (global_dirty_rect, render_dirty_mark, viewport) = match query_node.get(layer.root()) {
+        let (global_dirty_rect, render_dirty_mark, viewport) = match p0.get(layer.root()) {
             Ok(r) => r,
             _ => continue,
         };
@@ -288,14 +289,12 @@ pub fn calc_camera_depth_and_renderlist(
             if is_show.get_visibility() && intersects(quad, &context_dirty.no_will_change) {
                 let mut list = p0.get_mut(***in_pass_id).unwrap();
                 let list = &mut list;
-                for draw_id in draw_list.iter() {
-                    if let Some(draw_id) = draw_id {
-                        list.all_list.push((
-                            DrawIndex::DrawObj(EntityKey(*draw_id)),
-                            z_range.clone(),
-                            *draw_info.get(*draw_id).unwrap(),
-                        ));
-                    }
+                for (draw_id, _) in draw_list.iter() {
+                    list.all_list.push((
+						DrawIndex::DrawObj(EntityKey(*draw_id)),
+						z_range.clone(),
+						*draw_info.get(*draw_id).unwrap(),
+					));
                 }
             } else {
 				// log::warn!("cull======{:?}, {:?}, is_show: {:?}", quad, &context_dirty.no_will_change, is_show.get_visibility());
@@ -389,6 +388,11 @@ pub fn calc_camera_depth_and_renderlist(
     }
 
     group_alloc_center.write_buffer(&device, &queue);
+
+	// 重置渲染脏
+	for mut i in query_root.p1().iter_mut() {
+		**i = false;
+	}
 }
 
 pub fn create_project(left: f32, right: f32, top: f32, bottom: f32) -> Matrix4 {
@@ -459,7 +463,7 @@ fn alloc_depth_one<'a>(draw_key: Entity, draw_state: &'a mut Query<&'static mut 
         Ok(r) => r,
         _ => return,
     };
-    draw_state.bindgroups.insert_group(DepthBind::set(), DrawBindGroup::Independ(depth_cache.list[*cur_depth].clone()));
+    draw_state.bypass_change_detection().bindgroups.insert_group(DepthBind::set(), DrawBindGroup::Independ(depth_cache.list[*cur_depth].clone()));
 
     *cur_depth += 1;
 }

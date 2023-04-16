@@ -51,13 +51,13 @@ pub fn image_change<S: Component + std::ops::Deref<Target = Atom>, D: Component 
 		};
     }
 
-    let mut insert = Vec::new();
+    // let mut insert = Vec::new();
 
     // 处理图片路径修改，尝试加载图片（异步加载，加载完成后，放入image_await中）
     for (entity, key) in query.iter() {
         let result = AssetMgr::load(&texture_assets_mgr, &(key.get_hash() as u64));
         match result {
-            LoadResult::Ok(r) => insert.push((entity, D::from(r))),
+            LoadResult::Ok(r) => {commands.entity(entity).insert(D::from(r));}
             _ => {
                 let (awaits, device, queue) = ((*image_await).clone(), (*device).clone(), (*queue).clone());
                 let (id, key) = (entity, (*key).clone());
@@ -82,7 +82,7 @@ pub fn image_change<S: Component + std::ops::Deref<Target = Atom>, D: Component 
                     })
                     .unwrap();
             }
-        }
+        };
     }
 
     // 处理已经成功加载的图片，放入到对应组件中
@@ -95,7 +95,8 @@ pub fn image_change<S: Component + std::ops::Deref<Target = Atom>, D: Component 
                 }
 
                 // log::info!("load success====================:{:?}", key);
-                insert.push((id, D::from(texture)));
+                // insert.push((id, D::from(texture)));
+				commands.entity(id).insert(D::from(texture));
                 event_writer.send(ComponentEvent::new(id));
             }
             // 节点已经销毁，或image已经被删除，不需要设置texture
@@ -103,7 +104,12 @@ pub fn image_change<S: Component + std::ops::Deref<Target = Atom>, D: Component 
         };
     }
 
-    if insert.len() > 0 {
-        commands.insert_or_spawn_batch(insert.into_iter());
-    }
+    // if insert.len() > 0 {
+	// 	#[cfg(feature="trace")]
+	// 	let count = insert.len();
+	// 	#[cfg(feature="trace")]
+	// 	let _ss = tracing::info_span!("image load", count).entered();
+
+    //     commands.insert_or_spawn_batch(insert.into_iter());
+    // }
 }

@@ -62,10 +62,10 @@ pub mod prelude {
                 .add_plugin(UiNodePlugin)
                 .add_plugin(UiReadyDrawPlugin)
                 .add_plugin(UiPassPlugin)
+				.add_system(apply_system_buffers.in_set(UiSystemSet::Load))
 				.add_system(apply_system_buffers.in_set(UiSystemSet::BaseCalc))
 				.add_system(apply_system_buffers.in_set(UiSystemSet::PrepareDrawOb))
 				.add_system(apply_system_buffers.in_set(UiSystemSet::PreparePass));
-				
         }
     }
 }

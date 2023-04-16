@@ -3465,8 +3465,6 @@ checksum = "acdcfb7c46949fd3d2a18863da12e34fa718fecc21f8274cd1decbaef4ec3c42"
 [[package]]
 name = "pi_flex_layout"
 version = "0.2.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "26e6c5ad30c891c1a9e7ec32ebd1b90c632e3d6282a5a5e974a4eebde866ab7d"
 dependencies = [
  "log",
  "paste 0.1.18",
@@ -3905,6 +3903,7 @@ dependencies = [
  "siphasher",
  "smallvec",
  "spin_sleep",
+ "tracing",
  "uuid",
  "wasm-bindgen",
  "web-sys",

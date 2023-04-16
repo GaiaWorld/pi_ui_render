@@ -58,6 +58,7 @@ pub struct CalcMatrix;
 #[derive(Debug)]
 pub struct OldQuad {
     pub entity: Entity,
+	pub root: Entity,
     pub quad: Quad,
 }
 
@@ -72,7 +73,7 @@ pub struct OldQuad {
 /// 计算世界矩阵
 /// 世界矩阵以自身左上角为原点
 pub fn cal_matrix(
-    query: Query<(Option<&Transform>, &LayoutResult, &Up)>,
+    query: Query<(Option<&Transform>, &LayoutResult, &Up, &Layer)>,
     mut matrix_calc: ParamSet<(Query<(&LayoutResult, &WorldMatrix)>, Query<(&mut WorldMatrix, &mut Quad)>)>,
     mut dirtys: LayerDirty<Or<(Changed<LayoutResult>, Changed<Layer>)>>,
     transform_change: Query<Entity, Changed<Transform>>,
@@ -85,11 +86,15 @@ pub fn cal_matrix(
         dirtys.mark(e);
     }
 
+	let layer_dirty_count = dirtys.count();
+    // 计算布局
+	let _sss = tracing::info_span!("matrix compute", layer_dirty_count).entered();
+
     for id in dirtys.iter() {
         // log::warn!("start parent==========={:?}",id);
 
         // print_parent(&idtree, id);
-        if let Ok((transform, layout, up)) = query.get(id) {
+        if let Ok((transform, layout, up, layer)) = query.get(id) {
             let parent_id = up.parent();
 
             let width = layout.rect.right - layout.rect.left;
@@ -149,7 +154,7 @@ pub fn cal_matrix(
             // 将计算结果写入组件
             match matrix_calc.p1().get_mut(id) {
                 Ok((mut world_matrix, mut quad)) => {
-                    calc_quad(id, layout, &matrix, &mut quad, &mut quad_tree, &mut event_writer, &mut event_writer1);
+                    calc_quad(id, layout, &matrix, &mut quad, &mut quad_tree, &mut event_writer, &mut event_writer1, layer);
                     *world_matrix = matrix;
                 }
                 Err(_) => {}
@@ -166,6 +171,7 @@ pub fn calc_quad(
     quad_tree: &mut QuadTree,
     event_writer: &mut EventWriter<ComponentEvent<Changed<Quad>>>,
     event_writer1: &mut EventWriter<OldQuad>,
+	layer: &Layer,
 ) {
     let width = layout.rect.right - layout.rect.left;
     let height = layout.rect.bottom - layout.rect.top;
@@ -174,7 +180,7 @@ pub fn calc_quad(
     let item = Quad::new(aabb);
     // 在修改oct前，先发出一个删除事件，一些sys能够通过监听该事件知道在删除前，quad的值（如脏区域系统，需要了解oct在修改之前的值，来更新脏区域）
     if let Some(r) = quad_tree.get(&EntityKey(id)) {
-        event_writer1.send(OldQuad { entity: id, quad: r.clone() });
+        event_writer1.send(OldQuad { entity: id, quad: r.clone(), root: layer.root() });
     }
     event_writer.send(ComponentEvent::new(id));
 

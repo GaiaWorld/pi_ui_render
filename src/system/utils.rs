@@ -20,7 +20,7 @@ pub fn clear_draw_obj<'w, 's, T: Component>(
                 continue;
             }
             // 删除对应的DrawObject
-            if let Some(draw_obj) = draw_list.remove(*render_type) {
+            if let Some(draw_obj) = draw_list.remove(*render_type as u32) {
                 commands.entity(draw_obj).despawn();
             }
         }
@@ -40,7 +40,7 @@ pub fn clear_draw_obj_mul<'w, 's, T: Component>(
             }
             // 删除对应的DrawObject
 			for i in render_types.iter() {
-				if let Some(draw_obj) = draw_list.remove(**i) {
+				if let Some(draw_obj) = draw_list.remove(**i as u32) {
 					commands.entity(draw_obj).despawn();
 				}
 			}

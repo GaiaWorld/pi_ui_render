@@ -1,10 +1,10 @@
 //! 每个实体必须写入StyleMark组件
 use std::intrinsics::transmute;
 
-use bevy::ecs::{
+use bevy::{ecs::{
     prelude::{Changed, Entity, EventReader, Local, Query, RemovedComponents, ResMut, World},
     system::SystemState,
-};
+}, prelude::With};
 use bitvec::array::BitArray;
 use pi_bevy_ecs_extend::{
     prelude::{EntityTreeMut, OrDefault},
@@ -15,7 +15,7 @@ use pi_null::Null;
 use pi_slotmap_tree::InsertType;
 use pi_time::Instant;
 
-use crate::{resource::{ClassSheet, QuadTree}, components::calc::EntityKey};
+use crate::{resource::{ClassSheet, QuadTree}, components::{calc::{EntityKey}, user::{Viewport, RenderDirty}}};
 use crate::{
     components::{
         calc::{BackgroundImageTexture, DrawList, StyleMark, StyleType},
@@ -34,7 +34,7 @@ pub fn user_setting(
     commands: &mut SystemState<(ResMut<UserCommands>, ResMut<ClassSheet>)>,
 
     state: &mut SystemState<(ResMut<TimeInfo>, Query<&DrawList>, Query<Entity>, EntityTreeMut)>,
-	quad_tree: &mut SystemState<ResMut<QuadTree>>,
+	quad_delete: &mut SystemState<(ResMut<QuadTree>, Query<Entity, With<Viewport>>)>,
     style_query: Local<StyleQuery>,
 	mut destroy_entity_list: Local<Vec<Entity>>, // 需要销毁的实体列表作为本地变量，避免每次重新分配内存
 ) {
@@ -93,16 +93,32 @@ pub fn user_setting(
 
 	// 删除需要销毁的实体
 	if destroy_entity_list.len() > 0 {
+		// let mut quad_tree = quad_tree.0.get_mut(world);
+		// for entity in destroy_entity_list.iter() {
+		// 	if let Some(r) = quad_tree.remove(EntityKey(*entity)) {
+		// 		// 删除时需要发送该事件， 以便后续计算脏区域
+		// 		// event_writer.send(OldQuad { entity: *entity, quad: Quad(r.0) });
+		// 		// 设置全局脏
+		// 	}
+		// }
+		// Query<(&RootDirtyRect, OrDefault<RenderDirty>, &Viewport)>,
+
+		// 删除实体
 		for entity in destroy_entity_list.iter() {
 			world.despawn(*entity);
 		}
 
+		destroy_entity_list.clear();
+
 		// 删除包围盒
-		let mut quad_tree = quad_tree.get_mut(world);
+		let (mut quad_tree, roots) = quad_delete.get_mut(world);
 		for entity in destroy_entity_list.iter() {
 			quad_tree.remove(EntityKey(*entity));
 		}
-		destroy_entity_list.clear();
+		// 设置所有的root渲染脏（节点删除后， 组件被删除，很多状态丢失， 除非立即处理脏区域）
+		for r in roots.iter().collect::<Vec<Entity>>() {
+			world.entity_mut(r).insert(RenderDirty(true));
+		}
 	}
 
     let mut setting = Setting { style: &style_query, world };
@@ -263,10 +279,8 @@ fn set_class(node: Entity, style_query: &mut Setting, class: ClassName, class_sh
 fn delete_draw_list(id: Entity, draw_list: &Query<&DrawList>, draw_objects: &mut Vec<Entity>) {
     draw_objects.push(id);
     if let Ok(list) = draw_list.get(id) {
-        for i in list.iter() {
-            if let Some(r) = i {
-                draw_objects.push(*r);
-            }
+        for (i, _) in list.iter() {
+            draw_objects.push(*i);
         }
     }
 }

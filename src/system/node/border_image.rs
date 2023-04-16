@@ -92,7 +92,7 @@ pub fn calc_border_image(
     for (node_id, border_image, border_texture, border_image_clip, border_image_slice, border_image_repeat, layout, mut draw_list) in
         query.p0().iter_mut()
     {
-        match draw_list.get(**render_type) {
+        match draw_list.get(**render_type as u32) {
             // borderimage已经存在一个对应的DrawObj， 则修改color group
             Some(r) => {
                 let mut draw_state = match query_draw.get_mut(*r) {
@@ -162,7 +162,7 @@ pub fn calc_border_image(
                     },
                 ));
                 // 建立Node对DrawObj的索引
-                draw_list.insert(**render_type, new_draw_obj);
+                draw_list.insert(**render_type as u32, new_draw_obj);
             }
         }
     }

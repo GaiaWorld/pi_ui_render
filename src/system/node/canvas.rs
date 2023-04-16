@@ -40,7 +40,7 @@ pub fn calc_canvas(
         Query<(Option<&'static Canvas>, &'static mut DrawList)>,
     )>,
 
-	mut query_graph: Query<&'static GraphId>,
+	query_graph: Query<&'static GraphId>,
     mut query_draw: Query<&'static mut DrawState>,
     mut commands: Commands,
 
@@ -56,7 +56,7 @@ pub fn calc_canvas(
 
     let mut init_spawn_drawobj = Vec::new();
     for (node_id, canvas, mut draw_list) in query.p0().iter_mut() {
-        match (draw_list.get(**render_type),  query_graph.get(canvas.0)) {
+        match (draw_list.get(**render_type as u32),  query_graph.get(canvas.0)) {
             // canvas修改，只需要发出通知（canvas使用单位矩形渲染，没有需要修改的其他属性）
             (Some(r), _) => {
                 let mut draw_state = match query_draw.get_mut(*r) {
@@ -98,7 +98,7 @@ pub fn calc_canvas(
 					),
                 ));
                 // 建立Node对DrawObj的索引
-                draw_list.insert(**render_type, new_draw_obj);
+                draw_list.insert(**render_type as u32, new_draw_obj);
             },
 			_ => ()
         }
