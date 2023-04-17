@@ -1,8 +1,7 @@
 use bevy::ecs::prelude::{DetectChanges, Entity, Ref, RemovedComponents};
 use bevy::ecs::query::{Changed, Or, With};
 use bevy::ecs::system::{Commands, Local, ParamSet, Query, Res};
-use bevy::prelude::{DetectChangesMut, ParallelCommands};
-use bevy::tasks::ComputeTaskPool;
+use bevy::prelude::DetectChangesMut;
 use ordered_float::NotNan;
 use pi_assets::asset::Handle;
 use pi_assets::mgr::AssetMgr;
@@ -24,7 +23,7 @@ use pi_share::Share;
 use wgpu::IndexFormat;
 
 use crate::components::calc::{DrawInfo, EntityKey, LayoutResult, NodeState};
-use crate::components::draw_obj::PipelineMeta;
+use crate::components::draw_obj::{PipelineMeta, TextMark};
 use crate::components::user::{CgColor, TextContent, TextStyle};
 use crate::components::DrawBundle;
 use crate::resource::draw_obj::{
@@ -70,10 +69,9 @@ pub fn calc_text(
         Query<(Option<&TextContent>, &mut DrawList)>,
     )>,
 
-    query_draw: Query<(&mut DrawState, &mut PipelineMeta)>,
+    mut query_draw: Query<(&mut DrawState, &mut PipelineMeta)>,
 
     mut commands: Commands,
-	commands_parallel: ParallelCommands,
 
     ui_material_alloter: OrInitRes<ShareGroupAlloter<UiMaterialGroup>>,
     text_texture_group: Option<Res<TextTextureGroup>>,
@@ -106,16 +104,10 @@ pub fn calc_text(
     let texture_group = if size.width != texture_size.0 || size.height != texture_size.1 || text_texture_group.is_none() {
         let texture_group_layout = &shader_static.bind_group_layout[SampBind::set() as usize];
         let texture_group_key = calc_hash(&("TEXT TETURE", size.width, size.height), 0);
-		let texture_group = match AssetMgr::load(&bind_group_assets, &texture_group_key) {
-			pi_assets::mgr::LoadResult::Ok(r) => r,
-			pi_assets::mgr::LoadResult::Wait(r) => {
-				let mut r = ComputeTaskPool::get().scope(|scope| {
-					scope.spawn(async {r.await});
-				});
-				r.pop().unwrap().unwrap()
-			},
-			pi_assets::mgr::LoadResult::Receiver(receiver) => {
-				let group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        let texture_group = match bind_group_assets.get(&texture_group_key) {
+            Some(r) => r,
+            None => {
+                let group = device.create_bind_group(&wgpu::BindGroupDescriptor {
                     layout: texture_group_layout,
                     entries: &[
                         wgpu::BindGroupEntry {
@@ -129,12 +121,9 @@ pub fn calc_text(
                     ],
                     label: Some("post process texture bind group create"),
                 });
-				let mut r = ComputeTaskPool::get().scope(|scope| {
-					scope.spawn(async {receiver.receive(texture_group_key, Ok(RenderRes::new(group, 5))).await});
-				});
-				r.pop().unwrap().unwrap()
-			},
-		};
+                bind_group_assets.insert(texture_group_key, RenderRes::new(group, 5)).unwrap()
+            }
+        };
         commands.insert_resource(TextTextureGroup(texture_group.clone()));
         texture_group
     } else {
@@ -146,20 +135,16 @@ pub fn calc_text(
     clear_draw_obj_mul(&[*render_type, *shadow_render_type], del, query.p1(), &mut commands);
 
     // let mut init_spawn_drawobj = Vec::new();
-	let mut p0 = query.p0();
-	let mut iter =  p0.par_iter_mut();
-	let query_draw = &query_draw as *const Query<(&mut DrawState, &mut PipelineMeta)> as usize;
-	iter.for_each_mut(|(node_id, node_state, layout, text_style, mut draw_list, text_change, node_state_change)| {
-		if node_state.0.scale < 0.000001 {
-            return;
+    for (node_id, node_state, layout, text_style, mut draw_list, text_change, node_state_change) in query.p0().iter_mut() {
+        if node_state.0.scale < 0.000001 {
+            continue;
         }
         match draw_list.get(**render_type as u32) {
             // text已经存在一个对应的DrawObj， 则修改color group
             Some(r) => {
-				let query_draw = unsafe {&mut *(query_draw as *mut Query<(&mut DrawState, &mut PipelineMeta)>)};
                 let (mut draw_state, mut pipeline_meta) = match query_draw.get_mut(*r) {
                     Ok(r) => r,
-                    _ => return,
+                    _ => continue,
                 };
                 let old_hash = calc_hash(&*pipeline_meta, 0);
                 let pipeline_meta1 = pipeline_meta.bypass_change_detection();
@@ -239,8 +224,8 @@ pub fn calc_text(
                 //         draw_info: DrawInfo(8),
                 //     },
                 // ));
-				commands_parallel.command_scope(|mut commands| {
-					let new_draw_obj = commands.spawn(
+				let new_draw_obj = commands.spawn(
+					(
 						DrawBundle {
 							node_id: NodeId(EntityKey(node_id)),
 							draw_state,
@@ -248,17 +233,14 @@ pub fn calc_text(
 							pipeline_meta,
 							draw_info: DrawInfo(8),
 						},
-					).id();
-					// 建立Node对DrawObj的索引
-					draw_list.insert(**render_type as u32, new_draw_obj);
-				});
-				
+						TextMark
+					),
+				).id();
+                // 建立Node对DrawObj的索引
+                draw_list.insert(**render_type as u32, new_draw_obj);
             }
         }
-	});
-    // for (node_id, node_state, layout, text_style, mut draw_list, text_change, node_state_change) in query.p0().iter_mut() {
-        
-    // }
+    }
     // if init_spawn_drawobj.len() > 0 {
     //     commands.insert_or_spawn_batch(init_spawn_drawobj.into_iter());
     // }
@@ -505,16 +487,10 @@ fn fill_uv(positions: &mut Vec<f32>, uvs: &mut Vec<f32>, i: usize, start: usize)
 
 fn get_or_create_index_buffer(count: usize, device: &RenderDevice, buffer_assets: &Share<AssetMgr<RenderRes<Buffer>>>) -> Handle<RenderRes<Buffer>> {
     let key = calc_hash(&count, calc_hash(&"index", 0));
-	match AssetMgr::load(&buffer_assets, &key) {
-		pi_assets::mgr::LoadResult::Ok(r) => r,
-		pi_assets::mgr::LoadResult::Wait(r) => {
-			let mut r = ComputeTaskPool::get().scope(|scope| {
-				scope.spawn(async {r.await});
-			});
-			r.pop().unwrap().unwrap()
-		},
-		pi_assets::mgr::LoadResult::Receiver(receiver) => {
-			let mut index_data: Vec<u16> = Vec::with_capacity(count * 6);
+    match buffer_assets.get(&key) {
+        Some(r) => r,
+        None => {
+            let mut index_data: Vec<u16> = Vec::with_capacity(count * 6);
             let mut i: u16 = 0;
             while (i as usize) < count * 6 {
                 index_data.extend_from_slice(&[i, i + 1, i + 2, i, i + 2, i + 3]);
@@ -526,12 +502,9 @@ fn get_or_create_index_buffer(count: usize, device: &RenderDevice, buffer_assets
                 contents: bytemuck::cast_slice(&index_data),
                 usage: wgpu::BufferUsages::INDEX,
             });
-			let mut r = ComputeTaskPool::get().scope(|scope| {
-				scope.spawn(async {receiver.receive(key, Ok(RenderRes::new(uniform_buf, index_data.len() * 2))).await});
-			});
-			r.pop().unwrap().unwrap()
-		},
-	}
+            buffer_assets.insert(key, RenderRes::new(uniform_buf, index_data.len() * 2)).unwrap()
+        }
+    }
 }
 
 fn get_or_create_buffer(
@@ -541,26 +514,17 @@ fn get_or_create_buffer(
     buffer_assets: &Share<AssetMgr<RenderRes<Buffer>>>,
 ) -> Handle<RenderRes<Buffer>> {
     let key = calc_hash_slice(buffer, calc_hash(&"vert", 0));
-	match AssetMgr::load(&buffer_assets, &key) {
-		pi_assets::mgr::LoadResult::Ok(r) => r,
-		pi_assets::mgr::LoadResult::Wait(r) => {
-			let mut r = ComputeTaskPool::get().scope(|scope| {
-				scope.spawn(async {r.await});
-			});
-			r.pop().unwrap().unwrap()
-		},
-		pi_assets::mgr::LoadResult::Receiver(receiver) => {
-			let uniform_buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
+    match buffer_assets.get(&key) {
+        Some(r) => r,
+        None => {
+            let uniform_buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
                 label: Some(label),
                 contents: buffer,
                 usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
             });
-			let mut r = ComputeTaskPool::get().scope(|scope| {
-				scope.spawn(async {receiver.receive(key, Ok(RenderRes::new(uniform_buf, buffer.len()))).await});
-			});
-			r.pop().unwrap().unwrap()
-		},
-	}
+            buffer_assets.insert(key, RenderRes::new(uniform_buf, buffer.len())).unwrap()
+        }
+    }
 }
 
 fn get_or_create_buffer_index(
@@ -570,26 +534,17 @@ fn get_or_create_buffer_index(
     buffer_assets: &Share<AssetMgr<RenderRes<Buffer>>>,
 ) -> Handle<RenderRes<Buffer>> {
     let key = calc_hash_slice(buffer, calc_hash(&"index", 0));
-	match AssetMgr::load(&buffer_assets, &key) {
-		pi_assets::mgr::LoadResult::Ok(r) => r,
-		pi_assets::mgr::LoadResult::Wait(r) => {
-			let mut r = ComputeTaskPool::get().scope(|scope| {
-				scope.spawn(async {r.await});
-			});
-			r.pop().unwrap().unwrap()
-		},
-		pi_assets::mgr::LoadResult::Receiver(receiver) => {
-			let uniform_buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
+    match buffer_assets.get(&key) {
+        Some(r) => r,
+        None => {
+            let uniform_buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
                 label: Some(label),
                 contents: buffer,
                 usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
             });
-			let mut r = ComputeTaskPool::get().scope(|scope| {
-				scope.spawn(async {receiver.receive(key, Ok(RenderRes::new(uniform_buf, buffer.len()))).await});
-			});
-			r.pop().unwrap().unwrap()
-		},
-	}
+            buffer_assets.insert(key, RenderRes::new(uniform_buf, buffer.len())).unwrap()
+        }
+    }
 }
 
 #[allow(unused_variables)]

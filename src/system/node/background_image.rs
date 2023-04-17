@@ -1,10 +1,8 @@
 use bevy::ecs::prelude::{Entity, RemovedComponents};
 use bevy::ecs::query::{Changed, Or, With};
 use bevy::ecs::system::{Commands, Local, ParamSet, Query, Res};
-use bevy::prelude::ParallelCommands;
-use bevy::tasks::ComputeTaskPool;
 use pi_assets::asset::Handle;
-use pi_assets::mgr::{AssetMgr, LoadResult};
+use pi_assets::mgr::AssetMgr;
 use pi_atom::Atom;
 use pi_bevy_asset::ShareAssetMgr;
 use pi_bevy_ecs_extend::prelude::OrDefault;
@@ -23,7 +21,7 @@ use pi_style::style::ImageRepeatOption;
 use wgpu::IndexFormat;
 
 use crate::components::calc::{BackgroundImageTexture, DrawInfo, EntityKey, LayoutResult, NodeId};
-use crate::components::draw_obj::{BoxType, PipelineMeta};
+use crate::components::draw_obj::{BoxType, PipelineMeta, BackgroundImageMark};
 use crate::components::user::{Aabb2, BackgroundImageClip, BackgroundImageMod, FitType, NotNanRect, Point2, Vector2};
 use crate::components::DrawBundle;
 use crate::resource::draw_obj::{CommonSampler, PosUv1VertexLayout, ProgramMetaRes, ShaderInfoCache, ShareGroupAlloter, UiMaterialGroup};
@@ -65,9 +63,8 @@ pub fn calc_background_image(
         Query<(Option<&'static BackgroundImageTexture>, &'static mut DrawList)>,
     )>,
     // mut query_draw: Query<(&'static mut DrawState, &mut BoxType, &'static mut StaticIndex, &'static mut FSDefines, &'static mut VSDefines)>,
-    query_draw: Query<(&mut DrawState, &mut BoxType)>,
-    commands_parallel: ParallelCommands,
-	mut commands: Commands,
+    mut query_draw: Query<(&mut DrawState, &mut BoxType)>,
+    mut commands: Commands,
 
     device: Res<PiRenderDevice>,
 
@@ -87,20 +84,18 @@ pub fn calc_background_image(
     let texture_group_layout = &program_meta.bind_group_layout[SampBind::set() as usize];
 
     // let mut init_spawn_drawobj = Vec::new();
-	let query_draw = &query_draw as *const Query<(&mut DrawState, &mut BoxType)> as usize;
-	let mut p0 = query.p0();
-	let mut iter =  p0.par_iter_mut();
-	iter.for_each_mut(|(node_id, background_image, layout, mut draw_list, background_image_clip, background_image_mod, background_image_texture)| {
-		match draw_list.get(**render_type as u32) {
+    for (node_id, background_image, layout, mut draw_list, background_image_clip, background_image_mod, background_image_texture) in
+        query.p0().iter_mut()
+    {
+        match draw_list.get(**render_type as u32) {
             // background_color已经存在一个对应的DrawObj， 则修改color group
             Some(r) => {
-				let query_draw = unsafe {&mut *(query_draw as *mut Query<(&mut DrawState, &mut BoxType)>)};
                 let (mut draw_state, mut old_box_type) = match query_draw.get_mut(*r) {
                     Ok(r) => r,
-                    _ => return,
+                    _ => continue,
                 };
 
-                let box_type = modify_background_image(
+                let box_type = modify(
                     &background_image,
                     layout,
                     &mut draw_state,
@@ -128,7 +123,7 @@ pub fn calc_background_image(
                 let ui_material_group = ui_meterial_alloter.alloc();
                 draw_state.bindgroups.insert_group(UiMaterialBind::set(), ui_material_group);
 
-                let box_type = modify_background_image(
+                let box_type = modify(
                     &background_image,
                     layout,
                     &mut draw_state,
@@ -158,33 +153,29 @@ pub fn calc_background_image(
                 //         draw_info: DrawInfo::new(3, false), //TODO
                 //     },
                 // ));
-				commands_parallel.command_scope(|mut commands| {
-					let new_draw_obj = commands.spawn(
-					DrawBundle {
-								node_id: NodeId(EntityKey(node_id)),
-								draw_state,
-								box_type,
-								pipeline_meta: PipelineMeta {
-									program: program_meta.clone(),
-									state: shader_catch.common.clone(),
-									vert_layout: vert_layout.clone(),
-									defines: Default::default(),
-								},
-								draw_info: DrawInfo::new(3, false), //TODO
-							}
-					).id();
-					// 建立Node对DrawObj的索引
-					draw_list.insert(**render_type as u32, new_draw_obj);
-				})
+				let new_draw_obj = commands.spawn(
+				
+				(
+						DrawBundle {
+							node_id: NodeId(EntityKey(node_id)),
+							draw_state,
+							box_type,
+							pipeline_meta: PipelineMeta {
+								program: program_meta.clone(),
+								state: shader_catch.common.clone(),
+								vert_layout: vert_layout.clone(),
+								defines: Default::default(),
+							},
+							draw_info: DrawInfo::new(3, false), //TODO
+						},
+						BackgroundImageMark,
+					)
+				).id();
+                // 建立Node对DrawObj的索引
+                draw_list.insert(**render_type as u32, new_draw_obj);
             }
         }
-	});
-
-    // for (node_id, background_image, layout, mut draw_list, background_image_clip, background_image_mod, background_image_texture) in
-    //     query.p0().iter_mut()
-    // {
-        
-    // }
+    }
 
 	// TODO
     // if init_spawn_drawobj.len() > 0 {
@@ -193,7 +184,7 @@ pub fn calc_background_image(
 }
 
 // 返回当前需要的StaticIndex
-fn modify_background_image(
+fn modify(
     image: &BackgroundImage,
     layout: &LayoutResult,
     draw_state: &mut DrawState,
@@ -224,36 +215,26 @@ fn modify_background_image(
                 unit_quad_buffer.vertex.clone()
             } else {
                 let uv_key = calc_hash(&"texture uv", calc_float_hash(&[*clip.top, *clip.right, *clip.bottom, *clip.left], 0));
-				match AssetMgr::load(&buffer_assets, &uv_key) {
-					pi_assets::mgr::LoadResult::Ok(r) => r,
-					pi_assets::mgr::LoadResult::Wait(r) => {
-						let mut r = ComputeTaskPool::get().scope(|scope| {
-							scope.spawn(async {r.await});
-						});
-						r.pop().unwrap().unwrap()
-					},
-					pi_assets::mgr::LoadResult::Receiver(receiver) => {
-						let uvs = [
-							*clip.left,
-							*clip.top,
-							*clip.right,
-							*clip.top,
-							*clip.right,
-							*clip.bottom,
-							*clip.left,
-							*clip.bottom,
-						];
-						let buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
-							label: Some("background image uv buffer init"),
-							contents: bytemuck::cast_slice(&uvs),
-							usage: wgpu::BufferUsages::VERTEX,
-						});
-						let mut r = ComputeTaskPool::get().scope(|scope| {
-							scope.spawn(async {receiver.receive(uv_key, Ok(RenderRes::new(buf, uvs.len() * 2))).await});
-						});
-						r.pop().unwrap().unwrap()
-					},
-				}
+                if let Some(r) = buffer_assets.get(&uv_key) {
+                    r
+                } else {
+                    let uvs = [
+                        *clip.left,
+                        *clip.top,
+                        *clip.right,
+                        *clip.top,
+                        *clip.right,
+                        *clip.bottom,
+                        *clip.left,
+                        *clip.bottom,
+                    ];
+                    let buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
+                        label: Some("background image uv buffer init"),
+                        contents: bytemuck::cast_slice(&uvs),
+                        usage: wgpu::BufferUsages::VERTEX,
+                    });
+                    buffer_assets.insert(uv_key, RenderRes::new(buf, uvs.len() * 2)).unwrap()
+                }
             },
             unit_quad_buffer.index.clone(),
             BoxType::ContentRect,
@@ -267,125 +248,49 @@ fn modify_background_image(
         let index_key = calc_hash(&"index vert", hash);
         let uv_key = calc_hash(&"texture uv", calc_float_hash(&[*clip.top, *clip.right, *clip.bottom, *clip.left], hash));
 
-		match (AssetMgr::load(&buffer_assets, &vertex_key), AssetMgr::load(&buffer_assets, &uv_key), AssetMgr::load(&buffer_assets, &index_key)) {
-			(LoadResult::Ok(vert), LoadResult::Ok(uv), LoadResult::Ok(index)) => (vert, uv, index, BoxType::ContentNone),
-			(vert_buffer, uv_buffer, index_buffer) => {
-				let (pos, uv, texture_size, _is_part) = get_pos_uv(texture, clip, background_image_mod, layout);
+        match (buffer_assets.get(&vertex_key), buffer_assets.get(&uv_key), buffer_assets.get(&index_key)) {
+            (Some(vert), Some(uv), Some(index)) => (vert, uv, index, BoxType::ContentNone),
+            (vert_buffer, uv_buffer, index_buffer) => {
+                let (pos, uv, texture_size, _is_part) = get_pos_uv(texture, clip, background_image_mod, layout);
                 let (vertex, uvs, indices) = get_pos_uv_buffer(&pos, &uv, texture_size, background_image_mod);
-
-				(
-					match vert_buffer {
-						LoadResult::Wait(r) => {
-							let mut r = ComputeTaskPool::get().scope(|scope| {
-								scope.spawn(async {r.await});
-							});
-							r.pop().unwrap().unwrap()
-						},
-						LoadResult::Receiver(receiver) => {
-							let buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
-								label: Some("background image vert buffer init"),
-								contents: bytemuck::cast_slice(vertex.as_slice()),
-								usage: wgpu::BufferUsages::VERTEX,
-							});
-
-							let mut r = ComputeTaskPool::get().scope(|scope| {
-								scope.spawn(async {receiver.receive(vertex_key, Ok(RenderRes::new(buf, vertex.len() * 4))).await});
-							});
-							r.pop().unwrap().unwrap()
-						},
-						LoadResult::Ok(r) => r,
-					},
-
-					match uv_buffer {
-						LoadResult::Wait(r) => {
-							let mut r = ComputeTaskPool::get().scope(|scope| {
-								scope.spawn(async {r.await});
-							});
-							r.pop().unwrap().unwrap()
-						},
-						LoadResult::Receiver(receiver) => {
-							let buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
-								label: Some("background image uv buffer init"),
-								contents: bytemuck::cast_slice(uvs.as_slice()),
-								usage: wgpu::BufferUsages::VERTEX,
-							});
-							let mut r = ComputeTaskPool::get().scope(|scope| {
-								scope.spawn(async {receiver.receive(uv_key, Ok(RenderRes::new(buf, uvs.len() * 2))).await});
-							});
-							r.pop().unwrap().unwrap()
-						},
-						LoadResult::Ok(r) => r,
-					},
-
-					match index_buffer {
-						LoadResult::Wait(r) => {
-							let mut r = ComputeTaskPool::get().scope(|scope| {
-								scope.spawn(async {r.await});
-							});
-							r.pop().unwrap().unwrap()
-						},
-						LoadResult::Receiver(receiver) => {
-							let buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
-								label: Some("background image index buffer init"),
-								contents: bytemuck::cast_slice(indices.as_slice()),
-								usage: wgpu::BufferUsages::INDEX,
-							});
-							let mut r = ComputeTaskPool::get().scope(|scope| {
-								scope.spawn(async {receiver.receive(index_key, Ok(RenderRes::new(buf, indices.len() * 2))).await});
-							});
-							r.pop().unwrap().unwrap()
-						},
-						LoadResult::Ok(r) => r,
-					},
-
-					BoxType::ContentNone,
-				)
-			},
-		}
-
-        // match (buffer_assets.get(&vertex_key), buffer_assets.get(&uv_key), buffer_assets.get(&index_key)) {
-        //     (Some(vert), Some(uv), Some(index)) => (vert, uv, index, BoxType::ContentNone),
-        //     (vert_buffer, uv_buffer, index_buffer) => {
-        //         let (pos, uv, texture_size, _is_part) = get_pos_uv(texture, clip, background_image_mod, layout);
-        //         let (vertex, uvs, indices) = get_pos_uv_buffer(&pos, &uv, texture_size, background_image_mod);
-        //         (
-        //             match vert_buffer {
-        //                 Some(r) => r,
-        //                 None => {
-        //                     let buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
-        //                         label: Some("background image vert buffer init"),
-        //                         contents: bytemuck::cast_slice(vertex.as_slice()),
-        //                         usage: wgpu::BufferUsages::VERTEX,
-        //                     });
-        //                     buffer_assets.insert(vertex_key, RenderRes::new(buf, vertex.len() * 4)).unwrap()
-        //                 }
-        //             },
-        //             match uv_buffer {
-        //                 Some(r) => r,
-        //                 None => {
-        //                     let buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
-        //                         label: Some("background image uv buffer init"),
-        //                         contents: bytemuck::cast_slice(uvs.as_slice()),
-        //                         usage: wgpu::BufferUsages::VERTEX,
-        //                     });
-        //                     buffer_assets.insert(uv_key, RenderRes::new(buf, uvs.len() * 2)).unwrap()
-        //                 }
-        //             },
-        //             match index_buffer {
-        //                 Some(r) => r,
-        //                 None => {
-        //                     let buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
-        //                         label: Some("background image index buffer init"),
-        //                         contents: bytemuck::cast_slice(indices.as_slice()),
-        //                         usage: wgpu::BufferUsages::INDEX,
-        //                     });
-        //                     buffer_assets.insert(index_key, RenderRes::new(buf, indices.len() * 2)).unwrap()
-        //                 }
-        //             },
-        //             BoxType::ContentNone,
-        //         )
-        //     }
-        // }
+                (
+                    match vert_buffer {
+                        Some(r) => r,
+                        None => {
+                            let buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
+                                label: Some("background image vert buffer init"),
+                                contents: bytemuck::cast_slice(vertex.as_slice()),
+                                usage: wgpu::BufferUsages::VERTEX,
+                            });
+                            buffer_assets.insert(vertex_key, RenderRes::new(buf, vertex.len() * 4)).unwrap()
+                        }
+                    },
+                    match uv_buffer {
+                        Some(r) => r,
+                        None => {
+                            let buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
+                                label: Some("background image uv buffer init"),
+                                contents: bytemuck::cast_slice(uvs.as_slice()),
+                                usage: wgpu::BufferUsages::VERTEX,
+                            });
+                            buffer_assets.insert(uv_key, RenderRes::new(buf, uvs.len() * 2)).unwrap()
+                        }
+                    },
+                    match index_buffer {
+                        Some(r) => r,
+                        None => {
+                            let buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
+                                label: Some("background image index buffer init"),
+                                contents: bytemuck::cast_slice(indices.as_slice()),
+                                usage: wgpu::BufferUsages::INDEX,
+                            });
+                            buffer_assets.insert(index_key, RenderRes::new(buf, indices.len() * 2)).unwrap()
+                        }
+                    },
+                    BoxType::ContentNone,
+                )
+            }
+        }
     };
 	
 	draw_state.vertex = 0..(vertex_buffer.size()/8) as u32;
@@ -394,36 +299,27 @@ fn modify_background_image(
 	draw_state.indices = Some(RenderIndices { buffer: EVerticesBufferUsage::GUI(index_buffer), buffer_range: None, format: IndexFormat::Uint16 } );
 
     let texture_group_key = calc_hash(&image.0.get_hash(), calc_hash(&"image texture", 0));
-	// texture BindGroup
-	let texture_group = match AssetMgr::load(&group_assets, &texture_group_key) {
-		pi_assets::mgr::LoadResult::Ok(r) => r,
-		pi_assets::mgr::LoadResult::Wait(r) => {
-			let mut r = ComputeTaskPool::get().scope(|scope| {
-				scope.spawn(async {r.await});
-			});
-			r.pop().unwrap().unwrap()
-		},
-		pi_assets::mgr::LoadResult::Receiver(receiver) => {
-			let group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-				layout: texture_group_layout,
-				entries: &[
-					wgpu::BindGroupEntry {
-						binding: 0,
-						resource: wgpu::BindingResource::Sampler(&common_sampler.default),
-					},
-					wgpu::BindGroupEntry {
-						binding: 1,
-						resource: wgpu::BindingResource::TextureView(&texture.texture_view),
-					},
-				],
-				label: Some("bg image group create"),
-			});
-			let mut r = ComputeTaskPool::get().scope(|scope| {
-				scope.spawn(async {receiver.receive(texture_group_key, Ok(RenderRes::new(group, 5))).await});
-			});
-			r.pop().unwrap().unwrap()
-		},
-	};
+    // texture BindGroup
+    let texture_group = match group_assets.get(&texture_group_key) {
+        Some(r) => r,
+        None => {
+            let group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+                layout: texture_group_layout,
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: wgpu::BindingResource::Sampler(&common_sampler.default),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: wgpu::BindingResource::TextureView(&texture.texture_view),
+                    },
+                ],
+                label: Some("bg image group create"),
+            });
+            group_assets.insert(texture_group_key, RenderRes::new(group, 5)).unwrap()
+        }
+    };
 
     draw_state.bindgroups.insert_group(SampBind::set(), DrawBindGroup::Independ(texture_group));
 

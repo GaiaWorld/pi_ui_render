@@ -22,7 +22,7 @@ num-traits = "0.2.6"
 fnv = "1.0.6"
 lazy_static = "1.4"
 derive_deref = "1.1"
-paste = "0.1"
+paste = "1.0"
 bincode = "1.3"
 serde = { version = "1.0", features = ["derive"]}
 ordered-float = { version = "3.0", default-features = false, features = ["serde"] }
@@ -31,13 +31,11 @@ nalgebra = {version = "0.30", features = ["serde", "serde-serialize"]}
 ncollide2d = {version = "0.33", features = ["serde"]}
 log="0.4"
 smallvec={version = "1.8", features = ["serde"]}
-getset="0.1"
 bitvec={version = "1.0", features = ["serde"]}
 cssparser = "0.29"
 pi_hash="0.1" 
 pi_atom={version="0.2", features = ["serde", "pointer_width_32"]}
 pi_enum_default_macro="0.1"
-pi_res="0.1"
 pi_map="0.1"
 pi_null="0.1"
 pi_ucd="0.1"
@@ -61,8 +59,7 @@ pi_assets = "0.10"
 image = "0.24"
 polygon2 = "0.3"
 json ="0.12"
-pi_slab="0.1"
-pi_idtree = { git = "https://github.com/GaiaWorld/pi_idtree.git" }
+# pi_idtree = { git = "https://github.com/GaiaWorld/pi_idtree.git" }
 pi_slotmap_tree ="0.3"
 pi_dirty="0.1"
 
@@ -72,7 +69,7 @@ pi_spatialtree = { git = "https://github.com/GaiaWorld/pi_spatialtree.git" }
 # pi_ecs_macros = { git = "https://github.com/GaiaWorld/pi_ecs.git" }
 # pi_ecs = { git = "https://github.com/GaiaWorld/pi_ecs.git" }
 pi_hal={git="https://github.com/GaiaWorld/pi_hal.git"}
-js_proxy_gen_macro={git="https://github.com/GaiaWorld/pi_lib.git"}
+# js_proxy_gen_macro={git="https://github.com/GaiaWorld/pi_lib.git"}
 pi_postprocess={git="https://github.com/GaiaWorld/pi_post_process.git"}
 pi_curves = { git="https://github.com/GaiaWorld/pi_curves.git"}
 pi_animation = {git="https://github.com/GaiaWorld/pi_animation.git"}
@@ -81,7 +78,7 @@ pi_style = {git="https://github.com/GaiaWorld/pi_style.git"}
 pi_densevec = "0.1.2"
 pi_futures="0.1"
 pi_time="0.2"
-siphasher = {version="0.3", features=["serde_no_std"]}
+# siphasher = {version="0.3", features=["serde_no_std"]}
 wasm-bindgen = { version = "0.2", features = ["serde-serialize"] }
 bevy={version="0.10", default-features = false, features=["bevy_winit"]}
 
@@ -99,12 +96,12 @@ uuid = { version = "1", features = ["js"] }
 # pi_share = {version="0.4", features=["serial", "rc"]}
 pi_share = {version="0.4"}
 pi_async = {version = "0.5", features = ["serial"]}
-web-sys = {version="0.3", features = [
-	"HtmlCanvasElement"
-]}
-js-sys = "0.3"
+# web-sys = {version="0.3", features = [
+# 	"HtmlCanvasElement"
+# ]}
+# js-sys = "0.3"
 wgpu = { version = "0.15", features = ["spirv", "glsl", "webgl"] }
-flume = {version="0.10", features=["spin"]}
+# flume = {version="0.10", features=["spin"]}
 pi_render = { git = "https://github.com/GaiaWorld/pi_render.git", branch="bevy_shader", features=["webgl"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
@@ -112,7 +109,7 @@ pi_share = {version="0.4"}
 pi_async = "0.5"
 wgpu = { version = "0.15", features = ["spirv", "glsl"] }
 pi_render = { git = "https://github.com/GaiaWorld/pi_render.git", branch="bevy_shader" }
-flume = "0.10"
+# flume = "0.10"
 
 
 # [patch."https://github.com/GaiaWorld/pi_spatialtree"]

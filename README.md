@@ -1,5 +1,7 @@
 ## 运行quad demo： cargo run --example quad
 
+## 查看库重复 cargo deny check bans
+
 ## 测试性能（chrome://tracing）
 例： cargo run --example cmd_play --release --features trace
 
@@ -23,6 +25,7 @@ TODO
 	+ 谨慎使用bevy command的**insert_or_spawn_batch**方法， 可能进入巨大的性能陷阱
 	+ 某些场景smallvecmap代替vecmap（calc_background_image system从48ms降低至35ms）
 	+ 利用par_iter, 充分并行任务
+	+ background_image, text等系统尽量并行
 fbo分配， 增加padding（已知项目有黑线问题）
 sdf文字
 overflow优化： 如果一个设置了overflow的旋转节点，相对于父上下文未旋转，这该节点不需要成为一个renderPass

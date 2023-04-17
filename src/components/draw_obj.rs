@@ -88,3 +88,12 @@ impl Hash for PipelineMeta {
         }
     }
 }
+
+
+// 标记背景图片 放在DrawObject原型中，可以区分不同类型的DarwObject， 使得系统能够更好的并行
+#[derive(Debug, Component, Default)]
+pub struct BackgroundImageMark;
+
+// 标记文字 放在DrawObject原型中，可以区分不同类型的DarwObject， 使得系统能够更好的并行
+#[derive(Debug, Component, Default)]
+pub struct TextMark;
