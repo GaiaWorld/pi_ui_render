@@ -108,13 +108,14 @@ pub fn user_setting(
 			world.despawn(*entity);
 		}
 
-		destroy_entity_list.clear();
-
 		// 删除包围盒
+		log::warn!("destroy_entity_list======{:?}", destroy_entity_list);
 		let (mut quad_tree, roots) = quad_delete.get_mut(world);
 		for entity in destroy_entity_list.iter() {
 			quad_tree.remove(EntityKey(*entity));
 		}
+
+		destroy_entity_list.clear();
 		// 设置所有的root渲染脏（节点删除后， 组件被删除，很多状态丢失， 除非立即处理脏区域）
 		for r in roots.iter().collect::<Vec<Entity>>() {
 			world.entity_mut(r).insert(RenderDirty(true));
