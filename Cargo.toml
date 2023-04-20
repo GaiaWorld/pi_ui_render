@@ -81,7 +81,6 @@ pi_futures="0.1"
 pi_time="0.2"
 # siphasher = {version="0.3", features=["serde_no_std"]}
 wasm-bindgen = { version = "0.2", features = ["serde-serialize"] }
-bevy={version="0.10", default-features = false, features=["bevy_winit"]}
 
 winit = {git = "http://ser.yinengyun.com:10082/tech/winit.git"}
 pi_bevy_post_process= {git="https://github.com/GaiaWorld/pi_render_bevy.git"}
@@ -90,6 +89,7 @@ pi_bevy_render_plugin = {git="https://github.com/GaiaWorld/pi_render_bevy.git"}
 pi_bevy_asset = {git="https://github.com/GaiaWorld/pi_render_bevy.git"}
 pi_bevy_winit_window = {git="https://github.com/GaiaWorld/pi_render_bevy.git"}
 tracing = "0.1"
+bevy = {version="0.10", default-features = false}
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 # wasm-bindgen = { version = "0.2", features = ["serde-serialize"] }
@@ -108,11 +108,10 @@ pi_render = { git = "https://github.com/GaiaWorld/pi_render.git", branch="bevy_s
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 pi_share = {version="0.4"}
 pi_async = "0.5"
-wgpu = { version = "0.15", features = ["spirv", "glsl"] }
 pi_render = { git = "https://github.com/GaiaWorld/pi_render.git", branch="bevy_shader" }
+wgpu = { version = "0.15", features = ["spirv", "glsl"] }
+
 # flume = "0.10"
-
-
 # [patch."https://github.com/GaiaWorld/pi_spatialtree"]
 # pi_spatialtree ={path="../pi_spatialtree"}
 
@@ -179,6 +178,7 @@ async-trait="0.1"
 font_kit = {git="http://ser.yinengyun.com:10082/tech/font_kit.git"}
 spin_sleep="1.1"
 num_cpus = "1.13"
+bevy = {version="0.10", default-features = false, features=["bevy_winit"]}
 # pi_export_gui = {path="../pi_export/crates/gui"}
 # bevy_mod_debugdump = "0.6"
 # bevy-inspector-egui="0.14"
