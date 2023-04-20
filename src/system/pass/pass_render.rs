@@ -23,7 +23,7 @@ use pi_render::{
 	rhi::{asset::RenderRes, bind_group::BindGroup, buffer::Buffer, device::RenderDevice, shader::{BindLayout}}, renderer::draw_obj::DrawBindGroup,
 };
 use pi_share::Share;
-use pi_spatialtree::quad_helper::intersects;
+use pi_sparialtree::quad_helper::intersects;
 
 use crate::{
     components::{

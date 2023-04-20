@@ -15,7 +15,7 @@
 // //     prelude::{DispatcherMgr, IntoSystem, ResMut, SingleDispatcher, StageBuilder},
 // //     world::World,
 // // };
-// use pi_spatialtree::quad_helper::intersects;
+// use pi_sparialtree::quad_helper::intersects;
 // use pi_share::{Share, ShareMutex};
 // #[cfg(target_arch = "wasm32")]
 // use wasm_bindgen::prelude::wasm_bindgen;

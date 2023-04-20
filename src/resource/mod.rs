@@ -26,7 +26,7 @@ use bevy::ecs::system::{Command, CommandQueue};
 use crate::components::calc::{EntityKey, Quad};
 use crate::components::user::serialize::StyleAttr;
 use crate::components::user::{Point2, Vector2};
-use pi_spatialtree::QuadTree as QuadTree1;
+use pi_sparialtree::QuadTree as QuadTree1;
 // use crate::utils::cmd::{CommandQueue, Command, DataQuery};
 // use bevy::prelude::{CommandQueue, Commands, World};
 use crate::components::user::ClassName;
@@ -208,7 +208,7 @@ impl Default for TimeInfo {
 
 
 #[derive(Deref, DerefMut, Resource)]
-pub struct QuadTree(QuadTree1<EntityKey, f32, ()>);
+pub struct QuadTree(QuadTree1<EntityKey, ()>);
 
 impl Default for QuadTree {
     fn default() -> Self { Self::with_capacity(0) }

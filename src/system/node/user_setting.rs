@@ -109,7 +109,6 @@ pub fn user_setting(
 		}
 
 		// 删除包围盒
-		log::warn!("destroy_entity_list======{:?}", destroy_entity_list);
 		let (mut quad_tree, roots) = quad_delete.get_mut(world);
 		for entity in destroy_entity_list.iter() {
 			quad_tree.remove(EntityKey(*entity));

@@ -48,7 +48,7 @@ use pi_async::prelude::SingleTaskRunner;
 use pi_bevy_winit_window::WinitPlugin;
 use pi_hal::runtime::{RENDER_RUNTIME, RUNNER_MULTI, RUNNER_RENDER};
 use pi_null::Null;
-use pi_spatialtree::quad_helper::intersects;
+use pi_sparialtree::quad_helper::intersects;
 use std::{
     intrinsics::transmute,
     mem::swap,
