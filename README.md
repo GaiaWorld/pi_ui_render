@@ -7,6 +7,9 @@
 ## 测试性能（chrome://tracing）
 例： `cargo run --example cmd_play --release --features trace`
 
+## wasm尺寸分析工具 `twiggy`
+
+
 ## 
 
 ## 编译为wasm
@@ -28,6 +31,14 @@
 + 某些场景smallvecmap代替vecmap（calc_background_image system从48ms降低至35ms）
 + 利用par_iter, 充分并行任务
 + background_image, text等系统尽量并行
+
+## 尺寸优化
++ wgpu和naga feature禁用spirv（少200k）
++ wgpu和naga feature禁用wgsl（少200k）
++ web版本，不调用图片解码（少700k）
++ 不使用bevy中的LogPlugin （少700k）
++ 不使用bevy的window插件（少250k（TODO））
+
 
 
 ## TODO

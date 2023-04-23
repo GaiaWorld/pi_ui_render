@@ -49,13 +49,7 @@ crossbeam="0.8"
 pi_graph = "0.1"
 fixedbitset = {version="0.4", features = ["serde"]}
 bytemuck = { version = "1.4", features = ["derive"] }
-naga = { version = "0.11", features = [
-    "glsl-in",
-    "spv-in",
-    "spv-out",
-    "wgsl-in",
-    "wgsl-out",
-] }
+naga = { version = "0.11"}
 pi_assets = "0.11"
 image = "0.24"
 polygon2 = "0.3"
@@ -101,7 +95,7 @@ pi_async = {version = "0.5", features = ["serial"]}
 # 	"HtmlCanvasElement"
 # ]}
 # js-sys = "0.3"
-wgpu = { version = "0.15", features = ["spirv", "glsl", "webgl"] }
+wgpu = { version = "0.15", default-features = false, features = ["glsl", "webgl"] }
 # flume = {version="0.10", features=["spin"]}
 pi_render = { git = "https://github.com/GaiaWorld/pi_render.git", branch="bevy_shader", features=["webgl"] }
 
@@ -109,7 +103,7 @@ pi_render = { git = "https://github.com/GaiaWorld/pi_render.git", branch="bevy_s
 pi_share = {version="0.4"}
 pi_async = "0.5"
 pi_render = { git = "https://github.com/GaiaWorld/pi_render.git", branch="bevy_shader" }
-wgpu = { version = "0.15", features = ["spirv", "glsl"] }
+wgpu = { version = "0.15", default-features = false, features = ["glsl"] }
 
 # flume = "0.10"
 # [patch."https://github.com/GaiaWorld/pi_spatialtree"]
