@@ -573,3 +573,86 @@ fn fill(size: &Vector2, p1: &mut Point2, p2: &mut Point2, w: f32, h: f32) {
         p2.x -= x;
     }
 }
+
+#[cfg(test)]
+pub mod test{
+    use bevy::{prelude::{World, Component}, ecs::system::{CommandQueue, Spawn}};
+
+    use crate::components::{draw_obj::DrawState, calc::DrawInfo};
+
+	#[derive(Debug, Component, Default)]
+	pub struct DrawState1(pub DrawState);
+
+	#[test]
+	fn test() {
+		let mut world = World::new();
+		let mut commands = CommandQueue::default();
+		let count = 9000;
+		let mut vec = Vec::new();
+		
+		let t = std::time::Instant::now();
+		for _i in 0..count {
+			let draw_state = DrawState::default();
+			let draw_state1 = DrawState1::default();
+			vec.push(Spawn {bundle: (DrawInfo::new(3, false), draw_state, draw_state1)});
+		}
+		println!("vec push {}====={:?}", count, std::time::Instant::now() - t);
+		let t = std::time::Instant::now();
+		for _i in 0..count {
+			commands.push(vec.pop().unwrap());
+		}
+		println!("commands push {}====={:?}",count, std::time::Instant::now() - t);
+		commands.apply(&mut world);
+
+		let t = std::time::Instant::now();
+		for _i in 0..count {
+			let draw_state = DrawState::default();
+			let draw_state1 = DrawState1::default();
+			vec.push(Spawn {bundle: (DrawInfo::new(3, false), draw_state, draw_state1)});
+		}
+		println!("vec push with capacity {}====={:?}", count, std::time::Instant::now() - t);
+		let t = std::time::Instant::now();
+		for _i in 0..count {
+			let draw_state = DrawState::default();
+			let draw_state1 = DrawState1::default();
+			commands.push(Spawn {bundle: (DrawInfo::new(3, false), draw_state, draw_state1)});
+		}
+		println!("commands push with capacity {}====={:?}",count, std::time::Instant::now() - t);
+
+		let t = std::time::Instant::now();
+		let mut i = 0;
+		for _i in 0..count {
+			let draw_state = DrawState::default();
+			let draw_state1 = DrawState1::default();
+			i += draw_state.bindgroups.groups().len() + draw_state1.0.bindgroups.groups().len();
+		}
+		println!("new state {}====={:?}, {:?}",count, std::time::Instant::now() - t, i);
+
+		commands.apply(&mut world);
+	}
+
+	// #[test]
+	// fn test_with_capacity() {
+	// 	let mut world = World::new();
+	// 	let mut commands = CommandQueue::default();
+	// 	let count = 10000;
+	// 	let mut vec = Vec::with_capacity(count);
+		
+	// 	let t = std::time::Instant::now();
+	// 	for _i in 0..count {
+	// 		let draw_state = DrawState::default();
+	// 		let draw_state1 = DrawState1::default();
+	// 		vec.push(Spawn {bundle: (DrawInfo::new(3, false), draw_state, draw_state1)});
+	// 	}
+	// 	println!("vec push {}====={:?}", count, std::time::Instant::now() - t);
+	// 	let t = std::time::Instant::now();
+	// 	for _i in 0..count {
+	// 		let draw_state = DrawState::default();
+	// 		let draw_state1 = DrawState1::default();
+	// 		commands.push(Spawn {bundle: (DrawInfo::new(3, false), draw_state, draw_state1)});
+	// 	}
+	// 	println!("commands push {}====={:?}",count, std::time::Instant::now() - t);
+	// 	commands.apply(&mut world);
+	// }
+}
+

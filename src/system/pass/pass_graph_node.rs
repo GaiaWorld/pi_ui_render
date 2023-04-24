@@ -19,7 +19,7 @@ use pi_bevy_render_plugin::{
     PiSafeAtlasAllocator,
     PiScreenTexture,
     // param::P
-    RenderContext,
+    RenderContext, SimpleInOut,
 };
 use pi_futures::BoxFuture;
 use pi_hash::XHashMap;
@@ -27,7 +27,7 @@ use pi_null::Null;
 // use pi_postprocess::
 use pi_postprocess::{temprory_render_target::PostprocessTexture};
 use pi_render::{
-    components::view::target_alloc::{GetTargetView, ShareTargetView, TargetView},
+    components::view::target_alloc::{ShareTargetView},
     rhi::{
         asset::RenderRes,
         bind_group::BindGroup,
@@ -39,7 +39,6 @@ use pi_render::{
 	renderer::{texture::texture_view::ETextureViewUsage, draw_obj::DrawObj},
 };
 use pi_share::ShareRefCell;
-use render_derive::NodeParam;
 use wgpu::{RenderPass, Sampler};
 
 use crate::{
@@ -158,17 +157,10 @@ impl Pass2DNode {
 
 // (, Handle<RenderRes<BindGroup>>)
 
-#[derive(Default, NodeParam, Clone)]
-pub struct RenderResult {
-    result: Option<ShareTargetView>,
-}
-impl GetTargetView for RenderResult {
-    fn get_target_view(&self) -> Option<&TargetView> { return self.result.as_ref().map(|r| &**r); }
-}
 
 impl Node for Pass2DNode {
-    type Input = InParamCollector<RenderResult>;
-    type Output = RenderResult;
+    type Input = InParamCollector<SimpleInOut>;
+    type Output = SimpleInOut;
 
     type Param = QueryParam<'static, 'static>;
 
@@ -195,13 +187,13 @@ impl Node for Pass2DNode {
 			// log::warn!("run1======{:?}", pass2d_id);
             let layer = match query_param.pass2d_query.0.get(pass2d_id) {
                 Ok(r) if r.layer() > 0 => r.clone(),
-                _ => return Ok(RenderResult { result: None }),
+                _ => return Ok(SimpleInOut { target: None }),
             };
 			// log::warn!("run2======{:?}", pass2d_id);
 
             let surface = match &**query_param.surface {
                 Some(r) => r,
-                _ => return Ok(RenderResult { result: None }),
+                _ => return Ok(SimpleInOut { target: None }),
             };
 
 
@@ -216,7 +208,7 @@ impl Node for Pass2DNode {
                         unsafe { transmute(r.4) },
                         // r.5.map_or(ClearColor(CgColor::new(0.0, 0.0, 0.0, 1.0), false), |r| r.clone()),
                     ),
-                    _ => return Ok(RenderResult { result: None }),
+                    _ => return Ok(SimpleInOut { target: None }),
                 }
             };
 			// log::warn!("run4======{:?}", pass2d_id);
@@ -291,13 +283,13 @@ impl Node for Pass2DNode {
                                     )
                                 } else {
                                     // 如果后处理为None， 并且存在父节点，不进行渲染（可能由父节点对它进行渲染）
-                                    return Ok(RenderResult { result: None });
+                                    return Ok(SimpleInOut { target: None });
                                 }
                             }
                         }
                         _ => {
                             // 应该不会进入该分支
-                            return Ok(RenderResult { result: None });
+                            return Ok(SimpleInOut { target: None });
                         }
                     };
 
@@ -425,7 +417,7 @@ impl Node for Pass2DNode {
                 }
             }
 
-            Ok(RenderResult { result: out })
+            Ok(SimpleInOut { target: out })
         })
     }
 }
@@ -438,7 +430,7 @@ impl Pass2DNode {
     /// * cur_camera-当前设置的相机
     pub fn render_pass_2d<'a>(
         pass2d_id: EntityKey,
-        input: &'a XHashMap<GraphNodeId, RenderResult>,
+        input: &'a XHashMap<GraphNodeId, SimpleInOut>,
         post_draw: &'a Vec<DrawObj>,
 		input_groups: &'a Vec<Handle<RenderRes<BindGroup>>>,
         rp: &mut RenderPass<'a>,
@@ -453,7 +445,7 @@ impl Pass2DNode {
         match param.post_query.get(*pass2d_id) {
             Ok((r, graph_id)) if r.has_effect() => {
                 let src = match input.get(&graph_id.0) {
-                    Some(r) => match &r.result {
+                    Some(r) => match &r.target {
                         Some(r) => r,
                         None => return,
                     },
@@ -608,7 +600,7 @@ impl Pass2DNode {
     }
 
     fn draw_list<'a, 'w>(
-        input: &'a XHashMap<GraphNodeId, RenderResult>,
+        input: &'a XHashMap<GraphNodeId, SimpleInOut>,
         post_draw: &'a Vec<DrawObj>,
 		input_groups: &'a Vec<Handle<RenderRes<BindGroup>>>,
         rp: &'w mut RenderPass<'a>,
@@ -639,7 +631,7 @@ impl Pass2DNode {
                         // 如果存在graph_id，表示该渲染对象将输入的一个ShareTargetView作为纹理，渲染到gui上
                         if let Some(graph_id) = graph_id {
 							let src = match input.get(&**graph_id) {
-								Some(r) => match &r.result {
+								Some(r) => match &r.target {
 									Some(r) => r,
 									None => continue,
 								},

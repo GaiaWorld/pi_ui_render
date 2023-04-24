@@ -3148,11 +3148,13 @@ dependencies = [
 [[package]]
 name = "pi_bevy_asset"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_render_bevy.git#333bfa899013d7a142e3a3e41fc158adb041f551"
 dependencies = [
  "bevy",
+ "crossbeam",
  "pi_assets",
+ "pi_atom",
  "pi_hash",
+ "pi_render",
  "pi_share",
  "serde",
 ]
@@ -3160,7 +3162,6 @@ dependencies = [
 [[package]]
 name = "pi_bevy_ecs_extend"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_render_bevy.git#333bfa899013d7a142e3a3e41fc158adb041f551"
 dependencies = [
  "bevy",
  "derive_deref",
@@ -3188,7 +3189,6 @@ dependencies = [
 [[package]]
 name = "pi_bevy_ecs_macro"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_render_bevy.git#333bfa899013d7a142e3a3e41fc158adb041f551"
 dependencies = [
  "quote",
  "syn 1.0.109",
@@ -3198,7 +3198,6 @@ dependencies = [
 [[package]]
 name = "pi_bevy_post_process"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_render_bevy.git#333bfa899013d7a142e3a3e41fc158adb041f551"
 dependencies = [
  "bevy",
  "pi_assets",
@@ -3213,11 +3212,11 @@ dependencies = [
 [[package]]
 name = "pi_bevy_render_plugin"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_render_bevy.git#333bfa899013d7a142e3a3e41fc158adb041f551"
 dependencies = [
  "bevy",
  "crossbeam",
  "futures",
+ "js-sys",
  "log",
  "pi_assets",
  "pi_async",
@@ -3230,13 +3229,15 @@ dependencies = [
  "render_derive",
  "thiserror",
  "tracing",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
  "wgpu",
 ]
 
 [[package]]
 name = "pi_bevy_winit_window"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_render_bevy.git#333bfa899013d7a142e3a3e41fc158adb041f551"
 dependencies = [
  "bevy",
  "glam",
