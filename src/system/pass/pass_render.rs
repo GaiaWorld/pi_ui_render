@@ -138,6 +138,8 @@ pub fn calc_camera_depth_and_renderlist(
 			Point2::new(0.0, 0.0)))
 		};
 
+		log::info!("viewport======={:?}", viewport);
+
 		
 		if view_aabb.mins.x >= view_aabb.maxs.x || view_aabb.mins.y >= view_aabb.maxs.y {
 			continue;
@@ -170,9 +172,13 @@ pub fn calc_camera_depth_and_renderlist(
 			// last: view_aabb.clone(),
 			no_will_change: cull_aabb,
 		};
+		let aabb = Aabb2::new(
+            Point2::new(view_aabb.mins.x.floor(), view_aabb.mins.y.floor()),
+            Point2::new(view_aabb.maxs.x.ceil(), view_aabb.maxs.y.ceil()),
+        );
 
 		// 计算投影矩阵（投影矩阵将view_aabb范围内的对象投影到-1~1， 注意view_aabb所在坐标系为当前节点的非旋转坐标系）
-        let project_matrix = create_project(view_aabb.mins.x, view_aabb.maxs.x, view_aabb.mins.y, view_aabb.maxs.y);
+        let project_matrix = create_project(aabb.mins.x, aabb.maxs.x, aabb.mins.y, aabb.maxs.y);
 		
 		// 计算视图矩阵
 		let view_temp;
@@ -197,10 +203,7 @@ pub fn calc_camera_depth_and_renderlist(
         camera_group.set_uniform(&ProjectUniform(project_matrix.as_slice()));
         camera_group.set_uniform(&ViewUniform(view_matrix.as_slice()));
 
-        let aabb = Aabb2::new(
-            Point2::new(view_aabb.mins.x.floor(), view_aabb.mins.y.floor()),
-            Point2::new(view_aabb.maxs.x.ceil(), view_aabb.maxs.y.ceil()),
-        );
+        
 
         let scale_x = (aabb.maxs.x - aabb.mins.x) / 2.0;
         let scale_y = (aabb.maxs.y - aabb.mins.y) / 2.0;

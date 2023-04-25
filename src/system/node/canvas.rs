@@ -18,7 +18,7 @@ use crate::components::DrawBundle;
 use crate::resource::draw_obj::{PosUv1VertexLayout, ProgramMetaRes, ShaderInfoCache, ShareGroupAlloter, UiMaterialGroup};
 use crate::resource::RenderObjType;
 
-use crate::shader::image::{PositionVert, ProgramMeta, UvVert};
+use crate::shader::image::{PositionVert, ProgramMeta};
 use crate::shader::ui_meterial::UiMaterialBind;
 use crate::system::utils::clear_draw_obj;
 use crate::{
@@ -35,7 +35,7 @@ pub fn calc_canvas(
     del: RemovedComponents<Canvas>,
     mut query: ParamSet<(
         // 布局修改、BackgroundImage修改、BackgroundImageClip修改、圆角修改或删除，需要修改或创建背景图片的DrawObject
-        Query<(Entity, &'static Canvas, &'static mut DrawList), (With<Canvas>, With<LayoutResult>, Changed<Canvas>)>,
+        Query<(Entity, &'static Canvas, &'static mut DrawList), (With<LayoutResult>, Changed<Canvas>)>,
         // Canvas删除，需要删除对应的DrawObject
         Query<(Option<&'static Canvas>, &'static mut DrawList)>,
     )>,
@@ -92,7 +92,7 @@ pub fn calc_canvas(
 								vert_layout: vert_layout.clone(),
 								defines: Default::default(),
 							},
-							draw_info: DrawInfo::new(6, true),
+							draw_info: DrawInfo::new(6, false),
 						}, 
 						graph_id.clone()
 					),
@@ -110,16 +110,16 @@ pub fn calc_canvas(
 
 // 返回当前需要的StaticIndex
 fn modify(draw_state: &mut DrawState, unit_quad_buffer: &UnitQuadBuffer) -> BoxType {
-    let (vertex_buffer, uv_buffer, index_buffer, is_unit) = (
+    let (vertex_buffer, index_buffer, is_unit) = (
         unit_quad_buffer.vertex.clone(),
-        unit_quad_buffer.vertex.clone(),
+        // unit_quad_buffer.vertex.clone(),
         unit_quad_buffer.index.clone(),
         BoxType::ContentRect,
     );
 
 	draw_state.vertex = 0..(vertex_buffer.size()/8) as u32;
 	draw_state.insert_vertices(RenderVertices { slot: PositionVert::location(), buffer: EVerticesBufferUsage::GUI(vertex_buffer), buffer_range: None, size_per_value: 8 });
-	draw_state.insert_vertices(RenderVertices { slot: UvVert::location(), buffer: EVerticesBufferUsage::GUI(uv_buffer), buffer_range: None, size_per_value: 8 });
+	// draw_state.insert_vertices(RenderVertices { slot: UvVert::location(), buffer: EVerticesBufferUsage::GUI(uv_buffer), buffer_range: None, size_per_value: 8 });
 	draw_state.indices = Some(RenderIndices { buffer: EVerticesBufferUsage::GUI(index_buffer), buffer_range: None, format: IndexFormat::Uint16 } );
 
     is_unit

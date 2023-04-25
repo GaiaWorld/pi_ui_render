@@ -3148,6 +3148,7 @@ dependencies = [
 [[package]]
 name = "pi_bevy_asset"
 version = "0.1.0"
+source = "git+https://github.com/GaiaWorld/pi_render_bevy.git#9128649ea1ff8283e04e12d5ee306a81466618f2"
 dependencies = [
  "bevy",
  "crossbeam",
@@ -3162,6 +3163,7 @@ dependencies = [
 [[package]]
 name = "pi_bevy_ecs_extend"
 version = "0.1.0"
+source = "git+https://github.com/GaiaWorld/pi_render_bevy.git#9128649ea1ff8283e04e12d5ee306a81466618f2"
 dependencies = [
  "bevy",
  "derive_deref",
@@ -3189,6 +3191,7 @@ dependencies = [
 [[package]]
 name = "pi_bevy_ecs_macro"
 version = "0.1.0"
+source = "git+https://github.com/GaiaWorld/pi_render_bevy.git#9128649ea1ff8283e04e12d5ee306a81466618f2"
 dependencies = [
  "quote",
  "syn 1.0.109",
@@ -3198,6 +3201,7 @@ dependencies = [
 [[package]]
 name = "pi_bevy_post_process"
 version = "0.1.0"
+source = "git+https://github.com/GaiaWorld/pi_render_bevy.git#9128649ea1ff8283e04e12d5ee306a81466618f2"
 dependencies = [
  "bevy",
  "pi_assets",
@@ -3212,6 +3216,7 @@ dependencies = [
 [[package]]
 name = "pi_bevy_render_plugin"
 version = "0.1.0"
+source = "git+https://github.com/GaiaWorld/pi_render_bevy.git#9128649ea1ff8283e04e12d5ee306a81466618f2"
 dependencies = [
  "bevy",
  "crossbeam",
@@ -3238,6 +3243,7 @@ dependencies = [
 [[package]]
 name = "pi_bevy_winit_window"
 version = "0.1.0"
+source = "git+https://github.com/GaiaWorld/pi_render_bevy.git#9128649ea1ff8283e04e12d5ee306a81466618f2"
 dependencies = [
  "bevy",
  "glam",
@@ -3752,6 +3758,7 @@ dependencies = [
  "wasm-bindgen",
  "wgpu",
  "winit 0.27.4",
+ "zerovec",
 ]
 
 [[package]]
@@ -5553,6 +5560,21 @@ name = "xml-rs"
 version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d2d7d3948613f75c98fd9328cfdcc45acc4d360655289d0a7d4ec931392200a3"
+
+[[package]]
+name = "zerofrom"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "df54d76c3251de27615dfcce21e636c172dafb2549cd7fd93e21c66f6ca6bea2"
+
+[[package]]
+name = "zerovec"
+version = "0.9.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "198f54134cd865f437820aa3b43d0ad518af4e68ee161b444cdd15d8e567c8ea"
+dependencies = [
+ "zerofrom",
+]
 
 [[package]]
 name = "zune-inflate"

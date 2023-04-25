@@ -12,6 +12,7 @@ use pi_bevy_ecs_extend::{
     prelude::{Layer, OrDefault},
     system_param::res::OrInitRes,
 };
+use pi_render::rhi::shader::Input;
 use pi_bevy_post_process:: {PostprocessResource};
 use pi_bevy_render_plugin::{
     node::{Node, NodeId as GraphNodeId, ParamUsage},
@@ -34,7 +35,7 @@ use pi_render::{
         device::RenderDevice,
         shader::BindLayout,
         texture::{PiRenderDefault, ScreenTexture},
-        CommandEncoder, RenderQueue, pipeline::RenderPipeline,
+        CommandEncoder, RenderQueue, pipeline::RenderPipeline, buffer::Buffer,
     },
 	renderer::{texture::texture_view::ETextureViewUsage, draw_obj::DrawObj},
 };
@@ -49,7 +50,7 @@ use crate::{
         user::{Aabb2, Point2, RenderTargetType},
     },
     resource::draw_obj::{ClearDrawObj, CommonSampler, DynFboClearColorBindGroup, PostBindGroupLayout},
-    shader::{camera::CameraBind, image::SampBind, ui_meterial::{UiMaterialBind}, depth::DepthBind},
+    shader::{camera::CameraBind, image::{SampBind, UvVert}, ui_meterial::{UiMaterialBind}, depth::DepthBind},
     utils::tools::calc_hash,
 };
 
@@ -247,7 +248,7 @@ impl Node for Pass2DNode {
 
             if let Ok((camera, list, parent_pass2d_id)) = param.pass2d_query.get(pass2d_id) {
 				// log::warn!("run5======{:?}, {:?}, {:?}", pass2d_id, list.transparent, list.opaque);
-                // log::warn!("run graph4==============, input count: {}, opaque: {}, transparent: {}, is_active: {:?}, opaque_list: {:?}, transparent_list: {:?}", input.0.len(), list.opaque.len(), list.transparent.len(), camera.is_active, &list.opaque, &list.transparent);
+                // log::warn!("run graph4==============, input count: {}, opaque: {}, transparent: {}, is_active: {:?}, opaque_list: {:?}, transparent_list: {:?}, view_port: {:?}", input.0.len(), list.opaque.len(), list.transparent.len(), camera.is_active, &list.opaque, &list.transparent, &camera.view_port);
                 if camera.is_active && (list.opaque.len() > 0 || list.transparent.len() > 0) {
                     let (rt, clear_color) = match post_list {
                         // 渲染类型为新建渲染目标对其进行渲染，则从纹理分配器中分配一个fbo矩形区
@@ -432,7 +433,7 @@ impl Pass2DNode {
         pass2d_id: EntityKey,
         input: &'a XHashMap<GraphNodeId, SimpleInOut>,
         post_draw: &'a Vec<DrawObj>,
-		input_groups: &'a Vec<Handle<RenderRes<BindGroup>>>,
+		input_groups: &'a Vec<(Handle<RenderRes<BindGroup>>, Buffer)>,
         rp: &mut RenderPass<'a>,
 		target_size: (u32, u32),
         world: &'a World,
@@ -602,7 +603,7 @@ impl Pass2DNode {
     fn draw_list<'a, 'w>(
         input: &'a XHashMap<GraphNodeId, SimpleInOut>,
         post_draw: &'a Vec<DrawObj>,
-		input_groups: &'a Vec<Handle<RenderRes<BindGroup>>>,
+		input_groups: &'a Vec<(Handle<RenderRes<BindGroup>>, Buffer)>,
         rp: &'w mut RenderPass<'a>,
 		target_size: (u32, u32),
         world: &'a World,
@@ -649,11 +650,12 @@ impl Pass2DNode {
 							};
 							// 这里使用非安全的方式将不可变引用转为可变引用的前提是，Vec在创建时容量足够，使得push时不需要扩容，同时使用Vec的地方不能多线程
 							unsafe {
-								&mut *(input_groups as *const Vec<Handle<RenderRes<BindGroup>>> as usize as *mut Vec<Handle<RenderRes<BindGroup>>>)
+								&mut *(input_groups as *const Vec<(Handle<RenderRes<BindGroup>>, Buffer)> as usize as *mut Vec<(Handle<RenderRes<BindGroup>>, Buffer)>)
 							}
 							.push(Self::create_post_process_data(src, &param, s));
 							let index = input_groups.len() - 1;
-							rp.set_bind_group(SampBind::set(), &input_groups[index], &[])
+							rp.set_bind_group(SampBind::set(), &input_groups[index].0, &[]);
+							rp.set_vertex_buffer(UvVert::location() as u32, *input_groups[index].1.slice(..));
                         }
 
 
@@ -686,30 +688,39 @@ impl Pass2DNode {
     }
 
     // 创建后处理数据（bindgroup和uv buffer）
-    fn create_post_process_data<'s>(texture: &ShareTargetView, param: &'s Param<'s, 's>, sampler: &'s Sampler) -> Handle<RenderRes<BindGroup>> {
-        // let uv = texture.uv();
+    fn create_post_process_data<'s>(texture: &ShareTargetView, param: &'s Param<'s, 's>, sampler: &'s Sampler) -> (Handle<RenderRes<BindGroup>>, Buffer) {
+        let uv = texture.uv();
         let group_key = calc_hash(&(texture.ty_index(), texture.target_index()), calc_hash(&"render target", 0)); // TODO
-        match param.bind_group_assets.get(&group_key) {
-            Some(r) => r,
-            None => {
-                let group = param.device.create_bind_group(&wgpu::BindGroupDescriptor {
-                    layout: &param.post_bind_group_layout,
-                    entries: &[
-                        wgpu::BindGroupEntry {
-                            binding: 0,
-                            resource: wgpu::BindingResource::Sampler(sampler),
-                        },
-                        wgpu::BindGroupEntry {
-                            binding: 1,
-                            resource: wgpu::BindingResource::TextureView(&texture.target().colors[0].0),
-                        },
-                    ],
-                    label: Some("post process texture bind group create"),
-                });
-                param.bind_group_assets.insert(group_key, RenderRes::new(group.clone(), 5)).unwrap()
-            }
-        }
-    }
+        (
+			match param.bind_group_assets.get(&group_key) {
+				Some(r) => r,
+				None => {
+					let group = param.device.create_bind_group(&wgpu::BindGroupDescriptor {
+						layout: &param.post_bind_group_layout,
+						entries: &[
+							wgpu::BindGroupEntry {
+								binding: 0,
+								resource: wgpu::BindingResource::Sampler(sampler),
+							},
+							wgpu::BindGroupEntry {
+								binding: 1,
+								resource: wgpu::BindingResource::TextureView(&texture.target().colors[0].0),
+							},
+						],
+						label: Some("post process texture bind group create"),
+					});
+					param.bind_group_assets.insert(group_key, RenderRes::new(group.clone(), 5)).unwrap()
+				}
+			},
+			// 实时创建uvbuffer， 因为该buffer动态性很高，可能不应该创建为资源？
+			// 这里应该与脏区域相交，渲染脏区域， TODO
+			param.device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
+				label: Some("post process uv Buffer"),
+				contents: bytemuck::cast_slice(&uv),
+				usage: wgpu::BufferUsages::VERTEX,
+			})
+		)
+	}
 }
 
 pub fn create_rp<'a>(
@@ -795,12 +806,21 @@ pub fn create_rp<'a>(
             let rect = r.rect();
             (
                 rp,
-                (
-                    rect.min.x as f32,
-                    rect.min.y as f32,
-                    view_port.maxs.x - view_port.mins.x,
-                    view_port.maxs.y - view_port.mins.y,
-                ),
+				if rt.is_some() {
+					(
+						rect.min.x as f32,
+						rect.min.y as f32,
+						view_port.maxs.x - view_port.mins.x,
+						view_port.maxs.y - view_port.mins.y,
+					)
+				} else {
+					(
+						rect.min.x as f32 + view_port.mins.x,
+						rect.min.y as f32 + view_port.mins.y,
+						view_port.maxs.x - view_port.mins.x,
+						view_port.maxs.y - view_port.mins.y,
+					)
+				},
             )
         }
     }

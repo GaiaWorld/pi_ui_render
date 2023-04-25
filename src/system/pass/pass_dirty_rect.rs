@@ -28,8 +28,9 @@ pub struct CalcDirtyRect;
 /// 根据每个Pass的脏区域，计算全局脏区域
 pub fn calc_global_dirty_rect(
     query_draw_obj: Query<&NodeId, Changed<DrawState>>,
-	mut _quad_olds: EventReader<OldQuad>,
+	mut quad_olds: EventReader<OldQuad>,
     query_node1: Query<(&InPassId, &Quad)>,
+	query_node2: Query<&InPassId>,
     query_node_content_box: Query<&ContentBox>,
 
     // ShowChange改变，脏区域发生变化
@@ -58,6 +59,14 @@ pub fn calc_global_dirty_rect(
         };
         mark_pass_dirty_rect(***in_pass_id, quad, &mut p2);
     }
+	// 处理包围盒改变前的区域，与脏区域求并
+	for OldQuad{ quad, entity, ..} in quad_olds.iter() {
+		let in_pass_id = match query_node2.get(*entity) {
+            Ok(r) => r,
+            _ => continue,
+        };
+        mark_pass_dirty_rect(***in_pass_id, quad, &mut p2);
+    }
 
     // ChildrenPass修改，Pass2d需要设置脏区域，暂时将其直接设置为内容box（实际上应该设置更精确一点，TODO）
     let mut p3 = query_pass.p3();
@@ -66,7 +75,6 @@ pub fn calc_global_dirty_rect(
             Ok(r) => r,
             _ => continue,
         };
-
         mark_pass_dirty_rect1(&quad.oct, &mut dirty_rect);
     }
 
@@ -79,7 +87,6 @@ pub fn calc_global_dirty_rect(
         } else {
             // 先恢复到初始状态
             dirty_rect.state = DirtyRectState::UnInit;
-            dirty_rect.value = viewport.0.clone();
         }
     }
 
@@ -96,38 +103,23 @@ pub fn calc_global_dirty_rect(
             continue;
         }
 
+		
+
         if pass_dirty_rect.state == DirtyRectState::Inited {
             let aabb = match &will_change_matrix.0 {
                 Some(matrix) => calc_aabb(&pass_dirty_rect.value, &matrix.will_change),
                 None => pass_dirty_rect.value.clone(),
             };
 
-            box_aabb(&mut dirty_rect.value, &aabb);
-            dirty_rect.state = DirtyRectState::Inited;
+			if dirty_rect.state == DirtyRectState::UnInit {
+				dirty_rect.value = aabb;
+				dirty_rect.state = DirtyRectState::Inited;
+			} else {
+				box_aabb(&mut dirty_rect.value, &aabb);
+			}
             pass_dirty_rect.state = DirtyRectState::UnInit;
         }
     }
-
-	// // 处理包围盒改变前的区域，与脏区域求并
-	// for OldQuad{ quad, entity, root} in quad_olds.iter() {
-	// 	let (mut dirty_rect, _viewport, viewport_tracker) = match query_root.get_mut(*root) {
-    //         Ok(r) => r,
-    //         _ => continue,
-    //     };
-	// 	// 视口改变，全局脏区域就为视口
-    //     if viewport_tracker.is_changed() {
-    //         continue;
-    //     }
-
-	// 	let aabb = match &will_change_matrix.0 {
-	// 		Some(matrix) => calc_aabb(&pass_dirty_rect.value, &matrix.will_change),
-	// 		None => pass_dirty_rect.value.clone(),
-	// 	};
-
-	// 	box_aabb(&mut dirty_rect.value, &aabb);
-	// 	dirty_rect.state = DirtyRectState::Inited;
-	// 	pass_dirty_rect.state = DirtyRectState::UnInit;
-    // }
 }
 
 /// 本函数执行先决条件： Quad、ContentBox已经准备好

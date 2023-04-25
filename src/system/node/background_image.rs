@@ -588,9 +588,11 @@ pub mod test{
 		let mut world = World::new();
 		let mut commands = CommandQueue::default();
 		let count = 9000;
+
 		let mut vec = Vec::new();
 		
 		let t = std::time::Instant::now();
+		println!("aaaaaa===={:?}", std::mem::size_of::<DrawState>());
 		for _i in 0..count {
 			let draw_state = DrawState::default();
 			let draw_state1 = DrawState1::default();
