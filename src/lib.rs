@@ -50,11 +50,15 @@ pub mod prelude {
 					(
 						UiSystemSet::Setting,
 						UiSystemSet::Load,
+						UiSystemSet::LoadFlush,
 						UiSystemSet::Layout,
 						UiSystemSet::Matrix,
 						UiSystemSet::BaseCalc,
+						UiSystemSet::BaseCalcFlush,
 						UiSystemSet::PrepareDrawOb,
+						UiSystemSet::PrepareDrawObFlush,
 						UiSystemSet::PreparePass,
+						UiSystemSet::PreparePassFlush,
 						PiRenderSystemSet,
 					)
 						.chain())
@@ -62,10 +66,10 @@ pub mod prelude {
                 .add_plugin(UiNodePlugin)
                 .add_plugin(UiReadyDrawPlugin)
                 .add_plugin(UiPassPlugin)
-				.add_system(apply_system_buffers.in_set(UiSystemSet::Load))
-				.add_system(apply_system_buffers.in_set(UiSystemSet::BaseCalc))
-				.add_system(apply_system_buffers.in_set(UiSystemSet::PrepareDrawOb))
-				.add_system(apply_system_buffers.in_set(UiSystemSet::PreparePass));
+				.add_system(apply_system_buffers.in_set(UiSystemSet::LoadFlush))
+				.add_system(apply_system_buffers.in_set(UiSystemSet::BaseCalcFlush))
+				.add_system(apply_system_buffers.in_set(UiSystemSet::PrepareDrawObFlush))
+				.add_system(apply_system_buffers.in_set(UiSystemSet::PreparePassFlush));
         }
     }
 }

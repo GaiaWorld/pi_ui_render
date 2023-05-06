@@ -26,6 +26,7 @@ pub fn update_graph(
     )>,
     mut del: RemovedComponents<Camera>,
     canvas_query: Query<(&Canvas, &InPassId), Changed<Canvas>>,
+	inpass_query: Query<&ParentPassId>,
     mut rg: ResMut<PiRenderGraph>,
 ) {
     // 创建渲染图节点
@@ -99,9 +100,20 @@ pub fn update_graph(
     let graph_id_query = pass_query.p1();
     for (canvas, in_pass_id) in canvas_query.iter() {
 		if let Ok(from_graph_id) = graph_id_query.get(canvas.0) {
-            if let Ok(to_graph_id) = graph_id_query.get(***in_pass_id) {
-				if let Err(e) = rg.add_depend(**from_graph_id, **to_graph_id) {
-					log::error!("add_depend fail, {:?}", e);
+			let mut in_pass_id = **in_pass_id;
+			loop {
+				if let Ok(to_graph_id) = graph_id_query.get(*in_pass_id) {
+					if !to_graph_id.is_null() {
+						if let Err(e) = rg.add_depend(**from_graph_id, **to_graph_id) {
+							log::error!("add_depend fail, {:?}", e);
+						}
+						break;
+					}
+				}
+				if let Ok (parent_pass_id) = inpass_query.get(*in_pass_id) {
+					in_pass_id = **parent_pass_id;
+				} else {
+					break;
 				}
 			}
         }

@@ -38,6 +38,19 @@
 + 不使用bevy中的LogPlugin （少700k）
 + 不使用bevy的window插件（少250k（TODO））
 
+## 本周任务
+* 布局问题，取文字字符的next， bug修复
+* 脏区域计算问题
+* 动画插值问题
+* 动画解析，兼容曾经的不规范写法“step”
+* 仙书世界，attach时取到的offset值不正确
+* 后处理bug： ShareTarget UV问题
+* 有时候收不到动画结束事件
+* 资产管理器位移问题
+* spine 图节点重名问题
+
+* imgmap 动画缩略图在新的gui上的问题
+
 
 
 ## TODO

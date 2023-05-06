@@ -101,6 +101,7 @@ pub fn cal_context(
                 // 删除后，其子节点的in_pass_id修改为parent_context_id
                 parent_context_id.0
             } else if mark.any() {
+				// log::warn!("pass======node: {:?}, parent_context_id: {:?}", *node, parent_context_id);
 				pass_2d_init.push((*node, PassBundle::new(*parent_context_id)));
 				// 修改in_pass_id为当前Pass2D
 				*in_pass_id = InPassId(EntityKey(*node));

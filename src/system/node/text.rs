@@ -348,6 +348,7 @@ fn modify_geo(
 	if positions.len() == 0 {
 		draw_state.indices = None;
 		draw_state.vertices.clear();
+		return;
 	}
 
     match color {

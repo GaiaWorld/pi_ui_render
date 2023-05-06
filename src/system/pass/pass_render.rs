@@ -138,7 +138,7 @@ pub fn calc_camera_depth_and_renderlist(
 			Point2::new(0.0, 0.0)))
 		};
 
-		log::info!("viewport======={:?}", viewport);
+		// log::info!("viewport======={:?}", viewport);
 
 		
 		if view_aabb.mins.x >= view_aabb.maxs.x || view_aabb.mins.y >= view_aabb.maxs.y {
@@ -356,15 +356,14 @@ pub fn calc_camera_depth_and_renderlist(
     let camera_query = p2.0;
     let mut postprocess_lists = p2.1;
     for (list, pass_id, parent_pass_id) in p1.iter() {
-        // 不存在后处理，不主动分配depth（需要pass2d分配）
-        // 如果post不为none，但长度大于0，表示根节点，也需要自己分配depth
+        // 如何没后处理特效效果，并且存在父pass，则不需要自身单独分配深度（已由父的作用域分配）
         match postprocess_lists.get(pass_id) {
-            Ok(r) if r.has_effect() => {
+            Ok(r) if !r.has_effect() => {
                 if !parent_pass_id.is_null() {
                     continue;
                 }
             }
-            _ => (),
+            _ => continue,
         };
 
 

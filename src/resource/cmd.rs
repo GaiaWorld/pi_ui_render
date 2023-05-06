@@ -5,6 +5,7 @@ use bevy::ecs::{
     system::Command,
     world::{FromWorld, World},
 };
+use pi_print_any::out_any;
 use pi_style::style_parse::{Attribute, ClassItem, ClassMap, KeyFrameList};
 
 use crate::{
@@ -65,8 +66,13 @@ impl Command for ExtendCssCmd {
 pub struct NodeCmd<T>(pub T, pub Entity);
 impl<T: Bundle> Command for NodeCmd<T> {
     fn write(self, world: &mut World) {
-        // out_any!(log::info, "node_cmd======================={:?}, {:?}", &self.1, &self.0);
-        world.entity_mut(self.1).insert(self.0);
+        
+        if let Some(mut r) = world.get_entity_mut(self.1) {
+			out_any!(log::debug, "NodeCmd====================node：{:?}, anchor： {:?}", self.1, &self.0);
+			r.insert(self.0);
+		} else {
+			out_any!(log::debug, "node_cmd fail======================={:?}, {:?}", &self.1, &self.0);
+		}
     }
 }
 

@@ -33,13 +33,13 @@ pub fn user_setting(
 
     commands: &mut SystemState<(ResMut<UserCommands>, ResMut<ClassSheet>)>,
 
-    state: &mut SystemState<(ResMut<TimeInfo>, Query<&DrawList>, Query<Entity>, EntityTreeMut)>,
+    state: &mut SystemState<(Query<&DrawList>, Query<Entity>, EntityTreeMut)>,
 	quad_delete: &mut SystemState<(ResMut<QuadTree>, Query<Entity, With<Viewport>>)>,
     style_query: Local<StyleQuery>,
 	mut destroy_entity_list: Local<Vec<Entity>>, // 需要销毁的实体列表作为本地变量，避免每次重新分配内存
 ) {
 	
-    let time = Instant::now();
+    
 
     let (mut user_commands, mut _class_sheet) = commands.get_mut(world);
     // let (class_commands_len, style_commands_len, node_len) = (user_commands.class_commands.len(), user_commands.style_commands.commands.len(), user_commands.node_commands.len());
@@ -49,12 +49,9 @@ pub fn user_setting(
     // 先作用other_commands（通常是修改单例， 如动画表，css表）
     user_commands.other_commands.apply(world);
 
-    let (mut time_info, draw_list, entitys, mut tree) = state.get_mut(world);
+    let (draw_list, entitys, mut tree) = state.get_mut(world);
 
-    *time_info = TimeInfo {
-        cur_time: time,
-        delta: (time - time_info.cur_time).as_millis() as u64,
-    };
+   
 
 
     // 操作节点(节点的创建、销毁、挂载、删除)
@@ -190,7 +187,7 @@ pub fn set_style(style_commands: &mut StyleCommands, style_query: &mut Setting) 
     for (node, start, end) in commands.drain(..) {
         // 不存在实体，不处理
         if style_query.world.get_entity(node).is_none() {
-            log::error!("node is not exist: {:?}", node);
+            log::debug!("node is not exist: {:?}", node);
             continue;
         }
 

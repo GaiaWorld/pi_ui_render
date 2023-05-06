@@ -61,7 +61,7 @@ impl Plugin for UiNodePlugin {
             .init_resource::<TimeInfo>()
             .init_resource::<KeyFramesSheet>()
             .add_system(user_setting::user_setting.in_set(UiSystemSet::Setting))
-            .add_system(animation::calc_animation.after(user_setting::user_setting).in_set(UiSystemSet::Setting))
+            .add_system(animation::calc_animation.after(user_setting::user_setting).in_set(UiSystemSet::Setting).run_if(render_run))
             // 加载图片
             .init_resource::<ImageAwait<BackgroundImage>>()
             .add_frame_event::<ComponentEvent<Changed<BackgroundImageTexture>>>()

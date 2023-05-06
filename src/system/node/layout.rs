@@ -580,9 +580,14 @@ impl<'a, 'b> TreeStorage<LayoutKey> for Tree<'a, 'b> {
             } else {
                 let next_char = &char_node.text[n];
                 if next_char.context_id != char.context_id {
-                    if next_char.context_id == n as isize {
+                    if next_char.context_id == k.text_index as isize {
                         // 后面节点的context_id是自己
-                        k.text_index + char.count
+                        let r = k.text_index + char.count;
+						if r >= char_node.text.len() {
+							usize::null()
+						} else {
+							r
+						}
                     } else {
                         usize::null()
                     }

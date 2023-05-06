@@ -1,5 +1,5 @@
 use bevy::{ecs::{
-    prelude::{Entity, Ref},
+    prelude::{Entity, Ref, Or},
     query::{Changed, With},
     system::{ParamSet, Query},
 }, prelude::{DetectChanges, EventReader}};
@@ -11,7 +11,7 @@ use crate::{
     components::{
         calc::{ContentBox, InPassId, NodeId, Quad, RootDirtyRect, TransformWillChangeMatrix},
         draw_obj::DrawState,
-        pass_2d::{ChildrenPass, DirtyRect, DirtyRectState},
+        pass_2d::{ChildrenPass, DirtyRect, DirtyRectState, PostProcessList},
         user::{ShowChange, Viewport},
     },
     utils::tools::{box_aabb, calc_aabb}, system::node::world_matrix::OldQuad,
@@ -31,16 +31,14 @@ pub fn calc_global_dirty_rect(
 	mut quad_olds: EventReader<OldQuad>,
     query_node1: Query<(&InPassId, &Quad)>,
 	query_node2: Query<&InPassId>,
-    query_node_content_box: Query<&ContentBox>,
 
     // ShowChange改变，脏区域发生变化
     query_show_change: Query<(&Quad, &InPassId), Changed<ShowChange>>,
 
     mut query_pass: ParamSet<(
-        Query<(&'static mut DirtyRect, &'static Layer, &'static TransformWillChangeMatrix), Changed<DirtyRect>>,
+        Query<(&'static mut DirtyRect, &'static Layer, &'static TransformWillChangeMatrix, Entity, Ref<PostProcessList>, Ref<ChildrenPass>, &ContentBox), Or<(Changed<DirtyRect>, Changed<PostProcessList>, Changed<ChildrenPass>)>>,
         Query<(&'static mut DirtyRect, &'static TransformWillChangeMatrix, &'static NodeId)>,
         Query<&mut DirtyRect>,
-        Query<(&'static NodeId, &'static mut DirtyRect), Changed<ChildrenPass>>,
     )>,
     mut query_root: Query<(&mut RootDirtyRect, &'static Viewport, Ref<Viewport>), With<Viewport>>,
 ) {
@@ -68,16 +66,6 @@ pub fn calc_global_dirty_rect(
         mark_pass_dirty_rect(***in_pass_id, quad, &mut p2);
     }
 
-    // ChildrenPass修改，Pass2d需要设置脏区域，暂时将其直接设置为内容box（实际上应该设置更精确一点，TODO）
-    let mut p3 = query_pass.p3();
-    for (node_id, mut dirty_rect) in p3.iter_mut() {
-        let quad = match query_node_content_box.get(***node_id) {
-            Ok(r) => r,
-            _ => continue,
-        };
-        mark_pass_dirty_rect1(&quad.oct, &mut dirty_rect);
-    }
-
     // 迭代根节点，先将根节点的脏区域恢复到初始状态
     for (mut dirty_rect, viewport, viewport_tracker) in query_root.iter_mut() {
         // 视口改变，全局脏区域就为视口
@@ -91,7 +79,12 @@ pub fn calc_global_dirty_rect(
     }
 
     // 遍历所有pass的脏区域，求并，得全局脏区域
-    for (mut pass_dirty_rect, layer, will_change_matrix) in query_pass.p0().iter_mut() {
+    for (mut pass_dirty_rect, layer, will_change_matrix, entity, post_ref, children_ref, content_box) in query_pass.p0().iter_mut() {
+		// ChildrenPass、 postlist修改，Pass2d需要设置脏区域，暂时将其直接设置为内容box（实际上应该设置更精确一点，TODO）
+		if post_ref.is_changed() || children_ref.is_changed() {
+			mark_pass_dirty_rect1(&content_box.oct, &mut pass_dirty_rect);
+		}
+
         let (mut dirty_rect, _viewport, viewport_tracker) = match query_root.get_mut(layer.root()) {
             Ok(r) => r,
             _ => continue,

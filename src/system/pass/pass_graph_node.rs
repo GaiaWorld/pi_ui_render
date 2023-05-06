@@ -477,7 +477,8 @@ impl Pass2DNode {
 
                 // let post_process_mut = unsafe { &mut *(post_process as *const PostProcessList as usize as *mut PostProcessList) };
                 // post_process_mut.cur_result = Some((r.clone(), data));
-
+				
+				// log::warn!("pass2d_id======={:?}, {:?}", pass2d_id, src.rect());
 				// &input_groups[index],
                 if let Some(draw_obj) = r.draw_final(
                     param.device,

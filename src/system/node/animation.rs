@@ -6,9 +6,10 @@ use std::mem::replace;
 use bevy::ecs::{
     prelude::{Entity, World},
     query::Changed,
-    system::{Local, Query, Res, ResMut, SystemState},
+    system::{Local, Query, ResMut, SystemState},
 	removal_detection::RemovedComponents,
 };
+use pi_time::Instant;
 
 use crate::{
     components::user::{
@@ -32,13 +33,21 @@ pub fn calc_animation(
         Query<(Entity, &'static Animation), Changed<Animation>>,
         RemovedComponents<Animation>,
         ResMut<KeyFramesSheet>,
-        Res<TimeInfo>,
+        ResMut<TimeInfo>,
         ResMut<UserCommands>,
     )>,
 
     user_commands: &mut SystemState<ResMut<UserCommands>>,
 ) {
-    let (animation, mut del, mut keyframes_sheet, cur_time, mut user_commands1) = animation.get_mut(world);
+	let time = Instant::now();
+
+    let (animation, mut del, mut keyframes_sheet, mut time_info, mut user_commands1) = animation.get_mut(world);
+
+	*time_info = TimeInfo {
+        cur_time: time,
+        delta: (time - time_info.cur_time).as_millis() as u64,
+    };
+
     // 解绑定动画
     for del in del.iter() {
         if let Err(_) = animation.get(del) {
@@ -54,7 +63,7 @@ pub fn calc_animation(
     }
 
     // 推动动画执行
-    keyframes_sheet.run(&mut user_commands1.style_commands, cur_time.delta);
+    keyframes_sheet.run(&mut user_commands1.style_commands, time_info.delta);
 
     let mut commands = replace(&mut user_commands1.style_commands, StyleCommands::default());
 

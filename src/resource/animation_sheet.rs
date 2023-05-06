@@ -211,6 +211,12 @@ impl KeyFramesSheet {
 		&self.animation_context_amount.group_events
 	}
 
+	pub fn log(
+		&self,
+	) {
+		self.animation_context_amount.log_groups();
+	}
+
 	pub fn get_group_bind(
 		&self,
 	) -> &SecondaryMap<AnimationGroupID, (ObjKey, Atom)> {
@@ -276,13 +282,14 @@ impl KeyFramesSheet {
             };
             let duration = *Animation::get_attr(i, &animation.duration) as f32 / 1000.0;
             let timing_function = Animation::get_attr(i, &animation.timing_function);
+			// let frame_per_second = (FRAME_COUNT / duration).round() as u16;
             // TODO
             self.animation_context_amount
                 .start_complete(
                     group0,
                     duration,
                     direction,
-                    10,
+                    120,
                     match timing_function {
                         AnimationTimingFunction::Linear => AnimationAmountCalc::from_easing(EEasingMode::None),
                         AnimationTimingFunction::Ease(r) => AnimationAmountCalc::from_easing(r),
@@ -520,7 +527,7 @@ impl<F: Attr + FrameDataValue> TypeAnimationResultPool<F, ObjKey> for StyleComma
         _id_attr: pi_animation::target_modifier::IDAnimatableAttr,
         result: pi_animation::animation_result_pool::AnimeResult<F>,
     ) -> Result<(), pi_animation::error::EAnimationError> {
-        // out_any!(log::trace, "record animation result===={:?}, {:?}", &result.value, &ObjKey);
+        out_any!(log::trace, "record animation result===={:?}, {:?}", &result.value, entity);
         let start = self.style_buffer.len();
         unsafe { StyleAttr::write(result.value, &mut self.style_buffer) };
         if let Some(r) = self.commands.last_mut() {
