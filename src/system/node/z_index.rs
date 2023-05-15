@@ -125,7 +125,7 @@ fn get_parent(query: &Query<&ZIndex>, tree: &EntityTree, ranges: &Query<&mut ZRa
         // 节点的范围应该包含自身和递归子节点的z范围
 
         node = tree.up(node).parent();
-        local = false
+        local = false // 因为父节点上没有脏标记，所以无法使用局部脏算法，只能全部排序
     }
 }
 
@@ -184,7 +184,7 @@ fn get_or_default<T: Clone + Default + Component>(query: &Query<&mut T>, id: Ent
 #[derive(Debug)]
 struct Dirty {
     children_count: usize,
-    begin: usize,
+    begin: usize, // 子元素数组的起点位置
     count: usize,
     start: usize,
 }
@@ -210,39 +210,45 @@ fn local_reset(
     let len = vec.len();
     for i in 0..len {
         let id = vec[i].node;
+        // 获得当前节点及子节点的数量
+        let cur_count = vec[i].children_count + 1;
         // 寻找修改的节点
         // 清理脏标志，这样层脏迭代器就不会弹出这个节点
         // println!("mark clear11, {}", vec[i].node.local().offset());
         if mark.remove(&id).is_some() {
             // println!("mark clear, {}", vec[i].node.local().offset());
-            dirty.count += vec[i].children_count + 1;
+            dirty.count += cur_count;
             continue;
         }
         // 找到了没有被修改的节点，获得其zrange
         let range = get_or_default(ranges, *id);
-        // 如果前面没有修改的节点，则跳过当前没有被修改的节点
-        if dirty.count == 0 {
-            dirty.begin = i + 1;
-            dirty.start = range.end;
-            continue;
-        }
-        // 获得当前节点及子节点的数量
-        let cur_count = vec[i].children_count + 1;
-        // 先判断当前节点能否放下其递归子节点，如果不行，则继续
-        if range.end - range.start < cur_count * Z_SELF {
-            dirty.count += cur_count;
-            continue;
-        }
-        // 判断右边能否放下，如果不行，则继续
+		// 判断右边能否放下，如果不行，则继续
         if zrange.end - range.end < (dirty.children_count - dirty.count - cur_count) * Z_SELF {
             dirty.count += cur_count;
             continue;
         }
-        // 前面有被修改节点，则获取脏段
-        let r = dirty_range(ranges, vec, zrange.start, range.start, &mut dirty);
-        dirty.start = range.end;
+        // 如果前面没有修改的节点，则跳过当前没有被修改的节点
+        if dirty.count == 0 {
+            dirty.begin = i;
+            dirty.start = range.end;
+            continue;
+        }
+        // 先判断当前节点可以处理左侧的脏，如果不行，则继续
+        if range.end - dirty.start < (dirty.count + cur_count) * Z_SELF {
+            dirty.count += cur_count;
+            continue;
+        }
+        let (r, start, end) = if range.start - dirty.start < dirty.count * Z_SELF { // 表示不含当前节点的情况下， 左侧需要调整容量无法容纳左侧需要调整节点
+			dirty.count += cur_count;
+			(ZRange(dirty.start..range.end), dirty.begin, i + 1) // 含自身
+		}else{
+			(ZRange(dirty.start..range.start), dirty.begin, i)
+		};
+        // // 前面有被修改节点，则获取脏段
+        // let r = dirty_range(ranges, vec, zrange.start, range.start, &mut dirty);
+        // dirty.start = range.end;
         // 重置脏段
-        range_set(query, tree, mark, ranges, vec, dirty.begin, i, dirty.count, r, empty);
+        range_set(query, tree, mark, ranges, vec, start, end, dirty.count, r, empty);
         // 将总子节点数量减去已经处理的数量
         dirty.children_count -= dirty.count;
         dirty.count = 0;
@@ -252,7 +258,7 @@ fn local_reset(
     if dirty.count > 0 {
         // 前面有被修改节点，则获取脏段
         let r = dirty_range(ranges, vec, zrange.start, zrange.end, &mut dirty);
-        range_set(query, tree, mark, ranges, vec, dirty.begin, len, dirty.count, r, empty);
+        range_set(query, tree, mark, ranges, vec, dirty.begin as usize, len, dirty.count, r, empty);
     }
     // 清空
     vec.clear();
@@ -270,13 +276,13 @@ fn dirty_range(ranges: &Query<&mut ZRange>, vec: &Vec<ZSort>, parent_start: usiz
                 end: dirty_end,
             });
         }
-        dirty.begin -= 1;
-        dirty.count += vec[dirty.begin].children_count + 1;
-        if dirty.begin == 0 {
+        if dirty.begin < 0 {
             dirty.start = parent_start;
         } else {
-            dirty.start = get_or_default(ranges, *vec[dirty.begin - 1].node).end;
-        }
+            dirty.start = get_or_default(ranges, *vec[dirty.begin as usize].node).end;
+			dirty.count += vec[dirty.begin as usize].children_count + 1;
+			dirty.begin -= 1;
+		}
     }
 }
 /// 设置子节点数组中一段节点的ZRange，并递归设置子节点的ZRange
