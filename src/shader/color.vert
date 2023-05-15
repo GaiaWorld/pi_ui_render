@@ -5,7 +5,10 @@
 #import super::ui_meterial
 
 layout(location = 0) in vec2 position; // 输入位置
+
+#ifdef VERT_COLOR
 layout(location = 1) in vec4 vertColor;
+#endif
 
 layout(location = 0) out vec2 vVertexPosition; // 输出位置
 
