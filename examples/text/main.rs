@@ -67,7 +67,7 @@ impl Example for QuadExample {
         let div1 = world.spawn(NodeBundle::default()).id();
         self.cmd.set_style(div1, WidthType(Dimension::Points(50.0)));
         self.cmd.set_style(div1, HeightType(Dimension::Points(100.0)));
-        self.cmd.set_style(div1, TextContentType(TextContent("baseo".to_string(), Atom::from("base"))));
+        self.cmd.set_style(div1, TextContentType(TextContent("base02".to_string(), Atom::from("base02"))));
         self.cmd.set_style(div1, FontFamilyType(Atom::from("hwkt")));
         self.cmd.set_style(div1, ColorType(Color::RGBA(CgColor::new(0.0, 1.0, 0.0, 1.0))));
         self.cmd.set_style(div1, FontSizeType(FontSize::Length(17)));
@@ -75,6 +75,18 @@ impl Example for QuadExample {
         // 	width: unsafe {NotNan::new_unchecked(2.0)},
         // 	color: CgColor::new(1.0, 0.0, 0.0, 1.0)}));
         self.cmd.append(div1, root);
+
+		let div2 = world.spawn(NodeBundle::default()).id();
+        self.cmd.set_style(div2, WidthType(Dimension::Points(50.0)));
+        self.cmd.set_style(div2, HeightType(Dimension::Points(100.0)));
+        self.cmd.set_style(div2, TextContentType(TextContent("base1".to_string(), Atom::from("base1"))));
+        self.cmd.set_style(div2, FontFamilyType(Atom::from("hwkt")));
+        self.cmd.set_style(div2, ColorType(Color::RGBA(CgColor::new(0.0, 1.0, 0.0, 1.0))));
+        self.cmd.set_style(div2, FontSizeType(FontSize::Length(17)));
+        // self.cmd.set_style(div1, TextStrokeType(Stroke {
+        // 	width: unsafe {NotNan::new_unchecked(2.0)},
+        // 	color: CgColor::new(1.0, 0.0, 0.0, 1.0)}));
+        self.cmd.append(div2, root);
     }
 
     fn render(&mut self, cmd: &mut UserCommands, _cmd1: &mut Commands) { swap(&mut self.cmd, cmd); }

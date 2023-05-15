@@ -1,6 +1,6 @@
 use bevy::{ecs::{
-    prelude::{Entity},
-    query::{Added, Changed, Or},
+    prelude::Entity,
+    query::{Changed, Or},
     system::Query,
 }, prelude::DetectChangesMut};
 use pi_assets::{asset::Handle, mgr::AssetMgr};
@@ -14,7 +14,6 @@ use crate::{
     components::{
         calc::{DrawList, LayoutResult, NodeState, WorldMatrix},
         draw_obj::{BoxType, DrawState},
-        pass_2d::Camera,
         user::Matrix4,
     },
     shader::ui_meterial::WorldUniform,
@@ -24,8 +23,10 @@ use crate::{
 pub struct CalcWorldMatrixGroup;
 
 /// 计算DrawObj的matrix group
+/// 必须保证，创建DrawObject的system运行在此system之前，并且已经执行了apply_buffer
+/// 因为此system检测DrawList的变化，当DrawList改变时，如果对应的DrawObject还未插入World，system会忽略此节点，后面可能无机会再设置此节点的matrix
 pub fn calc_matrix_group(
-    query: Query<(&WorldMatrix, &LayoutResult, &DrawList, Entity, &NodeState), Or<(Added<Camera>, Changed<DrawList>, Changed<WorldMatrix>)>>,
+    query: Query<(&WorldMatrix, &LayoutResult, &DrawList, Entity, &NodeState), Or<(Changed<DrawList>, Changed<WorldMatrix>)>>,
     query_parent: Query<&Up>,
     query_matrix: Query<&WorldMatrix>,
     mut query_draw: Query<(&mut DrawState, OrDefault<BoxType>)>,

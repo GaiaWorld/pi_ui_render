@@ -53,6 +53,7 @@ pub mod prelude {
 						UiSystemSet::LoadFlush,
 						UiSystemSet::Layout,
 						UiSystemSet::Matrix,
+						UiSystemSet::LifeDrawObject,
 						UiSystemSet::BaseCalc,
 						UiSystemSet::BaseCalcFlush,
 						UiSystemSet::PrepareDrawOb,

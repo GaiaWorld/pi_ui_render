@@ -13,7 +13,6 @@ use pi_bevy_ecs_extend::{
 use pi_flex_layout::style::Dimension;
 use pi_null::Null;
 use pi_slotmap_tree::InsertType;
-use pi_time::Instant;
 
 use crate::{resource::{ClassSheet, QuadTree}, components::{calc::{EntityKey}, user::{Viewport, RenderDirty}}};
 use crate::{
@@ -24,13 +23,13 @@ use crate::{
             BackgroundImageClip, ClassName, Size,
         },
     },
-    resource::{NodeCommand, StyleCommands, TimeInfo, UserCommands},
+    resource::{NodeCommand, StyleCommands, UserCommands},
 };
 
 /// 处理用户设置属性，将其设置到组件上
 pub fn user_setting(
     world: &mut World,
-
+	
     commands: &mut SystemState<(ResMut<UserCommands>, ResMut<ClassSheet>)>,
 
     state: &mut SystemState<(Query<&DrawList>, Query<Entity>, EntityTreeMut)>,
@@ -168,16 +167,17 @@ pub fn set_image_default_size(
     // 处理增加的图片问题
     for event in event_reader.iter() {
         if let Ok((mut size, texture, clip, style_mark)) = query.get_mut(event.id) {
-			
-            // 本地样式和class样式都未设置宽度，设置默认图片宽度
-            if style_mark.local_style[StyleType::Width as usize] == false && style_mark.class_style[StyleType::Width as usize] == false {
-                size.width = Dimension::Points(texture.width as f32 * *(clip.right - clip.left));
-            }
-
-            // 本地样式和class样式都未设置高度，设置默认图片高度
-            if style_mark.local_style[StyleType::Height as usize] == false && style_mark.class_style[StyleType::Height as usize] == false {
-                size.height = Dimension::Points(texture.height as f32 * *(clip.bottom - clip.top));
-            }
+			if let Some(texture) = &texture.0 {
+				// 本地样式和class样式都未设置宽度，设置默认图片宽度
+				if style_mark.local_style[StyleType::Width as usize] == false && style_mark.class_style[StyleType::Width as usize] == false {
+					size.width = Dimension::Points(texture.width as f32 * *(clip.right - clip.left));
+				}
+	
+				// 本地样式和class样式都未设置高度，设置默认图片高度
+				if style_mark.local_style[StyleType::Height as usize] == false && style_mark.class_style[StyleType::Height as usize] == false {
+					size.height = Dimension::Points(texture.height as f32 * *(clip.bottom - clip.top));
+				}
+			}
         }
     }
 }
@@ -213,7 +213,7 @@ pub fn set_style(style_commands: &mut StyleCommands, style_query: &mut Setting) 
 
 fn set_class(node: Entity, style_query: &mut Setting, class: ClassName, class_sheet: &ClassSheet) {
     if style_query.world.get_entity(node).is_none() {
-        log::error!("node is not exist: {:?}", node);
+        log::debug!("node is not exist: {:?}", node);
         return;
     }
     let style_mark = unsafe { get_component_mut::<StyleMark>(&mut style_query.world, node, style_query.style.style_mark) };

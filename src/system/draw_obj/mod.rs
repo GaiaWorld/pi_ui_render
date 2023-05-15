@@ -30,7 +30,10 @@ impl Plugin for UiReadyDrawPlugin {
             .add_system(root_view_port::calc_dyn_target_type.in_set(UiSystemSet::BaseCalc))
 			.add_system(context::calc_pass_children_and_clear.in_set(UiSystemSet::PrepareDrawOb))
             .add_system(pipeline::calc_node_pipeline.in_set(UiSystemSet::PrepareDrawOb))
-            .add_system(world_marix::calc_matrix_group.in_set(UiSystemSet::PrepareDrawOb))
+			// 在世界矩阵之后运行
+            .add_system(world_marix::calc_matrix_group.in_set(UiSystemSet::BaseCalc)
+				.after(crate::system::node::world_matrix::cal_matrix)
+			)
             .add_system(blur::blur_post_process.in_set(UiSystemSet::PrepareDrawOb))
             .add_system(hsi::hsi_post_process.in_set(UiSystemSet::PrepareDrawOb))
             .add_system(opacity::opacity_post_process.in_set(UiSystemSet::PrepareDrawOb))

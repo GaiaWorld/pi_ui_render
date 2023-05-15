@@ -214,7 +214,7 @@ impl KeyFramesSheet {
 	pub fn log(
 		&self,
 	) {
-		self.animation_context_amount.log_groups();
+		// self.animation_context_amount.log_groups();
 	}
 
 	pub fn get_group_bind(

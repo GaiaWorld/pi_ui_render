@@ -175,7 +175,7 @@ pub struct PostTemp {
 // /// 后处理列表
 
 // pub struct PostProcessList(pub SecondaryMap<DefaultKey, PostProcess>, pub DefaultKey/*最后一个后处理的key */);
-#[derive(Component)]
+#[derive(Component, Debug)]
 pub struct PostProcessList {
     post: PostProcess,
 	pub effect_mark: bitvec::prelude::BitArray,

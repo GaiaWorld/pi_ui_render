@@ -1,16 +1,15 @@
-use bevy::ecs::prelude::{Entity, RemovedComponents};
 use bevy::ecs::query::{Changed, Or, With};
-use bevy::ecs::system::{Commands, Local, ParamSet, Query, Res};
+use bevy::ecs::system::{Query, Res};
 use bytemuck::{Pod, Zeroable};
 use ordered_float::NotNan;
-use pi_assets::asset::Asset;
+use pi_assets::asset::{Asset, Handle};
 use pi_assets::mgr::AssetMgr;
 use pi_bevy_asset::ShareAssetMgr;
 use pi_bevy_ecs_extend::prelude::OrDefault;
 use pi_bevy_ecs_extend::system_param::res::OrInitRes;
 use pi_bevy_render_plugin::PiRenderDevice;
 use pi_render::renderer::vertices::{RenderVertices, EVerticesBufferUsage, RenderIndices};
-use pi_render::rhi::asset::RenderRes;
+use pi_render::rhi::asset::{RenderRes, TextureRes};
 use pi_render::rhi::bind_group::BindGroup;
 use pi_render::rhi::bind_group_layout::BindGroupLayout;
 use pi_render::rhi::buffer::Buffer;
@@ -21,154 +20,72 @@ use pi_share::Share;
 use pi_style::style::ImageRepeatOption;
 use wgpu::IndexFormat;
 
-use crate::components::calc::{BorderImageTexture, DrawInfo, EntityKey, LayoutResult};
-use crate::components::draw_obj::{BoxType, PipelineMeta};
+use crate::components::calc::{BorderImageTexture, LayoutResult, NodeId};
+use crate::components::draw_obj::BorderImageMark;
 use crate::components::user::{BorderImage, BorderImageClip, BorderImageSlice, ImageRepeat, Point2};
-use crate::components::DrawBundle;
 use crate::components::{
-    calc::{DrawList, NodeId},
     draw_obj::DrawState,
     user::BorderImageRepeat,
 };
-use crate::resource::draw_obj::{CommonSampler, PosUv2VertexLayout, ProgramMetaRes, ShaderInfoCache, ShareGroupAlloter, UiMaterialGroup};
-use crate::resource::RenderObjType;
+use crate::resource::draw_obj::{CommonSampler, ProgramMetaRes};
 use crate::shader::image::{PositionVert, ProgramMeta, SampBind};
-use crate::shader::ui_meterial::UiMaterialBind;
-use crate::system::utils::clear_draw_obj;
 use crate::utils::tools::{calc_hash, eq_f32};
+pub const BORDER_IMAGE_ORDER: u8 = 3;
 
 /// 创建RenderObject，用于渲染背景颜色
 pub fn calc_border_image(
-    render_type: Local<RenderObjType>,
-    del: RemovedComponents<BorderImageTexture>,
-    mut query: ParamSet<(
-        // 布局修改、BorderImage修改、圆角修改或删除，需要修改或创建BorderImage的DrawObject
-        Query<
-            (
-                Entity,
-                &BorderImage,
-                &BorderImageTexture,
-                OrDefault<BorderImageClip>,
-                OrDefault<BorderImageSlice>,
-                OrDefault<BorderImageRepeat>,
-                &LayoutResult,
-                &mut DrawList,
-            ),
-            (
-                With<BorderImageTexture>,
-                Or<(
-                    Changed<BorderImageTexture>,
-                    Changed<BorderImageClip>,
-                    Changed<BorderImageSlice>,
-                    Changed<BorderImageRepeat>,
-                    Changed<LayoutResult>,
-                )>,
-            ),
-        >,
-        // BorderImage删除，需要删除对应的DrawObject
-        Query<(Option<&BorderImageTexture>, &mut DrawList)>,
-    )>,
+    query: Query<
+		(
+			&BorderImage,
+			&BorderImageTexture,
+			OrDefault<BorderImageClip>,
+			OrDefault<BorderImageSlice>,
+			OrDefault<BorderImageRepeat>,
+			&LayoutResult,
+		),
+		Or<(
+			Changed<BorderImageTexture>,
+			Changed<BorderImageClip>,
+			Changed<BorderImageSlice>,
+			Changed<BorderImageRepeat>,
+			Changed<LayoutResult>,
+		)>,
+	>,
 
-    mut query_draw: Query<&'static mut DrawState>,
-
-    mut commands: Commands,
+	mut query_draw: Query<(&mut DrawState, &NodeId), With<BorderImageMark>>,
+    // mut query_draw: Query<&'static mut DrawState>,
 
     device: Res<PiRenderDevice>,
-
-    ui_material_group: OrInitRes<ShareGroupAlloter<UiMaterialGroup>>,
 
     buffer_assets: Res<ShareAssetMgr<RenderRes<Buffer>>>,
     bind_group_assets: Res<ShareAssetMgr<RenderRes<BindGroup>>>,
     common_sampler: Res<CommonSampler>,
     program_meta: OrInitRes<ProgramMetaRes<ProgramMeta>>,
-    vert_layout: OrInitRes<PosUv2VertexLayout>,
-    shader_catch: OrInitRes<ShaderInfoCache>,
 ) {
-    // 删除对应的DrawObject
-    clear_draw_obj(*render_type, del, query.p1(), &mut commands);
-
     let texture_group_layout = &program_meta.bind_group_layout[SampBind::set() as usize];
-    let mut init_spawn_drawobj = Vec::new();
-    for (node_id, border_image, border_texture, border_image_clip, border_image_slice, border_image_repeat, layout, mut draw_list) in
-        query.p0().iter_mut()
-    {
-        match draw_list.get(**render_type as u32) {
-            // borderimage已经存在一个对应的DrawObj， 则修改color group
-            Some(r) => {
-                let mut draw_state = match query_draw.get_mut(*r) {
-                    Ok(r) => r,
-                    _ => continue,
-                };
-
-                modify(
-                    &border_image,
-                    &border_texture,
-                    &border_image_clip,
-                    &border_image_slice,
-                    &border_image_repeat,
-                    layout,
-                    &mut draw_state,
-                    &device,
-                    &buffer_assets,
-                    &bind_group_assets,
-                    texture_group_layout,
-                    &common_sampler,
-                );
-            }
-            // 否则，创建一个新的DrawObj，并设置color group;
-            // 修改以下组件：
-            // * <Node, BackgroundDrawId>
-            // * <Node, DrawList>
-            // * <DrawObject, DrawState>
-            // * <DrawObject, NodeId>
-            // * <DrawObject, IsUnitQuad>
-            None => {
-                // 创建新的DrawObj
-                let new_draw_obj = commands.spawn_empty().id();
-                // 设置DrawState（包含color group）
-                let mut draw_state = DrawState::default();
-
-                let ui_material_group = ui_material_group.alloc();
-                draw_state.bindgroups.insert_group(UiMaterialBind::set(), ui_material_group);
-
-                modify(
-                    &border_image,
-                    &border_texture,
-                    &border_image_clip,
-                    &border_image_slice,
-                    &border_image_repeat,
-                    layout,
-                    &mut draw_state,
-                    &device,
-                    &buffer_assets,
-                    &bind_group_assets,
-                    texture_group_layout,
-                    &common_sampler,
-                );
-
-                init_spawn_drawobj.push((
-                    new_draw_obj,
-                    DrawBundle {
-                        node_id: NodeId(EntityKey(node_id)),
-                        draw_state,
-                        box_type: BoxType::default(),
-                        pipeline_meta: PipelineMeta {
-                            program: program_meta.clone(),
-                            state: shader_catch.common.clone(),
-                            vert_layout: vert_layout.clone(),
-                            defines: Default::default(),
-                        },
-                        draw_info: DrawInfo::new(5, border_texture.is_opacity), //TODO
-                    },
-                ));
-                // 建立Node对DrawObj的索引
-                draw_list.insert(**render_type as u32, new_draw_obj);
-            }
-        }
-    }
-    if init_spawn_drawobj.len() > 0 {
-        commands.insert_or_spawn_batch(init_spawn_drawobj.into_iter());
-    }
+	for (mut draw_state, node_id) in query_draw.iter_mut() {
+		if let Ok((border_image, border_texture, border_image_clip, border_image_slice, border_image_repeat, layout)) = query.get(***node_id) {
+			let border_texture = match &border_texture.0 {
+				Some(r) => r,
+				None => continue,
+			};
+	
+			modify(
+				&border_image,
+				&border_texture,
+				&border_image_clip,
+				&border_image_slice,
+				&border_image_repeat,
+				layout,
+				&mut draw_state,
+				&device,
+				&buffer_assets,
+				&bind_group_assets,
+				texture_group_layout,
+				&common_sampler,
+			);
+		}
+	}
 }
 
 #[repr(C)]
@@ -181,7 +98,7 @@ struct Vertex {
 // 返回当前需要的StaticIndex
 fn modify<'a>(
     image: &BorderImage,
-    texture: &BorderImageTexture,
+    texture: &Handle<TextureRes>,
     clip: &BorderImageClip,
     slice: &BorderImageSlice,
     repeat: &ImageRepeat,
@@ -365,7 +282,7 @@ fn modify<'a>(
 
 #[inline]
 fn get_border_image_stream(
-    texture: &BorderImageTexture,
+    texture: &Handle<TextureRes>,
     clip: &BorderImageClip,
     slice: &BorderImageSlice,
     repeat: &ImageRepeat,
@@ -423,14 +340,14 @@ fn get_border_image_stream(
     push_quad(&mut index_arr, p_right_y1, p_right_top, p_x2_top, p_x2_y1);
 
     // 根据图像大小和uv计算
-    let texture_center_width = texture.0.width as f32 * (uv_right - uv_left);
-    let texture_center_height = texture.0.height as f32 * (uv_bottom - uv_top);
+    let texture_center_width = texture.width as f32 * (uv_right - uv_left);
+    let texture_center_height = texture.height as f32 * (uv_bottom - uv_top);
 
     let (texture_left_width, texture_right_width, texture_top_height, texture_bottom_height) = (
-        texture.0.width as f32 * (uv_left - *clip.left),
-        texture.0.width as f32 * (*clip.right - uv_right),
-        texture.0.height as f32 * (uv_top - *clip.top),
-        texture.0.height as f32 * (*clip.bottom - uv_bottom),
+        texture.width as f32 * (uv_left - *clip.left),
+        texture.width as f32 * (*clip.right - uv_right),
+        texture.height as f32 * (uv_top - *clip.top),
+        texture.height as f32 * (*clip.bottom - uv_bottom),
     );
 
     let (mut uoffset_top, mut uspace_top, mut ustep_top) = (0.0, 0.0, 0.0);

@@ -1,206 +1,154 @@
-use bevy::ecs::prelude::{Entity, RemovedComponents};
+use bevy::ecs::prelude::Entity;
 use bevy::ecs::query::{Changed, Or, With};
-use bevy::ecs::system::{Commands, Local, ParamSet, Query, Res};
+use bevy::ecs::system::{Query, Res};
+use bevy::prelude::EventReader;
 use pi_assets::asset::Handle;
-use pi_assets::mgr::AssetMgr;
 use pi_atom::Atom;
 use pi_bevy_asset::ShareAssetMgr;
 use pi_bevy_ecs_extend::prelude::OrDefault;
+use pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent;
 use pi_bevy_ecs_extend::system_param::res::OrInitRes;
-use pi_bevy_render_plugin::PiRenderDevice;
+use pi_bevy_render_plugin::{PiRenderDevice, PiVertexBufferAlloter, PiIndexBufferAlloter};
 use pi_render::renderer::vertices::{RenderVertices, EVerticesBufferUsage, RenderIndices};
 use pi_render::rhi::asset::{RenderRes, TextureRes};
 use pi_render::rhi::bind_group::BindGroup;
-use pi_render::rhi::bind_group_layout::BindGroupLayout;
-use pi_render::rhi::buffer::Buffer;
-use pi_render::rhi::device::RenderDevice;
 use pi_render::renderer::draw_obj::DrawBindGroup;
 use pi_render::rhi::shader::{BindLayout, Input};
 use pi_share::{Share, ShareMutex};
 use pi_style::style::ImageRepeatOption;
 use wgpu::IndexFormat;
 
-use crate::components::calc::{BackgroundImageTexture, DrawInfo, EntityKey, LayoutResult, NodeId};
-use crate::components::draw_obj::{BoxType, PipelineMeta, BackgroundImageMark};
+use crate::components::calc::{BackgroundImageTexture, LayoutResult, NodeId, DrawList};
+use crate::components::draw_obj::{BoxType, BackgroundImageMark};
 use crate::components::user::{Aabb2, BackgroundImageClip, BackgroundImageMod, FitType, NotNanRect, Point2, Vector2};
-use crate::components::DrawBundle;
-use crate::resource::draw_obj::{CommonSampler, PosUv1VertexLayout, ProgramMetaRes, ShaderInfoCache, ShareGroupAlloter, UiMaterialGroup};
-use crate::resource::RenderObjType;
+use crate::resource::{BackgroundImageRenderObjType};
+use crate::resource::draw_obj::{CommonSampler, ProgramMetaRes};
 
 use crate::shader::color::PositionVert;
 use crate::shader::image::{ProgramMeta, SampBind, UvVert};
-use crate::shader::ui_meterial::UiMaterialBind;
-use crate::system::utils::{clear_draw_obj, push_quad};
-use crate::utils::tools::{calc_float_hash, calc_hash, eq_f32};
+use crate::system::utils::{push_quad, set_vert_buffer, set_index_buffer};
+use crate::utils::tools::{calc_hash, eq_f32};
 use crate::{
-    components::{calc::DrawList, draw_obj::DrawState, user::BackgroundImage},
+    components::{draw_obj::DrawState, user::BackgroundImage},
     resource::draw_obj::UnitQuadBuffer,
 };
 
-pub struct CalcBackgroundImage;
+pub const BACKGROUND_IMAGE_ORDER: u8 = 5;
 
 pub fn calc_background_image(
-    render_type: Local<RenderObjType>,
-    del: RemovedComponents<BackgroundImageTexture>,
-    mut query: ParamSet<(
-        // 布局修改、BackgroundImage修改、BackgroundImageClip修改、圆角修改或删除，需要修改或创建背景图片的DrawObject
-        Query<
-            (
-                Entity,
-                &'static BackgroundImage,
-                &'static LayoutResult,
-                &mut DrawList,
-                OrDefault<BackgroundImageClip>,
-                OrDefault<BackgroundImageMod>,
-                &'static BackgroundImageTexture,
-            ),
-            (
-                With<BackgroundImageTexture>,
-                Or<(Changed<BackgroundImageTexture>, Changed<BackgroundImageClip>, Changed<LayoutResult>)>,
-            ),
-        >,
-        // BackgroundImage删除，需要删除对应的DrawObject
-        Query<(Option<&'static BackgroundImageTexture>, &'static mut DrawList)>,
-    )>,
+	// 布局修改、BackgroundImage修改、BackgroundImageClip修改、圆角修改或删除，需要修改或创建背景图片的DrawObject
+    query: Query<
+		(
+			&LayoutResult,
+			OrDefault<BackgroundImageClip>,
+			OrDefault<BackgroundImageMod>,
+			&BackgroundImageTexture,
+		),
+		(
+			With<BackgroundImageTexture>,
+			Or<(Changed<BackgroundImageTexture>, Changed<BackgroundImageClip>, Changed<LayoutResult>)>,
+		),
+	>,
     // mut query_draw: Query<(&'static mut DrawState, &mut BoxType, &'static mut StaticIndex, &'static mut FSDefines, &'static mut VSDefines)>,
-    mut query_draw: Query<(&mut DrawState, &mut BoxType)>,
-    mut commands: Commands,
-
-    device: Res<PiRenderDevice>,
+    mut query_draw: Query<(&mut DrawState, &mut BoxType, &NodeId), With<BackgroundImageMark>>,
 
     unit_quad_buffer: Res<UnitQuadBuffer>,
-    ui_meterial_alloter: OrInitRes<ShareGroupAlloter<UiMaterialGroup>>,
-
-    buffer_assets: Res<ShareAssetMgr<RenderRes<Buffer>>>,
-    bind_group_assets: Res<ShareAssetMgr<RenderRes<BindGroup>>>,
-    common_sampler: Res<CommonSampler>,
-    program_meta: OrInitRes<ProgramMetaRes<ProgramMeta>>,
-    vert_layout: OrInitRes<PosUv1VertexLayout>,
-    shader_catch: OrInitRes<ShaderInfoCache>,
+	vertex_buffer_alloter: OrInitRes<PiVertexBufferAlloter>,
+	index_buffer_alloter: OrInitRes<PiIndexBufferAlloter>,
 ) {
-    // 删除对应的DrawObject
-    clear_draw_obj(*render_type, del, query.p1(), &mut commands);
-
-    let texture_group_layout = &program_meta.bind_group_layout[SampBind::set() as usize];
+	let (unit_quad_buffer, vertex_buffer_alloter, index_buffer_alloter) = ( &*unit_quad_buffer, &*vertex_buffer_alloter, &*index_buffer_alloter) ;
 
     // let mut init_spawn_drawobj = Vec::new();
-    for (node_id, background_image, layout, mut draw_list, background_image_clip, background_image_mod, background_image_texture) in
-        query.p0().iter_mut()
-    {
-        match draw_list.get(**render_type as u32) {
-            // background_color已经存在一个对应的DrawObj， 则修改color group
-            Some(r) => {
-                let (mut draw_state, mut old_box_type) = match query_draw.get_mut(*r) {
-                    Ok(r) => r,
-                    _ => continue,
-                };
+	let query = &query;
+	for (mut draw_state, mut old_box_type, node_id) in query_draw.iter_mut() {
+	// query_draw.par_iter_mut().for_each_mut(move |(mut draw_state, mut old_box_type, node_id)| {
+		if let Ok((layout, background_image_clip, background_image_mod, background_image_texture)) = query.get(***node_id) {
+			let background_image_texture = match &background_image_texture.0 {
+				Some(r) => r,
+				None => return,
+			};
 
-                let box_type = modify(
-                    &background_image,
-                    layout,
-                    &mut draw_state,
-                    &device,
-                    &buffer_assets,
-                    &unit_quad_buffer,
-                    &bind_group_assets,
-                    &texture_group_layout,
-                    &background_image_texture,
-                    background_image_clip,
-                    background_image_mod,
-                    &common_sampler,
-                );
+			let box_type = modify(
+				layout,
+				&mut draw_state,
+				&unit_quad_buffer,
+				&background_image_texture,
+				background_image_clip,
+				background_image_mod,
+				vertex_buffer_alloter,
+				index_buffer_alloter,
+			);
+	
+			if *old_box_type != box_type {
+				*old_box_type = box_type;
+			}
+		};
+	}
+}
 
-                if *old_box_type != box_type {
-                    *old_box_type = box_type;
-                }
-            }
-            None => {
-                // 创建新的DrawObj TODO
-                // let new_draw_obj = commands.spawn_empty().id();
-                // 设置DrawState（包含color group）
-                let mut draw_state = DrawState::default();
+pub fn calc_texture(
+	render_type: OrInitRes<BackgroundImageRenderObjType>,
+	group_assets: Res<ShareAssetMgr<RenderRes<BindGroup>>>,
+	mut changed: EventReader<ComponentEvent<Changed<BackgroundImageTexture>>>,
+	mut query_draw: Query<&mut DrawState, With<BackgroundImageMark>>,
+	query_draw_list: Query<(&DrawList, &BackgroundImage, &BackgroundImageTexture)>,
+	common_sampler: Res<CommonSampler>,
+	device: Res<PiRenderDevice>,
+	program_meta: OrInitRes<ProgramMetaRes<ProgramMeta>>,
+) {
+	let texture_group_layout = &program_meta.bind_group_layout[SampBind::set() as usize];
 
-                let ui_material_group = ui_meterial_alloter.alloc();
-                draw_state.bindgroups.insert_group(UiMaterialBind::set(), ui_material_group);
-
-                let box_type = modify(
-                    &background_image,
-                    layout,
-                    &mut draw_state,
-                    &device,
-                    &buffer_assets,
-                    &unit_quad_buffer,
-                    &bind_group_assets,
-                    &texture_group_layout,
-                    &background_image_texture,
-                    background_image_clip,
-                    background_image_mod,
-                    &common_sampler,
-                );
-				// TODO
-                // init_spawn_drawobj.push((
-                //     new_draw_obj,
-                //     DrawBundle {
-                //         node_id: NodeId(EntityKey(node_id)),
-                //         draw_state,
-                //         box_type,
-                //         pipeline_meta: PipelineMeta {
-                //             program: program_meta.clone(),
-                //             state: shader_catch.common.clone(),
-                //             vert_layout: vert_layout.clone(),
-                //             defines: Default::default(),
-                //         },
-                //         draw_info: DrawInfo::new(3, false), //TODO
-                //     },
-                // ));
-				let new_draw_obj = commands.spawn(
-				
-				(
-						DrawBundle {
-							node_id: NodeId(EntityKey(node_id)),
-							draw_state,
-							box_type,
-							pipeline_meta: PipelineMeta {
-								program: program_meta.clone(),
-								state: shader_catch.common.clone(),
-								vert_layout: vert_layout.clone(),
-								defines: Default::default(),
-							},
-							draw_info: DrawInfo::new(3, false), //TODO
-						},
-						BackgroundImageMark,
-					)
-				).id();
-                // 建立Node对DrawObj的索引
-                draw_list.insert(**render_type as u32, new_draw_obj);
-            }
-        }
-    }
-
-	// TODO
-    // if init_spawn_drawobj.len() > 0 {
-    //     commands.insert_or_spawn_batch(init_spawn_drawobj.into_iter());
-    // }
+	for i in changed.iter() {
+		if let Ok((draw_list, image, texture)) = query_draw_list.get(i.id) {
+			let texture = match &texture.0 {
+				Some(r) => r,
+				None => continue,
+			};
+			if let Some(draw_id) = draw_list.get(****render_type as u32) {
+				if let Ok(mut draw_state) = query_draw.get_mut(*draw_id) {
+					let texture_group_key = calc_hash(&image.0.get_hash(), calc_hash(&"image texture", 0));
+					 // texture BindGroup
+					let texture_group = match group_assets.get(&texture_group_key) {
+						Some(r) => r,
+						None => {
+							let group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+								layout: texture_group_layout,
+								entries: &[
+									wgpu::BindGroupEntry {
+										binding: 0,
+										resource: wgpu::BindingResource::Sampler(&common_sampler.default),
+									},
+									wgpu::BindGroupEntry {
+										binding: 1,
+										resource: wgpu::BindingResource::TextureView(&texture.texture_view),
+									},
+								],
+								label: Some("background image group create"),
+							});
+							group_assets.insert(texture_group_key, RenderRes::new(group, 5)).unwrap()
+						}
+					};
+					draw_state.bindgroups.insert_group(SampBind::set(), DrawBindGroup::Independ(texture_group));
+				}
+			}
+		}
+	}
 }
 
 // 返回当前需要的StaticIndex
-fn modify(
-    image: &BackgroundImage,
+pub fn modify(
     layout: &LayoutResult,
     draw_state: &mut DrawState,
-    device: &RenderDevice,
-    buffer_assets: &Share<AssetMgr<RenderRes<Buffer>>>,
     unit_quad_buffer: &UnitQuadBuffer,
-    group_assets: &Share<AssetMgr<RenderRes<BindGroup>>>,
-    texture_group_layout: &BindGroupLayout,
-    texture: &BackgroundImageTexture,
+    texture: &Handle<TextureRes>,
     clip: &BackgroundImageClip,
     background_image_mod: &BackgroundImageMod,
-    common_sampler: &CommonSampler,
+	vertex_buffer_alloter: &PiVertexBufferAlloter,
+	index_buffer_alloter: &PiIndexBufferAlloter,
 ) -> BoxType {
     // let border_radius = cal_content_border_radius(&cal_border_radius(border_radius, layout), (pos.mins.y, pos.maxs.x, pos.maxs.y, pos.mins.x));
 
-    let (vertex_buffer, uv_buffer, index_buffer, is_unit) = if (background_image_mod.object_fit == FitType::Fill
+    let  is_unit = if (background_image_mod.object_fit == FitType::Fill
         || background_image_mod.object_fit == FitType::Cover)
         && background_image_mod.repeat.x == ImageRepeatOption::Stretch
         && background_image_mod.repeat.y == ImageRepeatOption::Stretch
@@ -209,130 +157,53 @@ fn modify(
         && layout.border.top == 0.0
         && layout.border.bottom == 0.0
     {
-        (
-            unit_quad_buffer.vertex.clone(),
-            if clip.is_unit() {
-                unit_quad_buffer.vertex.clone()
-            } else {
-                let uv_key = calc_hash(&"texture uv", calc_float_hash(&[*clip.top, *clip.right, *clip.bottom, *clip.left], 0));
-                if let Some(r) = buffer_assets.get(&uv_key) {
-                    r
-                } else {
-                    let uvs = [
-                        *clip.left,
-                        *clip.top,
-                        *clip.right,
-                        *clip.top,
-                        *clip.right,
-                        *clip.bottom,
-                        *clip.left,
-                        *clip.bottom,
-                    ];
-                    let buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
-                        label: Some("background image uv buffer init"),
-                        contents: bytemuck::cast_slice(&uvs),
-                        usage: wgpu::BufferUsages::VERTEX,
-                    });
-                    buffer_assets.insert(uv_key, RenderRes::new(buf, uvs.len() * 2)).unwrap()
-                }
-            },
-            unit_quad_buffer.index.clone(),
-            BoxType::ContentRect,
-        )
+		if clip.is_unit() {
+			draw_state.insert_vertices(RenderVertices { slot: UvVert::location(), buffer: EVerticesBufferUsage::GUI(unit_quad_buffer.vertex.clone()), buffer_range: None, size_per_value: 8 });
+		} else {
+			let uvs = [
+				*clip.left,
+				*clip.top,
+				*clip.right,
+				*clip.top,
+				*clip.right,
+				*clip.bottom,
+				*clip.left,
+				*clip.bottom,
+			];
+			set_vert_buffer(UvVert::location(), 8, bytemuck::cast_slice(&uvs), vertex_buffer_alloter, draw_state, );
+		}
+		draw_state.insert_vertices(RenderVertices { slot: PositionVert::location(), buffer: EVerticesBufferUsage::GUI(unit_quad_buffer.vertex.clone()), buffer_range: None, size_per_value: 8 });
+		draw_state.indices = Some(RenderIndices { buffer: EVerticesBufferUsage::GUI(unit_quad_buffer.index.clone()), buffer_range: None, format: IndexFormat::Uint16 } );
+		draw_state.vertex = 0..(unit_quad_buffer.vertex.size()/8) as u32;
+		BoxType::ContentRect
     } else {
-        let hash = calc_hash(
-            background_image_mod,
-            calc_float_hash(&[layout.rect.top, layout.rect.right, layout.rect.bottom, layout.rect.left], 0),
-        );
-        let vertex_key = calc_hash(&"image vert", hash);
-        let index_key = calc_hash(&"index vert", hash);
-        let uv_key = calc_hash(&"texture uv", calc_float_hash(&[*clip.top, *clip.right, *clip.bottom, *clip.left], hash));
-
-        match (buffer_assets.get(&vertex_key), buffer_assets.get(&uv_key), buffer_assets.get(&index_key)) {
-            (Some(vert), Some(uv), Some(index)) => (vert, uv, index, BoxType::ContentNone),
-            (vert_buffer, uv_buffer, index_buffer) => {
-                let (pos, uv, texture_size, _is_part) = get_pos_uv(texture, clip, background_image_mod, layout);
-                let (vertex, uvs, indices) = get_pos_uv_buffer(&pos, &uv, texture_size, background_image_mod);
-                (
-                    match vert_buffer {
-                        Some(r) => r,
-                        None => {
-                            let buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
-                                label: Some("background image vert buffer init"),
-                                contents: bytemuck::cast_slice(vertex.as_slice()),
-                                usage: wgpu::BufferUsages::VERTEX,
-                            });
-                            buffer_assets.insert(vertex_key, RenderRes::new(buf, vertex.len() * 4)).unwrap()
-                        }
-                    },
-                    match uv_buffer {
-                        Some(r) => r,
-                        None => {
-                            let buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
-                                label: Some("background image uv buffer init"),
-                                contents: bytemuck::cast_slice(uvs.as_slice()),
-                                usage: wgpu::BufferUsages::VERTEX,
-                            });
-                            buffer_assets.insert(uv_key, RenderRes::new(buf, uvs.len() * 2)).unwrap()
-                        }
-                    },
-                    match index_buffer {
-                        Some(r) => r,
-                        None => {
-                            let buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
-                                label: Some("background image index buffer init"),
-                                contents: bytemuck::cast_slice(indices.as_slice()),
-                                usage: wgpu::BufferUsages::INDEX,
-                            });
-                            buffer_assets.insert(index_key, RenderRes::new(buf, indices.len() * 2)).unwrap()
-                        }
-                    },
-                    BoxType::ContentNone,
-                )
-            }
-        }
+        // let hash = calc_hash(
+        //     background_image_mod,
+        //     calc_float_hash(&[layout.rect.top, layout.rect.right, layout.rect.bottom, layout.rect.left], 0),
+        // );
+        // let vertex_key = calc_hash(&"image vert", hash);
+        // let index_key = calc_hash(&"index vert", hash);
+        // let uv_key = calc_hash(&"texture uv", calc_float_hash(&[*clip.top, *clip.right, *clip.bottom, *clip.left], hash));
+		
+		let (pos, uv, texture_size, _is_part) = get_pos_uv(texture, clip, background_image_mod, layout);
+		let (vertex, uvs, indices) = get_pos_uv_buffer(&pos, &uv, texture_size, background_image_mod);
+		
+		set_vert_buffer(PositionVert::location(), 8, bytemuck::cast_slice(vertex.as_slice()), vertex_buffer_alloter, draw_state, );
+		set_vert_buffer(PositionVert::location(), 8, bytemuck::cast_slice(uvs.as_slice()), vertex_buffer_alloter, draw_state, );
+		set_index_buffer(bytemuck::cast_slice(indices.as_slice()), index_buffer_alloter, draw_state,);
+		draw_state.vertex = 0..(vertex.len() * 4/8) as u32;
+		BoxType::ContentNone
     };
-	
-	draw_state.vertex = 0..(vertex_buffer.size()/8) as u32;
-	draw_state.insert_vertices(RenderVertices { slot: PositionVert::location(), buffer: EVerticesBufferUsage::GUI(vertex_buffer), buffer_range: None, size_per_value: 8 });
-	draw_state.insert_vertices(RenderVertices { slot: UvVert::location(), buffer: EVerticesBufferUsage::GUI(uv_buffer), buffer_range: None, size_per_value: 8 });
-	draw_state.indices = Some(RenderIndices { buffer: EVerticesBufferUsage::GUI(index_buffer), buffer_range: None, format: IndexFormat::Uint16 } );
-
-    let texture_group_key = calc_hash(&image.0.get_hash(), calc_hash(&"image texture", 0));
-    // texture BindGroup
-    let texture_group = match group_assets.get(&texture_group_key) {
-        Some(r) => r,
-        None => {
-            let group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-                layout: texture_group_layout,
-                entries: &[
-                    wgpu::BindGroupEntry {
-                        binding: 0,
-                        resource: wgpu::BindingResource::Sampler(&common_sampler.default),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 1,
-                        resource: wgpu::BindingResource::TextureView(&texture.texture_view),
-                    },
-                ],
-                label: Some("bg image group create"),
-            });
-            group_assets.insert(texture_group_key, RenderRes::new(group, 5)).unwrap()
-        }
-    };
-
-    draw_state.bindgroups.insert_group(SampBind::set(), DrawBindGroup::Independ(texture_group));
 
     is_unit
 }
 
 // 获得图片的4个点(逆时针)的坐标和uv的Aabb
-fn get_pos_uv(texture: &BackgroundImageTexture, clip: &NotNanRect, fit: &BackgroundImageMod, layout: &LayoutResult) -> (Aabb2, Aabb2, Vector2, bool) {
+fn get_pos_uv(src: &Handle<TextureRes>, clip: &NotNanRect, fit: &BackgroundImageMod, layout: &LayoutResult) -> (Aabb2, Aabb2, Vector2, bool) {
     let width = layout.rect.right - layout.rect.left - layout.border.right - layout.border.left;
     let height = layout.rect.bottom - layout.rect.top - layout.border.bottom - layout.border.top;
     let mut p1 = Point2::new(layout.border.left, layout.border.top);
     let mut p2 = Point2::new(p1.x + width, p1.y + height);
-    let src = &texture.0;
     let texture_size = Vector2::new(
         src.width as f32 * (clip.right - clip.left).abs(),
         src.height as f32 * (clip.bottom - clip.top).abs(),

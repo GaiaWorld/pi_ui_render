@@ -18,6 +18,7 @@ use pi_bevy_render_plugin::{PiRenderDevice, PiRenderQueue};
 use pi_hal::{loader::AsyncLoader, runtime::MULTI_MEDIA_RUNTIME};
 use pi_render::rhi::asset::{ImageTextureDesc, TextureRes};
 use pi_share::Share;
+use pi_bevy_ecs_extend::system_param::res::OrInitRes;
 
 #[derive(Clone, DerefMut, Deref, Resource)]
 pub struct ImageAwait<T>(Share<SegQueue<(Entity, Atom, Handle<TextureRes>)>>, PhantomData<T>);
@@ -37,7 +38,7 @@ pub fn image_change<S: Component + std::ops::Deref<Target = Atom>, D: Component 
     query1: Query<(Entity, &S)>,
     mut del: RemovedComponents<S>,
     texture_assets_mgr: Res<ShareAssetMgr<TextureRes>>,
-    image_await: Res<ImageAwait<S>>,
+    image_await: OrInitRes<ImageAwait<S>>,
     queue: Res<PiRenderQueue>,
     device: Res<PiRenderDevice>,
 
@@ -57,7 +58,10 @@ pub fn image_change<S: Component + std::ops::Deref<Target = Atom>, D: Component 
     for (entity, key) in query.iter() {
         let result = AssetMgr::load(&texture_assets_mgr, &(key.get_hash() as u64));
         match result {
-            LoadResult::Ok(r) => {commands.entity(entity).insert(D::from(r));}
+            LoadResult::Ok(r) => {
+				commands.entity(entity).insert(D::from(r));
+				event_writer.send(ComponentEvent::new(entity));
+			},
             _ => {
                 let (awaits, device, queue) = ((*image_await).clone(), (*device).clone(), (*queue).clone());
                 let (id, key) = (entity, (*key).clone());

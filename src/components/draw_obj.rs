@@ -89,6 +89,13 @@ impl Hash for PipelineMeta {
     }
 }
 
+// 标记背景颜色 放在DrawObject原型中，可以区分不同类型的DarwObject， 使得系统能够更好的并行
+#[derive(Debug, Component, Default)]
+pub struct BackgroundColorMark;
+
+// 标记BorderShadow 放在DrawObject原型中，可以区分不同类型的DarwObject， 使得系统能够更好的并行
+#[derive(Debug, Component, Default)]
+pub struct BoxShadowMark;
 
 // 标记背景图片 放在DrawObject原型中，可以区分不同类型的DarwObject， 使得系统能够更好的并行
 #[derive(Debug, Component, Default)]
@@ -97,3 +104,19 @@ pub struct BackgroundImageMark;
 // 标记文字 放在DrawObject原型中，可以区分不同类型的DarwObject， 使得系统能够更好的并行
 #[derive(Debug, Component, Default)]
 pub struct TextMark;
+
+// 标记文字阴影 放在DrawObject原型中，可以区分不同类型的DarwObject， 使得系统能够更好的并行
+#[derive(Debug, Component, Default)]
+pub struct TextShadowMark;
+
+// 标记BorderColor 放在DrawObject原型中，可以区分不同类型的DarwObject， 使得系统能够更好的并行
+#[derive(Debug, Component, Default)]
+pub struct BorderColorMark;
+
+// 标记BorderImage 放在DrawObject原型中，可以区分不同类型的DarwObject， 使得系统能够更好的并行
+#[derive(Debug, Component, Default)]
+pub struct BorderImageMark;
+
+// 标记Canvas 放在DrawObject原型中，可以区分不同类型的DarwObject， 使得系统能够更好的并行
+#[derive(Debug, Component, Default)]
+pub struct CanvasMark;

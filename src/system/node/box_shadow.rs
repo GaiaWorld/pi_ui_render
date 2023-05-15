@@ -1,11 +1,8 @@
 use std::slice;
 
-use bevy::ecs::prelude::{Entity, RemovedComponents};
 use bevy::ecs::query::{Changed, Or, With};
-use bevy::ecs::system::{Commands, Local, ParamSet, Query, Res};
+use bevy::ecs::system::{Query, Res};
 use pi_assets::mgr::AssetMgr;
-use pi_atom::Atom;
-use pi_bevy_ecs_extend::system_param::res::OrInitRes;
 use pi_cg2d::Polygon;
 
 use pi_bevy_asset::ShareAssetMgr;
@@ -14,116 +11,41 @@ use pi_render::renderer::vertices::{RenderVertices, RenderIndices, EVerticesBuff
 use pi_render::rhi::asset::RenderRes;
 use pi_render::rhi::buffer::Buffer;
 use pi_render::rhi::device::RenderDevice;
-use pi_render::rhi::shader::{BindLayout, Input};
+use pi_render::rhi::shader::Input;
 use pi_share::Share;
 use polygon2::difference;
 use wgpu::IndexFormat;
 
-use crate::components::calc::{DrawInfo, EntityKey, LayoutResult};
-use crate::components::draw_obj::PipelineMeta;
+use crate::components::calc::LayoutResult;
+use crate::components::draw_obj::{PipelineMeta, BoxShadowMark};
 use crate::components::user::{BoxShadow, Point2};
-use crate::components::DrawBundle;
 use crate::components::{
-    calc::{DrawList, NodeId},
+    calc::NodeId,
     draw_obj::DrawState,
 };
-use crate::resource::draw_obj::{PosVertexLayout, ProgramMetaRes, ShaderInfoCache, ShareGroupAlloter, UiMaterialGroup};
-use crate::resource::RenderObjType;
-use crate::shader::color::{PositionVert, ProgramMeta};
-use crate::shader::ui_meterial::{BlurUniform, ColorUniform, StrokeColorOrURectUniform, UiMaterialBind};
-use crate::system::utils::clear_draw_obj;
+use crate::shader::color::{PositionVert, SHADOW_DEFINE};
+use crate::shader::ui_meterial::{BlurUniform, ColorUniform, StrokeColorOrURectUniform};
 use crate::utils::tools::{calc_float_hash, calc_hash, get_box_rect};
 // use crate::utils::tools::calc_hash;
 
-pub struct CalcBoxShadow;
+pub const BOX_SHADOW_ORDER: u8 = 1;
 
 /// 创建RenderObject，用于渲染背景颜色
 pub fn calc_box_shadow(
-    render_type: Local<RenderObjType>,
-    del: RemovedComponents<BoxShadow>,
-    mut query: ParamSet<(
-        // 布局修改、颜色修改、圆角修改或删除，需要修改或创建背景色的DrawObject
-        Query<(Entity, &BoxShadow, &LayoutResult, &mut DrawList), (With<BoxShadow>, Or<(Changed<BoxShadow>, Changed<LayoutResult>)>)>,
-        // BackgroundColor删除，需要删除对应的DrawObject
-        Query<(Option<&BoxShadow>, &mut DrawList)>,
-    )>,
-    mut commands: Commands,
-
-    mut query_draw: Query<&mut DrawState>,
+	// 布局修改、颜色修改、圆角修改或删除，需要修改或创建背景色的DrawObject
+    query: Query<(&BoxShadow, &LayoutResult), Or<(Changed<BoxShadow>, Changed<LayoutResult>)>>,
+    mut query_draw: Query<(&mut DrawState, &mut PipelineMeta, &NodeId), With<BoxShadowMark>>,
 
     device: Res<PiRenderDevice>,
 
-    ui_material_alloter: OrInitRes<ShareGroupAlloter<UiMaterialGroup>>,
-
     buffer_assets: Res<ShareAssetMgr<RenderRes<Buffer>>>,
-
-    program_meta: OrInitRes<ProgramMetaRes<ProgramMeta>>,
-    vert_layout: OrInitRes<PosVertexLayout>,
-    shader_catch: OrInitRes<ShaderInfoCache>,
 ) {
-    // 删除对应的DrawObject
-    clear_draw_obj(*render_type, del, query.p1(), &mut commands);
-
-    let mut init_spawn_drawobj = Vec::new();
-
-    for (node_id, box_shadow, layout, mut draw_list) in query.p0().iter_mut() {
-        match draw_list.get(**render_type as u32) {
-            // background_color已经存在一个对应的DrawObj， 则修改color group
-            Some(r) => {
-                let mut draw_state = match query_draw.get_mut(*r) {
-                    Ok(r) => r,
-                    _ => continue,
-                };
-                modify(&device, &mut draw_state, layout, &box_shadow, &buffer_assets);
-            }
-            None => {
-                let mut program_meta = PipelineMeta {
-                    program: program_meta.clone(),
-                    state: shader_catch.common.clone(),
-                    vert_layout: vert_layout.clone(),
-                    defines: Default::default(),
-                };
-                // 创建新的DrawObj
-                let new_draw_obj = commands.spawn_empty().id();
-
-                program_meta.defines.insert(Atom::from("SHADOW"));
-                // vs_defines_commands.insert(new_draw_obj, vs_defines);
-
-                // fs_defines_commands.insert(new_draw_obj, fs_defines);
-
-                // 设置DrawState（包含color group）
-                let mut draw_state = DrawState::default();
-
-                // 创建color材质
-                let ui_material_group = ui_material_alloter.alloc();
-                draw_state.bindgroups.insert_group(UiMaterialBind::set(), ui_material_group);
-
-                modify(&device, &mut draw_state, layout, &box_shadow, &buffer_assets);
-
-                // draw_state_commands.insert(new_draw_obj, draw_state);
-                // // 建立DrawObj对Node的索引
-                // node_id_commands.insert(new_draw_obj, NodeId(node));
-
-                // shader_static_commands.insert(new_draw_obj, (*color_static_index).clone());
-                // order_commands.insert(new_draw_obj, DrawInfo::new(8, false));
-                init_spawn_drawobj.push((
-                    new_draw_obj,
-                    DrawBundle {
-                        node_id: NodeId(EntityKey(node_id)),
-                        draw_state,
-                        box_type: Default::default(),
-                        pipeline_meta: program_meta,
-                        draw_info: DrawInfo::new(1, false), //TODO
-                    },
-                ));
-                // 建立Node对DrawObj的索引
-                draw_list.insert(**render_type as u32, new_draw_obj);
-            }
-        }
-    }
-    if init_spawn_drawobj.len() > 0 {
-        commands.insert_or_spawn_batch(init_spawn_drawobj.into_iter());
-    }
+    for (mut draw_state, mut pipeline_meta, node_id) in query_draw.iter_mut() {
+		if let Ok((box_shadow, layout)) = query.get(***node_id) {
+			modify(&device, &mut draw_state, layout, &box_shadow, &buffer_assets);
+			pipeline_meta.defines.insert(SHADOW_DEFINE.clone());
+		}
+	}
 }
 
 

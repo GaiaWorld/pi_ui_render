@@ -19,6 +19,7 @@ pub fn calc_show(
     query: Query<(OrDefault<Show>, Option<&Up>)>,
     mut write: Query<&mut IsShow>,
 ) {
+
     for entity in show_change.iter() {
         dirty.mark(entity)
     }
@@ -34,7 +35,7 @@ pub fn calc_show(
             let parent = up.parent();
             if let Ok(w) = write.get(parent) {
                 parent_c_visibility = w.get_visibility();
-                parent_c_enable = w.get_visibility();
+                parent_c_enable = w.get_enable();
             }
         }
 
@@ -55,6 +56,7 @@ pub fn calc_show(
         let c_enable = c_visibility && c_enable;
         let mut write_item = write.get_mut(node).unwrap();
         write_item.set_visibility(c_visibility);
+		// log::warn!("show=============entity: {:?}, c_enable: {:?}, parent: {:?}, enable_value: {:?}", node, c_enable, parent_c_enable, enable_value);
         write_item.set_enable(c_enable);
     }
 }

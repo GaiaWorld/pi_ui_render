@@ -585,16 +585,20 @@ pub struct OveflowRotate {
 	pub world_rotate: Matrix4<f32>,
 }
 
-#[derive(Deref, DerefMut, Component)]
-pub struct BorderImageTexture(pub Handle<TextureRes>);
+/// BorderImageTexture.0只有在设置了图片路径，但纹理还未加载成功的情况下，才会为none
+/// 如果删除了图片路径，会删除该组件
+#[derive(Deref, DerefMut, Component, Default)]
+pub struct BorderImageTexture(pub Option<Handle<TextureRes>>);
 
 impl From<Handle<TextureRes>> for BorderImageTexture {
-    fn from(h: Handle<TextureRes>) -> Self { Self(h) }
+    fn from(h: Handle<TextureRes>) -> Self { Self(Some(h)) }
 }
 
-#[derive(Deref, DerefMut, Component)]
-pub struct BackgroundImageTexture(pub Handle<TextureRes>);
+/// BackgroundImageTexture.0只有在设置了图片路径，但纹理还未加载成功的情况下，才会为none
+/// 如果删除了图片路径，会删除该组件
+#[derive(Deref, DerefMut, Component, Default)]
+pub struct BackgroundImageTexture(pub Option<Handle<TextureRes>>);
 
 impl From<Handle<TextureRes>> for BackgroundImageTexture {
-    fn from(h: Handle<TextureRes>) -> Self { Self(h) }
+    fn from(h: Handle<TextureRes>) -> Self { Self(Some(h)) }
 }

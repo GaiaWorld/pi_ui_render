@@ -17,7 +17,7 @@ use pi_bevy_ecs_extend::{
     system_param::res::{OrInitRes, OrInitResMut},
 };
 use pi_bevy_post_process::PostprocessResource;
-use pi_bevy_render_plugin::{PiRenderDevice, PiRenderQueue};
+use pi_bevy_render_plugin::{PiRenderDevice, PiRenderQueue, PiVertexBufferAlloter};
 use pi_null::Null;
 use pi_render::{
 	rhi::{asset::RenderRes, bind_group::BindGroup, buffer::Buffer, device::RenderDevice, shader::{BindLayout}}, renderer::draw_obj::DrawBindGroup,
@@ -77,6 +77,7 @@ pub fn calc_camera_depth_and_renderlist(
         Res<ShareAssetMgr<RenderRes<Buffer>>>,
         Res<ShareAssetMgr<RenderRes<BindGroup>>>,
         Res<GroupAlloterCenter>,
+		OrInitRes<PiVertexBufferAlloter>,
     ),
     mut depth_cache: OrInitResMut<DepthCache>,
     camera_material_alloter: OrInitRes<ShareGroupAlloter<CameraGroup>>,
@@ -85,7 +86,7 @@ pub fn calc_camera_depth_and_renderlist(
     // mut geometrys: ResMut<PiPostProcessGeometryManager>,
     // mut postprocess_pipelines: ResMut<PiPostProcessMaterialMgr>,
 ) {
-    let (share_layout, device, queue, buffer_assets, bind_group_assets, group_alloc_center) = res;
+    let (share_layout, device, queue, buffer_assets, bind_group_assets, group_alloc_center, vertbuffer_alloter) = res;
 	let p0 = query_root.p0();
     for (
         entity,
@@ -390,6 +391,7 @@ pub fn calc_camera_depth_and_renderlist(
     }
 
     group_alloc_center.write_buffer(&device, &queue);
+	vertbuffer_alloter.write_buffer();
 
 	// 重置渲染脏
 	for mut i in query_root.p1().iter_mut() {

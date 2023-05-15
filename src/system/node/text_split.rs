@@ -10,7 +10,7 @@ use bevy::ecs::{
 };
 use ordered_float::NotNan;
 use pi_bevy_ecs_extend::{
-    prelude::{EntityTree, Layer, OrDefault, Up},
+    prelude::{Layer, OrDefault, Up},
     system_param::layer_dirty::ComponentEvent,
 };
 use pi_flex_layout::{
@@ -43,23 +43,18 @@ pub fn text_split(
             OrDefault<FlexSize>,
             OrDefault<FlexNormal>,
             &'static mut NodeState,
+			&Layer,
         ),
         Or<(Changed<TextContent>, Changed<TextStyle>, Changed<Layer>)>,
     >,
-    tree: EntityTree,
     font_sheet: ResMut<ShareFontSheet>,
     mut event_writer: EventWriter<ComponentEvent<Changed<NodeState>>>,
 ) {
     let mut font_sheet = font_sheet.0.borrow_mut();
-    for (entity, text_content, text_style, up, size, normal_style, node_state) in query.iter_mut() {
-        match tree.get_layer(entity) {
-            Some(r) => {
-                if r.layer() == 0 {
-                    continue;
-                }
-            }
-            None => continue,
-        };
+    for (entity, text_content, text_style, up, size, normal_style, node_state, layer) in query.iter_mut() {
+        if layer.layer() == 0 {
+			continue;
+		}
 
         // 字体大小，根据font-size样式，计算字体的绝对大小
         let font_size = get_size(&text_style.font_size);

@@ -1,13 +1,10 @@
-use bevy::ecs::prelude::Entity;
 use bevy::ecs::query::{Changed, Or, With};
 use bevy::ecs::{
 	prelude::Ref,
-	system::{Commands, Local, ParamSet, Query, Res},
-	removal_detection::RemovedComponents,
+	system::{Query, Res},
 };
 use bevy::prelude::DetectChanges;
 use pi_assets::mgr::AssetMgr;
-use pi_atom::Atom;
 use pi_bevy_asset::ShareAssetMgr;
 use pi_bevy_ecs_extend::system_param::res::OrInitRes;
 use pi_bevy_render_plugin::PiRenderDevice;
@@ -17,175 +14,79 @@ use pi_render::renderer::vertices::{EVerticesBufferUsage, RenderVertices, Render
 use pi_render::rhi::asset::RenderRes;
 use pi_render::rhi::buffer::Buffer;
 use pi_render::rhi::device::RenderDevice;
-use pi_render::rhi::shader::BindLayout;
 use pi_share::Share;
 use wgpu::IndexFormat;
 
-use crate::components::calc::{DrawInfo, EntityKey, LayoutResult};
-use crate::components::draw_obj::PipelineMeta;
-use crate::components::DrawBundle;
-use crate::resource::draw_obj::{PosColorVertexLayout, PosVertexLayout, ProgramMetaRes, ShaderInfoCache, ShareGroupAlloter, UiMaterialGroup};
-use crate::resource::RenderObjType;
-use crate::shader::color::ProgramMeta;
-use crate::shader::ui_meterial::{ColorUniform, UiMaterialBind};
-use crate::system::utils::clear_draw_obj;
+use crate::components::calc::LayoutResult;
+use crate::components::draw_obj::{PipelineMeta, BackgroundColorMark};
+use crate::resource::draw_obj::{PosColorVertexLayout, PosVertexLayout};
+use crate::shader::color::VERT_COLOR_DEFINE;
+use crate::shader::ui_meterial::ColorUniform;
 use crate::utils::tools::{calc_hash, get_content_rect};
 use crate::{
     components::{
-        calc::{DrawList, NodeId},
+        calc::NodeId,
         draw_obj::{BoxType, DrawState},
         user::{BackgroundColor, Color},
     },
     resource::draw_obj::UnitQuadBuffer,
 };
-// use crate::utils::tools::calc_hash;
 
-pub struct CalcBackGroundColor;
+pub const BACKGROUND_COLOR_ORDER: u8 = 2;
 
 /// 创建RenderObject，用于渲染背景颜色
 pub fn calc_background(
-    render_type: Local<RenderObjType>,
-    del: RemovedComponents<BackgroundColor>,
-    mut query: ParamSet<(
-        // 布局修改、颜色修改、圆角修改或删除，需要修改或创建背景色的DrawObject
-        Query<
-            (
-                Entity,
-                &BackgroundColor,
-                &LayoutResult,
-                &mut DrawList,
-                Ref<BackgroundColor>,
-                Ref<LayoutResult>,
-            ),
-            (With<BackgroundColor>, Or<(Changed<BackgroundColor>, Changed<LayoutResult>)>),
-        >,
-        // BackgroundColor删除，需要删除对应的DrawObject
-        Query<(Option<&BackgroundColor>, &mut DrawList)>,
-    )>,
-    mut commands: Commands,
+    query: Query<
+		(
+			&BackgroundColor,
+			&LayoutResult,
+			Ref<BackgroundColor>,
+			Ref<LayoutResult>,
+		),
+		Or<(Changed<BackgroundColor>, Changed<LayoutResult>)>,
+	>,
 
-    mut query_draw: Query<(&mut DrawState, &mut BoxType, &mut PipelineMeta)>,
-    // mut draw_obj_commands: EntityCommands<DrawObject>,
-    // mut draw_state_commands: Commands<DrawObject, DrawState>,
-    // mut node_id_commands: Commands<DrawObject, NodeId>,
-    // mut is_unit_quad_commands: Commands<DrawObject, BoxType>,
-    // mut shader_static_commands: Commands<DrawObject, StaticIndex>,
-    // mut order_commands: Commands<DrawObject, DrawInfo>,
-    // mut fs_defines_commands: Commands<DrawObject, FSDefines>,
-    // mut vs_defines_commands: Commands<DrawObject, VSDefines>,
-
-    // load_mgr: ResMut<'a, LoadMgr>,
+	mut query_draw: Query<(&mut DrawState, &mut BoxType, &mut PipelineMeta, &NodeId), With<BackgroundColorMark>>,
     device: Res<PiRenderDevice>,
 
     unit_quad_buffer: Res<UnitQuadBuffer>,
-    ui_meterial_alloter: OrInitRes<ShareGroupAlloter<UiMaterialGroup>>,
 
     buffer_assets: Res<ShareAssetMgr<RenderRes<Buffer>>>,
-
-    program_meta: OrInitRes<ProgramMetaRes<ProgramMeta>>,
     vert_layout1: OrInitRes<PosVertexLayout>,
     vert_layout2: OrInitRes<PosColorVertexLayout>,
-    shader_catch: OrInitRes<ShaderInfoCache>,
 ) {
-    // 删除对应的DrawObject
-    clear_draw_obj(*render_type, del, query.p1(), &mut commands);
+    for (mut draw_state, mut old_unit_quad, mut pipeline_meta, node_id) in query_draw.iter_mut() {
+		if let Ok((background_color, layout, background_color_change, layout_change)) = query.get(***node_id) {
+			let new_unit_quad = modify(
+				&background_color,
+				layout,
+				&mut draw_state,
+				&device,
+				&buffer_assets,
+				&background_color_change,
+				&layout_change,
+				&unit_quad_buffer,
+			);
+			if *old_unit_quad != new_unit_quad {
+				*old_unit_quad = new_unit_quad;
+			}
 
-    let mut init_spawn_drawobj = Vec::new();
-    for (node, background_color, layout, mut draw_list, background_color_change, layout_change) in query.p0().iter_mut() {
-        match draw_list.get(**render_type as u32) {
-            // background_color已经存在一个对应的DrawObj， 则修改color group
-            Some(r) => {
-                let (mut draw_state, mut old_unit_quad, mut pipeline_meta) = match query_draw.get_mut(*r) {
-                    Ok(r) => r,
-                    _ => continue,
-                };
-                let new_unit_quad = modify(
-                    &background_color,
-                    layout,
-                    &mut draw_state,
-                    &device,
-                    &buffer_assets,
-                    &background_color_change,
-                    &layout_change,
-                    &unit_quad_buffer,
-                );
-                if *old_unit_quad != new_unit_quad {
-                    *old_unit_quad = new_unit_quad;
-                }
+			let (vert_layout, has_vert) = match &**background_color {
+				Color::LinearGradient(_) => (&***vert_layout2, true),
+				Color::RGBA(_) => (&***vert_layout1, false),
+			};
 
-                let (vert_layout, has_vert) = match &**background_color {
-                    Color::LinearGradient(_) => (&***vert_layout2, true),
-                    Color::RGBA(_) => (&***vert_layout1, false),
-                };
-
-                if !Share::ptr_eq(vert_layout, &pipeline_meta.vert_layout) {
-                    if has_vert {
-                        pipeline_meta.defines.insert(Atom::from("VERT_COLOR"));
-                    } else {
-                        pipeline_meta.defines.remove(&Atom::from("VERT_COLOR"));
-                    }
-                }
-            }
-            None => {
-                // 创建新的DrawObj
-                let new_draw_obj = commands.spawn_empty().id();
-                let mut draw_bundle = DrawBundle {
-                    node_id: NodeId(EntityKey(node)),
-                    draw_state: Default::default(),
-                    box_type: Default::default(),
-                    pipeline_meta: PipelineMeta {
-                        program: program_meta.clone(),
-                        state: shader_catch.common.clone(),
-                        vert_layout: vert_layout1.clone(),
-                        defines: Default::default(),
-                    },
-                    draw_info: DrawInfo::new(2, false), //TODO
-                };
-                draw_bundle.node_id = NodeId(EntityKey(node));
-
-                // 设置DrawState（包含color group）
-                let draw_state = &mut draw_bundle.draw_state;
-
-                let color_material_group = ui_meterial_alloter.alloc();
-                draw_state.bindgroups.insert_group(UiMaterialBind::set(), color_material_group);
-
-                draw_bundle.box_type = modify(
-                    &background_color,
-                    layout,
-                    draw_state,
-                    &device,
-                    &buffer_assets,
-                    &background_color_change,
-                    &layout_change,
-                    &unit_quad_buffer,
-                );
-
-
-                // draw_state_commands.insert(new_draw_obj, draw_state);
-                // // 建立DrawObj对Node的索引
-                // node_id_commands.insert(new_draw_obj, NodeId(node));
-                // is_unit_quad_commands.insert(new_draw_obj, new_unit_quad);
-
-                draw_bundle.pipeline_meta.vert_layout = match &**background_color {
-                    Color::LinearGradient(_) => {
-                        draw_bundle.pipeline_meta.defines.insert(Atom::from("VERT_COLOR"));
-                        vert_layout2.clone()
-                    }
-                    Color::RGBA(_) => vert_layout1.clone(),
-                };
-                draw_bundle.draw_info = DrawInfo::new(2, background_color.is_opaque());
-
-
-                // 建立Node对DrawObj的索引
-                draw_list.insert(**render_type as u32, new_draw_obj);
-
-                init_spawn_drawobj.push((new_draw_obj, draw_bundle));
-            }
-        }
-    }
-    if init_spawn_drawobj.len() > 0 {
-        commands.insert_or_spawn_batch(init_spawn_drawobj.into_iter());
-    }
+			// 修改顶点布局
+			if !Share::ptr_eq(vert_layout, &pipeline_meta.vert_layout) {
+				pipeline_meta.vert_layout = vert_layout.clone();
+				if has_vert {
+					pipeline_meta.defines.insert(VERT_COLOR_DEFINE.clone());
+				} else {
+					pipeline_meta.defines.remove(&*VERT_COLOR_DEFINE);
+				}
+			}
+		}
+	}
 }
 
 // 返回当前需要的StaticIndex

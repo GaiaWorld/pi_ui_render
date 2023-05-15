@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 use std::mem::transmute;
 
-use bevy::{ecs::prelude::{Component, DetectChangesMut}, prelude::Entity};
+use bevy::{ecs::prelude::{Component, DetectChangesMut, Changed}, prelude::Entity};
 use bitvec::prelude::BitArray;
 use ordered_float::NotNan;
 use pi_atom::Atom;
@@ -11,12 +11,13 @@ use pi_flex_layout::style::{AlignContent, AlignItems, AlignSelf, Direction, Disp
 pub use pi_style::style::{
     Aabb2, AnimationDirection, AnimationFillMode, AnimationName, AnimationPlayState, AnimationTimingFunction, CgColor, Color, ColorAndPosition,
     Enable, FitType, FontSize, FontStyle, ImageRepeat, IterationCount, LengthUnit, LineHeight, LinearGradientColor, NotNanRect, ShowType, Stroke,
-    StyleType, TextAlign, TextShadow, Time, TransformFunc, TransformFuncs, TransformOrigin, VerticalAlign, WhiteSpace,
+    StyleType, TextAlign, TextShadow as TextShadow1, Time, TransformFunc, TransformFuncs, TransformOrigin, VerticalAlign, WhiteSpace,
 };
 use pi_style::style::{
     BlendMode as BlendMode1, BorderImageSlice as BorderImageSlice1, BorderRadius as BorderRadius1, BoxShadow as BoxShadow1, Hsi as Hsi1,
     MaskImage as MaskImage1, TextContent as TextContent1,
 };
+use pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent;
 
 pub use super::root::{ClearColor, RenderDirty, RenderTargetType, Viewport};
 use smallvec::SmallVec;
@@ -135,6 +136,12 @@ pub struct BorderColor(pub CgColor);
 #[derive(Debug, Deref, DerefMut, Clone, Serialize, Deserialize, Default, Hash, Component)]
 pub struct BackgroundImage(pub Atom);
 
+impl BackgroundImage {
+	pub fn set_url() {
+
+	}
+}
+
 #[derive(Debug, Deref, DerefMut, Clone, Serialize, Deserialize, Component)]
 pub struct MaskImageClip(pub NotNanRect);
 
@@ -198,7 +205,6 @@ pub struct TextStyle {
     pub text_indent: f32,
     pub text_stroke: Stroke,
     pub text_align: TextAlign,
-    pub text_shadow: TextShadows, // 缩进， 单位： 像素
     pub letter_spacing: f32,      //字符间距， 单位：像素
     pub word_spacing: f32,        //字符间距， 单位：像素
     pub white_space: WhiteSpace,  //空白处理
@@ -211,6 +217,9 @@ pub struct TextStyle {
     pub font_family: Atom,     //	规定字体系列。参阅：font-family 中可能的值。
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, Component, Default)]
+pub struct TextShadow(pub TextShadowList);
+
 impl Default for TextStyle {
     fn default() -> Self {
         Self {
@@ -218,7 +227,6 @@ impl Default for TextStyle {
             text_indent: Default::default(),
             text_stroke: Default::default(),
             text_align: Default::default(),
-            text_shadow: Default::default(),
             letter_spacing: Default::default(),
             word_spacing: Default::default(),
             white_space: Default::default(),
@@ -233,7 +241,7 @@ impl Default for TextStyle {
 }
 
 
-pub type TextShadows = SmallVec<[TextShadow; 1]>;
+pub type TextShadowList = SmallVec<[TextShadow1; 1]>;
 
 // TransformWillChange， 用于优化频繁变化的Transform
 #[derive(Default, Debug, Clone, Serialize, Deserialize, Component)]
@@ -390,16 +398,16 @@ pub fn get_size(s: &FontSize) -> usize {
 pub mod serialize {
     use std::mem::forget;
 
-    use crate::components::{calc::StyleMark, user::*};
+    use crate::components::{calc::{StyleMark, BackgroundImageTexture, BorderImageTexture}, user::*};
     use pi_atom::Atom;
     // use pi_ecs::{
     //     prelude::{Query, ResMut},
     //     query::{DefaultComponent, Write},
     // };
-    use bevy::ecs::{
+    use bevy::{ecs::{
         component::ComponentId,
         prelude::{Entity, FromWorld, World},
-    };
+    }, prelude::Events};
     use pi_bevy_ecs_extend::prelude::DefaultComponent;
     use pi_flex_layout::{
         prelude::Number,
@@ -632,6 +640,7 @@ pub mod serialize {
         }
     }
 
+
     macro_rules! set {
         // 整体插入
         ($name: ident, $value_ty: ty) => {
@@ -651,6 +660,49 @@ pub mod serialize {
                     v,
                     |item: &mut $value_ty, v: $value_ty| *item = v,
                 );
+            }
+        };
+		// 表达式
+        (@fun $name: ident, $value_ty: ty, $f: expr) => {
+            fn set(cur_style_mark: &mut BitArray<[u32; 3]>, ptr: *const u8, query: &mut Setting, entity: Entity, is_clone: bool) {
+                let v = ptr.cast::<$value_ty>();
+				let v = if is_clone {
+					unsafe {&*v}.clone()
+				} else {
+					unsafe {v.read_unaligned()}
+				};
+                cur_style_mark.set(Self::get_type() as usize, true);
+                set_style_attr(
+                    &mut query.world,
+                    entity,
+                    query.style.$name,
+                    query.style.default.$name,
+                    v,
+                    $f,
+                );
+            }
+        };
+
+		(@fun_send $name: ident, $value_ty: ty, $c_ty: ty, $f: expr) => {
+            fn set(cur_style_mark: &mut BitArray<[u32; 3]>, ptr: *const u8, query: &mut Setting, entity: Entity, is_clone: bool) {
+                let v = ptr.cast::<$value_ty>();
+				let v = if is_clone {
+					unsafe {&*v}.clone()
+				} else {
+					unsafe {v.read_unaligned()}
+				};
+                cur_style_mark.set(Self::get_type() as usize, true);
+                set_style_attr(
+                    &mut query.world,
+                    entity,
+                    query.style.$name,
+                    query.style.default.$name,
+                    v,
+                    $f,
+                );
+				if let Some(component) = query.world.get_resource_mut_by_id(query.style.event.$name) {
+					unsafe{ component.into_inner().deref_mut::<Events<ComponentEvent<Changed<$c_ty>>>>()}.send(ComponentEvent::<Changed<$c_ty>>::new(entity));
+				};
             }
         };
         // 属性修改
@@ -1001,10 +1053,37 @@ pub mod serialize {
 
 		}
 	};
+
 	(@pack $struct_name: ident, $name: ident, $pack_ty: ident, $value_ty: ident) => {
 
 		impl ConvertToComponent for $struct_name {
-			set!(@pack $name, $pack_ty, $value_ty);
+			set!(@fun $name, $value_ty, |item: &mut $pack_ty, v: $value_ty| *item = $pack_ty(v));
+			// set!(@pack $name, $pack_ty, $value_ty);
+			// reset!($name, $ty);
+			set_default!($name, $pack_ty);
+			fn to_attr(ptr: *const u8) -> Attribute
+			{
+				Attribute::$pack_ty(unsafe { $struct_name(ptr.cast::<$value_ty>().read_unaligned()) })
+			}
+		}
+
+		$crate::paste::item! {
+
+			impl ConvertToComponent for [<Reset $struct_name>] {
+				reset!($name, $pack_ty);
+				set_default!($name, $pack_ty);
+				fn to_attr(_ptr: *const u8) -> Attribute
+				{
+					Attribute::$pack_ty( $struct_name(Default::default()) )
+				}
+			}
+		}
+	};
+	(@pack_send $struct_name: ident, $name: ident, $pack_ty: ident, $value_ty: ident) => {
+
+		impl ConvertToComponent for $struct_name {
+			set!(@fun_send $name, $value_ty, $pack_ty, |item: &mut $pack_ty, v: $value_ty| *item = $pack_ty(v));
+			// set!(@pack $name, $pack_ty, $value_ty);
 			// reset!($name, $ty);
 			set_default!($name, $pack_ty);
 			fn to_attr(ptr: *const u8) -> Attribute
@@ -1292,7 +1371,7 @@ pub mod serialize {
     // 	}
     // }
 
-    impl_style!(@pack TextContentType, text_content, TextContent, TextContent1);
+    impl_style!(@pack_send TextContentType, text_content, TextContent, TextContent1);
     impl_style!(TextAlignType, text_style, TextStyle, text_align, TextAlign, TextAlign);
 
     // impl ConvertToComponent for TextAlignType {
@@ -1422,9 +1501,101 @@ pub mod serialize {
 
     impl_style!(ColorType, text_style, TextStyle, color, Color, Color);
     impl_style!(TextStrokeType, text_style, TextStyle, text_stroke, TextStroke, Stroke);
-    impl_style!(TextShadowType, text_style, TextStyle, text_shadow, TextShadow, SmallVec<[TextShadow; 1]>);
+    impl_style!(@pack_send TextShadowType, text_shadow, TextShadow, TextShadowList);
 
-    impl_style!(@pack BackgroundImageType, background_image, BackgroundImage, Atom);
+	impl ConvertToComponent for BackgroundImageType {
+        /// 将样式属性设置到组件上
+        /// ptr为样式属性的指针
+        /// 安全： entity必须存在
+        fn set<'w, 's>(cur_style_mark: &mut BitArray<[u32; 3]>, ptr: *const u8, query: &mut Setting, entity: Entity, is_clone: bool)
+        where
+            Self: Sized {
+			let v = ptr.cast::<Atom>();
+			let v = if is_clone {
+				unsafe {&*v}.clone()
+			} else {
+				unsafe {v.read_unaligned()}
+			};
+			cur_style_mark.set(Self::get_type() as usize, true);
+
+			let world = &mut query.world;
+			log::debug!("set_style_attr, type: {:?}, value: {:?}, entity: {:?}", std::any::type_name::<BackgroundImage>(), v, entity);
+			match world.get_mut_by_id(entity, query.style.background_image) {
+				Some(mut component) => {
+					component.set_changed();
+					unsafe { component.into_inner().deref_mut::<BackgroundImage>() }.0 = v;
+					// f(unsafe { component.into_inner().deref_mut::<Atom>() }, v);
+				}
+				None => {
+					// 顺便插入默认的BackgroundImageTexture， 以免后续修改原型
+					match world.get_mut_by_id(entity, query.style.background_image_texture) {
+						Some(_) =>  world.entity_mut(entity).insert(BackgroundImage(v)),
+						None => world.entity_mut(entity).insert((BackgroundImage(v), BackgroundImageTexture::default())),
+					};
+				}
+			};
+		}
+
+        /// 为样式设置默认值
+        fn set_default(buffer: &Vec<u8>, offset: usize, query: &DefaultStyle, world: &mut World)
+        where
+            Self: Sized {
+			set_default_style_attr(
+				world,
+				query.background_image,
+				unsafe { buffer.as_ptr().add(offset).cast::<Atom>().read_unaligned() },
+				|item: &mut BackgroundImage, v: Atom| {
+					**item = v;
+				},
+			);
+		}
+
+        fn to_attr(ptr: *const u8) -> Attribute
+        where
+            Self: Sized {
+				Attribute::BackgroundImage(unsafe { BackgroundImageType(ptr.cast::<Atom>().read_unaligned()) })
+		}
+    }
+	impl ConvertToComponent for ResetBackgroundImageType {
+        /// 将样式属性设置到组件上
+        /// ptr为样式属性的指针
+        /// 安全： entity必须存在
+        fn set<'w, 's>(_cur_style_mark: &mut BitArray<[u32; 3]>, _ptr: *const u8, query: &mut Setting, entity: Entity, _is_clone: bool)
+        where
+            Self: Sized {
+			reset_style_attr(
+				&mut query.world,
+				entity,
+				query.style.background_image,
+				query.style.default.background_image,
+				|item: &mut BackgroundImage, v: &BackgroundImage| {
+					*item = v.clone();
+				},
+			);
+			// 设置纹理， TODO
+		}
+
+        /// 为样式设置默认值
+        fn set_default(buffer: &Vec<u8>, offset: usize, query: &DefaultStyle, world: &mut World)
+        where
+            Self: Sized {
+			set_default_style_attr(
+				world,
+				query.background_image,
+				unsafe { buffer.as_ptr().add(offset).cast::<Atom>().read_unaligned() },
+				|item: &mut BackgroundImage, v: Atom| {
+					**item = v;
+				},
+			);
+		}
+
+        fn to_attr(ptr: *const u8) -> Attribute
+        where
+            Self: Sized {
+				Attribute::BackgroundImage(unsafe { BackgroundImageType(ptr.cast::<Atom>().read_unaligned()) })
+		}
+    }
+
     impl_style!(@pack BackgroundImageClipType, background_image_clip, BackgroundImageClip, NotNanRect);
     impl_style!(ObjectFitType, background_image_mod, BackgroundImageMod, object_fit, ObjectFit, FitType);
     impl_style!(
@@ -1436,16 +1607,107 @@ pub mod serialize {
         ImageRepeat
     );
 
-    impl_style!(@pack BorderImageType, border_image, BorderImage, Atom);
+	impl ConvertToComponent for BorderImageType {
+        /// 将样式属性设置到组件上
+        /// ptr为样式属性的指针
+        /// 安全： entity必须存在
+        fn set<'w, 's>(cur_style_mark: &mut BitArray<[u32; 3]>, ptr: *const u8, query: &mut Setting, entity: Entity, is_clone: bool)
+        where
+            Self: Sized {
+			let v = ptr.cast::<Atom>();
+			let v = if is_clone {
+				unsafe {&*v}.clone()
+			} else {
+				unsafe {v.read_unaligned()}
+			};
+			cur_style_mark.set(Self::get_type() as usize, true);
+
+			let world = &mut query.world;
+			log::debug!("set_style_attr, type: {:?}, value: {:?}, entity: {:?}", std::any::type_name::<BorderImage>(), v, entity);
+			match world.get_mut_by_id(entity, query.style.border_image) {
+				Some(mut component) => {
+					component.set_changed();
+					unsafe { component.into_inner().deref_mut::<BorderImage>() }.0 = v;
+					// f(unsafe { component.into_inner().deref_mut::<Atom>() }, v);
+				}
+				None => {
+					// 顺便插入默认的BorderImageTexture， 以免后续修改原型
+					match world.get_mut_by_id(entity, query.style.border_image_texture) {
+						Some(_) => world.entity_mut(entity).insert(BorderImage(v)),
+						None => world.entity_mut(entity).insert((BorderImage(v), BorderImageTexture::default())),
+					};
+				}
+			};
+		}
+
+        /// 为样式设置默认值
+        fn set_default(buffer: &Vec<u8>, offset: usize, query: &DefaultStyle, world: &mut World)
+        where
+            Self: Sized {
+			set_default_style_attr(
+				world,
+				query.border_image,
+				unsafe { buffer.as_ptr().add(offset).cast::<Atom>().read_unaligned() },
+				|item: &mut BorderImage, v: Atom| {
+					**item = v;
+				},
+			);
+		}
+
+        fn to_attr(ptr: *const u8) -> Attribute
+        where
+            Self: Sized {
+				Attribute::BorderImage(unsafe { BorderImageType(ptr.cast::<Atom>().read_unaligned()) })
+		}
+    }
+	impl ConvertToComponent for ResetBorderImageType {
+        /// 将样式属性设置到组件上
+        /// ptr为样式属性的指针
+        /// 安全： entity必须存在
+        fn set<'w, 's>(_cur_style_mark: &mut BitArray<[u32; 3]>, _ptr: *const u8, query: &mut Setting, entity: Entity, _is_clone: bool)
+        where
+            Self: Sized {
+			reset_style_attr(
+				&mut query.world,
+				entity,
+				query.style.border_image,
+				query.style.default.border_image,
+				|item: &mut BorderImage, v: &BorderImage| {
+					*item = v.clone();
+				},
+			);
+			// 设置纹理， TODO
+		}
+
+        /// 为样式设置默认值
+        fn set_default(buffer: &Vec<u8>, offset: usize, query: &DefaultStyle, world: &mut World)
+        where
+            Self: Sized {
+			set_default_style_attr(
+				world,
+				query.border_image,
+				unsafe { buffer.as_ptr().add(offset).cast::<Atom>().read_unaligned() },
+				|item: &mut BorderImage, v: Atom| {
+					**item = v;
+				},
+			);
+		}
+
+        fn to_attr(ptr: *const u8) -> Attribute
+        where
+            Self: Sized {
+				Attribute::BorderImage(unsafe { BorderImageType(ptr.cast::<Atom>().read_unaligned()) })
+		}
+    }
     impl_style!(@pack BorderImageClipType, border_image_clip, BorderImageClip, NotNanRect);
     impl_style!(@pack BorderImageSliceType, border_image_slice, BorderImageSlice, BorderImageSlice1);
     impl_style!(@pack BorderImageRepeatType, border_image_repeat, BorderImageRepeat, ImageRepeat);
 
-    impl_style!(@pack BorderColorType, border_color, BorderColor, CgColor);
+    impl_style!(@pack_send BorderColorType, border_color, BorderColor, CgColor);
 
-    impl_style!(@pack BackgroundColorType, background_color, BackgroundColor, Color);
+	impl_style!(@pack_send BackgroundColorType, background_color, BackgroundColor, Color);
 
-    impl_style!(@pack BoxShadowType, box_shadow, BoxShadow, BoxShadow1);
+    impl_style!(@pack_send BoxShadowType, box_shadow, BoxShadow, BoxShadow1);
 
     impl_style!(@pack OpacityType, opacity, Opacity, f32);
     impl_style!(@pack BorderRadiusType, border_radius, BorderRadius, BorderRadius1);
@@ -1877,6 +2139,7 @@ pub mod serialize {
                 background_color: world.init_component::<BackgroundColor>(),
                 border_color: world.init_component::<BorderColor>(),
                 background_image: world.init_component::<BackgroundImage>(),
+				background_image_texture: world.init_component::<BackgroundImageTexture>(),
                 background_image_clip: world.init_component::<BackgroundImageClip>(),
                 mask_image: world.init_component::<MaskImage>(),
                 mask_image_clip: world.init_component::<MaskImageClip>(),
@@ -1884,12 +2147,14 @@ pub mod serialize {
                 blur: world.init_component::<Blur>(),
                 background_image_mod: world.init_component::<BackgroundImageMod>(),
                 border_image: world.init_component::<BorderImage>(),
+				border_image_texture: world.init_component::<BorderImageTexture>(),
                 border_image_clip: world.init_component::<BorderImageClip>(),
                 border_image_slice: world.init_component::<BorderImageSlice>(),
                 border_image_repeat: world.init_component::<BorderImageRepeat>(),
                 border_radius: world.init_component::<BorderRadius>(),
                 box_shadow: world.init_component::<BoxShadow>(),
                 text_style: world.init_component::<TextStyle>(),
+				text_shadow: world.init_component::<TextShadow>(),
                 transform_will_change: world.init_component::<TransformWillChange>(),
                 text_content: world.init_component::<TextContent>(),
                 node_state: world.init_component::<NodeState>(),
@@ -1897,6 +2162,7 @@ pub mod serialize {
                 style_mark: world.init_component::<StyleMark>(),
                 class_name: world.init_component::<ClassName>(),
                 default: DefaultStyle::from_world(world),
+				event: ChangeEvent::from_world(world),
             }
         }
     }
@@ -1919,6 +2185,7 @@ pub mod serialize {
         pub background_color: ComponentId,
         pub border_color: ComponentId,
         pub background_image: ComponentId,
+		pub background_image_texture: ComponentId,
         pub background_image_clip: ComponentId,
         pub mask_image: ComponentId,
         pub mask_image_clip: ComponentId,
@@ -1926,12 +2193,14 @@ pub mod serialize {
         pub blur: ComponentId,
         pub background_image_mod: ComponentId,
         pub border_image: ComponentId,
+		pub border_image_texture: ComponentId,
         pub border_image_clip: ComponentId,
         pub border_image_slice: ComponentId,
         pub border_image_repeat: ComponentId,
         pub border_radius: ComponentId,
         pub box_shadow: ComponentId,
         pub text_style: ComponentId,
+		pub text_shadow: ComponentId,
         pub transform_will_change: ComponentId,
         pub text_content: ComponentId,
         pub node_state: ComponentId,
@@ -1940,6 +2209,8 @@ pub mod serialize {
         pub class_name: ComponentId,
 
         pub default: DefaultStyle,
+
+		pub event: ChangeEvent,
     }
 
     pub struct DefaultStyle {
@@ -1973,6 +2244,7 @@ pub mod serialize {
         pub border_radius: ComponentId,
         pub box_shadow: ComponentId,
         pub text_style: ComponentId,
+		pub text_shadow: ComponentId,
         pub transform_will_change: ComponentId,
         pub text_content: ComponentId,
         pub animation: ComponentId,
@@ -2192,6 +2464,13 @@ pub mod serialize {
                         .get_resource_id(std::any::TypeId::of::<DefaultComponent<TextStyle>>())
                         .unwrap()
                 },
+				text_shadow: {
+                    world.init_resource::<DefaultComponent<TextShadow>>();
+                    world
+                        .components()
+                        .get_resource_id(std::any::TypeId::of::<DefaultComponent<TextShadow>>())
+                        .unwrap()
+                },
                 transform_will_change: {
                     world.init_resource::<DefaultComponent<TransformWillChange>>();
                     world
@@ -2223,6 +2502,64 @@ pub mod serialize {
             }
         }
     }
+
+	pub struct ChangeEvent {
+        pub text_content: ComponentId,
+		pub text_shadow: ComponentId,
+		pub box_shadow: ComponentId,
+		pub background_color: ComponentId,
+		pub border_color: ComponentId,
+		pub canvas: ComponentId,
+    }
+
+	impl FromWorld for ChangeEvent {
+		fn from_world(world: &mut World) -> Self {
+			Self {
+				text_content: {
+                    world.init_resource::<Events<ComponentEvent<Changed<TextContent>>>>();
+                    world
+                        .components()
+                        .get_resource_id(std::any::TypeId::of::<Events<ComponentEvent<Changed<TextContent>>>>())
+                        .unwrap()
+                },
+				text_shadow: {
+                    world.init_resource::<Events<ComponentEvent<Changed<TextShadow>>>>();
+                    world
+                        .components()
+                        .get_resource_id(std::any::TypeId::of::<Events<ComponentEvent<Changed<TextShadow>>>>())
+                        .unwrap()
+                },
+				box_shadow: {
+                    world.init_resource::<Events<ComponentEvent<Changed<BoxShadow>>>>();
+                    world
+                        .components()
+                        .get_resource_id(std::any::TypeId::of::<Events<ComponentEvent<Changed<BoxShadow>>>>())
+                        .unwrap()
+                },
+				background_color: {
+                    world.init_resource::<Events<ComponentEvent<Changed<BackgroundColor>>>>();
+                    world
+                        .components()
+                        .get_resource_id(std::any::TypeId::of::<Events<ComponentEvent<Changed<BackgroundColor>>>>())
+                        .unwrap()
+                },
+				border_color: {
+                    world.init_resource::<Events<ComponentEvent<Changed<BorderColor>>>>();
+                    world
+                        .components()
+                        .get_resource_id(std::any::TypeId::of::<Events<ComponentEvent<Changed<BorderColor>>>>())
+                        .unwrap()
+                },
+				canvas: {
+                    world.init_resource::<Events<ComponentEvent<Changed<Canvas>>>>();
+                    world
+                        .components()
+                        .get_resource_id(std::any::TypeId::of::<Events<ComponentEvent<Changed<Canvas>>>>())
+                        .unwrap()
+                },
+			}
+		}
+	}
 
     // pub struct DefaultStyle {
     //     pub size: ResMut<'a, DefaultComponent<Size>>,

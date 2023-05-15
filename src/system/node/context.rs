@@ -19,11 +19,11 @@
 use bevy::ecs::{
     prelude::{Component, Entity, EventReader, EventWriter, RemovedComponents},
     query::Changed,
-    system::{Commands, Local, ParamSet, Query},
+    system::{Commands, ParamSet, Query},
     world::Mut,
 };
 use pi_bevy_ecs_extend::{
-    prelude::{Down, EntityTree, Up, Layer},
+    prelude::{Up, Layer, LayerDirty},
     system_param::layer_dirty::ComponentEvent,
 };
 use pi_null::Null;
@@ -34,7 +34,6 @@ use crate::{
         pass_2d::{Camera, ParentPassId},
         PassBundle,
     },
-    utils::tools::LayerDirty,
 };
 
 /// system
@@ -42,20 +41,22 @@ use crate::{
 /// 根据脏，从父向子递归，设置节点所在的渲染上下文（节点的渲染目标）
 pub fn cal_context(
     mut command: Commands,
-    mut layer_dirty: Local<LayerDirty<Entity>>,
+    // mut layer_dirty: Local<LayerDirty<Entity>>,
     mut context_mark1: ParamSet<(
         Query<(Entity, &RenderContextMark, Option<&Camera>)>,
-        Query<(&'static mut InPassId, Option<&'static Camera>, &RenderContextMark)>,
+        Query<(&mut InPassId, &RenderContextMark, Option<&mut ParentPassId>)>,
+		Query<&mut InPassId>
     )>,
-    idtree: EntityTree,
-    down: Query<&'static Down>,
+    // idtree: EntityTree,
+    // down: Query<&Down>,
     up: Query<&Up>,
-    mut parent_pass_id: Query<&'static mut ParentPassId>,
+    // mut parent_pass_id: Query<&'static mut ParentPassId>,
     mut event_reader: EventReader<ComponentEvent<Changed<RenderContextMark>>>,
     mut event_writer: EventWriter<ComponentEvent<Changed<ParentPassId>>>,
-	mut layer_change: EventReader<ComponentEvent<Changed<Layer>>>,
+	mut layer_dirty: LayerDirty<Changed<Layer>>,
+	// mut layer_change: EventReader<ComponentEvent<Changed<Layer>>>,
 ) {
-    layer_dirty.clear();
+    // layer_dirty.clear();
     let mut pass_2d_init = Vec::new();
     // let mut pass_2d_id_insert = Vec::new();
 
@@ -66,29 +67,29 @@ pub fn cal_context(
         if let Ok((entity, mark, camera)) = p0.get(change.id) {
             if camera.is_some() && mark.not_any() {
                 // 删除pass
-                layer_dirty.marked_dirty(entity, entity, &idtree);
+                layer_dirty.mark(entity);
             } else if camera.is_none() && mark.any() {
                 // 不存在对应的pass2D， 则创建(放入层脏，按层创建)
-                layer_dirty.marked_dirty(entity, entity, &idtree);
+                layer_dirty.mark(entity);
             }
         }
     }
 
-	// 迭代所有layer改变的节点， 如果layer不为null，则添加到层脏
-	for i in layer_change.iter() {
-		layer_dirty.marked_dirty(i.id, i.id, &idtree);
-	}
+	// // 迭代所有layer改变的节点， 如果layer不为null，则添加到层脏
+	// for i in layer_change.iter() {
+	// 	layer_dirty.mark(i.id);
+	// }
 
     // 按层迭代
-    for (node, _layer) in layer_dirty.dirty.iter() {
-        let parent_context_id = match up.get(*node) {
-			Ok(r) if let Ok((in_pass_id, _, _)) = context_mark1.p1().get(r.parent()) => **in_pass_id,
+    for node in layer_dirty.iter() {
+        let parent_context_id = match up.get(node) {
+			Ok(r) if let Ok(in_pass_id) = context_mark1.p2().get(r.parent()) => **in_pass_id,
 			_ => EntityKey::null(),
 		};
 
-        if let Ok((mut in_pass_id, camera, mark)) = context_mark1.p1().get_mut(*node) {
+        if let Ok((mut in_pass_id, mark, parent_pass_id)) = context_mark1.p1().get_mut(node) {
             // mark已清空，但相机依然存在，则删除pass, 重新设置pass字节点的in_pass_id
-            let in_pass_id = if camera.is_some() && mark.not_any() {
+            if parent_pass_id.is_some() && mark.not_any() {
                 // // 删除pass
                 // if in_pass_id.is_null() {
                 // 	continue;
@@ -97,38 +98,47 @@ pub fn cal_context(
                 // 修改in_pass_id为父的Pass2D
                 *in_pass_id = InPassId(parent_context_id);
                 // 移除Pass2D
-                command.entity(*node).remove::<PassBundle>();
+                command.entity(node).remove::<PassBundle>();
                 // 删除后，其子节点的in_pass_id修改为parent_context_id
                 parent_context_id.0
             } else if mark.any() {
 				// log::warn!("pass======node: {:?}, parent_context_id: {:?}", *node, parent_context_id);
-				pass_2d_init.push((*node, PassBundle::new(*parent_context_id)));
+				match parent_pass_id{
+					None => {
+						pass_2d_init.push((node, PassBundle::new(*parent_context_id)));
+						// 父的
+						event_writer.send(ComponentEvent::new(node));
+					},
+					Some(mut parent_pass_id) => {
+						if ***parent_pass_id != *parent_context_id {
+							**parent_pass_id = parent_context_id;
+							event_writer.send(ComponentEvent::new(node));
+						}
+					}
+				};
 				// 修改in_pass_id为当前Pass2D
-				*in_pass_id = InPassId(EntityKey(*node));
-                
-                // 父的
-                event_writer.send(ComponentEvent::new(*node));
+				*in_pass_id = InPassId(EntityKey(node));
                 // 添加后，其子节点的in_pass_id修改为当前创建的parent_context_id
-                *node
+                node
             } else {
 				// 不是一个renderContext， 则其in_pass_id为parent_context_id
 				*in_pass_id = InPassId(parent_context_id);
 				parent_context_id.0
 			};
 
-            let children_item = match down.get(*node) {
-                Ok(r) => r,
-                _ => continue,
-            };
+            // let children_item = match down.get(node) {
+            //     Ok(r) => r,
+            //     _ => continue,
+            // };
 
-            recursive_set_node_context(
-                children_item.head(),
-                &idtree,
-                &down,
-                &mut context_mark1.p1(),
-                &mut parent_pass_id,
-                EntityKey(in_pass_id),
-            );
+            // recursive_set_node_context(
+            //     children_item.head(),
+            //     &idtree,
+            //     &down,
+            //     &mut context_mark1.p1(),
+            //     &mut parent_pass_id,
+            //     EntityKey(in_pass_id),
+            // );
         }
     }
 
@@ -209,41 +219,41 @@ pub fn cal_context(
 // }
 
 
-/// 递归设置节点的上下文
-fn recursive_set_node_context(
-    head: Entity,
-    idtree: &EntityTree,
-    down: &Query<&Down>,
-    in_context: &mut Query<(&'static mut InPassId, Option<&Camera>, &RenderContextMark)>,
-    parent_pass_id: &mut Query<&'static mut ParentPassId>,
-    parent_context_id: EntityKey,
-) {
-    if EntityKey(head).is_null() {
-        return;
-    }
-    // 递归设置子节点
-    for node in idtree.iter(head) {
-        if let Ok((mut in_pass_id, _, mark)) = in_context.get_mut(node) {
-            if mark.any() {
-                // 如果存在context_mark, 设置其对应的pass的parent_id
-                if let Ok(mut parent_pass_id) = parent_pass_id.get_mut(***in_pass_id) {
-                    parent_pass_id.0 = parent_context_id;
-                }
-                // 如果存在context_mark,则返回，将在接下来的迭代中处理
-                continue;
-            } else {
-                in_pass_id.0 = parent_context_id;
-            }
-        }
+// /// 递归设置节点的上下文
+// fn recursive_set_node_context(
+//     head: Entity,
+//     idtree: &EntityTree,
+//     down: &Query<&Down>,
+//     in_context: &mut Query<(&'static mut InPassId, Option<&Camera>, &RenderContextMark)>,
+//     parent_pass_id: &mut Query<&'static mut ParentPassId>,
+//     parent_context_id: EntityKey,
+// ) {
+//     if EntityKey(head).is_null() {
+//         return;
+//     }
+//     // 递归设置子节点
+//     for node in idtree.iter(head) {
+//         if let Ok((mut in_pass_id, _, mark)) = in_context.get_mut(node) {
+//             if mark.any() {
+//                 // 如果存在context_mark, 设置其对应的pass的parent_id
+//                 if let Ok(mut parent_pass_id) = parent_pass_id.get_mut(***in_pass_id) {
+//                     parent_pass_id.0 = parent_context_id;
+//                 }
+//                 // 如果存在context_mark,则返回，将在接下来的迭代中处理
+//                 continue;
+//             } else {
+//                 in_pass_id.0 = parent_context_id;
+//             }
+//         }
 
-        let children_item = match down.get(node) {
-            Ok(r) => r,
-            _ => continue,
-        };
+//         let children_item = match down.get(node) {
+//             Ok(r) => r,
+//             _ => continue,
+//         };
 
-        recursive_set_node_context(children_item.head(), idtree, down, in_context, parent_pass_id, parent_context_id);
-    }
-}
+//         recursive_set_node_context(children_item.head(), idtree, down, in_context, parent_pass_id, parent_context_id);
+//     }
+// }
 
 pub fn context_attr_del<T: Component>(
     mut dels: RemovedComponents<T>,

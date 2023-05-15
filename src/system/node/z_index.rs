@@ -262,6 +262,7 @@ fn dirty_range(ranges: &Query<&mut ZRange>, vec: &Vec<ZSort>, parent_start: usiz
     // println!("dirty_range, parent_start:{}, dirty_end:{}, dirty:{:?}", parent_start, dirty_end, dirty);
     // 然后判断左边能否放下， 放不下， 则尝试向左移动，再次尝试能否放下
     loop {
+		// log::warn!("dirty======{:?}, {:?}, {:?}", dirty, dirty_end, Z_SELF);
         // 判断左节点端及其子节点，都能被装下
         if dirty_end - dirty.start >= dirty.count * Z_SELF {
             return ZRange(Range {

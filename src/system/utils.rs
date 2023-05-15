@@ -1,12 +1,16 @@
-use bevy::ecs::{
+use bevy::{ecs::{
 	prelude::RemovedComponents,
     prelude::Component,
     system::{Commands, Query},
-};
+}, prelude::Entity};
 use geo::BooleanOps;
+use pi_bevy_render_plugin::{PiVertexBufferAlloter, PiIndexBufferAlloter};
+use pi_render::{renderer::vertices::{EVerticesBufferUsage, RenderVertices, RenderIndices}, rhi::buffer_alloc::BufferIndex};
+use pi_share::Share;
 use pi_style::style::Aabb2;
+use wgpu::IndexFormat;
 
-use crate::{components::{calc::DrawList, user::{Vector4, Matrix4, Point2, Vector2}}, resource::RenderObjType};
+use crate::{components::{calc::DrawList, user::{Vector4, Matrix4, Point2, Vector2}, draw_obj::DrawState}, resource::RenderObjType};
 
 pub fn clear_draw_obj<'w, 's, T: Component>(
     render_type: RenderObjType,
@@ -26,6 +30,24 @@ pub fn clear_draw_obj<'w, 's, T: Component>(
         }
     }
 }
+
+// pub fn clear_draw_obj1<'w, 's, T: Component>(
+//     render_type: RenderObjType,
+// 	mut del: &Vec<Entity>,
+//     mut del_list: &mut Vec<Entity>,
+// ) {
+//     for del in del.iter() {
+//         if let Ok((bg_color, mut draw_list)) = query.get_mut(del) {
+//             if bg_color.is_some() {
+//                 continue;
+//             }
+//             // 删除对应的DrawObject
+//             if let Some(draw_obj) = draw_list.remove(*render_type as u32) {
+//                 commands.entity(draw_obj).despawn();
+//             }
+//         }
+//     }
+// }
 
 pub fn clear_draw_obj_mul<'w, 's, T: Component>(
     render_types: &[RenderObjType],
@@ -96,4 +118,60 @@ pub fn rotatequad_quad_intersection(
 		// 与父裁剪区域不想交， 则设置裁剪区域大小为0
 		Aabb2::new(Point2::new(0.0, 0.0), Point2::new(0.0, 0.0))
 	}
+}
+
+pub fn set_vert_buffer(
+	slot: u32,
+	size_per_value: u64,
+    buffer: &[u8],
+    // label: &'static str,
+    // device: &RenderDevice,
+    // buffer_assets: &Share<AssetMgr<RenderRes<Buffer>>>,
+	vertex_buffer_alloter: &PiVertexBufferAlloter,
+	draw_state: &mut DrawState,
+	
+) {
+	match draw_state.vertices.get_mut(slot) {
+		Some(r) => if let EVerticesBufferUsage::Part(index) = &mut r.buffer {
+			// 正常逻辑下， 只有这里会取到可变，这里直接通过非安全方式转换（逻辑需要保证）
+			vertex_buffer_alloter.update(unsafe{&mut *(Share::as_ptr(index) as usize as *mut BufferIndex)}, buffer);
+		},
+		None => {
+			let index = vertex_buffer_alloter.alloc(buffer);
+			draw_state.insert_vertices(RenderVertices { slot: slot, buffer: EVerticesBufferUsage::Part(Share::new(index)), buffer_range: None, size_per_value })
+		}
+	}
+	
+    // let key = calc_hash_slice(buffer, calc_hash(&"vert", 0));
+    // match buffer_assets.get(&key) {
+    //     Some(r) => r,
+    //     None => {
+    //         let uniform_buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
+    //             label: Some(label),
+    //             contents: buffer,
+    //             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+    //         });
+    //         buffer_assets.insert(key, RenderRes::new(uniform_buf, buffer.len())).unwrap()
+    //     }
+    // }
+}
+
+pub fn set_index_buffer(
+    buffer: &[u8],
+    // label: &'static str,
+    // device: &RenderDevice,
+    // buffer_assets: &Share<AssetMgr<RenderRes<Buffer>>>,
+	index_buffer_alloter: &PiIndexBufferAlloter,
+	draw_state: &mut DrawState,
+	
+) {
+	if let Some(i) = &mut draw_state.indices {
+		if let EVerticesBufferUsage::Part(index) = &mut i.buffer {
+			// 正常逻辑下， 只有这里会取到可变，这里直接通过非安全方式转换（逻辑需要保证）
+			index_buffer_alloter.update(unsafe{&mut *(Share::as_ptr(index) as usize as *mut BufferIndex)}, buffer);
+			return;
+		}
+	}
+	let index = index_buffer_alloter.alloc(buffer);
+	draw_state.indices = Some(RenderIndices {buffer: EVerticesBufferUsage::Part(Share::new(index)), buffer_range: None, format: IndexFormat::Uint16 });
 }

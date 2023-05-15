@@ -1,14 +1,12 @@
 //! 圆角从有到删除，没有正确处理顶点（TODO）
 
-use bevy::ecs::prelude::{DetectChanges, Entity, RemovedComponents, Ref};
+use bevy::ecs::prelude::{DetectChanges, Ref};
 use bevy::ecs::query::{Changed, Or, With};
-use bevy::ecs::system::{Commands, Local, ParamSet, Query, Res};
+use bevy::ecs::system::{Query, Res};
 use bevy::prelude::DetectChangesMut;
 use pi_assets::asset::Handle;
 use pi_assets::mgr::AssetMgr;
-use pi_atom::Atom;
 use pi_bevy_asset::ShareAssetMgr;
-use pi_bevy_ecs_extend::system_param::res::OrInitRes;
 use pi_bevy_render_plugin::PiRenderDevice;
 use pi_render::renderer::vertices::{RenderVertices, EVerticesBufferUsage, RenderIndices};
 use pi_render::rhi::asset::RenderRes;
@@ -16,163 +14,68 @@ use pi_render::rhi::bind_group::BindGroup;
 use pi_render::rhi::bind_group_layout::BindGroupLayout;
 use pi_render::rhi::buffer::Buffer;
 use pi_render::rhi::device::RenderDevice;
-use pi_render::rhi::shader::BindLayout;
 use pi_share::Share;
 use wgpu::IndexFormat;
 
-use crate::components::calc::{DrawInfo, EntityKey, LayoutResult};
-use crate::components::draw_obj::{BoxType, PipelineMeta};
+use crate::components::calc::LayoutResult;
+use crate::components::draw_obj::{PipelineMeta, BorderColorMark};
 use crate::components::user::{BorderRadius, CgColor};
-use crate::components::DrawBundle;
 use crate::components::{
-    calc::{DrawList, NodeId},
+    calc::NodeId,
     draw_obj::DrawState,
     user::BorderColor,
 };
-use crate::resource::draw_obj::{PosVertexLayout, ProgramMetaRes, ShaderInfoCache, ShareGroupAlloter, UiMaterialGroup};
-use crate::resource::RenderObjType;
-use crate::shader::color::ProgramMeta;
-use crate::shader::ui_meterial::{ClipSdfUniform, ColorUniform, TextureSizeOrBottomLeftBorderUniform, UiMaterialBind};
-use crate::system::utils::clear_draw_obj;
+use crate::shader::color::BORDER_DEFINE;
+use crate::shader::ui_meterial::{ClipSdfUniform, ColorUniform, TextureSizeOrBottomLeftBorderUniform};
 use crate::utils::tools::{cal_border_radius, calc_float_hash, calc_hash, BorderRadiusPixel};
-// use crate::utils::tools::calc_hash;
 
-lazy_static! {
-    static ref BORDER: Atom = Atom::from("BORDER");
-}
+pub const BORDER_COLOR_ORDER: u8 = 4;
+
+// lazy_static! {
+//     static ref BORDER: Atom = Atom::from("BORDER");
+// }
 
 /// 创建RenderObject，用于渲染背景颜色
 pub fn calc_border_color(
-    render_type: Local<RenderObjType>,
-    del: RemovedComponents<BorderColor>,
-    mut query: ParamSet<(
-        // 布局修改、颜色修改、圆角修改或删除，需要修改或创建背景色的DrawObject
-        Query<
-            (
-                Entity,
-                &BorderColor,
-                Option<&BorderRadius>,
-                &LayoutResult,
-                &mut DrawList,
-                Ref<BorderColor>,
-                Option<Ref<BorderRadius>>,
-                Ref<LayoutResult>,
-            ),
-            (
-                With<BorderColor>,
-                Or<(Changed<BorderColor>, Changed<BorderRadius>, Changed<LayoutResult>)>,
-            ),
-        >,
-        // BorderColor删除，需要删除对应的DrawObject
-        Query<(Option<&'static BorderColor>, &'static mut DrawList)>,
-    )>,
+    query: Query<
+		(
+			&BorderColor,
+			Option<&BorderRadius>,
+			&LayoutResult,
+			Ref<BorderColor>,
+			Option<Ref<BorderRadius>>,
+			Ref<LayoutResult>,
+		),
+		Or<(Changed<BorderColor>, Changed<BorderRadius>, Changed<LayoutResult>)>,
+	>,
 
-    mut query_draw: Query<(&mut DrawState, &mut PipelineMeta)>,
-
-    mut commands: Commands,
+	mut query_draw: Query<(&mut DrawState, &mut PipelineMeta, &NodeId), With<BorderColorMark>>,
 
     device: Res<PiRenderDevice>,
-
-    ui_material_group: OrInitRes<ShareGroupAlloter<UiMaterialGroup>>,
-
     buffer_assets: Res<ShareAssetMgr<RenderRes<Buffer>>>,
-
-    program_meta: OrInitRes<ProgramMetaRes<ProgramMeta>>,
-    vert_layout: OrInitRes<PosVertexLayout>,
-    shader_catch: OrInitRes<ShaderInfoCache>,
 ) {
-    // 删除对应的DrawObject
-    clear_draw_obj(*render_type, del, query.p1(), &mut commands);
+	for (mut draw_state, mut pipeline_meta, node_id) in query_draw.iter_mut() {
+		if let Ok((border_color, radius, layout, background_color_change, radius_change, layout_change)) = query.get(***node_id) {
+			let count = pipeline_meta.defines.len();
+			let new_fs = pipeline_meta.bypass_change_detection();
+			modify(
+				border_color,
+				radius,
+				layout,
+				&mut draw_state,
+				&device,
+				&buffer_assets,
+				&background_color_change,
+				&radius_change,
+				&layout_change,
+				new_fs,
+			);
 
-    let mut init_spawn_drawobj = Vec::new();
-    for (node_id, border_color, radius, layout, mut draw_list, background_color_change, radius_change, layout_change) in query.p0().iter_mut() {
-        match draw_list.get(**render_type as u32) {
-            // background_color已经存在一个对应的DrawObj， 则修改color group
-            Some(r) => {
-                let (mut draw_state, mut pipeline_meta) = match query_draw.get_mut(*r) {
-                    Ok(r) => r,
-                    _ => continue,
-                };
-
-                let count = pipeline_meta.defines.len();
-                let new_fs = pipeline_meta.bypass_change_detection();
-                modify(
-                    border_color,
-                    radius,
-                    layout,
-                    &mut draw_state,
-                    &device,
-                    &buffer_assets,
-                    &background_color_change,
-                    &radius_change,
-                    &layout_change,
-                    new_fs,
-                );
-
-                if new_fs.defines.len() != count {
-                    pipeline_meta.set_changed();
-                }
-            }
-            // 否则，创建一个新的DrawObj，并设置color group;
-            // 修改以下组件：
-            // * <Node, BackgroundDrawId>
-            // * <Node, DrawList>
-            // * <DrawObject, DrawState>
-            // * <DrawObject, NodeId>
-            // * <DrawObject, IsUnitQuad>
-            None => {
-                // 创建新的DrawObj
-                let new_draw_obj = commands.spawn_empty().id();
-                // 设置DrawState（包含color group）
-                let mut draw_state = DrawState::default();
-
-                // 創建color材质
-                let color_material_group = ui_material_group.alloc();
-                draw_state.bindgroups.insert_group(UiMaterialBind::set(), color_material_group);
-                let mut pipeline_meta = PipelineMeta {
-                    program: program_meta.clone(),
-                    state: shader_catch.common.clone(),
-                    vert_layout: vert_layout.clone(),
-                    defines: Default::default(),
-                };
-                modify(
-                    &border_color,
-                    radius,
-                    layout,
-                    &mut draw_state,
-                    &device,
-                    &buffer_assets,
-                    &background_color_change,
-                    &radius_change,
-                    &layout_change,
-                    &mut pipeline_meta,
-                );
-
-                init_spawn_drawobj.push((
-                    new_draw_obj,
-                    DrawBundle {
-                        node_id: NodeId(EntityKey(node_id)),
-                        draw_state,
-                        box_type: BoxType::Border,
-                        pipeline_meta,
-                        draw_info: DrawInfo::new(4, false), //TODO
-                    },
-                ));
-                // 建立Node对DrawObj的索引
-                draw_list.insert(**render_type as u32, new_draw_obj);
-                // draw_state_commands.insert(new_draw_obj, draw_state);
-                // fs_defines_commands.insert(new_draw_obj, fs_defines);
-                // is_unit_quad_commands.insert(new_draw_obj, BoxType::Border);
-                // // 建立DrawObj对Node的索引
-                // node_id_commands.insert(new_draw_obj, NodeId(node));
-                // shader_static_commands.insert(new_draw_obj, color_static_index.clone());
-                // order_commands.insert(new_draw_obj, DrawInfo::new(12, border_color.w >= 1.0));
-            }
-        }
-    }
-    if init_spawn_drawobj.len() > 0 {
-        commands.insert_or_spawn_batch(init_spawn_drawobj.into_iter());
-    }
+			if new_fs.defines.len() != count {
+				pipeline_meta.set_changed();
+			}
+		}
+	}
 }
 
 // 返回当前需要的StaticIndex
@@ -225,11 +128,11 @@ fn modify<'a>(
         let (radius_hash, border_radius) = match border_radius {
             Some(r) => {
                 let r = cal_border_radius(r, layout);
-                pipeline_meta.defines.insert(BORDER.clone());
+                pipeline_meta.defines.insert(BORDER_DEFINE.clone());
                 (calc_float_hash(&r.y, calc_float_hash(&r.x, 0)), Some(r))
             }
             None => {
-                pipeline_meta.defines.remove(&*BORDER);
+                pipeline_meta.defines.remove(&*BORDER_DEFINE);
                 (0, None)
             }
         };

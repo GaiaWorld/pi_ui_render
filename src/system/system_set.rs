@@ -8,6 +8,7 @@ pub enum UiSystemSet {
 	LoadFlush,
 	Layout, // 布局
 	Matrix, // 世界矩阵
+	LifeDrawObject, // 创建或删除DrawObject
 	BaseCalc, // 基础计算
 	BaseCalcFlush,
 	PrepareDrawOb, // 准备渲染数据
