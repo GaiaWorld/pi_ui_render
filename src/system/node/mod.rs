@@ -3,6 +3,7 @@ use bevy::ecs::{query::Changed};
 use bevy::prelude::{IntoSystemConfig, IntoSystemSetConfig};
 use pi_bevy_ecs_extend::{prelude::Layer, system_param::layer_dirty::ComponentEvent};
 use pi_bevy_render_plugin::component::GraphId;
+use pi_bevy_render_plugin::should_run;
 
 use crate::components::draw_obj::{BackgroundImageMark, TextMark, BorderImageMark, BorderColorMark, BackgroundColorMark, BoxShadowMark, CanvasMark};
 use crate::components::user::{TextContent, BorderColor, BackgroundColor, BoxShadow, Canvas};
@@ -70,7 +71,7 @@ impl Plugin for UiNodePlugin {
             .init_resource::<TimeInfo>()
             .init_resource::<KeyFramesSheet>()
             .add_system(user_setting::user_setting.in_set(UiSystemSet::Setting))
-            .add_system(animation::calc_animation.after(user_setting::user_setting).in_set(UiSystemSet::Setting).run_if(render_run))
+            .add_system(animation::calc_animation.after(user_setting::user_setting).in_set(UiSystemSet::Setting).run_if(should_run))
             .add_system(user_setting::set_image_default_size.in_set(UiSystemSet::Layout))
             .add_system(z_index::calc_zindex.in_set(UiSystemSet::BaseCalc))
             .add_frame_event::<ComponentEvent<Changed<LayoutResult>>>()

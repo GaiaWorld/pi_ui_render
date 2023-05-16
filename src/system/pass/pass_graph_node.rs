@@ -589,7 +589,7 @@ impl Pass2DNode {
                         last_camera,
                         camera_new,
                         last_view_port,
-                        cur_view_port,
+                        &v,
                     );
 
                     rp.set_viewport(cur_view_port.0, cur_view_port.1, cur_view_port.2, cur_view_port.3, 0.0, 1.0);

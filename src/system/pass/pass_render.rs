@@ -60,12 +60,10 @@ pub fn calc_camera_depth_and_renderlist(
             &TransformWillChangeMatrix,
             &Layer,
         )>,
-        (
-            Query<(&InPassId, &DrawList, &Quad, &ZRange, &IsShow, Entity)>,
-            Query<(Option<&ParentPassId>, &LastDirtyRect)>,
-        ),
+        Query<(Option<&ParentPassId>, &LastDirtyRect, &Camera)>,
         (Query<(&Camera, &View)>, Query<&'static mut PostProcessList>),
     )>,
+	node_query: Query<(&InPassId, &DrawList, &Quad, &ZRange, &IsShow, Entity)>,
     mut query_root: ParamSet<(Query<(&RootDirtyRect, OrDefault<RenderDirty>, &Viewport)>, Query<&mut RenderDirty>)>,
     mut draw_state: Query<&'static mut DrawState>,
     draw_info: Query<&DrawInfo>,
@@ -139,7 +137,7 @@ pub fn calc_camera_depth_and_renderlist(
 			Point2::new(0.0, 0.0)))
 		};
 
-		// log::info!("viewport======={:?}", viewport);
+		// log::info!("viewport======={:?}, {:?}, {:?}", entity, view_aabb, overflow_aabb);
 
 		
 		if view_aabb.mins.x >= view_aabb.maxs.x || view_aabb.mins.y >= view_aabb.maxs.y {
@@ -281,9 +279,9 @@ pub fn calc_camera_depth_and_renderlist(
     // 组织渲染列表
     // 用脏区域，查询到脏区域内的渲染节点，对其进行遍历，放入对应的pass中（TODO，aabb查询四叉树）
     let p1 = query_pass.p1();
-    for (in_pass_id, draw_list, quad, z_range, is_show, entity) in p1.0.iter() {
+    for (in_pass_id, draw_list, quad, z_range, is_show, entity) in node_query.iter() {
         // log::warn!("draw_list1==================entity: {:?}, draw_list: {:?}, {}, {:?}", entity, draw_list, is_show.get_visibility(), quad, );
-        let (parent_pass_id, context_dirty) = match p1.1.get(***in_pass_id) {
+        let (parent_pass_id, context_dirty, camera) = match p1.get(***in_pass_id) {
             Ok(r) => r,
             _ => continue,
         };
@@ -305,12 +303,15 @@ pub fn calc_camera_depth_and_renderlist(
 			}
         }
 
-        if let Some(parent) = parent_pass_id {
-            if let Ok(mut p) = p0.get_mut(*parent.0) {
-                p.all_list
-                    .push((DrawIndex::Pass2D(EntityKey(entity)), z_range.clone(), DrawInfo::new(10, false)));
-            }
-        }
+		// parent_pass_id存在，表示本节点是一个pass2d
+		if camera.is_active {
+			if let Some(parent) = parent_pass_id {
+				if let Ok(mut p) = p0.get_mut(*parent.0) {
+					p.all_list
+						.push((DrawIndex::Pass2D(EntityKey(entity)), z_range.clone(), DrawInfo::new(10, false)));
+				}
+			}
+		}
     }
 
     // 遍历所有的pass，设置不透明渲染列表和候命渲染列表

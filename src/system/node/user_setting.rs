@@ -223,7 +223,7 @@ fn set_class(node: Entity, style_query: &mut Setting, class: ClassName, class_sh
     // 设置class样式
     for i in class.iter() {
         if let Some(class) = class_sheet.class_map.get(i) {
-            // println!("set class1==========={}", i);
+            // log::warn!("set class1==========={:?}, {:?}", node, i);
             let mut style_reader = StyleTypeReader::new(&class_sheet.style_buffer, class.start, class.end);
             let is_write = |ty: StyleType| {
                 // if !local_style_mark[ty as usize] {

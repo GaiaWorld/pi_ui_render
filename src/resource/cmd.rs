@@ -1,10 +1,11 @@
 use std::{collections::VecDeque, mem::replace};
 
-use bevy::ecs::{
+use bevy::{ecs::{
     prelude::{Bundle, Entity},
     system::Command,
     world::{FromWorld, World},
-};
+}, prelude::{Events, Changed, Component}};
+use pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent;
 use pi_print_any::out_any;
 use pi_style::style_parse::{Attribute, ClassItem, ClassMap, KeyFrameList};
 
@@ -70,6 +71,23 @@ impl<T: Bundle> Command for NodeCmd<T> {
         if let Some(mut r) = world.get_entity_mut(self.1) {
 			out_any!(log::debug, "NodeCmd====================node：{:?}, anchor： {:?}", self.1, &self.0);
 			r.insert(self.0);
+		} else {
+			out_any!(log::debug, "node_cmd fail======================={:?}, {:?}", &self.1, &self.0);
+		}
+    }
+}
+
+#[derive(Clone)]
+pub struct ComponentCmd<T>(pub T, pub Entity);
+impl<T: Component> Command for ComponentCmd<T> {
+    fn write(self, world: &mut World) {
+        
+        if let Some(mut r) = world.get_entity_mut(self.1) {
+			out_any!(log::debug, "NodeCmd====================node：{:?}, anchor： {:?}", self.1, &self.0);
+			r.insert(self.0);
+			if let Some(mut r) = world.get_resource_mut::<Events<ComponentEvent<Changed<T>>>>() {
+				r.send(ComponentEvent::new(self.1));
+			}
 		} else {
 			out_any!(log::debug, "node_cmd fail======================={:?}, {:?}", &self.1, &self.0);
 		}
