@@ -286,10 +286,11 @@ pub fn calc_camera_depth_and_renderlist(
     }
 
 	// 没有渲染脏
-	if (all_dirty_rect.maxs.x - all_dirty_rect.mins.x) > 0.0 && (all_dirty_rect.maxs.y - all_dirty_rect.mins.y) > 0.0 {
+	if (all_dirty_rect.maxs.x - all_dirty_rect.mins.x) <= 0.0 || (all_dirty_rect.maxs.y - all_dirty_rect.mins.y) <= 0.0 {
 		return;
 	}
 
+	// log::warn!("all_dirty_rect====={:?}", all_dirty_rect);
 	// 组织渲染列表
 	let mut args = AbQueryArgs {
 		node_query,
