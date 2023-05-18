@@ -1,17 +1,13 @@
-/// 框架内部计算属性(Node)
+//! Component、Bundle定义
+
 pub mod calc;
-/// 用户声明属性(Node)
 pub mod user;
-// DrawObject属性
 pub mod draw_obj;
 pub mod pass_2d;
 mod root;
 
 use bevy::{ecs::{bundle::Bundle, prelude::Entity}, prelude::FromWorld};
 use pi_bevy_ecs_extend::prelude::{Down, Layer, Up};
-use pi_null::Null;
-
-use crate::resource::draw_obj::{PosVertexLayout, ShaderInfoCache, ProgramMetaRes};
 
 use self::{
     calc::{DrawInfo, DrawList, EntityKey, IsShow, NodeState, View, RenderContextMark, TransformWillChangeMatrix},
@@ -20,6 +16,7 @@ use self::{
     root::{RenderTarget, RootDirtyRect}, user::{ClearColor, Overflow},
 };
 
+/// 节点Bundle
 #[derive(Debug, Bundle, Default)]
 pub struct NodeBundle {
     pub style_mark: calc::StyleMark,
@@ -39,6 +36,7 @@ pub struct NodeBundle {
     pub is_show: IsShow,
 }
 
+/// 绘制对象Bundle
 #[derive(Bundle)]
 pub struct DrawBundle<T: FromWorld + Bundle> {
     pub node_id: calc::NodeId,
@@ -51,33 +49,46 @@ pub struct DrawBundle<T: FromWorld + Bundle> {
 	pub other: T,
 }
 
-impl<T: FromWorld + Bundle> FromWorld for DrawBundle<T> {
-    fn from_world(world: &mut bevy::prelude::World) -> Self {
-		world.init_resource::<ProgramMetaRes<crate::shader::color::ProgramMeta>>();
-		world.init_resource::<ShaderInfoCache>();
-		world.init_resource::<PosVertexLayout>();
+// impl<T: FromWorld + Bundle> FromWorld for DrawBundle<T> {
+//     fn from_world(world: &mut bevy::prelude::World) -> Self {
+// 		world.init_resource::<ProgramMetaRes<crate::shader::color::ProgramMeta>>();
+// 		world.init_resource::<ShaderInfoCache>();
+// 		world.init_resource::<PosVertexLayout>();
 		
 
-		let program_meta = world.get_resource::<ProgramMetaRes<crate::shader::color::ProgramMeta>>().unwrap();
-		let cache = world.get_resource::<ShaderInfoCache>().unwrap();
-		let vert_layout = world.get_resource::<PosVertexLayout>().unwrap();
-        DrawBundle {
-			node_id: calc::NodeId(EntityKey::null()),
-            draw_state: Default::default(),
-            box_type: Default::default(),
-            pipeline_meta: PipelineMeta {
-                program: (*program_meta).clone(),
-                state: cache.common.clone(),
-                vert_layout: (**vert_layout).clone(),
-                defines: Default::default(),
-            },
-            draw_info: Default::default(),
-			other: T::from_world(world),
-		}
-    }
-}
+// 		let program_meta = world.get_resource::<ProgramMetaRes<crate::shader::color::ProgramMeta>>().unwrap();
+// 		let cache = world.get_resource::<ShaderInfoCache>().unwrap();
+// 		let vert_layout = world.get_resource::<PosVertexLayout>().unwrap();
+//         DrawBundle {
+// 			node_id: calc::NodeId(EntityKey::null()),
+//             draw_state: Default::default(),
+//             box_type: Default::default(),
+//             pipeline_meta: PipelineMeta {
+//                 program: (*program_meta).clone(),
+//                 state: cache.common.clone(),
+//                 vert_layout: (**vert_layout).clone(),
+//                 defines: Default::default(),
+//             },
+//             draw_info: Default::default(),
+// 			other: T::from_world(world),
+// 		}
+//     }
+// }
 
 
+/// 通道Bundle
+/// 注意这个类型与unity中Pass的区别，Gui中，Pass并不一定会对应一个渲染目标
+/// 一些属性，意图在节点以及其所有递归子节点上生效，常常需要成为一个Pass
+/// 比如，Opacity属性，需要将自身及其所有递归子节点整体，作半透明处理，有Opacity组件的节点会成为一个Pass，将设置此Bundle包含的所有组件
+/// 比如，TranformWillChange，将自身及其所有的子节点整体进行变化，有TranformWillChange组件的节点会成为一个Pass，将设置此Bundle包含的所有组件
+/// Opacity与TranformWillChange不同的是，
+/// Opacity需要将自身及其所有子节点渲染到一个fbo上，再将该fbo渲染到屏幕时，做半透明处理
+/// TranformWillChange不需要中间Fbo的过程，直接改变每个节点的投影视图矩阵即可
+/// 在gui中，想Opacity这种，需要额外fbo渲的属性，会被加入到PostProcessList中
+/// 每个Pass自身包含的渲染对象及其所有递归子节点的渲染对象（如果某个子节点也是一个Pass，该几点及其递归子节点都不包含在内），都在帧推时，被收集在Draw2DList中
+/// 由于Opacity，TranformWillChange在节点树中会处于不确定的层，因此，这些Pass节点也组织为一颗树的结构
+/// PostProcessList被加入了像Opacity这样的效果时，该Pass在渲染图中有一个对应的节点，
+/// PostProcessList中，没有任何效果时，Pass中Draw2DList的渲染依赖于父Pass，当父Pass渲染时，也会递归渲染该Pass中的Draw2DList，如果父Pass中也没有任何效果，则该Pass和其父Pass依赖于Pass的Pass渲染，以此类推（根节点尽管可能不存在任何效果，但一定会对应一个渲染图节点）
 #[derive(Bundle, Default)]
 pub struct PassBundle {
     // pub node_id: calc::NodeId,
@@ -113,6 +124,7 @@ impl PassBundle {
     }
 }
 
+/// 根节点Bundle（如果是根节点，会有该Bundle包含的所有组件）
 #[derive(Bundle)]
 pub struct RootBundle {
     pub render_target: RenderTarget,

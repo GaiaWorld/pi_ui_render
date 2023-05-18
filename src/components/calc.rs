@@ -1,3 +1,5 @@
+//! 定义计算组件（非用户设置的组件）
+
 use bevy::ecs::prelude::{Component, Entity};
 use pi_map::smallvecmap::SmallVecMap;
 use std::hash::Hash;

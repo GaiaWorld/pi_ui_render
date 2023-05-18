@@ -17,7 +17,7 @@ use bevy::{ecs::{
     query::{Changed, Or},
     system::{Local, Query},
     world::Mut,
-}, prelude::DetectChanges};
+}, prelude::{DetectChanges, With}};
 use pi_bevy_ecs_extend::{
     prelude::{EntityTree, Layer, OrDefault},
     system_param::layer_dirty::ComponentEvent,
@@ -85,7 +85,7 @@ pub fn calc_layout(
             Option<Ref<TextContent>>,
             Option<Ref<TextStyle>>,
         ),
-        Or<(
+        (Or<(
             Changed<Layer>,
             Changed<Size>,
             Changed<Margin>,
@@ -98,7 +98,7 @@ pub fn calc_layout(
             Changed<Show>,
             Changed<TextContent>,
             Changed<TextStyle>,
-        )>,
+        )>, With<Size>),
     >,
     mut layout_r: Query<&'static mut LayoutResult>,
     mut layer_dirty: Local<LayerDirty<LayoutKey>>,

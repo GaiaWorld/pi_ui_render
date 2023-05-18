@@ -1,4 +1,4 @@
-//! 与DrawObject相关的单例
+//! 与DrawObject相关的资源
 
 use std::{borrow::Cow, collections::hash_map::Entry, hash::Hash, marker::PhantomData, num::NonZeroU32};
 

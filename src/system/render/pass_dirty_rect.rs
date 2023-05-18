@@ -36,7 +36,7 @@ pub fn calc_global_dirty_rect(
     query_show_change: Query<(&Quad, &InPassId), Changed<ShowChange>>,
 
     mut query_pass: ParamSet<(
-        Query<(&'static mut DirtyRect, &'static Layer, &'static TransformWillChangeMatrix, Entity, Ref<PostProcessList>, Ref<ChildrenPass>, &ContentBox), Or<(Changed<DirtyRect>, Changed<PostProcessList>, Changed<ChildrenPass>)>>,
+        Query<(&'static mut DirtyRect, &'static Layer, &'static TransformWillChangeMatrix, Ref<PostProcessList>, Ref<ChildrenPass>, &ContentBox), Or<(Changed<DirtyRect>, Changed<PostProcessList>, Changed<ChildrenPass>)>>,
         Query<(&'static mut DirtyRect, &'static TransformWillChangeMatrix, &'static NodeId)>,
         Query<&mut DirtyRect>,
     )>,
@@ -79,7 +79,7 @@ pub fn calc_global_dirty_rect(
     }
 
     // 遍历所有pass的脏区域，求并，得全局脏区域
-    for (mut pass_dirty_rect, layer, will_change_matrix, entity, post_ref, children_ref, content_box) in query_pass.p0().iter_mut() {
+    for (mut pass_dirty_rect, layer, will_change_matrix, post_ref, children_ref, content_box) in query_pass.p0().iter_mut() {
 		// ChildrenPass、 postlist修改，Pass2d需要设置脏区域，暂时将其直接设置为内容box（实际上应该设置更精确一点，TODO）
 		if post_ref.is_changed() || children_ref.is_changed() {
 			mark_pass_dirty_rect1(&content_box.oct, &mut pass_dirty_rect);

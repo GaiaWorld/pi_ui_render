@@ -1,29 +1,5 @@
 ## 运行quad demo： `cargo run --example quad`
-
-## 检查重复库 
-* 安装工具 `cargo install --locked cargo-deny`
-* 查看重复库 `cargo deny check bans 2>a.txt`
-
-## 测试性能（chrome://tracing）
-例： `cargo run --example cmd_play --release --features trace`
-
-## wasm尺寸分析工具 `twiggy`
-
-## 
-
-## 编译为wasm
-
-1. `set RUST_LOG=info`
-2. `set RUSTFLAGS=--cfg=web_sys_unstable_apis`
-3. 根据需求编译
-    + 构建： `cargo build --target wasm32-unknown-unknown`
-    + 编译release版本： `wasm-pack build --release  --target web --out-dir pkg_release --out-name gui`
-	+ 编译profiling版本： `wasm-pack build --profiling  --target web --out-dir pkg_profiling --out-name gui`
-	+ 编译debug版本： `wasm-pack build --debug  --target web --out-dir pkg_pdebug --out-name gui`
-4. 编译为pi可用的wasm：wasm_engine中执行编译脚本
-
-
-
+	
 ## 测试gui性能 
 + 利用feature屏蔽掉info一下的日志（性能将大幅度提升， 以layout为例，可以从400ms降为10ms）
 + 谨慎使用bevy command的**insert_or_spawn_batch**方法， 可能进入巨大的性能陷阱

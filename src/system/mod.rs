@@ -6,8 +6,8 @@ use self::system_set::UiSystemSet;
 
 pub mod node;
 pub mod draw_obj;
-pub mod context;
 pub mod pass;
+pub mod render;
 pub mod shader_utils;
 pub mod utils;
 pub mod system_set;

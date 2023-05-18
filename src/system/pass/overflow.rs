@@ -1,11 +1,10 @@
 use bevy::{ecs::{
     prelude::{Entity, Ref},
-    query::{With},
+    query::With,
     system::Query,
 }, prelude::DetectChanges};
-use pi_null::Null;
 
-use crate::{components::{pass_2d::{PostProcessList, ChildrenPass}, calc::{ViewBox, ContentBox, EntityKey}, user::Vector2}, system::utils::rotatequad_quad_intersection, resource::RenderContextMarkType, utils::tools::intersect_or_zero};
+use crate::{components::{pass_2d::{PostProcessList, ChildrenPass}, calc::{ViewBox, ContentBox}, user::Vector2}, system::utils::rotatequad_quad_intersection, resource::RenderContextMarkType, utils::tools::intersect_or_zero};
 
 use pi_bevy_ecs_extend::{prelude::{Layer, Root, OrDefault}, system_param::res::OrInitRes};
 use pi_postprocess::effect::copy::CopyIntensity;
@@ -54,7 +53,6 @@ pub fn overflow_post_process(
         recursive_cal_overflow(
 			false,
 			root,
-			EntityKey::null(),
 			&view.view_box,
 			&None,
 			&mut pass_mut,
@@ -68,7 +66,6 @@ pub fn overflow_post_process(
 fn recursive_cal_overflow(
 	parent_is_change: bool,
 	id: Entity,
-	parent_id: EntityKey,
 	parent_aabb: &ViewBox,
 	context_matrix: &Option<OveflowRotate>,
 	pass_mut: &mut Query<(
@@ -252,7 +249,6 @@ fn recursive_cal_overflow(
 				recursive_cal_overflow(
 					is_change,
 					**i,
-					EntityKey(id),
 					&oveflow_aabb.view_box,
 					&context_rotate,
 					pass_mut,

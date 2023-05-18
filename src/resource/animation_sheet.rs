@@ -1,3 +1,4 @@
+//！ 动画表资源
 use std::{any::Any, collections::VecDeque};
 
 use bevy::ecs::prelude::{Entity, Resource};
@@ -32,25 +33,7 @@ use crate::components::user::{serialize::StyleAttr, Animation};
 
 use super::StyleCommands;
 
-#[derive(Debug, Clone, Deref, PartialEq, Eq, Copy, Hash, PartialOrd, Ord)]
-pub struct ObjKey(pub Entity);
-
-unsafe impl Key for ObjKey {
-    fn data(&self) -> pi_slotmap::KeyData {
-        // (u64::from(self.version.get()) << 32) | u64::from(self.idx)
-
-        pi_slotmap::KeyData::from_ffi((u64::from(self.0.generation()) << 32) | u64::from(self.0.index()))
-    }
-}
-
-impl From<pi_slotmap::KeyData> for ObjKey {
-    fn from(value: pi_slotmap::KeyData) -> Self { Self(Entity::from_bits(value.as_ffi())) }
-}
-
-impl Default for ObjKey {
-    fn default() -> Self { Self(Entity::from_bits(u64::null())) }
-}
-
+/// 帧动画表，css帧动画配置被存储在动画表中
 #[derive(Resource)]
 pub struct KeyFramesSheet {
     animation_attr_types: Vec<AnimationType>, // Vec<TypeAnimationContext<T>>,
@@ -231,7 +214,7 @@ impl KeyFramesSheet {
     //     // self.animation_events_callback = Some(callback);
     // }
 
-    // 将动画绑定到目标上
+    // 将动画绑定到目标上（目标即节点的实体id）
     pub fn bind_animation(&mut self, target: ObjKey, animation: &Animation) -> Result<(), KeyFrameError> {
         log::debug!("bind_animation====={:?}", animation);
         // 先解绑节点上的动画
@@ -448,6 +431,25 @@ impl KeyFramesSheet {
         // 记录KeyFrames
         self.key_frames_map.insert((scope_hash, name.clone()), key_frame);
     }
+}
+
+#[derive(Debug, Clone, Deref, PartialEq, Eq, Copy, Hash, PartialOrd, Ord)]
+pub struct ObjKey(pub Entity);
+
+unsafe impl Key for ObjKey {
+    fn data(&self) -> pi_slotmap::KeyData {
+        // (u64::from(self.version.get()) << 32) | u64::from(self.idx)
+
+        pi_slotmap::KeyData::from_ffi((u64::from(self.0.generation()) << 32) | u64::from(self.0.index()))
+    }
+}
+
+impl From<pi_slotmap::KeyData> for ObjKey {
+    fn from(value: pi_slotmap::KeyData) -> Self { Self(Entity::from_bits(value.as_ffi())) }
+}
+
+impl Default for ObjKey {
+    fn default() -> Self { Self(Entity::from_bits(u64::null())) }
 }
 
 pub struct KeyFrames(Vec<(AnimationInfo, usize)>); // (动画属性id， 曲线类型)

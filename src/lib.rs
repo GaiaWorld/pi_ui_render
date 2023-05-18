@@ -27,7 +27,6 @@ pub mod resource;
 pub mod system;
 pub mod utils;
 // pub mod gui;
-// pub mod export;
 pub mod shader;
 
 
@@ -37,7 +36,7 @@ pub mod prelude {
 
     pub use crate::resource::UserCommands;
     use crate::system::{
-        /*shader_utils::UiShaderPlugin, */ draw_obj::UiReadyDrawPlugin, node::UiNodePlugin, pass::UiPassPlugin, shader_utils::UiShaderPlugin, RunState, system_set::UiSystemSet, context::UiContextPlugin,
+        /*shader_utils::UiShaderPlugin, */ draw_obj::UiReadyDrawPlugin, node::UiNodePlugin, render::UiPassPlugin, shader_utils::UiShaderPlugin, RunState, system_set::UiSystemSet, pass::UiContextPlugin,
     };
 
     #[derive(Default)]

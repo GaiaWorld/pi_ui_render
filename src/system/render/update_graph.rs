@@ -12,7 +12,7 @@ use crate::{
         pass_2d::{Camera, GraphId, ParentPassId, PostProcessList},
         user::Canvas,
     },
-    system::pass::pass_graph_node::Pass2DNode,
+    system::render::pass_graph_node::Pass2DNode,
 };
 
 pub fn update_graph(

@@ -1,3 +1,5 @@
+//! 定义与Pass2D相关的组件
+
 use bevy::ecs::{prelude::Component, system::Resource};
 use bitvec::array::BitArray;
 use pi_assets::asset::Handle;

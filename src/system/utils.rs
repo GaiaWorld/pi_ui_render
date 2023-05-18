@@ -2,7 +2,7 @@ use bevy::{ecs::{
 	prelude::RemovedComponents,
     prelude::Component,
     system::{Commands, Query},
-}, prelude::Entity};
+}};
 use geo::BooleanOps;
 use pi_bevy_render_plugin::{PiVertexBufferAlloter, PiIndexBufferAlloter};
 use pi_render::{renderer::vertices::{EVerticesBufferUsage, RenderVertices, RenderIndices}, rhi::buffer_alloc::BufferIndex};
@@ -30,24 +30,6 @@ pub fn clear_draw_obj<'w, 's, T: Component>(
         }
     }
 }
-
-// pub fn clear_draw_obj1<'w, 's, T: Component>(
-//     render_type: RenderObjType,
-// 	mut del: &Vec<Entity>,
-//     mut del_list: &mut Vec<Entity>,
-// ) {
-//     for del in del.iter() {
-//         if let Ok((bg_color, mut draw_list)) = query.get_mut(del) {
-//             if bg_color.is_some() {
-//                 continue;
-//             }
-//             // 删除对应的DrawObject
-//             if let Some(draw_obj) = draw_list.remove(*render_type as u32) {
-//                 commands.entity(draw_obj).despawn();
-//             }
-//         }
-//     }
-// }
 
 pub fn clear_draw_obj_mul<'w, 's, T: Component>(
     render_types: &[RenderObjType],

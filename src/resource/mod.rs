@@ -1,3 +1,5 @@
+//! 定义所需资源
+
 pub mod animation_sheet;
 pub mod cmd;
 pub mod draw_obj;

@@ -1,3 +1,5 @@
+//! 定义与DrawObject相关的组件
+
 use std::{
     hash::{Hash, Hasher},
 };
