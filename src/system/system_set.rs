@@ -5,13 +5,17 @@ use bevy::prelude::SystemSet;
 pub enum UiSystemSet {
 	Setting, // 设置
 	Load, // 加载
-	LoadFlush,
+	// LoadFlush,
 	Layout, // 布局
 	Matrix, // 世界矩阵
-	LifeDrawObject, // 创建或删除DrawObject
+	ContextMark, // 上下文标记
+	ContextFlush, // 上下文刷新
+	ContextCalc, // 上下文计算
 	BaseCalc, // 基础计算
 	BaseCalcFlush,
-	PrepareDrawOb, // 准备渲染数据
+	LifeDrawObject, // 创建或删除DrawObject
+	LifeDrawObjectFlush, // 删除的flush
+	PrepareDrawObj, // 准备渲染数据
 	PrepareDrawObFlush,
 	PreparePass, // 准备渲染过程
 	PreparePassFlush,

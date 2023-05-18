@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use bevy::ecs::{
     prelude::{Component, Entity, EventWriter, RemovedComponents},
     query::Changed,
-    system::{Commands, Query, Res, Resource},
+    system::{Query, Res, Resource},
 };
 use crossbeam::queue::SegQueue;
 use pi_assets::{
@@ -16,6 +16,7 @@ use pi_bevy_asset::ShareAssetMgr;
 use pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent;
 use pi_bevy_render_plugin::{PiRenderDevice, PiRenderQueue};
 use pi_hal::{loader::AsyncLoader, runtime::MULTI_MEDIA_RUNTIME};
+use pi_null::Null;
 use pi_render::rhi::asset::{ImageTextureDesc, TextureRes};
 use pi_share::Share;
 use pi_bevy_ecs_extend::system_param::res::OrInitRes;
@@ -33,7 +34,7 @@ pub struct CalcImageLoad<S: std::ops::Deref<Target = Atom>, D: From<Handle<Textu
 /// 图片加载是异步，加载成功后，不能立即将图片对应的纹理设置到BorderImageTexture上
 /// 因为BorderImageTexture未加锁，其他线程可能正在使用
 /// 这里是将一个加载成功的Texture放入一个加锁的列表中，在system执行时，再放入到BorderImageTexture中
-pub fn image_change<S: Component + std::ops::Deref<Target = Atom>, D: Component + From<Handle<TextureRes>>>(
+pub fn image_change<S: Component + std::ops::Deref<Target = Atom>, D: Component + From<Handle<TextureRes>> + Null>(
     query: Query<(Entity, &S), Changed<S>>,
     query1: Query<(Entity, &S)>,
     mut del: RemovedComponents<S>,
@@ -42,13 +43,14 @@ pub fn image_change<S: Component + std::ops::Deref<Target = Atom>, D: Component 
     queue: Res<PiRenderQueue>,
     device: Res<PiRenderDevice>,
 
-    mut commands: Commands,
+    // mut commands: Commands,
+	mut query_dst: Query<&mut D>,
     mut event_writer: EventWriter<ComponentEvent<Changed<D>>>,
 ) {
     // 图片删除，则删除对应的Texture
     for del in del.iter() {
-        if let Some(mut r) = commands.get_entity(del) {
-			r.remove::<D>();
+        if let Ok(mut r) = query_dst.get_mut(del) {
+			*r = D::null();
 		};
     }
 
@@ -59,8 +61,10 @@ pub fn image_change<S: Component + std::ops::Deref<Target = Atom>, D: Component 
         let result = AssetMgr::load(&texture_assets_mgr, &(key.get_hash() as u64));
         match result {
             LoadResult::Ok(r) => {
-				commands.entity(entity).insert(D::from(r));
-				event_writer.send(ComponentEvent::new(entity));
+				if let Ok(mut dst) = query_dst.get_mut(entity) {
+					*dst = D::from(r);
+					event_writer.send(ComponentEvent::new(entity));
+				}
 			},
             _ => {
                 let (awaits, device, queue) = ((*image_await).clone(), (*device).clone(), (*queue).clone());
@@ -88,7 +92,7 @@ pub fn image_change<S: Component + std::ops::Deref<Target = Atom>, D: Component 
             }
         };
     }
-
+	
     // 处理已经成功加载的图片，放入到对应组件中
     while let Some((id, key, texture)) = image_await.0.pop() {
         match query1.get(id) {
@@ -100,8 +104,10 @@ pub fn image_change<S: Component + std::ops::Deref<Target = Atom>, D: Component 
 
                 // log::info!("load success====================:{:?}", key);
                 // insert.push((id, D::from(texture)));
-				commands.entity(id).insert(D::from(texture));
-                event_writer.send(ComponentEvent::new(id));
+				if let Ok(mut dst) = query_dst.get_mut(id) {
+					*dst = D::from(texture);
+					event_writer.send(ComponentEvent::new(id));
+				}
             }
             // 节点已经销毁，或image已经被删除，不需要设置texture
             _ => continue,

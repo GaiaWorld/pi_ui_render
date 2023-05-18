@@ -16,22 +16,24 @@
 //!
 //!
 
-use bevy::ecs::{
+use bevy::{ecs::{
     prelude::{Component, Entity, EventReader, EventWriter, RemovedComponents},
     query::Changed,
     system::{Commands, ParamSet, Query},
     world::Mut,
-};
+}, prelude::Local};
 use pi_bevy_ecs_extend::{
     prelude::{Up, Layer, LayerDirty},
     system_param::layer_dirty::ComponentEvent,
 };
+use pi_densevec::DenseVecMap;
+use pi_map::Map;
 use pi_null::Null;
 
 use crate::{
     components::{
         calc::{EntityKey, InPassId, RenderContextMark},
-        pass_2d::{Camera, ParentPassId},
+        pass_2d::{Camera, ParentPassId, ChildrenPass},
         PassBundle,
     },
 };
@@ -145,6 +147,40 @@ pub fn cal_context(
     // 批量设置插入指令（PassBundle）
     if pass_2d_init.len() > 0 {
         command.insert_or_spawn_batch(pass_2d_init.into_iter());
+    }
+}
+
+/// Pass2D设置children
+pub fn calc_pass_children_and_clear(
+    mut event_reader: EventReader<ComponentEvent<Changed<RenderContextMark>>>,
+    mut query: Query<&mut ChildrenPass>,
+    query_pass: Query<(Entity, &ParentPassId)>,
+    mut local: Local<DenseVecMap<(Entity, ChildrenPass)>>,
+) {
+    if event_reader.len() > 0 {
+        event_reader.clear();
+        // 重新组织渲染上下文的树
+        for (entity, parent) in query_pass.iter() {
+			if parent.0.is_null() {
+				continue;
+			}
+            match local.get_mut(&(parent.index() as usize)) {
+                Some(r) => r.1.push(EntityKey(entity)),
+                None => {
+                    let mut c = ChildrenPass::default();
+                    c.push(EntityKey(entity));
+                    local.insert(parent.index() as usize, ((***parent).clone(), c));
+                }
+            }
+        }
+
+        for item in local.values() {
+            if let Ok(mut children) = query.get_mut(item.0) {
+                *children = item.1.clone(); // 不clone, TODO
+            }
+        }
+
+        local.clear();
     }
 }
 

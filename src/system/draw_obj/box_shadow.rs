@@ -48,7 +48,6 @@ pub fn calc_box_shadow(
 	}
 }
 
-
 fn modify(
     device: &RenderDevice,
     draw_state: &mut DrawState,

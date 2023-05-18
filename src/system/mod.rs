@@ -4,8 +4,9 @@ use pi_bevy_render_plugin::should_run;
 
 use self::system_set::UiSystemSet;
 
-pub mod draw_obj;
 pub mod node;
+pub mod draw_obj;
+pub mod context;
 pub mod pass;
 pub mod shader_utils;
 pub mod utils;

@@ -7,8 +7,11 @@ pub mod draw_obj;
 pub mod pass_2d;
 mod root;
 
-use bevy::ecs::{bundle::Bundle, prelude::Entity};
+use bevy::{ecs::{bundle::Bundle, prelude::Entity}, prelude::FromWorld};
 use pi_bevy_ecs_extend::prelude::{Down, Layer, Up};
+use pi_null::Null;
+
+use crate::resource::draw_obj::{PosVertexLayout, ShaderInfoCache, ProgramMetaRes};
 
 use self::{
     calc::{DrawInfo, DrawList, EntityKey, IsShow, NodeState, View, RenderContextMark, TransformWillChangeMatrix},
@@ -37,7 +40,7 @@ pub struct NodeBundle {
 }
 
 #[derive(Bundle)]
-pub struct DrawBundle {
+pub struct DrawBundle<T: FromWorld + Bundle> {
     pub node_id: calc::NodeId,
     pub draw_state: draw_obj::DrawState,
     pub box_type: BoxType,
@@ -45,6 +48,33 @@ pub struct DrawBundle {
     // pub vs_defines: VSDefines,
     pub pipeline_meta: PipelineMeta,
     pub draw_info: DrawInfo,
+	pub other: T,
+}
+
+impl<T: FromWorld + Bundle> FromWorld for DrawBundle<T> {
+    fn from_world(world: &mut bevy::prelude::World) -> Self {
+		world.init_resource::<ProgramMetaRes<crate::shader::color::ProgramMeta>>();
+		world.init_resource::<ShaderInfoCache>();
+		world.init_resource::<PosVertexLayout>();
+		
+
+		let program_meta = world.get_resource::<ProgramMetaRes<crate::shader::color::ProgramMeta>>().unwrap();
+		let cache = world.get_resource::<ShaderInfoCache>().unwrap();
+		let vert_layout = world.get_resource::<PosVertexLayout>().unwrap();
+        DrawBundle {
+			node_id: calc::NodeId(EntityKey::null()),
+            draw_state: Default::default(),
+            box_type: Default::default(),
+            pipeline_meta: PipelineMeta {
+                program: (*program_meta).clone(),
+                state: cache.common.clone(),
+                vert_layout: (**vert_layout).clone(),
+                defines: Default::default(),
+            },
+            draw_info: Default::default(),
+			other: T::from_world(world),
+		}
+    }
 }
 
 
