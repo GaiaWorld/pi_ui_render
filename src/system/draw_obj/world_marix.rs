@@ -2,7 +2,7 @@ use bevy::{ecs::{
     prelude::Entity,
     query::{Changed, Or},
     system::Query,
-}, prelude::DetectChangesMut};
+}, prelude::{DetectChangesMut, With}};
 use pi_assets::{asset::Handle, mgr::AssetMgr};
 use pi_bevy_ecs_extend::prelude::{OrDefault, Up};
 use pi_render::rhi::bind_group_layout::BindGroupLayout;
@@ -14,7 +14,7 @@ use crate::{
     components::{
         calc::{DrawList, LayoutResult, NodeState, WorldMatrix},
         draw_obj::{BoxType, DrawState},
-        user::Matrix4,
+        user::{Matrix4, BackgroundColor, BackgroundImage, TextContent, BorderColor, Canvas, BoxShadow},
     },
     shader::ui_meterial::WorldUniform,
     utils::tools::{calc_float_hash, calc_hash},
@@ -22,11 +22,20 @@ use crate::{
 
 pub struct CalcWorldMatrixGroup;
 
+// Or<(With<BackgroundColor>, With<BackgroundImage>, With<TextContent>, With<BorderColor>, With<Canvas>, With<BoxShadow>)>
 /// 计算DrawObj的matrix group
 /// 必须保证，创建DrawObject的system运行在此system之前，并且已经执行了apply_buffer
 /// 因为此system检测DrawList的变化，当DrawList改变时，如果对应的DrawObject还未插入World，system会忽略此节点，后面可能无机会再设置此节点的matrix
 pub fn calc_matrix_group(
-    query: Query<(&WorldMatrix, &LayoutResult, &DrawList, Entity, &NodeState), Or<(Changed<DrawList>, Changed<WorldMatrix>)>>,
+    query: Query<
+		(&WorldMatrix, &LayoutResult, &DrawList, Entity, &NodeState), 
+		(
+			Or<(
+				Changed<DrawList>, Changed<WorldMatrix>, 
+				Changed<BackgroundColor>, Changed<BackgroundImage>, 
+				Changed<TextContent>, Changed<BorderColor>, 
+				Changed<Canvas>, Changed<BoxShadow>)>, 
+			Or<(With<BackgroundColor>, With<BackgroundImage>, With<TextContent>, With<BorderColor>, With<Canvas>, With<BoxShadow>)>)>,
     query_parent: Query<&Up>,
     query_matrix: Query<&WorldMatrix>,
     mut query_draw: Query<(&mut DrawState, OrDefault<BoxType>)>,
@@ -46,7 +55,6 @@ pub fn calc_matrix_group(
         // 遍历当前节点下所有的DrawObject，为其设置
         for (draw_obj, _) in draw_list.iter() {
             if let Ok((mut draw_data, box_type)) = query_draw.get_mut(*draw_obj) {
-                // 如果，渲染对象的顶点流为单位四边形，则需要将宽高乘到世界矩阵中
                 // 如果，渲染对象的顶点流为单位四边形，则需要将宽高乘到世界矩阵中
                 let matrix_slice = match box_type {
                     // BoxType::Content => {

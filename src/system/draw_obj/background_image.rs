@@ -65,7 +65,7 @@ pub fn calc_background_image(
 		if let Ok((layout, background_image_clip, background_image_mod, background_image_texture)) = query.get(***node_id) {
 			let background_image_texture = match &background_image_texture.0 {
 				Some(r) => r,
-				None => return,
+				None => continue,
 			};
 
 			let box_type = modify(
@@ -84,6 +84,7 @@ pub fn calc_background_image(
 			}
 		};
 	}
+	// );
 }
 
 pub fn calc_texture(
