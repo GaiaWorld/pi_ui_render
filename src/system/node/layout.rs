@@ -12,12 +12,15 @@ use std::{
     ops::{Index, IndexMut},
 };
 
-use bevy::{ecs::{
-    prelude::{Entity, EventWriter, Ref},
-    query::{Changed, Or},
-    system::{Local, Query},
-    world::Mut,
-}, prelude::{DetectChanges, With}};
+use bevy::{
+    ecs::{
+        prelude::{Entity, EventWriter, Ref},
+        query::{Changed, Or},
+        system::{Local, Query},
+        world::Mut,
+    },
+    prelude::{DetectChanges, With},
+};
 use pi_bevy_ecs_extend::{
     prelude::{EntityTree, Layer, OrDefault},
     system_param::layer_dirty::ComponentEvent,
@@ -62,16 +65,17 @@ pub fn calc_layout(
     dirtys: Query<
         (
             Entity,
-			(OrDefault<Size>,
-			OrDefault<Margin>,
-			OrDefault<Padding>,
-			OrDefault<Border>,
-			OrDefault<Position>,
-			OrDefault<MinMax>,
-			OrDefault<FlexContainer>,
-			OrDefault<FlexNormal>,
-			OrDefault<Show>),
-
+            (
+                OrDefault<Size>,
+                OrDefault<Margin>,
+                OrDefault<Padding>,
+                OrDefault<Border>,
+                OrDefault<Position>,
+                OrDefault<MinMax>,
+                OrDefault<FlexContainer>,
+                OrDefault<FlexNormal>,
+                OrDefault<Show>,
+            ),
             Option<Ref<Size>>,
             Option<Ref<Margin>>,
             Option<Ref<Padding>>,
@@ -80,25 +84,28 @@ pub fn calc_layout(
             Option<Ref<MinMax>>,
             Option<Ref<FlexContainer>>,
             Option<Ref<FlexNormal>>,
-			Option<Ref<Show>>,
+            Option<Ref<Show>>,
             Option<Ref<Layer>>,
             Option<Ref<TextContent>>,
             Option<Ref<TextStyle>>,
         ),
-        (Or<(
-            Changed<Layer>,
-            Changed<Size>,
-            Changed<Margin>,
-            Changed<Padding>,
-            Changed<Border>,
-            Changed<Position>,
-            Changed<MinMax>,
-            Changed<FlexContainer>,
-            Changed<FlexNormal>,
-            Changed<Show>,
-            Changed<TextContent>,
-            Changed<TextStyle>,
-        )>, With<Size>),
+        (
+            Or<(
+                Changed<Layer>,
+                Changed<Size>,
+                Changed<Margin>,
+                Changed<Padding>,
+                Changed<Border>,
+                Changed<Position>,
+                Changed<MinMax>,
+                Changed<FlexContainer>,
+                Changed<FlexNormal>,
+                Changed<Show>,
+                Changed<TextContent>,
+                Changed<TextStyle>,
+            )>,
+            With<Size>,
+        ),
     >,
     mut layout_r: Query<&'static mut LayoutResult>,
     mut layer_dirty: Local<LayerDirty<LayoutKey>>,
@@ -132,144 +139,98 @@ pub fn calc_layout(
         style: &layout_styles,
     };
     let mut layout = Layout(layout_context);
-	let mut count = 0;
+    let mut count = 0;
 
     // 遍历布局脏节点，重新设置脏为层次脏
-	{
-		#[cfg(feature="trace")]
-		let _ss = tracing::info_span!("layout set dirty").entered();
-		for (
-			e,
+    {
+        #[cfg(feature = "trace")]
+        let _ss = tracing::info_span!("layout set dirty").entered();
+        for (
+            e,
+            (size, margin, padding, border, position, min_max, flex_container, flex_normal, show),
+            size_dirty,
+            margin_dirty,
+            padding_dirty,
+            border_dirty,
+            position_dirty,
+            min_max_dirty,
+            flex_container_dirty,
+            flex_normal_dirty,
+            show_dirty,
+            layer,
+            text_context,
+            text_style,
+            // char_node
+        ) in dirtys.iter()
+        {
+            let (rect_dirty, children_dirty, normal_style_dirty, self_style_dirty, display_dirty) = (
+                size_dirty.map_or(false, |size| size.is_changed())
+                    || position_dirty.map_or(false, |position| position.is_changed())
+                    || margin_dirty.map_or(false, |margin| margin.is_changed())
+                    || layer.as_ref().map_or(false, |layer| layer.is_changed())
+                    || min_max_dirty.map_or(false, |min_max| min_max.is_changed()),
+                text_context.map_or(false, |text_context| text_context.is_changed())
+                    || text_style.map_or(false, |text_style| text_style.is_changed())
+                    || flex_container_dirty.map_or(false, |flex_container| flex_container.is_changed())
+                    || layer.map_or(false, |layer| layer.is_changed()),
+                flex_normal_dirty.map_or(false, |flex_normal| flex_normal.is_changed()),
+                padding_dirty.map_or(false, |padding| padding.is_changed()) || border_dirty.map_or(false, |border| border.is_changed()),
+                show_dirty.map_or(false, |show| show.is_changed()),
+            );
 
-			(size,
-			margin,
-			padding,
-			border,
-			position,
-			min_max,
-			flex_container,
-			flex_normal,
-			show),
+            if !(rect_dirty || children_dirty || normal_style_dirty || self_style_dirty || display_dirty) {
+                continue;
+            }
 
-			size_dirty,
-			margin_dirty,
-			padding_dirty,
-			border_dirty,
-			position_dirty,
-			min_max_dirty,
-			flex_container_dirty,
-			flex_normal_dirty,
-			show_dirty,
-			layer,
-			text_context,
-			text_style,
-			
-			// char_node
-		) in dirtys.iter()
-		{	
-			let (rect_dirty, children_dirty, normal_style_dirty, self_style_dirty, display_dirty) = (
-				size_dirty.map_or(false, |size| size.is_changed())
-				|| position_dirty.map_or(false, |position| position.is_changed())
-				|| margin_dirty.map_or(false, |margin| margin.is_changed())
-				|| layer.as_ref().map_or(false, |layer| layer.is_changed())
-				|| min_max_dirty.map_or(false, |min_max| min_max.is_changed()),
+            let k = LayoutKey {
+                entity: e,
+                text_index: usize::null(),
+            };
+            let style = LayoutStyle((size, margin, padding, border, position, min_max, flex_container, flex_normal, show));
 
-				text_context.map_or(false, |text_context| text_context.is_changed())
-				|| text_style.map_or(false, |text_style| text_style.is_changed())
-				|| flex_container_dirty.map_or(false, |flex_container| flex_container.is_changed())
-				|| layer.map_or(false, |layer| layer.is_changed()),
+            if rect_dirty {
+                // let __ss = inodes.get_mut(e).map(|mut s| s.state.self_dirty_true());
+                // layer_dirty.
+                // log::warn!("set rect ===================={:?}, {:?}, {:?}, {:?}", e, layout.0.style.get(LayoutKey {
+                // 	entity: e,
+                // 	text_index: usize::null(),
+                // }), size.map_or(false, |size| size.is_changed() ), s);
 
-				flex_normal_dirty.map_or(false, |flex_normal| flex_normal.is_changed()),
+                layout.set_rect(&mut layer_dirty, k, true, true, &style);
+            }
 
-				padding_dirty.map_or(false, |padding| padding.is_changed()) || border_dirty.map_or(false, |border| border.is_changed()) ,
-
-				show_dirty.map_or(false, |show| show.is_changed()),
-			);
-
-			if !(rect_dirty || children_dirty || normal_style_dirty || self_style_dirty || display_dirty) {
-				continue;
-			}
-
-			let k = LayoutKey {
-				entity: e,
-				text_index: usize::null(),
-			};
-			let style = LayoutStyle ((
-				size,
-				margin,
-				padding,
-				border,
-				position,
-				min_max,
-				flex_container,
-				flex_normal,
-				show,
-			));
-
-			if rect_dirty {
-				// let __ss = inodes.get_mut(e).map(|mut s| s.state.self_dirty_true());
-				// layer_dirty.
-				// log::warn!("set rect ===================={:?}, {:?}, {:?}, {:?}", e, layout.0.style.get(LayoutKey {
-				// 	entity: e,
-				// 	text_index: usize::null(),
-				// }), size.map_or(false, |size| size.is_changed() ), s);
-
-				layout.set_rect(
-					&mut layer_dirty,
-					k,
-					true,
-					true,
-					&style,
-				);
-			}
-
-			// 文字修改，容器属性修改、层脏，则需要标记子脏
-			if children_dirty {
-				// log::info!("mark_children_dirty ===================={:?}", e);
-				layout.mark_children_dirty(
-					&mut layer_dirty,
-					k,
-				);
-			}
+            // 文字修改，容器属性修改、层脏，则需要标记子脏
+            if children_dirty {
+                // log::info!("mark_children_dirty ===================={:?}", e);
+                layout.mark_children_dirty(&mut layer_dirty, k);
+            }
 
 
-			if normal_style_dirty {
-				// log::info!("calc layout2===================={:?}", e);
-				layout.set_normal_style(
-					&mut layer_dirty,
-					k,
-					&style,
-				);
-			}
+            if normal_style_dirty {
+                // log::info!("calc layout2===================={:?}", e);
+                layout.set_normal_style(&mut layer_dirty, k, &style);
+            }
 
-			if self_style_dirty {
-				// log::info!("calc layout3===================={:?}", e);
-				layout.set_self_style(
-					k,
-					&mut layer_dirty,
-					&style,
-				);
-			}
+            if self_style_dirty {
+                // log::info!("calc layout3===================={:?}", e);
+                layout.set_self_style(k, &mut layer_dirty, &style);
+            }
 
-			if display_dirty {
-				// log::info!("calc layout5===================={:?}", e);
-				layout.set_display(
-					k,
-					&mut layer_dirty,
-					&style,
-				);
-			}
+            if display_dirty {
+                // log::info!("calc layout5===================={:?}", e);
+                layout.set_display(k, &mut layer_dirty, &style);
+            }
 
-			count += 1;
-			// println!("set layout end==============={:?}", e);
-		}
-	}
+            count += 1;
+            // println!("set layout end==============={:?}", e);
+        }
+    }
 
-	#[cfg(feature="trace")]
-	let layer_dirty_count = layer_dirty.count();
+    #[cfg(feature = "trace")]
+    let layer_dirty_count = layer_dirty.count();
     // 计算布局
-	#[cfg(feature="trace")]
-	let _sss = tracing::info_span!("layout compute", count, layer_dirty_count).entered();
+    #[cfg(feature = "trace")]
+    let _sss = tracing::info_span!("layout compute", count, layer_dirty_count).entered();
     layout.compute(&mut layer_dirty);
 }
 
@@ -583,11 +544,11 @@ impl<'a, 'b> TreeStorage<LayoutKey> for Tree<'a, 'b> {
                     if next_char.context_id == k.text_index as isize {
                         // 后面节点的context_id是自己
                         let r = k.text_index + char.count;
-						if r >= char_node.text.len() {
-							usize::null()
-						} else {
-							r
-						}
+                        if r >= char_node.text.len() {
+                            usize::null()
+                        } else {
+                            r
+                        }
                     } else {
                         usize::null()
                     }

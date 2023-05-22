@@ -1,19 +1,22 @@
 use bevy::ecs::{
+    prelude::RemovedComponents,
     query::Changed,
     system::{Query, Res},
-	prelude::RemovedComponents,
 };
 use pi_bevy_asset::ShareAssetMgr;
 use pi_bevy_ecs_extend::system_param::res::{OrInitRes, OrInitResMut};
 use pi_bevy_render_plugin::PiRenderDevice;
-use pi_render::{rhi::{asset::RenderRes, bind_group::BindGroup}, renderer::draw_obj::DrawBindGroup};
+use pi_render::{
+    renderer::draw_obj::DrawBindGroup,
+    rhi::{asset::RenderRes, bind_group::BindGroup},
+};
 
 use crate::{
     components::{
         draw_obj::ClearColorBindGroup,
         user::{ClearColor, Matrix4},
     },
-    resource::draw_obj::{ShareGroupAlloter, UiMaterialGroup, DepthCache},
+    resource::draw_obj::{DepthCache, ShareGroupAlloter, UiMaterialGroup},
     shader::ui_meterial::{ColorUniform, WorldUniform},
 };
 
@@ -24,10 +27,9 @@ pub fn clear_change(
     mut dels: RemovedComponents<ClearColor>,
     ui_meterial_alloter: OrInitRes<ShareGroupAlloter<UiMaterialGroup>>,
     // color_material_bind_group: Res<DynBindGroupIndex<ColorMaterialGroup>>,
-
-	mut depth_cache: OrInitResMut<DepthCache>,
-	device: Res<PiRenderDevice>,
-	bind_group_assets: Res<ShareAssetMgr<RenderRes<BindGroup>>>,
+    mut depth_cache: OrInitResMut<DepthCache>,
+    device: Res<PiRenderDevice>,
+    bind_group_assets: Res<ShareAssetMgr<RenderRes<BindGroup>>>,
 ) {
     // 处理清屏颜色删除
     for del in dels.iter() {
@@ -41,8 +43,8 @@ pub fn clear_change(
         let color_bind_group = match &mut color_bind_group.0 {
             Some(r) => r,
             None => {
-				// 深度设置为-1(最远)
-				depth_cache.or_create_depth(0, &device, &bind_group_assets);
+                // 深度设置为-1(最远)
+                depth_cache.or_create_depth(0, &device, &bind_group_assets);
 
                 let mut ui_group = ui_meterial_alloter.alloc();
                 // 世界矩阵
@@ -53,6 +55,8 @@ pub fn clear_change(
                 color_bind_group.0.as_mut().unwrap()
             }
         };
-        color_bind_group.0.set_uniform(&ColorUniform(&[color.0.x, color.0.y, color.0.z, color.0.w]));
+        color_bind_group
+            .0
+            .set_uniform(&ColorUniform(&[color.0.x, color.0.y, color.0.z, color.0.w]));
     }
 }

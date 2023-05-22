@@ -1,19 +1,23 @@
 //! Component、Bundle定义
 
 pub mod calc;
-pub mod user;
 pub mod draw_obj;
 pub mod pass_2d;
 mod root;
+pub mod user;
 
-use bevy::{ecs::{bundle::Bundle, prelude::Entity}, prelude::FromWorld};
+use bevy::{
+    ecs::{bundle::Bundle, prelude::Entity},
+    prelude::FromWorld,
+};
 use pi_bevy_ecs_extend::prelude::{Down, Layer, Up};
 
 use self::{
-    calc::{DrawInfo, DrawList, EntityKey, IsShow, NodeState, View, RenderContextMark, TransformWillChangeMatrix},
+    calc::{DrawInfo, DrawList, EntityKey, IsShow, NodeState, RenderContextMark, TransformWillChangeMatrix, View},
     draw_obj::{BoxType, ClearColorBindGroup, CopyFboToScreen, PipelineMeta},
     pass_2d::{ChildrenPass, GraphId, ParentPassId, PostProcessList, ViewMatrix},
-    root::{RenderTarget, RootDirtyRect}, user::{ClearColor, Overflow},
+    root::{RenderTarget, RootDirtyRect},
+    user::{ClearColor, Overflow},
 };
 
 /// 节点Bundle
@@ -46,7 +50,7 @@ pub struct DrawBundle<T: FromWorld + Bundle> {
     // pub vs_defines: VSDefines,
     pub pipeline_meta: PipelineMeta,
     pub draw_info: DrawInfo,
-	pub other: T,
+    pub other: T,
 }
 
 // impl<T: FromWorld + Bundle> FromWorld for DrawBundle<T> {
@@ -54,7 +58,7 @@ pub struct DrawBundle<T: FromWorld + Bundle> {
 // 		world.init_resource::<ProgramMetaRes<crate::shader::color::ProgramMeta>>();
 // 		world.init_resource::<ShaderInfoCache>();
 // 		world.init_resource::<PosVertexLayout>();
-		
+
 
 // 		let program_meta = world.get_resource::<ProgramMetaRes<crate::shader::color::ProgramMeta>>().unwrap();
 // 		let cache = world.get_resource::<ShaderInfoCache>().unwrap();
@@ -131,19 +135,19 @@ pub struct RootBundle {
     pub copy_draw_obj: CopyFboToScreen,
     pub clear_color_group: ClearColorBindGroup,
     pub dirty_rect: RootDirtyRect,
-	pub clear_color: ClearColor,
-	pub overflow: Overflow,
+    pub clear_color: ClearColor,
+    pub overflow: Overflow,
 }
 
 impl Default for RootBundle {
     fn default() -> Self {
-        Self { 
-			render_target: Default::default(), 
-			copy_draw_obj: Default::default(), 
-			clear_color_group: Default::default(), 
-			dirty_rect: Default::default(), 
-			clear_color: Default::default(), 
-			overflow: Overflow(true) 
-		}
+        Self {
+            render_target: Default::default(),
+            copy_draw_obj: Default::default(),
+            clear_color_group: Default::default(),
+            dirty_rect: Default::default(),
+            clear_color: Default::default(),
+            overflow: Overflow(true),
+        }
     }
 }

@@ -14,12 +14,12 @@ use pi_async::prelude::AsyncRuntime;
 use pi_atom::Atom;
 use pi_bevy_asset::ShareAssetMgr;
 use pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent;
+use pi_bevy_ecs_extend::system_param::res::OrInitRes;
 use pi_bevy_render_plugin::{PiRenderDevice, PiRenderQueue};
 use pi_hal::{loader::AsyncLoader, runtime::MULTI_MEDIA_RUNTIME};
 use pi_null::Null;
 use pi_render::rhi::asset::{ImageTextureDesc, TextureRes};
 use pi_share::Share;
-use pi_bevy_ecs_extend::system_param::res::OrInitRes;
 
 #[derive(Clone, DerefMut, Deref, Resource)]
 pub struct ImageAwait<T>(Share<SegQueue<(Entity, Atom, Handle<TextureRes>)>>, PhantomData<T>);
@@ -44,14 +44,14 @@ pub fn image_change<S: Component + std::ops::Deref<Target = Atom>, D: Component 
     device: Res<PiRenderDevice>,
 
     // mut commands: Commands,
-	mut query_dst: Query<&mut D>,
+    mut query_dst: Query<&mut D>,
     mut event_writer: EventWriter<ComponentEvent<Changed<D>>>,
 ) {
     // 图片删除，则删除对应的Texture
     for del in del.iter() {
         if let Ok(mut r) = query_dst.get_mut(del) {
-			*r = D::null();
-		};
+            *r = D::null();
+        };
     }
 
     // let mut insert = Vec::new();
@@ -61,11 +61,11 @@ pub fn image_change<S: Component + std::ops::Deref<Target = Atom>, D: Component 
         let result = AssetMgr::load(&texture_assets_mgr, &(key.get_hash() as u64));
         match result {
             LoadResult::Ok(r) => {
-				if let Ok(mut dst) = query_dst.get_mut(entity) {
-					*dst = D::from(r);
-					event_writer.send(ComponentEvent::new(entity));
-				}
-			},
+                if let Ok(mut dst) = query_dst.get_mut(entity) {
+                    *dst = D::from(r);
+                    event_writer.send(ComponentEvent::new(entity));
+                }
+            }
             _ => {
                 let (awaits, device, queue) = ((*image_await).clone(), (*device).clone(), (*queue).clone());
                 let (id, key) = (entity, (*key).clone());
@@ -92,7 +92,7 @@ pub fn image_change<S: Component + std::ops::Deref<Target = Atom>, D: Component 
             }
         };
     }
-	
+
     // 处理已经成功加载的图片，放入到对应组件中
     while let Some((id, key, texture)) = image_await.0.pop() {
         match query1.get(id) {
@@ -104,10 +104,10 @@ pub fn image_change<S: Component + std::ops::Deref<Target = Atom>, D: Component 
 
                 // log::info!("load success====================:{:?}", key);
                 // insert.push((id, D::from(texture)));
-				if let Ok(mut dst) = query_dst.get_mut(id) {
-					*dst = D::from(texture);
-					event_writer.send(ComponentEvent::new(id));
-				}
+                if let Ok(mut dst) = query_dst.get_mut(id) {
+                    *dst = D::from(texture);
+                    event_writer.send(ComponentEvent::new(id));
+                }
             }
             // 节点已经销毁，或image已经被删除，不需要设置texture
             _ => continue,
@@ -115,10 +115,10 @@ pub fn image_change<S: Component + std::ops::Deref<Target = Atom>, D: Component 
     }
 
     // if insert.len() > 0 {
-	// 	#[cfg(feature="trace")]
-	// 	let count = insert.len();
-	// 	#[cfg(feature="trace")]
-	// 	let _ss = tracing::info_span!("image load", count).entered();
+    // 	#[cfg(feature="trace")]
+    // 	let count = insert.len();
+    // 	#[cfg(feature="trace")]
+    // 	let _ss = tracing::info_span!("image load", count).entered();
 
     //     commands.insert_or_spawn_batch(insert.into_iter());
     // }

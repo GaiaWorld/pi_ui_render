@@ -22,9 +22,7 @@ impl Default for Viewport {
 pub struct ClearColor(pub CgColor, pub bool);
 
 impl Default for ClearColor {
-    fn default() -> Self {
-        Self(CgColor::new(0.0, 0.0, 0.0, 0.0), false)
-    }
+    fn default() -> Self { Self(CgColor::new(0.0, 0.0, 0.0, 0.0), false) }
 }
 
 #[derive(Clone, Debug, Deref, DerefMut, Default, Component)]

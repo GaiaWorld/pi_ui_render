@@ -1,23 +1,28 @@
 use bevy::ecs::{
+    prelude::RemovedComponents,
     query::Changed,
     system::{ParamSet, Query},
-	prelude::RemovedComponents,
 };
 use pi_bevy_ecs_extend::system_param::res::OrInitRes;
+
+use crate::{components::user::Blur, resource::RenderContextMarkType};
+
+use crate::components::pass_2d::PostProcessList;
 use pi_postprocess::effect::blur_dual::BlurDual;
 
-use crate::{components::{pass_2d::PostProcessList, user::Blur}, resource::RenderContextMarkType};
-
+// 处理blur属性，将其设置在PostProcess上
+// 如果Blur删除，设置PostProcess的blur_dual属性为None
+// 如果Blur修改，设置PostProcess中的blur_dual属性为对应值
 pub fn blur_post_process(
     mut del: RemovedComponents<Blur>,
-	mark_type: OrInitRes<RenderContextMarkType<Blur>>,
+    mark_type: OrInitRes<RenderContextMarkType<Blur>>,
     mut query: ParamSet<(Query<(&Blur, &mut PostProcessList), Changed<Blur>>, Query<&mut PostProcessList>)>,
 ) {
     let mut p1 = query.p1();
     for del in del.iter() {
         if let Ok(mut post_list) = p1.get_mut(del) {
             post_list.blur_dual = None;
-			post_list.effect_mark.set(***mark_type, false);
+            post_list.effect_mark.set(***mark_type, false);
         }
     }
 
@@ -29,10 +34,10 @@ pub fn blur_post_process(
                 intensity: 1.0,
                 simplified_up: false,
             });
-			post_list.effect_mark.set(***mark_type, true);
+            post_list.effect_mark.set(***mark_type, true);
         } else {
             post_list.blur_dual = None;
-			post_list.effect_mark.set(***mark_type, false);
+            post_list.effect_mark.set(***mark_type, false);
         }
     }
 }

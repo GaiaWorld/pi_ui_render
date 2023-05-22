@@ -60,7 +60,8 @@ impl Example for QuadExample {
         self.cmd.set_style(div2, WidthType(Dimension::Points(200.0)));
         self.cmd.set_style(div2, HeightType(Dimension::Points(200.0)));
         self.cmd.set_style(div2, PositionTypeType(PositionType::Relative));
-        self.cmd.set_style(div2, BorderImageType(Atom::from("examples/border_image/source/border.png")));
+        self.cmd
+            .set_style(div2, BorderImageType(Atom::from("examples/border_image/source/border.png")));
         self.cmd.set_style(
             div2,
             BorderImageSliceType(BorderImageSlice {
@@ -89,7 +90,8 @@ impl Example for QuadExample {
         self.cmd.set_style(div3, WidthType(Dimension::Points(220.0)));
         self.cmd.set_style(div3, HeightType(Dimension::Points(220.0)));
         self.cmd.set_style(div3, PositionTypeType(PositionType::Relative));
-        self.cmd.set_style(div3, BorderImageType(Atom::from("examples/border_image/source/border.png")));
+        self.cmd
+            .set_style(div3, BorderImageType(Atom::from("examples/border_image/source/border.png")));
         self.cmd.set_style(
             div3,
             BorderImageSliceType(BorderImageSlice {
@@ -118,7 +120,8 @@ impl Example for QuadExample {
         self.cmd.set_style(div4, WidthType(Dimension::Points(220.0)));
         self.cmd.set_style(div4, HeightType(Dimension::Points(220.0)));
         self.cmd.set_style(div4, PositionTypeType(PositionType::Relative));
-        self.cmd.set_style(div4, BorderImageType(Atom::from("examples/border_image/source/border.png")));
+        self.cmd
+            .set_style(div4, BorderImageType(Atom::from("examples/border_image/source/border.png")));
         self.cmd.set_style(
             div4,
             BorderImageSliceType(BorderImageSlice {
@@ -147,7 +150,8 @@ impl Example for QuadExample {
         self.cmd.set_style(div5, WidthType(Dimension::Points(220.0)));
         self.cmd.set_style(div5, HeightType(Dimension::Points(220.0)));
         self.cmd.set_style(div5, PositionTypeType(PositionType::Relative));
-        self.cmd.set_style(div5, BorderImageType(Atom::from("examples/border_image/source/border.png")));
+        self.cmd
+            .set_style(div5, BorderImageType(Atom::from("examples/border_image/source/border.png")));
         self.cmd.set_style(
             div5,
             BorderImageSliceType(BorderImageSlice {
@@ -176,7 +180,8 @@ impl Example for QuadExample {
         self.cmd.set_style(div6, WidthType(Dimension::Points(95.0)));
         self.cmd.set_style(div6, HeightType(Dimension::Points(95.0)));
         self.cmd.set_style(div6, PositionTypeType(PositionType::Relative));
-        self.cmd.set_style(div6, BorderImageType(Atom::from("examples/border_image/source/border.png")));
+        self.cmd
+            .set_style(div6, BorderImageType(Atom::from("examples/border_image/source/border.png")));
         self.cmd.set_style(
             div6,
             BorderImageSliceType(BorderImageSlice {
@@ -205,7 +210,8 @@ impl Example for QuadExample {
         self.cmd.set_style(div7, WidthType(Dimension::Points(95.0)));
         self.cmd.set_style(div7, HeightType(Dimension::Points(95.0)));
         self.cmd.set_style(div7, PositionTypeType(PositionType::Relative));
-        self.cmd.set_style(div7, BorderImageType(Atom::from("examples/border_image/source/border.png")));
+        self.cmd
+            .set_style(div7, BorderImageType(Atom::from("examples/border_image/source/border.png")));
         self.cmd.set_style(
             div7,
             BorderImageSliceType(BorderImageSlice {
@@ -234,7 +240,8 @@ impl Example for QuadExample {
         self.cmd.set_style(div8, WidthType(Dimension::Points(95.0)));
         self.cmd.set_style(div8, HeightType(Dimension::Points(95.0)));
         self.cmd.set_style(div8, PositionTypeType(PositionType::Relative));
-        self.cmd.set_style(div8, BorderImageType(Atom::from("examples/border_image/source/border.png")));
+        self.cmd
+            .set_style(div8, BorderImageType(Atom::from("examples/border_image/source/border.png")));
         self.cmd.set_style(
             div8,
             BorderImageSliceType(BorderImageSlice {

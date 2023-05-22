@@ -59,7 +59,8 @@ impl Example for QuadExample {
         let div1 = world.spawn(NodeBundle::default()).id();
         self.cmd.set_style(div1, WidthType(Dimension::Points(300.0)));
         self.cmd.set_style(div1, HeightType(Dimension::Points(300.0)));
-        self.cmd.set_style(div1, BackgroundColorType(Color::RGBA(CgColor::new(1.0, 0.0, 1.0, 1.0))));
+        self.cmd
+            .set_style(div1, BackgroundColorType(Color::RGBA(CgColor::new(1.0, 0.0, 1.0, 1.0))));
 
         self.cmd.append(div1, root);
 
@@ -67,7 +68,8 @@ impl Example for QuadExample {
         let div2 = world.spawn(NodeBundle::default()).id();
         self.cmd.set_style(div2, WidthType(Dimension::Points(50.0)));
         self.cmd.set_style(div2, HeightType(Dimension::Points(100.0)));
-        self.cmd.set_style(div2, BackgroundColorType(Color::RGBA(CgColor::new(1.0, 0.0, 0.0, 1.0))));
+        self.cmd
+            .set_style(div2, BackgroundColorType(Color::RGBA(CgColor::new(1.0, 0.0, 0.0, 1.0))));
         self.cmd.append(div2, div1);
 
         // 添加一个容器节点，其下有一个绿色节点，一个黄色节点， 对本节点添加TransformWillchange
@@ -80,7 +82,8 @@ impl Example for QuadExample {
         let div4 = world.spawn(NodeBundle::default()).id();
         self.cmd.set_style(div4, WidthType(Dimension::Points(50.0)));
         self.cmd.set_style(div4, HeightType(Dimension::Points(100.0)));
-        self.cmd.set_style(div4, BackgroundColorType(Color::RGBA(CgColor::new(0.0, 1.0, 0.0, 1.0))));
+        self.cmd
+            .set_style(div4, BackgroundColorType(Color::RGBA(CgColor::new(0.0, 1.0, 0.0, 1.0))));
         self.cmd.append(div4, div3);
 
         // 添加一个黄色
@@ -88,7 +91,8 @@ impl Example for QuadExample {
         self.cmd.set_style(div5, PositionLeftType(Dimension::Points(50.0)));
         self.cmd.set_style(div5, WidthType(Dimension::Points(50.0)));
         self.cmd.set_style(div5, HeightType(Dimension::Points(100.0)));
-        self.cmd.set_style(div5, BackgroundColorType(Color::RGBA(CgColor::new(1.0, 1.0, 0.0, 1.0))));
+        self.cmd
+            .set_style(div5, BackgroundColorType(Color::RGBA(CgColor::new(1.0, 1.0, 0.0, 1.0))));
         // 设置opacity，测试Pass2d在父上存在TransformWillChange的情况下能否正确渲染
         // self.cmd.set_style(div5, OpacityType(Opacity(0.5)));
 

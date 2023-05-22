@@ -3,7 +3,13 @@ use pi_bevy_asset::ShareAssetMgr;
 use pi_bevy_ecs_extend::system_param::res::{OrInitRes, OrInitResMut};
 use pi_bevy_render_plugin::PiRenderDevice;
 use pi_hash::XHashSet;
-use pi_render::{rhi::{texture::PiRenderDefault, asset::RenderRes, bind_group::BindGroup}, renderer::{draw_obj::DrawBindGroup, vertices::{RenderIndices, RenderVertices, EVerticesBufferUsage}}};
+use pi_render::{
+    renderer::{
+        draw_obj::DrawBindGroup,
+        vertices::{EVerticesBufferUsage, RenderIndices, RenderVertices},
+    },
+    rhi::{asset::RenderRes, bind_group::BindGroup, texture::PiRenderDefault},
+};
 use wgpu::IndexFormat;
 
 use crate::{
@@ -13,8 +19,8 @@ use crate::{
         user::Matrix4,
     },
     resource::draw_obj::{
-        CameraGroup, ClearDrawObj, DynFboClearColorBindGroup, PipelineState, PosVertexLayout, ProgramMetaRes, ShaderInfoCache, ShareGroupAlloter,
-        UiMaterialGroup, UnitQuadBuffer, DepthCache,
+        CameraGroup, ClearDrawObj, DepthCache, DynFboClearColorBindGroup, PipelineState, PosVertexLayout, ProgramMetaRes, ShaderInfoCache,
+        ShareGroupAlloter, UiMaterialGroup, UnitQuadBuffer,
     },
     shader::{
         camera::{ProjectUniform, ViewUniform},
@@ -27,9 +33,9 @@ use crate::{
 /// 创建清屏的drawobj
 #[allow(unused_must_use)]
 pub fn init(
-	mut depth_cache: OrInitResMut<DepthCache>,
-	device: Res<PiRenderDevice>,
-	bind_group_assets: Res<ShareAssetMgr<RenderRes<BindGroup>>>,
+    mut depth_cache: OrInitResMut<DepthCache>,
+    device: Res<PiRenderDevice>,
+    bind_group_assets: Res<ShareAssetMgr<RenderRes<BindGroup>>>,
     unit_quad_buffer: Res<UnitQuadBuffer>,
     shader_static: OrInitRes<ProgramMetaRes<ProgramMeta>>,
     vert_layout: OrInitRes<PosVertexLayout>,
@@ -51,9 +57,18 @@ pub fn init(
 
     // 设置清屏颜色的vb、ib
     let mut draw_state = DrawState::default();
-	draw_state.vertex = 0..4;
-    draw_state.insert_vertices(RenderVertices { slot: 0, buffer: EVerticesBufferUsage::GUI(unit_quad_buffer.vertex.clone()), buffer_range: None, size_per_value: 8 });
-    draw_state.indices = Some(RenderIndices { buffer: EVerticesBufferUsage::GUI(unit_quad_buffer.index.clone()), buffer_range: None, format: IndexFormat::Uint16 } );
+    draw_state.vertex = 0..4;
+    draw_state.insert_vertices(RenderVertices {
+        slot: 0,
+        buffer: EVerticesBufferUsage::GUI(unit_quad_buffer.vertex.clone()),
+        buffer_range: None,
+        size_per_value: 8,
+    });
+    draw_state.indices = Some(RenderIndices {
+        buffer: EVerticesBufferUsage::GUI(unit_quad_buffer.index.clone()),
+        buffer_range: None,
+        format: IndexFormat::Uint16,
+    });
     // 暂时在pipeline system中创建pipeline， 考虑ecs新增只运行一次的system，将该逻辑放入这类system中（创建pipeline为异步操作， 当前方法为同步方法，而pipeline system每帧都会运行， 此pipeline最适合放入到一个只运行一次的system中）
     // // 设置清屏颜色的pipeline
     // let (vs_defines, fs_defines) = (VSDefines::default(), FSDefines::default());
@@ -96,9 +111,9 @@ pub fn init(
 
     let group = DrawBindGroup::Offset(ui_meterial_group);
     // let state_hash = calc_hash(&pipeline_state, 0);
-	
-	// 深度设置为-1(最远)
-	depth_cache.or_create_depth(0, &device, &bind_group_assets);
+
+    // 深度设置为-1(最远)
+    depth_cache.or_create_depth(0, &device, &bind_group_assets);
     commands.insert_resource(DynFboClearColorBindGroup((group, DrawBindGroup::Independ(depth_cache.list[0].clone()))));
     commands.insert_resource(ClearDrawObj(draw_state, pipeline_meta.clone()));
 }

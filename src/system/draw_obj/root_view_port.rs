@@ -3,23 +3,33 @@ use std::{
     sync::atomic::{AtomicUsize, Ordering},
 };
 
-use bevy::{ecs::{
-    prelude::{Entity, Ref},
-    query::{Changed, Or, With},
-    system::{Commands, ParamSet, Query, Res, ResMut},
-}, prelude::DetectChanges};
+use bevy::{
+    ecs::{
+        prelude::{Entity, Ref},
+        query::{Changed, Or, With},
+        system::{Commands, ParamSet, Query, Res, ResMut},
+    },
+    prelude::DetectChanges,
+};
 use pi_assets::asset::Handle;
 use pi_async::{
     prelude::AsyncVariableNonBlocking,
     prelude::{AsyncRuntime, AsyncRuntimeExt},
 };
 use pi_bevy_asset::ShareAssetMgr;
-use pi_bevy_ecs_extend::{prelude::OrDefault, system_param::res::{OrInitRes, OrInitResMut}};
+use pi_bevy_ecs_extend::{
+    prelude::OrDefault,
+    system_param::res::{OrInitRes, OrInitResMut},
+};
 use pi_bevy_render_plugin::{PiRenderDevice, PiSafeAtlasAllocator};
 use pi_hal::runtime::RENDER_RUNTIME;
 use pi_render::{
     components::view::target_alloc::{SafeAtlasAllocator, ShareTargetView, TargetDescriptor, TextureDescriptor},
-    rhi::{asset::RenderRes, bind_group::BindGroup, pipeline::RenderPipeline, shader::BindLayout, texture::PiRenderDefault}, renderer::{draw_obj::DrawBindGroup, vertices::{RenderVertices, EVerticesBufferUsage, RenderIndices}},
+    renderer::{
+        draw_obj::DrawBindGroup,
+        vertices::{EVerticesBufferUsage, RenderIndices, RenderVertices},
+    },
+    rhi::{asset::RenderRes, bind_group::BindGroup, pipeline::RenderPipeline, shader::BindLayout, texture::PiRenderDefault},
 };
 use pi_share::Share;
 use smallvec::SmallVec;
@@ -33,14 +43,14 @@ use crate::{
         user::{Matrix4, RenderTargetType, Viewport},
     },
     resource::draw_obj::{
-        CameraGroup, CommonSampler, MaxViewSize, PosUv1VertexLayout, PostBindGroupLayout, Program, ProgramMetaRes, ShaderInfoCache,
-        ShareGroupAlloter, UiMaterialGroup, UnitQuadBuffer, DepthCache,
+        CameraGroup, CommonSampler, DepthCache, MaxViewSize, PosUv1VertexLayout, PostBindGroupLayout, Program, ProgramMetaRes, ShaderInfoCache,
+        ShareGroupAlloter, UiMaterialGroup, UnitQuadBuffer,
     },
     shader::{
         camera::{ProjectUniform, ViewUniform},
+        depth::DepthBind,
         image::{ProgramMeta, SampBind},
-        ui_meterial::{WorldUniform},
-		depth::DepthBind,
+        ui_meterial::WorldUniform,
     },
     system::draw_obj::pipeline::calc_pipeline,
     utils::tools::calc_hash,
@@ -54,7 +64,7 @@ pub fn view_port_change(
         Res<UnitQuadBuffer>,
         OrInitRes<ProgramMetaRes<ProgramMeta>>,
         OrInitRes<PosUv1VertexLayout>,
-		OrInitResMut<DepthCache>,
+        OrInitResMut<DepthCache>,
         Res<PiRenderDevice>,
         // Res<ShaderCatch>,
     ),
@@ -91,7 +101,7 @@ pub fn view_port_change(
     let unit_quad_buffer: Res<'static, UnitQuadBuffer> = unsafe { transmute(res.2) };
     let image_shader_meta: OrInitRes<'static, ProgramMetaRes<ProgramMeta>> = unsafe { transmute(res.3) };
     let vert_layout: OrInitRes<'static, PosUv1VertexLayout> = unsafe { transmute(res.4) };
-	let depth_cache: OrInitResMut<'static, DepthCache> = unsafe { transmute(res.5) };
+    let depth_cache: OrInitResMut<'static, DepthCache> = unsafe { transmute(res.5) };
     let device: Res<'static, PiRenderDevice> = unsafe { transmute(res.6) };
     let bind_group_assets: Res<'static, ShareAssetMgr<RenderRes<BindGroup>>> = unsafe { transmute(bind_group_assets) };
 
@@ -109,7 +119,7 @@ pub fn view_port_change(
     let ui_meterial_group_alloter: OrInitRes<'static, ShareGroupAlloter<UiMaterialGroup>> = unsafe { transmute(ui_meterial_group_alloter) };
     let allocator: Res<'static, PiSafeAtlasAllocator> = unsafe { transmute(allocator) };
 
-	let pipeline_map: &'static Res<'static, ShareAssetMgr<RenderRes<RenderPipeline>>> = unsafe { transmute(&pipeline_map) };
+    let pipeline_map: &'static Res<'static, ShareAssetMgr<RenderRes<RenderPipeline>>> = unsafe { transmute(&pipeline_map) };
     let shader_map: &'static Res<'static, ShareAssetMgr<RenderRes<Program>>> = unsafe { transmute(&shader_map) };
     let device: &'static Res<'static, PiRenderDevice> = unsafe { transmute(&device) };
 
@@ -133,7 +143,7 @@ pub fn view_port_change(
     let mut task_count = 0;
 
     render_change_async(
-		depth_cache,
+        depth_cache,
         value.clone(),
         count.clone(),
         &mut task_count,
@@ -167,7 +177,7 @@ pub fn view_port_change(
 
 #[allow(unused_must_use)]
 fn render_change_async(
-	mut depth_cache: OrInitResMut<'static, DepthCache>,
+    mut depth_cache: OrInitResMut<'static, DepthCache>,
     value: AsyncVariableNonBlocking<Vec<(Entity, Handle<RenderRes<RenderPipeline>>)>>,
     count: Share<AtomicUsize>,
     task_count: &mut usize,
@@ -250,10 +260,24 @@ fn render_change_async(
         // 原因是，gui的渲染机制为局部脏更机制，需要保留上一帧的画面，如果不用离屏fbo，在多缓冲模式下，不能保留原有画面
         // 此逻辑创建一个drawobj，用于将离屏的fbo渲染到最终目标上
         let mut draw_state = DrawState::default();
-		draw_state.vertex = 0..4;
-		draw_state.insert_vertices(RenderVertices { slot: 0, buffer: EVerticesBufferUsage::GUI(unit_quad_buffer.vertex.clone()), buffer_range: None, size_per_value: 8 });
-		draw_state.insert_vertices(RenderVertices { slot: 1, buffer: EVerticesBufferUsage::GUI(unit_quad_buffer.uv.clone()), buffer_range: None, size_per_value: 8 });
-    	draw_state.indices = Some(RenderIndices { buffer: EVerticesBufferUsage::GUI(unit_quad_buffer.index.clone()), buffer_range: None, format: IndexFormat::Uint16 } );
+        draw_state.vertex = 0..4;
+        draw_state.insert_vertices(RenderVertices {
+            slot: 0,
+            buffer: EVerticesBufferUsage::GUI(unit_quad_buffer.vertex.clone()),
+            buffer_range: None,
+            size_per_value: 8,
+        });
+        draw_state.insert_vertices(RenderVertices {
+            slot: 1,
+            buffer: EVerticesBufferUsage::GUI(unit_quad_buffer.uv.clone()),
+            buffer_range: None,
+            size_per_value: 8,
+        });
+        draw_state.indices = Some(RenderIndices {
+            buffer: EVerticesBufferUsage::GUI(unit_quad_buffer.index.clone()),
+            buffer_range: None,
+            format: IndexFormat::Uint16,
+        });
 
 
         let image_static_index = PipelineMeta {
@@ -278,10 +302,12 @@ fn render_change_async(
         draw_state
             .bindgroups
             .insert_group(ui_meterial_group_alloter.group_index, DrawBindGroup::Offset(post_group));
-		
-		// 深度
-		depth_cache.or_create_depth(0, device, &bind_group_assets);
-		draw_state.bindgroups.insert_group(DepthBind::set(), DrawBindGroup::Independ(depth_cache.list[0].clone()));
+
+        // 深度
+        depth_cache.or_create_depth(0, device, &bind_group_assets);
+        draw_state
+            .bindgroups
+            .insert_group(DepthBind::set(), DrawBindGroup::Independ(depth_cache.list[0].clone()));
 
         let group_key = calc_hash(&("bind", target.target().colors[0].0.key()), 0);
         let texture_bind = match bind_group_assets.get(&group_key) {
@@ -311,7 +337,7 @@ fn render_change_async(
         let count_copy = count.clone();
         count_copy.fetch_add(1, Ordering::Relaxed);
         *task_count += 1;
-        
+
         RENDER_RUNTIME
             .spawn(RENDER_RUNTIME.alloc(), async move {
                 match calc_pipeline(&image_static_index, device, pipeline_map, shader_map).await {

@@ -1,12 +1,30 @@
-use bevy::{ecs::{
-    prelude::{Entity, EventReader, RemovedComponents, Ref},
-    query::{Changed, With},
-    system::{Local, Query},
-}, prelude::DetectChanges};
-use pi_bevy_ecs_extend::{system_param::layer_dirty::{ComponentEvent, DirtyMark}, prelude::OrDefault};
+use bevy::ecs::{
+    prelude::{Entity, RemovedComponents},
+    query::Changed,
+    system::Query,
+};
+use pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent;
+
+use crate::components::user::TransformWillChange;
+
+use bevy::{
+    ecs::{
+        prelude::{EventReader, Ref},
+        query::With,
+        system::Local,
+    },
+    prelude::DetectChanges,
+};
+use pi_bevy_ecs_extend::{prelude::OrDefault, system_param::layer_dirty::DirtyMark};
 use pi_hash::XHashMap;
 
-use crate::{components::{pass_2d::ChildrenPass, user::{Transform, Point2}}, utils::tools::LayerDirty};
+use crate::{
+    components::{
+        pass_2d::ChildrenPass,
+        user::{Point2, Transform},
+    },
+    utils::tools::LayerDirty,
+};
 
 use pi_bevy_ecs_extend::prelude::{Layer, Up};
 
@@ -14,9 +32,17 @@ use pi_bevy_ecs_extend::prelude::{Layer, Up};
 use crate::components::{
     calc::{LayoutResult, TransformWillChangeMatrix, WorldMatrix},
     pass_2d::ParentPassId,
-    user::TransformWillChange,
 };
 
+// 处理transform_will_change属性，计算出TransformWillChangeMatrix
+// TransformWillChange属性常用于，子节点数量较多，又频繁改变Transform的节点
+// 将变换Transform设置到TransformWillChange上，所有的子节点不需要重新计算WorldMatrix
+// 假定某个节点A上设置的TransformWillChange为T1， A的世界矩阵为Wa，
+// A存在一个子节点B，由B的Transform变换所得的局部矩阵为Tb，因此B的世界矩阵为Wa * Tb, 记作Wb
+// 又由于A上存在TransformWillChange T1，其也能影响B，
+// B的最终变换应该为Wa * T1 * Tb = Wa * T1 * Wa逆 * Wa * Tb = Wa * T1 * Wa逆 * Wb;
+// 将Wa * T1 * Wa称为TransformWillChangeMatrix TW。
+// 渲染A下所有子节点时，将TW作为视图矩阵。
 pub fn transform_will_change_post_process(
     query_matrix: Query<(&'static WorldMatrix, &'static LayoutResult)>,
     query_node: Query<(&Up, &Layer)>,
@@ -127,7 +153,7 @@ pub fn recursive_set_matrix(
     }
 
     match query_node.get(id) {
-        Ok((will_change, transform,  up, layout)) => {
+        Ok((will_change, transform, up, layout)) => {
             let ((p_matrix, parent_layout), p_matrix_invert) = match (query_matrix.get(up.parent()), inverts.get(&up.parent())) {
                 (Ok(r), Some(r1)) => (r, r1),
                 _ => return,
@@ -135,7 +161,7 @@ pub fn recursive_set_matrix(
 
             let width = layout.rect.right - layout.rect.left;
             let height = layout.rect.bottom - layout.rect.top;
-			let offset = (layout.rect.left + parent_layout.padding.left, layout.rect.top + parent_layout.padding.top);
+            let offset = (layout.rect.left + parent_layout.padding.left, layout.rect.top + parent_layout.padding.top);
             let mut matrix = WorldMatrix::form_transform_layout(&will_change.0, &transform.origin, width, height, &Point2::new(offset.0, offset.1));
 
             let mut m = p_matrix * &matrix * p_matrix_invert;
@@ -161,7 +187,7 @@ pub fn recursive_set_matrix(
 
     // 设置子节点
     if let Ok(children) = query_children.get(id) {
-		// log::warn!("id===={:?}, {:?}", id, children);
+        // log::warn!("id===={:?}, {:?}", id, children);
         for i in children.iter() {
             recursive_set_matrix(
                 **i,

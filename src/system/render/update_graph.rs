@@ -19,20 +19,17 @@ pub fn update_graph(
     mut pass_query: ParamSet<(
         Query<(&mut GraphId, Entity, &ParentPassId, &PostProcessList), Or<(Added<Camera>, Changed<RenderContextMark>)>>,
         Query<&GraphId>,
-        (
-			Query<(&ParentPassId, &GraphId), Changed<ParentPassId>>,
-			Query<(&ParentPassId, &GraphId)>,
-		),
+        (Query<(&ParentPassId, &GraphId), Changed<ParentPassId>>, Query<(&ParentPassId, &GraphId)>),
     )>,
     mut del: RemovedComponents<Camera>,
     canvas_query: Query<(&Canvas, &InPassId), Changed<Canvas>>,
-	inpass_query: Query<&ParentPassId>,
+    inpass_query: Query<&ParentPassId>,
     mut rg: ResMut<PiRenderGraph>,
 ) {
     // 创建渲染图节点
     // 插入Draw2DList
     for (mut graph_id, entity, parent_passs_id, post_list) in pass_query.p0().iter_mut() {
-        if post_list.has_effect() || pi_null::Null::is_null(&parent_passs_id.0){
+        if post_list.has_effect() || pi_null::Null::is_null(&parent_passs_id.0) {
             // 存在后处理效果，或者节点本身是根节点， 才能成为一个渲染节点
             if !graph_id.0.is_null() {
                 continue;
@@ -99,23 +96,23 @@ pub fn update_graph(
     // canvas的图节点id由外部系统设置
     let graph_id_query = pass_query.p1();
     for (canvas, in_pass_id) in canvas_query.iter() {
-		if let Ok(from_graph_id) = graph_id_query.get(canvas.0) {
-			let mut in_pass_id = **in_pass_id;
-			loop {
-				if let Ok(to_graph_id) = graph_id_query.get(*in_pass_id) {
-					if !to_graph_id.is_null() {
-						if let Err(e) = rg.add_depend(**from_graph_id, **to_graph_id) {
-							log::error!("add_depend fail, {:?}", e);
-						}
-						break;
-					}
-				}
-				if let Ok (parent_pass_id) = inpass_query.get(*in_pass_id) {
-					in_pass_id = **parent_pass_id;
-				} else {
-					break;
-				}
-			}
+        if let Ok(from_graph_id) = graph_id_query.get(canvas.0) {
+            let mut in_pass_id = **in_pass_id;
+            loop {
+                if let Ok(to_graph_id) = graph_id_query.get(*in_pass_id) {
+                    if !to_graph_id.is_null() {
+                        if let Err(e) = rg.add_depend(**from_graph_id, **to_graph_id) {
+                            log::error!("add_depend fail, {:?}", e);
+                        }
+                        break;
+                    }
+                }
+                if let Ok(parent_pass_id) = inpass_query.get(*in_pass_id) {
+                    in_pass_id = **parent_pass_id;
+                } else {
+                    break;
+                }
+            }
         }
     }
 }

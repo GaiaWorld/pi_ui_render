@@ -7,7 +7,8 @@ pub use pi_bevy_render_plugin::component::GraphId;
 use pi_postprocess::postprocess::PostProcess;
 use pi_render::{
     components::view::target_alloc::ShareTargetView,
-    rhi::{asset::RenderRes, bind_group::BindGroup, buffer::Buffer}, renderer::draw_obj::DrawBindGroup,
+    renderer::draw_obj::DrawBindGroup,
+    rhi::{asset::RenderRes, bind_group::BindGroup, buffer::Buffer},
 };
 
 pub use super::root::RenderTarget;
@@ -180,7 +181,7 @@ pub struct PostTemp {
 #[derive(Component, Debug)]
 pub struct PostProcessList {
     post: PostProcess,
-	pub effect_mark: bitvec::prelude::BitArray,
+    pub effect_mark: bitvec::prelude::BitArray,
     pub depth: f32,
     pub view_port: Aabb2,
     pub matrix: WorldMatrix, // 矩阵变换
@@ -190,7 +191,7 @@ pub struct PostProcessList {
 
 impl PostProcessList {
     pub fn has_effect(&self) -> bool {
-		self.effect_mark.any()
+        self.effect_mark.any()
         // let post = &self.post;
         // !(post.alpha.is_none()
         //     && post.copy.is_none()
@@ -214,7 +215,7 @@ impl PostProcessList {
 impl Default for PostProcessList {
     fn default() -> Self {
         Self {
-			effect_mark: bitvec::prelude::BitArray::default(),
+            effect_mark: bitvec::prelude::BitArray::default(),
             post: Default::default(),
             depth: Default::default(),
             view_port: Aabb2::new(Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)),

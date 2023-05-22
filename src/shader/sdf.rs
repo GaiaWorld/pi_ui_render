@@ -1,4 +1,3 @@
-
 use pi_render::rhi::shader::{BlockCodeAtom, CodeSlice, Define, ShaderMeta};
 
 pub fn push_meta(_meta: &mut ShaderMeta, _visibility: wgpu::ShaderStages, _defines: &[Define]) {}

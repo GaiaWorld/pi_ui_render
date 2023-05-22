@@ -7,13 +7,14 @@ use log::debug;
 use ordered_float::NotNan;
 use pi_animation::{
     amount::AnimationAmountCalc,
-    type_animation_context::{AnimationContextAmount, TypeAnimationContext},
+    animation::AnimationInfo,
     animation_group::AnimationGroupID,
     animation_group_manager::AnimationGroupManagerDefault,
     animation_listener::EAnimationEvent,
     animation_result_pool::TypeAnimationResultPool,
     loop_mode::ELoopMode,
-    runtime_info::RuntimeInfoMap, animation::AnimationInfo,
+    runtime_info::RuntimeInfoMap,
+    type_animation_context::{AnimationContextAmount, TypeAnimationContext},
 };
 use pi_atom::Atom;
 use pi_curves::{
@@ -51,8 +52,8 @@ pub struct KeyFramesSheet {
     temp_keyframes_ptr: VecMap<usize>, // 临时帧动画指针（添加帧动画时用到）
     temp_keyframes_mark: BitVec,       // 临时帧动画标记，表示哪些属性存在曲线（加帧动画时用到）
 
-	// animation_events: Vec<(AnimationGroupID, EAnimationEvent, u32)>,
-    // animation_events_callback: Option<Share<dyn Fn(&Vec<(AnimationGroupID, EAnimationEvent, u32)>, &SecondaryMap<AnimationGroupID, (ObjKey, Atom)>)>>, // 动画事件回调函数
+                                       // animation_events: Vec<(AnimationGroupID, EAnimationEvent, u32)>,
+                                       // animation_events_callback: Option<Share<dyn Fn(&Vec<(AnimationGroupID, EAnimationEvent, u32)>, &SecondaryMap<AnimationGroupID, (ObjKey, Atom)>)>>, // 动画事件回调函数
 }
 
 unsafe impl Send for KeyFramesSheet {}
@@ -178,9 +179,9 @@ impl KeyFramesSheet {
         }
 
         // // 通知动画监听器
-		// if self.animation_context_amount.group_events.len() > 0 {
-		// 	r(&self.animation_context_amount.group_events, &self.group_bind);
-		// }
+        // if self.animation_context_amount.group_events.len() > 0 {
+        // 	r(&self.animation_context_amount.group_events, &self.group_bind);
+        // }
         // if let Some(r) = &self.animation_events_callback {
         //     if self.animation_context_amount.group_events.len() > 0 {
         //         r(&self.animation_context_amount.group_events, &self.group_bind);
@@ -188,23 +189,13 @@ impl KeyFramesSheet {
         // }
     }
 
-	pub fn get_animation_events(
-		&self,
-	) -> &Vec<(AnimationGroupID, EAnimationEvent, u32)> {
-		&self.animation_context_amount.group_events
-	}
+    pub fn get_animation_events(&self) -> &Vec<(AnimationGroupID, EAnimationEvent, u32)> { &self.animation_context_amount.group_events }
 
-	pub fn log(
-		&self,
-	) {
-		// self.animation_context_amount.log_groups();
-	}
+    pub fn log(&self) {
+        // self.animation_context_amount.log_groups();
+    }
 
-	pub fn get_group_bind(
-		&self,
-	) -> &SecondaryMap<AnimationGroupID, (ObjKey, Atom)> {
-		&self.group_bind
-	}
+    pub fn get_group_bind(&self) -> &SecondaryMap<AnimationGroupID, (ObjKey, Atom)> { &self.group_bind }
 
     /// 设置事件监听回调
     // pub fn set_event_listener(
@@ -265,7 +256,7 @@ impl KeyFramesSheet {
             };
             let duration = *Animation::get_attr(i, &animation.duration) as f32 / 1000.0;
             let timing_function = Animation::get_attr(i, &animation.timing_function);
-			// let frame_per_second = (FRAME_COUNT / duration).round() as u16;
+            // let frame_per_second = (FRAME_COUNT / duration).round() as u16;
             // TODO
             self.animation_context_amount
                 .start_complete(
@@ -460,20 +451,15 @@ pub struct CurveId {
 }
 
 pub struct TypeAnimationMgr<F: FrameDataValue> {
-	context: TypeAnimationContext<F, FrameCurve<F>>,
+    context: TypeAnimationContext<F, FrameCurve<F>>,
 }
 
 impl AnimationType {
-    fn new<F: AnimationTypeInterface + Attr + FrameDataValue>(
-        runtime_info_map: &mut RuntimeInfoMap<ObjKey>,
-    ) -> Self {
+    fn new<F: AnimationTypeInterface + Attr + FrameDataValue>(runtime_info_map: &mut RuntimeInfoMap<ObjKey>) -> Self {
         Self {
-            context: Box::new(TypeAnimationMgr{
-				context: TypeAnimationContext::<F, FrameCurve<F>>::new(
-					F::get_style_index() as usize,
-					runtime_info_map,
-				)
-			}),
+            context: Box::new(TypeAnimationMgr {
+                context: TypeAnimationContext::<F, FrameCurve<F>>::new(F::get_style_index() as usize, runtime_info_map),
+            }),
             run: F::run,
             create_animation: F::create_animation,
         }
@@ -489,7 +475,7 @@ pub struct AnimationType {
 trait AnimationTypeInterface {
     fn run(context: &Box<dyn Any>, runtime_infos: &RuntimeInfoMap<ObjKey>, style_commands: &mut StyleCommands);
     // fn add_frame_curve(context: &mut Box<dyn Any>, curve_infos: &mut FrameCurveInfoManager, curve_ptr: usize) -> CurveId;
-	fn create_animation(context: &mut Box<dyn Any>, curve_ptr: usize) -> AnimationInfo;
+    fn create_animation(context: &mut Box<dyn Any>, curve_ptr: usize) -> AnimationInfo;
 }
 
 impl<T: Attr + FrameDataValue> AnimationTypeInterface for T {
@@ -497,7 +483,8 @@ impl<T: Attr + FrameDataValue> AnimationTypeInterface for T {
         if let Err(e) = context
             .downcast_ref::<TypeAnimationMgr<Self>>()
             .unwrap()
-            .context.anime(runtime_infos, style_commands)
+            .context
+            .anime(runtime_infos, style_commands)
         {
             log::error!("{:?}", e);
         }
@@ -506,11 +493,9 @@ impl<T: Attr + FrameDataValue> AnimationTypeInterface for T {
     fn create_animation(context: &mut Box<dyn Any>, curve_ptr: usize) -> AnimationInfo {
         let curve = unsafe { std::ptr::read(curve_ptr as *const FrameCurve<Self>) };
         out_any!(debug, "add_frame_curve, curve: {:?}", &curve);
-		let mgr = context
-		.downcast_mut::<TypeAnimationMgr<Self>>()
-		.unwrap();
-		// mgr.curves.push(curve);
-		mgr.context.create_animation(T::get_style_index(), curve)
+        let mgr = context.downcast_mut::<TypeAnimationMgr<Self>>().unwrap();
+        // mgr.curves.push(curve);
+        mgr.context.create_animation(T::get_style_index(), curve)
         // CurveId {
         //     ty: T::get_style_index() as usize,
         //     id: curves.len() - 1,

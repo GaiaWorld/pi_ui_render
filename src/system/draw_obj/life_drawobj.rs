@@ -1,7 +1,7 @@
 use bevy::ecs::prelude::{Entity, RemovedComponents};
 use bevy::ecs::query::Changed;
-use bevy::ecs::system::{ Query, SystemState};
-use bevy::prelude::{EventReader, World, Local, Component, Resource, FromWorld, Bundle};
+use bevy::ecs::system::{Query, SystemState};
+use bevy::prelude::{Bundle, Component, EventReader, FromWorld, Local, Resource, World};
 use pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent;
 use pi_bevy_ecs_extend::system_param::res::OrInitRes;
 use pi_null::Null;
@@ -11,117 +11,115 @@ use pi_share::Share;
 use crate::components::calc::{DrawInfo, EntityKey, NodeId};
 use crate::components::draw_obj::{BoxType, PipelineMeta};
 use crate::components::DrawBundle;
-use crate::resource::draw_obj::{ProgramMetaRes, ShaderInfoCache, VertexBufferLayoutWithHash, ShareGroupAlloter, UiMaterialGroup};
+use crate::resource::draw_obj::{ProgramMetaRes, ShaderInfoCache, ShareGroupAlloter, UiMaterialGroup, VertexBufferLayoutWithHash};
 use crate::resource::RenderObjType;
 
+use crate::components::{calc::DrawList, draw_obj::DrawState};
 use crate::shader::ui_meterial::UiMaterialBind;
-use crate::{
-    components::{calc::DrawList, draw_obj::DrawState},
-};
 
 // 创建或删除DrawObject
 pub fn draw_object_life<
-	Src: Component, 
-	RenderType: Resource + std::ops::Deref<Target=RenderObjType> + FromWorld,
-	With: Bundle + Default, // 初始化时额外需要插入的组件
-	VertLayout: Resource + std::ops::Deref<Target=Share<VertexBufferLayoutWithHash>> + FromWorld,
-	Program: ShaderProgram,
-	const ORDER: u8,
+    Src: Component,
+    RenderType: Resource + std::ops::Deref<Target = RenderObjType> + FromWorld,
+    With: Bundle + Default, // 初始化时额外需要插入的组件
+    VertLayout: Resource + std::ops::Deref<Target = Share<VertexBufferLayoutWithHash>> + FromWorld,
+    Program: ShaderProgram,
+    const ORDER: u8,
 >(
-	world: &mut World,
-	mut will_creates: Local<Vec<(Entity, EntityKey)>>,
-	mut will_delete: Local<Vec<Entity>>,
-	
-	state: &mut SystemState<(
-		OrInitRes<RenderType>, 
-		EventReader<ComponentEvent<Changed<Src>>>,
-		RemovedComponents<Src>,
-		Query<(Option<&'static Src>, &'static mut DrawList)>,
-		
-		OrInitRes<ProgramMetaRes<Program>>,
-		OrInitRes<VertLayout>,
-		OrInitRes<ShaderInfoCache>,
-		OrInitRes<ShareGroupAlloter<UiMaterialGroup>>
-	)>,
+    world: &mut World,
+    mut will_creates: Local<Vec<(Entity, EntityKey)>>,
+    mut will_delete: Local<Vec<Entity>>,
 
-	query_draw_list: &mut SystemState<Query<&'static mut DrawList>>,
-	
+    state: &mut SystemState<(
+        OrInitRes<RenderType>,
+        EventReader<ComponentEvent<Changed<Src>>>,
+        RemovedComponents<Src>,
+        Query<(Option<&'static Src>, &'static mut DrawList)>,
+        OrInitRes<ProgramMetaRes<Program>>,
+        OrInitRes<VertLayout>,
+        OrInitRes<ShaderInfoCache>,
+        OrInitRes<ShareGroupAlloter<UiMaterialGroup>>,
+    )>,
+
+    query_draw_list: &mut SystemState<Query<&'static mut DrawList>>,
 ) {
-	let (render_type, mut changed, mut del, mut query_texture, program_meta, vert_layout, shader_catch, group_alloter) = state.get_mut(world);
-	let render_type = ****render_type as u32;
-	let group_alloter = group_alloter.clone();
+    let (render_type, mut changed, mut del, mut query_texture, program_meta, vert_layout, shader_catch, group_alloter) = state.get_mut(world);
+    let render_type = ****render_type as u32;
+    let group_alloter = group_alloter.clone();
 
-	// 收集需要删除DrawObject的实体
-	for del in del.iter() {
-		if let Ok((texture, mut draw_list)) = query_texture.get_mut(del) {
+    // 收集需要删除DrawObject的实体
+    for del in del.iter() {
+        if let Ok((texture, mut draw_list)) = query_texture.get_mut(del) {
             if texture.is_some() {
                 continue;
             }
             // 删除对应的DrawObject
             if let Some(draw_obj) = draw_list.remove(render_type) {
-				will_delete.push(draw_obj);
+                will_delete.push(draw_obj);
             }
         }
     }
 
-	// 收集需要创建DrawObject的实体
-	for changed in changed.iter() {
-		if let Ok((texture, draw_list)) = query_texture.get(changed.id) {
+    // 收集需要创建DrawObject的实体
+    for changed in changed.iter() {
+        if let Ok((texture, draw_list)) = query_texture.get(changed.id) {
             if texture.is_none() {
                 continue;
             }
             // 不存在，才需要创建DrawObject
             if let None = draw_list.get(render_type) {
-				will_creates.push((changed.id, EntityKey::null()));
+                will_creates.push((changed.id, EntityKey::null()));
             }
         }
     }
 
-	let program_meta = program_meta.clone();
-	let state = shader_catch.common.clone();
-	let vert_layout = vert_layout.clone();
+    let program_meta = program_meta.clone();
+    let state = shader_catch.common.clone();
+    let vert_layout = vert_layout.clone();
 
-	// 删除DrawObject实体
-	for del in will_delete.drain(..) {
-		world.despawn(del);
+    // 删除DrawObject实体
+    for del in will_delete.drain(..) {
+        world.despawn(del);
     }
 
-	// 创建DrawObject
-	for (create, draw_obj) in will_creates.iter_mut() {
-		let mut draw_state = DrawState::default();
-		let ui_material_group = group_alloter.alloc();
-		draw_state.bindgroups.insert_group(UiMaterialBind::set(), ui_material_group);
+    // 创建DrawObject
+    for (create, draw_obj) in will_creates.iter_mut() {
+        let mut draw_state = DrawState::default();
+        let ui_material_group = group_alloter.alloc();
+        draw_state.bindgroups.insert_group(UiMaterialBind::set(), ui_material_group);
 
-		*draw_obj = EntityKey(world.spawn(
-			DrawBundle {
-				node_id: NodeId(EntityKey(*create)),
-				draw_state,
-				box_type: BoxType::ContentNone,
-				pipeline_meta: PipelineMeta {
-					program: program_meta.clone(),
-					state: state.clone(),
-					vert_layout: vert_layout.clone(),
-					defines: Default::default(),
-				},
-				draw_info: DrawInfo::new(ORDER, false), //TODO
-				other: With::default(),
-			},
-		).id());
+        *draw_obj = EntityKey(
+            world
+                .spawn(DrawBundle {
+                    node_id: NodeId(EntityKey(*create)),
+                    draw_state,
+                    box_type: BoxType::ContentNone,
+                    pipeline_meta: PipelineMeta {
+                        program: program_meta.clone(),
+                        state: state.clone(),
+                        vert_layout: vert_layout.clone(),
+                        defines: Default::default(),
+                    },
+                    draw_info: DrawInfo::new(ORDER, false), //TODO
+                    other: With::default(),
+                })
+                .id(),
+        );
     }
 
-	let mut query_draw_list = query_draw_list.get_mut(world);
-	// 创建Node到DrawObject的映射
-	for (create, draw_obj) in will_creates.drain(..) {
-		if let Ok(mut draw_list) = query_draw_list.get_mut(create) {
-			draw_list.insert(render_type, draw_obj.0);
-		}
-	}
+    let mut query_draw_list = query_draw_list.get_mut(world);
+    // 创建Node到DrawObject的映射
+    for (create, draw_obj) in will_creates.drain(..) {
+        if let Ok(mut draw_list) = query_draw_list.get_mut(create) {
+            draw_list.insert(render_type, draw_obj.0);
+        }
+    }
 }
 
 
 // // 创建或删除DrawObject
 // pub fn draw_object_life<
-// 	Src: Component, 
+// 	Src: Component,
 // 	RenderType: Resource + std::ops::Deref<Target=RenderObjType> + FromWorld,
 // 	With: Bundle + Default, // 初始化时额外需要插入的组件
 // 	VertLayout: Resource + std::ops::Deref<Target=Share<VertexBufferLayoutWithHash>> + FromWorld,
@@ -131,13 +129,13 @@ pub fn draw_object_life<
 // 	// world: &mut World,
 // 	// mut will_creates: Local<Vec<(Entity, EntityKey)>>,
 // 	// mut will_delete: Local<Vec<Entity>>,
-	
+
 // 	// state: &mut SystemState<(
-// 	// 	OrInitRes<RenderType>, 
+// 	// 	OrInitRes<RenderType>,
 // 	// 	EventReader<ComponentEvent<Changed<Src>>>,
 // 	// 	RemovedComponents<Src>,
 // 	// 	Query<(Option<&'static Src>, &'static mut DrawList)>,
-		
+
 // 	// 	OrInitRes<ProgramMetaRes<Program>>,
 // 	// 	OrInitRes<VertLayout>,
 // 	// 	OrInitRes<ShaderInfoCache>,
@@ -149,19 +147,19 @@ pub fn draw_object_life<
 // 	mut entity_creator: EntityCreator<DrawBundle<With>>,
 // 	mut will_creates: Local<Vec<(Entity, EntityKey)>>,
 // 	mut will_delete: Local<Vec<Entity>>,
-// 	render_type: OrInitRes<RenderType>, 
+// 	render_type: OrInitRes<RenderType>,
 // 	mut changed: EventReader<ComponentEvent<Changed<Src>>>,
 // 	mut del: RemovedComponents<Src>,
-	
+
 // 	program_meta: OrInitRes<ProgramMetaRes<Program>>,
 // 	vert_layout: OrInitRes<VertLayout>,
 // 	shader_catch: OrInitRes<ShaderInfoCache>,
 // 	group_alloter: OrInitRes<ShareGroupAlloter<UiMaterialGroup>>,
 // 	mut query: ParamSet<(
-// 		Query<(Option<&'static Src>, &'static mut DrawList)>, 
+// 		Query<(Option<&'static Src>, &'static mut DrawList)>,
 // 		Query<&'static mut DrawList>,)>,
 // 	mut commands: Commands,
-	
+
 // ) {
 // 	// let (render_type, mut changed, mut del, mut query_texture, program_meta, vert_layout, shader_catch, group_alloter) = state.get_mut(world);
 // 	let render_type = ****render_type as u32;

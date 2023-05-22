@@ -13,7 +13,7 @@ use pi_hash::DefaultHasher;
 use pi_style::style::LengthUnit;
 
 use crate::components::{
-    calc::{LayoutResult},
+    calc::LayoutResult,
     user::{Aabb2, BorderRadius, Matrix4, Point2, Vector4},
 };
 
@@ -283,7 +283,7 @@ impl<T: Eq + Clone> Default for LayerDirty<T> {
 }
 
 impl<T: Eq + Clone> LayerDirty<T> {
-	#[allow(unused_variables)]
+    #[allow(unused_variables)]
     pub fn with_capacity(capacity: usize) -> LayerDirty<T> {
         LayerDirty {
             dirty_mark_list: DirtyMark::default(), // VecMap<layer>

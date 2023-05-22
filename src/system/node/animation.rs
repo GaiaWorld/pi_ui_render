@@ -6,8 +6,8 @@ use std::mem::replace;
 use bevy::ecs::{
     prelude::{Entity, World},
     query::Changed,
+    removal_detection::RemovedComponents,
     system::{Local, Query, ResMut, SystemState},
-	removal_detection::RemovedComponents,
 };
 use pi_time::Instant;
 
@@ -24,7 +24,11 @@ use crate::{
 
 use super::user_setting::set_style;
 
-
+/// * 记录帧推时间（暂时性的，时间应该是全局共享的，应该挪到pi_bevy_render,组委共享资源）
+/// * 为删除了Animation组件的节点，解绑动画
+/// * 为修改了Animation组件的节点，绑定动画
+/// * 推动动画执行
+/// * 将动画执行结果作用到组件上
 pub fn calc_animation(
     world: &mut World,
     style_query: Local<StyleQuery>,
@@ -39,11 +43,11 @@ pub fn calc_animation(
 
     user_commands: &mut SystemState<ResMut<UserCommands>>,
 ) {
-	let time = Instant::now();
+    let time = Instant::now();
 
     let (animation, mut del, mut keyframes_sheet, mut time_info, mut user_commands1) = animation.get_mut(world);
 
-	*time_info = TimeInfo {
+    *time_info = TimeInfo {
         cur_time: time,
         delta: (time - time_info.cur_time).as_millis() as u64,
     };

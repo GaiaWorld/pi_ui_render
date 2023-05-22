@@ -65,7 +65,8 @@ impl Example for QuadExample {
         self.cmd.set_style(div1, WidthType(Dimension::Points(50.0)));
         self.cmd.set_style(div1, HeightType(Dimension::Points(100.0)));
         self.cmd.set_style(div1, PositionTypeType(PositionType::Relative));
-        self.cmd.set_style(div1, BackgroundImageType(Atom::from("examples/background_image/source/dialog_bg.png")));
+        self.cmd
+            .set_style(div1, BackgroundImageType(Atom::from("examples/background_image/source/dialog_bg.png")));
         self.cmd.set_style(
             div1,
             BorderRadiusType(BorderRadius {
@@ -90,7 +91,8 @@ impl Example for QuadExample {
         self.cmd.set_style(div2, WidthType(Dimension::Points(190.0)));
         self.cmd.set_style(div2, HeightType(Dimension::Points(160.0)));
         self.cmd.set_style(div2, PositionTypeType(PositionType::Relative));
-        self.cmd.set_style(div2, BackgroundImageType(Atom::from("examples/background_image/source/dialog_bg.png")));
+        self.cmd
+            .set_style(div2, BackgroundImageType(Atom::from("examples/background_image/source/dialog_bg.png")));
         self.cmd.set_style(
             div2,
             BackgroundRepeatType(ImageRepeat {
@@ -105,7 +107,8 @@ impl Example for QuadExample {
         self.cmd.set_style(div3, WidthType(Dimension::Points(190.0)));
         self.cmd.set_style(div3, HeightType(Dimension::Points(160.0)));
         self.cmd.set_style(div3, PositionTypeType(PositionType::Relative));
-        self.cmd.set_style(div3, BackgroundImageType(Atom::from("examples/background_image/source/dialog_bg.png")));
+        self.cmd
+            .set_style(div3, BackgroundImageType(Atom::from("examples/background_image/source/dialog_bg.png")));
         self.cmd.set_style(
             div3,
             BackgroundRepeatType(ImageRepeat {
@@ -120,7 +123,8 @@ impl Example for QuadExample {
         self.cmd.set_style(div4, WidthType(Dimension::Points(190.0)));
         self.cmd.set_style(div4, HeightType(Dimension::Points(160.0)));
         self.cmd.set_style(div4, PositionTypeType(PositionType::Relative));
-        self.cmd.set_style(div4, BackgroundImageType(Atom::from("examples/background_image/source/dialog_bg.png")));
+        self.cmd
+            .set_style(div4, BackgroundImageType(Atom::from("examples/background_image/source/dialog_bg.png")));
         self.cmd.set_style(
             div4,
             BackgroundRepeatType(ImageRepeat {
@@ -135,7 +139,8 @@ impl Example for QuadExample {
         self.cmd.set_style(div5, WidthType(Dimension::Points(300.0)));
         self.cmd.set_style(div5, HeightType(Dimension::Points(300.0)));
         self.cmd.set_style(div5, PositionTypeType(PositionType::Relative));
-        self.cmd.set_style(div5, BackgroundImageType(Atom::from("examples/background_image/source/dialog_bg.png")));
+        self.cmd
+            .set_style(div5, BackgroundImageType(Atom::from("examples/background_image/source/dialog_bg.png")));
         self.cmd.set_style(
             div5,
             BackgroundRepeatType(ImageRepeat {
@@ -150,7 +155,8 @@ impl Example for QuadExample {
         self.cmd.set_style(div6, WidthType(Dimension::Points(50.0)));
         self.cmd.set_style(div6, HeightType(Dimension::Points(100.0)));
         self.cmd.set_style(div6, PositionTypeType(PositionType::Relative));
-        self.cmd.set_style(div6, BackgroundImageType(Atom::from("examples/background_image/source/dialog_bg.png")));
+        self.cmd
+            .set_style(div6, BackgroundImageType(Atom::from("examples/background_image/source/dialog_bg.png")));
         self.cmd.set_style(
             div6,
             BackgroundImageClipType(NotNanRect(unsafe {
@@ -186,7 +192,8 @@ impl Example for QuadExample {
                 ],
             }),
         );
-        self.cmd.set_style(div7, BackgroundImageType(Atom::from("examples/background_image/source/dialog_bg.png")));
+        self.cmd
+            .set_style(div7, BackgroundImageType(Atom::from("examples/background_image/source/dialog_bg.png")));
         self.cmd.append(div7, root);
     }
 

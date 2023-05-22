@@ -6,9 +6,9 @@ mod framework;
 use std::mem::swap;
 
 use async_trait::async_trait;
-use framework::Example;
 /// 渲染四边形 demo
-use bevy::prelude::{World, Commands};
+use bevy::prelude::{Commands, World};
+use framework::Example;
 use pi_flex_layout::style::{Dimension, PositionType};
 use pi_null::Null;
 use pi_style::{
@@ -16,13 +16,20 @@ use pi_style::{
     style_type::{BackgroundColorType, HeightType, MarginLeftType, MarginTopType, PositionLeftType, PositionTopType, PositionTypeType, WidthType},
 };
 use pi_ui_render::{
-    components::{user::{CgColor, ClearColor, Color, Viewport}, NodeBundle, calc::EntityKey}, resource::{NodeCmd, UserCommands},
+    components::{
+        calc::EntityKey,
+        user::{CgColor, ClearColor, Color, Viewport},
+        NodeBundle,
+    },
+    resource::{NodeCmd, UserCommands},
 };
 
 fn main() { framework::start(QuadExample::default()) }
 
 #[derive(Default)]
-pub struct QuadExample {cmd: UserCommands}
+pub struct QuadExample {
+    cmd: UserCommands,
+}
 
 #[async_trait]
 impl Example for QuadExample {
@@ -52,7 +59,8 @@ impl Example for QuadExample {
         let div1 = world.spawn(NodeBundle::default()).id();
         self.cmd.set_style(div1, WidthType(Dimension::Points(100.0)));
         self.cmd.set_style(div1, HeightType(Dimension::Points(100.0)));
-        self.cmd.set_style(div1, BackgroundColorType(Color::RGBA(CgColor::new(1.0, 0.0, 0.0, 1.0))));
+        self.cmd
+            .set_style(div1, BackgroundColorType(Color::RGBA(CgColor::new(1.0, 0.0, 0.0, 1.0))));
 
         self.cmd.append(div1, root_one);
 
@@ -78,7 +86,8 @@ impl Example for QuadExample {
         let div1 = world.spawn(NodeBundle::default()).id();
         self.cmd.set_style(div1, WidthType(Dimension::Points(300.0)));
         self.cmd.set_style(div1, HeightType(Dimension::Points(300.0)));
-        self.cmd.set_style(div1, BackgroundColorType(Color::RGBA(CgColor::new(0.0, 1.0, 0.0, 1.0))));
+        self.cmd
+            .set_style(div1, BackgroundColorType(Color::RGBA(CgColor::new(0.0, 1.0, 0.0, 1.0))));
 
         self.cmd.append(div1, root_tow);
     }

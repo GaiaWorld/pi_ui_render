@@ -4,13 +4,13 @@
 mod framework;
 
 use async_trait::async_trait;
+use bevy::prelude::{Commands, World};
 use font_kit::font::new_face_by_path;
 use framework::Example;
 use ordered_float::NotNan;
 use pi_atom::Atom;
 /// 渲染四边形 demo
-use pi_render::font::{Font};
-use bevy::prelude::{World, Commands};
+use pi_render::font::Font;
 use pi_ui_render::resource::{ShareFontSheet, UserCommands};
 
 fn main() { framework::start(QuadExample::default()) }
@@ -87,7 +87,7 @@ impl Example for QuadExample {
         println!("measure_width time, 10000 times: {:?}, {:?}", std::time::Instant::now() - time, r);
     }
 
-    fn render(&mut self, _cmd: &mut UserCommands, _cmd1: &mut Commands) { 
-		//swap(&mut self.cmd, cmd); 
-	}
+    fn render(&mut self, _cmd: &mut UserCommands, _cmd1: &mut Commands) {
+        //swap(&mut self.cmd, cmd);
+    }
 }

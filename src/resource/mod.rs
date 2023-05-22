@@ -13,7 +13,7 @@ use pi_share::{Share, ShareCell};
 use pi_style::style::Aabb2;
 
 use std::marker::PhantomData;
-use std::mem::{transmute};
+use std::mem::transmute;
 use std::ops::{Index, IndexMut};
 
 use pi_print_any::out_any;
@@ -196,18 +196,14 @@ impl FromWorld for RenderObjType {
 #[derive(Debug, Deref, DerefMut, Clone, Copy, Resource)]
 pub struct TextRenderObjType(RenderObjType);
 impl FromWorld for TextRenderObjType {
-    fn from_world(world: &mut World) -> Self {
-        Self(RenderObjType::from_world(world))
-    }
+    fn from_world(world: &mut World) -> Self { Self(RenderObjType::from_world(world)) }
 }
 
 // 文字阴影渲染类型（在DrawList中分配槽位）
 #[derive(Debug, Deref, DerefMut, Clone, Copy, Resource)]
 pub struct TextShadowRenderObjType(RenderObjType);
 impl FromWorld for TextShadowRenderObjType {
-    fn from_world(world: &mut World) -> Self {
-        Self(RenderObjType::from_world(world))
-    }
+    fn from_world(world: &mut World) -> Self { Self(RenderObjType::from_world(world)) }
 }
 
 
@@ -215,18 +211,14 @@ impl FromWorld for TextShadowRenderObjType {
 #[derive(Debug, Deref, DerefMut, Clone, Copy, Resource)]
 pub struct BackgroundColorRenderObjType(RenderObjType);
 impl FromWorld for BackgroundColorRenderObjType {
-    fn from_world(world: &mut World) -> Self {
-        Self(RenderObjType::from_world(world))
-    }
+    fn from_world(world: &mut World) -> Self { Self(RenderObjType::from_world(world)) }
 }
 
 // 边框颜色渲染类型（在DrawList中分配槽位）
 #[derive(Debug, Deref, DerefMut, Clone, Copy, Resource)]
 pub struct BorderColorRenderObjType(RenderObjType);
 impl FromWorld for BorderColorRenderObjType {
-    fn from_world(world: &mut World) -> Self {
-        Self(RenderObjType::from_world(world))
-    }
+    fn from_world(world: &mut World) -> Self { Self(RenderObjType::from_world(world)) }
 }
 
 
@@ -234,36 +226,28 @@ impl FromWorld for BorderColorRenderObjType {
 #[derive(Debug, Deref, DerefMut, Clone, Copy, Resource)]
 pub struct BackgroundImageRenderObjType(RenderObjType);
 impl FromWorld for BackgroundImageRenderObjType {
-    fn from_world(world: &mut World) -> Self {
-        Self(RenderObjType::from_world(world))
-    }
+    fn from_world(world: &mut World) -> Self { Self(RenderObjType::from_world(world)) }
 }
 
 // 边框图片渲染类型（在DrawList中分配槽位）
 #[derive(Debug, Deref, DerefMut, Clone, Copy, Resource)]
 pub struct BorderImageRenderObjType(RenderObjType);
 impl FromWorld for BorderImageRenderObjType {
-    fn from_world(world: &mut World) -> Self {
-        Self(RenderObjType::from_world(world))
-    }
+    fn from_world(world: &mut World) -> Self { Self(RenderObjType::from_world(world)) }
 }
 
 // 阴影渲染类型（在DrawList中分配槽位）
 #[derive(Debug, Deref, DerefMut, Clone, Copy, Resource)]
 pub struct BoxShadowRenderObjType(RenderObjType);
 impl FromWorld for BoxShadowRenderObjType {
-    fn from_world(world: &mut World) -> Self {
-        Self(RenderObjType::from_world(world))
-    }
+    fn from_world(world: &mut World) -> Self { Self(RenderObjType::from_world(world)) }
 }
 
 // canvas渲染类型（在DrawList中分配槽位）
 #[derive(Debug, Deref, DerefMut, Clone, Copy, Resource)]
 pub struct CanvasRenderObjType(RenderObjType);
 impl FromWorld for CanvasRenderObjType {
-    fn from_world(world: &mut World) -> Self {
-        Self(RenderObjType::from_world(world))
-    }
+    fn from_world(world: &mut World) -> Self { Self(RenderObjType::from_world(world)) }
 }
 
 // 当前时间

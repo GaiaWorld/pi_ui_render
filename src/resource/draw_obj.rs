@@ -13,26 +13,31 @@ use pi_bevy_asset::ShareAssetMgr;
 use pi_bevy_render_plugin::{PiRenderDevice, PiRenderQueue};
 use pi_hash::{XHashMap, XHashSet};
 use pi_map::vecmap::VecMap;
-use pi_render::{rhi::{
-    asset::RenderRes,
-    bind_group::BindGroup,
-    bind_group_layout::BindGroupLayout,
-    buffer::Buffer,
-    device::RenderDevice,
-    dyn_uniform_buffer::GroupAlloter,
-    pipeline::RenderPipeline,
-    shader::{AsLayoutEntry, BindLayout, ShaderMeta, ShaderProgram, BufferSize},
-    texture::PiRenderDefault, BufferInitDescriptor,
-}, renderer::draw_obj::DrawBindGroup};
+use pi_render::{
+    renderer::draw_obj::DrawBindGroup,
+    rhi::{
+        asset::RenderRes,
+        bind_group::BindGroup,
+        bind_group_layout::BindGroupLayout,
+        buffer::Buffer,
+        device::RenderDevice,
+        dyn_uniform_buffer::GroupAlloter,
+        pipeline::RenderPipeline,
+        shader::{AsLayoutEntry, BindLayout, BufferSize, ShaderMeta, ShaderProgram},
+        texture::PiRenderDefault,
+        BufferInitDescriptor,
+    },
+};
 use pi_share::Share;
 use pi_slotmap::{DefaultKey, SlotMap};
 use wgpu::{
-    CompareFunction, DepthBiasState, DepthStencilState, Limits, MultisampleState, PipelineLayout, Sampler, ShaderModule, StencilState, TextureFormat, BufferUsages, BindingType,
+    BindingType, BufferUsages, CompareFunction, DepthBiasState, DepthStencilState, Limits, MultisampleState, PipelineLayout, Sampler, ShaderModule,
+    StencilState, TextureFormat,
 };
 
 use crate::{
     components::draw_obj::{DrawState, PipelineMeta},
-    shader::{camera::CameraBind, ui_meterial::{UiMaterialBind}, depth::DepthBind},
+    shader::{camera::CameraBind, depth::DepthBind, ui_meterial::UiMaterialBind},
     system::draw_obj::clear_draw_obj::create_clear_pipeline_state,
     utils::{
         shader_helper::{create_depth_layout, create_empty_layout, create_matrix_group_layout, create_project_layout, create_view_layout},
@@ -189,13 +194,12 @@ impl ShaderInfoCache {
         let hash = calc_hash_slice(entrys, 0);
         match self.bind_group_layout.entry(hash) {
             Entry::Occupied(r) => r.get().clone(),
-            Entry::Vacant(r) => {
-                r.insert(Share::new(device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            Entry::Vacant(r) => r
+                .insert(Share::new(device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                     label: None,
                     entries: entrys,
                 })))
-                .clone()
-            }
+                .clone(),
         }
     }
 
@@ -242,14 +246,14 @@ impl<T: ShaderProgram> FromWorld for ProgramMetaRes<T> {
         let device = world.get_resource::<PiRenderDevice>().unwrap();
 
         let mut meta = T::create_meta();
-		// depth不使用动态偏移
-		if let Some(depth_entry) = meta.bindings.bind_group_entrys.get_mut(DepthBind::set() as usize) {
-			if depth_entry.len() == 1 {
-				if let BindingType::Buffer {has_dynamic_offset, .. } = &mut depth_entry[0].ty {
-					*has_dynamic_offset = false;
-				}
-			}
-		}
+        // depth不使用动态偏移
+        if let Some(depth_entry) = meta.bindings.bind_group_entrys.get_mut(DepthBind::set() as usize) {
+            if depth_entry.len() == 1 {
+                if let BindingType::Buffer { has_dynamic_offset, .. } = &mut depth_entry[0].ty {
+                    *has_dynamic_offset = false;
+                }
+            }
+        }
         let mut vert_layouts = Vec::with_capacity(meta.ins.0.len());
         for i in meta.ins.0.iter() {
             let (format, size) = match i.format.as_str() {
@@ -784,7 +788,7 @@ impl FromWorld for ShareGroupAlloter<CameraGroup> {
 
 impl FromWorld for ShareGroupAlloter<UiMaterialGroup> {
     fn from_world(world: &mut World) -> Self {
-		world.init_resource::<GroupAlloterCenter>();
+        world.init_resource::<GroupAlloterCenter>();
         world.init_resource::<ShaderInfoCache>();
         let world = world.cell();
         let mut cache = world.get_resource_mut::<ShaderInfoCache>().unwrap();
@@ -1133,58 +1137,50 @@ pub fn create_vertex_buffer_layout_p_v_c() -> VertexBufferLayouts {
 
 /// depth BindGroup缓存
 #[derive(Resource)]
-pub struct DepthCache{
-	pub list: Vec<Handle<RenderRes<BindGroup>>>,
-	pub layout: Share<BindGroupLayout>
+pub struct DepthCache {
+    pub list: Vec<Handle<RenderRes<BindGroup>>>,
+    pub layout: Share<BindGroupLayout>,
 }
 
 impl FromWorld for DepthCache {
     fn from_world(world: &mut bevy::ecs::world::World) -> Self {
-		world.init_resource::<ShaderInfoCache>();
+        world.init_resource::<ShaderInfoCache>();
         let world = world.cell();
         let mut cache = world.get_resource_mut::<ShaderInfoCache>().unwrap();
         // bind_group_layout
         let device = world.get_resource::<PiRenderDevice>().unwrap();
-		let mut entry = DepthBind::as_layout_entry(wgpu::ShaderStages::VERTEX);
-		if let BindingType::Buffer {has_dynamic_offset, .. } = &mut entry.ty {
-			*has_dynamic_offset = false;
-		}
-        let layout = cache.bind_group_layout(
-            &[
-                entry,
-            ],
-            &device,
-        );
-        Self{
-			list: Vec::new(),
-			layout,
-		}
+        let mut entry = DepthBind::as_layout_entry(wgpu::ShaderStages::VERTEX);
+        if let BindingType::Buffer { has_dynamic_offset, .. } = &mut entry.ty {
+            *has_dynamic_offset = false;
+        }
+        let layout = cache.bind_group_layout(&[entry], &device);
+        Self { list: Vec::new(), layout }
     }
 }
 
 impl DepthCache {
-	pub fn or_create_depth<'a>(&mut self, cur_depth: usize, device: &'a RenderDevice, bind_group_assets: &'a Share<AssetMgr<RenderRes<BindGroup>>>, ) {
-		if self.list.len() <= cur_depth {
-			let buffer = device.create_buffer_with_data(&BufferInitDescriptor {
-				label: Some("depth buffer"),
-				usage: BufferUsages::UNIFORM,
-				contents: bytemuck::cast_slice::<_, u8>(&[0.0, 0.0, 0.0, cur_depth as f32]),
-			});
-			let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-				layout: &self.layout,
-				entries: &[wgpu::BindGroupEntry {
-					binding: DepthBind::binding(),
-					resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-						buffer: &buffer,
-						offset: 0,
-						size: std::num::NonZeroU64::new(DepthBind::min_size() as u64),
-					}),
-				}],
-				label: Some("depth bindgroup"),
-			});
-			let hash = calc_hash(&("depth", cur_depth), 0);
-			let r = bind_group_assets.insert(hash, RenderRes::new( bind_group, DepthBind::min_size() ));
-			self.list.push(r.unwrap());
-		}
-	}
+    pub fn or_create_depth<'a>(&mut self, cur_depth: usize, device: &'a RenderDevice, bind_group_assets: &'a Share<AssetMgr<RenderRes<BindGroup>>>) {
+        if self.list.len() <= cur_depth {
+            let buffer = device.create_buffer_with_data(&BufferInitDescriptor {
+                label: Some("depth buffer"),
+                usage: BufferUsages::UNIFORM,
+                contents: bytemuck::cast_slice::<_, u8>(&[0.0, 0.0, 0.0, cur_depth as f32]),
+            });
+            let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+                layout: &self.layout,
+                entries: &[wgpu::BindGroupEntry {
+                    binding: DepthBind::binding(),
+                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                        buffer: &buffer,
+                        offset: 0,
+                        size: std::num::NonZeroU64::new(DepthBind::min_size() as u64),
+                    }),
+                }],
+                label: Some("depth bindgroup"),
+            });
+            let hash = calc_hash(&("depth", cur_depth), 0);
+            let r = bind_group_assets.insert(hash, RenderRes::new(bind_group, DepthBind::min_size()));
+            self.list.push(r.unwrap());
+        }
+    }
 }

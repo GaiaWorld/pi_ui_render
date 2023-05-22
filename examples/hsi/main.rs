@@ -5,7 +5,7 @@ mod framework;
 
 use std::mem::swap;
 
-use bevy::{ecs::system::Commands};
+use bevy::ecs::system::Commands;
 use bevy::prelude::World;
 use framework::Example;
 use pi_flex_layout::style::{Dimension, PositionType};
@@ -57,7 +57,8 @@ impl Example for QuadExample {
         let div1 = world.spawn(NodeBundle::default()).id();
         self.cmd.set_style(div1, WidthType(Dimension::Points(50.0)));
         self.cmd.set_style(div1, HeightType(Dimension::Points(100.0)));
-        self.cmd.set_style(div1, BackgroundColorType(Color::RGBA(CgColor::new(1.0, 0.0, 0.0, 1.0))));
+        self.cmd
+            .set_style(div1, BackgroundColorType(Color::RGBA(CgColor::new(1.0, 0.0, 0.0, 1.0))));
         self.cmd.append(div1, root);
 
 
@@ -79,7 +80,8 @@ impl Example for QuadExample {
         let div2 = world.spawn(NodeBundle::default()).id();
         self.cmd.set_style(div2, WidthType(Dimension::Points(50.0)));
         self.cmd.set_style(div2, HeightType(Dimension::Points(100.0)));
-        self.cmd.set_style(div2, BackgroundColorType(Color::RGBA(CgColor::new(0.0, 1.0, 0.0, 1.0))));
+        self.cmd
+            .set_style(div2, BackgroundColorType(Color::RGBA(CgColor::new(0.0, 1.0, 0.0, 1.0))));
         self.cmd.append(div2, div1);
 
         // 添加一个黄色
@@ -87,7 +89,8 @@ impl Example for QuadExample {
         self.cmd.set_style(div3, PositionTopType(Dimension::Points(100.0)));
         self.cmd.set_style(div3, WidthType(Dimension::Points(50.0)));
         self.cmd.set_style(div3, HeightType(Dimension::Points(100.0)));
-        self.cmd.set_style(div3, BackgroundColorType(Color::RGBA(CgColor::new(1.0, 1.0, 0.0, 1.0))));
+        self.cmd
+            .set_style(div3, BackgroundColorType(Color::RGBA(CgColor::new(1.0, 1.0, 0.0, 1.0))));
         self.cmd.append(div3, div1);
 
         self.cmd.append(div1, root);

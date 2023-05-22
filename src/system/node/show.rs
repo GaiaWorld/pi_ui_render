@@ -12,14 +12,13 @@ use crate::components::{
 
 pub struct CalcShow;
 
-/// 计算节点的显示属性色
+/// 计算节点的显示属性
 pub fn calc_show(
     mut dirty: LayerDirty<Changed<Layer>>,
     show_change: Query<Entity, Changed<Show>>,
     query: Query<(OrDefault<Show>, Option<&Up>)>,
     mut write: Query<&mut IsShow>,
 ) {
-
     for entity in show_change.iter() {
         dirty.mark(entity)
     }
@@ -56,7 +55,7 @@ pub fn calc_show(
         let c_enable = c_visibility && c_enable;
         let mut write_item = write.get_mut(node).unwrap();
         write_item.set_visibility(c_visibility);
-		// log::warn!("show=============entity: {:?}, c_enable: {:?}, parent: {:?}, enable_value: {:?}", node, c_enable, parent_c_enable, enable_value);
+        // log::warn!("show=============entity: {:?}, c_enable: {:?}, parent: {:?}, enable_value: {:?}", node, c_enable, parent_c_enable, enable_value);
         write_item.set_enable(c_enable);
     }
 }

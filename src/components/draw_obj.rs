@@ -1,16 +1,12 @@
 //! 定义与DrawObject相关的组件
 
-use std::{
-    hash::{Hash, Hasher},
-};
+use std::hash::{Hash, Hasher};
 
 
-use crate::{
-    resource::draw_obj::{PipelineStateWithHash, ProgramMetaInner, VertexBufferLayoutWithHash},
-};
-use bevy::ecs::{prelude::Component};
+use crate::resource::draw_obj::{PipelineStateWithHash, ProgramMetaInner, VertexBufferLayoutWithHash};
+use bevy::ecs::prelude::Component;
 use pi_atom::Atom;
-use pi_hash::{XHashSet};
+use pi_hash::XHashSet;
 use pi_render::renderer::draw_obj::DrawObj as DrawState1;
 use pi_share::Share;
 

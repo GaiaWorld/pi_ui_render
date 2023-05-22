@@ -1,10 +1,13 @@
 //! 每个实体必须写入StyleMark组件
 use std::intrinsics::transmute;
 
-use bevy::{ecs::{
-    prelude::{Changed, Entity, EventReader, Local, Query, RemovedComponents, ResMut, World},
-    system::SystemState,
-}, prelude::With};
+use bevy::{
+    ecs::{
+        prelude::{Changed, Entity, EventReader, Local, Query, RemovedComponents, ResMut, World},
+        system::SystemState,
+    },
+    prelude::With,
+};
 use bitvec::array::BitArray;
 use pi_bevy_ecs_extend::{
     prelude::{EntityTreeMut, OrDefault},
@@ -14,7 +17,13 @@ use pi_flex_layout::style::Dimension;
 use pi_null::Null;
 use pi_slotmap_tree::InsertType;
 
-use crate::{resource::{ClassSheet, QuadTree}, components::{calc::{EntityKey}, user::{Viewport, RenderDirty}}};
+use crate::{
+    components::{
+        calc::EntityKey,
+        user::{RenderDirty, Viewport},
+    },
+    resource::{ClassSheet, QuadTree},
+};
 use crate::{
     components::{
         calc::{BackgroundImageTexture, DrawList, StyleMark, StyleType},
@@ -26,20 +35,17 @@ use crate::{
     resource::{NodeCommand, StyleCommands, UserCommands},
 };
 
-/// 处理用户设置属性，将其设置到组件上
+/// 处理用户设置的指令，将其作用到组件上（包含添加子节点、设置样式、设置class、设置视口等）
 pub fn user_setting(
     world: &mut World,
-	
+
     commands: &mut SystemState<(ResMut<UserCommands>, ResMut<ClassSheet>)>,
 
     state: &mut SystemState<(Query<&DrawList>, Query<Entity>, EntityTreeMut)>,
-	quad_delete: &mut SystemState<(ResMut<QuadTree>, Query<Entity, With<Viewport>>)>,
+    quad_delete: &mut SystemState<(ResMut<QuadTree>, Query<Entity, With<Viewport>>)>,
     style_query: Local<StyleQuery>,
-	mut destroy_entity_list: Local<Vec<Entity>>, // 需要销毁的实体列表作为本地变量，避免每次重新分配内存
+    mut destroy_entity_list: Local<Vec<Entity>>, // 需要销毁的实体列表作为本地变量，避免每次重新分配内存
 ) {
-	
-    
-
     let (mut user_commands, mut _class_sheet) = commands.get_mut(world);
     // let (class_commands_len, style_commands_len, node_len) = (user_commands.class_commands.len(), user_commands.style_commands.commands.len(), user_commands.node_commands.len());
     let mut user_commands = std::mem::replace(&mut *user_commands, UserCommands::default());
@@ -50,15 +56,13 @@ pub fn user_setting(
 
     let (draw_list, entitys, mut tree) = state.get_mut(world);
 
-   
-
 
     // 操作节点(节点的创建、销毁、挂载、删除)
     for c in user_commands.node_commands.drain(..) {
         match c {
             NodeCommand::AppendNode(node, parent) => {
                 if entitys.get(node).is_ok() {
-					log::debug!("AppendNode node====================node： {:?}, parent： {:?}", node, parent);
+                    log::debug!("AppendNode node====================node： {:?}, parent： {:?}", node, parent);
                     tree.insert_child(node, parent, std::usize::MAX);
                 }
             }
@@ -81,41 +85,41 @@ pub fn user_setting(
                         }
                     }
                 }
-				tree.remove(node);
+                tree.remove(node);
                 delete_draw_list(node, &draw_list, &mut destroy_entity_list);
             }
         };
     }
 
-	// 删除需要销毁的实体
-	if destroy_entity_list.len() > 0 {
-		// let mut quad_tree = quad_tree.0.get_mut(world);
-		// for entity in destroy_entity_list.iter() {
-		// 	if let Some(r) = quad_tree.remove(EntityKey(*entity)) {
-		// 		// 删除时需要发送该事件， 以便后续计算脏区域
-		// 		// event_writer.send(OldQuad { entity: *entity, quad: Quad(r.0) });
-		// 		// 设置全局脏
-		// 	}
-		// }
-		// Query<(&RootDirtyRect, OrDefault<RenderDirty>, &Viewport)>,
+    // 删除需要销毁的实体
+    if destroy_entity_list.len() > 0 {
+        // let mut quad_tree = quad_tree.0.get_mut(world);
+        // for entity in destroy_entity_list.iter() {
+        // 	if let Some(r) = quad_tree.remove(EntityKey(*entity)) {
+        // 		// 删除时需要发送该事件， 以便后续计算脏区域
+        // 		// event_writer.send(OldQuad { entity: *entity, quad: Quad(r.0) });
+        // 		// 设置全局脏
+        // 	}
+        // }
+        // Query<(&RootDirtyRect, OrDefault<RenderDirty>, &Viewport)>,
 
-		// 删除实体
-		for entity in destroy_entity_list.iter() {
-			world.despawn(*entity);
-		}
+        // 删除实体
+        for entity in destroy_entity_list.iter() {
+            world.despawn(*entity);
+        }
 
-		// 删除包围盒
-		let (mut quad_tree, roots) = quad_delete.get_mut(world);
-		for entity in destroy_entity_list.iter() {
-			quad_tree.remove(EntityKey(*entity));
-		}
+        // 删除包围盒
+        let (mut quad_tree, roots) = quad_delete.get_mut(world);
+        for entity in destroy_entity_list.iter() {
+            quad_tree.remove(EntityKey(*entity));
+        }
 
-		destroy_entity_list.clear();
-		// 设置所有的root渲染脏（节点删除后， 组件被删除，很多状态丢失， 除非立即处理脏区域）
-		for r in roots.iter().collect::<Vec<Entity>>() {
-			world.entity_mut(r).insert(RenderDirty(true));
-		}
-	}
+        destroy_entity_list.clear();
+        // 设置所有的root渲染脏（节点删除后， 组件被删除，很多状态丢失， 除非立即处理脏区域）
+        for r in roots.iter().collect::<Vec<Entity>>() {
+            world.entity_mut(r).insert(RenderDirty(true));
+        }
+    }
 
     let mut setting = Setting { style: &style_query, world };
 
@@ -167,17 +171,17 @@ pub fn set_image_default_size(
     // 处理增加的图片问题
     for event in event_reader.iter() {
         if let Ok((mut size, texture, clip, style_mark)) = query.get_mut(event.id) {
-			if let Some(texture) = &texture.0 {
-				// 本地样式和class样式都未设置宽度，设置默认图片宽度
-				if style_mark.local_style[StyleType::Width as usize] == false && style_mark.class_style[StyleType::Width as usize] == false {
-					size.width = Dimension::Points(texture.width as f32 * *(clip.right - clip.left));
-				}
-	
-				// 本地样式和class样式都未设置高度，设置默认图片高度
-				if style_mark.local_style[StyleType::Height as usize] == false && style_mark.class_style[StyleType::Height as usize] == false {
-					size.height = Dimension::Points(texture.height as f32 * *(clip.bottom - clip.top));
-				}
-			}
+            if let Some(texture) = &texture.0 {
+                // 本地样式和class样式都未设置宽度，设置默认图片宽度
+                if style_mark.local_style[StyleType::Width as usize] == false && style_mark.class_style[StyleType::Width as usize] == false {
+                    size.width = Dimension::Points(texture.width as f32 * *(clip.right - clip.left));
+                }
+
+                // 本地样式和class样式都未设置高度，设置默认图片高度
+                if style_mark.local_style[StyleType::Height as usize] == false && style_mark.class_style[StyleType::Height as usize] == false {
+                    size.height = Dimension::Points(texture.height as f32 * *(clip.bottom - clip.top));
+                }
+            }
         }
     }
 }

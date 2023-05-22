@@ -14,11 +14,14 @@ pub struct UiPassPlugin;
 
 impl Plugin for UiPassPlugin {
     fn build(&self, app: &mut bevy::app::App) {
-		app.configure_set(UiSystemSet::PreparePass.run_if(render_run));
+        app.configure_set(UiSystemSet::PreparePass.run_if(render_run));
 
-        app
-			.add_system(update_graph::update_graph.in_set(UiSystemSet::PreparePass))
+        app.add_system(update_graph::update_graph.in_set(UiSystemSet::PreparePass))
             .add_system(pass_dirty_rect::calc_global_dirty_rect.in_set(UiSystemSet::PreparePass))
-            .add_system(pass_render::calc_camera_depth_and_renderlist.after(pass_dirty_rect::calc_global_dirty_rect).in_set(UiSystemSet::PreparePass));
+            .add_system(
+                pass_render::calc_camera_depth_and_renderlist
+                    .after(pass_dirty_rect::calc_global_dirty_rect)
+                    .in_set(UiSystemSet::PreparePass),
+            );
     }
 }

@@ -59,17 +59,17 @@ impl Default for LayoutResult {
 /// 内容最大包围盒范围(所有递归子节点的包围盒的最大范围，不包含自身)
 #[derive(Clone, Debug, Serialize, Deserialize, Component)]
 pub struct ContentBox {
-	pub oct: Aabb2,
-	pub layout: Aabb2,
+    pub oct: Aabb2,
+    pub layout: Aabb2,
 }
 
 impl Default for ContentBox {
-    fn default() -> Self { 
-		Self {
-			oct: Aabb2::new(Point2::new(f32::MAX, f32::MAX), Point2::new(f32::MIN, f32::MIN)),
-			layout: Aabb2::new(Point2::new(f32::MAX, f32::MAX), Point2::new(f32::MIN, f32::MIN)),
-		} 
-	}
+    fn default() -> Self {
+        Self {
+            oct: Aabb2::new(Point2::new(f32::MAX, f32::MAX), Point2::new(f32::MIN, f32::MIN)),
+            layout: Aabb2::new(Point2::new(f32::MAX, f32::MAX), Point2::new(f32::MIN, f32::MIN)),
+        }
+    }
 }
 
 // ZIndex计算结果， 按照节点的ZIndex分配的一个全局唯一的深度表示
@@ -401,6 +401,10 @@ pub struct StyleMark {
 #[derive(Clone, Debug, Default, Deref, DerefMut, Serialize, Deserialize, Component)]
 pub struct RenderContextMark(bitvec::prelude::BitArray);
 
+pub trait NeedMark {
+    fn need_mark(&self) -> bool;
+}
+
 // // 字符节点， 对应一个字符的
 // #[derive(Debug, Clone, Default)]
 // pub struct CharNode{
@@ -462,6 +466,8 @@ pub struct TransformWillChangeMatrixInner {
 
 #[derive(Debug, Clone, Default, Component)]
 pub struct MaskTexture;
+
+// impl NeedMark for MaskTexture {}
 
 #[derive(Deref, DerefMut, Debug, PartialEq, Eq, Hash, Ord, PartialOrd, Copy, Clone)]
 pub struct EntityKey(pub Entity);
@@ -558,8 +564,8 @@ pub struct DrawList(pub SmallVecMap<Entity, 3>); // SmallVec, TODO
 #[derive(Clone, Default, Debug, Component)]
 pub struct View {
     /// 为some时，节点山下文渲染需要新的视口，否则应该继承父节点的视口
-	pub view_box: ViewBox,
-	/// 旋转情况下是Some， 记录旋转矩阵和旋转逆矩阵
+    pub view_box: ViewBox,
+    /// 旋转情况下是Some， 记录旋转矩阵和旋转逆矩阵
     pub matrix: Option<OveflowRotate>,
 }
 
@@ -567,16 +573,19 @@ pub struct View {
 /// 已经考虑了Overflow、TransformWillChange因素，得到了该节点的真实可视区域
 #[derive(Clone, Debug)]
 pub struct ViewBox {
-	/// 当前节点的可视包围盒（如果该节点overflow为false， 则该包围盒还包含内容区域；该包围盒坐标不以世界原点作为原点）
-	/// 其原点位置是对世界原点作本节点旋转变换的逆变换所得
-	pub aabb: Aabb2,
-	/// 当前节点的可视矩形区域(相对于世界坐标)
-	pub quad: (Vector2, Vector2, Vector2, Vector2),
+    /// 当前节点的可视包围盒（如果该节点overflow为false， 则该包围盒还包含内容区域；该包围盒坐标不以世界原点作为原点）
+    /// 其原点位置是对世界原点作本节点旋转变换的逆变换所得
+    pub aabb: Aabb2,
+    /// 当前节点的可视矩形区域(相对于世界坐标)
+    pub quad: (Vector2, Vector2, Vector2, Vector2),
 }
 
 impl Default for ViewBox {
     fn default() -> Self {
-        Self { aabb: Aabb2::new(Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)), quad: Default::default() }
+        Self {
+            aabb: Aabb2::new(Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)),
+            quad: Default::default(),
+        }
     }
 }
 
@@ -584,7 +593,7 @@ impl Default for ViewBox {
 pub struct OveflowRotate {
     pub from_context_rotate: Matrix4<f32>,
     pub world_rotate_invert: Matrix4<f32>,
-	pub world_rotate: Matrix4<f32>,
+    pub world_rotate: Matrix4<f32>,
 }
 
 /// BorderImageTexture.0只有在设置了图片路径，但纹理还未加载成功的情况下，才会为none
@@ -597,13 +606,9 @@ impl From<Handle<TextureRes>> for BorderImageTexture {
 }
 
 impl Null for BorderImageTexture {
-    fn null() -> Self {
-        Self(None)
-    }
+    fn null() -> Self { Self(None) }
 
-    fn is_null(&self) -> bool {
-        self.0.is_none()
-    }
+    fn is_null(&self) -> bool { self.0.is_none() }
 }
 
 /// BackgroundImageTexture.0只有在设置了图片路径，但纹理还未加载成功的情况下，才会为none
@@ -617,11 +622,7 @@ impl From<Handle<TextureRes>> for BackgroundImageTexture {
 
 
 impl Null for BackgroundImageTexture {
-    fn null() -> Self {
-        Self(None)
-    }
+    fn null() -> Self { Self(None) }
 
-    fn is_null(&self) -> bool {
-        self.0.is_none()
-    }
+    fn is_null(&self) -> bool { self.0.is_none() }
 }

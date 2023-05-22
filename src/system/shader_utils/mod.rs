@@ -11,14 +11,14 @@ use bevy::ecs::{
     prelude::EventReader,
     system::{Commands, Res, ResMut},
 };
-use bevy::prelude::{Query, With, IntoSystemConfig};
-use bevy::window::{WindowCreated, WindowResized, Window, PrimaryWindow};
+use bevy::prelude::{IntoSystemConfig, Query, With};
+use bevy::window::{PrimaryWindow, Window, WindowCreated, WindowResized};
 use pi_assets::{
     asset::{GarbageEmpty, Handle},
     mgr::AssetMgr,
 };
 use pi_bevy_asset::ShareAssetMgr;
-use pi_bevy_render_plugin::{PiRenderDevice};
+use pi_bevy_render_plugin::PiRenderDevice;
 use pi_render::{
     components::view::target_alloc::DEPTH_TEXTURE,
     rhi::{
@@ -40,15 +40,6 @@ use crate::{
 
 use super::render_run;
 use super::system_set::UiSystemSet;
-
-// pub mod image;
-// pub mod color;
-// pub mod text;
-// pub mod post;
-// pub mod with_vert_color;
-
-// pub mod image;
-// pub mod color_shadow;
 
 pub struct UiShaderPlugin;
 
@@ -111,7 +102,7 @@ impl Plugin for UiShaderPlugin {
 
 pub fn screen_target_resize(
     mut command: Commands,
-	// events1: Res<Events<WindowCreated>>,
+    // events1: Res<Events<WindowCreated>>,
     events: EventReader<WindowCreated>,
     resize_events: EventReader<WindowResized>,
     windows: Query<&Window, With<PrimaryWindow>>,
@@ -220,7 +211,7 @@ fn create_depth_buffer(
         dimension: wgpu::TextureDimension::D2,
         format: wgpu::TextureFormat::Depth32Float,
         usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST | wgpu::TextureUsages::RENDER_ATTACHMENT,
-		view_formats: &[],
+        view_formats: &[],
     });
     let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
 

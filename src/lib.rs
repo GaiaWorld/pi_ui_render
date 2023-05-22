@@ -10,7 +10,6 @@
 #![feature(print_internals)]
 
 
-
 #[macro_use]
 extern crate serde;
 #[macro_use]
@@ -24,68 +23,70 @@ extern crate lazy_static;
 
 pub mod components;
 pub mod resource;
+pub mod shader;
 pub mod system;
 pub mod utils;
-// pub mod gui;
-pub mod shader;
 
 
 pub mod prelude {
-	use pi_bevy_render_plugin::PiRenderSystemSet;
-    use bevy::{app::{App, Plugin}, prelude::{IntoSystemSetConfigs, apply_system_buffers, IntoSystemConfig}};
+    use bevy::{
+        app::{App, Plugin},
+        prelude::{apply_system_buffers, IntoSystemConfig, IntoSystemSetConfigs},
+    };
+    use pi_bevy_render_plugin::PiRenderSystemSet;
 
     pub use crate::resource::UserCommands;
     use crate::system::{
-        /*shader_utils::UiShaderPlugin, */ draw_obj::UiReadyDrawPlugin, node::UiNodePlugin, render::UiPassPlugin, shader_utils::UiShaderPlugin, RunState, system_set::UiSystemSet, pass::UiContextPlugin,
+        /*shader_utils::UiShaderPlugin, */ draw_obj::UiReadyDrawPlugin, node::UiNodePlugin, pass::UiContextPlugin, render::UiPassPlugin,
+        shader_utils::UiShaderPlugin, system_set::UiSystemSet, RunState,
     };
 
     #[derive(Default)]
     pub struct UiPlugin;
     impl Plugin for UiPlugin {
         fn build(&self, app: &mut App) {
-			app.init_resource::<RunState>();
-            app
-				.configure_sets(
-					(
-						UiSystemSet::Setting,
-						UiSystemSet::Load,
-						UiSystemSet::Layout,
-						UiSystemSet::LifeDrawObjectFlush,
-						UiSystemSet::ContextFlush,
-						UiSystemSet::Matrix,
-					).chain())
-				.configure_sets(
-					(
-						UiSystemSet::LifeDrawObject,
-						UiSystemSet::LifeDrawObjectFlush,
-						UiSystemSet::PrepareDrawObj,
-						UiSystemSet::PrepareDrawObFlush,
-					).chain())
-				.configure_sets(
-					(
-						UiSystemSet::Setting,
-						UiSystemSet::BaseCalc,
-						UiSystemSet::BaseCalcFlush,
-					).chain())
-				.configure_sets(
-					(
-						UiSystemSet::PrepareDrawObFlush,
-						UiSystemSet::BaseCalcFlush,
-						UiSystemSet::PreparePass,
-						UiSystemSet::PreparePassFlush,
-						PiRenderSystemSet,
-					).chain())
-				.add_plugin(UiShaderPlugin)
-                .add_plugin(UiNodePlugin)
-				.add_plugin(UiContextPlugin)
-                .add_plugin(UiReadyDrawPlugin)
-                .add_plugin(UiPassPlugin)
-
-				// .add_system(apply_system_buffers.in_set(UiSystemSet::LoadFlush))
-				.add_system(apply_system_buffers.in_set(UiSystemSet::LifeDrawObjectFlush))
-				// .add_system(apply_system_buffers.in_set(UiSystemSet::BaseCalcFlush))
-				.add_system(apply_system_buffers.in_set(UiSystemSet::PrepareDrawObFlush))
-				.add_system(apply_system_buffers.in_set(UiSystemSet::PreparePassFlush));
+            app.init_resource::<RunState>();
+            app.configure_sets(
+                (
+                    UiSystemSet::Setting,
+                    UiSystemSet::Load,
+                    UiSystemSet::Layout,
+                    UiSystemSet::LifeDrawObjectFlush,
+                    UiSystemSet::ContextFlush,
+                    UiSystemSet::Matrix,
+                )
+                    .chain(),
+            )
+            .configure_sets(
+                (
+                    UiSystemSet::LifeDrawObject,
+                    UiSystemSet::LifeDrawObjectFlush,
+                    UiSystemSet::PrepareDrawObj,
+                    UiSystemSet::PrepareDrawObFlush,
+                )
+                    .chain(),
+            )
+            .configure_sets((UiSystemSet::Setting, UiSystemSet::BaseCalc, UiSystemSet::BaseCalcFlush).chain())
+            .configure_sets(
+                (
+                    UiSystemSet::PrepareDrawObFlush,
+                    UiSystemSet::BaseCalcFlush,
+                    UiSystemSet::PreparePass,
+                    UiSystemSet::PreparePassFlush,
+                    PiRenderSystemSet,
+                )
+                    .chain(),
+            )
+            .add_plugin(UiShaderPlugin)
+            .add_plugin(UiNodePlugin)
+            .add_plugin(UiContextPlugin)
+            .add_plugin(UiReadyDrawPlugin)
+            .add_plugin(UiPassPlugin)
+            // .add_system(apply_system_buffers.in_set(UiSystemSet::LoadFlush))
+            .add_system(apply_system_buffers.in_set(UiSystemSet::LifeDrawObjectFlush))
+            // .add_system(apply_system_buffers.in_set(UiSystemSet::BaseCalcFlush))
+            .add_system(apply_system_buffers.in_set(UiSystemSet::PrepareDrawObFlush))
+            .add_system(apply_system_buffers.in_set(UiSystemSet::PreparePassFlush));
         }
     }
 }

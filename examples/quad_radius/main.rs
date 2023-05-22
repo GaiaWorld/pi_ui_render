@@ -60,7 +60,8 @@ impl Example for QuadExample {
         let div1 = world.spawn(NodeBundle::default()).id();
         self.cmd.set_style(div1, WidthType(Dimension::Points(50.0)));
         self.cmd.set_style(div1, HeightType(Dimension::Points(100.0)));
-        self.cmd.set_style(div1, BackgroundColorType(Color::RGBA(CgColor::new(1.0, 0.0, 0.0, 1.0))));
+        self.cmd
+            .set_style(div1, BackgroundColorType(Color::RGBA(CgColor::new(1.0, 0.0, 0.0, 1.0))));
         self.cmd.set_style(
             div1,
             BorderRadiusType(BorderRadius {
