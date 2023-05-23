@@ -402,7 +402,7 @@ pub fn calc_dyn_target_type(
 pub fn create_dyn_target_type(atlas_allocator: &SafeAtlasAllocator, width: u32, height: u32) -> DynTargetType {
     DynTargetType {
         has_depth: atlas_allocator.get_or_create_type(TargetDescriptor {
-            texture_descriptor: SmallVec::from_slice(&[TextureDescriptor {
+            colors_descriptor: SmallVec::from_slice(&[TextureDescriptor {
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: wgpu::TextureDimension::D2,
@@ -413,12 +413,13 @@ pub fn create_dyn_target_type(atlas_allocator: &SafeAtlasAllocator, width: u32, 
                 array_layer_count: None,
                 view_dimension: None,
             }]),
+			depth_descriptor: None,
             need_depth: true,
             default_width: width,
             default_height: height,
         }),
         no_depth: atlas_allocator.get_or_create_type(TargetDescriptor {
-            texture_descriptor: SmallVec::from_slice(&[TextureDescriptor {
+            colors_descriptor: SmallVec::from_slice(&[TextureDescriptor {
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: wgpu::TextureDimension::D2,
@@ -429,6 +430,7 @@ pub fn create_dyn_target_type(atlas_allocator: &SafeAtlasAllocator, width: u32, 
                 array_layer_count: None,
                 view_dimension: None,
             }]),
+			depth_descriptor: None,
             need_depth: false,
             default_width: width,
             default_height: height,
