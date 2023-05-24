@@ -107,7 +107,7 @@ pub fn init(width: u32, height: u32) -> App {
     window_plugin.primary_window = Some(window);
 
     app.add_plugin(bevy::log::LogPlugin {
-        filter: "wgpu=info,pi_ui_render::components::user=debug".to_string(),
+        filter: "wgpu=warn,pi_ui_render::components::user=debug".to_string(),
         level: bevy::log::Level::INFO,
     })
     .add_plugin(bevy::a11y::AccessibilityPlugin)

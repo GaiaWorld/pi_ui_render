@@ -28,7 +28,7 @@ pub struct UiContextPlugin;
 
 impl Plugin for UiContextPlugin {
     fn build(&self, app: &mut bevy::app::App) {
-        app.configure_sets((UiSystemSet::ContextMark, UiSystemSet::ContextFlush).chain())
+        app.configure_sets((UiSystemSet::Setting, UiSystemSet::ContextMark, UiSystemSet::ContextFlush).chain())
             .configure_set(UiSystemSet::ContextMark.run_if(render_run))
             .configure_set(UiSystemSet::ContextFlush.run_if(render_run))
             .configure_set(UiSystemSet::ContextCalc.run_if(render_run))
@@ -44,8 +44,8 @@ impl Plugin for UiContextPlugin {
                     .in_set(UiSystemSet::ContextMark)
                     .before(calc_pass::cal_context),
             )
-            .add_system(calc_pass::pass_mark::<Hsi>.before(calc_pass::cal_context))
-            .add_system(calc_pass::pass_mark::<Blur>.before(calc_pass::cal_context))
+            .add_system(calc_pass::pass_mark::<Hsi>.before(calc_pass::cal_context).in_set(UiSystemSet::ContextMark))
+            .add_system(calc_pass::pass_mark::<Blur>.before(calc_pass::cal_context).in_set(UiSystemSet::ContextMark))
             .add_system(
                 calc_pass::pass_mark::<TransformWillChange>
                     .in_set(UiSystemSet::ContextMark)

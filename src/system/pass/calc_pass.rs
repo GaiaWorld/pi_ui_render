@@ -208,6 +208,7 @@ pub fn pass_mark<T: Component + NeedMark>(
     // Opacity修改，如果<1.0, 设置渲染上下文标记， 否则取消渲染上下文标记
     for (entity, value, mut render_mark_value) in query_set.p0().iter_mut() {
         if value.need_mark() {
+			// log::warn!("pass_mark====================={:?}, {:?}", entity, std::any::type_name::<T>());
             render_mark_true(entity, ***mark_type, &mut event_writer, &mut render_mark_value);
         } else {
             render_mark_false(entity, ***mark_type, &mut event_writer, &mut render_mark_value);

@@ -110,8 +110,8 @@ wgpu = { version = "0.15", default-features = false, features = ["glsl"] }
 # [patch."https://github.com/GaiaWorld/pi_spatialtree"]
 # pi_spatialtree ={path="../pi_spatialtree"}
 
-[patch."https://github.com/GaiaWorld/pi_post_process"]
-pi_postprocess ={path="../pi_post_process"}
+# [patch."https://github.com/GaiaWorld/pi_post_process"]
+# pi_postprocess ={path="../pi_post_process"}
 
 # [patch."https://github.com/GaiaWorld/pi_curves"]
 # pi_curves  = {path="../pi_curves"}
@@ -119,16 +119,16 @@ pi_postprocess ={path="../pi_post_process"}
 # [patch."https://github.com/GaiaWorld/pi_animation"]
 # pi_animation = { path="../pi_animation"}
 
-[patch."https://github.com/GaiaWorld/pi_render"]
-pi_render = { path = "../pi_render_bevy_shader" }
-render_derive = {path = "../pi_render_bevy_shader/crates/render_derive"}
+# [patch."https://github.com/GaiaWorld/pi_render"]
+# pi_render = { path = "../pi_render_bevy_shader" }
+# render_derive = {path = "../pi_render_bevy_shader/crates/render_derive"}
 
-[patch."https://github.com/GaiaWorld/pi_render_bevy"]
-pi_bevy_post_process= { path = "../pi_render_bevy/crates/post_process" }
-pi_bevy_ecs_extend = { path = "../pi_render_bevy/crates/ecs_extend" }
-pi_bevy_render_plugin = { path = "../pi_render_bevy/crates/render" }
-pi_bevy_asset = { path = "../pi_render_bevy/crates/asset" }
-pi_bevy_winit_window = { path = "../pi_render_bevy/crates/winit_window" } 
+# [patch."https://github.com/GaiaWorld/pi_render_bevy"]
+# pi_bevy_post_process= { path = "../pi_render_bevy/crates/post_process" }
+# pi_bevy_ecs_extend = { path = "../pi_render_bevy/crates/ecs_extend" }
+# pi_bevy_render_plugin = { path = "../pi_render_bevy/crates/render" }
+# pi_bevy_asset = { path = "../pi_render_bevy/crates/asset" }
+# pi_bevy_winit_window = { path = "../pi_render_bevy/crates/winit_window" } 
 
 # [patch."https://github.com/GaiaWorld/pi_hal"]
 # pi_hal = { path = "../pi_hal" }
@@ -141,8 +141,8 @@ pi_bevy_winit_window = { path = "../pi_render_bevy/crates/winit_window" }
 
 # [patch."http://ser.yinengyun.com:10082/tech/winit.git"]
 # winit = {path = "../winit"}
-[patch."https://github.com/GaiaWorld/pi_style.git"]
-pi_style = {path = "../pi_style"}
+# [patch."https://github.com/GaiaWorld/pi_style.git"]
+# pi_style = {path = "../pi_style"}
 
 [patch.crates-io]
 # bevy = { path = "../bevy" }

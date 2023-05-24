@@ -16,7 +16,7 @@ use bevy::{
     prelude::DetectChanges,
 };
 use pi_bevy_ecs_extend::{prelude::OrDefault, system_param::layer_dirty::DirtyMark};
-use pi_hash::XHashMap;
+use pi_hash::{XHashMap, XHashSet};
 
 use crate::{
     components::{
@@ -54,7 +54,6 @@ pub fn transform_will_change_post_process(
     query: Query<
         (
             Entity,
-            &Up,
             &Layer,
             // transform_willchange_matrix在父节点的WorldMatrix、节点自身的TransformWillChange， Layer修改时，需要改变
             // 父节点的WorldMatrix, 子节点的WorldMatrix一定改变，因此这里拿到本节点的节拍
@@ -68,24 +67,22 @@ pub fn transform_will_change_post_process(
 
     mut event_reader: EventReader<ComponentEvent<Changed<ParentPassId>>>,
     mut layer_dirty: Local<LayerDirty<Entity>>,
-    mut parent_matrix_invert: Local<(XHashMap<Entity, WorldMatrix>, XHashMap<Entity, ()>)>,
+    mut matrix_invert: Local<(XHashMap<Entity, WorldMatrix>, XHashSet<Entity>)>,
 ) {
+	// log::warn!("transform_will_change_post_process=====================");
     for del in del.iter() {
-        //
-        parent_matrix_invert.0.remove(&del);
+        matrix_invert.0.remove(&del);
     }
 
-    // let mut min_layer: (usize/*layer*/, EntityKey, usize/*count*/) = (1000000, EntityKey::null(), 0);
-
     // 世界矩阵变化、layer变化、tansform_will_change变化，设置层脏
-    for (id, up, layer, tracker_matrix, tracker_willchange, tracker_layer) in query.iter() {
+    for (id,layer, tracker_matrix, tracker_willchange, tracker_layer) in query.iter() {
         if tracker_willchange.is_changed() || tracker_layer.is_changed() || tracker_matrix.is_changed() {
             layer_dirty.marked_with_layer(id, id, layer.layer());
         }
 
         // 插入需要更新逆矩阵的节点
         if tracker_matrix.is_changed() {
-            parent_matrix_invert.1.insert(up.parent(), ());
+            matrix_invert.1.insert(id);
         }
     }
 
@@ -101,15 +98,17 @@ pub fn transform_will_change_post_process(
     }
 
     // 为TransformWillChange的父节点插入逆矩阵（存储在本地变量中）
-    let (parent_matrix_invert0, parent_matrix_invert1) = &mut *parent_matrix_invert;
-    for (id, _) in parent_matrix_invert1.drain() {
+    let (matrix_invert0, matrix_invert1) = &mut *matrix_invert;
+    for id in matrix_invert1.drain() {
         let invert = match query_matrix.get(id) {
 			Ok(r) if let Some(w) = r.0.invert() => w,
 			_ => WorldMatrix::default(),
 		};
-        parent_matrix_invert0.insert(id, invert);
+
+	// 	log::warn!("will_change p==============id: {:?}, {:?}, \n {:?}", id, invert, query_matrix.get(id));
+	matrix_invert0.insert(id, invert);
     }
-    parent_matrix_invert.1.clear();
+    matrix_invert1.clear();
 
     // 迭代层脏
     let LayerDirty { dirty, dirty_mark_list } = &mut *layer_dirty;
@@ -128,7 +127,7 @@ pub fn transform_will_change_post_process(
             &query_matrix,
             &mut query_will_change_matrix,
             &query_children,
-            &parent_matrix_invert.0,
+            &matrix_invert.0,
             dirty_mark_list,
         );
     }
@@ -154,31 +153,32 @@ pub fn recursive_set_matrix(
 
     match query_node.get(id) {
         Ok((will_change, transform, up, layout)) => {
-            let ((p_matrix, parent_layout), p_matrix_invert) = match (query_matrix.get(up.parent()), inverts.get(&up.parent())) {
-                (Ok(r), Some(r1)) => (r, r1),
+            let ((p_matrix, parent_layout), invert) = match (query_matrix.get(up.parent()), inverts.get(&id)) {
+                (Ok(r), Some(invert)) => (r, invert),
                 _ => return,
             };
 
-            let width = layout.rect.right - layout.rect.left;
+			let width = layout.rect.right - layout.rect.left;
             let height = layout.rect.bottom - layout.rect.top;
             let offset = (layout.rect.left + parent_layout.padding.left, layout.rect.top + parent_layout.padding.top);
-            let mut matrix = WorldMatrix::form_transform_layout(&will_change.0, &transform.origin, width, height, &Point2::new(offset.0, offset.1));
+            let mut will_change_matrix = WorldMatrix::form_transform_layout(&will_change.0, &transform.origin, width, height, &Point2::new(offset.0, offset.1));
 
-            let mut m = p_matrix * &matrix * p_matrix_invert;
+            let mut m = p_matrix * &will_change_matrix * invert;
 
             if let Some(parent_will_change_matrix) = &parent_will_change_matrix.0 {
                 m = &parent_will_change_matrix.will_change * &m;
-                matrix = &parent_will_change_matrix.primitive * &matrix;
+                will_change_matrix = &parent_will_change_matrix.primitive * &will_change_matrix;
             }
 
             if let Ok(mut r) = query.get_mut(id) {
-                let will_change_matrix = TransformWillChangeMatrix::new(m.invert().unwrap(), m, matrix);
+                let will_change_matrix = TransformWillChangeMatrix::new(m.invert().unwrap(), m, will_change_matrix);
                 *r = will_change_matrix.clone();
+
                 parent_will_change_matrix = will_change_matrix;
             };
         }
         _ => {
-            // 不是TransformWillChange节点，则直接集成父节点的matrix
+            // 不是TransformWillChange节点，则直接继承父节点的matrix
             if let Ok(mut r) = query.get_mut(id) {
                 *r = parent_will_change_matrix.clone();
             }

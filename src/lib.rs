@@ -59,6 +59,7 @@ pub mod prelude {
             )
             .configure_sets(
                 (
+					UiSystemSet::Setting,
                     UiSystemSet::LifeDrawObject,
                     UiSystemSet::LifeDrawObjectFlush,
                     UiSystemSet::PrepareDrawObj,
@@ -69,6 +70,7 @@ pub mod prelude {
             .configure_sets((UiSystemSet::Setting, UiSystemSet::BaseCalc, UiSystemSet::BaseCalcFlush).chain())
             .configure_sets(
                 (
+					UiSystemSet::Setting,
                     UiSystemSet::PrepareDrawObFlush,
                     UiSystemSet::BaseCalcFlush,
                     UiSystemSet::PreparePass,

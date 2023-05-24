@@ -2,6 +2,7 @@
 
 use bevy::ecs::prelude::{Component, Entity};
 use pi_map::smallvecmap::SmallVecMap;
+use pi_style::style::AllTransform;
 use std::hash::Hash;
 /// 中间计算的组件
 use std::{
@@ -118,7 +119,7 @@ impl Default for WorldMatrix {
 }
 
 impl WorldMatrix {
-    pub fn translate(&mut self, x: f32, y: f32, z: f32) {
+    pub fn translate(&mut self, x: f32, y: f32, z: f32) -> &mut Self{
         if self.1 {
             let r = &*self * WorldMatrix(Matrix4::new_translation(&Vector3::new(x, y, z)), false);
             *self = r;
@@ -128,6 +129,7 @@ impl WorldMatrix {
             slice[13] += slice[5] * y;
             slice[14] += slice[10] * z;
         }
+		self
     }
 
     pub fn form_transform_funcs(transformfuncs: &TransformFuncs, width: f32, height: f32) -> WorldMatrix {
@@ -156,7 +158,7 @@ impl WorldMatrix {
     // }
 
     pub fn form_transform_layout(
-        transform_funcs: &TransformFuncs,
+        all_transform: &AllTransform,
         origin: &TransformOrigin,
         width: f32,
         height: f32,
@@ -177,9 +179,21 @@ impl WorldMatrix {
 
         // 变换前先将transform描述的原点位置移动到父节点的左上角
         let mut m = WorldMatrix(Matrix4::new_translation(&Vector3::new(move_value.x, move_value.y, 0.0)), false);
+		
+		if let Some(translate) = &all_transform.translate {
+			m.translate(translate[0].get_absolute_value(width), translate[1].get_absolute_value(height), 0.0);
+		}
+
+		if let Some(scale) = &all_transform.scale {
+			m = m * WorldMatrix(Matrix4::new_nonuniform_scaling(&Vector3::new(scale[0], scale[1], 1.0)), false);
+		}
+
+		if let Some(rotate) = &all_transform.rotate {
+			m = m *  WorldMatrix(Matrix4::new_rotation(Vector3::new(0.0, 0.0, *rotate / 180.0 * std::f32::consts::PI)), true);
+		}
 
         // 计算tranform
-        for func in transform_funcs.iter() {
+        for func in all_transform.transform.iter() {
             m = m * Self::get_matrix(func, width, height);
         }
 

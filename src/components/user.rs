@@ -21,7 +21,7 @@ pub use pi_style::style::{
 };
 use pi_style::style::{
     BlendMode as BlendMode1, BorderImageSlice as BorderImageSlice1, BorderRadius as BorderRadius1, BoxShadow as BoxShadow1, Hsi as Hsi1,
-    MaskImage as MaskImage1, TextContent as TextContent1,
+    MaskImage as MaskImage1, TextContent as TextContent1, AllTransform,
 };
 
 use super::calc::NeedMark;
@@ -163,12 +163,12 @@ pub struct Show(pub usize);
 #[derive(Debug, Clone, Default, Serialize, Deserialize, Component)]
 #[component(storage = "SparseSet")]
 pub struct Transform {
-    pub funcs: Vec<TransformFunc>,
+	pub all_transform: AllTransform,
     pub origin: TransformOrigin,
 }
 
 impl Transform {
-    pub fn add_func(&mut self, f: TransformFunc) { self.funcs.push(f); }
+    pub fn add_func(&mut self, f: TransformFunc) { self.all_transform.transform.push(f); }
     pub fn set_origin(&mut self, o: TransformOrigin) { self.origin = o; }
 }
 // 背景色和class
@@ -295,16 +295,12 @@ pub type TextShadowList = SmallVec<[TextShadow1; 1]>;
 // TransformWillChange， 用于优化频繁变化的Transform
 #[derive(Default, Debug, Clone, Serialize, Deserialize, Component)]
 #[component(storage = "SparseSet")]
-pub struct TransformWillChange(pub TransformFuncs);
+pub struct TransformWillChange(pub AllTransform);
 
 impl NeedMark for TransformWillChange {
     #[inline]
     fn need_mark(&self) -> bool {
-        if self.0.len() > 0 {
-            true
-        } else {
-            false
-        }
+        true
     }
 }
 
@@ -1779,6 +1775,597 @@ pub mod serialize {
             Attribute::BorderImage(unsafe { BorderImageType(ptr.cast::<Atom>().read_unaligned()) })
         }
     }
+	// impl_style!(@func1 TransformFuncType, transform, Transform, add_func, TransformFunc, TransformFunc, TransformFunc);
+
+	impl ConvertToComponent for TransformFuncType {
+        /// 将样式属性设置到组件上
+        /// ptr为样式属性的指针
+        /// 安全： entity必须存在
+        fn set<'w, 's>(cur_style_mark: &mut BitArray<[u32; 3]>, ptr: *const u8, query: &mut Setting, entity: Entity, is_clone: bool)
+        where
+            Self: Sized,
+        {
+            let v = ptr.cast::<TransformFunc>();
+            let v = if is_clone {
+                unsafe { &*v }.clone()
+            } else {
+                unsafe { v.read_unaligned() }
+            };
+            cur_style_mark.set(Self::get_type() as usize, true);
+
+            let world = &mut query.world;
+            log::debug!(
+                "set_style_attr, type: {:?}, value: {:?}, entity: {:?}",
+                std::any::type_name::<TransformFunc>(),
+                v,
+                entity
+            );
+            match world.get_mut_by_id(entity, query.style.transform_will_change) {
+                Some(mut component) => {
+					// 如果存在transform_willChange,则将Transform设置在TransformWillChange上
+                    component.set_changed();
+                    unsafe { component.into_inner().deref_mut::<TransformWillChange>() }.0.transform.push(v);
+                }
+                None => {
+                    // 不存在transform_willChange， 则设置在Transfrom上
+					match world.get_mut_by_id(entity, query.style.transform) {
+						Some(mut component) => {
+							// 如果存在transform_willChange,则将Transform设置在TransformWillChange上
+							component.set_changed();
+							unsafe { component.into_inner().deref_mut::<Transform>() }.all_transform.transform.push(v);
+							
+						}
+						None => {world.entity_mut(entity).insert(Transform {
+							all_transform: AllTransform { transform: vec![v], ..Default::default() },
+							..Default::default()
+						});},
+					}
+                }
+            };
+        }
+
+        /// 为样式设置默认值
+        fn set_default(_buffer: &Vec<u8>, _offset: usize, _query: &DefaultStyle, _world: &mut World)
+        where
+            Self: Sized,
+        {}
+
+        fn to_attr(_ptr: *const u8) -> Attribute
+        where
+            Self: Sized,
+        {
+			todo!();
+            // Attribute::Transform(unsafe { TransformType(ptr.cast::<TransformFuncs>().read_unaligned()) })
+        }
+    }
+    impl ConvertToComponent for ResetTransformFuncType{
+        /// 将样式属性设置到组件上
+        /// ptr为样式属性的指针
+        /// 安全： entity必须存在
+        fn set<'w, 's>(_cur_style_mark: &mut BitArray<[u32; 3]>, _ptr: *const u8, _query: &mut Setting, _entity: Entity, _is_clone: bool)
+        where
+            Self: Sized,
+        {
+			todo!()
+        }
+
+        /// 为样式设置默认值
+        fn set_default(_buffer: &Vec<u8>, _offset: usize, _query: &DefaultStyle, _world: &mut World)
+        where
+            Self: Sized,
+        {
+            todo!()
+        }
+
+        fn to_attr(_ptr: *const u8) -> Attribute
+        where
+            Self: Sized,
+        {
+            todo!()
+        }
+    }
+
+	impl ConvertToComponent for TransformType {
+        /// 将样式属性设置到组件上
+        /// ptr为样式属性的指针
+        /// 安全： entity必须存在
+        fn set<'w, 's>(cur_style_mark: &mut BitArray<[u32; 3]>, ptr: *const u8, query: &mut Setting, entity: Entity, is_clone: bool)
+        where
+            Self: Sized,
+        {
+            let v = ptr.cast::<TransformFuncs>();
+            let v = if is_clone {
+                unsafe { &*v }.clone()
+            } else {
+                unsafe { v.read_unaligned() }
+            };
+            cur_style_mark.set(Self::get_type() as usize, true);
+
+            let world = &mut query.world;
+            log::debug!(
+                "set_style_attr, type: {:?}, value: {:?}, entity: {:?}",
+                std::any::type_name::<Transform>(),
+                v,
+                entity
+            );
+            match world.get_mut_by_id(entity, query.style.transform_will_change) {
+                Some(mut component) => {
+					// 如果存在transform_willChange,则将Transform设置在TransformWillChange上
+                    component.set_changed();
+                    unsafe { component.into_inner().deref_mut::<TransformWillChange>() }.0.transform = v;
+                }
+                None => {
+                    // 不存在transform_willChange， 则设置在Transfrom上
+					match world.get_mut_by_id(entity, query.style.transform) {
+						Some(mut component) => {
+							// 如果存在transform_willChange,则将Transform设置在TransformWillChange上
+							component.set_changed();
+							unsafe { component.into_inner().deref_mut::<Transform>() }.all_transform.transform = v;
+						}
+						None => {world.entity_mut(entity).insert(Transform {
+							all_transform: AllTransform { transform: v, ..Default::default() },
+							..Default::default()
+						});},
+					}
+                }
+            };
+        }
+
+        /// 为样式设置默认值
+        fn set_default(_buffer: &Vec<u8>, _offset: usize, _query: &DefaultStyle, _world: &mut World)
+        where
+            Self: Sized,
+        {}
+
+        fn to_attr(ptr: *const u8) -> Attribute
+        where
+            Self: Sized,
+        {
+            Attribute::Transform(unsafe { TransformType(ptr.cast::<TransformFuncs>().read_unaligned()) })
+        }
+    }
+    impl ConvertToComponent for ResetTransformType {
+        /// 将样式属性设置到组件上
+        /// ptr为样式属性的指针
+        /// 安全： entity必须存在
+        fn set<'w, 's>(_cur_style_mark: &mut BitArray<[u32; 3]>, _ptr: *const u8, query: &mut Setting, entity: Entity, _is_clone: bool)
+        where
+            Self: Sized,
+        {
+			match query.world.get_mut_by_id(entity, query.style.transform_will_change) {
+				Some(mut component) => {
+					component.set_changed();
+					unsafe { component.into_inner().deref_mut::<TransformWillChange>() }.0.transform = Default::default();
+				},
+				None => match query.world.get_mut_by_id(entity, query.style.transform) {
+					Some(mut component) => {
+						component.set_changed();
+						unsafe { component.into_inner().deref_mut::<Transform>() }.all_transform.transform = Default::default();
+					},
+					None => (),
+				}
+			};
+        }
+
+        /// 为样式设置默认值
+        fn set_default(_buffer: &Vec<u8>, _offset: usize, _query: &DefaultStyle, _world: &mut World)
+        where
+            Self: Sized,
+        {}
+
+        fn to_attr(ptr: *const u8) -> Attribute
+        where
+            Self: Sized,
+        {
+            Attribute::Transform(unsafe { TransformType(ptr.cast::<TransformFuncs>().read_unaligned()) })
+        }
+    }
+
+	impl ConvertToComponent for TranslateType {
+        /// 将样式属性设置到组件上
+        /// ptr为样式属性的指针
+        /// 安全： entity必须存在
+        fn set<'w, 's>(cur_style_mark: &mut BitArray<[u32; 3]>, ptr: *const u8, query: &mut Setting, entity: Entity, is_clone: bool)
+        where
+            Self: Sized,
+        {
+            let v = ptr.cast::<[LengthUnit;2]>();
+            let v = if is_clone {
+                unsafe { &*v }.clone()
+            } else {
+                unsafe { v.read_unaligned() }
+            };
+            cur_style_mark.set(Self::get_type() as usize, true);
+
+            let world = &mut query.world;
+            log::debug!(
+                "set_style_attr, type: {:?}, value: {:?}, entity: {:?}",
+                std::any::type_name::<Transform>(),
+                v,
+                entity
+            );
+            match world.get_mut_by_id(entity, query.style.transform_will_change) {
+                Some(mut component) => {
+					// 如果存在transform_willChange,则将Transform设置在TransformWillChange上
+                    component.set_changed();
+                    unsafe { component.into_inner().deref_mut::<TransformWillChange>() }.0.translate = Some(v);
+                }
+                None => {
+                    // 不存在transform_willChange， 则设置在Transfrom上
+					match world.get_mut_by_id(entity, query.style.transform) {
+						Some(mut component) => {
+							// 如果存在transform_willChange,则将Transform设置在TransformWillChange上
+							component.set_changed();
+							unsafe { component.into_inner().deref_mut::<Transform>() }.all_transform.translate = Some(v);
+						}
+						None => {world.entity_mut(entity).insert(Transform {
+							all_transform: AllTransform { translate: Some(v), ..Default::default() },
+							..Default::default()
+						});},
+					}
+                }
+            };
+        }
+
+        /// 为样式设置默认值
+        fn set_default(_buffer: &Vec<u8>, _offset: usize, _query: &DefaultStyle, _world: &mut World)
+        where
+            Self: Sized,
+        {}
+
+        fn to_attr(ptr: *const u8) -> Attribute
+        where
+            Self: Sized,
+        {
+            Attribute::Translate(unsafe { TranslateType(ptr.cast::<[LengthUnit;2]>().read_unaligned()) })
+        }
+    }
+    impl ConvertToComponent for ResetTranslateType {
+        /// 将样式属性设置到组件上
+        /// ptr为样式属性的指针
+        /// 安全： entity必须存在
+        fn set<'w, 's>(_cur_style_mark: &mut BitArray<[u32; 3]>, _ptr: *const u8, query: &mut Setting, entity: Entity, _is_clone: bool)
+        where
+            Self: Sized,
+        {
+			match query.world.get_mut_by_id(entity, query.style.transform_will_change) {
+				Some(mut component) => {
+					component.set_changed();
+					unsafe { component.into_inner().deref_mut::<TransformWillChange>() }.0.translate = None;
+				},
+				None => match query.world.get_mut_by_id(entity, query.style.transform) {
+					Some(mut component) => {
+						component.set_changed();
+						unsafe { component.into_inner().deref_mut::<Transform>() }.all_transform.translate = None;
+					},
+					None => (),
+				}
+			};
+        }
+
+        /// 为样式设置默认值
+        fn set_default(_buffer: &Vec<u8>, _offset: usize, _query: &DefaultStyle, _world: &mut World)
+        where
+            Self: Sized,
+        {}
+
+        fn to_attr(ptr: *const u8) -> Attribute
+        where
+            Self: Sized,
+        {
+            Attribute::Translate(unsafe { TranslateType(ptr.cast::<[LengthUnit;2]>().read_unaligned()) })
+        }
+    }
+
+	impl ConvertToComponent for ScaleType {
+        /// 将样式属性设置到组件上
+        /// ptr为样式属性的指针
+        /// 安全： entity必须存在
+        fn set<'w, 's>(cur_style_mark: &mut BitArray<[u32; 3]>, ptr: *const u8, query: &mut Setting, entity: Entity, is_clone: bool)
+        where
+            Self: Sized,
+        {
+            let v = ptr.cast::<[f32;2]>();
+            let v = if is_clone {
+                unsafe { &*v }.clone()
+            } else {
+                unsafe { v.read_unaligned() }
+            };
+            cur_style_mark.set(Self::get_type() as usize, true);
+
+            let world = &mut query.world;
+            log::debug!(
+                "set_style_attr, type: {:?}, value: {:?}, entity: {:?}",
+                std::any::type_name::<Transform>(),
+                v,
+                entity
+            );
+            match world.get_mut_by_id(entity, query.style.transform_will_change) {
+                Some(mut component) => {
+					// 如果存在transform_willChange,则将Transform设置在TransformWillChange上
+                    component.set_changed();
+                    unsafe { component.into_inner().deref_mut::<TransformWillChange>() }.0.scale = Some(v);
+                }
+                None => {
+                    // 不存在transform_willChange， 则设置在Transfrom上
+					match world.get_mut_by_id(entity, query.style.transform) {
+						Some(mut component) => {
+							// 如果存在transform_willChange,则将Transform设置在TransformWillChange上
+							component.set_changed();
+							unsafe { component.into_inner().deref_mut::<Transform>() }.all_transform.scale = Some(v);
+						}
+						None => {world.entity_mut(entity).insert(Transform {
+							all_transform: AllTransform { scale: Some(v), ..Default::default() },
+							..Default::default()
+						});},
+					}
+                }
+            };
+        }
+
+        /// 为样式设置默认值
+        fn set_default(_buffer: &Vec<u8>, _offset: usize, _query: &DefaultStyle, _world: &mut World)
+        where
+            Self: Sized,
+        {}
+
+        fn to_attr(ptr: *const u8) -> Attribute
+        where
+            Self: Sized,
+        {
+            Attribute::Scale(unsafe { ScaleType(ptr.cast::<[f32;2]>().read_unaligned()) })
+        }
+    }
+    impl ConvertToComponent for ResetScaleType {
+        /// 将样式属性设置到组件上
+        /// ptr为样式属性的指针
+        /// 安全： entity必须存在
+        fn set<'w, 's>(_cur_style_mark: &mut BitArray<[u32; 3]>, _ptr: *const u8, query: &mut Setting, entity: Entity, _is_clone: bool)
+        where
+            Self: Sized,
+        {
+			match query.world.get_mut_by_id(entity, query.style.transform_will_change) {
+				Some(mut component) => {
+					component.set_changed();
+					unsafe { component.into_inner().deref_mut::<TransformWillChange>() }.0.scale = None;
+				},
+				None => match query.world.get_mut_by_id(entity, query.style.transform) {
+					Some(mut component) => {
+						component.set_changed();
+						unsafe { component.into_inner().deref_mut::<Transform>() }.all_transform.scale = None;
+					},
+					None => (),
+				}
+			};
+        }
+
+        /// 为样式设置默认值
+        fn set_default(_buffer: &Vec<u8>, _offset: usize, _query: &DefaultStyle, _world: &mut World)
+        where
+            Self: Sized,
+        {}
+
+        fn to_attr(ptr: *const u8) -> Attribute
+        where
+            Self: Sized,
+        {
+            Attribute::Scale(unsafe { ScaleType(ptr.cast::<[f32;2]>().read_unaligned()) })
+        }
+    }
+
+	impl ConvertToComponent for RotateType {
+        /// 将样式属性设置到组件上
+        /// ptr为样式属性的指针
+        /// 安全： entity必须存在
+        fn set<'w, 's>(cur_style_mark: &mut BitArray<[u32; 3]>, ptr: *const u8, query: &mut Setting, entity: Entity, is_clone: bool)
+        where
+            Self: Sized,
+        {
+            let v = ptr.cast::<f32>();
+            let v = if is_clone {
+                unsafe { &*v }.clone()
+            } else {
+                unsafe { v.read_unaligned() }
+            };
+            cur_style_mark.set(Self::get_type() as usize, true);
+
+            let world = &mut query.world;
+            log::debug!(
+                "set_style_attr, type: {:?}, value: {:?}, entity: {:?}",
+                std::any::type_name::<Transform>(),
+                v,
+                entity
+            );
+            match world.get_mut_by_id(entity, query.style.transform_will_change) {
+                Some(mut component) => {
+					// 如果存在transform_willChange,则将Transform设置在TransformWillChange上
+                    component.set_changed();
+                    unsafe { component.into_inner().deref_mut::<TransformWillChange>() }.0.rotate = Some(v);
+                }
+                None => {
+                    // 不存在transform_willChange， 则设置在Transfrom上
+					match world.get_mut_by_id(entity, query.style.transform) {
+						Some(mut component) => {
+							// 如果存在transform_willChange,则将Transform设置在TransformWillChange上
+							component.set_changed();
+							unsafe { component.into_inner().deref_mut::<Transform>() }.all_transform.rotate = Some(v);
+						}
+						None => {world.entity_mut(entity).insert(Transform {
+							all_transform: AllTransform { rotate: Some(v), ..Default::default() },
+							..Default::default()
+						});},
+					}
+                }
+            };
+        }
+
+        /// 为样式设置默认值
+        fn set_default(_buffer: &Vec<u8>, _offset: usize, _query: &DefaultStyle, _world: &mut World)
+        where
+            Self: Sized,
+        {}
+
+        fn to_attr(ptr: *const u8) -> Attribute
+        where
+            Self: Sized,
+        {
+            Attribute::Rotate(unsafe { RotateType(ptr.cast::<f32>().read_unaligned()) })
+        }
+    }
+    impl ConvertToComponent for ResetRotateType {
+        /// 将样式属性设置到组件上
+        /// ptr为样式属性的指针
+        /// 安全： entity必须存在
+        fn set<'w, 's>(_cur_style_mark: &mut BitArray<[u32; 3]>, _ptr: *const u8, query: &mut Setting, entity: Entity, _is_clone: bool)
+        where
+            Self: Sized,
+        {
+			match query.world.get_mut_by_id(entity, query.style.transform_will_change) {
+				Some(mut component) => {
+					component.set_changed();
+					unsafe { component.into_inner().deref_mut::<TransformWillChange>() }.0.rotate = None;
+				},
+				None => match query.world.get_mut_by_id(entity, query.style.transform) {
+					Some(mut component) => {
+						component.set_changed();
+						unsafe { component.into_inner().deref_mut::<Transform>() }.all_transform.rotate = None;
+					},
+					None => (),
+				}
+			};
+        }
+
+        /// 为样式设置默认值
+        fn set_default(_buffer: &Vec<u8>, _offset: usize, _query: &DefaultStyle, _world: &mut World)
+        where
+            Self: Sized,
+        {}
+
+        fn to_attr(ptr: *const u8) -> Attribute
+        where
+            Self: Sized,
+        {
+            Attribute::Rotate(unsafe { RotateType(ptr.cast::<f32>().read_unaligned()) })
+        }
+    }
+
+	impl ConvertToComponent for TransformWillChangeType {
+        /// 将样式属性设置到组件上
+        /// ptr为样式属性的指针
+        /// 安全： entity必须存在
+        fn set<'w, 's>(cur_style_mark: &mut BitArray<[u32; 3]>, ptr: *const u8, query: &mut Setting, entity: Entity, is_clone: bool)
+        where
+            Self: Sized,
+        {
+            let v = ptr.cast::<bool>();
+            let v = if is_clone {
+                unsafe { &*v }.clone()
+            } else {
+                unsafe { v.read_unaligned() }
+            };
+            cur_style_mark.set(Self::get_type() as usize, true);
+
+            let world = &mut query.world;
+            log::debug!(
+                "set_style_attr, type: {:?}, value: {:?}, entity: {:?}",
+                std::any::type_name::<TransformWillChange>(),
+                v,
+                entity
+            );
+            match world.get_mut_by_id(entity, query.style.transform_will_change) {
+                Some(component) => {
+					// 删除TransformWillChange, 设置Transform
+					if !v {
+						let c = unsafe { component.into_inner().deref_mut::<TransformWillChange>() }.clone();
+						// 设置transform
+						match world.get_mut_by_id(entity, query.style.transform) {
+							Some(mut component) => {
+								// 如果存在transform_willChange,则将Transform设置在TransformWillChange上
+								component.set_changed();
+								unsafe { component.into_inner().deref_mut::<Transform>() }.all_transform = c.0;
+							}
+							None => {world.entity_mut(entity).insert(Transform {
+								all_transform: c.0,
+								..Default::default()
+							});},
+						}
+						world.entity_mut(entity).remove::<TransformWillChange>();
+					}
+                }
+                None => {
+					if v {
+						// 不存在transform_willChange， 则设置在Transfrom上
+						match world.get_mut_by_id(entity, query.style.transform) {
+							Some(component) => {
+								let c = unsafe { component.into_inner().deref_mut::<Transform>() }.clone();
+								world.entity_mut(entity).insert(TransformWillChange(c.all_transform));
+							}
+							None => {world.entity_mut(entity).insert(TransformWillChange::default());},
+						}
+					}
+                }
+            };
+        }
+
+        /// 为样式设置默认值
+        fn set_default(_buffer: &Vec<u8>, _offset: usize, _query: &DefaultStyle, _world: &mut World)
+        where
+            Self: Sized,
+        {}
+
+        fn to_attr(ptr: *const u8) -> Attribute
+        where
+            Self: Sized,
+        {
+            Attribute::TransformWillChange(unsafe { TransformWillChangeType(ptr.cast::<bool>().read_unaligned()) })
+        }
+    }
+    impl ConvertToComponent for ResetTransformWillChangeType {
+        fn set<'w, 's>(_cur_style_mark: &mut BitArray<[u32; 3]>, _ptr: *const u8, query: &mut Setting, entity: Entity, _is_clone: bool)
+        where
+            Self: Sized,
+        {
+			let world = &mut query.world;
+            log::debug!(
+                "reset_style_attr, type: TransformWillChange, entity: {:?}",
+                entity
+            );
+            if let Some(component) = world.get_mut_by_id(entity, query.style.transform_will_change) {
+                // 删除TransformWillChange, 设置Transform
+				let c = unsafe { component.into_inner().deref_mut::<TransformWillChange>() }.clone();
+				// 设置transform
+				match world.get_mut_by_id(entity, query.style.transform) {
+					Some(mut component) => {
+						// 如果存在transform_willChange,则将Transform设置在TransformWillChange上
+						component.set_changed();
+						unsafe { component.into_inner().deref_mut::<Transform>() }.all_transform = c.0;
+					}
+					None => {world.entity_mut(entity).insert(Transform {
+						all_transform: c.0,
+						..Default::default()
+					});},
+				}
+				world.entity_mut(entity).remove::<TransformWillChange>();
+			}
+        }
+
+        /// 为样式设置默认值
+        fn set_default(_buffer: &Vec<u8>, _offset: usize, _query: &DefaultStyle, _world: &mut World)
+        where
+            Self: Sized,
+        {
+        }
+
+        fn to_attr(ptr: *const u8) -> Attribute
+        where
+            Self: Sized,
+        {
+            Attribute::TransformWillChange(unsafe { TransformWillChangeType(ptr.cast::<bool>().read_unaligned()) })
+        }
+    }
+	// impl_style!(@pack TransformWillChangeType, transform_will_change, TransformWillChange, TransformFuncs);
+
+	// impl_style!(TransformType, transform, Transform, funcs, Transform, TransformFuncs);
     impl_style!(@pack BorderImageClipType, border_image_clip, BorderImageClip, NotNanRect);
     impl_style!(@pack BorderImageSliceType, border_image_slice, BorderImageSlice, BorderImageSlice1);
     impl_style!(@pack BorderImageRepeatType, border_image_repeat, BorderImageRepeat, ImageRepeat);
@@ -1794,7 +2381,6 @@ pub mod serialize {
     impl_style!(@pack HsiType, hsi, Hsi, Hsi1);
     impl_style!(@pack BlurType, blur, Blur, f32);
     impl_style!(TransformOriginType, transform, Transform, origin, TransformOrigin, TransformOrigin);
-    impl_style!(TransformType, transform, Transform, funcs, Transform, TransformFuncs);
     impl_style!(DirectionType, flex_container, FlexContainer, direction, Direction, Direction);
     impl_style!(AspectRatioType, flex_normal, FlexNormal, aspect_ratio, AspectRatio, Number);
     impl_style!(OrderType, flex_normal, FlexNormal, order, Order, isize);
@@ -1805,11 +2391,8 @@ pub mod serialize {
     impl_style!(@func VisibilityType, show, Show, set_visibility, get_visibility, Visibility, bool);
     impl_style!(@func EnableType, show, Show, set_enable, get_enable, Enable, Enable);
 
-    impl_style!(@func1 TransformFuncType, transform, Transform, add_func, TransformFunc, TransformFunc, TransformFunc);
     impl_style!(@func1 VNodeType, node_state, NodeState, set_vnode, NodeState, VNode, bool);
     // impl_style!(@func VNodeType, node_state, set_vnode, NodeState, bool);
-
-    impl_style!(@pack TransformWillChangeType, transform_will_change, TransformWillChange, TransformFuncs);
 
     impl_style!(@pack ZIndexType, z_index, ZIndex, isize);
     impl_style!(@pack OverflowType, overflow, Overflow, bool);
@@ -1954,7 +2537,7 @@ pub mod serialize {
 
     lazy_static::lazy_static! {
 
-        static ref STYLE_ATTR: [StyleFunc; 173] = [
+        static ref STYLE_ATTR: [StyleFunc; 181] = [
             StyleFunc::new::<EmptyType>(), // 0 empty 占位， 无实际作用
             StyleFunc::new::<BackgroundRepeatType>(), // 1
             StyleFunc::new::<FontStyleType>(), // 2
@@ -2062,6 +2645,10 @@ pub mod serialize {
             StyleFunc::new::<AnimationDirectionType>(), // 84
             StyleFunc::new::<AnimationFillModeType>(), // 85
             StyleFunc::new::<AnimationPlayStateType>(), // 86
+			StyleFunc::new::<EmptyType>(), // 87
+			StyleFunc::new::<TranslateType>(), // 88
+			StyleFunc::new::<ScaleType>(), // 89
+			StyleFunc::new::<RotateType>(), // 90
 
         /******************************* reset ******************************************************/
             StyleFunc::new::<ResetBackgroundRepeatType>(), // 1 text
@@ -2170,6 +2757,11 @@ pub mod serialize {
             StyleFunc::new::<ResetAnimationDirectionType>(), // 84
             StyleFunc::new::<ResetAnimationFillModeType>(), // 85
             StyleFunc::new::<ResetAnimationPlayStateType>(), // 86
+
+			StyleFunc::new::<EmptyType>(), // 87
+			StyleFunc::new::<ResetTranslateType>(), // 88
+			StyleFunc::new::<ResetScaleType>(), // 89
+			StyleFunc::new::<ResetRotateType>(), // 90
 
         ];
     }

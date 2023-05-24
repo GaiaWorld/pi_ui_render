@@ -105,7 +105,7 @@ pub fn cal_matrix(
                 let mut r = WorldMatrix::default();
                 if let Some(transform) = transform {
                     r = r * WorldMatrix::form_transform_layout(
-                        &transform.funcs,
+                        &transform.all_transform,
                         &transform.origin,
                         width,
                         height,
@@ -135,7 +135,7 @@ pub fn cal_matrix(
                     Some(transform) => {
                         let r = parent_world_matrix
                             * WorldMatrix::form_transform_layout(
-                                &transform.funcs,
+                                &transform.all_transform,
                                 &transform.origin,
                                 width,
                                 height,

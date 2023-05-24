@@ -213,7 +213,7 @@ pub fn calc_camera_depth_and_renderlist(
             view_matrix = &view_temp1;
         }
 
-        // log::warn!("pass_id2=========\nentity: {:?}, \nproject: {:?}, \nview: {}, \naabb:{:?}, \noverflow_aabb: {:?}", entity, project, view, aabb, overflow_aabb);
+        // log::warn!("pass_id2=========\nentity: {:?}, \nproject_matrix: {:?}, \nview_matrix: {}, \nwillchange_matrix:{:?} \naabb:{:?}, \noverflow_aabb: {:?}", entity, project_matrix, view_matrix, willchange_matrix, aabb, overflow_aabb);
 
         let mut camera_group = camera_material_alloter.alloc();
         camera_group.set_uniform(&ProjectUniform(project_matrix.as_slice()));

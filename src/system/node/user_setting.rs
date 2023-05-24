@@ -46,6 +46,7 @@ pub fn user_setting(
     style_query: Local<StyleQuery>,
     mut destroy_entity_list: Local<Vec<Entity>>, // 需要销毁的实体列表作为本地变量，避免每次重新分配内存
 ) {
+	// log::warn!("setting=====================");
     let (mut user_commands, mut _class_sheet) = commands.get_mut(world);
     // let (class_commands_len, style_commands_len, node_len) = (user_commands.class_commands.len(), user_commands.style_commands.commands.len(), user_commands.node_commands.len());
     let mut user_commands = std::mem::replace(&mut *user_commands, UserCommands::default());

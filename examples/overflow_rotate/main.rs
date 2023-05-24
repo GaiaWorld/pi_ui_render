@@ -65,8 +65,8 @@ impl Example for QuadExample {
             .set_style(div1, BackgroundColorType(Color::RGBA(CgColor::new(1.0, 0.0, 1.0, 1.0))));
         // self.cmd.set_style(div1, OverflowType(Overflow(true)));
         let mut transform = Transform::default();
-        transform.funcs.push(TransformFunc::RotateZ(45.0)); // 旋转45度
-        self.cmd.set_style(div1, TransformType(transform.funcs));
+        transform.all_transform.transform.push(TransformFunc::RotateZ(45.0)); // 旋转45度
+        self.cmd.set_style(div1, TransformType(transform.all_transform.transform));
         // self.cmd.set_style(div1, TransformWillChangeType(transform.funcs));
         self.cmd.append(div1, root);
 
@@ -121,8 +121,8 @@ impl Example for QuadExample {
         // 设置opacity，测试Pass2d在父上存在TransformWillChange的情况下能否正确渲染
         self.cmd.set_style(div6, OpacityType(0.5));
         let mut transform = Transform::default();
-        transform.funcs.push(TransformFunc::RotateZ(30.0)); // 旋转30度
-        self.cmd.set_style(div6, TransformType(transform.funcs));
+        transform.all_transform.transform.push(TransformFunc::RotateZ(30.0)); // 旋转30度
+        self.cmd.set_style(div6, TransformType(transform.all_transform.transform));
         self.cmd.append(div6, div3);
 
         // 添加一个绿色四边形，设置oveflow为true，
@@ -136,8 +136,8 @@ impl Example for QuadExample {
             .set_style(div7, BackgroundColorType(Color::RGBA(CgColor::new(0.0, 1.0, 0.0, 1.0))));
         self.cmd.set_style(div7, OverflowType(true));
         let mut transform = Transform::default();
-        transform.funcs.push(TransformFunc::RotateZ(30.0)); // 旋转30度
-        self.cmd.set_style(div7, TransformType(transform.funcs));
+        transform.all_transform.transform.push(TransformFunc::RotateZ(30.0)); // 旋转30度
+        self.cmd.set_style(div7, TransformType(transform.all_transform.transform));
         self.cmd.append(div7, div3);
 
         // 添加一个黄色四边形，设置旋转，
@@ -149,8 +149,8 @@ impl Example for QuadExample {
         self.cmd
             .set_style(div8, BackgroundColorType(Color::RGBA(CgColor::new(1.0, 1.0, 0.0, 1.0))));
         let mut transform = Transform::default();
-        transform.funcs.push(TransformFunc::RotateZ(45.0)); // 旋转45度
-        self.cmd.set_style(div8, TransformType(transform.funcs));
+        transform.all_transform.transform.push(TransformFunc::RotateZ(45.0)); // 旋转45度
+        self.cmd.set_style(div8, TransformType(transform.all_transform.transform));
         self.cmd.append(div8, div7);
     }
 
