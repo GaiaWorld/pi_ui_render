@@ -306,7 +306,7 @@ impl Node for Pass2DNode {
                         let input_groups = Vec::with_capacity(input.0.len());
                         let post_draw = Vec::with_capacity(input.0.len());
                         // 创建一个渲染Pass
-                        let (mut rp, view_port) = create_rp(
+                        let (mut rp, view_port, clear_port) = create_rp(
                             rt.as_ref(),
                             commands.borrow_mut(),
                             &camera.view_port,
@@ -316,15 +316,18 @@ impl Node for Pass2DNode {
                             None,
                         );
 
-                        // 设置视口
-                        rp.set_viewport(view_port.0, view_port.1, view_port.2, view_port.3, 0.0, 1.0);
+                        
                         // 清屏
                         if let Some(clear_color) = clear_color {
+							// 设置视口
+							rp.set_viewport(clear_port.0, clear_port.1, clear_port.2, clear_port.3, 0.0, 1.0);
                             clear_color.0.set(&mut rp, UiMaterialBind::set());
                             clear_color.1.set(&mut rp, DepthBind::set());
                             param.clear_draw.0.draw(&mut rp);
                             // 相机在drawObj中已经描述
                         }
+						// 设置视口
+                        rp.set_viewport(view_port.0, view_port.1, view_port.2, view_port.3, 0.0, 1.0);
 
                         Self::draw_list(
                             &input.0,
@@ -404,7 +407,7 @@ impl Node for Pass2DNode {
                             let rect = t.rect();
                             // 将最终渲染目标渲染到屏幕上
                             // 创建一个渲染Pass
-                            let (mut rp, view_port) = create_rp(
+                            let (mut rp, view_port, _clear_port) = create_rp(
                                 None,
                                 commands.borrow_mut(),
                                 &Aabb2::new(
@@ -734,6 +737,7 @@ impl Pass2DNode {
     }
 }
 
+// 返回renderpass， view_port， clear_port
 pub fn create_rp<'a>(
     rt: Option<&'a ShareTargetView>,
     commands: &'a mut CommandEncoder,
@@ -742,7 +746,7 @@ pub fn create_rp<'a>(
     screen: Option<&'a ScreenTarget>,
     surface: &'a ScreenTexture,
     ops: Option<wgpu::Operations<wgpu::Color>>,
-) -> (RenderPass<'a>, (f32, f32, f32, f32)) {
+) -> (RenderPass<'a>, (f32, f32, f32, f32), (f32, f32, f32, f32)) {
     let ops = match ops {
         Some(r) => r,
         None => wgpu::Operations {
@@ -775,6 +779,12 @@ pub fn create_rp<'a>(
             (
                 rp,
                 (
+                    view_port.mins.x,
+                    view_port.mins.y,
+                    view_port.maxs.x - view_port.mins.x,
+                    view_port.maxs.y - view_port.mins.y,
+                ),
+				(
                     view_port.mins.x,
                     view_port.mins.y,
                     view_port.maxs.x - view_port.mins.x,
@@ -815,23 +825,32 @@ pub fn create_rp<'a>(
                 },
             });
             let rect = r.rect();
+			let rect_with_border = r.rect_with_border();
+			let scissor = (
+				rect_with_border.min.x as f32,
+				rect_with_border.min.y as f32,
+				(rect_with_border.max.x - rect_with_border.min.x) as f32,
+				(rect_with_border.max.y - rect_with_border.min.y) as f32,
+			);
+			let view_port = if rt.is_some() {
+				(
+					rect.min.x as f32,
+					rect.min.y as f32,
+					view_port.maxs.x - view_port.mins.x,
+					view_port.maxs.y - view_port.mins.y,
+				)
+			} else {
+				(
+					rect.min.x as f32 + view_port.mins.x,
+					rect.min.y as f32 + view_port.mins.y,
+					view_port.maxs.x - view_port.mins.x,
+					view_port.maxs.y - view_port.mins.y,
+				)
+			};
             (
                 rp,
-                if rt.is_some() {
-                    (
-                        rect.min.x as f32,
-                        rect.min.y as f32,
-                        view_port.maxs.x - view_port.mins.x,
-                        view_port.maxs.y - view_port.mins.y,
-                    )
-                } else {
-                    (
-                        rect.min.x as f32 + view_port.mins.x,
-                        rect.min.y as f32 + view_port.mins.y,
-                        view_port.maxs.x - view_port.mins.x,
-                        view_port.maxs.y - view_port.mins.y,
-                    )
-                },
+                view_port,
+				scissor,
             )
         }
     }

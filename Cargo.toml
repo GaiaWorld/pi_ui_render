@@ -148,7 +148,7 @@ wgpu = { version = "0.15", default-features = false, features = ["glsl"] }
 # bevy = { path = "../bevy" }
 # pi_slotmap_tree = { path = "../pi_slotmap_tree" }
 # pi_map = { path = "../pi_map" }
-pi_flex_layout = { path = "../pi_flex_layout" }
+# pi_flex_layout = { path = "../pi_flex_layout" }
 # pi_dirty={path = "../pi_dirty" }
 
 

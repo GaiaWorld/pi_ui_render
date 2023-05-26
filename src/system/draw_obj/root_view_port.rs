@@ -387,8 +387,8 @@ pub fn calc_dyn_target_type(
     mut commands: Commands,
 ) {
     for (view_port, dyn_target_type, entity) in query.iter_mut() {
-        max_view_size.width = max_view_size.width.min((view_port.maxs.x - view_port.mins.x).ceil() as u32);
-        max_view_size.height = max_view_size.height.min((view_port.maxs.y - view_port.mins.y).ceil() as u32);
+        max_view_size.width = max_view_size.width.max((view_port.maxs.x - view_port.mins.x).ceil() as u32);
+        max_view_size.height = max_view_size.height.max((view_port.maxs.y - view_port.mins.y).ceil() as u32);
         let ty = create_dyn_target_type(&atlas_allocator, max_view_size.width, max_view_size.height);
         match dyn_target_type {
             Some(mut r) => *r = ty,

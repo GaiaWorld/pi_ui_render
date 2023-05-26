@@ -31,12 +31,14 @@ fn main() { framework::start(QuadExample::default()) }
 #[derive(Default)]
 pub struct QuadExample {
     cmd: UserCommands,
+	root: EntityKey,
 }
 
 impl Example for QuadExample {
     fn init(&mut self, world: &mut World, size: (usize, usize)) {
         // 添加根节点
         let root = world.spawn(NodeBundle::default()).id();
+		self.root = EntityKey(root);
         self.cmd.push_cmd(NodeCmd(ClearColor(CgColor::new(1.0, 1.0, 1.0, 1.0), true), root));
         self.cmd.push_cmd(NodeCmd(
             Viewport(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(size.0 as f32, size.1 as f32))),
@@ -61,6 +63,7 @@ impl Example for QuadExample {
         self.cmd.set_style(div1, HeightType(Dimension::Points(100.0)));
         self.cmd
             .set_style(div1, BackgroundColorType(Color::RGBA(CgColor::new(1.0, 0.0, 0.0, 1.0))));
+		self.cmd.set_style(div1, OpacityType(0.5));
         self.cmd.append(div1, root);
 
 
@@ -69,6 +72,7 @@ impl Example for QuadExample {
         self.cmd.set_style(div1, WidthType(Dimension::Points(100.0)));
         self.cmd.set_style(div1, HeightType(Dimension::Points(200.0)));
         self.cmd.set_style(div1, OpacityType(0.5));
+		self.cmd.append(div1, root);
 
         // 添加一个绿色div
         let div2 = world.spawn(NodeBundle::default()).id();
@@ -87,8 +91,11 @@ impl Example for QuadExample {
             .set_style(div3, BackgroundColorType(Color::RGBA(CgColor::new(1.0, 1.0, 0.0, 1.0))));
         self.cmd.append(div3, div1);
 
-        self.cmd.append(div1, root);
+       
     }
 
-    fn render(&mut self, cmd: &mut UserCommands, _cmd1: &mut Commands) { swap(&mut self.cmd, cmd); }
+    fn render(&mut self, cmd: &mut UserCommands, _cmd1: &mut Commands) { 
+		self.cmd.push_cmd(NodeCmd(RenderDirty(true), self.root.0));
+		swap(&mut self.cmd, cmd); 
+	}
 }

@@ -3383,6 +3383,8 @@ checksum = "acdcfb7c46949fd3d2a18863da12e34fa718fecc21f8274cd1decbaef4ec3c42"
 [[package]]
 name = "pi_flex_layout"
 version = "0.2.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "77ba6edf89ba9a693e4990ccf4f03f7760fcd9f2660f2126ba0ee40ff44bc215"
 dependencies = [
  "log",
  "paste",
@@ -3550,7 +3552,7 @@ checksum = "8eeeddb49aca084a517b5efcd8111cd19121130201190c09d5d817e998f78a4a"
 [[package]]
 name = "pi_render"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_render.git?branch=bevy_shader#0fd1438d40bc6d277fc8f142fb5e2d2fca6f424a"
+source = "git+https://github.com/GaiaWorld/pi_render.git?branch=bevy_shader#d5d62d473782d23020a5d4783c1835ab039a2a72"
 dependencies = [
  "render_core",
 ]
@@ -4116,7 +4118,7 @@ checksum = "f162c6dd7b008981e4d40210aca20b4bd0f9b60ca9271061b07f78537722f2e1"
 [[package]]
 name = "render_compile"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_render.git?branch=bevy_shader#0fd1438d40bc6d277fc8f142fb5e2d2fca6f424a"
+source = "git+https://github.com/GaiaWorld/pi_render.git?branch=bevy_shader#d5d62d473782d23020a5d4783c1835ab039a2a72"
 dependencies = [
  "Inflector",
  "log",
@@ -4132,7 +4134,7 @@ dependencies = [
 [[package]]
 name = "render_core"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_render.git?branch=bevy_shader#0fd1438d40bc6d277fc8f142fb5e2d2fca6f424a"
+source = "git+https://github.com/GaiaWorld/pi_render.git?branch=bevy_shader#d5d62d473782d23020a5d4783c1835ab039a2a72"
 dependencies = [
  "anyhow",
  "bitvec",
@@ -4183,7 +4185,7 @@ dependencies = [
 [[package]]
 name = "render_crevice"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_render.git?branch=bevy_shader#0fd1438d40bc6d277fc8f142fb5e2d2fca6f424a"
+source = "git+https://github.com/GaiaWorld/pi_render.git?branch=bevy_shader#d5d62d473782d23020a5d4783c1835ab039a2a72"
 dependencies = [
  "bytemuck",
  "mint",
@@ -4194,7 +4196,7 @@ dependencies = [
 [[package]]
 name = "render_crevice_derive"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_render.git?branch=bevy_shader#0fd1438d40bc6d277fc8f142fb5e2d2fca6f424a"
+source = "git+https://github.com/GaiaWorld/pi_render.git?branch=bevy_shader#d5d62d473782d23020a5d4783c1835ab039a2a72"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4205,7 +4207,7 @@ dependencies = [
 [[package]]
 name = "render_derive"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_render.git?branch=bevy_shader#0fd1438d40bc6d277fc8f142fb5e2d2fca6f424a"
+source = "git+https://github.com/GaiaWorld/pi_render.git?branch=bevy_shader#d5d62d473782d23020a5d4783c1835ab039a2a72"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4216,7 +4218,7 @@ dependencies = [
 [[package]]
 name = "render_macro_utils"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_render.git?branch=bevy_shader#0fd1438d40bc6d277fc8f142fb5e2d2fca6f424a"
+source = "git+https://github.com/GaiaWorld/pi_render.git?branch=bevy_shader#d5d62d473782d23020a5d4783c1835ab039a2a72"
 dependencies = [
  "cargo-manifest",
  "quote",
@@ -4226,7 +4228,7 @@ dependencies = [
 [[package]]
 name = "render_utils"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_render.git?branch=bevy_shader#0fd1438d40bc6d277fc8f142fb5e2d2fca6f424a"
+source = "git+https://github.com/GaiaWorld/pi_render.git?branch=bevy_shader#d5d62d473782d23020a5d4783c1835ab039a2a72"
 dependencies = [
  "ahash",
  "render_derive",
