@@ -4,6 +4,7 @@ use bevy::ecs::{
     system::{Commands, Query},
 };
 use geo::BooleanOps;
+use nalgebra::Orthographic3;
 use pi_bevy_render_plugin::{PiIndexBufferAlloter, PiVertexBufferAlloter};
 use pi_render::{
     renderer::vertices::{EVerticesBufferUsage, RenderIndices, RenderVertices},
@@ -34,8 +35,8 @@ pub fn clear_draw_obj<'w, 's, T: Component>(
                 continue;
             }
             // 删除对应的DrawObject
-            if let Some(draw_obj) = draw_list.remove(*render_type as u32) {
-                commands.entity(draw_obj).despawn();
+            if let Some(draw_obj) = draw_list.remove(render_type) {
+                commands.entity(draw_obj.id).despawn();
             }
         }
     }
@@ -54,8 +55,8 @@ pub fn clear_draw_obj_mul<'w, 's, T: Component>(
             }
             // 删除对应的DrawObject
             for i in render_types.iter() {
-                if let Some(draw_obj) = draw_list.remove(**i as u32) {
-                    commands.entity(draw_obj).despawn();
+                if let Some(draw_obj) = draw_list.remove(*i) {
+                    commands.entity(draw_obj.id).despawn();
                 }
             }
         }
@@ -177,4 +178,9 @@ pub fn set_index_buffer(
         buffer_range: None,
         format: IndexFormat::Uint16,
     });
+}
+
+pub fn create_project(left: f32, right: f32, top: f32, bottom: f32) -> Matrix4 {
+    let ortho = Orthographic3::new(left, right, bottom, top, -1.0, 1.0);
+    Matrix4::from(ortho)
 }

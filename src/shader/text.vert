@@ -20,7 +20,12 @@ layout(location = 1) out vec2 vUv;
 
 void main() {
 	vVertexPosition = position;
-	vec4 p = view * world * vec4(position.x, position.y, 1.0, 1.0);
+	// 阴影偏移
+	#ifdef SHADOW
+		vVertexPosition.xy = vVertexPosition.xy + strokeColorOrURect.xy;
+	#endif
+	
+	vec4 p = view * world * vec4(vVertexPosition.x, vVertexPosition.y, 1.0, 1.0);
 	gl_Position = project * vec4(floor(p.x + 0.5 ), floor(p.y + 0.5), 1.0, 1.0);
 	gl_Position.z = depth/60000.0;
 
@@ -28,4 +33,6 @@ void main() {
 #ifdef VERTEX_COLOR
 	vColor = color;
 #endif
+
+
 }

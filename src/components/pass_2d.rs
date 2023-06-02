@@ -4,7 +4,7 @@ use bevy::ecs::{prelude::Component, system::Resource};
 use bitvec::array::BitArray;
 use pi_assets::asset::Handle;
 pub use pi_bevy_render_plugin::component::GraphId;
-use pi_postprocess::postprocess::PostProcess;
+use pi_postprocess::postprocess::{PostProcess as PostProcess1};
 use pi_render::{
     components::view::target_alloc::ShareTargetView,
     renderer::draw_obj::DrawBindGroup,
@@ -50,16 +50,17 @@ pub struct ViewMatrix {
     // pub value: WorldMatrix,
 }
 
-#[derive(Debug, Default, Deref, DerefMut, Component)]
+#[derive(Debug, Default, Deref, Component)]
 pub struct ParentPassId(pub EntityKey);
 
-#[derive(Debug, Default, Deref, DerefMut, Component, Clone)]
+#[derive(Debug, Default, Deref, Component, Clone)]
 pub struct ChildrenPass(pub Vec<EntityKey>);
 
 // 渲染 物件 列表
 #[derive(Debug, Component)]
 pub struct Draw2DList {
     pub all_list: Vec<(DrawIndex, ZRange, DrawInfo)>,
+	pub single_list: Vec<DrawIndex>, // 单独一个drawObj绘制在一个fbo上（需要做后处理的drawObj）
     /// 不透明 列表
     /// 注：渲染时，假设 Vec已经 排好序 了
     pub opaque: Vec<DrawIndex>,
@@ -73,6 +74,7 @@ impl Default for Draw2DList {
     fn default() -> Self {
         Self {
             all_list: Vec::default(),
+			single_list: Vec::default(),
             opaque: Vec::default(),
             transparent: Vec::default(),
         }
@@ -86,9 +88,11 @@ pub enum DrawIndex {
     DrawObj(EntityKey),
     // 一个Pass2D的内容
     Pass2D(EntityKey),
+	// 一个经过后处理的渲染对象
+	DrawObjPost(EntityKey),
 }
 
-#[derive(Default, Deref, DerefMut)]
+#[derive(Default, Deref)]
 pub struct DirtyMark(BitArray);
 
 pub enum DirtyType {
@@ -177,19 +181,40 @@ pub struct PostTemp {
 
 // /// 后处理列表
 
-// pub struct PostProcessList(pub SecondaryMap<DefaultKey, PostProcess>, pub DefaultKey/*最后一个后处理的key */);
+// // pub struct PostProcessList(pub SecondaryMap<DefaultKey, PostProcess>, pub DefaultKey/*最后一个后处理的key */);
+// #[derive(Component, Debug)]
+// pub struct PostProcessList {
+//     post: PostProcess1,
+//     pub info: PostProcessInfo,
+//     // pub src: Option<ShareTargetView>,
+// }
+
 #[derive(Component, Debug)]
-pub struct PostProcessList {
-    post: PostProcess,
-    pub effect_mark: bitvec::prelude::BitArray,
-    pub depth: f32,
+pub struct PostProcessInfo {
+	pub effect_mark: bitvec::prelude::BitArray,
     pub view_port: Aabb2,
     pub matrix: WorldMatrix, // 矩阵变换
-    pub active: bool,
-    // pub src: Option<ShareTargetView>,
 }
 
-impl PostProcessList {
+impl Default for PostProcessInfo {
+    fn default() -> Self {
+        Self {
+            effect_mark: bitvec::prelude::BitArray::default(),
+            view_port: Aabb2::new(Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)),
+            matrix: Default::default(),
+        }
+    }
+}
+
+#[derive(Component, Debug, Deref, Default)]
+pub struct PostProcess {
+	#[deref]
+	pub post: PostProcess1,
+	pub depth: usize,
+}
+
+
+impl PostProcessInfo {
     pub fn has_effect(&self) -> bool {
         self.effect_mark.any()
         // let post = &self.post;
@@ -210,29 +235,6 @@ impl PostProcessList {
         //     && post.filter_sobel.is_none()
         //     && post.horizon_glitch.is_none())
     }
-}
-
-impl Default for PostProcessList {
-    fn default() -> Self {
-        Self {
-            effect_mark: bitvec::prelude::BitArray::default(),
-            post: Default::default(),
-            depth: Default::default(),
-            view_port: Aabb2::new(Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)),
-            matrix: Default::default(),
-            active: true,
-        }
-    }
-}
-
-impl std::ops::Deref for PostProcessList {
-    type Target = PostProcess;
-
-    fn deref(&self) -> &Self::Target { &self.post }
-}
-
-impl std::ops::DerefMut for PostProcessList {
-    fn deref_mut(&mut self) -> &mut Self::Target { &mut self.post }
 }
 
 #[derive(Resource)]

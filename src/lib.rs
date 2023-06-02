@@ -13,7 +13,7 @@
 #[macro_use]
 extern crate serde;
 #[macro_use]
-extern crate derive_deref;
+extern crate derive_deref_rs;
 #[macro_use]
 extern crate pi_enum_default_macro;
 

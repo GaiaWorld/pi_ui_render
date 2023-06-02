@@ -26,8 +26,8 @@ pub fn calc_border_radius(
                 continue;
             };
 
-            for (i, _) in render_list.iter() {
-                if let Ok((_draw_state, _box_type, mut pipeline_meta)) = query_draw.get_mut(*i) {
+            for i in render_list.iter() {
+                if let Ok((_draw_state, _box_type, mut pipeline_meta)) = query_draw.get_mut(i.id) {
                     pipeline_meta.defines.remove(&*BORDER_RADIUS_DEFINE);
                 }
             }
@@ -39,9 +39,9 @@ pub fn calc_border_radius(
             continue;
         }
 
-        let border_radius = cal_border_radius(border_radius, layout);
-        for (i, _) in render_list.iter() {
-            if let Ok((mut draw_state, box_type, mut pipeline_meta)) = query_draw.get_mut(*i) {
+        let border_radius = cal_border_radius(border_radius, &layout.rect);
+        for i in render_list.iter() {
+            if let Ok((mut draw_state, box_type, mut pipeline_meta)) = query_draw.get_mut(i.id) {
                 let (width, height) = (layout.rect.right - layout.rect.left, layout.rect.bottom - layout.rect.top);
                 let (x, y, z, w) = match box_type {
                     BoxType::BorderRect | BoxType::ContentRect => (width / 2.0, height / 2.0, width, height),

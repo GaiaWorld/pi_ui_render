@@ -5,7 +5,7 @@
 use bevy::ecs::prelude::{Entity, Query};
 use pi_bevy_ecs_extend::system_param::res::OrInitRes;
 
-use crate::resource::RenderContextMarkType;
+use crate::{resource::RenderContextMarkType, components::calc::OverflowDesc};
 
 use crate::components::user::Overflow;
 
@@ -17,7 +17,7 @@ use bevy::{
 use crate::{
     components::{
         calc::{ContentBox, ViewBox},
-        pass_2d::{ChildrenPass, PostProcessList},
+        pass_2d::{ChildrenPass, PostProcessInfo, PostProcess},
         user::Vector2,
     },
     system::utils::rotatequad_quad_intersection,
@@ -25,7 +25,7 @@ use crate::{
 };
 
 use pi_bevy_ecs_extend::prelude::{Layer, OrDefault, Root};
-use pi_postprocess::effect::copy::CopyIntensity;
+use pi_postprocess::effect::CopyIntensity;
 
 
 use crate::components::{
@@ -36,7 +36,7 @@ use crate::components::{
 /// 采用全遍历的方式，每帧扫描所有pass2d，如果父上下文改变或自身改变，计算overflow
 pub fn overflow_post_process(
     roots: Query<Entity, With<Root>>,
-    mut pass_mut: Query<(&mut PostProcessList, &mut View)>,
+    mut pass_mut: Query<(&mut PostProcess, &mut PostProcessInfo, &mut View)>,
     pass_read: Query<(
         &'static WorldMatrix,
         &'static TransformWillChangeMatrix,
@@ -56,21 +56,21 @@ pub fn overflow_post_process(
     let view = View {
         view_box: ViewBox {
             aabb: Aabb2::new(Point2::new(-max, -max), Point2::new(max, max)),
-            quad: (
+            world_quad: (
                 Vector2::new(-max, -max),
                 Vector2::new(-max, max),
                 Vector2::new(max, max),
                 Vector2::new(max, -max),
             ),
         },
-        matrix: None,
+        desc: OverflowDesc::NoRotate(Aabb2::new(Point2::new(-max, -max), Point2::new(max, max))),
     };
     // 从根节点遍历， 修改OverflowAabb
     for root in roots.iter() {
         // log::warn!("root======{:?}", root);
         // log::warn!("recursive_cal_overflow======{:?}, {:?}", pass_mut.get_mut(root).is_ok(), pass_read1.get(root));
 
-        recursive_cal_overflow(false, root, &view.view_box, &None, &mut pass_mut, &pass_read, &mark_type);
+        recursive_cal_overflow(false, root, &view.view_box, &view.desc, &mut pass_mut, &pass_read, &mark_type);
     }
 }
 
@@ -78,8 +78,8 @@ fn recursive_cal_overflow(
     parent_is_change: bool,
     id: Entity,
     parent_aabb: &ViewBox,
-    context_matrix: &Option<OveflowRotate>,
-    pass_mut: &mut Query<(&mut PostProcessList, &mut View)>,
+    context_desc: &OverflowDesc,
+    pass_mut: &mut Query<(&mut PostProcess, &mut PostProcessInfo, &mut View)>,
     pass_read: &Query<(
         &'static WorldMatrix,
         &'static TransformWillChangeMatrix,
@@ -96,7 +96,7 @@ fn recursive_cal_overflow(
     mark_type: &RenderContextMarkType<Overflow>,
 ) {
     if let (
-        Ok((mut post_list, mut oveflow_aabb)),
+        Ok((mut post_list, mut post_info, mut oveflow_aabb)),
         Ok((
             world_matrix,
             will_change,
@@ -138,15 +138,16 @@ fn recursive_cal_overflow(
                         post_list.copy = Some(CopyIntensity::default());
                     }
                 };
-                post_list.effect_mark.set(**mark_type, true);
+                post_info.effect_mark.set(**mark_type, true);
             } else {
-                post_list.effect_mark.set(**mark_type, false);
+                post_info.effect_mark.set(**mark_type, false);
             }
 
-            if **overflow || post_list.has_effect() {
+            // if **overflow { // || post_info.has_effect()
                 if matrix.1 {
                     // 如果矩阵含有旋转变换
                     let (left, top, right, bottom) = if **overflow {
+						// oveflow需要裁剪子节点到内容区域（注意，同时也将自身裁剪到内容区域，这与浏览器标准不符）
                         (
                             layout.border.left + layout.padding.left,
                             layout.border.top + layout.padding.top,
@@ -179,23 +180,23 @@ fn recursive_cal_overflow(
                     );
 
                     // 可视区域是当前aabb与父的aabb相交得到
-                    aabb = rotatequad_quad_intersection(&parent_aabb.quad, &world_rotate_invert, &aabb);
+                    aabb = rotatequad_quad_intersection(&parent_aabb.world_quad, &world_rotate_invert, &aabb);
 
                     *oveflow_aabb = View {
                         view_box: ViewBox {
                             aabb,
-                            quad: (
+                            world_quad: (
                                 Vector2::new(left_top.x, left_top.y),
                                 Vector2::new(left_bottom.x, left_bottom.y),
                                 Vector2::new(right_bottom.x, right_bottom.y),
                                 Vector2::new(right_top.x, right_top.y),
                             ),
                         },
-                        matrix: Some(OveflowRotate {
+                        desc: OverflowDesc::Rotate( OveflowRotate {
                             world_rotate_invert: world_rotate_invert.clone(),
-                            from_context_rotate: match context_matrix {
-                                Some(r) => r.world_rotate_invert * world_rotate,
-                                None => world_rotate,
+                            from_context_rotate: match context_desc {
+                                OverflowDesc::Rotate(r) => r.world_rotate_invert * world_rotate,
+                                OverflowDesc::NoRotate(_) => world_rotate,
                             },
                             world_rotate, // TODO
                         }),
@@ -207,9 +208,10 @@ fn recursive_cal_overflow(
                         // 自身overflow为true，并且非旋转，overflow_aabb为父的aabb与本节点裁剪包围盒的交
                         // 裁剪包围盒为内容部分，而非oct部分
                         let (left, top) = (layout.border.left + layout.padding.left, layout.border.top + layout.padding.top);
-                        if left > 0.0 || top > 0.0 {
-                            let right = layout.rect.right - (layout.border.right + layout.padding.right);
-                            let bottom = layout.rect.bottom - (layout.border.top + layout.padding.top);
+						let (right, bottom) = (layout.border.right + layout.padding.right, layout.border.top + layout.padding.top);
+                        if left > 0.0 || top > 0.0 || right > 0.0 || bottom > 0.0{
+                            let right = layout.rect.right - right;
+                            let bottom = layout.rect.bottom - bottom;
                             quad_temp = cal_no_rotate_box(&Aabb2::new(Point2::new(left, top), Point2::new(right, bottom)), &world_matrix.0);
                             &quad_temp
                         } else {
@@ -218,6 +220,7 @@ fn recursive_cal_overflow(
                     } else {
                         &content_box.oct
                     };
+					log::warn!("overflow================{:?}, {:?}, {:?}", id, &content_box.oct, &content_box.layout);
 
                     // 如果存在will_change， 则需要给包围盒乘上willchange，结果才是节点的真实裁剪框（坐标是相对世界原点）
                     let aabb_temp;
@@ -233,10 +236,10 @@ fn recursive_cal_overflow(
                     let r = intersect_or_zero(&quad, &parent_aabb.aabb);
 
                     *oveflow_aabb = View {
-                        matrix: None,
+                        desc: OverflowDesc::NoRotate(quad.clone()),
                         view_box: ViewBox {
                             aabb: r,
-                            quad: (
+                            world_quad: (
                                 Vector2::new(r.mins.x, r.mins.y),
                                 Vector2::new(r.mins.x, r.maxs.y),
                                 Vector2::new(r.maxs.x, r.maxs.y),
@@ -245,30 +248,26 @@ fn recursive_cal_overflow(
                         },
                     };
                 }
-            } else {
-                // 继承父上下文的视图
-                // *oveflow_aabb = View {
-                // 	view_box: parent_aabb.clone(),
-                // 	matrix: None,
-                // };
-                *oveflow_aabb = View {
-                    view_box: parent_aabb.clone(),
-                    matrix: context_matrix.clone(),
-                };
-            }
+            // } else {
+            //     // 继承父上下文的视图
+            //     // *oveflow_aabb = View {
+            //     // 	view_box: parent_aabb.clone(),
+            //     // 	matrix: None,
+            //     // };
+            //     *oveflow_aabb = View {
+            //         view_box: parent_aabb.clone(),
+            //         matrix: context_matrix.clone(),
+            //     };
+            // }
         };
 
         // 存在子pass， 递归设置
         if children.len() > 0 {
-            let context_rotate = if **overflow || post_list.has_effect() {
-                oveflow_aabb.matrix.clone()
-            } else {
-                oveflow_aabb.matrix.clone()
-            };
+            let context_rotate = oveflow_aabb.desc.clone();
 
-            let oveflow_aabb = oveflow_aabb.clone();
+            let view_box = oveflow_aabb.view_box.clone();
             for i in children.iter() {
-                recursive_cal_overflow(is_change, **i, &oveflow_aabb.view_box, &context_rotate, pass_mut, pass_read, mark_type);
+                recursive_cal_overflow(is_change, **i, &view_box, &context_rotate, pass_mut, pass_read, mark_type);
             }
         }
 

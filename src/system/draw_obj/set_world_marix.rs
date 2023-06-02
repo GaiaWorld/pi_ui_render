@@ -69,8 +69,8 @@ pub fn set_matrix_group(
 
         let mut border_matrix = None;
         // 遍历当前节点下所有的DrawObject，为其设置
-        for (draw_obj, _) in draw_list.iter() {
-            if let Ok((mut draw_data, box_type)) = query_draw.get_mut(*draw_obj) {
+        for draw_obj in draw_list.iter() {
+            if let Ok((mut draw_data, box_type)) = query_draw.get_mut(draw_obj.id) {
                 // 如果，渲染对象的顶点流为单位四边形，则需要将宽高乘到世界矩阵中
                 let matrix_slice = match box_type {
                     // BoxType::Content => {

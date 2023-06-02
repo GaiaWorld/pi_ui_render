@@ -44,8 +44,8 @@ pub fn draw_object_life<
     query_draw_list: &mut SystemState<Query<&'static mut DrawList>>,
 ) {
     let (render_type, mut changed, mut del, mut query_texture, program_meta, vert_layout, shader_catch, group_alloter) = state.get_mut(world);
-    let render_type = ****render_type as u32;
     let group_alloter = group_alloter.clone();
+	let render_type = ***render_type;
 
     // 收集需要删除DrawObject的实体
     for del in del.iter() {
@@ -55,7 +55,7 @@ pub fn draw_object_life<
             }
             // 删除对应的DrawObject
             if let Some(draw_obj) = draw_list.remove(render_type) {
-                will_delete.push(draw_obj);
+                will_delete.push(draw_obj.id);
             }
         }
     }
@@ -67,7 +67,7 @@ pub fn draw_object_life<
                 continue;
             }
             // 不存在，才需要创建DrawObject
-            if let None = draw_list.get(render_type) {
+            if let None = draw_list.get_one(render_type) {
                 will_creates.push((changed.id, EntityKey::null()));
             }
         }
@@ -111,7 +111,7 @@ pub fn draw_object_life<
     // 创建Node到DrawObject的映射
     for (create, draw_obj) in will_creates.drain(..) {
         if let Ok(mut draw_list) = query_draw_list.get_mut(create) {
-            draw_list.insert(render_type, draw_obj.0);
+            draw_list.push(render_type, draw_obj.0);
         }
     }
 }

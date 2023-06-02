@@ -9,6 +9,8 @@ use crate::components::{
     user::{Blur, Hsi, Opacity, Overflow, TransformWillChange},
 };
 
+use self::{mask_image::UiMaskImagePlugin, clip_path::UiClipPathPlugin};
+
 use super::{
     node::{content_box, world_matrix},
     render_run,
@@ -23,6 +25,10 @@ pub mod opacity;
 pub mod overflow;
 pub mod root;
 pub mod transform_will_change;
+pub mod mask_image;
+pub mod clip_path;
+pub mod update_graph;
+
 
 pub struct UiContextPlugin;
 
@@ -78,6 +84,10 @@ impl Plugin for UiContextPlugin {
                 opacity::opacity_post_process
                     .in_set(UiSystemSet::ContextCalc)
                     .after(UiSystemSet::ContextFlush),
-            );
+            )
+			.add_system(update_graph::update_graph.run_if(render_run).after(UiSystemSet::ContextFlush))
+			.add_plugin(UiMaskImagePlugin)
+			.add_plugin(UiClipPathPlugin)
+		;
     }
 }

@@ -4,6 +4,7 @@ use bevy::ecs::{
     system::{Query, Res},
 };
 use bevy::prelude::DetectChanges;
+use ordered_float::NotNan;
 use pi_assets::mgr::AssetMgr;
 use pi_bevy_asset::ShareAssetMgr;
 use pi_bevy_ecs_extend::system_param::res::OrInitRes;
@@ -15,6 +16,7 @@ use pi_render::rhi::asset::RenderRes;
 use pi_render::rhi::buffer::Buffer;
 use pi_render::rhi::device::RenderDevice;
 use pi_share::Share;
+use pi_style::style::LinearGradientColor;
 use wgpu::IndexFormat;
 
 use crate::components::calc::LayoutResult;
@@ -164,35 +166,7 @@ fn try_modify_as_radius_linear_geo(
                 vec![0, 1, 2, 3],
             );
             if let Color::LinearGradient(color) = color {
-                let mut lg_pos = Vec::with_capacity(color.list.len());
-                let mut colors = Vec::with_capacity(color.list.len() * 4);
-                for v in color.list.iter() {
-                    lg_pos.push(v.position);
-                    colors.extend_from_slice(&[v.rgba.x, v.rgba.y, v.rgba.z, v.rgba.w]);
-                }
-
-                //渐变端点
-                let endp = find_lg_endp(
-                    &[0.0, 0.0, 0.0, *size.height, *size.width, *size.height, *size.width, 0.0],
-                    color.direction,
-                );
-
-                let (positions1, indices1) = split_by_lg(positions, indices, lg_pos.as_slice(), endp.0.clone(), endp.1.clone());
-
-                let mut colors = interp_mult_by_lg(
-                    positions1.as_slice(),
-                    &indices1,
-                    vec![Vec::new()],
-                    vec![LgCfg { unit: 4, data: colors }],
-                    lg_pos.as_slice(),
-                    endp.0,
-                    endp.1,
-                );
-
-                indices = mult_to_triangle(&indices1, Vec::new());
-                positions = positions1;
-
-                let colors = colors.pop().unwrap();
+				let (positions1, colors, indices1) = linear_gradient_split(color, positions, indices, &size);
                 let buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
                     label: Some("radius or linear Color Buffer"),
                     contents: bytemuck::cast_slice(colors.as_slice()),
@@ -210,6 +184,8 @@ fn try_modify_as_radius_linear_geo(
                     buffer_range: None,
                     size_per_value: 16,
                 });
+				positions = positions1;
+				indices = indices1;
             } else {
                 indices = to_triangle(&indices, Vec::with_capacity(indices.len()));
             }
@@ -250,4 +226,54 @@ fn try_modify_as_radius_linear_geo(
         buffer_range: None,
         format: IndexFormat::Uint16,
     });
+}
+
+pub fn linear_gradient_split(color: &LinearGradientColor, positions: Vec<f32>, indices: Vec<u16>, size: &Size<NotNan<f32>>) -> (Vec<f32>, Vec<f32>, Vec<u16>) {
+	let mut lg_pos = Vec::with_capacity(color.list.len());
+	let mut colors = Vec::with_capacity(color.list.len() * 4);
+	for v in color.list.iter() {
+		lg_pos.push(v.position);
+		colors.extend_from_slice(&[v.rgba.x, v.rgba.y, v.rgba.z, v.rgba.w]);
+	}
+
+	//渐变端点
+	let endp = find_lg_endp(
+		&[
+			0.0,
+			0.0,
+			0.0,
+			*size.height,
+			*size.width,
+			*size.height,
+			*size.width,
+			0.0,
+		],
+		color.direction,
+	);
+
+	let (positions1, indices1) = split_by_lg(
+		positions,
+		indices,
+		lg_pos.as_slice(),
+		endp.0.clone(),
+		endp.1.clone(),
+	);
+
+	let mut colors = interp_mult_by_lg(
+		positions1.as_slice(),
+		&indices1,
+		vec![Vec::new()],
+		vec![LgCfg {
+			unit: 4,
+			data: colors,
+		}],
+		lg_pos.as_slice(),
+		endp.0,
+		endp.1,
+	);
+
+	let indices = mult_to_triangle(&indices1, Vec::new());
+	let colors = colors.pop().unwrap();
+
+	(positions1, colors, indices)
 }

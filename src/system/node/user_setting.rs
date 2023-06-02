@@ -281,8 +281,8 @@ fn set_class(node: Entity, style_query: &mut Setting, class: ClassName, class_sh
 fn delete_draw_list(id: Entity, draw_list: &Query<&DrawList>, draw_objects: &mut Vec<Entity>) {
     draw_objects.push(id);
     if let Ok(list) = draw_list.get(id) {
-        for (i, _) in list.iter() {
-            draw_objects.push(*i);
+        for i in list.iter() {
+            draw_objects.push(i.id);
         }
     }
 }

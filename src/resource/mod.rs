@@ -27,13 +27,13 @@ use bevy::ecs::system::{Command, CommandQueue};
 
 use crate::components::calc::{EntityKey, Quad};
 use crate::components::user::serialize::StyleAttr;
-use crate::components::user::{Point2, Vector2};
+use crate::components::user::{Point2, Vector2, MaskImage, ClipPath};
 use pi_sparialtree::QuadTree as QuadTree1;
 // use crate::utils::cmd::{CommandQueue, Command, DataQuery};
 // use bevy::prelude::{CommandQueue, Commands, World};
 use crate::components::user::ClassName;
 
-#[derive(Default, Deref, DerefMut, Resource, Serialize, Deserialize)]
+#[derive(Default, Deref, Resource, Serialize, Deserialize)]
 pub struct ClassSheet(pi_style::style_type::ClassSheet);
 
 /// 用户指令缓冲区
@@ -149,16 +149,28 @@ pub struct StyleCommands {
 #[derive(Default)]
 pub struct DefaultStyle;
 
+// 需要进行后处理的上下文标记
+#[derive(Clone, Debug, Default, Deref, Serialize, Deserialize, Resource)]
+pub struct EffectRenderContextMark(bitvec::prelude::BitArray);
+
+pub trait Effect {}
+impl Effect for MaskImage {}
+impl Effect for ClipPath {}
+
 /// 渲染上下文标记分配器，每一种可以使节点成为渲染上下文的属性，都可以让全局单例RenderContextMarkAlloc分配一个id
-#[derive(Debug, Default, Deref, DerefMut, Resource)]
+#[derive(Debug, Default, Deref, Resource)]
 pub struct RenderContextMarkAlloc(usize);
 
 /// 渲染上下文类型，每一种可以使节点成为渲染上下文的属性，都对应一个RenderContextMarkType，类型值是在初始化时，找RenderContextMarkAlloc分配的。
-#[derive(Debug, Deref, DerefMut, Clone, Resource)]
-pub struct RenderContextMarkType<T>(usize, PhantomData<T>);
+#[derive(Debug, Deref, Clone, Resource)]
+pub struct RenderContextMarkType<T> {
+	#[deref]
+	value: usize,
+	mark: PhantomData<T>,
+}
 
 impl<T> FromWorld for RenderContextMarkType<T> {
-    fn from_world(world: &mut World) -> Self {
+    default fn from_world(world: &mut World) -> Self {
         let mut cur_mark_index = match world.get_resource_mut::<RenderContextMarkAlloc>() {
             Some(r) => r,
             None => {
@@ -167,15 +179,42 @@ impl<T> FromWorld for RenderContextMarkType<T> {
             }
         };
         **cur_mark_index += 1;
-        Self(**cur_mark_index, PhantomData)
+        Self {
+			value: **cur_mark_index,
+			mark: PhantomData
+		}
     }
 }
 
-#[derive(Debug, Default, Deref, DerefMut, Resource)]
+impl<T: Effect> FromWorld for RenderContextMarkType<T> {
+    fn from_world(world: &mut World) -> Self {
+		world.init_resource::<EffectRenderContextMark>();
+        let mut cur_mark_index = match world.get_resource_mut::<RenderContextMarkAlloc>() {
+            Some(r) => r,
+            None => {
+                world.insert_resource(RenderContextMarkAlloc::default());
+                world.get_resource_mut::<RenderContextMarkAlloc>().unwrap()
+            }
+        };
+
+        **cur_mark_index += 1;
+		let index = **cur_mark_index;
+		// 标记效果类型
+		let mut effect_mark = world.get_resource_mut::<EffectRenderContextMark>().unwrap();
+		effect_mark.set(index, true);
+		
+        Self {
+			value: index,
+			mark: PhantomData,
+		}
+    }
+}
+
+#[derive(Debug, Default, Deref, Resource)]
 pub struct RenderObjTypeAlloc(usize);
 
 /// 渲染类型分配器
-#[derive(Debug, Deref, DerefMut, Clone, Copy)]
+#[derive(Debug, Deref, Clone, Copy, PartialEq, Eq)]
 pub struct RenderObjType(usize);
 
 impl FromWorld for RenderObjType {
@@ -192,15 +231,19 @@ impl FromWorld for RenderObjType {
     }
 }
 
+// /// 是否不向下收集DrawList(一些PassBundle是由于DrawObj的需要，比如TextShadow)
+// #[derive(Clone, Debug, Default, Deref, Serialize, Deserialize, Resource)]
+// pub struct NotDrawListMark(bitvec::prelude::BitArray);
+
 // 文字渲染类型（在DrawList中分配槽位）
-#[derive(Debug, Deref, DerefMut, Clone, Copy, Resource)]
+#[derive(Debug, Deref, Clone, Copy, Resource)]
 pub struct TextRenderObjType(RenderObjType);
 impl FromWorld for TextRenderObjType {
     fn from_world(world: &mut World) -> Self { Self(RenderObjType::from_world(world)) }
 }
 
 // 文字阴影渲染类型（在DrawList中分配槽位）
-#[derive(Debug, Deref, DerefMut, Clone, Copy, Resource)]
+#[derive(Debug, Deref, Clone, Copy, Resource)]
 pub struct TextShadowRenderObjType(RenderObjType);
 impl FromWorld for TextShadowRenderObjType {
     fn from_world(world: &mut World) -> Self { Self(RenderObjType::from_world(world)) }
@@ -208,14 +251,14 @@ impl FromWorld for TextShadowRenderObjType {
 
 
 // 背景颜色渲染类型（在DrawList中分配槽位）
-#[derive(Debug, Deref, DerefMut, Clone, Copy, Resource)]
+#[derive(Debug, Deref, Clone, Copy, Resource)]
 pub struct BackgroundColorRenderObjType(RenderObjType);
 impl FromWorld for BackgroundColorRenderObjType {
     fn from_world(world: &mut World) -> Self { Self(RenderObjType::from_world(world)) }
 }
 
 // 边框颜色渲染类型（在DrawList中分配槽位）
-#[derive(Debug, Deref, DerefMut, Clone, Copy, Resource)]
+#[derive(Debug, Deref, Clone, Copy, Resource)]
 pub struct BorderColorRenderObjType(RenderObjType);
 impl FromWorld for BorderColorRenderObjType {
     fn from_world(world: &mut World) -> Self { Self(RenderObjType::from_world(world)) }
@@ -223,28 +266,28 @@ impl FromWorld for BorderColorRenderObjType {
 
 
 // 背景图片渲染类型（在DrawList中分配槽位）
-#[derive(Debug, Deref, DerefMut, Clone, Copy, Resource)]
+#[derive(Debug, Deref, Clone, Copy, Resource)]
 pub struct BackgroundImageRenderObjType(RenderObjType);
 impl FromWorld for BackgroundImageRenderObjType {
     fn from_world(world: &mut World) -> Self { Self(RenderObjType::from_world(world)) }
 }
 
 // 边框图片渲染类型（在DrawList中分配槽位）
-#[derive(Debug, Deref, DerefMut, Clone, Copy, Resource)]
+#[derive(Debug, Deref, Clone, Copy, Resource)]
 pub struct BorderImageRenderObjType(RenderObjType);
 impl FromWorld for BorderImageRenderObjType {
     fn from_world(world: &mut World) -> Self { Self(RenderObjType::from_world(world)) }
 }
 
 // 阴影渲染类型（在DrawList中分配槽位）
-#[derive(Debug, Deref, DerefMut, Clone, Copy, Resource)]
+#[derive(Debug, Deref, Clone, Copy, Resource)]
 pub struct BoxShadowRenderObjType(RenderObjType);
 impl FromWorld for BoxShadowRenderObjType {
     fn from_world(world: &mut World) -> Self { Self(RenderObjType::from_world(world)) }
 }
 
 // canvas渲染类型（在DrawList中分配槽位）
-#[derive(Debug, Deref, DerefMut, Clone, Copy, Resource)]
+#[derive(Debug, Deref, Clone, Copy, Resource)]
 pub struct CanvasRenderObjType(RenderObjType);
 impl FromWorld for CanvasRenderObjType {
     fn from_world(world: &mut World) -> Self { Self(RenderObjType::from_world(world)) }
@@ -267,7 +310,7 @@ impl Default for TimeInfo {
 }
 
 
-#[derive(Deref, DerefMut, Resource)]
+#[derive(Deref, Resource)]
 pub struct QuadTree(QuadTree1<EntityKey, ()>);
 
 impl Default for QuadTree {
@@ -319,7 +362,7 @@ impl IndexMut<EntityKey> for QuadTree {
     fn index_mut(&mut self, index: EntityKey) -> &mut Self::Output { unsafe { self.get_unchecked_mut(&index) } }
 }
 
-#[derive(Deref, DerefMut, Resource)]
+#[derive(Deref, Resource)]
 pub struct ShareFontSheet(pub Share<ShareCell<FontSheet>>);
 #[cfg(target_arch = "wasm32")]
 unsafe impl Send for ShareFontSheet {}

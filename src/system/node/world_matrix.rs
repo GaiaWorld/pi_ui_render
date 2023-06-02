@@ -365,7 +365,7 @@ pub fn calc_quad(
 //     }
 
 //     // 绝对位置,节点以左上为原点，经过布局、变化，得到的最终位置
-//     #[derive(Deref, DerefMut, Debug, Component)]
+//     #[derive(Deref, Debug, Component)]
 //     pub struct AbsolutePosition(Rect<f32>);
 
 //     // 初始化，将所有节点以根节点作为父节点组织为树

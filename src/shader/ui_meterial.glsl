@@ -21,6 +21,7 @@ layout(set=2,binding=0)uniform UiMaterial{
 	vec4 color;
 	// 如果渲染阴影，表示阴影渲染矩形。 xy是矩形最小点的坐标，zw是矩阵最大点的坐标；注：矩形必须排除阴影半径。
 	// 如果渲染文字，该字段为文字的描边颜色
+	// 如果渲染文字阴影，该字段的xy为阴影的h、v
 	vec4 strokeColorOrURect;
 };
 

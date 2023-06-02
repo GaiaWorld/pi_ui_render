@@ -145,6 +145,7 @@ pub struct ShaderInfoCache {
 
     pub pipeline_state: XHashMap<u64, Share<PipelineStateWithHash>>,
     pub common: Share<PipelineStateWithHash>,
+	pub common_no_depth: Share<PipelineStateWithHash>,
     pub premultiply: Share<PipelineStateWithHash>,
     pub clear: Share<PipelineStateWithHash>,
 
@@ -156,9 +157,12 @@ impl Default for ShaderInfoCache {
         let clear = create_clear_pipeline_state();
         let common = create_common_pipeline_state();
         let premultiply = create_premultiply_pipeline_state();
+		let mut common_no_depeth = common.clone();
+		common_no_depeth.depth_stencil = None;
 
         let clear_hash = calc_hash(&clear, 0);
         let common_hash = calc_hash(&common, 0);
+		let common_no_depeth_hash = calc_hash(&common_no_depeth, 0);
         let premultiply_hash = calc_hash(&premultiply, 0);
 
         let clear = Share::new(PipelineStateWithHash {
@@ -168,6 +172,10 @@ impl Default for ShaderInfoCache {
         let common = Share::new(PipelineStateWithHash {
             hash: common_hash,
             state: common,
+        });
+		let common_no_depeth = Share::new(PipelineStateWithHash {
+            hash: common_no_depeth_hash,
+            state: common_no_depeth,
         });
         let premultiply = Share::new(PipelineStateWithHash {
             hash: premultiply_hash,
@@ -182,6 +190,7 @@ impl Default for ShaderInfoCache {
             bind_group_layout: Default::default(),
             pipeline_state,
             common,
+			common_no_depth: common_no_depeth,
             premultiply,
             clear,
             vert_layout: Default::default(),
@@ -492,7 +501,7 @@ impl FromWorld for PostBindGroupLayout {
     }
 }
 
-// #[derive(Deref, DerefMut, Default, Resource)]
+// #[derive(Deref, Default, Resource)]
 // pub struct ShaderCatch(pub XHashMap<ShaderId, Shader>);
 
 /// Program, 根据shader的原始代码、defines计算获得
@@ -669,7 +678,7 @@ pub fn list_share_as_ref<'a, T, I: Iterator<Item = &'a Option<Share<T>>>>(list: 
     v
 }
 
-// #[derive(Deref, DerefMut, Default, Resource)]
+// #[derive(Deref, Default, Resource)]
 // pub struct DynBindGroups(Vec<(Option<BindGroup>, BindGroupLayout, fn(&RenderDevice, &BindGroupLayout, &Buffer) -> BindGroup)>);
 
 // // 在DynBindGroups中的索引
@@ -695,7 +704,7 @@ pub fn list_share_as_ref<'a, T, I: Iterator<Item = &'a Option<Share<T>>>>(list: 
 //     }
 // }
 
-// #[derive(Deref, DerefMut, Resource)]
+// #[derive(Deref, Resource)]
 // pub struct DynUniformBuffer (pi_render::rhi::dyn_uniform_buffer::DynUniformBuffer);
 
 // impl FromWorld for DynUniformBuffer {
@@ -864,10 +873,10 @@ impl FromWorld for CommonSampler {
 // #[derive(Deref, Default, DerefMut)]
 // pub struct LayerPass2D (LayerDirty<Entity>);
 
-#[derive(Deref, DerefMut, Resource)]
-pub struct TextTextureGroup(pub Handle<RenderRes<BindGroup>>);
+#[derive(Deref, Resource, Default)]
+pub struct TextTextureGroup(pub Option<Handle<RenderRes<BindGroup>>>);
 
-#[derive(Deref, DerefMut, Resource)]
+#[derive(Deref, Resource)]
 pub struct EmptyVertexBuffer(pub Handle<RenderRes<Buffer>>);
 
 impl FromWorld for EmptyVertexBuffer {
@@ -981,6 +990,7 @@ pub fn create_premultiply_pipeline_state() -> PipelineState {
         multiview: None,
     }
 }
+
 
 // 清屏的DrawObj（wgpu不支持清屏，因此用画矩形的方式模拟清屏）
 #[derive(Resource)]
@@ -1160,11 +1170,12 @@ impl FromWorld for DepthCache {
 
 impl DepthCache {
     pub fn or_create_depth<'a>(&mut self, cur_depth: usize, device: &'a RenderDevice, bind_group_assets: &'a Share<AssetMgr<RenderRes<BindGroup>>>) {
-        if self.list.len() <= cur_depth {
+		let mut depth = self.list.len();
+		while depth <= cur_depth {
             let buffer = device.create_buffer_with_data(&BufferInitDescriptor {
                 label: Some("depth buffer"),
                 usage: BufferUsages::UNIFORM,
-                contents: bytemuck::cast_slice::<_, u8>(&[0.0, 0.0, 0.0, cur_depth as f32]),
+                contents: bytemuck::cast_slice::<_, u8>(&[0.0, 0.0, 0.0, depth as f32]),
             });
             let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
                 layout: &self.layout,
@@ -1178,9 +1189,10 @@ impl DepthCache {
                 }],
                 label: Some("depth bindgroup"),
             });
-            let hash = calc_hash(&("depth", cur_depth), 0);
+            let hash = calc_hash(&("depth", depth), 0);
             let r = bind_group_assets.insert(hash, RenderRes::new(bind_group, DepthBind::min_size()));
             self.list.push(r.unwrap());
+			depth += 1;
         }
     }
 }

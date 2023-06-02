@@ -1,8 +1,8 @@
 //! 定义计算组件（非用户设置的组件）
 
 use bevy::ecs::prelude::{Component, Entity};
-use pi_map::smallvecmap::SmallVecMap;
 use pi_style::style::AllTransform;
+use smallvec::SmallVec;
 use std::hash::Hash;
 /// 中间计算的组件
 use std::{
@@ -18,6 +18,8 @@ use pi_null::Null;
 use pi_render::rhi::asset::TextureRes;
 use pi_share::Share;
 use pi_slotmap::Key;
+
+use crate::resource::RenderObjType;
 
 use super::user::*;
 
@@ -60,7 +62,9 @@ impl Default for LayoutResult {
 /// 内容最大包围盒范围(所有递归子节点的包围盒的最大范围，不包含自身)
 #[derive(Clone, Debug, Serialize, Deserialize, Component)]
 pub struct ContentBox {
+	// 内容包围盒(不包含阴影的扩展)
     pub oct: Aabb2,
+	// 布局包围盒（还包含了阴影的扩展）
     pub layout: Aabb2,
 }
 
@@ -74,11 +78,11 @@ impl Default for ContentBox {
 }
 
 // ZIndex计算结果， 按照节点的ZIndex分配的一个全局唯一的深度表示
-#[derive(Default, Deref, DerefMut, Clone, PartialEq, Eq, Hash, Debug, Component)]
+#[derive(Default, Deref, Clone, PartialEq, Eq, Hash, Debug, Component)]
 pub struct ZRange(pub std::ops::Range<usize>);
 
 /// 渲染顺序
-#[derive(Default, Deref, DerefMut, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Copy, Component)]
+#[derive(Default, Deref, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Copy, Component)]
 pub struct DrawInfo(pub u32);
 
 impl DrawInfo {
@@ -412,7 +416,7 @@ pub struct StyleMark {
 
 /// 标记渲染context中需要的效果， 如Blur、Opacity、Hsi、MasImage等
 /// 此数据结构仅记录位标记，具体哪些属性用哪一位来标记，这里并不关心，由逻辑保证
-#[derive(Clone, Debug, Default, Deref, DerefMut, Serialize, Deserialize, Component)]
+#[derive(Clone, Debug, Default, Deref, Serialize, Deserialize, Component)]
 pub struct RenderContextMark(bitvec::prelude::BitArray);
 
 pub trait NeedMark {
@@ -454,11 +458,11 @@ pub trait NeedMark {
 // 	pub next: usize,
 // }
 
-// #[derive(Deref, DerefMut, Clone, Debug, Serialize, Deserialize)]
+// #[derive(Deref, Clone, Debug, Serialize, Deserialize)]
 // pub struct TextChars(Vec<CharNode>);
 
 // TransformWillChange的矩阵计算结果， 用于优化Transform的频繁改变
-#[derive(Debug, Clone, Default, Deref, Component, DerefMut)]
+#[derive(Debug, Clone, Default, Deref, Component)]
 pub struct TransformWillChangeMatrix(pub Option<Share<TransformWillChangeMatrixInner>>);
 
 impl TransformWillChangeMatrix {
@@ -479,11 +483,37 @@ pub struct TransformWillChangeMatrixInner {
 }
 
 #[derive(Debug, Clone, Default, Component)]
-pub struct MaskTexture;
+pub struct MaskTexture(pub Option<Handle<TextureRes>>);
 
-// impl NeedMark for MaskTexture {}
+impl Null for MaskTexture {
+    fn null() -> Self {
+        Self(None)
+    }
 
-#[derive(Deref, DerefMut, Debug, PartialEq, Eq, Hash, Ord, PartialOrd, Copy, Clone)]
+    fn is_null(&self) -> bool {
+        self.0.is_none()
+    }
+}
+
+impl From<Handle<TextureRes>> for MaskTexture {
+    fn from(handle: Handle<TextureRes>) -> Self {
+        MaskTexture(Some(handle))
+    }
+}
+
+impl From<Option<Handle<TextureRes>>> for MaskTexture {
+    fn from(handle: Option<Handle<TextureRes>>) -> Self {
+        MaskTexture(handle)
+    }
+}
+
+impl From<MaskTexture> for Option<Handle<TextureRes>> {
+    fn from(mask_texture: MaskTexture) -> Self {
+        mask_texture.0
+    }
+}
+
+#[derive(Deref, Debug, PartialEq, Eq, Hash, Ord, PartialOrd, Copy, Clone)]
 pub struct EntityKey(pub Entity);
 
 unsafe impl Key for EntityKey {
@@ -509,11 +539,11 @@ impl Null for EntityKey {
 }
 
 // /// 上下文的实体ID，作为Node的组件，关联由其创建的渲染上下文
-// #[derive(Deref, DerefMut, Default, Debug, Hash, Clone, Copy, Component)]
+// #[derive(Deref, Default, Debug, Hash, Clone, Copy, Component)]
 // pub struct Pass2DId(pub EntityKey);
 
 /// 作为Node的组件，表示节点所在的渲染上下文的实体
-#[derive(Clone, Copy, Deref, DerefMut, Default, PartialEq, Eq, Debug, Hash, Component)]
+#[derive(Clone, Copy, Deref, Default, PartialEq, Eq, Debug, Hash, Component)]
 pub struct InPassId(pub EntityKey);
 
 
@@ -563,15 +593,49 @@ pub enum FlexStyleType {
 }
 
 /// 节点的实体id，作为RenderContext的组件，引用创建该渲染上下文的节点
-#[derive(Deref, DerefMut, Debug, Clone, Copy, Hash, Default, Component)]
+#[derive(Deref, Debug, Clone, Copy, Hash, Default, Component)]
 pub struct NodeId(pub EntityKey);
 
 /// 宏标记(最多支持size::of::<usize>()个宏开关)
 pub struct DefineMark(bitvec::prelude::BitArray);
 
 /// 每节点的渲染列表
-#[derive(Deref, DerefMut, Default, Debug, Component)]
-pub struct DrawList(pub SmallVecMap<Entity, 3>); // SmallVec, TODO
+#[derive(Deref, Default, Debug, Component)]
+pub struct DrawList(pub SmallVec<[DrawObjId;1]>); // 通常只会有一个DrawObject
+
+impl DrawList {
+	#[inline]
+	pub fn push(&mut self, ty: RenderObjType, id: Entity) {
+		self.0.push(DrawObjId{ty, id});
+	}
+
+	// 取到一个（大部分只有一个drawobj， 少数有多个，如text_shadow）
+	pub fn get_one(&self, ty: RenderObjType) -> Option<&DrawObjId> {
+		for i in 0..self.0.len() {
+			if self.0[i].ty == ty {
+				return Some(&self.0[i]);
+			}
+		}
+		None
+	}
+
+	// 移除全部
+	pub fn remove(&mut self, ty: RenderObjType ) -> Option<DrawObjId> {
+		for i in 0..self.0.len() {
+			if self.0[i].ty == ty {
+				return Some(self.0.swap_remove(i))
+			}
+		}
+		None
+	}
+}
+
+/// 节点上握住DrawObj的id
+#[derive(Debug, Component)]
+pub struct DrawObjId {
+	pub ty: RenderObjType,
+	pub id: Entity,
+}
 
 /// 视图
 /// 每个Pass2d都必须存在一个视图
@@ -580,39 +644,61 @@ pub struct View {
     /// 为some时，节点山下文渲染需要新的视口，否则应该继承父节点的视口
     pub view_box: ViewBox,
     /// 旋转情况下是Some， 记录旋转矩阵和旋转逆矩阵
-    pub matrix: Option<OveflowRotate>,
+    pub desc: OverflowDesc,
 }
 
 /// 可视包围盒
 /// 已经考虑了Overflow、TransformWillChange因素，得到了该节点的真实可视区域
 #[derive(Clone, Debug)]
 pub struct ViewBox {
-    /// 当前节点的可视包围盒（如果该节点overflow为false， 则该包围盒还包含内容区域；该包围盒坐标不以世界原点作为原点）
-    /// 其原点位置是对世界原点作本节点旋转变换的逆变换所得
+    /// 当前节点的可视包围盒
+	/// 其原点位置是对世界原点作本节点旋转变换的逆变换所得
+	/// 如果该节点overflow为**false**
+	/// ---如果当前节点**存在旋转**，则为当前节点的**ContentBox** * 旋转逆矩阵
+	/// ---如果当前节点**不存在旋转**， 则为当前节点**ContentBox** 与 父上下文的ViewBox.aabb相交
+	/// 如果节点overflow为**true**
+	/// ---如果当前节点**存在旋转**，则为当前节点的**布局内容区域** * 旋转逆矩阵
+	/// ---如果当前节点**不存在旋转**， 则为当前节点**布局内容区域** 与 父上下文的ViewBox.aabb相交
     pub aabb: Aabb2,
-    /// 当前节点的可视矩形区域(相对于世界坐标)
-    pub quad: (Vector2, Vector2, Vector2, Vector2),
+    /// 与aabb表示同一个矩形区域，只是原点为世界坐标原点（由于可能存在旋转， 如果原点为世界坐标原点时， 该区域不能用Aabb表示）
+    pub world_quad: (Vector2, Vector2, Vector2, Vector2),
 }
 
 impl Default for ViewBox {
     fn default() -> Self {
         Self {
             aabb: Aabb2::new(Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)),
-            quad: Default::default(),
+            world_quad: Default::default(),
         }
     }
 }
 
 #[derive(Clone, Default, Debug)]
 pub struct OveflowRotate {
+	// 相对于父上下文的旋转
     pub from_context_rotate: Matrix4<f32>,
+	// 节点相对于世界坐标的旋转的逆
     pub world_rotate_invert: Matrix4<f32>,
+	// 节点相对于世界坐标的渲染
     pub world_rotate: Matrix4<f32>,
+}
+
+// 描述oveflow
+#[derive(Clone, Debug)]
+pub enum OverflowDesc {
+	Rotate(OveflowRotate), // 所在节点存在旋转的情况下， 描述旋转信息
+	NoRotate(Aabb2), // 所在节点不存在旋转的情况下，描述自身的aabb
+}
+
+impl Default for OverflowDesc {
+    fn default() -> Self {
+        OverflowDesc::NoRotate(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)))
+    }
 }
 
 /// BorderImageTexture.0只有在设置了图片路径，但纹理还未加载成功的情况下，才会为none
 /// 如果删除了图片路径，会删除该组件
-#[derive(Deref, DerefMut, Component, Default)]
+#[derive(Deref, Component, Default)]
 pub struct BorderImageTexture(pub Option<Handle<TextureRes>>);
 
 impl From<Handle<TextureRes>> for BorderImageTexture {
@@ -627,7 +713,7 @@ impl Null for BorderImageTexture {
 
 /// BackgroundImageTexture.0只有在设置了图片路径，但纹理还未加载成功的情况下，才会为none
 /// 如果删除了图片路径，会删除该组件
-#[derive(Deref, DerefMut, Component, Default)]
+#[derive(Deref, Component, Default)]
 pub struct BackgroundImageTexture(pub Option<Handle<TextureRes>>);
 
 impl From<Handle<TextureRes>> for BackgroundImageTexture {

@@ -1,3 +1,4 @@
+
 use pi_render::rhi::shader::{
     merge_defines, AsLayoutEntry, BindingExpandDesc, BindingExpandDescList, BlockCodeAtom, CodeSlice, Define, InOut, ShaderInput, ShaderMeta,
     ShaderOutput, ShaderProgram, ShaderVarying,
@@ -92,6 +93,8 @@ fn push_vs_code(_codes: &mut BlockCodeAtom) {
     super::ui_meterial::push_code(_codes, merge_defines(_defines, &[]).as_slice());
     _codes.running.push(VS_CODE[1].clone().push_defines_front(_defines));
     _codes.running.push(VS_CODE[2].clone().push_defines_front(_defines));
+    _codes.running.push(VS_CODE[3].clone().push_defines_front(_defines));
+    _codes.running.push(VS_CODE[4].clone().push_defines_front(_defines));
 }
 
 fn push_fs_code(_codes: &mut BlockCodeAtom) {
@@ -118,7 +121,20 @@ lazy_static! {
         CodeSlice {
             code: pi_atom::Atom::from(
                 "	vVertexPosition = position;
-	vec4 p = view * world * vec4(position.x, position.y, 1.0, 1.0);
+"
+            ),
+            defines: vec![]
+        },
+        CodeSlice {
+            code: pi_atom::Atom::from(
+                "		vVertexPosition.xy = vVertexPosition.xy + strokeColorOrURect.xy;
+"
+            ),
+            defines: vec![Define::new(true, SHADOW_DEFINE.clone())]
+        },
+        CodeSlice {
+            code: pi_atom::Atom::from(
+                "	vec4 p = view * world * vec4(vVertexPosition.x, vVertexPosition.y, 1.0, 1.0);
 	gl_Position = project * vec4(floor(p.x + 0.5 ), floor(p.y + 0.5), 1.0, 1.0);
 	gl_Position.z = depth/60000.0;
 	vUv = uv/textureSizeOrBottomLeftBorder;
@@ -180,5 +196,6 @@ lazy_static! {
         }
     ];
     pub static ref VERTEX_COLOR_DEFINE: pi_atom::Atom = pi_atom::Atom::from("VERTEX_COLOR");
+    pub static ref SHADOW_DEFINE: pi_atom::Atom = pi_atom::Atom::from("SHADOW");
     pub static ref STROKE_DEFINE: pi_atom::Atom = pi_atom::Atom::from("STROKE");
 }

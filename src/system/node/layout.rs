@@ -642,22 +642,22 @@ impl<'a, 'b> TreeStorage<LayoutKey> for Tree<'a, 'b> {
 
 
 // /// 布局大小
-// #[derive(Default, Deref, DerefMut, Clone, Serialize, Deserialize, Debug)]
+// #[derive(Default, Deref, Clone, Serialize, Deserialize, Debug)]
 // pub struct Size(FlexSize<Dimension>);
 
 // /// 布局外边距
-// #[derive(Deref, DerefMut, Clone, Serialize, Deserialize, Debug)]
+// #[derive(Deref, Clone, Serialize, Deserialize, Debug)]
 // pub struct Margin(Rect<Dimension>);
 
 // /// 布局内边距
-// #[derive(Default, Deref, DerefMut, Clone, Serialize, Deserialize, Debug)]
+// #[derive(Default, Deref, Clone, Serialize, Deserialize, Debug)]
 // pub struct Padding(Rect<Dimension>);
 
 // /// 布局边框尺寸
-// #[derive(Default, Deref, DerefMut, Clone, Serialize, Deserialize, Debug)]
+// #[derive(Default, Deref, Clone, Serialize, Deserialize, Debug)]
 // pub struct Border(Rect<Dimension>);
 
-// #[derive(Deref, DerefMut, Clone, Serialize, Deserialize, Debug)]
+// #[derive(Deref, Clone, Serialize, Deserialize, Debug)]
 // pub struct Position(Rect<Dimension>);
 
 // #[derive(Clone, Serialize, Deserialize, Debug)]

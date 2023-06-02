@@ -88,7 +88,7 @@ fn modify<'a>(
         draw_state.bindgroups.set_uniform(&ColorUniform(&[color.x, color.y, color.z, color.w]));
 
         if let Some(border_radius) = border_radius {
-            let border_radius = cal_border_radius(border_radius, layout);
+            let border_radius = cal_border_radius(border_radius, &layout.rect);
             let (width, height) = (layout.rect.right - layout.rect.left, layout.rect.bottom - layout.rect.top);
             draw_state.bindgroups.set_uniform(&ClipSdfUniform(&[
                 width / 2.0,
@@ -119,7 +119,7 @@ fn modify<'a>(
     if border_change.as_ref().map_or(false, |r| r.is_changed()) || layout_change.is_changed() {
         let (radius_hash, border_radius) = match border_radius {
             Some(r) => {
-                let r = cal_border_radius(r, layout);
+                let r = cal_border_radius(r, &layout.rect);
                 pipeline_meta.defines.insert(BORDER_DEFINE.clone());
                 (calc_float_hash(&r.y, calc_float_hash(&r.x, 0)), Some(r))
             }

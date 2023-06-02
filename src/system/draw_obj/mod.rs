@@ -10,22 +10,21 @@ use super::{render_run, system_set::UiSystemSet, AddEvent};
 use pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent;
 use pi_bevy_render_plugin::component::GraphId;
 
-use crate::components::draw_obj::{BackgroundColorMark, BackgroundImageMark, BorderColorMark, BorderImageMark, BoxShadowMark, CanvasMark, TextMark};
-use crate::components::user::{BackgroundColor, BorderColor, BoxShadow, Canvas, TextContent};
-use crate::resource::draw_obj::{PosUv1VertexLayout, PosUv2VertexLayout, PosUvColorVertexLayout, PosVertexLayout};
+use crate::components::draw_obj::{BackgroundColorMark, BackgroundImageMark, BorderColorMark, BorderImageMark, BoxShadowMark, CanvasMark};
+use crate::components::user::{BackgroundColor, BorderColor, BoxShadow, Canvas};
+use crate::resource::draw_obj::{PosUv1VertexLayout, PosUv2VertexLayout, PosVertexLayout};
 use crate::resource::{
     BackgroundColorRenderObjType, BackgroundImageRenderObjType, BorderColorRenderObjType, BorderImageRenderObjType, BoxShadowRenderObjType,
-    CanvasRenderObjType, TextRenderObjType,
+    CanvasRenderObjType
 };
 use crate::{
     components::{
-        calc::{BackgroundImageTexture, BorderImageTexture, NodeState},
+        calc::{BackgroundImageTexture, BorderImageTexture},
         user::{BackgroundImage, BorderImage},
     },
-    resource::ShareFontSheet,
 };
 
-use self::calc_background_image::calc_background_image_texture;
+use self::{calc_background_image::calc_background_image_texture, calc_text::UiTextPlugin};
 use super::draw_obj::set_world_marix::set_matrix_group;
 
 pub mod calc_background_color;
@@ -91,28 +90,7 @@ impl Plugin for UiReadyDrawPlugin {
                     .before(set_matrix_group),
             )
             // 文字功能
-            .init_resource::<ShareFontSheet>()
-            .add_frame_event::<ComponentEvent<Changed<NodeState>>>()
-            .add_system(calc_text::text_split.before(super::node::layout::calc_layout).in_set(UiSystemSet::Layout))
-            .add_system(
-                calc_text::text_glyph
-                    .after(super::node::world_matrix::cal_matrix)
-                    .before(calc_text::calc_text)
-                    .in_set(UiSystemSet::Matrix),
-            )
-            .add_frame_event::<ComponentEvent<Changed<TextContent>>>()
-            .add_system(
-                life_drawobj::draw_object_life::<
-                    TextContent,
-                    TextRenderObjType,
-                    TextMark,
-                    PosUvColorVertexLayout,
-                    crate::shader::text::ProgramMeta,
-                    { calc_text::TEXT_ORDER },
-                >
-                    .in_set(UiSystemSet::LifeDrawObject),
-            )
-            .add_system(calc_text::calc_text.in_set(UiSystemSet::PrepareDrawObj).before(set_matrix_group))
+            .add_plugin(UiTextPlugin)
             // 背景颜色功能
             .add_frame_event::<ComponentEvent<Changed<BackgroundColor>>>()
             .add_system(

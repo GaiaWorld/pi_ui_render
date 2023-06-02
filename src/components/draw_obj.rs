@@ -14,7 +14,7 @@ pub use super::root::{ClearColorBindGroup, CopyFboToScreen, DynTargetType};
 
 pub struct DrawObject;
 
-#[derive(Debug, Default, Component, Deref, DerefMut)]
+#[derive(Debug, Default, Component, Deref)]
 pub struct DrawState(DrawState1);
 
 /// 是否使用单位四边形渲染
@@ -33,7 +33,7 @@ pub enum BoxType {
 }
 
 // /// vs shader的宏开关
-// #[derive(Deref, DerefMut, Default, Debug, Clone, Component)]
+// #[derive(Deref, Default, Debug, Clone, Component)]
 // pub struct VSDefines(pub XHashSet<Atom>);
 
 // impl Hash for VSDefines {
@@ -45,7 +45,7 @@ pub enum BoxType {
 // }
 
 // /// fs shader的宏开关
-// #[derive(Deref, DerefMut, Default, Debug, Clone, Component)]
+// #[derive(Deref, Default, Debug, Clone, Component)]
 // pub struct FSDefines(pub XHashSet<Atom>);
 
 // impl Hash for FSDefines {
@@ -104,8 +104,9 @@ pub struct BackgroundImageMark;
 pub struct TextMark;
 
 // 标记文字阴影 放在DrawObject原型中，可以区分不同类型的DarwObject， 使得系统能够更好的并行
-#[derive(Debug, Component, Default)]
-pub struct TextShadowMark;
+// TextShadowMark.0表示是第几个Shadow创建的DrawObj
+#[derive(Debug, Component, Default, Deref)]
+pub struct TextShadowMark(pub usize);
 
 // 标记BorderColor 放在DrawObject原型中，可以区分不同类型的DarwObject， 使得系统能够更好的并行
 #[derive(Debug, Component, Default)]

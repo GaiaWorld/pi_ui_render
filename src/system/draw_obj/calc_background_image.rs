@@ -107,8 +107,8 @@ pub fn calc_background_image_texture(
                 Some(r) => r,
                 None => continue,
             };
-            if let Some(draw_id) = draw_list.get(****render_type as u32) {
-                if let Ok(mut draw_state) = query_draw.get_mut(*draw_id) {
+            if let Some(draw_id) = draw_list.get_one(***render_type) {
+                if let Ok(mut draw_state) = query_draw.get_mut(draw_id.id) {
                     let texture_group_key = calc_hash(&image.0.get_hash(), calc_hash(&"image texture", 0));
                     // texture BindGroup
                     let texture_group = match group_assets.get(&texture_group_key) {
@@ -303,7 +303,7 @@ fn get_pos_uv(src: &Handle<TextureRes>, clip: &NotNanRect, fit: &BackgroundImage
     (Aabb2::new(p1, p2), Aabb2::new(uv1, uv2), texture_size, false)
 }
 
-#[derive(Clone, DerefMut, Deref)]
+#[derive(Clone, Deref)]
 pub struct BackgroundImageAwait(Share<ShareMutex<Vec<(Entity, Atom, Handle<TextureRes>)>>>);
 
 impl Default for BackgroundImageAwait {
@@ -459,6 +459,8 @@ pub fn push_u_arr(
     }
     push_quad(index_arr, pt1, pt2, p3, p4);
 }
+
+
 
 // 按比例缩放到容器大小，居中显示
 fn fill(size: &Vector2, p1: &mut Point2, p2: &mut Point2, w: f32, h: f32) {

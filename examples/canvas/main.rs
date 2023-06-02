@@ -7,7 +7,6 @@ use std::mem::swap;
 
 use async_trait::async_trait;
 use bevy::prelude::{Commands, Component, Deref, World};
-use derive_deref::DerefMut;
 use framework::Example;
 /// 渲染四边形 demo
 use pi_flex_layout::style::{Dimension, PositionType};
@@ -43,7 +42,7 @@ impl Default for QuadExample {
     }
 }
 
-#[derive(Debug, Component, Deref, DerefMut)]
+#[derive(Debug, Component, Deref)]
 pub struct RootTarget(EntityKey);
 
 // pub fn add_root_depend(

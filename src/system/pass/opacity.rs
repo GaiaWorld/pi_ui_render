@@ -7,9 +7,9 @@ use pi_bevy_ecs_extend::system_param::res::OrInitRes;
 
 use crate::{components::user::Opacity, resource::RenderContextMarkType};
 
-use pi_postprocess::effect::alpha::Alpha;
+use pi_postprocess::effect::Alpha;
 
-use crate::components::pass_2d::PostProcessList;
+use crate::components::pass_2d::{PostProcess, PostProcessInfo};
 
 
 /// 处理opacity属性
@@ -18,24 +18,24 @@ use crate::components::pass_2d::PostProcessList;
 pub fn opacity_post_process(
     mut del: RemovedComponents<Opacity>,
     mark_type: OrInitRes<RenderContextMarkType<Opacity>>,
-    mut query: ParamSet<(Query<(&Opacity, &mut PostProcessList), Changed<Opacity>>, Query<&mut PostProcessList>)>,
+    mut query: ParamSet<(Query<(&Opacity, &mut PostProcess, &mut PostProcessInfo), Changed<Opacity>>, Query<(&mut PostProcess, &mut PostProcessInfo)>)>,
 ) {
     // opacity 如果删除， 取消opacity的后处理
     let mut p1 = query.p1();
     for del in del.iter() {
-        if let Ok(mut post_list) = p1.get_mut(del) {
+        if let Ok((mut post_list, mut post_info)) = p1.get_mut(del) {
             post_list.alpha = None;
-            post_list.effect_mark.set(***mark_type, false);
+            post_info.effect_mark.set(***mark_type, false);
         }
     }
 
-    for (opacity, mut post_list) in query.p0().iter_mut() {
+    for (opacity, mut post_list, mut post_info) in query.p0().iter_mut() {
         if **opacity >= 1.0 {
             post_list.alpha = None;
-            post_list.effect_mark.set(***mark_type, false);
+            post_info.effect_mark.set(***mark_type, false);
         } else {
             post_list.alpha = Some(Alpha { a: opacity.0 });
-            post_list.effect_mark.set(***mark_type, true);
+            post_info.effect_mark.set(***mark_type, true);
         }
     }
 }

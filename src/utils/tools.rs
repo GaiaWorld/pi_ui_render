@@ -10,11 +10,11 @@ use pi_bevy_ecs_extend::{
 use pi_dirty::LayerDirty as LayerDirty1;
 use pi_flex_layout::prelude::{Rect, Size};
 use pi_hash::DefaultHasher;
-use pi_style::style::LengthUnit;
+use pi_style::style::{LengthUnit, BorderRadius};
 
 use crate::components::{
     calc::LayoutResult,
-    user::{Aabb2, BorderRadius, Matrix4, Point2, Vector4},
+    user::{Aabb2, Matrix4, Point2, Vector4},
 };
 
 const EPSILON: f32 = std::f32::EPSILON * 1024.0;
@@ -91,7 +91,7 @@ pub struct BorderRadiusPixel {
 }
 
 /// 计算圆角半径
-pub fn cal_border_radius(border_radius: &BorderRadius, layout: &LayoutResult) -> BorderRadiusPixel {
+pub fn cal_border_radius(border_radius: &BorderRadius, rect: &Rect<f32>) -> BorderRadiusPixel {
     #[inline]
     fn trans(l: LengthUnit, size: f32) -> f32 {
         match l {
@@ -99,7 +99,7 @@ pub fn cal_border_radius(border_radius: &BorderRadius, layout: &LayoutResult) ->
             LengthUnit::Percent(r) => r * size,
         }
     }
-    let (width, height) = (layout.rect.right - layout.rect.left, layout.rect.bottom - layout.rect.top);
+    let (width, height) = (rect.right - rect.left, rect.bottom - rect.top);
     let mut r = BorderRadiusPixel {
         x: [
             trans(border_radius.x[0], width),

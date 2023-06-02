@@ -10,7 +10,7 @@ use pi_style::style::{Aabb2, CgColor, Point2};
 use super::{draw_obj::DrawState, pass_2d::DirtyRect};
 
 /// 视口
-#[derive(Clone, Serialize, Deserialize, Deref, DerefMut, Debug, Component)]
+#[derive(Clone, Serialize, Deserialize, Deref, Debug, Component)]
 pub struct Viewport(pub Aabb2);
 
 impl Default for Viewport {
@@ -25,7 +25,7 @@ impl Default for ClearColor {
     fn default() -> Self { Self(CgColor::new(0.0, 0.0, 0.0, 0.0), false) }
 }
 
-#[derive(Clone, Debug, Deref, DerefMut, Default, Component)]
+#[derive(Clone, Debug, Deref, Default, Component)]
 pub struct RenderDirty(pub bool);
 
 /// 清屏颜色的bindgroup（用户设置）
@@ -55,5 +55,5 @@ pub enum RenderTargetType {
 #[derive(Component, Default)]
 pub struct CopyFboToScreen(pub Option<DrawState>);
 
-#[derive(Component, Default, Deref, DerefMut, Debug)]
+#[derive(Component, Default, Deref, Debug)]
 pub struct RootDirtyRect(pub DirtyRect);

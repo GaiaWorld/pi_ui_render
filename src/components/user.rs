@@ -5,7 +5,7 @@ use std::mem::transmute;
 
 use bevy::{
     ecs::prelude::{Changed, Component, DetectChangesMut},
-    prelude::Entity,
+    prelude::{Entity, DerefMut},
 };
 use bitvec::prelude::BitArray;
 use ordered_float::NotNan;
@@ -21,7 +21,7 @@ pub use pi_style::style::{
 };
 use pi_style::style::{
     BlendMode as BlendMode1, BorderImageSlice as BorderImageSlice1, BorderRadius as BorderRadius1, BoxShadow as BoxShadow1, Hsi as Hsi1,
-    MaskImage as MaskImage1, TextContent as TextContent1, AllTransform,
+    MaskImage as MaskImage1, TextContent as TextContent1, AllTransform, BaseShape,
 };
 
 use super::calc::NeedMark;
@@ -37,17 +37,17 @@ pub type Vector4 = nalgebra::Vector4<f32>;
 
 // type Rectf32 = NotNanRect;
 
-#[derive(Deref, DerefMut, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize, Debug, Component)]
+#[derive(Deref, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize, Debug, Component)]
 #[component(storage = "SparseSet")]
 pub struct ZIndex(pub isize);
 
-#[derive(Clone, Default, Deref, DerefMut, Debug, Serialize, Deserialize, Component)]
+#[derive(Clone, Default, Deref, Debug, Serialize, Deserialize, Component)]
 pub struct NodeState(pub INode);
 
-#[derive(Clone, Default, Deref, DerefMut, Debug, Serialize, Deserialize, Component)]
+#[derive(Clone, Default, Deref, Debug, Serialize, Deserialize, Component)]
 pub struct BoxShadow(pub BoxShadow1);
 
-#[derive(Clone, Default, Deref, DerefMut, Debug, Serialize, Deserialize, Component)]
+#[derive(Clone, Default, Deref, Debug, Serialize, Deserialize, Component)]
 pub struct Hsi(pub Hsi1);
 
 impl NeedMark for Hsi {
@@ -61,10 +61,44 @@ impl NeedMark for Hsi {
     }
 }
 
-#[derive(Clone, Default, Deref, DerefMut, Debug, Serialize, Deserialize, Component)]
+#[derive(Clone, Default, Deref, Debug, Serialize, Deserialize, Component)]
 pub struct MaskImage(pub MaskImage1);
 
-#[derive(Clone, Default, Deref, DerefMut, Debug, Serialize, Deserialize, Component)]
+impl NeedMark for MaskImage {
+    fn need_mark(&self) -> bool {
+        true
+    }
+}
+
+impl From<Atom> for MaskImage {
+    fn from(value: Atom) -> Self {
+        Self(MaskImage1::Path(value))
+    }
+}
+
+// 仅支持Atom的比较， 如果是渐变颜色，一律不相等
+impl PartialEq for MaskImage {
+    fn eq(&self, other: &Self) -> bool {
+		if let MaskImage1::Path(r1) = &self.0 {
+			if let MaskImage1::Path(r2) = &other.0 {
+				if r1 == r2 {
+					return true
+				}
+			}
+		}
+		false
+    }
+}
+
+#[derive(Clone, Default, Deref, Debug, Serialize, Deserialize, Component)]
+pub struct ClipPath(pub BaseShape);
+impl NeedMark for ClipPath {
+    fn need_mark(&self) -> bool {
+        true
+    }
+}
+
+#[derive(Clone, Default, Deref, Debug, Serialize, Deserialize, Component)]
 pub struct BlendMode(pub BlendMode1);
 
 #[derive(Default, Debug, Clone, Serialize, Deserialize, Component)]
@@ -97,7 +131,7 @@ pub struct BackgroundImageMod {
     pub repeat: ImageRepeat,
 }
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize, Deref, DerefMut, Component)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, Deref, Component)]
 pub struct Blur(pub f32);
 
 impl NeedMark for Blur {
@@ -111,18 +145,18 @@ impl NeedMark for Blur {
     }
 }
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize, Deref, DerefMut, Component)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, Deref, Component)]
 pub struct BorderRadius(pub BorderRadius1);
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize, Deref, DerefMut, Component, Hash)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, Deref, Component, Hash)]
 pub struct BorderImageSlice(pi_style::style::BorderImageSlice);
 
 /// 布局大小
-#[derive(Default, Deref, DerefMut, Clone, Serialize, Deserialize, Debug, Component)]
+#[derive(Default, Deref, Clone, Serialize, Deserialize, Debug, Component)]
 pub struct Size(pub FlexSize<Dimension>);
 
 //超出部分的裁剪方式
-#[derive(Deref, DerefMut, Clone, Default, Serialize, Deserialize, Debug, Component)]
+#[derive(Deref, Clone, Default, Serialize, Deserialize, Debug, Component)]
 pub struct Overflow(pub bool);
 
 impl NeedMark for Overflow {
@@ -137,7 +171,7 @@ impl NeedMark for Overflow {
 }
 
 //不透明度
-#[derive(Deref, DerefMut, Clone, Debug, Serialize, Deserialize, Component)]
+#[derive(Deref, Clone, Debug, Serialize, Deserialize, Component)]
 pub struct Opacity(pub f32);
 
 impl NeedMark for Opacity {
@@ -151,12 +185,12 @@ impl NeedMark for Opacity {
     }
 }
 
-#[derive(Deref, DerefMut, Clone, Debug, Serialize, Deserialize, Component, Default)]
+#[derive(Deref, Clone, Debug, Serialize, Deserialize, Component, Default)]
 pub struct TextContent(pub TextContent1);
 
 
 // 将display、visibility、enable合并为show组件
-#[derive(Deref, DerefMut, Clone, Debug, PartialEq, Serialize, Deserialize, Component)]
+#[derive(Deref, Clone, Debug, PartialEq, Serialize, Deserialize, Component)]
 pub struct Show(pub usize);
 
 // 变换
@@ -176,22 +210,28 @@ impl Transform {
 pub struct BackgroundColor(pub Color);
 
 // class名称， 支持多个class， 当只有一个或两个class时， 有优化
-#[derive(Debug, Clone, Default, Serialize, Deserialize, Deref, DerefMut, Component)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, Deref, Component)]
 pub struct ClassName(pub SmallVec<[usize; 1]>);
 
 // 边框颜色
-#[derive(Debug, Clone, Default, Serialize, Deserialize, Deref, DerefMut, Component)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, Deref, Component)]
 pub struct BorderColor(pub CgColor);
 
 // 图片路劲及纹理
-#[derive(Debug, Deref, DerefMut, Clone, Serialize, Deserialize, Default, Hash, Component)]
+#[derive(Debug, Deref, Clone, Serialize, Deserialize, Default, Hash, Component, PartialEq, Eq)]
 pub struct BackgroundImage(pub Atom);
+
+impl From<Atom> for BackgroundImage {
+    fn from(value: Atom) -> Self {
+        BackgroundImage(value)
+    }
+}
 
 impl BackgroundImage {
     pub fn set_url() {}
 }
 
-#[derive(Debug, Deref, DerefMut, Clone, Serialize, Deserialize, Component)]
+#[derive(Debug, Deref, Clone, Serialize, Deserialize, Component)]
 pub struct MaskImageClip(pub NotNanRect);
 
 impl Default for MaskImageClip {
@@ -208,7 +248,7 @@ impl Default for MaskImageClip {
 }
 
 // image图像的uv（仅支持百分比， 不支持像素值）
-#[derive(Debug, Deref, DerefMut, Clone, Serialize, Deserialize, Component)]
+#[derive(Debug, Deref, Clone, Serialize, Deserialize, Component)]
 pub struct BackgroundImageClip(pub NotNanRect);
 
 impl Default for BackgroundImageClip {
@@ -225,11 +265,17 @@ impl Default for BackgroundImageClip {
 }
 
 // 边框图片
-#[derive(Debug, Deref, DerefMut, Clone, Serialize, Deserialize, Default, Hash, Component)]
+#[derive(Debug, Deref, Clone, Serialize, Deserialize, Default, Hash, Component, PartialEq, Eq)]
 pub struct BorderImage(pub Atom);
 
+impl From<Atom> for BorderImage {
+    fn from(value: Atom) -> Self {
+        Self(value)
+    }
+}
+
 // borderImage图像的uv（仅支持百分比， 不支持像素值）
-#[derive(Debug, Deref, DerefMut, Clone, Serialize, Deserialize, Component, Hash)]
+#[derive(Debug, Deref, Clone, Serialize, Deserialize, Component, Hash)]
 pub struct BorderImageClip(pub NotNanRect);
 
 impl Default for BorderImageClip {
@@ -245,7 +291,7 @@ impl Default for BorderImageClip {
     }
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize, Hash, Deref, DerefMut, Component)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, Hash, Deref, Component)]
 pub struct BorderImageRepeat(pub ImageRepeat);
 
 #[derive(Debug, Clone, Serialize, Deserialize, Component)]
@@ -266,7 +312,7 @@ pub struct TextStyle {
     pub font_family: Atom,     //	规定字体系列。参阅：font-family 中可能的值。
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Component, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Component, Default, Deref)]
 pub struct TextShadow(pub TextShadowList);
 
 impl Default for TextStyle {
@@ -347,18 +393,18 @@ impl Default for Show {
 }
 
 /// 布局外边距
-#[derive(Default, Deref, DerefMut, Clone, Serialize, Deserialize, Debug, Component)]
+#[derive(Default, Deref, Clone, Serialize, Deserialize, Debug, Component)]
 pub struct Margin(pub Rect<Dimension>);
 
 /// 布局内边距
-#[derive(Default, Deref, DerefMut, Clone, Serialize, Deserialize, Debug, Component)]
+#[derive(Default, Deref, Clone, Serialize, Deserialize, Debug, Component)]
 pub struct Padding(pub Rect<Dimension>);
 
 /// 布局边框尺寸
-#[derive(Default, Deref, DerefMut, Clone, Serialize, Deserialize, Debug, Component)]
+#[derive(Default, Deref, Clone, Serialize, Deserialize, Debug, Component)]
 pub struct Border(pub Rect<Dimension>);
 
-#[derive(Deref, DerefMut, Clone, Serialize, Deserialize, Debug, Component)]
+#[derive(Deref, Clone, Serialize, Deserialize, Debug, Component)]
 pub struct Position(pub Rect<Dimension>);
 
 #[derive(Default, Clone, Serialize, Deserialize, Debug, Component)]
@@ -429,7 +475,7 @@ impl Default for FlexNormal {
 }
 
 /// 绘制canvas的图节点
-#[derive(Debug, Clone, Serialize, Deserialize, Component, Deref, DerefMut)]
+#[derive(Debug, Clone, Serialize, Deserialize, Component, Deref)]
 pub struct Canvas(pub Entity);
 
 /// 显示改变（一般是指canvas，gui不能感知除了style属性以外的属性改变，如果canvas内容发生改变，应该通过style设置，以便gui能感知，从而设置脏区域）
@@ -2399,6 +2445,7 @@ pub mod serialize {
 
     impl_style!(@pack MaskImageType, mask_image, MaskImage, MaskImage1);
     impl_style!(@pack MaskImageClipType, mask_image_clip, MaskImageClip, NotNanRect);
+	impl_style!(@pack ClipPathType, clip_path, ClipPath, BaseShape);
 
     impl_style!(WidthType, size, Size, width, Width, Dimension);
     impl_style!(HeightType, size, Size, height, Height, Dimension);
@@ -2645,7 +2692,7 @@ pub mod serialize {
             StyleFunc::new::<AnimationDirectionType>(), // 84
             StyleFunc::new::<AnimationFillModeType>(), // 85
             StyleFunc::new::<AnimationPlayStateType>(), // 86
-			StyleFunc::new::<EmptyType>(), // 87
+			StyleFunc::new::<ClipPathType>(), // 87
 			StyleFunc::new::<TranslateType>(), // 88
 			StyleFunc::new::<ScaleType>(), // 89
 			StyleFunc::new::<RotateType>(), // 90
@@ -2758,7 +2805,7 @@ pub mod serialize {
             StyleFunc::new::<ResetAnimationFillModeType>(), // 85
             StyleFunc::new::<ResetAnimationPlayStateType>(), // 86
 
-			StyleFunc::new::<EmptyType>(), // 87
+			StyleFunc::new::<ResetClipPathType>(), // 87
 			StyleFunc::new::<ResetTranslateType>(), // 88
 			StyleFunc::new::<ResetScaleType>(), // 89
 			StyleFunc::new::<ResetRotateType>(), // 90
@@ -2811,6 +2858,7 @@ pub mod serialize {
                 mask_image_clip: world.init_component::<MaskImageClip>(),
                 hsi: world.init_component::<Hsi>(),
                 blur: world.init_component::<Blur>(),
+				clip_path: world.init_component::<ClipPath>(),
                 background_image_mod: world.init_component::<BackgroundImageMod>(),
                 border_image: world.init_component::<BorderImage>(),
                 border_image_texture: world.init_component::<BorderImageTexture>(),
@@ -2857,6 +2905,7 @@ pub mod serialize {
         pub mask_image_clip: ComponentId,
         pub hsi: ComponentId,
         pub blur: ComponentId,
+		pub clip_path: ComponentId,
         pub background_image_mod: ComponentId,
         pub border_image: ComponentId,
         pub border_image_texture: ComponentId,
@@ -2902,6 +2951,7 @@ pub mod serialize {
         pub mask_image_clip: ComponentId,
         pub hsi: ComponentId,
         pub blur: ComponentId,
+		pub clip_path: ComponentId,
         pub background_image_mod: ComponentId,
         pub border_image: ComponentId,
         pub border_image_clip: ComponentId,
@@ -3072,6 +3122,13 @@ pub mod serialize {
                     world
                         .components()
                         .get_resource_id(std::any::TypeId::of::<DefaultComponent<Blur>>())
+                        .unwrap()
+                },
+				clip_path: {
+                    world.init_resource::<DefaultComponent<ClipPath>>();
+                    world
+                        .components()
+                        .get_resource_id(std::any::TypeId::of::<DefaultComponent<ClipPath>>())
                         .unwrap()
                 },
                 background_image_mod: {
