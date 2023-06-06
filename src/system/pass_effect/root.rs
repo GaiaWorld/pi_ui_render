@@ -13,9 +13,8 @@ use pi_bevy_ecs_extend::{
 use crate::{
     components::{calc::RenderContextMark, RootBundle},
     resource::RenderContextMarkType,
+	system::pass::pass_life::render_mark_true,
 };
-
-use super::calc_pass::render_mark_true;
 
 /// 处理根节点
 /// 如果Root组件被移除，则移除RootBundle

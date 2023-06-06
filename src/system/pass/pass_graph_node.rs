@@ -357,7 +357,7 @@ impl Node for Pass2DNode {
                     // pipelines: &Share<AssetMgr<RenderRes<RenderPipeline>>>,
                     // target_type: TargetType,
 
-                    if let Ok((post_process, post_info, _graph_id)) = post_list {
+                    if let Ok((post_process, _post_info, _graph_id)) = post_list {
                         if let Some(rt) = rt {
                             let rect = rt.rect().clone();
                             let (w, h) = ((rect.max.x - rect.min.x) as u32, (rect.max.y - rect.min.y) as u32);
@@ -609,7 +609,7 @@ impl Pass2DNode {
 					blend: Some(wgpu::BlendState {
 						color: wgpu::BlendComponent {
 							operation: wgpu::BlendOperation::Add,
-							src_factor: wgpu::BlendFactor::One,
+							src_factor: wgpu::BlendFactor::SrcAlpha,
 							dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
 						},
 						alpha: wgpu::BlendComponent {

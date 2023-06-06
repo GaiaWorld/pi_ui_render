@@ -24,10 +24,10 @@ use smallvec::smallvec;
 
 fn main() { framework::start(QuadExample::default()) }
 use pi_style::{
-    style::{Aabb2, Point2, TextContent, TextShadow},
+    style::{Aabb2, Point2, TextContent, TextShadow, },
     style_type::{
         ColorType, FontFamilyType, FontSizeType, HeightType, MarginLeftType, MarginTopType, PositionLeftType, PositionTopType, PositionTypeType,
-        TextContentType, WidthType, TextShadowType,
+        TextContentType, WidthType, TextShadowType, BackgroundColorType
     },
 };
 
@@ -63,6 +63,8 @@ impl Example for QuadExample {
         self.cmd.set_style(root, PositionTopType(Dimension::Points(0.0)));
         self.cmd.set_style(root, MarginLeftType(Dimension::Points(0.0)));
         self.cmd.set_style(root, MarginTopType(Dimension::Points(0.0)));
+		self.cmd
+		.set_style(root, BackgroundColorType(Color::RGBA(CgColor::new(1.0, 1.0, 1.0, 1.0))));
 
         self.cmd.append(root, EntityKey::null().0);
 
@@ -75,7 +77,11 @@ impl Example for QuadExample {
         self.cmd
             .set_style(div1, TextContentType(TextContent("base02".to_string(), Atom::from("base02"))));
 		self.cmd
-            .set_style(div1, TextShadowType(smallvec![TextShadow { h: 0.0, v: 0.0, blur: 3.0, color: CgColor::new(1.0, 0.0, 0.0, 1.0)}]));
+            .set_style(div1, TextShadowType(smallvec![
+				TextShadow { h: 0.0, v: 0.0, blur: 5.0, color: CgColor::new(1.0, 0.0, 0.0, 1.0)},
+				TextShadow { h: 0.0, v: 0.0, blur: 3.0, color: CgColor::new(1.0, 0.0, 0.0, 1.0)},
+			]));
+			// rgb(255,0,0) 0px 0px 5px, rgb(255,0,0) 0px 0px 3px, rgb(255,255,255) 0px 0px 1px;
         self.cmd.set_style(div1, FontFamilyType(Atom::from("hwkt")));
         self.cmd.set_style(div1, ColorType(Color::RGBA(CgColor::new(0.0, 1.0, 0.0, 1.0))));
         self.cmd.set_style(div1, FontSizeType(FontSize::Length(17)));

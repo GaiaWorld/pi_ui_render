@@ -600,7 +600,7 @@ pub struct NodeId(pub EntityKey);
 pub struct DefineMark(bitvec::prelude::BitArray);
 
 /// 每节点的渲染列表
-#[derive(Deref, Default, Debug, Component)]
+#[derive(Deref, Default, Debug, Component, Clone)]
 pub struct DrawList(pub SmallVec<[DrawObjId;1]>); // 通常只会有一个DrawObject
 
 impl DrawList {
@@ -631,7 +631,7 @@ impl DrawList {
 }
 
 /// 节点上握住DrawObj的id
-#[derive(Debug, Component)]
+#[derive(Debug, Component, Clone)]
 pub struct DrawObjId {
 	pub ty: RenderObjType,
 	pub id: Entity,

@@ -9,8 +9,8 @@ use self::system_set::UiSystemSet;
 
 pub mod draw_obj;
 pub mod node;
+pub mod pass_effect;
 pub mod pass;
-pub mod render;
 pub mod shader_utils;
 pub mod system_set;
 pub mod utils;
@@ -37,7 +37,7 @@ impl AddEvent for App {
     fn add_frame_event<T: Event>(&mut self) -> &mut Self {
         if !self.world.contains_resource::<Events<T>>() {
             self.init_resource::<Events<T>>()
-                .add_system(Events::<T>::update_system.run_if(should_run).after(UiSystemSet::PreparePass));
+                .add_system(Events::<T>::update_system.run_if(should_run).after(UiSystemSet::PassCalc));
         }
         self
     }

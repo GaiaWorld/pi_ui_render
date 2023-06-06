@@ -9,15 +9,15 @@ use pi_slotmap::Key;
 use crate::{
     components::{
         calc::{InPassId, RenderContextMark},
-        pass_2d::{Camera, GraphId, ParentPassId, PostProcess, PostProcessInfo},
+        pass_2d::{Camera, GraphId, ParentPassId, PostProcessInfo},
         user::Canvas,
     },
-    system::render::pass_graph_node::Pass2DNode,
+    system::pass::pass_graph_node::Pass2DNode,
 };
 
 pub fn update_graph(
     mut pass_query: ParamSet<(
-        Query<(&mut GraphId, Entity, &ParentPassId, &PostProcess, &PostProcessInfo), Or<(Added<Camera>, Changed<RenderContextMark>)>>,
+        Query<(&mut GraphId, Entity, &ParentPassId, &PostProcessInfo), Or<(Added<Camera>, Changed<RenderContextMark>)>>,
         Query<&GraphId>,
         (Query<(&ParentPassId, &GraphId), Changed<ParentPassId>>, Query<(&ParentPassId, &GraphId)>),
     )>,
@@ -28,7 +28,7 @@ pub fn update_graph(
 ) {
     // 创建渲染图节点
     // 插入Draw2DList
-    for (mut graph_id, entity, parent_passs_id, post_list, post_info) in pass_query.p0().iter_mut() {
+    for (mut graph_id, entity, parent_passs_id, post_info) in pass_query.p0().iter_mut() {
         if post_info.has_effect() || pi_null::Null::is_null(&parent_passs_id.0) {
             // 存在后处理效果，或者节点本身是根节点， 才能成为一个渲染节点
             if !graph_id.0.is_null() {

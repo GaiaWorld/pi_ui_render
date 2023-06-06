@@ -163,10 +163,10 @@ pub fn get_content_size(layout: &LayoutResult) -> Size<NotNan<f32>> {
 #[inline]
 pub fn get_content_rect(layout: &LayoutResult) -> Rect<NotNan<f32>> {
     Rect {
-        top: unsafe { NotNan::new_unchecked(layout.border.top + layout.border.top) },
-        right: unsafe { NotNan::new_unchecked(layout.rect.right - layout.border.right) },
-        bottom: unsafe { NotNan::new_unchecked(layout.rect.bottom - layout.border.bottom) },
-        left: unsafe { NotNan::new_unchecked(layout.rect.left + layout.border.left) },
+        top: unsafe { NotNan::new_unchecked(layout.border.top) },
+        right: unsafe { NotNan::new_unchecked(layout.rect.right - layout.border.right - layout.rect.left) },
+        bottom: unsafe { NotNan::new_unchecked(layout.rect.bottom - layout.border.bottom - layout.rect.top) },
+        left: unsafe { NotNan::new_unchecked(layout.border.left) },
     }
 }
 

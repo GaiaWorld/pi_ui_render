@@ -2,7 +2,7 @@ use std::borrow::BorrowMut;
 
 use bevy::ecs::prelude::{DetectChanges, Ref};
 use bevy::ecs::query::{Changed, Or, With};
-use bevy::prelude::IntoSystemConfig;
+use bevy::prelude::{IntoSystemConfig, Component};
 use bevy::ecs::system::{Local, Query, Res, SystemState, SystemParam};
 use bevy::prelude::{Without, World, Entity, EventReader, RemovedComponents, ParamSet, EventWriter, ResMut, Plugin};
 use pi_bevy_asset::ShareAssetMgr;
@@ -31,20 +31,22 @@ use crate::components::DrawBundle;
 use crate::components::calc::{NodeState, NodeId, DrawList, EntityKey, DrawInfo, RenderContextMark, WorldMatrix};
 use crate::components::draw_obj::{PipelineMeta, TextMark, TextShadowMark, BoxType, DynTargetType};
 use crate::components::pass_2d::{PostProcess, Camera, ParentPassId};
-use crate::components::user::TextShadow;
+use crate::components::user::{TextShadow, Matrix4};
 use crate::resource::draw_obj::{EmptyVertexBuffer, TextTextureGroup, ProgramMetaRes, PosUvColorVertexLayout, ShaderInfoCache, ShareGroupAlloter, UiMaterialGroup, ClearDrawObj, DynFboClearColorBindGroup};
 use crate::resource::{ShareFontSheet, TextShadowRenderObjType, RenderContextMarkType, TextRenderObjType};
 use crate::shader::camera::CameraBind;
 use crate::shader::depth::DepthBind;
 use crate::shader::text::{PositionVert, SampBind, UvVert};
-use crate::shader::ui_meterial::{ColorUniform, TextureSizeOrBottomLeftBorderUniform, UiMaterialBind, StrokeColorOrURectUniform};
+use crate::shader::ui_meterial::{ColorUniform, TextureSizeOrBottomLeftBorderUniform, UiMaterialBind, StrokeColorOrURectUniform, WorldUniform};
 use crate::components::draw_obj::DrawState;
 use crate::system::AddEvent;
-use crate::system::pass::calc_pass::{render_mark_true, cal_context};
-use crate::system::render::pass_graph_node::{create_rp_for_fbo};
+use crate::system::pass::pass_life::{render_mark_true, cal_context};
+use crate::system::pass::pass_graph_node::create_rp_for_fbo;
 use crate::system::pass::update_graph::{get_to, update_graph};
 use crate::system::system_set::UiSystemSet;
 use crate::shader::text::SHADOW_DEFINE;
+
+use super::text::calc_text;
 
 
 /// 文字阴影插件
@@ -54,14 +56,17 @@ impl Plugin for UiTextShadowPlugin {
     fn build(&self, app: &mut bevy::app::App) {
         app
             .add_frame_event::<ComponentEvent<Changed<TextShadow>>>()
-            .add_system(text_shadow_life.in_set(UiSystemSet::LifeDrawObject).in_set(UiSystemSet::ContextMark).before(cal_context),)
-            .add_system(calc_text_shadow.in_set(UiSystemSet::PreparePass).after(UiSystemSet::PrepareDrawObFlush))
-			.add_system(calc_graph_depend.in_set(UiSystemSet::PreparePass).after(update_graph))
+            .add_system(text_shadow_life.in_set(UiSystemSet::LifeDrawObject).in_set(UiSystemSet::PassMark).before(cal_context),)
+            .add_system(calc_text_shadow.in_set(UiSystemSet::PrepareDrawObj).in_set(UiSystemSet::PassSetting).after(calc_text))
+			.add_system(calc_graph_depend.in_set(UiSystemSet::PassCalc).after(update_graph))
 		;
 	}
 }
 
 pub const TEXT_SHADOW_ORDER: u8 = 7;
+
+#[derive(Debug, Component)]
+pub struct TextShadowColorBindGroup(DrawBindGroup);
 
 // 文字阴影的生命周期管理
 // PosUvColorVertexLayout,
@@ -78,7 +83,7 @@ pub fn text_shadow_life(
         RemovedComponents<TextShadow>,
 		ParamSet<(
 			Query<(Option<&'static TextShadow>, &'static mut DrawList, &'static mut RenderContextMark)>,
-			Query<(&'static TextShadow, &'static mut DrawList, &'static mut RenderContextMark, Entity), Changed<TextShadow>>,
+			Query<(&'static TextShadow, &'static mut DrawList, &'static mut RenderContextMark), Changed<TextShadow>>,
 			Query<&'static mut DrawList>,
 		)>,
 		Query<&'static TextShadowMark>,
@@ -125,7 +130,7 @@ pub fn text_shadow_life(
 
     // 收集需要创建DrawObject的实体
     for changed in changed.iter() {
-        if let Ok((shadow, mut draw_list, mut render_mark_value, entity)) = query.p1().get_mut(changed.id) {
+        if let Ok((shadow, mut draw_list, mut render_mark_value)) = query.p1().get_mut(changed.id) {
 			render_mark_true(changed.id, ***mark_type, &mut event_writer, &mut render_mark_value);
 
 			let mut need_count = shadow.len();
@@ -170,6 +175,10 @@ pub fn text_shadow_life(
 			let ui_material_group = group_alloter.alloc();
 			draw_state.bindgroups.insert_group(UiMaterialBind::set(), ui_material_group);
 
+			let mut clear_group = group_alloter.alloc();
+			let world_matrix = Matrix4::new(2.0, 0.0, 0.0, -1.0, 0.0, 2.0, 0.0, -1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0);
+			let _ = clear_group.set_uniform(&WorldUniform(world_matrix.as_slice()));
+
 			will_create_draws.push(
 				world
 					.spawn((DrawBundle {
@@ -184,7 +193,7 @@ pub fn text_shadow_life(
 						},
 						draw_info: DrawInfo::new(TEXT_SHADOW_ORDER, false), //TODO
 						other: TextShadowMark(start),
-					}, PostProcess::default(), GraphId::default()))
+					}, PostProcess::default(), GraphId::default(), TextShadowColorBindGroup(clear_group.into())))
 					.id(),
 			);
 			start += 1;
@@ -220,7 +229,7 @@ pub fn calc_text_shadow(
 		(With<TextShadow>, Or<(Changed<NodeState>, Changed<TextShadow>)>),
 	>,
 
-    mut query_draw: Query<(&mut DrawState, &NodeId, &TextShadowMark, &mut PostProcess, &mut PipelineMeta, Entity), Without<TextMark>>,
+    mut query_draw: Query<(&mut DrawState, &mut TextShadowColorBindGroup, &NodeId, &TextShadowMark, &mut PostProcess, &mut PipelineMeta), Without<TextMark>>,
 	query_text_draw: Query<&DrawState, (With<TextMark>, Without<TextShadowMark>)>,
 
     text_texture_group: OrInitRes<TextTextureGroup>,
@@ -241,7 +250,7 @@ pub fn calc_text_shadow(
 	};
 
     // let mut init_spawn_drawobj = Vec::new();
-	for (mut draw_state, node_id, shadow_mark, mut post_process, mut pipeline_meta, entity) in query_draw.iter_mut() {
+	for (mut draw_state, mut clear_color_group, node_id, shadow_mark, mut post_process, mut pipeline_meta) in query_draw.iter_mut() {
 		if let Ok((node_state, node_state_change, text_shadow, world_matrix, draw_list)) = query.get(***node_id) {
 			if node_state.0.scale < 0.000001 {
 				continue;
@@ -285,6 +294,8 @@ pub fn calc_text_shadow(
 			if text_shadow.is_changed() {
 				let color: &pi_style::style::CgColor = &text_shadow[shadow_mark.0].color;
 				draw_state.bindgroups.set_uniform(&ColorUniform(&[color.x, color.y, color.z, color.w]));draw_state.bindgroups.set_uniform(&StrokeColorOrURectUniform(&[text_shadow[shadow_mark.0].h, text_shadow[shadow_mark.0].v, 0.0, 0.0]));
+
+				clear_color_group.0.set_uniform(&ColorUniform(&[color.x, color.y, color.z, 0.0]));
 			}
 
 			// 文字阴影修改，或世界矩阵修改，则重新设置模糊半径
@@ -333,7 +344,7 @@ pub fn calc_graph_depend(
 #[derive(SystemParam)]
 pub struct QueryParam<'w, 's> {
 	query_post_info: Query<'w, 's, &'static Camera>,
-	draw_query: Query<'w, 's, (&'static DrawState, &'static NodeId, &'static PostProcess)>,
+	draw_query: Query<'w, 's, (&'static DrawState, &'static NodeId, &'static PostProcess, &'static TextShadowColorBindGroup)>,
 	atlas_allocator: Res<'w, PiSafeAtlasAllocator>,
 	// 清屏相关参数
     fbo_clear_color: Res<'w, DynFboClearColorBindGroup>,
@@ -369,7 +380,7 @@ impl Node for TextShadowNode {
         let draw_id = self.0;
 		Box::pin(async move {
 			let param = query_param_state.get(world);
-			if let Ok((draw_state, node_id, post_process)) = param.draw_query.get(draw_id) {
+			if let Ok((draw_state, node_id, post_process, clear_color)) = param.draw_query.get(draw_id) {
 				if let Ok(camera) = param.query_post_info.get(***node_id) {
 					if camera.is_active {
 						let layer = match param.query_layer.get(***node_id) {
@@ -395,10 +406,11 @@ impl Node for TextShadowNode {
 							);
 
 							// 设置视口
-							let clear_color = &param.fbo_clear_color.0;
+							let clear_obj = &param.fbo_clear_color.0;
 							rp.set_viewport(clear_port.0, clear_port.1, clear_port.2, clear_port.3, 0.0, 1.0);
 							clear_color.0.set(&mut rp, UiMaterialBind::set());
-							clear_color.1.set(&mut rp, DepthBind::set());
+							// clear_obj.0.set(&mut rp, UiMaterialBind::set());
+							clear_obj.1.set(&mut rp, DepthBind::set());
 							param.clear_draw.0.draw(&mut rp);
 
 							// 设置视口

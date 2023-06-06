@@ -10,9 +10,8 @@ use bevy::{
         prelude::Entity,
         system::{ParamSet, Query, Res, ResMut},
     },
-    prelude::{DetectChangesMut, With, Without},
+    prelude::{With, Without},
 };
-use pi_assets::mgr::AssetMgr;
 use pi_bevy_asset::ShareAssetMgr;
 use pi_bevy_ecs_extend::{
     prelude::{Layer, OrDefault},
@@ -20,12 +19,10 @@ use pi_bevy_ecs_extend::{
 };
 use pi_bevy_post_process::PostprocessResource;
 use pi_bevy_render_plugin::{PiRenderDevice, PiRenderQueue, PiVertexBufferAlloter, PiIndexBufferAlloter};
-use pi_null::Null;
 use pi_render::{
     renderer::draw_obj::DrawBindGroup,
-    rhi::{asset::RenderRes, bind_group::BindGroup, buffer::Buffer, device::RenderDevice, shader::BindLayout},
+    rhi::{asset::RenderRes, bind_group::BindGroup, buffer::Buffer},
 };
-use pi_share::Share;
 use pi_sparialtree::quad_helper::intersects;
 
 use crate::{
@@ -73,7 +70,7 @@ pub fn calc_camera_depth_and_renderlist(
     )>,
 	draw_obj_post_query: Query<(), (With<PostProcess>, With<DrawState>)>,
     mut query_root: ParamSet<(Query<(&RootDirtyRect, OrDefault<RenderDirty>, &Viewport)>, Query<&mut RenderDirty>)>,
-    mut draw_state: Query<&'static mut DrawState>,
+    draw_state: Query<&'static mut DrawState>,
     draw_info: Query<&'static DrawInfo>,
 
     res: (
@@ -88,10 +85,10 @@ pub fn calc_camera_depth_and_renderlist(
         Res<QuadTree>,
 		// Res<NotDrawListMark>,
     ),
-    mut depth_cache: OrInitResMut<DepthCache>,
+    depth_cache: OrInitResMut<DepthCache>,
     camera_material_alloter: OrInitRes<ShareGroupAlloter<CameraGroup>>,
 
-    mut post_resource: ResMut<PostprocessResource>,
+    post_resource: ResMut<PostprocessResource>,
     // mut geometrys: ResMut<PiPostProcessGeometryManager>,
     // mut postprocess_pipelines: ResMut<PiPostProcessMaterialMgr>,
 ) {

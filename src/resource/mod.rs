@@ -17,7 +17,7 @@ use std::mem::transmute;
 use std::ops::{Index, IndexMut};
 
 use pi_print_any::out_any;
-use pi_style::style_parse::{parse_class_map_from_string, parse_style_list_from_string};
+use pi_style::style_parse::{parse_class_map_from_string, parse_style_list_from_string, parse_animation};
 use pi_style::style_type::Attr;
 use pi_time::Instant;
 
@@ -121,6 +121,29 @@ impl UserCommands {
             }
         };
         self.push_cmd(ExtendCssCmd(vec![r]));
+    }
+
+	// 添加运行时动画
+	pub fn add_runtime_animation(&mut self, node: Entity, animation: &str, css: &str, scope_hash: usize) {
+		let mut input = cssparser::ParserInput::new(animation);
+        let mut parse = cssparser::Parser::new(&mut input);
+		let mut animations = match parse_animation(&mut parse) {
+            Ok(r) => r,
+            Err(e) => {
+                log::warn!("set_default_style_by_str fail, parse style err: {:?}", e);
+                return;
+            }
+        };
+		animations.name.scope_hash = scope_hash as usize;
+
+        let css = match parse_class_map_from_string(css, scope_hash as usize) {
+            Ok(r) => r,
+            Err(e) => {
+                log::warn!("set_default_style_by_str fail, parse style err: {:?}", e);
+                return;
+            }
+        };
+        self.push_cmd(RuntimeAnimationBindCmd(css.key_frames.frames, unsafe {transmute(animations)}, node));
     }
 
     /// 设置节点的class

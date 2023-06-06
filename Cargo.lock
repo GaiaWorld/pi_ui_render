@@ -3058,13 +3058,14 @@ dependencies = [
 [[package]]
 name = "pi_animation"
 version = "0.0.1"
-source = "git+https://github.com/GaiaWorld/pi_animation.git#39766f2ec9c94264fa957c72d92fe6df39e6f35b"
+source = "git+https://github.com/GaiaWorld/pi_animation.git#43a389edeb1b0bd6cfae4a1f1f595f6fc667141c"
 dependencies = [
  "env_logger",
  "log",
  "pi_atom",
  "pi_curves",
  "pi_hash",
+ "pi_share",
  "pi_slotmap",
  "serde",
 ]
@@ -3519,7 +3520,7 @@ checksum = "570c510b82dafa56cc1f4605066e994da0f5ba343811f4ccd1cc66c4d00f2c43"
 [[package]]
 name = "pi_postprocess"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_post_process.git#3995b814057a82bf612faaff513d7f2112f1db10"
+source = "git+https://github.com/GaiaWorld/pi_post_process.git#c7ff0d301d2d11a806f534906306f85de12e6e7d"
 dependencies = [
  "bytemuck",
  "derive_deref",

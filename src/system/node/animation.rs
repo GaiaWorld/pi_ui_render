@@ -55,7 +55,7 @@ pub fn calc_animation(
     // 解绑定动画
     for del in del.iter() {
         if let Err(_) = animation.get(del) {
-            keyframes_sheet.unbind_animation(ObjKey(del));
+            keyframes_sheet.unbind_animation_all(ObjKey(del));
         }
     }
 

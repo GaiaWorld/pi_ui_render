@@ -3,7 +3,7 @@ use bevy::ecs::{
     prelude::Ref,
     system::{Query, Res},
 };
-use bevy::prelude::DetectChanges;
+use bevy::prelude::{DetectChanges};
 use ordered_float::NotNan;
 use pi_assets::mgr::AssetMgr;
 use pi_bevy_asset::ShareAssetMgr;
@@ -146,12 +146,18 @@ fn try_modify_as_radius_linear_geo(
         width: rect.right - rect.left,
         height: rect.bottom - rect.top,
     };
-    let vb_hash = calc_hash(&rect, calc_hash(&"color vert", 0));
+    let vb_pos_hash = calc_hash(&rect, calc_hash(&"color vert", 0));
     let ib_hash = calc_hash(&rect, calc_hash(&"color index", 0)); // 计算颜色hash， TODO
 
-    let (vb, ib) = match (buffer_asset_mgr.get(&vb_hash), buffer_asset_mgr.get(&ib_hash)) {
-        (Some(vb), Some(ib)) => (vb, ib),
-        (vb, ib) => {
+	let vb_color_hash = if let Color::LinearGradient(color) = color {
+		calc_hash(&(&rect, color), calc_hash(&"color vert", 0))
+	} else {
+		vb_pos_hash
+	};
+
+    let (vb, color_vb, ib) = match (buffer_asset_mgr.get(&vb_pos_hash), buffer_asset_mgr.get(&vb_color_hash), buffer_asset_mgr.get(&ib_hash)) {
+        (Some(vb), Some(color_vb), Some(ib)) => (vb, color_vb, ib),
+        (vb, _color_vb, ib) => {
             let (mut positions, mut indices) = (
                 vec![
                     *rect.left,
@@ -165,7 +171,7 @@ fn try_modify_as_radius_linear_geo(
                 ],
                 vec![0, 1, 2, 3],
             );
-            if let Color::LinearGradient(color) = color {
+            let color_vb = if let Color::LinearGradient(color) = color {
 				let (positions1, colors, indices1) = linear_gradient_split(color, positions, indices, &size);
                 let buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
                     label: Some("radius or linear Color Buffer"),
@@ -178,17 +184,14 @@ fn try_modify_as_radius_linear_geo(
                 let color = buffer_asset_mgr
                     .get(&color_hash)
                     .unwrap_or_else(|| buffer_asset_mgr.insert(color_hash, RenderRes::new(buf, color_size)).unwrap());
-                draw_state.insert_vertices(RenderVertices {
-                    slot: 1,
-                    buffer: EVerticesBufferUsage::GUI(color),
-                    buffer_range: None,
-                    size_per_value: 16,
-                });
 				positions = positions1;
 				indices = indices1;
+				Some(color)
             } else {
                 indices = to_triangle(&indices, Vec::with_capacity(indices.len()));
-            }
+				None
+            };
+
             let vb = match vb {
                 Some(r) => r,
                 None => {
@@ -197,9 +200,10 @@ fn try_modify_as_radius_linear_geo(
                         contents: bytemuck::cast_slice(positions.as_slice()),
                         usage: wgpu::BufferUsages::VERTEX,
                     });
-                    buffer_asset_mgr.insert(vb_hash, RenderRes::new(buf, positions.len() * 4)).unwrap()
+                    buffer_asset_mgr.insert(vb_color_hash, RenderRes::new(buf, positions.len() * 4)).unwrap()
                 }
             };
+
             let ib = match ib {
                 Some(r) => r,
                 None => {
@@ -211,9 +215,17 @@ fn try_modify_as_radius_linear_geo(
                     buffer_asset_mgr.insert(ib_hash, RenderRes::new(buf, indices.len() * 2)).unwrap()
                 }
             };
-            (vb, ib)
+            (vb.clone(), color_vb.unwrap_or(vb), ib)
         }
     };
+	if let Color::LinearGradient(_) = color {
+		draw_state.insert_vertices(RenderVertices {
+			slot: 1,
+			buffer: EVerticesBufferUsage::GUI(color_vb),
+			buffer_range: None,
+			size_per_value: 16,
+		});
+	}
 
     draw_state.insert_vertices(RenderVertices {
         slot: 0,

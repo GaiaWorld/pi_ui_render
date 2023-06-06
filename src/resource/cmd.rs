@@ -10,16 +10,19 @@ use bevy::{
     },
     prelude::{Changed, Component, Events},
 };
+use ordered_float::NotNan;
+use pi_atom::Atom;
 use pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent;
+use pi_hash::XHashMap;
 use pi_print_any::out_any;
-use pi_style::style_parse::{Attribute, ClassItem, ClassMap, KeyFrameList};
+use pi_style::{style_parse::{Attribute, ClassItem, ClassMap, KeyFrameList}};
 
 use crate::{
-    components::user::serialize::{DefaultStyle, StyleTypeReader},
+    components::user::{serialize::{DefaultStyle, StyleTypeReader}, Animation},
     resource::animation_sheet::KeyFramesSheet,
 };
 
-use super::ClassSheet;
+use super::{ClassSheet, animation_sheet::ObjKey};
 
 #[derive(Debug, Clone)]
 pub struct DefaultStyleCmd(pub VecDeque<Attribute>);
@@ -55,7 +58,7 @@ impl Command for ExtendCssCmd {
                 log::debug!("create keyframs, count: {}", key_frames.frames.len());
                 let mut keyframes_sheet = world.get_resource_mut::<KeyFramesSheet>().unwrap();
                 for (name, value) in key_frames.frames.into_iter() {
-                    keyframes_sheet.add_keyframes(key_frames.scope_hash, name, value);
+                    keyframes_sheet.add_static_keyframes(key_frames.scope_hash, name, value);
                 }
             }
 
@@ -95,6 +98,18 @@ impl<T: Component> Command for ComponentCmd<T> {
             out_any!(log::debug, "node_cmd fail======================={:?}, {:?}", &self.1, &self.0);
         }
     }
+}
+
+// 运行时动画绑定指令
+#[derive(Clone)]
+pub struct RuntimeAnimationBindCmd(pub XHashMap<Atom, XHashMap<NotNan<f32>, VecDeque<Attribute>>>, pub Animation, pub Entity);
+impl Command for RuntimeAnimationBindCmd {
+    fn write(self, world: &mut World) {
+		if world.get_entity(self.2).is_some() {
+			let mut sheet = world.get_resource_mut::<KeyFramesSheet>().unwrap();
+			let _ = sheet.bind_runtime_animation(ObjKey(self.2), &self.1, self.0);
+		}
+	}
 }
 
 #[derive(Debug, Clone)]

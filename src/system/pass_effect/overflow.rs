@@ -220,7 +220,7 @@ fn recursive_cal_overflow(
                     } else {
                         &content_box.oct
                     };
-					log::warn!("overflow================{:?}, {:?}, {:?}", id, &content_box.oct, &content_box.layout);
+					// log::warn!("overflow================{:?}, {:?}, {:?}", id, &content_box.oct, &content_box.layout);
 
                     // 如果存在will_change， 则需要给包围盒乘上willchange，结果才是节点的真实裁剪框（坐标是相对世界原点）
                     let aabb_temp;

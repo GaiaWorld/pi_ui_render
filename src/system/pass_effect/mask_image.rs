@@ -1,5 +1,5 @@
 
-use bevy::{prelude::{IntoSystemConfig, RemovedComponents, Changed, Entity, Query, Res, ResMut, Commands, Resource, World, Or, Ref, DetectChanges, Plugin, apply_system_buffers, DerefMut}, ecs::system::{SystemState, SystemParam}};
+use bevy::{prelude::{IntoSystemConfig, RemovedComponents, Changed, Entity, Query, Res, ResMut, Commands, Resource, World, Or, Ref, DetectChanges, Plugin, apply_system_buffers}, ecs::system::{SystemState, SystemParam}};
 use pi_hash::XHashSet;
 use pi_slotmap::Key;
 use std::borrow::BorrowMut;
@@ -15,9 +15,7 @@ use pi_render::{rhi::{asset::{TextureRes, RenderRes}, texture::PiRenderDefault, 
 use pi_share::ShareRefCell;
 use pi_style::style::{MaskImage as MaskImage1, Aabb2, LinearGradientColor};
 use wgpu::CommandEncoder;
-use crate::{components::{calc::Quad, user::{MaskImage, MaskImageClip, Point2}, pass_2d::PostProcess, draw_obj::{DynTargetType, DrawState, PipelineMeta}}, system::{draw_obj::{image_texture_load::{ImageAwait, load_image, set_texture}, calc_background_color::linear_gradient_split, pipeline::calc_node_pipeline}, utils::{set_vert_buffer, set_index_buffer, create_project}, render::{pass_graph_node::create_rp_for_fbo,}, system_set::UiSystemSet, render_run, node::world_matrix::cal_matrix}, resource::draw_obj::{ProgramMetaRes, ShaderInfoCache, ShareGroupAlloter, UiMaterialGroup, CameraGroup, DepthCache, PosColorVertexLayout}, shader::{color::{VertColorVert, PositionVert, VERT_COLOR_DEFINE}, camera::{ViewUniform, ProjectUniform, CameraBind}, ui_meterial::{WorldUniform, UiMaterialBind}, depth::DepthBind}};
-
-use super::update_graph::update_graph;
+use crate::{components::{calc::Quad, user::{MaskImage, MaskImageClip, Point2}, pass_2d::PostProcess, draw_obj::{DynTargetType, DrawState, PipelineMeta}}, system::{draw_obj::{image_texture_load::{ImageAwait, load_image, set_texture}, calc_background_color::linear_gradient_split, pipeline::calc_node_pipeline}, utils::{set_vert_buffer, set_index_buffer, create_project}, pass::{pass_graph_node::create_rp_for_fbo, pass_life, update_graph,}, system_set::UiSystemSet, render_run, node::world_matrix::cal_matrix}, resource::draw_obj::{ProgramMetaRes, ShaderInfoCache, ShareGroupAlloter, UiMaterialGroup, CameraGroup, DepthCache, PosColorVertexLayout}, shader::{color::{VertColorVert, PositionVert, VERT_COLOR_DEFINE}, camera::{ViewUniform, ProjectUniform, CameraBind}, ui_meterial::{WorldUniform, UiMaterialBind}, depth::DepthBind}};
 
 pub struct UiMaskImagePlugin;
 
@@ -28,13 +26,13 @@ impl Plugin for UiMaskImagePlugin {
 			.add_startup_system(init)
 			// 标记MaskImage所在节点为一个Pass
 			.add_system(
-				super::calc_pass::pass_mark::<MaskImage>
-					.in_set(UiSystemSet::ContextMark)
-					.before(super::calc_pass::cal_context)
+				pass_life::pass_mark::<MaskImage>
+					.in_set(UiSystemSet::PassMark)
+					.before(pass_life::cal_context)
 					.run_if(render_run),
 			)
 			// 设置mask_image的后处理效果
-			.add_system(mask_image_post_process.after(cal_matrix).after(update_graph).run_if(render_run),)
+			.add_system(mask_image_post_process.after(cal_matrix).after(update_graph::update_graph).run_if(render_run),)
 			.add_system(apply_system_buffers.after(mask_image_post_process).before(calc_node_pipeline).run_if(render_run))
 		;
 	}

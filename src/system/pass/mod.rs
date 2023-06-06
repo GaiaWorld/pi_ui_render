@@ -1,93 +1,67 @@
-//! 与Pass相关的system
+use bevy::app::Plugin;
+use bevy::prelude::{IntoSystemConfig, IntoSystemSetConfig, IntoSystemSetConfigs, apply_system_buffers};
+use pi_bevy_render_plugin::PiRenderSystemSet;
 
-use bevy::prelude::{apply_system_buffers, Changed, IntoSystemConfig, IntoSystemSetConfig, IntoSystemSetConfigs, Plugin};
-use pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent;
+use super::render_run;
+use super::system_set::UiSystemSet;
 
-use crate::components::{
-    calc::RenderContextMark,
-    pass_2d::ParentPassId,
-    user::{Blur, Hsi, Opacity, Overflow, TransformWillChange},
-};
-
-use self::{mask_image::UiMaskImagePlugin, clip_path::UiClipPathPlugin};
-
-use super::{
-    node::{content_box, world_matrix},
-    render_run,
-    system_set::UiSystemSet,
-    AddEvent,
-};
-
-pub mod blur;
-pub mod calc_pass;
-pub mod hsi;
-pub mod opacity;
-pub mod overflow;
-pub mod root;
-pub mod transform_will_change;
-pub mod mask_image;
-pub mod clip_path;
+pub mod pass_life;
+pub mod pass_dirty_rect;
+pub mod pass_graph_node;
+pub mod pass_camera;
+pub mod last_update_wgpu;
 pub mod update_graph;
 
 
-pub struct UiContextPlugin;
+pub struct UiPassPlugin;
 
-impl Plugin for UiContextPlugin {
+impl Plugin for UiPassPlugin {
     fn build(&self, app: &mut bevy::app::App) {
-        app.configure_sets((UiSystemSet::Setting, UiSystemSet::ContextMark, UiSystemSet::ContextFlush).chain())
-            .configure_set(UiSystemSet::ContextMark.run_if(render_run))
-            .configure_set(UiSystemSet::ContextFlush.run_if(render_run))
-            .configure_set(UiSystemSet::ContextCalc.run_if(render_run))
-            .add_frame_event::<ComponentEvent<Changed<RenderContextMark>>>()
-            .add_frame_event::<ComponentEvent<Changed<ParentPassId>>>()
+
+		// 设置运行条件和运行顺序
+        app
+			.configure_set(UiSystemSet::PassCalc.run_if(render_run))
+			.configure_sets((
+				UiSystemSet::Setting,
+				UiSystemSet::PassCalc,
+				PiRenderSystemSet,
+			).chain())
+			.configure_sets((
+				UiSystemSet::PassFlush,
+				UiSystemSet::PassCalc,
+				PiRenderSystemSet,
+			).chain())
+			.configure_sets((
+				UiSystemSet::PrepareDrawObj,
+				UiSystemSet::PassCalc,
+			).chain())
+		
+			
+			// 创建、删除Pass，为Pass组织树结构
+			.add_system(pass_life::cal_context.in_set(UiSystemSet::PassMark))
+            .add_system(apply_system_buffers.in_set(UiSystemSet::PassFlush))
             .add_system(
-                calc_pass::pass_mark::<Opacity>
-                    .in_set(UiSystemSet::ContextMark)
-                    .before(calc_pass::cal_context),
+                pass_life::calc_pass_children_and_clear
+                    .in_set(UiSystemSet::PassSetting)
+                    .after(UiSystemSet::PassFlush),
             )
+
+			// 计算图节点及其依赖
+			.add_system(update_graph::update_graph.after(UiSystemSet::PassFlush))
+
+			// 渲染前，计算Pass的属性
+			// 脏区域、相机、深度，更新uniform不顶点buffer到wgpu
+            .add_system(pass_dirty_rect::calc_global_dirty_rect.in_set(UiSystemSet::PassCalc))
             .add_system(
-                calc_pass::pass_mark::<Overflow>
-                    .in_set(UiSystemSet::ContextMark)
-                    .before(calc_pass::cal_context),
+                pass_camera::calc_camera_depth_and_renderlist
+                    .after(pass_dirty_rect::calc_global_dirty_rect)
+                    .in_set(UiSystemSet::PassCalc),
             )
-            .add_system(calc_pass::pass_mark::<Hsi>.before(calc_pass::cal_context).in_set(UiSystemSet::ContextMark))
-            .add_system(calc_pass::pass_mark::<Blur>.before(calc_pass::cal_context).in_set(UiSystemSet::ContextMark))
-            .add_system(
-                calc_pass::pass_mark::<TransformWillChange>
-                    .in_set(UiSystemSet::ContextMark)
-                    .before(calc_pass::cal_context),
+			.add_system(
+                last_update_wgpu::last_update_wgpu
+                    .after(pass_camera::calc_camera_depth_and_renderlist)
+					.in_set(UiSystemSet::PassCalc)
             )
-            .add_system(root::root_calc.in_set(UiSystemSet::ContextMark).before(calc_pass::cal_context))
-            .add_system(calc_pass::cal_context.in_set(UiSystemSet::ContextMark))
-            .add_system(apply_system_buffers.in_set(UiSystemSet::ContextFlush))
-            .add_system(
-                calc_pass::calc_pass_children_and_clear
-                    .in_set(UiSystemSet::ContextCalc)
-                    .after(UiSystemSet::ContextFlush),
-            )
-            .add_system(
-                overflow::overflow_post_process
-                    .after(calc_pass::calc_pass_children_and_clear)
-                    .after(content_box::calc_content_box)
-                    .after(transform_will_change::transform_will_change_post_process)
-                    .in_set(UiSystemSet::ContextCalc),
-            )
-            .add_system(
-                transform_will_change::transform_will_change_post_process
-                    .after(calc_pass::calc_pass_children_and_clear)
-                    .after(world_matrix::cal_matrix)
-                    .in_set(UiSystemSet::ContextCalc),
-            )
-            .add_system(blur::blur_post_process.in_set(UiSystemSet::ContextCalc).after(UiSystemSet::ContextFlush))
-            .add_system(hsi::hsi_post_process.in_set(UiSystemSet::ContextCalc).after(UiSystemSet::ContextFlush))
-            .add_system(
-                opacity::opacity_post_process
-                    .in_set(UiSystemSet::ContextCalc)
-                    .after(UiSystemSet::ContextFlush),
-            )
-			.add_system(update_graph::update_graph.run_if(render_run).after(UiSystemSet::ContextFlush))
-			.add_plugin(UiMaskImagePlugin)
-			.add_plugin(UiClipPathPlugin)
 		;
     }
 }

@@ -22,7 +22,7 @@ use pi_ui_render::{
 
 fn main() { framework::start(QuadExample::default()) }
 use pi_style::{
-    style::{Aabb2, Point2, BaseShape, LengthUnit, BorderRadius, Center},
+    style::{Aabb2, Point2, BaseShape, LengthUnit, Center, BorderRadius},
     style_type::{
         HeightType, MarginLeftType, MarginTopType, PositionLeftType, PositionTopType, PositionTypeType, WidthType, BackgroundColorType, ClipPathType,
     },
@@ -108,6 +108,15 @@ impl Example for QuadExample {
         self.cmd
             .set_style(div3, BackgroundColorType(Color::RGBA(CgColor::new(0.0, 0.0, 1.0, 1.0))));
 		self.cmd.set_style(div3, ClipPathType(BaseShape::Ellipse { rx: LengthUnit::Percent(0.5), ry: LengthUnit::Percent(0.5), center: Center { x: LengthUnit::Percent(0.5), y: LengthUnit::Percent(0.5) }} ));
+        self.cmd.append(div3, root);
+
+		// 添加div, 设置椭圆裁剪
+		let div3 = world.spawn(NodeBundle::default()).id();
+        self.cmd.set_style(div3, WidthType(Dimension::Points(100.0)));
+        self.cmd.set_style(div3, HeightType(Dimension::Points(100.0)));
+        self.cmd
+            .set_style(div3, BackgroundColorType(Color::RGBA(CgColor::new(0.0, 0.0, 1.0, 1.0))));
+		self.cmd.set_style(div3, ClipPathType(BaseShape::Ellipse { rx: LengthUnit::Pixel(30.0), ry: LengthUnit::Pixel(20.0), center: Center { x: LengthUnit::Percent(0.5), y: LengthUnit::Percent(0.5) }} ));
         self.cmd.append(div3, root);
 
 		// 添加div, 设置扇形裁剪

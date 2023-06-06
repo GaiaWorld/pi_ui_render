@@ -3,12 +3,13 @@ use pi_bevy_ecs_extend::prelude::OrDefault;
 use pi_flex_layout::prelude::Rect;
 use pi_style::style::{BaseShape, LengthUnit, Aabb2};
 
-use crate::{components::{user::{ClipPath, Overflow, Point2}, calc::{LayoutResult, View, OverflowDesc, ContentBox}, pass_2d::Camera}, utils::tools::cal_border_radius, system::{node::user_setting::user_setting, render_run, render::{last_update_wgpu::last_update_wgpu, pass_camera::calc_camera_depth_and_renderlist}}};
+use crate::{components::{user::{ClipPath, Overflow, Point2}, calc::{LayoutResult, View, OverflowDesc, ContentBox}, pass_2d::Camera}, utils::tools::cal_border_radius, system::{node::user_setting::user_setting, render_run, pass::{last_update_wgpu::last_update_wgpu, pass_camera::calc_camera_depth_and_renderlist}}};
 use pi_postprocess::prelude::ClipSdf;
 
-use crate::components::pass_2d::PostProcess;
-
-use super::calc_pass;
+use crate::{
+	components::pass_2d::PostProcess,
+	system::pass::pass_life,
+};
 
 pub struct UiClipPathPlugin;
 
@@ -16,9 +17,9 @@ impl Plugin for UiClipPathPlugin {
     fn build(&self, app: &mut bevy::app::App) {
 		app
 			.add_system(
-				calc_pass::pass_mark::<ClipPath>
+				pass_life::pass_mark::<ClipPath>
 					.after(user_setting)
-					.before(calc_pass::cal_context)
+					.before(pass_life::cal_context)
 					.run_if(render_run)
 			)
 			.add_system(

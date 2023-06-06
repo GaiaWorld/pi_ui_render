@@ -5,7 +5,7 @@ use std::mem::transmute;
 
 use bevy::{
     ecs::prelude::{Changed, Component, DetectChangesMut},
-    prelude::{Entity, DerefMut},
+    prelude::Entity,
 };
 use bitvec::prelude::BitArray;
 use ordered_float::NotNan;

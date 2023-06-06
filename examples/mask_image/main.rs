@@ -89,8 +89,51 @@ impl Example for QuadExample {
         self.cmd.set_style(div2, HeightType(Dimension::Points(100.0)));
         self.cmd
             .set_style(div2, BackgroundColorType(Color::RGBA(CgColor::new(0.0, 0.0, 1.0, 1.0))));
-
         self.cmd.append(div2, div1);
+
+		// 为遮罩节点添加子节点，并设置颜色
+        let div3 = world.spawn(NodeBundle::default()).id();
+        self.cmd.set_style(div3, WidthType(Dimension::Points(100.0)));
+        self.cmd.set_style(div3, HeightType(Dimension::Points(100.0)));
+        self.cmd
+            .set_style(div3, BackgroundColorType(Color::RGBA(CgColor::new(0.0, 0.0, 1.0, 1.0))));
+		self.cmd
+            .set_style(div3, MaskImageType(MaskImage::LinearGradient(LinearGradientColor {
+                direction: 0.5 * 3.14,
+                list: vec![
+                    ColorAndPosition {
+                        position: 0.0,
+                        rgba: CgColor::new(0.0, 0.0, 0.0, 1.0),
+                    },
+                    ColorAndPosition {
+                        position: 0.5,
+                        rgba: CgColor::new(0.5, 0.0, 0.0, 1.0),
+                    },
+					ColorAndPosition {
+                        position: 1.0,
+                        rgba: CgColor::new(1.0, 0.0, 0.0, 1.0),
+                    },
+                ],
+            })));
+		self.cmd.set_style(
+			div3,
+			BackgroundColorType(Color::LinearGradient(LinearGradientColor {
+				direction: 0.0,
+				list: vec![
+					ColorAndPosition {
+						position: 0.0,
+						rgba: CgColor::new(1.0, 0.0, 0.0, 1.0),
+					},
+					ColorAndPosition {
+						position: 1.0,
+						rgba: CgColor::new(0.0, 1.0, 0.0, 1.0),
+					},
+				],
+			})),
+		);
+        self.cmd.append(div3, root);
+
+		// background:linear-gradient(0deg,#ff0000,#00ff00);mask-image-source:linear-gradient(90deg, #000000, #777777 50%, #ffffff);
     }
 
     fn render(&mut self, cmd: &mut UserCommands, _cmd1: &mut Commands) { 
