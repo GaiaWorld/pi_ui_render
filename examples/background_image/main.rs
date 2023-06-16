@@ -51,14 +51,12 @@ impl Example for QuadExample {
 
         self.cmd.set_style(root, WidthType(Dimension::Points(size.0 as f32)));
         self.cmd.set_style(root, HeightType(Dimension::Points(size.1 as f32)));
-
         self.cmd.set_style(root, PositionTypeType(PositionType::Absolute));
         self.cmd.set_style(root, PositionLeftType(Dimension::Points(0.0)));
         self.cmd.set_style(root, PositionTopType(Dimension::Points(0.0)));
         self.cmd.set_style(root, MarginLeftType(Dimension::Points(0.0)));
         self.cmd.set_style(root, MarginTopType(Dimension::Points(0.0)));
         self.cmd.set_style(root, FlexWrapType(FlexWrap::Wrap));
-
         self.cmd.append(root, EntityKey::null().0);
 
         let div1 = world.spawn(NodeBundle::default()).id();

@@ -2312,6 +2312,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ktx"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0112c5d660975a0c6e068c0901b9178d9aeeb62106eac227cbab2502955ea9f8"
+dependencies = [
+ "byteorder",
+]
+
+[[package]]
 name = "lazy_static"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3421,7 +3430,7 @@ dependencies = [
 [[package]]
 name = "pi_hal"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_hal.git#c9463e96fe8d6284a82498abe4c167a87d740a5c"
+source = "git+https://github.com/GaiaWorld/pi_hal.git#4d7283884a5656fa85dc605e0acb77c736d6eccf"
 dependencies = [
  "async-trait",
  "derive_deref",
@@ -3553,7 +3562,7 @@ checksum = "8eeeddb49aca084a517b5efcd8111cd19121130201190c09d5d817e998f78a4a"
 [[package]]
 name = "pi_render"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_render.git?branch=bevy_shader#1500a54575b7727565929c3317ba545a326f4de8"
+source = "git+https://github.com/GaiaWorld/pi_render.git?branch=bevy_shader#63c65dd153bb8ea689f21a0e14133e1c85871ca6"
 dependencies = [
  "render_core",
 ]
@@ -4120,7 +4129,7 @@ checksum = "f162c6dd7b008981e4d40210aca20b4bd0f9b60ca9271061b07f78537722f2e1"
 [[package]]
 name = "render_compile"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_render.git?branch=bevy_shader#1500a54575b7727565929c3317ba545a326f4de8"
+source = "git+https://github.com/GaiaWorld/pi_render.git?branch=bevy_shader#63c65dd153bb8ea689f21a0e14133e1c85871ca6"
 dependencies = [
  "Inflector",
  "log",
@@ -4136,7 +4145,7 @@ dependencies = [
 [[package]]
 name = "render_core"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_render.git?branch=bevy_shader#1500a54575b7727565929c3317ba545a326f4de8"
+source = "git+https://github.com/GaiaWorld/pi_render.git?branch=bevy_shader#63c65dd153bb8ea689f21a0e14133e1c85871ca6"
 dependencies = [
  "anyhow",
  "bitvec",
@@ -4148,6 +4157,7 @@ dependencies = [
  "graphviz-rust",
  "guillotiere",
  "hex",
+ "ktx",
  "lazy_static",
  "log",
  "naga",
@@ -4180,14 +4190,13 @@ dependencies = [
  "thiserror",
  "tracing",
  "uuid",
- "wasm-bindgen",
  "wgpu",
 ]
 
 [[package]]
 name = "render_crevice"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_render.git?branch=bevy_shader#1500a54575b7727565929c3317ba545a326f4de8"
+source = "git+https://github.com/GaiaWorld/pi_render.git?branch=bevy_shader#63c65dd153bb8ea689f21a0e14133e1c85871ca6"
 dependencies = [
  "bytemuck",
  "mint",
@@ -4198,7 +4207,7 @@ dependencies = [
 [[package]]
 name = "render_crevice_derive"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_render.git?branch=bevy_shader#1500a54575b7727565929c3317ba545a326f4de8"
+source = "git+https://github.com/GaiaWorld/pi_render.git?branch=bevy_shader#63c65dd153bb8ea689f21a0e14133e1c85871ca6"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4209,7 +4218,7 @@ dependencies = [
 [[package]]
 name = "render_derive"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_render.git?branch=bevy_shader#1500a54575b7727565929c3317ba545a326f4de8"
+source = "git+https://github.com/GaiaWorld/pi_render.git?branch=bevy_shader#63c65dd153bb8ea689f21a0e14133e1c85871ca6"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4220,7 +4229,7 @@ dependencies = [
 [[package]]
 name = "render_macro_utils"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_render.git?branch=bevy_shader#1500a54575b7727565929c3317ba545a326f4de8"
+source = "git+https://github.com/GaiaWorld/pi_render.git?branch=bevy_shader#63c65dd153bb8ea689f21a0e14133e1c85871ca6"
 dependencies = [
  "cargo-manifest",
  "quote",
@@ -4230,7 +4239,7 @@ dependencies = [
 [[package]]
 name = "render_utils"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_render.git?branch=bevy_shader#1500a54575b7727565929c3317ba545a326f4de8"
+source = "git+https://github.com/GaiaWorld/pi_render.git?branch=bevy_shader#63c65dd153bb8ea689f21a0e14133e1c85871ca6"
 dependencies = [
  "ahash",
  "render_derive",

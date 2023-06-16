@@ -15,7 +15,7 @@ use crate::utils::tools::{cal_border_radius, cal_content_border_radius};
 pub fn calc_border_radius(
     mut remove: RemovedComponents<BorderRadius>,
     query_delete: Query<(Option<&'static BorderRadius>, &'static DrawList)>,
-    query: Query<(&'static BorderRadius, &'static LayoutResult, &'static DrawList), Or<(Changed<BorderRadius>, Changed<LayoutResult>)>>,
+    query: Query<(&'static BorderRadius, &'static LayoutResult, &'static DrawList), Or<(Changed<BorderRadius>, Changed<LayoutResult>, Changed<DrawList>)>>,
 
     mut query_draw: Query<(&mut DrawState, OrDefault<BoxType>, &mut PipelineMeta)>,
 ) {

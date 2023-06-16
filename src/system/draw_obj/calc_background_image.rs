@@ -214,7 +214,7 @@ pub fn modify(
             draw_state,
         );
         set_vert_buffer(
-            PositionVert::location(),
+            UvVert::location(),
             8,
             bytemuck::cast_slice(uvs.as_slice()),
             vertex_buffer_alloter,
