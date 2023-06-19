@@ -17,7 +17,7 @@ use crate::{
     components::{
         calc::{DrawList, LayoutResult, NodeState, WorldMatrix},
         draw_obj::{BoxType, DrawState},
-        user::{BackgroundColor, BackgroundImage, BorderColor, BoxShadow, Canvas, Matrix4, TextContent},
+        user::{BackgroundColor, BackgroundImage, BorderColor, BoxShadow, Canvas, Matrix4, TextContent, BorderImage},
     },
     shader::ui_meterial::WorldUniform,
     utils::tools::{calc_float_hash, calc_hash},
@@ -43,8 +43,9 @@ pub fn set_matrix_group(
                 Changed<BoxShadow>,
             )>,
             Or<(
+				With<BackgroundImage>,
                 With<BackgroundColor>,
-                With<BackgroundImage>,
+				With<BorderImage>,
                 With<TextContent>,
                 With<BorderColor>,
                 With<Canvas>,
