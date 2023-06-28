@@ -196,6 +196,6 @@ lazy_static! {
         }
     ];
     pub static ref VERTEX_COLOR_DEFINE: pi_atom::Atom = pi_atom::Atom::from("VERTEX_COLOR");
-    pub static ref STROKE_DEFINE: pi_atom::Atom = pi_atom::Atom::from("STROKE");
     pub static ref SHADOW_DEFINE: pi_atom::Atom = pi_atom::Atom::from("SHADOW");
+    pub static ref STROKE_DEFINE: pi_atom::Atom = pi_atom::Atom::from("STROKE");
 }

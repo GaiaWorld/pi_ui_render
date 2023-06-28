@@ -22,7 +22,7 @@ use crate::{
     resource::animation_sheet::KeyFramesSheet,
 };
 
-use super::{ClassSheet, animation_sheet::ObjKey};
+use super::{ClassSheet, animation_sheet::ObjKey, fragment::{FragmentMap, Fragments}};
 
 #[derive(Debug, Clone)]
 pub struct DefaultStyleCmd(pub VecDeque<Attribute>);
@@ -68,6 +68,16 @@ impl Command for ExtendCssCmd {
             item.to_class_sheet(&mut class_sheet);
             class_sheet_single.extend_from_class_sheet(class_sheet);
         }
+    }
+}
+
+/// 添加模板
+#[derive(Clone)]
+pub struct ExtendFragmentCmd(pub Fragments);
+impl Command for ExtendFragmentCmd {
+    fn write(self, world: &mut World) {
+		let mut fragment_map = world.get_resource_mut::<FragmentMap>().unwrap();
+        fragment_map.extend(self.0);
     }
 }
 
@@ -123,6 +133,13 @@ pub enum NodeCommand {
     RemoveNode(Entity),
     /// 销毁节点
     DestroyNode(Entity),
+}
+
+/// 创建模板（作用该指令时， 注意检查entitys的长度和模板实际的长度是否相等）
+#[derive(Debug)]
+pub struct FragmentCommand {
+	pub key: u32, // 模板的key
+	pub entitys: Vec<Entity>, // 模板对应的实体
 }
 
 // #[derive(Clone)]

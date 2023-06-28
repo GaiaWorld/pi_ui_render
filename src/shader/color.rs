@@ -152,6 +152,6 @@ precision highp float;
     ];
     pub static ref BORDER_DEFINE: pi_atom::Atom = pi_atom::Atom::from("BORDER");
     pub static ref SHADOW_DEFINE: pi_atom::Atom = pi_atom::Atom::from("SHADOW");
-    pub static ref BORDER_RADIUS_DEFINE: pi_atom::Atom = pi_atom::Atom::from("BORDER_RADIUS");
     pub static ref VERT_COLOR_DEFINE: pi_atom::Atom = pi_atom::Atom::from("VERT_COLOR");
+    pub static ref BORDER_RADIUS_DEFINE: pi_atom::Atom = pi_atom::Atom::from("BORDER_RADIUS");
 }

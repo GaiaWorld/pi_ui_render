@@ -257,7 +257,7 @@ impl Gui {
     /// 设置默认样式（二进制样式）
     pub fn set_default_style_by_bin(&mut self, bin: &[u8]) {
         // println_any!("set_default_style_by_bin===={:?}", 1);
-        let class_sheet_new: ClassSheet = match bincode::deserialize(bin) {
+        let class_sheet_new: ClassSheet = match postcard::deserialize(bin) {
             Ok(r) => r,
             Err(e) => {
                 log::error!("deserialize ClassSheet error: {:?}", e);

@@ -3,6 +3,7 @@
 pub mod animation_sheet;
 pub mod cmd;
 pub mod draw_obj;
+pub mod fragment;
 pub use cmd::*;
 use pi_bevy_asset::ShareAssetMgr;
 use pi_bevy_render_plugin::{PiRenderDevice, PiRenderQueue};
@@ -46,6 +47,7 @@ pub struct UserCommandsCache(pub UserCommands);
 pub struct UserCommands {
     /// 节点指令
     pub node_commands: Vec<NodeCommand>,
+	pub fragment_commands: Vec<FragmentCommand>,
     /// 样式指令
     pub style_commands: StyleCommands,
     // /// 文本指令
@@ -62,31 +64,31 @@ pub struct UserCommands {
 impl UserCommands {
     /// 将节点作为子节点挂在父上
     pub fn append(&mut self, entity: Entity, parent: Entity) {
-        log::debug!("append====={:?}, {:?}", entity, parent);
+        // log::debug!("append====={:?}, {:?}", entity, parent);
         self.node_commands.push(NodeCommand::AppendNode(entity, parent));
     }
 
     /// 将节点插入到某个节点之前
     pub fn insert_before(&mut self, entity: Entity, anchor: Entity) {
-        log::debug!("insert_before====={:?}, {:?}", entity, anchor);
+        // log::debug!("insert_before====={:?}, {:?}", entity, anchor);
         self.node_commands.push(NodeCommand::InsertBefore(entity, anchor));
     }
 
     /// 从父节点上移除节点
     pub fn remove_node(&mut self, entity: Entity) {
-        log::debug!("remove_node====={:?}", entity);
+        // log::debug!("remove_node====={:?}", entity);
         self.node_commands.push(NodeCommand::RemoveNode(entity));
     }
 
     /// 从父节点上移除节点，并销毁该节点及所有子节点
     pub fn destroy_node(&mut self, entity: Entity) {
-        log::debug!("destroy_node===={:?}", &entity);
+        // log::debug!("destroy_node===={:?}", &entity);
         self.node_commands.push(NodeCommand::DestroyNode(entity));
     }
 
     /// 设置节点样式
     pub fn set_style<T: Attr>(&mut self, entity: Entity, value: T) {
-        out_any!(log::debug, "set_style, entity: {:?}, value: {:?}", entity, &value);
+        // out_any!(log::debug, "set_style, entity: {:?}, value: {:?}", entity, &value);
         // out_any!(trace, "set_style, entity: {:?}, value: {:?}", entity, &value);
         let start = self.style_commands.style_buffer.len();
         unsafe { StyleAttr::write(value, &mut self.style_commands.style_buffer) };

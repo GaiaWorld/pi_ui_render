@@ -22,7 +22,7 @@ use crate::{
     },
 };
 
-use super::user_setting::set_style;
+use super::user_setting::set_styles;
 
 /// * 记录帧推时间（暂时性的，时间应该是全局共享的，应该挪到pi_bevy_render,组委共享资源）
 /// * 为删除了Animation组件的节点，解绑动画
@@ -73,7 +73,7 @@ pub fn calc_animation(
 
     let mut setting = Setting { style: &style_query, world };
     // 设置style只要节点存在,样式一定能设置成功
-    set_style(&mut commands, &mut setting);
+    set_styles(&mut commands, &mut setting);
 
     user_commands.get_mut(world).style_commands = commands;
 }

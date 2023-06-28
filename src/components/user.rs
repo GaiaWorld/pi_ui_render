@@ -674,11 +674,11 @@ pub mod serialize {
 
         // 将当前style写入组件
         // 小心使用该方法， 保证self.buffer中的内存只被使用一次
-        pub fn write_to_component(&mut self, cur_style_mark: &mut BitArray<[u32; 3]>, entity: Entity, query: &mut Setting) -> bool {
+        pub fn write_to_component(&mut self, cur_style_mark: &mut BitArray<[u32; 3]>, entity: Entity, query: &mut Setting, is_clone: bool) -> bool {
             let next_type = self.next_type();
             // log::warn!("write_to_component ty: {:?}, cursor:{}, buffer_len:{}", next_type, self.cursor, self.buffer.len());
             if let Some(style_type) = next_type {
-                StyleAttr::set(cur_style_mark, style_type, &self.buffer, self.cursor, query, entity, false);
+                StyleAttr::set(cur_style_mark, style_type, &self.buffer, self.cursor, query, entity, is_clone);
                 let size = StyleAttr::size(style_type);
                 self.cursor += size;
                 return true;

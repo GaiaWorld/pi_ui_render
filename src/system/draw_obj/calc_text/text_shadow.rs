@@ -317,8 +317,10 @@ pub fn calc_graph_depend(
     mut rg: ResMut<PiRenderGraph>,
 ) {
 	for (node, draw_list) in shadow_query.iter() {
-		// for i in render_type
 		let parent_graph_id = get_to(node, &pass_query);
+		if parent_graph_id.is_null() {
+			continue;
+		}
 		for draw_id in draw_list.iter() {
 			if draw_id.ty == **render_type {
 				if let Ok(mut g) = shadow_draw_query.get_mut(draw_id.id) {

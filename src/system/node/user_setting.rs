@@ -6,12 +6,12 @@ use bevy::{
         prelude::{Changed, Entity, EventReader, Local, Query, RemovedComponents, ResMut, World},
         system::SystemState,
     },
-    prelude::With,
+    prelude::{With, Res},
 };
 use bitvec::array::BitArray;
 use pi_bevy_ecs_extend::{
     prelude::{EntityTreeMut, OrDefault},
-    system_param::{layer_dirty::ComponentEvent, tree::TreeKey},
+    system_param::{layer_dirty::ComponentEvent, tree::TreeKey, res::{OrInitRes, OrInitResMut}},
 };
 use pi_flex_layout::style::Dimension;
 use pi_null::Null;
@@ -19,10 +19,10 @@ use pi_slotmap_tree::InsertType;
 
 use crate::{
     components::{
-        calc::EntityKey,
-        user::{RenderDirty, Viewport},
+        calc::{EntityKey, NodeState},
+        user::{RenderDirty, Viewport}, NodeBundle,
     },
-    resource::{ClassSheet, QuadTree},
+    resource::{ClassSheet, QuadTree, fragment::{FragmentMap, NodeTag}},
 };
 use crate::{
     components::{
@@ -39,7 +39,7 @@ use crate::{
 pub fn user_setting(
     world: &mut World,
 
-    commands: &mut SystemState<(ResMut<UserCommands>, ResMut<ClassSheet>)>,
+    commands: &mut SystemState<(ResMut<UserCommands>, ResMut<ClassSheet>, OrInitResMut<FragmentMap>)>,
 
     state: &mut SystemState<(Query<&DrawList>, Query<Entity>, EntityTreeMut)>,
     quad_delete: &mut SystemState<(ResMut<QuadTree>, Query<Entity, With<Viewport>>)>,
@@ -47,7 +47,7 @@ pub fn user_setting(
     mut destroy_entity_list: Local<Vec<Entity>>, // 需要销毁的实体列表作为本地变量，避免每次重新分配内存
 ) {
 	// log::warn!("setting=====================");
-    let (mut user_commands, mut _class_sheet) = commands.get_mut(world);
+    let (mut user_commands, mut class_sheet, mut fragments) = commands.get_mut(world);
     // let (class_commands_len, style_commands_len, node_len) = (user_commands.class_commands.len(), user_commands.style_commands.commands.len(), user_commands.node_commands.len());
     let mut user_commands = std::mem::replace(&mut *user_commands, UserCommands::default());
     // let class_sheet = std::mem::replace(&mut *class_sheet, ClassSheet::default());
@@ -55,8 +55,36 @@ pub fn user_setting(
     // 先作用other_commands（通常是修改单例， 如动画表，css表）
     user_commands.other_commands.apply(world);
 
-    let (draw_list, entitys, mut tree) = state.get_mut(world);
+	let (_user_commands, mut class_sheet, mut fragments) = commands.get_mut(world);
+	let mut fragments = std::mem::replace(&mut **fragments, FragmentMap::default());
+	let class_sheet = std::mem::replace(&mut *class_sheet, ClassSheet::default());
 
+	// 插入bundle
+	for c in user_commands.fragment_commands.iter() {
+		// 组织模板的节点关系
+		let t = match fragments.map.get(&c.key) {
+			Some(r) => r,
+			_ => {
+				log::info!("fragment is not exist, {}", c.key);
+				continue;
+			}
+		};
+		debug_assert_eq!(t.end - t.start, c.entitys.len());
+
+		for i in t.clone() {
+			let n = &fragments.fragments[i];
+			let node = &c.entitys[i - t.start];
+			if let Some(mut entity) = world.get_entity_mut(*node) {
+				let mut bundle = NodeBundle::default();
+				if n.tag == NodeTag::VNode {
+					bundle.node_state.set_vnode(true);
+				}
+				entity.insert(bundle);
+			}
+		}
+	}
+
+	let (draw_list, entitys, mut tree) = state.get_mut(world);
 
     // 操作节点(节点的创建、销毁、挂载、删除)
     for c in user_commands.node_commands.drain(..) {
@@ -88,9 +116,28 @@ pub fn user_setting(
                 }
                 tree.remove(node);
                 delete_draw_list(node, &draw_list, &mut destroy_entity_list);
-            }
+            },
         };
     }
+	for c in user_commands.fragment_commands.iter() {
+		// 组织模板的节点关系
+		let t = match fragments.map.get(&c.key) {
+			Some(r) => r,
+			_ => {
+				log::info!("fragment is not exist, {}", c.key);
+				continue;
+			}
+		};
+		debug_assert_eq!(t.end - t.start, c.entitys.len());
+
+		for i in t.clone() {
+			let n = &fragments.fragments[i];
+			let node = &c.entitys[i - t.start];
+			if let (false, true) = (n.parent.is_null(), entitys.get(*node).is_ok()) {
+				tree.insert_child(*node, c.entitys[n.parent] , std::usize::MAX);
+			}
+		}
+	}
 
     // 删除需要销毁的实体
     if destroy_entity_list.len() > 0 {
@@ -124,20 +171,43 @@ pub fn user_setting(
 
     let mut setting = Setting { style: &style_query, world };
 
-    // 设置style只要节点存在,样式一定能设置成功
-    set_style(&mut user_commands.style_commands, &mut setting);
+	// 设置模板节点的style
+	for c in user_commands.fragment_commands.drain(..) {
+		let t = match fragments.map.get(&c.key) {
+			Some(r) => r,
+			_ => {
+				continue;
+			}
+		};
+		debug_assert_eq!(t.end - t.start, c.entitys.len());
 
-    let (_, mut class_sheet) = commands.get_mut(world);
-    let class_sheet = std::mem::replace(&mut *class_sheet, ClassSheet::default());
-    let mut setting = Setting { style: &style_query, world };
+		for i in t.clone() {
+			let n = &fragments.fragments[i];
+			let node = c.entitys[i - t.start];
+			if let Some(mut entity) = setting.world.get_entity_mut(node) {
+				if n.style_meta.end > n.style_meta.start {
+					set_style(node, n.style_meta.start, n.style_meta.end, &fragments.style_buffer, &mut setting, true);
+				}
+				if (n.class.len() > 0) {
+					set_class(node, &mut setting, n.class.clone(), &class_sheet);
+				}
+			}
+		}
+	}
+	
+
+
+    // 设置style只要节点存在,样式一定能设置成功
+    set_styles(&mut user_commands.style_commands, &mut setting);
     // 设置class样式
     for (node, class) in user_commands.class_commands.drain(..) {
         set_class(node, &mut setting, class, &class_sheet);
     }
 
-    let (mut user_commands1, mut class_sheet1) = commands.get_mut(world);
+    let (mut user_commands1, mut class_sheet1, mut fragments1) = commands.get_mut(world);
     *user_commands1 = user_commands;
     *class_sheet1 = class_sheet;
+	**fragments1 = fragments;
 
     // 指令需要手动apply
     state.apply(world);
@@ -187,32 +257,35 @@ pub fn set_image_default_size(
     }
 }
 
-pub fn set_style(style_commands: &mut StyleCommands, style_query: &mut Setting) {
+pub fn set_styles(style_commands: &mut StyleCommands, style_query: &mut Setting) {
     let (style_buffer, commands) = (&mut style_commands.style_buffer, &mut style_commands.commands);
     for (node, start, end) in commands.drain(..) {
-        // 不存在实体，不处理
-        if style_query.world.get_entity(node).is_none() {
-            log::debug!("node is not exist: {:?}", node);
-            continue;
-        }
-
-        let mut style_reader = StyleTypeReader::new(style_buffer, start, end);
-        let mut local_mark = BitArray::new([0, 0, 0]);
-        while style_reader.write_to_component(&mut local_mark, node, style_query) {}
-
-        set_style_attr_or_default(
-            &mut style_query.world,
-            node,
-            style_query.style.style_mark,
-            local_mark,
-            |style_mark: &mut StyleMark, v| {
-                style_mark.local_style |= v;
-            },
-        );
-
-        // 取消样式， TODO，注意，宽高取消时，还要考虑图片宽高的重置问题
+		set_style(node, start, end, style_buffer, style_query, false);
     }
     unsafe { style_buffer.set_len(0) };
+}
+
+pub fn set_style(node: Entity, start: usize, end: usize, style_buffer: &Vec<u8>, style_query: &mut Setting, is_clone: bool) {
+    // 不存在实体，不处理
+	if style_query.world.get_entity(node).is_none() {
+		log::debug!("node is not exist: {:?}", node);
+		return;
+	}
+
+	let mut style_reader = StyleTypeReader::new(style_buffer, start, end);
+	let mut local_mark = BitArray::new([0, 0, 0]);
+	while style_reader.write_to_component(&mut local_mark, node, style_query, is_clone) {}
+
+	set_style_attr_or_default(
+		&mut style_query.world,
+		node,
+		style_query.style.style_mark,
+		local_mark,
+		|style_mark: &mut StyleMark, v| {
+			style_mark.local_style |= v;
+		},
+	);
+	// 取消样式， TODO，注意，宽高取消时，还要考虑图片宽高的重置问题
 }
 
 
@@ -273,6 +346,7 @@ fn set_class(node: Entity, style_query: &mut Setting, class: ClassName, class_sh
         style_query.style.class_name,
         class,
         |item: &mut ClassName, v| {
+			log::debug!("set_class======={:?}, {:?}", node, v);
             *item = v;
         },
     );
@@ -280,6 +354,7 @@ fn set_class(node: Entity, style_query: &mut Setting, class: ClassName, class_sh
 
 fn delete_draw_list(id: Entity, draw_list: &Query<&DrawList>, draw_objects: &mut Vec<Entity>) {
     draw_objects.push(id);
+	log::debug!("RemoveNode node====================node：{:?}", id);
     if let Ok(list) = draw_list.get(id) {
         for i in list.iter() {
             draw_objects.push(i.id);
