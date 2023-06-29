@@ -6,12 +6,12 @@ use bevy::{
         prelude::{Changed, Entity, EventReader, Local, Query, RemovedComponents, ResMut, World},
         system::SystemState,
     },
-    prelude::{With, Res},
+    prelude::With,
 };
 use bitvec::array::BitArray;
 use pi_bevy_ecs_extend::{
     prelude::{EntityTreeMut, OrDefault},
-    system_param::{layer_dirty::ComponentEvent, tree::TreeKey, res::{OrInitRes, OrInitResMut}},
+    system_param::{layer_dirty::ComponentEvent, tree::TreeKey, res::OrInitResMut},
 };
 use pi_flex_layout::style::Dimension;
 use pi_null::Null;
@@ -19,7 +19,7 @@ use pi_slotmap_tree::InsertType;
 
 use crate::{
     components::{
-        calc::{EntityKey, NodeState},
+        calc::EntityKey,
         user::{RenderDirty, Viewport}, NodeBundle,
     },
     resource::{ClassSheet, QuadTree, fragment::{FragmentMap, NodeTag}},
@@ -47,7 +47,7 @@ pub fn user_setting(
     mut destroy_entity_list: Local<Vec<Entity>>, // 需要销毁的实体列表作为本地变量，避免每次重新分配内存
 ) {
 	// log::warn!("setting=====================");
-    let (mut user_commands, mut class_sheet, mut fragments) = commands.get_mut(world);
+    let (mut user_commands, _class_sheet, _fragments) = commands.get_mut(world);
     // let (class_commands_len, style_commands_len, node_len) = (user_commands.class_commands.len(), user_commands.style_commands.commands.len(), user_commands.node_commands.len());
     let mut user_commands = std::mem::replace(&mut *user_commands, UserCommands::default());
     // let class_sheet = std::mem::replace(&mut *class_sheet, ClassSheet::default());
@@ -56,7 +56,7 @@ pub fn user_setting(
     user_commands.other_commands.apply(world);
 
 	let (_user_commands, mut class_sheet, mut fragments) = commands.get_mut(world);
-	let mut fragments = std::mem::replace(&mut **fragments, FragmentMap::default());
+	let fragments = std::mem::replace(&mut **fragments, FragmentMap::default());
 	let class_sheet = std::mem::replace(&mut *class_sheet, ClassSheet::default());
 
 	// 插入bundle
@@ -184,11 +184,11 @@ pub fn user_setting(
 		for i in t.clone() {
 			let n = &fragments.fragments[i];
 			let node = c.entitys[i - t.start];
-			if let Some(mut entity) = setting.world.get_entity_mut(node) {
+			if let Some(_entity) = setting.world.get_entity_mut(node) {
 				if n.style_meta.end > n.style_meta.start {
 					set_style(node, n.style_meta.start, n.style_meta.end, &fragments.style_buffer, &mut setting, true);
 				}
-				if (n.class.len() > 0) {
+				if n.class.len() > 0 {
 					set_class(node, &mut setting, n.class.clone(), &class_sheet);
 				}
 			}

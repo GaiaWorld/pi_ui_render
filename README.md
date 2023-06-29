@@ -30,6 +30,13 @@
 + style支持属性：cache（可以缓冲fbo）
 + mask-image
 + 高斯模糊
++ fbo缓冲和建议缓冲方案
+  - 用户可设置某节点缓冲，该节点对应的子树将被渲染到一张fbo上，并缓冲，后续渲染如果发现子树未改变，则不需要再重新渲染该子树，直接将缓冲的fbo渲染到gui上
+  - 用户可设置某节点建议缓冲（root组件上，打开的界面根节点都默认设置建议缓冲）
+      * gui系统迭代动画动画节点， 和动画组件删除列表， 如果发现动画组件被添加或删除， 则更新其所在的fbo的AnimationCount组件的part_count（该组件记录子树的动画节点数量，此处仅包含该fbo下的普通节点，不包含其他fbo的递归子节点）
+      * 迭代所有fbo，将AnimationCount组件的part_count累加到父的fbo的AnimationCount组件的all_count字段上
+      * 记录脏频次在DirtyFrequency，每次发现fbo脏，将DirtyFrequency清0零，否则在原值基础上+1
+      * 渲染fbo， 如果发现fbo不脏， 并且存在对应的缓冲fbo，则将缓冲fbo输出；如果发现fbo脏，则渲染fbo，如果fbo为建议缓冲，并且AnimationCount组件的all_count字段未0，则缓冲该fbo
 
 
 ### 无方案

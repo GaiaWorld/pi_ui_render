@@ -2,7 +2,7 @@ use bevy::ecs::query::{Changed, Or, With};
 use bevy::ecs::system::{Query, Res};
 use bytemuck::{Pod, Zeroable};
 use ordered_float::NotNan;
-use pi_assets::asset::{Asset, Handle};
+use pi_assets::asset::Handle;
 use pi_assets::mgr::AssetMgr;
 use pi_bevy_asset::ShareAssetMgr;
 use pi_bevy_ecs_extend::prelude::OrDefault;
