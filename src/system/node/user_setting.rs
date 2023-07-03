@@ -65,7 +65,7 @@ pub fn user_setting(
 		let t = match fragments.map.get(&c.key) {
 			Some(r) => r,
 			_ => {
-				log::info!("fragment is not exist, {}", c.key);
+				log::warn!("fragment is not exist, {}", c.key);
 				continue;
 			}
 		};
@@ -79,6 +79,7 @@ pub fn user_setting(
 				if n.tag == NodeTag::VNode {
 					bundle.node_state.set_vnode(true);
 				}
+				log::debug!("insert NodeBundle for fragment , {:?}", node);
 				entity.insert(bundle);
 			}
 		}
@@ -134,6 +135,7 @@ pub fn user_setting(
 			let n = &fragments.fragments[i];
 			let node = &c.entitys[i - t.start];
 			if let (false, true) = (n.parent.is_null(), entitys.get(*node).is_ok()) {
+				log::debug!("fragment_commands insertChild====================node：{:?}, parent {:?}", node, c.entitys[n.parent]);
 				tree.insert_child(*node, c.entitys[n.parent] , std::usize::MAX);
 			}
 		}

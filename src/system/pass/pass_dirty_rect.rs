@@ -189,7 +189,7 @@ fn mark_pass_dirty_rect(pass_id: Entity, rect: &Aabb2, query_pass: &mut Query<&m
     let mut dirty_rect = match query_pass.get_mut(pass_id) {
         Ok(r) => r,
         _ => {
-            log::warn!("mark_pass_dirty_rect fail!!!");
+            log::warn!("mark_pass_dirty_rect fail!!!, {:?}", pass_id);
             return;
         }
     };

@@ -615,7 +615,7 @@ pub mod serialize {
     pub unsafe fn get_component_mut<C: Component + Clone + Default>(world: &mut World, entity: Entity, component_id: ComponentId) -> &mut C {
         match world.get_mut_by_id(entity, component_id) {
             Some(component) => unsafe { component.into_inner().deref_mut::<C>() },
-            None => panic!("get_component fail, get_component is not exist: {:?}", component_id),
+            None => panic!("get_component fail, get_component is not exist: {:?}, entity: {:?}", component_id, entity),
         }
     }
 
