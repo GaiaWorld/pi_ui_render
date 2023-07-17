@@ -71,7 +71,7 @@ render_derive = {git="https://github.com/GaiaWorld/pi_render.git", branch="bevy_
 pi_style = {git="https://github.com/GaiaWorld/pi_style.git"}
 pi_densevec = "0.1.2"
 pi_futures="0.1"
-pi_time="0.2"
+pi_time="0.3"
 # siphasher = {version="0.3", features=["serde_no_std"]}
 wasm-bindgen = { version = "0.2", features = ["serde-serialize"] }
 

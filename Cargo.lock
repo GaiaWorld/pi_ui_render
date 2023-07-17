@@ -1255,6 +1255,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "ctor"
+version = "0.2.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1f34ba9a9bcb8645379e9de8cb3ecfcf4d1c85ba66d90deb3259206fa5aa193b"
+dependencies = [
+ "quote",
+ "syn 2.0.15",
+]
+
+[[package]]
 name = "d3d12"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2329,7 +2339,7 @@ version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bc5dcfca9a0725105ac948b84cfeb69c3942814c696326743797215413f854b9"
 dependencies = [
- "ctor",
+ "ctor 0.1.26",
  "libc",
  "wasi 0.7.0",
 ]
@@ -2918,7 +2928,7 @@ dependencies = [
  "pi_futures",
  "pi_hash",
  "pi_share",
- "pi_time",
+ "pi_time 0.2.6",
 ]
 
 [[package]]
@@ -2941,7 +2951,7 @@ dependencies = [
  "parking_lot",
  "pi_cancel_timer",
  "pi_hash",
- "pi_time",
+ "pi_time 0.2.6",
  "slotmap",
 ]
 
@@ -2987,7 +2997,7 @@ dependencies = [
  "pi_null",
  "pi_render",
  "pi_share",
- "pi_time",
+ "pi_time 0.2.6",
  "serde",
 ]
 
@@ -3015,7 +3025,7 @@ dependencies = [
  "pi_share",
  "pi_slotmap",
  "pi_slotmap_tree",
- "pi_time",
+ "pi_time 0.2.6",
  "thiserror",
 ]
 
@@ -3501,6 +3511,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "pi_time"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6a7495745104f2eb435c067b189e4f6f78d7585f14fe44b60a444a68ef94047c"
+dependencies = [
+ "ctor 0.2.4",
+ "js-sys",
+ "lazy_static",
+ "libc",
+ "ordered-float",
+ "wasi 0.7.0",
+]
+
+[[package]]
 name = "pi_triangulation"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3578,7 +3602,7 @@ dependencies = [
  "pi_slotmap_tree",
  "pi_spatial",
  "pi_style",
- "pi_time",
+ "pi_time 0.3.0",
  "pi_ucd",
  "polygon2",
  "postcard",
@@ -4007,7 +4031,7 @@ dependencies = [
  "pi_share",
  "pi_slab",
  "pi_slotmap",
- "pi_time",
+ "pi_time 0.2.6",
  "regex",
  "render_crevice",
  "render_utils",
