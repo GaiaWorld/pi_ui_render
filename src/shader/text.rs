@@ -30,7 +30,7 @@ pub struct UvVert;
 
 #[derive(Input)]
 #[location(2)]
-pub struct ColorVert;
+pub struct VcolorVert;
 
 
 pub struct ProgramMeta;
@@ -79,7 +79,7 @@ impl ShaderProgram for ProgramMeta {
         meta.ins = ShaderInput(vec![
             InOut::new("position", "vec2", 0, vec![]),
             InOut::new("uv", "vec2", 1, vec![]),
-            InOut::new("color", "vec4", 2, vec![Define::new(true, VERTEX_COLOR_DEFINE.clone())]),
+            InOut::new("vcolor", "vec4", 2, vec![Define::new(true, VERTEX_COLOR_DEFINE.clone())]),
         ]);
         meta.outs = ShaderOutput(vec![InOut::new("o_Target", "vec4", 0, vec![])]);
         meta
@@ -144,7 +144,7 @@ lazy_static! {
         },
         CodeSlice {
             code: pi_atom::Atom::from(
-                "	vColor = color;
+                "	vColor = vcolor;
 "
             ),
             defines: vec![Define::new(true, VERTEX_COLOR_DEFINE.clone())]
@@ -160,36 +160,40 @@ lazy_static! {
         },
         CodeSlice {
             code: pi_atom::Atom::from(
-                "	vec4 c = color;
+                "	vec3 c = color.rgb;
+	float a = color.a;
 "
             ),
             defines: vec![]
         },
         CodeSlice {
             code: pi_atom::Atom::from(
-                "        c = vColor;
+                "		a = vColor.a;
+		c = vColor.rgb;
 "
             ),
             defines: vec![Define::new(true, VERTEX_COLOR_DEFINE.clone())]
         },
         CodeSlice {
             code: pi_atom::Atom::from(
-                "	vec4 samp = texture(sampler2D(tex2d, samp), vUv);
+                "	vec3 outlineColor = c;
+	vec4 samp = texture(sampler2D(tex2d, samp), vUv);
 "
             ),
             defines: vec![]
         },
         CodeSlice {
             code: pi_atom::Atom::from(
-                "		c.rgb = c.rgb * samp.g  + samp.r * strokeColorOrURect.rgb;
+                "		outlineColor = strokeColorOrURect.rgb;
 "
             ),
             defines: vec![Define::new(true, STROKE_DEFINE.clone())]
         },
         CodeSlice {
             code: pi_atom::Atom::from(
-                "	c.a = c.a * (1.0 - samp.b);
-	o_Target = c;
+                "	a = a * clamp(samp.a - samp.b, 0.0, 1.0);
+	c = ((c * samp.g)  + (samp.r * outlineColor)); // rgb: (0, 255, 0); samp.g = 95; samp.r = 160; ret = (0, 182, 0 )
+	o_Target = vec4(c, a); // vec4(c.r, c.g, c.b, 1.0);
 "
             ),
             defines: vec![]

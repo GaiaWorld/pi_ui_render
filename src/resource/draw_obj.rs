@@ -363,8 +363,8 @@ impl ProgramMetaInner {
         let vs_code = self.shader_meta.to_code(defines, wgpu::ShaderStages::VERTEX);
         let fs_code = self.shader_meta.to_code(defines, wgpu::ShaderStages::FRAGMENT);
 
-        // log::warn!("vs_code================{}", vs_code);
-        // log::warn!("fs_code================{}", fs_code);
+        log::debug!("vs_code================defines: {:?}, code: \n{}", defines, vs_code);
+        log::debug!("fs_code================defines: {:?}, code: \n{}", defines, fs_code);
         // std::fs::write("out.vert", &vs_code);
         // std::fs::write("out.frag", &fs_code);
 

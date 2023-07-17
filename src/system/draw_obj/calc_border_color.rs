@@ -18,7 +18,7 @@ use pi_share::Share;
 use wgpu::IndexFormat;
 
 use crate::components::calc::LayoutResult;
-use crate::components::draw_obj::{BorderColorMark, PipelineMeta};
+use crate::components::draw_obj::{BorderColorMark, PipelineMeta, BoxType};
 use crate::components::user::{BorderRadius, CgColor};
 use crate::components::{calc::NodeId, draw_obj::DrawState, user::BorderColor};
 use crate::shader::color::BORDER_DEFINE;
@@ -41,12 +41,12 @@ pub fn calc_border_color(
         Or<(Changed<BorderColor>, Changed<BorderRadius>, Changed<LayoutResult>)>,
     >,
 
-    mut query_draw: Query<(&mut DrawState, &mut PipelineMeta, &NodeId), With<BorderColorMark>>,
+    mut query_draw: Query<(&mut DrawState, &mut PipelineMeta, &NodeId, &mut BoxType), With<BorderColorMark>>,
 
     device: Res<PiRenderDevice>,
     buffer_assets: Res<ShareAssetMgr<RenderRes<Buffer>>>,
 ) {
-    for (mut draw_state, mut pipeline_meta, node_id) in query_draw.iter_mut() {
+    for (mut draw_state, mut pipeline_meta, node_id, mut box_type) in query_draw.iter_mut() {
         if let Ok((border_color, radius, layout, background_color_change, radius_change, layout_change)) = query.get(***node_id) {
             let count = pipeline_meta.defines.len();
             let new_fs = pipeline_meta.bypass_change_detection();
@@ -62,6 +62,7 @@ pub fn calc_border_color(
                 &layout_change,
                 new_fs,
             );
+			*box_type = BoxType::Border;
 
             if new_fs.defines.len() != count {
                 pipeline_meta.set_changed();
@@ -93,8 +94,8 @@ fn modify<'a>(
             draw_state.bindgroups.set_uniform(&ClipSdfUniform(&[
                 width / 2.0,
                 height / 2.0,
-                1.0,
-                1.0,
+                layout.border.bottom,
+                layout.border.left,
                 width / 2.0,
                 height / 2.0,
                 layout.border.top,

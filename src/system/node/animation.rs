@@ -56,16 +56,17 @@ pub fn calc_animation(
     for del in del.iter() {
         if let Err(_) = animation.get(del) {
             keyframes_sheet.unbind_animation_all(ObjKey(del));
+			keyframes_sheet.remove_runtime_keyframs(ObjKey(del));
         }
     }
 
     // 绑定动画
     for (node, animation) in animation.iter() {
-        if let Err(e) = keyframes_sheet.bind_animation(ObjKey(node), animation) {
+        if let Err(e) = keyframes_sheet.bind_static_animation(ObjKey(node), animation) {
             log::error!("{:?}", e);
         }
     }
-
+	// log::warn!("time_info.delta==============={:?}", time_info.delta);
     // 推动动画执行
     keyframes_sheet.run(&mut user_commands1.style_commands, time_info.delta);
 

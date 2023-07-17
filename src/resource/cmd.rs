@@ -117,7 +117,8 @@ impl Command for RuntimeAnimationBindCmd {
     fn write(self, world: &mut World) {
 		if world.get_entity(self.2).is_some() {
 			let mut sheet = world.get_resource_mut::<KeyFramesSheet>().unwrap();
-			let _ = sheet.bind_runtime_animation(ObjKey(self.2), &self.1, self.0);
+			let _ = sheet.add_runtime_keyframes(ObjKey(self.2), &self.1, self.0);
+			world.entity_mut(self.2).insert(self.1);
 		}
 	}
 }

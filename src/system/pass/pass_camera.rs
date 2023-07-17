@@ -268,6 +268,7 @@ pub fn calc_camera_depth_and_renderlist(
         draw_info,
         post_process: draw_obj_post_query,
     };
+	
     quad_tree.query(&all_dirty_rect, intersects, &mut args, ab_query_func);
 
     // 遍历所有的pass，设置不透明渲染列表和透明渲染列表
@@ -326,12 +327,14 @@ pub struct AbQueryArgs<'s, 'a> {
 fn ab_query_func(arg: &mut AbQueryArgs, id: EntityKey, _aabb: &Aabb2, _bind: &()) {
     // quad_tree.
     if let Ok((in_pass_id, draw_list, quad, z_range, is_show, entity)) = arg.node_query.get(*id) {
+		
+
         // log::warn!("draw_list1==================entity: {:?}, draw_list: {:?}, {}, {:?}", entity, draw_list, is_show.get_visibility(), quad, );
         let (parent_pass_id, context_dirty, camera) = match arg.pass_query.get(***in_pass_id) {
             Ok(r) => r,
             _ => return,
         };
-        // log::warn!("draw_list2==================context_dirty: {:?}", context_dirty);
+        // log::warn!("draw_list2==================id: {:?}, {:?}, {:?}, quad: {:?}", id, in_pass_id, draw_list, quad);
         // global_dirty_rect应该是pass内部的aadd，（与TransformWillChange有关）
         if draw_list.len() > 0 {
             if is_show.get_visibility() && intersects(quad, &context_dirty.no_will_change) {

@@ -1,14 +1,13 @@
 use bevy::ecs::prelude::{DetectChanges, Ref};
 use bevy::ecs::query::{Changed, Or, With};
 use bevy::ecs::system::{Local, Query, Res};
-use bevy::prelude::{DetectChangesMut, Plugin, IntoSystemConfig};
+use bevy::prelude::DetectChangesMut;
 use ordered_float::NotNan;
 use pi_assets::asset::Handle;
 use pi_assets::mgr::AssetMgr;
 use pi_atom::Atom;
 use pi_bevy_asset::ShareAssetMgr;
 use pi_bevy_ecs_extend::prelude::OrDefault;
-use pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent;
 use pi_bevy_ecs_extend::system_param::res::OrInitRes;
 use pi_bevy_render_plugin::{PiRenderDevice, PiVertexBufferAlloter};
 use pi_polygon::{find_lg_endp, interp_mult_by_lg, mult_to_triangle, split_by_lg, LgCfg};
@@ -24,64 +23,15 @@ use wgpu::IndexFormat;
 
 use crate::components::calc::{LayoutResult, NodeState, NodeId};
 use crate::components::draw_obj::{PipelineMeta, TextMark};
-use crate::components::user::{CgColor, TextContent, TextStyle};
-use crate::resource::draw_obj::{EmptyVertexBuffer, TextTextureGroup, PosUvColorVertexLayout};
-use crate::resource::{ShareFontSheet, TextRenderObjType};
-use crate::shader::text::{PositionVert, SampBind, UvVert, STROKE_DEFINE, VERTEX_COLOR_DEFINE};
+use crate::components::user::{CgColor, TextStyle};
+use crate::resource::draw_obj::{EmptyVertexBuffer, TextTextureGroup};
+use crate::resource::{ShareFontSheet};
+use crate::shader::text::{PositionVert, SampBind, UvVert, STROKE_DEFINE, VERTEX_COLOR_DEFINE, VcolorVert};
 use crate::shader::ui_meterial::{ColorUniform, StrokeColorOrURectUniform, TextureSizeOrBottomLeftBorderUniform};
 use crate::components::{draw_obj::DrawState, user::Color};
-use crate::system::AddEvent;
-use crate::system::draw_obj::life_drawobj;
-use crate::system::draw_obj::set_world_marix::set_matrix_group;
-use crate::system::node::layout::calc_layout;
-use crate::system::node::world_matrix::cal_matrix;
-use crate::system::system_set::UiSystemSet;
 use crate::system::utils::set_vert_buffer;
 use crate::utils::tools::{calc_hash, calc_hash_slice};
 
-use super::text_shadow::UiTextShadowPlugin;
-use super::text_texture::calc_text_texture;
-
-pub struct UiTextPlugin;
-
-impl Plugin for UiTextPlugin {
-    fn build(&self, app: &mut bevy::app::App) {
-        app
-			.init_resource::<ShareFontSheet>()
-			.add_frame_event::<ComponentEvent<Changed<NodeState>>>()
-			.add_frame_event::<ComponentEvent<Changed<TextContent>>>()
-			// 文字劈分
-			.add_system(super::text_split::text_split.before(calc_layout).in_set(UiSystemSet::Layout))
-			// 字形计算
-			.add_system(
-				super::text_glyph::text_glyph
-					.after(cal_matrix)
-					.before(calc_text)
-					.in_set(UiSystemSet::Matrix),
-			)
-			// 创建文字DrawObj
-			.add_system(
-				life_drawobj::draw_object_life::<
-					TextContent,
-					TextRenderObjType,
-					TextMark,
-					PosUvColorVertexLayout,
-					crate::shader::text::ProgramMeta,
-					{ TEXT_ORDER },
-				>
-					.in_set(UiSystemSet::LifeDrawObject),
-			)
-			// 设置文字的的顶点、索引，和颜色、边框颜色、边框宽度的Uniform
-			.add_system(calc_text.in_set(UiSystemSet::PrepareDrawObj).before(set_matrix_group).after(calc_text_texture))
-			// 更新文字纹理
-			.add_system(calc_text_texture.in_set(UiSystemSet::PrepareDrawObj))
-			// 文字阴影
-			.add_plugin(UiTextShadowPlugin)
-		;
-	}
-}
-
-pub const TEXT_ORDER: u8 = 8;
 
 /// 设置文字的的顶点、索引，和颜色、边框颜色、边框宽度的Uniform
 #[allow(unused_must_use)]
@@ -128,12 +78,12 @@ pub fn calc_text(
 			}
 
 			// 如果不存在，插入默认值（只有刚创建时不存在）
-            if draw_state.vertices.get(2).is_none() {
+            if draw_state.vertices.get(VcolorVert::location()).is_none() {
                 draw_state.insert_vertices(RenderVertices {
-                    slot: 2,
+                    slot: VcolorVert::location(),
                     buffer: EVerticesBufferUsage::GUI((*empty_vert_buffer).clone()),
                     buffer_range: None,
-                    size_per_value: 8,
+                    size_per_value: 16,
                 });
                 draw_state
                     .bindgroups
@@ -268,7 +218,7 @@ pub fn modify_geo(
     buffer_assets: &Share<AssetMgr<RenderRes<Buffer>>>,
     scale: f32,
     stroke_width: NotNan<f32>,
-    positions: &mut Vec<f32>,
+    mut positions: &mut Vec<f32>,
     uvs: &mut Vec<f32>,
     vertex_buffer_alloter: &PiVertexBufferAlloter,
 ) {
@@ -283,6 +233,7 @@ pub fn modify_geo(
         draw_state.vertices.clear();
         return;
     }
+	let mut positions1;
     match color {
         Color::RGBA(_) => {
             // 更新ib
@@ -296,6 +247,13 @@ pub fn modify_geo(
                 buffer_range: Some(0..(l * 6 * 2) as u64),
                 format: IndexFormat::Uint16,
             });
+			set_vert_buffer(
+				PositionVert::location(),
+				8,
+				bytemuck::cast_slice(&positions),
+				vertex_buffer_alloter,
+				draw_state,
+			);
         }
         Color::LinearGradient(color) => {
             let mut i = 0;
@@ -340,22 +298,25 @@ pub fn modify_geo(
                 lg_color.extend_from_slice(&[v.rgba.x, v.rgba.y, v.rgba.z, v.rgba.w]);
             }
             let lg_color = vec![LgCfg { unit: 4, data: lg_color }];
+			
 
             let len = positions.len() / 2;
             let mut old_len = positions.len();
+			positions1 = positions.clone();
             while (i as usize) < len {
                 // log::info!("position: {:?}, {:?}, {:?}, {:?}, {:?}", positions, node_state.0.text, lg_pos, &endp.0, &endp.1);
                 let (ps1, indices_arr) = split_by_lg(
-                    positions.clone(),
+                    positions1,
                     vec![i, i + 1, i + 2, i + 3],
                     lg_pos.as_slice(),
                     endp.0.clone(),
                     endp.1.clone(),
                 );
+				positions1 = ps1;
 
                 // 颜色插值
                 colors = interp_mult_by_lg(
-                    ps1.as_slice(),
+                    positions1.as_slice(),
                     &indices_arr,
                     colors,
                     lg_color.clone(),
@@ -365,9 +326,9 @@ pub fn modify_geo(
                 );
 
                 // 尝试为新增的点计算uv
-                if positions.len() > old_len {
-                    fill_uv(positions, uvs, i as usize, old_len);
-                    old_len = positions.len();
+                if positions1.len() > old_len {
+                    fill_uv(&mut positions1, uvs, i as usize, old_len);
+                    old_len = positions1.len();
                 }
 
                 indices = mult_to_triangle(&indices_arr, indices);
@@ -382,17 +343,18 @@ pub fn modify_geo(
             });
 
             let colors = colors.pop().unwrap();
-            set_vert_buffer(2, 16, bytemuck::cast_slice(&colors), vertex_buffer_alloter, draw_state);
+            set_vert_buffer(VcolorVert::location(), 16, bytemuck::cast_slice(&colors), vertex_buffer_alloter, draw_state);
+			set_vert_buffer(
+				PositionVert::location(),
+				8,
+				bytemuck::cast_slice(&positions1),
+				vertex_buffer_alloter,
+				draw_state,
+			);
             // draw_state.insert_vertices(RenderVertices { slot: 2, buffer: EVerticesBufferUsage::GUI(color_buffer), buffer_range: None, size_per_value: 16 });
         }
     }
-    set_vert_buffer(
-        PositionVert::location(),
-        8,
-        bytemuck::cast_slice(&positions),
-        vertex_buffer_alloter,
-        draw_state,
-    );
+   
     // let positions_buffer = get_or_create_buffer(bytemuck::cast_slice(&positions), "text position buffer", device, buffer_assets);
     // draw_state.insert_vertices(RenderVertices { slot: PositionVert::location(), buffer: EVerticesBufferUsage::GUI(positions_buffer), buffer_range: None, size_per_value: 8 });
     set_vert_buffer(UvVert::location(), 8, bytemuck::cast_slice(&uvs), vertex_buffer_alloter, draw_state);

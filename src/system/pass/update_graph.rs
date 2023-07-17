@@ -35,6 +35,7 @@ pub fn update_graph(
                 continue;
             }
 
+			
             let graph_node_id = match rg.add_node(format!("Pass2D_{:?}", entity), Pass2DNode::new(entity)) {
                 Ok(r) => r,
                 Err(e) => {
@@ -42,6 +43,7 @@ pub fn update_graph(
                     return;
                 }
             };
+			log::debug!("add_node1====={:?}, {:?}", entity, graph_node_id);
 
             *graph_id = GraphId(graph_node_id);
         } else {

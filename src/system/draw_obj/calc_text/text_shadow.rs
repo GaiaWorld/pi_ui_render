@@ -179,6 +179,9 @@ pub fn text_shadow_life(
 			let world_matrix = Matrix4::new(2.0, 0.0, 0.0, -1.0, 0.0, 2.0, 0.0, -1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0);
 			let _ = clear_group.set_uniform(&WorldUniform(world_matrix.as_slice()));
 
+			let mut post = PostProcess::default();
+			post.post.src_preimultiplied = false;
+
 			will_create_draws.push(
 				world
 					.spawn((DrawBundle {
@@ -193,7 +196,7 @@ pub fn text_shadow_life(
 						},
 						draw_info: DrawInfo::new(TEXT_SHADOW_ORDER, false), //TODO
 						other: TextShadowMark(start),
-					}, PostProcess::default(), GraphId::default(), TextShadowColorBindGroup(clear_group.into())))
+					}, post, GraphId::default(), TextShadowColorBindGroup(clear_group.into())))
 					.id(),
 			);
 			start += 1;

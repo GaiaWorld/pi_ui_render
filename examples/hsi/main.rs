@@ -8,12 +8,13 @@ use std::mem::swap;
 use bevy::ecs::system::Commands;
 use bevy::prelude::World;
 use framework::Example;
+use pi_atom::Atom;
 use pi_flex_layout::style::{Dimension, PositionType};
 use pi_null::Null;
 use pi_style::{
     style::{Aabb2, Hsi, Point2},
     style_type::{
-        BackgroundColorType, HeightType, HsiType, MarginLeftType, MarginTopType, PositionLeftType, PositionTopType, PositionTypeType, WidthType,
+        BackgroundColorType, HeightType, HsiType, MarginLeftType, MarginTopType, PositionLeftType, PositionTopType, PositionTypeType, WidthType, BackgroundImageType, OpacityType,
     },
 };
 use pi_ui_render::{
@@ -51,6 +52,8 @@ impl Example for QuadExample {
         self.cmd.set_style(root, PositionTopType(Dimension::Points(0.0)));
         self.cmd.set_style(root, MarginLeftType(Dimension::Points(0.0)));
         self.cmd.set_style(root, MarginTopType(Dimension::Points(0.0)));
+		self.cmd
+            .set_style(root, BackgroundColorType(Color::RGBA(CgColor::new(0.0, 0.0, 0.0, 1.0))));
         self.cmd.append(root, EntityKey::null().0);
 
         // 添加一个红色div
@@ -70,10 +73,11 @@ impl Example for QuadExample {
             div1,
             HsiType(Hsi {
                 hue_rotate: 0.0,
-                saturate: -1.0,
-                bright_ness: 0.0,
+                saturate: 0.0,
+                bright_ness: 0.2,
             }),
         );
+		// self.cmd.set_style(div1, OpacityType(0.5));
         // self.cmd.set_style(div1, OpacityType(Opacity(0.5)));
 
         // 添加一个绿色div
@@ -89,8 +93,10 @@ impl Example for QuadExample {
         self.cmd.set_style(div3, PositionTopType(Dimension::Points(100.0)));
         self.cmd.set_style(div3, WidthType(Dimension::Points(50.0)));
         self.cmd.set_style(div3, HeightType(Dimension::Points(100.0)));
-        self.cmd
-            .set_style(div3, BackgroundColorType(Color::RGBA(CgColor::new(1.0, 1.0, 0.0, 1.0))));
+		self.cmd
+            .set_style(div3, BackgroundImageType(Atom::from("examples/hsi/source/men.png")));
+        // self.cmd
+            // .set_style(div3, BackgroundColorType(Color::RGBA(CgColor::new(1.0, 1.0, 0.0, 1.0))));
         self.cmd.append(div3, div1);
 
         self.cmd.append(div1, root);

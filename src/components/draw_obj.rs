@@ -24,9 +24,9 @@ pub enum BoxType {
     ContentNone,
     /// 渲染为border区，世界矩阵不变换
     BorderNone,
-    /// 渲染为content区，世界矩阵需要变换
+    /// 渲染为content区，世界矩阵需要变换(此时顶点流是单位四边形)
     ContentRect,
-    /// 渲染为border区，世界矩阵需要变换
+    /// 渲染为border区，世界矩阵需要变换(此时顶点流是单位四边形)
     BorderRect,
     /// 渲染为边框部分
     Border,

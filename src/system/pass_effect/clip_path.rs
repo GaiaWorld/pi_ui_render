@@ -1,4 +1,4 @@
-use bevy::{ecs::{prelude::RemovedComponents, query::Changed, system::Query}, prelude::{Or, Plugin, Without, IntoSystemConfig}};
+use bevy::{ecs::{prelude::RemovedComponents, query::Changed, system::Query}, prelude::{Or, Plugin, Without, IntoSystemConfig, Added}};
 use pi_bevy_ecs_extend::prelude::OrDefault;
 use pi_flex_layout::prelude::Rect;
 use pi_style::style::{BaseShape, LengthUnit, Aabb2};
@@ -53,7 +53,7 @@ pub fn clip_path_del(
 /// 如果hsi删除，设置PostProcess中的hsb位None
 /// 如果hsi修改，将其设置在PostProcess中
 pub fn clip_path_post_process(
-    mut query: Query<(&ClipPath, &LayoutResult, &ContentBox, OrDefault<Overflow>, &View, &Camera, &mut PostProcess), Or<(Changed<ClipPath>, Changed<LayoutResult>, Changed<ContentBox>, Changed<Camera>)>>,
+    mut query: Query<(&ClipPath, &LayoutResult, &ContentBox, OrDefault<Overflow>, &View, &Camera, &mut PostProcess), Or<(Changed<ClipPath>, Added<PostProcess>, Changed<LayoutResult>, Changed<ContentBox>, Changed<Camera>)>>,
 ) {
     for (clip_path, layout, content_box, overflow, view, camera, mut post) in query.iter_mut() { 
 		if !camera.is_active {

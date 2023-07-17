@@ -87,7 +87,8 @@ impl Plugin for UiReadyDrawPlugin {
                 calc_background_image::calc_background_image
                     .after(super::node::layout::calc_layout)
                     .in_set(UiSystemSet::PrepareDrawObj)
-                    .before(set_matrix_group),
+                    .before(set_matrix_group)
+					.before(calc_border_radius::calc_border_radius),
             )
             // 文字功能
             .add_plugin(UiTextPlugin)
@@ -109,7 +110,8 @@ impl Plugin for UiReadyDrawPlugin {
                 calc_background_color::calc_background_color
                     .after(super::node::layout::calc_layout)
                     .in_set(UiSystemSet::PrepareDrawObj)
-                    .before(set_matrix_group),
+                    .before(set_matrix_group)
+					.before(calc_border_radius::calc_border_radius),
             )
             // BorderColor功能
             .add_frame_event::<ComponentEvent<Changed<BorderColor>>>()
@@ -128,7 +130,8 @@ impl Plugin for UiReadyDrawPlugin {
                 calc_border_color::calc_border_color
                     .after(super::node::layout::calc_layout)
                     .in_set(UiSystemSet::PrepareDrawObj)
-                    .before(set_matrix_group),
+                    .before(set_matrix_group)
+					.before(calc_border_radius::calc_border_radius),
             )
             // BorderImage功能
             .add_frame_event::<ComponentEvent<Changed<BorderImageTexture>>>()
@@ -149,7 +152,8 @@ impl Plugin for UiReadyDrawPlugin {
                 calc_border_image::calc_border_image
                     .after(super::node::layout::calc_layout)
                     .in_set(UiSystemSet::PrepareDrawObj)
-                    .before(set_matrix_group),
+                    .before(set_matrix_group)
+					.before(calc_border_radius::calc_border_radius),
             )
             // BoxShadow功能
             .add_frame_event::<ComponentEvent<Changed<BoxShadow>>>()
@@ -168,7 +172,8 @@ impl Plugin for UiReadyDrawPlugin {
                 calc_box_shadow::calc_box_shadow
                     .after(super::node::layout::calc_layout)
                     .in_set(UiSystemSet::PrepareDrawObj)
-                    .before(set_matrix_group),
+                    .before(set_matrix_group)
+					.before(calc_border_radius::calc_border_radius),
             )
             // canvas功能
             .add_frame_event::<ComponentEvent<Changed<Canvas>>>()
@@ -183,7 +188,10 @@ impl Plugin for UiReadyDrawPlugin {
                 >
                     .in_set(UiSystemSet::LifeDrawObject),
             )
-            .add_system(calc_canvas::calc_canvas.in_set(UiSystemSet::PrepareDrawObj).before(set_matrix_group))
+            .add_system(
+				calc_canvas::calc_canvas.in_set(UiSystemSet::PrepareDrawObj)
+				.before(set_matrix_group)
+				.before(calc_border_radius::calc_border_radius))
             .add_system(
                 calc_border_radius::calc_border_radius
                     .in_set(UiSystemSet::PrepareDrawObj)

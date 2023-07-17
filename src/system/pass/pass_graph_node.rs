@@ -194,7 +194,6 @@ impl Node for Pass2DNode {
 
         let pass2d_id = self.pass2d_id;
 
-
         Box::pin(async move {
             let query_param = query_param_state.get(world);
             // log::warn!("run1======{:?}", pass2d_id);
@@ -262,7 +261,8 @@ impl Node for Pass2DNode {
 
             if let Ok((camera, list, parent_pass2d_id)) = param.pass2d_query.get(pass2d_id) {
                 // log::warn!("run5======{:?}, {:?}, {:?}", pass2d_id, list.transparent, list.opaque);
-                // log::warn!("run graph4==============, input count: {}, opaque: {}, transparent: {}, is_active: {:?}, opaque_list: {:?}, transparent_list: {:?}, view_port: {:?}", input.0.len(), list.opaque.len(), list.transparent.len(), camera.is_active, &list.opaque, &list.transparent, &camera.view_port);
+				// log::warn!("run graph4==============, pass2d_id: {:?}, input count: {}, opaque: {}, transparent: {}, is_active: {:?}, opaque_list: {:?}, transparent_list: {:?}, view_port: {:?}", pass2d_id, input.0.len(), list.opaque.len(), list.transparent.len(), camera.is_active, &list.opaque, &list.transparent, &camera.view_port);
+                
                 if camera.is_active && (list.opaque.len() > 0 || list.transparent.len() > 0) {
                     let (rt, clear_color) = match post_list {
                         // 渲染类型为新建渲染目标对其进行渲染，则从纹理分配器中分配一个fbo矩形区
@@ -332,6 +332,7 @@ impl Node for Pass2DNode {
                             param.clear_draw.0.draw(&mut rp);
                             // 相机在drawObj中已经描述
                         }
+						// log::warn!("set_viewport============={:?}", view_port);
 						// 设置视口
                         rp.set_viewport(view_port.0, view_port.1, view_port.2, view_port.3, 0.0, 1.0);
 
@@ -463,6 +464,7 @@ impl Pass2DNode {
     ) {
         match param.post_query.get(*pass2d_id) {
             Ok((r, post_info, graph_id)) if post_info.has_effect() => {
+				// log::warn!("draw_final0==========={:?}", graph_id.0);
                 let src = match input.get(&graph_id.0) {
                     Some(r) => match &r.target {
                         Some(r) => r,
@@ -476,6 +478,35 @@ impl Pass2DNode {
                 };
 
                 let matrix = &cur_camera.project * &post_info.matrix.0;
+
+				let blend_state = if !r.src_preimultiplied{
+					wgpu::BlendState {
+						color: wgpu::BlendComponent {
+							operation: wgpu::BlendOperation::Add,
+							src_factor: wgpu::BlendFactor::SrcAlpha,
+							dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+						},
+						alpha: wgpu::BlendComponent {
+							operation: wgpu::BlendOperation::Add,
+							src_factor: wgpu::BlendFactor::One,
+							dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+						},
+					}
+				} else {
+					wgpu::BlendState {
+						color: wgpu::BlendComponent {
+							operation: wgpu::BlendOperation::Add,
+							src_factor: wgpu::BlendFactor::One,
+							dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+						},
+						alpha: wgpu::BlendComponent {
+							operation: wgpu::BlendOperation::Add,
+							src_factor: wgpu::BlendFactor::One,
+							dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+						},
+					}
+				};
+				// log::warn!("draw_final==========={:?}", r);
                 if let Some(draw_obj) = r.draw_final(
                     param.device,
                     param.queue,
@@ -488,18 +519,7 @@ impl Pass2DNode {
                     &param.pipline_assets,
                     wgpu::ColorTargetState {
                         format: wgpu::TextureFormat::pi_render_default(),
-                        blend: Some(wgpu::BlendState {
-                            color: wgpu::BlendComponent {
-                                operation: wgpu::BlendOperation::Add,
-                                src_factor: wgpu::BlendFactor::SrcAlpha,
-                                dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
-                            },
-                            alpha: wgpu::BlendComponent {
-                                operation: wgpu::BlendOperation::Add,
-                                src_factor: wgpu::BlendFactor::One,
-                                dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
-                            },
-                        }),
+                        blend: Some(blend_state),
                         write_mask: wgpu::ColorWrites::ALL,
                     },
                     Some(pi_render::renderer::pipeline::DepthStencilState {

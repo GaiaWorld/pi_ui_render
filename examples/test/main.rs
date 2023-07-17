@@ -7,13 +7,14 @@ use std::mem::swap;
 
 use bevy::ecs::system::Commands;
 use bevy::prelude::World;
+use font_kit::font::new_face_by_path;
 use framework::Example;
 /// 渲染四边形 demo
 use pi_flex_layout::style::{Dimension, PositionType};
 use pi_null::Null;
 use pi_style::{
-    style::{Aabb2, Point2},
-    style_type::{BackgroundColorType, HeightType, MarginLeftType, MarginTopType, PositionLeftType, PositionTopType, PositionTypeType, WidthType},
+    style::{Aabb2, Point2, Hsi, AnimationName, IterationCount, AnimationDirection, Time, TextContent, FontSize, ColorAndPosition, LinearGradientColor},
+    style_type::{BackgroundColorType, HeightType, HsiType, BackgroundImageType, MarginLeftType, MarginTopType, PositionLeftType, PositionTopType, PositionTypeType, WidthType, AnimationNameType, AnimationIterationCountType, AnimationDirectionType, AnimationDurationType, TextContentType, FontFamilyType, ColorType, FontSizeType}, style_parse::parse_class_map_from_string,
 };
 use pi_ui_render::{
     components::{
@@ -21,29 +22,40 @@ use pi_ui_render::{
         user::{CgColor, ClearColor, Color, RenderDirty, Viewport},
         NodeBundle,
     },
-    resource::{NodeCmd, UserCommands},
+    resource::{NodeCmd, UserCommands, ExtendCssCmd, animation_sheet::AnimationType},
 };
+use pi_atom::Atom;
+use smallvec::smallvec;
 
 fn main() { framework::start(QuadExample::default()) }
 
 #[derive(Default)]
 pub struct QuadExample {
     cmd: UserCommands,
+	div1: EntityKey,
+	time: Option<std::time::Instant>,
+	flag: bool,
 }
 
 impl Example for QuadExample {
     fn init(&mut self, world: &mut World, size: (usize, usize)) {
+		let mut dir = std::env::current_dir().unwrap();
+        log::info!("dir: {:?}", dir);
+        dir.push("examples/text/source/hwkt.ttf");
+        // new_face_by_path("hwkt".to_string(), dir.to_str().unwrap());
+        new_face_by_path("hwkt".to_string(), "examples/text/source/SOURCEHANSANSK-MEDIUM.TTF");
+	
+
         // 设置清屏颜色为绿色
         // gui.gui.world_mut().insert_resource(ClearColor(CgColor::new(0.0, 1.0, 1.0, 1.0)));
-
         // 添加根节点
         let root = world.spawn(NodeBundle::default()).id();
-        self.cmd.push_cmd(NodeCmd(ClearColor(CgColor::new(0.0, 1.0, 1.0, 1.0), true), root));
+        self.cmd.push_cmd(NodeCmd(ClearColor(CgColor::new(1.0, 0.0, 0.0, 1.0), true), root));
         self.cmd.push_cmd(NodeCmd(
             Viewport(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(size.0 as f32, size.1 as f32))),
             root,
         ));
-        self.cmd.push_cmd(NodeCmd(RenderDirty(true), root));
+        // self.cmd.push_cmd(NodeCmd(RenderDirty(true), root));
 
 
         self.cmd.set_style(root, WidthType(Dimension::Points(size.0 as f32)));
@@ -56,17 +68,60 @@ impl Example for QuadExample {
         self.cmd.set_style(root, MarginTopType(Dimension::Points(0.0)));
         self.cmd.append(root, EntityKey::null().0);
 
-        // 添加一个玫红色div到根节点， 并添加overflow属性
-        let div1 = world.spawn(NodeBundle::default()).id();
-        self.cmd.set_style(div1, WidthType(Dimension::Points(300.0)));
-        self.cmd.set_style(div1, HeightType(Dimension::Points(300.0)));
+		let div2 = world.spawn(NodeBundle::default()).id();
+        self.cmd.set_style(div2, WidthType(Dimension::Points(50.0)));
+        self.cmd.set_style(div2, HeightType(Dimension::Points(100.0)));
         self.cmd
-            .set_style(div1, BackgroundColorType(Color::RGBA(CgColor::new(1.0, 0.0, 1.0, 1.0))));
-
-        self.cmd.append(div1, root);
+            .set_style(div2, TextContentType(TextContent("base".to_string(), Atom::from("base"))));
+        self.cmd.set_style(div2, FontFamilyType(Atom::from("hwkt")));
+        self.cmd.set_style(div2, ColorType(Color::LinearGradient(LinearGradientColor {
+			direction: 0.0,
+			list: vec![
+				ColorAndPosition {
+					position: 0.0,
+					rgba: CgColor::new(0.0, 1.0, 0.0, 1.0),
+				},
+				ColorAndPosition {
+					position: 1.0,
+					rgba: CgColor::new(1.0, 1.0, 0.0, 1.0),
+				},
+			],
+		})));
+        self.cmd.set_style(div2, FontSizeType(FontSize::Length(30)));
+        self.cmd.append(div2, root);
 
         log::warn!("end=====");
     }
 
-    fn render(&mut self, cmd: &mut UserCommands, _cmd1: &mut Commands) { swap(&mut self.cmd, cmd); }
+    fn render(&mut self, cmd: &mut UserCommands, _cmd1: &mut Commands) { 
+		// if let Some(time) = &self.time {
+		// 	if std::time::Instant::now() - *time > std::time::Duration::from_millis(1000) {
+		// 		self.time = Some(std::time::Instant::now());
+		// 		log::warn!("zzzz=====");
+		// 		if !self.flag {
+		// 			self.cmd.set_style(
+		// 				self.div1.0,
+		// 				HsiType(Hsi {
+		// 					hue_rotate: 0.0,
+		// 					saturate: 0.0,
+		// 					bright_ness: 0.0,
+		// 				}),
+		// 			);
+		// 		} else {
+		// 			self.cmd.set_style(
+		// 				self.div1.0,
+		// 				HsiType(Hsi {
+		// 					hue_rotate: 0.0,
+		// 					saturate: 0.0,
+		// 					bright_ness: 0.5,
+		// 				}),
+		// 			);
+		// 		}
+		// 		self.flag =!self.flag;
+				
+		// 	}
+		// }
+		
+		swap(&mut self.cmd, cmd); 
+	}
 }

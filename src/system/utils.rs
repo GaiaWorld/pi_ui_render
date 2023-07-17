@@ -125,23 +125,21 @@ pub fn set_vert_buffer(
     vertex_buffer_alloter: &PiVertexBufferAlloter,
     draw_state: &mut DrawState,
 ) {
-    match draw_state.vertices.get_mut(slot) {
-        Some(r) => {
-            if let EVerticesBufferUsage::Part(index) = &mut r.buffer {
-                // 正常逻辑下， 只有这里会取到可变，这里直接通过非安全方式转换（逻辑需要保证）
-                vertex_buffer_alloter.update(unsafe { &mut *(Share::as_ptr(index) as usize as *mut BufferIndex) }, buffer);
-            }
-        }
-        None => {
-            let index = vertex_buffer_alloter.alloc(buffer);
-            draw_state.insert_vertices(RenderVertices {
-                slot: slot,
-                buffer: EVerticesBufferUsage::Part(Share::new(index)),
-                buffer_range: None,
-                size_per_value,
-            })
-        }
+    if let Some(r) = draw_state.vertices.get_mut(slot) {
+        if let EVerticesBufferUsage::Part(index) = &mut r.buffer {
+			// 正常逻辑下， 只有这里会取到可变，这里直接通过非安全方式转换（逻辑需要保证）
+			vertex_buffer_alloter.update(unsafe { &mut *(Share::as_ptr(index) as usize as *mut BufferIndex) }, buffer);
+			return;
+		}
     }
+
+	let index = vertex_buffer_alloter.alloc(buffer);
+	draw_state.insert_vertices(RenderVertices {
+		slot: slot,
+		buffer: EVerticesBufferUsage::Part(Share::new(index)),
+		buffer_range: None,
+		size_per_value,
+	});
 
     // let key = calc_hash_slice(buffer, calc_hash(&"vert", 0));
     // match buffer_assets.get(&key) {

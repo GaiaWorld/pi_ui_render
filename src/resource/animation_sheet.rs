@@ -1,5 +1,5 @@
 //！ 动画表资源
-use std::{any::Any, collections::VecDeque};
+use std::{any::Any, collections::VecDeque, mem::replace};
 
 use bevy::{ecs::prelude::{Entity, Resource}, utils::HashMap};
 use bitvec::vec::BitVec;
@@ -68,7 +68,11 @@ pub struct KeyFramesSheet {
 
                                        // animation_events: Vec<(AnimationGroupID, EAnimationEvent, u32)>,
                                        // animation_events_callback: Option<Share<dyn Fn(&Vec<(AnimationGroupID, EAnimationEvent, u32)>, &SecondaryMap<AnimationGroupID, (ObjKey, Atom)>)>>, // 动画事件回调函数
-	temp_keyframnames: Vec<Atom>, 
+	temp_keyframnames: XHashMap<ObjKey, Vec<(usize, Atom)>>, // 记录某节点添加了哪些运行时动画
+	temp_errs: Vec<KeyFrameError>,
+
+	run_count: usize,
+	
 }
 
 unsafe impl Send for KeyFramesSheet {}
@@ -187,7 +191,9 @@ impl Default for KeyFramesSheet {
             runtime_info_map: b,
             temp_keyframes_ptr: Default::default(),
             temp_keyframes_mark: temp_keyframes_mark,
-			temp_keyframnames: Vec::default(),
+			temp_keyframnames: XHashMap::default(),
+			run_count: 0,
+			temp_errs: Vec::default(),
             // animation_events:  Vec::new(),
         }
     }
@@ -196,12 +202,14 @@ impl Default for KeyFramesSheet {
 
 #[derive(Debug, Clone)]
 pub enum KeyFrameError {
-    InvalidKeyFrameName(Atom),
+    NotExistFrameData(ObjKey, Animation),
 }
 
 impl KeyFramesSheet {
     // 推动动画
     pub fn run(&mut self, style_commands: &mut StyleCommands, delta_ms: u64) {
+		// self.run_count += 1;
+		// log::warn!("run=========");
         self.runtime_info_map.reset();
         self.animation_context_amount.anime_curve_calc(delta_ms, &mut self.runtime_info_map);
         for i in self.type_use_mark.iter_ones() {
@@ -220,7 +228,13 @@ impl KeyFramesSheet {
         // }
     }
 
-    pub fn get_animation_events(&self) -> &Vec<(AnimationGroupID, EAnimationEvent, u32)> { &self.animation_context_amount.group_events }
+    pub fn get_animation_events(&self) -> &Vec<(AnimationGroupID, EAnimationEvent, u32)> {
+		// if self.run_count > 1 {
+		// 	log::warn!("get_animation_events fail====={:?}", self.run_count);
+		// }
+		// unsafe {&mut *((self) as *const Self as usize as *mut Self)}.run_count = 0;
+		// log::warn!("get_animation_events=====");
+		 &self.animation_context_amount.group_events }
 
     pub fn log(&self) {
         // self.animation_context_amount.log_groups();
@@ -236,102 +250,57 @@ impl KeyFramesSheet {
     //     // self.animation_events_callback = Some(callback);
     // }
 
-    // 将动画绑定到目标上（目标即节点的实体id）
-    pub fn bind_animation(&mut self, target: ObjKey, animation: &Animation) -> Result<(), KeyFrameError> {
-        log::debug!("bind_animation====={:?}", animation);
+	// 将动画绑定到目标上（目标即节点的实体id）
+	pub fn bind_static_animation(&mut self, target: ObjKey, animation: &Animation) -> Result<(), Vec<KeyFrameError>> {
+        log::debug!("bind_static_animation====={:?}, {:?}", target, animation);
         // 先解绑节点上的动画
         self.unbind_animation_all(target);
-
-        let mut err = None;
-        let mut groups = SmallVec::with_capacity(animation.name.value.len());
-        // 然后重新将动画绑定上去
-        for i in 0..animation.name.value.len() {
-            let name = (animation.name.scope_hash, animation.name.value[i].clone());
-            let curves = match self.key_frames_map.get(&name) {
-                Some(r) => r,
-                None => {
-                    err = Some(KeyFrameError::InvalidKeyFrameName(name.1.clone()));
-                    break;
-                }
-            };
-
-            debug!("bind_animation, target: {:?}, animation: {:?}", target, animation);
-            let group0 = self.animation_context_amount.create_animation_group();
-            groups.push(group0);
-            for (attr_animation, curve_id) in curves.0.iter() {
-				let ctx = &mut self.animation_attr_types.list[*curve_id];
-				// 向动画组添加 动画
-				(ctx.add_target_animation)(&mut self.animation_context_amount, &mut ctx.context, attr_animation.clone(), group0, target).unwrap();
-                self.type_use_mark.set(*curve_id, true);
-            }
-            self.group_bind.insert(group0, (target, name.clone()));
-
-            // 启动动画组
-            debug!(
-                "start anim, direction: {:?}, frame_per_second: {}, from: {}, to:  {}, duration: {}s",
-                animation.direction,
-                (FRAME_COUNT / (*Animation::get_attr(i, &animation.duration) as f32 / 1000.0)).round() as u16,
-                0.0,
-                FRAME_COUNT,
-                *Animation::get_attr(i, &animation.duration) as f32 / 1000.0
-            );
-            let iter_count = *Animation::get_attr(i, &animation.iteration_count);
-            let iter_count = if f32::is_infinite(iter_count) { None } else { Some(iter_count as u32) };
-            let direction = Animation::get_attr(i, &animation.direction);
-            let direction = match direction {
-                AnimationDirection::Normal => ELoopMode::Positive(iter_count),
-                AnimationDirection::Reverse => ELoopMode::OppositePly(iter_count),
-                AnimationDirection::Alternate => ELoopMode::Opposite(iter_count),
-                AnimationDirection::AlternateReverse => ELoopMode::OppositePly(iter_count),
-            };
-            let duration = *Animation::get_attr(i, &animation.duration) as f32 / 1000.0;
-            let timing_function = Animation::get_attr(i, &animation.timing_function);
-            // let frame_per_second = (FRAME_COUNT / duration).round() as u16;
-            // TODO
-            self.animation_context_amount
-                .start_complete(
-                    group0,
-                    duration,
-                    direction,
-                    120,
-                    match timing_function {
-                        AnimationTimingFunction::Linear => AnimationAmountCalc::from_easing(EEasingMode::None),
-                        AnimationTimingFunction::Ease(r) => AnimationAmountCalc::from_easing(r),
-                        AnimationTimingFunction::Step(step, mode) => AnimationAmountCalc::from_steps(step as u16, mode),
-                        AnimationTimingFunction::CubicBezier(x1, y1, x2, y2) => AnimationAmountCalc::from_cubic_bezier(x1, y1, x2, y2),
-                    },
-                )
-                .unwrap();
-        }
-
-        self.animation_bind.insert(target, groups);
-        if let Some(err) = err {
-            self.unbind_animation_all(target);
-            return Err(err);
-        }
-
-        Ok(())
+		// 再绑定新的动画
+        self.bind_animation(target, animation)
     }
 
 	/// 绑定运行时动画
 	/// 运行时动画不会放入static_key_frames_map中，当其不在被引用时， 会被销毁
-	pub fn bind_runtime_animation(&mut self, target: ObjKey, animation: &Animation, value: XHashMap<Atom, XHashMap<NotNan<f32>, VecDeque<Attribute>>>){
-        log::debug!("bind_runtime_animation====={:?}， {:?}", target, animation);
-		for (name, map) in value.into_iter() {
-			self.add_keyframes( animation.name.scope_hash, name.clone(), map);
-			self.temp_keyframnames.push(name);
-		}
-		
-		// 如果binding出错，移除刚创建的keyframes
-        if let Err(_) = self.bind_animation(target, animation) {
-			for i in self.temp_keyframnames.drain(..) {
-				self.key_frames_map.remove(&(animation.name.scope_hash, i));
+	pub fn add_runtime_keyframes(&mut self, target: ObjKey, animation: &Animation, mut value: XHashMap<Atom, XHashMap<NotNan<f32>, VecDeque<Attribute>>>){
+		// 移除旧的运行时帧动画
+		self.remove_runtime_keyframs(target);
+
+		let mut names = Vec::with_capacity(value.len());
+        log::debug!("bind_runtime_animation====={:?}", target);
+		for name in animation.name.value.iter() {
+			if let Some(m) = value.remove(name) {
+				self.add_keyframes( animation.name.scope_hash, name.clone(), m);
 			}
+			names.push((animation.name.scope_hash, name.clone()));
 		}
-    }
+
+		if names.len() > 0 {
+			self.temp_keyframnames.insert(target, names);
+		}
+	}
+
+	// // animation: &Animation,
+
+	// pub fn bind_runtime_animation(&mut self, target: ObjKey, animation: &Animation, value: XHashMap<Atom, XHashMap<NotNan<f32>, VecDeque<Attribute>>>){
+	// 	// 先解绑节点上的动画
+	// 	self.unbind_animation_all(target);
+    //     log::warn!("bind_runtime_animation====={:?}， {:?}", target, animation);
+	// 	for (name, map) in value.into_iter() {
+	// 		self.add_keyframes( animation.name.scope_hash, name.clone(), map);
+	// 		self.temp_keyframnames.push(name);
+	// 	}
+		
+	// 	// 如果binding出错，移除刚创建的keyframes
+    //     if let Err(_) = self.bind_animation(target, animation) {
+	// 		for i in self.temp_keyframnames.drain(..) {
+	// 			self.key_frames_map.remove(&(animation.name.scope_hash, i));
+	// 		}
+	// 	}
+    // }
 
     // 解绑定动画
     pub fn unbind_animation_all(&mut self, target: ObjKey) {
+		log::debug!("unbind_animation_all====={:?}", target);
         if let Some(r) = self.animation_bind.remove(target) {
             // 移除目标上绑定的所有动画
             for single_animation in r {
@@ -339,14 +308,33 @@ impl KeyFramesSheet {
 					&mut self.animation_context_amount, 
 					&mut self.group_bind, 
 					&mut self.animation_attr_types, 
-					&mut self.key_frames_map, 
 					single_animation);
             }
         }
     }
 
+	// 移除运行时帧数据
+	pub fn remove_runtime_keyframs(
+		&mut self,
+		target: ObjKey,
+	) {
+		// 移除运行时动画帧数据
+		if let Some(runtime_frames) = self.temp_keyframnames.remove(&target) {
+			for key in runtime_frames.iter() {
+				if let Some(key_frame) = self.key_frames_map.get(&key) {
+					if key_frame.0.len() == 0 {
+						return;
+					}
+					if Share::strong_count(&key_frame.0[0].0) == 1 {
+						self.key_frames_map.remove(key);
+					}
+				}
+			}
+		}
+	}
+
 	// 解绑定动画
-	pub fn unbind_animation(&mut self, target: ObjKey, scope_hash: usize, name: Atom) {
+	pub fn unbind_animation_single(&mut self, target: ObjKey, scope_hash: usize, name: Atom) {
 		if let Some(r) = self.animation_bind.get_mut(target) {
 			// 移除目标上绑定的所有动画
 			let mut i = 0;
@@ -358,7 +346,6 @@ impl KeyFramesSheet {
 							&mut self.animation_context_amount, 
 							&mut self.group_bind, 
 							&mut self.animation_attr_types, 
-							&mut self.key_frames_map, 
 							single_animation);
 						r.swap_remove(i);
 						continue;
@@ -508,29 +495,94 @@ impl KeyFramesSheet {
         self.key_frames_map.insert((scope_hash, name.clone()), key_frame);
     }
 
+	// 将动画绑定到目标上（目标即节点的实体id）
+    fn bind_animation(&mut self, target: ObjKey, animation: &Animation) -> Result<(), Vec<KeyFrameError>> {
+        log::debug!("bind_animation====={:?}, {:?}", target, animation);
+
+        let mut groups = SmallVec::with_capacity(animation.name.value.len());
+        // 然后重新将动画绑定上去
+        for i in 0..animation.name.value.len() {
+            let name = (animation.name.scope_hash, animation.name.value[i].clone());
+            let curves = match self.key_frames_map.get(&name) {
+                Some(r) => r,
+                None => {
+					self.temp_errs.push(KeyFrameError::NotExistFrameData(target, animation.clone()));
+                    continue;
+                }
+            };
+
+            debug!("bind_animation, target: {:?}, animation: {:?}", target, animation);
+            let group0 = self.animation_context_amount.create_animation_group();
+            groups.push(group0);
+            for (attr_animation, curve_id) in curves.0.iter() {
+				let ctx = &mut self.animation_attr_types.list[*curve_id];
+				// 向动画组添加 动画
+				(ctx.add_target_animation)(&mut self.animation_context_amount, &mut ctx.context, attr_animation.clone(), group0, target).unwrap();
+                self.type_use_mark.set(*curve_id, true);
+            }
+            self.group_bind.insert(group0, (target, name.clone()));
+
+            // 启动动画组
+            debug!(
+                "start anim, direction: {:?}, frame_per_second: {}, from: {}, to:  {}, duration: {}s",
+                animation.direction,
+                (FRAME_COUNT / (*Animation::get_attr(i, &animation.duration) as f32 / 1000.0)).round() as u16,
+                0.0,
+                FRAME_COUNT,
+                *Animation::get_attr(i, &animation.duration) as f32 / 1000.0
+            );
+            let iter_count = *Animation::get_attr(i, &animation.iteration_count);
+            let iter_count = if f32::is_infinite(iter_count) { None } else { Some(iter_count as u32) };
+            let direction = Animation::get_attr(i, &animation.direction);
+            let direction = match direction {
+                AnimationDirection::Normal => ELoopMode::Positive(iter_count),
+                AnimationDirection::Reverse => ELoopMode::OppositePly(iter_count),
+                AnimationDirection::Alternate => ELoopMode::Opposite(iter_count),
+                AnimationDirection::AlternateReverse => ELoopMode::OppositePly(iter_count),
+            };
+            let duration = *Animation::get_attr(i, &animation.duration) as f32 / 1000.0;
+            let timing_function = Animation::get_attr(i, &animation.timing_function);
+            // let frame_per_second = (FRAME_COUNT / duration).round() as u16;
+            // TODO
+			// log::warn!("start_complete==========={:?}, {:?}", animation.name, duration, );
+            self.animation_context_amount
+                .start_complete(
+                    group0,
+                    duration,
+                    direction,
+                    120,
+                    match timing_function {
+                        AnimationTimingFunction::Linear => AnimationAmountCalc::from_easing(EEasingMode::None),
+                        AnimationTimingFunction::Ease(r) => AnimationAmountCalc::from_easing(r),
+                        AnimationTimingFunction::Step(step, mode) => AnimationAmountCalc::from_steps(step as u16, mode),
+                        AnimationTimingFunction::CubicBezier(x1, y1, x2, y2) => AnimationAmountCalc::from_cubic_bezier(x1, y1, x2, y2),
+                    },
+                )
+                .unwrap();
+        }
+
+        self.animation_bind.insert(target, groups);
+
+        if self.temp_errs.len() > 0 {
+			return Err(replace(&mut self.temp_errs, Vec::default()))
+		}
+
+        Ok(())
+    }
+
 	// 移除动画
 	fn remove_animation(
 		animation_context_amount: &mut AnimationContextAmount<ObjKey, AnimationGroupManagerDefault<ObjKey>>, 
 		group_bind: &mut SecondaryMap<AnimationGroupID, (ObjKey, (usize, Atom))>, 
 		animation_attr_types: &mut CurveMgr,
-		key_frames_map: &mut XHashMap<(usize, Atom), KeyFrames>,
 		single_animation: DefaultKey,
 		
 	) {
-		debug!("remove_animation, name: {:?}", group_bind.get(single_animation));
+		log::debug!("remove_animation, name: {:?}", group_bind.get(single_animation));
 		animation_context_amount.remove_animation_group(single_animation, animation_attr_types);
-		let r = group_bind.remove(single_animation);
-		if let Some((_, key)) = r {
-			if let Some(key_frame) = key_frames_map.get(&key) {
-				if key_frame.0.len() == 0 {
-					return;
-				}
-				if Share::strong_count(&key_frame.0[0].0) == 1 {
-					key_frames_map.remove(&key);
-				}
-			}
-		}
+		group_bind.remove(single_animation);
 	}
+
 }
 
 #[derive(Debug, Clone, Deref, PartialEq, Eq, Copy, Hash, PartialOrd, Ord)]

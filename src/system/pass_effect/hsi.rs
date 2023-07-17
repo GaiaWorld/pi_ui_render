@@ -1,5 +1,5 @@
-use bevy::ecs::{prelude::RemovedComponents, query::Changed, system::Query};
-use pi_bevy_ecs_extend::system_param::res::OrInitRes;
+use bevy::{ecs::{prelude::RemovedComponents, query::Changed, system::Query}, prelude::{Or, Added, Entity}};
+use pi_bevy_ecs_extend::{system_param::res::OrInitRes};
 
 use crate::{components::user::Hsi, resource::RenderContextMarkType};
 
@@ -15,7 +15,7 @@ use crate::components::pass_2d::{PostProcess, PostProcessInfo};
 pub fn hsi_post_process(
     mut del: RemovedComponents<Hsi>,
     mark_type: OrInitRes<RenderContextMarkType<Hsi>>,
-    mut query: ParamSet<(Query<(&Hsi, &mut PostProcess, &mut PostProcessInfo), Changed<Hsi>>, Query<(&mut PostProcess, &mut PostProcessInfo)>)>,
+    mut query: ParamSet<(Query<(&Hsi, &mut PostProcess, &mut PostProcessInfo, Entity), Or<(Changed<Hsi>, Added<PostProcess>)>>, Query<(&mut PostProcess, &mut PostProcessInfo)>)>,
 ) {
     let mut p1 = query.p1();
     for del in del.iter() {
@@ -25,7 +25,7 @@ pub fn hsi_post_process(
         }
     }
 
-    for (hsi, mut post_list, mut post_info) in query.p0().iter_mut() {
+    for (hsi, mut post_list, mut post_info, entity) in query.p0().iter_mut() {
         if hsi.saturate != 0.0 || hsi.hue_rotate != 0.0 || hsi.bright_ness != 0.0 {
             post_list.hsb = Some(HSB {
                 hue: (hsi.hue_rotate * 360.0) as i16,
@@ -35,6 +35,7 @@ pub fn hsi_post_process(
             post_info.effect_mark.set(***mark_type, true);
         } else {
             post_list.hsb = None;
+			log::warn!("hsb none======={:?}", entity);
             post_info.effect_mark.set(***mark_type, false);
         }
     }

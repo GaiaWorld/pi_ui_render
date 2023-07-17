@@ -11,6 +11,7 @@ use bevy::{
     window::{Window, WindowResolution},
 };
 use pi_async::prelude::AsyncRuntime;
+use pi_bevy_asset::{PiAssetPlugin, AssetConfig};
 use pi_bevy_post_process::PiPostProcessPlugin;
 use pi_bevy_render_plugin::PiRenderPlugin;
 use pi_flex_layout::prelude::Size;
@@ -114,6 +115,7 @@ pub fn init(width: u32, height: u32) -> App {
     .add_plugin(bevy::input::InputPlugin::default())
     .add_plugin(window_plugin)
     .add_plugin(WinitPlugin::default())
+	.add_plugin(PiAssetPlugin {total_capacity: 1024 * 1024 * 1024, asset_config: AssetConfig::default()})
     // .add_plugin(WorldInspectorPlugin::new())
     .add_plugin(PiRenderPlugin::default())
     .add_plugin(PiPostProcessPlugin);

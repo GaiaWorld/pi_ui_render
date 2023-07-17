@@ -47,7 +47,7 @@ impl Plugin for UiPassPlugin {
             )
 
 			// 计算图节点及其依赖
-			.add_system(update_graph::update_graph.after(UiSystemSet::PassFlush))
+			.add_system(update_graph::update_graph.after(UiSystemSet::PassSetting).after(UiSystemSet::PassFlush))
 
 			// 渲染前，计算Pass的属性
 			// 脏区域、相机、深度，更新uniform不顶点buffer到wgpu

@@ -16,6 +16,7 @@ use pi_bevy_ecs_extend::{
 use pi_flex_layout::style::Dimension;
 use pi_null::Null;
 use pi_slotmap_tree::InsertType;
+use pi_map::Map;
 
 use crate::{
     components::{
@@ -69,6 +70,7 @@ pub fn user_setting(
 				continue;
 			}
 		};
+		log::debug!("fragment_commands === {}", c.key);
 		debug_assert_eq!(t.end - t.start, c.entitys.len());
 
 		for i in t.clone() {
@@ -87,18 +89,43 @@ pub fn user_setting(
 
 	let (draw_list, entitys, mut tree) = state.get_mut(world);
 
-    // 操作节点(节点的创建、销毁、挂载、删除)
+	for c in user_commands.fragment_commands.iter() {
+		// 组织模板的节点关系
+		let t = match fragments.map.get(&c.key) {
+			Some(r) => r,
+			_ => {
+				log::info!("fragment is not exist, {}", c.key);
+				continue;
+			}
+		};
+		debug_assert_eq!(t.end - t.start, c.entitys.len());
+
+		for i in t.clone() {
+			let n = &fragments.fragments[i];
+			let node = &c.entitys[i - t.start];
+			log::debug!("fragment_commands insertChild!!====================node：{:?}, parent {:?}", node, n.parent);
+			if let (false, true) = (n.parent.is_null(), entitys.get(*node).is_ok()) {
+				log::debug!("fragment_commands insertChild====================node：{:?}, parent {:?}", node, c.entitys[n.parent]);
+				// log::warn!("fragment_commands insertChild====================node：{:?}, parent {:?}", node, c.entitys[n.parent]);
+				tree.insert_child(*node, c.entitys[n.parent] , std::usize::MAX);
+			}
+		}
+	}
+
+    // 操作节点(节点的销毁、挂载、删除)
     for c in user_commands.node_commands.drain(..) {
         match c {
             NodeCommand::AppendNode(node, parent) => {
                 if entitys.get(node).is_ok() {
                     log::debug!("AppendNode node====================node： {:?}, parent： {:?}", node, parent);
+					// log::warn!("AppendNode node====================node： {:?}, parent： {:?}", node, parent);
                     tree.insert_child(node, parent, std::usize::MAX);
                 }
             }
             NodeCommand::InsertBefore(node, anchor) => {
                 if entitys.get(node).is_ok() {
                     log::debug!("InsertBefore node====================node：{:?}, anchor： {:?}", node, anchor);
+					// log::warn!("InsertBefore node====================node：{:?}, anchor： {:?}", node, anchor);
                     tree.insert_brother(node, anchor, InsertType::Front);
                 }
             }
@@ -120,26 +147,6 @@ pub fn user_setting(
             },
         };
     }
-	for c in user_commands.fragment_commands.iter() {
-		// 组织模板的节点关系
-		let t = match fragments.map.get(&c.key) {
-			Some(r) => r,
-			_ => {
-				log::info!("fragment is not exist, {}", c.key);
-				continue;
-			}
-		};
-		debug_assert_eq!(t.end - t.start, c.entitys.len());
-
-		for i in t.clone() {
-			let n = &fragments.fragments[i];
-			let node = &c.entitys[i - t.start];
-			if let (false, true) = (n.parent.is_null(), entitys.get(*node).is_ok()) {
-				log::debug!("fragment_commands insertChild====================node：{:?}, parent {:?}", node, c.entitys[n.parent]);
-				tree.insert_child(*node, c.entitys[n.parent] , std::usize::MAX);
-			}
-		}
-	}
 
     // 删除需要销毁的实体
     if destroy_entity_list.len() > 0 {
@@ -161,7 +168,7 @@ pub fn user_setting(
         // 删除包围盒
         let (mut quad_tree, roots) = quad_delete.get_mut(world);
         for entity in destroy_entity_list.iter() {
-            quad_tree.remove(EntityKey(*entity));
+            quad_tree.remove(&EntityKey(*entity));
         }
 
         destroy_entity_list.clear();
@@ -348,7 +355,7 @@ fn set_class(node: Entity, style_query: &mut Setting, class: ClassName, class_sh
         style_query.style.class_name,
         class,
         |item: &mut ClassName, v| {
-			log::debug!("set_class======={:?}, {:?}", node, v);
+			log::debug!("set_class======={:?}, {:?}, old: {:?}", node, v, item);
             *item = v;
         },
     );

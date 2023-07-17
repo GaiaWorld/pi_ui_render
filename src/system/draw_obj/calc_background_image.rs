@@ -68,7 +68,6 @@ pub fn calc_background_image(
                 Some(r) => r,
                 None => continue,
             };
-
             let box_type = modify(
                 layout,
                 &mut draw_state,

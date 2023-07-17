@@ -1470,9 +1470,54 @@ pub mod serialize {
     // 		// Attribute::WhiteSpace(unsafe { WhiteSpaceType(ptr.cast::<WhiteSpace>().read_unaligned()) })
     // 	}
     // }
-
-    impl_style!(@pack_send TextContentType, text_content, TextContent, TextContent1);
     impl_style!(TextAlignType, text_style, TextStyle, text_align, TextAlign, TextAlign);
+
+	// impl_style!(@pack_send TextContentType, text_content, TextContent, TextContent1);
+	impl ConvertToComponent for TextContentType {
+    	// 设置text_align,需要同时设置justify_content
+    	fn set(cur_style_mark: &mut BitArray<[u32; 3]>, ptr: *const u8, query: &mut Setting, entity: Entity, is_clone: bool)
+    		where
+    			Self: Sized {
+
+			let v = ptr.cast::<TextContent1>();
+			let v = if is_clone {
+				unsafe { &*v }.clone()
+			} else {
+				unsafe { v.read_unaligned() }
+			};
+			cur_style_mark.set(Self::get_type() as usize, true);
+			set_style_attr(&mut query.world, entity, query.style.text_content, query.style.default.text_content, v, |item: &mut TextContent, v| {
+				item.0 = v;
+			});
+			// 发送事件
+			if let Some(component) = query.world.get_resource_mut_by_id(query.style.event.text_content) {
+				unsafe { component.into_inner().deref_mut::<Events<ComponentEvent<Changed<TextContent>>>>() }
+					.send(ComponentEvent::<Changed<TextContent>>::new(entity));
+			};
+    		
+
+			// 插入默认的FlexContainer组件
+			if let None = query.world.get_mut_by_id(entity, query.style.flex_container) {
+				let default_value = query.world.get_resource_by_id(query.style.default.flex_container).unwrap();
+				let r = unsafe { default_value.deref::<DefaultComponent<FlexContainer>>() }.0.clone();
+				query.world.entity_mut(entity).insert(r);
+			};
+    	}
+
+		set_default!(text_content, TextContent);
+    	fn to_attr(ptr: *const u8) -> Attribute{
+    		Attribute::TextContent(unsafe { TextContentType(ptr.cast::<TextContent1>().read_unaligned()) })
+    	}
+    }
+
+    impl ConvertToComponent for ResetTextContentType {
+    	reset!(text_content, TextContent);
+		set_default!(text_content, TextContent);
+		fn to_attr(_ptr: *const u8) -> Attribute
+		{
+			Attribute::TextContent( TextContentType(Default::default()) )
+		}
+	}
 
     // impl ConvertToComponent for TextAlignType {
     // 	// 设置text_align,需要同时设置justify_content
@@ -3356,7 +3401,7 @@ pub mod serialize {
 
         #[inline]
         pub fn reset(cur_style_mark: &mut BitArray<[u32; 3]>, style_index: u8, buffer: &Vec<u8>, offset: usize, query: &mut Setting, entity: Entity) {
-            (STYLE_ATTR[style_index as usize + 86].set)(cur_style_mark, unsafe { buffer.as_ptr().add(offset) }, query, entity, false);
+            (STYLE_ATTR[style_index as usize + 90].set)(cur_style_mark, unsafe { buffer.as_ptr().add(offset) }, query, entity, false);
         }
 
         #[inline]

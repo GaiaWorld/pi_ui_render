@@ -8,7 +8,7 @@
 layout(location = 0) in vec2 position;
 layout(location = 1) in vec2 uv;
 #ifdef VERTEX_COLOR
-	layout(location = 2) in vec4 color; // 顶点色
+	layout(location = 2) in vec4 vcolor; // 顶点色
 #endif
 
 // 输出
@@ -31,7 +31,7 @@ void main() {
 
 	vUv = uv/textureSizeOrBottomLeftBorder;
 #ifdef VERTEX_COLOR
-	vColor = color;
+	vColor = vcolor;
 #endif
 
 

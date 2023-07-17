@@ -59,7 +59,7 @@ pi_dirty="0.1"
 
 # pi_flex_layout = { git = "https://github.com/GaiaWorld/pi_flex_layout.git" }
 pi_flex_layout = "0.2"
-pi_sparialtree = "0.4"
+pi_sparialtree = {git= "https://github.com/GaiaWorld/pi_spatial.git", package = "pi_spatial"}
 # pi_ecs_macros = { git = "https://github.com/GaiaWorld/pi_ecs.git" }
 # pi_ecs = { git = "https://github.com/GaiaWorld/pi_ecs.git" }
 pi_hal={git="https://github.com/GaiaWorld/pi_hal.git"}
@@ -111,7 +111,7 @@ wgpu = { version = "0.15", default-features = false, features = ["glsl"] }
 
 # flume = "0.10"
 # [patch."https://github.com/GaiaWorld/pi_spatialtree"]
-# pi_spatialtree ={path="../pi_spatialtree"}
+# pi_spatial ={path="../pi_spatial"}
 
 # [patch."https://github.com/GaiaWorld/pi_post_process"]
 # pi_postprocess ={path="../pi_post_process"}
@@ -180,6 +180,7 @@ font_kit = {git="http://ser.yinengyun.com:10082/tech/font_kit.git"}
 spin_sleep="1.1"
 num_cpus = "1.13"
 bevy = {version="0.10", default-features = false, features=["bevy_winit"]}
+timer = "0.2.0"
 # pi_export_gui = {path="../pi_export/crates/gui"}
 # bevy_mod_debugdump = "0.6"
 # bevy-inspector-egui="0.14"

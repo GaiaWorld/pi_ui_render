@@ -48,7 +48,7 @@ pub struct LinearMaskDrawList(Vec<(Entity, ShareTargetView)>);
 /// 如果MaskImage为渐变色，则创建fbo，将该fbo作为MaskImage设置在后处理效果上；同时创建渲染节点，用于在fbo上渲染该渐变颜色
 pub fn mask_image_post_process(
 	q: (
-		Query<(Entity, Ref<MaskImage>, OrDefault<MaskImageClip>, &Quad, &Layer, &GraphId), Or<(Changed<MaskImage>, Changed<MaskImageClip>, Changed<Quad>)>>,
+		Query<(Entity, Ref<MaskImage>, OrDefault<MaskImageClip>, &Quad, &Layer, &GraphId), Or<(Changed<MaskImage>, Changed<Layer>, Changed<MaskImageClip>, Changed<Quad>)>>,
 		Query<(Entity, &MaskImage)>,
 		Query<OrDefault<MaskImageClip>>,
 		Query<&mut PostProcess>,

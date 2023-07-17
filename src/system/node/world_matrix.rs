@@ -164,7 +164,10 @@ pub fn cal_matrix(
                         &mut event_writer1,
                         layer,
                     );
+					// log::warn!("matrix============={:?}, {:?}, {:?}", id, layout, matrix);
                     *world_matrix = matrix;
+
+					
                 }
                 Err(_) => {}
             };
