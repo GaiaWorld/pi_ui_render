@@ -55,10 +55,8 @@ impl Example for QuadExample {
             Viewport(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(size.0 as f32, size.1 as f32))),
             root,
         ));
-        // self.cmd.push_cmd(NodeCmd(RenderDirty(true), root));
-
-
-        self.cmd.set_style(root, WidthType(Dimension::Points(size.0 as f32)));
+        self.cmd.push_cmd(NodeCmd(RenderDirty(true), root));
+		self.cmd.set_style(root, WidthType(Dimension::Points(size.0 as f32)));
         self.cmd.set_style(root, HeightType(Dimension::Points(size.1 as f32)));
 
         self.cmd.set_style(root, PositionTypeType(PositionType::Absolute));
@@ -66,28 +64,26 @@ impl Example for QuadExample {
         self.cmd.set_style(root, PositionTopType(Dimension::Points(0.0)));
         self.cmd.set_style(root, MarginLeftType(Dimension::Points(0.0)));
         self.cmd.set_style(root, MarginTopType(Dimension::Points(0.0)));
-        self.cmd.append(root, EntityKey::null().0);
+		self.cmd.append(root, EntityKey::null().0);
+
+
+        let div2 = world.spawn(NodeBundle::default()).id();
+        self.cmd.set_style(div2, WidthType(Dimension::Points(190.0)));
+        self.cmd.set_style(div2, HeightType(Dimension::Points(160.0)));
+        self.cmd.set_style(div2, PositionTypeType(PositionType::Absolute));
+		self.cmd
+            .set_style(div2, BackgroundColorType(Color::RGBA(CgColor::new(1.0, 255.0, 0.0, 1.0))));
+
+        self.cmd
+            .set_style(div2, BackgroundImageType(Atom::from("examples/test/source/fog.png")));
+        self.cmd.append(div2, root);
 
 		let div2 = world.spawn(NodeBundle::default()).id();
-        self.cmd.set_style(div2, WidthType(Dimension::Points(50.0)));
-        self.cmd.set_style(div2, HeightType(Dimension::Points(100.0)));
-        self.cmd
-            .set_style(div2, TextContentType(TextContent("base".to_string(), Atom::from("base"))));
-        self.cmd.set_style(div2, FontFamilyType(Atom::from("hwkt")));
-        self.cmd.set_style(div2, ColorType(Color::LinearGradient(LinearGradientColor {
-			direction: 0.0,
-			list: vec![
-				ColorAndPosition {
-					position: 0.0,
-					rgba: CgColor::new(0.0, 1.0, 0.0, 1.0),
-				},
-				ColorAndPosition {
-					position: 1.0,
-					rgba: CgColor::new(1.0, 1.0, 0.0, 1.0),
-				},
-			],
-		})));
-        self.cmd.set_style(div2, FontSizeType(FontSize::Length(30)));
+        self.cmd.set_style(div2, WidthType(Dimension::Points(190.0)));
+        self.cmd.set_style(div2, HeightType(Dimension::Points(160.0)));
+        self.cmd.set_style(div2, PositionTypeType(PositionType::Absolute));
+		// self.cmd
+            // .set_style(div2, BackgroundColorType(Color::RGBA(CgColor::new(255.0, 255.0, 255.0, 0.1))));
         self.cmd.append(div2, root);
 
         log::warn!("end=====");

@@ -11,6 +11,7 @@ crate-type = ["lib"]
 default = ["pi_js_export"]
 pi_js_export = []
 wasm_bindgen = []
+debug = []
 trace=["bevy/trace_chrome", "pi_bevy_render_plugin/trace"]
 
 [dependencies]
@@ -122,9 +123,9 @@ wgpu = { version = "0.15", default-features = false, features = ["glsl"] }
 # [patch."https://github.com/GaiaWorld/pi_animation"]
 # pi_animation = { path="../pi_animation"}
 
-# [patch."https://github.com/GaiaWorld/pi_render"]
-# pi_render = { path = "../pi_render_bevy_shader" }
-# render_derive = {path = "../pi_render_bevy_shader/crates/render_derive"}
+[patch."https://github.com/GaiaWorld/pi_render"]
+pi_render = { path = "../pi_render" }
+render_derive = {path = "../pi_render/crates/render_derive"}
 
 # [patch."https://github.com/GaiaWorld/pi_render_bevy"]
 # pi_bevy_post_process= { path = "../pi_render_bevy/crates/post_process" }
@@ -144,8 +145,8 @@ wgpu = { version = "0.15", default-features = false, features = ["glsl"] }
 
 # [patch."http://ser.yinengyun.com:10082/tech/winit.git"]
 # winit = {path = "../winit"}
-# [patch."https://github.com/GaiaWorld/pi_style.git"]
-# pi_style = {path = "../pi_style"}
+[patch."https://github.com/GaiaWorld/pi_style.git"]
+pi_style = {path = "../pi_style"}
 
 # [patch."http://ser.yinengyun.com:10082/tech/winit.git"]
 # winit = {path = "../winit"}

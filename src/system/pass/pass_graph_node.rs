@@ -92,7 +92,7 @@ pub struct QueryParam<'w, 's> {
     >,
     pass2d_query: (
         Query<'w, 's, &'static Layer, With<Camera>>,
-        Query<'w, 's, (&'static Camera, &'static Draw2DList, &'static ParentPassId)>,
+        Query<'w, 's, (&'static Camera, &'static Draw2DList, &'static ParentPassId, Option<&'static ClearColorBindGroup>)>,
         Query<'w, 's, (&'static PostProcess, &'static PostProcessInfo, &'static GraphId)>,
 		Query<'w, 's, (&'static PostProcess, &'static GraphId, &'static NodeId)>,
 		Query<'w, 's, &'static PostProcessInfo>,
@@ -122,7 +122,7 @@ pub struct QueryParam<'w, 's> {
 
 
 pub struct Param<'w, 's> {
-    pass2d_query: Query<'w, 's, (&'static Camera, &'static Draw2DList, &'static ParentPassId)>,
+    pass2d_query: Query<'w, 's, (&'static Camera, &'static Draw2DList, &'static ParentPassId, Option<&'static ClearColorBindGroup>)>,
     draw_query: Query<'w, 's, (&'static DrawState, &'static NodeId, Option<&'static GraphId>)>,
     node_query: Query<'w, 's, &'static Quad>,
     // graph_id_query: Query<'w, 's, &'static GraphId>,
@@ -259,7 +259,7 @@ impl Node for Pass2DNode {
             let mut out = None;
 
 
-            if let Ok((camera, list, parent_pass2d_id)) = param.pass2d_query.get(pass2d_id) {
+            if let Ok((camera, list, parent_pass2d_id, clear_group)) = param.pass2d_query.get(pass2d_id) {
                 // log::warn!("run5======{:?}, {:?}, {:?}", pass2d_id, list.transparent, list.opaque);
 				// log::warn!("run graph4==============, pass2d_id: {:?}, input count: {}, opaque: {}, transparent: {}, is_active: {:?}, opaque_list: {:?}, transparent_list: {:?}, view_port: {:?}", pass2d_id, input.0.len(), list.opaque.len(), list.transparent.len(), camera.is_active, &list.opaque, &list.transparent, &camera.view_port);
                 
@@ -291,7 +291,7 @@ impl Node for Pass2DNode {
                                     (
                                         None,
                                         // has_effect,
-                                        match param.clear_color_group {
+                                        match clear_group {
                                             Some(r) => r.0.as_ref(),
                                             None => None,
                                         },
@@ -327,8 +327,8 @@ impl Node for Pass2DNode {
                         if let Some(clear_color) = clear_color {
 							// 设置视口
 							rp.set_viewport(clear_port.0, clear_port.1, clear_port.2, clear_port.3, 0.0, 1.0);
-                            clear_color.0.set(&mut rp, UiMaterialBind::set());
-                            clear_color.1.set(&mut rp, DepthBind::set());
+							clear_color.0.set(&mut rp, UiMaterialBind::set());
+							clear_color.1.set(&mut rp, DepthBind::set());
                             param.clear_draw.0.draw(&mut rp);
                             // 相机在drawObj中已经描述
                         }
@@ -547,6 +547,7 @@ impl Pass2DNode {
                     // rt_key,
                     list,
                     _pass2d_id,
+					_,
                 )) = param.pass2d_query.get(*pass2d_id)
                 {
                     let v = (

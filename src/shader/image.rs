@@ -174,7 +174,7 @@ precision highp float;
         },
         CodeSlice {
             code: pi_atom::Atom::from(
-                "	o_Target=vec4(color.rgb*color.a,color.a);
+                "	o_Target=vec4(color.rgb,color.a);
 "
             ),
             defines: vec![]

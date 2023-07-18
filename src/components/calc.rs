@@ -210,13 +210,9 @@ impl WorldMatrix {
 
     fn get_matrix(func: &TransformFunc, width: f32, height: f32) -> WorldMatrix {
         match func {
-            TransformFunc::TranslateX(x) => WorldMatrix(Matrix4::new_translation(&Vector3::new(*x, 0.0, 0.0)), false),
-            TransformFunc::TranslateY(y) => WorldMatrix(Matrix4::new_translation(&Vector3::new(0.0, *y, 0.0)), false),
-            TransformFunc::Translate(x, y) => WorldMatrix(Matrix4::new_translation(&Vector3::new(*x, *y, 0.0)), false),
-
-            TransformFunc::TranslateXPercent(x) => WorldMatrix(Matrix4::new_translation(&Vector3::new(*x * width, 0.0, 0.0)), false),
-            TransformFunc::TranslateYPercent(y) => WorldMatrix(Matrix4::new_translation(&Vector3::new(0.0, *y * height, 0.0)), false),
-            TransformFunc::TranslatePercent(x, y) => WorldMatrix(Matrix4::new_translation(&Vector3::new(*x * width, *y * height, 0.0)), false),
+            TransformFunc::TranslateX(x) => WorldMatrix(Matrix4::new_translation(&Vector3::new(x.get_absolute_value(width), 0.0, 0.0)), false),
+            TransformFunc::TranslateY(y) => WorldMatrix(Matrix4::new_translation(&Vector3::new(0.0, y.get_absolute_value(height), 0.0)), false),
+            TransformFunc::Translate(x, y) => WorldMatrix(Matrix4::new_translation(&Vector3::new(x.get_absolute_value(width), y.get_absolute_value(height), 0.0)), false),
 
             TransformFunc::ScaleX(x) => WorldMatrix(Matrix4::new_nonuniform_scaling(&Vector3::new(*x, 1.0, 1.0)), false),
             TransformFunc::ScaleY(y) => WorldMatrix(Matrix4::new_nonuniform_scaling(&Vector3::new(1.0, *y, 1.0)), false),

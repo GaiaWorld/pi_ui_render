@@ -137,7 +137,7 @@ pub struct RootBundle {
     pub copy_draw_obj: CopyFboToScreen,
     pub clear_color_group: ClearColorBindGroup,
     pub dirty_rect: RootDirtyRect,
-    pub clear_color: ClearColor,
+    // pub clear_color: ClearColor,
     pub overflow: Overflow,
 }
 
@@ -148,7 +148,7 @@ impl Default for RootBundle {
             copy_draw_obj: Default::default(),
             clear_color_group: Default::default(),
             dirty_rect: Default::default(),
-            clear_color: Default::default(),
+            // clear_color: Default::default(),
             overflow: Overflow(true),
         }
     }

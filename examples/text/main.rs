@@ -79,7 +79,7 @@ impl Example for QuadExample {
 		self.cmd.set_style(div2, HeightType(Dimension::Points(200.0)));
 		self.cmd.set_style(div2, PositionLeftType(Dimension::Percent(0.5)));
 		let mut transform = Transform::default();
-        transform.all_transform.transform.push(TransformFunc::TranslateXPercent(-0.5)); // 旋转45度
+        transform.all_transform.transform.push(TransformFunc::TranslateX(pi_style::style::LengthUnit::Percent(-0.5))); // 旋转45度
 		transform.all_transform.transform.push(TransformFunc::Scale(1.4, 1.4)); // 旋转45度
         self.cmd.set_style(div2, TransformType(transform.all_transform.transform));
 		self.cmd

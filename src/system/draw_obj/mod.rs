@@ -60,7 +60,7 @@ impl Plugin for UiReadyDrawPlugin {
                     .in_set(UiSystemSet::BaseCalc)
                     .after(crate::system::node::world_matrix::cal_matrix),
             )
-            .add_system(root_clear_color::clear_change.in_set(UiSystemSet::PrepareDrawObj))
+            .add_system(root_clear_color::clear_change.run_if(render_run).after(UiSystemSet::PassFlush).after(UiSystemSet::PassCalc))
             .add_system(root_view_port::view_port_change.in_set(UiSystemSet::PrepareDrawObj))
             .init_resource::<EmptyVertexBuffer>()
             // BackgroundImage功能

@@ -1,10 +1,10 @@
-use bevy::ecs::{
+use bevy::{ecs::{
     prelude::RemovedComponents,
     query::Changed,
     system::{Query, Res},
-};
+}, prelude::Added};
 use pi_bevy_asset::ShareAssetMgr;
-use pi_bevy_ecs_extend::system_param::res::{OrInitRes, OrInitResMut};
+use pi_bevy_ecs_extend::{system_param::res::{OrInitRes, OrInitResMut}, prelude::Root};
 use pi_bevy_render_plugin::PiRenderDevice;
 use pi_render::{
     renderer::draw_obj::DrawBindGroup,

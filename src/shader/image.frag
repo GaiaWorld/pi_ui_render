@@ -39,5 +39,5 @@ void main(){
 	#endif
 	
 	// 預乘模式
-	o_Target=vec4(color.rgb*color.a,color.a);
+	o_Target=vec4(color.rgb,color.a);
 }

@@ -16,6 +16,7 @@ use pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent;
 use pi_hash::XHashMap;
 use pi_print_any::out_any;
 use pi_style::{style_parse::{Attribute, ClassItem, ClassMap, KeyFrameList}};
+use serde::{Serialize, Deserialize};
 
 use crate::{
     components::user::{serialize::{DefaultStyle, StyleTypeReader}, Animation},
@@ -121,6 +122,15 @@ impl Command for RuntimeAnimationBindCmd {
 			world.entity_mut(self.2).insert(self.1);
 		}
 	}
+}
+
+// impl CmdSerd {
+
+// }
+
+pub trait CmdSerd<'s>: Serialize + Deserialize<'s> {
+	fn serd(&self);
+	fn d_serd(&self) -> Self;
 }
 
 #[derive(Debug, Clone)]

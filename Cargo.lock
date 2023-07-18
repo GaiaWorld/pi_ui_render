@@ -3394,7 +3394,6 @@ checksum = "8eeeddb49aca084a517b5efcd8111cd19121130201190c09d5d817e998f78a4a"
 [[package]]
 name = "pi_render"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_render.git?branch=bevy_shader#afee6963a5c7863d5ec16e893646d74a69d36ca1"
 dependencies = [
  "render_core",
 ]
@@ -3472,7 +3471,6 @@ dependencies = [
 [[package]]
 name = "pi_style"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_style.git#0bcd3d34c610be14a418e8347c835436093b32b5"
 dependencies = [
  "bitvec",
  "cssparser",
@@ -3994,7 +3992,6 @@ dependencies = [
 [[package]]
 name = "render_core"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_render.git?branch=bevy_shader#afee6963a5c7863d5ec16e893646d74a69d36ca1"
 dependencies = [
  "anyhow",
  "bitvec",
@@ -4031,7 +4028,7 @@ dependencies = [
  "pi_share",
  "pi_slab",
  "pi_slotmap",
- "pi_time 0.2.6",
+ "pi_time 0.3.0",
  "regex",
  "render_crevice",
  "render_utils",
@@ -4045,7 +4042,6 @@ dependencies = [
 [[package]]
 name = "render_crevice"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_render.git?branch=bevy_shader#afee6963a5c7863d5ec16e893646d74a69d36ca1"
 dependencies = [
  "bytemuck",
  "mint",
@@ -4056,7 +4052,6 @@ dependencies = [
 [[package]]
 name = "render_crevice_derive"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_render.git?branch=bevy_shader#afee6963a5c7863d5ec16e893646d74a69d36ca1"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4067,7 +4062,6 @@ dependencies = [
 [[package]]
 name = "render_derive"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_render.git?branch=bevy_shader#afee6963a5c7863d5ec16e893646d74a69d36ca1"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4078,7 +4072,6 @@ dependencies = [
 [[package]]
 name = "render_macro_utils"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_render.git?branch=bevy_shader#afee6963a5c7863d5ec16e893646d74a69d36ca1"
 dependencies = [
  "cargo-manifest",
  "quote",
@@ -4088,7 +4081,6 @@ dependencies = [
 [[package]]
 name = "render_utils"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_render.git?branch=bevy_shader#afee6963a5c7863d5ec16e893646d74a69d36ca1"
 dependencies = [
  "ahash",
  "render_derive",

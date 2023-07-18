@@ -63,7 +63,7 @@ impl Example for QuadExample {
         self.cmd
             .set_style(div1, BackgroundColorType(Color::RGBA(CgColor::new(1.0, 0.0, 1.0, 1.0))));
         let mut transform_willchange = Vec::default();
-        transform_willchange.push(TransformFunc::TranslateX(50.0));
+        transform_willchange.push(TransformFunc::TranslateX(pi_style::style::LengthUnit::Pixel(50.0)));
         self.cmd.set_style(div1, TransformWillChangeType(true));
 		self.cmd.set_style(div1, TransformType(transform_willchange));
 		
@@ -84,7 +84,7 @@ impl Example for QuadExample {
         self.cmd.set_style(div3, HeightType(Dimension::Points(200.0)));
         // 设置TransformWillChange，向右平移100个像素
         let mut transform_willchange = Vec::default();
-        transform_willchange.push(TransformFunc::TranslateX(50.0));
+        transform_willchange.push(TransformFunc::TranslateX(pi_style::style::LengthUnit::Pixel(50.0)));
         self.cmd.set_style(div3, TransformWillChangeType(true));
 		self.cmd.set_style(div3, TransformType(transform_willchange));
 
