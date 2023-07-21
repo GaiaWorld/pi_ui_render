@@ -12,7 +12,7 @@ use pi_assets::{
     asset::{GarbageEmpty, Handle},
     mgr::{AssetMgr, LoadResult, Receiver},
 };
-use pi_async::prelude::{AsyncRuntime, AsyncRuntimeExt, AsyncVariableNonBlocking};
+use pi_async_rt::prelude::{AsyncRuntime, AsyncRuntimeExt, AsyncVariableNonBlocking};
 use pi_bevy_asset::ShareAssetMgr;
 use pi_bevy_render_plugin::PiRenderDevice;
 use pi_hal::runtime::RENDER_RUNTIME;
@@ -101,7 +101,7 @@ pub async fn calc_node_pipeline1(
                 count_copy.fetch_add(1, Ordering::Relaxed);
                 task_count += 1;
                 RENDER_RUNTIME
-                    .spawn(RENDER_RUNTIME.alloc(), async move {
+                    .spawn(async move {
                         match r.await {
                             Ok(r) => {
                                 let mut locked = value_copy.lock().unwrap();
@@ -136,7 +136,7 @@ pub async fn calc_node_pipeline1(
         count_copy.fetch_add(1, Ordering::Relaxed);
         task_count += 1;
         RENDER_RUNTIME
-            .spawn(RENDER_RUNTIME.alloc(), async move {
+            .spawn(async move {
                 match async_calc_pipeline(&shader_program, &device, &shader_map, pipeline_receiver, hash).await {
                     Ok(r) => {
                         let mut locked = value_copy.lock().unwrap();
@@ -177,7 +177,7 @@ pub async fn calc_node_pipeline1(
                 count_copy.fetch_add(1, Ordering::Relaxed);
                 task_count += 1;
                 RENDER_RUNTIME
-                    .spawn(RENDER_RUNTIME.alloc(), async move {
+                    .spawn(async move {
                         match r.await {
                             Ok(r) => {
                                 let mut locked = value_copy.lock().unwrap();
@@ -209,7 +209,7 @@ pub async fn calc_node_pipeline1(
                 task_count += 1;
                 let (shader_meta, shader_map) = (pipeline_meta.clone(), shader_map.clone());
                 RENDER_RUNTIME
-                    .spawn(RENDER_RUNTIME.alloc(), async move {
+                    .spawn(async move {
                         match async_calc_pipeline(&shader_meta, &device, &shader_map, r, hash).await {
                             Ok(r) => {
                                 let mut locked = value_copy.lock().unwrap();

@@ -1,6 +1,6 @@
 use std::{sync::Arc, time::Instant};
 
-use bevy::prelude::App;
+use bevy::prelude::{App, Local, SystemSet, Bundle, Entity};
 use bevy::winit::WinitPlugin;
 use bevy::{
     ecs::{
@@ -10,7 +10,8 @@ use bevy::{
     prelude::IntoSystemConfig,
     window::{Window, WindowResolution},
 };
-use pi_async::prelude::AsyncRuntime;
+use bevy::prelude::Res;
+use pi_async_rt::prelude::AsyncRuntime;
 use pi_bevy_asset::{PiAssetPlugin, AssetConfig};
 use pi_bevy_post_process::PiPostProcessPlugin;
 use pi_bevy_render_plugin::PiRenderPlugin;
@@ -19,6 +20,9 @@ use pi_hal::{init_load_cb, on_load, runtime::MULTI_MEDIA_RUNTIME};
 use pi_share::{Share, ShareMutex};
 use pi_ui_render::system::{system_set::UiSystemSet, RunState};
 use pi_ui_render::{prelude::UiPlugin, resource::UserCommands, system::node::user_setting::user_setting};
+
+#[cfg(feature="debug")]
+use pi_ui_render::system::cmd_play::{PlayState, Records, CmdNodeCreate};
 
 pub trait Example: 'static + Sized {
     // fn setting(world: &mut App) {}
@@ -34,7 +38,7 @@ pub trait Example: 'static + Sized {
 pub fn start<T: Example + Sync + Send + 'static>(example: T) {
     init_load_cb(Arc::new(|path: String| {
         MULTI_MEDIA_RUNTIME
-            .spawn(MULTI_MEDIA_RUNTIME.alloc(), async move {
+            .spawn(async move {
                 if let Ok(dynamic_image) = std::fs::read(path.clone()) {
                     on_load(path.as_str(), dynamic_image);
                 } else {
@@ -65,13 +69,31 @@ pub fn start<T: Example + Sync + Send + 'static>(example: T) {
     let mut app = init(width, height);
 
     app.world.insert_resource(RunState::RENDER);
-    app.add_plugin(UiPlugin);
+	
+	#[cfg(feature="debug")]
+    app.add_plugin(UiPlugin {
+        cmd_trace: RECORD_OPTION,
+	});
+	#[cfg(not(feature="debug"))]
+	app.add_plugin(UiPlugin::default());
 
-
-    app.add_system(exmple_run.before(user_setting).in_set(UiSystemSet::Setting))
-        .add_startup_system(move |world: &mut World| {
-            exmple1.lock().init(world, (500, 500));
-        });
+	app.add_system(exmple_run.before(UiSystemSet::Setting).in_set(ExampleSet))
+		.add_startup_system(move |world: &mut World| {
+			exmple1.lock().init(world, (500, 500));
+		});
+	
+	#[cfg(feature="debug")]
+	match RECORD_OPTION {
+		pi_ui_render::system::cmd_play::TraceOption::None => (),
+		pi_ui_render::system::cmd_play::TraceOption::Record => {
+			app.add_system(record_cmd_to_file.after(UiSystemSet::Setting));
+		},
+		pi_ui_render::system::cmd_play::TraceOption::Play => {
+			
+			app.add_system(setting_next_record.before(UiSystemSet::Setting));
+		},
+	}
+    
     app.run();
 
     // let system_schedule = bevy_mod_debugdump::get_schedule(&mut app);
@@ -82,6 +104,8 @@ pub fn start<T: Example + Sync + Send + 'static>(example: T) {
 
     // run_window_loop(window, event_loop);
 }
+#[derive(Debug, Clone, Hash, SystemSet, PartialEq, Eq)]
+pub struct ExampleSet;
 
 pub struct PreFrameTime(pub Arc<ShareMutex<Instant>>);
 pub struct FrameStartTime(pub Instant);
@@ -108,7 +132,7 @@ pub fn init(width: u32, height: u32) -> App {
     window_plugin.primary_window = Some(window);
 
     app.add_plugin(bevy::log::LogPlugin {
-        filter: "wgpu=warn,pi_ui_render::components::user=debug".to_string(),
+        filter: FILTER.to_string(),
         level: bevy::log::Level::INFO,
     })
     .add_plugin(bevy::a11y::AccessibilityPlugin)
@@ -118,6 +142,153 @@ pub fn init(width: u32, height: u32) -> App {
 	.add_plugin(PiAssetPlugin {total_capacity: 1024 * 1024 * 1024, asset_config: AssetConfig::default()})
     // .add_plugin(WorldInspectorPlugin::new())
     .add_plugin(PiRenderPlugin::default())
-    .add_plugin(PiPostProcessPlugin);
+    .add_plugin(PiPostProcessPlugin)
+	
+	;
+	
     app
 }
+
+#[cfg(feature="debug")]
+pub struct NextState {
+    file_index: usize,
+    // play_path: &'static str,
+    cmd_path: Option<&'static str>,
+	is_end: bool,
+}
+
+#[cfg(feature="debug")]
+impl Default for NextState {
+	fn default() -> Self {
+		NextState {
+            file_index: 0,
+            // play_version: "performance",
+			// play_version: "test",
+			cmd_path: Some("D://0_rust/pi_ui_render_new/examples/a_cmd_play/source/cmds"),
+			// play_path: "D://0_js/cdqxz_new_mult_gui_exe/dst",
+            // play_path: "D://0_js/cdqxz_new_gui_exe/dst",
+            // cmd_path: Some("D://0_rust/pi_export/crates/gui/examples/cmd_play/source/cmds"),
+			is_end: false,
+		}
+	}
+}
+
+// 将record写入文件
+#[cfg(feature="debug")]
+pub fn record_cmd_to_file(mut records: ResMut<Records>) {
+    use std::path::Path;
+	if records.list.len() == 0 && records.run_state.len() == 0 {
+		return;
+	}
+	let r = match postcard::to_stdvec(&*records) {
+		Ok(bin) => bin,
+		Err(r) =>{
+			log::error!("serialize fail!!, {:?}", r);
+			Vec::<u8>::default()
+		},
+	};
+	// log::warn!("record============={:?}", &*records);
+    std::fs::write(
+		Path::new("examples/a_cmd_play/source/cmds/").join("cmd_local_0.gui_cmd"),
+		r,
+	)
+	.unwrap();
+	records.clear()
+}
+
+// 设置下一条记录
+#[cfg(feature="debug")]
+pub fn setting_next_record(world: &mut World, mut local_state: Local<NextState>) {
+	let local_state = &mut *local_state;
+	setting(
+		local_state.cmd_path,
+		&mut local_state.file_index,
+		world,
+		&mut local_state.is_end,
+	)
+}
+
+
+#[cfg(feature="debug")]
+fn setting(
+    cmd_path: Option<&str>,
+    file_index1: &mut usize,
+    world: &mut World,
+	is_end: &mut bool,
+) {
+    let mut file_index = *file_index1;
+	let play_state = world.get_resource::<PlayState>();
+	if let Some(r) = play_state {
+		if r.is_running {
+			return;
+		} else {
+			let dir = match cmd_path {
+                Some(r) => r.to_string(),
+                None => "examples/a_cmd_play/source".to_string(),
+            };
+            let path = dir + "/cmd_" + PLAY_VERSION + "_" + file_index.to_string().as_str() + ".gui_cmd";
+			// log::warn!("r================{:?}", path);
+			let _span = tracing::warn_span!("gui_cmd").entered();
+            match std::fs::read(path.clone()) {
+                Ok(bin) => {
+					match postcard::from_bytes::<Records>(&bin) {
+						Ok(r) => {
+							// log::warn!("r================{:?}", r);
+							world.insert_resource(r);
+							// 重设播放状态
+							let mut play_state = world.get_resource_mut::<PlayState>().unwrap();
+							play_state.is_running = true;
+							play_state.next_reord_index = 0;
+							play_state.next_state_index = 0;
+							play_state.cur_frame_count = 0;
+							
+						}
+						Err(e) => {
+							*is_end = true;
+							log::warn!("parse fail================{:?}, {:?}", e, bin.len());
+						}
+					}
+                    file_index += 1;
+                    *file_index1 = file_index;
+                }
+                Err(_) => {
+					if !*is_end {
+						log::warn!("play end, {:?}", path);
+					}
+					*is_end = true;
+                    return;
+                }
+            };
+		}
+	}
+	return;
+}
+
+pub fn spawn(world: &mut World) -> Entity {
+	let r = world.spawn_empty().id();
+	#[cfg(feature="debug")]
+	{
+		let creates = world.get_resource_mut::<CmdNodeCreate>();
+		if let Some(mut creates) = creates {
+			creates.0.push(r)
+		} else {
+			world.insert_resource(CmdNodeCreate(vec![r]));
+		}
+		// gui.node_cmd.0.push(entity);
+
+	}
+	r
+}
+
+
+#[cfg(feature="debug")]
+pub const RECORD_OPTION: pi_ui_render::system::cmd_play::TraceOption = pi_ui_render::system::cmd_play::TraceOption::None;
+#[cfg(feature="debug")]
+// pub const PLAY_PATH: Option<&'static str> = None;
+pub const PLAY_PATH: Option<&'static str> = Some("D://0_js/cdqxz_new_mult_gui_exe/dst");
+#[cfg(feature="debug")]
+// pub const PLAY_VERSION: &'static str = "local";
+pub const PLAY_VERSION: &'static str = "test";
+
+// pub const FILTER: &'static str = "wgpu=warn,pi_ui_render::components::user=debug";
+pub const FILTER: &'static str = "wgpu=warn";

@@ -11,7 +11,7 @@ use pi_assets::{
     homogeneous::HomogeneousMgr,
     mgr::AssetMgr,
 };
-use pi_async::prelude::AsyncRuntime;
+use pi_async_rt::prelude::AsyncRuntime;
 use pi_atom::Atom;
 use pi_ecs::{
     component::MultiCaseImpl,
@@ -257,7 +257,7 @@ impl Gui {
     /// 设置默认样式（二进制样式）
     pub fn set_default_style_by_bin(&mut self, bin: &[u8]) {
         // println_any!("set_default_style_by_bin===={:?}", 1);
-        let class_sheet_new: ClassSheet = match postcard::deserialize(bin) {
+        let class_sheet_new: ClassSheet = match postcard::from_bytes(bin) {
             Ok(r) => r,
             Err(e) => {
                 log::error!("deserialize ClassSheet error: {:?}", e);

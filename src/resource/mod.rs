@@ -25,9 +25,10 @@ use pi_time::Instant;
 use bevy::ecs::prelude::{Entity, FromWorld, Resource, World};
 use bevy::ecs::system::{Command, CommandQueue};
 
+use crate::components::NodeBundle;
 use crate::components::calc::{EntityKey, Quad};
 use crate::components::user::serialize::StyleAttr;
-use crate::components::user::{Point2, Vector2, MaskImage, ClipPath};
+use crate::components::user::{Point2, Vector2, MaskImage, ClipPath, Viewport, RenderTargetType, ClearColor, RenderDirty};
 use pi_sparialtree::quad_helper::QuadTree as QuadTree1;
 // use crate::utils::cmd::{CommandQueue, Command, DataQuery};
 // use bevy::prelude::{CommandQueue, Commands, World};
@@ -58,6 +59,9 @@ pub struct UserCommands {
     // pub css_commands: Vec<ClassSheet>,
     /// single指令
     pub other_commands: CommandQueue,
+
+	#[cfg(feature="debug")]
+	pub other_commands_list: Vec<CmdType>, // 是CommandQueue中元素的枚举形式，便于序列化
 }
 
 impl UserCommands {
@@ -144,7 +148,12 @@ impl UserCommands {
                 return;
             }
         };
-        self.push_cmd(RuntimeAnimationBindCmd(css.key_frames.frames, unsafe {transmute(animations)}, node));
+		let r = RuntimeAnimationBindCmd(css.key_frames.frames, unsafe {transmute(animations)}, node);
+
+		#[cfg(feature="debug")]
+		self.other_commands_list.push(CmdType::RuntimeAnimationBindCmd(r.clone()));
+
+        self.push_cmd(r);
     }
 
     /// 设置节点的class
@@ -158,6 +167,91 @@ impl UserCommands {
         // println_any!("push_cmd===={:?}", 1);
         self.other_commands.push(cmd);
     }
+
+	/// 设置视口
+	pub fn set_view_port(&mut self, node: Entity, cmd: Viewport) {
+        // println_any!("push_cmd===={:?}", 1);
+		let r = NodeCmd(cmd, node);
+
+		#[cfg(feature="debug")]
+		self.other_commands_list.push(CmdType::NodeCmdViewport(r.clone()));
+
+        self.other_commands.push(r);
+
+		
+    }
+
+	/// 设置目标类型
+	pub fn set_target_type(&mut self, node: Entity, cmd: RenderTargetType) {
+        // println_any!("push_cmd===={:?}", 1);
+		let r = NodeCmd(cmd, node);
+
+		#[cfg(feature="debug")]
+		self.other_commands_list.push(CmdType::NodeCmdRenderTargetType(r.clone()));
+
+        self.other_commands.push(r);
+    }
+
+	/// 设置清屏颜色
+	pub fn set_clear_color(&mut self, node: Entity, cmd: ClearColor) {
+		// println_any!("push_cmd===={:?}", 1);
+		let r = NodeCmd(cmd, node);
+
+		#[cfg(feature="debug")]
+		self.other_commands_list.push(CmdType::NodeCmdRenderClearColor(r.clone()));
+
+		self.other_commands.push(r);
+	}
+
+	/// 设置渲染脏
+	pub fn set_render_dirty(&mut self, node: Entity, cmd: RenderDirty) {
+		// println_any!("push_cmd===={:?}", 1);
+		let r = NodeCmd(cmd, node);
+
+		#[cfg(feature="debug")]
+		self.other_commands_list.push(CmdType::NodeCmdRenderRenderDirty(r.clone()));
+
+		self.other_commands.push(r);
+	}
+
+	/// 设置几点初始化值
+	pub fn set_node_bundle(&mut self, node: Entity, cmd: NodeBundle) {
+		// println_any!("push_cmd===={:?}", 1);
+		let r = NodeCmd(cmd, node);
+
+		#[cfg(feature="debug")]
+		self.other_commands_list.push(CmdType::NodeCmdRenderNodeBundle(r.clone()));
+
+		self.other_commands.push(r);
+	}
+
+	/// 添加片段
+	pub fn extend_fragment_bin(&mut self, cmd: ExtendFragmentCmd) {
+		// println_any!("push_cmd===={:?}", 1);
+
+		#[cfg(feature="debug")]
+		self.other_commands_list.push(CmdType::ExtendFragmentCmd(cmd.clone()));
+
+		self.other_commands.push(cmd);
+	}
+
+	/// 添加片段
+	pub fn add_css_bin(&mut self, cmd: ExtendCssCmd) {
+		// println_any!("push_cmd===={:?}", 1);
+
+		#[cfg(feature="debug")]
+		self.other_commands_list.push(CmdType::ExtendCssCmd(cmd.clone()));
+
+		self.other_commands.push(cmd);
+	}
+
+	/// 添加默认样式
+	pub fn add_default_css(&mut self, cmd: DefaultStyleCmd) {
+		#[cfg(feature="debug")]
+		self.other_commands_list.push(CmdType::DefaultStyleCmd(cmd.clone()));
+
+		self.other_commands.push(cmd);
+	}
 }
 
 /// style设置指令
@@ -175,7 +269,7 @@ pub struct DefaultStyle;
 
 // 需要进行后处理的上下文标记
 #[derive(Clone, Debug, Default, Deref, Serialize, Deserialize, Resource)]
-pub struct EffectRenderContextMark(bitvec::prelude::BitArray);
+pub struct EffectRenderContextMark(bitvec::prelude::BitArray<[u32; 1]>);
 
 pub trait Effect {}
 impl Effect for MaskImage {}
@@ -238,7 +332,7 @@ impl<T: Effect> FromWorld for RenderContextMarkType<T> {
 pub struct RenderObjTypeAlloc(usize);
 
 /// 渲染类型分配器
-#[derive(Debug, Deref, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Deref, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RenderObjType(usize);
 
 impl FromWorld for RenderObjType {

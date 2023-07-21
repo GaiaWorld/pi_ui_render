@@ -14,12 +14,13 @@ pub mod pass;
 pub mod shader_utils;
 pub mod system_set;
 pub mod utils;
-// pub mod cmd_play;
+#[cfg(feature="debug")]
+pub mod cmd_play;
 
 // 运行状态
 bitflags::bitflags! {
     #[repr(transparent)]
-    #[derive(Resource, Default)]
+    #[derive(Resource, Default, Serialize, Deserialize)]
     pub struct RunState: u32 {
         const NONE                       = 0;
         const SETTING            = (1 << 0); // 设置

@@ -8,8 +8,7 @@ edition = "2021"
 crate-type = ["lib"]
 
 [features]
-default = ["pi_js_export"]
-pi_js_export = []
+default = ["debug"]
 wasm_bindgen = []
 debug = []
 trace=["bevy/trace_chrome", "pi_bevy_render_plugin/trace"]
@@ -23,7 +22,7 @@ num-traits = "0.2.6"
 fnv = "1.0.6"
 lazy_static = "1.4"
 paste = "1.0"
-postcard = "1.0"
+postcard = {version = "1.0", features = ["use-std"]}
 serde = { version = "1.0", features = ["derive"]}
 ordered-float = { version = "3.0", default-features = false, features = ["serde"] }
 fxhash = "0.2.1"
@@ -50,7 +49,7 @@ pi_graph = "0.1"
 fixedbitset = {version="0.4", features = ["serde"]}
 bytemuck = { version = "1.4", features = ["derive"] }
 naga = { version = "0.11"}
-pi_assets = "0.12"
+pi_assets = "0.13"
 image = "0.24"
 polygon2 = "0.3"
 json ="0.12"
@@ -95,7 +94,7 @@ thiserror = "1.0"
 uuid = { version = "1", features = ["js"] }
 # pi_share = {version="0.4", features=["serial", "rc"]}
 pi_share = {version="0.4"}
-pi_async = {version = "0.5", features = ["serial"]}
+pi-async-rt = {version = "0.1", features = ["serial"]}
 # web-sys = {version="0.3", features = [
 # 	"HtmlCanvasElement"
 # ]}
@@ -106,7 +105,7 @@ pi_render = { git = "https://github.com/GaiaWorld/pi_render.git", branch="bevy_s
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 pi_share = {version="0.4"}
-pi_async = "0.5"
+pi-async-rt = "0.1"
 pi_render = { git = "https://github.com/GaiaWorld/pi_render.git", branch="bevy_shader" }
 wgpu = { version = "0.15", default-features = false, features = ["glsl"] }
 
@@ -123,9 +122,9 @@ wgpu = { version = "0.15", default-features = false, features = ["glsl"] }
 # [patch."https://github.com/GaiaWorld/pi_animation"]
 # pi_animation = { path="../pi_animation"}
 
-[patch."https://github.com/GaiaWorld/pi_render"]
-pi_render = { path = "../pi_render" }
-render_derive = {path = "../pi_render/crates/render_derive"}
+# [patch."https://github.com/GaiaWorld/pi_render"]
+# pi_render = { path = "../pi_render" }
+# render_derive = {path = "../pi_render/crates/render_derive"}
 
 # [patch."https://github.com/GaiaWorld/pi_render_bevy"]
 # pi_bevy_post_process= { path = "../pi_render_bevy/crates/post_process" }
@@ -145,13 +144,15 @@ render_derive = {path = "../pi_render/crates/render_derive"}
 
 # [patch."http://ser.yinengyun.com:10082/tech/winit.git"]
 # winit = {path = "../winit"}
-[patch."https://github.com/GaiaWorld/pi_style.git"]
-pi_style = {path = "../pi_style"}
+# [patch."https://github.com/GaiaWorld/pi_style.git"]
+# pi_style = {path = "../pi_style"}
 
 # [patch."http://ser.yinengyun.com:10082/tech/winit.git"]
 # winit = {path = "../winit"}
 
-[patch.crates-io]
+# [patch.crates-io]
+# pi_async_graph = { path = "../pi_async_graph" }
+# pi_assets = { path = "../pi_assets" }
 # bevy = { path = "../bevy" }
 # pi_slotmap_tree = { path = "../pi_slotmap_tree" }
 # pi_map = { path = "../pi_map" }

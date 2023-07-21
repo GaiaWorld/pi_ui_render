@@ -10,7 +10,7 @@ use pi_assets::{
     asset::Handle,
     mgr::{AssetMgr, LoadResult},
 };
-use pi_async::prelude::AsyncRuntime;
+use pi_async_rt::prelude::AsyncRuntime;
 use pi_atom::Atom;
 use pi_bevy_asset::ShareAssetMgr;
 use pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent;
@@ -94,7 +94,7 @@ pub fn load_image<'w, S: Component, D: Component, F: FnMut(&mut D, Handle<Textur
 			let (id, key) = (entity, (*key).clone());
 
 			MULTI_MEDIA_RUNTIME
-				.spawn(MULTI_MEDIA_RUNTIME.alloc(), async move {
+				.spawn(async move {
 					let desc = ImageTextureDesc {
 						url: &key,
 						device: &device,

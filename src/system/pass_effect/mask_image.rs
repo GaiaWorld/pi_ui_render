@@ -230,7 +230,9 @@ pub fn init(
 	mut id: OrInitResMut<LinearMaskNodeId>,
 ) {
 	match rg.add_node("MaskImageLinear".to_string(), LinearMaskNode) {
-		Ok(r) => ****id = r,
+		Ok(r) => {
+			****id = r;
+		},
 		Err(e) => log::error!("node: {:?}, {:?}", "MaskImageLinear".to_string(), e),
 	};
 }

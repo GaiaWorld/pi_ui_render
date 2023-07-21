@@ -21,7 +21,7 @@ use self::{
 };
 
 /// 节点Bundle
-#[derive(Debug, Bundle, Default)]
+#[derive(Debug, Bundle, Default, Clone, Serialize, Deserialize)]
 pub struct NodeBundle {
     pub style_mark: calc::StyleMark,
     pub size: user::Size,

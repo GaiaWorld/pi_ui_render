@@ -191,7 +191,7 @@ pub struct PostTemp {
 
 #[derive(Component, Debug)]
 pub struct PostProcessInfo {
-	pub effect_mark: bitvec::prelude::BitArray,
+	pub effect_mark: bitvec::prelude::BitArray<[u32; 1]>,
     pub view_port: Aabb2,
     pub matrix: WorldMatrix, // 矩阵变换
 }

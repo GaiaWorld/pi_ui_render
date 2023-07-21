@@ -78,7 +78,7 @@ impl Default for ContentBox {
 }
 
 // ZIndex计算结果， 按照节点的ZIndex分配的一个全局唯一的深度表示
-#[derive(Default, Deref, Clone, PartialEq, Eq, Hash, Debug, Component)]
+#[derive(Default, Deref, Clone, PartialEq, Eq, Hash, Debug, Component, Serialize, Deserialize)]
 pub struct ZRange(pub std::ops::Range<usize>);
 
 /// 渲染顺序
@@ -370,7 +370,7 @@ impl DerefMut for Quad {
     fn deref_mut(&mut self) -> &mut Self::Target { &mut self.0 }
 }
 
-#[derive(Debug, Component)]
+#[derive(Debug, Component, Clone, Serialize, Deserialize)]
 pub struct IsShow(usize);
 
 impl Default for IsShow {
@@ -413,7 +413,7 @@ pub struct StyleMark {
 /// 标记渲染context中需要的效果， 如Blur、Opacity、Hsi、MasImage等
 /// 此数据结构仅记录位标记，具体哪些属性用哪一位来标记，这里并不关心，由逻辑保证
 #[derive(Clone, Debug, Default, Deref, Serialize, Deserialize, Component)]
-pub struct RenderContextMark(bitvec::prelude::BitArray);
+pub struct RenderContextMark(bitvec::prelude::BitArray<[u32; 1]>);
 
 pub trait NeedMark {
     fn need_mark(&self) -> bool;
@@ -509,7 +509,7 @@ impl From<MaskTexture> for Option<Handle<TextureRes>> {
     }
 }
 
-#[derive(Deref, Debug, PartialEq, Eq, Hash, Ord, PartialOrd, Copy, Clone)]
+#[derive(Deref, Debug, PartialEq, Eq, Hash, Ord, PartialOrd, Copy, Clone, Serialize, Deserialize)]
 pub struct EntityKey(pub Entity);
 
 unsafe impl Key for EntityKey {
@@ -539,7 +539,7 @@ impl Null for EntityKey {
 // pub struct Pass2DId(pub EntityKey);
 
 /// 作为Node的组件，表示节点所在的渲染上下文的实体
-#[derive(Clone, Copy, Deref, Default, PartialEq, Eq, Debug, Hash, Component)]
+#[derive(Clone, Copy, Deref, Default, PartialEq, Eq, Debug, Hash, Component, Serialize, Deserialize)]
 pub struct InPassId(pub EntityKey);
 
 
@@ -596,7 +596,7 @@ pub struct NodeId(pub EntityKey);
 pub struct DefineMark(bitvec::prelude::BitArray);
 
 /// 每节点的渲染列表
-#[derive(Deref, Default, Debug, Component, Clone)]
+#[derive(Deref, Default, Debug, Component, Clone, Serialize, Deserialize)]
 pub struct DrawList(pub SmallVec<[DrawObjId;1]>); // 通常只会有一个DrawObject
 
 impl DrawList {
@@ -627,7 +627,7 @@ impl DrawList {
 }
 
 /// 节点上握住DrawObj的id
-#[derive(Debug, Component, Clone)]
+#[derive(Debug, Component, Clone, Serialize, Deserialize)]
 pub struct DrawObjId {
 	pub ty: RenderObjType,
 	pub id: Entity,

@@ -18,14 +18,14 @@ impl Default for Viewport {
 }
 
 // 清屏颜色(rgba, 是否清窗口)
-#[derive(Clone, Serialize, Deserialize, Component)]
+#[derive(Clone, Debug, Serialize, Deserialize, Component)]
 pub struct ClearColor(pub CgColor, pub bool);
 
 impl Default for ClearColor {
     fn default() -> Self { Self(CgColor::new(0.0, 0.0, 0.0, 0.0), false) }
 }
 
-#[derive(Clone, Debug, Deref, Default, Component)]
+#[derive(Clone, Debug, Deref, Default, Component, Serialize, Deserialize)]
 pub struct RenderDirty(pub bool);
 
 /// 清屏颜色的bindgroup（用户设置）
@@ -45,7 +45,7 @@ pub struct DynTargetType {
 #[derive(Component, Default)]
 pub struct RenderTarget(pub Option<ShareTargetView>);
 
-#[derive(Debug, Clone, Copy, EnumDefault, Component)]
+#[derive(Debug, Clone, Copy, EnumDefault, Component, Serialize, Deserialize)]
 pub enum RenderTargetType {
     Screen,
     OffScreen,

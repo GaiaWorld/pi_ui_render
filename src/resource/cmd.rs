@@ -19,13 +19,13 @@ use pi_style::{style_parse::{Attribute, ClassItem, ClassMap, KeyFrameList}};
 use serde::{Serialize, Deserialize};
 
 use crate::{
-    components::user::{serialize::{DefaultStyle, StyleTypeReader}, Animation},
+    components::{user::{serialize::{DefaultStyle, StyleTypeReader}, Animation, Viewport, RenderTargetType, ClearColor, RenderDirty, Canvas}, NodeBundle},
     resource::animation_sheet::KeyFramesSheet,
 };
 
 use super::{ClassSheet, animation_sheet::ObjKey, fragment::{FragmentMap, Fragments}};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DefaultStyleCmd(pub VecDeque<Attribute>);
 
 impl Command for DefaultStyleCmd {
@@ -48,7 +48,7 @@ impl Command for DefaultStyleCmd {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ExtendCssCmd(pub Vec<pi_style::style_parse::ClassMap>);
 impl Command for ExtendCssCmd {
     fn write(self, world: &mut World) {
@@ -73,7 +73,7 @@ impl Command for ExtendCssCmd {
 }
 
 /// 添加模板
-#[derive(Clone)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ExtendFragmentCmd(pub Fragments);
 impl Command for ExtendFragmentCmd {
     fn write(self, world: &mut World) {
@@ -82,7 +82,7 @@ impl Command for ExtendFragmentCmd {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct NodeCmd<T>(pub T, pub Entity);
 impl<T: Bundle> Command for NodeCmd<T> {
     fn write(self, world: &mut World) {
@@ -95,7 +95,7 @@ impl<T: Bundle> Command for NodeCmd<T> {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ComponentCmd<T>(pub T, pub Entity);
 impl<T: Component> Command for ComponentCmd<T> {
     fn write(self, world: &mut World) {
@@ -112,7 +112,7 @@ impl<T: Component> Command for ComponentCmd<T> {
 }
 
 // 运行时动画绑定指令
-#[derive(Clone)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RuntimeAnimationBindCmd(pub XHashMap<Atom, XHashMap<NotNan<f32>, VecDeque<Attribute>>>, pub Animation, pub Entity);
 impl Command for RuntimeAnimationBindCmd {
     fn write(self, world: &mut World) {
@@ -124,16 +124,7 @@ impl Command for RuntimeAnimationBindCmd {
 	}
 }
 
-// impl CmdSerd {
-
-// }
-
-pub trait CmdSerd<'s>: Serialize + Deserialize<'s> {
-	fn serd(&self);
-	fn d_serd(&self) -> Self;
-}
-
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 /// 节点指令
 pub enum NodeCommand {
     /// 插入节点（节点，父节点）,
@@ -147,10 +138,26 @@ pub enum NodeCommand {
 }
 
 /// 创建模板（作用该指令时， 注意检查entitys的长度和模板实际的长度是否相等）
-#[derive(Debug)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FragmentCommand {
 	pub key: u32, // 模板的key
 	pub entitys: Vec<Entity>, // 模板对应的实体
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum CmdType {
+	RuntimeAnimationBindCmd(RuntimeAnimationBindCmd),
+	ComponentCmd(ComponentCmd<Canvas>),
+
+	NodeCmdViewport(NodeCmd<Viewport>),
+	NodeCmdRenderTargetType(NodeCmd<RenderTargetType>),
+	NodeCmdRenderClearColor(NodeCmd<ClearColor>),
+	NodeCmdRenderRenderDirty(NodeCmd<RenderDirty>),
+	NodeCmdRenderNodeBundle(NodeCmd<NodeBundle>),
+
+	ExtendFragmentCmd(ExtendFragmentCmd),
+	ExtendCssCmd(ExtendCssCmd),
+	DefaultStyleCmd(DefaultStyleCmd),
 }
 
 // #[derive(Clone)]

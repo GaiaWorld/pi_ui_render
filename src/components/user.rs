@@ -1,6 +1,6 @@
 //！ 定义用户设置的组件
 
-use std::fmt::Debug;
+use std::{fmt::Debug, collections::VecDeque};
 use std::mem::transmute;
 
 use bevy::{
@@ -19,10 +19,11 @@ pub use pi_style::style::{
     Enable, FitType, FontSize, FontStyle, ImageRepeat, IterationCount, LengthUnit, LineHeight, LinearGradientColor, NotNanRect, ShowType, Stroke,
     StyleType, TextAlign, TextShadow as TextShadow1, Time, TransformFunc, TransformFuncs, TransformOrigin, VerticalAlign, WhiteSpace,
 };
-use pi_style::style::{
+use pi_style::style_parse::style_to_buffer;
+use pi_style::{style::{
     BlendMode as BlendMode1, BorderImageSlice as BorderImageSlice1, BorderRadius as BorderRadius1, BoxShadow as BoxShadow1, Hsi as Hsi1,
     MaskImage as MaskImage1, TextContent as TextContent1, AllTransform, BaseShape,
-};
+}, style_parse::Attribute, style_type::ClassMeta};
 
 use super::calc::NeedMark;
 pub use super::root::{ClearColor, RenderDirty, RenderTargetType, Viewport};
@@ -702,11 +703,18 @@ pub mod serialize {
         }
 
         // 将当前style写入组件
-        pub fn to_attr(&mut self) -> Option<Attribute> {
+        pub fn to_attr(&mut self) -> Option<StyleAttribute> {
             let next_type = self.next_type();
             // log::info!("write_to_component ty: {:?}, cursor:{}, buffer_len:{}", next_type, self.cursor, self.buffer.len());
             if let Some(style_type) = next_type {
-                let r = StyleAttr::to_attr(style_type, &self.buffer, self.cursor);
+				let r = if style_type < 90 {
+					let r = StyleAttr::to_attr(style_type, &self.buffer, self.cursor);
+					StyleAttribute::Set(r)
+				} else {
+					// reset
+					StyleAttribute::Reset(style_type)
+				};
+                
                 let size = StyleAttr::size(style_type);
                 self.cursor += size;
                 return Some(r);
@@ -1136,7 +1144,7 @@ pub mod serialize {
 			set_default!($name, $ty);
 			fn to_attr(ptr: *const u8) -> Attribute
 			{
-				Attribute::$ty(unsafe { $struct_name(ptr.cast::<$ty>().read_unaligned()) })
+				Attribute::$ty(unsafe { $struct_name((&*ptr.cast::<$ty>()).clone()) })
 			}
 		}
 
@@ -1163,7 +1171,7 @@ pub mod serialize {
 			set_default!($name, $pack_ty);
 			fn to_attr(ptr: *const u8) -> Attribute
 			{
-				Attribute::$pack_ty(unsafe { $struct_name(ptr.cast::<$value_ty>().read_unaligned()) })
+				Attribute::$pack_ty(unsafe { $struct_name((&*ptr.cast::<$value_ty>()).clone()) })
 			}
 		}
 
@@ -1188,7 +1196,7 @@ pub mod serialize {
 			set_default!($name, $pack_ty);
 			fn to_attr(ptr: *const u8) -> Attribute
 			{
-				Attribute::$pack_ty(unsafe { $struct_name(ptr.cast::<$value_ty>().read_unaligned()) })
+				Attribute::$pack_ty(unsafe { $struct_name((&*ptr.cast::<$value_ty>()).clone()) })
 			}
 		}
 
@@ -1211,7 +1219,7 @@ pub mod serialize {
 			set_default!($name, $c_ty, $value_ty);
 			fn to_attr(ptr: *const u8) -> Attribute
 			{
-				Attribute::$ty(unsafe { $struct_name(ptr.cast::<$value_ty>().read_unaligned()) })
+				Attribute::$ty(unsafe { $struct_name((&*ptr.cast::<$value_ty>()).clone()) })
 			}
 		}
 
@@ -1236,7 +1244,7 @@ pub mod serialize {
         where
             Self: Sized
 			{
-				Attribute::$ty(unsafe{$struct_name(ptr.cast::<$value_ty>().read_unaligned()) })
+				Attribute::$ty(unsafe{$struct_name((&*ptr.cast::<$value_ty>()).clone()) })
 			}
 		}
 
@@ -1261,7 +1269,7 @@ pub mod serialize {
         where
             Self: Sized
 			{
-				Attribute::$ty(unsafe { $struct_name(ptr.cast::<$value_ty>().read_unaligned()) })
+				Attribute::$ty(unsafe { $struct_name((&*ptr.cast::<$value_ty>()).clone()) })
 			}
 		}
 
@@ -1284,7 +1292,7 @@ pub mod serialize {
 			set_default!(@func $name, $c_ty, $set_func, $value_ty);
 			fn to_attr(ptr: *const u8) -> Attribute
 			{
-				Attribute::$ty(unsafe { $struct_name(ptr.cast::<$value_ty>().read_unaligned()) })
+				Attribute::$ty(unsafe { $struct_name((&*ptr.cast::<$value_ty>()).clone()) })
 			}
 		}
 
@@ -1308,7 +1316,7 @@ pub mod serialize {
 			set_default!(@empty);
 			fn to_attr(ptr: *const u8) -> Attribute
 			{
-				Attribute::$ty(unsafe { $struct_name(ptr.cast::<$value_ty>().read_unaligned()) })
+				Attribute::$ty(unsafe { $struct_name((&*ptr.cast::<$value_ty>()).clone()) })
 			}
 		}
 
@@ -1332,7 +1340,7 @@ pub mod serialize {
 			set_default!(@empty);
 			fn to_attr(ptr: *const u8) -> Attribute
 			{
-				Attribute::$attr_ty(unsafe { $struct_name(ptr.cast::<$value_ty>().read_unaligned()) })
+				Attribute::$attr_ty(unsafe { $struct_name((&*ptr.cast::<$value_ty>()).clone()) })
 			}
 		}
 
@@ -1356,7 +1364,7 @@ pub mod serialize {
 			set_default!($name, $c_ty, $feild, $value_ty);
 			fn to_attr(ptr: *const u8) -> Attribute
 			{
-				Attribute::$ty(unsafe { $struct_name(ptr.cast::<$value_ty>().read_unaligned()) })
+				Attribute::$ty(unsafe { $struct_name((&*ptr.cast::<$value_ty>()).clone()) })
 			}
 		}
 
@@ -1379,7 +1387,7 @@ pub mod serialize {
 			set_default!(@box_model $name, $ty);
 			fn to_attr(ptr: *const u8) -> Attribute
 			{
-				Attribute::$ty(unsafe { $struct_name(ptr.cast::<$ty>().read_unaligned()) })
+				Attribute::$ty(unsafe { $struct_name((&*ptr.cast::<$ty>()).clone()) })
 			}
 		}
 
@@ -1506,7 +1514,7 @@ pub mod serialize {
 
 		set_default!(text_content, TextContent);
     	fn to_attr(ptr: *const u8) -> Attribute{
-    		Attribute::TextContent(unsafe { TextContentType(ptr.cast::<TextContent1>().read_unaligned()) })
+    		Attribute::TextContent(unsafe { TextContentType((&*ptr.cast::<TextContent1>()).clone()) })
     	}
     }
 
@@ -1706,7 +1714,7 @@ pub mod serialize {
         where
             Self: Sized,
         {
-            Attribute::BackgroundImage(unsafe { BackgroundImageType(ptr.cast::<Atom>().read_unaligned()) })
+            Attribute::BackgroundImage(unsafe { BackgroundImageType((&*ptr.cast::<Atom>()).clone()) })
         }
     }
     impl ConvertToComponent for ResetBackgroundImageType {
@@ -1748,7 +1756,7 @@ pub mod serialize {
         where
             Self: Sized,
         {
-            Attribute::BackgroundImage(unsafe { BackgroundImageType(ptr.cast::<Atom>().read_unaligned()) })
+            Attribute::BackgroundImage(unsafe { BackgroundImageType((&*ptr.cast::<Atom>()).clone()) })
         }
     }
 
@@ -1821,7 +1829,7 @@ pub mod serialize {
         where
             Self: Sized,
         {
-            Attribute::BorderImage(unsafe { BorderImageType(ptr.cast::<Atom>().read_unaligned()) })
+            Attribute::BorderImage(unsafe { BorderImageType((&*ptr.cast::<Atom>()).clone()) })
         }
     }
     impl ConvertToComponent for ResetBorderImageType {
@@ -1863,7 +1871,7 @@ pub mod serialize {
         where
             Self: Sized,
         {
-            Attribute::BorderImage(unsafe { BorderImageType(ptr.cast::<Atom>().read_unaligned()) })
+            Attribute::BorderImage(unsafe { BorderImageType((&*ptr.cast::<Atom>()).clone()) })
         }
     }
 	// impl_style!(@func1 TransformFuncType, transform, Transform, add_func, TransformFunc, TransformFunc, TransformFunc);
@@ -2012,7 +2020,7 @@ pub mod serialize {
         where
             Self: Sized,
         {
-            Attribute::Transform(unsafe { TransformType(ptr.cast::<TransformFuncs>().read_unaligned()) })
+            Attribute::Transform(unsafe { TransformType((&*ptr.cast::<TransformFuncs>()).clone()) })
         }
     }
     impl ConvertToComponent for ResetTransformType {
@@ -2048,7 +2056,7 @@ pub mod serialize {
         where
             Self: Sized,
         {
-            Attribute::Transform(unsafe { TransformType(ptr.cast::<TransformFuncs>().read_unaligned()) })
+            Attribute::Transform(unsafe { TransformType((&*ptr.cast::<TransformFuncs>()).clone()) })
         }
     }
 
@@ -2108,7 +2116,7 @@ pub mod serialize {
         where
             Self: Sized,
         {
-            Attribute::Translate(unsafe { TranslateType(ptr.cast::<[LengthUnit;2]>().read_unaligned()) })
+            Attribute::Translate(unsafe { TranslateType((&*ptr.cast::<[LengthUnit;2]>()).clone()) })
         }
     }
     impl ConvertToComponent for ResetTranslateType {
@@ -2144,7 +2152,7 @@ pub mod serialize {
         where
             Self: Sized,
         {
-            Attribute::Translate(unsafe { TranslateType(ptr.cast::<[LengthUnit;2]>().read_unaligned()) })
+            Attribute::Translate(unsafe { TranslateType((&*ptr.cast::<[LengthUnit;2]>()).clone()) })
         }
     }
 
@@ -2204,7 +2212,7 @@ pub mod serialize {
         where
             Self: Sized,
         {
-            Attribute::Scale(unsafe { ScaleType(ptr.cast::<[f32;2]>().read_unaligned()) })
+            Attribute::Scale(unsafe { ScaleType((&*ptr.cast::<[f32;2]>()).clone()) })
         }
     }
     impl ConvertToComponent for ResetScaleType {
@@ -2240,7 +2248,7 @@ pub mod serialize {
         where
             Self: Sized,
         {
-            Attribute::Scale(unsafe { ScaleType(ptr.cast::<[f32;2]>().read_unaligned()) })
+            Attribute::Scale(unsafe { ScaleType((&*ptr.cast::<[f32;2]>()).clone()) })
         }
     }
 
@@ -2300,7 +2308,7 @@ pub mod serialize {
         where
             Self: Sized,
         {
-            Attribute::Rotate(unsafe { RotateType(ptr.cast::<f32>().read_unaligned()) })
+            Attribute::Rotate(unsafe { RotateType((&*ptr.cast::<f32>()).clone()) })
         }
     }
     impl ConvertToComponent for ResetRotateType {
@@ -2408,7 +2416,7 @@ pub mod serialize {
         where
             Self: Sized,
         {
-            Attribute::TransformWillChange(unsafe { TransformWillChangeType(ptr.cast::<bool>().read_unaligned()) })
+            Attribute::TransformWillChange(unsafe { TransformWillChangeType( (*ptr.cast::<bool>()).clone()) })
         }
     }
     impl ConvertToComponent for ResetTransformWillChangeType {
@@ -3410,3 +3418,148 @@ pub mod serialize {
         }
     }
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum StyleAttribute {
+	Reset(u8),
+	Set(Attribute)
+}
+
+pub fn style_attr_list_to_buffer(style_buffer: &mut Vec<u8>, style_list: &mut VecDeque<StyleAttribute>, mut count: usize) -> ClassMeta {
+	let start = style_buffer.len();
+	let mut class_meta = ClassMeta {
+		start,
+		end: start,
+		class_style_mark: BitArray::default(),
+	};
+
+	loop {
+		if count == 0 {
+			break;
+		}
+		let r = style_list.pop_front().unwrap();
+		match r {
+			StyleAttribute::Reset(r) => style_buffer.push(r),
+			StyleAttribute::Set(r) => style_to_buffer(style_buffer, r, &mut class_meta),
+		}
+		
+		count -= 1;
+	}
+	class_meta.end = style_buffer.len();
+
+	class_meta
+}
+
+
+
+/// 样式设置
+pub enum ResetAttribute {
+	BackgroundRepeat, // 0 empty 占位， 无实际作用
+    FontStyle,               // 2
+    FontWeight,             // 3
+    FontSize,                 // 4
+    FontFamily,             // 5
+    LetterSpacing,       // 6
+    WordSpacing,           // 7
+    LineHeight,             // 8
+    TextIndent,             // 9
+    WhiteSpace,             // 10
+
+    TextAlign,         // 11
+    VerticalAlign, // 12
+    Color,                 // 13
+    TextStroke,       // 14
+    TextShadow,       // 15
+
+    BackgroundImage,         // 16
+    BackgroundImageClip, // 17
+    ObjectFit,                     // 18
+    BackgroundColor,         // 19
+    BoxShadow,                     // 20
+    BorderImage,                 // 21
+    BorderImageClip,         // 22
+    BorderImageSlice,       // 23
+    BorderImageRepeat,     // 24
+
+    BorderColor, // 25
+
+    Hsi,                                 // 26
+    Blur,                               // 27
+    MaskImage,                     // 28
+    MaskImageClip,             // 29
+    Transform,                     // 31
+    TransformOrigin,         // 32
+    TransformWillChange, // 33
+    BorderRadius,               // 34
+    ZIndex,                           // 35
+    Overflow,                       // 36
+
+    BlendMode,   // 37
+    Display,       // 38
+    Visibility, // 39
+    Enable,         // 40
+
+    Width,   // 41
+    Height, // 42
+
+    MarginTop,       // 43
+    MarginRight,   // 44
+    MarginBottom, // 45
+    MarginLeft,     // 46
+
+    PaddingTop,       // 47
+    PaddingRight,   // 48
+    PaddingBottom, // 49
+    PaddingLeft,     // 50
+
+    BorderTop,       // 51
+    BorderRight,   // 52
+    BorderBottom, // 53
+    BorderLeft,     // 54
+
+    PositionTop,       // 55
+    PositionRight,   // 56
+    PositionBottom, // 57
+    PositionLeft,     // 58
+
+    MinWidth,             // 59
+    MinHeight,           // 60
+    MaxHeight,           // 61
+    MaxWidth,             // 62
+    Direction,           // 63
+    FlexDirection,   // 64
+    FlexWrap,             // 65
+    JustifyContent, // 66
+    AlignContent,     // 67
+    AlignItems,         // 68
+
+    PositionType, // 69
+    AlignSelf,       // 70
+    FlexShrink,     // 71
+    FlexGrow,         // 72
+    AspectRatio,   // 73
+    Order,               // 74
+    FlexBasis,       // 75
+    Opacity,           // 80
+
+    TextContent, // 81
+
+    VNode, // 82
+
+    TransformFunc, // 83
+
+    AnimationName,                     // 79
+    AnimationDuration,             // 80
+    AnimationTimingFunction, // 81
+    AnimationDelay,                   // 82
+    AnimationIterationCount, // 83
+    AnimationDirection,           // 84
+    AnimationFillMode,             // 85
+    AnimationPlayState,           // 86
+	ClipPath,   // 87
+	Translate,                     // 88
+	Scale,                     // 89
+	Rotate,                     // 90
+}
+
+

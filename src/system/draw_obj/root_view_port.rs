@@ -12,7 +12,7 @@ use bevy::{
     prelude::DetectChanges,
 };
 use pi_assets::asset::Handle;
-use pi_async::{
+use pi_async_rt::{
     prelude::AsyncVariableNonBlocking,
     prelude::{AsyncRuntime, AsyncRuntimeExt},
 };
@@ -339,7 +339,7 @@ fn render_change_async(
         *task_count += 1;
 
         RENDER_RUNTIME
-            .spawn(RENDER_RUNTIME.alloc(), async move {
+            .spawn(async move {
                 match calc_pipeline(&image_static_index, device, pipeline_map, shader_map).await {
                     Ok(r) => {
                         let mut locked = value_copy.lock().unwrap();
