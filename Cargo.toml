@@ -87,27 +87,16 @@ zerovec = "0.9"
 guillotiere = { version = "0.6" }
 derive-deref-rs = "0.1"
 thiserror = "1.0"
+wgpu = { version = "0.15", default-features = false, features = ["glsl"] }
+pi-async-rt = "0.1"
+pi_share = {version="0.4"}
+pi_render = { git = "https://github.com/GaiaWorld/pi_render.git", branch="bevy_shader"}
 # derive_deref = "1.1"
+tracing-subscriber = "0.3"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-# wasm-bindgen = { version = "0.2", features = ["serde-serialize"] }
 uuid = { version = "1", features = ["js"] }
-# pi_share = {version="0.4", features=["serial", "rc"]}
-pi_share = {version="0.4"}
-pi-async-rt = {version = "0.1", features = ["serial"]}
-# web-sys = {version="0.3", features = [
-# 	"HtmlCanvasElement"
-# ]}
-# js-sys = "0.3"
-wgpu = { version = "0.15", default-features = false, features = ["glsl", "webgl"] }
-# flume = {version="0.10", features=["spin"]}
-pi_render = { git = "https://github.com/GaiaWorld/pi_render.git", branch="bevy_shader", features=["webgl"] }
 
-[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-pi_share = {version="0.4"}
-pi-async-rt = "0.1"
-pi_render = { git = "https://github.com/GaiaWorld/pi_render.git", branch="bevy_shader" }
-wgpu = { version = "0.15", default-features = false, features = ["glsl"] }
 
 # flume = "0.10"
 # [patch."https://github.com/GaiaWorld/pi_spatialtree"]
@@ -126,12 +115,13 @@ wgpu = { version = "0.15", default-features = false, features = ["glsl"] }
 # pi_render = { path = "../pi_render" }
 # render_derive = {path = "../pi_render/crates/render_derive"}
 
-# [patch."https://github.com/GaiaWorld/pi_render_bevy"]
-# pi_bevy_post_process= { path = "../pi_render_bevy/crates/post_process" }
-# pi_bevy_ecs_extend = { path = "../pi_render_bevy/crates/ecs_extend" }
-# pi_bevy_render_plugin = { path = "../pi_render_bevy/crates/render" }
-# pi_bevy_asset = { path = "../pi_render_bevy/crates/asset" }
-# pi_bevy_winit_window = { path = "../pi_render_bevy/crates/winit_window" } 
+[patch."https://github.com/GaiaWorld/pi_render_bevy"]
+pi_bevy_post_process= { path = "../pi_render_bevy/crates/post_process" }
+pi_bevy_ecs_extend = { path = "../pi_render_bevy/crates/ecs_extend" }
+pi_bevy_render_plugin = { path = "../pi_render_bevy/crates/render" }
+pi_bevy_asset = { path = "../pi_render_bevy/crates/asset" }
+pi_bevy_winit_window = { path = "../pi_render_bevy/crates/winit_window" } 
+pi_bevy_log = { path = "../pi_render_bevy/crates/log" } 
 
 # [patch."https://github.com/GaiaWorld/pi_hal"]
 # pi_hal = { path = "../pi_hal" }
@@ -183,6 +173,7 @@ spin_sleep="1.1"
 num_cpus = "1.13"
 bevy = {version="0.10", default-features = false, features=["bevy_winit"]}
 timer = "0.2.0"
+pi_bevy_log = {git="https://github.com/GaiaWorld/pi_render_bevy.git"}
 # pi_export_gui = {path="../pi_export/crates/gui"}
 # bevy_mod_debugdump = "0.6"
 # bevy-inspector-egui="0.14"

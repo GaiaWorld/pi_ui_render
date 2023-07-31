@@ -54,49 +54,42 @@ pub fn set_matrix_group(
         ),
     >,
     query_parent: Query<&Up>,
-    query_matrix: Query<&WorldMatrix>,
+    query_matrix: Query<(&WorldMatrix, &NodeState, &LayoutResult)>,
     mut query_draw: Query<(&mut DrawState, OrDefault<BoxType>)>,
 ) {
     // let mut i = 0;
-    for (mut matrix, layout_result, draw_list, node, state) in query.iter() {
-        if state.is_vnode() {
+    for (mut matrix, mut layout_result, draw_list, node, mut state) in query.iter() {
+		if draw_list.len() == 0 {
+			continue;
+		}
+
+		let mut n = node;
+        while state.is_vnode() {
             // 虚拟节点，现阶段只有图文混排的文字节点，直接使用父节点的世界矩阵
-            if let Ok(up) = query_parent.get(node) {
-                if let Ok(r) = query_matrix.get(up.parent()) {
-                    matrix = r;
+            if let Ok(up) = query_parent.get(n) {
+                if let Ok((m, s, l)) = query_matrix.get(up.parent()) {
+					if s.is_vnode() {
+						n = up.parent();
+						continue;
+					}
+                    matrix = m;
+					state = s;
+					layout_result = l;
                 }
             }
         }
 
-        let mut border_matrix = None;
         // 遍历当前节点下所有的DrawObject，为其设置
         for draw_obj in draw_list.iter() {
             if let Ok((mut draw_data, box_type)) = query_draw.get_mut(draw_obj.id) {
                 // 如果，渲染对象的顶点流为单位四边形，则需要将宽高乘到世界矩阵中
                 let matrix_slice = match box_type {
-                    // BoxType::Content => {
-                    // 	match &content_matrix {
-                    // 		Some(r) => r,
-                    // 		None => {
-                    // 			let matrix = create_unit_offset_matrix_by_layout(
-                    // 				layout_result,
-                    // 				layout_result.border.left, layout_result.border.top,
-                    // 				matrix
-                    // 			);
-                    // 			content_matrix = Some(matrix);
-                    // 			content_matrix.as_ref().unwrap()
-                    // 		}
-                    // 	}
-                    // },
-                    BoxType::ContentRect | BoxType::BorderRect => match &border_matrix {
-                        Some(r) => r,
-                        None => {
-                            let matrix = create_unit_offset_matrix_by_layout(layout_result, 0.0, 0.0, matrix);
-                            border_matrix = Some(matrix);
-                            border_matrix.as_ref().unwrap()
-                        }
-                    },
-                    BoxType::ContentNone | BoxType::BorderNone | BoxType::Border => matrix, // 否者，世界矩阵使用节点的世界矩阵
+                    BoxType::ContentRect => create_scale_offset_matrix(1.0, 1.0, layout_result.border.left + layout_result.padding.left, layout_result.border.top + layout_result.padding.top, matrix),
+                    BoxType::BorderUnitRect => create_unit_offset_matrix_by_layout(layout_result, 0.0, 0.0, matrix),
+					BoxType::PaddingUnitRect => create_unit_offset_matrix_by_layout(layout_result, layout_result.border.left, layout_result.border.top, matrix),
+					BoxType::ContentUnitRect => create_unit_offset_matrix_by_layout(layout_result, layout_result.border.left + layout_result.padding.left, layout_result.border.top + layout_result.padding.top, matrix),
+                    BoxType::ContentNone | BoxType::BorderNone | BoxType::PaddingNone | BoxType::Border => matrix.clone(), // 否者，世界矩阵使用节点的世界矩阵
+					BoxType::NotChange => continue,
                 };
                 let mut matrix_slice = matrix_slice.clone();
                 matrix_slice.column_mut(3)[2] = node.index() as f32; // 用于调试
@@ -112,14 +105,14 @@ pub fn set_matrix_group(
 fn create_unit_offset_matrix_by_layout(layout: &LayoutResult, h: f32, v: f32, matrix: &WorldMatrix) -> WorldMatrix {
     let width = layout.rect.right - layout.rect.left - layout.border.left - layout.border.right;
     let height = layout.rect.bottom - layout.rect.top - layout.border.bottom - layout.border.top;
-    create_unit_offset_matrix(width, height, h, v, matrix)
+    create_scale_offset_matrix(width, height, h, v, matrix)
 }
 
 #[inline]
-fn create_unit_offset_matrix(width: f32, height: f32, h: f32, v: f32, matrix: &WorldMatrix) -> WorldMatrix {
+fn create_scale_offset_matrix(scale_x: f32, scale_y: f32, h: f32, v: f32, matrix: &WorldMatrix) -> WorldMatrix {
     matrix
         * WorldMatrix(
-            Matrix4::new(width, 0.0, 0.0, h, 0.0, height, 0.0, v, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0),
+            Matrix4::new(scale_x, 0.0, 0.0, h, 0.0, scale_y, 0.0, v, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0),
             false,
         )
 }

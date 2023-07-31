@@ -2,7 +2,6 @@
 //!
 //! ## 计算过程
 //! 节点必须存在如下组件：
-//! * NodeState
 //! * LayoutResult
 //! 节点可能存在如下组件：
 //! * Transform
@@ -201,6 +200,7 @@ pub fn calc_quad(
     event_writer.send(ComponentEvent::new(id));
 
     quad_tree.insert(EntityKey(id), item.clone());
+	log::trace!(target: format!("entity_{:?}", id).as_str(), "calc_quad={:?}", item);
 
     *quad = item;
 }

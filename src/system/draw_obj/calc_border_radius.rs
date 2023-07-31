@@ -44,9 +44,10 @@ pub fn calc_border_radius(
             if let Ok((mut draw_state, box_type, mut pipeline_meta)) = query_draw.get_mut(i.id) {
                 let (width, height) = (layout.rect.right - layout.rect.left, layout.rect.bottom - layout.rect.top);
                 let (x, y, z, w) = match box_type {
-                    BoxType::BorderRect | BoxType::ContentRect => (width / 2.0, height / 2.0, width, height),
-                    BoxType::BorderNone | BoxType::ContentNone => (width / 2.0, height / 2.0, 1.0, 1.0),
+                    BoxType::BorderUnitRect | BoxType::ContentUnitRect | BoxType::PaddingUnitRect => (width / 2.0, height / 2.0, width, height),
+                    BoxType::BorderNone | BoxType::ContentNone | BoxType::PaddingNone | BoxType::ContentRect => (width / 2.0, height / 2.0, 1.0, 1.0),
                     BoxType::Border => continue, // 渲染边框，不需要额外添加圆角的uniform
+					BoxType::NotChange => continue, // 不改变
                 };
 
                 // 修改宏
@@ -57,14 +58,14 @@ pub fn calc_border_radius(
                 // 修改uniform
                 let temp;
                 let border_radius = match box_type {
-                    BoxType::ContentNone | BoxType::ContentRect => {
+                    BoxType::ContentNone | BoxType::ContentUnitRect => {
                         temp = cal_content_border_radius(
                             &border_radius,
                             (layout.border.top, layout.border.right, layout.border.bottom, layout.border.left),
                         );
                         &temp
                     }
-                    BoxType::BorderNone | BoxType::BorderRect => &border_radius,
+                    BoxType::BorderNone | BoxType::BorderUnitRect => &border_radius,
                     _ => continue,
                 };
                 draw_state.bindgroups.set_uniform(&ClipSdfUniform(&[

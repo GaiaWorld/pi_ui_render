@@ -128,62 +128,6 @@ pub fn calc_global_dirty_rect(
     }
 }
 
-/// 本函数执行先决条件： Quad、ContentBox已经准备好
-/// 当DrawObject的DrawState组件修改时，需要更新脏区域
-/// 当DrawObject删除时，需要更新脏区域
-/// 当DrawObject的NodeId创建时，需要更新脏区域
-// #[listen(component=(DrawObject, DrawState, Modify), entity=(DrawObject, Delete), component=(DrawObject, NodeId, Create))]
-// pub fn cal_dirty_rect_by(
-// 	e: Event,
-// 	query: Query<DrawObject, Join<NodeId, Node, (&InPassId, &Quad)>>,
-// 	mut query_pass: Query<Pass2D, Write<DirtyRect>>,
-// ) {
-// 	let (pass_id, quad) = match query.get_by_entity(e.id) {
-// 		Some(r) => r,
-// 		None => return
-// 	};
-
-// 	mark_pass_dirty_rect(pass_id.0, &*quad, &mut query_pass);
-// }
-
-/// 当pass2d删除时，更新父的Pass2d的脏区域
-// #[listen(entity=(Pass2D, Delete))]
-// pub fn cal_dirty_rect_by_pass_2d(
-// 	e: Event,
-// 	query: Query<Pass2D,(&ParentPassId, Join<NodeId, Node, &ContentBox>)>,
-// 	mut query_pass: Query<Pass2D, Write<DirtyRect>>,
-// ) {
-// 	let (pass_id, content_box) = match query.get_by_entity(e.id) {
-// 		Some(r) => r,
-// 		None => return
-// 	};
-
-// 	// 如果存在父的pass2d， 则将子pass2d的内容包围盒更新到父的pass2d的脏区域中
-// 	if !pass_id.0.is_null() {
-// 		mark_pass_dirty_rect(pass_id.0, &content_box.0, &mut query_pass);
-// 	}
-// }
-
-/// 监听quad的删除事件，更新脏区域（Quad的创建、修改，最终表现为DrawState的变化，已被其他监听器监听）
-/// 注意，Quad实际上没有真正意义的删除事件，只有当节点销毁时才会删除，但节点销毁不会额外发出组件删除的事件
-/// 这里的Quad删除事件，实际上是Quad在修改前，额外发出的事件，一遍某些system能了解Quad修改前的数据（此事件的处，见Quad System）
-// #[listen(component=(Node, Quad, Delete))]
-// pub fn cal_dirty_rect_by_quad(
-// 	e: Event,
-// 	// query: Query<Node, (&DrawList, &Quad, &InPassId)>,
-// 	query: Query<Node, (&Quad, &InPassId)>,
-// 	mut query_pass: Query<Pass2D, Write<DirtyRect>>,
-// ) {
-// 	let (quad, pass_id) = match query.get_by_entity(e.id) {
-// 		Some(r) => r,
-// 		None => return
-// 	};
-
-// 	// if draw_list.len() > 0 { // 本应该判断DrawList是否存在，但如果对DrawList进行查询，会脏成某些system依赖循环，因此暂时不判断，不影响渲染结果
-// 		mark_pass_dirty_rect(pass_id.0, &*quad, &mut query_pass);
-// 	// }
-// }
-
 #[inline]
 fn mark_pass_dirty_rect(pass_id: Entity, rect: &Aabb2, query_pass: &mut Query<&mut DirtyRect>) {
     let mut dirty_rect = match query_pass.get_mut(pass_id) {

@@ -35,7 +35,6 @@ pub fn update_graph(
                 continue;
             }
 
-			
             let graph_node_id = match rg.add_node(format!("Pass2D_{:?}", entity), Pass2DNode::new(entity)) {
                 Ok(r) => r,
                 Err(e) => {
@@ -43,7 +42,7 @@ pub fn update_graph(
                     return;
                 }
             };
-			log::debug!("add_node1====={:?}, {:?}", entity, graph_node_id);
+			log::debug!(target: format!("entity_{:?}", entity).as_str(), "add graph node: {:?}", graph_node_id);
 
             *graph_id = GraphId(graph_node_id);
         } else {
@@ -58,6 +57,7 @@ pub fn update_graph(
 
     // 移除渲染图节点
     for id in del.iter() {
+		log::debug!(target: format!("entity_{:?}", id).as_str(), "remove graph node");
         let _ = rg.remove_node(format!("Pass2D_{:?}", id));
     }
 

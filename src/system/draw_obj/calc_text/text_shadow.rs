@@ -2,8 +2,8 @@ use std::borrow::BorrowMut;
 
 use bevy::ecs::prelude::{DetectChanges, Ref};
 use bevy::ecs::query::{Changed, Or, With};
-use bevy::prelude::{IntoSystemConfig, Component};
-use bevy::ecs::system::{Local, Query, Res, SystemState, SystemParam};
+use bevy::prelude::{IntoSystemConfig, Component, Commands};
+use bevy::ecs::system::{ Query, Res, SystemState, SystemParam};
 use bevy::prelude::{Without, World, Entity, EventReader, RemovedComponents, ParamSet, EventWriter, ResMut, Plugin};
 use pi_bevy_asset::ShareAssetMgr;
 use pi_bevy_ecs_extend::prelude::Layer;
@@ -73,9 +73,9 @@ pub struct TextShadowColorBindGroup(DrawBindGroup);
 //                     crate::shader::text::ProgramMeta
 pub fn text_shadow_life(
     world: &mut World,
-    mut will_creates: Local<Vec<(Entity, usize, usize)>>, // (节点id， 开始索引，阴影数量)
-	mut will_create_draws: Local<Vec<Entity>>, // drawObj的id
-    mut will_delete: Local<Vec<Entity>>,
+    // mut will_creates: Local<Vec<(Entity, usize, usize)>>, // (节点id， 开始索引，阴影数量)
+	// mut will_create_draws: Local<Vec<Entity>>, // drawObj的id
+    // mut will_delete: Local<Vec<Entity>>,
 
     state: &mut SystemState<(
         OrInitRes<TextShadowRenderObjType>,
@@ -96,30 +96,30 @@ pub fn text_shadow_life(
 		Query<&'static GraphId>,
 		OrInitRes<RenderContextMarkType<TextShadow>>,
 		EventWriter<ComponentEvent<Changed<RenderContextMark>>>,
-		
+		Commands,
     )>,
-
-    query_draw_list: &mut SystemState<Query<&'static mut DrawList>>,
 ) {
-	let (render_type, mut changed, mut del, mut query, mark_query, program_meta, vert_layout, shader_catch, group_alloter, mut rg, graph_id_query, mark_type,mut  event_writer) = state.get_mut(world);
+	let (render_type, mut changed, mut del, mut query, mark_query, program_meta, vert_layout, shader_catch, group_alloter, mut rg, graph_id_query, mark_type,mut  event_writer, mut commands) = state.get_mut(world);
     let group_alloter = group_alloter.clone();
 	let render_type = ***render_type;
 
-    // 收集需要删除DrawObject的实体
+    // TextShadow组件被移除时，删除对应的DrawObj
     for del in del.iter() {
         if let Ok((text_shadow, mut draw_list, mut render_mark_value)) = query.p0().get_mut(del) {
             if text_shadow.is_some() {
                 continue;
             }
             // 删除对应的DrawObject
-            if let Some(draw_obj) = draw_list.remove(render_type) {
-				will_delete.push(draw_obj.id);
+            draw_list.remove(render_type, |draw_obj| {
+				if let Some(mut r) = commands.get_entity(draw_obj.id) {
+					r.despawn();
+				}
 
 				// 删除渲染图节点
 				if let Ok(r) = graph_id_query.get(draw_obj.id) {
 					let _ = rg.remove_node(**r);
 				}
-            }
+			});
 
 			if unsafe { render_mark_value.replace_unchecked(***mark_type, false) } {
                 // 通知（RenderContextMark组件在每个节点上都存在， 但实际上，是渲染上下文的节点不多，基于通知的改变更高效）
@@ -127,6 +127,10 @@ pub fn text_shadow_life(
             }
         }
     }
+
+	let program_meta = program_meta.clone();
+    let p_state = shader_catch.premultiply.clone();
+    let vert_layout = vert_layout.clone();
 
     // 收集需要创建DrawObject的实体
     for changed in changed.iter() {
@@ -141,7 +145,7 @@ pub fn text_shadow_life(
 					if **mark >= shadow.len() {
 						// 多余的， 删除
 						draw_list.swap_remove(i);
-						break;
+						continue;
 					} else {
 						need_count -= 1;
 					}
@@ -149,72 +153,44 @@ pub fn text_shadow_life(
 				i += 1;
 			}
 			if need_count > 0 {
+				// will_creates.push((changed.id, shadow.len() - need_count, shadow.len()));
 				// 计算需要为该节点创建的阴影DrawObj的数量
-				will_creates.push((changed.id, shadow.len() - need_count, shadow.len()));
-			}
-           
-        }
-    }
+				let mut start = shadow.len() - need_count;
+				let count = shadow.len();
+				while start < count {
+					let mut draw_state = DrawState::default();
+					let ui_material_group = group_alloter.alloc();
+					draw_state.bindgroups.insert_group(UiMaterialBind::set(), ui_material_group);
 
-    let program_meta = program_meta.clone();
-    let state = shader_catch.premultiply.clone();
-    let vert_layout = vert_layout.clone();
+					let mut clear_group = group_alloter.alloc();
+					let world_matrix = Matrix4::new(2.0, 0.0, 0.0, -1.0, 0.0, 2.0, 0.0, -1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0);
+					let _ = clear_group.set_uniform(&WorldUniform(world_matrix.as_slice()));
 
-    // 删除DrawObject实体
-    for del in will_delete.drain(..) {
-        world.despawn(del);
-    }
+					let mut post = PostProcess::default();
+					post.post.src_preimultiplied = false;
 
-    // 创建DrawObject
-    for (create, start, count) in will_creates.iter_mut() {
-		// let old_count = 0;
-		// for i in 
-		let mut start = *start;
-		while start < *count {
-			let mut draw_state = DrawState::default();
-			let ui_material_group = group_alloter.alloc();
-			draw_state.bindgroups.insert_group(UiMaterialBind::set(), ui_material_group);
-
-			let mut clear_group = group_alloter.alloc();
-			let world_matrix = Matrix4::new(2.0, 0.0, 0.0, -1.0, 0.0, 2.0, 0.0, -1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0);
-			let _ = clear_group.set_uniform(&WorldUniform(world_matrix.as_slice()));
-
-			let mut post = PostProcess::default();
-			post.post.src_preimultiplied = false;
-
-			will_create_draws.push(
-				world
-					.spawn((DrawBundle {
-						node_id: NodeId(EntityKey(*create)),
+					let id = commands.spawn((DrawBundle {
+						node_id: NodeId(EntityKey(changed.id)),
 						draw_state,
 						box_type: BoxType::ContentNone,
 						pipeline_meta: PipelineMeta {
 							program: program_meta.clone(),
-							state: state.clone(),
+							state: p_state.clone(),
 							vert_layout: vert_layout.clone(),
 							defines: Default::default(),
 						},
 						draw_info: DrawInfo::new(TEXT_SHADOW_ORDER, false), //TODO
 						other: TextShadowMark(start),
-					}, post, GraphId::default(), TextShadowColorBindGroup(clear_group.into())))
-					.id(),
-			);
-			start += 1;
-		}
-    }
-
-    let mut query_draw_list = query_draw_list.get_mut(world);
-	let mut index = 0;
-    // 创建Node到DrawObject的映射
-    for (create, start, count) in will_creates.drain(..) {
-        if let Ok(mut draw_list) = query_draw_list.get_mut(create) {
-			for _ in 0..count - start {
-				draw_list.push(render_type, will_create_draws[index]);
-				index += 1;
+					}, post, GraphId::default(), TextShadowColorBindGroup(clear_group.into()))).id();
+					draw_list.push(render_type, id);
+					start += 1;
+				}
 			}
+           
         }
     }
-	will_create_draws.clear();
+
+	state.apply(world);
 }
 
 /// 设置文字阴影的顶点、索引、uv，和颜色的Uniform
@@ -232,7 +208,7 @@ pub fn calc_text_shadow(
 		(With<TextShadow>, Or<(Changed<NodeState>, Changed<TextShadow>)>),
 	>,
 
-    mut query_draw: Query<(&mut DrawState, &mut TextShadowColorBindGroup, &NodeId, &TextShadowMark, &mut PostProcess, &mut PipelineMeta), Without<TextMark>>,
+    mut query_draw: Query<(&mut DrawState, &mut BoxType, &mut TextShadowColorBindGroup, &NodeId, &TextShadowMark, &mut PostProcess, &mut PipelineMeta), Without<TextMark>>,
 	query_text_draw: Query<&DrawState, (With<TextMark>, Without<TextShadowMark>)>,
 
     text_texture_group: OrInitRes<TextTextureGroup>,
@@ -253,7 +229,7 @@ pub fn calc_text_shadow(
 	};
 
     // let mut init_spawn_drawobj = Vec::new();
-	for (mut draw_state, mut clear_color_group, node_id, shadow_mark, mut post_process, mut pipeline_meta) in query_draw.iter_mut() {
+	for (mut draw_state, mut box_type, mut clear_color_group, node_id, shadow_mark, mut post_process, mut pipeline_meta) in query_draw.iter_mut() {
 		if let Ok((node_state, node_state_change, text_shadow, world_matrix, draw_list)) = query.get(***node_id) {
 			if node_state.0.scale < 0.000001 {
 				continue;
@@ -274,6 +250,7 @@ pub fn calc_text_shadow(
                     .bindgroups
                     .set_uniform(&TextureSizeOrBottomLeftBorderUniform(&[size.width as f32, size.height as f32]));
 				pipeline_meta.defines.insert(SHADOW_DEFINE.clone());
+				*box_type = BoxType::ContentRect;
             }
 
 			// 重新设置顶点、索引和uv(与文字渲染一样，直接clone过来)
@@ -381,7 +358,7 @@ impl Node for TextShadowNode {
         // mut commands: ShareRefCell<CommandEncoder>,
         // inputs: &'a [Self::Output],
     ) -> BoxFuture<'a, Result<Self::Output, String>> {
-		let RenderContext { device, queue } = context;
+		let RenderContext { device, queue, .. } = context;
         let draw_id = self.0;
 		Box::pin(async move {
 			let param = query_param_state.get(world);

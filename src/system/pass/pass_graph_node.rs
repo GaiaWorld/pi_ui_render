@@ -190,12 +190,13 @@ impl Node for Pass2DNode {
         // mut commands: ShareRefCell<CommandEncoder>,
         // inputs: &'a [Self::Output],
     ) -> BoxFuture<'a, Result<Self::Output, String>> {
-        let RenderContext { device, queue } = context;
+        let RenderContext { device, queue,.. } = context;
 
         let pass2d_id = self.pass2d_id;
 
         Box::pin(async move {
             let query_param = query_param_state.get(world);
+			log::trace!(target: format!("entity_{:?}", pass2d_id).as_str(), "run graph node");
             // log::warn!("run1======{:?}", pass2d_id);
             let layer = match query_param.pass2d_query.0.get(pass2d_id) {
                 Ok(r) if r.layer() > 0 => r.clone(),
@@ -262,7 +263,8 @@ impl Node for Pass2DNode {
             if let Ok((camera, list, parent_pass2d_id, clear_group)) = param.pass2d_query.get(pass2d_id) {
                 // log::warn!("run5======{:?}, {:?}, {:?}", pass2d_id, list.transparent, list.opaque);
 				// log::warn!("run graph4==============, pass2d_id: {:?}, input count: {}, opaque: {}, transparent: {}, is_active: {:?}, opaque_list: {:?}, transparent_list: {:?}, view_port: {:?}", pass2d_id, input.0.len(), list.opaque.len(), list.transparent.len(), camera.is_active, &list.opaque, &list.transparent, &camera.view_port);
-                
+                log::trace!(target: format!("entity_{:?}", pass2d_id).as_str(), "run graph node1, input count: {}, opaque: {}, transparent: {}, is_active: {:?}, opaque_list: {:?}, transparent_list: {:?}, view_port: {:?}", input.0.len(), list.opaque.len(), list.transparent.len(), camera.is_active, &list.opaque, &list.transparent, &camera.view_port);
+
                 if camera.is_active && (list.opaque.len() > 0 || list.transparent.len() > 0) {
                     let (rt, clear_color) = match post_list {
                         // 渲染类型为新建渲染目标对其进行渲染，则从纹理分配器中分配一个fbo矩形区
@@ -506,6 +508,7 @@ impl Pass2DNode {
 						},
 					}
 				};
+				// log::warn!("node_id1======{:?}, {:?}", pass2d_id, post_info.matrix.0);
 				// log::warn!("draw_final==========={:?}", r);
                 if let Some(draw_obj) = r.draw_final(
                     param.device,
@@ -613,7 +616,7 @@ impl Pass2DNode {
 				Ok(r) => r,
 				Err(_) => return,
 			};
-
+			// log::warn!("node_id======{:?}, {:?}", node_id, post_info.matrix);
 			let matrix = &cur_camera.project * &post_info.matrix.0;
 			if let Some(draw_obj) = r.draw_final(
 				param.device,

@@ -8,15 +8,16 @@ use std::mem::swap;
 use bevy::prelude::{Commands, World};
 use framework::Example;
 use pi_atom::Atom;
+use pi_curves::steps::EStepMode;
 /// 渲染四边形 demo
 use pi_flex_layout::style::{Dimension, PositionType};
 use pi_null::Null;
 use pi_style::{
-    style::{Aabb2, AnimationDirection, AnimationName, IterationCount, Time},
+    style::{Aabb2, AnimationDirection, AnimationName, IterationCount, Time, AnimationFillMode, AnimationTimingFunction},
     style_parse::parse_class_map_from_string,
     style_type::{
         AnimationDirectionType, AnimationDurationType, AnimationIterationCountType, AnimationNameType, BackgroundColorType, HeightType,
-        MarginLeftType, MarginTopType, PositionLeftType, PositionTopType, PositionTypeType, WidthType,
+        MarginLeftType, MarginTopType, PositionLeftType, PositionTopType, PositionTypeType, WidthType, AnimationFillModeType, AnimationTimingFunctionType,
     },
 };
 use pi_ui_render::{
@@ -40,9 +41,9 @@ impl Example for AnimationExample {
     fn init(&mut self, world: &mut World, size: (usize, usize)) {
         // 添加keyframes
         let css = "@keyframes test-animation {
-			0% {transform: scale(1.0, 1.0);}
-			50% {transform: scale(2.0, 2.0);}
-			100% {transform: scale(1.0, 1.0);}
+			0% {transform: scale(1.0, 1.0); }
+			33% {transform: scale(1.5, 1.5); }
+			66% {transform: scale(2.0, 2.0); }
 		}";
         let class_map = parse_class_map_from_string(css, 0).unwrap();
         self.cmd.push_cmd(ExtendCssCmd(vec![class_map]));
@@ -80,9 +81,12 @@ impl Example for AnimationExample {
             }),
         );
         self.cmd
-            .set_style(div1, AnimationIterationCountType(smallvec![IterationCount(10000000.0)]));
-        self.cmd.set_style(div1, AnimationDirectionType(smallvec![AnimationDirection::Reverse]));
+            .set_style(div1, AnimationIterationCountType(smallvec![IterationCount(10000.0)]));
+		self.cmd
+            .set_style(div1, AnimationTimingFunctionType(smallvec![AnimationTimingFunction::Step(1, EStepMode::JumpEnd)]));
+        // self.cmd.set_style(div1, AnimationDirectionType(smallvec![AnimationDirection::Reverse]));
         self.cmd.set_style(div1, AnimationDurationType(smallvec![Time(3000)]));
+		self.cmd.set_style(div1, AnimationFillModeType(smallvec![AnimationFillMode::Forwards]));
         self.cmd.append(div1, root);
 
         // 添加一个玫红色div到根节点， 并添加overflow属性

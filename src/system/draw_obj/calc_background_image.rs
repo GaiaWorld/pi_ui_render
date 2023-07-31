@@ -1,7 +1,7 @@
 use bevy::ecs::prelude::Entity;
 use bevy::ecs::query::{Changed, Or, With};
 use bevy::ecs::system::{Query, Res};
-use bevy::prelude::EventReader;
+use bevy::prelude::{EventReader, DetectChangesMut};
 use pi_assets::asset::Handle;
 use pi_atom::Atom;
 use pi_bevy_asset::ShareAssetMgr;
@@ -66,7 +66,10 @@ pub fn calc_background_image(
         if let Ok((layout, background_image_clip, background_image_mod, background_image_texture)) = query.get(***node_id) {
             let background_image_texture = match &background_image_texture.0 {
                 Some(r) => r,
-                None => continue,
+                None => {
+					*old_box_type.bypass_change_detection() = BoxType::NotChange;
+					continue;
+				},
             };
             let box_type = modify(
                 layout,
@@ -192,7 +195,7 @@ pub fn modify(
             format: IndexFormat::Uint16,
         });
         draw_state.vertex = 0..(unit_quad_buffer.vertex.size() / 8) as u32;
-        BoxType::ContentRect
+        BoxType::ContentUnitRect
     } else {
         // let hash = calc_hash(
         //     background_image_mod,

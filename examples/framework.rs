@@ -131,9 +131,9 @@ pub fn init(width: u32, height: u32) -> App {
     let mut window_plugin = bevy::window::WindowPlugin::default();
     window_plugin.primary_window = Some(window);
 
-    app.add_plugin(bevy::log::LogPlugin {
+    app.add_plugin(pi_bevy_log::LogPlugin {
         filter: FILTER.to_string(),
-        level: bevy::log::Level::INFO,
+        level: LOG_LEVEL,
     })
     .add_plugin(bevy::a11y::AccessibilityPlugin)
     .add_plugin(bevy::input::InputPlugin::default())
@@ -146,6 +146,15 @@ pub fn init(width: u32, height: u32) -> App {
 	
 	;
 	
+	// let h = app.world.get_resource_mut::<pi_bevy_log::LogFilterHandle>().unwrap();
+	// let default_filter = { format!("{},my_target=info", bevy::log::Level::WARN) };
+	// let filter_layer = tracing_subscriber::EnvFilter::try_from_default_env()
+	// 	.or_else(|_| tracing_subscriber::EnvFilter::try_new(&default_filter))
+	// 	.unwrap();
+	// h.0.modify(|filter| *filter = filter_layer);
+	// log::info!("aaa=============");
+	// log::info!(target: "my_target", "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+	// log::log!(target: "xxxx", log::Level::Info, a="bbbbbbbb====",);
     app
 }
 
@@ -291,4 +300,6 @@ pub const PLAY_PATH: Option<&'static str> = Some("D://0_js/cdqxz_new_mult_gui_ex
 pub const PLAY_VERSION: &'static str = "test";
 
 // pub const FILTER: &'static str = "wgpu=warn,pi_ui_render::components::user=debug";
+// pub const FILTER: &'static str = "wgpu=warn,entity_3v0=trace";
 pub const FILTER: &'static str = "wgpu=warn";
+pub const LOG_LEVEL: bevy::log::Level = bevy::log::Level::WARN;

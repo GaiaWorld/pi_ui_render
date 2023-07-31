@@ -38,7 +38,7 @@ use crate::{
     },
     shader::camera::{ProjectUniform, ViewUniform},
     system::utils::{rotatequad_quad_intersection, create_project},
-    utils::tools::{box_aabb, calc_aabb, intersect},
+    utils::tools::{box_aabb, calc_aabb, intersect, calc_bound_box},
 };
 
 #[allow(unused_must_use)]
@@ -149,7 +149,7 @@ pub fn calc_camera_depth_and_renderlist(
             intersect(&overflow_aabb.view_box.aabb, &dirty_rect).unwrap_or(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)))
         };
 
-        // log::info!("viewport======={:?}, {:?}, {:?}", entity, view_aabb, overflow_aabb);
+        // log::warn!("viewport======={:?}, \nview_aabb={:?}, \noverflow_aabb={:?}, \ndirty_rect={:?}", entity, view_aabb, overflow_aabb, dirty_rect);
 
 
         if view_aabb.mins.x >= view_aabb.maxs.x || view_aabb.mins.y >= view_aabb.maxs.y {
@@ -160,23 +160,24 @@ pub fn calc_camera_depth_and_renderlist(
         let aabb_temp;
         let view_world_aabb = match &overflow_aabb.desc {
             OverflowDesc::Rotate(r) => {
-                aabb_temp = calc_aabb(&view_aabb, &r.world_rotate);
+                aabb_temp = calc_bound_box(&view_aabb, &r.world_rotate);
                 &aabb_temp
             }
             _ => &view_aabb,
         };
 
         // 计算用于剔除的aabb
+		// 剔除使用quad和节点的脏区域判断相交来剔除， 注意坐标系都是世界坐标系
         // 如果存在transformwillchange，则需要算上脏区域
         // no_will_change用于包围盒剔除渲染对象（渲染对象使用quad来剔除，quad是没有willchange_matrix的参与的）
         let cull_aabb = if let Some(r) = &willchange_matrix.0 {
             if post_info.has_effect() {
                 calc_aabb(&view_world_aabb, &r.will_change_invert)
             } else {
-                view_aabb.clone()
+                view_world_aabb.clone()
             }
         } else {
-            view_aabb.clone()
+            view_world_aabb.clone()
         };
         *last_dirty = LastDirtyRect {
             // last: view_aabb.clone(),
@@ -217,6 +218,7 @@ pub fn calc_camera_depth_and_renderlist(
         let scale_x = (aabb.maxs.x - aabb.mins.x) / 2.0;
         let scale_y = (aabb.maxs.y - aabb.mins.y) / 2.0;
         // 后处理效果与gui坐标系使用不一致，所以缩放为-scale_y
+		// 这里的aabb是指当前非旋转坐标系
         let world_matrix = Matrix4::new(
             scale_x,
             0.0,
@@ -248,7 +250,7 @@ pub fn calc_camera_depth_and_renderlist(
 		post_info.view_port = aabb;
 		// 存在旋转，需要旋转回父上下文
 		if let OverflowDesc::Rotate(matrix) = &overflow_aabb.desc {
-			post_info.matrix = WorldMatrix(&matrix.from_context_rotate * &post_info.matrix.0, true);
+			post_info.matrix = WorldMatrix(&matrix.from_context_rotate * world_matrix, true);
 		} else {
 			post_info.matrix = WorldMatrix(world_matrix, false);
 		}
@@ -269,6 +271,7 @@ pub fn calc_camera_depth_and_renderlist(
         post_process: draw_obj_post_query,
     };
 	
+	// log::trace!("all_dirty_rect: {:?}", all_dirty_rect);
     quad_tree.query(&all_dirty_rect, intersects, &mut args, ab_query_func);
 
     // 遍历所有的pass，设置不透明渲染列表和透明渲染列表
@@ -327,13 +330,13 @@ pub struct AbQueryArgs<'s, 'a> {
 fn ab_query_func(arg: &mut AbQueryArgs, id: EntityKey, _aabb: &Aabb2, _bind: &()) {
     // quad_tree.
     if let Ok((in_pass_id, draw_list, quad, z_range, is_show, entity)) = arg.node_query.get(*id) {
-		
-
         // log::warn!("draw_list1==================entity: {:?}, draw_list: {:?}, {}, {:?}", entity, draw_list, is_show.get_visibility(), quad, );
         let (parent_pass_id, context_dirty, camera) = match arg.pass_query.get(***in_pass_id) {
             Ok(r) => r,
             _ => return,
         };
+		log::trace!(target: format!("entity_{:?}", id.0).as_str(), "try collect render all_list, is_show: {:?}, quad: {:?}, context_dirty: {:?}, intersects={:?}", is_show.get_visibility(), quad, context_dirty.no_will_change, intersects(quad, &context_dirty.no_will_change));
+		log::trace!("try collect render all_list, entity: {:?}, is_show: {:?}, quad: {:?}, context_dirty: {:?}", id.0, is_show.get_visibility(), quad, context_dirty.no_will_change);
         // log::warn!("draw_list2==================id: {:?}, {:?}, {:?}, quad: {:?}", id, in_pass_id, draw_list, quad);
         // global_dirty_rect应该是pass内部的aadd，（与TransformWillChange有关）
         if draw_list.len() > 0 {

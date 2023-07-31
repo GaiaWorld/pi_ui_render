@@ -55,7 +55,7 @@ fn modify(draw_state: &mut DrawState, unit_quad_buffer: &UnitQuadBuffer) -> BoxT
         unit_quad_buffer.vertex.clone(),
         // unit_quad_buffer.vertex.clone(),
         unit_quad_buffer.index.clone(),
-        BoxType::ContentRect,
+        BoxType::ContentUnitRect,
     );
 
     draw_state.vertex = 0..(vertex_buffer.size() / 8) as u32;

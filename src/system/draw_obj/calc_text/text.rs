@@ -7,7 +7,7 @@ use pi_assets::asset::Handle;
 use pi_assets::mgr::AssetMgr;
 use pi_atom::Atom;
 use pi_bevy_asset::ShareAssetMgr;
-use pi_bevy_ecs_extend::prelude::OrDefault;
+use pi_bevy_ecs_extend::prelude::{OrDefault, Up};
 use pi_bevy_ecs_extend::system_param::res::OrInitRes;
 use pi_bevy_render_plugin::{PiRenderDevice, PiVertexBufferAlloter};
 use pi_polygon::{find_lg_endp, interp_mult_by_lg, mult_to_triangle, split_by_lg, LgCfg};
@@ -22,7 +22,7 @@ use pi_share::Share;
 use wgpu::IndexFormat;
 
 use crate::components::calc::{LayoutResult, NodeState, NodeId};
-use crate::components::draw_obj::{PipelineMeta, TextMark};
+use crate::components::draw_obj::{PipelineMeta, TextMark, BoxType};
 use crate::components::user::{CgColor, TextStyle};
 use crate::resource::draw_obj::{EmptyVertexBuffer, TextTextureGroup};
 use crate::resource::{ShareFontSheet};
@@ -46,7 +46,7 @@ pub fn calc_text(
 		Or<(Changed<TextStyle>, Changed<NodeState>)>, // TextContent改变，NodeState必然改;存在NodeState， 也必然存在TextContent
 	>,
 
-    mut query_draw: Query<(&mut DrawState, &mut PipelineMeta, &NodeId), With<TextMark>>,
+    mut query_draw: Query<(&mut DrawState, &mut BoxType, &mut PipelineMeta, &NodeId), With<TextMark>>,
 
     text_texture_group: OrInitRes<TextTextureGroup>,
 
@@ -71,7 +71,7 @@ pub fn calc_text(
 
     let buffer = &mut *buffer;
     // let mut init_spawn_drawobj = Vec::new();
-	for (mut draw_state, mut pipeline_meta, node_id) in query_draw.iter_mut() {
+	for (mut draw_state, mut box_type, mut pipeline_meta, node_id) in query_draw.iter_mut() {
 		if let Ok((node_state, layout, text_style, node_state_change)) = query.get(***node_id) {
 			if node_state.0.scale < 0.000001 {
 				continue;
@@ -91,6 +91,7 @@ pub fn calc_text(
                 draw_state
                     .bindgroups
                     .set_uniform(&TextureSizeOrBottomLeftBorderUniform(&[size.width as f32, size.height as f32]));
+				*box_type = BoxType::ContentRect;
             }
 
             let old_hash = calc_hash(&*pipeline_meta, 0);
@@ -454,12 +455,13 @@ pub fn text_vert(
     uvs: &mut Vec<f32>,
 ) {
     let mut word_pos = (0.0, 0.0);
+	let mut offset = (layout.border.left + layout.padding.left, layout.border.top + layout.padding.top);
     let mut count = 0;
     let half_stroke = *stroke_width / 2.0;
     for c in node_state.0.text.iter() {
         if c.ch == char::from(0) {
             if c.count > 0 {
-                word_pos = (c.pos.left, c.pos.top);
+                word_pos = (c.pos.left + offset.0, c.pos.top + offset.1);
                 count = c.count - 1;
             }
             continue;
@@ -486,8 +488,8 @@ pub fn text_vert(
             push_pos_uv(
                 positions,
                 uvs,
-                c.pos.left - half_stroke,
-                c.pos.top,
+                c.pos.left + offset.0 - half_stroke,
+                c.pos.top + offset.1,
                 &glyph,
                 c.pos.right - c.pos.left,
                 c.pos.bottom - c.pos.top,
