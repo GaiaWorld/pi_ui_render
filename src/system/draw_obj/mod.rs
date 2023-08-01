@@ -43,6 +43,7 @@ pub mod pipeline;
 pub mod root_clear_color;
 pub mod root_view_port;
 pub mod set_world_marix;
+pub mod blend_mode;
 
 pub struct UiReadyDrawPlugin;
 
@@ -54,6 +55,7 @@ impl Plugin for UiReadyDrawPlugin {
             .init_resource::<MaxViewSize>()
             .add_system(root_view_port::calc_dyn_target_type.in_set(UiSystemSet::BaseCalc))
             .add_system(pipeline::calc_node_pipeline.in_set(UiSystemSet::PrepareDrawObj))
+			.add_system(blend_mode::calc_drawobj_blendstate.in_set(UiSystemSet::PrepareDrawObj).before(pipeline::calc_node_pipeline).after(UiSystemSet::LifeDrawObject))
             // 在世界矩阵之后运行
             .add_system(
                 set_world_marix::set_matrix_group
@@ -88,6 +90,7 @@ impl Plugin for UiReadyDrawPlugin {
                     .after(super::node::layout::calc_layout)
                     .in_set(UiSystemSet::PrepareDrawObj)
                     .before(set_matrix_group)
+					.before(blend_mode::calc_drawobj_blendstate)
 					.before(calc_border_radius::calc_border_radius),
             )
             // 文字功能
@@ -111,6 +114,7 @@ impl Plugin for UiReadyDrawPlugin {
                     .after(super::node::layout::calc_layout)
                     .in_set(UiSystemSet::PrepareDrawObj)
                     .before(set_matrix_group)
+					.before(blend_mode::calc_drawobj_blendstate)
 					.before(calc_border_radius::calc_border_radius),
             )
             // BorderColor功能
@@ -131,6 +135,7 @@ impl Plugin for UiReadyDrawPlugin {
                     .after(super::node::layout::calc_layout)
                     .in_set(UiSystemSet::PrepareDrawObj)
                     .before(set_matrix_group)
+					.before(blend_mode::calc_drawobj_blendstate)
 					.before(calc_border_radius::calc_border_radius),
             )
             // BorderImage功能

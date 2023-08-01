@@ -115,16 +115,14 @@ uuid = { version = "1", features = ["js"] }
 # pi_render = { path = "../pi_render" }
 # render_derive = {path = "../pi_render/crates/render_derive"}
 
-[patch."https://github.com/GaiaWorld/pi_render_bevy"]
-pi_bevy_post_process= { path = "../pi_render_bevy/crates/post_process" }
-pi_bevy_ecs_extend = { path = "../pi_render_bevy/crates/ecs_extend" }
-pi_bevy_render_plugin = { path = "../pi_render_bevy/crates/render" }
-pi_bevy_asset = { path = "../pi_render_bevy/crates/asset" }
-pi_bevy_winit_window = { path = "../pi_render_bevy/crates/winit_window" } 
-pi_bevy_log = { path = "../pi_render_bevy/crates/log" } 
+# [patch."https://github.com/GaiaWorld/pi_render_bevy"]
+# pi_bevy_post_process= { path = "../pi_render_bevy/crates/post_process" }
+# pi_bevy_ecs_extend = { path = "../pi_render_bevy/crates/ecs_extend" }
+# pi_bevy_render_plugin = { path = "../pi_render_bevy/crates/render" }
+# pi_bevy_asset = { path = "../pi_render_bevy/crates/asset" }
+# pi_bevy_winit_window = { path = "../pi_render_bevy/crates/winit_window" } 
+# pi_bevy_log = { path = "../pi_render_bevy/crates/log" } 
 
-# [patch."https://github.com/GaiaWorld/pi_hal"]
-# pi_hal = { path = "../pi_hal" }
 
 # [patch."https://github.com/GaiaWorld/pi_flex_layout"]
 # pi_flex_layout = { path = "../pi_flex_layout" }

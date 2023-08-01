@@ -76,17 +76,37 @@ impl Example for QuadExample {
         self.cmd.append(div2, root);
 
 		let div3 = world.spawn(NodeBundle::default()).id();
-        self.cmd.set_style(div3, WidthType(Dimension::Points(100.0)));
-        self.cmd.set_style(div3, HeightType(Dimension::Points(200.0)));
+        self.cmd.set_style(div3, WidthType(Dimension::Points(61.0)));
+        self.cmd.set_style(div3, HeightType(Dimension::Points(116.0)));
         self.cmd.set_style(div3, PositionTypeType(PositionType::Absolute));
 		self.cmd
-            .set_style(div3, BackgroundColorType(Color::RGBA(CgColor::new(1.0, 255.0, 0.0, 1.0))));
+            .set_style(div3, BackgroundImageType(Atom::from("examples/test/source/icon_qieye.png")));
+		// self.cmd
+            // .set_style(div3, BackgroundColorType(Color::RGBA(CgColor::new(1.0, 255.0, 0.0, 1.0))));
 		// self.cmd
             // .set_style(div2, BackgroundColorType(Color::RGBA(CgColor::new(255.0, 255.0, 255.0, 0.1))));
 		let mut transform = Vec::default();
-		transform.push(TransformFunc::RotateZ(3.14));
+		transform.push(TransformFunc::RotateZ(180.0));
+		transform.push(TransformFunc::Scale(0.5, 0.5));
 		self.cmd.set_style(div3, TransformType(transform));
-		self.cmd.set_style(div3, OpacityType(0.7));
+		self.cmd.set_style(div3, OpacityType(0.99));
+		self.cmd.append(div3, div2);
+
+		let div3 = world.spawn(NodeBundle::default()).id();
+        self.cmd.set_style(div3, WidthType(Dimension::Points(61.0)));
+        self.cmd.set_style(div3, HeightType(Dimension::Points(116.0)));
+        self.cmd.set_style(div3, PositionTypeType(PositionType::Absolute));
+		self.cmd.set_style(div3, PositionTopType(Dimension::Points(-50.0)));
+		self.cmd
+            .set_style(div3, BackgroundImageType(Atom::from("examples/test/source/icon_qieye.png")));
+		// self.cmd
+            // .set_style(div3, BackgroundColorType(Color::RGBA(CgColor::new(1.0, 255.0, 0.0, 1.0))));
+		// self.cmd
+            // .set_style(div2, BackgroundColorType(Color::RGBA(CgColor::new(255.0, 255.0, 255.0, 0.1))));
+		let mut transform = Vec::default();
+		transform.push(TransformFunc::RotateZ(180.0));
+		transform.push(TransformFunc::Scale(0.5, 0.5));
+		self.cmd.set_style(div3, TransformType(transform));
 		self.cmd.append(div3, div2);
 
         log::warn!("end=====");

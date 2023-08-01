@@ -3,7 +3,7 @@
 use std::hash::{Hash, Hasher};
 
 
-use crate::resource::draw_obj::{PipelineStateWithHash, ProgramMetaInner, VertexBufferLayoutWithHash};
+use crate::resource::{draw_obj::{PipelineStateWithHash, ProgramMetaInner, VertexBufferLayoutWithHash}, RenderObjType};
 use bevy::ecs::prelude::Component;
 use pi_atom::Atom;
 use pi_hash::XHashSet;
@@ -79,6 +79,10 @@ pub enum BoxType {
 
 #[derive(Clone, Component)]
 pub struct PipelineMeta {
+	// 类型标记（如文字、图片、颜色等，它们属于不同的类型，用一个数字代表每个不同的类型）
+	// 可以通过该类型标记动态地映射到该类型特有的属性值
+	// 比如，可以映射到canvas的默认混合模式
+	pub type_mark: RenderObjType, 
     pub program: Share<ProgramMetaInner>,
     pub state: Share<PipelineStateWithHash>,
     pub vert_layout: Share<VertexBufferLayoutWithHash>,

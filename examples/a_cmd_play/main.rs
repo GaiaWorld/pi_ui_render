@@ -69,6 +69,11 @@ impl Example for ExampleCommonPlay {
 		swap(&mut self.cmd, cmd); 
 	}
 
+	#[cfg(feature="debug")]
+	fn record_option(&self) -> pi_ui_render::system::cmd_play::TraceOption {
+        pi_ui_render::system::cmd_play::TraceOption::Play
+    }
+
 	// fn render(&mut self, cmd: &mut UserCommands, _cmd1: &mut Commands) { 
 	// 	cmd.
 	// 	swap(&mut self.cmd, cmd); 

@@ -15,7 +15,7 @@ use pi_render::{rhi::{asset::{TextureRes, RenderRes}, texture::PiRenderDefault, 
 use pi_share::ShareRefCell;
 use pi_style::style::{MaskImage as MaskImage1, Aabb2, LinearGradientColor};
 use wgpu::CommandEncoder;
-use crate::{components::{calc::Quad, user::{MaskImage, MaskImageClip, Point2}, pass_2d::PostProcess, draw_obj::{DynTargetType, DrawState, PipelineMeta}}, system::{draw_obj::{image_texture_load::{ImageAwait, load_image, set_texture}, calc_background_color::linear_gradient_split, pipeline::calc_node_pipeline}, utils::{set_vert_buffer, set_index_buffer, create_project}, pass::{pass_graph_node::create_rp_for_fbo, pass_life, update_graph,}, system_set::UiSystemSet, render_run, node::world_matrix::cal_matrix}, resource::draw_obj::{ProgramMetaRes, ShaderInfoCache, ShareGroupAlloter, UiMaterialGroup, CameraGroup, DepthCache, PosColorVertexLayout}, shader::{color::{VertColorVert, PositionVert, VERT_COLOR_DEFINE}, camera::{ViewUniform, ProjectUniform, CameraBind}, ui_meterial::{WorldUniform, UiMaterialBind}, depth::DepthBind}};
+use crate::{components::{calc::Quad, user::{MaskImage, MaskImageClip, Point2}, pass_2d::PostProcess, draw_obj::{DynTargetType, DrawState, PipelineMeta}}, system::{draw_obj::{image_texture_load::{ImageAwait, load_image, set_texture}, calc_background_color::linear_gradient_split, pipeline::calc_node_pipeline}, utils::{set_vert_buffer, set_index_buffer, create_project}, pass::{pass_graph_node::create_rp_for_fbo, pass_life, update_graph,}, system_set::UiSystemSet, render_run, node::world_matrix::cal_matrix}, resource::{draw_obj::{ProgramMetaRes, ShaderInfoCache, ShareGroupAlloter, UiMaterialGroup, CameraGroup, DepthCache, PosColorVertexLayout}, BackgroundColorRenderObjType}, shader::{color::{VertColorVert, PositionVert, VERT_COLOR_DEFINE}, camera::{ViewUniform, ProjectUniform, CameraBind}, ui_meterial::{WorldUniform, UiMaterialBind}, depth::DepthBind}};
 
 pub struct UiMaskImagePlugin;
 
@@ -71,6 +71,7 @@ pub fn mask_image_post_process(
 	group_alloter: OrInitRes<ShareGroupAlloter<UiMaterialGroup>>,
 	camera_material_alloter: OrInitRes<ShareGroupAlloter<CameraGroup>>,
 	other: (
+		OrInitRes<BackgroundColorRenderObjType>,
 		OrInitRes<LinearMaskNodeId>,
 		Commands,
 		ResMut<PiRenderGraph>,
@@ -79,7 +80,7 @@ pub fn mask_image_post_process(
 	),
 	// cur_depth: usize, device: &'a RenderDevice, bind_group_assets: &'a Share<AssetMgr<RenderRes<BindGroup>>>
 ) {
-	let (mask_node_id, mut commands, mut rg, bind_group_assets, mut depth_cache) = other;
+	let (color_render_type, mask_node_id, mut commands, mut rg, bind_group_assets, mut depth_cache) = other;
 	let (mut query, query_src, query_clip, mut query_dst, query_target_ty) = q;
 	// 图片删除，则删除对应的遮罩效果
     for del in del.iter() {
@@ -194,6 +195,7 @@ pub fn mask_image_post_process(
 					(commands.spawn((
 						draw_state, 
 						PipelineMeta {
+							type_mark: ***color_render_type,
 							program: program_meta.clone(),
 							state: shader_catch.common_no_depth.clone(),
 							vert_layout: vert_layout.clone(),

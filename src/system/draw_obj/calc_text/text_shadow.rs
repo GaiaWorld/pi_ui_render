@@ -57,7 +57,7 @@ impl Plugin for UiTextShadowPlugin {
         app
             .add_frame_event::<ComponentEvent<Changed<TextShadow>>>()
             .add_system(text_shadow_life.in_set(UiSystemSet::LifeDrawObject).in_set(UiSystemSet::PassMark).before(cal_context),)
-            .add_system(calc_text_shadow.in_set(UiSystemSet::PrepareDrawObj).in_set(UiSystemSet::PassSetting).after(calc_text))
+            .add_system(calc_text_shadow.in_set(UiSystemSet::PrepareDrawObj).in_set(UiSystemSet::PassSetting).after(calc_text).before(crate::system::draw_obj::blend_mode::calc_drawobj_blendstate))
 			.add_system(calc_graph_depend.in_set(UiSystemSet::PassCalc).after(update_graph))
 		;
 	}
@@ -174,6 +174,7 @@ pub fn text_shadow_life(
 						draw_state,
 						box_type: BoxType::ContentNone,
 						pipeline_meta: PipelineMeta {
+							type_mark: render_type,
 							program: program_meta.clone(),
 							state: p_state.clone(),
 							vert_layout: vert_layout.clone(),

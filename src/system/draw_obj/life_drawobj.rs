@@ -83,6 +83,7 @@ pub fn draw_object_life<
                     draw_state,
                     box_type: BoxType::ContentNone,
                     pipeline_meta: PipelineMeta {
+						type_mark: render_type,
                         program: program_meta.clone(),
                         state: p_state.clone(),
                         vert_layout: vert_layout.clone(),
