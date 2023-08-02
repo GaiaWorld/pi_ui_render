@@ -165,7 +165,7 @@ test = true
 env_logger = "0.9"
 float-ord = "0.3"
 async-trait="0.1"
-font_kit = {git="http://ser.yinengyun.com:10082/tech/font_kit.git"}
+font_kit = { registry = "yn", version = "0.1" }
 spin_sleep="1.1"
 num_cpus = "1.13"
 bevy = {version="0.10", default-features = false, features=["bevy_winit"]}
