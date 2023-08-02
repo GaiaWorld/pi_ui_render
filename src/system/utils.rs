@@ -23,45 +23,45 @@ use crate::{
     resource::RenderObjType,
 };
 
-pub fn clear_draw_obj<'w, 's, T: Component>(
-    render_type: RenderObjType,
-    mut del: RemovedComponents<'w, 's, T>,
-    mut query: Query<'w, 's, (Option<&T>, &mut DrawList)>,
-    commands: &mut Commands,
-) {
-    for del in del.iter() {
-        if let Ok((bg_color, mut draw_list)) = query.get_mut(del) {
-            if bg_color.is_some() {
-                continue;
-            }
-            // 删除对应的DrawObject
-            if let Some(draw_obj) = draw_list.remove(render_type) {
-                commands.entity(draw_obj.id).despawn();
-            }
-        }
-    }
-}
+// pub fn clear_draw_obj<'w, 's, T: Component>(
+//     render_type: RenderObjType,
+//     mut del: RemovedComponents<'w, 's, T>,
+//     mut query: Query<'w, 's, (Option<&T>, &mut DrawList)>,
+//     commands: &mut Commands,
+// ) {
+//     for del in del.iter() {
+//         if let Ok((bg_color, mut draw_list)) = query.get_mut(del) {
+//             if bg_color.is_some() {
+//                 continue;
+//             }
+//             // 删除对应的DrawObject
+//             if let Some(draw_obj) = draw_list.remove(render_type) {
+//                 commands.entity(draw_obj.id).despawn();
+//             }
+//         }
+//     }
+// }
 
-pub fn clear_draw_obj_mul<'w, 's, T: Component>(
-    render_types: &[RenderObjType],
-    mut del: RemovedComponents<'w, 's, T>,
-    mut query: Query<'w, 's, (Option<&'static T>, &'static mut DrawList)>,
-    commands: &mut Commands,
-) {
-    for del in del.iter() {
-        if let Ok((bg_color, mut draw_list)) = query.get_mut(del) {
-            if bg_color.is_some() {
-                continue;
-            }
-            // 删除对应的DrawObject
-            for i in render_types.iter() {
-                if let Some(draw_obj) = draw_list.remove(*i) {
-                    commands.entity(draw_obj.id).despawn();
-                }
-            }
-        }
-    }
-}
+// pub fn clear_draw_obj_mul<'w, 's, T: Component>(
+//     render_types: &[RenderObjType],
+//     mut del: RemovedComponents<'w, 's, T>,
+//     mut query: Query<'w, 's, (Option<&'static T>, &'static mut DrawList)>,
+//     commands: &mut Commands,
+// ) {
+//     for del in del.iter() {
+//         if let Ok((bg_color, mut draw_list)) = query.get_mut(del) {
+//             if bg_color.is_some() {
+//                 continue;
+//             }
+//             // 删除对应的DrawObject
+//             for i in render_types.iter() {
+//                 if let Some(draw_obj) = draw_list.remove(*i) {
+//                     commands.entity(draw_obj.id).despawn();
+//                 }
+//             }
+//         }
+//     }
+// }
 
 // 将四边形放进数组中
 pub fn push_quad(index_arr: &mut Vec<u16>, p1: u16, p2: u16, p3: u16, p4: u16) { index_arr.extend_from_slice(&[p1, p2, p3, p1, p3, p4]); }

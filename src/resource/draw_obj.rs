@@ -32,7 +32,7 @@ use pi_share::Share;
 use pi_slotmap::{DefaultKey, SlotMap};
 use wgpu::{
     BindingType, BufferUsages, CompareFunction, DepthBiasState, DepthStencilState, Limits, MultisampleState, PipelineLayout, Sampler, ShaderModule,
-    StencilState, TextureFormat,
+    StencilState, TextureFormat, BlendState,
 };
 
 use crate::{
@@ -44,6 +44,8 @@ use crate::{
         tools::{calc_float_hash, calc_hash, calc_hash_slice},
     },
 };
+
+use super::RenderObjType;
 
 /// depth 的BindGroupLayout
 #[derive(Deref, Resource)]
@@ -120,6 +122,29 @@ impl std::ops::Deref for VertexBufferLayoutWithHash {
 impl Hash for VertexBufferLayoutWithHash {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) { self.hash.hash(state); }
 }
+
+#[derive(Debug, Deref, Resource, Default)]
+pub struct DrawObjDefaults(pub VecMap<DrawObjDefault>);
+
+#[derive(Debug)]
+pub struct DrawObjDefault {
+	pub blend_state: BlendState,
+}
+
+impl DrawObjDefault {
+	pub fn add(world: &mut World, ty: RenderObjType, state: DrawObjDefault) {
+		let mut drawobj_defaults = match world.get_resource_mut::<DrawObjDefaults>() {
+			Some(r) => r,
+			None => {
+				world.insert_resource(DrawObjDefaults::default());
+				world.get_resource_mut::<DrawObjDefaults>().unwrap()
+			},
+		};
+		drawobj_defaults.insert(*ty, state);
+	}
+}
+
+
 
 #[derive(Debug)]
 pub struct PipelineStateWithHash {
@@ -898,25 +923,6 @@ impl FromWorld for EmptyVertexBuffer {
     }
 }
 
-// /// 常用渲染管线状态
-// #[derive(Resource)]
-// pub struct CommonPipelineState {
-// 	pub common: DefaultKey,
-// 	pub premultiply: DefaultKey,
-// }
-
-
-// impl FromWorld for CommonPipelineState {
-//     fn from_world(world: &mut World) -> Self {
-//         let mut state_map = world.get_resource_mut::<StateMap>().unwrap();
-
-// 		Self {
-// 			common: state_map.insert(create_common_pipeline_state()),
-// 			premultiply: state_map.insert(create_premultiply_pipeline_state())
-// 		}
-//     }
-// }
-
 
 pub fn create_common_pipeline_state() -> PipelineState {
     PipelineState {
@@ -959,18 +965,7 @@ pub fn create_premultiply_pipeline_state() -> PipelineState {
     PipelineState {
         targets: vec![Some(wgpu::ColorTargetState {
             format: wgpu::TextureFormat::pi_render_default(),
-            blend: Some(wgpu::BlendState {
-                color: wgpu::BlendComponent {
-                    operation: wgpu::BlendOperation::Add,
-                    src_factor: wgpu::BlendFactor::One,
-                    dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
-                },
-                alpha: wgpu::BlendComponent {
-                    operation: wgpu::BlendOperation::Add,
-                    src_factor: wgpu::BlendFactor::One,
-                    dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
-                },
-            }),
+            blend: Some(CommonBlendState::PREMULTIPLY),
             write_mask: wgpu::ColorWrites::ALL,
         })],
         primitive: wgpu::PrimitiveState {
@@ -1195,4 +1190,37 @@ impl DepthCache {
 			depth += 1;
         }
     }
+}
+
+// 常用的默认
+pub struct CommonBlendState;
+
+impl CommonBlendState {
+	// 正常状态
+	pub const NORMAL: wgpu::BlendState = wgpu::BlendState {
+		color: wgpu::BlendComponent {
+			src_factor: wgpu::BlendFactor::SrcAlpha,
+			dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+			operation: wgpu::BlendOperation::Add,
+		},
+		alpha: wgpu::BlendComponent {	
+			src_factor: wgpu::BlendFactor::One,
+			dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+			operation: wgpu::BlendOperation::Add,
+		},
+	};
+
+	// 预乘
+	pub const PREMULTIPLY: wgpu::BlendState = wgpu::BlendState {
+		color: wgpu::BlendComponent {
+			src_factor: wgpu::BlendFactor::One,
+			dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+			operation: wgpu::BlendOperation::Add,
+		},
+		alpha: wgpu::BlendComponent {
+			src_factor: wgpu::BlendFactor::One,
+			dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+			operation: wgpu::BlendOperation::Add,
+		},
+	};
 }

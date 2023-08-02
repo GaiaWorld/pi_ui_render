@@ -153,7 +153,7 @@ pub fn cal_content_border_radius(border_radius: &BorderRadiusPixel, border: (f32
     }
 }
 
-pub fn get_content_size(layout: &LayoutResult) -> Size<NotNan<f32>> {
+pub fn get_padding_rect_size(layout: &LayoutResult) -> Size<NotNan<f32>> {
     Size {
         width: unsafe { NotNan::new_unchecked(layout.rect.right - layout.rect.left - layout.border.left - layout.border.right) },
         height: unsafe { NotNan::new_unchecked(layout.rect.bottom - layout.rect.top - layout.border.bottom - layout.border.top) },
@@ -161,7 +161,7 @@ pub fn get_content_size(layout: &LayoutResult) -> Size<NotNan<f32>> {
 }
 
 #[inline]
-pub fn get_content_rect(layout: &LayoutResult) -> Rect<NotNan<f32>> {
+pub fn get_padding_rect(layout: &LayoutResult) -> Rect<NotNan<f32>> {
     Rect {
         top: unsafe { NotNan::new_unchecked(layout.border.top) },
         right: unsafe { NotNan::new_unchecked(layout.rect.right - layout.border.right - layout.rect.left) },

@@ -44,7 +44,7 @@ impl Plugin for UiTextPlugin {
 					.in_set(UiSystemSet::LifeDrawObject),
 			)
 			// 设置文字的的顶点、索引，和颜色、边框颜色、边框宽度的Uniform
-			.add_system(calc_text.in_set(UiSystemSet::PrepareDrawObj).before(set_matrix_group).after(calc_text_texture))
+			.add_system(calc_text.in_set(UiSystemSet::PrepareDrawObj).before(set_matrix_group).after(calc_text_texture).before(super::blend_mode::calc_drawobj_blendstate))
 			// 更新文字纹理
 			.add_system(calc_text_texture.in_set(UiSystemSet::PrepareDrawObj))
 			// 文字阴影

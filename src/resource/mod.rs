@@ -12,6 +12,7 @@ use pi_render::font::FontSheet;
 use pi_render::rhi::asset::TextureRes;
 use pi_share::{Share, ShareCell};
 use pi_style::style::Aabb2;
+use wgpu::BlendState;
 
 use std::marker::PhantomData;
 use std::mem::transmute;
@@ -33,6 +34,8 @@ use pi_sparialtree::quad_helper::QuadTree as QuadTree1;
 // use crate::utils::cmd::{CommandQueue, Command, DataQuery};
 // use bevy::prelude::{CommandQueue, Commands, World};
 use crate::components::user::ClassName;
+
+use self::draw_obj::{DrawObjDefault, CommonBlendState};
 
 #[derive(Default, Deref, Resource, Serialize, Deserialize)]
 pub struct ClassSheet(pi_style::style_type::ClassSheet);
@@ -349,6 +352,7 @@ impl FromWorld for RenderObjType {
     }
 }
 
+
 // /// 是否不向下收集DrawList(一些PassBundle是由于DrawObj的需要，比如TextShadow)
 // #[derive(Clone, Debug, Default, Deref, Serialize, Deserialize, Resource)]
 // pub struct NotDrawListMark(bitvec::prelude::BitArray);
@@ -357,14 +361,22 @@ impl FromWorld for RenderObjType {
 #[derive(Debug, Deref, Clone, Copy, Resource)]
 pub struct TextRenderObjType(RenderObjType);
 impl FromWorld for TextRenderObjType {
-    fn from_world(world: &mut World) -> Self { Self(RenderObjType::from_world(world)) }
+    fn from_world(world: &mut World) -> Self {
+		let ty = RenderObjType::from_world(world);
+		DrawObjDefault::add(world, ty, DrawObjDefault{blend_state: CommonBlendState::NORMAL});
+		Self(ty)
+	}
 }
 
 // 文字阴影渲染类型（在DrawList中分配槽位）
 #[derive(Debug, Deref, Clone, Copy, Resource)]
 pub struct TextShadowRenderObjType(RenderObjType);
 impl FromWorld for TextShadowRenderObjType {
-    fn from_world(world: &mut World) -> Self { Self(RenderObjType::from_world(world)) }
+    fn from_world(world: &mut World) -> Self { 
+		let ty = RenderObjType::from_world(world);
+		DrawObjDefault::add(world, ty, DrawObjDefault{blend_state: CommonBlendState::PREMULTIPLY});
+		Self(ty)
+	}
 }
 
 
@@ -372,14 +384,22 @@ impl FromWorld for TextShadowRenderObjType {
 #[derive(Debug, Deref, Clone, Copy, Resource)]
 pub struct BackgroundColorRenderObjType(RenderObjType);
 impl FromWorld for BackgroundColorRenderObjType {
-    fn from_world(world: &mut World) -> Self { Self(RenderObjType::from_world(world)) }
+    fn from_world(world: &mut World) -> Self { 
+		let ty = RenderObjType::from_world(world);
+		DrawObjDefault::add(world, ty, DrawObjDefault{blend_state: CommonBlendState::NORMAL});
+		Self(ty)
+	}
 }
 
 // 边框颜色渲染类型（在DrawList中分配槽位）
 #[derive(Debug, Deref, Clone, Copy, Resource)]
 pub struct BorderColorRenderObjType(RenderObjType);
 impl FromWorld for BorderColorRenderObjType {
-    fn from_world(world: &mut World) -> Self { Self(RenderObjType::from_world(world)) }
+    fn from_world(world: &mut World) -> Self { 
+		let ty = RenderObjType::from_world(world);
+		DrawObjDefault::add(world, ty, DrawObjDefault{blend_state: CommonBlendState::NORMAL});
+		Self(ty)
+	}
 }
 
 
@@ -387,28 +407,44 @@ impl FromWorld for BorderColorRenderObjType {
 #[derive(Debug, Deref, Clone, Copy, Resource)]
 pub struct BackgroundImageRenderObjType(RenderObjType);
 impl FromWorld for BackgroundImageRenderObjType {
-    fn from_world(world: &mut World) -> Self { Self(RenderObjType::from_world(world)) }
+    fn from_world(world: &mut World) -> Self { 
+		let ty = RenderObjType::from_world(world);
+		DrawObjDefault::add(world, ty, DrawObjDefault{blend_state: CommonBlendState::NORMAL});
+		Self(ty)
+	}
 }
 
 // 边框图片渲染类型（在DrawList中分配槽位）
 #[derive(Debug, Deref, Clone, Copy, Resource)]
 pub struct BorderImageRenderObjType(RenderObjType);
 impl FromWorld for BorderImageRenderObjType {
-    fn from_world(world: &mut World) -> Self { Self(RenderObjType::from_world(world)) }
+    fn from_world(world: &mut World) -> Self { 
+		let ty = RenderObjType::from_world(world);
+		DrawObjDefault::add(world, ty, DrawObjDefault{blend_state: CommonBlendState::NORMAL});
+		Self(ty)
+	}
 }
 
 // 阴影渲染类型（在DrawList中分配槽位）
 #[derive(Debug, Deref, Clone, Copy, Resource)]
 pub struct BoxShadowRenderObjType(RenderObjType);
 impl FromWorld for BoxShadowRenderObjType {
-    fn from_world(world: &mut World) -> Self { Self(RenderObjType::from_world(world)) }
+    fn from_world(world: &mut World) -> Self { 
+		let ty = RenderObjType::from_world(world);
+		DrawObjDefault::add(world, ty, DrawObjDefault{blend_state: CommonBlendState::NORMAL});
+		Self(ty)
+	}
 }
 
 // canvas渲染类型（在DrawList中分配槽位）
 #[derive(Debug, Deref, Clone, Copy, Resource)]
 pub struct CanvasRenderObjType(RenderObjType);
 impl FromWorld for CanvasRenderObjType {
-    fn from_world(world: &mut World) -> Self { Self(RenderObjType::from_world(world)) }
+    fn from_world(world: &mut World) -> Self { 
+		let ty = RenderObjType::from_world(world);
+		DrawObjDefault::add(world, ty, DrawObjDefault{blend_state: CommonBlendState::PREMULTIPLY});
+		Self(ty)
+	}
 }
 
 // 当前时间

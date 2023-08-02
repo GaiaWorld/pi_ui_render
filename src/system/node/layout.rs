@@ -487,7 +487,7 @@ impl<'a> FlexLayoutStyle for LayoutStyle<'a> {
     fn overflow(&self) -> Overflow { unimplemented!() }
     fn min_width(&self) -> Dimension { self.0 .5.min.width }
     fn min_height(&self) -> Dimension { self.0 .5.min.height }
-    fn max_width(&self) -> Dimension { self.0 .5.max.height }
+    fn max_width(&self) -> Dimension { self.0 .5.max.width }
     fn max_height(&self) -> Dimension { self.0 .5.max.height }
     fn aspect_ratio(&self) -> Number { self.0 .7.aspect_ratio }
 }

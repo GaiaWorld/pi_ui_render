@@ -115,9 +115,10 @@ impl<T: Component> Command for ComponentCmd<T> {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RuntimeAnimationBindCmd(pub XHashMap<Atom, XHashMap<NotNan<f32>, VecDeque<Attribute>>>, pub Animation, pub Entity);
 impl Command for RuntimeAnimationBindCmd {
-    fn write(self, world: &mut World) {
+    fn write(mut self, world: &mut World) {
 		if world.get_entity(self.2).is_some() {
 			let mut sheet = world.get_resource_mut::<KeyFramesSheet>().unwrap();
+			self.1.name.scope_hash = self.2.index() as usize; // 因为每个运行时动画是节点独有的，以节点的index作为scope_hash(不能同时有两个index相等的实体)
 			let _ = sheet.add_runtime_keyframes(ObjKey(self.2), &self.1, self.0);
 			world.entity_mut(self.2).insert(self.1);
 		}

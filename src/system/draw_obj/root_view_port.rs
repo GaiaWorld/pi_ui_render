@@ -42,10 +42,10 @@ use crate::{
         pass_2d::RenderTarget,
         user::{Matrix4, RenderTargetType, Viewport},
     },
-    resource::draw_obj::{
+    resource::{draw_obj::{
         CameraGroup, CommonSampler, DepthCache, MaxViewSize, PosUv1VertexLayout, PostBindGroupLayout, Program, ProgramMetaRes, ShaderInfoCache,
         ShareGroupAlloter, UiMaterialGroup, UnitQuadBuffer,
-    },
+    }, BackgroundImageRenderObjType, RenderObjType},
     shader::{
         camera::{ProjectUniform, ViewUniform},
         depth::DepthBind,
@@ -78,6 +78,7 @@ pub fn view_port_change(
     camera_group_alloter: OrInitRes<ShareGroupAlloter<CameraGroup>>,
     ui_meterial_group_alloter: OrInitRes<ShareGroupAlloter<UiMaterialGroup>>,
     allocator: Res<PiSafeAtlasAllocator>,
+	image_render_type: OrInitRes<BackgroundImageRenderObjType>,
 
     mut query: ParamSet<(
         Query<
@@ -159,6 +160,7 @@ pub fn view_port_change(
         common_sampler,
         camera_group_alloter,
         ui_meterial_group_alloter,
+		***image_render_type,
         allocator,
         query0,
     );
@@ -201,6 +203,7 @@ fn render_change_async(
     // common_state: Res<'static, CommonPipelineState>,
     camera_group_alloter: OrInitRes<ShareGroupAlloter<CameraGroup>>,
     ui_meterial_group_alloter: OrInitRes<ShareGroupAlloter<UiMaterialGroup>>,
+	image_render_type: RenderObjType,
     allocator: Res<'static, PiSafeAtlasAllocator>,
 
     mut query: Query<
@@ -281,6 +284,7 @@ fn render_change_async(
 
 
         let image_static_index = PipelineMeta {
+			type_mark: image_render_type,
             program: image_program_meta.clone(),
             state: shader_info_catch.premultiply.clone(),
             vert_layout: vert_layout.clone(),

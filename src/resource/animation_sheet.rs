@@ -14,11 +14,11 @@ use pi_animation::{
     animation_result_pool::TypeAnimationResultPool,
     loop_mode::ELoopMode,
     runtime_info::RuntimeInfoMap,
-    type_animation_context::{AnimationContextAmount, TypeAnimationContext, AnimationContextMgr},
+    type_animation_context::{AnimationContextAmount, TypeAnimationContext, AnimationContextMgr}, base::EFillMode,
 };
 use pi_atom::Atom;
 use pi_curves::{
-    curve::{frame::FrameDataValue, frame_curve::FrameCurve},
+    curve::{frame::FrameDataValue, frame_curve::FrameCurve, FramePerSecond},
     easing::EEasingMode,
 };
 use pi_hash::XHashMap;
@@ -68,7 +68,7 @@ pub struct KeyFramesSheet {
 
                                        // animation_events: Vec<(AnimationGroupID, EAnimationEvent, u32)>,
                                        // animation_events_callback: Option<Share<dyn Fn(&Vec<(AnimationGroupID, EAnimationEvent, u32)>, &SecondaryMap<AnimationGroupID, (ObjKey, Atom)>)>>, // 动画事件回调函数
-	temp_keyframnames: XHashMap<ObjKey, Vec<(usize, Atom)>>, // 记录某节点添加了哪些运行时动画
+	temp_keyframnames: XHashMap<ObjKey, Vec<(usize, Atom, KeyFrames)>>, // 记录某节点添加了哪些运行时动画
 	temp_errs: Vec<KeyFrameError>,
 
 	run_count: usize,
@@ -82,94 +82,94 @@ impl Default for KeyFramesSheet {
     fn default() -> Self {
         let mut b = RuntimeInfoMap::<ObjKey>::default();
         let animation_attr_types = vec![
-            AnimationType::new::<PaddingTopType>(&mut b),       // 占位
-            AnimationType::new::<BackgroundRepeatType>(&mut b), // 占位
-            AnimationType::new::<FontStyleType>(&mut b),
-            AnimationType::new::<FontWeightType>(&mut b),
-            AnimationType::new::<FontSizeType>(&mut b),
-            AnimationType::new::<FontFamilyType>(&mut b),
-            AnimationType::new::<LetterSpacingType>(&mut b),
-            AnimationType::new::<WordSpacingType>(&mut b),
-            AnimationType::new::<LineHeightType>(&mut b),
-            AnimationType::new::<TextIndentType>(&mut b),
-            AnimationType::new::<WhiteSpaceType>(&mut b),
-            AnimationType::new::<TextAlignType>(&mut b),
-            AnimationType::new::<VerticalAlignType>(&mut b),
-            AnimationType::new::<ColorType>(&mut b),
-            AnimationType::new::<TextStrokeType>(&mut b),
-            AnimationType::new::<TextShadowType>(&mut b),
-            AnimationType::new::<BackgroundImageType>(&mut b),
-            AnimationType::new::<BackgroundImageClipType>(&mut b),
-            AnimationType::new::<ObjectFitType>(&mut b),
-            AnimationType::new::<BackgroundColorType>(&mut b),
-            AnimationType::new::<BoxShadowType>(&mut b),
-            AnimationType::new::<BorderImageType>(&mut b),
-            AnimationType::new::<BorderImageClipType>(&mut b),
-            AnimationType::new::<BorderImageSliceType>(&mut b),
-            AnimationType::new::<BorderImageRepeatType>(&mut b),
-            AnimationType::new::<BorderColorType>(&mut b),
-            AnimationType::new::<HsiType>(&mut b),
-            AnimationType::new::<BlurType>(&mut b),
-            AnimationType::new::<MaskImageType>(&mut b),
-            AnimationType::new::<MaskImageClipType>(&mut b),
-            AnimationType::new::<TransformType>(&mut b),
-            AnimationType::new::<TransformOriginType>(&mut b),
-            AnimationType::new::<TransformWillChangeType>(&mut b),
-            AnimationType::new::<BorderRadiusType>(&mut b),
-            AnimationType::new::<ZIndexType>(&mut b),
-            AnimationType::new::<OverflowType>(&mut b),
-            AnimationType::new::<BlendModeType>(&mut b),
-            AnimationType::new::<DisplayType>(&mut b),
-            AnimationType::new::<VisibilityType>(&mut b),
-            AnimationType::new::<EnableType>(&mut b),
-            AnimationType::new::<WidthType>(&mut b),
-            AnimationType::new::<HeightType>(&mut b),
-            AnimationType::new::<MarginTopType>(&mut b),
-            AnimationType::new::<MarginRightType>(&mut b),
-            AnimationType::new::<MarginBottomType>(&mut b),
-            AnimationType::new::<MarginLeftType>(&mut b),
-            AnimationType::new::<PaddingTopType>(&mut b),
-            AnimationType::new::<PaddingRightType>(&mut b),
-            AnimationType::new::<PaddingBottomType>(&mut b),
-            AnimationType::new::<PaddingLeftType>(&mut b),
-            AnimationType::new::<BorderTopType>(&mut b),
-            AnimationType::new::<BorderRightType>(&mut b),
-            AnimationType::new::<BorderBottomType>(&mut b),
-            AnimationType::new::<BorderLeftType>(&mut b),
-            AnimationType::new::<PositionTopType>(&mut b),
-            AnimationType::new::<PositionRightType>(&mut b),
-            AnimationType::new::<PositionBottomType>(&mut b),
-            AnimationType::new::<PositionLeftType>(&mut b),
-            AnimationType::new::<MinWidthType>(&mut b),
-            AnimationType::new::<MinHeightType>(&mut b),
-            AnimationType::new::<MaxHeightType>(&mut b),
-            AnimationType::new::<MaxWidthType>(&mut b),
-            AnimationType::new::<DirectionType>(&mut b),
-            AnimationType::new::<FlexDirectionType>(&mut b),
-            AnimationType::new::<FlexWrapType>(&mut b),
-            AnimationType::new::<JustifyContentType>(&mut b),
-            AnimationType::new::<AlignContentType>(&mut b),
-            AnimationType::new::<AlignItemsType>(&mut b),
-            AnimationType::new::<PositionTypeType>(&mut b),
-            AnimationType::new::<AlignSelfType>(&mut b),
-            AnimationType::new::<FlexShrinkType>(&mut b),
-            AnimationType::new::<FlexGrowType>(&mut b),
-            AnimationType::new::<AspectRatioType>(&mut b),
-            AnimationType::new::<OrderType>(&mut b),
-            AnimationType::new::<FlexBasisType>(&mut b),
-            AnimationType::new::<OpacityType>(&mut b),
-            AnimationType::new::<TextContentType>(&mut b),
-            AnimationType::new::<VNodeType>(&mut b),
-            AnimationType::new::<TransformFuncType>(&mut b),
+            AnimationType::new::<PaddingTopType>(&mut b),       // 占位0
+            AnimationType::new::<BackgroundRepeatType>(&mut b), // 占位1
+            AnimationType::new::<FontStyleType>(&mut b),// 2
+            AnimationType::new::<FontWeightType>(&mut b),// 3
+            AnimationType::new::<FontSizeType>(&mut b),// 4
+            AnimationType::new::<FontFamilyType>(&mut b),// 5
+            AnimationType::new::<LetterSpacingType>(&mut b),// 6
+            AnimationType::new::<WordSpacingType>(&mut b),// 7
+            AnimationType::new::<LineHeightType>(&mut b),// 8
+            AnimationType::new::<TextIndentType>(&mut b),// 9
+            AnimationType::new::<WhiteSpaceType>(&mut b),// 10
+            AnimationType::new::<TextAlignType>(&mut b),// 11
+            AnimationType::new::<VerticalAlignType>(&mut b),// 12
+            AnimationType::new::<ColorType>(&mut b),// 13
+            AnimationType::new::<TextStrokeType>(&mut b),// 14
+            AnimationType::new::<TextShadowType>(&mut b),// 15
+            AnimationType::new::<BackgroundImageType>(&mut b),// 16
+            AnimationType::new::<BackgroundImageClipType>(&mut b),// 17
+            AnimationType::new::<ObjectFitType>(&mut b),// 18
+            AnimationType::new::<BackgroundColorType>(&mut b),// 19
+            AnimationType::new::<BoxShadowType>(&mut b),// 20
+            AnimationType::new::<BorderImageType>(&mut b),// 21
+            AnimationType::new::<BorderImageClipType>(&mut b),// 22
+            AnimationType::new::<BorderImageSliceType>(&mut b),// 23
+            AnimationType::new::<BorderImageRepeatType>(&mut b),// 24
+            AnimationType::new::<BorderColorType>(&mut b),// 25
+            AnimationType::new::<HsiType>(&mut b),// 26
+            AnimationType::new::<BlurType>(&mut b),// 27
+            AnimationType::new::<MaskImageType>(&mut b),// 28
+            AnimationType::new::<MaskImageClipType>(&mut b),// 29
+            AnimationType::new::<TransformType>(&mut b),// 30
+            AnimationType::new::<TransformOriginType>(&mut b),// 31
+            AnimationType::new::<TransformWillChangeType>(&mut b),// 32
+            AnimationType::new::<BorderRadiusType>(&mut b),// 33
+            AnimationType::new::<ZIndexType>(&mut b),// 34
+            AnimationType::new::<OverflowType>(&mut b),// 35
+            AnimationType::new::<BlendModeType>(&mut b),// 36
+            AnimationType::new::<DisplayType>(&mut b),// 37
+            AnimationType::new::<VisibilityType>(&mut b),// 38
+            AnimationType::new::<EnableType>(&mut b),// 39
+            AnimationType::new::<WidthType>(&mut b),// 40
+            AnimationType::new::<HeightType>(&mut b),// 41
+            AnimationType::new::<MarginTopType>(&mut b),// 42
+            AnimationType::new::<MarginRightType>(&mut b),// 43
+            AnimationType::new::<MarginBottomType>(&mut b),// 44
+            AnimationType::new::<MarginLeftType>(&mut b),// 45
+            AnimationType::new::<PaddingTopType>(&mut b),// 46
+            AnimationType::new::<PaddingRightType>(&mut b),// 47
+            AnimationType::new::<PaddingBottomType>(&mut b),// 48
+            AnimationType::new::<PaddingLeftType>(&mut b),// 49
+            AnimationType::new::<BorderTopType>(&mut b),// 50
+            AnimationType::new::<BorderRightType>(&mut b),// 51
+            AnimationType::new::<BorderBottomType>(&mut b),// 52
+            AnimationType::new::<BorderLeftType>(&mut b),// 53
+            AnimationType::new::<PositionTopType>(&mut b),// 54
+            AnimationType::new::<PositionRightType>(&mut b),// 55
+            AnimationType::new::<PositionBottomType>(&mut b),// 56
+            AnimationType::new::<PositionLeftType>(&mut b),// 57
+            AnimationType::new::<MinWidthType>(&mut b),// 58
+            AnimationType::new::<MinHeightType>(&mut b),// 59
+            AnimationType::new::<MaxHeightType>(&mut b),// 60
+            AnimationType::new::<MaxWidthType>(&mut b),// 61
+            AnimationType::new::<DirectionType>(&mut b),// 62
+            AnimationType::new::<FlexDirectionType>(&mut b),// 63
+            AnimationType::new::<FlexWrapType>(&mut b),// 64
+            AnimationType::new::<JustifyContentType>(&mut b),// 65
+            AnimationType::new::<AlignContentType>(&mut b),// 65
+            AnimationType::new::<AlignItemsType>(&mut b),// 67
+            AnimationType::new::<PositionTypeType>(&mut b),// 68
+            AnimationType::new::<AlignSelfType>(&mut b),// 69
+            AnimationType::new::<FlexShrinkType>(&mut b),// 70
+            AnimationType::new::<FlexGrowType>(&mut b),// 71
+            AnimationType::new::<AspectRatioType>(&mut b),// 72
+            AnimationType::new::<OrderType>(&mut b),// 73
+            AnimationType::new::<FlexBasisType>(&mut b),// 74
+            AnimationType::new::<OpacityType>(&mut b),// 75
+            AnimationType::new::<TextContentType>(&mut b),// 76
+            AnimationType::new::<VNodeType>(&mut b),// 77
+            AnimationType::new::<TransformFuncType>(&mut b),// 78
 
-			AnimationType::new::<TransformFuncType>(&mut b), // 占位
-			AnimationType::new::<TransformFuncType>(&mut b),// 占位
-			AnimationType::new::<TransformFuncType>(&mut b),//  占位
-			AnimationType::new::<TransformFuncType>(&mut b), // 占位
-			AnimationType::new::<TransformFuncType>(&mut b),// 占位
-			AnimationType::new::<TransformFuncType>(&mut b),//  占位
-			AnimationType::new::<TransformFuncType>(&mut b),// 占位
-			AnimationType::new::<TransformFuncType>(&mut b),//  占位
+			AnimationType::new::<TransformFuncType>(&mut b), // 占位79
+			AnimationType::new::<TransformFuncType>(&mut b),// 占位80
+			AnimationType::new::<TransformFuncType>(&mut b),//  占位81
+			AnimationType::new::<TransformFuncType>(&mut b), // 占位82
+			AnimationType::new::<TransformFuncType>(&mut b),// 占位83
+			AnimationType::new::<TransformFuncType>(&mut b),//  占位84
+			AnimationType::new::<TransformFuncType>(&mut b),// 占位85
+			AnimationType::new::<TransformFuncType>(&mut b),//  占位 86
 
 			AnimationType::new::<ClipPathType>(&mut b),// 87
 			AnimationType::new::<TranslateType>(&mut b),// 88
@@ -266,12 +266,12 @@ impl KeyFramesSheet {
 		self.remove_runtime_keyframs(target);
 
 		let mut names = Vec::with_capacity(value.len());
-        log::debug!("bind_runtime_animation====={:?}", target);
+        log::debug!("bind_runtime_animation====={:?}， animaton： {:?}, keyframes: {:?}", target, animation, value);
 		for name in animation.name.value.iter() {
 			if let Some(m) = value.remove(name) {
 				self.add_keyframes( animation.name.scope_hash, name.clone(), m);
+				names.push((animation.name.scope_hash, name.clone(), self.key_frames_map.get(&(animation.name.scope_hash, name.clone())).unwrap().clone()));
 			}
-			names.push((animation.name.scope_hash, name.clone()));
 		}
 
 		if names.len() > 0 {
@@ -320,13 +320,14 @@ impl KeyFramesSheet {
 	) {
 		// 移除运行时动画帧数据
 		if let Some(runtime_frames) = self.temp_keyframnames.remove(&target) {
-			for key in runtime_frames.iter() {
-				if let Some(key_frame) = self.key_frames_map.get(&key) {
+			for key in runtime_frames.into_iter() {
+				{let _i = key.2;}; // 在此处销毁KeyFrames
+				if let Some(key_frame) = self.key_frames_map.get(&(key.0, key.1.clone())) {
 					if key_frame.0.len() == 0 {
 						return;
 					}
 					if Share::strong_count(&key_frame.0[0].0) == 1 {
-						self.key_frames_map.remove(key);
+						self.key_frames_map.remove(&(key.0, key.1));
 					}
 				}
 			}
@@ -506,6 +507,7 @@ impl KeyFramesSheet {
             let curves = match self.key_frames_map.get(&name) {
                 Some(r) => r,
                 None => {
+					// TODO 取全局动画
 					self.temp_errs.push(KeyFrameError::NotExistFrameData(target, animation.clone()));
                     continue;
                 }
@@ -540,12 +542,16 @@ impl KeyFramesSheet {
                 AnimationDirection::Alternate => ELoopMode::Opposite(iter_count),
                 AnimationDirection::AlternateReverse => ELoopMode::OppositePly(iter_count),
             };
+
             let duration = *Animation::get_attr(i, &animation.duration) as f32 / 1000.0;
+			let delay = *Animation::get_attr(i, &animation.delay) as f32 / 1000.0;
+			let file_mode = Animation::get_attr(i, &animation.fill_mode);
             let timing_function = Animation::get_attr(i, &animation.timing_function);
             // let frame_per_second = (FRAME_COUNT / duration).round() as u16;
             // TODO
-			// log::warn!("start_complete==========={:?}, {:?}", animation.name, duration, );
-            self.animation_context_amount
+			// log::warn!("start_complete==========={:?}, {:?},{:?}, {:?}, {:?}, {:?},  ", animation.name, duration, direction, timing_function, file_mode, delay);
+            self.animation_context_amount.force_group_total_frames(group0, Some(FRAME_COUNT), FRAME_COUNT as FramePerSecond);
+			self.animation_context_amount
                 .start_complete(
                     group0,
                     duration,
@@ -557,6 +563,13 @@ impl KeyFramesSheet {
                         AnimationTimingFunction::Step(step, mode) => AnimationAmountCalc::from_steps(step as u16, mode),
                         AnimationTimingFunction::CubicBezier(x1, y1, x2, y2) => AnimationAmountCalc::from_cubic_bezier(x1, y1, x2, y2),
                     },
+					delay,
+					match file_mode {
+						pi_style::style::AnimationFillMode::None => EFillMode::NONE,
+						pi_style::style::AnimationFillMode::Forwards => EFillMode::FORWARDS,
+						pi_style::style::AnimationFillMode::Backwards => EFillMode::BACKWARDS,
+						pi_style::style::AnimationFillMode::Both => EFillMode::BOTH,
+					}
                 )
                 .unwrap();
         }
@@ -718,7 +731,7 @@ impl<F: Attr + FrameDataValue> TypeAnimationResultPool<F, ObjKey> for StyleComma
         _id_attr: pi_animation::target_modifier::IDAnimatableAttr,
         result: pi_animation::animation_result_pool::AnimeResult<F>,
     ) -> Result<(), pi_animation::error::EAnimationError> {
-        out_any!(log::trace, "record animation result===={:?}, {:?}", &result.value, entity);
+		out_any!(log::trace, "record animation result===={:?}, {:?}", &result.value, entity);
         let start = self.style_buffer.len();
         unsafe { StyleAttr::write(result.value, &mut self.style_buffer) };
         if let Some(r) = self.commands.last_mut() {

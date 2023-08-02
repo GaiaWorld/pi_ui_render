@@ -14,6 +14,7 @@ use pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent;
 use pi_flex_layout::prelude::INode;
 pub use pi_flex_layout::prelude::{Dimension, Number, Rect, Size as FlexSize};
 use pi_flex_layout::style::{AlignContent, AlignItems, AlignSelf, Direction, Display, FlexDirection, FlexWrap, JustifyContent, PositionType};
+use pi_slotmap::SecondaryMap;
 pub use pi_style::style::{
     Aabb2, AnimationDirection, AnimationFillMode, AnimationName, AnimationPlayState, AnimationTimingFunction, CgColor, Color, ColorAndPosition,
     Enable, FitType, FontSize, FontStyle, ImageRepeat, IterationCount, LengthUnit, LineHeight, LinearGradientColor, NotNanRect, ShowType, Stroke,
@@ -25,7 +26,7 @@ use pi_style::{style::{
     MaskImage as MaskImage1, TextContent as TextContent1, AllTransform, BaseShape,
 }, style_parse::Attribute, style_type::ClassMeta};
 
-use super::calc::NeedMark;
+use super::calc::{NeedMark, EntityKey};
 pub use super::root::{ClearColor, RenderDirty, RenderTargetType, Viewport};
 use smallvec::SmallVec;
 
@@ -496,7 +497,6 @@ pub fn get_size(s: &FontSize) -> usize {
         }
     }
 }
-
 
 pub mod serialize {
     use std::mem::forget;

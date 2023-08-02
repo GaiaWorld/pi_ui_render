@@ -33,6 +33,11 @@ pub trait Example: 'static + Sized {
         // None表示使用默认值
         None
     }
+	#[cfg(feature="debug")]
+	fn record_option(&self) -> pi_ui_render::system::cmd_play::TraceOption {
+        pi_ui_render::system::cmd_play::TraceOption::None
+    }
+	
 }
 
 pub fn start<T: Example + Sync + Send + 'static>(example: T) {
@@ -58,6 +63,8 @@ pub fn start<T: Example + Sync + Send + 'static>(example: T) {
         (450, 720)
     };
 
+	#[cfg(feature="debug")]
+	let record_option = example.record_option();
     let exmple = Share::new(ShareMutex::new(example));
     let exmple1 = exmple.clone();
     let exmple_run = move |world: &mut World, commands: &mut SystemState<(ResMut<UserCommands>, Commands)>| {
@@ -72,18 +79,18 @@ pub fn start<T: Example + Sync + Send + 'static>(example: T) {
 	
 	#[cfg(feature="debug")]
     app.add_plugin(UiPlugin {
-        cmd_trace: RECORD_OPTION,
+        cmd_trace: record_option,
 	});
 	#[cfg(not(feature="debug"))]
 	app.add_plugin(UiPlugin::default());
 
 	app.add_system(exmple_run.before(UiSystemSet::Setting).in_set(ExampleSet))
 		.add_startup_system(move |world: &mut World| {
-			exmple1.lock().init(world, (500, 500));
+			exmple1.lock().init(world, (width as usize, height as usize));
 		});
 	
 	#[cfg(feature="debug")]
-	match RECORD_OPTION {
+	match record_option {
 		pi_ui_render::system::cmd_play::TraceOption::None => (),
 		pi_ui_render::system::cmd_play::TraceOption::Record => {
 			app.add_system(record_cmd_to_file.after(UiSystemSet::Setting));
@@ -131,9 +138,9 @@ pub fn init(width: u32, height: u32) -> App {
     let mut window_plugin = bevy::window::WindowPlugin::default();
     window_plugin.primary_window = Some(window);
 
-    app.add_plugin(bevy::log::LogPlugin {
+    app.add_plugin(pi_bevy_log::LogPlugin {
         filter: FILTER.to_string(),
-        level: bevy::log::Level::INFO,
+        level: LOG_LEVEL,
     })
     .add_plugin(bevy::a11y::AccessibilityPlugin)
     .add_plugin(bevy::input::InputPlugin::default())
@@ -146,6 +153,15 @@ pub fn init(width: u32, height: u32) -> App {
 	
 	;
 	
+	// let h = app.world.get_resource_mut::<pi_bevy_log::LogFilterHandle>().unwrap();
+	// let default_filter = { format!("{},my_target=info", bevy::log::Level::WARN) };
+	// let filter_layer = tracing_subscriber::EnvFilter::try_from_default_env()
+	// 	.or_else(|_| tracing_subscriber::EnvFilter::try_new(&default_filter))
+	// 	.unwrap();
+	// h.0.modify(|filter| *filter = filter_layer);
+	// log::info!("aaa=============");
+	// log::info!(target: "my_target", "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+	// log::log!(target: "xxxx", log::Level::Info, a="bbbbbbbb====",);
     app
 }
 
@@ -282,13 +298,15 @@ pub fn spawn(world: &mut World) -> Entity {
 
 
 #[cfg(feature="debug")]
-pub const RECORD_OPTION: pi_ui_render::system::cmd_play::TraceOption = pi_ui_render::system::cmd_play::TraceOption::None;
-#[cfg(feature="debug")]
 // pub const PLAY_PATH: Option<&'static str> = None;
-pub const PLAY_PATH: Option<&'static str> = Some("D://0_js/cdqxz_new_mult_gui_exe/dst");
+// pub const PLAY_PATH: Option<&'static str> = Some("D://0_js/cdqxz_new_mult_gui_exe/dst");
+pub const PLAY_PATH: Option<&'static str> = Some("D://0_js/pi_demo_mult_gui/dst");
 #[cfg(feature="debug")]
 // pub const PLAY_VERSION: &'static str = "local";
 pub const PLAY_VERSION: &'static str = "test";
 
 // pub const FILTER: &'static str = "wgpu=warn,pi_ui_render::components::user=debug";
-pub const FILTER: &'static str = "wgpu=warn";
+// pub const FILTER: &'static str = "wgpu=warn,entity_3v0=trace";
+// pub const FILTER: &'static str = "wgpu=warn";
+pub const FILTER: &'static str = "wgpu=info,naga=warn,pi_ui_render::system::pass::pass_graph_node=trace";
+pub const LOG_LEVEL: bevy::log::Level = bevy::log::Level::DEBUG;

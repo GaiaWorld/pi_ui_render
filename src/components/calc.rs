@@ -184,10 +184,6 @@ impl WorldMatrix {
         // 变换前先将transform描述的原点位置移动到父节点的左上角
         let mut m = WorldMatrix(Matrix4::new_translation(&Vector3::new(move_value.x, move_value.y, 0.0)), false);
 		
-		if let Some(translate) = &all_transform.translate {
-			m.translate(translate[0].get_absolute_value(width), translate[1].get_absolute_value(height), 0.0);
-		}
-
 		if let Some(scale) = &all_transform.scale {
 			m = m * WorldMatrix(Matrix4::new_nonuniform_scaling(&Vector3::new(scale[0], scale[1], 1.0)), false);
 		}
@@ -196,8 +192,12 @@ impl WorldMatrix {
 			m = m *  WorldMatrix(Matrix4::new_rotation(Vector3::new(0.0, 0.0, *rotate / 180.0 * std::f32::consts::PI)), true);
 		}
 
+		if let Some(translate) = &all_transform.translate {
+			m.translate(translate[0].get_absolute_value(width), translate[1].get_absolute_value(height), 0.0);
+		}
+
         // 计算tranform
-        for func in all_transform.transform.iter() {
+        for func in all_transform.transform.iter().rev() {
             m = m * Self::get_matrix(func, width, height);
         }
 
@@ -616,13 +616,15 @@ impl DrawList {
 	}
 
 	// 移除全部
-	pub fn remove(&mut self, ty: RenderObjType ) -> Option<DrawObjId> {
-		for i in 0..self.0.len() {
+	pub fn remove<F: FnMut(DrawObjId)>(&mut self,  ty: RenderObjType, mut cb: F )  {
+		let mut i: usize = 0;
+		while i < self.0.len() {
 			if self.0[i].ty == ty {
-				return Some(self.0.swap_remove(i))
+				cb(self.0.swap_remove(i));
+			} else {
+				i += 1;
 			}
 		}
-		None
 	}
 }
 
@@ -673,10 +675,10 @@ impl Default for ViewBox {
 pub struct OveflowRotate {
 	// 相对于父上下文的旋转
     pub from_context_rotate: Matrix4<f32>,
-	// 节点相对于世界坐标的旋转的逆
-    pub world_rotate_invert: Matrix4<f32>,
 	// 节点相对于世界坐标的渲染
     pub world_rotate: Matrix4<f32>,
+	// 节点相对于世界坐标的旋转的逆
+    pub world_rotate_invert: Matrix4<f32>,
 }
 
 // 描述oveflow

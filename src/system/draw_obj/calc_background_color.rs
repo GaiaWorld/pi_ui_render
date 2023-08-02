@@ -24,7 +24,7 @@ use crate::components::draw_obj::{BackgroundColorMark, PipelineMeta};
 use crate::resource::draw_obj::{PosColorVertexLayout, PosVertexLayout};
 use crate::shader::color::VERT_COLOR_DEFINE;
 use crate::shader::ui_meterial::ColorUniform;
-use crate::utils::tools::{calc_hash, get_content_rect};
+use crate::utils::tools::{calc_hash, get_padding_rect};
 use crate::{
     components::{
         calc::NodeId,
@@ -121,7 +121,7 @@ fn modify<'a>(
                 format: IndexFormat::Uint16,
             });
         }
-        return BoxType::ContentRect;
+        return BoxType::PaddingUnitRect;
     }
 
     // 否则，需要切分顶点，如果是渐变色，还要设置color vb
@@ -130,7 +130,7 @@ fn modify<'a>(
         try_modify_as_radius_linear_geo(layout, device, draw_state, buffer_assets, color);
     }
 
-    BoxType::ContentNone
+    BoxType::PaddingNone
 }
 
 #[inline]
@@ -141,7 +141,7 @@ fn try_modify_as_radius_linear_geo(
     buffer_asset_mgr: &Share<AssetMgr<RenderRes<Buffer>>>,
     color: &Color,
 ) {
-    let rect = get_content_rect(layout);
+    let rect = get_padding_rect(layout);
     let size = Size {
         width: rect.right - rect.left,
         height: rect.bottom - rect.top,

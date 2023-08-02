@@ -291,47 +291,51 @@ fn cal_no_rotate_box(aabb: &Aabb2, matrix: &Matrix4) -> Aabb2 {
 }
 
 fn calc_rotate_matrix(mut matrix: Matrix4) -> Matrix4 {
-    let m = Matrix4::new(
-        1.0,
-        0.0,
-        0.0,
-        matrix[(0, 3)],
-        0.0,
-        1.0,
-        0.0,
-        matrix[(1, 3)],
-        0.0,
-        0.0,
-        1.0,
-        matrix[(2, 3)],
-        0.0,
-        0.0,
-        0.0,
-        matrix[(3, 3)],
-    );
-    let m_invert = Matrix4::new(
-        1.0,
-        0.0,
-        0.0,
-        -matrix[(0, 3)],
-        0.0,
-        1.0,
-        0.0,
-        -matrix[(1, 3)],
-        0.0,
-        0.0,
-        1.0,
-        -matrix[(2, 3)],
-        0.0,
-        0.0,
-        0.0,
-        matrix[(3, 3)],
-    );
+	// let m1 = matrix.clone();
+    // let m = Matrix4::new(
+    //     1.0,
+    //     0.0,
+    //     0.0,
+    //     matrix[(0, 3)],
+    //     0.0,
+    //     1.0,
+    //     0.0,
+    //     matrix[(1, 3)],
+    //     0.0,
+    //     0.0,
+    //     1.0,
+    //     matrix[(2, 3)],
+    //     0.0,
+    //     0.0,
+    //     0.0,
+    //     matrix[(3, 3)],
+    // );
+    // let m_invert = Matrix4::new(
+    //     1.0,
+    //     0.0,
+    //     0.0,
+    //     -matrix[(0, 3)],
+    //     0.0,
+    //     1.0,
+    //     0.0,
+    //     -matrix[(1, 3)],
+    //     0.0,
+    //     0.0,
+    //     1.0,
+    //     -matrix[(2, 3)],
+    //     0.0,
+    //     0.0,
+    //     0.0,
+    //     matrix[(3, 3)],
+    // );
 
     let scale_x = Vector4::from(matrix.fixed_columns(0));
     let scale_y = Vector4::from(matrix.fixed_columns(1));
-    let scale_x = scale_x.dot(&scale_x);
-    let scale_y = scale_y.dot(&scale_y);
+	let scale_z = Vector4::from(matrix.fixed_columns(2));
+	// log::warn!("scale_x================{:?}", scale_x);
+    let scale_x = scale_x.norm();
+    let scale_y = scale_y.norm();
+	let scale_z = scale_z.norm();
 
     if scale_x != 0.0 {
         matrix[(0, 0)] = matrix[(0, 0)] / scale_x;
@@ -344,10 +348,20 @@ fn calc_rotate_matrix(mut matrix: Matrix4) -> Matrix4 {
         matrix[(1, 1)] = matrix[(1, 1)] / scale_y;
         matrix[(2, 1)] = matrix[(2, 1)] / scale_y;
     }
+	if scale_z != 0.0 {
+        matrix[(0, 2)] = matrix[(0, 2)] / scale_z;
+        matrix[(1, 2)] = matrix[(1, 2)] / scale_z;
+        matrix[(2, 2)] = matrix[(2, 2)] / scale_z;
+    }
 
     matrix.set_column(3, &Vector4::new(0.0, 0.0, 0.0, 1.0));
 
-    let invert = matrix.try_inverse().unwrap();
-    m * invert * m_invert
+    let invert = match matrix.try_inverse() {
+		Some(m) => m,
+		None => return WorldMatrix::default().0, // 没有逆矩阵， 则返回单位阵（没有逆矩阵时， 空间被压缩， 2d界面实际上不会显示， 因此此矩阵为任何矩阵都无所谓）
+	};
+	// log::warn!("zz0================{:?}, \nscalex: {}, \nscaley: {:?}, \ninvert: {:?}", m1, scale_x, scale_y, invert);
+	invert
+    // m * invert * m_invert
     // matrix
 }

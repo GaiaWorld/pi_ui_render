@@ -35,7 +35,6 @@ pub fn hsi_post_process(
             post_info.effect_mark.set(***mark_type, true);
         } else {
             post_list.hsb = None;
-			log::warn!("hsb none======={:?}", entity);
             post_info.effect_mark.set(***mark_type, false);
         }
     }

@@ -104,7 +104,7 @@ pub enum DirtyType {
 /// 脏区域, 设置在每个渲染上下文上
 #[derive(Clone, Debug, Component)]
 pub struct DirtyRect {
-    pub value: Aabb2,
+    pub value: Aabb2, // 在世界坐标上表示的脏区域
     pub state: DirtyRectState,
 }
 
