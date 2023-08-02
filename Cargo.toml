@@ -75,7 +75,7 @@ pi_time="0.3"
 # siphasher = {version="0.3", features=["serde_no_std"]}
 wasm-bindgen = { version = "0.2", features = ["serde-serialize"] }
 
-winit = {git = "http://ser.yinengyun.com:10082/tech/winit.git"}
+winit = { registry = "yn", version = "0.27"}
 pi_bevy_post_process= {git="https://github.com/GaiaWorld/pi_render_bevy.git"}
 pi_bevy_ecs_extend = {git="https://github.com/GaiaWorld/pi_render_bevy.git"}
 pi_bevy_render_plugin = {git="https://github.com/GaiaWorld/pi_render_bevy.git"}
@@ -178,7 +178,7 @@ test = true
 env_logger = "0.9"
 float-ord = "0.3"
 async-trait="0.1"
-font_kit = {git="http://ser.yinengyun.com:10082/tech/font_kit.git"}
+font_kit = { registry = "yn", version = "0.1" }
 spin_sleep="1.1"
 num_cpus = "1.13"
 bevy = {version="0.10", default-features = false, features=["bevy_winit"]}
