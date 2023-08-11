@@ -825,13 +825,7 @@ impl Pass2DNode {
                         };
                         // 如果存在graph_id，表示该渲染对象将输入的一个ShareTargetView作为纹理，渲染到gui上
                         if let Some(graph_id) = graph_id {
-                            log::warn!(
-                                "graph_id============={:?}, {:?}, {:?}, {:?}",
-                                **e,
-                                graph_id,
-                                input.get(&**graph_id).as_ref().map(|r| { r.target.is_some() }),
-                                input.keys()
-                            );
+
                             let src = match input.get(&**graph_id) {
                                 Some(r) => match &r.target {
                                     Some(r) => r,

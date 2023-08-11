@@ -94,7 +94,6 @@ pub fn draw_object_life<
                         other: With::default(),
                     })
                     .id();
-                log::warn!("create_aaa================{:?}, {:?}", id, std::any::type_name::<With>());
                 log::debug!(target: format!("entity_{:?}", changed.id).as_str(), "create RenderObj {:?} for {} changed, ", &id, std::any::type_name::<Src>());
                 draw_list.push(render_type, id);
             }

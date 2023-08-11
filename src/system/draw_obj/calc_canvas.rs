@@ -40,8 +40,6 @@ pub fn calc_canvas(
                 draw_state.set_changed();
             }
 
-            log::warn!("ccc=========={:?}, {:?}", node_id, query_graph.get(canvas.0));
-
             if let Ok(src_graph_id) = query_graph.get(canvas.0) {
                 if !src_graph_id.is_null() {
                     *graph_id = src_graph_id.clone();
