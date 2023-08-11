@@ -9,15 +9,12 @@ use bevy::{ecs::system::Commands, prelude::World};
 use framework::Example;
 use pi_atom::Atom;
 /// 渲染四边形 demo
-use pi_flex_layout::{
-    style::{Dimension, FlexWrap, PositionType},
-};
+use pi_flex_layout::style::{Dimension, FlexWrap, PositionType};
 use pi_null::Null;
 use pi_style::{
     style::{Aabb2, CgColor, Point2},
     style_type::{
-        BackgroundImageType, FlexWrapType, HeightType, MarginLeftType,
-        MarginTopType, PositionLeftType, PositionTopType, PositionTypeType, WidthType,
+        BackgroundImageType, FlexWrapType, HeightType, MarginLeftType, MarginTopType, PositionLeftType, PositionTopType, PositionTypeType, WidthType,
     },
 };
 use pi_ui_render::{
@@ -59,11 +56,11 @@ impl Example for QuadExample {
 
         let div1 = world.spawn(NodeBundle::default()).id();
         self.cmd.set_style(div1, PositionTypeType(PositionType::Relative));
-        self.cmd
-            .set_style(div1, BackgroundImageType(Atom::from("examples/background_image/source/bx_lanseguanbi.s3tc.ktx")));
+        self.cmd.set_style(
+            div1,
+            BackgroundImageType(Atom::from("examples/background_image/source/bx_lanseguanbi.s3tc.ktx")),
+        );
         self.cmd.append(div1, root);
-
-        
     }
 
     fn render(&mut self, cmd: &mut UserCommands, _cmd1: &mut Commands) { swap(&mut self.cmd, cmd); }

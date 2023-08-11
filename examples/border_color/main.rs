@@ -20,10 +20,10 @@ use pi_ui_render::{
 };
 
 use pi_style::{
-    style::{Aabb2, Point2, BorderRadius, LengthUnit},
+    style::{Aabb2, BorderRadius, LengthUnit, Point2},
     style_type::{
-        BorderBottomType, BorderColorType, BorderLeftType, BorderRightType, BorderTopType, HeightType, MarginLeftType, MarginTopType,
-        PositionLeftType, PositionTopType, PositionTypeType, WidthType, BorderRadiusType,
+        BorderBottomType, BorderColorType, BorderLeftType, BorderRadiusType, BorderRightType, BorderTopType, HeightType, MarginLeftType,
+        MarginTopType, PositionLeftType, PositionTopType, PositionTypeType, WidthType,
     },
 };
 
@@ -67,8 +67,8 @@ impl Example for QuadExample {
         self.cmd.set_style(div1, BorderLeftType(Dimension::Points(10.0)));
         self.cmd.append(div1, root);
 
-		// 添加一个红色div
-		let div2 = world.spawn(NodeBundle::default()).id();
+        // 添加一个红色div
+        let div2 = world.spawn(NodeBundle::default()).id();
         self.cmd.set_style(div2, WidthType(Dimension::Points(110.0)));
         self.cmd.set_style(div2, HeightType(Dimension::Points(144.0)));
         self.cmd.set_style(div2, BorderColorType(CgColor::new(1.0, 0.0, 0.0, 1.0)));
@@ -76,7 +76,7 @@ impl Example for QuadExample {
         self.cmd.set_style(div2, BorderRightType(Dimension::Points(10.0)));
         self.cmd.set_style(div2, BorderBottomType(Dimension::Points(10.0)));
         self.cmd.set_style(div2, BorderLeftType(Dimension::Points(10.0)));
-		self.cmd.set_style(
+        self.cmd.set_style(
             div2,
             BorderRadiusType(BorderRadius {
                 x: [
@@ -94,7 +94,6 @@ impl Example for QuadExample {
             }),
         );
         self.cmd.append(div2, root);
-		
     }
 
     fn render(&mut self, cmd: &mut UserCommands, _cmd1: &mut Commands) { swap(&mut self.cmd, cmd); }

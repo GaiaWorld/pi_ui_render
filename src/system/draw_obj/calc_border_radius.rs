@@ -15,7 +15,10 @@ use crate::utils::tools::{cal_border_radius, cal_content_border_radius};
 pub fn calc_border_radius(
     mut remove: RemovedComponents<BorderRadius>,
     query_delete: Query<(Option<&'static BorderRadius>, &'static DrawList)>,
-    query: Query<(&'static BorderRadius, &'static LayoutResult, &'static DrawList), Or<(Changed<BorderRadius>, Changed<LayoutResult>, Changed<DrawList>)>>,
+    query: Query<
+        (&'static BorderRadius, &'static LayoutResult, &'static DrawList),
+        Or<(Changed<BorderRadius>, Changed<LayoutResult>, Changed<DrawList>)>,
+    >,
 
     mut query_draw: Query<(&mut DrawState, OrDefault<BoxType>, &mut PipelineMeta)>,
 ) {
@@ -46,8 +49,8 @@ pub fn calc_border_radius(
                 let (x, y, z, w) = match box_type {
                     BoxType::BorderUnitRect | BoxType::ContentUnitRect | BoxType::PaddingUnitRect => (width / 2.0, height / 2.0, width, height),
                     BoxType::BorderNone | BoxType::ContentNone | BoxType::PaddingNone | BoxType::ContentRect => (width / 2.0, height / 2.0, 1.0, 1.0),
-                    BoxType::Border => continue, // 渲染边框，不需要额外添加圆角的uniform
-					BoxType::NotChange => continue, // 不改变
+                    BoxType::Border => continue,    // 渲染边框，不需要额外添加圆角的uniform
+                    BoxType::NotChange => continue, // 不改变
                 };
 
                 // 修改宏

@@ -1,10 +1,9 @@
-use std::{path::{Path}};
+use std::path::Path;
 
 
 use render_compile::{CompileShaderError, Parser};
 
 fn main() -> Result<(), CompileShaderError> {
-	
     // 除非修改build.rs， 否则不重新运行脚本
     println!("cargo:rerun-if-changed=build.rs");
     // visit_dirs("src/shader/", &mut |file| {
@@ -15,18 +14,18 @@ fn main() -> Result<(), CompileShaderError> {
     //         }
     //     }
     // });
-	// style 宏展开
-	// let out = std::process::Command::new("cargo")
-	// 		.current_dir("exports_macro")
-	// 		.args(["expand", "style_macro"])
+    // style 宏展开
+    // let out = std::process::Command::new("cargo")
+    // 		.current_dir("exports_macro")
+    // 		.args(["expand", "style_macro"])
     //         .output()
     //         .expect("failed cargo expand")
-	// 		.stdout;
-	// let s = String::from_utf8(out).expect("failed from_utf8");
-	// let first_line = s.find("{").expect("failed {");
-	// let last_close = s.rfind("}").expect("failed }");
+    // 		.stdout;
+    // let s = String::from_utf8(out).expect("failed from_utf8");
+    // let first_line = s.find("{").expect("failed {");
+    // let last_close = s.rfind("}").expect("failed }");
 
-	// std::fs::write("src/export/style.rs", &s[first_line + 1 ..last_close]).unwrap();
+    // std::fs::write("src/export/style.rs", &s[first_line + 1 ..last_close]).unwrap();
 
     let mut parser = Parser::default();
 
@@ -34,7 +33,7 @@ fn main() -> Result<(), CompileShaderError> {
 
     for shader in r.shader_result.iter() {
         std::fs::write(&shader.0, &shader.1).unwrap();
-		std::process::Command::new("rustfmt")
+        std::process::Command::new("rustfmt")
             .args([shader.0.clone()])
             .output()
             .expect("failed to execute process");

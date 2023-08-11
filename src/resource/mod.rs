@@ -12,13 +12,12 @@ use pi_render::font::FontSheet;
 use pi_render::rhi::asset::TextureRes;
 use pi_share::{Share, ShareCell};
 use pi_style::style::Aabb2;
-use wgpu::BlendState;
 
 use std::marker::PhantomData;
 use std::mem::transmute;
 use std::ops::{Index, IndexMut};
 
-use pi_style::style_parse::{parse_class_map_from_string, parse_style_list_from_string, parse_animation};
+use pi_style::style_parse::{parse_animation, parse_class_map_from_string, parse_style_list_from_string};
 use pi_style::style_type::Attr;
 use pi_time::Instant;
 
@@ -26,16 +25,16 @@ use pi_time::Instant;
 use bevy::ecs::prelude::{Entity, FromWorld, Resource, World};
 use bevy::ecs::system::{Command, CommandQueue};
 
-use crate::components::NodeBundle;
 use crate::components::calc::{EntityKey, Quad};
 use crate::components::user::serialize::StyleAttr;
-use crate::components::user::{Point2, Vector2, MaskImage, ClipPath, Viewport, RenderTargetType, ClearColor, RenderDirty};
+use crate::components::user::{AsImage, ClearColor, ClipPath, MaskImage, Point2, RenderDirty, RenderTargetType, Vector2, Viewport};
+use crate::components::NodeBundle;
 use pi_sparialtree::quad_helper::QuadTree as QuadTree1;
 // use crate::utils::cmd::{CommandQueue, Command, DataQuery};
 // use bevy::prelude::{CommandQueue, Commands, World};
 use crate::components::user::ClassName;
 
-use self::draw_obj::{DrawObjDefault, CommonBlendState};
+use self::draw_obj::{CommonBlendState, DrawObjDefault};
 
 #[derive(Default, Deref, Resource, Serialize, Deserialize)]
 pub struct ClassSheet(pi_style::style_type::ClassSheet);
@@ -50,7 +49,7 @@ pub struct UserCommandsCache(pub UserCommands);
 pub struct UserCommands {
     /// 节点指令
     pub node_commands: Vec<NodeCommand>,
-	pub fragment_commands: Vec<FragmentCommand>,
+    pub fragment_commands: Vec<FragmentCommand>,
     /// 样式指令
     pub style_commands: StyleCommands,
     // /// 文本指令
@@ -63,8 +62,8 @@ pub struct UserCommands {
     /// single指令
     pub other_commands: CommandQueue,
 
-	#[cfg(feature="debug")]
-	pub other_commands_list: Vec<CmdType>, // 是CommandQueue中元素的枚举形式，便于序列化
+    #[cfg(feature = "debug")]
+    pub other_commands_list: Vec<CmdType>, // 是CommandQueue中元素的枚举形式，便于序列化
 }
 
 impl UserCommands {
@@ -131,18 +130,18 @@ impl UserCommands {
         self.push_cmd(ExtendCssCmd(vec![r]));
     }
 
-	// 添加运行时动画
-	pub fn add_runtime_animation(&mut self, node: Entity, animation: &str, css: &str, scope_hash: usize) {
-		let mut input = cssparser::ParserInput::new(animation);
+    // 添加运行时动画
+    pub fn add_runtime_animation(&mut self, node: Entity, animation: &str, css: &str, scope_hash: usize) {
+        let mut input = cssparser::ParserInput::new(animation);
         let mut parse = cssparser::Parser::new(&mut input);
-		let mut animations = match parse_animation(&mut parse) {
+        let mut animations = match parse_animation(&mut parse) {
             Ok(r) => r,
             Err(e) => {
                 log::warn!("set_default_style_by_str fail, parse style err: {:?}", e);
                 return;
             }
         };
-		animations.name.scope_hash = scope_hash as usize;
+        animations.name.scope_hash = scope_hash as usize;
 
         let css = match parse_class_map_from_string(css, scope_hash as usize) {
             Ok(r) => r,
@@ -151,10 +150,10 @@ impl UserCommands {
                 return;
             }
         };
-		let r = RuntimeAnimationBindCmd(css.key_frames.frames, unsafe {transmute(animations)}, node);
+        let r = RuntimeAnimationBindCmd(css.key_frames.frames, unsafe { transmute(animations) }, node);
 
-		#[cfg(feature="debug")]
-		self.other_commands_list.push(CmdType::RuntimeAnimationBindCmd(r.clone()));
+        #[cfg(feature = "debug")]
+        self.other_commands_list.push(CmdType::RuntimeAnimationBindCmd(r.clone()));
 
         self.push_cmd(r);
     }
@@ -171,90 +170,88 @@ impl UserCommands {
         self.other_commands.push(cmd);
     }
 
-	/// 设置视口
-	pub fn set_view_port(&mut self, node: Entity, cmd: Viewport) {
+    /// 设置视口
+    pub fn set_view_port(&mut self, node: Entity, cmd: Viewport) {
         // println_any!("push_cmd===={:?}", 1);
-		let r = NodeCmd(cmd, node);
+        let r = NodeCmd(cmd, node);
 
-		#[cfg(feature="debug")]
-		self.other_commands_list.push(CmdType::NodeCmdViewport(r.clone()));
-
-        self.other_commands.push(r);
-
-		
-    }
-
-	/// 设置目标类型
-	pub fn set_target_type(&mut self, node: Entity, cmd: RenderTargetType) {
-        // println_any!("push_cmd===={:?}", 1);
-		let r = NodeCmd(cmd, node);
-
-		#[cfg(feature="debug")]
-		self.other_commands_list.push(CmdType::NodeCmdRenderTargetType(r.clone()));
+        #[cfg(feature = "debug")]
+        self.other_commands_list.push(CmdType::NodeCmdViewport(r.clone()));
 
         self.other_commands.push(r);
     }
 
-	/// 设置清屏颜色
-	pub fn set_clear_color(&mut self, node: Entity, cmd: ClearColor) {
-		// println_any!("push_cmd===={:?}", 1);
-		let r = NodeCmd(cmd, node);
+    /// 设置目标类型
+    pub fn set_target_type(&mut self, node: Entity, cmd: RenderTargetType) {
+        // println_any!("push_cmd===={:?}", 1);
+        let r = NodeCmd(cmd, node);
 
-		#[cfg(feature="debug")]
-		self.other_commands_list.push(CmdType::NodeCmdRenderClearColor(r.clone()));
+        #[cfg(feature = "debug")]
+        self.other_commands_list.push(CmdType::NodeCmdRenderTargetType(r.clone()));
 
-		self.other_commands.push(r);
-	}
+        self.other_commands.push(r);
+    }
 
-	/// 设置渲染脏
-	pub fn set_render_dirty(&mut self, node: Entity, cmd: RenderDirty) {
-		// println_any!("push_cmd===={:?}", 1);
-		let r = NodeCmd(cmd, node);
+    /// 设置清屏颜色
+    pub fn set_clear_color(&mut self, node: Entity, cmd: ClearColor) {
+        // println_any!("push_cmd===={:?}", 1);
+        let r = NodeCmd(cmd, node);
 
-		#[cfg(feature="debug")]
-		self.other_commands_list.push(CmdType::NodeCmdRenderRenderDirty(r.clone()));
+        #[cfg(feature = "debug")]
+        self.other_commands_list.push(CmdType::NodeCmdRenderClearColor(r.clone()));
 
-		self.other_commands.push(r);
-	}
+        self.other_commands.push(r);
+    }
 
-	/// 设置几点初始化值
-	pub fn set_node_bundle(&mut self, node: Entity, cmd: NodeBundle) {
-		// println_any!("push_cmd===={:?}", 1);
-		let r = NodeCmd(cmd, node);
+    /// 设置渲染脏
+    pub fn set_render_dirty(&mut self, node: Entity, cmd: RenderDirty) {
+        // println_any!("push_cmd===={:?}", 1);
+        let r = NodeCmd(cmd, node);
 
-		#[cfg(feature="debug")]
-		self.other_commands_list.push(CmdType::NodeCmdRenderNodeBundle(r.clone()));
+        #[cfg(feature = "debug")]
+        self.other_commands_list.push(CmdType::NodeCmdRenderRenderDirty(r.clone()));
 
-		self.other_commands.push(r);
-	}
+        self.other_commands.push(r);
+    }
 
-	/// 添加片段
-	pub fn extend_fragment_bin(&mut self, cmd: ExtendFragmentCmd) {
-		// println_any!("push_cmd===={:?}", 1);
+    /// 设置几点初始化值
+    pub fn set_node_bundle(&mut self, node: Entity, cmd: NodeBundle) {
+        // println_any!("push_cmd===={:?}", 1);
+        let r = NodeCmd(cmd, node);
 
-		#[cfg(feature="debug")]
-		self.other_commands_list.push(CmdType::ExtendFragmentCmd(cmd.clone()));
+        #[cfg(feature = "debug")]
+        self.other_commands_list.push(CmdType::NodeCmdRenderNodeBundle(r.clone()));
 
-		self.other_commands.push(cmd);
-	}
+        self.other_commands.push(r);
+    }
 
-	/// 添加片段
-	pub fn add_css_bin(&mut self, cmd: ExtendCssCmd) {
-		// println_any!("push_cmd===={:?}", 1);
+    /// 添加片段
+    pub fn extend_fragment_bin(&mut self, cmd: ExtendFragmentCmd) {
+        // println_any!("push_cmd===={:?}", 1);
 
-		#[cfg(feature="debug")]
-		self.other_commands_list.push(CmdType::ExtendCssCmd(cmd.clone()));
+        #[cfg(feature = "debug")]
+        self.other_commands_list.push(CmdType::ExtendFragmentCmd(cmd.clone()));
 
-		self.other_commands.push(cmd);
-	}
+        self.other_commands.push(cmd);
+    }
 
-	/// 添加默认样式
-	pub fn add_default_css(&mut self, cmd: DefaultStyleCmd) {
-		#[cfg(feature="debug")]
-		self.other_commands_list.push(CmdType::DefaultStyleCmd(cmd.clone()));
+    /// 添加片段
+    pub fn add_css_bin(&mut self, cmd: ExtendCssCmd) {
+        // println_any!("push_cmd===={:?}", 1);
 
-		self.other_commands.push(cmd);
-	}
+        #[cfg(feature = "debug")]
+        self.other_commands_list.push(CmdType::ExtendCssCmd(cmd.clone()));
+
+        self.other_commands.push(cmd);
+    }
+
+    /// 添加默认样式
+    pub fn add_default_css(&mut self, cmd: DefaultStyleCmd) {
+        #[cfg(feature = "debug")]
+        self.other_commands_list.push(CmdType::DefaultStyleCmd(cmd.clone()));
+
+        self.other_commands.push(cmd);
+    }
 }
 
 /// style设置指令
@@ -277,6 +274,7 @@ pub struct EffectRenderContextMark(bitvec::prelude::BitArray<[u32; 1]>);
 pub trait Effect {}
 impl Effect for MaskImage {}
 impl Effect for ClipPath {}
+impl Effect for AsImage {}
 
 /// 渲染上下文标记分配器，每一种可以使节点成为渲染上下文的属性，都可以让全局单例RenderContextMarkAlloc分配一个id
 #[derive(Debug, Default, Deref, Resource)]
@@ -285,9 +283,9 @@ pub struct RenderContextMarkAlloc(usize);
 /// 渲染上下文类型，每一种可以使节点成为渲染上下文的属性，都对应一个RenderContextMarkType，类型值是在初始化时，找RenderContextMarkAlloc分配的。
 #[derive(Debug, Deref, Clone, Resource)]
 pub struct RenderContextMarkType<T> {
-	#[deref]
-	value: usize,
-	mark: PhantomData<T>,
+    #[deref]
+    value: usize,
+    mark: PhantomData<T>,
 }
 
 impl<T> FromWorld for RenderContextMarkType<T> {
@@ -301,15 +299,15 @@ impl<T> FromWorld for RenderContextMarkType<T> {
         };
         **cur_mark_index += 1;
         Self {
-			value: **cur_mark_index,
-			mark: PhantomData
-		}
+            value: **cur_mark_index,
+            mark: PhantomData,
+        }
     }
 }
 
 impl<T: Effect> FromWorld for RenderContextMarkType<T> {
     fn from_world(world: &mut World) -> Self {
-		world.init_resource::<EffectRenderContextMark>();
+        world.init_resource::<EffectRenderContextMark>();
         let mut cur_mark_index = match world.get_resource_mut::<RenderContextMarkAlloc>() {
             Some(r) => r,
             None => {
@@ -319,15 +317,15 @@ impl<T: Effect> FromWorld for RenderContextMarkType<T> {
         };
 
         **cur_mark_index += 1;
-		let index = **cur_mark_index;
-		// 标记效果类型
-		let mut effect_mark = world.get_resource_mut::<EffectRenderContextMark>().unwrap();
-		effect_mark.set(index, true);
-		
+        let index = **cur_mark_index;
+        // 标记效果类型
+        let mut effect_mark = world.get_resource_mut::<EffectRenderContextMark>().unwrap();
+        effect_mark.set(index, true);
+
         Self {
-			value: index,
-			mark: PhantomData,
-		}
+            value: index,
+            mark: PhantomData,
+        }
     }
 }
 
@@ -362,21 +360,33 @@ impl FromWorld for RenderObjType {
 pub struct TextRenderObjType(RenderObjType);
 impl FromWorld for TextRenderObjType {
     fn from_world(world: &mut World) -> Self {
-		let ty = RenderObjType::from_world(world);
-		DrawObjDefault::add(world, ty, DrawObjDefault{blend_state: CommonBlendState::NORMAL});
-		Self(ty)
-	}
+        let ty = RenderObjType::from_world(world);
+        DrawObjDefault::add(
+            world,
+            ty,
+            DrawObjDefault {
+                blend_state: CommonBlendState::NORMAL,
+            },
+        );
+        Self(ty)
+    }
 }
 
 // 文字阴影渲染类型（在DrawList中分配槽位）
 #[derive(Debug, Deref, Clone, Copy, Resource)]
 pub struct TextShadowRenderObjType(RenderObjType);
 impl FromWorld for TextShadowRenderObjType {
-    fn from_world(world: &mut World) -> Self { 
-		let ty = RenderObjType::from_world(world);
-		DrawObjDefault::add(world, ty, DrawObjDefault{blend_state: CommonBlendState::PREMULTIPLY});
-		Self(ty)
-	}
+    fn from_world(world: &mut World) -> Self {
+        let ty = RenderObjType::from_world(world);
+        DrawObjDefault::add(
+            world,
+            ty,
+            DrawObjDefault {
+                blend_state: CommonBlendState::PREMULTIPLY,
+            },
+        );
+        Self(ty)
+    }
 }
 
 
@@ -384,22 +394,34 @@ impl FromWorld for TextShadowRenderObjType {
 #[derive(Debug, Deref, Clone, Copy, Resource)]
 pub struct BackgroundColorRenderObjType(RenderObjType);
 impl FromWorld for BackgroundColorRenderObjType {
-    fn from_world(world: &mut World) -> Self { 
-		let ty = RenderObjType::from_world(world);
-		DrawObjDefault::add(world, ty, DrawObjDefault{blend_state: CommonBlendState::NORMAL});
-		Self(ty)
-	}
+    fn from_world(world: &mut World) -> Self {
+        let ty = RenderObjType::from_world(world);
+        DrawObjDefault::add(
+            world,
+            ty,
+            DrawObjDefault {
+                blend_state: CommonBlendState::NORMAL,
+            },
+        );
+        Self(ty)
+    }
 }
 
 // 边框颜色渲染类型（在DrawList中分配槽位）
 #[derive(Debug, Deref, Clone, Copy, Resource)]
 pub struct BorderColorRenderObjType(RenderObjType);
 impl FromWorld for BorderColorRenderObjType {
-    fn from_world(world: &mut World) -> Self { 
-		let ty = RenderObjType::from_world(world);
-		DrawObjDefault::add(world, ty, DrawObjDefault{blend_state: CommonBlendState::NORMAL});
-		Self(ty)
-	}
+    fn from_world(world: &mut World) -> Self {
+        let ty = RenderObjType::from_world(world);
+        DrawObjDefault::add(
+            world,
+            ty,
+            DrawObjDefault {
+                blend_state: CommonBlendState::NORMAL,
+            },
+        );
+        Self(ty)
+    }
 }
 
 
@@ -407,44 +429,68 @@ impl FromWorld for BorderColorRenderObjType {
 #[derive(Debug, Deref, Clone, Copy, Resource)]
 pub struct BackgroundImageRenderObjType(RenderObjType);
 impl FromWorld for BackgroundImageRenderObjType {
-    fn from_world(world: &mut World) -> Self { 
-		let ty = RenderObjType::from_world(world);
-		DrawObjDefault::add(world, ty, DrawObjDefault{blend_state: CommonBlendState::NORMAL});
-		Self(ty)
-	}
+    fn from_world(world: &mut World) -> Self {
+        let ty = RenderObjType::from_world(world);
+        DrawObjDefault::add(
+            world,
+            ty,
+            DrawObjDefault {
+                blend_state: CommonBlendState::NORMAL,
+            },
+        );
+        Self(ty)
+    }
 }
 
 // 边框图片渲染类型（在DrawList中分配槽位）
 #[derive(Debug, Deref, Clone, Copy, Resource)]
 pub struct BorderImageRenderObjType(RenderObjType);
 impl FromWorld for BorderImageRenderObjType {
-    fn from_world(world: &mut World) -> Self { 
-		let ty = RenderObjType::from_world(world);
-		DrawObjDefault::add(world, ty, DrawObjDefault{blend_state: CommonBlendState::NORMAL});
-		Self(ty)
-	}
+    fn from_world(world: &mut World) -> Self {
+        let ty = RenderObjType::from_world(world);
+        DrawObjDefault::add(
+            world,
+            ty,
+            DrawObjDefault {
+                blend_state: CommonBlendState::NORMAL,
+            },
+        );
+        Self(ty)
+    }
 }
 
 // 阴影渲染类型（在DrawList中分配槽位）
 #[derive(Debug, Deref, Clone, Copy, Resource)]
 pub struct BoxShadowRenderObjType(RenderObjType);
 impl FromWorld for BoxShadowRenderObjType {
-    fn from_world(world: &mut World) -> Self { 
-		let ty = RenderObjType::from_world(world);
-		DrawObjDefault::add(world, ty, DrawObjDefault{blend_state: CommonBlendState::NORMAL});
-		Self(ty)
-	}
+    fn from_world(world: &mut World) -> Self {
+        let ty = RenderObjType::from_world(world);
+        DrawObjDefault::add(
+            world,
+            ty,
+            DrawObjDefault {
+                blend_state: CommonBlendState::NORMAL,
+            },
+        );
+        Self(ty)
+    }
 }
 
 // canvas渲染类型（在DrawList中分配槽位）
 #[derive(Debug, Deref, Clone, Copy, Resource)]
 pub struct CanvasRenderObjType(RenderObjType);
 impl FromWorld for CanvasRenderObjType {
-    fn from_world(world: &mut World) -> Self { 
-		let ty = RenderObjType::from_world(world);
-		DrawObjDefault::add(world, ty, DrawObjDefault{blend_state: CommonBlendState::PREMULTIPLY});
-		Self(ty)
-	}
+    fn from_world(world: &mut World) -> Self {
+        let ty = RenderObjType::from_world(world);
+        DrawObjDefault::add(
+            world,
+            ty,
+            DrawObjDefault {
+                blend_state: CommonBlendState::PREMULTIPLY,
+            },
+        );
+        Self(ty)
+    }
 }
 
 // 当前时间

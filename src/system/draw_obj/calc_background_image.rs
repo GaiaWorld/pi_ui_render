@@ -1,7 +1,7 @@
 use bevy::ecs::prelude::Entity;
 use bevy::ecs::query::{Changed, Or, With};
 use bevy::ecs::system::{Query, Res};
-use bevy::prelude::{EventReader, DetectChangesMut};
+use bevy::prelude::{DetectChangesMut, EventReader};
 use pi_assets::asset::Handle;
 use pi_atom::Atom;
 use pi_bevy_asset::ShareAssetMgr;
@@ -67,9 +67,9 @@ pub fn calc_background_image(
             let background_image_texture = match &background_image_texture.0 {
                 Some(r) => r,
                 None => {
-					*old_box_type.bypass_change_detection() = BoxType::NotChange;
-					continue;
-				},
+                    *old_box_type.bypass_change_detection() = BoxType::NotChange;
+                    continue;
+                }
             };
             let box_type = modify(
                 layout,
@@ -461,7 +461,6 @@ pub fn push_u_arr(
     }
     push_quad(index_arr, pt1, pt2, p3, p4);
 }
-
 
 
 // 按比例缩放到容器大小，居中显示

@@ -163,10 +163,8 @@ pub fn cal_matrix(
                         &mut event_writer1,
                         layer,
                     );
-					// log::warn!("matrix============={:?}, {:?}, {:?}", id, layout, matrix);
+                    // log::warn!("matrix============={:?}, {:?}, {:?}", id, layout, matrix);
                     *world_matrix = matrix;
-
-					
                 }
                 Err(_) => {}
             };
@@ -200,7 +198,7 @@ pub fn calc_quad(
     event_writer.send(ComponentEvent::new(id));
 
     quad_tree.insert(EntityKey(id), item.clone());
-	log::trace!(target: format!("entity_{:?}", id).as_str(), "calc_quad={:?}", item);
+    log::trace!(target: format!("entity_{:?}", id).as_str(), "calc_quad={:?}", item);
 
     *quad = item;
 }

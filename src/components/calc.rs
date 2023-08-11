@@ -62,9 +62,9 @@ impl Default for LayoutResult {
 /// 内容最大包围盒范围(所有递归子节点的包围盒的最大范围，不包含自身)
 #[derive(Clone, Debug, Serialize, Deserialize, Component)]
 pub struct ContentBox {
-	// 内容包围盒(不包含阴影的扩展)
+    // 内容包围盒(不包含阴影的扩展)
     pub oct: Aabb2,
-	// 布局包围盒（还包含了阴影的扩展）
+    // 布局包围盒（还包含了阴影的扩展）
     pub layout: Aabb2,
 }
 
@@ -123,7 +123,7 @@ impl Default for WorldMatrix {
 }
 
 impl WorldMatrix {
-    pub fn translate(&mut self, x: f32, y: f32, z: f32) -> &mut Self{
+    pub fn translate(&mut self, x: f32, y: f32, z: f32) -> &mut Self {
         if self.1 {
             let r = &*self * WorldMatrix(Matrix4::new_translation(&Vector3::new(x, y, z)), false);
             *self = r;
@@ -133,7 +133,7 @@ impl WorldMatrix {
             slice[13] += slice[5] * y;
             slice[14] += slice[10] * z;
         }
-		self
+        self
     }
 
     pub fn form_transform_funcs(transformfuncs: &TransformFuncs, width: f32, height: f32) -> WorldMatrix {
@@ -161,13 +161,7 @@ impl WorldMatrix {
     //     }
     // }
 
-    pub fn form_transform_layout(
-        all_transform: &AllTransform,
-        origin: &TransformOrigin,
-        width: f32,
-        height: f32,
-        left_top: &Point2,
-    ) -> WorldMatrix {
+    pub fn form_transform_layout(all_transform: &AllTransform, origin: &TransformOrigin, width: f32, height: f32, left_top: &Point2) -> WorldMatrix {
         // M = T * R * S
         // let mut m = cg::Matrix4::new(
         //     1.0, 0.0, 0.0, 0.0,
@@ -183,18 +177,21 @@ impl WorldMatrix {
 
         // 变换前先将transform描述的原点位置移动到父节点的左上角
         let mut m = WorldMatrix(Matrix4::new_translation(&Vector3::new(move_value.x, move_value.y, 0.0)), false);
-		
-		if let Some(scale) = &all_transform.scale {
-			m = m * WorldMatrix(Matrix4::new_nonuniform_scaling(&Vector3::new(scale[0], scale[1], 1.0)), false);
-		}
 
-		if let Some(rotate) = &all_transform.rotate {
-			m = m *  WorldMatrix(Matrix4::new_rotation(Vector3::new(0.0, 0.0, *rotate / 180.0 * std::f32::consts::PI)), true);
-		}
+        if let Some(scale) = &all_transform.scale {
+            m = m * WorldMatrix(Matrix4::new_nonuniform_scaling(&Vector3::new(scale[0], scale[1], 1.0)), false);
+        }
 
-		if let Some(translate) = &all_transform.translate {
-			m.translate(translate[0].get_absolute_value(width), translate[1].get_absolute_value(height), 0.0);
-		}
+        if let Some(rotate) = &all_transform.rotate {
+            m = m * WorldMatrix(
+                Matrix4::new_rotation(Vector3::new(0.0, 0.0, *rotate / 180.0 * std::f32::consts::PI)),
+                true,
+            );
+        }
+
+        if let Some(translate) = &all_transform.translate {
+            m.translate(translate[0].get_absolute_value(width), translate[1].get_absolute_value(height), 0.0);
+        }
 
         // 计算tranform
         for func in all_transform.transform.iter().rev() {
@@ -212,7 +209,10 @@ impl WorldMatrix {
         match func {
             TransformFunc::TranslateX(x) => WorldMatrix(Matrix4::new_translation(&Vector3::new(x.get_absolute_value(width), 0.0, 0.0)), false),
             TransformFunc::TranslateY(y) => WorldMatrix(Matrix4::new_translation(&Vector3::new(0.0, y.get_absolute_value(height), 0.0)), false),
-            TransformFunc::Translate(x, y) => WorldMatrix(Matrix4::new_translation(&Vector3::new(x.get_absolute_value(width), y.get_absolute_value(height), 0.0)), false),
+            TransformFunc::Translate(x, y) => WorldMatrix(
+                Matrix4::new_translation(&Vector3::new(x.get_absolute_value(width), y.get_absolute_value(height), 0.0)),
+                false,
+            ),
 
             TransformFunc::ScaleX(x) => WorldMatrix(Matrix4::new_nonuniform_scaling(&Vector3::new(*x, 1.0, 1.0)), false),
             TransformFunc::ScaleY(y) => WorldMatrix(Matrix4::new_nonuniform_scaling(&Vector3::new(1.0, *y, 1.0)), false),
@@ -473,40 +473,30 @@ impl TransformWillChangeMatrix {
 
 #[derive(Debug, Clone, Default)]
 pub struct TransformWillChangeMatrixInner {
-    pub will_change: WorldMatrix,        // = ParentWorldMatrix * primitive * ParentWorldMatrix逆
+    pub will_change: WorldMatrix, // 节点真实的世界矩阵（即will_change*worldmatrix*顶点=真实的世界坐标位置） = ParentWorldMatrix * primitive * ParentWorldMatrix逆
     pub will_change_invert: WorldMatrix, // will_change 逆
-    pub primitive: WorldMatrix,          // = Parent1.primitive * Parent2.primitive * ... * Transform
+    pub primitive: WorldMatrix,   // = Parent1.WillChangeTransform * Parent2.WillChangeTransform * ... * this.WillChangeTransform
 }
 
 #[derive(Debug, Clone, Default, Component)]
 pub struct MaskTexture(pub Option<Handle<TextureRes>>);
 
 impl Null for MaskTexture {
-    fn null() -> Self {
-        Self(None)
-    }
+    fn null() -> Self { Self(None) }
 
-    fn is_null(&self) -> bool {
-        self.0.is_none()
-    }
+    fn is_null(&self) -> bool { self.0.is_none() }
 }
 
 impl From<Handle<TextureRes>> for MaskTexture {
-    fn from(handle: Handle<TextureRes>) -> Self {
-        MaskTexture(Some(handle))
-    }
+    fn from(handle: Handle<TextureRes>) -> Self { MaskTexture(Some(handle)) }
 }
 
 impl From<Option<Handle<TextureRes>>> for MaskTexture {
-    fn from(handle: Option<Handle<TextureRes>>) -> Self {
-        MaskTexture(handle)
-    }
+    fn from(handle: Option<Handle<TextureRes>>) -> Self { MaskTexture(handle) }
 }
 
 impl From<MaskTexture> for Option<Handle<TextureRes>> {
-    fn from(mask_texture: MaskTexture) -> Self {
-        mask_texture.0
-    }
+    fn from(mask_texture: MaskTexture) -> Self { mask_texture.0 }
 }
 
 #[derive(Deref, Debug, PartialEq, Eq, Hash, Ord, PartialOrd, Copy, Clone, Serialize, Deserialize)]
@@ -597,42 +587,40 @@ pub struct DefineMark(bitvec::prelude::BitArray);
 
 /// 每节点的渲染列表
 #[derive(Deref, Default, Debug, Component, Clone, Serialize, Deserialize)]
-pub struct DrawList(pub SmallVec<[DrawObjId;1]>); // 通常只会有一个DrawObject
+pub struct DrawList(pub SmallVec<[DrawObjId; 1]>); // 通常只会有一个DrawObject
 
 impl DrawList {
-	#[inline]
-	pub fn push(&mut self, ty: RenderObjType, id: Entity) {
-		self.0.push(DrawObjId{ty, id});
-	}
+    #[inline]
+    pub fn push(&mut self, ty: RenderObjType, id: Entity) { self.0.push(DrawObjId { ty, id }); }
 
-	// 取到一个（大部分只有一个drawobj， 少数有多个，如text_shadow）
-	pub fn get_one(&self, ty: RenderObjType) -> Option<&DrawObjId> {
-		for i in 0..self.0.len() {
-			if self.0[i].ty == ty {
-				return Some(&self.0[i]);
-			}
-		}
-		None
-	}
+    // 取到一个（大部分只有一个drawobj， 少数有多个，如text_shadow）
+    pub fn get_one(&self, ty: RenderObjType) -> Option<&DrawObjId> {
+        for i in 0..self.0.len() {
+            if self.0[i].ty == ty {
+                return Some(&self.0[i]);
+            }
+        }
+        None
+    }
 
-	// 移除全部
-	pub fn remove<F: FnMut(DrawObjId)>(&mut self,  ty: RenderObjType, mut cb: F )  {
-		let mut i: usize = 0;
-		while i < self.0.len() {
-			if self.0[i].ty == ty {
-				cb(self.0.swap_remove(i));
-			} else {
-				i += 1;
-			}
-		}
-	}
+    // 移除全部
+    pub fn remove<F: FnMut(DrawObjId)>(&mut self, ty: RenderObjType, mut cb: F) {
+        let mut i: usize = 0;
+        while i < self.0.len() {
+            if self.0[i].ty == ty {
+                cb(self.0.swap_remove(i));
+            } else {
+                i += 1;
+            }
+        }
+    }
 }
 
 /// 节点上握住DrawObj的id
 #[derive(Debug, Component, Clone, Serialize, Deserialize)]
 pub struct DrawObjId {
-	pub ty: RenderObjType,
-	pub id: Entity,
+    pub ty: RenderObjType,
+    pub id: Entity,
 }
 
 /// 视图
@@ -650,13 +638,13 @@ pub struct View {
 #[derive(Clone, Debug)]
 pub struct ViewBox {
     /// 当前节点的可视包围盒
-	/// 其原点位置是对世界原点作本节点旋转变换的逆变换所得
-	/// 如果该节点overflow为**false**
-	/// ---如果当前节点**存在旋转**，则为当前节点的**ContentBox** * 旋转逆矩阵
-	/// ---如果当前节点**不存在旋转**， 则为当前节点**ContentBox** 与 父上下文的ViewBox.aabb相交
-	/// 如果节点overflow为**true**
-	/// ---如果当前节点**存在旋转**，则为当前节点的**布局内容区域** * 旋转逆矩阵
-	/// ---如果当前节点**不存在旋转**， 则为当前节点**布局内容区域** 与 父上下文的ViewBox.aabb相交
+    /// 其原点位置是对世界原点作本节点旋转变换的逆变换所得
+    /// 如果该节点overflow为**false**
+    /// ---如果当前节点**存在旋转**，则为当前节点的**ContentBox.oct * 旋转逆矩阵**
+    /// ---如果当前节点**不存在旋转**， 则为当前节点**ContentBox.oct 与 父上下文的ViewBox.aabb相交**
+    /// 如果节点overflow为**true**
+    /// ---如果当前节点**存在旋转**，则为当前节点的**ContentBox.layout * WorldMatrix * 旋转逆矩阵**
+    /// ---如果当前节点**不存在旋转**， 则为当前节点**ContentBox.layout * WorldMatrix 与 父上下文的ViewBox.aabb相交**
     pub aabb: Aabb2,
     /// 与aabb表示同一个矩形区域，只是原点为世界坐标原点（由于可能存在旋转， 如果原点为世界坐标原点时， 该区域不能用Aabb表示）
     pub world_quad: (Vector2, Vector2, Vector2, Vector2),
@@ -673,25 +661,23 @@ impl Default for ViewBox {
 
 #[derive(Clone, Default, Debug)]
 pub struct OveflowRotate {
-	// 相对于父上下文的旋转
+    // 相对于父上下文的旋转
     pub from_context_rotate: Matrix4<f32>,
-	// 节点相对于世界坐标的渲染
+    // 节点相对于世界坐标的渲染
     pub world_rotate: Matrix4<f32>,
-	// 节点相对于世界坐标的旋转的逆
+    // 节点相对于世界坐标的旋转的逆
     pub world_rotate_invert: Matrix4<f32>,
 }
 
 // 描述oveflow
 #[derive(Clone, Debug)]
 pub enum OverflowDesc {
-	Rotate(OveflowRotate), // 所在节点存在旋转的情况下， 描述旋转信息
-	NoRotate(Aabb2), // 所在节点不存在旋转的情况下，描述自身的aabb
+    Rotate(OveflowRotate), // 所在节点存在旋转的情况下， 描述旋转信息
+    NoRotate(Aabb2),       // 所在节点不存在旋转的情况下，描述自身的aabb
 }
 
 impl Default for OverflowDesc {
-    fn default() -> Self {
-        OverflowDesc::NoRotate(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)))
-    }
+    fn default() -> Self { OverflowDesc::NoRotate(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(0.0, 0.0))) }
 }
 
 /// BorderImageTexture.0只有在设置了图片路径，但纹理还未加载成功的情况下，才会为none

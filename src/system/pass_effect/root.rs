@@ -11,9 +11,9 @@ use pi_bevy_ecs_extend::{
 };
 
 use crate::{
-    components::{calc::RenderContextMark, RootBundle, user::ClearColor},
+    components::{calc::RenderContextMark, user::ClearColor, RootBundle},
     resource::RenderContextMarkType,
-	system::pass::pass_life::render_mark_true,
+    system::pass::pass_life::render_mark_true,
 };
 
 /// 处理根节点
@@ -49,9 +49,9 @@ pub fn root_calc(
     // Root组件添加，为其添加RootBundle
     for (entity, mut render_mark_value, clear_color) in query_set.p0().iter_mut() {
         render_mark_true(entity, ***mark_type, &mut event_writer, &mut render_mark_value);
-		match clear_color {
-			Some(_) => command.entity(entity).insert(RootBundle::default()),
-			None => command.entity(entity).insert((RootBundle::default(), ClearColor::default())),
-		};
+        match clear_color {
+            Some(_) => command.entity(entity).insert(RootBundle::default()),
+            None => command.entity(entity).insert((RootBundle::default(), ClearColor::default())),
+        };
     }
 }

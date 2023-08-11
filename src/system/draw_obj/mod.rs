@@ -12,16 +12,14 @@ use pi_bevy_render_plugin::component::GraphId;
 
 use crate::components::draw_obj::{BackgroundColorMark, BackgroundImageMark, BorderColorMark, BorderImageMark, BoxShadowMark, CanvasMark};
 use crate::components::user::{BackgroundColor, BorderColor, BoxShadow, Canvas};
+use crate::components::{
+    calc::{BackgroundImageTexture, BorderImageTexture},
+    user::{BackgroundImage, BorderImage},
+};
 use crate::resource::draw_obj::{PosUv1VertexLayout, PosUv2VertexLayout, PosVertexLayout};
 use crate::resource::{
     BackgroundColorRenderObjType, BackgroundImageRenderObjType, BorderColorRenderObjType, BorderImageRenderObjType, BoxShadowRenderObjType,
-    CanvasRenderObjType
-};
-use crate::{
-    components::{
-        calc::{BackgroundImageTexture, BorderImageTexture},
-        user::{BackgroundImage, BorderImage},
-    },
+    CanvasRenderObjType,
 };
 
 use self::{calc_background_image::calc_background_image_texture, calc_text::UiTextPlugin};
@@ -38,12 +36,12 @@ pub mod calc_text;
 pub mod image_texture_load;
 pub mod life_drawobj;
 
+pub mod blend_mode;
 pub mod clear_draw_obj;
 pub mod pipeline;
 pub mod root_clear_color;
 pub mod root_view_port;
 pub mod set_world_marix;
-pub mod blend_mode;
 
 pub struct UiReadyDrawPlugin;
 
@@ -55,15 +53,25 @@ impl Plugin for UiReadyDrawPlugin {
             .init_resource::<MaxViewSize>()
             .add_system(root_view_port::calc_dyn_target_type.in_set(UiSystemSet::BaseCalc))
             .add_system(pipeline::calc_node_pipeline.in_set(UiSystemSet::PrepareDrawObj))
-			.add_system(blend_mode::calc_drawobj_blendstate.in_set(UiSystemSet::PrepareDrawObj).before(pipeline::calc_node_pipeline).after(UiSystemSet::LifeDrawObject))
+            .add_system(
+                blend_mode::calc_drawobj_blendstate
+                    .in_set(UiSystemSet::PrepareDrawObj)
+                    .before(pipeline::calc_node_pipeline)
+                    .after(UiSystemSet::LifeDrawObject),
+            )
             // 在世界矩阵之后运行
             .add_system(
                 set_world_marix::set_matrix_group
                     .in_set(UiSystemSet::BaseCalc)
                     .after(crate::system::node::world_matrix::cal_matrix),
             )
-            .add_system(root_clear_color::clear_change.run_if(render_run).after(UiSystemSet::PassFlush).after(UiSystemSet::PassCalc))
-            .add_system(root_view_port::view_port_change.in_set(UiSystemSet::PrepareDrawObj))
+            .add_system(
+                root_clear_color::clear_change
+                    .run_if(render_run)
+                    .after(UiSystemSet::PassFlush)
+                    .after(UiSystemSet::PassCalc),
+            )
+            // .add_system(root_view_port::view_port_change.in_set(UiSystemSet::PrepareDrawObj))
             .init_resource::<EmptyVertexBuffer>()
             // BackgroundImage功能
             .add_frame_event::<ComponentEvent<Changed<BackgroundImageTexture>>>()
@@ -90,8 +98,8 @@ impl Plugin for UiReadyDrawPlugin {
                     .after(super::node::layout::calc_layout)
                     .in_set(UiSystemSet::PrepareDrawObj)
                     .before(set_matrix_group)
-					.before(blend_mode::calc_drawobj_blendstate)
-					.before(calc_border_radius::calc_border_radius),
+                    .before(blend_mode::calc_drawobj_blendstate)
+                    .before(calc_border_radius::calc_border_radius),
             )
             // 文字功能
             .add_plugin(UiTextPlugin)
@@ -114,8 +122,8 @@ impl Plugin for UiReadyDrawPlugin {
                     .after(super::node::layout::calc_layout)
                     .in_set(UiSystemSet::PrepareDrawObj)
                     .before(set_matrix_group)
-					.before(blend_mode::calc_drawobj_blendstate)
-					.before(calc_border_radius::calc_border_radius),
+                    .before(blend_mode::calc_drawobj_blendstate)
+                    .before(calc_border_radius::calc_border_radius),
             )
             // BorderColor功能
             .add_frame_event::<ComponentEvent<Changed<BorderColor>>>()
@@ -135,8 +143,8 @@ impl Plugin for UiReadyDrawPlugin {
                     .after(super::node::layout::calc_layout)
                     .in_set(UiSystemSet::PrepareDrawObj)
                     .before(set_matrix_group)
-					.before(blend_mode::calc_drawobj_blendstate)
-					.before(calc_border_radius::calc_border_radius),
+                    .before(blend_mode::calc_drawobj_blendstate)
+                    .before(calc_border_radius::calc_border_radius),
             )
             // BorderImage功能
             .add_frame_event::<ComponentEvent<Changed<BorderImageTexture>>>()
@@ -158,7 +166,7 @@ impl Plugin for UiReadyDrawPlugin {
                     .after(super::node::layout::calc_layout)
                     .in_set(UiSystemSet::PrepareDrawObj)
                     .before(set_matrix_group)
-					.before(calc_border_radius::calc_border_radius),
+                    .before(calc_border_radius::calc_border_radius),
             )
             // BoxShadow功能
             .add_frame_event::<ComponentEvent<Changed<BoxShadow>>>()
@@ -178,7 +186,7 @@ impl Plugin for UiReadyDrawPlugin {
                     .after(super::node::layout::calc_layout)
                     .in_set(UiSystemSet::PrepareDrawObj)
                     .before(set_matrix_group)
-					.before(calc_border_radius::calc_border_radius),
+                    .before(calc_border_radius::calc_border_radius),
             )
             // canvas功能
             .add_frame_event::<ComponentEvent<Changed<Canvas>>>()
@@ -194,9 +202,11 @@ impl Plugin for UiReadyDrawPlugin {
                     .in_set(UiSystemSet::LifeDrawObject),
             )
             .add_system(
-				calc_canvas::calc_canvas.in_set(UiSystemSet::PrepareDrawObj)
-				.before(set_matrix_group)
-				.before(calc_border_radius::calc_border_radius))
+                calc_canvas::calc_canvas
+                    .in_set(UiSystemSet::PrepareDrawObj)
+                    .before(set_matrix_group)
+                    .before(calc_border_radius::calc_border_radius),
+            )
             .add_system(
                 calc_border_radius::calc_border_radius
                     .in_set(UiSystemSet::PrepareDrawObj)

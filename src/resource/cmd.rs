@@ -15,15 +15,25 @@ use pi_atom::Atom;
 use pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent;
 use pi_hash::XHashMap;
 use pi_print_any::out_any;
-use pi_style::{style_parse::{Attribute, ClassItem, ClassMap, KeyFrameList}};
-use serde::{Serialize, Deserialize};
+use pi_style::style_parse::{Attribute, ClassItem, ClassMap, KeyFrameList};
+use serde::{Deserialize, Serialize};
 
 use crate::{
-    components::{user::{serialize::{DefaultStyle, StyleTypeReader}, Animation, Viewport, RenderTargetType, ClearColor, RenderDirty, Canvas}, NodeBundle},
+    components::{
+        user::{
+            serialize::{DefaultStyle, StyleTypeReader},
+            Animation, Canvas, ClearColor, RenderDirty, RenderTargetType, Viewport,
+        },
+        NodeBundle,
+    },
     resource::animation_sheet::KeyFramesSheet,
 };
 
-use super::{ClassSheet, animation_sheet::ObjKey, fragment::{FragmentMap, Fragments}};
+use super::{
+    animation_sheet::ObjKey,
+    fragment::{FragmentMap, Fragments},
+    ClassSheet,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DefaultStyleCmd(pub VecDeque<Attribute>);
@@ -77,7 +87,7 @@ impl Command for ExtendCssCmd {
 pub struct ExtendFragmentCmd(pub Fragments);
 impl Command for ExtendFragmentCmd {
     fn write(self, world: &mut World) {
-		let mut fragment_map = world.get_resource_mut::<FragmentMap>().unwrap();
+        let mut fragment_map = world.get_resource_mut::<FragmentMap>().unwrap();
         fragment_map.extend(self.0);
     }
 }
@@ -116,13 +126,13 @@ impl<T: Component> Command for ComponentCmd<T> {
 pub struct RuntimeAnimationBindCmd(pub XHashMap<Atom, XHashMap<NotNan<f32>, VecDeque<Attribute>>>, pub Animation, pub Entity);
 impl Command for RuntimeAnimationBindCmd {
     fn write(mut self, world: &mut World) {
-		if world.get_entity(self.2).is_some() {
-			let mut sheet = world.get_resource_mut::<KeyFramesSheet>().unwrap();
-			self.1.name.scope_hash = self.2.index() as usize; // 因为每个运行时动画是节点独有的，以节点的index作为scope_hash(不能同时有两个index相等的实体)
-			let _ = sheet.add_runtime_keyframes(ObjKey(self.2), &self.1, self.0);
-			world.entity_mut(self.2).insert(self.1);
-		}
-	}
+        if world.get_entity(self.2).is_some() {
+            let mut sheet = world.get_resource_mut::<KeyFramesSheet>().unwrap();
+            self.1.name.scope_hash = self.2.index() as usize; // 因为每个运行时动画是节点独有的，以节点的index作为scope_hash(不能同时有两个index相等的实体)
+            let _ = sheet.add_runtime_keyframes(ObjKey(self.2), &self.1, self.0);
+            world.entity_mut(self.2).insert(self.1);
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -141,24 +151,24 @@ pub enum NodeCommand {
 /// 创建模板（作用该指令时， 注意检查entitys的长度和模板实际的长度是否相等）
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FragmentCommand {
-	pub key: u32, // 模板的key
-	pub entitys: Vec<Entity>, // 模板对应的实体
+    pub key: u32,             // 模板的key
+    pub entitys: Vec<Entity>, // 模板对应的实体
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum CmdType {
-	RuntimeAnimationBindCmd(RuntimeAnimationBindCmd),
-	ComponentCmd(ComponentCmd<Canvas>),
+    RuntimeAnimationBindCmd(RuntimeAnimationBindCmd),
+    ComponentCmd(ComponentCmd<Canvas>),
 
-	NodeCmdViewport(NodeCmd<Viewport>),
-	NodeCmdRenderTargetType(NodeCmd<RenderTargetType>),
-	NodeCmdRenderClearColor(NodeCmd<ClearColor>),
-	NodeCmdRenderRenderDirty(NodeCmd<RenderDirty>),
-	NodeCmdRenderNodeBundle(NodeCmd<NodeBundle>),
+    NodeCmdViewport(NodeCmd<Viewport>),
+    NodeCmdRenderTargetType(NodeCmd<RenderTargetType>),
+    NodeCmdRenderClearColor(NodeCmd<ClearColor>),
+    NodeCmdRenderRenderDirty(NodeCmd<RenderDirty>),
+    NodeCmdRenderNodeBundle(NodeCmd<NodeBundle>),
 
-	ExtendFragmentCmd(ExtendFragmentCmd),
-	ExtendCssCmd(ExtendCssCmd),
-	DefaultStyleCmd(DefaultStyleCmd),
+    ExtendFragmentCmd(ExtendFragmentCmd),
+    ExtendCssCmd(ExtendCssCmd),
+    DefaultStyleCmd(DefaultStyleCmd),
 }
 
 // #[derive(Clone)]

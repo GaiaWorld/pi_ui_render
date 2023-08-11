@@ -39,7 +39,7 @@ use crate::{
         pass_2d::{Camera, ChildrenPass, ParentPassId, PostProcessInfo},
         PassBundle,
     },
-    resource::{RenderContextMarkType, EffectRenderContextMark},
+    resource::{EffectRenderContextMark, RenderContextMarkType},
 };
 
 /// 记录RenderContext添加和删除的脏，同时记录节点添加到树上的脏
@@ -49,7 +49,12 @@ pub fn cal_context(
     // mut layer_dirty: Local<LayerDirty<Entity>>,
     mut context_mark1: ParamSet<(
         Query<(Entity, &RenderContextMark, Option<&Camera>)>,
-        Query<(&mut InPassId, Ref<RenderContextMark>, Option<&mut ParentPassId>, Option<&mut PostProcessInfo>)>,
+        Query<(
+            &mut InPassId,
+            Ref<RenderContextMark>,
+            Option<&mut ParentPassId>,
+            Option<&mut PostProcessInfo>,
+        )>,
         Query<&mut InPassId>,
     )>,
     // idtree: EntityTree,
@@ -59,7 +64,7 @@ pub fn cal_context(
     mut event_reader: EventReader<ComponentEvent<Changed<RenderContextMark>>>,
     mut event_writer: EventWriter<ComponentEvent<Changed<ParentPassId>>>,
     mut layer_dirty: LayerDirty<Changed<Layer>>,
-	effect_mark: Res<EffectRenderContextMark>,
+    effect_mark: Res<EffectRenderContextMark>,
     // mut layer_change: EventReader<ComponentEvent<Changed<Layer>>>,
 ) {
     // layer_dirty.clear();
@@ -108,13 +113,13 @@ pub fn cal_context(
                 // 删除后，其子节点的in_pass_id修改为parent_context_id
                 parent_context_id.0
             } else if mark.any() {
-				//  post_info
-                // log::warn!("pass======node: {:?}, parent_context_id: {:?}", *node, parent_context_id);
+                //  post_info
+                // log::debug!("pass======node: {:?}, parent_context_id: {:?}, effect_mark{:?} {:?}, {:?}", node, parent_context_id, **effect_mark & **mark, mark, **effect_mark);
                 match parent_pass_id {
                     None => {
-						let mut bundle = PassBundle::new(*parent_context_id);
-						bundle.post_list_info.effect_mark = bundle.post_list_info.effect_mark | (**effect_mark & **mark);
-                        pass_2d_init.push((node, bundle ));
+                        let mut bundle = PassBundle::new(*parent_context_id);
+                        bundle.post_list_info.effect_mark = bundle.post_list_info.effect_mark | (**effect_mark & **mark);
+                        pass_2d_init.push((node, bundle));
                         // 父的
                         event_writer.send(ComponentEvent::new(node));
                     }
@@ -124,10 +129,10 @@ pub fn cal_context(
                             event_writer.send(ComponentEvent::new(node));
                         }
 
-						if let Some(mut info) = post_info {
-							let effect = **effect_mark & **mark;
-							info.effect_mark = info.effect_mark & **mark | effect;
-						}
+                        if let Some(mut info) = post_info {
+                            let effect = **effect_mark & **mark;
+                            info.effect_mark = info.effect_mark & **mark | effect;
+                        }
                     }
                 };
                 // 修改in_pass_id为当前Pass2D
@@ -216,7 +221,7 @@ pub fn pass_mark<T: Component + NeedMark>(
 
     for (entity, value, mut render_mark_value) in query_set.p0().iter_mut() {
         if value.need_mark() {
-			// log::warn!("pass_mark====================={:?}, {:?}", entity, std::any::type_name::<T>());
+            // log::warn!("pass_mark====================={:?}, {:?}", entity, std::any::type_name::<T>());
             render_mark_true(entity, ***mark_type, &mut event_writer, &mut render_mark_value);
         } else {
             render_mark_false(entity, ***mark_type, &mut event_writer, &mut render_mark_value);

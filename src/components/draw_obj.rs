@@ -3,7 +3,10 @@
 use std::hash::{Hash, Hasher};
 
 
-use crate::resource::{draw_obj::{PipelineStateWithHash, ProgramMetaInner, VertexBufferLayoutWithHash}, RenderObjType};
+use crate::resource::{
+    draw_obj::{PipelineStateWithHash, ProgramMetaInner, VertexBufferLayoutWithHash},
+    RenderObjType,
+};
 use bevy::ecs::prelude::Component;
 use pi_atom::Atom;
 use pi_hash::XHashSet;
@@ -20,9 +23,9 @@ pub struct DrawState(DrawState1);
 /// 是否使用单位四边形渲染
 #[derive(EnumDefault, PartialEq, Eq, Component)]
 pub enum BoxType {
-	/// 渲染为content区，顶部不是单位四边形，世界矩阵需要调整到不变换
-	ContentRect,
-	/// 渲染为padding区，世界矩阵不变换
+    /// 渲染为content区，顶部不是单位四边形，世界矩阵需要调整到不变换
+    ContentRect,
+    /// 渲染为padding区，世界矩阵不变换
     PaddingNone,
     /// 渲染为content区，世界矩阵不变换
     ContentNone,
@@ -30,15 +33,15 @@ pub enum BoxType {
     BorderNone,
     /// 渲染为content区，世界矩阵需要变换(此时顶点流是单位四边形)
     ContentUnitRect,
-	/// 渲染为padding区，世界矩阵需要变换(此时顶点流是单位四边形)
+    /// 渲染为padding区，世界矩阵需要变换(此时顶点流是单位四边形)
     PaddingUnitRect,
     /// 渲染为border区，世界矩阵需要变换(此时顶点流是单位四边形)
     BorderUnitRect,
     /// 渲染为边框部分
     Border,
-	/// 不变（由于像背景图这一类的渲染， 需要异步加载资源， 在资源未成功加载之前， 所有的渲染属性都不应该改变， 否则可能出现混乱）
-	/// 例如， 一个动画会修改图片路径和位置两种属性， 但如果某一帧图片未加载成功， 那么渲染应该保持不变， 而不应该在此时修改位置
-	NotChange,
+    /// 不变（由于像背景图这一类的渲染， 需要异步加载资源， 在资源未成功加载之前， 所有的渲染属性都不应该改变， 否则可能出现混乱）
+    /// 例如， 一个动画会修改图片路径和位置两种属性， 但如果某一帧图片未加载成功， 那么渲染应该保持不变， 而不应该在此时修改位置
+    NotChange,
 }
 
 // /// vs shader的宏开关
@@ -79,10 +82,10 @@ pub enum BoxType {
 
 #[derive(Clone, Component)]
 pub struct PipelineMeta {
-	// 类型标记（如文字、图片、颜色等，它们属于不同的类型，用一个数字代表每个不同的类型）
-	// 可以通过该类型标记动态地映射到该类型特有的属性值
-	// 比如，可以映射到canvas的默认混合模式
-	pub type_mark: RenderObjType, 
+    // 类型标记（如文字、图片、颜色等，它们属于不同的类型，用一个数字代表每个不同的类型）
+    // 可以通过该类型标记动态地映射到该类型特有的属性值
+    // 比如，可以映射到canvas的默认混合模式
+    pub type_mark: RenderObjType,
     pub program: Share<ProgramMetaInner>,
     pub state: Share<PipelineStateWithHash>,
     pub vert_layout: Share<VertexBufferLayoutWithHash>,

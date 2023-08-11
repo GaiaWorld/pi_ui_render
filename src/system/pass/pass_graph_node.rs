@@ -7,7 +7,7 @@ use bevy::ecs::{
     world::World,
 };
 use pi_assets::asset::Handle;
-use pi_bevy_asset::ShareAssetMgr;
+use pi_bevy_asset::{ShareAssetMgr, ShareHomogeneousMgr};
 use pi_bevy_ecs_extend::{
     prelude::{Layer, OrDefault},
     system_param::res::OrInitRes,
@@ -49,10 +49,13 @@ use crate::{
     components::{
         calc::{EntityKey, NodeId, Quad},
         draw_obj::{ClearColorBindGroup, CopyFboToScreen, DrawState, DynTargetType},
-        pass_2d::{Camera, Draw2DList, DrawIndex, GraphId, ParentPassId, PostProcess, PostProcessInfo, RenderTarget, ScreenTarget},
-        user::{Aabb2, Point2, RenderTargetType},
+        pass_2d::{CacheTarget, Camera, Draw2DList, DrawIndex, GraphId, ParentPassId, PostProcess, PostProcessInfo, RenderTarget, ScreenTarget},
+        user::{Aabb2, AsImage, Point2, RenderTargetType},
     },
-    resource::draw_obj::{ClearDrawObj, CommonSampler, DynFboClearColorBindGroup, PostBindGroupLayout},
+    resource::{
+        draw_obj::{ClearDrawObj, CommonSampler, DepthCache, DynFboClearColorBindGroup, PostBindGroupLayout},
+        RenderContextMarkType,
+    },
     shader::{
         camera::CameraBind,
         depth::DepthBind,
@@ -92,10 +95,21 @@ pub struct QueryParam<'w, 's> {
     >,
     pass2d_query: (
         Query<'w, 's, &'static Layer, With<Camera>>,
-        Query<'w, 's, (&'static Camera, &'static Draw2DList, &'static ParentPassId, Option<&'static ClearColorBindGroup>)>,
+        Query<
+            'w,
+            's,
+            (
+                &'static Camera,
+                &'static Draw2DList,
+                &'static ParentPassId,
+                Option<&'static ClearColorBindGroup>,
+                &'static RenderTarget,
+                Option<&'static AsImage>,
+            ),
+        >,
         Query<'w, 's, (&'static PostProcess, &'static PostProcessInfo, &'static GraphId)>,
-		Query<'w, 's, (&'static PostProcess, &'static GraphId, &'static NodeId)>,
-		Query<'w, 's, &'static PostProcessInfo>,
+        Query<'w, 's, (&'static PostProcess, &'static GraphId, &'static NodeId)>,
+        Query<'w, 's, &'static PostProcessInfo>,
     ),
     draw_query: Query<'w, 's, (&'static DrawState, &'static NodeId, Option<&'static GraphId>)>,
     node_query: Query<'w, 's, &'static Quad>,
@@ -113,6 +127,10 @@ pub struct QueryParam<'w, 's> {
     fbo_clear_color: Res<'w, DynFboClearColorBindGroup>,
     clear_draw: Res<'w, ClearDrawObj>,
     common_sampler: Res<'w, CommonSampler>,
+
+    cache_target: Res<'w, ShareHomogeneousMgr<CacheTarget>>,
+    as_image_mark_type: OrInitRes<'w, RenderContextMarkType<AsImage>>,
+    depth_cache: OrInitRes<'w, DepthCache>,
 }
 
 // vballocator: &mut VertexBufferAllocator,
@@ -122,13 +140,24 @@ pub struct QueryParam<'w, 's> {
 
 
 pub struct Param<'w, 's> {
-    pass2d_query: Query<'w, 's, (&'static Camera, &'static Draw2DList, &'static ParentPassId, Option<&'static ClearColorBindGroup>)>,
+    pass2d_query: Query<
+        'w,
+        's,
+        (
+            &'static Camera,
+            &'static Draw2DList,
+            &'static ParentPassId,
+            Option<&'static ClearColorBindGroup>,
+            &'static RenderTarget,
+            Option<&'static AsImage>,
+        ),
+    >,
     draw_query: Query<'w, 's, (&'static DrawState, &'static NodeId, Option<&'static GraphId>)>,
     node_query: Query<'w, 's, &'static Quad>,
     // graph_id_query: Query<'w, 's, &'static GraphId>,
     post_query: Query<'w, 's, (&'static PostProcess, &'static PostProcessInfo, &'static GraphId)>,
-	draw_post_query: Query<'w, 's, (&'static PostProcess, &'static GraphId, &'static NodeId)>,
-	draw_post_info: Query<'w, 's, &'static PostProcessInfo>,
+    draw_post_query: Query<'w, 's, (&'static PostProcess, &'static GraphId, &'static NodeId)>,
+    draw_post_info: Query<'w, 's, &'static PostProcessInfo>,
     screen: Res<'s, ScreenTarget>,
     atlas_allocator: Res<'s, PiSafeAtlasAllocator>,
     bind_group_assets: Res<'s, ShareAssetMgr<RenderRes<BindGroup>>>,
@@ -151,6 +180,10 @@ pub struct Param<'w, 's> {
     queue: &'s RenderQueue,
     clear_color_group: Option<&'s ClearColorBindGroup>,
     surface: &'s ScreenTexture,
+
+    cache_target: Res<'w, ShareHomogeneousMgr<CacheTarget>>,
+    as_image_mark_type: OrInitRes<'w, RenderContextMarkType<AsImage>>,
+    depth_cache: &'s DepthCache,
 }
 
 // last_rt_type: RenderTargetType,
@@ -186,27 +219,40 @@ impl Node for Pass2DNode {
         mut commands: ShareRefCell<CommandEncoder>,
         input: &'a Self::Input,
         _usage: &'a ParamUsage,
+        _id: GraphNodeId,
+        _from: &'a [GraphNodeId],
+        _to: &'a [GraphNodeId],
         // context: RenderContext,
         // mut commands: ShareRefCell<CommandEncoder>,
         // inputs: &'a [Self::Output],
     ) -> BoxFuture<'a, Result<Self::Output, String>> {
-        let RenderContext { device, queue,.. } = context;
+        let RenderContext { device, queue, .. } = context;
 
         let pass2d_id = self.pass2d_id;
 
         Box::pin(async move {
             let query_param = query_param_state.get(world);
-			log::trace!(target: format!("entity_{:?}", pass2d_id).as_str(), "run graph node");
+            log::trace!(target: format!("entity_{:?}", pass2d_id).as_str(), "run graph node");
             // log::warn!("run1======{:?}", pass2d_id);
             let layer = match query_param.pass2d_query.0.get(pass2d_id) {
                 Ok(r) if r.layer() > 0 => r.clone(),
-                _ => return Ok(SimpleInOut { target: None }),
+                _ => {
+                    return Ok(SimpleInOut {
+                        target: None,
+                        valid_rect: None,
+                    })
+                }
             };
             // log::warn!("run2======{:?}", pass2d_id);
 
             let surface = match &**query_param.surface {
                 Some(r) => r,
-                _ => return Ok(SimpleInOut { target: None }),
+                _ => {
+                    return Ok(SimpleInOut {
+                        target: None,
+                        valid_rect: None,
+                    })
+                }
             };
 
 
@@ -221,7 +267,12 @@ impl Node for Pass2DNode {
                         unsafe { transmute(r.4) },
                         // r.5.map_or(ClearColor(CgColor::new(0.0, 0.0, 0.0, 1.0), false), |r| r.clone()),
                     ),
-                    _ => return Ok(SimpleInOut { target: None }),
+                    _ => {
+                        return Ok(SimpleInOut {
+                            target: None,
+                            valid_rect: None,
+                        })
+                    }
                 }
             };
             // log::warn!("run4======{:?}", pass2d_id);
@@ -231,8 +282,8 @@ impl Node for Pass2DNode {
                 draw_query: query_param.draw_query,
                 post_query: query_param.pass2d_query.2,
                 node_query: query_param.node_query,
-				draw_post_query: query_param.pass2d_query.3,
-				draw_post_info: query_param.pass2d_query.4,
+                draw_post_query: query_param.pass2d_query.3,
+                draw_post_info: query_param.pass2d_query.4,
                 // graph_id_query: query_param.graph_id_query,
                 last_rt: last_rt,
                 last_rt_type,
@@ -254,192 +305,241 @@ impl Node for Pass2DNode {
                 clear_color_group,
                 clear_draw: query_param.clear_draw,
                 common_sampler: query_param.common_sampler,
+                cache_target: query_param.cache_target,
+                as_image_mark_type: query_param.as_image_mark_type,
+                depth_cache: &query_param.depth_cache,
             };
 
             let post_list = param.post_query.get(pass2d_id);
-            let mut out = None;
+            let mut out = SimpleInOut {
+                target: None,
+                valid_rect: None,
+            };
 
 
-            if let Ok((camera, list, parent_pass2d_id, clear_group)) = param.pass2d_query.get(pass2d_id) {
-                // log::warn!("run5======{:?}, {:?}, {:?}", pass2d_id, list.transparent, list.opaque);
-				// log::warn!("run graph4==============, pass2d_id: {:?}, input count: {}, opaque: {}, transparent: {}, is_active: {:?}, opaque_list: {:?}, transparent_list: {:?}, view_port: {:?}", pass2d_id, input.0.len(), list.opaque.len(), list.transparent.len(), camera.is_active, &list.opaque, &list.transparent, &camera.view_port);
+            if let Ok((camera, list, parent_pass2d_id, clear_group, render_target, as_image)) = param.pass2d_query.get(pass2d_id) {
+                // SAFE: 保证渲染图并行时不会访问同时访问同一个实体的renderTarget，这里的转换是安全的
+                let render_target = unsafe { &mut *(render_target as *const RenderTarget as usize as *mut RenderTarget) };
+                // log::warn!("run5======{:?}, {:?}, {:?}, {:?}", pass2d_id, list.transparent, list.opaque, &render_target.bound_box);
+                // log::warn!("run graph4==============, pass2d_id: {:?}, input count: {}, opaque: {}, transparent: {}, is_active: {:?}, is_changed: {:?}, opaque_list: {:?}, transparent_list: {:?}, view_port: {:?}, render_target: {:?}", pass2d_id, input.0.len(), list.opaque.len(), list.transparent.len(), camera.is_active, camera.is_change, &list.opaque, &list.transparent, &camera.view_port, &render_target.target);
                 log::trace!(target: format!("entity_{:?}", pass2d_id).as_str(), "run graph node1, input count: {}, opaque: {}, transparent: {}, is_active: {:?}, opaque_list: {:?}, transparent_list: {:?}, view_port: {:?}", input.0.len(), list.opaque.len(), list.transparent.len(), camera.is_active, &list.opaque, &list.transparent, &camera.view_port);
-
-                if camera.is_active && (list.opaque.len() > 0 || list.transparent.len() > 0) {
-                    let (rt, clear_color) = match post_list {
-                        // 渲染类型为新建渲染目标对其进行渲染，则从纹理分配器中分配一个fbo矩形区
-                        Ok(r) => {
-                            let has_effect = r.1.has_effect();
-                            if has_effect {
-                                (
-                                    // has_effect,
-                                    Some(param.atlas_allocator.allocate(
-                                        (camera.view_port.maxs.x - camera.view_port.mins.x).ceil() as u32,
-                                        (camera.view_port.maxs.y - camera.view_port.mins.y).ceil() as u32,
-                                        param.t_type.has_depth,
-                                        input.0.values(),
-                                    )),
-                                    // Some((
-                                    // 	(camera.view_port.maxs.x - camera.view_port.mins.x).ceil() as u32,
-                                    // 	(camera.view_port.maxs.y - camera.view_port.mins.y).ceil() as u32,
-                                    // 	param.t_type.has_depth,
-                                    // )),
-                                    Some(&param.fbo_clear_color.0),
-                                )
-                            } else {
-                                if parent_pass2d_id.is_null() {
-                                    out = param.last_rt.0.clone();
-                                    // 如果没有设置任何一个后处理效果，且不存在父节点，渲染到最终目标上(返回渲染目标为None)，并且清屏色为用户设置的清屏色
-                                    (
-                                        None,
-                                        // has_effect,
-                                        match clear_group {
-                                            Some(r) => r.0.as_ref(),
-                                            None => None,
-                                        },
-                                    )
+                if camera.is_active {
+                    let mut render_to_fbo = false;
+                    let (offsetx, offsety) = (
+                        render_target.bound_box.mins.x - camera.view_port.mins.x,
+                        render_target.bound_box.mins.y - camera.view_port.mins.y,
+                    );
+                    let (view_port_w, view_port_h) = (
+                        camera.view_port.maxs.x - camera.view_port.mins.x,
+                        camera.view_port.maxs.y - camera.view_port.mins.y,
+                    );
+                    if list.opaque.len() > 0 || list.transparent.len() > 0 {
+                        let ttt;
+                        let (rt, clear_color) = match post_list {
+                            // 渲染类型为新建渲染目标对其进行渲染，则从纹理分配器中分配一个fbo矩形区
+                            Ok(r) => {
+                                if parent_pass2d_id.is_null() && !r.1.has_effect() && RenderTargetType::Screen == param.last_rt_type {
+                                    // 如果是根节点，并且不存在effect， 直接渲染到屏幕
+                                    // 根节点应该有个组件，表明是否渲染到屏幕， 如果不渲染到屏幕，则渲染到临时fbo并输出（TODO）
+                                    (RenderPassTarget::Screen(&param.surface, &param.screen), &param.fbo_clear_color.0)
                                 } else {
-                                    // 如果后处理为None， 并且存在父节点，不进行渲染（可能由父节点对它进行渲染）
-                                    return Ok(SimpleInOut { target: None });
+                                    // log::warn!("fbo============{:?}", );
+                                    // 否则渲染到临时fbo上
+                                    match render_target.get_or_create(
+                                        camera,
+                                        &param.atlas_allocator,
+                                        as_image,
+                                        &param.cache_target,
+                                        &param.as_image_mark_type,
+                                        &r.1,
+                                        &param.t_type,
+                                        16 * 1024 * 1024, // 默认最多缓存16M的target，可配置？TODO
+                                        input.0.values(),
+                                        parent_pass2d_id.is_null(),
+                                    ) {
+                                        Some(r) => {
+                                            render_to_fbo = true;
+                                            ttt = r;
+                                            (RenderPassTarget::Fbo(&ttt), &param.fbo_clear_color.0)
+                                        }
+                                        None => {
+                                            // 不进行渲染（可能由父节点对它进行渲染）
+                                            return Ok(SimpleInOut {
+                                                target: None,
+                                                valid_rect: None,
+                                            });
+                                        }
+                                    }
                                 }
                             }
-                        }
-                        _ => {
-                            // 应该不会进入该分支
-                            return Ok(SimpleInOut { target: None });
-                        }
-                    };
+                            _ => {
+                                // 应该不会进入该分支
+                                return Ok(SimpleInOut {
+                                    target: None,
+                                    valid_rect: None,
+                                });
+                            }
+                        };
 
-                    {
-                        let input_groups = Vec::with_capacity(input.0.len());
-                        let post_draw = Vec::with_capacity(input.0.len());
-                        // 创建一个渲染Pass
-                        let (mut rp, view_port, clear_port) = create_rp(
-                            rt.as_ref(),
-                            commands.borrow_mut(),
-                            &camera.view_port,
-                            &param.last_rt,
-                            None,
-                            param.surface,
-                            None,
-                        );
+                        let (offset, view_port) = {
+                            let input_groups = Vec::with_capacity(input.0.len());
+                            let post_draw = Vec::with_capacity(input.0.len());
+                            // 创建一个渲染Pass
+                            let (mut rp, view_port, clear_port, offset) = create_rp(
+                                rt.clone(),
+                                commands.borrow_mut(),
+                                &camera.view_port,
+                                &render_target.bound_box,
+                                Some(wgpu::Operations {
+                                    load: wgpu::LoadOp::Clear(wgpu::Color {
+                                        r: 0.0,
+                                        g: 0.0,
+                                        b: 0.0,
+                                        a: 1.0,
+                                    }),
+                                    store: true,
+                                }), // TODO，外部设置
+                            );
 
-                        
-                        // 清屏
-                        if let Some(clear_color) = clear_color {
-							// 设置视口
-							rp.set_viewport(clear_port.0, clear_port.1, clear_port.2, clear_port.3, 0.0, 1.0);
-							clear_color.0.set(&mut rp, UiMaterialBind::set());
-							clear_color.1.set(&mut rp, DepthBind::set());
+
+                            // 清屏
+                            // if let Some(clear_color) = clear_color {
+                            // fbo总是需要使用draw的方式清屏，如果是根节点，直接绘制到屏幕，就不需要使用这种方式清屏
+                            // if !parent_pass2d_id.is_null() {
+                            // 设置视口
+                            rp.set_viewport(clear_port.0, clear_port.1, clear_port.2, clear_port.3, 0.0, 1.0);
+                            clear_color.set(&mut rp, UiMaterialBind::set());
+                            param.depth_cache.list[0].set(&mut rp, DepthBind::set()); // 清屏所用深度总用0
                             param.clear_draw.0.draw(&mut rp);
                             // 相机在drawObj中已经描述
-                        }
-						// log::warn!("set_viewport============={:?}", view_port);
-						// 设置视口
-                        rp.set_viewport(view_port.0, view_port.1, view_port.2, view_port.3, 0.0, 1.0);
+                            // }
+                            // log::warn!("set_viewport============={:?}", view_port);
+                            // 设置视口
+                            rp.set_viewport(view_port.0, view_port.1, view_port.2, view_port.3, 0.0, 1.0);
 
-                        Self::draw_list(
-                            &input.0,
-                            &post_draw,
-                            &input_groups,
-                            &mut rp,
-                            (view_port.2 as u32, view_port.3 as u32),
-                            &world,
-                            list,
-                            &param,
-                            camera,
-                            camera,
-                            &view_port,
-                            &view_port,
-                        );
+                            Self::draw_list(
+                                &input.0,
+                                &post_draw,
+                                &input_groups,
+                                &mut rp,
+                                (view_port.2 as u32, view_port.3 as u32),
+                                &world,
+                                list,
+                                &param,
+                                camera,
+                                camera,
+                                &view_port,
+                                &view_port,
+                            );
+                            (offset, view_port)
+                        };
                     }
 
-                    // 			vballocator: &mut VertexBufferAllocator,
-                    // safeatlas: &SafeAtlasAllocator,
-                    // resources: &SingleImageEffectResource,
-                    // pipelines: &Share<AssetMgr<RenderRes<RenderPipeline>>>,
-                    // target_type: TargetType,
+                    out.valid_rect = Some((offsetx as u32, offsety as u32, view_port_w as u32, view_port_h as u32));
+                    out.target = render_target.target.clone();
 
-                    if let Ok((post_process, _post_info, _graph_id)) = post_list {
-                        if let Some(rt) = rt {
-                            let rect = rt.rect().clone();
-                            let (w, h) = ((rect.max.x - rect.min.x) as u32, (rect.max.y - rect.min.y) as u32);
+                    if let (Ok((post_process, post_info, _graph_id)), Some(rt), true) = (post_list, &render_target.target, render_to_fbo) {
+                        if post_info.has_effect() {
+                            let rect: guillotiere::euclid::Box2D<i32, guillotiere::euclid::UnknownUnit> = rt.rect().clone();
+                            let mut target = PostprocessTexture::from_share_target(rt.clone(), wgpu::TextureFormat::pi_render_default());
+                            target.use_x = rect.min.x as u32 + offsetx as u32; // TODO(浮点误差？)
+                            target.use_y = rect.min.y as u32 + offsety as u32;
+                            target.use_w = view_port_w as u32;
+                            target.use_h = view_port_h as u32;
                             // 渲染后处理
                             if let Ok(r) = post_process.draw_front(
                                 param.device,
                                 param.queue,
                                 commands.borrow_mut(),
-                                PostprocessTexture::from_share_target(rt, wgpu::TextureFormat::pi_render_default()),
-                                (w, h),
+                                target,
+                                (view_port_w as u32, view_port_h as u32),
                                 &param.atlas_allocator,
                                 &param.post_resource.resources,
                                 &param.pipline_assets,
                                 param.t_type.no_depth,
-								wgpu::TextureFormat::pi_render_default(),
+                                wgpu::TextureFormat::pi_render_default(),
                             ) {
                                 if let ETextureViewUsage::SRT(r) = r.view {
-                                    out = Some(r);
+                                    out.target = Some(r);
+                                    out.valid_rect = None;
                                 }
                             };
-
-                            // let r = self.post_process(
-                            // 	commands.borrow_mut(),
-                            // 	r,
-                            // 	post_process,
-                            // 	param.t_type.no_depth,
-                            // 	camera,
-                            // 	&world,
-                            // 	&mut param,
-                            // 	);
-                            // 设置本次后处理结果，放入最后一个后处理中
-                            // 如果后处理长度为0，则无法放入（也不需要放入，长度为0表示根节点）
-                            // if post_process.0.len() > 0 {
-                            // 只会在本节点才会修改该post_process，除非存在两个相同pass2d_id的节点（应用逻辑应该保证不会重复）
-                            // let post_process_mut = unsafe {&mut *( post_process as *const PostProcessList as usize as *mut PostProcessList)};
-                            // let data = Self::create_post_process_data(&r.0, &param, &camera.view_port, node_id);
-                            // post_process_mut.curResult = ()
-                            // post_process_mut.0[r.1].result = Some(PostTemp {
-                            // 	target: r.0.clone(),
-                            // 	texture_group: data.0,
-                            // 	uv: data.1,
-                            // });
-                            // post_process_mut.1 = r.1;
-                            // }
                         }
-                    }
-                }
 
-                // 处理根节点
-                if parent_pass2d_id.is_null() {
-                    if let (Some(copy_fbo), RenderTargetType::Screen) = (param.copy_fbo, param.last_rt_type) {
-                        if let Some(copy_fbo) = &copy_fbo.0 {
-                            let t = param.last_rt.0.as_ref().unwrap();
-                            let rect = t.rect();
-                            // 将最终渲染目标渲染到屏幕上
-                            // 创建一个渲染Pass
-                            let (mut rp, view_port, _clear_port) = create_rp(
-                                None,
-                                commands.borrow_mut(),
-                                &Aabb2::new(
+                        // 处理根节点
+                        if parent_pass2d_id.is_null() {
+                            if let RenderTargetType::Screen = param.last_rt_type {
+                                let post_draw;
+                                let rect = rt.rect();
+                                let view_port = Aabb2::new(
                                     Point2::new(rect.min.x as f32, rect.min.y as f32),
                                     Point2::new(rect.max.x as f32, rect.max.y as f32),
-                                ),
-                                &param.last_rt,
-                                Some(&param.screen),
-                                &param.surface,
-                                None,
-                            );
+                                );
+                                // 将最终渲染目标渲染到屏幕上
+                                // 创建一个渲染Pass
+                                let (mut rp, view_port, _clear_port, _) = create_rp(
+                                    RenderPassTarget::Screen(&param.surface, &param.screen),
+                                    commands.borrow_mut(),
+                                    &view_port,
+                                    &view_port,
+                                    Some(wgpu::Operations {
+                                        load: wgpu::LoadOp::Clear(wgpu::Color {
+                                            r: 0.0,
+                                            g: 0.0,
+                                            b: 0.0,
+                                            a: 1.0,
+                                        }),
+                                        store: true,
+                                    }),
+                                );
 
-                            // 设置视口
-                            rp.set_viewport(view_port.0, view_port.1, view_port.2, view_port.3, 0.0, 1.0);
-
-                            copy_fbo.draw(&mut rp);
+                                // 设置视口
+                                rp.set_viewport(view_port.0, view_port.1, view_port.2, view_port.3, 0.0, 1.0);
+                                let matrix = &camera.project * &post_info.matrix.0; // post_info.matrix?TODO
+                                if let Some(draw_obj) = post_process.draw_final(
+                                    param.device,
+                                    param.queue,
+                                    matrix.as_slice(),
+                                    0.0,
+                                    &param.atlas_allocator,
+                                    &PostprocessTexture::from_share_target(rt.clone(), wgpu::TextureFormat::pi_render_default()),
+                                    (view_port.2 as u32, view_port.3 as u32),
+                                    &param.post_resource.resources,
+                                    &param.pipline_assets,
+                                    wgpu::ColorTargetState {
+                                        format: wgpu::TextureFormat::pi_render_default(),
+                                        blend: Some(wgpu::BlendState {
+                                            color: wgpu::BlendComponent {
+                                                operation: wgpu::BlendOperation::Add,
+                                                src_factor: wgpu::BlendFactor::One,
+                                                dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+                                            },
+                                            alpha: wgpu::BlendComponent {
+                                                operation: wgpu::BlendOperation::Add,
+                                                src_factor: wgpu::BlendFactor::One,
+                                                dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+                                            },
+                                        }),
+                                        write_mask: wgpu::ColorWrites::ALL,
+                                    },
+                                    None,
+                                    param.t_type.no_depth,
+                                    wgpu::TextureFormat::pi_render_default(),
+                                ) {
+                                    post_draw = draw_obj;
+                                    post_draw.draw(&mut rp);
+                                    // log::error!("draw_final fail, {:?} ", e);
+                                }
+                            }
                         }
                     }
                 }
-            }
 
-            Ok(SimpleInOut { target: out })
+                // 每帧都清理掉render_target.target， 避免握住无法释放
+                render_target.target = None;
+            }
+            // log::warn!("out1=========={:?}, {:?}", pass2d_id, out.target.is_some());
+            Ok(out)
         })
     }
 }
@@ -463,66 +563,93 @@ impl Pass2DNode {
         cur_camera: &'a Camera,
         last_view_port: &(f32, f32, f32, f32),
         cur_view_port: &(f32, f32, f32, f32),
+        depth: usize,
     ) {
         match param.post_query.get(*pass2d_id) {
             Ok((r, post_info, graph_id)) if post_info.has_effect() => {
-				// log::warn!("draw_final0==========={:?}", graph_id.0);
-                let src = match input.get(&graph_id.0) {
-                    Some(r) => match &r.target {
-                        Some(r) => r,
-                        None => return,
-                    },
+                // log::warn!("draw_final0==========={:?}", graph_id.0);
+                let (src, valid_rect) = match input.get(&graph_id.0) {
+                    Some(r) => (
+                        match &r.target {
+                            Some(r) => r,
+                            None => return,
+                        },
+                        &r.valid_rect,
+                    ),
                     None => {
                         // 这种情况有可能出现，后处理对象可能为空
-                        // log::error!("prepare render post process, but pre result is none");
+                        log::debug!(
+                            "prepare render post process, but pre result is none, pass2d_id: {:?}, graph_id{:?}",
+                            pass2d_id,
+                            graph_id.0
+                        );
                         return;
                     }
                 };
 
                 let matrix = &cur_camera.project * &post_info.matrix.0;
 
-				let blend_state = if !r.src_preimultiplied{
-					wgpu::BlendState {
-						color: wgpu::BlendComponent {
-							operation: wgpu::BlendOperation::Add,
-							src_factor: wgpu::BlendFactor::SrcAlpha,
-							dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
-						},
-						alpha: wgpu::BlendComponent {
-							operation: wgpu::BlendOperation::Add,
-							src_factor: wgpu::BlendFactor::One,
-							dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
-						},
-					}
-				} else {
-					wgpu::BlendState {
-						color: wgpu::BlendComponent {
-							operation: wgpu::BlendOperation::Add,
-							src_factor: wgpu::BlendFactor::One,
-							dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
-						},
-						alpha: wgpu::BlendComponent {
-							operation: wgpu::BlendOperation::Add,
-							src_factor: wgpu::BlendFactor::One,
-							dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
-						},
-					}
-				};
-				// log::warn!("node_id1======{:?}, {:?}", pass2d_id, post_info.matrix.0);
-				// log::warn!("draw_final==========={:?}", r);
+                let blend_state = if !r.src_preimultiplied {
+                    wgpu::BlendState {
+                        color: wgpu::BlendComponent {
+                            operation: wgpu::BlendOperation::Add,
+                            src_factor: wgpu::BlendFactor::SrcAlpha,
+                            dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+                        },
+                        alpha: wgpu::BlendComponent {
+                            operation: wgpu::BlendOperation::Add,
+                            src_factor: wgpu::BlendFactor::One,
+                            dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+                        },
+                    }
+                } else {
+                    wgpu::BlendState {
+                        color: wgpu::BlendComponent {
+                            operation: wgpu::BlendOperation::Add,
+                            src_factor: wgpu::BlendFactor::One,
+                            dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+                        },
+                        alpha: wgpu::BlendComponent {
+                            operation: wgpu::BlendOperation::Add,
+                            src_factor: wgpu::BlendFactor::One,
+                            dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+                        },
+                    }
+                };
+                // log::warn!("node_id1======{:?}, {:?}", pass2d_id, post_info.matrix.0);
+                // log::warn!("draw_final==========={:?}", r)
+
+                let mut target = PostprocessTexture::from_share_target(src.clone(), wgpu::TextureFormat::pi_render_default());
+                if let Some(r) = valid_rect {
+                    target.use_x = target.use_x + r.0;
+                    target.use_y = target.use_y + r.1;
+                    target.use_w = r.2;
+                    target.use_h = r.3;
+                }
                 if let Some(draw_obj) = r.draw_final(
                     param.device,
                     param.queue,
                     matrix.as_slice(),
-                    r.depth as f32 / 60000.0,
+                    depth as f32 / 60000.0,
                     &param.atlas_allocator,
-                    &PostprocessTexture::from_share_target(src.clone(), wgpu::TextureFormat::pi_render_default()),
+                    &target,
                     target_size,
                     &param.post_resource.resources,
                     &param.pipline_assets,
                     wgpu::ColorTargetState {
                         format: wgpu::TextureFormat::pi_render_default(),
-                        blend: Some(blend_state),
+                        blend: Some(wgpu::BlendState {
+                            color: wgpu::BlendComponent {
+                                operation: wgpu::BlendOperation::Add,
+                                src_factor: wgpu::BlendFactor::One,
+                                dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+                            },
+                            alpha: wgpu::BlendComponent {
+                                operation: wgpu::BlendOperation::Add,
+                                src_factor: wgpu::BlendFactor::One,
+                                dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+                            },
+                        }),
                         write_mask: wgpu::ColorWrites::ALL,
                     },
                     Some(pi_render::renderer::pipeline::DepthStencilState {
@@ -533,7 +660,7 @@ impl Pass2DNode {
                         bias: pi_render::renderer::pipeline::DepthBiasState::default(),
                     }),
                     param.t_type.has_depth,
-					wgpu::TextureFormat::pi_render_default(),
+                    wgpu::TextureFormat::pi_render_default(),
                 ) {
                     // 这里使用非安全的方式将不可变引用转为可变引用的前提是，Vec在创建时容量足够，使得push时不需要扩容，同时使用Vec的地方不能多线程
                     unsafe { &mut *(post_draw as *const Vec<DrawObj> as usize as *mut Vec<DrawObj>) }.push(draw_obj);
@@ -550,7 +677,9 @@ impl Pass2DNode {
                     // rt_key,
                     list,
                     _pass2d_id,
-					_,
+                    _,
+                    _,
+                    _,
                 )) = param.pass2d_query.get(*pass2d_id)
                 {
                     let v = (
@@ -589,8 +718,8 @@ impl Pass2DNode {
         }
     }
 
-	// 将单个DrawObj的后处理结果渲染到目标上
-	pub fn render_draw_obj_post<'a>(
+    // 将单个DrawObj的后处理结果渲染到目标上
+    pub fn render_draw_obj_post<'a>(
         draw_obj_id: EntityKey,
         input: &'a XHashMap<GraphNodeId, SimpleInOut>,
         post_draw: &'a Vec<DrawObj>,
@@ -598,69 +727,70 @@ impl Pass2DNode {
         target_size: (u32, u32),
         param: &'a Param<'a, 'a>,
         cur_camera: &'a Camera,
+        depth: usize,
     ) {
         if let Ok((r, graph_id, node_id)) = param.draw_post_query.get(*draw_obj_id) {
             let src = match input.get(&graph_id.0) {
-				Some(r) => match &r.target {
-					Some(r) => r,
-					None => return,
-				},
-				None => {
-					// 这种情况有可能出现，后处理对象可能为空
-					// log::error!("prepare render post process, but pre result is none");
-					return;
-				}
-			};
+                Some(r) => match &r.target {
+                    Some(r) => r,
+                    None => return,
+                },
+                None => {
+                    // 这种情况有可能出现，后处理对象可能为空
+                    // log::error!("prepare render post process, but pre result is none");
+                    return;
+                }
+            };
 
-			let post_info = match param.draw_post_info.get(***node_id) {
-				Ok(r) => r,
-				Err(_) => return,
-			};
-			// log::warn!("node_id======{:?}, {:?}", node_id, post_info.matrix);
-			let matrix = &cur_camera.project * &post_info.matrix.0;
-			if let Some(draw_obj) = r.draw_final(
-				param.device,
-				param.queue,
-				matrix.as_slice(),
-				r.depth as f32 / 60000.0,
-				&param.atlas_allocator,
-				&PostprocessTexture::from_share_target(src.clone(), wgpu::TextureFormat::pi_render_default()),
-				target_size,
-				&param.post_resource.resources,
-				&param.pipline_assets,
-				wgpu::ColorTargetState {
-					format: wgpu::TextureFormat::pi_render_default(),
-					blend: Some(wgpu::BlendState {
-						color: wgpu::BlendComponent {
-							operation: wgpu::BlendOperation::Add,
-							src_factor: wgpu::BlendFactor::SrcAlpha,
-							dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
-						},
-						alpha: wgpu::BlendComponent {
-							operation: wgpu::BlendOperation::Add,
-							src_factor: wgpu::BlendFactor::One,
-							dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
-						},
-					}),
-					write_mask: wgpu::ColorWrites::ALL,
-				},
-				Some(pi_render::renderer::pipeline::DepthStencilState {
-					format: wgpu::TextureFormat::Depth32Float,
-					depth_write_enabled: true,
-					depth_compare: wgpu::CompareFunction::GreaterEqual,
-					stencil: wgpu::StencilState::default(),
-					bias: pi_render::renderer::pipeline::DepthBiasState::default(),
-				}),
-				param.t_type.has_depth,
-				wgpu::TextureFormat::pi_render_default(),
-			) {
-				// 这里使用非安全的方式将不可变引用转为可变引用的前提是，Vec在创建时容量足够，使得push时不需要扩容，同时使用Vec的地方不能多线程
-				unsafe { &mut *(post_draw as *const Vec<DrawObj> as usize as *mut Vec<DrawObj>) }.push(draw_obj);
-				let index = post_draw.len() - 1;
+            let post_info = match param.draw_post_info.get(***node_id) {
+                Ok(r) => r,
+                Err(_) => return,
+            };
+            // log::warn!("node_id======{:?}, {:?}", node_id, post_info.matrix);
+            let matrix = &cur_camera.project * &post_info.matrix.0;
+            if let Some(draw_obj) = r.draw_final(
+                param.device,
+                param.queue,
+                matrix.as_slice(),
+                depth as f32 / 60000.0,
+                &param.atlas_allocator,
+                &PostprocessTexture::from_share_target(src.clone(), wgpu::TextureFormat::pi_render_default()),
+                target_size,
+                &param.post_resource.resources,
+                &param.pipline_assets,
+                wgpu::ColorTargetState {
+                    format: wgpu::TextureFormat::pi_render_default(),
+                    blend: Some(wgpu::BlendState {
+                        color: wgpu::BlendComponent {
+                            operation: wgpu::BlendOperation::Add,
+                            src_factor: wgpu::BlendFactor::SrcAlpha,
+                            dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+                        },
+                        alpha: wgpu::BlendComponent {
+                            operation: wgpu::BlendOperation::Add,
+                            src_factor: wgpu::BlendFactor::One,
+                            dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+                        },
+                    }),
+                    write_mask: wgpu::ColorWrites::ALL,
+                },
+                Some(pi_render::renderer::pipeline::DepthStencilState {
+                    format: wgpu::TextureFormat::Depth32Float,
+                    depth_write_enabled: true,
+                    depth_compare: wgpu::CompareFunction::GreaterEqual,
+                    stencil: wgpu::StencilState::default(),
+                    bias: pi_render::renderer::pipeline::DepthBiasState::default(),
+                }),
+                param.t_type.has_depth,
+                wgpu::TextureFormat::pi_render_default(),
+            ) {
+                // 这里使用非安全的方式将不可变引用转为可变引用的前提是，Vec在创建时容量足够，使得push时不需要扩容，同时使用Vec的地方不能多线程
+                unsafe { &mut *(post_draw as *const Vec<DrawObj> as usize as *mut Vec<DrawObj>) }.push(draw_obj);
+                let index = post_draw.len() - 1;
 
-				post_draw[index].draw(rp);
-				// log::error!("draw_final fail, {:?} ", e);
-			}
+                post_draw[index].draw(rp);
+                // log::error!("draw_final fail, {:?} ", e);
+            }
         }
     }
 
@@ -685,8 +815,8 @@ impl Pass2DNode {
 
         // log::warn!("draw============================={:?}, {:?}, {:?}, {:?}", list.opaque.len(), list.transparent.len(), list.opaque, list.transparent);
 
-        for e in list.opaque.iter().chain(list.transparent.iter()) {
-            match e {
+        for (draw_index, depth) in list.opaque.iter().chain(list.transparent.iter()) {
+            match draw_index {
                 DrawIndex::DrawObj(e) => {
                     if let Ok((state, node_id, graph_id)) = param.draw_query.get(**e) {
                         let quad = match param.node_query.get(***node_id) {
@@ -695,6 +825,13 @@ impl Pass2DNode {
                         };
                         // 如果存在graph_id，表示该渲染对象将输入的一个ShareTargetView作为纹理，渲染到gui上
                         if let Some(graph_id) = graph_id {
+                            log::warn!(
+                                "graph_id============={:?}, {:?}, {:?}, {:?}",
+                                **e,
+                                graph_id,
+                                input.get(&**graph_id).as_ref().map(|r| { r.target.is_some() }),
+                                input.keys()
+                            );
                             let src = match input.get(&**graph_id) {
                                 Some(r) => match &r.target {
                                     Some(r) => r,
@@ -729,18 +866,16 @@ impl Pass2DNode {
                                 r.set(rp, CameraBind::set());
                             }
                         }
+                        if let Some(depth) = param.depth_cache.list.get(*depth) {
+                            // 设置深度bind
+                            depth.set(rp, DepthBind::set());
+                        }
                         state.draw(rp);
                     }
                 }
-				DrawIndex::DrawObjPost(e) => {
-					Self::render_draw_obj_post(*e,
-                        input,
-                        post_draw,
-                        rp,
-                        target_size,
-                        param,
-                        cur_camera);
-				},
+                DrawIndex::DrawObjPost(e) => {
+                    Self::render_draw_obj_post(*e, input, post_draw, rp, target_size, param, cur_camera, *depth);
+                }
                 DrawIndex::Pass2D(e) => {
                     Self::render_pass_2d(
                         *e,
@@ -755,6 +890,7 @@ impl Pass2DNode {
                         cur_camera,
                         last_view_port,
                         cur_view_port,
+                        *depth,
                     );
                 }
             }
@@ -801,27 +937,33 @@ impl Pass2DNode {
     }
 }
 
+#[derive(Clone)]
+pub enum RenderPassTarget<'a> {
+    Fbo(&'a ShareTargetView),
+    Screen(&'a ScreenTexture, &'a ScreenTarget),
+}
+
 // 返回renderpass， view_port， clear_port
 pub fn create_rp<'a>(
-    rt: Option<&'a ShareTargetView>,
+    rt: RenderPassTarget<'a>,
     commands: &'a mut CommandEncoder,
     view_port: &Aabb2,
-    last_rt: &'a RenderTarget,
-    screen: Option<&'a ScreenTarget>,
-    surface: &'a ScreenTexture,
+    target_view_port: &Aabb2, // 渲染目标对应的view_port;
+    // last_rt: &'a RenderTarget,
+    // surface: &'a ScreenTexture,
     ops: Option<wgpu::Operations<wgpu::Color>>,
-) -> (RenderPass<'a>, (f32, f32, f32, f32), (f32, f32, f32, f32)) {
-    
-    match screen {
-        Some(screen) => {
-			let ops = match ops {
-				Some(r) => r,
-				None => wgpu::Operations {
-					// load: wgpu::LoadOp::Clear(wgpu::Color{r: 0.0, g: 0.0, b: 1.0, a: 1.0}),
-					load: wgpu::LoadOp::Load,
-					store: true,
-				},
-			};
+) -> (RenderPass<'a>, (f32, f32, f32, f32), (f32, f32, f32, f32), (f32, f32)) {
+    match rt {
+        RenderPassTarget::Screen(surface, screen) => {
+            // 渲染到屏幕上
+            let ops = match ops {
+                Some(r) => r,
+                None => wgpu::Operations {
+                    // load: wgpu::LoadOp::Clear(wgpu::Color{r: 0.0, g: 0.0, b: 1.0, a: 1.0}),
+                    load: wgpu::LoadOp::Load,
+                    store: true,
+                },
+            };
             let rp = commands.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: None,
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -849,30 +991,22 @@ pub fn create_rp<'a>(
                     view_port.maxs.x - view_port.mins.x,
                     view_port.maxs.y - view_port.mins.y,
                 ),
-				(
+                (
                     view_port.mins.x,
                     view_port.mins.y,
                     view_port.maxs.x - view_port.mins.x,
                     view_port.maxs.y - view_port.mins.y,
                 ),
+                (0.0, 0.0),
             )
         }
-        None => {
-            let mut r = last_rt.0.as_ref().unwrap();
-            if let Some(t) = rt {
-                r = t;
-            }
-			let mut ret = create_rp_for_fbo(r, commands, view_port, ops);
-			if rt.is_some() {
-				let rect = r.rect();
-				ret.1 = (
-					rect.min.x as f32,
-					rect.min.y as f32,
-					view_port.maxs.x - view_port.mins.x,
-					view_port.maxs.y - view_port.mins.y,
-				)
-			}
-            ret
+        RenderPassTarget::Fbo(rt) => {
+            // 渲染到临时的fbo上
+            // let mut r = last_rt.target.as_ref().unwrap();
+            // if let Some(t) = rt {
+            //     r = t;
+            // }
+            create_rp_for_fbo(rt, commands, view_port, target_view_port, ops)
         }
     }
 }
@@ -882,8 +1016,9 @@ pub fn create_rp_for_fbo<'a>(
     r: &'a ShareTargetView,
     commands: &'a mut CommandEncoder,
     view_port: &Aabb2,
+    target_view_port: &Aabb2,
     ops: Option<wgpu::Operations<wgpu::Color>>,
-) -> (RenderPass<'a>, (f32, f32, f32, f32), (f32, f32, f32, f32)) {
+) -> (RenderPass<'a>, (f32, f32, f32, f32), (f32, f32, f32, f32), (f32, f32)) {
     let ops = match ops {
         Some(r) => r,
         None => wgpu::Operations {
@@ -892,51 +1027,69 @@ pub fn create_rp_for_fbo<'a>(
             store: true,
         },
     };
-	let rp = commands.begin_render_pass(&wgpu::RenderPassDescriptor {
-		label: None,
-		color_attachments: r
-			.target()
-			.colors
-			.iter()
-			.map(|view| {
-				Some(wgpu::RenderPassColorAttachment {
-					resolve_target: None,
-					ops,
-					view: &view.0,
-				})
-			})
-			.collect::<Vec<Option<wgpu::RenderPassColorAttachment>>>()
-			.as_slice(),
-		depth_stencil_attachment: match &r.target().depth {
-			Some(r) => Some(wgpu::RenderPassDepthStencilAttachment {
-				stencil_ops: None,
-				depth_ops: Some(wgpu::Operations {
-					load: wgpu::LoadOp::Load,
-					store: true,
-				}),
-				view: &r.0,
-			}),
-			None => None,
-		},
-	});
-	let rect = r.rect();
-	let rect_with_border = r.rect_with_border();
-	let scissor = (
-		rect_with_border.min.x as f32,
-		rect_with_border.min.y as f32,
-		(rect_with_border.max.x - rect_with_border.min.x) as f32,
-		(rect_with_border.max.y - rect_with_border.min.y) as f32,
-	);
-	let view_port = (
-		rect.min.x as f32,
-		rect.min.y as f32,
-		view_port.maxs.x - view_port.mins.x,
-		view_port.maxs.y - view_port.mins.y,
-	);
-	(
-		rp,
-		view_port,
-		scissor,
-	)
-}
+    let rp = commands.begin_render_pass(&wgpu::RenderPassDescriptor {
+        label: None,
+        color_attachments: r
+            .target()
+            .colors
+            .iter()
+            .map(|view| {
+                Some(wgpu::RenderPassColorAttachment {
+                    resolve_target: None,
+                    ops,
+                    view: &view.0,
+                })
+            })
+            .collect::<Vec<Option<wgpu::RenderPassColorAttachment>>>()
+            .as_slice(),
+        depth_stencil_attachment: match &r.target().depth {
+            Some(r) => Some(wgpu::RenderPassDepthStencilAttachment {
+                stencil_ops: None,
+                depth_ops: Some(wgpu::Operations {
+                    load: wgpu::LoadOp::Load,
+                    store: true,
+                }),
+                view: &r.0,
+            }),
+            None => None,
+        },
+    });
+    let rect = r.rect();
+    let (offsetx, offsety) = (target_view_port.mins.x - view_port.mins.x, target_view_port.mins.y - view_port.mins.y);
+    let view_port_ = (
+        rect.min.x as f32 + offsetx,
+        rect.min.y as f32 + offsety,
+        view_port.maxs.x - view_port.mins.x,
+        view_port.maxs.y - view_port.mins.y,
+    );
+    // 如果
+    let scissor_rect = if target_view_port.mins.x == view_port.mins.x
+        && target_view_port.maxs.x == view_port.maxs.x
+        && target_view_port.mins.y == view_port.mins.y
+        && target_view_port.maxs.y == view_port.maxs.y
+    {
+        // 如果target对应的视口区域跟当前需要渲染的视口区域一样，则设置裁剪口为border区域（因为这很可能是第一次渲染该target，分配出来的fbo中的数据是随机的，如果不清理边框区域，边缘可能会有黑线）
+        r.rect_with_border()
+    } else {
+        // 否则为rect区域
+        rect
+    };
+    let scissor = (
+        scissor_rect.min.x as f32 + offsetx,
+        scissor_rect.min.y as f32 + offsety,
+        (scissor_rect.max.x - scissor_rect.min.x) as f32,
+        (scissor_rect.max.y - scissor_rect.min.y) as f32,
+    );
 
+    log::warn!(
+        "offsetx==========={}, {}, {:?}, {:?}, {:?}, {:?}",
+        offsetx,
+        offsety,
+        view_port_,
+        scissor,
+        target_view_port,
+        view_port
+    );
+
+    (rp, view_port_, scissor, (offsetx, offsety))
+}

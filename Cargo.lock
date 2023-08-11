@@ -66,17 +66,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "accurate"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4f209f0bc218ee6cf50db56ec0d9fe10b3cbfb6f3900d019b36c8fdb6d3bc03e"
-dependencies = [
- "cfg-if",
- "ieee754",
- "num-traits",
-]
-
-[[package]]
 name = "addr2line"
 version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1494,6 +1483,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "earcutr"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0812b44697951d35fde8fcb0da81c9de7e809e825a66bbf1ecb79d9829d4ca3d"
+dependencies = [
+ "itertools",
+ "num-traits",
+]
+
+[[package]]
 name = "either"
 version = "1.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1681,12 +1680,9 @@ checksum = "8ce81f49ae8a0482e4c55ea62ebbd7e5a686af544c00b9d090bba3ff9be97b3d"
 
 [[package]]
 name = "float_next_after"
-version = "0.1.5"
+version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4fc612c5837986b7104a87a0df74a5460931f1c5274be12f8d0f40aa2f30d632"
-dependencies = [
- "num-traits",
-]
+checksum = "8bf7cc16383c4b8d58b9905a8509f02926ce3058053c056376248d958c9df1e8"
 
 [[package]]
 name = "flume"
@@ -1706,6 +1702,19 @@ name = "fnv"
 version = "1.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
+
+[[package]]
+name = "font_kit"
+version = "0.1.0"
+source = "registry+http://ser.yinengyun.com:10082/tech/crates-io.git"
+checksum = "a641037033cb3fbbb120dfe8f4cb1bc9593fcb726941dca03ac11f4600380cb7"
+dependencies = [
+ "freetype-sys 0.13.3",
+ "image",
+ "lazy_static",
+ "libc",
+ "pi_hash",
+]
 
 [[package]]
 name = "font_kit"
@@ -1787,6 +1796,16 @@ dependencies = [
 name = "freetype-sys"
 version = "0.13.1"
 source = "git+http://ser.yinengyun.com:10082/tech/freetype_sys.git#28bf03ed6714ff728b18b200c048d2ad7a0bde0f"
+dependencies = [
+ "cmake",
+ "libc",
+]
+
+[[package]]
+name = "freetype-sys"
+version = "0.13.3"
+source = "registry+http://ser.yinengyun.com:10082/tech/crates-io.git"
+checksum = "cbe4a8fe638f61233c855b0e2a35a78f88a539d06f626ba6613b9376b934e579"
 dependencies = [
  "cmake",
  "libc",
@@ -1936,16 +1955,17 @@ dependencies = [
 
 [[package]]
 name = "geo"
-version = "0.23.1"
+version = "0.26.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b39f57e9624b1a17ce621375464e9878c705d0aaadaf25cb44e4e0005a16de2f"
+checksum = "1645cf1d7fea7dac1a66f7357f3df2677ada708b8d9db8e9b043878930095a96"
 dependencies = [
+ "earcutr",
  "float_next_after",
  "geo-types",
  "geographiclib-rs",
  "log",
  "num-traits",
- "robust",
+ "robust 1.1.0",
  "rstar",
 ]
 
@@ -1967,7 +1987,6 @@ version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ea804e7bd3c6a4ca6a01edfa35231557a8a81d4d3f3e1e2b650d028c42592be"
 dependencies = [
- "accurate",
  "lazy_static",
 ]
 
@@ -2247,12 +2266,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b9e0384b61958566e926dc50660321d12159025e767c18e043daf26b70104c39"
 
 [[package]]
-name = "ieee754"
-version = "0.2.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9007da9cacbd3e6343da136e98b0d2df013f553d35bdec8b518f07bea768e19c"
-
-[[package]]
 name = "image"
 version = "0.24.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2323,6 +2336,15 @@ dependencies = [
  "into-attr",
  "quote",
  "syn 1.0.109",
+]
+
+[[package]]
+name = "itertools"
+version = "0.10.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b0fd2260e829bddf4cb6ea802289de2f86d6a7a690192fbe91b3f46e0f2c8473"
+dependencies = [
+ "either",
 ]
 
 [[package]]
@@ -3243,15 +3265,17 @@ dependencies = [
 
 [[package]]
 name = "pi_async_graph"
-version = "0.5.0"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "44565c99d515a05a9ce0d2bce585a774b40c633ba38eae7a937a9682c159e053"
+checksum = "6990901053a9e5bf1ae11dcb90728703caf7afa3f6814d5f7a2ddea39340641f"
 dependencies = [
  "flume",
  "pi-async-rt",
  "pi_futures",
  "pi_graph",
+ "pi_map",
  "pi_share",
+ "pi_slotmap",
 ]
 
 [[package]]
@@ -3273,7 +3297,7 @@ dependencies = [
 [[package]]
 name = "pi_bevy_asset"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_render_bevy.git#a5c74c173605478fab19347827d52e40bd6cc175"
+source = "git+https://github.com/GaiaWorld/pi_render_bevy.git#56d8c21a6bc8df5e10e36f55ebaecaa145b5ec92"
 dependencies = [
  "bevy",
  "crossbeam",
@@ -3290,7 +3314,7 @@ dependencies = [
 [[package]]
 name = "pi_bevy_ecs_extend"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_render_bevy.git#a5c74c173605478fab19347827d52e40bd6cc175"
+source = "git+https://github.com/GaiaWorld/pi_render_bevy.git#56d8c21a6bc8df5e10e36f55ebaecaa145b5ec92"
 dependencies = [
  "bevy",
  "derive_deref",
@@ -3319,7 +3343,7 @@ dependencies = [
 [[package]]
 name = "pi_bevy_ecs_macro"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_render_bevy.git#a5c74c173605478fab19347827d52e40bd6cc175"
+source = "git+https://github.com/GaiaWorld/pi_render_bevy.git#56d8c21a6bc8df5e10e36f55ebaecaa145b5ec92"
 dependencies = [
  "quote",
  "syn 1.0.109",
@@ -3329,7 +3353,7 @@ dependencies = [
 [[package]]
 name = "pi_bevy_log"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_render_bevy.git#a5c74c173605478fab19347827d52e40bd6cc175"
+source = "git+https://github.com/GaiaWorld/pi_render_bevy.git#56d8c21a6bc8df5e10e36f55ebaecaa145b5ec92"
 dependencies = [
  "android_log-sys 0.3.0",
  "bevy_app",
@@ -3344,7 +3368,7 @@ dependencies = [
 [[package]]
 name = "pi_bevy_post_process"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_render_bevy.git#a5c74c173605478fab19347827d52e40bd6cc175"
+source = "git+https://github.com/GaiaWorld/pi_render_bevy.git#56d8c21a6bc8df5e10e36f55ebaecaa145b5ec92"
 dependencies = [
  "bevy",
  "pi_assets",
@@ -3359,7 +3383,7 @@ dependencies = [
 [[package]]
 name = "pi_bevy_render_plugin"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_render_bevy.git#a5c74c173605478fab19347827d52e40bd6cc175"
+source = "git+https://github.com/GaiaWorld/pi_render_bevy.git#56d8c21a6bc8df5e10e36f55ebaecaa145b5ec92"
 dependencies = [
  "bevy",
  "crossbeam",
@@ -3388,14 +3412,14 @@ dependencies = [
 [[package]]
 name = "pi_bevy_winit_window"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_render_bevy.git#a5c74c173605478fab19347827d52e40bd6cc175"
+source = "git+https://github.com/GaiaWorld/pi_render_bevy.git#56d8c21a6bc8df5e10e36f55ebaecaa145b5ec92"
 dependencies = [
  "bevy",
  "glam",
  "log",
  "raw-window-handle 0.5.2",
  "web-sys",
- "winit 0.27.4",
+ "winit 0.27.8",
 ]
 
 [[package]]
@@ -3551,14 +3575,16 @@ checksum = "e0a1085e4778275b2830ed52e240504ced6b38dd34de1ea60b2293e4b64ac1ad"
 
 [[package]]
 name = "pi_graph"
-version = "0.1.4"
+version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "918658231ba5001bf69f474aece996b4b0641ad5d658112d56bd4248b8388076"
+checksum = "8e63fd5c9b9d67c65151befc252ca09f428287e573f1c14037997e1141a90bab"
 dependencies = [
  "log",
  "pi_hash",
+ "pi_map",
  "pi_print_any",
  "pi_share",
+ "pi_slotmap",
 ]
 
 [[package]]
@@ -3568,7 +3594,7 @@ source = "git+https://github.com/GaiaWorld/pi_hal.git#707611b3baa8af266f78bab8ae
 dependencies = [
  "async-trait",
  "derive_deref",
- "font_kit",
+ "font_kit 0.1.0 (git+http://ser.yinengyun.com:10082/tech/font_kit.git)",
  "image",
  "js-sys",
  "lazy_static",
@@ -3696,7 +3722,7 @@ checksum = "8eeeddb49aca084a517b5efcd8111cd19121130201190c09d5d817e998f78a4a"
 [[package]]
 name = "pi_render"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_render.git?branch=bevy_shader#1dcefca5be06014d19971614ffa1391d775e2825"
+source = "git+https://github.com/GaiaWorld/pi_render.git?branch=bevy_shader#189d5b109cf0402b3454250b71df71961631e6ce"
 dependencies = [
  "render_core",
 ]
@@ -3775,7 +3801,7 @@ dependencies = [
 [[package]]
 name = "pi_style"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_style.git#4ada8f86e39dd6c9d7f9997741549fc402780b56"
+source = "git+https://github.com/GaiaWorld/pi_style.git#eb40338d856d6f42626210ebd3b58f4265f937d0"
 dependencies = [
  "bitvec",
  "cssparser",
@@ -3856,7 +3882,7 @@ dependencies = [
  "fixedbitset",
  "float-ord",
  "fnv",
- "font_kit",
+ "font_kit 0.1.0 (registry+http://ser.yinengyun.com:10082/tech/crates-io.git)",
  "futures",
  "fxhash",
  "geo",
@@ -3918,10 +3944,7 @@ dependencies = [
  "timer",
  "tracing",
  "tracing-subscriber",
- "uuid",
- "wasm-bindgen",
  "wgpu",
- "winit 0.27.4",
  "zerovec",
 ]
 
@@ -4338,7 +4361,7 @@ checksum = "e5ea92a5b6195c6ef2a0295ea818b312502c6fc94dde986c5553242e18fd4ce2"
 [[package]]
 name = "render_compile"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_render.git?branch=bevy_shader#1dcefca5be06014d19971614ffa1391d775e2825"
+source = "git+https://github.com/GaiaWorld/pi_render.git?branch=bevy_shader#189d5b109cf0402b3454250b71df71961631e6ce"
 dependencies = [
  "Inflector",
  "log",
@@ -4354,7 +4377,7 @@ dependencies = [
 [[package]]
 name = "render_core"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_render.git?branch=bevy_shader#1dcefca5be06014d19971614ffa1391d775e2825"
+source = "git+https://github.com/GaiaWorld/pi_render.git?branch=bevy_shader#189d5b109cf0402b3454250b71df71961631e6ce"
 dependencies = [
  "anyhow",
  "bitvec",
@@ -4405,7 +4428,7 @@ dependencies = [
 [[package]]
 name = "render_crevice"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_render.git?branch=bevy_shader#1dcefca5be06014d19971614ffa1391d775e2825"
+source = "git+https://github.com/GaiaWorld/pi_render.git?branch=bevy_shader#189d5b109cf0402b3454250b71df71961631e6ce"
 dependencies = [
  "bytemuck",
  "mint",
@@ -4416,7 +4439,7 @@ dependencies = [
 [[package]]
 name = "render_crevice_derive"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_render.git?branch=bevy_shader#1dcefca5be06014d19971614ffa1391d775e2825"
+source = "git+https://github.com/GaiaWorld/pi_render.git?branch=bevy_shader#189d5b109cf0402b3454250b71df71961631e6ce"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4427,7 +4450,7 @@ dependencies = [
 [[package]]
 name = "render_derive"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_render.git?branch=bevy_shader#1dcefca5be06014d19971614ffa1391d775e2825"
+source = "git+https://github.com/GaiaWorld/pi_render.git?branch=bevy_shader#189d5b109cf0402b3454250b71df71961631e6ce"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4438,7 +4461,7 @@ dependencies = [
 [[package]]
 name = "render_macro_utils"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_render.git?branch=bevy_shader#1dcefca5be06014d19971614ffa1391d775e2825"
+source = "git+https://github.com/GaiaWorld/pi_render.git?branch=bevy_shader#189d5b109cf0402b3454250b71df71961631e6ce"
 dependencies = [
  "cargo-manifest",
  "quote",
@@ -4448,7 +4471,7 @@ dependencies = [
 [[package]]
 name = "render_utils"
 version = "0.1.0"
-source = "git+https://github.com/GaiaWorld/pi_render.git?branch=bevy_shader#1dcefca5be06014d19971614ffa1391d775e2825"
+source = "git+https://github.com/GaiaWorld/pi_render.git?branch=bevy_shader#189d5b109cf0402b3454250b71df71961631e6ce"
 dependencies = [
  "ahash",
  "render_derive",
@@ -4467,10 +4490,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e5864e7ef1a6b7bcf1d6ca3f655e65e724ed3b52546a0d0a663c991522f552ea"
 
 [[package]]
-name = "rstar"
-version = "0.9.3"
+name = "robust"
+version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b40f1bfe5acdab44bc63e6699c28b74f75ec43afb59f3eda01e145aff86a25fa"
+checksum = "cbf4a6aa5f6d6888f39e980649f3ad6b666acdce1d78e95b8a2cb076e687ae30"
+
+[[package]]
+name = "rstar"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "73111312eb7a2287d229f06c00ff35b51ddee180f017ab6dec1f69d62ac098d6"
 dependencies = [
  "heapless",
  "num-traits",
@@ -4731,7 +4760,7 @@ checksum = "88e65803986868d2372c582007c39ba89936a36ea5f236bf7a7728dc258f04f9"
 dependencies = [
  "num-traits",
  "optional",
- "robust",
+ "robust 0.2.3",
  "smallvec",
 ]
 
@@ -5118,7 +5147,6 @@ checksum = "79daa5ed5740825c40b389c5e50312b9c86df53fccd33f281df655642b43869d"
 dependencies = [
  "getrandom 0.2.10",
  "serde",
- "wasm-bindgen",
 ]
 
 [[package]]
@@ -5723,8 +5751,9 @@ checksum = "1a515f5799fe4961cb532f983ce2b23082366b898e52ffbce459c86f67c8378a"
 
 [[package]]
 name = "winit"
-version = "0.27.4"
-source = "git+http://ser.yinengyun.com:10082/tech/winit.git#7b5119e6238200f4c684ff456003250328b209cc"
+version = "0.27.8"
+source = "registry+http://ser.yinengyun.com:10082/tech/crates-io.git"
+checksum = "d755870c87280ffe7b9855625d65391d10536b7976a44e154c9caf7cff34d6bb"
 dependencies = [
  "bitflags 1.3.2",
  "cocoa",

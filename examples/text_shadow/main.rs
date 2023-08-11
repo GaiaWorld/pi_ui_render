@@ -24,17 +24,17 @@ use smallvec::smallvec;
 
 fn main() { framework::start(QuadExample::default()) }
 use pi_style::{
-    style::{Aabb2, Point2, TextContent, TextShadow, },
+    style::{Aabb2, Point2, TextContent, TextShadow},
     style_type::{
-        ColorType, FontFamilyType, FontSizeType, HeightType, MarginLeftType, MarginTopType, PositionLeftType, PositionTopType, PositionTypeType,
-        TextContentType, WidthType, TextShadowType, BackgroundColorType
+        BackgroundColorType, ColorType, FontFamilyType, FontSizeType, HeightType, MarginLeftType, MarginTopType, PositionLeftType, PositionTopType,
+        PositionTypeType, TextContentType, TextShadowType, WidthType,
     },
 };
 
 #[derive(Default)]
 pub struct QuadExample {
     cmd: UserCommands,
-	root: EntityKey,
+    root: EntityKey,
 }
 
 impl Example for QuadExample {
@@ -47,7 +47,7 @@ impl Example for QuadExample {
 
         // 添加根节点
         let root = world.spawn(NodeBundle::default()).id();
-		self.root = EntityKey(root);
+        self.root = EntityKey(root);
         self.cmd.push_cmd(NodeCmd(ClearColor(CgColor::new(1.0, 1.0, 1.0, 1.0), true), root));
         self.cmd.push_cmd(NodeCmd(
             Viewport(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(size.0 as f32, size.1 as f32))),
@@ -63,8 +63,8 @@ impl Example for QuadExample {
         self.cmd.set_style(root, PositionTopType(Dimension::Points(0.0)));
         self.cmd.set_style(root, MarginLeftType(Dimension::Points(0.0)));
         self.cmd.set_style(root, MarginTopType(Dimension::Points(0.0)));
-		self.cmd
-		.set_style(root, BackgroundColorType(Color::RGBA(CgColor::new(1.0, 1.0, 1.0, 1.0))));
+        self.cmd
+            .set_style(root, BackgroundColorType(Color::RGBA(CgColor::new(1.0, 1.0, 1.0, 1.0))));
 
         self.cmd.append(root, EntityKey::null().0);
 
@@ -72,16 +72,28 @@ impl Example for QuadExample {
         let div1 = world.spawn(NodeBundle::default()).id();
         self.cmd.set_style(div1, WidthType(Dimension::Points(50.0)));
         self.cmd.set_style(div1, HeightType(Dimension::Points(100.0)));
-		self.cmd.set_style(div1, PositionTopType(Dimension::Points(20.0)));
-		self.cmd.set_style(div1, PositionLeftType(Dimension::Points(20.0)));
+        self.cmd.set_style(div1, PositionTopType(Dimension::Points(20.0)));
+        self.cmd.set_style(div1, PositionLeftType(Dimension::Points(20.0)));
         self.cmd
             .set_style(div1, TextContentType(TextContent("base02".to_string(), Atom::from("base02"))));
-		self.cmd
-            .set_style(div1, TextShadowType(smallvec![
-				TextShadow { h: 0.0, v: 0.0, blur: 5.0, color: CgColor::new(1.0, 0.0, 0.0, 1.0)},
-				TextShadow { h: 0.0, v: 0.0, blur: 3.0, color: CgColor::new(1.0, 0.0, 0.0, 1.0)},
-			]));
-			// rgb(255,0,0) 0px 0px 5px, rgb(255,0,0) 0px 0px 3px, rgb(255,255,255) 0px 0px 1px;
+        self.cmd.set_style(
+            div1,
+            TextShadowType(smallvec![
+                TextShadow {
+                    h: 0.0,
+                    v: 0.0,
+                    blur: 5.0,
+                    color: CgColor::new(1.0, 0.0, 0.0, 1.0)
+                },
+                TextShadow {
+                    h: 0.0,
+                    v: 0.0,
+                    blur: 3.0,
+                    color: CgColor::new(1.0, 0.0, 0.0, 1.0)
+                },
+            ]),
+        );
+        // rgb(255,0,0) 0px 0px 5px, rgb(255,0,0) 0px 0px 3px, rgb(255,255,255) 0px 0px 1px;
         self.cmd.set_style(div1, FontFamilyType(Atom::from("hwkt")));
         self.cmd.set_style(div1, ColorType(Color::RGBA(CgColor::new(0.0, 1.0, 0.0, 1.0))));
         self.cmd.set_style(div1, FontSizeType(FontSize::Length(17)));
@@ -104,8 +116,8 @@ impl Example for QuadExample {
         self.cmd.append(div2, root);
     }
 
-    fn render(&mut self, cmd: &mut UserCommands, _cmd1: &mut Commands) { 
-		self.cmd.push_cmd(NodeCmd(RenderDirty(true), self.root.0));
-		swap(&mut self.cmd, cmd); 
-	}
+    fn render(&mut self, cmd: &mut UserCommands, _cmd1: &mut Commands) {
+        self.cmd.push_cmd(NodeCmd(RenderDirty(true), self.root.0));
+        swap(&mut self.cmd, cmd);
+    }
 }

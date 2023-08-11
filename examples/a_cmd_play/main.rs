@@ -1,4 +1,3 @@
-
 #[path = "../framework.rs"]
 mod framework;
 
@@ -9,12 +8,16 @@ use bevy::prelude::World;
 use font_kit::font::new_face_by_path;
 use framework::Example;
 use pi_atom::Atom;
-use pi_flex_layout::{style::{Dimension, PositionType}, prelude::Size};
+use pi_flex_layout::{
+    prelude::Size,
+    style::{Dimension, PositionType},
+};
 use pi_null::Null;
 use pi_style::{
     style::{Aabb2, Hsi, Point2},
     style_type::{
-        BackgroundColorType, HeightType, HsiType, MarginLeftType, MarginTopType, PositionLeftType, PositionTopType, PositionTypeType, WidthType, BackgroundImageType, OpacityType,
+        BackgroundColorType, BackgroundImageType, HeightType, HsiType, MarginLeftType, MarginTopType, OpacityType, PositionLeftType, PositionTopType,
+        PositionTypeType, WidthType,
     },
 };
 use pi_ui_render::{
@@ -32,7 +35,7 @@ fn main() { framework::start(ExampleCommonPlay::default()) }
 
 #[derive(Default)]
 pub struct ExampleCommonPlay {
-	cmd: UserCommands,
+    cmd: UserCommands,
 }
 
 // pub struct Commands1 {
@@ -41,23 +44,23 @@ pub struct ExampleCommonPlay {
 // }
 
 impl Example for ExampleCommonPlay {
-	fn get_init_size(&self) -> Option<Size<u32>> {
+    fn get_init_size(&self) -> Option<Size<u32>> {
         // None表示使用默认值
-        Some(Size {width: 436, height: 960})
+        Some(Size { width: 436, height: 960 })
     }
 
     fn init(&mut self, world: &mut World, size: (usize, usize)) {
         // let r: Commands1 = unsafe { transmute(command) };
         let mut ttf = std::env::current_dir().unwrap();
-		// log::warn!("cur_dir========{:?}", ttf);
+        // log::warn!("cur_dir========{:?}", ttf);
         ttf.push("examples/a_cmd_play/source/SOURCEHANSANSK-MEDIUM.TTF");
-		log::warn!("font========{:?}", ttf);
+        log::warn!("font========{:?}", ttf);
         // 设置默认字体
         new_face_by_path("default".to_string(), ttf.to_str().unwrap());
 
-		if let Some(r) = PLAY_PATH{
-			std::env::set_current_dir(r).unwrap();
-		}
+        if let Some(r) = PLAY_PATH {
+            std::env::set_current_dir(r).unwrap();
+        }
 
         // let _dir = std::env::current_dir().unwrap();
         // log::warn!("current_dir: {:?}", dir);
@@ -65,25 +68,21 @@ impl Example for ExampleCommonPlay {
         println!("view_port:{:?}", size);
     }
 
-	fn render(&mut self, cmd: &mut UserCommands, _cmd1: &mut Commands) { 
-		swap(&mut self.cmd, cmd); 
-	}
+    fn render(&mut self, cmd: &mut UserCommands, _cmd1: &mut Commands) { swap(&mut self.cmd, cmd); }
 
-	#[cfg(feature="debug")]
-	fn record_option(&self) -> pi_ui_render::system::cmd_play::TraceOption {
-        pi_ui_render::system::cmd_play::TraceOption::Play
-    }
+    #[cfg(feature = "debug")]
+    fn record_option(&self) -> pi_ui_render::system::cmd_play::TraceOption { pi_ui_render::system::cmd_play::TraceOption::Play }
 
-	// fn render(&mut self, cmd: &mut UserCommands, _cmd1: &mut Commands) { 
-	// 	cmd.
-	// 	swap(&mut self.cmd, cmd); 
-	// }
+    // fn render(&mut self, cmd: &mut UserCommands, _cmd1: &mut Commands) {
+    // 	cmd.
+    // 	swap(&mut self.cmd, cmd);
+    // }
 
     // fn fram_call(&mut self, gui: &mut Gui, engine: &mut Engine){
-	// 	gui.commands.push_cmd(NodeCmd(RenderDirty(true), self.root.0));
-	// 	if self.end {
-	// 		return;
-	// 	}
+    // 	gui.commands.push_cmd(NodeCmd(RenderDirty(true), self.root.0));
+    // 	if self.end {
+    // 		return;
+    // 	}
     //     // let s = replace(&mut self.cmd, UserCommands::default());
     //     // let r: &'static mut Commands1 = unsafe { transmute(cmd1) };
     //     // let mut gui = Gui {
@@ -94,7 +93,7 @@ impl Example for ExampleCommonPlay {
     //     // while setting(list_index, json_arr, self.cmd_path, self.play_path, self.play_version, file_index, gui, &mut self.play_context) {}
     //     // swap(&mut self.cmd, gui.commands);
 
-	// 	let (list_index, file_index, json_arr) = (&mut self.list_index, &mut self.file_index, &mut self.json_arr);
+    // 	let (list_index, file_index, json_arr) = (&mut self.list_index, &mut self.file_index, &mut self.json_arr);
     //     if !setting(
     //         list_index,
     //         json_arr,
@@ -103,11 +102,11 @@ impl Example for ExampleCommonPlay {
     //         self.play_version,
     //         file_index,
     //         gui,
-	// 		engine,
+    // 		engine,
     //         &mut self.play_context,
     //     ) {
-	// 		self.end = true;
-	// 	}
+    // 		self.end = true;
+    // 	}
 
     //     // self.cmd = replace(&mut gui.commands, UserCommands::default()) ;
 

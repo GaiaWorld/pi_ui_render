@@ -17,7 +17,7 @@ use crate::{
     components::{
         calc::{DrawList, LayoutResult, NodeState, WorldMatrix},
         draw_obj::{BoxType, DrawState},
-        user::{BackgroundColor, BackgroundImage, BorderColor, BoxShadow, Canvas, Matrix4, TextContent, BorderImage},
+        user::{BackgroundColor, BackgroundImage, BorderColor, BorderImage, BoxShadow, Canvas, Matrix4, TextContent},
     },
     shader::ui_meterial::WorldUniform,
     utils::tools::{calc_float_hash, calc_hash},
@@ -43,9 +43,9 @@ pub fn set_matrix_group(
                 Changed<BoxShadow>,
             )>,
             Or<(
-				With<BackgroundImage>,
+                With<BackgroundImage>,
                 With<BackgroundColor>,
-				With<BorderImage>,
+                With<BorderImage>,
                 With<TextContent>,
                 With<BorderColor>,
                 With<Canvas>,
@@ -59,22 +59,22 @@ pub fn set_matrix_group(
 ) {
     // let mut i = 0;
     for (mut matrix, mut layout_result, draw_list, node, mut state) in query.iter() {
-		if draw_list.len() == 0 {
-			continue;
-		}
+        if draw_list.len() == 0 {
+            continue;
+        }
 
-		let mut n = node;
+        let mut n = node;
         while state.is_vnode() {
             // 虚拟节点，现阶段只有图文混排的文字节点，直接使用父节点的世界矩阵
             if let Ok(up) = query_parent.get(n) {
                 if let Ok((m, s, l)) = query_matrix.get(up.parent()) {
-					if s.is_vnode() {
-						n = up.parent();
-						continue;
-					}
+                    if s.is_vnode() {
+                        n = up.parent();
+                        continue;
+                    }
                     matrix = m;
-					state = s;
-					layout_result = l;
+                    state = s;
+                    layout_result = l;
                 }
             }
         }
@@ -84,12 +84,25 @@ pub fn set_matrix_group(
             if let Ok((mut draw_data, box_type)) = query_draw.get_mut(draw_obj.id) {
                 // 如果，渲染对象的顶点流为单位四边形，则需要将宽高乘到世界矩阵中
                 let matrix_slice = match box_type {
-                    BoxType::ContentRect => create_scale_offset_matrix(1.0, 1.0, layout_result.border.left + layout_result.padding.left, layout_result.border.top + layout_result.padding.top, matrix),
+                    BoxType::ContentRect => create_scale_offset_matrix(
+                        1.0,
+                        1.0,
+                        layout_result.border.left + layout_result.padding.left,
+                        layout_result.border.top + layout_result.padding.top,
+                        matrix,
+                    ),
                     BoxType::BorderUnitRect => create_unit_offset_matrix_by_layout(layout_result, 0.0, 0.0, matrix),
-					BoxType::PaddingUnitRect => create_unit_offset_matrix_by_layout(layout_result, layout_result.border.left, layout_result.border.top, matrix),
-					BoxType::ContentUnitRect => create_unit_offset_matrix_by_layout(layout_result, layout_result.border.left + layout_result.padding.left, layout_result.border.top + layout_result.padding.top, matrix),
+                    BoxType::PaddingUnitRect => {
+                        create_unit_offset_matrix_by_layout(layout_result, layout_result.border.left, layout_result.border.top, matrix)
+                    }
+                    BoxType::ContentUnitRect => create_unit_offset_matrix_by_layout(
+                        layout_result,
+                        layout_result.border.left + layout_result.padding.left,
+                        layout_result.border.top + layout_result.padding.top,
+                        matrix,
+                    ),
                     BoxType::ContentNone | BoxType::BorderNone | BoxType::PaddingNone | BoxType::Border => matrix.clone(), // 否者，世界矩阵使用节点的世界矩阵
-					BoxType::NotChange => continue,
+                    BoxType::NotChange => continue,
                 };
                 let mut matrix_slice = matrix_slice.clone();
                 matrix_slice.column_mut(3)[2] = node.index() as f32; // 用于调试

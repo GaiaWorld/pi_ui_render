@@ -1,10 +1,9 @@
-use bevy::ecs::prelude::{Entity, RemovedComponents};
+use bevy::ecs::prelude::RemovedComponents;
 use bevy::ecs::query::Changed;
 use bevy::ecs::system::{Query, SystemState};
-use bevy::prelude::{Bundle, Component, EventReader, FromWorld, Local, Resource, World, Commands};
+use bevy::prelude::{Bundle, Commands, Component, EventReader, FromWorld, Resource, World};
 use pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent;
 use pi_bevy_ecs_extend::system_param::res::OrInitRes;
-use pi_null::Null;
 use pi_render::rhi::shader::{BindLayout, ShaderProgram};
 use pi_share::Share;
 
@@ -37,14 +36,15 @@ pub fn draw_object_life<
         OrInitRes<VertLayout>,
         OrInitRes<ShaderInfoCache>,
         OrInitRes<ShareGroupAlloter<UiMaterialGroup>>,
-		Commands,
+        Commands,
     )>,
 
     query_draw_list: &mut SystemState<Query<&'static mut DrawList>>,
 ) {
-    let (render_type, mut changed, mut del, mut query_texture, program_meta, vert_layout, shader_catch, group_alloter, mut commands) = state.get_mut(world);
+    let (render_type, mut changed, mut del, mut query_texture, program_meta, vert_layout, shader_catch, group_alloter, mut commands) =
+        state.get_mut(world);
     let group_alloter = group_alloter.clone();
-	let render_type = ***render_type;
+    let render_type = ***render_type;
 
     // 收集需要删除DrawObject的实体
     for del in del.iter() {
@@ -53,7 +53,7 @@ pub fn draw_object_life<
                 continue;
             }
             // 删除对应的DrawObject
-           draw_list.remove(render_type, |draw_obj| {
+            draw_list.remove(render_type, |draw_obj| {
 				if let Some(mut r) = commands.get_entity(draw_obj.id) {
 					r.despawn();
 					log::debug!(target: format!("entity_{:?}", del).as_str(), "remove RenderObj {:?} for {} destroy, ", &draw_obj.id, std::any::type_name::<Src>());
@@ -62,7 +62,7 @@ pub fn draw_object_life<
         }
     }
 
-	let program_meta = program_meta.clone();
+    let program_meta = program_meta.clone();
     let p_state = shader_catch.common.clone();
     let vert_layout = vert_layout.clone();
 
@@ -74,31 +74,34 @@ pub fn draw_object_life<
             }
             // 不存在，才需要创建DrawObject
             if let None = draw_list.get_one(render_type) {
-				let mut draw_state = DrawState::default();
-				let ui_material_group = group_alloter.alloc();
-				draw_state.bindgroups.insert_group(UiMaterialBind::set(), ui_material_group);
+                let mut draw_state = DrawState::default();
+                let ui_material_group = group_alloter.alloc();
+                draw_state.bindgroups.insert_group(UiMaterialBind::set(), ui_material_group);
 
-				let id = commands.spawn(DrawBundle {
-                    node_id: NodeId(EntityKey(changed.id)),
-                    draw_state,
-                    box_type: BoxType::ContentNone,
-                    pipeline_meta: PipelineMeta {
-						type_mark: render_type,
-                        program: program_meta.clone(),
-                        state: p_state.clone(),
-                        vert_layout: vert_layout.clone(),
-                        defines: Default::default(),
-                    },
-                    draw_info: DrawInfo::new(ORDER, false), //TODO
-                    other: With::default(),
-                }).id();
-				log::debug!(target: format!("entity_{:?}", changed.id).as_str(), "create RenderObj {:?} for {} changed, ", &id, std::any::type_name::<Src>());
-				draw_list.push(render_type, id);
+                let id = commands
+                    .spawn(DrawBundle {
+                        node_id: NodeId(EntityKey(changed.id)),
+                        draw_state,
+                        box_type: BoxType::ContentNone,
+                        pipeline_meta: PipelineMeta {
+                            type_mark: render_type,
+                            program: program_meta.clone(),
+                            state: p_state.clone(),
+                            vert_layout: vert_layout.clone(),
+                            defines: Default::default(),
+                        },
+                        draw_info: DrawInfo::new(ORDER, false), //TODO
+                        other: With::default(),
+                    })
+                    .id();
+                log::warn!("create_aaa================{:?}, {:?}", id, std::any::type_name::<With>());
+                log::debug!(target: format!("entity_{:?}", changed.id).as_str(), "create RenderObj {:?} for {} changed, ", &id, std::any::type_name::<Src>());
+                draw_list.push(render_type, id);
             }
         }
     }
 
-	state.apply(world);
+    state.apply(world);
 }
 
 

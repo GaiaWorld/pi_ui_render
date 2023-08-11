@@ -15,9 +15,9 @@ use pi_bevy_ecs_extend::prelude::{Down, Layer, Up};
 use self::{
     calc::{DrawInfo, DrawList, EntityKey, IsShow, NodeState, RenderContextMark, TransformWillChangeMatrix, View},
     draw_obj::{BoxType, ClearColorBindGroup, CopyFboToScreen, PipelineMeta},
-    pass_2d::{ChildrenPass, GraphId, ParentPassId, PostProcess, PostProcessInfo, ViewMatrix},
-    root::{RenderTarget, RootDirtyRect},
-    user::{ClearColor, Overflow},
+    pass_2d::{ChildrenPass, GraphId, ParentPassId, PostProcess, PostProcessInfo, RenderTarget, ViewMatrix},
+    root::RootDirtyRect,
+    user::Overflow,
 };
 
 /// 节点Bundle
@@ -101,13 +101,15 @@ pub struct PassBundle {
     pub view_matrix: ViewMatrix,
     pub overflow_aabb: View,
     pub draw_list: pass_2d::Draw2DList,
-	pub post_list: PostProcess,
+    pub post_list: PostProcess,
     pub dirty_rect: pass_2d::DirtyRect,
+    pub dirty_mark: pass_2d::DirtyMark,
     pub last_dirty_rect: pass_2d::LastDirtyRect,
-	pub post_list_info: PostProcessInfo,
+    pub post_list_info: PostProcessInfo,
     pub children: ChildrenPass,
     pub graph_id: GraphId,
     pub will_change_matrix: TransformWillChangeMatrix,
+    pub render_target: RenderTarget,
 }
 
 impl PassBundle {
@@ -120,12 +122,14 @@ impl PassBundle {
             camera: Default::default(),
             draw_list: Default::default(),
             dirty_rect: Default::default(),
+            dirty_mark: Default::default(),
             last_dirty_rect: Default::default(),
             post_list: Default::default(),
-			post_list_info: Default::default(),
+            post_list_info: Default::default(),
             children: Default::default(),
             will_change_matrix: Default::default(),
             graph_id: Default::default(),
+            render_target: Default::default(),
         }
     }
 }

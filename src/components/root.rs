@@ -1,10 +1,7 @@
 //! 定义根节点相关的组件
 
 use bevy::ecs::prelude::Component;
-use pi_render::{
-    components::view::target_alloc::{ShareTargetView, TargetType},
-    renderer::draw_obj::DrawBindGroup,
-};
+use pi_render::{components::view::target_alloc::TargetType, renderer::draw_obj::DrawBindGroup};
 use pi_style::style::{Aabb2, CgColor, Point2};
 
 use super::{draw_obj::DrawState, pass_2d::DirtyRect};
@@ -30,7 +27,7 @@ pub struct RenderDirty(pub bool);
 
 /// 清屏颜色的bindgroup（用户设置）
 #[derive(Component, Default)]
-pub struct ClearColorBindGroup(pub Option<(DrawBindGroup, DrawBindGroup)>); // meterial, depth
+pub struct ClearColorBindGroup(pub Option<DrawBindGroup>); // meterial
 
 /// 渲染目标类型（有深度缓冲区和无深度缓冲区两种，rgba格式）
 /// 后处理通常使用无深度缓冲区的渲染目标
@@ -41,11 +38,7 @@ pub struct DynTargetType {
     pub no_depth: TargetType,
 }
 
-///
-#[derive(Component, Default)]
-pub struct RenderTarget(pub Option<ShareTargetView>);
-
-#[derive(Debug, Clone, Copy, EnumDefault, Component, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, EnumDefault, Component, Serialize, Deserialize, PartialEq, Eq)]
 pub enum RenderTargetType {
     Screen,
     OffScreen,

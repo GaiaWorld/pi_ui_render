@@ -15,7 +15,7 @@ use pi_bevy_ecs_extend::{
 };
 use pi_flex_layout::{
     prelude::{CharNode, Rect, Size},
-    style::{Dimension, PositionType, JustifyContent, AlignItems, AlignContent, FlexWrap},
+    style::{AlignContent, AlignItems, Dimension, FlexWrap, JustifyContent, PositionType},
 };
 use pi_render::font::{split, Font, FontId, FontSheet, SplitResult};
 use pi_slotmap::{DefaultKey, Key};
@@ -24,7 +24,7 @@ use pi_style::style::{StyleType, TextAlign, VerticalAlign};
 use crate::{
     components::{
         calc::{EntityKey, NodeState, StyleMark},
-        user::{get_size, FlexNormal, LineHeight, Size as FlexSize, TextContent, TextStyle, FlexContainer},
+        user::{get_size, FlexContainer, FlexNormal, LineHeight, Size as FlexSize, TextContent, TextStyle},
     },
     resource::ShareFontSheet,
 };
@@ -42,8 +42,8 @@ pub fn text_split(
             OrDefault<FlexSize>,
             OrDefault<FlexNormal>,
             &'static mut NodeState,
-			&'static StyleMark,
-			Option<&'static mut FlexContainer>,
+            &'static StyleMark,
+            Option<&'static mut FlexContainer>,
             &Layer,
         ),
         Or<(Changed<TextContent>, Changed<TextStyle>, Changed<Layer>)>,
@@ -74,9 +74,9 @@ pub fn text_split(
         // 字体描边宽度
         let sw = text_style.text_stroke.width;
 
-		if let Some(r) = flex_container {
-			fit_text_style(text_style, style_mark, r);
-		}
+        if let Some(r) = flex_container {
+            fit_text_style(text_style, style_mark, r);
+        }
 
         let mut calc = Calc {
             id: entity,
@@ -315,41 +315,41 @@ pub fn get_line_height(size: usize, line_height: &LineHeight) -> f32 {
 }
 
 fn fit_text_style(style: &TextStyle, style_mark: &StyleMark, mut flex_container: Mut<FlexContainer>) {
-	let StyleMark{local_style, class_style, ..}= style_mark;
-	// 兼容目前使用父节点的对齐属性来对齐文本， 如果项目将其修改正确， 应该去掉该段TODO
-	if !local_style[StyleType::JustifyContent as usize] && !class_style[StyleType::JustifyContent as usize] {
-		flex_container.justify_content = match style.text_align {
-			TextAlign::Center => JustifyContent::Center,
-			TextAlign::Right => JustifyContent::FlexEnd,
-			TextAlign::Left => JustifyContent::FlexStart,
-			TextAlign::Justify => JustifyContent::SpaceBetween,
-		};
-	}
-	
-	if !local_style[StyleType::AlignItems as usize] && !class_style[StyleType::AlignItems as usize] {
-		let r= match style.vertical_align {
-			VerticalAlign::Middle => AlignItems::Center,
-			VerticalAlign::Bottom => AlignItems::FlexEnd,
-			VerticalAlign::Top => AlignItems::FlexStart
-		};
-		flex_container.align_items = r;
-		
-	
-	} 
-	if !local_style[StyleType::AlignContent as usize] && !class_style[StyleType::AlignContent as usize] {
-		let r= match style.vertical_align {
-			VerticalAlign::Middle => AlignContent::Center,
-			VerticalAlign::Bottom => AlignContent::FlexEnd,
-			VerticalAlign::Top => AlignContent::FlexStart
-		};
-		flex_container.align_content = r;
-	}
+    let StyleMark {
+        local_style, class_style, ..
+    } = style_mark;
+    // 兼容目前使用父节点的对齐属性来对齐文本， 如果项目将其修改正确， 应该去掉该段TODO
+    if !local_style[StyleType::JustifyContent as usize] && !class_style[StyleType::JustifyContent as usize] {
+        flex_container.justify_content = match style.text_align {
+            TextAlign::Center => JustifyContent::Center,
+            TextAlign::Right => JustifyContent::FlexEnd,
+            TextAlign::Left => JustifyContent::FlexStart,
+            TextAlign::Justify => JustifyContent::SpaceBetween,
+        };
+    }
 
-	if !local_style[StyleType::FlexWrap as usize] && !class_style[StyleType::FlexWrap as usize] {
-		flex_container.flex_wrap = if style.white_space.allow_wrap() {
-			FlexWrap::Wrap
-		} else {
-			FlexWrap::NoWrap
-		}
-	}
+    if !local_style[StyleType::AlignItems as usize] && !class_style[StyleType::AlignItems as usize] {
+        let r = match style.vertical_align {
+            VerticalAlign::Middle => AlignItems::Center,
+            VerticalAlign::Bottom => AlignItems::FlexEnd,
+            VerticalAlign::Top => AlignItems::FlexStart,
+        };
+        flex_container.align_items = r;
+    }
+    if !local_style[StyleType::AlignContent as usize] && !class_style[StyleType::AlignContent as usize] {
+        let r = match style.vertical_align {
+            VerticalAlign::Middle => AlignContent::Center,
+            VerticalAlign::Bottom => AlignContent::FlexEnd,
+            VerticalAlign::Top => AlignContent::FlexStart,
+        };
+        flex_container.align_content = r;
+    }
+
+    if !local_style[StyleType::FlexWrap as usize] && !class_style[StyleType::FlexWrap as usize] {
+        flex_container.flex_wrap = if style.white_space.allow_wrap() {
+            FlexWrap::Wrap
+        } else {
+            FlexWrap::NoWrap
+        }
+    }
 }

@@ -7,15 +7,15 @@ use pi_bevy_render_plugin::should_run;
 
 use self::system_set::UiSystemSet;
 
+#[cfg(feature = "debug")]
+pub mod cmd_play;
 pub mod draw_obj;
 pub mod node;
-pub mod pass_effect;
 pub mod pass;
+pub mod pass_effect;
 pub mod shader_utils;
 pub mod system_set;
 pub mod utils;
-#[cfg(feature="debug")]
-pub mod cmd_play;
 
 // 运行状态
 bitflags::bitflags! {

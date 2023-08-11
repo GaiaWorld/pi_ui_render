@@ -21,7 +21,7 @@ use pi_ui_render::{
         user::{Canvas, CgColor, ClearColor, Color, RenderTargetType, Viewport},
         NodeBundle,
     },
-    resource::{NodeCmd, UserCommands},
+    resource::{ComponentCmd, NodeCmd, UserCommands},
 };
 
 fn main() { framework::start(QuadExample::default()) }
@@ -95,11 +95,11 @@ impl Example for QuadExample {
         let root_tow = world.spawn(NodeBundle::default()).id();
         self.cmd.push_cmd(NodeCmd(ClearColor(CgColor::new(0.0, 0.0, 0.0, 0.0), true), root_tow));
         self.cmd
-            .push_cmd(NodeCmd(Viewport(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(300.0, 300.0))), root_tow));
+            .push_cmd(NodeCmd(Viewport(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(200.0, 200.0))), root_tow));
         self.cmd.push_cmd(NodeCmd(RenderTargetType::OffScreen, root_tow));
 
-        self.cmd.set_style(root_tow, WidthType(Dimension::Points(300.0)));
-        self.cmd.set_style(root_tow, HeightType(Dimension::Points(300.0)));
+        self.cmd.set_style(root_tow, WidthType(Dimension::Points(200.0)));
+        self.cmd.set_style(root_tow, HeightType(Dimension::Points(200.0)));
 
         self.cmd.set_style(root_tow, PositionTypeType(PositionType::Absolute));
         self.cmd.set_style(root_tow, PositionLeftType(Dimension::Points(0.0)));
@@ -110,8 +110,8 @@ impl Example for QuadExample {
 
         // 添加一个绿色div到根节点
         let div1 = world.spawn(NodeBundle::default()).id();
-        self.cmd.set_style(div1, WidthType(Dimension::Points(300.0)));
-        self.cmd.set_style(div1, HeightType(Dimension::Points(300.0)));
+        self.cmd.set_style(div1, WidthType(Dimension::Points(200.0)));
+        self.cmd.set_style(div1, HeightType(Dimension::Points(200.0)));
         self.cmd
             .set_style(div1, BackgroundColorType(Color::RGBA(CgColor::new(0.0, 1.0, 0.0, 1.0))));
 
@@ -120,13 +120,14 @@ impl Example for QuadExample {
         self.root_tow = EntityKey(root_tow);
 
         // 创建一个canvas节点
+        // 将200 * 200的gui渲染到300*300的canvas上
         let canvas = world.spawn(NodeBundle::default()).id();
         self.cmd.set_style(canvas, PositionTypeType(PositionType::Absolute));
         self.cmd.set_style(canvas, WidthType(Dimension::Points(300.0)));
         self.cmd.set_style(canvas, HeightType(Dimension::Points(300.0)));
         self.cmd.set_style(canvas, PositionLeftType(Dimension::Points(100.0)));
         self.cmd.set_style(canvas, PositionTopType(Dimension::Points(100.0)));
-        self.cmd.push_cmd(NodeCmd(Canvas(root_tow), canvas));
+        self.cmd.push_cmd(ComponentCmd(Canvas(root_tow), canvas));
         self.cmd.append(canvas, self.root_one.0);
     }
 

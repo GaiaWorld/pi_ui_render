@@ -1,8 +1,11 @@
-use bevy::{ecs::{
-    prelude::RemovedComponents,
-    query::Changed,
-    system::{ParamSet, Query},
-}, prelude::{Or, Added}};
+use bevy::{
+    ecs::{
+        prelude::RemovedComponents,
+        query::Changed,
+        system::{ParamSet, Query},
+    },
+    prelude::{Added, Or},
+};
 use pi_bevy_ecs_extend::system_param::res::OrInitRes;
 
 use crate::{components::user::Blur, resource::RenderContextMarkType};
@@ -16,7 +19,10 @@ use pi_postprocess::effect::BlurDual;
 pub fn blur_post_process(
     mut del: RemovedComponents<Blur>,
     mark_type: OrInitRes<RenderContextMarkType<Blur>>,
-    mut query: ParamSet<(Query<(&Blur, &mut PostProcess, &mut PostProcessInfo), Or<(Changed<Blur>, Added<PostProcess>)>>, Query<(&mut PostProcess, &mut PostProcessInfo)>)>,
+    mut query: ParamSet<(
+        Query<(&Blur, &mut PostProcess, &mut PostProcessInfo), Or<(Changed<Blur>, Added<PostProcess>)>>,
+        Query<(&mut PostProcess, &mut PostProcessInfo)>,
+    )>,
 ) {
     let mut p1 = query.p1();
     for del in del.iter() {

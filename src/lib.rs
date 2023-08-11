@@ -9,8 +9,6 @@
 #![feature(fmt_helpers_for_derive)]
 #![feature(print_internals)]
 
-use bevy::{ecs::entity::Entities, prelude::Entity};
-
 
 #[macro_use]
 extern crate serde;
@@ -38,15 +36,15 @@ pub mod prelude {
 
     pub use crate::resource::UserCommands;
     use crate::system::{
-        /*shader_utils::UiShaderPlugin, */ draw_obj::UiReadyDrawPlugin, node::UiNodePlugin, pass_effect::UiEffectPlugin, pass::UiPassPlugin,
+        /*shader_utils::UiShaderPlugin, */ draw_obj::UiReadyDrawPlugin, node::UiNodePlugin, pass::UiPassPlugin, pass_effect::UiEffectPlugin,
         shader_utils::UiShaderPlugin, system_set::UiSystemSet, RunState,
     };
 
     #[derive(Default)]
     pub struct UiPlugin {
-		#[cfg(feature="debug")]
-		pub cmd_trace: crate::system::cmd_play::TraceOption,
-	}
+        #[cfg(feature = "debug")]
+        pub cmd_trace: crate::system::cmd_play::TraceOption,
+    }
     impl Plugin for UiPlugin {
         fn build(&self, app: &mut App) {
             app.init_resource::<RunState>();
@@ -63,7 +61,7 @@ pub mod prelude {
             )
             .configure_sets(
                 (
-					UiSystemSet::Setting,
+                    UiSystemSet::Setting,
                     UiSystemSet::LifeDrawObject,
                     UiSystemSet::LifeDrawObjectFlush,
                     UiSystemSet::PrepareDrawObj,
@@ -74,7 +72,7 @@ pub mod prelude {
             .configure_sets((UiSystemSet::Setting, UiSystemSet::BaseCalc, UiSystemSet::BaseCalcFlush).chain())
             .configure_sets(
                 (
-					UiSystemSet::Setting,
+                    UiSystemSet::Setting,
                     UiSystemSet::PrepareDrawObjFlush,
                     UiSystemSet::BaseCalcFlush,
                     PiRenderSystemSet,
@@ -89,11 +87,10 @@ pub mod prelude {
             // .add_system(apply_system_buffers.in_set(UiSystemSet::LoadFlush))
             .add_system(apply_system_buffers.in_set(UiSystemSet::LifeDrawObjectFlush))
             // .add_system(apply_system_buffers.in_set(UiSystemSet::BaseCalcFlush))
-            .add_system(apply_system_buffers.in_set(UiSystemSet::PrepareDrawObjFlush))
-			;
+            .add_system(apply_system_buffers.in_set(UiSystemSet::PrepareDrawObjFlush));
 
-			#[cfg(feature="debug")]
-			app.add_plugin(crate::system::cmd_play::UiCmdTracePlugin { option: self.cmd_trace});
+            #[cfg(feature = "debug")]
+            app.add_plugin(crate::system::cmd_play::UiCmdTracePlugin { option: self.cmd_trace });
         }
     }
 }

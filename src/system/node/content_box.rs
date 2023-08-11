@@ -8,10 +8,13 @@ use pi_bevy_ecs_extend::{
 };
 use pi_null::Null;
 
-use crate::{components::{
-    calc::{ContentBox, EntityKey, LayoutResult, Quad, WorldMatrix},
-    user::{Aabb2, Point2, TextShadow, BoxShadow},
-}, utils::tools::calc_bound_box};
+use crate::{
+    components::{
+        calc::{ContentBox, EntityKey, LayoutResult, Quad, WorldMatrix},
+        user::{Aabb2, BoxShadow, Point2, TextShadow},
+    },
+    utils::tools::calc_bound_box,
+};
 
 pub struct CalcContentBox;
 
@@ -48,43 +51,43 @@ pub fn calc_content_box(
                     ),
                     r.1.rect.left,
                     r.1.rect.top,
-					r.2,
-					r.3,
-					r.4
+                    r.2,
+                    r.3,
+                    r.4,
                 ),
                 _ => continue,
             };
 
-			let mut has_extends = false;
-			let mut offset: (f32, f32, f32, f32) = (0.0, 0.0, 0.0, 0.0); // 左上右下
-			if let Some(text_shadow) = text_shadow {
-				has_extends = true;
-				for shadow in text_shadow.iter() {
-					let e = (shadow.blur * 1.5).ceil();
-					offset.0 = offset.0.min(shadow.h - e);
-					offset.1 = offset.1.min(shadow.v - e);
-					offset.2 = offset.2.max(shadow.h + e);
-					offset.3 = offset.3.max(shadow.v + e);
-				}
-			}
+            let mut has_extends = false;
+            let mut offset: (f32, f32, f32, f32) = (0.0, 0.0, 0.0, 0.0); // 左上右下
+            if let Some(text_shadow) = text_shadow {
+                has_extends = true;
+                for shadow in text_shadow.iter() {
+                    let e = (shadow.blur * 1.5).ceil();
+                    offset.0 = offset.0.min(shadow.h - e);
+                    offset.1 = offset.1.min(shadow.v - e);
+                    offset.2 = offset.2.max(shadow.h + e);
+                    offset.3 = offset.3.max(shadow.v + e);
+                }
+            }
 
-			if let Some(shadow) = box_shadow {
-				has_extends = true;
-				offset.0 = offset.0.min(shadow.h - shadow.blur - shadow.spread);
-				offset.1 = offset.1.min(shadow.v - shadow.blur - shadow.spread);
-				offset.2 = offset.2.max(shadow.h + shadow.blur + shadow.spread);
-				offset.3 = offset.3.max(shadow.v + shadow.blur + shadow.spread);
-			}
+            if let Some(shadow) = box_shadow {
+                has_extends = true;
+                offset.0 = offset.0.min(shadow.h - shadow.blur - shadow.spread);
+                offset.1 = offset.1.min(shadow.v - shadow.blur - shadow.spread);
+                offset.2 = offset.2.max(shadow.h + shadow.blur + shadow.spread);
+                offset.3 = offset.3.max(shadow.v + shadow.blur + shadow.spread);
+            }
 
-			if has_extends {
-				// 由于阴影的影响， 重新阶段layout和oct
-				layout.mins.x += offset.0;
-				layout.mins.y += offset.1;
-				layout.maxs.x += offset.2;
-				layout.maxs.y += offset.3;
+            if has_extends {
+                // 由于阴影的影响， 重新阶段layout和oct
+                layout.mins.x += offset.0;
+                layout.mins.y += offset.1;
+                layout.maxs.x += offset.2;
+                layout.maxs.y += offset.3;
 
-				oct = calc_bound_box(&layout, world_matrix);
-			}
+                oct = calc_bound_box(&layout, world_matrix);
+            }
 
             // Aabb2::new(
             // 	Point2::new(0.0, 0.0),

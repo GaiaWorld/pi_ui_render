@@ -3,7 +3,7 @@ use bevy::ecs::{
     prelude::Ref,
     system::{Query, Res},
 };
-use bevy::prelude::{DetectChanges};
+use bevy::prelude::DetectChanges;
 use ordered_float::NotNan;
 use pi_assets::mgr::AssetMgr;
 use pi_bevy_asset::ShareAssetMgr;
@@ -149,13 +149,17 @@ fn try_modify_as_radius_linear_geo(
     let vb_pos_hash = calc_hash(&rect, calc_hash(&"color vert", 0));
     let ib_hash = calc_hash(&rect, calc_hash(&"color index", 0)); // 计算颜色hash， TODO
 
-	let vb_color_hash = if let Color::LinearGradient(color) = color {
-		calc_hash(&(&rect, color), calc_hash(&"color vert", 0))
-	} else {
-		vb_pos_hash
-	};
+    let vb_color_hash = if let Color::LinearGradient(color) = color {
+        calc_hash(&(&rect, color), calc_hash(&"color vert", 0))
+    } else {
+        vb_pos_hash
+    };
 
-    let (vb, color_vb, ib) = match (buffer_asset_mgr.get(&vb_pos_hash), buffer_asset_mgr.get(&vb_color_hash), buffer_asset_mgr.get(&ib_hash)) {
+    let (vb, color_vb, ib) = match (
+        buffer_asset_mgr.get(&vb_pos_hash),
+        buffer_asset_mgr.get(&vb_color_hash),
+        buffer_asset_mgr.get(&ib_hash),
+    ) {
         (Some(vb), Some(color_vb), Some(ib)) => (vb, color_vb, ib),
         (vb, _color_vb, ib) => {
             let (mut positions, mut indices) = (
@@ -172,7 +176,7 @@ fn try_modify_as_radius_linear_geo(
                 vec![0, 1, 2, 3],
             );
             let color_vb = if let Color::LinearGradient(color) = color {
-				let (positions1, colors, indices1) = linear_gradient_split(color, positions, indices, &size);
+                let (positions1, colors, indices1) = linear_gradient_split(color, positions, indices, &size);
                 let buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
                     label: Some("radius or linear Color Buffer"),
                     contents: bytemuck::cast_slice(colors.as_slice()),
@@ -184,12 +188,12 @@ fn try_modify_as_radius_linear_geo(
                 let color = buffer_asset_mgr
                     .get(&color_hash)
                     .unwrap_or_else(|| buffer_asset_mgr.insert(color_hash, RenderRes::new(buf, color_size)).unwrap());
-				positions = positions1;
-				indices = indices1;
-				Some(color)
+                positions = positions1;
+                indices = indices1;
+                Some(color)
             } else {
                 indices = to_triangle(&indices, Vec::with_capacity(indices.len()));
-				None
+                None
             };
 
             let vb = match vb {
@@ -218,14 +222,14 @@ fn try_modify_as_radius_linear_geo(
             (vb.clone(), color_vb.unwrap_or(vb), ib)
         }
     };
-	if let Color::LinearGradient(_) = color {
-		draw_state.insert_vertices(RenderVertices {
-			slot: 1,
-			buffer: EVerticesBufferUsage::GUI(color_vb),
-			buffer_range: None,
-			size_per_value: 16,
-		});
-	}
+    if let Color::LinearGradient(_) = color {
+        draw_state.insert_vertices(RenderVertices {
+            slot: 1,
+            buffer: EVerticesBufferUsage::GUI(color_vb),
+            buffer_range: None,
+            size_per_value: 16,
+        });
+    }
 
     draw_state.insert_vertices(RenderVertices {
         slot: 0,
@@ -240,52 +244,39 @@ fn try_modify_as_radius_linear_geo(
     });
 }
 
-pub fn linear_gradient_split(color: &LinearGradientColor, positions: Vec<f32>, indices: Vec<u16>, size: &Size<NotNan<f32>>) -> (Vec<f32>, Vec<f32>, Vec<u16>) {
-	let mut lg_pos = Vec::with_capacity(color.list.len());
-	let mut colors = Vec::with_capacity(color.list.len() * 4);
-	for v in color.list.iter() {
-		lg_pos.push(v.position);
-		colors.extend_from_slice(&[v.rgba.x, v.rgba.y, v.rgba.z, v.rgba.w]);
-	}
+pub fn linear_gradient_split(
+    color: &LinearGradientColor,
+    positions: Vec<f32>,
+    indices: Vec<u16>,
+    size: &Size<NotNan<f32>>,
+) -> (Vec<f32>, Vec<f32>, Vec<u16>) {
+    let mut lg_pos = Vec::with_capacity(color.list.len());
+    let mut colors = Vec::with_capacity(color.list.len() * 4);
+    for v in color.list.iter() {
+        lg_pos.push(v.position);
+        colors.extend_from_slice(&[v.rgba.x, v.rgba.y, v.rgba.z, v.rgba.w]);
+    }
 
-	//渐变端点
-	let endp = find_lg_endp(
-		&[
-			0.0,
-			0.0,
-			0.0,
-			*size.height,
-			*size.width,
-			*size.height,
-			*size.width,
-			0.0,
-		],
-		color.direction,
-	);
+    //渐变端点
+    let endp = find_lg_endp(
+        &[0.0, 0.0, 0.0, *size.height, *size.width, *size.height, *size.width, 0.0],
+        color.direction,
+    );
 
-	let (positions1, indices1) = split_by_lg(
-		positions,
-		indices,
-		lg_pos.as_slice(),
-		endp.0.clone(),
-		endp.1.clone(),
-	);
+    let (positions1, indices1) = split_by_lg(positions, indices, lg_pos.as_slice(), endp.0.clone(), endp.1.clone());
 
-	let mut colors = interp_mult_by_lg(
-		positions1.as_slice(),
-		&indices1,
-		vec![Vec::new()],
-		vec![LgCfg {
-			unit: 4,
-			data: colors,
-		}],
-		lg_pos.as_slice(),
-		endp.0,
-		endp.1,
-	);
+    let mut colors = interp_mult_by_lg(
+        positions1.as_slice(),
+        &indices1,
+        vec![Vec::new()],
+        vec![LgCfg { unit: 4, data: colors }],
+        lg_pos.as_slice(),
+        endp.0,
+        endp.1,
+    );
 
-	let indices = mult_to_triangle(&indices1, Vec::new());
-	let colors = colors.pop().unwrap();
+    let indices = mult_to_triangle(&indices1, Vec::new());
+    let colors = colors.pop().unwrap();
 
-	(positions1, colors, indices)
+    (positions1, colors, indices)
 }

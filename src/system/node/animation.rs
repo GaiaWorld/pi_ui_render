@@ -56,7 +56,7 @@ pub fn calc_animation(
     for del in del.iter() {
         if let Err(_) = animation.get(del) {
             keyframes_sheet.unbind_animation_all(ObjKey(del));
-			keyframes_sheet.remove_runtime_keyframs(ObjKey(del));
+            keyframes_sheet.remove_runtime_keyframs(ObjKey(del));
         }
     }
 
@@ -66,7 +66,7 @@ pub fn calc_animation(
             log::error!("{:?}", e);
         }
     }
-	// log::warn!("time_info.delta==============={:?}", time_info.delta);
+    // log::warn!("time_info.delta==============={:?}", time_info.delta);
     // 推动动画执行
     keyframes_sheet.run(&mut user_commands1.style_commands, time_info.delta);
 

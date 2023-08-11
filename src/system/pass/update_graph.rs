@@ -42,7 +42,7 @@ pub fn update_graph(
                     return;
                 }
             };
-			log::debug!(target: format!("entity_{:?}", entity).as_str(), "add graph node: {:?}", graph_node_id);
+            log::debug!(target: format!("entity_{:?}", entity).as_str(), "add graph node: {:?}", graph_node_id);
 
             *graph_id = GraphId(graph_node_id);
         } else {
@@ -57,7 +57,7 @@ pub fn update_graph(
 
     // 移除渲染图节点
     for id in del.iter() {
-		log::debug!(target: format!("entity_{:?}", id).as_str(), "remove graph node");
+        log::debug!(target: format!("entity_{:?}", id).as_str(), "remove graph node");
         let _ = rg.remove_node(format!("Pass2D_{:?}", id));
     }
 
@@ -72,11 +72,12 @@ pub fn update_graph(
                 log::error!("{:?}", e);
             }
         } else {
-			let parent_graph_id = get_to(***parent_id, &p2.1);
-			// 建立父子依赖关系，使得子pass先渲染
-			if let Err(e) = rg.add_depend(**graph_id, parent_graph_id) {
-				log::error!("{:?}", e);
-			}
+            let parent_graph_id = get_to(***parent_id, &p2.1);
+            // 建立父子依赖关系，使得子pass先渲染
+            log::debug!("add_depend======{:?}, {:?}", **graph_id, parent_graph_id);
+            if let Err(e) = rg.add_depend(**graph_id, parent_graph_id) {
+                log::error!("{:?}", e);
+            }
         }
     }
 
@@ -104,22 +105,19 @@ pub fn update_graph(
     }
 }
 
-pub fn get_to<'w, 's, F: ReadOnlyWorldQuery>(
-	parent_id: Entity,
-	query: &Query<(&'w ParentPassId, &'s GraphId), F>,
-) -> NodeId {
-	if let Ok((mut parent_id, mut parent_graph_id)) = query.get(parent_id) {
-		// 父的pass2d不存在图节点， 继续找父
-		while parent_graph_id.0.is_null() {
-			if let Ok((parent_id1, parent_graph_id1)) = query.get(***parent_id) {
-				parent_id = parent_id1;
-				parent_graph_id = parent_graph_id1;
-			} else {
-				break;
-			}
-		}
+pub fn get_to<'w, 's, F: ReadOnlyWorldQuery>(parent_id: Entity, query: &Query<(&'w ParentPassId, &'s GraphId), F>) -> NodeId {
+    if let Ok((mut parent_id, mut parent_graph_id)) = query.get(parent_id) {
+        // 父的pass2d不存在图节点， 继续找父
+        while parent_graph_id.0.is_null() {
+            if let Ok((parent_id1, parent_graph_id1)) = query.get(***parent_id) {
+                parent_id = parent_id1;
+                parent_graph_id = parent_graph_id1;
+            } else {
+                break;
+            }
+        }
 
-		return parent_graph_id.0;
-	}
-	NodeId::null()
+        return parent_graph_id.0;
+    }
+    NodeId::null()
 }

@@ -1,5 +1,8 @@
-use bevy::{ecs::{prelude::RemovedComponents, query::Changed, system::Query}, prelude::{Or, Added, Entity}};
-use pi_bevy_ecs_extend::{system_param::res::OrInitRes};
+use bevy::{
+    ecs::{prelude::RemovedComponents, query::Changed, system::Query},
+    prelude::{Added, Entity, Or},
+};
+use pi_bevy_ecs_extend::system_param::res::OrInitRes;
 
 use crate::{components::user::Hsi, resource::RenderContextMarkType};
 
@@ -15,7 +18,10 @@ use crate::components::pass_2d::{PostProcess, PostProcessInfo};
 pub fn hsi_post_process(
     mut del: RemovedComponents<Hsi>,
     mark_type: OrInitRes<RenderContextMarkType<Hsi>>,
-    mut query: ParamSet<(Query<(&Hsi, &mut PostProcess, &mut PostProcessInfo, Entity), Or<(Changed<Hsi>, Added<PostProcess>)>>, Query<(&mut PostProcess, &mut PostProcessInfo)>)>,
+    mut query: ParamSet<(
+        Query<(&Hsi, &mut PostProcess, &mut PostProcessInfo, Entity), Or<(Changed<Hsi>, Added<PostProcess>)>>,
+        Query<(&mut PostProcess, &mut PostProcessInfo)>,
+    )>,
 ) {
     let mut p1 = query.p1();
     for del in del.iter() {

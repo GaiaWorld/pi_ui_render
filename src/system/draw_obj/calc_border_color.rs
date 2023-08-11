@@ -18,7 +18,7 @@ use pi_share::Share;
 use wgpu::IndexFormat;
 
 use crate::components::calc::LayoutResult;
-use crate::components::draw_obj::{BorderColorMark, PipelineMeta, BoxType};
+use crate::components::draw_obj::{BorderColorMark, BoxType, PipelineMeta};
 use crate::components::user::{BorderRadius, CgColor};
 use crate::components::{calc::NodeId, draw_obj::DrawState, user::BorderColor};
 use crate::shader::color::BORDER_DEFINE;
@@ -62,7 +62,7 @@ pub fn calc_border_color(
                 &layout_change,
                 new_fs,
             );
-			*box_type = BoxType::Border;
+            *box_type = BoxType::Border;
 
             if new_fs.defines.len() != count {
                 pipeline_meta.set_changed();

@@ -13,11 +13,12 @@ use pi_curves::steps::EStepMode;
 use pi_flex_layout::style::{Dimension, PositionType};
 use pi_null::Null;
 use pi_style::{
-    style::{Aabb2, AnimationDirection, AnimationName, IterationCount, Time, AnimationFillMode, AnimationTimingFunction},
+    style::{Aabb2, AnimationDirection, AnimationFillMode, AnimationName, AnimationTimingFunction, IterationCount, Time},
     style_parse::parse_class_map_from_string,
     style_type::{
-        AnimationDirectionType, AnimationDurationType, AnimationIterationCountType, AnimationNameType, BackgroundColorType, HeightType,
-        MarginLeftType, MarginTopType, PositionLeftType, PositionTopType, PositionTypeType, WidthType, AnimationFillModeType, AnimationTimingFunctionType,
+        AnimationDirectionType, AnimationDurationType, AnimationFillModeType, AnimationIterationCountType, AnimationNameType,
+        AnimationTimingFunctionType, BackgroundColorType, HeightType, MarginLeftType, MarginTopType, PositionLeftType, PositionTopType,
+        PositionTypeType, WidthType,
     },
 };
 use pi_ui_render::{
@@ -80,13 +81,14 @@ impl Example for AnimationExample {
                 value: smallvec![Atom::from("test-animation")],
             }),
         );
-        self.cmd
-            .set_style(div1, AnimationIterationCountType(smallvec![IterationCount(10000.0)]));
-		self.cmd
-            .set_style(div1, AnimationTimingFunctionType(smallvec![AnimationTimingFunction::Step(1, EStepMode::JumpEnd)]));
+        self.cmd.set_style(div1, AnimationIterationCountType(smallvec![IterationCount(10000.0)]));
+        self.cmd.set_style(
+            div1,
+            AnimationTimingFunctionType(smallvec![AnimationTimingFunction::Step(1, EStepMode::JumpEnd)]),
+        );
         // self.cmd.set_style(div1, AnimationDirectionType(smallvec![AnimationDirection::Reverse]));
         self.cmd.set_style(div1, AnimationDurationType(smallvec![Time(3000)]));
-		self.cmd.set_style(div1, AnimationFillModeType(smallvec![AnimationFillMode::Forwards]));
+        self.cmd.set_style(div1, AnimationFillModeType(smallvec![AnimationFillMode::Forwards]));
         self.cmd.append(div1, root);
 
         // 添加一个玫红色div到根节点， 并添加overflow属性

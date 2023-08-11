@@ -12,14 +12,14 @@ use pi_atom::Atom;
 /// 渲染四边形 demo
 use pi_flex_layout::{
     prelude::{Rect, Size},
-    style::{Dimension, FlexWrap, PositionType, AlignContent},
+    style::{AlignContent, Dimension, FlexWrap, PositionType},
 };
 use pi_null::Null;
 use pi_style::{
-    style::{Aabb2, BorderRadius, CgColor, ImageRepeat, ImageRepeatOption, NotNanRect, Point2, BlendMode},
+    style::{Aabb2, BlendMode, BorderRadius, CgColor, ImageRepeat, ImageRepeatOption, NotNanRect, Point2},
     style_type::{
-        BackgroundImageClipType, BackgroundImageType, BackgroundRepeatType, BorderRadiusType, FlexWrapType, HeightType, MarginLeftType,
-        MarginTopType, PositionLeftType, PositionTopType, PositionTypeType, WidthType, BlendModeType, JustifyContentType, AlignItemsType, AlignContentType,
+        AlignContentType, AlignItemsType, BackgroundImageClipType, BackgroundImageType, BackgroundRepeatType, BlendModeType, BorderRadiusType,
+        FlexWrapType, HeightType, JustifyContentType, MarginLeftType, MarginTopType, PositionLeftType, PositionTopType, PositionTypeType, WidthType,
     },
 };
 use pi_ui_render::{
@@ -39,9 +39,9 @@ pub struct QuadExample {
 }
 
 impl Example for QuadExample {
-	fn get_init_size(&self) -> Option<Size<u32>> {
+    fn get_init_size(&self) -> Option<Size<u32>> {
         // None表示使用默认值
-        Some(Size{ width: 1020, height: 959})
+        Some(Size { width: 1020, height: 959 })
     }
 
     fn init(&mut self, world: &mut World, size: (usize, usize)) {
@@ -52,9 +52,10 @@ impl Example for QuadExample {
             Viewport(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(size.0 as f32, size.1 as f32))),
             root,
         ));
-		self.cmd.set_style(root, JustifyContentType(pi_flex_layout::style::JustifyContent::Center));
-		self.cmd.set_style(root, AlignItemsType(pi_flex_layout::style::AlignItems::Center));
-		self.cmd.set_style(root, AlignContentType(pi_flex_layout::style::AlignContent::Center));
+        self.cmd
+            .set_style(root, JustifyContentType(pi_flex_layout::style::JustifyContent::Center));
+        self.cmd.set_style(root, AlignItemsType(pi_flex_layout::style::AlignItems::Center));
+        self.cmd.set_style(root, AlignContentType(pi_flex_layout::style::AlignContent::Center));
         self.cmd.push_cmd(NodeCmd(RenderDirty(true), root));
 
         self.cmd.set_style(root, WidthType(Dimension::Points(size.0 as f32)));
@@ -75,10 +76,10 @@ impl Example for QuadExample {
             .set_style(div1, BackgroundImageType(Atom::from("examples/blend_mode/source/chouka_shitou_1.png")));
         self.cmd.append(div1, root);
 
-		let div2 = world.spawn(NodeBundle::default()).id();
+        let div2 = world.spawn(NodeBundle::default()).id();
         self.cmd.set_style(div2, WidthType(Dimension::Points(450.0)));
         self.cmd.set_style(div2, HeightType(Dimension::Points(600.0)));
-		self.cmd.set_style(div2, BlendModeType(BlendMode::AlphaAdd));
+        self.cmd.set_style(div2, BlendModeType(BlendMode::AlphaAdd));
         self.cmd.set_style(div2, PositionTypeType(PositionType::Absolute));
         self.cmd
             .set_style(div2, BackgroundImageType(Atom::from("examples/blend_mode/source/6.png")));

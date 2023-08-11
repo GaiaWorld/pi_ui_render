@@ -1,8 +1,11 @@
-use bevy::{ecs::{
-    prelude::RemovedComponents,
-    query::Changed,
-    system::{ParamSet, Query},
-}, prelude::{Added, Or}};
+use bevy::{
+    ecs::{
+        prelude::RemovedComponents,
+        query::Changed,
+        system::{ParamSet, Query},
+    },
+    prelude::{Added, Or},
+};
 use pi_bevy_ecs_extend::system_param::res::OrInitRes;
 
 use crate::{components::user::Opacity, resource::RenderContextMarkType};
@@ -18,7 +21,10 @@ use crate::components::pass_2d::{PostProcess, PostProcessInfo};
 pub fn opacity_post_process(
     mut del: RemovedComponents<Opacity>,
     mark_type: OrInitRes<RenderContextMarkType<Opacity>>,
-    mut query: ParamSet<(Query<(&Opacity, &mut PostProcess, &mut PostProcessInfo), Or<(Changed<Opacity>, Added<PostProcess>)>>, Query<(&mut PostProcess, &mut PostProcessInfo)>)>,
+    mut query: ParamSet<(
+        Query<(&Opacity, &mut PostProcess, &mut PostProcessInfo), Or<(Changed<Opacity>, Added<PostProcess>)>>,
+        Query<(&mut PostProcess, &mut PostProcessInfo)>,
+    )>,
 ) {
     // opacity 如果删除， 取消opacity的后处理
     let mut p1 = query.p1();

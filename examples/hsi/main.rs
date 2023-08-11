@@ -7,14 +7,15 @@ use std::mem::swap;
 
 use bevy::ecs::system::Commands;
 use bevy::prelude::World;
-use framework::{Example, spawn};
+use framework::{spawn, Example};
 use pi_atom::Atom;
 use pi_flex_layout::style::{Dimension, PositionType};
 use pi_null::Null;
 use pi_style::{
     style::{Aabb2, Hsi, Point2},
     style_type::{
-        BackgroundColorType, HeightType, HsiType, MarginLeftType, MarginTopType, PositionLeftType, PositionTopType, PositionTypeType, WidthType, BackgroundImageType,
+        BackgroundColorType, BackgroundImageType, HeightType, HsiType, MarginLeftType, MarginTopType, PositionLeftType, PositionTopType,
+        PositionTypeType, WidthType,
     },
 };
 use pi_ui_render::{
@@ -37,9 +38,12 @@ impl Example for QuadExample {
     fn init(&mut self, world: &mut World, size: (usize, usize)) {
         // 添加根节点
         let root = spawn(world);
-		self.cmd.set_node_bundle(root, NodeBundle::default());
+        self.cmd.set_node_bundle(root, NodeBundle::default());
         self.cmd.set_clear_color(root, ClearColor(CgColor::new(1.0, 1.0, 1.0, 1.0), true));
-        self.cmd.set_view_port(root, Viewport(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(size.0 as f32, size.1 as f32))));
+        self.cmd.set_view_port(
+            root,
+            Viewport(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(size.0 as f32, size.1 as f32))),
+        );
         self.cmd.set_render_dirty(root, RenderDirty(true));
 
         self.cmd.set_style(root, WidthType(Dimension::Points(size.0 as f32)));
@@ -50,13 +54,13 @@ impl Example for QuadExample {
         self.cmd.set_style(root, PositionTopType(Dimension::Points(0.0)));
         self.cmd.set_style(root, MarginLeftType(Dimension::Points(0.0)));
         self.cmd.set_style(root, MarginTopType(Dimension::Points(0.0)));
-		self.cmd
+        self.cmd
             .set_style(root, BackgroundColorType(Color::RGBA(CgColor::new(0.0, 0.0, 0.0, 1.0))));
         self.cmd.append(root, EntityKey::null().0);
 
         // 添加一个红色div
         let div1 = spawn(world);
-		self.cmd.set_node_bundle(div1, NodeBundle::default());
+        self.cmd.set_node_bundle(div1, NodeBundle::default());
         self.cmd.set_style(div1, WidthType(Dimension::Points(50.0)));
         self.cmd.set_style(div1, HeightType(Dimension::Points(100.0)));
         self.cmd
@@ -65,7 +69,7 @@ impl Example for QuadExample {
 
 
         let div1 = spawn(world);
-		self.cmd.set_node_bundle(div1, NodeBundle::default());
+        self.cmd.set_node_bundle(div1, NodeBundle::default());
         self.cmd.set_style(div1, PositionTopType(Dimension::Points(100.0)));
         self.cmd.set_style(div1, WidthType(Dimension::Points(100.0)));
         self.cmd.set_style(div1, HeightType(Dimension::Points(200.0)));
@@ -77,12 +81,12 @@ impl Example for QuadExample {
                 bright_ness: 0.2,
             }),
         );
-		// self.cmd.set_style(div1, OpacityType(0.5));
+        // self.cmd.set_style(div1, OpacityType(0.5));
         // self.cmd.set_style(div1, OpacityType(Opacity(0.5)));
 
         // 添加一个绿色div
         let div2 = spawn(world);
-		self.cmd.set_node_bundle(div2, NodeBundle::default());
+        self.cmd.set_node_bundle(div2, NodeBundle::default());
         self.cmd.set_style(div2, WidthType(Dimension::Points(50.0)));
         self.cmd.set_style(div2, HeightType(Dimension::Points(100.0)));
         self.cmd
@@ -91,14 +95,13 @@ impl Example for QuadExample {
 
         // 添加一个黄色
         let div3 = spawn(world);
-		self.cmd.set_node_bundle(div3, NodeBundle::default());
+        self.cmd.set_node_bundle(div3, NodeBundle::default());
         self.cmd.set_style(div3, PositionTopType(Dimension::Points(100.0)));
         self.cmd.set_style(div3, WidthType(Dimension::Points(50.0)));
         self.cmd.set_style(div3, HeightType(Dimension::Points(100.0)));
-		self.cmd
-            .set_style(div3, BackgroundImageType(Atom::from("examples/hsi/source/men.png")));
+        self.cmd.set_style(div3, BackgroundImageType(Atom::from("examples/hsi/source/men.png")));
         // self.cmd
-            // .set_style(div3, BackgroundColorType(Color::RGBA(CgColor::new(1.0, 1.0, 0.0, 1.0))));
+        // .set_style(div3, BackgroundColorType(Color::RGBA(CgColor::new(1.0, 1.0, 0.0, 1.0))));
         self.cmd.append(div3, div1);
 
         self.cmd.append(div1, root);

@@ -1,8 +1,3 @@
-use bevy::ecs::{
-    prelude::Component,
-    prelude::RemovedComponents,
-    system::{Commands, Query},
-};
 use geo::BooleanOps;
 use nalgebra::Orthographic3;
 use pi_bevy_render_plugin::{PiIndexBufferAlloter, PiVertexBufferAlloter};
@@ -14,13 +9,9 @@ use pi_share::Share;
 use pi_style::style::Aabb2;
 use wgpu::IndexFormat;
 
-use crate::{
-    components::{
-        calc::DrawList,
-        draw_obj::DrawState,
-        user::{Matrix4, Point2, Vector2, Vector4},
-    },
-    resource::RenderObjType,
+use crate::components::{
+    draw_obj::DrawState,
+    user::{Matrix4, Point2, Vector2, Vector4},
 };
 
 // pub fn clear_draw_obj<'w, 's, T: Component>(
@@ -72,30 +63,32 @@ pub fn rotatequad_quad_intersection(rotatequad: &(Vector2, Vector2, Vector2, Vec
     let right_bottom = rotate_matrix * Vector4::new(rotatequad.2.x, rotatequad.2.y, 0.0, 1.0);
     let right_top = rotate_matrix * Vector4::new(rotatequad.3.x, rotatequad.3.y, 0.0, 1.0);
 
-    let rotate_quad: geo::Polygon<f32> = geo::Polygon::new(
+    // Polygon<f32>有bug，已反馈给作者
+    let rotate_quad: geo::Polygon<f64> = geo::Polygon::new(
         geo::LineString::from(vec![
-            (left_top.x, left_top.y),
-            (left_bottom.x, left_bottom.y),
-            (right_bottom.x, right_bottom.y),
-            (right_top.x, right_top.y),
-            (left_top.x, left_top.y),
+            (left_top.x as f64, left_top.y as f64),
+            (left_bottom.x as f64, left_bottom.y as f64),
+            (right_bottom.x as f64, right_bottom.y as f64),
+            (right_top.x as f64, right_top.y as f64),
+            (left_top.x as f64, left_top.y as f64),
         ]),
         vec![],
     );
 
-    let quad: geo::Polygon<f32> = geo::Polygon::new(
+    let quad: geo::Polygon<f64> = geo::Polygon::new(
         geo::LineString::from(vec![
-            (quad.mins.x, quad.mins.y),
-            (quad.mins.x, quad.maxs.y),
-            (quad.maxs.x, quad.maxs.y),
-            (quad.maxs.x, quad.mins.y),
-            (quad.mins.x, quad.mins.y),
+            (quad.mins.x as f64, quad.mins.y as f64),
+            (quad.mins.x as f64, quad.maxs.y as f64),
+            (quad.maxs.x as f64, quad.maxs.y as f64),
+            (quad.maxs.x as f64, quad.mins.y as f64),
+            (quad.mins.x as f64, quad.mins.y as f64),
         ]),
         vec![],
     );
+    // log::warn!("quad================{:?}, {:?}", quad,rotate_quad );
+    let intersect = quad.intersection(&rotate_quad);
+    let (mut min_x, mut min_y, mut max_x, mut max_y) = (std::f64::MAX, std::f64::MAX, std::f64::MIN, std::f64::MIN);
 
-    let (mut min_x, mut min_y, mut max_x, mut max_y) = (std::f32::MAX, std::f32::MAX, std::f32::MIN, std::f32::MIN);
-    let intersect = rotate_quad.intersection(&quad);
 
     for i in intersect.into_iter() {
         for coord in i.exterior() {
@@ -106,9 +99,9 @@ pub fn rotatequad_quad_intersection(rotatequad: &(Vector2, Vector2, Vector2, Vec
         }
     }
 
-    if min_x != std::f32::MAX {
+    if min_x != std::f64::MAX {
         // 取当前裁剪区域与父裁剪区域相交部分
-        Aabb2::new(Point2::new(min_x, min_y), Point2::new(max_x, max_y))
+        Aabb2::new(Point2::new(min_x as f32, min_y as f32), Point2::new(max_x as f32, max_y as f32))
     } else {
         // 与父裁剪区域不想交， 则设置裁剪区域大小为0
         Aabb2::new(Point2::new(0.0, 0.0), Point2::new(0.0, 0.0))
@@ -127,19 +120,19 @@ pub fn set_vert_buffer(
 ) {
     if let Some(r) = draw_state.vertices.get_mut(slot) {
         if let EVerticesBufferUsage::Part(index) = &mut r.buffer {
-			// 正常逻辑下， 只有这里会取到可变，这里直接通过非安全方式转换（逻辑需要保证）
-			vertex_buffer_alloter.update(unsafe { &mut *(Share::as_ptr(index) as usize as *mut BufferIndex) }, buffer);
-			return;
-		}
+            // 正常逻辑下， 只有这里会取到可变，这里直接通过非安全方式转换（逻辑需要保证）
+            vertex_buffer_alloter.update(unsafe { &mut *(Share::as_ptr(index) as usize as *mut BufferIndex) }, buffer);
+            return;
+        }
     }
 
-	let index = vertex_buffer_alloter.alloc(buffer);
-	draw_state.insert_vertices(RenderVertices {
-		slot: slot,
-		buffer: EVerticesBufferUsage::Part(Share::new(index)),
-		buffer_range: None,
-		size_per_value,
-	});
+    let index = vertex_buffer_alloter.alloc(buffer);
+    draw_state.insert_vertices(RenderVertices {
+        slot: slot,
+        buffer: EVerticesBufferUsage::Part(Share::new(index)),
+        buffer_range: None,
+        size_per_value,
+    });
 
     // let key = calc_hash_slice(buffer, calc_hash(&"vert", 0));
     // match buffer_assets.get(&key) {

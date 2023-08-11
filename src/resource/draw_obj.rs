@@ -23,21 +23,24 @@ use pi_render::{
         device::RenderDevice,
         dyn_uniform_buffer::GroupAlloter,
         pipeline::RenderPipeline,
-        shader::{AsLayoutEntry, BindLayout, BufferSize, ShaderMeta, ShaderProgram},
+        shader::{AsLayoutEntry, BindLayout, ShaderMeta, ShaderProgram},
         texture::PiRenderDefault,
-        BufferInitDescriptor,
     },
 };
 use pi_share::Share;
 use pi_slotmap::{DefaultKey, SlotMap};
 use wgpu::{
-    BindingType, BufferUsages, CompareFunction, DepthBiasState, DepthStencilState, Limits, MultisampleState, PipelineLayout, Sampler, ShaderModule,
-    StencilState, TextureFormat, BlendState,
+    BlendState, CompareFunction, DepthBiasState, DepthStencilState, Limits, MultisampleState, PipelineLayout, Sampler, ShaderModule, StencilState,
+    TextureFormat,
 };
 
 use crate::{
     components::draw_obj::{DrawState, PipelineMeta},
-    shader::{camera::CameraBind, depth::DepthBind, ui_meterial::UiMaterialBind},
+    shader::{
+        camera::CameraBind,
+        depth::{DepthBind, DepthUniform},
+        ui_meterial::UiMaterialBind,
+    },
     system::draw_obj::clear_draw_obj::create_clear_pipeline_state,
     utils::{
         shader_helper::{create_depth_layout, create_empty_layout, create_matrix_group_layout, create_project_layout, create_view_layout},
@@ -47,13 +50,13 @@ use crate::{
 
 use super::RenderObjType;
 
-/// depth 的BindGroupLayout
-#[derive(Deref, Resource)]
-pub struct DepthGroupLayout(pub Share<BindGroupLayout>);
+// /// depth 的BindGroupLayout
+// #[derive(Deref, Resource)]
+// pub struct DepthGroupLayout(pub Share<BindGroupLayout>);
 
 /// depth的Group缓冲
-#[derive(Deref, Resource)]
-pub struct DepthGroup(pub Vec<Share<BindGroup>>);
+#[derive(Resource)]
+pub struct DepthGroup;
 
 /// pos 和uv在同一个buffer中
 #[derive(Deref, Resource)]
@@ -128,22 +131,21 @@ pub struct DrawObjDefaults(pub VecMap<DrawObjDefault>);
 
 #[derive(Debug)]
 pub struct DrawObjDefault {
-	pub blend_state: BlendState,
+    pub blend_state: BlendState,
 }
 
 impl DrawObjDefault {
-	pub fn add(world: &mut World, ty: RenderObjType, state: DrawObjDefault) {
-		let mut drawobj_defaults = match world.get_resource_mut::<DrawObjDefaults>() {
-			Some(r) => r,
-			None => {
-				world.insert_resource(DrawObjDefaults::default());
-				world.get_resource_mut::<DrawObjDefaults>().unwrap()
-			},
-		};
-		drawobj_defaults.insert(*ty, state);
-	}
+    pub fn add(world: &mut World, ty: RenderObjType, state: DrawObjDefault) {
+        let mut drawobj_defaults = match world.get_resource_mut::<DrawObjDefaults>() {
+            Some(r) => r,
+            None => {
+                world.insert_resource(DrawObjDefaults::default());
+                world.get_resource_mut::<DrawObjDefaults>().unwrap()
+            }
+        };
+        drawobj_defaults.insert(*ty, state);
+    }
 }
-
 
 
 #[derive(Debug)]
@@ -170,7 +172,7 @@ pub struct ShaderInfoCache {
 
     pub pipeline_state: XHashMap<u64, Share<PipelineStateWithHash>>,
     pub common: Share<PipelineStateWithHash>,
-	pub common_no_depth: Share<PipelineStateWithHash>,
+    pub common_no_depth: Share<PipelineStateWithHash>,
     pub premultiply: Share<PipelineStateWithHash>,
     pub clear: Share<PipelineStateWithHash>,
 
@@ -182,12 +184,12 @@ impl Default for ShaderInfoCache {
         let clear = create_clear_pipeline_state();
         let common = create_common_pipeline_state();
         let premultiply = create_premultiply_pipeline_state();
-		let mut common_no_depeth = common.clone();
-		common_no_depeth.depth_stencil = None;
+        let mut common_no_depeth = common.clone();
+        common_no_depeth.depth_stencil = None;
 
         let clear_hash = calc_hash(&clear, 0);
         let common_hash = calc_hash(&common, 0);
-		let common_no_depeth_hash = calc_hash(&common_no_depeth, 0);
+        let common_no_depeth_hash = calc_hash(&common_no_depeth, 0);
         let premultiply_hash = calc_hash(&premultiply, 0);
 
         let clear = Share::new(PipelineStateWithHash {
@@ -198,7 +200,7 @@ impl Default for ShaderInfoCache {
             hash: common_hash,
             state: common,
         });
-		let common_no_depeth = Share::new(PipelineStateWithHash {
+        let common_no_depeth = Share::new(PipelineStateWithHash {
             hash: common_no_depeth_hash,
             state: common_no_depeth,
         });
@@ -215,7 +217,7 @@ impl Default for ShaderInfoCache {
             bind_group_layout: Default::default(),
             pipeline_state,
             common,
-			common_no_depth: common_no_depeth,
+            common_no_depth: common_no_depeth,
             premultiply,
             clear,
             vert_layout: Default::default(),
@@ -280,14 +282,14 @@ impl<T: ShaderProgram> FromWorld for ProgramMetaRes<T> {
         let device = world.get_resource::<PiRenderDevice>().unwrap();
 
         let mut meta = T::create_meta();
-        // depth不使用动态偏移
-        if let Some(depth_entry) = meta.bindings.bind_group_entrys.get_mut(DepthBind::set() as usize) {
-            if depth_entry.len() == 1 {
-                if let BindingType::Buffer { has_dynamic_offset, .. } = &mut depth_entry[0].ty {
-                    *has_dynamic_offset = false;
-                }
-            }
-        }
+        // // depth不使用动态偏移
+        // if let Some(depth_entry) = meta.bindings.bind_group_entrys.get_mut(DepthBind::set() as usize) {
+        //     if depth_entry.len() == 1 {
+        //         if let BindingType::Buffer { has_dynamic_offset, .. } = &mut depth_entry[0].ty {
+        //             *has_dynamic_offset = false;
+        //         }
+        //     }
+        // }
         let mut vert_layouts = Vec::with_capacity(meta.ins.0.len());
         for i in meta.ins.0.iter() {
             let (format, size) = match i.format.as_str() {
@@ -691,7 +693,7 @@ impl FromWorld for ShareLayout {
 
 /// 动态分配的纹理，清屏颜色的bindgroup（透明色）
 #[derive(Resource)]
-pub struct DynFboClearColorBindGroup(pub (DrawBindGroup, DrawBindGroup));
+pub struct DynFboClearColorBindGroup(pub DrawBindGroup);
 
 pub fn list_share_as_ref<'a, T, I: Iterator<Item = &'a Option<Share<T>>>>(list: I) -> Vec<&'a T> {
     let mut v = Vec::new();
@@ -854,6 +856,44 @@ impl FromWorld for ShareGroupAlloter<UiMaterialGroup> {
         Self {
             alloter: alloter,
             group_index: UiMaterialBind::set(),
+            mark: PhantomData,
+        }
+    }
+}
+
+impl FromWorld for ShareGroupAlloter<DepthGroup> {
+    fn from_world(world: &mut World) -> Self {
+        world.init_resource::<GroupAlloterCenter>();
+        world.init_resource::<ShaderInfoCache>();
+        let world = world.cell();
+        let mut cache = world.get_resource_mut::<ShaderInfoCache>().unwrap();
+        let device = world.get_resource::<PiRenderDevice>().unwrap();
+
+        let entry = DepthBind::as_layout_entry(wgpu::ShaderStages::VERTEX);
+        let layout = cache.bind_group_layout(&[entry.clone()], &device);
+
+        let mut group_center = world.get_resource_mut::<GroupAlloterCenter>().unwrap();
+        let limits = group_center.limits();
+        let min_alignment = limits.min_uniform_buffer_offset_alignment;
+        let max_binding_size = limits.max_uniform_buffer_binding_size;
+        let alloter = Share::new(
+            GroupAlloter::new(
+                Some("depth group".to_string()),
+                min_alignment,
+                max_binding_size,
+                None,
+                vec![entry],
+                layout,
+            )
+            .unwrap(),
+        );
+        group_center.add_alloter(alloter.clone());
+
+        // println!("ui============{:?}", &layout);
+
+        Self {
+            alloter: alloter,
+            group_index: DepthBind::set(),
             mark: PhantomData,
         }
     }
@@ -1141,53 +1181,37 @@ pub fn create_vertex_buffer_layout_p_v_c() -> VertexBufferLayouts {
 
 
 /// depth BindGroup缓存
-#[derive(Resource)]
+#[derive(Resource, Default)]
 pub struct DepthCache {
-    pub list: Vec<Handle<RenderRes<BindGroup>>>,
-    pub layout: Share<BindGroupLayout>,
+    pub list: Vec<DrawBindGroup>,
+    // pub layout: Share<BindGroupLayout>,
 }
 
-impl FromWorld for DepthCache {
-    fn from_world(world: &mut bevy::ecs::world::World) -> Self {
-        world.init_resource::<ShaderInfoCache>();
-        let world = world.cell();
-        let mut cache = world.get_resource_mut::<ShaderInfoCache>().unwrap();
-        // bind_group_layout
-        let device = world.get_resource::<PiRenderDevice>().unwrap();
-        let mut entry = DepthBind::as_layout_entry(wgpu::ShaderStages::VERTEX);
-        if let BindingType::Buffer { has_dynamic_offset, .. } = &mut entry.ty {
-            *has_dynamic_offset = false;
-        }
-        let layout = cache.bind_group_layout(&[entry], &device);
-        Self { list: Vec::new(), layout }
-    }
-}
+// impl FromWorld for DepthCache {
+//     fn from_world(world: &mut bevy::ecs::world::World) -> Self {
+//         world.init_resource::<ShaderInfoCache>();
+//         let world = world.cell();
+//         // let mut cache = world.get_resource_mut::<ShaderInfoCache>().unwrap();
+//         // bind_group_layout
+//         // let device = world.get_resource::<PiRenderDevice>().unwrap();
+//         // let mut entry = DepthBind::as_layout_entry(wgpu::ShaderStages::VERTEX);
+//         // if let BindingType::Buffer { has_dynamic_offset, .. } = &mut entry.ty {
+//         //     *has_dynamic_offset = false;
+//         // }
+//         // let layout = cache.bind_group_layout(&[entry], &device);
+//         Self { list: Vec::new(), /*layout*/ }
+//     }
+// }
 
 impl DepthCache {
-    pub fn or_create_depth<'a>(&mut self, cur_depth: usize, device: &'a RenderDevice, bind_group_assets: &'a Share<AssetMgr<RenderRes<BindGroup>>>) {
-		let mut depth = self.list.len();
-		while depth <= cur_depth {
-            let buffer = device.create_buffer_with_data(&BufferInitDescriptor {
-                label: Some("depth buffer"),
-                usage: BufferUsages::UNIFORM,
-                contents: bytemuck::cast_slice::<_, u8>(&[0.0, 0.0, 0.0, depth as f32]),
-            });
-            let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-                layout: &self.layout,
-                entries: &[wgpu::BindGroupEntry {
-                    binding: DepthBind::binding(),
-                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                        buffer: &buffer,
-                        offset: 0,
-                        size: std::num::NonZeroU64::new(DepthBind::min_size() as u64),
-                    }),
-                }],
-                label: Some("depth bindgroup"),
-            });
-            let hash = calc_hash(&("depth", depth), 0);
-            let r = bind_group_assets.insert(hash, RenderRes::new(bind_group, DepthBind::min_size()));
-            self.list.push(r.unwrap());
-			depth += 1;
+    pub fn or_create_depth<'a>(&mut self, cur_depth: usize, device: &'a RenderDevice, depth_alloter: &'a ShareGroupAlloter<DepthGroup>) {
+        let mut depth = self.list.len();
+        while depth <= cur_depth {
+            let mut group = depth_alloter.alloc();
+            group.set_uniform(&DepthUniform(&[depth as f32]));
+            // 添加深度group、永不释放
+            self.list.push(DrawBindGroup::Offset(group));
+            depth += 1;
         }
     }
 }
@@ -1196,31 +1220,31 @@ impl DepthCache {
 pub struct CommonBlendState;
 
 impl CommonBlendState {
-	// 正常状态
-	pub const NORMAL: wgpu::BlendState = wgpu::BlendState {
-		color: wgpu::BlendComponent {
-			src_factor: wgpu::BlendFactor::SrcAlpha,
-			dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
-			operation: wgpu::BlendOperation::Add,
-		},
-		alpha: wgpu::BlendComponent {	
-			src_factor: wgpu::BlendFactor::One,
-			dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
-			operation: wgpu::BlendOperation::Add,
-		},
-	};
+    // 正常状态
+    pub const NORMAL: wgpu::BlendState = wgpu::BlendState {
+        color: wgpu::BlendComponent {
+            src_factor: wgpu::BlendFactor::SrcAlpha,
+            dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+            operation: wgpu::BlendOperation::Add,
+        },
+        alpha: wgpu::BlendComponent {
+            src_factor: wgpu::BlendFactor::One,
+            dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+            operation: wgpu::BlendOperation::Add,
+        },
+    };
 
-	// 预乘
-	pub const PREMULTIPLY: wgpu::BlendState = wgpu::BlendState {
-		color: wgpu::BlendComponent {
-			src_factor: wgpu::BlendFactor::One,
-			dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
-			operation: wgpu::BlendOperation::Add,
-		},
-		alpha: wgpu::BlendComponent {
-			src_factor: wgpu::BlendFactor::One,
-			dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
-			operation: wgpu::BlendOperation::Add,
-		},
-	};
+    // 预乘
+    pub const PREMULTIPLY: wgpu::BlendState = wgpu::BlendState {
+        color: wgpu::BlendComponent {
+            src_factor: wgpu::BlendFactor::One,
+            dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+            operation: wgpu::BlendOperation::Add,
+        },
+        alpha: wgpu::BlendComponent {
+            src_factor: wgpu::BlendFactor::One,
+            dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+            operation: wgpu::BlendOperation::Add,
+        },
+    };
 }

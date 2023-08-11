@@ -18,10 +18,13 @@ use crate::{
         draw_obj::{DrawState, PipelineMeta},
         user::Matrix4,
     },
-    resource::{draw_obj::{
-        CameraGroup, ClearDrawObj, DepthCache, DynFboClearColorBindGroup, PipelineState, PosVertexLayout, ProgramMetaRes, ShaderInfoCache,
-        ShareGroupAlloter, UiMaterialGroup, UnitQuadBuffer,
-    }, BackgroundColorRenderObjType},
+    resource::{
+        draw_obj::{
+            CameraGroup, ClearDrawObj, DepthCache, DepthGroup, DynFboClearColorBindGroup, PipelineState, PosVertexLayout, ProgramMetaRes,
+            ShaderInfoCache, ShareGroupAlloter, UiMaterialGroup, UnitQuadBuffer,
+        },
+        BackgroundColorRenderObjType,
+    },
     shader::{
         camera::{ProjectUniform, ViewUniform},
         color::ProgramMeta,
@@ -43,14 +46,15 @@ pub fn init(
     shader_info_cache: OrInitRes<ShaderInfoCache>,
 
     ui_group_alloter: OrInitRes<ShareGroupAlloter<UiMaterialGroup>>,
-	color_render_type: OrInitRes<BackgroundColorRenderObjType>,
+    color_render_type: OrInitRes<BackgroundColorRenderObjType>,
     camera_group_alloter: OrInitRes<ShareGroupAlloter<CameraGroup>>,
+    depth_alloter: OrInitRes<ShareGroupAlloter<DepthGroup>>,
     mut commands: Commands,
 ) {
     // let pipeline_state = state_map.insert(pipeline_state);
     // 清屏使用的渲染状态不同
     let pipeline_meta = PipelineMeta {
-		type_mark: ***color_render_type,
+        type_mark: ***color_render_type,
         program: shader_static.clone(),
         state: shader_info_cache.clear.clone(),
         vert_layout: vert_layout.clone(),
@@ -115,8 +119,8 @@ pub fn init(
     // let state_hash = calc_hash(&pipeline_state, 0);
 
     // 深度设置为-1(最远)
-    depth_cache.or_create_depth(0, &device, &bind_group_assets);
-    commands.insert_resource(DynFboClearColorBindGroup((group, DrawBindGroup::Independ(depth_cache.list[0].clone()))));
+    depth_cache.or_create_depth(0, &device, &depth_alloter); // 深度为0
+    commands.insert_resource(DynFboClearColorBindGroup(group));
     commands.insert_resource(ClearDrawObj(draw_state, pipeline_meta.clone()));
 }
 

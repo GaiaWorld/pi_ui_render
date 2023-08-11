@@ -21,14 +21,14 @@ use pi_render::rhi::shader::{BindLayout, Input};
 use pi_share::Share;
 use wgpu::IndexFormat;
 
-use crate::components::calc::{LayoutResult, NodeState, NodeId};
-use crate::components::draw_obj::{PipelineMeta, TextMark, BoxType};
+use crate::components::calc::{LayoutResult, NodeId, NodeState};
+use crate::components::draw_obj::{BoxType, PipelineMeta, TextMark};
 use crate::components::user::{CgColor, TextStyle};
-use crate::resource::draw_obj::{EmptyVertexBuffer, TextTextureGroup};
-use crate::resource::{ShareFontSheet};
-use crate::shader::text::{PositionVert, SampBind, UvVert, STROKE_DEFINE, VERTEX_COLOR_DEFINE, VcolorVert};
-use crate::shader::ui_meterial::{ColorUniform, StrokeColorOrURectUniform, TextureSizeOrBottomLeftBorderUniform};
 use crate::components::{draw_obj::DrawState, user::Color};
+use crate::resource::draw_obj::{EmptyVertexBuffer, TextTextureGroup};
+use crate::resource::ShareFontSheet;
+use crate::shader::text::{PositionVert, SampBind, UvVert, VcolorVert, STROKE_DEFINE, VERTEX_COLOR_DEFINE};
+use crate::shader::ui_meterial::{ColorUniform, StrokeColorOrURectUniform, TextureSizeOrBottomLeftBorderUniform};
 use crate::system::utils::set_vert_buffer;
 use crate::utils::tools::{calc_hash, calc_hash_slice};
 
@@ -37,14 +37,9 @@ use crate::utils::tools::{calc_hash, calc_hash_slice};
 #[allow(unused_must_use)]
 pub fn calc_text(
     query: Query<
-		(
-			&NodeState,
-			&LayoutResult,
-			OrDefault<TextStyle>,
-			Ref<NodeState>,
-		),
-		Or<(Changed<TextStyle>, Changed<NodeState>)>, // TextContent改变，NodeState必然改;存在NodeState， 也必然存在TextContent
-	>,
+        (&NodeState, &LayoutResult, OrDefault<TextStyle>, Ref<NodeState>),
+        Or<(Changed<TextStyle>, Changed<NodeState>)>, // TextContent改变，NodeState必然改;存在NodeState， 也必然存在TextContent
+    >,
 
     mut query_draw: Query<(&mut DrawState, &mut BoxType, &mut PipelineMeta, &NodeId), With<TextMark>>,
 
@@ -64,20 +59,20 @@ pub fn calc_text(
 
     // 更新纹理尺寸
     let size = font_sheet.texture_size();
-	let texture_group = match &***text_texture_group {
-		Some(r) => r,
-		None => panic!(), // 必须要创建TextTextureGroup
-	};
+    let texture_group = match &***text_texture_group {
+        Some(r) => r,
+        None => panic!(), // 必须要创建TextTextureGroup
+    };
 
     let buffer = &mut *buffer;
     // let mut init_spawn_drawobj = Vec::new();
-	for (mut draw_state, mut box_type, mut pipeline_meta, node_id) in query_draw.iter_mut() {
-		if let Ok((node_state, layout, text_style, node_state_change)) = query.get(***node_id) {
-			if node_state.0.scale < 0.000001 {
-				continue;
-			}
+    for (mut draw_state, mut box_type, mut pipeline_meta, node_id) in query_draw.iter_mut() {
+        if let Ok((node_state, layout, text_style, node_state_change)) = query.get(***node_id) {
+            if node_state.0.scale < 0.000001 {
+                continue;
+            }
 
-			// 如果不存在，插入默认值（只有刚创建时不存在）
+            // 如果不存在，插入默认值（只有刚创建时不存在）
             if draw_state.vertices.get(VcolorVert::location()).is_none() {
                 draw_state.insert_vertices(RenderVertices {
                     slot: VcolorVert::location(),
@@ -91,7 +86,7 @@ pub fn calc_text(
                 draw_state
                     .bindgroups
                     .set_uniform(&TextureSizeOrBottomLeftBorderUniform(&[size.width as f32, size.height as f32]));
-				*box_type = BoxType::ContentRect;
+                *box_type = BoxType::ContentRect;
             }
 
             let old_hash = calc_hash(&*pipeline_meta, 0);
@@ -115,9 +110,8 @@ pub fn calc_text(
             if old_hash != calc_hash(pipeline_meta1, 0) {
                 pipeline_meta.set_changed()
             }
-		}
-	}
-    
+        }
+    }
 }
 
 // 返回当前需要的StaticIndex
@@ -234,7 +228,7 @@ pub fn modify_geo(
         draw_state.vertices.clear();
         return;
     }
-	let mut positions1;
+    let mut positions1;
     match color {
         Color::RGBA(_) => {
             // 更新ib
@@ -248,13 +242,13 @@ pub fn modify_geo(
                 buffer_range: Some(0..(l * 6 * 2) as u64),
                 format: IndexFormat::Uint16,
             });
-			set_vert_buffer(
-				PositionVert::location(),
-				8,
-				bytemuck::cast_slice(&positions),
-				vertex_buffer_alloter,
-				draw_state,
-			);
+            set_vert_buffer(
+                PositionVert::location(),
+                8,
+                bytemuck::cast_slice(&positions),
+                vertex_buffer_alloter,
+                draw_state,
+            );
         }
         Color::LinearGradient(color) => {
             let mut i = 0;
@@ -299,11 +293,11 @@ pub fn modify_geo(
                 lg_color.extend_from_slice(&[v.rgba.x, v.rgba.y, v.rgba.z, v.rgba.w]);
             }
             let lg_color = vec![LgCfg { unit: 4, data: lg_color }];
-			
+
 
             let len = positions.len() / 2;
             let mut old_len = positions.len();
-			positions1 = positions.clone();
+            positions1 = positions.clone();
             while (i as usize) < len {
                 // log::info!("position: {:?}, {:?}, {:?}, {:?}, {:?}", positions, node_state.0.text, lg_pos, &endp.0, &endp.1);
                 let (ps1, indices_arr) = split_by_lg(
@@ -313,7 +307,7 @@ pub fn modify_geo(
                     endp.0.clone(),
                     endp.1.clone(),
                 );
-				positions1 = ps1;
+                positions1 = ps1;
 
                 // 颜色插值
                 colors = interp_mult_by_lg(
@@ -344,18 +338,24 @@ pub fn modify_geo(
             });
 
             let colors = colors.pop().unwrap();
-            set_vert_buffer(VcolorVert::location(), 16, bytemuck::cast_slice(&colors), vertex_buffer_alloter, draw_state);
-			set_vert_buffer(
-				PositionVert::location(),
-				8,
-				bytemuck::cast_slice(&positions1),
-				vertex_buffer_alloter,
-				draw_state,
-			);
+            set_vert_buffer(
+                VcolorVert::location(),
+                16,
+                bytemuck::cast_slice(&colors),
+                vertex_buffer_alloter,
+                draw_state,
+            );
+            set_vert_buffer(
+                PositionVert::location(),
+                8,
+                bytemuck::cast_slice(&positions1),
+                vertex_buffer_alloter,
+                draw_state,
+            );
             // draw_state.insert_vertices(RenderVertices { slot: 2, buffer: EVerticesBufferUsage::GUI(color_buffer), buffer_range: None, size_per_value: 16 });
         }
     }
-   
+
     // let positions_buffer = get_or_create_buffer(bytemuck::cast_slice(&positions), "text position buffer", device, buffer_assets);
     // draw_state.insert_vertices(RenderVertices { slot: PositionVert::location(), buffer: EVerticesBufferUsage::GUI(positions_buffer), buffer_range: None, size_per_value: 8 });
     set_vert_buffer(UvVert::location(), 8, bytemuck::cast_slice(&uvs), vertex_buffer_alloter, draw_state);
@@ -455,7 +455,7 @@ pub fn text_vert(
     uvs: &mut Vec<f32>,
 ) {
     let mut word_pos = (0.0, 0.0);
-	let mut offset = (layout.border.left + layout.padding.left, layout.border.top + layout.padding.top);
+    let mut offset = (layout.border.left + layout.padding.left, layout.border.top + layout.padding.top);
     let mut count = 0;
     let half_stroke = *stroke_width / 2.0;
     for c in node_state.0.text.iter() {

@@ -1,11 +1,17 @@
-use bevy::ecs::{
-    prelude::{Entity, RemovedComponents},
-    query::Changed,
-    system::Query,
+use bevy::{
+    ecs::{
+        prelude::{Entity, RemovedComponents},
+        query::Changed,
+        system::Query,
+    },
+    prelude::EventWriter,
 };
 use pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent;
 
-use crate::components::user::TransformWillChange;
+use crate::{
+    components::{calc::InPassId, user::TransformWillChange},
+    system::pass::pass_dirty_rect::OldTransformWillChange,
+};
 
 use bevy::{
     ecs::{
@@ -46,8 +52,8 @@ use crate::components::{
 pub fn transform_will_change_post_process(
     query_matrix: Query<(&'static WorldMatrix, &'static LayoutResult)>,
     query_node: Query<(&Up, &Layer)>,
-    query_node1: Query<(&'static TransformWillChange, OrDefault<Transform>, &'static Up, &'static LayoutResult)>,
-    mut query_will_change_matrix: Query<&'static mut TransformWillChangeMatrix>,
+    query_node1: Query<(Ref<TransformWillChange>, OrDefault<Transform>, &'static Up, &'static LayoutResult)>,
+    mut query_will_change_matrix: Query<(&'static mut TransformWillChangeMatrix, &'static Layer, &'static InPassId)>,
     query_children: Query<&'static ChildrenPass>,
     query_parent_pass: Query<&ParentPassId>,
 
@@ -68,20 +74,20 @@ pub fn transform_will_change_post_process(
     mut event_reader: EventReader<ComponentEvent<Changed<ParentPassId>>>,
     mut layer_dirty: Local<LayerDirty<Entity>>,
     mut matrix_invert: Local<(XHashMap<Entity, WorldMatrix>, XHashSet<Entity>)>,
+    mut events_writer: EventWriter<OldTransformWillChange>,
 ) {
-	// log::warn!("transform_will_change_post_process=====================");
     for del in del.iter() {
         matrix_invert.0.remove(&del);
     }
 
     // 世界矩阵变化、layer变化、tansform_will_change变化，设置层脏
-    for (id,layer, tracker_matrix, tracker_willchange, tracker_layer) in query.iter() {
+    for (id, layer, tracker_matrix, tracker_willchange, tracker_layer) in query.iter() {
         if tracker_willchange.is_changed() || tracker_layer.is_changed() || tracker_matrix.is_changed() {
             layer_dirty.marked_with_layer(id, id, layer.layer());
         }
 
         // 插入需要更新逆矩阵的节点
-        if tracker_matrix.is_changed() {
+        if tracker_matrix.is_changed() || tracker_willchange.is_added() {
             matrix_invert.1.insert(id);
         }
     }
@@ -105,8 +111,7 @@ pub fn transform_will_change_post_process(
 			_ => WorldMatrix::default(),
 		};
 
-	// 	log::warn!("will_change p==============id: {:?}, {:?}, \n {:?}", id, invert, query_matrix.get(id));
-	matrix_invert0.insert(id, invert);
+        matrix_invert0.insert(id, invert);
     }
     matrix_invert1.clear();
 
@@ -117,7 +122,7 @@ pub fn transform_will_change_post_process(
         let parent_pass_id = query_parent_pass.get(*id).unwrap();
 
         let parent_will_change_matrix = match query_will_change_matrix.get(***parent_pass_id) {
-            Ok(r) => r.clone(),
+            Ok(r) => r.0.clone(),
             _ => TransformWillChangeMatrix(None),
         };
         recursive_set_matrix(
@@ -127,6 +132,7 @@ pub fn transform_will_change_post_process(
             &query_matrix,
             &mut query_will_change_matrix,
             &query_children,
+            &mut events_writer,
             &matrix_invert.0,
             dirty_mark_list,
         );
@@ -139,10 +145,11 @@ pub fn recursive_set_matrix(
     id: Entity,
     mut parent_will_change_matrix: TransformWillChangeMatrix,
 
-    query_node: &Query<(&'static TransformWillChange, OrDefault<Transform>, &'static Up, &'static LayoutResult)>,
+    query_node: &Query<(Ref<TransformWillChange>, OrDefault<Transform>, &'static Up, &'static LayoutResult)>,
     query_matrix: &Query<(&'static WorldMatrix, &LayoutResult)>,
-    query: &mut Query<&'static mut TransformWillChangeMatrix>,
+    query: &mut Query<(&'static mut TransformWillChangeMatrix, &'static Layer, &'static InPassId)>,
     query_children: &Query<&'static ChildrenPass>,
+    mut events_writer: &mut EventWriter<OldTransformWillChange>,
     inverts: &XHashMap<Entity, WorldMatrix>,
     dirty_mark: &DirtyMark,
 ) {
@@ -155,31 +162,43 @@ pub fn recursive_set_matrix(
         Ok((will_change, transform, up, layout)) => {
             let ((p_matrix, parent_layout), invert) = match (query_matrix.get(up.parent()), inverts.get(&id)) {
                 (Ok(r), Some(invert)) => (r, invert),
-                _ => return,
+                r => return,
             };
 
-			let width = layout.rect.right - layout.rect.left;
+            let width = layout.rect.right - layout.rect.left;
             let height = layout.rect.bottom - layout.rect.top;
             let offset = (layout.rect.left + parent_layout.padding.left, layout.rect.top + parent_layout.padding.top);
-            let mut will_change_matrix = WorldMatrix::form_transform_layout(&will_change.0, &transform.origin, width, height, &Point2::new(offset.0, offset.1));
+            // TransformWillChange跟Transform是替换的关系， 而不是补充的关系（一旦设置了TransformWillChange， Transform不再有效）
+            let mut will_change_matrix =
+                WorldMatrix::form_transform_layout(&will_change.0, &transform.origin, width, height, &Point2::new(offset.0, offset.1));
 
+            // 如果父上没有TransformWillChange， 此处m为TransformWillChange作用后， 节点真实的世界矩阵
             let mut m = p_matrix * &will_change_matrix * invert;
 
             if let Some(parent_will_change_matrix) = &parent_will_change_matrix.0 {
+                // 如果父上下文上存在TransformWillChange， 真实的世界矩阵应该需要与父上下文作用
                 m = &parent_will_change_matrix.will_change * &m;
                 will_change_matrix = &parent_will_change_matrix.primitive * &will_change_matrix;
             }
 
-            if let Ok(mut r) = query.get_mut(id) {
+            if let Ok((mut r, layer, inpass_id)) = query.get_mut(id) {
+                // will_change修改， 发送就的Willchange矩阵
+                if will_change.is_changed() {
+                    events_writer.send(OldTransformWillChange {
+                        matrix: (*r).clone(),
+                        entity: id,
+                        inpass_id: ***inpass_id,
+                        root: layer.root(),
+                    });
+                }
                 let will_change_matrix = TransformWillChangeMatrix::new(m.invert().unwrap(), m, will_change_matrix);
                 *r = will_change_matrix.clone();
-
                 parent_will_change_matrix = will_change_matrix;
             };
         }
         _ => {
             // 不是TransformWillChange节点，则直接继承父节点的matrix
-            if let Ok(mut r) = query.get_mut(id) {
+            if let Ok((mut r, _, _)) = query.get_mut(id) {
                 *r = parent_will_change_matrix.clone();
             }
         }
@@ -196,6 +215,7 @@ pub fn recursive_set_matrix(
                 query_matrix,
                 query,
                 query_children,
+                events_writer,
                 inverts,
                 dirty_mark,
             );

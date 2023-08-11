@@ -1,4 +1,4 @@
-// 半透明渲染
+// 测试as_image, 当该上下文与脏区域相交的情况
 
 #[path = "../framework.rs"]
 mod framework;
@@ -14,7 +14,8 @@ use pi_null::Null;
 use pi_style::{
     style::{Aabb2, Point2},
     style_type::{
-        BackgroundColorType, HeightType, MarginLeftType, MarginTopType, OpacityType, PositionLeftType, PositionTopType, PositionTypeType, WidthType,
+        AsImageType, BackgroundColorType, HeightType, MarginLeftType, MarginTopType, PositionLeftType, PositionTopType, PositionTypeType, RotateType,
+        WidthType,
     },
 };
 use pi_ui_render::{
@@ -28,23 +29,26 @@ use pi_ui_render::{
 
 fn main() { framework::start(QuadExample::default()) }
 
+
 #[derive(Default)]
 pub struct QuadExample {
     cmd: UserCommands,
-    root: EntityKey,
+    change_node: EntityKey,
+    rotate: f32,
 }
 
 impl Example for QuadExample {
     fn init(&mut self, world: &mut World, size: (usize, usize)) {
+        // 设置清屏颜色为绿色
+        // gui.gui.world_mut().insert_resource(ClearColor(CgColor::new(0.0, 1.0, 1.0, 1.0)));
+
         // 添加根节点
         let root = world.spawn(NodeBundle::default()).id();
-        self.root = EntityKey(root);
         self.cmd.push_cmd(NodeCmd(ClearColor(CgColor::new(1.0, 1.0, 1.0, 1.0), true), root));
         self.cmd.push_cmd(NodeCmd(
             Viewport(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(size.0 as f32, size.1 as f32))),
             root,
         ));
-        self.cmd.push_cmd(NodeCmd(RenderDirty(true), root));
 
         self.cmd.set_style(root, WidthType(Dimension::Points(size.0 as f32)));
         self.cmd.set_style(root, HeightType(Dimension::Points(size.1 as f32)));
@@ -54,46 +58,44 @@ impl Example for QuadExample {
         self.cmd.set_style(root, PositionTopType(Dimension::Points(0.0)));
         self.cmd.set_style(root, MarginLeftType(Dimension::Points(0.0)));
         self.cmd.set_style(root, MarginTopType(Dimension::Points(0.0)));
-
         self.cmd.append(root, EntityKey::null().0);
 
-        // 添加一个红色div
+        // 添加一个红色div到根节点， 并设置AsImage为Force
         let div1 = world.spawn(NodeBundle::default()).id();
-        self.cmd.set_style(div1, WidthType(Dimension::Points(50.0)));
-        self.cmd.set_style(div1, HeightType(Dimension::Points(100.0)));
+        self.cmd.set_style(div1, WidthType(Dimension::Points(200.0)));
+        self.cmd.set_style(div1, HeightType(Dimension::Points(200.0)));
+        self.cmd.set_style(div1, AsImageType(pi_style::style::AsImage::Force));
         self.cmd
             .set_style(div1, BackgroundColorType(Color::RGBA(CgColor::new(1.0, 0.0, 0.0, 1.0))));
-        self.cmd.set_style(div1, OpacityType(0.5));
+        self.cmd.set_style(div1, RotateType(30.0));
         self.cmd.append(div1, root);
 
-
-        let div1 = world.spawn(NodeBundle::default()).id();
-        self.cmd.set_style(div1, PositionTopType(Dimension::Points(100.0)));
-        self.cmd.set_style(div1, WidthType(Dimension::Points(100.0)));
-        self.cmd.set_style(div1, HeightType(Dimension::Points(200.0)));
-        self.cmd.set_style(div1, OpacityType(0.5));
-        self.cmd.append(div1, root);
-
-        // 添加一个绿色div
+        // 添加一个绿色div到div2
         let div2 = world.spawn(NodeBundle::default()).id();
-        self.cmd.set_style(div2, WidthType(Dimension::Points(50.0)));
+        self.cmd.set_style(div2, WidthType(Dimension::Points(100.0)));
         self.cmd.set_style(div2, HeightType(Dimension::Points(100.0)));
         self.cmd
             .set_style(div2, BackgroundColorType(Color::RGBA(CgColor::new(0.0, 1.0, 0.0, 1.0))));
         self.cmd.append(div2, div1);
 
-        // 添加一个黄色
+        // 添加一个玫红色div到根节点， 放在（150， 150的位置）
         let div3 = world.spawn(NodeBundle::default()).id();
-        self.cmd.set_style(div3, PositionTopType(Dimension::Points(100.0)));
-        self.cmd.set_style(div3, WidthType(Dimension::Points(50.0)));
+        self.cmd.set_style(div3, WidthType(Dimension::Points(100.0)));
         self.cmd.set_style(div3, HeightType(Dimension::Points(100.0)));
+        self.cmd.set_style(div3, PositionTypeType(PositionType::Absolute));
+        self.cmd.set_style(div3, PositionLeftType(Dimension::Points(150.0)));
+        self.cmd.set_style(div3, PositionTopType(Dimension::Points(150.0)));
         self.cmd
-            .set_style(div3, BackgroundColorType(Color::RGBA(CgColor::new(1.0, 1.0, 0.0, 1.0))));
-        self.cmd.append(div3, div1);
+            .set_style(div3, BackgroundColorType(Color::RGBA(CgColor::new(1.0, 0.0, 1.0, 1.0))));
+        self.cmd.append(div3, root);
+        // 设置改变节点
+        self.change_node = EntityKey(div3);
     }
 
     fn render(&mut self, cmd: &mut UserCommands, _cmd1: &mut Commands) {
-        self.cmd.push_cmd(NodeCmd(RenderDirty(true), self.root.0));
+        // 不停的转动change_node
+        self.rotate += 1.0;
+        self.cmd.set_style(self.change_node.0, RotateType(self.rotate));
         swap(&mut self.cmd, cmd);
     }
 }

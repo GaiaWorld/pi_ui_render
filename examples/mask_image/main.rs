@@ -22,16 +22,16 @@ use pi_ui_render::{
 
 fn main() { framework::start(QuadExample::default()) }
 use pi_style::{
-    style::{Aabb2, Point2, LinearGradientColor, MaskImage, ColorAndPosition},
+    style::{Aabb2, ColorAndPosition, LinearGradientColor, MaskImage, Point2},
     style_type::{
-        HeightType, MarginLeftType, MarginTopType, PositionLeftType, PositionTopType, PositionTypeType, WidthType, MaskImageType, BackgroundColorType,
+        BackgroundColorType, HeightType, MarginLeftType, MarginTopType, MaskImageType, PositionLeftType, PositionTopType, PositionTypeType, WidthType,
     },
 };
 
 #[derive(Default)]
 pub struct QuadExample {
     cmd: UserCommands,
-	root: EntityKey,
+    root: EntityKey,
 }
 
 impl Example for QuadExample {
@@ -44,7 +44,7 @@ impl Example for QuadExample {
 
         // 添加根节点
         let root = world.spawn(NodeBundle::default()).id();
-		self.root = EntityKey(root);
+        self.root = EntityKey(root);
         self.cmd.push_cmd(NodeCmd(ClearColor(CgColor::new(1.0, 1.0, 1.0, 1.0), true), root));
         self.cmd.push_cmd(NodeCmd(
             Viewport(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(size.0 as f32, size.1 as f32))),
@@ -67,8 +67,9 @@ impl Example for QuadExample {
         let div1 = world.spawn(NodeBundle::default()).id();
         self.cmd.set_style(div1, WidthType(Dimension::Points(50.0)));
         self.cmd.set_style(div1, HeightType(Dimension::Points(100.0)));
-        self.cmd
-            .set_style(div1, MaskImageType(MaskImage::LinearGradient(LinearGradientColor {
+        self.cmd.set_style(
+            div1,
+            MaskImageType(MaskImage::LinearGradient(LinearGradientColor {
                 direction: 0.0,
                 list: vec![
                     ColorAndPosition {
@@ -80,10 +81,11 @@ impl Example for QuadExample {
                         rgba: CgColor::new(1.0, 0.0, 0.0, 1.0),
                     },
                 ],
-            })));
+            })),
+        );
         self.cmd.append(div1, root);
-		
-		// 为遮罩节点添加子节点，并设置颜色
+
+        // 为遮罩节点添加子节点，并设置颜色
         let div2 = world.spawn(NodeBundle::default()).id();
         self.cmd.set_style(div2, WidthType(Dimension::Points(50.0)));
         self.cmd.set_style(div2, HeightType(Dimension::Points(100.0)));
@@ -91,14 +93,15 @@ impl Example for QuadExample {
             .set_style(div2, BackgroundColorType(Color::RGBA(CgColor::new(0.0, 0.0, 1.0, 1.0))));
         self.cmd.append(div2, div1);
 
-		// 为遮罩节点添加子节点，并设置颜色
+        // 为遮罩节点添加子节点，并设置颜色
         let div3 = world.spawn(NodeBundle::default()).id();
         self.cmd.set_style(div3, WidthType(Dimension::Points(100.0)));
         self.cmd.set_style(div3, HeightType(Dimension::Points(100.0)));
         self.cmd
             .set_style(div3, BackgroundColorType(Color::RGBA(CgColor::new(0.0, 0.0, 1.0, 1.0))));
-		self.cmd
-            .set_style(div3, MaskImageType(MaskImage::LinearGradient(LinearGradientColor {
+        self.cmd.set_style(
+            div3,
+            MaskImageType(MaskImage::LinearGradient(LinearGradientColor {
                 direction: 0.5 * 3.14,
                 list: vec![
                     ColorAndPosition {
@@ -109,35 +112,36 @@ impl Example for QuadExample {
                         position: 0.5,
                         rgba: CgColor::new(0.5, 0.0, 0.0, 1.0),
                     },
-					ColorAndPosition {
+                    ColorAndPosition {
                         position: 1.0,
                         rgba: CgColor::new(1.0, 0.0, 0.0, 1.0),
                     },
                 ],
-            })));
-		self.cmd.set_style(
-			div3,
-			BackgroundColorType(Color::LinearGradient(LinearGradientColor {
-				direction: 0.0,
-				list: vec![
-					ColorAndPosition {
-						position: 0.0,
-						rgba: CgColor::new(1.0, 0.0, 0.0, 1.0),
-					},
-					ColorAndPosition {
-						position: 1.0,
-						rgba: CgColor::new(0.0, 1.0, 0.0, 1.0),
-					},
-				],
-			})),
-		);
+            })),
+        );
+        self.cmd.set_style(
+            div3,
+            BackgroundColorType(Color::LinearGradient(LinearGradientColor {
+                direction: 0.0,
+                list: vec![
+                    ColorAndPosition {
+                        position: 0.0,
+                        rgba: CgColor::new(1.0, 0.0, 0.0, 1.0),
+                    },
+                    ColorAndPosition {
+                        position: 1.0,
+                        rgba: CgColor::new(0.0, 1.0, 0.0, 1.0),
+                    },
+                ],
+            })),
+        );
         self.cmd.append(div3, root);
 
-		// background:linear-gradient(0deg,#ff0000,#00ff00);mask-image-source:linear-gradient(90deg, #000000, #777777 50%, #ffffff);
+        // background:linear-gradient(0deg,#ff0000,#00ff00);mask-image-source:linear-gradient(90deg, #000000, #777777 50%, #ffffff);
     }
 
-    fn render(&mut self, cmd: &mut UserCommands, _cmd1: &mut Commands) { 
-		self.cmd.push_cmd(NodeCmd(RenderDirty(true), self.root.0));
-		swap(&mut self.cmd, cmd); 
-	}
+    fn render(&mut self, cmd: &mut UserCommands, _cmd1: &mut Commands) {
+        self.cmd.push_cmd(NodeCmd(RenderDirty(true), self.root.0));
+        swap(&mut self.cmd, cmd);
+    }
 }
