@@ -21,9 +21,9 @@ pub struct DrawObject;
 pub struct DrawState(DrawState1);
 
 /// 是否使用单位四边形渲染
-#[derive(EnumDefault, PartialEq, Eq, Component)]
+#[derive(EnumDefault, PartialEq, Eq, Component, Debug)]
 pub enum BoxType {
-    /// 渲染为content区，顶部不是单位四边形，世界矩阵需要调整到不变换
+    /// 渲染为content区，顶点不是单位四边形，世界矩阵需要变换到原点为内容区左上角
     ContentRect,
     /// 渲染为padding区，世界矩阵不变换
     PaddingNone,

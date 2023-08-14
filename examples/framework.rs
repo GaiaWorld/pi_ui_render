@@ -288,14 +288,16 @@ pub fn spawn(world: &mut World) -> Entity {
 
 #[cfg(feature = "debug")]
 // pub const PLAY_PATH: Option<&'static str> = None;
-// pub const PLAY_PATH: Option<&'static str> = Some("D://0_js/cdqxz_new_mult_gui_exe/dst");
-pub const PLAY_PATH: Option<&'static str> = Some("D://0_js/pi_demo_mult_gui/dst");
+pub const PLAY_PATH: Option<&'static str> = Some("D://0_js/cdqxz_new_mult_gui_exe/dst");
+// pub const PLAY_PATH: Option<&'static str> = Some("D://0_js/pi_demo_mult_gui/dst");
 #[cfg(feature = "debug")]
 // pub const PLAY_VERSION: &'static str = "local";
 pub const PLAY_VERSION: &'static str = "test";
 
 // pub const FILTER: &'static str = "wgpu=warn,pi_ui_render::components::user=debug";
 // pub const FILTER: &'static str = "wgpu=warn,entity_3v0=trace";
-pub const FILTER: &'static str = "wgpu=warn,pi_ui_render=debug";
+// pub const FILTER: &'static str = "wgpu=warn,pi_ui_render=debug";
+pub const FILTER: &'static str = "wgpu=warn";
 // pub const FILTER: &'static str = "wgpu=info,naga=warn,pi_ui_render=debug";
-pub const LOG_LEVEL: bevy::log::Level = bevy::log::Level::WARN;
+// pub const FILTER: &'static str = "";
+pub const LOG_LEVEL: bevy::log::Level = bevy::log::Level::INFO;

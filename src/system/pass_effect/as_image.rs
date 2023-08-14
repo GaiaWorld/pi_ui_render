@@ -97,6 +97,7 @@ pub fn as_image_post_process(
                 }
             }
             _ => {
+				log::warn!("as_image============");
                 post_info.effect_mark.set(***mark_type, true);
                 post_list.copy = Some(CopyIntensity::default());
             }

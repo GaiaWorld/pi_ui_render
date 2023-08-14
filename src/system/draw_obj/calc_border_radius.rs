@@ -41,14 +41,19 @@ pub fn calc_border_radius(
         if render_list.len() == 0 {
             continue;
         }
-
+		log::warn!("border_radius1===");
         let border_radius = cal_border_radius(border_radius, &layout.rect);
         for i in render_list.iter() {
             if let Ok((mut draw_state, box_type, mut pipeline_meta)) = query_draw.get_mut(i.id) {
-                let (width, height) = (layout.rect.right - layout.rect.left, layout.rect.bottom - layout.rect.top);
-                let (x, y, z, w) = match box_type {
-                    BoxType::BorderUnitRect | BoxType::ContentUnitRect | BoxType::PaddingUnitRect => (width / 2.0, height / 2.0, width, height),
-                    BoxType::BorderNone | BoxType::ContentNone | BoxType::PaddingNone | BoxType::ContentRect => (width / 2.0, height / 2.0, 1.0, 1.0),
+                log::warn!("cal_border_radius===={:?}, box_type={:?}", border_radius, box_type);
+				let (width, height) = (layout.rect.right - layout.rect.left, layout.rect.bottom - layout.rect.top);
+				let (content_width, content_height) = (width - layout.border.left - layout.border.right, height - layout.border.top - layout.border.bottom);
+			
+                let (x, y, z, w, width, height) = match box_type {
+					BoxType::BorderUnitRect => (width / 2.0, height / 2.0, width, height, width, height),
+					BoxType::BorderNone => (width / 2.0, height / 2.0,  1.0, 1.0, width, height),
+                    BoxType::ContentUnitRect | BoxType::PaddingUnitRect => (content_width / 2.0, content_height / 2.0, content_width, content_height, content_width, content_height),
+					BoxType::ContentNone | BoxType::PaddingNone | BoxType::ContentRect => (content_width / 2.0, content_height / 2.0, 1.0, 1.0, content_width, content_height),
                     BoxType::Border => continue,    // 渲染边框，不需要额外添加圆角的uniform
                     BoxType::NotChange => continue, // 不改变
                 };
@@ -61,7 +66,7 @@ pub fn calc_border_radius(
                 // 修改uniform
                 let temp;
                 let border_radius = match box_type {
-                    BoxType::ContentNone | BoxType::ContentUnitRect => {
+                    BoxType::ContentNone | BoxType::ContentUnitRect | BoxType::PaddingUnitRect => {
                         temp = cal_content_border_radius(
                             &border_radius,
                             (layout.border.top, layout.border.right, layout.border.bottom, layout.border.left),

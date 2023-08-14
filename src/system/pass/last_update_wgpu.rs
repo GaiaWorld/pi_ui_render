@@ -122,7 +122,7 @@ fn alloc_depth<'a1, 'a2, 'a3, 'a4, 'a6, 'a7>(
             if draw_info.is_opacity() {
                 opaque.push((entity, *cur_depth));
             } else {
-                transparent.push((entity, 0));
+                transparent.push((entity, *cur_depth));
             }
             *cur_depth += 1;
 
@@ -142,10 +142,14 @@ fn alloc_depth<'a1, 'a2, 'a3, 'a4, 'a6, 'a7>(
                 );
             }
         }
+		// 清理列表
+		all_list.clear();
         old_all_list = Some((all_list, opaque, transparent))
     }
     if let (Ok(mut list), Some((old_all_list, old_opaque, old_transparent))) = (draw_list_query.get_mut(pass2d_id), old_all_list) {
         list.all_list = old_all_list;
+
+		
         list.opaque = old_opaque;
         list.transparent = old_transparent;
     }

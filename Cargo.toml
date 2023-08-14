@@ -8,7 +8,7 @@ edition = "2021"
 crate-type = ["lib"]
 
 [features]
-default = ["debug"]
+default = ["debug", "trace"]
 wasm_bindgen = []
 debug = []
 trace=["bevy/trace_chrome", "pi_bevy_render_plugin/trace"]
@@ -110,13 +110,13 @@ tracing-subscriber = "0.3"
 # pi_render = { path = "../pi_render" }
 # render_derive = {path = "../pi_render/crates/render_derive"}
 
-# [patch."https://github.com/GaiaWorld/pi_render_bevy"]
-# pi_bevy_post_process= { path = "../pi_render_bevy/crates/post_process" }
-# pi_bevy_ecs_extend = { path = "../pi_render_bevy/crates/ecs_extend" }
-# pi_bevy_render_plugin = { path = "../pi_render_bevy/crates/render" }
-# pi_bevy_asset = { path = "../pi_render_bevy/crates/asset" }
-# pi_bevy_winit_window = { path = "../pi_render_bevy/crates/winit_window" } 
-# pi_bevy_log = { path = "../pi_render_bevy/crates/log" } 
+[patch."https://github.com/GaiaWorld/pi_render_bevy"]
+pi_bevy_post_process= { path = "../pi_render_bevy/crates/post_process" }
+pi_bevy_ecs_extend = { path = "../pi_render_bevy/crates/ecs_extend" }
+pi_bevy_render_plugin = { path = "../pi_render_bevy/crates/render" }
+pi_bevy_asset = { path = "../pi_render_bevy/crates/asset" }
+pi_bevy_winit_window = { path = "../pi_render_bevy/crates/winit_window" } 
+pi_bevy_log = { path = "../pi_render_bevy/crates/log" } 
 
 
 # [patch."https://github.com/GaiaWorld/pi_flex_layout"]
@@ -168,7 +168,7 @@ spin_sleep="1.1"
 num_cpus = "1.13"
 bevy = {version="0.10", default-features = false, features=["bevy_winit"]}
 timer = "0.2.0"
-pi_bevy_log = {git="https://github.com/GaiaWorld/pi_render_bevy.git"}
+pi_bevy_log = {git="https://github.com/GaiaWorld/pi_render_bevy.git",features=["tracing-chrome"]}
 # pi_export_gui = {path="../pi_export/crates/gui"}
 # bevy_mod_debugdump = "0.6"
 # bevy-inspector-egui="0.14"

@@ -85,6 +85,7 @@ pub fn box_aabb(aabb1: &mut Aabb2, aabb2: &Aabb2) {
     aabb1.maxs.y = aabb1.maxs.y.max(aabb2.maxs.y);
 }
 
+#[derive(Debug)]
 pub struct BorderRadiusPixel {
     pub x: [f32; 4],
     pub y: [f32; 4],

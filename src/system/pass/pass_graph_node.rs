@@ -1075,15 +1075,15 @@ pub fn create_rp_for_fbo<'a>(
         (scissor_rect.max.y - scissor_rect.min.y) as f32,
     );
 
-    log::warn!(
-        "offsetx==========={}, {}, {:?}, {:?}, {:?}, {:?}",
-        offsetx,
-        offsety,
-        view_port_,
-        scissor,
-        target_view_port,
-        view_port
-    );
+    // log::warn!(
+    //     "offsetx==========={}, {}, {:?}, {:?}, {:?}, {:?}",
+    //     offsetx,
+    //     offsety,
+    //     view_port_,
+    //     scissor,
+    //     target_view_port,
+    //     view_port
+    // );
 
     (rp, view_port_, scissor, (offsetx, offsety))
 }

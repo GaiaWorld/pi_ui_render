@@ -42,7 +42,7 @@ use crate::{
         draw_obj::{CameraGroup, DepthCache, GroupAlloterCenter, ShareGroupAlloter, ShareLayout},
         QuadTree,
     },
-    shader::camera::{ProjectUniform, ViewUniform},
+    shader::camera::{ProjectUniform, ViewUniform, self},
     system::utils::{create_project, rotatequad_quad_intersection},
     utils::tools::{box_aabb, calc_bound_box, eq_f32, intersect},
 };
@@ -50,7 +50,7 @@ use crate::{
 #[allow(unused_must_use)]
 #[allow(unused_variables)]
 pub fn calc_camera_depth_and_renderlist(
-    query_draw2d_list: Query<&'static mut Draw2DList>,
+    // query_draw2d_list: Query<&'static mut Draw2DList>,
     mut query_pass: ParamSet<(
         Query<
             (
@@ -69,7 +69,7 @@ pub fn calc_camera_depth_and_renderlist(
             ),
             Without<DrawState>,
         >,
-        Query<(Option<&ParentPassId>, &LastDirtyRect, &Camera)>,
+        (Query<(Option<&ParentPassId>, &LastDirtyRect, &Camera)>, Query<(&'static mut Draw2DList, &Camera)>),
         (Query<(&Camera, &View)>, Query<&'static mut PostProcessInfo>),
     )>,
     node_query: Query<(
@@ -144,6 +144,7 @@ pub fn calc_camera_depth_and_renderlist(
             }
             _ => continue,
         };
+		// log::warn!("local_dirty_mark============{:?}, {:?}, {:?}", entity, local_dirty_mark, as_image);
 
         // 不脏，不需要组织渲染图， 也不需要渲染脏
         if global_dirty_rect.state == DirtyRectState::UnInit && !render_dirty_mark.0 {
@@ -206,7 +207,7 @@ pub fn calc_camera_depth_and_renderlist(
         // 如果存在transformwillchange，则需要算上脏区域
         // no_will_change用于包围盒剔除渲染对象（渲染对象使用quad来剔除，quad是没有willchange_matrix的参与的）
         let cull_aabb = if let Some(r) = &willchange_matrix.0 {
-            log::warn!("cull_aabb willchange_matrix======================{:?}, {:?}", entity, willchange_matrix);
+            // log::warn!("cull_aabb willchange_matrix======================{:?}, {:?}", entity, willchange_matrix);
             if post_info.has_effect() {
                 let mm;
                 let m = match &overflow_aabb.desc {
@@ -333,10 +334,11 @@ pub fn calc_camera_depth_and_renderlist(
 
     // log::warn!("all_dirty_rect====={:?}", all_dirty_rect);
     // 组织渲染列表
+	let p1 = query_pass.p1();
     let mut args = AbQueryArgs {
         node_query,
-        pass_query: query_pass.p1(),
-        draw_list: query_draw2d_list,
+        pass_query: p1.0,
+        draw_list: p1.1,
         draw_info,
         post_process: draw_obj_post_query,
     };
@@ -392,7 +394,7 @@ pub fn calc_camera_depth_and_renderlist(
 pub struct AbQueryArgs<'s, 'a> {
     node_query: Query<'a, 'a, (&'s InPassId, &'s DrawList, &'s Quad, &'s ZRange, &'s IsShow, Entity)>,
     pass_query: Query<'a, 'a, (Option<&'s ParentPassId>, &'s LastDirtyRect, &'s Camera)>,
-    draw_list: Query<'a, 'a, &'s mut Draw2DList>,
+    draw_list: Query<'a, 'a, (&'s mut Draw2DList, &'s Camera)>,
     post_process: Query<'a, 'a, (), (With<PostProcess>, With<DrawState>)>,
     draw_info: Query<'a, 'a, &'s DrawInfo>,
 }
@@ -416,9 +418,9 @@ fn ab_query_func(arg: &mut AbQueryArgs, id: EntityKey, _aabb: &Aabb2, _bind: &()
         // log::warn!("draw_list2==================id: {:?}, {:?}, {:?}, quad: {:?}", id, in_pass_id, draw_list, quad);
         // global_dirty_rect应该是pass内部的aadd，（与TransformWillChange有关）
         if draw_list.len() > 0 && camera.is_change && is_show.get_visibility() {
-            // log::debug!("ab_query_func======={:?}, {:?}, {:?}", id, quad, context_dirty.no_will_change);
+            // log::debug!("ab_query_func======={:?}, {:?}, {:?}, {:?}", id, in_pass_id, quad, context_dirty.no_will_change);
             if intersects(quad, &context_dirty.no_will_change) {
-                let mut list = arg.draw_list.get_mut(***in_pass_id).unwrap();
+                let (mut list, _) = arg.draw_list.get_mut(***in_pass_id).unwrap();
                 let list = &mut list;
                 for draw_id in draw_list.iter() {
                     if let Ok(_) = arg.post_process.get(draw_id.id) {
@@ -444,9 +446,12 @@ fn ab_query_func(arg: &mut AbQueryArgs, id: EntityKey, _aabb: &Aabb2, _bind: &()
         // parent_pass_id存在，表示本节点是一个pass2d
         if camera.is_active {
             if let Some(parent) = parent_pass_id {
-                if let Ok(mut p) = arg.draw_list.get_mut(*parent.0) {
-                    p.all_list
+
+                if let Ok((mut p, p_camera)) = arg.draw_list.get_mut(*parent.0) {
+					if p_camera.is_active && p_camera.is_change {
+						p.all_list
                         .push((DrawIndex::Pass2D(EntityKey(entity)), z_range.clone(), DrawInfo::new(10, false)));
+					}
                 }
             }
         }
