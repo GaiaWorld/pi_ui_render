@@ -407,14 +407,16 @@ fn ab_query_func(arg: &mut AbQueryArgs, id: EntityKey, _aabb: &Aabb2, _bind: &()
             Ok(r) => r,
             _ => return,
         };
-        log::trace!(target: format!("entity_{:?}", id.0).as_str(), "try collect render all_list, is_show: {:?}, quad: {:?}, context_dirty: {:?}, intersects={:?}", is_show.get_visibility(), quad, context_dirty.no_will_change, intersects(quad, &context_dirty.no_will_change));
-        log::trace!(
-            "try collect render all_list, entity: {:?}, is_show: {:?}, quad: {:?}, context_dirty: {:?}",
-            id.0,
-            is_show.get_visibility(),
-            quad,
-            context_dirty.no_will_change
-        );
+        // log::trace!(target: format!("entity_{:?}", id.0).as_str(), "try collect render all_list, is_show: {:?}, quad: {:?}, context_dirty: {:?}, intersects={:?}", is_show.get_visibility(), quad, context_dirty.no_will_change, intersects(quad, &context_dirty.no_will_change));
+        // log::trace!(
+        //     "try collect render all_list, entity: {:?}, is_show: {:?}, quad: {:?}, context_dirty: {:?}, is_change:{:?}, is_active: {:?}",
+        //     id.0,
+        //     is_show.get_visibility(),
+        //     quad,
+        //     context_dirty.no_will_change,
+		// 	camera.is_change,
+		// 	camera.is_active,
+        // );
         // log::warn!("draw_list2==================id: {:?}, {:?}, {:?}, quad: {:?}", id, in_pass_id, draw_list, quad);
         // global_dirty_rect应该是pass内部的aadd，（与TransformWillChange有关）
         if draw_list.len() > 0 && camera.is_change && is_show.get_visibility() {

@@ -87,6 +87,7 @@ fn alloc_depth<'a1, 'a2, 'a3, 'a4, 'a6, 'a7>(
         let mut all_list = replace(&mut list.all_list, Vec::new());
         let mut opaque = replace(&mut list.opaque, Vec::new());
         let mut transparent = replace(&mut list.transparent, Vec::new());
+		// log::trace!("all_list======={:?}, {:?}", pass2d_id, all_list, );
 
         // 按深度从小到大排序
         all_list.sort_by(|(_a, a_z_depth, a_sort), (_b, b_z_depth, b_sort)| {

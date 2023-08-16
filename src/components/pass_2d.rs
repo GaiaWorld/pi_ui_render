@@ -336,8 +336,8 @@ impl RenderTarget {
                     };
 
                     // 如果显存已经超出max_cache， 则不为其分配target， 该相机下的物体直接渲染到父target上
-                    if AsImage1::Advise == as_image && (assets.size() as u32 + width * height * 4 > max_cache as u32)
-                        || post_info.is_only_as_image(as_image_mark_type)
+                    if AsImage1::Advise == as_image && ((assets.size() as u32 + width * height * 4 > max_cache as u32)
+                        || post_info.is_only_as_image(as_image_mark_type))
                     {
                         return None;
                     };
