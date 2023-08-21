@@ -5,6 +5,7 @@
 use bevy::ecs::prelude::{Entity, Query};
 use pi_bevy_ecs_extend::system_param::res::OrInitRes;
 
+use crate::system::draw_obj::calc_text::IsRun;
 use crate::{components::calc::OverflowDesc, resource::RenderContextMarkType};
 
 use crate::components::user::{AsImage, Overflow};
@@ -52,7 +53,11 @@ pub fn overflow_post_process(
     )>,
     mark_type: OrInitRes<RenderContextMarkType<Overflow>>,
     as_image_mark_type: OrInitRes<RenderContextMarkType<AsImage>>,
+	r: OrInitRes<IsRun>
 ) {
+	if r.0 {
+		return;
+	}
     let max = 100000.0;
     let view = View {
         view_box: ViewBox {

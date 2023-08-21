@@ -8,7 +8,7 @@ use bevy::{
 };
 use pi_bevy_ecs_extend::system_param::res::OrInitRes;
 
-use crate::{components::user::Blur, resource::RenderContextMarkType};
+use crate::{components::user::Blur, resource::RenderContextMarkType, system::draw_obj::calc_text::IsRun};
 
 use crate::components::pass_2d::{PostProcess, PostProcessInfo};
 use pi_postprocess::effect::BlurDual;
@@ -23,7 +23,11 @@ pub fn blur_post_process(
         Query<(&Blur, &mut PostProcess, &mut PostProcessInfo), Or<(Changed<Blur>, Added<PostProcess>)>>,
         Query<(&mut PostProcess, &mut PostProcessInfo)>,
     )>,
+	r: OrInitRes<IsRun>
 ) {
+	if r.0 {
+		return;
+	}
     let mut p1 = query.p1();
     for del in del.iter() {
         if let Ok((mut post_list, mut post_info)) = p1.get_mut(del) {

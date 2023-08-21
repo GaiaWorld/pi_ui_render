@@ -16,6 +16,8 @@ use crate::resource::RenderObjType;
 use crate::components::{calc::DrawList, draw_obj::DrawState};
 use crate::shader::ui_meterial::UiMaterialBind;
 
+use super::calc_text::IsRun;
+
 // 创建或删除DrawObject
 pub fn draw_object_life<
     Src: Component,
@@ -37,12 +39,17 @@ pub fn draw_object_life<
         OrInitRes<ShaderInfoCache>,
         OrInitRes<ShareGroupAlloter<UiMaterialGroup>>,
         Commands,
+		OrInitRes<IsRun>,
     )>,
 
-    query_draw_list: &mut SystemState<Query<&'static mut DrawList>>,
+	// #[allow(dead_code)]
+    // query_draw_list: &mut SystemState<Query<&'static mut DrawList>>, 
 ) {
-    let (render_type, mut changed, mut del, mut query_texture, program_meta, vert_layout, shader_catch, group_alloter, mut commands) =
+    let (render_type, mut changed, mut del, mut query_texture, program_meta, vert_layout, shader_catch, group_alloter, mut commands, r) =
         state.get_mut(world);
+	if r.0 {
+		return;
+	}
     let group_alloter = group_alloter.clone();
     let render_type = ***render_type;
 

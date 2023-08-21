@@ -23,17 +23,17 @@ use bevy::{
 };
 use pi_bevy_ecs_extend::{
     prelude::{EntityTree, Layer, OrDefault},
-    system_param::layer_dirty::ComponentEvent,
+    system_param::{layer_dirty::ComponentEvent, res::OrInitRes},
 };
 use pi_flex_layout::prelude::{
     AlignContent, AlignItems, AlignSelf, CharNode, Dimension, Direction, Display, FlexDirection, FlexLayoutStyle, FlexWrap, Get, GetMut, INode,
     INodeStateType, JustifyContent, Layout, LayoutContext, LayoutR, Number, Overflow, PositionType, Rect, TreeStorage,
 };
 
-use crate::components::{
+use crate::{components::{
     calc::{EntityKey, LayoutResult, NodeState},
     user::{Border, FlexContainer, FlexNormal, Margin, MinMax, Padding, Position, Show, Size, TextContent, TextStyle},
-};
+}, system::draw_obj::calc_text::IsRun};
 use pi_dirty::LayerDirty;
 use pi_null::Null;
 use pi_slotmap_tree::{Down, Up};
@@ -111,7 +111,11 @@ pub fn calc_layout(
     mut layer_dirty: Local<LayerDirty<LayoutKey>>,
     default_style: Local<(Size, Margin, Padding, Border, Position, MinMax, FlexContainer, FlexNormal, Show)>,
     mut event_write: EventWriter<ComponentEvent<Changed<LayoutResult>>>,
+	r: OrInitRes<IsRun>
 ) {
+	if r.0 {
+		return;
+	}
     // let node_states_ptr = &mut inodes as *mut Query<&'static mut NodeState>;
     let layout_styles = LayoutStyles {
         query: &query,

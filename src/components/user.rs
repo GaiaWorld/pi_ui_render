@@ -773,7 +773,7 @@ pub mod serialize {
             fn set(cur_style_mark: &mut BitArray<[u32; 3]>, ptr: *const u8, query: &mut Setting, entity: Entity, is_clone: bool) {
                 let v = ptr.cast::<$value_ty>();
                 let v = if is_clone {
-                    unsafe { &*v }.clone()
+                    unsafe { v.read_unaligned() }.clone()
                 } else {
                     unsafe { v.read_unaligned() }
                 };
@@ -793,7 +793,7 @@ pub mod serialize {
             fn set(cur_style_mark: &mut BitArray<[u32; 3]>, ptr: *const u8, query: &mut Setting, entity: Entity, is_clone: bool) {
                 let v = ptr.cast::<$value_ty>();
                 let v = if is_clone {
-                    unsafe { &*v }.clone()
+                    unsafe { v.read_unaligned() }.clone()
                 } else {
                     unsafe { v.read_unaligned() }
                 };
@@ -806,7 +806,7 @@ pub mod serialize {
             fn set(cur_style_mark: &mut BitArray<[u32; 3]>, ptr: *const u8, query: &mut Setting, entity: Entity, is_clone: bool) {
                 let v = ptr.cast::<$value_ty>();
                 let v = if is_clone {
-                    unsafe { &*v }.clone()
+					unsafe { v.read_unaligned() }.clone()
                 } else {
                     unsafe { v.read_unaligned() }
                 };
@@ -823,7 +823,7 @@ pub mod serialize {
             fn set(cur_style_mark: &mut BitArray<[u32; 3]>, ptr: *const u8, query: &mut Setting, entity: Entity, is_clone: bool) {
                 let v = ptr.cast::<$value_ty>();
                 let v = if is_clone {
-                    unsafe { &*v }.clone()
+                    unsafe { v.read_unaligned() }.clone()
                 } else {
                     unsafe { v.read_unaligned() }
                 };
@@ -845,7 +845,7 @@ pub mod serialize {
             fn set(cur_style_mark: &mut BitArray<[u32; 3]>, ptr: *const u8, query: &mut Setting, entity: Entity, is_clone: bool) {
                 let v = ptr.cast::<$value_ty>();
                 let v = if is_clone {
-                    unsafe { &*v }.clone()
+                    unsafe { v.read_unaligned() }.clone()
                 } else {
                     unsafe { v.read_unaligned() }
                 };
@@ -868,7 +868,7 @@ pub mod serialize {
             fn set(cur_style_mark: &mut BitArray<[u32; 3]>, ptr: *const u8, query: &mut Setting, entity: Entity, is_clone: bool) {
                 let v = ptr.cast::<$value_ty>();
                 let v = if is_clone {
-                    unsafe { &*v }.clone()
+                    unsafe { v.read_unaligned() }.clone()
                 } else {
                     unsafe { v.read_unaligned() }
                 };
@@ -891,7 +891,7 @@ pub mod serialize {
             fn set(cur_style_mark: &mut BitArray<[u32; 3]>, ptr: *const u8, query: &mut Setting, entity: Entity, is_clone: bool) {
                 let v = ptr.cast::<$value_ty>();
                 let v = if is_clone {
-                    unsafe { &*v }.clone()
+                    unsafe { v.read_unaligned() }.clone()
                 } else {
                     unsafe { v.read_unaligned() }
                 };
@@ -915,7 +915,7 @@ pub mod serialize {
             fn set(cur_style_mark: &mut BitArray<[u32; 3]>, ptr: *const u8, query: &mut Setting, entity: Entity, is_clone: bool) {
                 let v = ptr.cast::<$value_ty>();
                 let v = if is_clone {
-                    unsafe { &*v }.clone()
+                    unsafe { v.read_unaligned() }.clone()
                 } else {
                     unsafe { v.read_unaligned() }
                 };
@@ -1494,7 +1494,7 @@ pub mod serialize {
         {
             let v = ptr.cast::<TextContent1>();
             let v = if is_clone {
-                unsafe { &*v }.clone()
+                unsafe { v.read_unaligned() }.clone()
             } else {
                 unsafe { v.read_unaligned() }
             };
@@ -1673,7 +1673,7 @@ pub mod serialize {
         {
             let v = ptr.cast::<Atom>();
             let v = if is_clone {
-                unsafe { &*v }.clone()
+                unsafe { v.read_unaligned() }.clone()
             } else {
                 unsafe { v.read_unaligned() }
             };
@@ -1788,7 +1788,7 @@ pub mod serialize {
         {
             let v = ptr.cast::<Atom>();
             let v = if is_clone {
-                unsafe { &*v }.clone()
+                unsafe { v.read_unaligned() }.clone()
             } else {
                 unsafe { v.read_unaligned() }
             };
@@ -1893,7 +1893,7 @@ pub mod serialize {
         {
             let v = ptr.cast::<TransformFunc>();
             let v = if is_clone {
-                unsafe { &*v }.clone()
+                unsafe { v.read_unaligned() }.clone()
             } else {
                 unsafe { v.read_unaligned() }
             };
@@ -1986,7 +1986,7 @@ pub mod serialize {
         {
             let v = ptr.cast::<TransformFuncs>();
             let v = if is_clone {
-                unsafe { &*v }.clone()
+                unsafe { v.read_unaligned() }.clone()
             } else {
                 unsafe { v.read_unaligned() }
             };
@@ -2089,7 +2089,7 @@ pub mod serialize {
         {
             let v = ptr.cast::<[LengthUnit; 2]>();
             let v = if is_clone {
-                unsafe { &*v }.clone()
+                unsafe { v.read_unaligned() }.clone()
             } else {
                 unsafe { v.read_unaligned() }
             };
@@ -2192,7 +2192,7 @@ pub mod serialize {
         {
             let v = ptr.cast::<[f32; 2]>();
             let v = if is_clone {
-                unsafe { &*v }.clone()
+                unsafe { v.read_unaligned() }.clone()
             } else {
                 unsafe { v.read_unaligned() }
             };
@@ -2295,7 +2295,7 @@ pub mod serialize {
         {
             let v = ptr.cast::<f32>();
             let v = if is_clone {
-                unsafe { &*v }.clone()
+                unsafe { v.read_unaligned() }.clone()
             } else {
                 unsafe { v.read_unaligned() }
             };
@@ -2398,7 +2398,7 @@ pub mod serialize {
         {
             let v = ptr.cast::<bool>();
             let v = if is_clone {
-                unsafe { &*v }.clone()
+                unsafe { v.read_unaligned() }.clone()
             } else {
                 unsafe { v.read_unaligned() }
             };

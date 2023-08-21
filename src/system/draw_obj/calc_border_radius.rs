@@ -3,6 +3,7 @@ use bevy::ecs::query::{Changed, Or};
 use bevy::ecs::system::Query;
 use bevy::prelude::DetectChangesMut;
 use pi_bevy_ecs_extend::prelude::OrDefault;
+use pi_bevy_ecs_extend::system_param::res::OrInitRes;
 
 use crate::components::calc::LayoutResult;
 use crate::components::draw_obj::{BoxType, PipelineMeta};
@@ -10,6 +11,8 @@ use crate::components::draw_obj::{BoxType, PipelineMeta};
 use crate::components::{calc::DrawList, draw_obj::DrawState, user::BorderRadius};
 use crate::shader::{sdf::BORDER_RADIUS_DEFINE, ui_meterial::ClipSdfUniform};
 use crate::utils::tools::{cal_border_radius, cal_content_border_radius};
+
+use super::calc_text::IsRun;
 
 /// 设置圆角Unifrom
 pub fn calc_border_radius(
@@ -21,7 +24,11 @@ pub fn calc_border_radius(
     >,
 
     mut query_draw: Query<(&mut DrawState, OrDefault<BoxType>, &mut PipelineMeta)>,
+	r: OrInitRes<IsRun>
 ) {
+	if r.0 {
+		return;
+	}
     for del in remove.iter() {
         if let Ok((border_radius, render_list)) = query_delete.get(del) {
             // border_radius不存在时，删除对应DrawObject的uniform
@@ -41,11 +48,9 @@ pub fn calc_border_radius(
         if render_list.len() == 0 {
             continue;
         }
-		log::warn!("border_radius1===");
         let border_radius = cal_border_radius(border_radius, &layout.rect);
         for i in render_list.iter() {
             if let Ok((mut draw_state, box_type, mut pipeline_meta)) = query_draw.get_mut(i.id) {
-                log::warn!("cal_border_radius===={:?}, box_type={:?}", border_radius, box_type);
 				let (width, height) = (layout.rect.right - layout.rect.left, layout.rect.bottom - layout.rect.top);
 				let (content_width, content_height) = (width - layout.border.left - layout.border.right, height - layout.border.top - layout.border.bottom);
 			

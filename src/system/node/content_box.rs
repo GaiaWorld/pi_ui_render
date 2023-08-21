@@ -4,7 +4,7 @@
 use bevy::ecs::{prelude::EventWriter, query::Changed, system::Query};
 use pi_bevy_ecs_extend::{
     prelude::{Down, Layer, LayerDirty, Up},
-    system_param::layer_dirty::ComponentEvent,
+    system_param::{layer_dirty::ComponentEvent, res::OrInitRes},
 };
 use pi_null::Null;
 
@@ -13,7 +13,7 @@ use crate::{
         calc::{ContentBox, EntityKey, LayoutResult, Quad, WorldMatrix},
         user::{Aabb2, BoxShadow, Point2, TextShadow},
     },
-    utils::tools::calc_bound_box,
+    utils::tools::calc_bound_box, system::draw_obj::calc_text::IsRun,
 };
 
 pub struct CalcContentBox;
@@ -27,7 +27,11 @@ pub fn calc_content_box(
     layer: Query<&Layer>,
     mut content_box: Query<&mut ContentBox>,
     mut event_writer: EventWriter<ComponentEvent<Changed<ContentBox>>>,
+	r: OrInitRes<IsRun>
 ) {
+	if r.0 {
+		return;
+	}
     if dirty.count() == 0 {
         return;
     }

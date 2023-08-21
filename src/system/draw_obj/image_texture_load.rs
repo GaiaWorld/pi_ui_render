@@ -21,6 +21,8 @@ use pi_null::Null;
 use pi_render::rhi::asset::{ImageTextureDesc, TextureRes};
 use pi_share::Share;
 
+use super::calc_text::IsRun;
+
 #[derive(Clone, Resource)]
 pub struct ImageAwait<T>(Share<SegQueue<(Entity, Atom, Handle<TextureRes>)>>, PhantomData<T>);
 
@@ -49,7 +51,11 @@ pub fn image_change<
     // mut commands: Commands,
     mut query_dst: Query<&mut D>,
     mut event_writer: EventWriter<ComponentEvent<Changed<D>>>,
+	r: OrInitRes<IsRun>
 ) {
+	if r.0 {
+		return;
+	}
     // 图片删除，则删除对应的Texture
     for del in del.iter() {
         if let Ok(mut r) = query_dst.get_mut(del) {

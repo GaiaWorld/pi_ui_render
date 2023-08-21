@@ -20,6 +20,7 @@ use crate::components::draw_obj::DrawState;
 use crate::utils::tools::calc_hash;
 
 use super::TextureState;
+use super::IsRun;
 
 /// 如果纹理大小发生改变， 为文字纹理创建bind_group， 并重新设置每个文字DrawObject的纹理bind_group
 pub fn calc_text_texture(
@@ -31,7 +32,11 @@ pub fn calc_text_texture(
     bind_group_assets: Res<ShareAssetMgr<RenderRes<BindGroup>>>,
     device: Res<PiRenderDevice>,
     common_sampler: Res<CommonSampler>,
+	r: OrInitRes<IsRun>
 ) {
+	if r.0 {
+		return;
+	}
     let font_sheet = font_sheet.borrow();
     let size = font_sheet.texture_size();
     let (size_is_change, version_is_change) = texture_state.is_change(&size, font_sheet.texture_version());

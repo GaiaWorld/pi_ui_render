@@ -3,6 +3,7 @@ use bevy::ecs::{
     query::Changed,
     system::{Commands, Query, Res, ResMut},
 };
+use pi_bevy_ecs_extend::system_param::res::OrInitRes;
 use pi_bevy_render_plugin::PiSafeAtlasAllocator;
 use pi_render::{
     components::view::target_alloc::{SafeAtlasAllocator, TargetDescriptor, TextureDescriptor},
@@ -15,6 +16,8 @@ use crate::{
     resource::draw_obj::MaxViewSize,
 };
 
+use super::calc_text::IsRun;
+
 /// 创建图节点所需要的数据
 /// 如： DynTargetType (需要根据视口变化及时调整)
 pub fn calc_dyn_target_type(
@@ -24,7 +27,11 @@ pub fn calc_dyn_target_type(
     mut max_view_size: ResMut<MaxViewSize>,
 
     mut commands: Commands,
+	r: OrInitRes<IsRun>
 ) {
+	if r.0 {
+		return;
+	}
     for (view_port, dyn_target_type, entity) in query.iter_mut() {
         max_view_size.width = max_view_size.width.max((view_port.maxs.x - view_port.mins.x).ceil() as u32);
         max_view_size.height = max_view_size.height.max((view_port.maxs.y - view_port.mins.y).ceil() as u32);

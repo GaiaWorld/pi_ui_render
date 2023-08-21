@@ -54,7 +54,7 @@ impl Example for ExampleCommonPlay {
         let mut ttf = std::env::current_dir().unwrap();
         // log::warn!("cur_dir========{:?}", ttf);
         ttf.push("examples/a_cmd_play/source/SOURCEHANSANSK-MEDIUM.TTF");
-        log::warn!("font========{:?}", ttf);
+        log::warn!("font========ttf={:?}， PLAY_PATH={:?}", ttf, PLAY_PATH);
         // 设置默认字体
         new_face_by_path("default".to_string(), ttf.to_str().unwrap());
 

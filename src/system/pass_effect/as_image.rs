@@ -1,9 +1,10 @@
+use std::sync::atomic::AtomicUsize;
+
 use bevy::{
     ecs::{prelude::RemovedComponents, query::Changed, system::Query},
-    prelude::{Added, IntoSystemConfig, Or, ParamSet, Plugin},
+    prelude::{Added, Or, ParamSet, Plugin, IntoSystemConfigs, Update},
 };
-use pi_assets::homogeneous::HomogeneousMgr;
-use pi_bevy_asset::{AssetConfig, AssetDesc, ShareHomogeneousMgr};
+use pi_bevy_asset::{AssetConfig, AssetDesc, ShareAssetMgr};
 use pi_bevy_ecs_extend::system_param::res::OrInitRes;
 
 use crate::{
@@ -11,11 +12,11 @@ use crate::{
         pass_2d::{CacheTarget, PostProcessInfo},
         user::{AsImage, Overflow},
     },
-    resource::RenderContextMarkType,
+    resource::{RenderContextMarkType, draw_obj::TargetCacheMgr},
     system::{
         node::user_setting::user_setting,
         pass::{last_update_wgpu::last_update_wgpu, pass_camera::calc_camera_depth_and_renderlist},
-        render_run,
+        render_run, draw_obj::calc_text::IsRun,
     },
 };
 use pi_postprocess::prelude::CopyIntensity;
@@ -36,24 +37,24 @@ impl Plugin for UiAsImagePlugin {
                 timeout: 0,            // 并不会启用超时整理， 这里的数值无所谓（记得该资源管理器中的资源需要手动删除）
             };
             let desc = asset_config.get::<CacheTarget>().unwrap_or(&default_cfg);
-            HomogeneousMgr::<CacheTarget>::new(pi_assets::homogeneous::GarbageEmpty(), desc.min, desc.timeout)
+            ShareAssetMgr::<CacheTarget>::new(pi_assets::asset::GarbageEmpty(), false, desc.max, desc.timeout)
         };
 
-        app.insert_resource(ShareHomogeneousMgr(assets_mgr))
+        app.insert_resource(TargetCacheMgr { key: AtomicUsize::new(0), assets: assets_mgr })
             // 标记有AsImage组件的节点为渲染上下文
-            .add_system(
+            .add_systems(Update, 
                 pass_life::pass_mark::<AsImage>
                     .after(user_setting)
                     .before(pass_life::cal_context)
                     .run_if(render_run),
             )
             // // 处理AsImage组件的删除逻辑
-            // .add_system(
+            // .add_systems(Update, 
             // 	as_image_del
             // 		.after(user_setting)
             // 		.run_if(render_run)
             // )
-            .add_system(
+            .add_systems(Update, 
                 as_image_post_process
                     .before(last_update_wgpu)
                     .after(calc_camera_depth_and_renderlist)
@@ -73,7 +74,11 @@ pub fn as_image_post_process(
         Query<(&AsImage, &mut PostProcess, &mut PostProcessInfo), Or<(Changed<AsImage>, Added<PostProcess>)>>,
         Query<(&mut PostProcess, &mut PostProcessInfo)>,
     )>,
+	r: OrInitRes<IsRun>
 ) {
+	if r.0 {
+		return;
+	}
     // AsImage 如果删除， 取消AsImage的后处理
     let mut p1 = query.p1();
     for del in del.iter() {

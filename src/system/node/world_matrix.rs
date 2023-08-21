@@ -43,13 +43,16 @@ use bevy::ecs::query::{Changed, Or};
 use bevy::ecs::system::{ParamSet, Query, ResMut};
 use pi_bevy_ecs_extend::prelude::{Layer, LayerDirty, Up};
 use pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent;
+use pi_bevy_ecs_extend::system_param::res::OrInitRes;
 use pi_map::Map;
 use pi_null::Null;
 use pi_style::style::Aabb2;
+use bevy::ecs::event::Event;
 
 use crate::components::calc::{EntityKey, LayoutResult, Quad, WorldMatrix};
 use crate::components::user::{Point2, Transform};
 use crate::resource::QuadTree;
+use crate::system::draw_obj::calc_text::IsRun;
 use crate::utils::tools::calc_bound_box;
 
 pub struct CalcMatrix;
@@ -60,6 +63,8 @@ pub struct OldQuad {
     pub root: Entity,
     pub quad: Quad,
 }
+
+impl Event for OldQuad {}
 
 // fn print_parent(idtree: &EntityTree<Node>, id: Id<Node>) {
 //     let parent_id = idtree.get_up(id).map_or(Id::<Node>::null(), |up| up.parent());
@@ -79,7 +84,11 @@ pub fn cal_matrix(
     mut quad_tree: ResMut<QuadTree>,
     mut event_writer: EventWriter<ComponentEvent<Changed<Quad>>>,
     mut event_writer1: EventWriter<OldQuad>,
+	r: OrInitRes<IsRun>
 ) {
+	if r.0 {
+		return;
+	}
     // transform修改，标记层脏(这里transform_change不直接在层脏中声明，是因为transform改变不会发送对应的事件)
     for e in transform_change.iter() {
         dirtys.mark(e);
@@ -240,7 +249,7 @@ pub fn calc_quad(
 //             .insert_resource(AllEntitys(Vec::new()))
 //             .insert_resource(RootNode(root))
 //             .add_startup_system(setup1)
-//             .add_system(init_tree)
+//             .add_systems(Update, init_tree)
 //             .add_system_to_stage(CoreStage::PostUpdate, cal_matrix)
 //             .add_system_to_stage(CoreStage::Last, asset_matrix)
 //             .add_system_to_stage(CoreStage::Last, asset_quad)

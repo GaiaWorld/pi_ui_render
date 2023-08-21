@@ -3,6 +3,7 @@ use bevy::ecs::{
     query::{Added, Changed, Or, ReadOnlyWorldQuery},
     system::{ParamSet, Query, ResMut},
 };
+use pi_bevy_ecs_extend::system_param::res::OrInitRes;
 use pi_bevy_render_plugin::{NodeId, PiRenderGraph};
 use pi_slotmap::Key;
 
@@ -12,7 +13,7 @@ use crate::{
         pass_2d::{Camera, GraphId, ParentPassId, PostProcessInfo},
         user::Canvas,
     },
-    system::pass::pass_graph_node::Pass2DNode,
+    system::{pass::pass_graph_node::Pass2DNode, draw_obj::calc_text::IsRun},
 };
 
 pub fn update_graph(
@@ -25,7 +26,11 @@ pub fn update_graph(
     canvas_query: Query<(&Canvas, &InPassId), Changed<Canvas>>,
     inpass_query: Query<&ParentPassId>,
     mut rg: ResMut<PiRenderGraph>,
+	r: OrInitRes<IsRun>
 ) {
+	if r.0 {
+		return;
+	}
     // 创建渲染图节点
     // 插入Draw2DList
     for (mut graph_id, entity, parent_passs_id, post_info) in pass_query.p0().iter_mut() {

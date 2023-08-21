@@ -1,27 +1,27 @@
 use std::{sync::Arc, time::Instant};
 
-use bevy::prelude::Res;
-use bevy::prelude::{Added, App, Bundle, Changed, Entity, Local, Query, SystemSet};
+use bevy::prelude::IntoSystemConfigs;
+use bevy::prelude::{Added, App, Entity, Local, Query, SystemSet};
 use bevy::winit::WinitPlugin;
 use bevy::{
     ecs::{
         system::{Commands, ResMut, SystemState},
         world::World,
     },
-    prelude::IntoSystemConfig,
     window::{Window, WindowResolution},
 };
 use pi_async_rt::prelude::AsyncRuntime;
 use pi_bevy_asset::{AssetConfig, PiAssetPlugin};
 use pi_bevy_ecs_extend::prelude::Root;
 use pi_bevy_post_process::PiPostProcessPlugin;
-use pi_bevy_render_plugin::PiRenderPlugin;
+use pi_bevy_render_plugin::{PiRenderPlugin, PiRenderOptions};
 use pi_flex_layout::prelude::Size;
 use pi_hal::{init_load_cb, on_load, runtime::MULTI_MEDIA_RUNTIME};
 use pi_share::{Share, ShareMutex};
 use pi_ui_render::components::user::AsImage;
+use pi_ui_render::system::draw_obj::calc_text::IsRun;
 use pi_ui_render::system::{system_set::UiSystemSet, RunState};
-use pi_ui_render::{prelude::UiPlugin, resource::UserCommands, system::node::user_setting::user_setting};
+use pi_ui_render::{prelude::UiPlugin, resource::UserCommands};
 
 #[cfg(feature = "debug")]
 use pi_ui_render::system::cmd_play::{CmdNodeCreate, PlayState, Records};
@@ -77,9 +77,9 @@ pub fn start<T: Example + Sync + Send + 'static>(example: T) {
     app.world.insert_resource(RunState::RENDER);
 
     #[cfg(feature = "debug")]
-    app.add_plugin(UiPlugin { cmd_trace: record_option });
+    app.add_plugins(UiPlugin { cmd_trace: record_option });
     #[cfg(not(feature = "debug"))]
-    app.add_plugin(UiPlugin::default());
+    app.add_plugins(UiPlugin::default());
 
     app.add_system(exmple_run.before(UiSystemSet::Setting).in_set(ExampleSet))
         .add_startup_system(move |world: &mut World| {
@@ -134,22 +134,29 @@ pub fn init(width: u32, height: u32) -> App {
     let mut window_plugin = bevy::window::WindowPlugin::default();
     window_plugin.primary_window = Some(window);
 
-    app.add_plugin(pi_bevy_log::LogPlugin::<Vec<u8>> {
+	let mut o = PiRenderOptions::default();
+	o.present_mode = wgpu::PresentMode::Mailbox;
+	app.world.insert_resource(o);
+
+	// app.world.insert_resource(IsRun(true));
+
+    app.add_plugins(pi_bevy_log::LogPlugin::<Vec<u8>> {
         filter: FILTER.to_string(),
         level: LOG_LEVEL,
 		chrome_write: None,
     })
-    .add_plugin(bevy::a11y::AccessibilityPlugin)
-    .add_plugin(bevy::input::InputPlugin::default())
-    .add_plugin(window_plugin)
-    .add_plugin(WinitPlugin::default())
-    .add_plugin(PiAssetPlugin {
+    .add_plugins(bevy::a11y::AccessibilityPlugin)
+    .add_plugins(bevy::input::InputPlugin::default())
+    .add_plugins(window_plugin)
+    .add_plugins(WinitPlugin::default())
+    .add_plugins(PiAssetPlugin {
         total_capacity: 1024 * 1024 * 1024,
         asset_config: AssetConfig::default(),
     })
-    // .add_plugin(WorldInspectorPlugin::new())
-    .add_plugin(PiRenderPlugin::default())
-    .add_plugin(PiPostProcessPlugin);
+    // .add_plugins(WorldInspectorPlugin::new())
+    .add_plugins(PiRenderPlugin::default())
+    .add_plugins(PiPostProcessPlugin);
+
 
     // let h = app.world.get_resource_mut::<pi_bevy_log::LogFilterHandle>().unwrap();
     // let default_filter = { format!("{},my_target=info", bevy::log::Level::WARN) };
@@ -289,16 +296,16 @@ pub fn spawn(world: &mut World) -> Entity {
 
 #[cfg(feature = "debug")]
 // pub const PLAY_PATH: Option<&'static str> = None;
-// pub const PLAY_PATH: Option<&'static str> = Some("D://0_js/cdqxz_new_mult_gui_exe/dst");
-pub const PLAY_PATH: Option<&'static str> = Some("D://0_js/pi_demo_mult_gui/dst");
+pub const PLAY_PATH: Option<&'static str> = Some("D://0_js/cdqxz_new_mult_gui_exe/dst");
+// pub const PLAY_PATH: Option<&'static str> = Some("D://0_js/pi_demo_mult_gui/dst");
 #[cfg(feature = "debug")]
 // pub const PLAY_VERSION: &'static str = "local";
 pub const PLAY_VERSION: &'static str = "test";
 
-// pub const FILTER: &'static str = "wgpu=warn,pi_ui_render::components::user=debug";
+// pub const FILTER: &'static str = "wgpu=warn,naga=warn,pi_ui_render::components::user=debug";
 // pub const FILTER: &'static str = "wgpu=warn,entity_3v0=trace";
 // pub const FILTER: &'static str = "wgpu=warn,pi_ui_render=debug";
 // pub const FILTER: &'static str = "wgpu=warn,naga=warn,bevy_app=warn";
-pub const FILTER: &'static str = "wgpu=info,naga=warn,pi_ui_render=trace";
+pub const FILTER: &'static str = "wgpu=warn,naga=warn";
 // pub const FILTER: &'static str = "";
 pub const LOG_LEVEL: bevy::log::Level = bevy::log::Level::WARN;

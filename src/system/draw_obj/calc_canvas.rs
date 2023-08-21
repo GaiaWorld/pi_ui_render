@@ -18,6 +18,8 @@ use crate::{
     resource::draw_obj::UnitQuadBuffer,
 };
 
+use super::calc_text::IsRun;
+
 pub const CANVAS_ORDER: u8 = 6;
 
 /// 设置canvas的顶点、索引
@@ -28,7 +30,11 @@ pub fn calc_canvas(
 
     unit_quad_buffer: Res<UnitQuadBuffer>,
     shader_catch: OrInitRes<ShaderInfoCache>,
+	r: OrInitRes<IsRun>
 ) {
+	if r.0 {
+		return;
+	}
     for (mut draw_state, mut pipeline_meta, mut box_type, mut graph_id, node_id) in query_draw.iter_mut() {
         if let Ok(mut canvas) = query.get_mut(***node_id) {
             // 为none时，表示刚创建

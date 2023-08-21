@@ -14,6 +14,7 @@ use pi_assets::{
 };
 use pi_async_rt::prelude::{AsyncRuntime, AsyncRuntimeExt, AsyncVariableNonBlocking};
 use pi_bevy_asset::ShareAssetMgr;
+use pi_bevy_ecs_extend::system_param::res::OrInitRes;
 use pi_bevy_render_plugin::PiRenderDevice;
 use pi_hal::runtime::RENDER_RUNTIME;
 use pi_render::rhi::{asset::RenderRes, device::RenderDevice, pipeline::RenderPipeline};
@@ -24,6 +25,8 @@ use crate::{
     components::draw_obj::{DrawState, PipelineMeta},
     resource::draw_obj::{ClearDrawObj, Program},
 };
+
+use super::calc_text::IsRun;
 
 /// 计算DrawObj的pipeline
 pub fn calc_node_pipeline(
@@ -38,7 +41,11 @@ pub fn calc_node_pipeline(
     // mut pipeline_map: ResMut<PipelineMap>,
     // mut shader_map: ResMut<ShaderInfoMap>,
     clear_color_obj: ResMut<ClearDrawObj>,
+	r: OrInitRes<IsRun>
 ) {
+	if r.0 {
+		return;
+	}
     let query_draw: Query<'static, 'static, (Entity, &'static PipelineMeta), Changed<PipelineMeta>> = unsafe { transmute(query_draw) };
     let draw_state: Query<'static, 'static, &'static mut DrawState> = unsafe { transmute(draw_state) };
     let device: Res<'static, PiRenderDevice> = unsafe { transmute(device) };

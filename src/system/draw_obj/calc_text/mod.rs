@@ -4,7 +4,7 @@ mod text_shadow;
 mod text_split;
 mod text_texture;
 
-use bevy::prelude::{Changed, IntoSystemConfig, Plugin};
+use bevy::prelude::{Changed, Plugin, IntoSystemConfigs, Resource, Update};
 use pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent;
 use pi_render::font::Size;
 
@@ -22,6 +22,9 @@ use self::{text::calc_text, text_shadow::UiTextShadowPlugin, text_texture::calc_
 
 use super::{life_drawobj, set_world_marix::set_matrix_group};
 
+#[derive(Debug, Resource, Default)]
+pub struct IsRun(pub bool);
+
 pub struct UiTextPlugin;
 
 impl Plugin for UiTextPlugin {
@@ -30,11 +33,11 @@ impl Plugin for UiTextPlugin {
             .add_frame_event::<ComponentEvent<Changed<NodeState>>>()
             .add_frame_event::<ComponentEvent<Changed<TextContent>>>()
             // 文字劈分
-            .add_system(text_split::text_split.before(calc_layout).in_set(UiSystemSet::Layout))
+            .add_systems(Update, text_split::text_split.before(calc_layout).in_set(UiSystemSet::Layout))
             // 字形计算
-            .add_system(text_glyph::text_glyph.after(cal_matrix).before(calc_text).in_set(UiSystemSet::Matrix))
+            .add_systems(Update, text_glyph::text_glyph.after(cal_matrix).before(calc_text).in_set(UiSystemSet::Matrix))
             // 创建文字DrawObj
-            .add_system(
+            .add_systems(Update, 
                 life_drawobj::draw_object_life::<
                     TextContent,
                     TextRenderObjType,
@@ -46,7 +49,7 @@ impl Plugin for UiTextPlugin {
                     .in_set(UiSystemSet::LifeDrawObject),
             )
             // 设置文字的的顶点、索引，和颜色、边框颜色、边框宽度的Uniform
-            .add_system(
+            .add_systems(Update, 
                 calc_text
                     .in_set(UiSystemSet::PrepareDrawObj)
                     .before(set_matrix_group)
@@ -54,9 +57,9 @@ impl Plugin for UiTextPlugin {
                     .before(super::blend_mode::calc_drawobj_blendstate),
             )
             // 更新文字纹理
-            .add_system(calc_text_texture.in_set(UiSystemSet::PrepareDrawObj))
+            .add_systems(Update, calc_text_texture.in_set(UiSystemSet::PrepareDrawObj))
             // 文字阴影
-            .add_plugin(UiTextShadowPlugin);
+            .add_plugins(UiTextShadowPlugin);
     }
 }
 

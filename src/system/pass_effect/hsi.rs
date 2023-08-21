@@ -4,7 +4,7 @@ use bevy::{
 };
 use pi_bevy_ecs_extend::system_param::res::OrInitRes;
 
-use crate::{components::user::Hsi, resource::RenderContextMarkType};
+use crate::{components::user::Hsi, resource::RenderContextMarkType, system::draw_obj::calc_text::IsRun};
 
 use bevy::ecs::system::ParamSet;
 use pi_postprocess::effect::HSB;
@@ -22,7 +22,11 @@ pub fn hsi_post_process(
         Query<(&Hsi, &mut PostProcess, &mut PostProcessInfo, Entity), Or<(Changed<Hsi>, Added<PostProcess>)>>,
         Query<(&mut PostProcess, &mut PostProcessInfo)>,
     )>,
+	r: OrInitRes<IsRun>
 ) {
+	if r.0 {
+		return;
+	}
     let mut p1 = query.p1();
     for del in del.iter() {
         if let Ok((mut post_list, mut post_info)) = p1.get_mut(del) {
@@ -31,7 +35,7 @@ pub fn hsi_post_process(
         }
     }
 
-    for (hsi, mut post_list, mut post_info, entity) in query.p0().iter_mut() {
+    for (hsi, mut post_list, mut post_info, _entity) in query.p0().iter_mut() {
         if hsi.saturate != 0.0 || hsi.hue_rotate != 0.0 || hsi.bright_ness != 0.0 {
             post_list.hsb = Some(HSB {
                 hue: (hsi.hue_rotate * 360.0) as i16,

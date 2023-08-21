@@ -13,7 +13,7 @@ use pi_bevy_ecs_extend::{
 use crate::{
     components::{calc::RenderContextMark, user::ClearColor, RootBundle},
     resource::RenderContextMarkType,
-    system::pass::pass_life::render_mark_true,
+    system::{pass::pass_life::render_mark_true, draw_obj::calc_text::IsRun},
 };
 
 /// 处理根节点
@@ -31,7 +31,11 @@ pub fn root_calc(
     mut event_writer: EventWriter<ComponentEvent<Changed<RenderContextMark>>>,
 
     mut command: Commands,
+	r: OrInitRes<IsRun>
 ) {
+	if r.0 {
+		return;
+	}
     // Root组件删除，取消渲染上下文标记， 并删除RootBundle
     let mut render_context = query_set.p1();
     for del in del.iter() {

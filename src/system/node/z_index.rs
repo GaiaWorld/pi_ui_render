@@ -31,10 +31,12 @@ use std::ops::Range;
 use bevy::ecs::prelude::{Changed, Component, Entity, Query};
 use pi_bevy_ecs_extend::prelude::{EntityTree, Layer, LayerDirty, Up};
 use pi_bevy_ecs_extend::system_param::layer_dirty::DirtyMark;
+use pi_bevy_ecs_extend::system_param::res::OrInitRes;
 use pi_null::Null;
 
 use crate::components::calc::{EntityKey, ZRange};
 use crate::components::user::ZIndex;
+use crate::system::draw_obj::calc_text::IsRun;
 
 /// 如果节点设置zindex为auto，则自身zindex为-1
 const Z_AUTO: isize = -1;
@@ -55,7 +57,11 @@ pub fn calc_zindex(
     mut dirtys: LayerDirty<Changed<Layer>>,
     zindex_change: Query<Entity, (Changed<ZIndex>, Changed<Up>)>,
     mut ranges: Query<&mut ZRange>,
+	r: OrInitRes<IsRun>
 ) {
+	if r.0 {
+		return;
+	}
     for entity in zindex_change.iter() {
         dirtys.mark(entity);
     }
@@ -504,7 +510,7 @@ fn set(
 //             .add_startup_system(init_1) // 插入根节点；插入前两个实体，以根节点作为父节点
 //             .add_system_to_stage(CoreStage::PreUpdate, init_2) // 插入第3个实体，以根节点作为父节点
 //             .add_system_to_stage(CoreStage::PreUpdate, init_3) // 插入第4个实体，以根节点作为父节点
-//             .add_system(calc_zindex)
+//             .add_systems(Update, calc_zindex)
 //             .update();
 //         asset(&mut app.world, &mut query, vec![(0, (0, 16)), (1, (4, 8)), (2, (9, 13))]);
 //         println!("------------------------");

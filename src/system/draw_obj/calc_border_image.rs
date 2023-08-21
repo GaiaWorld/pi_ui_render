@@ -27,6 +27,8 @@ use crate::components::{draw_obj::DrawState, user::BorderImageRepeat};
 use crate::resource::draw_obj::{CommonSampler, ProgramMetaRes};
 use crate::shader::image::{PositionVert, ProgramMeta, SampBind};
 use crate::utils::tools::{calc_hash, eq_f32};
+
+use super::calc_text::IsRun;
 pub const BORDER_IMAGE_ORDER: u8 = 3;
 
 /// 设置边框图片的顶点、索引、和边框纹理
@@ -57,7 +59,11 @@ pub fn calc_border_image(
     bind_group_assets: Res<ShareAssetMgr<RenderRes<BindGroup>>>,
     common_sampler: Res<CommonSampler>,
     program_meta: OrInitRes<ProgramMetaRes<ProgramMeta>>,
+	r: OrInitRes<IsRun>
 ) {
+	if r.0 {
+		return;
+	}
     let texture_group_layout = &program_meta.bind_group_layout[SampBind::set() as usize];
     for (mut draw_state, node_id) in query_draw.iter_mut() {
         if let Ok((border_image, border_texture, border_image_clip, border_image_slice, border_image_repeat, layout)) = query.get(***node_id) {

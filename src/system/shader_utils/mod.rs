@@ -11,7 +11,7 @@ use bevy::ecs::{
     prelude::EventReader,
     system::{Commands, Res, ResMut},
 };
-use bevy::prelude::{IntoSystemConfig, Query, With};
+use bevy::prelude::{Query, With, IntoSystemConfigs, Update};
 use bevy::window::{PrimaryWindow, Window, WindowCreated, WindowResized};
 use pi_assets::{
     asset::{GarbageEmpty, Handle},
@@ -92,7 +92,7 @@ impl Plugin for UiShaderPlugin {
 			.init_resource::<ShareLayout>()
 			.init_resource::<UnitQuadBuffer>()
 
-			.add_system(screen_target_resize.run_if(render_run).before(UiSystemSet::Setting))
+			.add_systems(Update, screen_target_resize.run_if(render_run).before(UiSystemSet::Setting))
 			// .add_startup_system(color::init)
 			// .add_startup_system(image::init)
 			// .add_startup_system(text::init)

@@ -1,7 +1,4 @@
-use bevy::{
-    ecs::event::Event,
-    prelude::{App, Events, IntoSystemConfig, Resource},
-};
+use bevy::prelude::{App, Events, Resource, IntoSystemConfigs, Update, Event};
 use pi_bevy_ecs_extend::system_param::res::OrInitRes;
 use pi_bevy_render_plugin::should_run;
 
@@ -39,7 +36,7 @@ impl AddEvent for App {
     fn add_frame_event<T: Event>(&mut self) -> &mut Self {
         if !self.world.contains_resource::<Events<T>>() {
             self.init_resource::<Events<T>>()
-                .add_system(Events::<T>::update_system.run_if(should_run).after(UiSystemSet::PassCalc));
+                .add_systems(Update, Events::<T>::update_system.run_if(should_run).after(UiSystemSet::PassCalc));
         }
         self
     }

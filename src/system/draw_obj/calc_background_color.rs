@@ -34,6 +34,8 @@ use crate::{
     resource::draw_obj::UnitQuadBuffer,
 };
 
+use super::calc_text::IsRun;
+
 pub const BACKGROUND_COLOR_ORDER: u8 = 2;
 
 /// 设置背景颜色的顶点，和颜色Uniform
@@ -48,7 +50,11 @@ pub fn calc_background_color(
     buffer_assets: Res<ShareAssetMgr<RenderRes<Buffer>>>,
     vert_layout1: OrInitRes<PosVertexLayout>,
     vert_layout2: OrInitRes<PosColorVertexLayout>,
+	r: OrInitRes<IsRun>
 ) {
+	if r.0 {
+		return;
+	}
     for (mut draw_state, mut old_unit_quad, mut pipeline_meta, node_id) in query_draw.iter_mut() {
         if let Ok((background_color, layout, background_color_change, layout_change)) = query.get(***node_id) {
             let new_unit_quad = modify(

@@ -1,10 +1,9 @@
 use bevy::ecs::{
     prelude::RemovedComponents,
     query::Changed,
-    system::{Query, Res},
+    system::Query,
 };
 use pi_bevy_ecs_extend::system_param::res::{OrInitRes, OrInitResMut};
-use pi_bevy_render_plugin::PiRenderDevice;
 use pi_render::renderer::draw_obj::DrawBindGroup;
 
 use crate::{
@@ -16,6 +15,8 @@ use crate::{
     shader::ui_meterial::{ColorUniform, WorldUniform},
 };
 
+use super::calc_text::IsRun;
+
 // 清屏颜色修改后，重新创建bindgroup
 #[allow(unused_must_use)]
 pub fn clear_change(
@@ -24,9 +25,12 @@ pub fn clear_change(
     ui_meterial_alloter: OrInitRes<ShareGroupAlloter<UiMaterialGroup>>,
     // color_material_bind_group: Res<DynBindGroupIndex<ColorMaterialGroup>>,
     mut depth_cache: OrInitResMut<DepthCache>,
-    device: Res<PiRenderDevice>,
     depth_alloter: OrInitRes<ShareGroupAlloter<DepthGroup>>,
+	r: OrInitRes<IsRun>
 ) {
+	if r.0 {
+		return;
+	}
     // 处理清屏颜色删除
     for del in dels.iter() {
         if let Ok((_color, mut color_bind_group)) = query.get_mut(del) {
@@ -40,7 +44,7 @@ pub fn clear_change(
             Some(r) => r,
             None => {
                 // 深度设置为-1(最远)
-                depth_cache.or_create_depth(0, &device, &depth_alloter);
+                depth_cache.or_create_depth(0, &depth_alloter);
 
                 let mut ui_group = ui_meterial_alloter.alloc();
                 // 世界矩阵

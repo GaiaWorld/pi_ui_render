@@ -1,8 +1,8 @@
 use bevy::{
     ecs::{prelude::RemovedComponents, query::Changed, system::Query},
-    prelude::{Added, IntoSystemConfig, Or, Plugin, Without},
+    prelude::{Added, IntoSystemConfigs, Or, Plugin, Without, Update},
 };
-use pi_bevy_ecs_extend::prelude::OrDefault;
+use pi_bevy_ecs_extend::{prelude::OrDefault, system_param::res::OrInitRes};
 use pi_flex_layout::prelude::Rect;
 use pi_style::style::{Aabb2, BaseShape, LengthUnit};
 
@@ -15,7 +15,7 @@ use crate::{
     system::{
         node::user_setting::user_setting,
         pass::{last_update_wgpu::last_update_wgpu, pass_camera::calc_camera_depth_and_renderlist},
-        render_run,
+        render_run, draw_obj::calc_text::IsRun,
     },
     utils::tools::cal_border_radius,
 };
@@ -27,14 +27,14 @@ pub struct UiClipPathPlugin;
 
 impl Plugin for UiClipPathPlugin {
     fn build(&self, app: &mut bevy::app::App) {
-        app.add_system(
+        app.add_systems(Update, 
             pass_life::pass_mark::<ClipPath>
                 .after(user_setting)
                 .before(pass_life::cal_context)
                 .run_if(render_run),
         )
-        .add_system(clip_path_del.after(user_setting).run_if(render_run))
-        .add_system(
+        .add_systems(Update, clip_path_del.after(user_setting).run_if(render_run))
+        .add_systems(Update, 
             clip_path_post_process
                 .before(last_update_wgpu)
                 .after(calc_camera_depth_and_renderlist)
@@ -44,7 +44,14 @@ impl Plugin for UiClipPathPlugin {
 }
 
 // 处理ClipPath的删除
-pub fn clip_path_del(mut del: RemovedComponents<ClipPath>, mut query: Query<&mut PostProcess, Without<ClipPath>>) {
+pub fn clip_path_del(
+	mut del: RemovedComponents<ClipPath>, 
+	mut query: Query<&mut PostProcess, Without<ClipPath>>,
+	r: OrInitRes<IsRun>
+) {
+	if r.0 {
+		return;
+	}
     for del in del.iter() {
         if let Ok(mut post_list) = query.get_mut(del) {
             post_list.clip_sdf = None;
@@ -74,7 +81,11 @@ pub fn clip_path_post_process(
             Changed<Camera>,
         )>,
     >,
+	r: OrInitRes<IsRun>
 ) {
+	if r.0 {
+		return;
+	}
     for (clip_path, layout, content_box, overflow, view, camera, mut post) in query.iter_mut() {
         if !camera.is_active {
             continue;

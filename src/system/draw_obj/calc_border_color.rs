@@ -7,6 +7,7 @@ use bevy::prelude::DetectChangesMut;
 use pi_assets::asset::Handle;
 use pi_assets::mgr::AssetMgr;
 use pi_bevy_asset::ShareAssetMgr;
+use pi_bevy_ecs_extend::system_param::res::OrInitRes;
 use pi_bevy_render_plugin::PiRenderDevice;
 use pi_render::renderer::vertices::{EVerticesBufferUsage, RenderIndices, RenderVertices};
 use pi_render::rhi::asset::RenderRes;
@@ -24,6 +25,8 @@ use crate::components::{calc::NodeId, draw_obj::DrawState, user::BorderColor};
 use crate::shader::color::BORDER_DEFINE;
 use crate::shader::ui_meterial::{ClipSdfUniform, ColorUniform, TextureSizeOrBottomLeftBorderUniform};
 use crate::utils::tools::{cal_border_radius, calc_float_hash, calc_hash, BorderRadiusPixel};
+
+use super::calc_text::IsRun;
 
 pub const BORDER_COLOR_ORDER: u8 = 4;
 
@@ -45,7 +48,11 @@ pub fn calc_border_color(
 
     device: Res<PiRenderDevice>,
     buffer_assets: Res<ShareAssetMgr<RenderRes<Buffer>>>,
+	r: OrInitRes<IsRun>
 ) {
+	if r.0 {
+		return;
+	}
     for (mut draw_state, mut pipeline_meta, node_id, mut box_type) in query_draw.iter_mut() {
         if let Ok((border_color, radius, layout, background_color_change, radius_change, layout_change)) = query.get(***node_id) {
             let count = pipeline_meta.defines.len();

@@ -1,14 +1,12 @@
 use bevy::ecs::system::{Commands, Res};
-use pi_bevy_asset::ShareAssetMgr;
 use pi_bevy_ecs_extend::system_param::res::{OrInitRes, OrInitResMut};
-use pi_bevy_render_plugin::PiRenderDevice;
 use pi_hash::XHashSet;
 use pi_render::{
     renderer::{
         draw_obj::DrawBindGroup,
         vertices::{EVerticesBufferUsage, RenderIndices, RenderVertices},
     },
-    rhi::{asset::RenderRes, bind_group::BindGroup, texture::PiRenderDefault},
+    rhi::texture::PiRenderDefault,
 };
 use wgpu::IndexFormat;
 
@@ -37,8 +35,6 @@ use crate::{
 #[allow(unused_must_use)]
 pub fn init(
     mut depth_cache: OrInitResMut<DepthCache>,
-    device: Res<PiRenderDevice>,
-    bind_group_assets: Res<ShareAssetMgr<RenderRes<BindGroup>>>,
     unit_quad_buffer: Res<UnitQuadBuffer>,
     shader_static: OrInitRes<ProgramMetaRes<ProgramMeta>>,
     vert_layout: OrInitRes<PosVertexLayout>,
@@ -119,7 +115,7 @@ pub fn init(
     // let state_hash = calc_hash(&pipeline_state, 0);
 
     // 深度设置为-1(最远)
-    depth_cache.or_create_depth(0, &device, &depth_alloter); // 深度为0
+    depth_cache.or_create_depth(0, &depth_alloter); // 深度为0
     commands.insert_resource(DynFboClearColorBindGroup(group));
     commands.insert_resource(ClearDrawObj(draw_state, pipeline_meta.clone()));
 }

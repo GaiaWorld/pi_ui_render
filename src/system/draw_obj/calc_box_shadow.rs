@@ -3,6 +3,7 @@ use std::slice;
 use bevy::ecs::query::{Changed, Or, With};
 use bevy::ecs::system::{Query, Res};
 use pi_assets::mgr::AssetMgr;
+use pi_bevy_ecs_extend::system_param::res::OrInitRes;
 use pi_cg2d::Polygon;
 
 use pi_bevy_asset::ShareAssetMgr;
@@ -23,6 +24,8 @@ use crate::components::{calc::NodeId, draw_obj::DrawState};
 use crate::shader::color::{PositionVert, SHADOW_DEFINE};
 use crate::shader::ui_meterial::{BlurUniform, ColorUniform, StrokeColorOrURectUniform};
 use crate::utils::tools::{calc_float_hash, calc_hash, get_box_rect};
+
+use super::calc_text::IsRun;
 // use crate::utils::tools::calc_hash;
 
 pub const BOX_SHADOW_ORDER: u8 = 1;
@@ -36,7 +39,11 @@ pub fn calc_box_shadow(
     device: Res<PiRenderDevice>,
 
     buffer_assets: Res<ShareAssetMgr<RenderRes<Buffer>>>,
+	r: OrInitRes<IsRun>
 ) {
+	if r.0 {
+		return;
+	}
     for (mut draw_state, mut pipeline_meta, node_id) in query_draw.iter_mut() {
         if let Ok((box_shadow, layout)) = query.get(***node_id) {
             modify(&device, &mut draw_state, layout, &box_shadow, &buffer_assets);

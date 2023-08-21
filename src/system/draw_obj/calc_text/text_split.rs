@@ -11,7 +11,7 @@ use bevy::ecs::{
 use ordered_float::NotNan;
 use pi_bevy_ecs_extend::{
     prelude::{Layer, OrDefault, Up},
-    system_param::layer_dirty::ComponentEvent,
+    system_param::{layer_dirty::ComponentEvent, res::OrInitRes},
 };
 use pi_flex_layout::{
     prelude::{CharNode, Rect, Size},
@@ -28,6 +28,8 @@ use crate::{
     },
     resource::ShareFontSheet,
 };
+
+use super::IsRun;
 
 /// 文字劈分
 /// 将可以简单布局的问文字节点转化为。。
@@ -50,7 +52,11 @@ pub fn text_split(
     >,
     font_sheet: ResMut<ShareFontSheet>,
     mut event_writer: EventWriter<ComponentEvent<Changed<NodeState>>>,
+	r: OrInitRes<IsRun>
 ) {
+	if r.0 {
+		return;
+	}
     let mut font_sheet = font_sheet.0.borrow_mut();
     for (entity, text_content, text_style, up, size, normal_style, node_state, style_mark, flex_container, layer) in query.iter_mut() {
         if layer.layer() == 0 {

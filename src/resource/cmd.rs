@@ -39,7 +39,7 @@ use super::{
 pub struct DefaultStyleCmd(pub VecDeque<Attribute>);
 
 impl Command for DefaultStyleCmd {
-    fn write(self, world: &mut World) {
+    fn apply(self, world: &mut World) {
         let default_style_query = DefaultStyle::from_world(world);
 
         let len = self.0.len();
@@ -61,7 +61,7 @@ impl Command for DefaultStyleCmd {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ExtendCssCmd(pub Vec<pi_style::style_parse::ClassMap>);
 impl Command for ExtendCssCmd {
-    fn write(self, world: &mut World) {
+    fn apply(self, world: &mut World) {
         for mut item in self.0.into_iter() {
             let key_frames = replace(&mut item.key_frames, KeyFrameList::default());
             // 处理帧动画
@@ -86,7 +86,7 @@ impl Command for ExtendCssCmd {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ExtendFragmentCmd(pub Fragments);
 impl Command for ExtendFragmentCmd {
-    fn write(self, world: &mut World) {
+    fn apply(self, world: &mut World) {
         let mut fragment_map = world.get_resource_mut::<FragmentMap>().unwrap();
         fragment_map.extend(self.0);
     }
@@ -95,7 +95,7 @@ impl Command for ExtendFragmentCmd {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct NodeCmd<T>(pub T, pub Entity);
 impl<T: Bundle> Command for NodeCmd<T> {
-    fn write(self, world: &mut World) {
+    fn apply(self, world: &mut World) {
         if let Some(mut r) = world.get_entity_mut(self.1) {
             out_any!(log::debug, "NodeCmd====================node：{:?}, anchor： {:?}", self.1, &self.0);
             r.insert(self.0);
@@ -108,7 +108,7 @@ impl<T: Bundle> Command for NodeCmd<T> {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ComponentCmd<T>(pub T, pub Entity);
 impl<T: Component> Command for ComponentCmd<T> {
-    fn write(self, world: &mut World) {
+    fn apply(self, world: &mut World) {
         if let Some(mut r) = world.get_entity_mut(self.1) {
             out_any!(log::debug, "NodeCmd====================node：{:?}, anchor： {:?}", self.1, &self.0);
             r.insert(self.0);
@@ -125,7 +125,7 @@ impl<T: Component> Command for ComponentCmd<T> {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RuntimeAnimationBindCmd(pub XHashMap<Atom, XHashMap<NotNan<f32>, VecDeque<Attribute>>>, pub Animation, pub Entity);
 impl Command for RuntimeAnimationBindCmd {
-    fn write(mut self, world: &mut World) {
+    fn apply(mut self, world: &mut World) {
         if world.get_entity(self.2).is_some() {
             let mut sheet = world.get_resource_mut::<KeyFramesSheet>().unwrap();
             self.1.name.scope_hash = self.2.index() as usize; // 因为每个运行时动画是节点独有的，以节点的index作为scope_hash(不能同时有两个index相等的实体)

@@ -29,7 +29,7 @@ use crate::components::calc::{EntityKey, Quad};
 use crate::components::user::serialize::StyleAttr;
 use crate::components::user::{AsImage, ClearColor, ClipPath, MaskImage, Point2, RenderDirty, RenderTargetType, Vector2, Viewport};
 use crate::components::NodeBundle;
-use pi_sparialtree::quad_helper::QuadTree as QuadTree1;
+use pi_spatial::quad_helper::QuadTree as QuadTree1;
 // use crate::utils::cmd::{CommandQueue, Command, DataQuery};
 // use bevy::prelude::{CommandQueue, Commands, World};
 use crate::components::user::ClassName;

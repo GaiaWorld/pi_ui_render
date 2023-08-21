@@ -3,7 +3,7 @@ use std::borrow::BorrowMut;
 use bevy::ecs::prelude::{DetectChanges, Ref};
 use bevy::ecs::query::{Changed, Or, With};
 use bevy::ecs::system::{Query, Res, SystemParam, SystemState};
-use bevy::prelude::{Commands, Component, IntoSystemConfig};
+use bevy::prelude::{Commands, Component, IntoSystemConfigs, Update};
 use bevy::prelude::{Entity, EventReader, EventWriter, ParamSet, Plugin, RemovedComponents, ResMut, Without, World};
 use pi_bevy_asset::ShareAssetMgr;
 use pi_bevy_ecs_extend::prelude::Layer;
@@ -35,7 +35,7 @@ use crate::components::pass_2d::{Camera, ParentPassId, PostProcess};
 use crate::components::user::{Matrix4, TextShadow};
 use crate::components::DrawBundle;
 use crate::resource::draw_obj::{
-    ClearDrawObj, DepthCache, DynFboClearColorBindGroup, EmptyVertexBuffer, PosUvColorVertexLayout, ProgramMetaRes, ShaderInfoCache,
+    ClearDrawObj, DepthCache, EmptyVertexBuffer, PosUvColorVertexLayout, ProgramMetaRes, ShaderInfoCache,
     ShareGroupAlloter, TextTextureGroup, UiMaterialGroup,
 };
 use crate::resource::{RenderContextMarkType, ShareFontSheet, TextRenderObjType, TextShadowRenderObjType};
@@ -51,6 +51,7 @@ use crate::system::system_set::UiSystemSet;
 use crate::system::AddEvent;
 
 use super::text::calc_text;
+use super::IsRun;
 
 
 /// 文字阴影插件
@@ -59,20 +60,20 @@ pub struct UiTextShadowPlugin;
 impl Plugin for UiTextShadowPlugin {
     fn build(&self, app: &mut bevy::app::App) {
         app.add_frame_event::<ComponentEvent<Changed<TextShadow>>>()
-            .add_system(
+            .add_systems(Update, 
                 text_shadow_life
                     .in_set(UiSystemSet::LifeDrawObject)
                     .in_set(UiSystemSet::PassMark)
                     .before(cal_context),
             )
-            .add_system(
+            .add_systems(Update, 
                 calc_text_shadow
                     .in_set(UiSystemSet::PrepareDrawObj)
                     .in_set(UiSystemSet::PassSetting)
                     .after(calc_text)
                     .before(crate::system::draw_obj::blend_mode::calc_drawobj_blendstate),
             )
-            .add_system(calc_graph_depend.in_set(UiSystemSet::PassCalc).after(update_graph));
+            .add_systems(Update, calc_graph_depend.in_set(UiSystemSet::PassCalc).after(update_graph));
     }
 }
 
@@ -108,6 +109,7 @@ pub fn text_shadow_life(
         OrInitRes<RenderContextMarkType<TextShadow>>,
         EventWriter<ComponentEvent<Changed<RenderContextMark>>>,
         Commands,
+		OrInitRes<IsRun>,
     )>,
 ) {
     let (
@@ -125,7 +127,11 @@ pub fn text_shadow_life(
         mark_type,
         mut event_writer,
         mut commands,
+		r
     ) = state.get_mut(world);
+	if r.0 {
+		return;
+	}
     let group_alloter = group_alloter.clone();
     let render_type = ***render_type;
 
@@ -256,7 +262,11 @@ pub fn calc_text_shadow(
     mut post_resource: ResMut<PostprocessResource>,
     device: Res<PiRenderDevice>,
     queue: Res<PiRenderQueue>,
+	r: OrInitRes<IsRun>
 ) {
+	if r.0 {
+		return;
+	}
     let font_sheet = font_sheet.borrow();
 
     // 更新纹理尺寸
@@ -345,7 +355,11 @@ pub fn calc_graph_depend(
     shadow_query: Query<(Entity, &DrawList), (With<TextShadow>, Or<(Changed<ParentPassId>, Changed<TextShadow>)>)>,
     mut shadow_draw_query: Query<&mut GraphId, With<TextShadowMark>>,
     mut rg: ResMut<PiRenderGraph>,
+	r: OrInitRes<IsRun>
 ) {
+	if r.0 {
+		return;
+	}
     for (node, draw_list) in shadow_query.iter() {
         let parent_graph_id = get_to(node, &pass_query);
         if parent_graph_id.is_null() {
@@ -387,8 +401,6 @@ pub struct QueryParam<'w, 's> {
         ),
     >,
     atlas_allocator: Res<'w, PiSafeAtlasAllocator>,
-    // 清屏相关参数
-    fbo_clear_color: Res<'w, DynFboClearColorBindGroup>,
     clear_draw: Res<'w, ClearDrawObj>,
     query_root: Query<'w, 's, &'static DynTargetType>,
     query_layer: Query<'w, 's, &'static Layer>,
@@ -447,7 +459,7 @@ impl Node for TextShadowNode {
                                 create_rp_for_fbo(&rt, commands.borrow_mut(), &camera.view_port, &camera.view_port, None);
 
                             // 设置视口
-                            let clear_obj = &param.fbo_clear_color.0;
+                            // let clear_obj = &param.fbo_clear_color.0;
                             rp.set_viewport(clear_port.0, clear_port.1, clear_port.2, clear_port.3, 0.0, 1.0);
                             clear_color.0.set(&mut rp, UiMaterialBind::set());
                             // clear_obj.0.set(&mut rp, UiMaterialBind::set());

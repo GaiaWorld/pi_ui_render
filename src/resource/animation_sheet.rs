@@ -75,7 +75,7 @@ pub struct KeyFramesSheet {
     temp_keyframnames: XHashMap<ObjKey, Vec<(usize, Atom, KeyFrames)>>, // 记录某节点添加了哪些运行时动画
     temp_errs: Vec<KeyFrameError>,
 
-    run_count: usize,
+    // run_count: usize,
 }
 
 unsafe impl Send for KeyFramesSheet {}
@@ -193,7 +193,7 @@ impl Default for KeyFramesSheet {
             temp_keyframes_ptr: Default::default(),
             temp_keyframes_mark: temp_keyframes_mark,
             temp_keyframnames: XHashMap::default(),
-            run_count: 0,
+            // run_count: 0,
             temp_errs: Vec::default(),
             // animation_events:  Vec::new(),
         }
@@ -578,7 +578,7 @@ impl KeyFramesSheet {
             // let frame_per_second = (FRAME_COUNT / duration).round() as u16;
             // TODO
             // log::warn!("start_complete==========={:?}, {:?},{:?}, {:?}, {:?}, {:?},  ", animation.name, duration, direction, timing_function, file_mode, delay);
-            self.animation_context_amount
+            let _ = self.animation_context_amount
                 .force_group_total_frames(group0, Some(FRAME_COUNT), FRAME_COUNT as FramePerSecond);
             self.animation_context_amount
                 .start_complete(

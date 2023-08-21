@@ -4,10 +4,10 @@ use bevy::{
         query::{Changed, With},
         system::{ParamSet, Query},
     },
-    prelude::{DetectChanges, EventReader, Mut},
+    prelude::{DetectChanges, EventReader, Mut, Event},
 };
 
-use pi_bevy_ecs_extend::prelude::Layer;
+use pi_bevy_ecs_extend::{prelude::Layer, system_param::res::OrInitRes};
 use pi_style::style::Aabb2;
 
 use crate::{
@@ -17,7 +17,7 @@ use crate::{
         pass_2d::{ChildrenPass, DirtyMark, DirtyRect, DirtyRectState, ParentPassId, PostProcess},
         user::{Canvas, TransformWillChange, Viewport},
     },
-    system::node::world_matrix::OldQuad,
+    system::{node::world_matrix::OldQuad, draw_obj::calc_text::IsRun},
     utils::tools::{box_aabb, calc_aabb},
 };
 
@@ -27,6 +27,8 @@ pub struct OldTransformWillChange {
     pub inpass_id: Entity,
     pub root: Entity,
 }
+
+impl Event for OldTransformWillChange {}
 
 pub struct CalcDirtyRect;
 
@@ -76,7 +78,11 @@ pub fn calc_global_dirty_rect(
         Query<(Ref<Viewport>, Entity, &mut DirtyRect), With<Viewport>>,
     )>,
     mut query_root: Query<(&mut RootDirtyRect, Ref<Viewport>), With<Viewport>>,
+	r: OrInitRes<IsRun>
 ) {
+	if r.0 {
+		return;
+	}
     // 如果有节点修改了ShowChange，需要设置脏区域
     let mut p2 = query_pass.p2();
     for (quad, in_pass_id) in query_show_change.iter() {
@@ -130,13 +136,13 @@ pub fn calc_global_dirty_rect(
     }
 
     // 新增了fbo缓冲的功能， 因此这里总设置根节点在时候范围内脏了（通常应该设置非跟节点缓冲，才能充分利用脏更）
-    for (viewport, root_node, mut pass_dirty_rect) in query_pass.p3().iter_mut() {
+    for (viewport, _root_node, mut pass_dirty_rect) in query_pass.p3().iter_mut() {
         pass_dirty_rect.value = viewport.0.clone();
         pass_dirty_rect.state = DirtyRectState::Inited;
     }
 
     // 遍历所有pass的脏区域，求并，得全局脏区域
-    for (mut pass_dirty_rect, layer, will_change_matrix, post_ref, children_ref, content_box, transform_willchange_ref, entity, parent_pass_id) in
+    for (mut pass_dirty_rect, layer, will_change_matrix, post_ref, _children_ref, content_box, transform_willchange_ref, entity, parent_pass_id) in
         query_pass.p0().iter_mut()
     {
         // postlist修改，Pass2d需要设置脏区域，暂时将其直接设置为内容box（实际上应该设置更精确一点，TODO）
@@ -162,23 +168,20 @@ pub fn calc_global_dirty_rect(
         };
 
         if pass_dirty_rect.state == DirtyRectState::Inited || willchange_changed || post_ref.is_changed() {
-            let start_dirty = if pass_dirty_rect.state == DirtyRectState::Inited {
+            let mut start_dirty = if pass_dirty_rect.state == DirtyRectState::Inited {
                 entity
             } else {
                 // 只有transfrom_will_change， 从父开始设脏
                 ***parent_pass_id
             };
             // 标记脏
-            if let Ok((mut dirty_mark, mut parent_pass_id)) = query_dirty_mark.get_mut(start_dirty) {
-                while dirty_mark.0 == false {
-                    dirty_mark.0 = true;
-                    if let Ok(r) = query_dirty_mark.get_mut(entity) {
-                        dirty_mark = r.0;
-                        parent_pass_id = r.1
-                    } else {
-                        break;
-                    }
-                }
+            while let Ok((mut dirty_mark, parent_pass_id)) = query_dirty_mark.get_mut(start_dirty) {
+				if dirty_mark.0 == true {
+					break;
+				}
+				dirty_mark.0 = true;
+				start_dirty = *** parent_pass_id;
+                
             }
             // 本地脏区域合并到全局脏区域中
             merge_dirty_rect(
@@ -186,7 +189,6 @@ pub fn calc_global_dirty_rect(
                 &mut dirty_rect,
                 content_box,
                 &will_change_matrix,
-                willchange_changed,
             );
 
             // 如果transform_willchange已经改变， 先不重置state， 后续一定能遍历到旧的transform_willchange， 到时候再重置
@@ -198,13 +200,13 @@ pub fn calc_global_dirty_rect(
     let mut p1 = query_pass.p1();
     // 旧的transformwillchange也需要考虑到脏区域中
     for old_willchange in transform_willchange_olds.iter() {
-        let (mut dirty_rect, viewport_tracker) = match query_root.get_mut(old_willchange.root) {
+        let (mut dirty_rect, _viewport_tracker) = match query_root.get_mut(old_willchange.root) {
             Ok(r) => r,
             _ => continue,
         };
 
         if let Ok((mut pass_dirty_rect, content_box)) = p1.get_mut(old_willchange.inpass_id) {
-            merge_dirty_rect(&mut pass_dirty_rect, &mut dirty_rect, content_box, &old_willchange.matrix, true);
+            merge_dirty_rect(&mut pass_dirty_rect, &mut dirty_rect, content_box, &old_willchange.matrix);
             pass_dirty_rect.state = DirtyRectState::UnInit;
         }
     }
@@ -215,7 +217,6 @@ fn merge_dirty_rect(
     dirty_rect: &mut Mut<RootDirtyRect>,
     content_box: &ContentBox,
     will_change_matrix: &TransformWillChangeMatrix,
-    will_change_matrix_is_change: bool,
 ) {
     let aabb = match &will_change_matrix.0 {
         Some(matrix) => {

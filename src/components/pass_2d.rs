@@ -1,8 +1,7 @@
 //! 定义与Pass2D相关的组件
 
 use bevy::ecs::{prelude::Component, system::Resource};
-use pi_assets::asset::{Handle, Size};
-use pi_bevy_asset::ShareHomogeneousMgr;
+use pi_assets::asset::{Handle, Size, Asset, Droper};
 pub use pi_bevy_render_plugin::component::GraphId;
 use pi_postprocess::postprocess::PostProcess as PostProcess1;
 use pi_render::{
@@ -13,7 +12,7 @@ use pi_render::{
 use pi_share::{Share, ShareWeak};
 use pi_style::style::AsImage as AsImage1;
 
-use crate::resource::RenderContextMarkType;
+use crate::resource::{RenderContextMarkType, draw_obj::TargetCacheMgr};
 
 use super::{
     calc::{DrawInfo, EntityKey, WorldMatrix, ZRange},
@@ -56,7 +55,7 @@ pub struct ViewMatrix {
     // pub value: WorldMatrix,
 }
 
-#[derive(Debug, Default, Deref, Component)]
+#[derive(Debug, Default, Deref, Component, Copy, Clone)]
 pub struct ParentPassId(pub EntityKey);
 
 #[derive(Debug, Default, Deref, Component, Clone)]
@@ -271,9 +270,14 @@ pub struct ScreenTarget {
 pub struct CacheTarget(pub ShareTargetView);
 
 impl Size for CacheTarget {
+	#[inline]
     fn size(&self) -> usize {
-        1 // TODO
+		self.0.size()
     }
+}
+
+impl Asset for CacheTarget {
+    type Key = usize;
 }
 
 /// 渲染目标
@@ -281,9 +285,9 @@ impl Size for CacheTarget {
 #[derive(Component)]
 pub struct RenderTarget {
     // 渲染目标
-    pub target: Option<ShareTargetView>,
+    pub target: StrongTarget,
     // 缓冲ShareTargetView，当RenderTargetCache为Strong时， 强制缓冲， 当ShareTargetView为Weak时，此处并不强行缓冲ShareTargetView， 可能会被资产管理器回收
-    pub cache: Option<RenderTargetCache>,
+    pub cache: RenderTargetCache,
     // 当前target所对应的在该节点的非旋转坐标系下的包围盒
     pub bound_box: Aabb2,
 }
@@ -291,8 +295,8 @@ pub struct RenderTarget {
 impl Default for RenderTarget {
     fn default() -> Self {
         RenderTarget {
-            target: None,
-            cache: None,
+            target: Default::default(),
+            cache: Default::default(),
             bound_box: Aabb2 {
                 mins: Point2::new(0.0, 0.0),
                 maxs: Point2::new(0.0, 0.0),
@@ -301,10 +305,20 @@ impl Default for RenderTarget {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
+pub enum StrongTarget {
+	#[default]
+	None,
+    Asset(Handle<CacheTarget>),
+    Raw(CacheTarget),
+}
+
+#[derive(Debug, Default)]
 pub enum RenderTargetCache {
-    Strong(Share<SafeTargetView>),
-    Weak(ShareWeak<SafeTargetView>),
+	#[default]
+	None,
+    Strong(Handle<CacheTarget>),
+    Weak(ShareWeak<Droper<CacheTarget>>),
 }
 
 impl RenderTarget {
@@ -312,10 +326,9 @@ impl RenderTarget {
     // 如果未分配新的渲染目标，渲染时应该做脏更
     pub fn get_or_create<G: GetTargetView, T: Iterator<Item = G>>(
         &mut self,
-        camera: &Camera,
         atlas_allocator: &SafeAtlasAllocator,
         as_image: Option<&AsImage>,
-        assets: &ShareHomogeneousMgr<CacheTarget>,
+        assets: &TargetCacheMgr,
         as_image_mark_type: &RenderContextMarkType<AsImage>,
         post_info: &PostProcessInfo,
         t_type: &DynTargetType,
@@ -325,8 +338,9 @@ impl RenderTarget {
     ) -> Option<Share<SafeTargetView>> {
         if is_force_alloc || post_info.has_effect() {
             match &self.target {
-                Some(r) => return Some(r.clone()),
-                None => {
+                StrongTarget::Asset(r) => return Some(r.0.clone()),
+				StrongTarget::Raw(r) => return Some(r.0.clone()),
+                StrongTarget::None => {
                     let width = (self.bound_box.maxs.x - self.bound_box.mins.x).ceil() as u32;
                     let height = (self.bound_box.maxs.y - self.bound_box.mins.y).ceil() as u32;
 
@@ -335,25 +349,43 @@ impl RenderTarget {
                         None => pi_style::style::AsImage::None,
                     };
 
-                    // 如果显存已经超出max_cache， 则不为其分配target， 该相机下的物体直接渲染到父target上
-                    if AsImage1::Advise == as_image && ((assets.size() as u32 + width * height * 4 > max_cache as u32)
-                        || post_info.is_only_as_image(as_image_mark_type))
+					let capacity_overflow = assets.assets.size() as u32 + width * height * 4 > max_cache as u32;
+                    // 如果设置节点为建议缓存，在显存已经超出max_cache的情况下， 不为其分配target， 该相机下的物体直接渲染到父target上
+                    if AsImage1::Advise == as_image && post_info.is_only_as_image(as_image_mark_type) && capacity_overflow
                     {
                         return None;
                     };
 
                     // 分配渲染目标
                     let t = CacheTarget(atlas_allocator.allocate(width, height, t_type.has_depth, exclude));
-                    // 放入资产管理器，由资产管理器管理
-                    assets.push(t.clone()); // 这里资产管理器的大小不对TODO
 
                     match as_image {
-                        AsImage1::None => (),
-                        AsImage1::Advise => self.cache = Some(RenderTargetCache::Weak(Share::downgrade(&t.0))),
-                        AsImage1::Force => self.cache = Some(RenderTargetCache::Strong(t.0.clone())),
+                        AsImage1::None => {
+							return Some(t.0);
+							// // 放入资产管理器，由资产管理器管理
+							// if capacity_overflow {
+							// 	// self.target = StrongTarget::Raw(t.clone());
+							// 	return Some(t.0);
+							// } else {
+							// 	let t = assets.push(t.clone());
+							// 	// self.target = StrongTarget::Asset(t.clone());
+							// 	return Some(t.0.clone());
+							// }
+							
+						},
+						r => {
+							let t = assets.push(t.clone());
+							match r {
+								AsImage1::Advise => self.cache = RenderTargetCache::Weak(Share::downgrade(&t)),
+								AsImage1::Force => self.cache = RenderTargetCache::Strong(t.clone()),
+								_ => (),
+							};
+							// self.target = StrongTarget::Asset(t.clone());
+							return Some(t.0.clone());
+						}
                     };
-                    self.target = Some(t.0);
-                    return Some(self.target.as_ref().unwrap().clone());
+                    
+                    
                 }
             }
         // // if let None = target {

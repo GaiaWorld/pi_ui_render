@@ -2,13 +2,13 @@
 //! 该系统默认为所有已经创建的Entity创建Show组件， 并监听Show和Display的创建修改， 以及监听idtree上的创建事件， 计算已经在idtree上///! 存在的实体的Enable和Visibility
 
 use bevy::ecs::{prelude::Entity, query::Changed, system::Query};
-use pi_bevy_ecs_extend::prelude::{Layer, LayerDirty, OrDefault, Up};
+use pi_bevy_ecs_extend::{prelude::{Layer, LayerDirty, OrDefault, Up}, system_param::res::OrInitRes};
 use pi_flex_layout::style::Display;
 
-use crate::components::{
+use crate::{components::{
     calc::IsShow,
     user::{Enable, Show},
-};
+}, system::draw_obj::calc_text::IsRun};
 
 pub struct CalcShow;
 
@@ -18,7 +18,11 @@ pub fn calc_show(
     show_change: Query<Entity, Changed<Show>>,
     query: Query<(OrDefault<Show>, Option<&Up>)>,
     mut write: Query<&mut IsShow>,
+	r: OrInitRes<IsRun>
 ) {
+	if r.0 {
+		return;
+	}
     for entity in show_change.iter() {
         dirty.mark(entity)
     }

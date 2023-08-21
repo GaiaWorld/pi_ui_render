@@ -33,6 +33,8 @@ use crate::{
     resource::draw_obj::UnitQuadBuffer,
 };
 
+use super::calc_text::IsRun;
+
 pub const BACKGROUND_IMAGE_ORDER: u8 = 5;
 
 /// 设置背景图片的顶点、索引
@@ -56,7 +58,11 @@ pub fn calc_background_image(
     unit_quad_buffer: Res<UnitQuadBuffer>,
     vertex_buffer_alloter: OrInitRes<PiVertexBufferAlloter>,
     index_buffer_alloter: OrInitRes<PiIndexBufferAlloter>,
+	r: OrInitRes<IsRun>
 ) {
+	if r.0 {
+		return;
+	}
     let (unit_quad_buffer, vertex_buffer_alloter, index_buffer_alloter) = (&*unit_quad_buffer, &*vertex_buffer_alloter, &*index_buffer_alloter);
 
     // let mut init_spawn_drawobj = Vec::new();

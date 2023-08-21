@@ -24,7 +24,7 @@ use pi_render::{
     rhi::{asset::RenderRes, bind_group::BindGroup, buffer::Buffer},
 };
 use pi_share::{Share, ShareWeak};
-use pi_sparialtree::quad_helper::intersects;
+use pi_spatial::quad_helper::intersects;
 
 use crate::{
     components::{
@@ -34,7 +34,7 @@ use crate::{
         draw_obj::DrawState,
         pass_2d::{
             Camera, DirtyMark, DirtyRectState, Draw2DList, DrawIndex, LastDirtyRect, ParentPassId, PostProcess, PostProcessInfo, RenderTarget,
-            RenderTargetCache, ViewMatrix,
+            RenderTargetCache, ViewMatrix, StrongTarget,
         },
         user::{Aabb2, AsImage, Matrix4, Point2, RenderDirty, Vector2, Viewport},
     },
@@ -42,8 +42,8 @@ use crate::{
         draw_obj::{CameraGroup, DepthCache, GroupAlloterCenter, ShareGroupAlloter, ShareLayout},
         QuadTree,
     },
-    shader::camera::{ProjectUniform, ViewUniform, self},
-    system::utils::{create_project, rotatequad_quad_intersection},
+    shader::camera::{ProjectUniform, ViewUniform},
+    system::{utils::{create_project, rotatequad_quad_intersection}, draw_obj::calc_text::IsRun},
     utils::tools::{box_aabb, calc_bound_box, eq_f32, intersect},
 };
 
@@ -103,7 +103,11 @@ pub fn calc_camera_depth_and_renderlist(
     post_resource: ResMut<PostprocessResource>,
     // mut geometrys: ResMut<PiPostProcessGeometryManager>,
     // mut postprocess_pipelines: ResMut<PiPostProcessMaterialMgr>,
+	r: OrInitRes<IsRun>
 ) {
+	if r.0 {
+		return;
+	}
     let (share_layout, device, queue, buffer_assets, bind_group_assets, group_alloc_center, vertbuffer_alloter, index_alloter, quad_tree) = res;
     let p0 = query_root.p0();
     let mut all_dirty_rect = Aabb2::new(Point2::new(std::f32::MAX, std::f32::MAX), Point2::new(std::f32::MIN, std::f32::MIN));
@@ -304,7 +308,10 @@ pub fn calc_camera_depth_and_renderlist(
             post_info.matrix = WorldMatrix(world_matrix, false);
         }
 
-        if render_target.target.is_some() {
+        if let &StrongTarget::None = &render_target.target {
+			render_target.bound_box = camera.view_port.clone();
+		}
+		else{
             let target_size_change = !(eq_f32(
                 render_target.bound_box.maxs.x - render_target.bound_box.mins.x,
                 overflow_aabb.view_box.aabb.maxs.x - overflow_aabb.view_box.aabb.mins.x,
@@ -315,15 +322,13 @@ pub fn calc_camera_depth_and_renderlist(
             if target_size_change {
                 render_target.bound_box = overflow_aabb.view_box.aabb.clone();
                 // 从资源管理器中删除原有的渲染目标（TODO， 另外还需要在RenderTarget销毁时， 从资源管理器中删除）
-                render_target.target = None; // 设置为None， 等待渲染时重新分配
-                render_target.cache = None;
+                render_target.target = StrongTarget::None; // 设置为None， 等待渲染时重新分配
+                render_target.cache = RenderTargetCache::None;
             }
             // 如果本地脏区域面积为0，并且渲染目标尺寸未改变， 则该canvas下的物体不需要改变
             if !local_dirty_mark && !target_size_change {
                 camera.is_change = false;
             }
-        } else {
-            render_target.bound_box = camera.view_port.clone();
         }
     }
 
@@ -465,54 +470,48 @@ pub fn check_render_target(render_target: &mut RenderTarget, as_image: Option<&A
         Some(as_image) => match as_image.0 {
             pi_style::style::AsImage::None => {
                 // 设置render_target.cache为none，在渲染时动态分配rendertarget
-                render_target.cache = None;
+                render_target.cache = RenderTargetCache::None;
             }
             pi_style::style::AsImage::Advise => {
-                let cache = match &render_target.cache {
-                    Some(r) => r,
-                    None => return,
-                };
-                match cache {
+                match &render_target.cache {
+					RenderTargetCache::None => return,
                     RenderTargetCache::Strong(r) => {
-                        render_target.target = Some(r.clone());
+                        render_target.target = StrongTarget::Asset(r.clone());
                         // 缓存修改为弱引用
                         let weak = Share::downgrade(r);
-                        render_target.cache = Some(RenderTargetCache::Weak(weak));
+                        render_target.cache = RenderTargetCache::Weak(weak);
                     }
                     RenderTargetCache::Weak(r) => {
                         match ShareWeak::upgrade(r) {
                             Some(r) => {
                                 // 弱引用升级成功，返回强引用，如果相机被激活，外部应该将其放在render_target.target上， 避免在渲染时， 该弱引用对应的值已被销毁
-                                render_target.target = Some(r);
+                                render_target.target = StrongTarget::Asset(r.clone());
                             }
                             None => {
                                 // 弱引用升级不成功，清理掉弱引用
-                                render_target.cache = None;
+                                render_target.cache = RenderTargetCache::None;
                             }
                         };
                     }
                 }
             }
             pi_style::style::AsImage::Force => {
-                let cache = match &render_target.cache {
-                    Some(r) => r,
-                    None => return,
-                };
-                match cache {
+                match &render_target.cache {
+					RenderTargetCache::None => return,
                     RenderTargetCache::Strong(r) => {
                         // 返回强引用
-                        render_target.target = Some(r.clone());
+                        render_target.target = StrongTarget::Asset(r.clone());
                     }
                     RenderTargetCache::Weak(r) => {
                         match ShareWeak::upgrade(r) {
                             Some(r) => {
-                                render_target.target = Some(r.clone());
+                                render_target.target = StrongTarget::Asset(r.clone());
                                 // 缓存强引用
-                                render_target.cache = Some(RenderTargetCache::Strong(r));
+                                render_target.cache = RenderTargetCache::Strong(r);
                             }
                             None => {
                                 // 弱引用升级不成功，清理掉弱引用
-                                render_target.cache = None;
+                                render_target.cache = RenderTargetCache::None;
                             }
                         };
                     }
@@ -521,7 +520,7 @@ pub fn check_render_target(render_target: &mut RenderTarget, as_image: Option<&A
         },
         None => {
             // 设置render_target.cache为none，在渲染时动态分配rendertarget
-            render_target.cache = None;
+            render_target.cache = RenderTargetCache::None;
         }
     }
 }

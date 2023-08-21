@@ -7,7 +7,7 @@ use bevy::{
     prelude::{DetectChangesMut, With},
 };
 use pi_assets::{asset::Handle, mgr::AssetMgr};
-use pi_bevy_ecs_extend::prelude::{OrDefault, Up};
+use pi_bevy_ecs_extend::{prelude::{OrDefault, Up}, system_param::res::OrInitRes};
 use pi_render::rhi::bind_group_layout::BindGroupLayout;
 use pi_render::rhi::{asset::RenderRes, bind_group::BindGroup, buffer::Buffer, device::RenderDevice, RenderQueue};
 use pi_share::Share;
@@ -22,6 +22,8 @@ use crate::{
     shader::ui_meterial::WorldUniform,
     utils::tools::{calc_float_hash, calc_hash},
 };
+
+use super::calc_text::IsRun;
 
 pub struct CalcWorldMatrixGroup;
 
@@ -56,7 +58,11 @@ pub fn set_matrix_group(
     query_parent: Query<&Up>,
     query_matrix: Query<(&WorldMatrix, &NodeState, &LayoutResult)>,
     mut query_draw: Query<(&mut DrawState, OrDefault<BoxType>)>,
+	r: OrInitRes<IsRun>
 ) {
+	if r.0 {
+		return;
+	}
     // let mut i = 0;
     for (mut matrix, mut layout_result, draw_list, node, mut state) in query.iter() {
         if draw_list.len() == 0 {

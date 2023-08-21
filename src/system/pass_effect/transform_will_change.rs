@@ -6,11 +6,11 @@ use bevy::{
     },
     prelude::EventWriter,
 };
-use pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent;
+use pi_bevy_ecs_extend::system_param::{layer_dirty::ComponentEvent, res::OrInitRes};
 
 use crate::{
     components::{calc::InPassId, user::TransformWillChange},
-    system::pass::pass_dirty_rect::OldTransformWillChange,
+    system::{pass::pass_dirty_rect::OldTransformWillChange, draw_obj::calc_text::IsRun},
 };
 
 use bevy::{
@@ -75,7 +75,11 @@ pub fn transform_will_change_post_process(
     mut layer_dirty: Local<LayerDirty<Entity>>,
     mut matrix_invert: Local<(XHashMap<Entity, WorldMatrix>, XHashSet<Entity>)>,
     mut events_writer: EventWriter<OldTransformWillChange>,
+	r: OrInitRes<IsRun>
 ) {
+	if r.0 {
+		return;
+	}
     for del in del.iter() {
         matrix_invert.0.remove(&del);
     }
@@ -149,7 +153,7 @@ pub fn recursive_set_matrix(
     query_matrix: &Query<(&'static WorldMatrix, &LayoutResult)>,
     query: &mut Query<(&'static mut TransformWillChangeMatrix, &'static Layer, &'static InPassId)>,
     query_children: &Query<&'static ChildrenPass>,
-    mut events_writer: &mut EventWriter<OldTransformWillChange>,
+    events_writer: &mut EventWriter<OldTransformWillChange>,
     inverts: &XHashMap<Entity, WorldMatrix>,
     dirty_mark: &DirtyMark,
 ) {
@@ -162,7 +166,7 @@ pub fn recursive_set_matrix(
         Ok((will_change, transform, up, layout)) => {
             let ((p_matrix, parent_layout), invert) = match (query_matrix.get(up.parent()), inverts.get(&id)) {
                 (Ok(r), Some(invert)) => (r, invert),
-                r => return,
+                _ => return,
             };
 
             let width = layout.rect.right - layout.rect.left;

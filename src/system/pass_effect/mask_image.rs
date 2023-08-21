@@ -19,7 +19,7 @@ use crate::{
         draw_obj::{
             calc_background_color::linear_gradient_split,
             image_texture_load::{load_image, set_texture, ImageAwait},
-            pipeline::calc_node_pipeline,
+            pipeline::calc_node_pipeline, calc_text::IsRun,
         },
         node::world_matrix::cal_matrix,
         pass::{pass_graph_node::create_rp_for_fbo, pass_life, update_graph},
@@ -30,9 +30,8 @@ use crate::{
 };
 use bevy::{
     ecs::system::{SystemParam, SystemState},
-    prelude::{
-        apply_system_buffers, Changed, Commands, DetectChanges, Entity, IntoSystemConfig, Or, Plugin, Query, Ref, RemovedComponents, Res, ResMut,
-        Resource, World,
+    prelude::{Changed, Commands, DetectChanges, Entity, Or, Plugin, Query, Ref, RemovedComponents, Res, ResMut,
+        Resource, World, IntoSystemConfigs, apply_deferred, Update, Startup
     },
 };
 use guillotiere::Rectangle;
@@ -72,23 +71,23 @@ impl Plugin for UiMaskImagePlugin {
     fn build(&self, app: &mut bevy::app::App) {
         app
             // 初始化渲染渐变色的图节点
-            .add_startup_system(init)
+            .add_systems(Startup, init)
             // 标记MaskImage所在节点为一个Pass
-            .add_system(
+            .add_systems(Update, 
                 pass_life::pass_mark::<MaskImage>
                     .in_set(UiSystemSet::PassMark)
                     .before(pass_life::cal_context)
                     .run_if(render_run),
             )
             // 设置mask_image的后处理效果
-            .add_system(
+            .add_systems(Update, 
                 mask_image_post_process
                     .after(cal_matrix)
                     .after(update_graph::update_graph)
                     .run_if(render_run),
             )
-            .add_system(
-                apply_system_buffers
+            .add_systems(Update, 
+                apply_deferred
                     .after(mask_image_post_process)
                     .before(calc_node_pipeline)
                     .run_if(render_run),
@@ -138,10 +137,15 @@ pub fn mask_image_post_process(
         ResMut<PiRenderGraph>,
         OrInitResMut<DepthCache>,
         OrInitRes<ShareGroupAlloter<DepthGroup>>,
+		OrInitRes<IsRun>,
     ),
     // cur_depth: usize, device: &'a RenderDevice, bind_group_assets: &'a Share<AssetMgr<RenderRes<BindGroup>>>
+	// r: OrInitRes<IsRun>
 ) {
-    let (color_render_type, mask_node_id, mut commands, mut rg, mut depth_cache, depth_alloter) = other;
+    let (color_render_type, mask_node_id, mut commands, mut rg, mut depth_cache, depth_alloter, r) = other;
+	if r.0 {
+		return;
+	}
     let (mut query, query_src, query_clip, mut query_dst, query_target_ty) = q;
     // 图片删除，则删除对应的遮罩效果
     for del in del.iter() {
@@ -234,7 +238,7 @@ pub fn mask_image_post_process(
                 draw_state.bindgroups.insert_group(UiMaterialBind::set(), ui_material_group);
                 let camera_group = camera_material_alloter.alloc();
                 draw_state.bindgroups.insert_group(CameraBind::set(), camera_group);
-                depth_cache.or_create_depth(0, &device, &depth_alloter); // 其深度将为0， 在图节点渲染时会使用
+                depth_cache.or_create_depth(0, &depth_alloter); // 其深度将为0， 在图节点渲染时会使用
                                                                          // draw_state.bindgroups.insert_group(DepthBind::set(), depth_cache.list[0].clone());
 
                 // 设置顶点
@@ -302,7 +306,15 @@ pub fn mask_image_post_process(
 pub struct LinearMaskNodeId(GraphId);
 
 /// system， 用于添加LinearMaskNode节点到渲染图中，该节点将MaskImage的渐变颜色渲染成纹理
-pub fn init(mut rg: ResMut<PiRenderGraph>, mut id: OrInitResMut<LinearMaskNodeId>) {
+pub fn init(
+	mut rg: ResMut<PiRenderGraph>, 
+	mut id: OrInitResMut<LinearMaskNodeId>,
+	
+	r: OrInitRes<IsRun>
+) {
+	if r.0 {
+		return;
+	}
     match rg.add_node("MaskImageLinear".to_string(), LinearMaskNode) {
         Ok(r) => {
             ****id = r;

@@ -11,7 +11,7 @@ use bevy::{
 use bitvec::array::BitArray;
 use pi_bevy_ecs_extend::{
     prelude::{EntityTreeMut, OrDefault},
-    system_param::{layer_dirty::ComponentEvent, res::OrInitResMut, tree::TreeKey},
+    system_param::{layer_dirty::ComponentEvent, res::{OrInitResMut, OrInitRes}, tree::TreeKey},
 };
 use pi_flex_layout::style::Dimension;
 use pi_map::Map;
@@ -27,7 +27,7 @@ use crate::{
     resource::{
         fragment::{FragmentMap, NodeTag},
         ClassSheet, QuadTree,
-    },
+    }, system::draw_obj::calc_text::IsRun,
 };
 use crate::{
     components::{
@@ -44,7 +44,7 @@ use crate::{
 pub fn user_setting(
     world: &mut World,
 
-    commands: &mut SystemState<(ResMut<UserCommands>, ResMut<ClassSheet>, OrInitResMut<FragmentMap>)>,
+    commands: &mut SystemState<(ResMut<UserCommands>, ResMut<ClassSheet>, OrInitResMut<FragmentMap>, OrInitRes<IsRun>)>,
 
     state: &mut SystemState<(Query<&DrawList>, Query<Entity>, EntityTreeMut)>,
     quad_delete: &mut SystemState<(ResMut<QuadTree>, Query<Entity, With<Viewport>>)>,
@@ -52,7 +52,10 @@ pub fn user_setting(
     mut destroy_entity_list: Local<Vec<Entity>>, // 需要销毁的实体列表作为本地变量，避免每次重新分配内存
 ) {
     // log::warn!("setting=====================");
-    let (mut user_commands, _class_sheet, _fragments) = commands.get_mut(world);
+    let (mut user_commands, _class_sheet, _fragments, r) = commands.get_mut(world);
+	if r.0 {
+		return;
+	}
     // let (class_commands_len, style_commands_len, node_len) = (user_commands.class_commands.len(), user_commands.style_commands.commands.len(), user_commands.node_commands.len());
     let mut user_commands = std::mem::replace(&mut *user_commands, UserCommands::default());
     // let class_sheet = std::mem::replace(&mut *class_sheet, ClassSheet::default());
@@ -60,7 +63,7 @@ pub fn user_setting(
     // 先作用other_commands（通常是修改单例， 如动画表，css表）
     user_commands.other_commands.apply(world);
 
-    let (_user_commands, mut class_sheet, mut fragments) = commands.get_mut(world);
+    let (_user_commands, mut class_sheet, mut fragments, _) = commands.get_mut(world);
     let fragments = std::mem::replace(&mut **fragments, FragmentMap::default());
     let class_sheet = std::mem::replace(&mut *class_sheet, ClassSheet::default());
 
@@ -224,7 +227,7 @@ pub fn user_setting(
         set_class(node, &mut setting, class, &class_sheet);
     }
 
-    let (mut user_commands1, mut class_sheet1, mut fragments1) = commands.get_mut(world);
+    let (mut user_commands1, mut class_sheet1, mut fragments1, _) = commands.get_mut(world);
     *user_commands1 = user_commands;
     *class_sheet1 = class_sheet;
     **fragments1 = fragments;

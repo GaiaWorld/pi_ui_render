@@ -12,7 +12,7 @@ use crate::{
 };
 use bevy::{
     ecs::system::SystemState,
-    prelude::{Commands, Entity, IntoSystemConfig, Plugin, Resource, World},
+    prelude::{Commands, Entity, Plugin, Resource, World, IntoSystemConfigs, Update},
 };
 use pi_bevy_ecs_extend::system_param::res::{OrInitRes, OrInitResMut};
 use pi_null::Null;
@@ -37,10 +37,10 @@ impl Plugin for UiCmdTracePlugin {
         log::warn!("self.option==============={:?}", self.option);
         match self.option {
             TraceOption::Record => {
-                app.add_system(cmd_record.in_set(UiSystemSet::Setting).before(user_setting::user_setting));
+                app.add_systems(Update, cmd_record.in_set(UiSystemSet::Setting).before(user_setting::user_setting));
             }
             TraceOption::Play => {
-                app.add_system(cmd_play.in_set(UiSystemSet::Setting).before(user_setting::user_setting));
+                app.add_systems(Update, cmd_play.in_set(UiSystemSet::Setting).before(user_setting::user_setting));
             }
             TraceOption::None => return,
         };

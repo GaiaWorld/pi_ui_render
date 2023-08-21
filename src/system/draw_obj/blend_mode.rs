@@ -15,6 +15,8 @@ use crate::{
 };
 use pi_style::style::BlendMode as BlendMode1;
 
+use super::calc_text::IsRun;
+
 /// 计算DrawObj的BlendState
 pub fn calc_drawobj_blendstate(
     mut blend_mod_removes: RemovedComponents<BlendMode>,
@@ -23,7 +25,11 @@ pub fn calc_drawobj_blendstate(
     mut query_draw: Query<&'static mut PipelineMeta>,
     defaults: OrInitRes<DrawObjDefaults>,
     mut cache: OrInitResMut<ShaderInfoCache>,
+	r: OrInitRes<IsRun>
 ) {
+	if r.0 {
+		return;
+	}
     // 删除BlendMode时， 将BlendState恢复到默认值
     for remove_blend in blend_mod_removes.iter() {
         if let Ok((blend_mode, draw_list)) = query_node1.get(remove_blend) {

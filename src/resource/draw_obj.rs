@@ -1,6 +1,6 @@
 //! 与DrawObject相关的资源
 
-use std::{borrow::Cow, collections::hash_map::Entry, hash::Hash, marker::PhantomData, num::NonZeroU32};
+use std::{borrow::Cow, collections::hash_map::Entry, hash::Hash, marker::PhantomData, num::NonZeroU32, sync::atomic::{Ordering, AtomicUsize}};
 
 use bevy::ecs::{
     prelude::{FromWorld, World},
@@ -35,7 +35,7 @@ use wgpu::{
 };
 
 use crate::{
-    components::draw_obj::{DrawState, PipelineMeta},
+    components::{draw_obj::{DrawState, PipelineMeta}, pass_2d::CacheTarget},
     shader::{
         camera::CameraBind,
         depth::{DepthBind, DepthUniform},
@@ -281,7 +281,7 @@ impl<T: ShaderProgram> FromWorld for ProgramMetaRes<T> {
         let mut shader_info = world.get_resource_mut::<ShaderInfoCache>().unwrap();
         let device = world.get_resource::<PiRenderDevice>().unwrap();
 
-        let mut meta = T::create_meta();
+        let meta = T::create_meta();
         // // depth不使用动态偏移
         // if let Some(depth_entry) = meta.bindings.bind_group_entrys.get_mut(DepthBind::set() as usize) {
         //     if depth_entry.len() == 1 {
@@ -1204,11 +1204,14 @@ pub struct DepthCache {
 // }
 
 impl DepthCache {
-    pub fn or_create_depth<'a>(&mut self, cur_depth: usize, device: &'a RenderDevice, depth_alloter: &'a ShareGroupAlloter<DepthGroup>) {
+    pub fn or_create_depth<'a>(
+		&mut self, cur_depth: usize, 
+		depth_alloter: &'a ShareGroupAlloter<DepthGroup>
+	) {
         let mut depth = self.list.len();
         while depth <= cur_depth {
             let mut group = depth_alloter.alloc();
-            group.set_uniform(&DepthUniform(&[depth as f32]));
+            let _ = group.set_uniform(&DepthUniform(&[depth as f32]));
             // 添加深度group、永不释放
             self.list.push(DrawBindGroup::Offset(group));
             depth += 1;
@@ -1247,4 +1250,18 @@ impl CommonBlendState {
             operation: wgpu::BlendOperation::Add,
         },
     };
+}
+
+// 渲染目标管理
+#[derive(Resource)]
+pub struct TargetCacheMgr {
+	pub key: AtomicUsize,
+	pub assets: ShareAssetMgr<CacheTarget>,
+}
+
+impl TargetCacheMgr {
+	pub fn push(&self, value: CacheTarget) -> Handle<CacheTarget> {
+		let key = self.key.fetch_add(1, Ordering::Relaxed);
+		self.assets.insert(key, value).unwrap()
+	}
 }

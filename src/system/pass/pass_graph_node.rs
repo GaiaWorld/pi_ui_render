@@ -1,4 +1,4 @@
-use std::{borrow::BorrowMut, mem::transmute};
+use std::borrow::BorrowMut;
 
 use bevy::ecs::{
     prelude::Entity,
@@ -7,7 +7,7 @@ use bevy::ecs::{
     world::World,
 };
 use pi_assets::asset::Handle;
-use pi_bevy_asset::{ShareAssetMgr, ShareHomogeneousMgr};
+use pi_bevy_asset::ShareAssetMgr;
 use pi_bevy_ecs_extend::{
     prelude::{Layer, OrDefault},
     system_param::res::OrInitRes,
@@ -48,12 +48,12 @@ use wgpu::{RenderPass, Sampler};
 use crate::{
     components::{
         calc::{EntityKey, NodeId, Quad},
-        draw_obj::{ClearColorBindGroup, CopyFboToScreen, DrawState, DynTargetType},
-        pass_2d::{CacheTarget, Camera, Draw2DList, DrawIndex, GraphId, ParentPassId, PostProcess, PostProcessInfo, RenderTarget, ScreenTarget},
+        draw_obj::{ClearColorBindGroup, DrawState, DynTargetType},
+        pass_2d::{Camera, Draw2DList, DrawIndex, GraphId, ParentPassId, PostProcess, PostProcessInfo, RenderTarget, ScreenTarget, StrongTarget},
         user::{Aabb2, AsImage, Point2, RenderTargetType},
     },
     resource::{
-        draw_obj::{ClearDrawObj, CommonSampler, DepthCache, DynFboClearColorBindGroup, PostBindGroupLayout},
+        draw_obj::{ClearDrawObj, CommonSampler, DepthCache, DynFboClearColorBindGroup, PostBindGroupLayout, TargetCacheMgr},
         RenderContextMarkType,
     },
     shader::{
@@ -87,10 +87,10 @@ pub struct QueryParam<'w, 's> {
         's,
         (
             &'static DynTargetType,
-            Option<&'static ClearColorBindGroup>,
-            &'static RenderTarget,
+            // Option<&'static ClearColorBindGroup>,
+            // &'static RenderTarget,
             OrDefault<RenderTargetType>,
-            Option<&'static CopyFboToScreen>,
+            // Option<&'static CopyFboToScreen>,
         ),
     >,
     pass2d_query: (
@@ -128,7 +128,7 @@ pub struct QueryParam<'w, 's> {
     clear_draw: Res<'w, ClearDrawObj>,
     common_sampler: Res<'w, CommonSampler>,
 
-    cache_target: Res<'w, ShareHomogeneousMgr<CacheTarget>>,
+    cache_target: Res<'w, TargetCacheMgr>,
     as_image_mark_type: OrInitRes<'w, RenderContextMarkType<AsImage>>,
     depth_cache: OrInitRes<'w, DepthCache>,
 }
@@ -172,16 +172,16 @@ pub struct Param<'w, 's> {
     clear_draw: Res<'s, ClearDrawObj>,
     common_sampler: Res<'s, CommonSampler>,
 
-    last_rt: &'s RenderTarget,
+    // last_rt: &'s RenderTarget,
     last_rt_type: RenderTargetType,
     t_type: &'s DynTargetType,
-    copy_fbo: Option<&'s CopyFboToScreen>,
+    // copy_fbo: Option<&'s CopyFboToScreen>,
     device: &'s RenderDevice,
     queue: &'s RenderQueue,
-    clear_color_group: Option<&'s ClearColorBindGroup>,
+    // clear_color_group: Option<&'s ClearColorBindGroup>,
     surface: &'s ScreenTexture,
 
-    cache_target: Res<'w, ShareHomogeneousMgr<CacheTarget>>,
+    cache_target: Res<'w, TargetCacheMgr>,
     as_image_mark_type: OrInitRes<'w, RenderContextMarkType<AsImage>>,
     depth_cache: &'s DepthCache,
 }
@@ -257,14 +257,15 @@ impl Node for Pass2DNode {
 
 
             // log::warn!("run3======{:?}", pass2d_id);
-            let (t_type, clear_color_group, last_rt, last_rt_type, copy_fbo) = {
+            let (t_type, last_rt_type) = {
                 match query_param.query_pass_node.get(layer.root()) {
                     Ok(r) => (
                         r.0.clone(),
-                        unsafe { transmute(r.1) },
-                        unsafe { transmute(r.2) },
-                        r.3.clone(),
-                        unsafe { transmute(r.4) },
+						r.1.clone()
+                        // unsafe { transmute(r.1) },
+                        // unsafe { transmute(r.2) },
+                        // r.3.clone(),
+                        // unsafe { transmute(r.4) },
                         // r.5.map_or(ClearColor(CgColor::new(0.0, 0.0, 0.0, 1.0), false), |r| r.clone()),
                     ),
                     _ => {
@@ -285,9 +286,9 @@ impl Node for Pass2DNode {
                 draw_post_query: query_param.pass2d_query.3,
                 draw_post_info: query_param.pass2d_query.4,
                 // graph_id_query: query_param.graph_id_query,
-                last_rt: last_rt,
+                // last_rt: last_rt,
                 last_rt_type,
-                copy_fbo,
+                // copy_fbo,
                 screen: query_param.screen,
                 surface: surface,
                 atlas_allocator: query_param.atlas_allocator,
@@ -302,7 +303,7 @@ impl Node for Pass2DNode {
                 device: &device,
                 queue: &queue,
                 fbo_clear_color: query_param.fbo_clear_color,
-                clear_color_group,
+                // clear_color_group,
                 clear_draw: query_param.clear_draw,
                 common_sampler: query_param.common_sampler,
                 cache_target: query_param.cache_target,
@@ -316,7 +317,7 @@ impl Node for Pass2DNode {
                 valid_rect: None,
             };
 
-            if let Ok((camera, list, parent_pass2d_id, clear_group, render_target, as_image)) = param.pass2d_query.get(pass2d_id) {
+            if let Ok((camera, list, parent_pass2d_id, _clear_group, render_target, as_image)) = param.pass2d_query.get(pass2d_id) {
                 // SAFE: 保证渲染图并行时不会访问同时访问同一个实体的renderTarget，这里的转换是安全的
                 let render_target = unsafe { &mut *(render_target as *const RenderTarget as usize as *mut RenderTarget) };
                 // log::warn!("run5======{:?}, {:?}, {:?}, {:?}", pass2d_id, list.transparent, list.opaque, &render_target.bound_box);
@@ -333,7 +334,6 @@ impl Node for Pass2DNode {
                         camera.view_port.maxs.y - camera.view_port.mins.y,
                     );
                     if list.opaque.len() > 0 || list.transparent.len() > 0 {
-                        let ttt;
                         let (rt, clear_color) = match post_list {
                             // 渲染类型为新建渲染目标对其进行渲染，则从纹理分配器中分配一个fbo矩形区
                             Ok(r) => {
@@ -346,7 +346,6 @@ impl Node for Pass2DNode {
                                     // log::warn!("fbo============{:?}", );
                                     // 否则渲染到临时fbo上
                                     match render_target.get_or_create(
-                                        camera,
                                         &param.atlas_allocator,
                                         as_image,
                                         &param.cache_target,
@@ -359,8 +358,8 @@ impl Node for Pass2DNode {
                                     ) {
                                         Some(r) => {
                                             render_to_fbo = true;
-                                            ttt = r;
-                                            (RenderPassTarget::Fbo(&ttt), &param.fbo_clear_color.0)
+                                            out.target = Some(r);
+                                            (RenderPassTarget::Fbo(out.target.as_ref().unwrap()), &param.fbo_clear_color.0)
                                         }
                                         None => {
 											log::trace!("none==============={:?}", pass2d_id);
@@ -382,8 +381,8 @@ impl Node for Pass2DNode {
                                 });
                             }
                         };
-
-                        let (offset, view_port) = {
+						
+                        let (_offset, _view_port) = {
                             let input_groups = Vec::with_capacity(input.0.len());
                             let post_draw = Vec::with_capacity(input.0.len());
                             // 创建一个渲染Pass
@@ -435,12 +434,17 @@ impl Node for Pass2DNode {
                             );
                             (offset, view_port)
                         };
-                    }
+                    } else  {
+						match &render_target.target {
+							StrongTarget::Asset(r) => out.target = Some(r.0.clone()),
+							StrongTarget::Raw(r) => out.target = Some(r.0.clone()),
+							StrongTarget::None => ()
+						};
+					}
 
                     out.valid_rect = Some((offsetx as u32, offsety as u32, view_port_w as u32, view_port_h as u32));
-                    out.target = render_target.target.clone();
 
-                    if let (Ok((post_process, post_info, _graph_id)), Some(rt), true) = (post_list, &render_target.target, render_to_fbo) {
+                    if let (Ok((post_process, post_info, _graph_id)), Some(rt), true) = (post_list, &mut out.target, render_to_fbo) {
                         if post_info.has_effect() {
                             let rect: guillotiere::euclid::Box2D<i32, guillotiere::euclid::UnknownUnit> = rt.rect().clone();
                             let mut target = PostprocessTexture::from_share_target(rt.clone(), wgpu::TextureFormat::pi_render_default());
@@ -462,8 +466,8 @@ impl Node for Pass2DNode {
                                 wgpu::TextureFormat::pi_render_default(),
                             ) {
                                 if let ETextureViewUsage::SRT(r) = r.view {
-                                    out.target = Some(r);
-                                    out.valid_rect = None;
+									out.valid_rect = None;
+                                    *rt = r;
                                 }
                             };
                         }
@@ -538,7 +542,7 @@ impl Node for Pass2DNode {
                 }
 
                 // 每帧都清理掉render_target.target， 避免握住无法释放
-                render_target.target = None;
+                render_target.target = StrongTarget::None;
             }
             // log::warn!("out1=========={:?}, {:?}", pass2d_id, out.target.is_some());
             Ok(out)
@@ -591,33 +595,33 @@ impl Pass2DNode {
 
                 let matrix = &cur_camera.project * &post_info.matrix.0;
 
-                let blend_state = if !r.src_preimultiplied {
-                    wgpu::BlendState {
-                        color: wgpu::BlendComponent {
-                            operation: wgpu::BlendOperation::Add,
-                            src_factor: wgpu::BlendFactor::SrcAlpha,
-                            dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
-                        },
-                        alpha: wgpu::BlendComponent {
-                            operation: wgpu::BlendOperation::Add,
-                            src_factor: wgpu::BlendFactor::One,
-                            dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
-                        },
-                    }
-                } else {
-                    wgpu::BlendState {
-                        color: wgpu::BlendComponent {
-                            operation: wgpu::BlendOperation::Add,
-                            src_factor: wgpu::BlendFactor::One,
-                            dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
-                        },
-                        alpha: wgpu::BlendComponent {
-                            operation: wgpu::BlendOperation::Add,
-                            src_factor: wgpu::BlendFactor::One,
-                            dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
-                        },
-                    }
-                };
+                // let blend_state = if !r.src_preimultiplied {
+                //     wgpu::BlendState {
+                //         color: wgpu::BlendComponent {
+                //             operation: wgpu::BlendOperation::Add,
+                //             src_factor: wgpu::BlendFactor::SrcAlpha,
+                //             dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+                //         },
+                //         alpha: wgpu::BlendComponent {
+                //             operation: wgpu::BlendOperation::Add,
+                //             src_factor: wgpu::BlendFactor::One,
+                //             dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+                //         },
+                //     }
+                // } else {
+                //     wgpu::BlendState {
+                //         color: wgpu::BlendComponent {
+                //             operation: wgpu::BlendOperation::Add,
+                //             src_factor: wgpu::BlendFactor::One,
+                //             dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+                //         },
+                //         alpha: wgpu::BlendComponent {
+                //             operation: wgpu::BlendOperation::Add,
+                //             src_factor: wgpu::BlendFactor::One,
+                //             dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+                //         },
+                //     }
+                // };
                 // log::warn!("node_id1======{:?}, {:?}", pass2d_id, post_info.matrix.0);
                 // log::warn!("draw_final==========={:?}", r)
 
@@ -665,10 +669,20 @@ impl Pass2DNode {
                     wgpu::TextureFormat::pi_render_default(),
                 ) {
                     // 这里使用非安全的方式将不可变引用转为可变引用的前提是，Vec在创建时容量足够，使得push时不需要扩容，同时使用Vec的地方不能多线程
-                    unsafe { &mut *(post_draw as *const Vec<DrawObj> as usize as *mut Vec<DrawObj>) }.push(draw_obj);
-                    let index = post_draw.len() - 1;
-
-                    post_draw[index].draw(rp);
+                    // log::warn!("zzzz=========={:p}", post_draw);
+					let rr = unsafe { &mut *(post_draw as *const Vec<DrawObj> as usize as *mut Vec<DrawObj>) };
+					if rr.capacity() == post_draw.len() {
+						panic!("xxxxx");
+					}
+					rr.push(draw_obj);
+                    let index = rr.len() - 1;
+					// log::warn!("bbb=========={:?}, {:?}, index= {}", rr.len(), rr.capacity(), rr.get(index).is_some());
+					if let Some(rr) = rr.get(index) { // 似乎编译器存在bug？ rr[index].draw(rp);调用在release版本下会崩溃
+						rr.draw(rp);
+					} else {
+						unreachable!();
+					}
+                    // rr[index].draw(rp);
                     // log::error!("draw_final fail, {:?} ", e);
                 }
             }
@@ -1002,7 +1016,8 @@ pub fn create_rp<'a>(
             // if let Some(t) = rt {
             //     r = t;
             // }
-            create_rp_for_fbo(rt, commands, view_port, target_view_port, ops)
+			// fbo永远不清屏
+            create_rp_for_fbo(rt, commands, view_port, target_view_port, None)
         }
     }
 }

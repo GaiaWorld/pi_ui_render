@@ -32,6 +32,8 @@ use crate::shader::ui_meterial::{ColorUniform, StrokeColorOrURectUniform, Textur
 use crate::system::utils::set_vert_buffer;
 use crate::utils::tools::{calc_hash, calc_hash_slice};
 
+use super::IsRun;
+
 
 /// 设置文字的的顶点、索引，和颜色、边框颜色、边框宽度的Uniform
 #[allow(unused_must_use)]
@@ -53,7 +55,11 @@ pub fn calc_text(
     ),
     mut buffer: Local<(Vec<f32>, Vec<f32>)>,
     vertex_buffer_alloter: OrInitRes<PiVertexBufferAlloter>,
+	r: OrInitRes<IsRun>
 ) {
+	if r.0 {
+		return;
+	}
     let (device, buffer_assets, font_sheet, empty_vert_buffer) = res;
     let font_sheet = font_sheet.borrow();
 
@@ -213,7 +219,7 @@ pub fn modify_geo(
     buffer_assets: &Share<AssetMgr<RenderRes<Buffer>>>,
     scale: f32,
     stroke_width: NotNan<f32>,
-    mut positions: &mut Vec<f32>,
+    positions: &mut Vec<f32>,
     uvs: &mut Vec<f32>,
     vertex_buffer_alloter: &PiVertexBufferAlloter,
 ) {
@@ -455,7 +461,7 @@ pub fn text_vert(
     uvs: &mut Vec<f32>,
 ) {
     let mut word_pos = (0.0, 0.0);
-    let mut offset = (layout.border.left + layout.padding.left, layout.border.top + layout.padding.top);
+    let offset = (layout.border.left + layout.padding.left, layout.border.top + layout.padding.top);
     let mut count = 0;
     let half_stroke = *stroke_width / 2.0;
     for c in node_state.0.text.iter() {

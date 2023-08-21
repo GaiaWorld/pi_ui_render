@@ -30,7 +30,7 @@ pub mod utils;
 pub mod prelude {
     use bevy::{
         app::{App, Plugin},
-        prelude::{apply_system_buffers, IntoSystemConfig, IntoSystemSetConfigs},
+        prelude::{IntoSystemSetConfigs, apply_deferred, Update, IntoSystemConfigs},
     };
     use pi_bevy_render_plugin::PiRenderSystemSet;
 
@@ -49,6 +49,7 @@ pub mod prelude {
         fn build(&self, app: &mut App) {
             app.init_resource::<RunState>();
             app.configure_sets(
+				Update, 
                 (
                     UiSystemSet::Setting,
                     UiSystemSet::Load,
@@ -60,6 +61,7 @@ pub mod prelude {
                     .chain(),
             )
             .configure_sets(
+				Update, 
                 (
                     UiSystemSet::Setting,
                     UiSystemSet::LifeDrawObject,
@@ -69,8 +71,9 @@ pub mod prelude {
                 )
                     .chain(),
             )
-            .configure_sets((UiSystemSet::Setting, UiSystemSet::BaseCalc, UiSystemSet::BaseCalcFlush).chain())
+            .configure_sets(Update, (UiSystemSet::Setting, UiSystemSet::BaseCalc, UiSystemSet::BaseCalcFlush).chain())
             .configure_sets(
+				Update, 
                 (
                     UiSystemSet::Setting,
                     UiSystemSet::PrepareDrawObjFlush,
@@ -79,18 +82,18 @@ pub mod prelude {
                 )
                     .chain(),
             )
-            .add_plugin(UiShaderPlugin)
-            .add_plugin(UiNodePlugin)
-            .add_plugin(UiEffectPlugin)
-            .add_plugin(UiReadyDrawPlugin)
-            .add_plugin(UiPassPlugin)
-            // .add_system(apply_system_buffers.in_set(UiSystemSet::LoadFlush))
-            .add_system(apply_system_buffers.in_set(UiSystemSet::LifeDrawObjectFlush))
-            // .add_system(apply_system_buffers.in_set(UiSystemSet::BaseCalcFlush))
-            .add_system(apply_system_buffers.in_set(UiSystemSet::PrepareDrawObjFlush));
+            .add_plugins(UiShaderPlugin)
+            .add_plugins(UiNodePlugin)
+            .add_plugins(UiEffectPlugin)
+            .add_plugins(UiReadyDrawPlugin)
+            .add_plugins(UiPassPlugin)
+            // .add_systems(Update, apply_system_buffers.in_set(UiSystemSet::LoadFlush))
+            .add_systems(Update, apply_deferred.in_set(UiSystemSet::LifeDrawObjectFlush))
+            // .add_systems(Update, apply_system_buffers.in_set(UiSystemSet::BaseCalcFlush))
+            .add_systems(Update, apply_deferred.in_set(UiSystemSet::PrepareDrawObjFlush));
 
             #[cfg(feature = "debug")]
-            app.add_plugin(crate::system::cmd_play::UiCmdTracePlugin { option: self.cmd_trace });
+            app.add_plugins(crate::system::cmd_play::UiCmdTracePlugin { option: self.cmd_trace });
         }
     }
 }
@@ -111,7 +114,7 @@ fn test() {
 			
 	
 	}"#;
-    let mut parser = naga::front::glsl::Parser::default();
+    let mut parser = naga::front::glsl::Frontend::default();
     let modlue = parser.parse(&naga::front::glsl::Options::from(naga::ShaderStage::Vertex), r);
     println!("modle================={:?}, \nmodle================={:?}", modlue, parser);
 }

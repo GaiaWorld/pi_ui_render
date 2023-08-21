@@ -1,6 +1,6 @@
 //! 与Pass相关的system
 
-use bevy::prelude::{Changed, IntoSystemConfig, IntoSystemSetConfig, IntoSystemSetConfigs, Plugin};
+use bevy::prelude::{Changed, IntoSystemSetConfig, IntoSystemSetConfigs, Plugin, Update, IntoSystemConfigs};
 use pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent;
 
 use crate::components::{
@@ -33,53 +33,53 @@ pub struct UiEffectPlugin;
 
 impl Plugin for UiEffectPlugin {
     fn build(&self, app: &mut bevy::app::App) {
-        app.configure_sets((UiSystemSet::Setting, UiSystemSet::PassMark, UiSystemSet::PassFlush).chain())
-            .configure_set(UiSystemSet::PassMark.run_if(render_run))
-            .configure_set(UiSystemSet::PassFlush.run_if(render_run))
-            .configure_set(UiSystemSet::PassSetting.run_if(render_run))
+        app.configure_sets(Update, (UiSystemSet::Setting, UiSystemSet::PassMark, UiSystemSet::PassFlush).chain())
+            .configure_set(Update, UiSystemSet::PassMark.run_if(render_run))
+            .configure_set(Update, UiSystemSet::PassFlush.run_if(render_run))
+            .configure_set(Update, UiSystemSet::PassSetting.run_if(render_run))
             .add_frame_event::<ComponentEvent<Changed<RenderContextMark>>>()
             .add_frame_event::<ComponentEvent<Changed<ParentPassId>>>()
             .add_frame_event::<OldTransformWillChange>()
-            .add_system(
+            .add_systems(Update, 
                 pass_life::pass_mark::<Opacity>
                     .in_set(UiSystemSet::PassMark)
                     .before(pass_life::cal_context),
             )
-            .add_system(
+            .add_systems(Update, 
                 pass_life::pass_mark::<Overflow>
                     .in_set(UiSystemSet::PassMark)
                     .before(pass_life::cal_context),
             )
-            .add_system(pass_life::pass_mark::<Hsi>.before(pass_life::cal_context).in_set(UiSystemSet::PassMark))
-            .add_system(pass_life::pass_mark::<Blur>.before(pass_life::cal_context).in_set(UiSystemSet::PassMark))
-            .add_system(
+            .add_systems(Update, pass_life::pass_mark::<Hsi>.before(pass_life::cal_context).in_set(UiSystemSet::PassMark))
+            .add_systems(Update, pass_life::pass_mark::<Blur>.before(pass_life::cal_context).in_set(UiSystemSet::PassMark))
+            .add_systems(Update, 
                 pass_life::pass_mark::<TransformWillChange>
                     .in_set(UiSystemSet::PassMark)
                     .before(pass_life::cal_context),
             )
-            .add_system(root::root_calc.in_set(UiSystemSet::PassMark).before(pass_life::cal_context))
-            .add_system(
+            .add_systems(Update, root::root_calc.in_set(UiSystemSet::PassMark).before(pass_life::cal_context))
+            .add_systems(Update, 
                 overflow::overflow_post_process
                     .after(pass_life::calc_pass_children_and_clear)
                     .after(content_box::calc_content_box)
                     .after(transform_will_change::transform_will_change_post_process)
                     .in_set(UiSystemSet::PassSetting),
             )
-            .add_system(
+            .add_systems(Update, 
                 transform_will_change::transform_will_change_post_process
                     .after(pass_life::calc_pass_children_and_clear)
                     .after(world_matrix::cal_matrix)
                     .in_set(UiSystemSet::PassSetting),
             )
-            .add_system(blur::blur_post_process.in_set(UiSystemSet::PassSetting).after(UiSystemSet::PassFlush))
-            .add_system(hsi::hsi_post_process.in_set(UiSystemSet::PassSetting).after(UiSystemSet::PassFlush))
-            .add_system(
+            .add_systems(Update, blur::blur_post_process.in_set(UiSystemSet::PassSetting).after(UiSystemSet::PassFlush))
+            .add_systems(Update, hsi::hsi_post_process.in_set(UiSystemSet::PassSetting).after(UiSystemSet::PassFlush))
+            .add_systems(Update, 
                 opacity::opacity_post_process
                     .in_set(UiSystemSet::PassSetting)
                     .after(UiSystemSet::PassFlush),
             )
-            .add_plugin(UiMaskImagePlugin)
-            .add_plugin(UiClipPathPlugin)
-            .add_plugin(UiAsImagePlugin);
+            .add_plugins(UiMaskImagePlugin)
+            .add_plugins(UiClipPathPlugin)
+            .add_plugins(UiAsImagePlugin);
     }
 }

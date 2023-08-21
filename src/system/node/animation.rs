@@ -9,6 +9,7 @@ use bevy::ecs::{
     removal_detection::RemovedComponents,
     system::{Local, Query, ResMut, SystemState},
 };
+use pi_bevy_ecs_extend::system_param::res::OrInitRes;
 use pi_time::Instant;
 
 use crate::{
@@ -19,7 +20,7 @@ use crate::{
     resource::{
         animation_sheet::{KeyFramesSheet, ObjKey},
         StyleCommands, TimeInfo, UserCommands,
-    },
+    }, system::draw_obj::calc_text::IsRun,
 };
 
 use super::user_setting::set_styles;
@@ -39,14 +40,20 @@ pub fn calc_animation(
         ResMut<KeyFramesSheet>,
         ResMut<TimeInfo>,
         ResMut<UserCommands>,
+		OrInitRes<IsRun>
     )>,
 
     user_commands: &mut SystemState<ResMut<UserCommands>>,
 ) {
+
     let time = Instant::now();
 
-    let (animation, mut del, mut keyframes_sheet, mut time_info, mut user_commands1) = animation.get_mut(world);
+    let (animation, mut del, mut keyframes_sheet, mut time_info, mut user_commands1, r) = animation.get_mut(world);
 
+	if r.0 {
+		return;
+	}
+	
     *time_info = TimeInfo {
         cur_time: time,
         delta: (time - time_info.cur_time).as_millis() as u64,

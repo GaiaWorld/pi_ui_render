@@ -15,7 +15,7 @@ use crate::{
         pass_2d::{Draw2DList, DrawIndex, PostProcess},
         user::Size,
     },
-    resource::draw_obj::{DepthCache, DepthGroup, GroupAlloterCenter, ShareGroupAlloter},
+    resource::draw_obj::{DepthCache, DepthGroup, GroupAlloterCenter, ShareGroupAlloter}, system::draw_obj::calc_text::IsRun,
 };
 
 pub fn last_update_wgpu(
@@ -32,7 +32,11 @@ pub fn last_update_wgpu(
     mut depth_cache: OrInitResMut<DepthCache>,
     mut post_resource: ResMut<PostprocessResource>,
     depth_group_alloter: OrInitRes<ShareGroupAlloter<DepthGroup>>,
+	r: OrInitRes<IsRun>
 ) {
+	if r.0 {
+		return;
+	}
     // let depeth_group = group_alloter.alloc();
     // 			draw_state.bindgroups.insert_group(UiMaterialBind::set(), ui_material_group);
     for root in query_root.iter() {
@@ -118,7 +122,7 @@ fn alloc_depth<'a1, 'a2, 'a3, 'a4, 'a6, 'a7>(
         //     }
         // }
         for (entity, _, draw_info) in all_list.drain(..) {
-            depth_cache.or_create_depth(*cur_depth, device, depth_alloter);
+            depth_cache.or_create_depth(*cur_depth, depth_alloter);
             // 暂时放入不透明列表，TODO
             if draw_info.is_opacity() {
                 opaque.push((entity, *cur_depth));

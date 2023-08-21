@@ -39,7 +39,7 @@ use crate::{
         pass_2d::{Camera, ChildrenPass, ParentPassId, PostProcessInfo},
         PassBundle,
     },
-    resource::{EffectRenderContextMark, RenderContextMarkType},
+    resource::{EffectRenderContextMark, RenderContextMarkType}, system::draw_obj::calc_text::IsRun,
 };
 
 /// 记录RenderContext添加和删除的脏，同时记录节点添加到树上的脏
@@ -66,7 +66,11 @@ pub fn cal_context(
     mut layer_dirty: LayerDirty<Changed<Layer>>,
     effect_mark: Res<EffectRenderContextMark>,
     // mut layer_change: EventReader<ComponentEvent<Changed<Layer>>>,
+	r: OrInitRes<IsRun>
 ) {
+	if r.0 {
+		return;
+	}
     // layer_dirty.clear();
     let mut pass_2d_init = Vec::new();
     // let mut pass_2d_id_insert = Vec::new();
@@ -173,7 +177,11 @@ pub fn calc_pass_children_and_clear(
     mut query: Query<&mut ChildrenPass>,
     query_pass: Query<(Entity, &ParentPassId)>,
     mut local: Local<DenseVecMap<(Entity, ChildrenPass)>>,
+	r: OrInitRes<IsRun>
 ) {
+	if r.0 {
+		return;
+	}
     if event_reader.len() > 0 {
         event_reader.clear();
         // 重新组织渲染上下文的树
@@ -214,7 +222,11 @@ pub fn pass_mark<T: Component + NeedMark>(
     mark_type: OrInitRes<RenderContextMarkType<T>>,
 
     mut event_writer: EventWriter<ComponentEvent<Changed<RenderContextMark>>>,
+	r: OrInitRes<IsRun>
 ) {
+	if r.0 {
+		return;
+	}
     let mut render_context = query_set.p1();
     // 组件删除，取消渲染上下文标记
     context_attr_del(del, ***mark_type, &mut event_writer, &mut render_context);

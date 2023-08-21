@@ -8,7 +8,7 @@ use bevy::ecs::{
 };
 use pi_bevy_ecs_extend::{
     prelude::{Layer, OrDefault},
-    system_param::layer_dirty::ComponentEvent,
+    system_param::{layer_dirty::ComponentEvent, res::OrInitRes},
 };
 use pi_render::font::{Font, FontSheet};
 
@@ -19,6 +19,8 @@ use crate::{
     },
     resource::ShareFontSheet,
 };
+
+use super::IsRun;
 
 /// 文字字形计算
 /// 将需要图文混排的文字节点，劈分为单个文字节点
@@ -51,7 +53,11 @@ pub fn text_glyph(
     )>,
     font_sheet: ResMut<ShareFontSheet>,
     mut event_writer: EventWriter<ComponentEvent<Changed<NodeState>>>,
+	r: OrInitRes<IsRun>
 ) {
+	if r.0 {
+		return;
+	}
     let mut font_sheet = font_sheet.borrow_mut();
     let mut is_reset = false;
     for (
