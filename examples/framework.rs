@@ -302,10 +302,10 @@ pub const PLAY_PATH: Option<&'static str> = Some("D://0_js/cdqxz_new_mult_gui_ex
 // pub const PLAY_VERSION: &'static str = "local";
 pub const PLAY_VERSION: &'static str = "test";
 
-// pub const FILTER: &'static str = "wgpu=warn,naga=warn,pi_ui_render::components::user=debug";
+pub const FILTER: &'static str = "wgpu=warn,naga=warn,pi_ui_render::components::user=debug,pi_flex_layout=trace";
 // pub const FILTER: &'static str = "wgpu=warn,entity_3v0=trace";
 // pub const FILTER: &'static str = "wgpu=warn,pi_ui_render=debug";
 // pub const FILTER: &'static str = "wgpu=warn,naga=warn,bevy_app=warn";
-pub const FILTER: &'static str = "wgpu=warn,naga=warn";
+// pub const FILTER: &'static str = "wgpu=warn,naga=warn";
 // pub const FILTER: &'static str = "";
 pub const LOG_LEVEL: bevy::log::Level = bevy::log::Level::WARN;

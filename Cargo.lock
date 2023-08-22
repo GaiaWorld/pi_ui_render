@@ -3851,7 +3851,7 @@ checksum = "dbaf7abc0904cab87ca08c61afa70581049affa856cec59fe77e0b8a83a37257"
 
 [[package]]
 name = "pi_ui_render"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "async-trait",
  "bevy",
@@ -3924,7 +3924,6 @@ dependencies = [
  "spin_sleep",
  "thiserror",
  "timer",
- "tracing",
  "tracing-subscriber",
  "wgpu",
  "zerovec",

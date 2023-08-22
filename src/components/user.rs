@@ -1,6 +1,7 @@
 //！ 定义用户设置的组件
 
-use std::mem::transmute;
+use std::mem::{transmute, forget};
+use std::ptr::read_unaligned;
 use std::{collections::VecDeque, fmt::Debug};
 
 use bevy::{
@@ -773,7 +774,7 @@ pub mod serialize {
             fn set(cur_style_mark: &mut BitArray<[u32; 3]>, ptr: *const u8, query: &mut Setting, entity: Entity, is_clone: bool) {
                 let v = ptr.cast::<$value_ty>();
                 let v = if is_clone {
-                    unsafe { v.read_unaligned() }.clone()
+                    clone_unaligned(v)
                 } else {
                     unsafe { v.read_unaligned() }
                 };
@@ -793,7 +794,7 @@ pub mod serialize {
             fn set(cur_style_mark: &mut BitArray<[u32; 3]>, ptr: *const u8, query: &mut Setting, entity: Entity, is_clone: bool) {
                 let v = ptr.cast::<$value_ty>();
                 let v = if is_clone {
-                    unsafe { v.read_unaligned() }.clone()
+                    clone_unaligned(v)
                 } else {
                     unsafe { v.read_unaligned() }
                 };
@@ -806,7 +807,7 @@ pub mod serialize {
             fn set(cur_style_mark: &mut BitArray<[u32; 3]>, ptr: *const u8, query: &mut Setting, entity: Entity, is_clone: bool) {
                 let v = ptr.cast::<$value_ty>();
                 let v = if is_clone {
-					unsafe { v.read_unaligned() }.clone()
+					clone_unaligned(v)
                 } else {
                     unsafe { v.read_unaligned() }
                 };
@@ -823,7 +824,7 @@ pub mod serialize {
             fn set(cur_style_mark: &mut BitArray<[u32; 3]>, ptr: *const u8, query: &mut Setting, entity: Entity, is_clone: bool) {
                 let v = ptr.cast::<$value_ty>();
                 let v = if is_clone {
-                    unsafe { v.read_unaligned() }.clone()
+                    clone_unaligned(v)
                 } else {
                     unsafe { v.read_unaligned() }
                 };
@@ -845,7 +846,7 @@ pub mod serialize {
             fn set(cur_style_mark: &mut BitArray<[u32; 3]>, ptr: *const u8, query: &mut Setting, entity: Entity, is_clone: bool) {
                 let v = ptr.cast::<$value_ty>();
                 let v = if is_clone {
-                    unsafe { v.read_unaligned() }.clone()
+                    clone_unaligned(v)
                 } else {
                     unsafe { v.read_unaligned() }
                 };
@@ -868,7 +869,7 @@ pub mod serialize {
             fn set(cur_style_mark: &mut BitArray<[u32; 3]>, ptr: *const u8, query: &mut Setting, entity: Entity, is_clone: bool) {
                 let v = ptr.cast::<$value_ty>();
                 let v = if is_clone {
-                    unsafe { v.read_unaligned() }.clone()
+                    clone_unaligned(v)
                 } else {
                     unsafe { v.read_unaligned() }
                 };
@@ -891,7 +892,7 @@ pub mod serialize {
             fn set(cur_style_mark: &mut BitArray<[u32; 3]>, ptr: *const u8, query: &mut Setting, entity: Entity, is_clone: bool) {
                 let v = ptr.cast::<$value_ty>();
                 let v = if is_clone {
-                    unsafe { v.read_unaligned() }.clone()
+                    clone_unaligned(v)
                 } else {
                     unsafe { v.read_unaligned() }
                 };
@@ -915,7 +916,7 @@ pub mod serialize {
             fn set(cur_style_mark: &mut BitArray<[u32; 3]>, ptr: *const u8, query: &mut Setting, entity: Entity, is_clone: bool) {
                 let v = ptr.cast::<$value_ty>();
                 let v = if is_clone {
-                    unsafe { v.read_unaligned() }.clone()
+                    clone_unaligned(v)
                 } else {
                     unsafe { v.read_unaligned() }
                 };
@@ -1149,7 +1150,7 @@ pub mod serialize {
 			set_default!($name, $ty);
 			fn to_attr(ptr: *const u8) -> Attribute
 			{
-				Attribute::$ty(unsafe { $struct_name((&*ptr.cast::<$ty>()).clone()) })
+				Attribute::$ty($struct_name(clone_unaligned(ptr.cast::<$ty>())))
 			}
 		}
 
@@ -1176,7 +1177,7 @@ pub mod serialize {
 			set_default!($name, $pack_ty);
 			fn to_attr(ptr: *const u8) -> Attribute
 			{
-				Attribute::$pack_ty(unsafe { $struct_name((&*ptr.cast::<$value_ty>()).clone()) })
+				Attribute::$pack_ty($struct_name(clone_unaligned(ptr.cast::<$value_ty>())))
 			}
 		}
 
@@ -1201,7 +1202,7 @@ pub mod serialize {
 			set_default!($name, $pack_ty);
 			fn to_attr(ptr: *const u8) -> Attribute
 			{
-				Attribute::$pack_ty(unsafe { $struct_name((&*ptr.cast::<$value_ty>()).clone()) })
+				Attribute::$pack_ty($struct_name(clone_unaligned(ptr.cast::<$value_ty>())))
 			}
 		}
 
@@ -1224,7 +1225,7 @@ pub mod serialize {
 			set_default!($name, $c_ty, $value_ty);
 			fn to_attr(ptr: *const u8) -> Attribute
 			{
-				Attribute::$ty(unsafe { $struct_name((&*ptr.cast::<$value_ty>()).clone()) })
+				Attribute::$ty($struct_name(clone_unaligned(ptr.cast::<$value_ty>())))
 			}
 		}
 
@@ -1249,7 +1250,7 @@ pub mod serialize {
         where
             Self: Sized
 			{
-				Attribute::$ty(unsafe{$struct_name((&*ptr.cast::<$value_ty>()).clone()) })
+				Attribute::$ty($struct_name(clone_unaligned(ptr.cast::<$value_ty>())))
 			}
 		}
 
@@ -1274,7 +1275,7 @@ pub mod serialize {
         where
             Self: Sized
 			{
-				Attribute::$ty(unsafe { $struct_name((&*ptr.cast::<$value_ty>()).clone()) })
+				Attribute::$ty($struct_name(clone_unaligned(ptr.cast::<$value_ty>())))
 			}
 		}
 
@@ -1297,7 +1298,7 @@ pub mod serialize {
 			set_default!(@func $name, $c_ty, $set_func, $value_ty);
 			fn to_attr(ptr: *const u8) -> Attribute
 			{
-				Attribute::$ty(unsafe { $struct_name((&*ptr.cast::<$value_ty>()).clone()) })
+				Attribute::$ty($struct_name(clone_unaligned(ptr.cast::<$value_ty>())))
 			}
 		}
 
@@ -1321,7 +1322,7 @@ pub mod serialize {
 			set_default!(@empty);
 			fn to_attr(ptr: *const u8) -> Attribute
 			{
-				Attribute::$ty(unsafe { $struct_name((&*ptr.cast::<$value_ty>()).clone()) })
+				Attribute::$ty($struct_name(clone_unaligned(ptr.cast::<$value_ty>())))
 			}
 		}
 
@@ -1345,7 +1346,7 @@ pub mod serialize {
 			set_default!(@empty);
 			fn to_attr(ptr: *const u8) -> Attribute
 			{
-				Attribute::$attr_ty(unsafe { $struct_name((&*ptr.cast::<$value_ty>()).clone()) })
+				Attribute::$attr_ty($struct_name(clone_unaligned(ptr.cast::<$value_ty>())))
 			}
 		}
 
@@ -1369,7 +1370,7 @@ pub mod serialize {
 			set_default!($name, $c_ty, $feild, $value_ty);
 			fn to_attr(ptr: *const u8) -> Attribute
 			{
-				Attribute::$ty(unsafe { $struct_name((&*ptr.cast::<$value_ty>()).clone()) })
+				Attribute::$ty($struct_name(clone_unaligned(ptr.cast::<$value_ty>())))
 			}
 		}
 
@@ -1392,7 +1393,7 @@ pub mod serialize {
 			set_default!(@box_model $name, $ty);
 			fn to_attr(ptr: *const u8) -> Attribute
 			{
-				Attribute::$ty(unsafe { $struct_name((&*ptr.cast::<$ty>()).clone()) })
+				Attribute::$ty($struct_name(clone_unaligned(ptr.cast::<$ty>())))
 			}
 		}
 
@@ -1494,7 +1495,7 @@ pub mod serialize {
         {
             let v = ptr.cast::<TextContent1>();
             let v = if is_clone {
-                unsafe { v.read_unaligned() }.clone()
+                clone_unaligned(v)
             } else {
                 unsafe { v.read_unaligned() }
             };
@@ -1525,7 +1526,11 @@ pub mod serialize {
         }
 
         set_default!(text_content, TextContent);
-        fn to_attr(ptr: *const u8) -> Attribute { Attribute::TextContent(unsafe { TextContentType((&*ptr.cast::<TextContent1>()).clone()) }) }
+        fn to_attr(ptr: *const u8) -> Attribute { 
+			let r = Attribute::TextContent(TextContentType(clone_unaligned(ptr.cast::<TextContent1>())));
+			log::warn!("rrrr=========={:?}", r);
+			r
+		}
     }
 
     impl ConvertToComponent for ResetTextContentType {
@@ -1673,7 +1678,7 @@ pub mod serialize {
         {
             let v = ptr.cast::<Atom>();
             let v = if is_clone {
-                unsafe { v.read_unaligned() }.clone()
+                clone_unaligned(v)
             } else {
                 unsafe { v.read_unaligned() }
             };
@@ -1721,7 +1726,7 @@ pub mod serialize {
         where
             Self: Sized,
         {
-            Attribute::BackgroundImage(unsafe { BackgroundImageType((&*ptr.cast::<Atom>()).clone()) })
+            Attribute::BackgroundImage(BackgroundImageType(clone_unaligned(ptr.cast::<Atom>())))
         }
     }
     impl ConvertToComponent for ResetBackgroundImageType {
@@ -1763,7 +1768,7 @@ pub mod serialize {
         where
             Self: Sized,
         {
-            Attribute::BackgroundImage(unsafe { BackgroundImageType((&*ptr.cast::<Atom>()).clone()) })
+            Attribute::BackgroundImage(BackgroundImageType(clone_unaligned(ptr.cast::<Atom>())))
         }
     }
 
@@ -1788,7 +1793,7 @@ pub mod serialize {
         {
             let v = ptr.cast::<Atom>();
             let v = if is_clone {
-                unsafe { v.read_unaligned() }.clone()
+                clone_unaligned(v)
             } else {
                 unsafe { v.read_unaligned() }
             };
@@ -1836,7 +1841,7 @@ pub mod serialize {
         where
             Self: Sized,
         {
-            Attribute::BorderImage(unsafe { BorderImageType((&*ptr.cast::<Atom>()).clone()) })
+            Attribute::BorderImage(BorderImageType(clone_unaligned(ptr.cast::<Atom>())))
         }
     }
     impl ConvertToComponent for ResetBorderImageType {
@@ -1878,7 +1883,7 @@ pub mod serialize {
         where
             Self: Sized,
         {
-            Attribute::BorderImage(unsafe { BorderImageType((&*ptr.cast::<Atom>()).clone()) })
+            Attribute::BorderImage(BorderImageType(clone_unaligned(ptr.cast::<Atom>())))
         }
     }
     // impl_style!(@func1 TransformFuncType, transform, Transform, add_func, TransformFunc, TransformFunc, TransformFunc);
@@ -1893,7 +1898,7 @@ pub mod serialize {
         {
             let v = ptr.cast::<TransformFunc>();
             let v = if is_clone {
-                unsafe { v.read_unaligned() }.clone()
+                clone_unaligned(v)
             } else {
                 unsafe { v.read_unaligned() }
             };
@@ -1986,7 +1991,7 @@ pub mod serialize {
         {
             let v = ptr.cast::<TransformFuncs>();
             let v = if is_clone {
-                unsafe { v.read_unaligned() }.clone()
+                clone_unaligned(v)
             } else {
                 unsafe { v.read_unaligned() }
             };
@@ -2038,7 +2043,7 @@ pub mod serialize {
         where
             Self: Sized,
         {
-            Attribute::Transform(unsafe { TransformType((&*ptr.cast::<TransformFuncs>()).clone()) })
+            Attribute::Transform(TransformType(clone_unaligned(ptr.cast::<TransformFuncs>())))
         }
     }
     impl ConvertToComponent for ResetTransformType {
@@ -2075,7 +2080,7 @@ pub mod serialize {
         where
             Self: Sized,
         {
-            Attribute::Transform(unsafe { TransformType((&*ptr.cast::<TransformFuncs>()).clone()) })
+            Attribute::Transform(TransformType(clone_unaligned(ptr.cast::<TransformFuncs>())))
         }
     }
 
@@ -2089,7 +2094,7 @@ pub mod serialize {
         {
             let v = ptr.cast::<[LengthUnit; 2]>();
             let v = if is_clone {
-                unsafe { v.read_unaligned() }.clone()
+                clone_unaligned(v)
             } else {
                 unsafe { v.read_unaligned() }
             };
@@ -2141,7 +2146,7 @@ pub mod serialize {
         where
             Self: Sized,
         {
-            Attribute::Translate(unsafe { TranslateType((&*ptr.cast::<[LengthUnit; 2]>()).clone()) })
+            Attribute::Translate(TranslateType(clone_unaligned(ptr.cast::<[LengthUnit; 2]>())))
         }
     }
     impl ConvertToComponent for ResetTranslateType {
@@ -2178,7 +2183,7 @@ pub mod serialize {
         where
             Self: Sized,
         {
-            Attribute::Translate(unsafe { TranslateType((&*ptr.cast::<[LengthUnit; 2]>()).clone()) })
+            Attribute::Translate(TranslateType(clone_unaligned(ptr.cast::<[LengthUnit; 2]>())))
         }
     }
 
@@ -2192,7 +2197,7 @@ pub mod serialize {
         {
             let v = ptr.cast::<[f32; 2]>();
             let v = if is_clone {
-                unsafe { v.read_unaligned() }.clone()
+                clone_unaligned(v)
             } else {
                 unsafe { v.read_unaligned() }
             };
@@ -2244,7 +2249,7 @@ pub mod serialize {
         where
             Self: Sized,
         {
-            Attribute::Scale(unsafe { ScaleType((&*ptr.cast::<[f32; 2]>()).clone()) })
+            Attribute::Scale(ScaleType(clone_unaligned(ptr.cast::<[f32; 2]>())))
         }
     }
     impl ConvertToComponent for ResetScaleType {
@@ -2281,7 +2286,7 @@ pub mod serialize {
         where
             Self: Sized,
         {
-            Attribute::Scale(unsafe { ScaleType((&*ptr.cast::<[f32; 2]>()).clone()) })
+            Attribute::Scale(ScaleType(clone_unaligned(ptr.cast::<[f32; 2]>())))
         }
     }
 
@@ -2295,7 +2300,7 @@ pub mod serialize {
         {
             let v = ptr.cast::<f32>();
             let v = if is_clone {
-                unsafe { v.read_unaligned() }.clone()
+                clone_unaligned(v)
             } else {
                 unsafe { v.read_unaligned() }
             };
@@ -2347,7 +2352,7 @@ pub mod serialize {
         where
             Self: Sized,
         {
-            Attribute::Rotate(unsafe { RotateType((&*ptr.cast::<f32>()).clone()) })
+            Attribute::Rotate(unsafe { RotateType(ptr.cast::<f32>().read_unaligned()) })
         }
     }
     impl ConvertToComponent for ResetRotateType {
@@ -2398,7 +2403,7 @@ pub mod serialize {
         {
             let v = ptr.cast::<bool>();
             let v = if is_clone {
-                unsafe { v.read_unaligned() }.clone()
+                clone_unaligned(v)
             } else {
                 unsafe { v.read_unaligned() }
             };
@@ -2461,7 +2466,7 @@ pub mod serialize {
         where
             Self: Sized,
         {
-            Attribute::TransformWillChange(unsafe { TransformWillChangeType((*ptr.cast::<bool>()).clone()) })
+            Attribute::TransformWillChange(unsafe { TransformWillChangeType(ptr.cast::<bool>().read_unaligned()) })
         }
     }
     impl ConvertToComponent for ResetTransformWillChangeType {
@@ -3617,4 +3622,12 @@ pub enum ResetAttribute {
     Scale,                   // 89
     Rotate,                  // 90
     AsImage,                 // 91
+}
+
+// clone指针指向的对象（可能未对齐）
+fn clone_unaligned<T: Clone>(src: *const T) -> T {
+	let r = unsafe {read_unaligned(src)};
+	let ret = r.clone();
+	forget(r); // 这里忘记r， 是因为read_unaligned对src进行逐位读取，如果不忘记r， src指向的对象会被释放、而此函数仅仅是想拷贝src
+	ret
 }

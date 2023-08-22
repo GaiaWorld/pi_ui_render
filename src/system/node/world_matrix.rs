@@ -94,9 +94,9 @@ pub fn cal_matrix(
         dirtys.mark(e);
     }
 
-    let layer_dirty_count = dirtys.count();
+    // let layer_dirty_count = dirtys.count();
     // 计算布局
-    let _sss = tracing::info_span!("matrix compute", layer_dirty_count).entered();
+    // let _sss = tracing::info_span!("matrix compute", layer_dirty_count).entered();
 
     for id in dirtys.iter() {
         // log::warn!("start parent==========={:?}",id);

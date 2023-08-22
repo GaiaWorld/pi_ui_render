@@ -230,6 +230,7 @@ impl KeyFramesSheet {
     }
 
     pub fn get_animation_events(&self) -> &Vec<(AnimationGroupID, EAnimationEvent, u32)> {
+		// log::debug!("get_animation_events======================");
         // if self.run_count > 1 {
         // 	log::warn!("get_animation_events fail====={:?}", self.run_count);
         // }
@@ -554,7 +555,8 @@ impl KeyFramesSheet {
 
             // 启动动画组
             debug!(
-                "start anim, direction: {:?}, frame_per_second: {}, from: {}, to:  {}, duration: {}s",
+                "start anim, target: {:?}, direction: {:?}, frame_per_second: {}, from: {}, to:  {}, duration: {}s",
+				target,
                 animation.direction,
                 (FRAME_COUNT / (*Animation::get_attr(i, &animation.duration) as f32 / 1000.0)).round() as u16,
                 0.0,
