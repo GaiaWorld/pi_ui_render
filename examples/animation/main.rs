@@ -13,10 +13,10 @@ use pi_curves::steps::EStepMode;
 use pi_flex_layout::style::{Dimension, PositionType};
 use pi_null::Null;
 use pi_style::{
-    style::{Aabb2, AnimationDirection, AnimationFillMode, AnimationName, AnimationTimingFunction, IterationCount, Time},
+    style::{Aabb2, AnimationFillMode, AnimationName, AnimationTimingFunction, IterationCount, Time},
     style_parse::parse_class_map_from_string,
     style_type::{
-        AnimationDirectionType, AnimationDurationType, AnimationFillModeType, AnimationIterationCountType, AnimationNameType,
+        AnimationDurationType, AnimationFillModeType, AnimationIterationCountType, AnimationNameType,
         AnimationTimingFunctionType, BackgroundColorType, HeightType, MarginLeftType, MarginTopType, PositionLeftType, PositionTopType,
         PositionTypeType, WidthType,
     },

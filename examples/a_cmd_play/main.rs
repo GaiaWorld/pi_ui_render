@@ -7,27 +7,8 @@ use bevy::ecs::system::Commands;
 use bevy::prelude::World;
 use font_kit::font::new_face_by_path;
 use framework::Example;
-use pi_atom::Atom;
-use pi_flex_layout::{
-    prelude::Size,
-    style::{Dimension, PositionType},
-};
-use pi_null::Null;
-use pi_style::{
-    style::{Aabb2, Hsi, Point2},
-    style_type::{
-        BackgroundColorType, BackgroundImageType, HeightType, HsiType, MarginLeftType, MarginTopType, OpacityType, PositionLeftType, PositionTopType,
-        PositionTypeType, WidthType,
-    },
-};
-use pi_ui_render::{
-    components::{
-        calc::EntityKey,
-        user::{CgColor, ClearColor, Color, RenderDirty, Viewport},
-        NodeBundle,
-    },
-    resource::{NodeCmd, UserCommands},
-};
+use pi_flex_layout::prelude::Size;
+use pi_ui_render::resource::UserCommands;
 
 use crate::framework::PLAY_PATH;
 //
@@ -49,7 +30,7 @@ impl Example for ExampleCommonPlay {
         Some(Size { width: 436, height: 960 })
     }
 
-    fn init(&mut self, world: &mut World, size: (usize, usize)) {
+    fn init(&mut self, _world: &mut World, size: (usize, usize)) {
         // let r: Commands1 = unsafe { transmute(command) };
         let mut ttf = std::env::current_dir().unwrap();
         // log::warn!("cur_dir========{:?}", ttf);

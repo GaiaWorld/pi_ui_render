@@ -25,7 +25,7 @@ num-traits = "0.2.6"
 fnv = "1.0.6"
 lazy_static = "1.4"
 paste = "1.0"
-postcard = {version = "1.0", features = ["use-std"]}
+# postcard = {version = "1.0", features = ["use-std"]}
 serde = { version = "1.0", features = ["derive"]}
 ordered-float = { version = "3.0", default-features = false, features = ["serde"] }
 fxhash = "0.2.1"
@@ -55,7 +55,6 @@ naga = { version = "0.12"}
 pi_assets = "0.13"
 image = "0.24"
 polygon2 = "0.3"
-json ="0.12"
 pi_slotmap_tree ="0.3"
 pi_dirty="0.1"
 
@@ -77,9 +76,8 @@ pi_bevy_post_process= {version = "0.1", registry = "yn"}
 pi_bevy_ecs_extend = {version = "0.1", registry = "yn"}
 pi_bevy_render_plugin = {version = "0.1", registry = "yn"}
 pi_bevy_asset = {version = "0.1", registry = "yn"}
-pi_bevy_winit_window = {version = "0.1", registry = "yn"}
 bevy = {version="0.11", default-features = false}
-zerovec = "0.9"
+# zerovec = "0.9"
 guillotiere = { version = "0.6" }
 derive-deref-rs = "0.1"
 thiserror = "1.0"
@@ -116,13 +114,13 @@ bevy = { path = "../bevy" }
 # font_kit = { path = "../font_kit" }
 
 # bevy
-# pi_bevy_ecs_extend = { path = "../pi_bevy/crates/ecs_extend" }
-# pi_bevy_render_plugin = { path = "../pi_bevy/crates/render" }
-# pi_bevy_asset = { path = "../pi_bevy/crates/asset" }
-# pi_bevy_winit_window = { path = "../pi_bevy/crates/winit_window" } 
-# pi_bevy_log = { path = "../pi_bevy/crates/log" } 
-# pi_bevy_ecs_macro = { path = "../pi_bevy/crates/ecs_extend/macro"}
-# pi_bevy_post_process= { path = "../pi_bevy/crates/post_process" }
+pi_bevy_ecs_extend = { path = "../pi_bevy/crates/ecs_extend" }
+pi_bevy_render_plugin = { path = "../pi_bevy/crates/render" }
+pi_bevy_asset = { path = "../pi_bevy/crates/asset" }
+pi_bevy_winit_window = { path = "../pi_bevy/crates/winit_window" } 
+pi_bevy_log = { path = "../pi_bevy/crates/log" } 
+pi_bevy_ecs_macro = { path = "../pi_bevy/crates/ecs_extend/macro"}
+pi_bevy_post_process= { path = "../pi_bevy/crates/post_process" }
 
 # pi_render
 # pi_render = { path = "../pi_render" }
@@ -153,6 +151,10 @@ num_cpus = "1.13"
 bevy = {version="0.11", default-features = false, features=["bevy_winit"]}
 timer = "0.2.0"
 pi_bevy_log = {version ="0.1", registry = "yn"}
+criterion = { version = "0.3", features = ["html_reports"] }
+pi_winit = {version = "0.27", registry="yn", package="winit"}
+pi_ui_render = {path = "./", features = ["debug"]}
+tracing = "0.1"
 # pi_export_gui = {path="../pi_export/crates/gui"}
 # bevy_mod_debugdump = "0.6"
 # bevy-inspector-egui="0.14"

@@ -7,25 +7,24 @@ use std::mem::swap;
 
 use bevy::{ecs::system::Commands, prelude::World};
 use framework::Example;
-use ordered_float::NotNan;
 use pi_atom::Atom;
 /// 渲染四边形 demo
 use pi_flex_layout::{
-    prelude::{Rect, Size},
-    style::{AlignContent, Dimension, FlexWrap, PositionType},
+    prelude::Size,
+    style::{Dimension, FlexWrap, PositionType},
 };
 use pi_null::Null;
 use pi_style::{
-    style::{Aabb2, BlendMode, BorderRadius, CgColor, ImageRepeat, ImageRepeatOption, NotNanRect, Point2},
+    style::{Aabb2, BlendMode, CgColor, Point2},
     style_type::{
-        AlignContentType, AlignItemsType, BackgroundImageClipType, BackgroundImageType, BackgroundRepeatType, BlendModeType, BorderRadiusType,
+        AlignContentType, AlignItemsType, BackgroundImageType, BlendModeType,
         FlexWrapType, HeightType, JustifyContentType, MarginLeftType, MarginTopType, PositionLeftType, PositionTopType, PositionTypeType, WidthType,
     },
 };
 use pi_ui_render::{
     components::{
         calc::EntityKey,
-        user::{ClearColor, LengthUnit, RenderDirty, Viewport},
+        user::{ClearColor, RenderDirty, Viewport},
         NodeBundle,
     },
     resource::{NodeCmd, UserCommands},

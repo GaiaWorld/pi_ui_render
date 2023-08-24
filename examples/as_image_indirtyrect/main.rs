@@ -21,7 +21,7 @@ use pi_style::{
 use pi_ui_render::{
     components::{
         calc::EntityKey,
-        user::{CgColor, ClearColor, Color, RenderDirty, Viewport},
+        user::{CgColor, ClearColor, Color, Viewport},
         NodeBundle,
     },
     resource::{NodeCmd, UserCommands},

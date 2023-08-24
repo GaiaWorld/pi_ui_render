@@ -14,14 +14,14 @@ use pi_null::Null;
 use pi_style::{
     style::{Aabb2, Point2, TransformFunc},
     style_type::{
-        AsImageType, BackgroundColorType, HeightType, MarginLeftType, MarginTopType, PositionLeftType, PositionTopType, PositionTypeType, RotateType,
+        AsImageType, BackgroundColorType, HeightType, MarginLeftType, MarginTopType, PositionLeftType, PositionTopType, PositionTypeType,
         TransformType, TransformWillChangeType, WidthType,
     },
 };
 use pi_ui_render::{
     components::{
         calc::EntityKey,
-        user::{CgColor, ClearColor, Color, RenderDirty, Viewport},
+        user::{CgColor, ClearColor, Color, Viewport},
         NodeBundle,
     },
     resource::{NodeCmd, UserCommands},

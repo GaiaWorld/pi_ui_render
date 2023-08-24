@@ -14,35 +14,28 @@ use pi_atom::Atom;
 use pi_flex_layout::style::{Dimension, PositionType};
 use pi_null::Null;
 use pi_style::{
-    style::{
-        Aabb2, AnimationDirection, AnimationName, ColorAndPosition, FontSize, Hsi, IterationCount, LinearGradientColor, Point2, TextContent, Time,
-        TransformFunc,
-    },
-    style_parse::parse_class_map_from_string,
-    style_type::{
-        AnimationDirectionType, AnimationDurationType, AnimationIterationCountType, AnimationNameType, BackgroundColorType, BackgroundImageType,
-        ColorType, FontFamilyType, FontSizeType, HeightType, HsiType, MarginLeftType, MarginTopType, OpacityType, PositionLeftType, PositionTopType,
-        PositionTypeType, TextContentType, TransformType, WidthType,
+    style::{Aabb2, Point2,TransformFunc},
+    style_type::{BackgroundImageType, HeightType, MarginLeftType, MarginTopType, OpacityType, PositionLeftType, PositionTopType,
+        PositionTypeType, TransformType, WidthType,
     },
 };
 use pi_ui_render::{
     components::{
         calc::EntityKey,
-        user::{CgColor, ClearColor, Color, RenderDirty, Viewport},
+        user::{CgColor, ClearColor, RenderDirty, Viewport},
         NodeBundle,
     },
-    resource::{animation_sheet::AnimationType, ExtendCssCmd, NodeCmd, UserCommands},
+    resource::{NodeCmd, UserCommands},
 };
-use smallvec::smallvec;
 
 fn main() { framework::start(QuadExample::default()) }
 
 #[derive(Default)]
 pub struct QuadExample {
     cmd: UserCommands,
-    div1: EntityKey,
-    time: Option<std::time::Instant>,
-    flag: bool,
+    // div1: EntityKey,
+    // time: Option<std::time::Instant>,
+    // flag: bool,
 }
 
 impl Example for QuadExample {

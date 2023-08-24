@@ -24,7 +24,7 @@ use pi_ui_render::{
         user::{CgColor, ClearColor, Color, RenderDirty, Viewport},
         NodeBundle,
     },
-    resource::{NodeCmd, UserCommands},
+    resource::UserCommands,
 };
 
 fn main() { framework::start(QuadExample::default()) }

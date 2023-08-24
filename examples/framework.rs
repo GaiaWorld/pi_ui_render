@@ -1,7 +1,9 @@
 use std::{sync::Arc, time::Instant};
 
-use bevy::prelude::IntoSystemConfigs;
-use bevy::prelude::{Added, App, Entity, Local, Query, SystemSet};
+use bevy::prelude::{IntoSystemConfigs, Update, Startup, Entity};
+use bevy::prelude::{ App, SystemSet };
+#[cfg(feature = "debug")]
+use bevy::prelude::Local;
 use bevy::winit::WinitPlugin;
 use bevy::{
     ecs::{
@@ -10,16 +12,17 @@ use bevy::{
     },
     window::{Window, WindowResolution},
 };
+
 use pi_async_rt::prelude::AsyncRuntime;
 use pi_bevy_asset::{AssetConfig, PiAssetPlugin};
-use pi_bevy_ecs_extend::prelude::Root;
+// use pi_bevy_ecs_extend::prelude::Root;
 use pi_bevy_post_process::PiPostProcessPlugin;
 use pi_bevy_render_plugin::{PiRenderPlugin, PiRenderOptions};
 use pi_flex_layout::prelude::Size;
 use pi_hal::{init_load_cb, on_load, runtime::MULTI_MEDIA_RUNTIME};
 use pi_share::{Share, ShareMutex};
-use pi_ui_render::components::user::AsImage;
-use pi_ui_render::system::draw_obj::calc_text::IsRun;
+// use pi_ui_render::components::user::AsImage;
+// use pi_ui_render::system::draw_obj::calc_text::IsRun;
 use pi_ui_render::system::{system_set::UiSystemSet, RunState};
 use pi_ui_render::{prelude::UiPlugin, resource::UserCommands};
 
@@ -81,8 +84,8 @@ pub fn start<T: Example + Sync + Send + 'static>(example: T) {
     #[cfg(not(feature = "debug"))]
     app.add_plugins(UiPlugin::default());
 
-    app.add_system(exmple_run.before(UiSystemSet::Setting).in_set(ExampleSet))
-        .add_startup_system(move |world: &mut World| {
+    app.add_systems(Update, exmple_run.before(UiSystemSet::Setting).in_set(ExampleSet))
+        .add_systems(Startup, move |world: &mut World| {
             exmple1.lock().init(world, (width as usize, height as usize));
         });
 
@@ -90,12 +93,58 @@ pub fn start<T: Example + Sync + Send + 'static>(example: T) {
     match record_option {
         pi_ui_render::system::cmd_play::TraceOption::None => (),
         pi_ui_render::system::cmd_play::TraceOption::Record => {
-            app.add_system(record_cmd_to_file.after(UiSystemSet::Setting));
+            app.add_systems(Update, record_cmd_to_file.after(UiSystemSet::Setting));
         }
         pi_ui_render::system::cmd_play::TraceOption::Play => {
-            app.add_system(setting_next_record.before(UiSystemSet::Setting));
+            app.add_systems(Update, setting_next_record.before(UiSystemSet::Setting));
         }
     }
+	app.update();
+	// let mut v = Vec::with_capacity(10);
+	// for _i in 0..10 {
+	// 	let t = std::time::Instant::now();
+	// 	// log::warn!("zzz================");
+	// 	app.update();
+	// 	v.push(std::time::Instant::now() - t);
+	// }
+	// log::warn!("time: {:?}", v);
+
+
+	// let mut criterion = criterion::Criterion::default();
+	// criterion::__warn_about_html_reports_feature();
+	// criterion::__warn_about_cargo_bench_support_feature();
+
+	// let mut group = criterion.benchmark_group("app_update");
+	// group.warm_up_time(std::time::Duration::from_millis(500));
+	// group.measurement_time(std::time::Duration::from_secs(3));
+	// group.bench_function("update", |bencher| {
+	// 	bencher.iter(|| {
+	// 		app.update();
+	// 	});
+	// });
+	// group.finish();
+
+	// criterion::Criterion::default()
+	// 	.configure_from_args()
+	// 	.final_summary();
+
+
+	// log::warn!("end==================");
+	// criterion::criterion_group!(
+	// 	benchmarks,
+	// 	// bench_simple_insert,
+	// 	// bench_simple_iter,
+	// 	// bench_frag_iter_bc,
+	// 	// bench_event_deal,
+	// 	bench_login_setting,
+	// 	// bench_schedule,
+	// 	// bench_heavy_compute,
+	// 	// bench_add_remove,
+	// 	// bench_serialize_text,
+	// 	// bench_serialize_binary,
+	// );
+	// criterion::criterion_main!(benchmarks);
+
 
     app.run();
 
@@ -133,12 +182,20 @@ pub fn init(width: u32, height: u32) -> App {
     window.resolution = WindowResolution::new(width as f32, height as f32);
     let mut window_plugin = bevy::window::WindowPlugin::default();
     window_plugin.primary_window = Some(window);
+	// window_plugin.primary_window = None;
 
 	let mut o = PiRenderOptions::default();
 	o.present_mode = wgpu::PresentMode::Mailbox;
 	app.world.insert_resource(o);
 
 	// app.world.insert_resource(IsRun(true));
+
+	// let w = {
+	// 	use pi_winit::platform::windows::EventLoopBuilderExtWindows;
+	// 	let mut event_loop = pi_winit::event_loop::EventLoopBuilder::new().with_any_thread(true).build();
+	// 	let window = pi_winit::window::Window::new(&event_loop).unwrap();
+	// 	window
+	// };
 
     app.add_plugins(pi_bevy_log::LogPlugin::<Vec<u8>> {
         filter: FILTER.to_string(),
@@ -149,6 +206,7 @@ pub fn init(width: u32, height: u32) -> App {
     .add_plugins(bevy::input::InputPlugin::default())
     .add_plugins(window_plugin)
     .add_plugins(WinitPlugin::default())
+	// .add_plugins(pi_bevy_winit_window::WinitPlugin::new(Arc::new(w)).with_size(width, height))
     .add_plugins(PiAssetPlugin {
         total_capacity: 1024 * 1024 * 1024,
         asset_config: AssetConfig::default(),
@@ -156,6 +214,8 @@ pub fn init(width: u32, height: u32) -> App {
     // .add_plugins(WorldInspectorPlugin::new())
     .add_plugins(PiRenderPlugin::default())
     .add_plugins(PiPostProcessPlugin);
+
+	
 
 
     // let h = app.world.get_resource_mut::<pi_bevy_log::LogFilterHandle>().unwrap();
@@ -170,13 +230,13 @@ pub fn init(width: u32, height: u32) -> App {
     app
 }
 
-// 创建root时间，设置AsImage为force
-// 实际运行时不需要这样做，应该按需设置AsImage
-pub fn root_calc(mut q: Query<&mut AsImage, Added<Root>>) {
-    for mut i in q.iter_mut() {
-        i.0 = pi_style::style::AsImage::Force;
-    }
-}
+// // 创建root时间，设置AsImage为force
+// // 实际运行时不需要这样做，应该按需设置AsImage
+// pub fn root_calc(mut q: Query<&mut AsImage, Added<Root>>) {
+//     for mut i in q.iter_mut() {
+//         i.0 = pi_style::style::AsImage::Force;
+//     }
+// }
 
 #[cfg(feature = "debug")]
 pub struct NextState {
@@ -224,6 +284,7 @@ pub fn record_cmd_to_file(mut records: ResMut<Records>) {
 // 设置下一条记录
 #[cfg(feature = "debug")]
 pub fn setting_next_record(world: &mut World, mut local_state: Local<NextState>) {
+
     let local_state = &mut *local_state;
     setting(local_state.cmd_path, &mut local_state.file_index, world, &mut local_state.is_end)
 }
@@ -278,6 +339,7 @@ fn setting(cmd_path: Option<&str>, file_index1: &mut usize, world: &mut World, i
     return;
 }
 
+#[allow(dead_code)]
 pub fn spawn(world: &mut World) -> Entity {
     let r = world.spawn_empty().id();
     #[cfg(feature = "debug")]
@@ -293,7 +355,7 @@ pub fn spawn(world: &mut World) -> Entity {
     r
 }
 
-
+#[allow(dead_code)]
 #[cfg(feature = "debug")]
 // pub const PLAY_PATH: Option<&'static str> = None;
 pub const PLAY_PATH: Option<&'static str> = Some("D://0_js/cdqxz_new_mult_gui_exe/dst");
