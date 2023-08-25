@@ -68,31 +68,35 @@ pub struct UserCommands {
 
 impl UserCommands {
     /// 将节点作为子节点挂在父上
-    pub fn append(&mut self, entity: Entity, parent: Entity) {
+    pub fn append(&mut self, entity: Entity, parent: Entity) -> &mut Self {
         // log::debug!("append====={:?}, {:?}", entity, parent);
         self.node_commands.push(NodeCommand::AppendNode(entity, parent));
+		self
     }
 
     /// 将节点插入到某个节点之前
-    pub fn insert_before(&mut self, entity: Entity, anchor: Entity) {
+    pub fn insert_before(&mut self, entity: Entity, anchor: Entity) -> &mut Self {
         // log::debug!("insert_before====={:?}, {:?}", entity, anchor);
         self.node_commands.push(NodeCommand::InsertBefore(entity, anchor));
+		self
     }
 
     /// 从父节点上移除节点
-    pub fn remove_node(&mut self, entity: Entity) {
+    pub fn remove_node(&mut self, entity: Entity) -> &mut Self {
         // log::debug!("remove_node====={:?}", entity);
         self.node_commands.push(NodeCommand::RemoveNode(entity));
+		self
     }
 
     /// 从父节点上移除节点，并销毁该节点及所有子节点
-    pub fn destroy_node(&mut self, entity: Entity) {
+    pub fn destroy_node(&mut self, entity: Entity) -> &mut Self {
         // log::debug!("destroy_node===={:?}", &entity);
         self.node_commands.push(NodeCommand::DestroyNode(entity));
+		self
     }
 
     /// 设置节点样式
-    pub fn set_style<T: Attr>(&mut self, entity: Entity, value: T) {
+    pub fn set_style<T: Attr>(&mut self, entity: Entity, value: T) -> &mut Self {
         // out_any!(log::debug, "set_style, entity: {:?}, value: {:?}", entity, &value);
         // out_any!(trace, "set_style, entity: {:?}, value: {:?}", entity, &value);
         let start = self.style_commands.style_buffer.len();
@@ -100,45 +104,48 @@ impl UserCommands {
         if let Some(r) = self.style_commands.commands.last_mut() {
             if r.0 == entity {
                 r.2 = self.style_commands.style_buffer.len();
-                return;
+                return self;
             }
         }
         self.style_commands.commands.push((entity, start, self.style_commands.style_buffer.len()));
+		self
     }
 
     /// 设置默认样式（字符串）TODO
-    pub fn set_default_style_by_str(&mut self, class: &str, scope_hash: usize) {
+    pub fn set_default_style_by_str(&mut self, class: &str, scope_hash: usize) -> &mut Self {
         match parse_style_list_from_string(class, scope_hash) {
             Ok(r) => {
                 self.other_commands.push(DefaultStyleCmd(r));
             }
             Err(e) => {
                 log::error!("set_default_style_by_str fail, parse style err: {:?}", e);
-                return;
+                return self;
             }
         };
+		self
     }
 
-    pub fn add_css(&mut self, css: &str, scope_hash: usize) {
+    pub fn add_css(&mut self, css: &str, scope_hash: usize) -> &mut Self {
         let r = match parse_class_map_from_string(css, scope_hash as usize) {
             Ok(r) => r,
             Err(e) => {
                 log::warn!("set_default_style_by_str fail, parse style err: {:?}", e);
-                return;
+                return self;
             }
         };
         self.push_cmd(ExtendCssCmd(vec![r]));
+		self
     }
 
     // 添加运行时动画
-    pub fn add_runtime_animation(&mut self, node: Entity, animation: &str, css: &str, scope_hash: usize) {
+    pub fn add_runtime_animation(&mut self, node: Entity, animation: &str, css: &str, scope_hash: usize) -> &mut Self {
         let mut input = cssparser::ParserInput::new(animation);
         let mut parse = cssparser::Parser::new(&mut input);
         let mut animations = match parse_animation(&mut parse) {
             Ok(r) => r,
             Err(e) => {
                 log::warn!("set_default_style_by_str fail, parse style err: {:?}", e);
-                return;
+                return self;
             }
         };
         animations.name.scope_hash = scope_hash as usize;
@@ -147,7 +154,7 @@ impl UserCommands {
             Ok(r) => r,
             Err(e) => {
                 log::warn!("set_default_style_by_str fail, parse style err: {:?}", e);
-                return;
+                return self;
             }
         };
         let r = RuntimeAnimationBindCmd(css.key_frames.frames, unsafe { transmute(animations) }, node);
@@ -156,22 +163,25 @@ impl UserCommands {
         self.other_commands_list.push(CmdType::RuntimeAnimationBindCmd(r.clone()));
 
         self.push_cmd(r);
+		self
     }
 
     /// 设置节点的class
-    pub fn set_class(&mut self, entity: Entity, value: ClassName) {
+    pub fn set_class(&mut self, entity: Entity, value: ClassName) -> &mut Self {
         // println_any!("set_class===={:?}", &value);
         self.class_commands.push((entity, value));
+		self
     }
 
     /// 添加指令
-    pub fn push_cmd<T: Command>(&mut self, cmd: T) {
+    pub fn push_cmd<T: Command>(&mut self, cmd: T) -> &mut Self {
         // println_any!("push_cmd===={:?}", 1);
         self.other_commands.push(cmd);
+		self
     }
 
     /// 设置视口
-    pub fn set_view_port(&mut self, node: Entity, cmd: Viewport) {
+    pub fn set_view_port(&mut self, node: Entity, cmd: Viewport) -> &mut Self {
         // println_any!("push_cmd===={:?}", 1);
         let r = NodeCmd(cmd, node);
 
@@ -179,10 +189,11 @@ impl UserCommands {
         self.other_commands_list.push(CmdType::NodeCmdViewport(r.clone()));
 
         self.other_commands.push(r);
+		self
     }
 
     /// 设置目标类型
-    pub fn set_target_type(&mut self, node: Entity, cmd: RenderTargetType) {
+    pub fn set_target_type(&mut self, node: Entity, cmd: RenderTargetType) -> &mut Self {
         // println_any!("push_cmd===={:?}", 1);
         let r = NodeCmd(cmd, node);
 
@@ -190,10 +201,11 @@ impl UserCommands {
         self.other_commands_list.push(CmdType::NodeCmdRenderTargetType(r.clone()));
 
         self.other_commands.push(r);
+		self
     }
 
     /// 设置清屏颜色
-    pub fn set_clear_color(&mut self, node: Entity, cmd: ClearColor) {
+    pub fn set_clear_color(&mut self, node: Entity, cmd: ClearColor) -> &mut Self {
         // println_any!("push_cmd===={:?}", 1);
         let r = NodeCmd(cmd, node);
 
@@ -201,10 +213,11 @@ impl UserCommands {
         self.other_commands_list.push(CmdType::NodeCmdRenderClearColor(r.clone()));
 
         self.other_commands.push(r);
+		self
     }
 
     /// 设置渲染脏
-    pub fn set_render_dirty(&mut self, node: Entity, cmd: RenderDirty) {
+    pub fn set_render_dirty(&mut self, node: Entity, cmd: RenderDirty) -> &mut Self {
         // println_any!("push_cmd===={:?}", 1);
         let r = NodeCmd(cmd, node);
 
@@ -212,10 +225,11 @@ impl UserCommands {
         self.other_commands_list.push(CmdType::NodeCmdRenderRenderDirty(r.clone()));
 
         self.other_commands.push(r);
+		self
     }
 
     /// 设置几点初始化值
-    pub fn set_node_bundle(&mut self, node: Entity, cmd: NodeBundle) {
+    pub fn set_node_bundle(&mut self, node: Entity, cmd: NodeBundle) -> &mut Self {
         // println_any!("push_cmd===={:?}", 1);
         let r = NodeCmd(cmd, node);
 
@@ -223,34 +237,38 @@ impl UserCommands {
         self.other_commands_list.push(CmdType::NodeCmdRenderNodeBundle(r.clone()));
 
         self.other_commands.push(r);
+		self
     }
 
     /// 添加片段
-    pub fn extend_fragment_bin(&mut self, cmd: ExtendFragmentCmd) {
+    pub fn extend_fragment_bin(&mut self, cmd: ExtendFragmentCmd) -> &mut Self {
         // println_any!("push_cmd===={:?}", 1);
 
         #[cfg(feature = "debug")]
         self.other_commands_list.push(CmdType::ExtendFragmentCmd(cmd.clone()));
 
         self.other_commands.push(cmd);
+		self
     }
 
     /// 添加片段
-    pub fn add_css_bin(&mut self, cmd: ExtendCssCmd) {
+    pub fn add_css_bin(&mut self, cmd: ExtendCssCmd) -> &mut Self {
         // println_any!("push_cmd===={:?}", 1);
 
         #[cfg(feature = "debug")]
         self.other_commands_list.push(CmdType::ExtendCssCmd(cmd.clone()));
 
         self.other_commands.push(cmd);
+		self
     }
 
     /// 添加默认样式
-    pub fn add_default_css(&mut self, cmd: DefaultStyleCmd) {
+    pub fn add_default_css(&mut self, cmd: DefaultStyleCmd) -> &mut Self {
         #[cfg(feature = "debug")]
         self.other_commands_list.push(CmdType::DefaultStyleCmd(cmd.clone()));
 
         self.other_commands.push(cmd);
+		self
     }
 }
 

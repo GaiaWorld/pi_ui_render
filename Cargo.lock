@@ -8,7 +8,7 @@ version = "0.11.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fe438c63458706e03479442743baae6c88256498e6431708f6dfc520a26515d3"
 dependencies = [
- "lazy_static",
+ "lazy_static 1.4.0",
  "regex",
 ]
 
@@ -979,6 +979,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "cobs"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "67ba02a97a2bd10f4b59b25c7973101c79642302776489e030cd13cdab09ed15"
+
+[[package]]
 name = "cocoa"
 version = "0.24.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1163,7 +1169,7 @@ dependencies = [
  "criterion-plot",
  "csv",
  "itertools",
- "lazy_static",
+ "lazy_static 1.4.0",
  "num-traits",
  "oorandom",
  "plotters",
@@ -1504,7 +1510,7 @@ version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "439a1c2ba5611ad3ed731280541d36d2e9c4ac5e7fb818a27b604bdc5a6aa65b"
 dependencies = [
- "lazy_static",
+ "lazy_static 1.4.0",
  "libc",
  "serde",
  "serde_derive",
@@ -1693,6 +1699,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "flame"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1fc2706461e1ee94f55cab2ed2e3d34ae9536cfa830358ef80acff1a3dacab30"
+dependencies = [
+ "lazy_static 0.2.11",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "thread-id",
+]
+
+[[package]]
 name = "flate2"
 version = "1.0.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1741,7 +1760,7 @@ checksum = "a641037033cb3fbbb120dfe8f4cb1bc9593fcb726941dca03ac11f4600380cb7"
 dependencies = [
  "freetype-sys 0.13.3",
  "image",
- "lazy_static",
+ "lazy_static 1.4.0",
  "libc",
  "pi_hash",
 ]
@@ -1996,7 +2015,7 @@ version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ea804e7bd3c6a4ca6a01edfa35231557a8a81d4d3f3e1e2b650d028c42592be"
 dependencies = [
- "lazy_static",
+ "lazy_static 1.4.0",
 ]
 
 [[package]]
@@ -2207,6 +2226,7 @@ dependencies = [
  "atomic-polyfill",
  "hash32",
  "rustc_version",
+ "serde",
  "spin",
  "stable_deref_trait",
 ]
@@ -2440,6 +2460,12 @@ dependencies = [
 
 [[package]]
 name = "lazy_static"
+version = "0.2.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "76f033c7ad61445c5b347c7382dd1237847eb1bce590fe50365dcb33d546be73"
+
+[[package]]
+name = "lazy_static"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
@@ -2503,6 +2529,9 @@ name = "log"
 version = "0.4.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b06a4cde4c0f271a446782e3eff8de789548ce57dbc8eca9292c27f4a42004b4"
+dependencies = [
+ "value-bag",
+]
 
 [[package]]
 name = "loom"
@@ -3034,7 +3063,7 @@ version = "0.3.46"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8378ac0dfbd4e7895f2d2c1f1345cab3836910baf3a300b000d04250f0c8428f"
 dependencies = [
- "redox_syscall",
+ "redox_syscall 0.3.5",
 ]
 
 [[package]]
@@ -3078,7 +3107,7 @@ checksum = "93f00c865fe7cabf650081affecd3871070f26767e7b2070a3ffae14c654b447"
 dependencies = [
  "cfg-if",
  "libc",
- "redox_syscall",
+ "redox_syscall 0.3.5",
  "smallvec",
  "windows-targets 0.48.1",
 ]
@@ -3324,7 +3353,7 @@ checksum = "801b51bdf4500950316d9b3df4161754c1073a93beb0c71246773c29fa2121c3"
 dependencies = [
  "fnv",
  "fxhash",
- "lazy_static",
+ "lazy_static 1.4.0",
  "pi_bon",
  "pi_hash",
  "pi_share",
@@ -3421,7 +3450,7 @@ dependencies = [
  "futures",
  "half 2.2.1",
  "js-sys",
- "lazy_static",
+ "lazy_static 1.4.0",
  "log",
  "pi-async-rt",
  "pi_assets",
@@ -3617,7 +3646,7 @@ dependencies = [
  "font_kit",
  "image",
  "js-sys",
- "lazy_static",
+ "lazy_static 1.4.0",
  "log",
  "nalgebra",
  "num_cpus",
@@ -3742,9 +3771,7 @@ checksum = "8eeeddb49aca084a517b5efcd8111cd19121130201190c09d5d817e998f78a4a"
 
 [[package]]
 name = "pi_render"
-version = "0.1.0"
-source = "registry+http://ser.yinengyun.com:10082/tech/crates-io.git"
-checksum = "5bd43419ceed9b9dfb2ad6cf7dc7759f4346ffa8e763099dc37e5214c2520f0b"
+version = "0.1.1"
 dependencies = [
  "render_core",
 ]
@@ -3830,7 +3857,7 @@ dependencies = [
  "bitvec",
  "cssparser",
  "derive_deref",
- "lazy_static",
+ "lazy_static 1.4.0",
  "log",
  "nalgebra",
  "num-traits",
@@ -3859,7 +3886,7 @@ checksum = "2c9a39be4518aab6b45957365124ee5d4a9a62d14805d45a860ab52d3c3d561b"
 dependencies = [
  "ctor",
  "js-sys",
- "lazy_static",
+ "lazy_static 1.4.0",
  "libc",
  "ordered-float",
  "wasi 0.7.0",
@@ -3905,6 +3932,7 @@ dependencies = [
  "derive-deref-rs",
  "env_logger",
  "fixedbitset",
+ "flame",
  "float-ord",
  "fnv",
  "font_kit",
@@ -3913,7 +3941,7 @@ dependencies = [
  "geo",
  "guillotiere",
  "image",
- "lazy_static",
+ "lazy_static 1.4.0",
  "log",
  "naga",
  "nalgebra",
@@ -3956,6 +3984,7 @@ dependencies = [
  "pi_ucd",
  "pi_ui_render",
  "polygon2",
+ "postcard",
  "render_compile",
  "render_derive",
  "serde",
@@ -4084,6 +4113,17 @@ checksum = "c3d8e2b67e6aa528f8ba0490169f910d23646c28eb0fb20dc4b3f769b737663a"
 dependencies = [
  "num-traits",
  "vec2",
+]
+
+[[package]]
+name = "postcard"
+version = "1.0.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c9ee729232311d3cd113749948b689627618133b1c5012b77342c1950b25eaeb"
+dependencies = [
+ "cobs",
+ "heapless",
+ "serde",
 ]
 
 [[package]]
@@ -4347,6 +4387,12 @@ dependencies = [
 
 [[package]]
 name = "redox_syscall"
+version = "0.1.57"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "41cc0f7e4d5d4544e8861606a285bb08d3e70712ccc7d2b84d7c0ccfaf4b05ce"
+
+[[package]]
+name = "redox_syscall"
 version = "0.3.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "567664f262709473930a4bf9e51bf2ebf3348f2e748ccc50dea20646858f8f29"
@@ -4417,9 +4463,7 @@ dependencies = [
 
 [[package]]
 name = "render_core"
-version = "0.1.1"
-source = "registry+http://ser.yinengyun.com:10082/tech/crates-io.git"
-checksum = "2d109fb51e01cb33c358d14c3392c64f74892fbcdcb19e577ebb76816eb6a99f"
+version = "0.1.2"
 dependencies = [
  "anyhow",
  "bitvec",
@@ -4432,7 +4476,7 @@ dependencies = [
  "guillotiere",
  "hex",
  "ktx",
- "lazy_static",
+ "lazy_static 1.4.0",
  "log",
  "naga",
  "nalgebra",
@@ -4470,8 +4514,6 @@ dependencies = [
 [[package]]
 name = "render_crevice"
 version = "0.1.0"
-source = "registry+http://ser.yinengyun.com:10082/tech/crates-io.git"
-checksum = "7c8e030f201fb3e586d7e5f6e20b805744462d7b1daecc870f9880d85bf8ed6c"
 dependencies = [
  "bytemuck",
  "mint",
@@ -4482,8 +4524,6 @@ dependencies = [
 [[package]]
 name = "render_crevice_derive"
 version = "0.1.0"
-source = "registry+http://ser.yinengyun.com:10082/tech/crates-io.git"
-checksum = "675b11bf7a822986ec75019194c20ae1032e48b8f96cb2c72460ed01de5fca06"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4494,8 +4534,6 @@ dependencies = [
 [[package]]
 name = "render_derive"
 version = "0.1.0"
-source = "registry+http://ser.yinengyun.com:10082/tech/crates-io.git"
-checksum = "9ad59f67bf747208cb184120672e7f66efa94a02fc5b1839c2f3a4db981a8d19"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4506,8 +4544,6 @@ dependencies = [
 [[package]]
 name = "render_macro_utils"
 version = "0.1.0"
-source = "registry+http://ser.yinengyun.com:10082/tech/crates-io.git"
-checksum = "a06ed9479fff9480840d74aeac95c4255a5a8b1c442466fb61a63eb1750cc16d"
 dependencies = [
  "cargo-manifest",
  "quote",
@@ -4517,8 +4553,6 @@ dependencies = [
 [[package]]
 name = "render_utils"
 version = "0.1.0"
-source = "registry+http://ser.yinengyun.com:10082/tech/crates-io.git"
-checksum = "aabd974356799df3d5ae7fc6b25a5e6f69a26afe51e06f4b9ca409f833d3022d"
 dependencies = [
  "ahash 0.7.6",
  "render_derive",
@@ -4735,7 +4769,7 @@ version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "900fba806f70c630b0a382d0d825e17a0f19fcd059a2ade1ff237bcddf446b31"
 dependencies = [
- "lazy_static",
+ "lazy_static 1.4.0",
 ]
 
 [[package]]
@@ -4799,7 +4833,7 @@ dependencies = [
  "bitflags 1.3.2",
  "calloop",
  "dlib",
- "lazy_static",
+ "lazy_static 1.4.0",
  "log",
  "memmap2",
  "nix 0.24.3",
@@ -4943,7 +4977,7 @@ checksum = "dc02fddf48964c42031a0b3fe0428320ecf3a73c401040fc0096f97794310651"
 dependencies = [
  "cfg-if",
  "fastrand 2.0.0",
- "redox_syscall",
+ "redox_syscall 0.3.5",
  "rustix",
  "windows-sys 0.48.0",
 ]
@@ -4984,6 +5018,17 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.28",
+]
+
+[[package]]
+name = "thread-id"
+version = "3.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c7fbf4c9d56b320106cd64fd024dadfa0be7cb4706725fc44a7d7ce952d820c1"
+dependencies = [
+ "libc",
+ "redox_syscall 0.1.57",
+ "winapi",
 ]
 
 [[package]]
@@ -5149,7 +5194,7 @@ version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "78ddad33d2d10b1ed7eb9d1f518a5674713876e97e5bb9b7345a7984fbb4f922"
 dependencies = [
- "lazy_static",
+ "lazy_static 1.4.0",
  "log",
  "tracing-core",
 ]
@@ -5239,6 +5284,12 @@ name = "valuable"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "830b7e5d4d90034032940e4ace0d9a9a057e7a45cd94e6c007832e39edb82f6d"
+
+[[package]]
+name = "value-bag"
+version = "1.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d92ccd67fb88503048c01b59152a04effd0782d035a83a6d256ce6085f08f4a3"
 
 [[package]]
 name = "vec2"
@@ -5450,7 +5501,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "be12ce1a3c39ec7dba25594b97b42cb3195d54953ddb9d3d95a7c3902bc6e9d4"
 dependencies = [
  "dlib",
- "lazy_static",
+ "lazy_static 1.4.0",
  "pkg-config",
 ]
 
@@ -5888,7 +5939,7 @@ dependencies = [
  "once_cell",
  "orbclient",
  "raw-window-handle 0.5.2",
- "redox_syscall",
+ "redox_syscall 0.3.5",
  "wasm-bindgen",
  "wayland-scanner",
  "web-sys",

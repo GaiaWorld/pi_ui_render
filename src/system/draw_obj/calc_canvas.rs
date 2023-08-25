@@ -1,11 +1,10 @@
-use bevy::ecs::query::{Changed, With};
+use bevy::ecs::query::With;
 use bevy::ecs::system::{Query, Res};
-use bevy::prelude::{DetectChangesMut, Without};
+use bevy::prelude::{DetectChangesMut, Without, DetectChanges, Ref};
 use pi_bevy_ecs_extend::system_param::res::OrInitRes;
 use pi_bevy_render_plugin::component::GraphId;
 use pi_render::renderer::vertices::{EVerticesBufferUsage, RenderIndices, RenderVertices};
 use pi_render::rhi::shader::Input;
-use pi_slotmap::Key;
 use wgpu::IndexFormat;
 
 use crate::components::draw_obj::{BoxType, CanvasMark, PipelineMeta};
@@ -24,9 +23,9 @@ pub const CANVAS_ORDER: u8 = 6;
 
 /// 设置canvas的顶点、索引
 pub fn calc_canvas(
-    mut query: Query<&mut Canvas>,
+    query: Query<&Canvas>,
     mut query_draw: Query<(&mut DrawState, &mut PipelineMeta, &mut BoxType, &mut GraphId, &NodeId), With<CanvasMark>>,
-    query_graph: Query<&'static GraphId, (Without<CanvasMark>, Changed<GraphId>)>,
+    query_graph: Query<Ref<GraphId>, Without<CanvasMark>>,
 
     unit_quad_buffer: Res<UnitQuadBuffer>,
     shader_catch: OrInitRes<ShaderInfoCache>,
@@ -36,22 +35,19 @@ pub fn calc_canvas(
 		return;
 	}
     for (mut draw_state, mut pipeline_meta, mut box_type, mut graph_id, node_id) in query_draw.iter_mut() {
-        if let Ok(mut canvas) = query.get_mut(***node_id) {
-            // 为none时，表示刚创建
-            if draw_state.vertices.get(PositionVert::location()).is_none() {
+        if let Ok(canvas) = query.get(***node_id) {
+            // draw_state创建时，设置对应drawobj的属性，并比规定GroupId
+            if draw_state.is_added() {
                 *box_type = modify(&mut draw_state, &unit_quad_buffer);
 
                 pipeline_meta.state = shader_catch.premultiply.clone();
-            } else {
-                draw_state.set_changed();
-            }
-
-            if let Ok(src_graph_id) = query_graph.get(canvas.0) {
-                if !src_graph_id.is_null() {
-                    *graph_id = src_graph_id.clone();
-                    // canvas对应的图节点发生改变， 设置canvas也改变，使得脏区域可以更新
-                    canvas.set_changed();
-                }
+            } 
+			if let Ok(src_graph_id) = query_graph.get(canvas.0) {
+				if draw_state.is_added() || src_graph_id.is_changed() {
+					*graph_id = src_graph_id.clone();
+                    // canvas对应的图节点发生改变， 设置draw_state也改变，使得脏区域可以更新
+                    draw_state.set_changed();
+				}
             }
         }
     }

@@ -232,7 +232,7 @@ impl Node for Pass2DNode {
 
         Box::pin(async move {
             let query_param = query_param_state.get(world);
-            log::trace!(target: format!("entity_{:?}", pass2d_id).as_str(), "run graph node");
+            log::trace!(pass = format!("{:?}", pass2d_id).as_str(); "run graph node");
             // log::warn!("run1======{:?}", pass2d_id);
             let layer = match query_param.pass2d_query.0.get(pass2d_id) {
                 Ok(r) if r.layer() > 0 => r.clone(),
@@ -322,7 +322,7 @@ impl Node for Pass2DNode {
                 let render_target = unsafe { &mut *(render_target as *const RenderTarget as usize as *mut RenderTarget) };
                 // log::warn!("run5======{:?}, {:?}, {:?}, {:?}", pass2d_id, list.transparent, list.opaque, &render_target.bound_box);
                 // log::warn!("run graph4==============, pass2d_id: {:?}, input count: {}, opaque: {}, transparent: {}, is_active: {:?}, is_changed: {:?}, opaque_list: {:?}, transparent_list: {:?}, view_port: {:?}, render_target: {:?}", pass2d_id, input.0.len(), list.opaque.len(), list.transparent.len(), camera.is_active, camera.is_change, &list.opaque, &list.transparent, &camera.view_port, &render_target.target);
-                log::trace!("run graph node1, pass_id: {:?}, input count: {}, opaque: {}, transparent: {}, is_active: {:?}, is_changed: {:?}, opaque_list: {:?}, transparent_list: {:?}, view_port: {:?}", pass2d_id, input.0.len(), list.opaque.len(), list.transparent.len(), camera.is_active, camera.is_change, &list.opaque, &list.transparent, &camera.view_port);
+				log::trace!(pass = format!("{:?}", pass2d_id).as_str();"run graph node1, pass2d_id: {pass2d_id:?}, \nparent_pass2d_id: {:?}, \ninput count: {}, \ninput: {:?} \nopaque: {}, \ntransparent: {}, \nis_active: {:?}, \nis_changed: {:?}, \nopaque_list: {:?}, \ntransparent_list: {:?}, \nview_port: {:?}, \nlast_rt_type: {:?}, \npost_list: {:?}", parent_pass2d_id, input.0.len(), input.0.iter().map(|r| {(r.0.clone(), r.1.target.is_some(), &r.1.valid_rect)}).collect::<Vec<_>>(), list.opaque.len(), list.transparent.len(), camera.is_active, camera.is_change, &list.opaque, &list.transparent, &camera.view_port, param.last_rt_type, post_list);
                 if camera.is_active {
                     let mut render_to_fbo = false;
                     let (offsetx, offsety) = (
@@ -338,7 +338,6 @@ impl Node for Pass2DNode {
                             // 渲染类型为新建渲染目标对其进行渲染，则从纹理分配器中分配一个fbo矩形区
                             Ok(r) => {
                                 if parent_pass2d_id.is_null() && !r.1.has_effect() && RenderTargetType::Screen == param.last_rt_type {
-									log::trace!("Screen==============={:?}", pass2d_id);
                                     // 如果是根节点，并且不存在effect， 直接渲染到屏幕
                                     // 根节点应该有个组件，表明是否渲染到屏幕， 如果不渲染到屏幕，则渲染到临时fbo并输出（TODO）
                                     (RenderPassTarget::Screen(&param.surface, &param.screen), &param.fbo_clear_color.0)
@@ -841,7 +840,7 @@ impl Pass2DNode {
                         };
                         // 如果存在graph_id，表示该渲染对象将输入的一个ShareTargetView作为纹理，渲染到gui上
                         if let Some(graph_id) = graph_id {
-
+							log::trace!("draw canvas========={graph_id:?}");
                             let src = match input.get(&**graph_id) {
                                 Some(r) => match &r.target {
                                     Some(r) => r,
