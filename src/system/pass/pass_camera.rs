@@ -467,7 +467,7 @@ fn ab_query_func(arg: &mut AbQueryArgs, id: EntityKey, _aabb: &Aabb2, _bind: &()
 
 pub fn check_render_target(render_target: &mut RenderTarget, as_image: Option<&AsImage>) {
     match as_image {
-        Some(as_image) => match as_image.0 {
+        Some(as_image) => match as_image.level {
             pi_style::style::AsImage::None => {
                 // 设置render_target.cache为none，在渲染时动态分配rendertarget
                 render_target.cache = RenderTargetCache::None;

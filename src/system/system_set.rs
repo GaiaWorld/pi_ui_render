@@ -16,7 +16,9 @@ pub enum UiSystemSet {
     PrepareDrawObj,      // 准备渲染数据
     PrepareDrawObjFlush,
     PassMark,    // 上下文标记
+	PassLife,    // 上下生命周期相关（创建、删除上下文）
     PassFlush,   // 上下文刷新
-    PassSetting, // 上下文计算
+    PassSetting, // 上下文计算(此时设置Pass， 与Pass的父子关系无关)
+	PassSettingWithParent, // 上下文计算(此时设置Pass，依赖于Pass的父子关系)
     PassCalc,    // 计算Pass数据
 }

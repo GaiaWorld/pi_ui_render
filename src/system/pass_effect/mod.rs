@@ -9,7 +9,7 @@ use crate::components::{
     user::{Blur, Hsi, Opacity, Overflow, TransformWillChange},
 };
 
-use self::{as_image::UiAsImagePlugin, clip_path::UiClipPathPlugin, mask_image::UiMaskImagePlugin};
+use self::{as_image::UiAsImagePlugin, clip_path::UiClipPathPlugin, mask_image::UiMaskImagePlugin, radial_wave::RadialWavePlugin};
 
 use super::{
     node::{content_box, world_matrix},
@@ -28,6 +28,7 @@ pub mod opacity;
 pub mod overflow;
 pub mod root;
 pub mod transform_will_change;
+pub mod radial_wave;
 
 pub struct UiEffectPlugin;
 
@@ -50,14 +51,13 @@ impl Plugin for UiEffectPlugin {
                     .in_set(UiSystemSet::PassMark)
                     .before(pass_life::cal_context),
             )
-            .add_systems(Update, pass_life::pass_mark::<Hsi>.before(pass_life::cal_context).in_set(UiSystemSet::PassMark))
-            .add_systems(Update, pass_life::pass_mark::<Blur>.before(pass_life::cal_context).in_set(UiSystemSet::PassMark))
+            .add_systems(Update, pass_life::pass_mark::<Hsi>.in_set(UiSystemSet::PassMark))
+            .add_systems(Update, pass_life::pass_mark::<Blur>.in_set(UiSystemSet::PassMark))
             .add_systems(Update, 
                 pass_life::pass_mark::<TransformWillChange>
                     .in_set(UiSystemSet::PassMark)
-                    .before(pass_life::cal_context),
             )
-            .add_systems(Update, root::root_calc.in_set(UiSystemSet::PassMark).before(pass_life::cal_context))
+            .add_systems(Update, root::root_calc.in_set(UiSystemSet::PassMark))
             .add_systems(Update, 
                 overflow::overflow_post_process
                     .after(pass_life::calc_pass_children_and_clear)
@@ -80,6 +80,8 @@ impl Plugin for UiEffectPlugin {
             )
             .add_plugins(UiMaskImagePlugin)
             .add_plugins(UiClipPathPlugin)
-            .add_plugins(UiAsImagePlugin);
+            .add_plugins(UiAsImagePlugin)
+			.add_plugins(RadialWavePlugin)
+		;
     }
 }

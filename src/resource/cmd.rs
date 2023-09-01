@@ -22,9 +22,9 @@ use crate::{
     components::{
         user::{
             serialize::{DefaultStyle, StyleTypeReader},
-            Animation, Canvas, ClearColor, RenderDirty, RenderTargetType, Viewport,
+            Animation, Canvas, ClearColor, RenderDirty, RenderTargetType, Viewport, AsImage,
         },
-        NodeBundle,
+        NodeBundle, calc::EntityKey,
     },
     resource::animation_sheet::KeyFramesSheet,
 };
@@ -101,6 +101,28 @@ impl<T: Bundle> Command for NodeCmd<T> {
             r.insert(self.0);
         } else {
             out_any!(log::debug, "node_cmd fail======================={:?}, {:?}", &self.1, &self.0);
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct PostProcessCmd(pub EntityKey, pub Entity);
+impl Command for PostProcessCmd {
+    fn apply(self, world: &mut World) {
+        if let Some(mut r) = world.get_entity_mut(self.1) {
+			if let Some(mut r) = r.get_mut::<AsImage>() { 
+				out_any!(log::debug, "PostProcessCmd====================node：{:?}, post {:?}", self.1, &self.0);
+            	r.post_process = self.0;
+			} else {
+				r.insert(AsImage {
+					level: pi_style::style::AsImage::None,
+					post_process: self.0,
+				});
+			}
+				
+            
+        } else {
+            out_any!(log::debug, "PostProcess fail======================={:?}, {:?}", &self.1, &self.0);
         }
     }
 }

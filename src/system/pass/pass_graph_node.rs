@@ -24,7 +24,6 @@ use pi_bevy_render_plugin::{
 };
 use pi_futures::BoxFuture;
 use pi_hash::XHashMap;
-use pi_null::Null;
 use pi_render::rhi::shader::Input;
 // use pi_postprocess::
 use pi_postprocess::prelude::PostprocessTexture;
@@ -43,6 +42,7 @@ use pi_render::{
     },
 };
 use pi_share::ShareRefCell;
+use pi_slotmap::Key;
 use wgpu::{RenderPass, Sampler};
 
 use crate::{
@@ -62,7 +62,7 @@ use crate::{
         image::{SampBind, UvVert},
         ui_meterial::UiMaterialBind,
     },
-    utils::tools::calc_hash,
+    utils::tools::calc_hash
 };
 
 
@@ -107,11 +107,12 @@ pub struct QueryParam<'w, 's> {
                 Option<&'static AsImage>,
             ),
         >,
-        Query<'w, 's, (&'static PostProcess, &'static PostProcessInfo, &'static GraphId)>,
+        Query<'w, 's, (&'static PostProcess, &'static PostProcessInfo, &'static GraphId, Option<&'static AsImage>)>,
         Query<'w, 's, (&'static PostProcess, &'static GraphId, &'static NodeId)>,
         Query<'w, 's, &'static PostProcessInfo>,
     ),
     draw_query: Query<'w, 's, (&'static DrawState, &'static NodeId, Option<&'static GraphId>)>,
+	graph_node_query: Query<'w, 's, &'static GraphId>,
     node_query: Query<'w, 's, &'static Quad>,
     // graph_id_query: Query<'w, 's, &'static GraphId>,
     screen: Res<'w, ScreenTarget>,
@@ -153,9 +154,10 @@ pub struct Param<'w, 's> {
         ),
     >,
     draw_query: Query<'w, 's, (&'static DrawState, &'static NodeId, Option<&'static GraphId>)>,
+	graph_node_query: Query<'w, 's, &'static GraphId>,
     node_query: Query<'w, 's, &'static Quad>,
     // graph_id_query: Query<'w, 's, &'static GraphId>,
-    post_query: Query<'w, 's, (&'static PostProcess, &'static PostProcessInfo, &'static GraphId)>,
+    post_query: Query<'w, 's, (&'static PostProcess, &'static PostProcessInfo, &'static GraphId, Option<&'static AsImage>)>,
     draw_post_query: Query<'w, 's, (&'static PostProcess, &'static GraphId, &'static NodeId)>,
     draw_post_info: Query<'w, 's, &'static PostProcessInfo>,
     screen: Res<'s, ScreenTarget>,
@@ -279,6 +281,7 @@ impl Node for Pass2DNode {
             // log::warn!("run4======{:?}", pass2d_id);
 
             let param = Param {
+				graph_node_query: query_param.graph_node_query,
                 pass2d_query: query_param.pass2d_query.1,
                 draw_query: query_param.draw_query,
                 post_query: query_param.pass2d_query.2,
@@ -443,7 +446,7 @@ impl Node for Pass2DNode {
 
                     out.valid_rect = Some((offsetx as u32, offsety as u32, view_port_w as u32, view_port_h as u32));
 
-                    if let (Ok((post_process, post_info, _graph_id)), Some(rt), true) = (post_list, &mut out.target, render_to_fbo) {
+                    if let (Ok((post_process, post_info, _graph_id, _as_image)), Some(rt), true) = (post_list, &mut out.target, render_to_fbo) {
                         if post_info.has_effect() {
                             let rect: guillotiere::euclid::Box2D<i32, guillotiere::euclid::UnknownUnit> = rt.rect().clone();
                             let mut target = PostprocessTexture::from_share_target(rt.clone(), wgpu::TextureFormat::pi_render_default());
@@ -571,9 +574,22 @@ impl Pass2DNode {
         depth: usize,
     ) {
         match param.post_query.get(*pass2d_id) {
-            Ok((r, post_info, graph_id)) if post_info.has_effect() => {
+            Ok((r, post_info, graph_id, as_image)) if post_info.has_effect() => {
+				let graph_id = match as_image {
+					Some(r) => {
+						if r.post_process.is_null() {
+							graph_id.clone()
+						} else if let Ok(r) = param.graph_node_query.get(*r.post_process) {
+							r.clone()
+						} else {
+							GraphId::default()
+						}
+						
+					},
+					None => graph_id.clone(),
+				};
                 // log::warn!("draw_final0==========={:?}", graph_id.0);
-                let (src, valid_rect) = match input.get(&graph_id.0) {
+                let (src, valid_rect) = match input.get(&graph_id) {
                     Some(r) => (
                         match &r.target {
                             Some(r) => r,
@@ -584,9 +600,9 @@ impl Pass2DNode {
                     None => {
                         // 这种情况有可能出现，后处理对象可能为空
                         log::debug!(
-                            "prepare render post process, but pre result is none, pass2d_id: {:?}, graph_id{:?}",
+                            "prepare render post process, but input is none, pass2d_id={:?}, graph_id={:?}",
                             pass2d_id,
-                            graph_id.0
+                            graph_id
                         );
                         return;
                     }

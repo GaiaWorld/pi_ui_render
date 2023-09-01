@@ -233,9 +233,10 @@ pub fn pass_mark<T: Component + NeedMark>(
 
     for (entity, value, mut render_mark_value) in query_set.p0().iter_mut() {
         if value.need_mark() {
-            // log::warn!("pass_mark====================={:?}, {:?}", entity, std::any::type_name::<T>());
+            log::debug!("pass_mark_true,{:?}, {:?}", entity, std::any::type_name::<T>());
             render_mark_true(entity, ***mark_type, &mut event_writer, &mut render_mark_value);
         } else {
+			log::debug!("pass_mark_false,{:?}, {:?}", entity, std::any::type_name::<T>());
             render_mark_false(entity, ***mark_type, &mut event_writer, &mut render_mark_value);
         }
     }
@@ -252,6 +253,7 @@ fn context_attr_del<T: Component>(
         if let Ok(mut render_mark_value) = render_context.get_mut(del) {
             if unsafe { render_mark_value.replace_unchecked(mark_type, false) } {
                 // 通知（RenderContextMark组件在每个节点上都存在， 但实际上，是渲染上下文的节点不多，基于通知的改变更高效）
+				log::debug!("pass_mark_del,{:?}, {:?}", del, std::any::type_name::<T>());
                 event_writer.send(ComponentEvent::new(del));
             }
         }

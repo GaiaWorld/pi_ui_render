@@ -345,7 +345,7 @@ impl RenderTarget {
                     let height = (self.bound_box.maxs.y - self.bound_box.mins.y).ceil() as u32;
 
                     let as_image = match as_image {
-                        Some(r) => r.0.clone(),
+                        Some(r) => r.level.clone(),
                         None => pi_style::style::AsImage::None,
                     };
 

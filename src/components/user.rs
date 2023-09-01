@@ -15,6 +15,7 @@ use pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent;
 use pi_flex_layout::prelude::INode;
 pub use pi_flex_layout::prelude::{Dimension, Number, Rect, Size as FlexSize};
 use pi_flex_layout::style::{AlignContent, AlignItems, AlignSelf, Direction, Display, FlexDirection, FlexWrap, JustifyContent, PositionType};
+use pi_slotmap::Key;
 pub use pi_style::style::{
     Aabb2, AnimationDirection, AnimationFillMode, AnimationName, AnimationPlayState, AnimationTimingFunction, CgColor, Color, ColorAndPosition,
     Enable, FitType, FontSize, FontStyle, ImageRepeat, IterationCount, LengthUnit, LineHeight, LinearGradientColor, NotNanRect, ShowType, Stroke,
@@ -30,7 +31,7 @@ use pi_style::{
     style_type::ClassMeta,
 };
 
-use super::calc::NeedMark;
+use super::calc::{NeedMark, EntityKey};
 pub use super::root::{ClearColor, RenderDirty, RenderTargetType, Viewport};
 use smallvec::SmallVec;
 
@@ -43,17 +44,52 @@ pub type Vector4 = nalgebra::Vector4<f32>;
 
 // type Rectf32 = NotNanRect;
 
+// pub struct RadialWave {
+//     /// 是否应用纵横比 - 应用则为 圆形， 否则随纵横比形变
+//     pub aspect_ratio: bool,
+//     /// 扭曲半径起点 - 渲染范围 [-1, 1]
+//     pub start: f32,
+//     /// 扭曲半径终点 - 渲染范围 [-1, 1]
+//     pub end: f32,
+//     /// 扭曲中心点坐标 x - 渲染范围 [-1, 1]
+//     pub center_x: f32,
+//     /// 扭曲中心点坐标 y - 渲染范围 [-1, 1]
+//     pub center_y: f32,
+//     /// 波纹周期数
+//     pub cycle: u8,
+//     /// 扭曲强度
+//     pub weight: f32,
+// }
+
+#[derive(Deref, Clone, Debug, Component)]
+pub struct RadialWave(pub pi_postprocess::prelude::RadialWave);
+
+impl NeedMark for RadialWave {
+    #[inline]
+    fn need_mark(&self) -> bool {
+		// 不在扭曲范围内， 则不需要扭曲
+        if (self.start >= 1.0 || self.start <= -1.0) && (self.end >= 1.0 || self.end <= -1.0) {
+			return false;
+		}
+		true
+    }
+}
+
 #[derive(Deref, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize, Debug, Component)]
 #[component(storage = "SparseSet")]
 pub struct ZIndex(pub isize);
 
-#[derive(Deref, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize, Debug, Component)]
-pub struct AsImage(pub AsImage1);
+/// 当post_process不为null时， 节点需要通过post_process对应的图节点进行处理，输出结果再渲染到gui上(注意，当前节点问根节点时，设置post_process，将不能把结果再渲染回gui)
+#[derive(Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize, Debug, Component)]
+pub struct AsImage {
+	pub level: AsImage1, 
+	pub post_process: EntityKey, // 通过post_process， 需要能查询到一个GraphId组件，此GraphId对应的图节点负责后处理效果
+}
 
 impl NeedMark for AsImage {
     #[inline]
     fn need_mark(&self) -> bool {
-        if self.0 != AsImage1::None {
+        if self.level != AsImage1::None || !self.post_process.is_null() {
             true
         } else {
             false
@@ -2549,9 +2585,11 @@ pub mod serialize {
     impl_style!(@pack MaskImageClipType, mask_image_clip, MaskImageClip, NotNanRect);
     impl_style!(@pack ClipPathType, clip_path, ClipPath, BaseShape);
 
+	impl_style!(AsImageType, as_image, AsImage, level, AsImage, AsImage1);
+	// impl_style!(AsImageType, as_image, AsImage, level, AsImage, AsImage1);
+
     impl_style!(WidthType, size, Size, width, Width, Dimension);
     impl_style!(HeightType, size, Size, height, Height, Dimension);
-
 
     impl_style!(@box_model_single MarginTopType, margin, Margin, top, MarginTop, Dimension);
     impl_style!(@box_model_single MarginRightType, margin, Margin, right, MarginRight, Dimension);
@@ -2653,7 +2691,6 @@ pub mod serialize {
         AnimationPlayState,
         SmallVec<[AnimationPlayState; 1]>
     );
-    impl_style!(@pack AsImageType, as_image, AsImage, AsImage1);
 
 
     pub struct StyleFunc {

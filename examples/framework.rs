@@ -30,7 +30,7 @@ use pi_ui_render::{prelude::UiPlugin, resource::UserCommands};
 use pi_ui_render::system::cmd_play::{CmdNodeCreate, PlayState, Records};
 
 pub trait Example: 'static + Sized {
-    // fn setting(world: &mut App) {}
+    fn setting(&mut self, _app: &mut App) {}
     fn init(&mut self, world: &mut World, size: (usize, usize));
     fn render(&mut self, commands: &mut UserCommands, cmd1: &mut Commands);
 
@@ -83,6 +83,7 @@ pub fn start<T: Example + Sync + Send + 'static>(example: T) {
     app.add_plugins(UiPlugin { cmd_trace: record_option });
     #[cfg(not(feature = "debug"))]
     app.add_plugins(UiPlugin::default());
+	exmple1.lock().setting(&mut app);
 
     app.add_systems(Update, exmple_run.before(UiSystemSet::Setting).in_set(ExampleSet))
         .add_systems(Startup, move |world: &mut World| {
@@ -364,9 +365,10 @@ pub const PLAY_PATH: Option<&'static str> = Some("D://0_js/cdqxz_new_mult_gui_ex
 // pub const PLAY_VERSION: &'static str = "local";
 pub const PLAY_VERSION: &'static str = "test";
 
-pub const FILTER: &'static str = "wgpu=warn,naga=warn,pi_ui_render::components::user=debug,pi_flex_layout=trace";
+// pub const FILTER: &'static str = "wgpu=warn,naga=warn,pi_ui_render::components::user=debug,pi_flex_layout=trace";
 // pub const FILTER: &'static str = "wgpu=warn,entity_3v0=trace";
-// pub const FILTER: &'static str = "wgpu=warn,pi_ui_render=debug";
+// pub const FILTER: &'static str = "wgpu=warn,pi_ui_render::system::pass::pass_graph_node=trace,pi_ui_render::system::pass_effect::radial_wave=trace,pi_ui_render::system::pass::pass_life=trace";
+pub const FILTER: &'static str = "wgpu=warn,pi_ui_render::system::pass_effect::radial_wave=trace,pi_ui_render::system::pass::pass_life=trace,pi_ui_render::system::pass::update_graph=trace";
 // pub const FILTER: &'static str = "wgpu=warn,naga=warn,bevy_app=warn";
 // pub const FILTER: &'static str = "wgpu=warn,naga=warn";
 // pub const FILTER: &'static str = "";

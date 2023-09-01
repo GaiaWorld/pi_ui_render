@@ -19,20 +19,28 @@ pub struct UiPassPlugin;
 impl Plugin for UiPassPlugin {
     fn build(&self, app: &mut bevy::app::App) {
         // 设置运行条件和运行顺序
-        app.configure_set(Update, UiSystemSet::PassCalc.run_if(render_run))
-            .configure_sets(Update, (UiSystemSet::Setting, UiSystemSet::PassCalc, PiRenderSystemSet).chain())
-            .configure_sets(Update, (UiSystemSet::PassFlush, UiSystemSet::PassCalc, PiRenderSystemSet).chain())
+        app.configure_set(Update, UiSystemSet::PassMark.run_if(render_run))
+			.configure_set(Update, UiSystemSet::PassLife.run_if(render_run))
+			.configure_set(Update, UiSystemSet::PassFlush.run_if(render_run))
+			.configure_set(Update, UiSystemSet::PassSetting.run_if(render_run))
+			.configure_set(Update, UiSystemSet::PassSettingWithParent.run_if(render_run))
+			.configure_set(Update, UiSystemSet::PassCalc.run_if(render_run))
+
+            .configure_sets(Update, (UiSystemSet::PassFlush, UiSystemSet::PassSetting, UiSystemSet::PassCalc, PiRenderSystemSet).chain())
+			.configure_sets(Update, (UiSystemSet::Setting, UiSystemSet::PassCalc, PiRenderSystemSet).chain())	
             .configure_sets(Update, (UiSystemSet::PrepareDrawObj, UiSystemSet::PassCalc).chain())
+			.configure_sets(Update, (UiSystemSet::PassMark, UiSystemSet::PassLife).chain())
             // 创建、删除Pass，为Pass组织树结构
-            .add_systems(Update, pass_life::cal_context.in_set(UiSystemSet::PassMark))
+            .add_systems(Update, pass_life::cal_context.in_set(UiSystemSet::PassLife))
             .add_systems(Update, apply_deferred.in_set(UiSystemSet::PassFlush))
             .add_systems(Update, 
                 pass_life::calc_pass_children_and_clear
                     .in_set(UiSystemSet::PassSetting)
-                    .after(UiSystemSet::PassFlush),
+					.before(UiSystemSet::PassSettingWithParent) // 在所有依赖父子关系的system之前执行
+                    .after(UiSystemSet::PassFlush), // 在上下文创建之后执行
             )
             // 计算图节点及其依赖
-            .add_systems(Update, update_graph::update_graph.after(UiSystemSet::PassSetting).after(UiSystemSet::PassFlush))
+            .add_systems(Update, update_graph::update_graph.after(UiSystemSet::PassSettingWithParent).after(UiSystemSet::PassSetting))
             // 渲染前，计算Pass的属性
             // 脏区域、相机、深度，更新uniform不顶点buffer到wgpu
             .add_systems(Update, pass_dirty_rect::calc_global_dirty_rect.in_set(UiSystemSet::PassCalc))
