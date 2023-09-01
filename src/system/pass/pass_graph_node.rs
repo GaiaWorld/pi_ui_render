@@ -343,7 +343,7 @@ impl Node for Pass2DNode {
                                 if parent_pass2d_id.is_null() && !r.1.has_effect() && RenderTargetType::Screen == param.last_rt_type {
                                     // 如果是根节点，并且不存在effect， 直接渲染到屏幕
                                     // 根节点应该有个组件，表明是否渲染到屏幕， 如果不渲染到屏幕，则渲染到临时fbo并输出（TODO）
-                                    (RenderPassTarget::Screen(&param.surface, &param.screen), &param.fbo_clear_color.0)
+                                    (RenderPassTarget::Screen(&param.surface, &param.screen.depth), &param.fbo_clear_color.0)
                                 } else {
                                     // log::warn!("fbo============{:?}", );
                                     // 否则渲染到临时fbo上
@@ -486,7 +486,7 @@ impl Node for Pass2DNode {
                                 // 将最终渲染目标渲染到屏幕上
                                 // 创建一个渲染Pass
                                 let (mut rp, view_port, _clear_port, _) = create_rp(
-                                    RenderPassTarget::Screen(&param.surface, &param.screen),
+                                    RenderPassTarget::Screen(&param.surface, &None),
                                     commands.borrow_mut(),
                                     &view_port,
                                     &view_port,
@@ -965,7 +965,7 @@ impl Pass2DNode {
 #[derive(Clone)]
 pub enum RenderPassTarget<'a> {
     Fbo(&'a ShareTargetView),
-    Screen(&'a ScreenTexture, &'a ScreenTarget),
+    Screen(&'a ScreenTexture, &'a Option<Handle<RenderRes<wgpu::TextureView>>>),
 }
 
 // 返回renderpass， view_port， clear_port
@@ -979,7 +979,7 @@ pub fn create_rp<'a>(
     ops: Option<wgpu::Operations<wgpu::Color>>,
 ) -> (RenderPass<'a>, (f32, f32, f32, f32), (f32, f32, f32, f32), (f32, f32)) {
     match rt {
-        RenderPassTarget::Screen(surface, screen) => {
+        RenderPassTarget::Screen(surface, depth) => {
             // 渲染到屏幕上
             let ops = match ops {
                 Some(r) => r,
@@ -996,7 +996,7 @@ pub fn create_rp<'a>(
                     ops,
                     view: surface.view.as_ref().unwrap(),
                 })],
-                depth_stencil_attachment: match &screen.depth {
+                depth_stencil_attachment: match depth {
                     Some(r) => Some(wgpu::RenderPassDepthStencilAttachment {
                         stencil_ops: None,
                         depth_ops: Some(wgpu::Operations {

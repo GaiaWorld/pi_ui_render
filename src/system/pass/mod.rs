@@ -26,10 +26,9 @@ impl Plugin for UiPassPlugin {
 			.configure_set(Update, UiSystemSet::PassSettingWithParent.run_if(render_run))
 			.configure_set(Update, UiSystemSet::PassCalc.run_if(render_run))
 
-            .configure_sets(Update, (UiSystemSet::PassFlush, UiSystemSet::PassSetting, UiSystemSet::PassCalc, PiRenderSystemSet).chain())
-			.configure_sets(Update, (UiSystemSet::Setting, UiSystemSet::PassCalc, PiRenderSystemSet).chain())	
-            .configure_sets(Update, (UiSystemSet::PrepareDrawObj, UiSystemSet::PassCalc).chain())
-			.configure_sets(Update, (UiSystemSet::PassMark, UiSystemSet::PassLife).chain())
+            .configure_sets(Update, (UiSystemSet::PassMark, UiSystemSet::PassLife, UiSystemSet::PassFlush, UiSystemSet::PassSetting, UiSystemSet::PassCalc, PiRenderSystemSet).chain())
+			.configure_sets(Update, (UiSystemSet::Setting, UiSystemSet::PassMark, PiRenderSystemSet).chain())	
+            .configure_sets(Update, (UiSystemSet::PrepareDrawObj, UiSystemSet::PassCalc, PiRenderSystemSet).chain())
             // 创建、删除Pass，为Pass组织树结构
             .add_systems(Update, pass_life::cal_context.in_set(UiSystemSet::PassLife))
             .add_systems(Update, apply_deferred.in_set(UiSystemSet::PassFlush))
