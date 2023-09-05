@@ -222,8 +222,8 @@ impl Node for Pass2DNode {
         input: &'a Self::Input,
         _usage: &'a ParamUsage,
         _id: GraphNodeId,
-        _from: &'a [GraphNodeId],
-        _to: &'a [GraphNodeId],
+        from: &'a [GraphNodeId],
+        to: &'a [GraphNodeId],
         // context: RenderContext,
         // mut commands: ShareRefCell<CommandEncoder>,
         // inputs: &'a [Self::Output],
@@ -325,7 +325,7 @@ impl Node for Pass2DNode {
                 let render_target = unsafe { &mut *(render_target as *const RenderTarget as usize as *mut RenderTarget) };
                 // log::warn!("run5======{:?}, {:?}, {:?}, {:?}", pass2d_id, list.transparent, list.opaque, &render_target.bound_box);
                 // log::warn!("run graph4==============, pass2d_id: {:?}, input count: {}, opaque: {}, transparent: {}, is_active: {:?}, is_changed: {:?}, opaque_list: {:?}, transparent_list: {:?}, view_port: {:?}, render_target: {:?}", pass2d_id, input.0.len(), list.opaque.len(), list.transparent.len(), camera.is_active, camera.is_change, &list.opaque, &list.transparent, &camera.view_port, &render_target.target);
-				log::trace!(pass = format!("{:?}", pass2d_id).as_str();"run graph node1, pass2d_id: {pass2d_id:?}, \nparent_pass2d_id: {:?}, \ninput count: {}, \ninput: {:?} \nopaque: {}, \ntransparent: {}, \nis_active: {:?}, \nis_changed: {:?}, \nopaque_list: {:?}, \ntransparent_list: {:?}, \nview_port: {:?}, \nlast_rt_type: {:?}, \npost_list: {:?}", parent_pass2d_id, input.0.len(), input.0.iter().map(|r| {(r.0.clone(), r.1.target.is_some(), &r.1.valid_rect)}).collect::<Vec<_>>(), list.opaque.len(), list.transparent.len(), camera.is_active, camera.is_change, &list.opaque, &list.transparent, &camera.view_port, param.last_rt_type, post_list);
+				log::trace!(pass = format!("{:?}", pass2d_id).as_str();"run graph node1, pass2d_id: {pass2d_id:?}, \nparent_pass2d_id: {:?}, \ninput count: {}, \ninput: {:?} \nopaque: {}, \ntransparent: {}, \nis_active: {:?}, \nis_changed: {:?}, \nopaque_list: {:?}, \ntransparent_list: {:?}, \nview_port: {:?}, \nlast_rt_type: {:?}, \npost_list: {:?}, \nfrom: {from:?}, \nto: {to:?}", parent_pass2d_id, input.0.len(), input.0.iter().map(|r| {(r.0.clone(), r.1.target.is_some(), &r.1.valid_rect)}).collect::<Vec<_>>(), list.opaque.len(), list.transparent.len(), camera.is_active, camera.is_change, &list.opaque, &list.transparent, &camera.view_port, param.last_rt_type, post_list);
                 if camera.is_active {
                     let mut render_to_fbo = false;
                     let (offsetx, offsety) = (
@@ -562,7 +562,7 @@ impl Pass2DNode {
         pass2d_id: EntityKey,
         input: &'a XHashMap<GraphNodeId, SimpleInOut>,
         post_draw: &'a Vec<DrawObj>,
-        input_groups: &'a Vec<(Handle<RenderRes<BindGroup>>, Buffer)>,
+        input_groups: &'a Vec<(BindGroup, Buffer)>,
         rp: &mut RenderPass<'a>,
         target_size: (u32, u32),
         world: &'a World,
@@ -828,7 +828,7 @@ impl Pass2DNode {
     fn draw_list<'a, 'w>(
         input: &'a XHashMap<GraphNodeId, SimpleInOut>,
         post_draw: &'a Vec<DrawObj>,
-        input_groups: &'a Vec<(Handle<RenderRes<BindGroup>>, Buffer)>,
+        input_groups: &'a Vec<(BindGroup, Buffer)>,
         rp: &'w mut RenderPass<'a>,
         target_size: (u32, u32),
         world: &'a World,
@@ -850,13 +850,16 @@ impl Pass2DNode {
             match draw_index {
                 DrawIndex::DrawObj(e) => {
                     if let Ok((state, node_id, graph_id)) = param.draw_query.get(**e) {
+						// log::warn!("draw======{node_id:?}, {graph_id:?}");
                         let quad = match param.node_query.get(***node_id) {
                             Ok(r) => r,
                             _ => continue,
                         };
+						// log::warn!("draw1======{node_id:?}, {graph_id:?}");
                         // 如果存在graph_id，表示该渲染对象将输入的一个ShareTargetView作为纹理，渲染到gui上
                         if let Some(graph_id) = graph_id {
 							log::trace!("draw canvas========={graph_id:?}");
+							// log::warn!("xxxx========={graph_id:?}");
                             let src = match input.get(&**graph_id) {
                                 Some(r) => match &r.target {
                                     Some(r) => r,
@@ -864,6 +867,7 @@ impl Pass2DNode {
                                 },
                                 None => continue,
                             };
+							// log::warn!("xxxx1========={graph_id:?}");
                             let rect = src.rect();
                             // 根据纹理大小和渲染目标大小，来确定过滤方式
                             // 如果大小近似相等，则使用点过滤，否则使用双线性过滤
@@ -876,8 +880,8 @@ impl Pass2DNode {
                             };
                             // 这里使用非安全的方式将不可变引用转为可变引用的前提是，Vec在创建时容量足够，使得push时不需要扩容，同时使用Vec的地方不能多线程
                             unsafe {
-                                &mut *(input_groups as *const Vec<(Handle<RenderRes<BindGroup>>, Buffer)> as usize
-                                    as *mut Vec<(Handle<RenderRes<BindGroup>>, Buffer)>)
+                                &mut *(input_groups as *const Vec<(BindGroup, Buffer)> as usize
+                                    as *mut Vec<(BindGroup, Buffer)>)
                             }
                             .push(Self::create_post_process_data(src, &param, s));
                             let index = input_groups.len() - 1;
@@ -927,30 +931,47 @@ impl Pass2DNode {
         texture: &ShareTargetView,
         param: &'s Param<'s, 's>,
         sampler: &'s Sampler,
-    ) -> (Handle<RenderRes<BindGroup>>, Buffer) {
+    ) -> (BindGroup, Buffer) {
         let uv = texture.uv();
-        let group_key = calc_hash(&(texture.ty_index(), texture.target_index()), calc_hash(&"render target", 0)); // TODO
-        (
-            match param.bind_group_assets.get(&group_key) {
-                Some(r) => r,
-                None => {
-                    let group = param.device.create_bind_group(&wgpu::BindGroupDescriptor {
-                        layout: &param.post_bind_group_layout,
-                        entries: &[
-                            wgpu::BindGroupEntry {
-                                binding: 0,
-                                resource: wgpu::BindingResource::Sampler(sampler),
-                            },
-                            wgpu::BindGroupEntry {
-                                binding: 1,
-                                resource: wgpu::BindingResource::TextureView(&texture.target().colors[0].0),
-                            },
-                        ],
-                        label: Some("post process texture bind group create"),
-                    });
-                    param.bind_group_assets.insert(group_key, RenderRes::new(group.clone(), 5)).unwrap()
-                }
-            },
+        // let group_key = calc_hash(&(texture.ty_index(), texture.target_index()), calc_hash(&"render target", 0)); // TODO
+        // (
+        //     match param.bind_group_assets.get(&group_key) {
+        //         Some(r) => r,
+        //         None => {
+		// 			log::warn!("zzzz===============, group_key{:?}, {:?}", texture.ty_index(), texture.target_index());
+        //             let group = param.device.create_bind_group(&wgpu::BindGroupDescriptor {
+        //                 layout: &param.post_bind_group_layout,
+        //                 entries: &[
+        //                     wgpu::BindGroupEntry {
+        //                         binding: 0,
+        //                         resource: wgpu::BindingResource::Sampler(sampler),
+        //                     },
+        //                     wgpu::BindGroupEntry {
+        //                         binding: 1,
+        //                         resource: wgpu::BindingResource::TextureView(&texture.target().colors[0].0),
+        //                     },
+        //                 ],
+        //                 label: Some("post process texture bind group create"),
+        //             });
+        //             param.bind_group_assets.insert(group_key, RenderRes::new(group.clone(), 5)).unwrap()
+        //         }
+        //     },
+		(
+			param.device.create_bind_group(&wgpu::BindGroupDescriptor {
+				layout: &param.post_bind_group_layout,
+				entries: &[
+					wgpu::BindGroupEntry {
+						binding: 0,
+						resource: wgpu::BindingResource::Sampler(sampler),
+					},
+					wgpu::BindGroupEntry {
+						binding: 1,
+						resource: wgpu::BindingResource::TextureView(&texture.target().colors[0].0),
+					},
+				],
+				label: Some("post process texture bind group create"),
+			}),
+			
             // 实时创建uvbuffer， 因为该buffer动态性很高，可能不应该创建为资源？
             // 这里应该与脏区域相交，渲染脏区域， TODO
             param.device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {

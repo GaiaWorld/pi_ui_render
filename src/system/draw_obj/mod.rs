@@ -5,7 +5,7 @@ use bevy::{
 
 use crate::resource::draw_obj::{EmptyVertexBuffer, MaxViewSize};
 
-use super::{render_run, system_set::UiSystemSet, AddEvent};
+use super::{render_run, system_set::UiSystemSet, AddEvent, pass::update_graph::update_graph};
 
 use pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent;
 use pi_bevy_render_plugin::component::GraphId;
@@ -205,7 +205,8 @@ impl Plugin for UiReadyDrawPlugin {
                 calc_canvas::calc_canvas
                     .in_set(UiSystemSet::PrepareDrawObj)
                     .before(set_matrix_group)
-                    .before(calc_border_radius::calc_border_radius),
+                    .before(calc_border_radius::calc_border_radius)
+					.before(update_graph),
             )
             .add_systems(Update, 
                 calc_border_radius::calc_border_radius

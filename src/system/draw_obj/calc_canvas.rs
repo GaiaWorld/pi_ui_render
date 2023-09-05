@@ -23,7 +23,7 @@ pub const CANVAS_ORDER: u8 = 6;
 
 /// 设置canvas的顶点、索引
 pub fn calc_canvas(
-    query: Query<&Canvas>,
+    mut query: Query<&mut Canvas>,
     mut query_draw: Query<(&mut DrawState, &mut PipelineMeta, &mut BoxType, &mut GraphId, &NodeId), With<CanvasMark>>,
     query_graph: Query<Ref<GraphId>, Without<CanvasMark>>,
 
@@ -35,7 +35,7 @@ pub fn calc_canvas(
 		return;
 	}
     for (mut draw_state, mut pipeline_meta, mut box_type, mut graph_id, node_id) in query_draw.iter_mut() {
-        if let Ok(canvas) = query.get(***node_id) {
+        if let Ok(mut canvas) = query.get_mut(***node_id) {
             // draw_state创建时，设置对应drawobj的属性，并比规定GroupId
             if draw_state.is_added() {
                 *box_type = modify(&mut draw_state, &unit_quad_buffer);
@@ -45,8 +45,10 @@ pub fn calc_canvas(
 			if let Ok(src_graph_id) = query_graph.get(canvas.0) {
 				if draw_state.is_added() || src_graph_id.is_changed() {
 					*graph_id = src_graph_id.clone();
+					log::trace!("canvas graph change====={node_id:?}, {graph_id:?}, {:?}", canvas.0);
                     // canvas对应的图节点发生改变， 设置draw_state也改变，使得脏区域可以更新
                     draw_state.set_changed();
+					canvas.set_changed(); // canvas改变,使得图节点关联关系发生改变
 				}
             }
         }
