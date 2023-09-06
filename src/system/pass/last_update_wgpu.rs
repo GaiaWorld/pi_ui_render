@@ -78,7 +78,7 @@ fn alloc_depth<'a1, 'a2, 'a3, 'a4, 'a6, 'a7>(
     if let Ok(mut list) = draw_list_query.get_mut(pass2d_id) {
         let mut post = post_process_query.get_mut(pass2d_id).unwrap();
         let post = post.bypass_change_detection();
-        post.calc(16, &device, &queue, &mut post_resource.vballocator);
+        post.calc(16, &device, &queue, &mut post_resource.resources);
         post.depth = *cur_depth;
         *cur_depth += 1;
 

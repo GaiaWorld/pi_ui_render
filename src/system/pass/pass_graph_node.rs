@@ -62,7 +62,6 @@ use crate::{
         image::{SampBind, UvVert},
         ui_meterial::UiMaterialBind,
     },
-    utils::tools::calc_hash
 };
 
 
@@ -118,7 +117,7 @@ pub struct QueryParam<'w, 's> {
     screen: Res<'w, ScreenTarget>,
     surface: Res<'w, PiScreenTexture>,
     atlas_allocator: Res<'w, PiSafeAtlasAllocator>,
-    bind_group_assets: Res<'w, ShareAssetMgr<RenderRes<BindGroup>>>,
+    // bind_group_assets: Res<'w, ShareAssetMgr<RenderRes<BindGroup>>>,
     post_bind_group_layout: OrInitRes<'w, PostBindGroupLayout>,
     // postprocess_pipelines: Res<'w, My PiPostProcessMaterialMgr>,
     post_resource: Res<'w, PostprocessResource>,
@@ -162,7 +161,7 @@ pub struct Param<'w, 's> {
     draw_post_info: Query<'w, 's, &'static PostProcessInfo>,
     screen: Res<'s, ScreenTarget>,
     atlas_allocator: Res<'s, PiSafeAtlasAllocator>,
-    bind_group_assets: Res<'s, ShareAssetMgr<RenderRes<BindGroup>>>,
+    // bind_group_assets: Res<'s, ShareAssetMgr<RenderRes<BindGroup>>>,
     post_bind_group_layout: OrInitRes<'s, PostBindGroupLayout>,
     // postprocess_pipelines: Res<'s, PiPostProcessMaterialMgr>,
     // geometrys: Res<'s, PiPostProcessGeometryManager>,
@@ -296,7 +295,7 @@ impl Node for Pass2DNode {
                 surface: surface,
                 atlas_allocator: query_param.atlas_allocator,
                 t_type: &t_type,
-                bind_group_assets: query_param.bind_group_assets,
+                // bind_group_assets: query_param.bind_group_assets,
                 post_bind_group_layout: query_param.post_bind_group_layout,
                 // postprocess_pipelines: query_param.postprocess_pipelines,
                 // geometrys: query_param.geometrys,
@@ -325,7 +324,7 @@ impl Node for Pass2DNode {
                 let render_target = unsafe { &mut *(render_target as *const RenderTarget as usize as *mut RenderTarget) };
                 // log::warn!("run5======{:?}, {:?}, {:?}, {:?}", pass2d_id, list.transparent, list.opaque, &render_target.bound_box);
                 // log::warn!("run graph4==============, pass2d_id: {:?}, input count: {}, opaque: {}, transparent: {}, is_active: {:?}, is_changed: {:?}, opaque_list: {:?}, transparent_list: {:?}, view_port: {:?}, render_target: {:?}", pass2d_id, input.0.len(), list.opaque.len(), list.transparent.len(), camera.is_active, camera.is_change, &list.opaque, &list.transparent, &camera.view_port, &render_target.target);
-				log::trace!(pass = format!("{:?}", pass2d_id).as_str();"run graph node1, pass2d_id: {pass2d_id:?}, \nparent_pass2d_id: {:?}, \ninput count: {}, \ninput: {:?} \nopaque: {}, \ntransparent: {}, \nis_active: {:?}, \nis_changed: {:?}, \nopaque_list: {:?}, \ntransparent_list: {:?}, \nview_port: {:?}, \nlast_rt_type: {:?}, \npost_list: {:?}, \nfrom: {from:?}, \nto: {to:?}", parent_pass2d_id, input.0.len(), input.0.iter().map(|r| {(r.0.clone(), r.1.target.is_some(), &r.1.valid_rect)}).collect::<Vec<_>>(), list.opaque.len(), list.transparent.len(), camera.is_active, camera.is_change, &list.opaque, &list.transparent, &camera.view_port, param.last_rt_type, post_list);
+				log::trace!(pass = format!("{:?}", pass2d_id).as_str();"run graph node1, pass2d_id: {pass2d_id:?}, \nparent_pass2d_id: {:?}, \ninput count: {}, \ninput: {:?} \nopaque: {}, \ntransparent: {}, \nis_active: {:?}, \nis_changed: {:?}, \nopaque_list: {:?}, \ntransparent_list: {:?}, \nview_port: {:?}, \nlast_rt_type: {:?}, \nfrom: {from:?}, \nto: {to:?}", parent_pass2d_id, input.0.len(), input.0.iter().map(|r| {(r.0.clone(), r.1.target.is_some(), &r.1.valid_rect)}).collect::<Vec<_>>(), list.opaque.len(), list.transparent.len(), camera.is_active, camera.is_change, &list.opaque, &list.transparent, &camera.view_port, param.last_rt_type);
                 if camera.is_active {
                     let mut render_to_fbo = false;
                     let (offsetx, offsety) = (

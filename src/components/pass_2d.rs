@@ -216,7 +216,7 @@ impl Default for PostProcessInfo {
     }
 }
 
-#[derive(Component, Debug, Deref, Default)]
+#[derive(Component, Deref, Default)]
 pub struct PostProcess {
     #[deref]
     pub post: PostProcess1,

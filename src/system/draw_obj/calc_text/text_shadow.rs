@@ -342,7 +342,7 @@ pub fn calc_text_shadow(
                 post_process.blur_gauss = Some(BlurGauss {
                     radius: text_shadow[shadow_mark.0].blur * node_state.0.scale,
                 });
-                post_process.calc(16, &device, &queue, &mut post_resource.vballocator);
+                post_process.calc(16, &device, &queue, &mut post_resource.resources);
             }
         }
     }
