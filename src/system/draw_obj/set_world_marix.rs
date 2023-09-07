@@ -1,10 +1,7 @@
-use bevy::{
-    ecs::{
-        prelude::Entity,
-        query::{Changed, Or},
-        system::Query,
-    },
-    prelude::{DetectChangesMut, With},
+use bevy_ecs::{
+	query::{Changed, Or},
+	system::Query,
+    prelude::{DetectChangesMut, With, Entity},
 };
 use pi_assets::{asset::Handle, mgr::AssetMgr};
 use pi_bevy_ecs_extend::{prelude::{OrDefault, Up}, system_param::res::OrInitRes};

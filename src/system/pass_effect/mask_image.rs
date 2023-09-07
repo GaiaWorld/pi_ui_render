@@ -28,12 +28,13 @@ use crate::{
         utils::{create_project, set_index_buffer, set_vert_buffer},
     },
 };
-use bevy::{
-    ecs::system::{SystemParam, SystemState},
-    prelude::{Changed, Commands, DetectChanges, Entity, Or, Plugin, Query, Ref, RemovedComponents, Res, ResMut,
-        Resource, World, IntoSystemConfigs, apply_deferred, Update, Startup
+use bevy_ecs::{
+    system::{SystemParam, SystemState},
+    prelude::{Changed, Commands, DetectChanges, Entity, Or, Query, Ref, RemovedComponents, Res, ResMut,
+        Resource, World, IntoSystemConfigs, apply_deferred
     },
 };
+use bevy_app::{Plugin, Update, App, Startup};
 use guillotiere::Rectangle;
 use ordered_float::NotNan;
 use pi_bevy_asset::ShareAssetMgr;
@@ -68,7 +69,7 @@ use wgpu::CommandEncoder;
 pub struct UiMaskImagePlugin;
 
 impl Plugin for UiMaskImagePlugin {
-    fn build(&self, app: &mut bevy::app::App) {
+    fn build(&self, app: &mut App) {
         app
             // 初始化渲染渐变色的图节点
             .add_systems(Startup, init)

@@ -1,12 +1,12 @@
-use bevy::{
-    ecs::{prelude::RemovedComponents, query::Changed, system::Query},
-    prelude::{Added, Entity, Or},
+use bevy_ecs::{
+    query::Changed, system::Query,
+    prelude::{Added, Entity, Or, RemovedComponents},
 };
 use pi_bevy_ecs_extend::system_param::res::OrInitRes;
 
 use crate::{components::user::Hsi, resource::RenderContextMarkType, system::draw_obj::calc_text::IsRun};
 
-use bevy::ecs::system::ParamSet;
+use bevy_ecs::system::ParamSet;
 use pi_postprocess::effect::HSB;
 
 use crate::components::pass_2d::{PostProcess, PostProcessInfo};

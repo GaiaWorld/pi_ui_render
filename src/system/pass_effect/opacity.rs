@@ -1,10 +1,7 @@
-use bevy::{
-    ecs::{
-        prelude::RemovedComponents,
-        query::Changed,
-        system::{ParamSet, Query},
-    },
-    prelude::{Added, Or},
+use bevy_ecs::{
+	query::Changed,
+	system::{ParamSet, Query},
+    prelude::{Added, Or, RemovedComponents},
 };
 use pi_bevy_ecs_extend::system_param::res::OrInitRes;
 

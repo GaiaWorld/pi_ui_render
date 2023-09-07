@@ -1,6 +1,5 @@
 use std::path::Path;
 
-
 use render_compile::{CompileShaderError, Parser};
 
 fn main() -> Result<(), CompileShaderError> {
@@ -26,7 +25,6 @@ fn main() -> Result<(), CompileShaderError> {
     // let last_close = s.rfind("}").expect("failed }");
 
     // std::fs::write("src/export/style.rs", &s[first_line + 1 ..last_close]).unwrap();
-
     let mut parser = Parser::default();
 
     let r = parser.push_gen_path(&["src/shader/"]).parse()?;

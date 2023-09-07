@@ -4,7 +4,7 @@ use std::{
     sync::Arc,
 };
 
-use bevy::prelude::App;
+use bevy_app::App;
 use pi_animation::{animation_group::AnimationGroupID, animation_listener::EAnimationEvent};
 use pi_assets::{
     asset::{GarbageEmpty, Handle},

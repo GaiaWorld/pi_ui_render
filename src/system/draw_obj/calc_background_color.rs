@@ -1,9 +1,9 @@
-use bevy::ecs::query::{Changed, Or, With};
-use bevy::ecs::{
+use bevy_ecs::query::{Changed, Or, With};
+use bevy_ecs::{
     prelude::Ref,
     system::{Query, Res},
 };
-use bevy::prelude::DetectChanges;
+use bevy_ecs::prelude::DetectChanges;
 use ordered_float::NotNan;
 use pi_assets::mgr::AssetMgr;
 use pi_bevy_asset::ShareAssetMgr;

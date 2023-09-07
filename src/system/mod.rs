@@ -1,4 +1,5 @@
-use bevy::prelude::{App, Events, Resource, IntoSystemConfigs, Update, Event};
+use bevy_ecs::prelude::{Events, IntoSystemConfigs, Resource, Event};
+use bevy_app::{App, Update};
 use pi_bevy_ecs_extend::system_param::res::OrInitRes;
 use pi_bevy_render_plugin::should_run;
 

@@ -1,4 +1,4 @@
-use bevy::prelude::Resource;
+use bevy_ecs::prelude::Resource;
 use pi_hash::XHashMap;
 use pi_null::Null;
 use pi_style::{

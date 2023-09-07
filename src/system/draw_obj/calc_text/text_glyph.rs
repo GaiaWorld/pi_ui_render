@@ -1,7 +1,7 @@
 //! 文字字形系统
 //! 为字符分配纹理位置，得到字符的位置索引关联到CharNode中的ch_id_or_count字段上
 //! 在fontsheet中，文字最多缓存一张纹理。为字符分配纹理，可能存在空间不足的情况。此时，本系统将清空fontsheet中所有缓存的字符，并重新为当前所有显示节点上的文字重新绘制纹理。
-use bevy::ecs::{
+use bevy_ecs::{
     prelude::{Entity, EventWriter},
     query::{Changed, Or, With},
     system::{ParamSet, Query, ResMut},

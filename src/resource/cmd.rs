@@ -2,13 +2,10 @@
 
 use std::{collections::VecDeque, mem::replace};
 
-use bevy::{
-    ecs::{
-        prelude::{Bundle, Entity},
-        system::Command,
-        world::{FromWorld, World},
-    },
-    prelude::{Changed, Component, Events},
+use bevy_ecs::{
+	system::Command,
+	world::{FromWorld, World},
+    prelude::{Changed, Component, Events, Bundle, Entity},
 };
 use ordered_float::NotNan;
 use pi_atom::Atom;

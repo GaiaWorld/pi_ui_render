@@ -7,7 +7,7 @@ use crate::resource::{
     draw_obj::{PipelineStateWithHash, ProgramMetaInner, VertexBufferLayoutWithHash},
     RenderObjType,
 };
-use bevy::ecs::prelude::Component;
+use bevy_ecs::prelude::Component;
 use pi_atom::Atom;
 use pi_hash::XHashSet;
 use pi_render::renderer::draw_obj::DrawObj as DrawState1;

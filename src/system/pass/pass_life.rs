@@ -16,14 +16,11 @@
 //!
 //!
 
-use bevy::{
-    ecs::{
-        prelude::{Component, Entity, EventReader, EventWriter, RemovedComponents},
-        query::Changed,
-        system::{Commands, ParamSet, Query},
-        world::Mut,
-    },
-    prelude::{Local, Ref, Res},
+use bevy_ecs::{
+    prelude::{Component, Entity, EventReader, EventWriter, RemovedComponents, Local, Ref, Res},
+	query::Changed,
+	system::{Commands, ParamSet, Query},
+	world::Mut,
 };
 use pi_bevy_ecs_extend::{
     prelude::{Layer, LayerDirty, Up},

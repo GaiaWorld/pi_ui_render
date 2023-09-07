@@ -1,10 +1,7 @@
 //！ 动画表资源
 use std::{any::Any, collections::VecDeque, mem::replace};
 
-use bevy::{
-    ecs::prelude::{Entity, Resource},
-    utils::HashMap,
-};
+use bevy_ecs::prelude::{Entity, Resource};
 use bitvec::vec::BitVec;
 use log::debug;
 use ordered_float::NotNan;
@@ -56,7 +53,7 @@ impl AnimationContextMgr for CurveMgr {
 pub struct KeyFramesSheet {
     animation_attr_types: CurveMgr, // Vec<TypeAnimationContext<T>>,
 
-    static_key_frames_map: HashMap<(usize, Atom), KeyFrames>, // 永不释放的帧动画列表
+    static_key_frames_map: XHashMap<(usize, Atom), KeyFrames>, // 永不释放的帧动画列表
     key_frames_map: XHashMap<(usize, Atom), KeyFrames>,       // 帧动画列表, key为（作用域hash，动画名称）
     // curve_infos: FrameCurveInfoManager,
     type_use_mark: BitVec, // 标记被使用的TypeAnimationContext，加速run（只有被使用到的TypeAnimationContext才会被嗲用run方法）

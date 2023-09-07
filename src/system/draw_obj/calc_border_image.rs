@@ -1,5 +1,5 @@
-use bevy::ecs::query::{Changed, Or, With};
-use bevy::ecs::system::{Query, Res};
+use bevy_ecs::query::{Changed, Or, With};
+use bevy_ecs::system::{Query, Res};
 use bytemuck::{Pod, Zeroable};
 use ordered_float::NotNan;
 use pi_assets::asset::Handle;

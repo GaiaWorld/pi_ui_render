@@ -1,4 +1,4 @@
-use bevy::ecs::{
+use bevy_ecs::{
     prelude::Entity,
     query::Changed,
     system::{Commands, Query, Res, ResMut},

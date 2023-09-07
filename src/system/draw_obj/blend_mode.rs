@@ -2,8 +2,8 @@
 //! BlendMode组件修改时， 设置pipeline的状态
 //! BlendMode组件删除时， 设置恢复pipeline的状态到默认值
 
-use bevy::{
-    ecs::{query::Changed, system::Query},
+use bevy_ecs::{
+    query::Changed, system::Query,
     prelude::{Or, RemovedComponents},
 };
 use pi_bevy_ecs_extend::system_param::res::{OrInitRes, OrInitResMut};

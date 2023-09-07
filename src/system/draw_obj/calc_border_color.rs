@@ -1,9 +1,9 @@
 //! 圆角从有到删除，没有正确处理顶点（TODO）
 
-use bevy::ecs::prelude::{DetectChanges, Ref};
-use bevy::ecs::query::{Changed, Or, With};
-use bevy::ecs::system::{Query, Res};
-use bevy::prelude::DetectChangesMut;
+use bevy_ecs::prelude::{DetectChanges, Ref};
+use bevy_ecs::query::{Changed, Or, With};
+use bevy_ecs::system::{Query, Res};
+use bevy_ecs::prelude::DetectChangesMut;
 use pi_assets::asset::Handle;
 use pi_assets::mgr::AssetMgr;
 use pi_bevy_asset::ShareAssetMgr;

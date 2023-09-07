@@ -1,8 +1,8 @@
-use bevy::{ecs::{
-    prelude::{Entity, RemovedComponents},
+use bevy_ecs::{
+    prelude::{Entity, RemovedComponents, With},
     query::{Added, Changed, Or, ReadOnlyWorldQuery},
     system::{ParamSet, Query, ResMut},
-}, prelude::With};
+};
 use pi_bevy_ecs_extend::system_param::res::OrInitRes;
 use pi_bevy_render_plugin::{NodeId, PiRenderGraph};
 use pi_slotmap::Key;

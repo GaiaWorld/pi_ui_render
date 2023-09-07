@@ -9,6 +9,8 @@
 #![feature(fmt_helpers_for_derive)]
 #![feature(print_internals)]
 
+use pi_hash::XHashSet;
+
 
 #[macro_use]
 extern crate serde;
@@ -28,10 +30,8 @@ pub mod system;
 pub mod utils;
 
 pub mod prelude {
-    use bevy::{
-        app::{App, Plugin},
-        prelude::{IntoSystemSetConfigs, apply_deferred, Update, IntoSystemConfigs},
-    };
+    use bevy_ecs::prelude::{IntoSystemSetConfigs, apply_deferred, IntoSystemConfigs};
+	use bevy_app::{App, Plugin, Update};
     use pi_bevy_render_plugin::PiRenderSystemSet;
 
     pub use crate::resource::UserCommands;
@@ -117,4 +117,16 @@ fn test() {
     let mut parser = naga::front::glsl::Frontend::default();
     let modlue = parser.parse(&naga::front::glsl::Options::from(naga::ShaderStage::Vertex), r);
     println!("modle================={:?}, \nmodle================={:?}", modlue, parser);
+}
+
+#[test]
+fn test1() {
+	let meta = <crate::shader::image::ProgramMeta as pi_render::rhi::shader::ShaderProgram>::create_meta();
+	// println!("shader====={}", meta.to_code(&pi_hash::XHashSet::default(), wgpu::ShaderStages::VERTEX));
+	println!("shader====={}", meta.to_code(&pi_hash::XHashSet::default(), wgpu::ShaderStages::FRAGMENT));
+
+	let bind_group_layout = meta.bind_group_layout(&pi_hash::XHashSet::default(), wgpu::ShaderStages::FRAGMENT);
+	println!("shader_code================bind_group_layout={bind_group_layout:?}");
+	// println!("shader====={}", meta.to_code(&pi_hash::XHashSet::default(), wgpu::ShaderStages::FRAGMENT));
+	// bind_group_layout
 }

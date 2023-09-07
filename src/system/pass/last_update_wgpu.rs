@@ -1,6 +1,6 @@
 use std::mem::replace;
 
-use bevy::prelude::{DetectChangesMut, Entity, Query, Res, ResMut, With};
+use bevy_ecs::prelude::{DetectChangesMut, Entity, Query, Res, ResMut, With};
 use pi_bevy_ecs_extend::{
     prelude::Root,
     system_param::res::{OrInitRes, OrInitResMut},

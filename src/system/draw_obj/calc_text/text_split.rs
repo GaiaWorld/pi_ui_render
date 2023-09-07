@@ -2,7 +2,7 @@
 //! 将文字劈分为字符，放入NodeState中，并设置好每个字符的布局宽高。等待布局系统布局
 use std::intrinsics::transmute;
 
-use bevy::ecs::{
+use bevy_ecs::{
     prelude::{Entity, EventWriter},
     query::{Changed, Or},
     system::{Query, ResMut},

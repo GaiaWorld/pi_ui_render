@@ -1,7 +1,7 @@
 //! 计算内容包围盒
 //! 内容包围盒是指： **自身+递归子节点**的包围盒
 
-use bevy::ecs::{prelude::EventWriter, query::Changed, system::Query};
+use bevy_ecs::{prelude::EventWriter, query::Changed, system::Query};
 use pi_bevy_ecs_extend::{
     prelude::{Down, Layer, LayerDirty, Up},
     system_param::{layer_dirty::ComponentEvent, res::OrInitRes},

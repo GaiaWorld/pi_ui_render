@@ -1,7 +1,5 @@
-use bevy::{
-    app::Plugin,
-    prelude::{Changed, IntoSystemSetConfig, Update, IntoSystemConfigs, Startup},
-};
+use bevy_ecs::prelude::{Changed, IntoSystemSetConfig, IntoSystemConfigs};
+use bevy_app::{Plugin, Update, Startup, App};
 
 use crate::resource::draw_obj::{EmptyVertexBuffer, MaxViewSize};
 
@@ -46,7 +44,7 @@ pub mod set_world_marix;
 pub struct UiReadyDrawPlugin;
 
 impl Plugin for UiReadyDrawPlugin {
-    fn build(&self, app: &mut bevy::app::App) {
+    fn build(&self, app: &mut App) {
         app.configure_set(Update, UiSystemSet::PrepareDrawObj.run_if(render_run));
 
         app.add_systems(Startup, clear_draw_obj::init)// PostStartup, 

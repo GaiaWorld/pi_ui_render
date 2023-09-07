@@ -1,8 +1,8 @@
 //! 与DrawObject相关的资源
 
-use std::{borrow::Cow, collections::hash_map::Entry, hash::Hash, marker::PhantomData, num::NonZeroU32, sync::atomic::{Ordering, AtomicUsize}};
+use std::{collections::hash_map::Entry, hash::Hash, marker::PhantomData, num::NonZeroU32, sync::atomic::{Ordering, AtomicUsize}};
 
-use bevy::ecs::{
+use bevy_ecs::{
     prelude::{FromWorld, World},
     system::Resource,
 };
@@ -387,35 +387,32 @@ impl ProgramMetaInner {
         // for  f in fs_defines.iter() {
         // 	fs_defines1.insert(f.clone(), f.clone());
         // }
-        let vs_code = self.shader_meta.to_code(defines, wgpu::ShaderStages::VERTEX);
-        let fs_code = self.shader_meta.to_code(defines, wgpu::ShaderStages::FRAGMENT);
-
-        log::debug!("vs_code================defines: {:?}, code: \n{}", defines, vs_code);
-        log::debug!("fs_code================defines: {:?}, code: \n{}", defines, fs_code);
+        let vs = self.shader_meta.create_shader_module(device, defines, naga::ShaderStage::Vertex);
+        let fs = self.shader_meta.create_shader_module(device, defines, naga::ShaderStage::Fragment);
         // std::fs::write("out.vert", &vs_code);
         // std::fs::write("out.frag", &fs_code);
 
-        let vs = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some(&self.shader_meta.name),
-            source: wgpu::ShaderSource::Glsl {
-                shader: Cow::Borrowed(vs_code.as_str()),
-                stage: naga::ShaderStage::Vertex,
-                defines: naga::FastHashMap::default(),
-            },
-        });
+        // let vs = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+        //     label: Some(&self.shader_meta.name),
+        //     source: wgpu::ShaderSource::Glsl {
+        //         shader: Cow::Borrowed(vs_code.as_str()),
+        //         stage: naga::ShaderStage::Vertex,
+        //         defines: naga::FastHashMap::default(),
+        //     },
+        // });
 
         // let fs = processor
         // 		.process(&self.fs_shader_soruce, fs_defines, shaders, &imports)
         // 		.unwrap();
         // let fs = fs.get_glsl_source().unwrap();
-        let fs = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some(&self.shader_meta.name),
-            source: wgpu::ShaderSource::Glsl {
-                shader: Cow::Borrowed(fs_code.as_str()),
-                stage: naga::ShaderStage::Fragment,
-                defines: naga::FastHashMap::default(),
-            },
-        });
+        // let fs = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+        //     label: Some(&self.shader_meta.name),
+        //     source: wgpu::ShaderSource::Glsl {
+        //         shader: Cow::Borrowed(fs_code.as_str()),
+        //         stage: naga::ShaderStage::Fragment,
+        //         defines: naga::FastHashMap::default(),
+        //     },
+        // });
 
         let mut layouts: Vec<&wgpu::BindGroupLayout> = Vec::new();
         for i in self.bind_group_layout.iter() {
@@ -1188,7 +1185,7 @@ pub struct DepthCache {
 }
 
 // impl FromWorld for DepthCache {
-//     fn from_world(world: &mut bevy::ecs::world::World) -> Self {
+//     fn from_world(world: &mut bevy_ecs::world::World) -> Self {
 //         world.init_resource::<ShaderInfoCache>();
 //         let world = world.cell();
 //         // let mut cache = world.get_resource_mut::<ShaderInfoCache>().unwrap();

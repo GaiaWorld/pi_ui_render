@@ -5,12 +5,9 @@
 //! 4. 为pass2D创建对应的图节点，并添加依赖关系
 //! 5. 为删除的pass2D删除图节点，并建立正确的依赖关系
 
-use bevy::{
-    ecs::{
-        prelude::Entity,
-        system::{ParamSet, Query, Res, ResMut},
-    },
-    prelude::{DetectChanges, DetectChangesMut, Ref, With, Without},
+use bevy_ecs::{
+    system::{ParamSet, Query, Res, ResMut},
+    prelude::{DetectChanges, DetectChangesMut, Ref, With, Without, Entity},
 };
 use pi_bevy_asset::ShareAssetMgr;
 use pi_bevy_ecs_extend::{
@@ -297,7 +294,6 @@ pub fn calc_camera_depth_and_renderlist(
             is_active: true,
             is_change: true,
         };
-
         // 一些不需要后处理的，可以不用计算view_port和matrix， TODO
         let post_info = post_info.bypass_change_detection();
         post_info.view_port = aabb;

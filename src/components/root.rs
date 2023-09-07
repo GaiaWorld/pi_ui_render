@@ -1,6 +1,6 @@
 //! 定义根节点相关的组件
 
-use bevy::ecs::prelude::Component;
+use bevy_ecs::prelude::Component;
 use pi_render::{components::view::target_alloc::TargetType, renderer::draw_obj::DrawBindGroup};
 use pi_style::style::{Aabb2, CgColor, Point2};
 

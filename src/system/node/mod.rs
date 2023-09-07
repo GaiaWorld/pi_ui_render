@@ -5,8 +5,8 @@ use crate::{
     },
     resource::{animation_sheet::KeyFramesSheet, ClassSheet, QuadTree, TimeInfo, UserCommands},
 };
-use bevy::{app::Plugin, prelude::{IntoSystemConfigs, Update, IntoSystemSetConfig}};
-use bevy::ecs::query::Changed;
+use bevy_ecs::prelude::{IntoSystemConfigs, IntoSystemSetConfig, Changed};
+use bevy_app::{Plugin, Update, App};
 use pi_bevy_ecs_extend::{prelude::Layer, system_param::layer_dirty::ComponentEvent};
 use pi_bevy_render_plugin::should_run;
 
@@ -30,7 +30,7 @@ pub mod animation;
 pub struct UiNodePlugin;
 
 impl Plugin for UiNodePlugin {
-    fn build(&self, app: &mut bevy::app::App) {
+    fn build(&self, app: &mut App) {
         app.configure_set(Update, UiSystemSet::Load.run_if(layout_run));
         app.configure_set(Update, UiSystemSet::Layout.run_if(layout_run));
         app.configure_set(Update, UiSystemSet::Matrix.run_if(matrix_run));

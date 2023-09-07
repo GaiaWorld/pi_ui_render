@@ -2,7 +2,7 @@
 //! 1. 对overflow设置为true的节点，标记为渲染上下文（设置RenderContextMark中的位标记）
 //! 2.
 
-use bevy::ecs::prelude::{Entity, Query};
+use bevy_ecs::prelude::{Entity, Query};
 use pi_bevy_ecs_extend::system_param::res::OrInitRes;
 
 use crate::system::draw_obj::calc_text::IsRun;
@@ -10,10 +10,7 @@ use crate::{components::calc::OverflowDesc, resource::RenderContextMarkType};
 
 use crate::components::user::{AsImage, Overflow};
 
-use bevy::{
-    ecs::{prelude::Ref, query::With},
-    prelude::DetectChanges,
-};
+use bevy_ecs::prelude::{DetectChanges, Ref, With};
 
 use crate::{
     components::{

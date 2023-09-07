@@ -1,10 +1,7 @@
-use bevy::{
-    ecs::{
-        prelude::{Entity, Or, Ref},
-        query::{Changed, With},
-        system::{ParamSet, Query},
-    },
-    prelude::{DetectChanges, EventReader, Mut, Event},
+use bevy_ecs::{
+	query::{Changed, With},
+	system::{ParamSet, Query},
+    prelude::{DetectChanges, EventReader, Mut, Event, Entity, Or, Ref},
 };
 
 use pi_bevy_ecs_extend::{prelude::Layer, system_param::res::OrInitRes};

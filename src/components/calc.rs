@@ -1,6 +1,6 @@
 //! 定义计算组件（非用户设置的组件）
 
-use bevy::ecs::prelude::{Component, Entity};
+use bevy_ecs::prelude::{Component, Entity};
 use pi_style::style::AllTransform;
 use smallvec::SmallVec;
 use std::hash::Hash;

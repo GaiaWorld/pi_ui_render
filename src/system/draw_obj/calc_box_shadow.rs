@@ -1,7 +1,7 @@
 use std::slice;
 
-use bevy::ecs::query::{Changed, Or, With};
-use bevy::ecs::system::{Query, Res};
+use bevy_ecs::query::{Changed, Or, With};
+use bevy_ecs::system::{Query, Res};
 use pi_assets::mgr::AssetMgr;
 use pi_bevy_ecs_extend::system_param::res::OrInitRes;
 use pi_cg2d::Polygon;

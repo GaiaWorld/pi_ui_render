@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use bevy::ecs::{
+use bevy_ecs::{
     prelude::{Component, Entity, EventWriter, RemovedComponents},
     query::Changed,
     system::{Query, Res, Resource},

@@ -1,7 +1,8 @@
-use bevy::{
-    ecs::{prelude::RemovedComponents, query::Changed, system::Query},
-    prelude::{Added, IntoSystemConfigs, Or, Plugin, Without, Update},
+use bevy_ecs::{
+    prelude::RemovedComponents, query::Changed, system::Query,
+    prelude::{Added, IntoSystemConfigs, Or, Without},
 };
+use bevy_app::{Plugin, Update, App};
 use pi_bevy_ecs_extend::{prelude::OrDefault, system_param::res::OrInitRes};
 use pi_flex_layout::prelude::Rect;
 use pi_style::style::{Aabb2, BaseShape, LengthUnit};
@@ -26,7 +27,7 @@ use crate::{components::pass_2d::PostProcess, system::pass::pass_life};
 pub struct UiClipPathPlugin;
 
 impl Plugin for UiClipPathPlugin {
-    fn build(&self, app: &mut bevy::app::App) {
+    fn build(&self, app: &mut App) {
         app.add_systems(Update, 
             pass_life::pass_mark::<ClipPath>
                 .after(user_setting)

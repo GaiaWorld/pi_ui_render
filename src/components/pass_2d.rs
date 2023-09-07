@@ -1,6 +1,6 @@
 //! 定义与Pass2D相关的组件
 
-use bevy::ecs::{prelude::Component, system::Resource};
+use bevy_ecs::{prelude::Component, system::Resource};
 use pi_assets::asset::{Handle, Size, Asset, Droper};
 pub use pi_bevy_render_plugin::component::GraphId;
 use pi_postprocess::postprocess::PostProcess as PostProcess1;

@@ -1,4 +1,4 @@
-use bevy::ecs::{
+use bevy_ecs::{
     prelude::RemovedComponents,
     query::Changed,
     system::Query,

@@ -12,14 +12,11 @@ use std::{
     ops::{Index, IndexMut},
 };
 
-use bevy::{
-    ecs::{
-        prelude::{Entity, EventWriter, Ref},
-        query::{Changed, Or},
-        system::{Local, Query},
-        world::Mut,
-    },
-    prelude::{DetectChanges, With},
+use bevy_ecs::{
+	query::{Changed, Or},
+	system::{Local, Query},
+	world::Mut,
+    prelude::{DetectChanges, With, Entity, EventWriter, Ref},
 };
 use pi_bevy_ecs_extend::{
     prelude::{EntityTree, Layer, OrDefault},

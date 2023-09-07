@@ -1,6 +1,6 @@
 use std::hash::{Hash, Hasher};
 
-use bevy::ecs::prelude::Entity;
+use bevy_ecs::prelude::Entity;
 use num_traits::Float;
 use ordered_float::NotNan;
 use pi_bevy_ecs_extend::{

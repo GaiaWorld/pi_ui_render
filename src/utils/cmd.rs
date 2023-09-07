@@ -1,4 +1,4 @@
-use bevy::ecs::prelude::World;
+use bevy_ecs::prelude::World;
 
 pub struct DataQuery<'a> {
     pub world: &'a mut World,

@@ -38,16 +38,16 @@
 //!
 //! 可以考虑： 当父矩阵计算完成后，父节点所有子节点所形成的子树，可以并行计算（他们依赖的父矩阵已经计算完毕）
 
-use bevy::ecs::prelude::{Entity, EventWriter};
-use bevy::ecs::query::{Changed, Or};
-use bevy::ecs::system::{ParamSet, Query, ResMut};
+use bevy_ecs::prelude::{Entity, EventWriter};
+use bevy_ecs::query::{Changed, Or};
+use bevy_ecs::system::{ParamSet, Query, ResMut};
 use pi_bevy_ecs_extend::prelude::{Layer, LayerDirty, Up};
 use pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent;
 use pi_bevy_ecs_extend::system_param::res::OrInitRes;
 use pi_map::Map;
 use pi_null::Null;
 use pi_style::style::Aabb2;
-use bevy::ecs::event::Event;
+use bevy_ecs::event::Event;
 
 use crate::components::calc::{EntityKey, LayoutResult, Quad, WorldMatrix};
 use crate::components::user::{Point2, Transform};
@@ -216,10 +216,10 @@ pub fn calc_quad(
 // #[cfg(test)]
 // pub mod test {
 
-//     use bevy::app::{App, CoreStage};
-//     use bevy::ecs::prelude::{Component, Entity, EventReader, EventWriter};
-//     use bevy::ecs::query::Changed;
-//     use bevy::ecs::system::{Commands, Query, Res, ResMut, Resource};
+//     use bevy_ecs::app::{App, CoreStage};
+//     use bevy_ecs::prelude::{Component, Entity, EventReader, EventWriter};
+//     use bevy_ecs::query::Changed;
+//     use bevy_ecs::system::{Commands, Query, Res, ResMut, Resource};
 //     use pi_bevy_ecs_extend::prelude::{Down, EntityTreeMut, Layer, Up};
 //     use pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent;
 //     use pi_flex_layout::prelude::Rect;

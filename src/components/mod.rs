@@ -6,9 +6,9 @@ pub mod pass_2d;
 mod root;
 pub mod user;
 
-use bevy::{
-    ecs::{bundle::Bundle, prelude::Entity},
-    prelude::FromWorld,
+use bevy_ecs::{
+   	bundle::Bundle,
+	prelude::{FromWorld, Entity},
 };
 use pi_bevy_ecs_extend::prelude::{Down, Layer, Up};
 
@@ -54,7 +54,7 @@ pub struct DrawBundle<T: FromWorld + Bundle> {
 }
 
 // impl<T: FromWorld + Bundle> FromWorld for DrawBundle<T> {
-//     fn from_world(world: &mut bevy::prelude::World) -> Self {
+//     fn from_world(world: &mut bevy_ecs::prelude::World) -> Self {
 // 		world.init_resource::<ProgramMetaRes<crate::shader::color::ProgramMeta>>();
 // 		world.init_resource::<ShaderInfoCache>();
 // 		world.init_resource::<PosVertexLayout>();

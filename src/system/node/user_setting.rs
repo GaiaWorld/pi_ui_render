@@ -1,12 +1,9 @@
 //! 每个实体必须写入StyleMark组件
 use std::intrinsics::transmute;
 
-use bevy::{
-    ecs::{
-        prelude::{Changed, Entity, EventReader, Local, Query, RemovedComponents, ResMut, World},
-        system::SystemState,
-    },
-    prelude::With,
+use bevy_ecs::{
+    prelude::{Changed, Entity, EventReader, Local, Query, RemovedComponents, ResMut, World, With},
+    system::SystemState,
 };
 use bitvec::array::BitArray;
 use pi_bevy_ecs_extend::{

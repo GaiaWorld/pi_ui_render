@@ -1,6 +1,6 @@
-use bevy::app::Plugin;
-use bevy::prelude::{IntoSystemSetConfig, IntoSystemSetConfigs, IntoSystemConfigs, Update};
-use bevy::ecs::schedule::apply_deferred;
+use bevy_app::{Plugin, Update, App};
+use bevy_ecs::prelude::{IntoSystemSetConfig, IntoSystemSetConfigs, IntoSystemConfigs};
+use bevy_ecs::schedule::apply_deferred;
 use pi_bevy_render_plugin::PiRenderSystemSet;
 
 use super::render_run;
@@ -17,7 +17,7 @@ pub mod update_graph;
 pub struct UiPassPlugin;
 
 impl Plugin for UiPassPlugin {
-    fn build(&self, app: &mut bevy::app::App) {
+    fn build(&self, app: &mut App) {
         // 设置运行条件和运行顺序
         app.configure_set(Update, UiSystemSet::PassMark.run_if(render_run))
 			.configure_set(Update, UiSystemSet::PassLife.run_if(render_run))

@@ -4,7 +4,8 @@ mod text_shadow;
 mod text_split;
 mod text_texture;
 
-use bevy::prelude::{Changed, Plugin, IntoSystemConfigs, Resource, Update};
+use bevy_ecs::prelude::{Changed, IntoSystemConfigs, Resource};
+use bevy_app::{Plugin, Update, App};
 use pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent;
 use pi_render::font::Size;
 
@@ -28,7 +29,7 @@ pub struct IsRun(pub bool);
 pub struct UiTextPlugin;
 
 impl Plugin for UiTextPlugin {
-    fn build(&self, app: &mut bevy::app::App) {
+    fn build(&self, app: &mut App) {
         app.init_resource::<ShareFontSheet>()
             .add_frame_event::<ComponentEvent<Changed<NodeState>>>()
             .add_frame_event::<ComponentEvent<Changed<TextContent>>>()

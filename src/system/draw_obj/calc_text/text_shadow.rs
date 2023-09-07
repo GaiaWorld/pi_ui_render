@@ -1,10 +1,11 @@
 use std::borrow::BorrowMut;
 
-use bevy::ecs::prelude::{DetectChanges, Ref};
-use bevy::ecs::query::{Changed, Or, With};
-use bevy::ecs::system::{Query, Res, SystemParam, SystemState};
-use bevy::prelude::{Commands, Component, IntoSystemConfigs, Update};
-use bevy::prelude::{Entity, EventReader, EventWriter, ParamSet, Plugin, RemovedComponents, ResMut, Without, World};
+use bevy_ecs::prelude::{DetectChanges, Ref};
+use bevy_ecs::query::{Changed, Or, With};
+use bevy_ecs::system::{Query, Res, SystemParam, SystemState};
+use bevy_app::{Plugin, Update, App};
+use bevy_ecs::prelude::{Commands, Component, IntoSystemConfigs};
+use bevy_ecs::prelude::{Entity, EventReader, EventWriter, ParamSet, RemovedComponents, ResMut, Without, World};
 use pi_bevy_asset::ShareAssetMgr;
 use pi_bevy_ecs_extend::prelude::Layer;
 use pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent;
@@ -58,7 +59,7 @@ use super::IsRun;
 pub struct UiTextShadowPlugin;
 
 impl Plugin for UiTextShadowPlugin {
-    fn build(&self, app: &mut bevy::app::App) {
+    fn build(&self, app: &mut App) {
         app.add_frame_event::<ComponentEvent<Changed<TextShadow>>>()
             .add_systems(Update, 
                 text_shadow_life

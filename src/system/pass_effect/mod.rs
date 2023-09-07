@@ -1,6 +1,7 @@
 //! 与Pass相关的system
 
-use bevy::prelude::{Changed, IntoSystemSetConfig, IntoSystemSetConfigs, Plugin, Update, IntoSystemConfigs};
+use bevy_ecs::prelude::{Changed, IntoSystemSetConfig, IntoSystemSetConfigs, IntoSystemConfigs};
+use bevy_app::{Plugin, Update, App};
 use pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent;
 
 use crate::components::{
@@ -33,7 +34,7 @@ pub mod radial_wave;
 pub struct UiEffectPlugin;
 
 impl Plugin for UiEffectPlugin {
-    fn build(&self, app: &mut bevy::app::App) {
+    fn build(&self, app: &mut App) {
         app.configure_sets(Update, (UiSystemSet::Setting, UiSystemSet::PassMark, UiSystemSet::PassFlush).chain())
             .configure_set(Update, UiSystemSet::PassMark.run_if(render_run))
             .configure_set(Update, UiSystemSet::PassFlush.run_if(render_run))

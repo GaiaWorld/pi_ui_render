@@ -1,7 +1,7 @@
-use bevy::ecs::prelude::{DetectChanges, Ref};
-use bevy::ecs::query::{Changed, Or, With};
-use bevy::ecs::system::{Local, Query, Res};
-use bevy::prelude::DetectChangesMut;
+use bevy_ecs::prelude::{DetectChanges, Ref};
+use bevy_ecs::query::{Changed, Or, With};
+use bevy_ecs::system::{Local, Query, Res};
+use bevy_ecs::prelude::DetectChangesMut;
 use ordered_float::NotNan;
 use pi_assets::asset::Handle;
 use pi_assets::mgr::AssetMgr;

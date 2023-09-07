@@ -3,7 +3,7 @@ use std::{
     sync::atomic::{AtomicUsize, Ordering},
 };
 
-use bevy::ecs::{
+use bevy_ecs::{
     prelude::Entity,
     query::Changed,
     system::{Query, Res, ResMut},

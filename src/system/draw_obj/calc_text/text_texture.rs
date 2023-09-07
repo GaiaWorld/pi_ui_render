@@ -1,5 +1,5 @@
-use bevy::ecs::query::{Or, With};
-use bevy::ecs::system::{Local, Query, Res};
+use bevy_ecs::query::{Or, With};
+use bevy_ecs::system::{Local, Query, Res};
 use pi_bevy_asset::ShareAssetMgr;
 use pi_bevy_ecs_extend::system_param::res::{OrInitRes, OrInitResMut};
 use pi_bevy_render_plugin::PiRenderDevice;

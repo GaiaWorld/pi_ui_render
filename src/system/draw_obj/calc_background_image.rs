@@ -1,7 +1,7 @@
-use bevy::ecs::prelude::Entity;
-use bevy::ecs::query::{Changed, Or, With};
-use bevy::ecs::system::{Query, Res};
-use bevy::prelude::{DetectChangesMut, EventReader};
+use bevy_ecs::prelude::Entity;
+use bevy_ecs::query::{Changed, Or, With};
+use bevy_ecs::system::{Query, Res};
+use bevy_ecs::prelude::{DetectChangesMut, EventReader};
 use pi_assets::asset::Handle;
 use pi_atom::Atom;
 use pi_bevy_asset::ShareAssetMgr;
@@ -486,8 +486,8 @@ fn fill(size: &Vector2, p1: &mut Point2, p2: &mut Point2, w: f32, h: f32) {
 
 #[cfg(test)]
 pub mod test {
-    use bevy::{
-        ecs::system::{CommandQueue, Spawn},
+    use bevy_ecs::{
+        system::{CommandQueue, Spawn},
         prelude::{Component, World},
     };
 

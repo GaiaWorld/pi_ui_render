@@ -3,7 +3,7 @@
 
 use std::mem::replace;
 
-use bevy::ecs::{
+use bevy_ecs::{
     prelude::{Entity, World},
     query::Changed,
     removal_detection::RemovedComponents,

@@ -1,6 +1,6 @@
 use std::borrow::BorrowMut;
 
-use bevy::ecs::{
+use bevy_ecs::{
     prelude::Entity,
     query::With,
     system::{Query, Res, SystemParam, SystemState},

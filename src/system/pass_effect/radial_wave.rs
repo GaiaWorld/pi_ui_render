@@ -1,7 +1,8 @@
-use bevy::{
-    ecs::{prelude::RemovedComponents, query::Changed, system::Query},
-    prelude::{Added, Or, ParamSet, Plugin, IntoSystemConfigs, Update},
+use bevy_ecs::{
+	prelude::RemovedComponents, query::Changed, system::Query,
+    prelude::{Added, Or, ParamSet, IntoSystemConfigs},
 };
+use bevy_app::{Plugin, Update, App};
 use pi_bevy_ecs_extend::system_param::res::OrInitRes;
 
 use crate::{
@@ -21,7 +22,7 @@ use crate::{components::pass_2d::PostProcess, system::pass::pass_life};
 pub struct RadialWavePlugin;
 
 impl Plugin for RadialWavePlugin {
-    fn build(&self, app: &mut bevy::app::App) {
+    fn build(&self, app: &mut App) {
         app
             // 标记有RadialWave组件的节点为渲染上下文
             .add_systems(Update, 

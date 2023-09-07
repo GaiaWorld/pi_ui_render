@@ -10,10 +10,11 @@ use crate::{
     prelude::UserCommands,
     resource::{CmdType, FragmentCommand, NodeCommand},
 };
-use bevy::{
-    ecs::system::SystemState,
-    prelude::{Commands, Entity, Plugin, Resource, World, IntoSystemConfigs, Update},
+use bevy_ecs::{
+    system::SystemState,
+    prelude::{Commands, Entity, Resource, World, IntoSystemConfigs},
 };
+use bevy_app::{Update, Plugin, App};
 use pi_bevy_ecs_extend::system_param::res::{OrInitRes, OrInitResMut};
 use pi_null::Null;
 use pi_slotmap::SecondaryMap;
@@ -33,7 +34,7 @@ pub struct UiCmdTracePlugin {
 }
 
 impl Plugin for UiCmdTracePlugin {
-    fn build(&self, app: &mut bevy::app::App) {
+    fn build(&self, app: &mut App) {
         log::warn!("self.option==============={:?}", self.option);
         match self.option {
             TraceOption::Record => {

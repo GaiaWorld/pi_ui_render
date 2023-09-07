@@ -1,7 +1,7 @@
-use bevy::ecs::prelude::RemovedComponents;
-use bevy::ecs::query::{Changed, Or};
-use bevy::ecs::system::Query;
-use bevy::prelude::DetectChangesMut;
+use bevy_ecs::prelude::RemovedComponents;
+use bevy_ecs::query::{Changed, Or};
+use bevy_ecs::system::Query;
+use bevy_ecs::prelude::DetectChangesMut;
 use pi_bevy_ecs_extend::prelude::OrDefault;
 use pi_bevy_ecs_extend::system_param::res::OrInitRes;
 

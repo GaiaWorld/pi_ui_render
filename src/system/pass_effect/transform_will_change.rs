@@ -1,11 +1,3 @@
-use bevy::{
-    ecs::{
-        prelude::{Entity, RemovedComponents},
-        query::Changed,
-        system::Query,
-    },
-    prelude::EventWriter,
-};
 use pi_bevy_ecs_extend::system_param::{layer_dirty::ComponentEvent, res::OrInitRes};
 
 use crate::{
@@ -13,14 +5,7 @@ use crate::{
     system::{pass::pass_dirty_rect::OldTransformWillChange, draw_obj::calc_text::IsRun},
 };
 
-use bevy::{
-    ecs::{
-        prelude::{EventReader, Ref},
-        query::With,
-        system::Local,
-    },
-    prelude::DetectChanges,
-};
+use bevy_ecs::prelude::{With, Local, EventReader, Ref,DetectChanges, EventWriter, Changed, Query, Entity, RemovedComponents};
 use pi_bevy_ecs_extend::{prelude::OrDefault, system_param::layer_dirty::DirtyMark};
 use pi_hash::{XHashMap, XHashSet};
 

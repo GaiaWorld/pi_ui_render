@@ -4,10 +4,7 @@ use std::mem::{transmute, forget};
 use std::ptr::read_unaligned;
 use std::{collections::VecDeque, fmt::Debug};
 
-use bevy::{
-    ecs::prelude::{Changed, Component, DetectChangesMut},
-    prelude::Entity,
-};
+use bevy_ecs::prelude::{Changed, Component, DetectChangesMut, Entity};
 use bitvec::prelude::BitArray;
 use ordered_float::NotNan;
 use pi_atom::Atom;
@@ -552,12 +549,9 @@ pub mod serialize {
     //     prelude::{Query, ResMut},
     //     query::{DefaultComponent, Write},
     // };
-    use bevy::{
-        ecs::{
-            component::ComponentId,
-            prelude::{Entity, FromWorld, World},
-        },
-        prelude::Events,
+    use bevy_ecs::{
+        component::ComponentId,
+        prelude::{Entity, FromWorld, World, Events},
     };
     use pi_bevy_ecs_extend::prelude::DefaultComponent;
     use pi_flex_layout::{

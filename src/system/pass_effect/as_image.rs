@@ -1,9 +1,10 @@
 use std::sync::atomic::AtomicUsize;
 
-use bevy::{
-    ecs::{prelude::RemovedComponents, query::Changed, system::Query},
-    prelude::{Added, Or, ParamSet, Plugin, IntoSystemConfigs, Update},
+use bevy_ecs::{
+    prelude::RemovedComponents, query::Changed, system::Query,
+    prelude::{Added, Or, ParamSet, IntoSystemConfigs},
 };
+use bevy_app::{Plugin, Update, App};
 use pi_bevy_asset::{AssetConfig, AssetDesc, ShareAssetMgr};
 use pi_bevy_ecs_extend::system_param::res::OrInitRes;
 use pi_slotmap::Key;
@@ -27,7 +28,7 @@ use crate::{components::pass_2d::PostProcess, system::pass::pass_life};
 pub struct UiAsImagePlugin;
 
 impl Plugin for UiAsImagePlugin {
-    fn build(&self, app: &mut bevy::app::App) {
+    fn build(&self, app: &mut App) {
         let assets_mgr = {
             let w = app.world.cell();
             let asset_config = w.get_resource::<AssetConfig>().unwrap();

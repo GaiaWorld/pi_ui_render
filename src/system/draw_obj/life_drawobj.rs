@@ -1,7 +1,7 @@
-use bevy::ecs::prelude::RemovedComponents;
-use bevy::ecs::query::Changed;
-use bevy::ecs::system::{Query, SystemState};
-use bevy::prelude::{Bundle, Commands, Component, EventReader, FromWorld, Resource, World};
+use bevy_ecs::prelude::RemovedComponents;
+use bevy_ecs::query::Changed;
+use bevy_ecs::system::{Query, SystemState};
+use bevy_ecs::prelude::{Bundle, Commands, Component, EventReader, FromWorld, Resource, World};
 use pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent;
 use pi_bevy_ecs_extend::system_param::res::OrInitRes;
 use pi_render::rhi::shader::{BindLayout, ShaderProgram};

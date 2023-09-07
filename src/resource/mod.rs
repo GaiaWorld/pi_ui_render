@@ -22,8 +22,8 @@ use pi_style::style_type::Attr;
 use pi_time::Instant;
 
 // use pi_ecs::prelude::{FromWorld, Id, World};
-use bevy::ecs::prelude::{Entity, FromWorld, Resource, World};
-use bevy::ecs::system::{Command, CommandQueue};
+use bevy_ecs::prelude::{Entity, FromWorld, Resource, World};
+use bevy_ecs::system::{Command, CommandQueue};
 
 use crate::components::calc::{EntityKey, Quad};
 use crate::components::user::serialize::StyleAttr;
@@ -31,7 +31,7 @@ use crate::components::user::{AsImage, ClearColor, ClipPath, MaskImage, Point2, 
 use crate::components::NodeBundle;
 use pi_spatial::quad_helper::QuadTree as QuadTree1;
 // use crate::utils::cmd::{CommandQueue, Command, DataQuery};
-// use bevy::prelude::{CommandQueue, Commands, World};
+// use bevy_ecs::prelude::{CommandQueue, Commands, World};
 use crate::components::user::ClassName;
 
 use self::draw_obj::{CommonBlendState, DrawObjDefault};

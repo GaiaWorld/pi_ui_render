@@ -28,7 +28,7 @@
 
 use std::ops::Range;
 
-use bevy::ecs::prelude::{Changed, Component, Entity, Query};
+use bevy_ecs::prelude::{Changed, Component, Entity, Query};
 use pi_bevy_ecs_extend::prelude::{EntityTree, Layer, LayerDirty, Up};
 use pi_bevy_ecs_extend::system_param::layer_dirty::DirtyMark;
 use pi_bevy_ecs_extend::system_param::res::OrInitRes;
@@ -399,8 +399,8 @@ fn set(
 
 // #[cfg(test)]
 // mod test {
-//     use bevy::app::{App, CoreStage};
-//     use bevy::ecs::{
+//     use bevy_ecs::app::{App, CoreStage};
+//     use bevy_ecs::{
 //         prelude::{Entity, EventWriter, World},
 //         query::{Changed, QueryState},
 //         system::{Local, Res, ResMut, Resource, SystemState},

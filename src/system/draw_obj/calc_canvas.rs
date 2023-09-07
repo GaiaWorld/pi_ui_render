@@ -1,6 +1,6 @@
-use bevy::ecs::query::With;
-use bevy::ecs::system::{Query, Res};
-use bevy::prelude::{DetectChangesMut, Without, DetectChanges, Ref};
+use bevy_ecs::query::With;
+use bevy_ecs::system::{Query, Res};
+use bevy_ecs::prelude::{DetectChangesMut, Without, DetectChanges, Ref};
 use pi_bevy_ecs_extend::system_param::res::OrInitRes;
 use pi_bevy_render_plugin::component::GraphId;
 use pi_render::renderer::vertices::{EVerticesBufferUsage, RenderIndices, RenderVertices};

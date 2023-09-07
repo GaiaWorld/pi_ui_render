@@ -1,7 +1,7 @@
 //! 计算show
 //! 该系统默认为所有已经创建的Entity创建Show组件， 并监听Show和Display的创建修改， 以及监听idtree上的创建事件， 计算已经在idtree上///! 存在的实体的Enable和Visibility
 
-use bevy::ecs::{prelude::Entity, query::Changed, system::Query};
+use bevy_ecs::{prelude::Entity, query::Changed, system::Query};
 use pi_bevy_ecs_extend::{prelude::{Layer, LayerDirty, OrDefault, Up}, system_param::res::OrInitRes};
 use pi_flex_layout::style::Display;
 

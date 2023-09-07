@@ -6,13 +6,13 @@
 //! TODO: 后续，可能将不可变因素通过shader静态编译出来（尚不确定哪些通常不变），当前通过手动编写代码的方式来确定
 //!
 
-use bevy::app::Plugin;
-use bevy::ecs::{
+use bevy_app::{Plugin, App, Update};
+use bevy_ecs::{
     prelude::EventReader,
     system::{Commands, Res, ResMut},
 };
-use bevy::prelude::{Query, With, IntoSystemConfigs, Update};
-use bevy::window::{PrimaryWindow, Window, WindowCreated, WindowResized};
+use bevy_ecs::prelude::{Query, With, IntoSystemConfigs};
+use bevy_window::{PrimaryWindow, Window, WindowCreated, WindowResized};
 use pi_assets::{
     asset::{GarbageEmpty, Handle},
     mgr::AssetMgr,
@@ -44,7 +44,7 @@ use super::system_set::UiSystemSet;
 pub struct UiShaderPlugin;
 
 impl Plugin for UiShaderPlugin {
-    fn build(&self, app: &mut bevy::app::App) {
+    fn build(&self, app: &mut App) {
         // let texture_res_mgr = app.world.get_resource::<ShareAssetMgr<RenderRes<TextureView>>>().unwrap().clone();
         // let device = app.world.get_resource::<PiRenderDevice>().unwrap().clone();
         // let window = app.world.get_resource::<PiRenderWindow>().unwrap().clone();
