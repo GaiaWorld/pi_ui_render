@@ -3,7 +3,7 @@ use bevy_ecs::{
     query::{Added, Changed, Or, ReadOnlyWorldQuery},
     system::{ParamSet, Query, ResMut},
 };
-use pi_bevy_ecs_extend::system_param::res::OrInitRes;
+use pi_bevy_ecs_extend::system_param::res::{OrInitRes, OrInitResMut};
 use pi_bevy_render_plugin::{NodeId, PiRenderGraph};
 use pi_slotmap::Key;
 
@@ -13,7 +13,7 @@ use crate::{
         pass_2d::{Camera, GraphId, ParentPassId, PostProcessInfo},
         user::{Canvas, AsImage},
     },
-    system::{pass::pass_graph_node::Pass2DNode, draw_obj::calc_text::IsRun},
+    system::{pass::pass_graph_node::Pass2DNode, draw_obj::calc_text::IsRun}, resource::PassGraphMap,
 };
 
 pub fn update_graph(
@@ -29,6 +29,7 @@ pub fn update_graph(
     canvas_query: Query<(&Canvas, &InPassId, Option<&AsImage>), Changed<Canvas>>,
     inpass_query: Query<&ParentPassId>,
     mut rg: ResMut<PiRenderGraph>,
+	mut pass_graph_map: OrInitResMut<PassGraphMap>,
 	r: OrInitRes<IsRun>
 ) {
 	if r.0 {
@@ -51,6 +52,7 @@ pub fn update_graph(
                     return;
                 }
             };
+			pass_graph_map.insert(graph_node_id, entity);
             log::debug!(entity=format!("entity_{:?}", entity).as_str();  "add graph node, entity: {entity:?}: {graph_node_id:?}");
 
             *graph_id = GraphId(graph_node_id);
@@ -59,15 +61,19 @@ pub fn update_graph(
                 continue;
             }
 
-            let _ = rg.remove_node(graph_id.0);
+            if let Ok(graph_id) = rg.remove_node(graph_id.0) {
+				pass_graph_map.remove(&graph_id);
+			}
             *graph_id = GraphId(NodeId::null());
         }
     }
 
     // 移除渲染图节点
     for id in del.iter() {
-        log::debug!(entity=format!("entity_{:?}", id).as_str(); "remove graph node, entity={id:?}");
-        let _ = rg.remove_node(format!("Pass2D_{:?}", id));
+		log::debug!(entity=format!("entity_{:?}", id).as_str(); "remove graph node, entity={id:?}");
+		if let Ok(graph_id) = rg.remove_node(format!("Pass2D_{:?}", id)) {
+			pass_graph_map.remove(&graph_id);
+		}
     }
 
     let p2 = pass_query.p1();

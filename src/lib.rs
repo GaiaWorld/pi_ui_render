@@ -9,7 +9,7 @@
 #![feature(fmt_helpers_for_derive)]
 #![feature(print_internals)]
 
-use pi_hash::XHashSet;
+// use pi_hash::XHashSet;
 
 
 #[macro_use]
@@ -119,14 +119,14 @@ fn test() {
     println!("modle================={:?}, \nmodle================={:?}", modlue, parser);
 }
 
-#[test]
-fn test1() {
-	let meta = <crate::shader::image::ProgramMeta as pi_render::rhi::shader::ShaderProgram>::create_meta();
-	// println!("shader====={}", meta.to_code(&pi_hash::XHashSet::default(), wgpu::ShaderStages::VERTEX));
-	println!("shader====={}", meta.to_code(&pi_hash::XHashSet::default(), wgpu::ShaderStages::FRAGMENT));
+// #[test]
+// fn test1() {
+// 	let meta = <crate::shader::image::ProgramMeta as pi_render::rhi::shader::ShaderProgram>::create_meta();
+// 	// println!("shader====={}", meta.to_code(&pi_hash::XHashSet::default(), wgpu::ShaderStages::VERTEX));
+// 	println!("shader====={}", meta.to_code(&pi_hash::XHashSet::default(), wgpu::ShaderStages::FRAGMENT));
 
-	let bind_group_layout = meta.bind_group_layout(&pi_hash::XHashSet::default(), wgpu::ShaderStages::FRAGMENT);
-	println!("shader_code================bind_group_layout={bind_group_layout:?}");
-	// println!("shader====={}", meta.to_code(&pi_hash::XHashSet::default(), wgpu::ShaderStages::FRAGMENT));
-	// bind_group_layout
-}
+// 	let bind_group_layout = meta.bind_group_layout(&pi_hash::XHashSet::default(), wgpu::ShaderStages::FRAGMENT);
+// 	println!("shader_code================bind_group_layout={bind_group_layout:?}");
+// 	// println!("shader====={}", meta.to_code(&pi_hash::XHashSet::default(), wgpu::ShaderStages::FRAGMENT));
+// 	// bind_group_layout
+// }

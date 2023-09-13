@@ -142,6 +142,7 @@ pub fn user_setting(
                 }
             }
             NodeCommand::RemoveNode(node) => {
+				log::debug!("RemoveNode node====================node={node:?}");
                 tree.remove(node);
             }
             NodeCommand::DestroyNode(node) => {
@@ -155,6 +156,7 @@ pub fn user_setting(
                     }
                 }
                 tree.remove(node);
+				log::debug!("DestroyNode node====================node={node:?}, node_list: {:?}", destroy_entity_list);
                 delete_draw_list(node, &draw_list, &mut destroy_entity_list);
             }
         };

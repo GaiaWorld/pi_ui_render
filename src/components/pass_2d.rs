@@ -5,18 +5,16 @@ use pi_assets::asset::{Handle, Size, Asset, Droper};
 pub use pi_bevy_render_plugin::component::GraphId;
 use pi_postprocess::postprocess::PostProcess as PostProcess1;
 use pi_render::{
-    components::view::target_alloc::{GetTargetView, SafeAtlasAllocator, SafeTargetView, ShareTargetView},
+    components::view::target_alloc::ShareTargetView,
     renderer::draw_obj::DrawBindGroup,
     rhi::{asset::RenderRes, bind_group::BindGroup, buffer::Buffer},
 };
-use pi_share::{Share, ShareWeak};
-use pi_style::style::AsImage as AsImage1;
+use pi_share::ShareWeak;
 
-use crate::resource::{RenderContextMarkType, draw_obj::TargetCacheMgr};
+use crate::resource::RenderContextMarkType;
 
 use super::{
     calc::{DrawInfo, EntityKey, WorldMatrix, ZRange},
-    draw_obj::DynTargetType,
     user::{Aabb2, AsImage, Matrix4, Point2},
 };
 
@@ -321,83 +319,3 @@ pub enum RenderTargetCache {
     Weak(ShareWeak<Droper<CacheTarget>>),
 }
 
-impl RenderTarget {
-    // 返回(渲染目标, 是否使用了新的渲染目标)
-    // 如果未分配新的渲染目标，渲染时应该做脏更
-    pub fn get_or_create<G: GetTargetView, T: Iterator<Item = G>>(
-        &mut self,
-        atlas_allocator: &SafeAtlasAllocator,
-        as_image: Option<&AsImage>,
-        assets: &TargetCacheMgr,
-        as_image_mark_type: &RenderContextMarkType<AsImage>,
-        post_info: &PostProcessInfo,
-        t_type: &DynTargetType,
-        max_cache: usize,
-        exclude: T,
-        is_force_alloc: bool,
-    ) -> Option<Share<SafeTargetView>> {
-        if is_force_alloc || post_info.has_effect() {
-            match &self.target {
-                StrongTarget::Asset(r) => return Some(r.0.clone()),
-				StrongTarget::Raw(r) => return Some(r.0.clone()),
-                StrongTarget::None => {
-                    let width = (self.bound_box.maxs.x - self.bound_box.mins.x).ceil() as u32;
-                    let height = (self.bound_box.maxs.y - self.bound_box.mins.y).ceil() as u32;
-
-                    let as_image = match as_image {
-                        Some(r) => r.level.clone(),
-                        None => pi_style::style::AsImage::None,
-                    };
-
-					let capacity_overflow = assets.assets.size() as u32 + width * height * 4 > max_cache as u32;
-                    // 如果设置节点为建议缓存，在显存已经超出max_cache的情况下， 不为其分配target， 该相机下的物体直接渲染到父target上
-                    if AsImage1::Advise == as_image && post_info.is_only_as_image(as_image_mark_type) && capacity_overflow
-                    {
-                        return None;
-                    };
-
-                    // 分配渲染目标
-                    let t = CacheTarget(atlas_allocator.allocate(width, height, t_type.has_depth, exclude));
-
-                    match as_image {
-                        AsImage1::None => {
-							return Some(t.0);
-							// // 放入资产管理器，由资产管理器管理
-							// if capacity_overflow {
-							// 	// self.target = StrongTarget::Raw(t.clone());
-							// 	return Some(t.0);
-							// } else {
-							// 	let t = assets.push(t.clone());
-							// 	// self.target = StrongTarget::Asset(t.clone());
-							// 	return Some(t.0.clone());
-							// }
-							
-						},
-						r => {
-							let t = assets.push(t.clone());
-							match r {
-								AsImage1::Advise => self.cache = RenderTargetCache::Weak(Share::downgrade(&t)),
-								AsImage1::Force => self.cache = RenderTargetCache::Strong(t.clone()),
-								_ => (),
-							};
-							// self.target = StrongTarget::Asset(t.clone());
-							return Some(t.0.clone());
-						}
-                    };
-                    
-                    
-                }
-            }
-        // // if let None = target {
-        // // 如果后处理效果不只包含as_image，则
-        // if post_info.is_only_as_image(as_image_mark_type) {
-        // 	// || assets.size() as u32 + width * height * 4 <= max_cache as u32
-
-        // 	return (Some(t.0), true)
-        // }
-        // }
-        } else {
-            None
-        }
-    }
-}

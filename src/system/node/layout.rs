@@ -144,8 +144,8 @@ pub fn calc_layout(
 
     // 遍历布局脏节点，重新设置脏为层次脏
     {
-        #[cfg(feature = "trace")]
-        let _ss = tracing::info_span!("layout set dirty").entered();
+        // #[cfg(feature = "trace")]
+        // let _ss = tracing::info_span!("layout set dirty").entered();
         for (
             e,
             (size, margin, padding, border, position, min_max, flex_container, flex_normal, show),
@@ -227,11 +227,11 @@ pub fn calc_layout(
         }
     }
 
-    #[cfg(feature = "trace")]
-    let layer_dirty_count = layer_dirty.count();
-    // 计算布局
-    #[cfg(feature = "trace")]
-    let _sss = tracing::info_span!("layout compute", count, layer_dirty_count).entered();
+    // #[cfg(feature = "trace")]
+    // let layer_dirty_count = layer_dirty.count();
+    // // 计算布局
+    // #[cfg(feature = "trace")]
+    // let _sss = tracing::info_span!("layout compute", count, layer_dirty_count).entered();
     layout.compute(&mut layer_dirty);
 }
 

@@ -41,9 +41,9 @@ impl Example for QuadExample {
     fn init(&mut self, world: &mut World, size: (usize, usize)) {
         let mut dir = std::env::current_dir().unwrap();
         log::info!("dir: {:?}", dir);
-        dir.push("examples/text/source/hwkt.ttf");
+        dir.push("examples/z_source/hwkt.ttf");
         // new_face_by_path("hwkt".to_string(), dir.to_str().unwrap());
-        new_face_by_path("hwkt".to_string(), "examples/text/source/SOURCEHANSANSK-MEDIUM.TTF");
+        new_face_by_path("hwkt".to_string(), "examples/z_source/SOURCEHANSANSK-MEDIUM.TTF");
 
         // 添加根节点
         let root = world.spawn(NodeBundle::default()).id();

@@ -24,7 +24,7 @@ use pi_bevy_render_plugin::{
 };
 use pi_futures::BoxFuture;
 use pi_hash::XHashMap;
-use pi_render::rhi::shader::Input;
+use pi_render::{rhi::shader::Input, components::view::target_alloc::{SafeTargetView, SafeAtlasAllocator}};
 // use pi_postprocess::
 use pi_postprocess::prelude::PostprocessTexture;
 use pi_render::{
@@ -41,20 +41,21 @@ use pi_render::{
         CommandEncoder, RenderQueue,
     },
 };
-use pi_share::ShareRefCell;
+use pi_share::{ShareRefCell, Share};
 use pi_slotmap::Key;
+use pi_style::style::AsImage as AsImage1;
 use wgpu::{RenderPass, Sampler};
 
 use crate::{
     components::{
         calc::{EntityKey, NodeId, Quad},
         draw_obj::{ClearColorBindGroup, DrawState, DynTargetType},
-        pass_2d::{Camera, Draw2DList, DrawIndex, GraphId, ParentPassId, PostProcess, PostProcessInfo, RenderTarget, ScreenTarget, StrongTarget},
+        pass_2d::{Camera, Draw2DList, DrawIndex, GraphId, ParentPassId, PostProcess, PostProcessInfo, RenderTarget, ScreenTarget, StrongTarget, CacheTarget, RenderTargetCache},
         user::{Aabb2, AsImage, Point2, RenderTargetType},
     },
     resource::{
         draw_obj::{ClearDrawObj, CommonSampler, DepthCache, DynFboClearColorBindGroup, PostBindGroupLayout, TargetCacheMgr},
-        RenderContextMarkType,
+        RenderContextMarkType, PassGraphMap,
     },
     shader::{
         camera::CameraBind,
@@ -110,6 +111,7 @@ pub struct QueryParam<'w, 's> {
         Query<'w, 's, (&'static PostProcess, &'static GraphId, &'static NodeId)>,
         Query<'w, 's, &'static PostProcessInfo>,
     ),
+	render_targets: Query<'w, 's, &'static RenderTarget>,
     draw_query: Query<'w, 's, (&'static DrawState, &'static NodeId, Option<&'static GraphId>)>,
 	graph_node_query: Query<'w, 's, &'static GraphId>,
     node_query: Query<'w, 's, &'static Quad>,
@@ -131,6 +133,7 @@ pub struct QueryParam<'w, 's> {
     cache_target: Res<'w, TargetCacheMgr>,
     as_image_mark_type: OrInitRes<'w, RenderContextMarkType<AsImage>>,
     depth_cache: OrInitRes<'w, DepthCache>,
+	pass_graph_map: Res<'w, PassGraphMap>,
 }
 
 // vballocator: &mut VertexBufferAllocator,
@@ -152,6 +155,7 @@ pub struct Param<'w, 's> {
             Option<&'static AsImage>,
         ),
     >,
+	render_targets: Query<'w, 's, &'static RenderTarget>,
     draw_query: Query<'w, 's, (&'static DrawState, &'static NodeId, Option<&'static GraphId>)>,
 	graph_node_query: Query<'w, 's, &'static GraphId>,
     node_query: Query<'w, 's, &'static Quad>,
@@ -185,6 +189,7 @@ pub struct Param<'w, 's> {
     cache_target: Res<'w, TargetCacheMgr>,
     as_image_mark_type: OrInitRes<'w, RenderContextMarkType<AsImage>>,
     depth_cache: &'s DepthCache,
+	pass_graph_map: &'s PassGraphMap,
 }
 
 // last_rt_type: RenderTargetType,
@@ -283,6 +288,7 @@ impl Node for Pass2DNode {
 				graph_node_query: query_param.graph_node_query,
                 pass2d_query: query_param.pass2d_query.1,
                 draw_query: query_param.draw_query,
+				render_targets: query_param.render_targets,
                 post_query: query_param.pass2d_query.2,
                 node_query: query_param.node_query,
                 draw_post_query: query_param.pass2d_query.3,
@@ -311,6 +317,7 @@ impl Node for Pass2DNode {
                 cache_target: query_param.cache_target,
                 as_image_mark_type: query_param.as_image_mark_type,
                 depth_cache: &query_param.depth_cache,
+				pass_graph_map: &query_param.pass_graph_map,
             };
 
             let post_list = param.post_query.get(pass2d_id);
@@ -344,6 +351,25 @@ impl Node for Pass2DNode {
                                     // 根节点应该有个组件，表明是否渲染到屏幕， 如果不渲染到屏幕，则渲染到临时fbo并输出（TODO）
                                     (RenderPassTarget::Screen(&param.surface, &param.screen.depth), &param.fbo_clear_color.0)
                                 } else {
+
+									// 排除to节点中分配的Target
+									let mut next_target = Vec::with_capacity(1);
+									for next in to.iter() {
+										if let Some(pass_id) = param.pass_graph_map.get(next) {
+											if let Ok(render_target) = param.render_targets.get(*pass_id) {
+												let r: Share<SafeTargetView> = match &render_target.target {
+													StrongTarget::Asset(r) => r.0.clone(),
+													StrongTarget::Raw(r) => r.0.clone(),
+													_ => continue,
+												};
+												next_target.push(SimpleInOut {
+													target: Some(r),
+													valid_rect: None,
+												});
+											}
+										}
+										
+									}
                                     // log::warn!("fbo============{:?}", );
                                     // 否则渲染到临时fbo上
                                     match render_target.get_or_create(
@@ -354,7 +380,7 @@ impl Node for Pass2DNode {
                                         &r.1,
                                         &param.t_type,
                                         16 * 1024 * 1024, // 默认最多缓存16M的target，可配置？TODO
-                                        input.0.values(),
+                                        input.0.values().chain(next_target.iter()),
                                         parent_pass2d_id.is_null(),
                                     ) {
                                         Some(r) => {
@@ -1139,3 +1165,86 @@ pub fn create_rp_for_fbo<'a>(
 
     (rp, view_port_, scissor, (offsetx, offsety))
 }
+
+
+impl RenderTarget {
+    // 返回(渲染目标, 是否使用了新的渲染目标)
+    // 如果未分配新的渲染目标，渲染时应该做脏更
+    pub fn get_or_create<'s, T: Iterator<Item = &'s SimpleInOut>>(
+        &'s mut self,
+        atlas_allocator: &SafeAtlasAllocator,
+        as_image: Option<&AsImage>,
+        assets: &TargetCacheMgr,
+        as_image_mark_type: &RenderContextMarkType<AsImage>,
+        post_info: &PostProcessInfo,
+        t_type: &DynTargetType,
+        max_cache: usize,
+        exclude: T,
+        is_force_alloc: bool,
+    ) -> Option<Share<SafeTargetView>> {
+        if is_force_alloc || post_info.has_effect() {
+            match &self.target {
+                StrongTarget::Asset(r) => return Some(r.0.clone()),
+				StrongTarget::Raw(r) => return Some(r.0.clone()),
+                StrongTarget::None => {
+                    let width = (self.bound_box.maxs.x - self.bound_box.mins.x).ceil() as u32;
+                    let height = (self.bound_box.maxs.y - self.bound_box.mins.y).ceil() as u32;
+
+                    let as_image = match as_image {
+                        Some(r) => r.level.clone(),
+                        None => pi_style::style::AsImage::None,
+                    };
+
+					let capacity_overflow = assets.assets.size() as u32 + width * height * 4 > max_cache as u32;
+                    // 如果设置节点为建议缓存，在显存已经超出max_cache的情况下， 不为其分配target， 该相机下的物体直接渲染到父target上
+                    if AsImage1::Advise == as_image && post_info.is_only_as_image(as_image_mark_type) && capacity_overflow
+                    {
+                        return None;
+                    };
+
+                    // 分配渲染目标
+                    let t = CacheTarget(atlas_allocator.allocate(width, height, t_type.has_depth, exclude));
+
+                    match as_image {
+                        AsImage1::None => {
+							return Some(t.0);
+							// // 放入资产管理器，由资产管理器管理
+							// if capacity_overflow {
+							// 	// self.target = StrongTarget::Raw(t.clone());
+							// 	return Some(t.0);
+							// } else {
+							// 	let t = assets.push(t.clone());
+							// 	// self.target = StrongTarget::Asset(t.clone());
+							// 	return Some(t.0.clone());
+							// }
+							
+						},
+						r => {
+							let t = assets.push(t.clone());
+							match r {
+								AsImage1::Advise => self.cache = RenderTargetCache::Weak(Share::downgrade(&t)),
+								AsImage1::Force => self.cache = RenderTargetCache::Strong(t.clone()),
+								_ => (),
+							};
+							// self.target = StrongTarget::Asset(t.clone());
+							return Some(t.0.clone());
+						}
+                    };
+                    
+                    
+                }
+            }
+        // // if let None = target {
+        // // 如果后处理效果不只包含as_image，则
+        // if post_info.is_only_as_image(as_image_mark_type) {
+        // 	// || assets.size() as u32 + width * height * 4 <= max_cache as u32
+
+        // 	return (Some(t.0), true)
+        // }
+        // }
+        } else {
+            None
+        }
+    }
+}
+

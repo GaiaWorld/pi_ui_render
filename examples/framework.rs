@@ -5,13 +5,12 @@ use bevy::prelude::{ App, SystemSet };
 #[cfg(feature = "debug")]
 use bevy::prelude::Local;
 use bevy::winit::WinitPlugin;
-use bevy::{
-    ecs::{
-        system::{Commands, ResMut, SystemState},
-        world::World,
-    },
-    window::{Window, WindowResolution},
+use bevy::ecs::{
+	system::{Commands, ResMut, SystemState},
+	world::World,
 };
+
+use bevy_window::{Window, WindowResolution};
 
 use pi_async_rt::prelude::AsyncRuntime;
 use pi_bevy_asset::{AssetConfig, PiAssetPlugin};
@@ -100,7 +99,11 @@ pub fn start<T: Example + Sync + Send + 'static>(example: T) {
             app.add_systems(Update, setting_next_record.before(UiSystemSet::Setting));
         }
     }
-	app.update();
+	loop {
+		app.update();
+		std::thread::sleep(std::time::Duration::from_millis(16));
+	}
+	// app.update();
 	// let mut v = Vec::with_capacity(10);
 	// for _i in 0..10 {
 	// 	let t = std::time::Instant::now();
@@ -147,7 +150,7 @@ pub fn start<T: Example + Sync + Send + 'static>(example: T) {
 	// criterion::criterion_main!(benchmarks);
 
 
-    app.run();
+    // app.run();
 
     // let system_schedule = bevy_mod_debugdump::get_schedule(&mut app);
     // let mut file = File::create("system_schedule.dot").unwrap();
@@ -181,9 +184,9 @@ pub fn init(width: u32, height: u32) -> App {
     // window.set_inner_size(PhysicalSize {width, height});
     let mut window = Window::default();
     window.resolution = WindowResolution::new(width as f32, height as f32);
-    let mut window_plugin = bevy::window::WindowPlugin::default();
-    window_plugin.primary_window = Some(window);
-	// window_plugin.primary_window = None;
+    let mut window_plugin = bevy_window::WindowPlugin::default();
+    // window_plugin.primary_window = Some(window);
+	window_plugin.primary_window = None;
 
 	let mut o = PiRenderOptions::default();
 	o.present_mode = wgpu::PresentMode::Mailbox;
@@ -191,12 +194,12 @@ pub fn init(width: u32, height: u32) -> App {
 
 	// app.world.insert_resource(IsRun(true));
 
-	// let w = {
-	// 	use pi_winit::platform::windows::EventLoopBuilderExtWindows;
-	// 	let mut event_loop = pi_winit::event_loop::EventLoopBuilder::new().with_any_thread(true).build();
-	// 	let window = pi_winit::window::Window::new(&event_loop).unwrap();
-	// 	window
-	// };
+	let w = {
+		use pi_winit::platform::windows::EventLoopBuilderExtWindows;
+		let event_loop = pi_winit::event_loop::EventLoopBuilder::new().with_any_thread(true).build();
+		let window = pi_winit::window::Window::new(&event_loop).unwrap();
+		window
+	};
 
     app.add_plugins(pi_bevy_log::LogPlugin::<Vec<u8>> {
         filter: FILTER.to_string(),
@@ -204,10 +207,10 @@ pub fn init(width: u32, height: u32) -> App {
 		chrome_write: None,
     })
     .add_plugins(bevy::a11y::AccessibilityPlugin)
-    .add_plugins(bevy::input::InputPlugin::default())
+    // .add_plugins(bevy::input::InputPlugin::default())
     .add_plugins(window_plugin)
-    .add_plugins(WinitPlugin::default())
-	// .add_plugins(pi_bevy_winit_window::WinitPlugin::new(Arc::new(w)).with_size(width, height))
+    // .add_plugins(WinitPlugin::default())
+	.add_plugins(pi_bevy_winit_window::WinitPlugin::new(Arc::new(w)).with_size(width, height))
     .add_plugins(PiAssetPlugin {
         total_capacity: 1024 * 1024 * 1024,
         asset_config: AssetConfig::default(),
@@ -373,3 +376,4 @@ pub const FILTER: &'static str = "wgpu=warn,pi_ui_render::system::pass_effect::r
 // pub const FILTER: &'static str = "wgpu=warn,naga=warn";
 // pub const FILTER: &'static str = "";
 pub const LOG_LEVEL: bevy::log::Level = bevy::log::Level::WARN;
+// pub const LOG_LEVEL: bevy::log::Level = bevy::log::Level::INFO;

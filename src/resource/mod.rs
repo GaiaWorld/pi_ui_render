@@ -6,7 +6,8 @@ pub mod draw_obj;
 pub mod fragment;
 pub use cmd::*;
 use pi_bevy_asset::ShareAssetMgr;
-use pi_bevy_render_plugin::{PiRenderDevice, PiRenderQueue};
+use pi_bevy_render_plugin::{PiRenderDevice, PiRenderQueue, node:: NodeId as GraphNodeId};
+use pi_hash::XHashMap;
 use pi_map::Map;
 use pi_render::font::FontSheet;
 use pi_render::rhi::asset::TextureRes;
@@ -595,3 +596,7 @@ impl FromWorld for ShareFontSheet {
         ShareFontSheet(Share::new(ShareCell::new(FontSheet::new(&device.0, &texture_res_mgr.0, &queue.0))))
     }
 }
+
+/// 建立PassId和GraphNodeId的映射
+#[derive(Deref, Resource, Default)]
+pub struct PassGraphMap(pub XHashMap<GraphNodeId, Entity>);

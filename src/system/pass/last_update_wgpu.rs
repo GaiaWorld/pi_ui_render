@@ -57,6 +57,8 @@ pub fn last_update_wgpu(
     group_alloc_center.write_buffer(&device, &queue);
     vertbuffer_alloter.write_buffer();
     index_alloter.write_buffer();
+
+	log::debug!("last_update_wgpu===================");
 }
 
 
