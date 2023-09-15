@@ -2,3 +2,5 @@
 **/*.rs.bk
 /.cargo
 /Cargo.lock
+/libEGL.dll
+/libGLESv2.dll

@@ -63,12 +63,13 @@ fn push_fs_code(_codes: &mut BlockCodeAtom) {
     _codes.define.push(FS_CODE[0].clone().push_defines_front(_defines));
     super::ui_meterial::push_code(_codes, merge_defines(_defines, &[]).as_slice());
     super::sdf::push_code(_codes, merge_defines(_defines, &[]).as_slice());
-    _codes.running.push(FS_CODE[1].clone().push_defines_front(_defines));
+    _codes.define.push(FS_CODE[1].clone().push_defines_front(_defines));
     _codes.running.push(FS_CODE[2].clone().push_defines_front(_defines));
     _codes.running.push(FS_CODE[3].clone().push_defines_front(_defines));
     _codes.running.push(FS_CODE[4].clone().push_defines_front(_defines));
     _codes.running.push(FS_CODE[5].clone().push_defines_front(_defines));
     _codes.running.push(FS_CODE[6].clone().push_defines_front(_defines));
+    _codes.running.push(FS_CODE[7].clone().push_defines_front(_defines));
 }
 
 lazy_static! {
@@ -106,6 +107,55 @@ precision highp float;
 "
             ),
             defines: vec![]
+        },
+        CodeSlice {
+            code: pi_atom::Atom::from(
+                "	float erf(float x) {
+
+		bool negative = x < 0.0;
+
+		if (negative)
+
+			x = -x;
+
+		float x2 = x * x;
+
+		float x3 = x2 * x;
+
+		float x4 = x2 * x2;
+
+		float denom = 1.0 + 0.278393 * x + 0.230389 * x2 + 0.000972 * x3 + 0.078108 * x4;
+
+		float result = 1.0 - 1.0 / (denom * denom * denom * denom);
+
+		return negative ? -result : result;
+
+	}
+
+	float erfSigma(float x, float sigma) {
+
+		return erf(x / (sigma * 1.4142135623730951));
+
+	}
+
+	float colorFromRect(vec2 p0, vec2 p1, float sigma) {
+
+		return (erfSigma(p1.x, sigma) - erfSigma(p0.x, sigma)) *
+
+			(erfSigma(p1.y, sigma) - erfSigma(p0.y, sigma)) / 4.0;
+
+	}
+
+	float getShadowAlpha(vec2 pos, vec2 ptMin, vec2 ptMax, float sigma) {
+
+		vec2 dMin = pos - ptMin, dMax = pos - ptMax;
+
+		return colorFromRect(dMin, dMax, sigma);
+
+	}
+"
+            ),
+            defines: vec![Define::new(true, SHADOW_DEFINE.clone())]
         },
         CodeSlice {
             code: pi_atom::Atom::from(

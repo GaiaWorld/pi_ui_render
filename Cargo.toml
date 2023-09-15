@@ -109,11 +109,12 @@ tracing-subscriber = "0.3"
 # bevy_input = { path = "../bevy/crates/bevy_input" }
 # bevy_reflect = { path = "../bevy/crates/bevy_reflect" }
 # bevy_math = { path = "../bevy/crates/bevy_math" }
-# pi_slotmap_tree = { path = "../pi_slotmap_tree" }
+# pi_slotmap_tree = { path = "../pi_slotmap_tree" }f
 # pi_map = { path = "../pi_map" }
 # pi_flex_layout = { path = "../pi_flex_layout" }
 # pi_dirty={path = "../pi_dirty" }
 # pi_spatial = { path="../pi_spatial" }
+# wgpu = { path = "../wgpu/wgpu" }
 
 
 
@@ -133,6 +134,7 @@ tracing-subscriber = "0.3"
 # pi_bevy_log = { path = "../pi_bevy/crates/log" } 
 # pi_bevy_ecs_macro = { path = "../pi_bevy/crates/ecs_extend/macro"}
 # pi_bevy_post_process= { path = "../pi_bevy/crates/post_process" }
+# pi_bevy_window= { path = "../pi_bevy/crates/window" }
 
 # pi_render
 # pi_render = { path = "../pi_render" }
@@ -141,14 +143,12 @@ tracing-subscriber = "0.3"
 # render_compile = {path = "../pi_render/crates/render_compile"}
 
 # pi_postprocess = { path = "../pi_post_process"}
-# pi_assets = {path="../pi_assets"}
 # pi_graph = {path = "../pi_graph"}
-# wgpu = { path = "../wgpu-0.14.2/wgpu"}
 
 # pi_slotmap = { path = "../pi_slotmap" }
 
 # pi_dirty = { path = "../pi_dirty" }
-# wgpu = { path = "../wgpu/wgpu" }
+# wgpu = {path = "../pi_wgpu", package="pi_wgpu"}
 
 
 [[example]]

@@ -58,7 +58,7 @@ impl Example for QuadExample {
         self.cmd.set_style(div1, PositionTypeType(PositionType::Relative));
         self.cmd.set_style(
             div1,
-            BackgroundImageType(Atom::from("examples/background_image/source/bx_lanseguanbi.s3tc.ktx")),
+            BackgroundImageType(Atom::from("examples/z_source/bx_lanseguanbi.s3tc.ktx")),
         );
         self.cmd.append(div1, root);
     }
