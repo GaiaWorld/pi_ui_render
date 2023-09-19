@@ -1,6 +1,6 @@
 [package]
 name = "pi_ui_render"
-version = "0.1.8"
+version = "0.1.9"
 authors = ["suncy <suncy@gmail.com>"]
 edition = "2021"
 description = "Renderer 2D UI with Bevy Ecs"
@@ -60,7 +60,7 @@ pi_slotmap_tree ="0.3"
 pi_dirty="0.1"
 
 pi_flex_layout = "0.2"
-pi_spatial = "0.4"
+pi_spatial = "0.5"
 pi_hal = {version = "0.1", registry = "yn"}
 pi_postprocess = {version = "0.1", registry = "yn"}
 pi_curves = {version = "0.1", registry = "yn"}
@@ -115,6 +115,7 @@ tracing-subscriber = "0.3"
 # pi_dirty={path = "../pi_dirty" }
 # pi_spatial = { path="../pi_spatial" }
 # wgpu = { path = "../wgpu/wgpu" }
+pi_spatial = {path = "../pi_spatial"}
 
 
 

@@ -9,8 +9,6 @@ use font_kit::font::new_face_by_path;
 use framework::Example;
 use pi_flex_layout::prelude::Size;
 use pi_ui_render::resource::UserCommands;
-
-use crate::framework::PLAY_PATH;
 //
 fn main() { framework::start(ExampleCommonPlay::default()) }
 
@@ -27,19 +25,20 @@ pub struct ExampleCommonPlay {
 impl Example for ExampleCommonPlay {
     fn get_init_size(&self) -> Option<Size<u32>> {
         // None表示使用默认值
-        Some(Size { width: 436, height: 960 })
+        Some(Size { width: 1080, height: 2160 })
     }
 
-    fn init(&mut self, _world: &mut World, size: (usize, usize)) {
+    fn init(&mut self, world: &mut World, size: (usize, usize)) {
+		let r = world.get_resource::<framework::PlayOption>().unwrap();
         // let r: Commands1 = unsafe { transmute(command) };
         let mut ttf = std::env::current_dir().unwrap();
         // log::warn!("cur_dir========{:?}", ttf);
         ttf.push("examples/a_cmd_play/source/SOURCEHANSANSK-MEDIUM.TTF");
-        log::warn!("font========ttf={:?}， PLAY_PATH={:?}", ttf, PLAY_PATH);
+        log::warn!("font========ttf={:?}， PLAY_PATH={:?}", ttf, &r.play_path);
         // 设置默认字体
         new_face_by_path("default".to_string(), ttf.to_str().unwrap());
 
-        if let Some(r) = PLAY_PATH {
+        if let Some(r) = &r.play_path {
             std::env::set_current_dir(r).unwrap();
         }
 
@@ -53,6 +52,13 @@ impl Example for ExampleCommonPlay {
 
     #[cfg(feature = "debug")]
     fn record_option(&self) -> pi_ui_render::system::cmd_play::TraceOption { pi_ui_render::system::cmd_play::TraceOption::Play }
+
+    fn play_option(&self) -> Option<framework::PlayOption> {
+		Some(framework::PlayOption {
+			play_path: Some("D://0_js/cdqxz_new_mult_gui_exe/dst"),
+			play_version: "test",
+		})
+	}
 
     // fn render(&mut self, cmd: &mut UserCommands, _cmd1: &mut Commands) {
     // 	cmd.

@@ -4,12 +4,12 @@ use bevy::prelude::{IntoSystemConfigs, Update, Startup, Entity};
 use bevy::prelude::{ App, SystemSet };
 #[cfg(feature = "debug")]
 use bevy::prelude::Local;
-use bevy::winit::WinitPlugin;
 use bevy::ecs::{
 	system::{Commands, ResMut, SystemState},
 	world::World,
 };
 
+use bevy_ecs::system::Resource;
 use bevy_window::{Window, WindowResolution};
 
 use pi_async_rt::prelude::AsyncRuntime;
@@ -39,6 +39,7 @@ pub trait Example: 'static + Sized {
     }
     #[cfg(feature = "debug")]
     fn record_option(&self) -> pi_ui_render::system::cmd_play::TraceOption { pi_ui_render::system::cmd_play::TraceOption::None }
+    fn play_option(&self) -> Option<PlayOption> { None }
 }
 
 pub fn start<T: Example + Sync + Send + 'static>(example: T) {
@@ -66,6 +67,8 @@ pub fn start<T: Example + Sync + Send + 'static>(example: T) {
 
     #[cfg(feature = "debug")]
     let record_option = example.record_option();
+	#[cfg(feature = "debug")]
+	let play_option = example.play_option();
     let exmple = Share::new(ShareMutex::new(example));
     let exmple1 = exmple.clone();
     let exmple_run = move |world: &mut World, commands: &mut SystemState<(ResMut<UserCommands>, Commands)>| {
@@ -77,6 +80,10 @@ pub fn start<T: Example + Sync + Send + 'static>(example: T) {
     let mut app = init(width, height);
 
     app.world.insert_resource(RunState::RENDER);
+	#[cfg(feature = "debug")]
+	if let Some(play_option) = play_option {
+		app.world.insert_resource(play_option);
+	}
 
     #[cfg(feature = "debug")]
     app.add_plugins(UiPlugin { cmd_trace: record_option });
@@ -184,6 +191,7 @@ pub fn init(width: u32, height: u32) -> App {
     // window.set_inner_size(PhysicalSize {width, height});
     let mut window = Window::default();
     window.resolution = WindowResolution::new(width as f32, height as f32);
+	println!("window========={:?}, {:?}", width, height);
     let mut window_plugin = bevy_window::WindowPlugin::default();
     // window_plugin.primary_window = Some(window);
 	window_plugin.primary_window = None;
@@ -288,14 +296,14 @@ pub fn record_cmd_to_file(mut records: ResMut<Records>) {
 // 设置下一条记录
 #[cfg(feature = "debug")]
 pub fn setting_next_record(world: &mut World, mut local_state: Local<NextState>) {
-
+	let play_option  = world.get_resource::<PlayOption>().unwrap().clone();
     let local_state = &mut *local_state;
-    setting(local_state.cmd_path, &mut local_state.file_index, world, &mut local_state.is_end)
+    setting(local_state.cmd_path, &mut local_state.file_index, world, &mut local_state.is_end, &play_option)
 }
 
 
 #[cfg(feature = "debug")]
-fn setting(cmd_path: Option<&str>, file_index1: &mut usize, world: &mut World, is_end: &mut bool) {
+fn setting(cmd_path: Option<&str>, file_index1: &mut usize, world: &mut World, is_end: &mut bool, play_option: &PlayOption) {
     let mut file_index = *file_index1;
     let play_state = world.get_resource::<PlayState>();
     if let Some(r) = play_state {
@@ -306,7 +314,7 @@ fn setting(cmd_path: Option<&str>, file_index1: &mut usize, world: &mut World, i
                 Some(r) => r.to_string(),
                 None => "examples/a_cmd_play/source".to_string(),
             };
-            let path = dir + "/cmd_" + PLAY_VERSION + "_" + file_index.to_string().as_str() + ".gui_cmd";
+            let path = dir + "/cmd_" + play_option.play_version + "_" + file_index.to_string().as_str() + ".gui_cmd";
             // log::warn!("r================{:?}", path);
             let _span = tracing::warn_span!("gui_cmd").entered();
             match std::fs::read(path.clone()) {
@@ -359,19 +367,26 @@ pub fn spawn(world: &mut World) -> Entity {
     r
 }
 
-#[allow(dead_code)]
-#[cfg(feature = "debug")]
-// pub const PLAY_PATH: Option<&'static str> = None;
-pub const PLAY_PATH: Option<&'static str> = Some("D://0_js/cdqxz_new_mult_gui_exe/dst");
-// pub const PLAY_PATH: Option<&'static str> = Some("D://0_js/pi_demo_mult_gui/dst");
-#[cfg(feature = "debug")]
-// pub const PLAY_VERSION: &'static str = "local";
-pub const PLAY_VERSION: &'static str = "test";
+#[derive(Resource, Clone)]
+pub struct PlayOption {
+	pub play_path: Option<&'static str>,
+	pub play_version: &'static str,
+}
 
-// pub const FILTER: &'static str = "wgpu=warn,naga=warn,pi_ui_render::components::user=debug,pi_flex_layout=trace";
+// #[allow(dead_code)]
+// #[cfg(feature = "debug")]
+// // pub const PLAY_PATH: Option<&'static str> = None;
+// pub const PLAY_PATH: Option<&'static str> = Some("D://0_js/cdqxz_new_mult_gui_exe/dst");
+// // pub const PLAY_PATH: Option<&'static str> = Some("D://0_js/pi_demo_mult_gui/dst");
+// #[cfg(feature = "debug")]
+// // pub const PLAY_VERSION: &'static str = "local";
+// pub const PLAY_VERSION: &'static str = "test";
+
+// pi_flex_layout=trace
+pub const FILTER: &'static str = "wgpu=warn,naga=warn,pi_ui_render::components::user=debug";
 // pub const FILTER: &'static str = "wgpu=warn,entity_3v0=trace";
 // pub const FILTER: &'static str = "wgpu=warn,pi_ui_render::system::pass::pass_graph_node=trace,pi_ui_render::system::pass_effect::radial_wave=trace,pi_ui_render::system::pass::pass_life=trace";
-pub const FILTER: &'static str = "wgpu=warn,pi_ui_render::system::pass_effect::radial_wave=trace,pi_ui_render::system::pass::pass_life=trace,pi_ui_render::system::pass::update_graph=trace";
+// pub const FILTER: &'static str = "wgpu=warn,pi_ui_render::system::pass_effect::radial_wave=trace,pi_ui_render::system::pass::pass_life=trace,pi_ui_render::system::pass::update_graph=trace";
 // pub const FILTER: &'static str = "wgpu=warn,naga=warn,bevy_app=warn";
 // pub const FILTER: &'static str = "wgpu=warn,naga=warn";
 // pub const FILTER: &'static str = "";
