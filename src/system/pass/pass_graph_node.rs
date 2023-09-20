@@ -411,7 +411,11 @@ impl Node for Pass2DNode {
 						
                         let (_offset, _view_port) = {
                             let input_groups = Vec::with_capacity(input.0.len());
-                            let post_draw = Vec::with_capacity(input.0.len());
+                            let mut post_draw = Vec::with_capacity(input.0.len());
+							for _i in 0..input.0.len() {
+								post_draw.push(None);
+							}
+							let mut draw_i = 0;
                             // 创建一个渲染Pass
                             let (mut rp, view_port, clear_port, offset) = create_rp(
                                 rt.clone(),
@@ -448,6 +452,7 @@ impl Node for Pass2DNode {
                             Self::draw_list(
                                 &input.0,
                                 &post_draw,
+								&mut draw_i,
                                 &input_groups,
                                 &mut rp,
                                 (view_port.2 as u32, view_port.3 as u32),
@@ -583,10 +588,11 @@ impl Pass2DNode {
     /// * last_camera-当前渲染目标的根相机（渲染过程是一个递归过程，每遇到一个Pass2d，当前相机会发生变化，当last_camera在递归过程保持不变）
     /// * cur_view_port-当前设置的视口
     /// * cur_camera-当前设置的相机
-    pub fn render_pass_2d<'a>(
+    pub fn render_pass_2d<'a, 'b>(
         pass2d_id: EntityKey,
         input: &'a XHashMap<GraphNodeId, SimpleInOut>,
-        post_draw: &'a Vec<DrawObj>,
+        post_draw: &'a Vec<Option<DrawObj>>,
+		draw_i: &'b mut usize,
         input_groups: &'a Vec<(BindGroup, Buffer)>,
         rp: &mut RenderPass<'a>,
         target_size: (u32, u32),
@@ -709,19 +715,27 @@ impl Pass2DNode {
                     wgpu::TextureFormat::pi_render_default(),
                 ) {
                     // 这里使用非安全的方式将不可变引用转为可变引用的前提是，Vec在创建时容量足够，使得push时不需要扩容，同时使用Vec的地方不能多线程
-                    // log::warn!("zzzz=========={:p}", post_draw);
-					let rr = unsafe { &mut *(post_draw as *const Vec<DrawObj> as usize as *mut Vec<DrawObj>) };
-					if rr.capacity() == post_draw.len() {
+					let rr = unsafe { &mut *(post_draw as *const Vec<Option<DrawObj>> as usize as *mut Vec<Option<DrawObj>>) };
+					if rr.capacity() == *draw_i {
 						panic!("xxxxx");
 					}
-					rr.push(draw_obj);
-                    let index = rr.len() - 1;
-					// log::warn!("bbb=========={:?}, {:?}, index= {}", rr.len(), rr.capacity(), rr.get(index).is_some());
-					if let Some(rr) = rr.get(index) { // 似乎编译器存在bug？ rr[index].draw(rp);调用在release版本下会崩溃
-						rr.draw(rp);
-					} else {
-						unreachable!();
-					}
+					rr[*draw_i] = Some(draw_obj);
+					rr[*draw_i].as_ref().unwrap().draw(rp);
+					*draw_i += 1;
+
+                    // // log::warn!("zzzz=========={:p}", post_draw);
+					// let rr = unsafe { &mut *(post_draw as *const Vec<DrawObj> as usize as *mut Vec<DrawObj>) };
+					// if rr.capacity() == post_draw.len() {
+					// 	panic!("xxxxx");
+					// }
+					// rr.push(draw_obj);
+                    // let index = rr.len() - 1;
+					// // log::warn!("bbb=========={:?}, {:?}, index= {}", rr.len(), rr.capacity(), rr.get(index).is_some());
+					// if let Some(rr) = rr.get(index) { // 似乎编译器存在bug？ rr[index].draw(rp);调用在release版本下会崩溃
+					// 	rr.draw(rp);
+					// } else {
+					// 	unreachable!();
+					// }
                     // rr[index].draw(rp);
                     // log::error!("draw_final fail, {:?} ", e);
                 }
@@ -753,6 +767,7 @@ impl Pass2DNode {
                     Self::draw_list(
                         input,
                         post_draw,
+						draw_i,
                         input_groups,
                         rp,
                         target_size,
@@ -775,10 +790,11 @@ impl Pass2DNode {
     }
 
     // 将单个DrawObj的后处理结果渲染到目标上
-    pub fn render_draw_obj_post<'a>(
+    pub fn render_draw_obj_post<'a, 'b>(
         draw_obj_id: EntityKey,
         input: &'a XHashMap<GraphNodeId, SimpleInOut>,
-        post_draw: &'a Vec<DrawObj>,
+        post_draw: &'a Vec<Option<DrawObj>>,
+		draw_i: &'b mut usize,
         rp: &mut RenderPass<'a>,
         target_size: (u32, u32),
         param: &'a Param<'a, 'a>,
@@ -840,19 +856,31 @@ impl Pass2DNode {
                 param.t_type.has_depth,
                 wgpu::TextureFormat::pi_render_default(),
             ) {
-                // 这里使用非安全的方式将不可变引用转为可变引用的前提是，Vec在创建时容量足够，使得push时不需要扩容，同时使用Vec的地方不能多线程
-                unsafe { &mut *(post_draw as *const Vec<DrawObj> as usize as *mut Vec<DrawObj>) }.push(draw_obj);
-                let index = post_draw.len() - 1;
-
-                post_draw[index].draw(rp);
+				// 这里使用非安全的方式将不可变引用转为可变引用的前提是，Vec在创建时容量足够，使得push时不需要扩容，同时使用Vec的地方不能多线程
+				let rr = unsafe { &mut *(post_draw as *const Vec<Option<DrawObj>> as usize as *mut Vec<Option<DrawObj>>) };
+				if rr.capacity() == *draw_i {
+					panic!("xxxxx");
+				}
+				rr[*draw_i] = Some(draw_obj);
+				rr[*draw_i].as_ref().unwrap().draw(rp);
+				*draw_i += 1;
+				// rr.push(draw_obj);
+				// let index = rr.len() - 1;
+				// log::warn!("bbb=========={:?}, {:?}, index= {}", rr.len(), rr.capacity(), rr.get(index).is_some());
+				// if let Some(rr) = rr.get(draw_i) { // 似乎编译器存在bug？ rr[index].draw(rp);调用在release版本下会崩溃
+				// 	rr.draw(rp);
+				// } else {
+				// 	unreachable!();
+				// }
                 // log::error!("draw_final fail, {:?} ", e);
             }
         }
     }
 
-    fn draw_list<'a, 'w>(
+    fn draw_list<'a, 'w, 'b>(
         input: &'a XHashMap<GraphNodeId, SimpleInOut>,
-        post_draw: &'a Vec<DrawObj>,
+        post_draw: &'a Vec<Option<DrawObj>>,
+		draw_i: &'b mut usize,
         input_groups: &'a Vec<(BindGroup, Buffer)>,
         rp: &'w mut RenderPass<'a>,
         target_size: (u32, u32),
@@ -928,13 +956,14 @@ impl Pass2DNode {
                     }
                 }
                 DrawIndex::DrawObjPost(e) => {
-                    Self::render_draw_obj_post(*e, input, post_draw, rp, target_size, param, cur_camera, *depth);
+                    Self::render_draw_obj_post(*e, input, post_draw, draw_i, rp, target_size, param, cur_camera, *depth);
                 }
                 DrawIndex::Pass2D(e) => {
                     Self::render_pass_2d(
                         *e,
                         input,
                         post_draw,
+						draw_i,
                         input_groups,
                         rp,
                         target_size,

@@ -12,7 +12,7 @@ keywords = ["pi", "bevy", "ecs", "ui"]
 crate-type = ["lib"]
 
 [features]
-# default = ["single_thread"]
+default = ["single_thread"]
 wasm_bindgen = []
 debug = []
 trace=["debug", "bevy/trace_chrome", "pi_bevy_render_plugin/trace", "pi_bevy_log/tracing-chrome"]
@@ -100,15 +100,15 @@ tracing-subscriber = "0.3"
 # pi_async_graph = { path = "../pi_async_graph" }
 # geo = { path = "../geo/geo" }
 # pi_assets = { path = "../pi_assets" }
-# bevy_app = { path = "../bevy/crates/bevy_app" }
-# bevy_ecs = { path = "../bevy/crates/bevy_ecs" }
-# bevy_tasks = { path = "../bevy/crates/bevy_tasks" }
-# bevy_window = { path = "../bevy/crates/bevy_window" }
-# bevy_utils = { path = "../bevy/crates/bevy_utils" }
-# bevy_a11y = { path = "../bevy/crates/bevy_a11y" }
-# bevy_input = { path = "../bevy/crates/bevy_input" }
-# bevy_reflect = { path = "../bevy/crates/bevy_reflect" }
-# bevy_math = { path = "../bevy/crates/bevy_math" }
+bevy_app = { path = "../bevy/crates/bevy_app" }
+bevy_ecs = { path = "../bevy/crates/bevy_ecs" }
+bevy_tasks = { path = "../bevy/crates/bevy_tasks" }
+bevy_window = { path = "../bevy/crates/bevy_window" }
+bevy_utils = { path = "../bevy/crates/bevy_utils" }
+bevy_a11y = { path = "../bevy/crates/bevy_a11y" }
+bevy_input = { path = "../bevy/crates/bevy_input" }
+bevy_reflect = { path = "../bevy/crates/bevy_reflect" }
+bevy_math = { path = "../bevy/crates/bevy_math" }
 # pi_slotmap_tree = { path = "../pi_slotmap_tree" }f
 # pi_map = { path = "../pi_map" }
 # pi_flex_layout = { path = "../pi_flex_layout" }
@@ -149,7 +149,7 @@ pi_spatial = {path = "../pi_spatial"}
 # pi_slotmap = { path = "../pi_slotmap" }
 
 # pi_dirty = { path = "../pi_dirty" }
-# wgpu = {path = "../pi_wgpu", package="pi_wgpu"}
+wgpu = {path = "../pi_wgpu", package="pi_wgpu"}
 
 
 [[example]]
@@ -172,8 +172,9 @@ pi_ui_render = {path = "./", features = ["debug"]}
 tracing = "0.1"
 postcard = {version = "1.0", features = ["use-std"]}
 flame = "0.2"
-wgpu = {version = "0.1", registry = "yn", package="pi_wgpu", features=["wgpu"]}
-wgpu1 = { version = "0.16", default-features = false, package="wgpu", features=["glsl"]}
+wgpu = {version = "0.1", registry = "yn", package="pi_wgpu"}
+# wgpu = {version = "0.1", registry = "yn", package="pi_wgpu", features=["wgpu"]}
+# wgpu1 = { version = "0.16", default-features = false, package="wgpu", features=["glsl"]}
 pi_bevy_winit_window = {version="0.1", registry = "yn"}
 # pi_export_gui = {path="../pi_export/crates/gui"}
 # bevy_mod_debugdump = "0.6"

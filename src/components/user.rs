@@ -1062,6 +1062,24 @@ pub mod serialize {
                 );
             }
         };
+		// 属性重置， 并发送事件
+        (@func_send $name: ident, $value_ty: ident) => {
+            fn set(_cur_style_mark: &mut BitArray<[u32; 3]>, _ptr: *const u8, query: &mut Setting, entity: Entity, _is_clone: bool) {
+                reset_style_attr(
+                    &mut query.world,
+                    entity,
+                    query.style.$name,
+                    query.style.default.$name,
+                    |item: &mut $value_ty, v: &$value_ty| {
+                        *item = v.clone();
+                    },
+                );
+				if let Some(component) = query.world.get_resource_mut_by_id(query.style.event.$name) {
+					unsafe { component.into_inner().deref_mut::<Events<ComponentEvent<Changed<$value_ty>>>>() }
+						.send(ComponentEvent::<Changed<$value_ty>>::new(entity));
+				};
+            }
+        };
         // 属性修改
         ($name: ident, $c_ty: ty, $feild: ident) => {
             fn set(_cur_style_mark: &mut BitArray<[u32; 3]>, _ptr: *const u8, query: &mut Setting, entity: Entity, _is_clone: bool) {
@@ -1076,6 +1094,7 @@ pub mod serialize {
                 );
             }
         };
+
         // 属性修改
         (@func $name: ident, $c_ty: ty, $set_func: ident, $get_func: ident) => {
             fn set(_cur_style_mark: &mut BitArray<[u32; 3]>, _ptr: *const u8, query: &mut Setting, entity: Entity, _is_clone: bool) {
@@ -1239,7 +1258,7 @@ pub mod serialize {
 		$crate::paste::item! {
 
 			impl ConvertToComponent for [<Reset $struct_name>] {
-				reset!($name, $pack_ty);
+				reset!(@func_send $name, $pack_ty);
 				set_default!($name, $pack_ty);
 				fn to_attr(_ptr: *const u8) -> Attribute
 				{
@@ -1558,7 +1577,6 @@ pub mod serialize {
         set_default!(text_content, TextContent);
         fn to_attr(ptr: *const u8) -> Attribute { 
 			let r = Attribute::TextContent(TextContentType(clone_unaligned(ptr.cast::<TextContent1>())));
-			log::warn!("rrrr=========={:?}", r);
 			r
 		}
     }

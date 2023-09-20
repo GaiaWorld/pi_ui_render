@@ -263,7 +263,7 @@ pub fn calc_text_shadow(
     mut post_resource: ResMut<PostprocessResource>,
     device: Res<PiRenderDevice>,
     queue: Res<PiRenderQueue>,
-	r: OrInitRes<IsRun>
+	r: OrInitRes<IsRun>,
 ) {
 	if r.0 {
 		return;
@@ -326,7 +326,6 @@ pub fn calc_text_shadow(
 
             // 设置颜色uniform, h、v uniform
             if text_shadow.is_changed() {
-				log::warn!("text_shadow {:?}, {:?}", text_shadow, shadow_mark.0);
                 let color: &pi_style::style::CgColor = &text_shadow[shadow_mark.0].color;
                 draw_state.bindgroups.set_uniform(&ColorUniform(&[color.x, color.y, color.z, color.w]));
                 draw_state.bindgroups.set_uniform(&StrokeColorOrURectUniform(&[
