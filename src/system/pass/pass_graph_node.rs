@@ -410,12 +410,14 @@ impl Node for Pass2DNode {
                         };
 						
                         let (_offset, _view_port) = {
-                            let input_groups = Vec::with_capacity(input.0.len());
+                            let mut input_groups = Vec::with_capacity(input.0.len());
                             let mut post_draw = Vec::with_capacity(input.0.len());
 							for _i in 0..input.0.len() {
 								post_draw.push(None);
+								input_groups.push(None);
 							}
 							let mut draw_i = 0;
+							let mut group_i = 0;
                             // 创建一个渲染Pass
                             let (mut rp, view_port, clear_port, offset) = create_rp(
                                 rt.clone(),
@@ -454,6 +456,7 @@ impl Node for Pass2DNode {
                                 &post_draw,
 								&mut draw_i,
                                 &input_groups,
+								&mut group_i,
                                 &mut rp,
                                 (view_port.2 as u32, view_port.3 as u32),
                                 &world,
@@ -593,7 +596,8 @@ impl Pass2DNode {
         input: &'a XHashMap<GraphNodeId, SimpleInOut>,
         post_draw: &'a Vec<Option<DrawObj>>,
 		draw_i: &'b mut usize,
-        input_groups: &'a Vec<(BindGroup, Buffer)>,
+        input_groups: &'a Vec<Option<(BindGroup, Buffer)>>,
+		group_i: &'b mut usize,
         rp: &mut RenderPass<'a>,
         target_size: (u32, u32),
         world: &'a World,
@@ -769,6 +773,7 @@ impl Pass2DNode {
                         post_draw,
 						draw_i,
                         input_groups,
+						group_i,
                         rp,
                         target_size,
                         world,
@@ -881,7 +886,8 @@ impl Pass2DNode {
         input: &'a XHashMap<GraphNodeId, SimpleInOut>,
         post_draw: &'a Vec<Option<DrawObj>>,
 		draw_i: &'b mut usize,
-        input_groups: &'a Vec<(BindGroup, Buffer)>,
+        input_groups: &'a Vec<Option<(BindGroup, Buffer)>>,
+		groups_i: &'b mut usize,
         rp: &'w mut RenderPass<'a>,
         target_size: (u32, u32),
         world: &'a World,
@@ -932,14 +938,18 @@ impl Pass2DNode {
                                 &param.common_sampler.default
                             };
                             // 这里使用非安全的方式将不可变引用转为可变引用的前提是，Vec在创建时容量足够，使得push时不需要扩容，同时使用Vec的地方不能多线程
-                            unsafe {
-                                &mut *(input_groups as *const Vec<(BindGroup, Buffer)> as usize
-                                    as *mut Vec<(BindGroup, Buffer)>)
-                            }
-                            .push(Self::create_post_process_data(src, &param, s));
-                            let index = input_groups.len() - 1;
-                            rp.set_bind_group(SampBind::set(), &input_groups[index].0, &[]);
-                            rp.set_vertex_buffer(UvVert::location() as u32, *input_groups[index].1.slice(..));
+							let rr = unsafe {
+                                &mut *(input_groups as *const Vec<Option<(BindGroup, Buffer)>> as usize
+                                    as *mut Vec<Option<(BindGroup, Buffer)>>)
+                            };
+							if rr.capacity() == *groups_i {
+								panic!("yyy");
+							}
+                            rr[*groups_i] = Some(Self::create_post_process_data(src, &param, s));
+
+                            rp.set_bind_group(SampBind::set(), &rr[*groups_i].as_ref().unwrap().0, &[]);
+                            rp.set_vertex_buffer(UvVert::location() as u32, *rr[*groups_i].as_ref().unwrap().1.slice(..));
+							*groups_i += 1;
                         }
 
 
@@ -965,6 +975,7 @@ impl Pass2DNode {
                         post_draw,
 						draw_i,
                         input_groups,
+						groups_i,
                         rp,
                         target_size,
                         world,
