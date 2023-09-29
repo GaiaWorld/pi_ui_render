@@ -289,7 +289,7 @@ impl Gui {
 
 		let mut c = class;
 		let class_temp;
-		if !class.starts_with(".0") {
+		if !class.starts_with(".c0") {
 			class_temp = ".c0{".to_string() + class + "}";
 			c = class_temp.as_str();
 		}

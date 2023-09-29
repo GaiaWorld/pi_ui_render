@@ -106,9 +106,15 @@ pub fn start<T: Example + Sync + Send + 'static>(example: T) {
             app.add_systems(Update, setting_next_record.before(UiSystemSet::Setting));
         }
     }
+	let mut i = 0;
 	loop {
 		app.update();
+		i += 1;
+		
 		std::thread::sleep(std::time::Duration::from_millis(16));
+		// if i == 1 {
+		// 	break;
+		// }
 	}
 	// app.update();
 	// let mut v = Vec::with_capacity(10);
@@ -388,7 +394,7 @@ pub struct PlayOption {
 // pub const FILTER: &'static str = "wgpu=warn,pi_ui_render::system::pass::pass_graph_node=trace,pi_ui_render::system::pass_effect::radial_wave=trace,pi_ui_render::system::pass::pass_life=trace";
 // pub const FILTER: &'static str = "wgpu=warn,pi_ui_render::system::pass_effect::radial_wave=trace,pi_ui_render::system::pass::pass_life=trace,pi_ui_render::system::pass::update_graph=trace";
 // pub const FILTER: &'static str = "wgpu=warn,naga=warn,bevy_app=warn";
-pub const FILTER: &'static str = "wgpu=warn,naga=warn";
+pub const FILTER: &'static str = "wgpu=warn,naga=warn,pi_wgpu=trace";
 // pub const FILTER: &'static str = "";
 pub const LOG_LEVEL: bevy::log::Level = bevy::log::Level::WARN;
 // pub const LOG_LEVEL: bevy::log::Level = bevy::log::Level::INFO;

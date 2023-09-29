@@ -64,7 +64,7 @@ pub enum NodeTag {
 
 #[derive(Error, Debug)]
 pub enum TagErr {
-    #[error("data store disconnected {0}")]
+    #[error("invaild node name: {0}")]
     InvaildName(String),
 }
 

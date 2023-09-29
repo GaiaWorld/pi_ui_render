@@ -358,7 +358,7 @@ fn set_class(node: Entity, style_query: &mut Setting, class: ClassName, class_sh
         style_query.style.style_mark,
         new_class_style_mark,
         |item: &mut StyleMark, v| {
-            item.class_style |= v;
+            item.class_style |= v;// ？？yiyi
         },
     );
 
