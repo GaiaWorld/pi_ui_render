@@ -530,9 +530,11 @@ pub fn push_pos_uv(positions: &mut Vec<f32>, uvs: &mut Vec<f32>, x: f32, mut y: 
         left_top.1,
     ];
 
-    let gx = glyph.x as f32;
-    let gy = glyph.y as f32;
-    let uv = [gx, gy, gx, gy + glyph.height, gx + glyph.width, gy + glyph.height, gx + glyph.width, gy];
+    let gx = glyph.x as f32 + 0.5;
+    let gy = glyph.y as f32 + 0.5;
+	let gx_right = glyph.x as f32 + glyph.width - 0.5;
+	let gx_bottom = glyph.y as f32 + glyph.height - 0.5;
+    let uv = [gx, gy, gx, gx_bottom, gx_right, gx_bottom, gx_right, gy];
     uvs.extend_from_slice(&uv);
     // log::warn!("uv=================={:?}, {:?}, w:{:?},h:{:?},scale:{:?},glyph:{:?}", uv, ps, width, height, scale, glyph);
     positions.extend_from_slice(&ps[..]);

@@ -6,6 +6,7 @@ use bevy_ecs::{
     query::{Changed, Or, With},
     system::{ParamSet, Query, ResMut},
 };
+use ordered_float::NotNan;
 use pi_bevy_ecs_extend::{
     prelude::{Layer, OrDefault},
     system_param::{layer_dirty::ComponentEvent, res::OrInitRes},
@@ -120,7 +121,7 @@ pub fn set_gylph(
         text_style.font_family.clone(),
         font_size,
         text_style.font_weight,
-        text_style.text_stroke.width, // todo 或许应该设置比例
+         unsafe { NotNan::new_unchecked((*text_style.text_stroke.width as f32 * scale).round())},
     ));
 
 

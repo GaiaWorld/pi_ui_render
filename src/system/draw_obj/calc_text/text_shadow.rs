@@ -169,7 +169,6 @@ pub fn text_shadow_life(
     for changed in changed.iter() {
         if let Ok((shadow, mut draw_list, mut render_mark_value)) = query.p1().get_mut(changed.id) {
             render_mark_true(changed.id, ***mark_type, &mut event_writer, &mut render_mark_value);
-
             let mut need_count = shadow.len();
             let mut i = 0;
             while i < draw_list.len() {
@@ -177,7 +176,10 @@ pub fn text_shadow_life(
                     let mark = mark_query.get(draw_list[i].id).unwrap();
                     if **mark >= shadow.len() {
                         // 多余的， 删除
-                        draw_list.swap_remove(i);
+                        let draw_obj = draw_list.swap_remove(i);
+						if let Some(mut r) = commands.get_entity(draw_obj.id) {
+							r.despawn();
+						}
                         continue;
                     } else {
                         need_count -= 1;
