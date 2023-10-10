@@ -115,7 +115,7 @@ bevy_math = { path = "../bevy/crates/bevy_math" }
 # pi_dirty={path = "../pi_dirty" }
 # pi_spatial = { path="../pi_spatial" }
 # wgpu = { path = "../wgpu/wgpu" }
-pi_spatial = {path = "../pi_spatial"}
+# pi_spatial = {path = "../pi_spatial"}
 
 
 

@@ -526,9 +526,15 @@ impl KeyFramesSheet {
             let curves = match self.key_frames_map.get(&name) {
                 Some(r) => r,
                 None => {
-                    // TODO 取全局动画
-                    self.temp_errs.push(KeyFrameError::NotExistFrameData(target, animation.clone()));
-                    continue;
+					let name = (0, animation.name.value[i].clone());
+                    // 取全局动画
+					match self.key_frames_map.get(&name) {
+						Some(r) => r,
+						None => {
+							self.temp_errs.push(KeyFrameError::NotExistFrameData(target, animation.clone()));
+							continue;
+						}
+					}
                 }
             };
 

@@ -100,6 +100,7 @@ impl FromWorld for PosUvColorVertexLayout {
     }
 }
 
+
 #[derive(Deref, Resource)]
 pub struct PosColorVertexLayout(pub Share<VertexBufferLayoutWithHash>);
 impl FromWorld for PosColorVertexLayout {

@@ -1,4 +1,3 @@
-
 // 一个简单的四边形渲染
 
 #[path = "../framework.rs"]
@@ -16,7 +15,7 @@ use pi_null::Null;
 use pi_ui_render::{
     components::{
         calc::EntityKey,
-        user::{CgColor, ClearColor, Color, FontSize, RenderDirty, Viewport},
+        user::{CgColor, ClearColor, Color, FontSize, RenderDirty, Viewport, LinearGradientColor, ColorAndPosition},
         NodeBundle,
     },
     resource::{NodeCmd, UserCommands},
@@ -41,9 +40,9 @@ impl Example for QuadExample {
     fn init(&mut self, world: &mut World, size: (usize, usize)) {
         let mut dir = std::env::current_dir().unwrap();
         log::info!("dir: {:?}", dir);
-        dir.push("examples/text/source/hwkt.ttf");
+        dir.push("examples/z_source/hwkt.ttf");
         // new_face_by_path("hwkt".to_string(), dir.to_str().unwrap());
-        new_face_by_path("hwkt".to_string(), "examples/text/source/SOURCEHANSANSK-MEDIUM.TTF");
+        new_face_by_path("hwkt".to_string(), "examples/z_source/SOURCEHANSANSK-MEDIUM.TTF");
 
         // 添加根节点
         let root = world.spawn(NodeBundle::default()).id();
@@ -68,7 +67,7 @@ impl Example for QuadExample {
 
         self.cmd.append(root, EntityKey::null().0);
 
-        // 添加一个红色div
+        // 添加一个渐变颜色的文字
         let div1 = world.spawn(NodeBundle::default()).id();
         self.cmd.set_style(div1, WidthType(Dimension::Points(50.0)));
         self.cmd.set_style(div1, HeightType(Dimension::Points(100.0)));
@@ -76,28 +75,26 @@ impl Example for QuadExample {
         self.cmd.set_style(div1, PositionLeftType(Dimension::Points(20.0)));
         self.cmd
             .set_style(div1, TextContentType(TextContent("base02".to_string(), Atom::from("base02"))));
-    
         // rgb(255,0,0) 0px 0px 5px, rgb(255,0,0) 0px 0px 3px, rgb(255,255,255) 0px 0px 1px;
         self.cmd.set_style(div1, FontFamilyType(Atom::from("hwkt")));
-        self.cmd.set_style(div1, ColorType(Color::RGBA(CgColor::new(0.0, 1.0, 0.0, 1.0))));
+        self.cmd.set_style(div1, ColorType(Color::LinearGradient(LinearGradientColor {
+			direction: 0.0,
+			list: vec![
+				ColorAndPosition {
+					position: 0.0,
+					rgba: CgColor::new(1.0, 0.0, 0.0, 1.0),
+				},
+				ColorAndPosition {
+					position: 1.0,
+					rgba: CgColor::new(0.0, 1.0, 0.0, 1.0),
+				},
+			],
+		})));
         self.cmd.set_style(div1, FontSizeType(FontSize::Length(17)));
         // self.cmd.set_style(div1, TextStrokeType(Stroke {
         // 	width: unsafe {NotNan::new_unchecked(2.0)},
         // 	color: CgColor::new(1.0, 0.0, 0.0, 1.0)}));
         self.cmd.append(div1, root);
-
-        let div2 = world.spawn(NodeBundle::default()).id();
-        self.cmd.set_style(div2, WidthType(Dimension::Points(50.0)));
-        self.cmd.set_style(div2, HeightType(Dimension::Points(100.0)));
-        self.cmd
-            .set_style(div2, TextContentType(TextContent("base1".to_string(), Atom::from("base1"))));
-        self.cmd.set_style(div2, FontFamilyType(Atom::from("hwkt")));
-        self.cmd.set_style(div2, ColorType(Color::RGBA(CgColor::new(0.0, 1.0, 0.0, 1.0))));
-        self.cmd.set_style(div2, FontSizeType(FontSize::Length(17)));
-        // self.cmd.set_style(div1, TextStrokeType(Stroke {
-        // 	width: unsafe {NotNan::new_unchecked(2.0)},
-        // 	color: CgColor::new(1.0, 0.0, 0.0, 1.0)}));
-        self.cmd.append(div2, root);
     }
 
     fn render(&mut self, cmd: &mut UserCommands, _cmd1: &mut Commands) {
@@ -105,4 +102,3 @@ impl Example for QuadExample {
         swap(&mut self.cmd, cmd);
     }
 }
-

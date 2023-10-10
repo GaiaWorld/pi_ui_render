@@ -308,10 +308,16 @@ async fn async_calc_pipeline(
             attributes: &r.attributes,
         })
         .collect();
-
+	
+	let mut name = pipeline_meta.program.shader_meta.name.clone();
+	for r in pipeline_meta.defines.iter() {
+		name += "-";
+		name += r.as_str();
+	};
+	
     // 创建pipline
     let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-        label: Some(&pipeline_meta.program.shader_meta.name),
+        label: Some(&name),
         layout: Some(&shader_info.pipeline_layout),
         vertex: wgpu::VertexState {
             module: &shader_info.vs_shader,

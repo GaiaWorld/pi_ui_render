@@ -25,7 +25,7 @@ use crate::components::calc::{LayoutResult, NodeId, NodeState};
 use crate::components::draw_obj::{BoxType, PipelineMeta, TextMark};
 use crate::components::user::{CgColor, TextStyle};
 use crate::components::{draw_obj::DrawState, user::Color};
-use crate::resource::draw_obj::{EmptyVertexBuffer, TextTextureGroup};
+use crate::resource::draw_obj::{EmptyVertexBuffer, TextTextureGroup, PosUv1VertexLayout, PosUvColorVertexLayout};
 use crate::resource::ShareFontSheet;
 use crate::shader::text::{PositionVert, SampBind, UvVert, VcolorVert, STROKE_DEFINE, VERTEX_COLOR_DEFINE};
 use crate::shader::ui_meterial::{ColorUniform, StrokeColorOrURectUniform, TextureSizeOrBottomLeftBorderUniform};
@@ -55,6 +55,9 @@ pub fn calc_text(
     ),
     mut buffer: Local<(Vec<f32>, Vec<f32>)>,
     vertex_buffer_alloter: OrInitRes<PiVertexBufferAlloter>,
+	vert_layout1: OrInitRes<PosUv1VertexLayout>,
+    vert_layout2: OrInitRes<PosUvColorVertexLayout>,
+
 	r: OrInitRes<IsRun>
 ) {
 	if r.0 {
@@ -80,12 +83,12 @@ pub fn calc_text(
 
             // 如果不存在，插入默认值（只有刚创建时不存在）
             if draw_state.vertices.get(VcolorVert::location()).is_none() {
-                draw_state.insert_vertices(RenderVertices {
-                    slot: VcolorVert::location(),
-                    buffer: EVerticesBufferUsage::GUI((*empty_vert_buffer).clone()),
-                    buffer_range: None,
-                    size_per_value: 16,
-                });
+                // draw_state.insert_vertices(RenderVertices {
+                //     slot: VcolorVert::location(),
+                //     buffer: EVerticesBufferUsage::GUI((*empty_vert_buffer).clone()),
+                //     buffer_range: None,
+                //     size_per_value: 16,
+                // });
                 draw_state
                     .bindgroups
                     .insert_group(SampBind::set(), DrawBindGroup::Independ(texture_group.clone()));
@@ -112,6 +115,8 @@ pub fn calc_text(
                 &mut buffer.0,
                 &mut buffer.1,
                 &vertex_buffer_alloter,
+				&vert_layout1,
+				&vert_layout2,
             );
             if old_hash != calc_hash(pipeline_meta1, 0) {
                 pipeline_meta.set_changed()
@@ -136,19 +141,39 @@ pub fn modify<'a>(
     positions: &mut Vec<f32>,
     uvs: &mut Vec<f32>,
     vertex_buffer_alloter: &PiVertexBufferAlloter,
+	vert_layout1: &PosUv1VertexLayout,
+	vert_layout2: &PosUvColorVertexLayout,
 ) {
     // 修改vert buffer
-    let is_change_geo = match &text_style.color {
+	let color_temp;
+    let (is_change_geo, color) = match &text_style.color {
         // 如果是rgba颜色，只有当文字内容、文字布局修改时，或上一次为渐变色时，才会重新计算顶点流
-        Color::RGBA(_) => {
-            if node_state_change.is_changed() || pipeline_meta.defines.get(&Atom::from("VERTEX_COLOR")).is_some() {
-                true
-            } else {
-                false
-            }
+        Color::RGBA(c) => {
+			(
+				if pipeline_meta.defines.get(&Atom::from("VERTEX_COLOR")).is_some() {
+					pipeline_meta.vert_layout = (*vert_layout1).clone();
+					pipeline_meta.defines.remove(&VERTEX_COLOR_DEFINE);
+					draw_state.vertices.remove(VcolorVert::location()); // 移除对应的vb
+					true
+				} else {
+					if node_state_change.is_changed() {
+						true
+					} else {
+						false
+					}
+				},
+				c
+			)
         }
         // 如果是渐变色，无论当前是修改了文字内容、颜色、还是布局，都必须重新计算顶点流
-        Color::LinearGradient(_) => true,
+        Color::LinearGradient(_) => {
+			if pipeline_meta.defines.get(&Atom::from("VERTEX_COLOR")).is_none() {
+				pipeline_meta.vert_layout = (*vert_layout2).clone();
+				pipeline_meta.defines.insert(VERTEX_COLOR_DEFINE.clone());
+			}
+			color_temp = CgColor::default();
+			(true, &color_temp)
+		},
     };
 
     // 如果顶点流需要重新计算，则修改顶点流
@@ -172,19 +197,6 @@ pub fn modify<'a>(
 
 
     // 修改color_group
-    let color_temp;
-    let color = match &text_style.color {
-        Color::RGBA(c) => {
-            pipeline_meta.defines.remove(&VERTEX_COLOR_DEFINE);
-            c
-        }
-        Color::LinearGradient(_) => {
-            pipeline_meta.defines.insert(VERTEX_COLOR_DEFINE.clone());
-            color_temp = CgColor::default();
-            &color_temp
-        }
-    };
-
     let color_temp;
     let stroke = if *text_style.text_stroke.width > 0.0 {
         &text_style.text_stroke.color

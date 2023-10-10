@@ -16,7 +16,7 @@ use pi_bevy_asset::ShareAssetMgr;
 use pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent;
 use pi_bevy_ecs_extend::system_param::res::OrInitRes;
 use pi_bevy_render_plugin::{PiRenderDevice, PiRenderQueue};
-use pi_hal::{loader::AsyncLoader, runtime::MULTI_MEDIA_RUNTIME};
+use pi_hal::{loader::AsyncLoader, runtime::RENDER_RUNTIME};
 use pi_null::Null;
 use pi_render::rhi::asset::{ImageTextureDesc, TextureRes};
 use pi_share::Share;
@@ -111,7 +111,7 @@ pub fn load_image<'w, S: Component, D: Component, F: FnMut(&mut D, Handle<Textur
             let (awaits, device, queue) = (image_await.0.clone(), (*device).clone(), (*queue).clone());
             let (id, key) = (entity, (*key).clone());
 
-            MULTI_MEDIA_RUNTIME
+            RENDER_RUNTIME
                 .spawn(async move {
                     let desc = ImageTextureDesc {
                         url: &key,
