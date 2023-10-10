@@ -394,7 +394,7 @@ pub struct PlayOption {
 // pub const FILTER: &'static str = "wgpu=warn,pi_ui_render::system::pass::pass_graph_node=trace,pi_ui_render::system::pass_effect::radial_wave=trace,pi_ui_render::system::pass::pass_life=trace";
 // pub const FILTER: &'static str = "wgpu=warn,pi_ui_render::system::pass_effect::radial_wave=trace,pi_ui_render::system::pass::pass_life=trace,pi_ui_render::system::pass::update_graph=trace";
 // pub const FILTER: &'static str = "wgpu=warn,naga=warn,bevy_app=warn";
-pub const FILTER: &'static str = "wgpu=warn,naga=warn,pi_wgpu=trace";
+pub const FILTER: &'static str = "wgpu=warn,naga=warn,pi_wgpu=trace,render_core::rhi::shader=debug";
 // pub const FILTER: &'static str = "";
 pub const LOG_LEVEL: bevy::log::Level = bevy::log::Level::WARN;
 // pub const LOG_LEVEL: bevy::log::Level = bevy::log::Level::INFO;

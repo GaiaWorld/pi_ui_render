@@ -502,12 +502,16 @@ impl From<MaskTexture> for Option<Handle<TextureRes>> {
 #[derive(Deref, Debug, PartialEq, Eq, Hash, Ord, PartialOrd, Copy, Clone, Serialize, Deserialize)]
 pub struct EntityKey(pub Entity);
 
-unsafe impl Key for EntityKey {
+impl Key for EntityKey {
     fn data(&self) -> pi_slotmap::KeyData {
         // (u64::from(self.version.get()) << 32) | u64::from(self.idx)
 
         pi_slotmap::KeyData::from_ffi((u64::from(self.0.generation()) << 32) | u64::from(self.0.index()))
     }
+
+	fn index(&self) -> usize {
+		self.0.index() as usize
+	}
 }
 
 impl From<pi_slotmap::KeyData> for EntityKey {

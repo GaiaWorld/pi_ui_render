@@ -633,12 +633,22 @@ impl KeyFramesSheet {
 #[derive(Debug, Clone, Deref, PartialEq, Eq, Copy, Hash, PartialOrd, Ord)]
 pub struct ObjKey(pub Entity);
 
-unsafe impl Key for ObjKey {
+impl Key for ObjKey {
     fn data(&self) -> pi_slotmap::KeyData {
         // (u64::from(self.version.get()) << 32) | u64::from(self.idx)
 
         pi_slotmap::KeyData::from_ffi((u64::from(self.0.generation()) << 32) | u64::from(self.0.index()))
     }
+
+	fn index(&self) -> usize {
+		self.0.index() as usize
+	}
+}
+
+impl Null for ObjKey {
+	fn null() -> Self { Self(Entity::from_bits(u64::null())) }
+
+    fn is_null(&self) -> bool { self.0.to_bits().is_null() }
 }
 
 impl From<pi_slotmap::KeyData> for ObjKey {

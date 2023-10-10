@@ -11,7 +11,7 @@ use pi_render::font::Size;
 
 use crate::{
     components::{calc::NodeState, draw_obj::TextMark, user::TextContent},
-    resource::{draw_obj::PosUvColorVertexLayout, ShareFontSheet, TextRenderObjType},
+    resource::{draw_obj::PosUv1VertexLayout, ShareFontSheet, TextRenderObjType},
     system::{
         node::{layout::calc_layout, world_matrix::cal_matrix},
         system_set::UiSystemSet,
@@ -43,7 +43,7 @@ impl Plugin for UiTextPlugin {
                     TextContent,
                     TextRenderObjType,
                     TextMark,
-                    PosUvColorVertexLayout,
+                    PosUv1VertexLayout,
                     crate::shader::text::ProgramMeta,
                     { TEXT_ORDER },
                 >

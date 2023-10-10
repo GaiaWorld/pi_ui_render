@@ -7,7 +7,7 @@ use bevy_ecs::{
 use bevy_app::{Plugin, Update, App};
 use pi_bevy_asset::{AssetConfig, AssetDesc, ShareAssetMgr};
 use pi_bevy_ecs_extend::system_param::res::OrInitRes;
-use pi_slotmap::Key;
+use pi_null::Null;
 
 use crate::{
     components::{

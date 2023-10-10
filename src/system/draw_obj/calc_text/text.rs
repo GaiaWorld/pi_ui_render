@@ -13,7 +13,7 @@ use pi_bevy_render_plugin::{PiRenderDevice, PiVertexBufferAlloter};
 use pi_polygon::{find_lg_endp, interp_mult_by_lg, mult_to_triangle, split_by_lg, LgCfg};
 use pi_render::font::{FontSheet, Glyph, GlyphId};
 use pi_render::renderer::draw_obj::DrawBindGroup;
-use pi_render::renderer::vertices::{EVerticesBufferUsage, RenderIndices, RenderVertices};
+use pi_render::renderer::vertices::{EVerticesBufferUsage, RenderIndices};
 use pi_render::rhi::asset::RenderRes;
 use pi_render::rhi::buffer::Buffer;
 use pi_render::rhi::device::RenderDevice;
@@ -25,7 +25,7 @@ use crate::components::calc::{LayoutResult, NodeId, NodeState};
 use crate::components::draw_obj::{BoxType, PipelineMeta, TextMark};
 use crate::components::user::{CgColor, TextStyle};
 use crate::components::{draw_obj::DrawState, user::Color};
-use crate::resource::draw_obj::{EmptyVertexBuffer, TextTextureGroup, PosUv1VertexLayout, PosUvColorVertexLayout};
+use crate::resource::draw_obj::{TextTextureGroup, PosUv1VertexLayout, PosUvColorVertexLayout};
 use crate::resource::ShareFontSheet;
 use crate::shader::text::{PositionVert, SampBind, UvVert, VcolorVert, STROKE_DEFINE, VERTEX_COLOR_DEFINE};
 use crate::shader::ui_meterial::{ColorUniform, StrokeColorOrURectUniform, TextureSizeOrBottomLeftBorderUniform};
@@ -51,7 +51,6 @@ pub fn calc_text(
         Res<PiRenderDevice>,
         Res<ShareAssetMgr<RenderRes<Buffer>>>,
         Res<ShareFontSheet>,
-        Res<EmptyVertexBuffer>,
     ),
     mut buffer: Local<(Vec<f32>, Vec<f32>)>,
     vertex_buffer_alloter: OrInitRes<PiVertexBufferAlloter>,
@@ -63,7 +62,7 @@ pub fn calc_text(
 	if r.0 {
 		return;
 	}
-    let (device, buffer_assets, font_sheet, empty_vert_buffer) = res;
+    let (device, buffer_assets, font_sheet) = res;
     let font_sheet = font_sheet.borrow();
 
     // 更新纹理尺寸
@@ -260,6 +259,7 @@ pub fn modify_geo(
                 buffer_range: Some(0..(l * 6 * 2) as u64),
                 format: IndexFormat::Uint16,
             });
+			log::warn!("positions======{:?}, {:?}", positions.len() as f32/2.0, index_buffer_max_len);
             set_vert_buffer(
                 PositionVert::location(),
                 8,

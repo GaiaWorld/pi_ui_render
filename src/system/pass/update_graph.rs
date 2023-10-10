@@ -5,7 +5,7 @@ use bevy_ecs::{
 };
 use pi_bevy_ecs_extend::system_param::res::{OrInitRes, OrInitResMut};
 use pi_bevy_render_plugin::{NodeId, PiRenderGraph};
-use pi_slotmap::Key;
+use pi_null::Null;
 
 use crate::{
     components::{
