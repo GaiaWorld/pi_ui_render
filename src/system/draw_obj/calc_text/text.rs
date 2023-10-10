@@ -243,6 +243,7 @@ pub fn modify_geo(
     if positions.len() == 0 {
         draw_state.indices = None;
         draw_state.vertices.clear();
+		draw_state.vertex = 0..0;
         return;
     }
     let mut positions1;
@@ -259,7 +260,6 @@ pub fn modify_geo(
                 buffer_range: Some(0..(l * 6 * 2) as u64),
                 format: IndexFormat::Uint16,
             });
-			log::warn!("positions======{:?}, {:?}", positions.len() as f32/2.0, index_buffer_max_len);
             set_vert_buffer(
                 PositionVert::location(),
                 8,
