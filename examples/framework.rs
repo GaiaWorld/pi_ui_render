@@ -24,9 +24,12 @@ use pi_share::{Share, ShareMutex};
 // use pi_ui_render::system::draw_obj::calc_text::IsRun;
 use pi_ui_render::system::{system_set::UiSystemSet, RunState};
 use pi_ui_render::{prelude::UiPlugin, resource::UserCommands};
+use pi_winit::platform::windows::EventLoopBuilderExtWindows;
 
 #[cfg(feature = "debug")]
 use pi_ui_render::system::cmd_play::{CmdNodeCreate, PlayState, Records};
+use pi_winit::event::{Event, WindowEvent};
+use pi_winit::event_loop::{EventLoop, ControlFlow};
 
 pub trait Example: 'static + Sized {
     fn setting(&mut self, _app: &mut App) {}
@@ -77,7 +80,9 @@ pub fn start<T: Example + Sync + Send + 'static>(example: T) {
         exmple.lock().render(&mut commands.0, &mut commands.1);
     };
 
-    let mut app = init(width, height);
+	let event_loop = pi_winit::event_loop::EventLoopBuilder::new().with_any_thread(true).build();
+	let window = Arc::new(pi_winit::window::Window::new(&event_loop).unwrap());
+    let mut app = init(width, height, &event_loop, window.clone());
 
     app.world.insert_resource(RunState::RENDER);
 	#[cfg(feature = "debug")]
@@ -106,16 +111,38 @@ pub fn start<T: Example + Sync + Send + 'static>(example: T) {
             app.add_systems(Update, setting_next_record.before(UiSystemSet::Setting));
         }
     }
-	let mut i = 0;
-	loop {
-		app.update();
-		i += 1;
+
+	event_loop.run(move |event, _, control_flow| {
+
+        match event {
+            Event::MainEventsCleared => {
+                window.request_redraw();
+            }
+			Event::RedrawRequested(_) => {
+                app.update();
+            }
+			Event::WindowEvent {
+                event: WindowEvent::CloseRequested,
+                ..
+            } => *control_flow = ControlFlow::Exit,
+            _ => {}
+        }
+    });
+
+	// let mut i = 0;
+	// loop {
+	// 	// event_loop
+	// 	app.update();
+	// 	i += 1;
 		
-		std::thread::sleep(std::time::Duration::from_millis(16));
-		// if i == 1 {
-		// 	break;
-		// }
-	}
+	// 	std::thread::sleep(std::time::Duration::from_millis(16));
+	// 	// if i == 1 {
+	// 	// 	break;
+	// 	// }
+	// }
+	// loop {
+		
+	// }
 	// app.update();
 	// let mut v = Vec::with_capacity(10);
 	// for _i in 0..10 {
@@ -189,7 +216,7 @@ impl Default for PreFrameTime {
 #[allow(dead_code)]
 fn main() {}
 
-pub fn init(width: u32, height: u32) -> App {
+pub fn init(width: u32, height: u32, _event_loop: &EventLoop<()>, w: Arc<pi_winit::window::Window>) -> App {
     let mut app = App::default();
 
     // let event_loop =  EventLoopBuilder::new().with_any_thread(true).build();
@@ -208,12 +235,6 @@ pub fn init(width: u32, height: u32) -> App {
 
 	// app.world.insert_resource(IsRun(true));
 
-	let w = {
-		use pi_winit::platform::windows::EventLoopBuilderExtWindows;
-		let event_loop = pi_winit::event_loop::EventLoopBuilder::new().with_any_thread(true).build();
-		let window = pi_winit::window::Window::new(&event_loop).unwrap();
-		window
-	};
 
     app.add_plugins(pi_bevy_log::LogPlugin::<Vec<u8>> {
         filter: FILTER.to_string(),
@@ -224,7 +245,7 @@ pub fn init(width: u32, height: u32) -> App {
     // .add_plugins(bevy::input::InputPlugin::default())
     .add_plugins(window_plugin)
     // .add_plugins(WinitPlugin::default())
-	.add_plugins(pi_bevy_winit_window::WinitPlugin::new(Arc::new(w)).with_size(width, height))
+	.add_plugins(pi_bevy_winit_window::WinitPlugin::new(w).with_size(width, height))
     .add_plugins(PiAssetPlugin {
         total_capacity: 1024 * 1024 * 1024,
         asset_config: AssetConfig::default(),

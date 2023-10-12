@@ -9,6 +9,7 @@ use pi_bevy_asset::ShareAssetMgr;
 use pi_bevy_render_plugin::{PiRenderDevice, PiRenderQueue, node:: NodeId as GraphNodeId};
 use pi_hash::XHashMap;
 use pi_map::Map;
+use pi_null::Null;
 use pi_render::font::FontSheet;
 use pi_render::rhi::asset::TextureRes;
 use pi_share::{Share, ShareCell};
@@ -569,6 +570,17 @@ impl Map for QuadTree {
         return None;
     }
     fn remove(&mut self, key: &Self::Key) -> Option<Self::Val> { unsafe { transmute(self.0.remove(key.clone())) } }
+}
+
+// 用于debug的节点， 如果不为空， 则运行过程中会打印该节点的各种信息
+#[cfg(debug_assertions)]
+#[derive(Deref, Clone, Debug, Resource)]
+pub struct DebugEntity(pub EntityKey);
+
+impl Default for DebugEntity {
+    fn default() -> Self {
+        Self(EntityKey::null())
+    }
 }
 
 impl Index<EntityKey> for QuadTree {

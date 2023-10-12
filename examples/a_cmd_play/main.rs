@@ -10,11 +10,22 @@ use framework::Example;
 use pi_flex_layout::prelude::Size;
 use pi_ui_render::resource::UserCommands;
 //
-fn main() { framework::start(ExampleCommonPlay::default()) }
+fn main() { framework::start(ExampleCommonPlay::new()) }
 
-#[derive(Default)]
 pub struct ExampleCommonPlay {
     cmd: UserCommands,
+	// pub speed: f32, // 0~1的小数，<1时会放慢播放速度
+	// pub pre_time: std::time::Instant,
+}
+
+impl ExampleCommonPlay {
+	fn new() -> Self {
+		Self {
+			cmd: UserCommands::default(),
+			// speed: 0.5,
+			// pre_time: std::time::Instant::now(),
+		}
+	}
 }
 
 // pub struct Commands1 {

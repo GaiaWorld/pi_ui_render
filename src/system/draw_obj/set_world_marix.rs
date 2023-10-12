@@ -5,7 +5,7 @@ use bevy_ecs::{
 };
 use pi_assets::{asset::Handle, mgr::AssetMgr};
 use pi_bevy_ecs_extend::{prelude::{OrDefault, Up}, system_param::res::OrInitRes};
-use pi_render::rhi::bind_group_layout::BindGroupLayout;
+use pi_render::{rhi::bind_group_layout::BindGroupLayout, renderer::draw_obj::DrawBindGroup};
 use pi_render::rhi::{asset::RenderRes, bind_group::BindGroup, buffer::Buffer, device::RenderDevice, RenderQueue};
 use pi_share::Share;
 // use wgpu::BindGroupLayout;
@@ -17,7 +17,7 @@ use crate::{
         user::{BackgroundColor, BackgroundImage, BorderColor, BorderImage, BoxShadow, Canvas, Matrix4, TextContent},
     },
     shader::ui_meterial::WorldUniform,
-    utils::tools::{calc_float_hash, calc_hash},
+    utils::tools::{calc_float_hash, calc_hash}
 };
 
 use super::calc_text::IsRun;
@@ -55,7 +55,9 @@ pub fn set_matrix_group(
     query_parent: Query<&Up>,
     query_matrix: Query<(&WorldMatrix, &NodeState, &LayoutResult)>,
     mut query_draw: Query<(&mut DrawState, OrDefault<BoxType>)>,
-	r: OrInitRes<IsRun>
+	r: OrInitRes<IsRun>,
+	#[cfg(debug_assertions)]
+	debug_entity: OrInitRes<crate::resource::DebugEntity>
 ) {
 	if r.0 {
 		return;
@@ -111,7 +113,14 @@ pub fn set_matrix_group(
                 matrix_slice.column_mut(3)[2] = node.index() as f32; // 用于调试
 
                 // i += 1;
+				#[cfg(debug_assertions)]
+				{
+					if node == debug_entity.0.0 {
+						log::warn!("WorldUniform====={:?}", matrix_slice);
+					}
+				}
                 draw_data.bindgroups.set_uniform(&WorldUniform(matrix_slice.as_slice()));
+				
                 draw_data.set_changed();
             }
         }

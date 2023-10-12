@@ -60,7 +60,7 @@ impl Plugin for UiReadyDrawPlugin {
             // 在世界矩阵之后运行
             .add_systems(Update, 
                 set_world_marix::set_matrix_group
-                    .in_set(UiSystemSet::BaseCalc)
+                    .in_set(UiSystemSet::PrepareDrawObj)
                     .after(crate::system::node::world_matrix::cal_matrix),
             )
             .add_systems(Update, 

@@ -1,6 +1,6 @@
 [package]
 name = "pi_ui_render"
-version = "0.1.12"
+version = "0.1.13"
 authors = ["suncy <suncy@gmail.com>"]
 edition = "2021"
 description = "Renderer 2D UI with Bevy Ecs"
@@ -174,7 +174,7 @@ postcard = {version = "1.0", features = ["use-std"]}
 flame = "0.2"
 wgpu = {version = "0.1", registry = "yn", package="pi_wgpu"}
 # wgpu = {version = "0.1", registry = "yn", package="pi_wgpu", features=["wgpu"]}
-wgpu1 = { version = "0.16", default-features = false, package="wgpu", features=["glsl"]}
+# wgpu1 = { version = "0.16", default-features = false, package="wgpu", features=["glsl"]}
 pi_bevy_winit_window = {version="0.1", registry = "yn"}
 # pi_export_gui = {path="../pi_export/crates/gui"}
 # bevy_mod_debugdump = "0.6"

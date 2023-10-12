@@ -55,7 +55,7 @@ use crate::{
     },
     resource::{
         draw_obj::{ClearDrawObj, CommonSampler, DepthCache, DynFboClearColorBindGroup, PostBindGroupLayout, TargetCacheMgr},
-        RenderContextMarkType, PassGraphMap,
+        RenderContextMarkType, PassGraphMap, DebugEntity,
     },
     shader::{
         camera::CameraBind,
@@ -134,6 +134,7 @@ pub struct QueryParam<'w, 's> {
     as_image_mark_type: OrInitRes<'w, RenderContextMarkType<AsImage>>,
     depth_cache: OrInitRes<'w, DepthCache>,
 	pass_graph_map: Res<'w, PassGraphMap>,
+	debug_entity: OrInitRes<'w, DebugEntity>,
 }
 
 // vballocator: &mut VertexBufferAllocator,
@@ -190,6 +191,8 @@ pub struct Param<'w, 's> {
     as_image_mark_type: OrInitRes<'w, RenderContextMarkType<AsImage>>,
     depth_cache: &'s DepthCache,
 	pass_graph_map: &'s PassGraphMap,
+	#[cfg(debug_assertions)]
+	debug_entity: OrInitRes<'s, DebugEntity>,
 }
 
 // last_rt_type: RenderTargetType,
@@ -318,6 +321,7 @@ impl Node for Pass2DNode {
                 as_image_mark_type: query_param.as_image_mark_type,
                 depth_cache: &query_param.depth_cache,
 				pass_graph_map: &query_param.pass_graph_map,
+				debug_entity: query_param.debug_entity,
             };
 
             let post_list = param.post_query.get(pass2d_id);
@@ -962,6 +966,22 @@ impl Pass2DNode {
                             // 设置深度bind
                             depth.set(rp, DepthBind::set());
                         }
+
+						
+						#[cfg(debug_assertions)]
+						{
+							use crate::shader::ui_meterial::WorldUniform;
+							use pi_render::renderer::draw_obj::DrawBindGroup;
+							let o = &state.bindgroups.groups()[<WorldUniform as pi_render::rhi::shader::Uniform>::Binding::set() as usize];
+							if let DrawBindGroup::Offset(r) = o {
+								let group = r.get_group();
+								if ***node_id == param.debug_entity.0.0 {
+									log::warn!("draw group====={:?}, {:?}", group.bind_group, &group.offsets);
+								}
+							}
+						}
+						
+				
                         state.draw(rp);
                     }
                 }

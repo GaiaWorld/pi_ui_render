@@ -164,6 +164,11 @@ pub fn calc_layout(
             // char_node
         ) in dirtys.iter()
         {
+			// 不在idtree上，跳过
+			if layer.is_null() {
+				continue;
+			}
+
             let (rect_dirty, children_dirty, normal_style_dirty, self_style_dirty, display_dirty) = (
                 size_dirty.map_or(false, |size| size.is_changed())
                     || position_dirty.map_or(false, |position| position.is_changed())

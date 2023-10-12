@@ -312,6 +312,7 @@ pub fn calc_text_shadow(
                         if let None = &text_draw.indices {
                             draw_state.indices = None;
                             draw_state.vertices.clear();
+							draw_state.vertex = 0..0;
                             continue;
                         }
                         draw_state.vertices.insert(
