@@ -577,9 +577,10 @@ impl Map for QuadTree {
 #[derive(Deref, Clone, Debug, Resource)]
 pub struct DebugEntity(pub EntityKey);
 
+#[cfg(debug_assertions)]
 impl Default for DebugEntity {
     fn default() -> Self {
-        Self(EntityKey::null())
+        DebugEntity(EntityKey::null())
     }
 }
 

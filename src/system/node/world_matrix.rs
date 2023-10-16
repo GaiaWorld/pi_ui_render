@@ -51,7 +51,7 @@ use bevy_ecs::event::Event;
 
 use crate::components::calc::{EntityKey, LayoutResult, Quad, WorldMatrix};
 use crate::components::user::{Point2, Transform};
-use crate::resource::{QuadTree, DebugEntity};
+use crate::resource::QuadTree;
 use crate::system::draw_obj::calc_text::IsRun;
 use crate::utils::tools::calc_bound_box;
 
@@ -86,7 +86,7 @@ pub fn cal_matrix(
     mut event_writer1: EventWriter<OldQuad>,
 	r: OrInitRes<IsRun>,
 	#[cfg(debug_assertions)]
-	debug_entity: OrInitRes<DebugEntity>
+	debug_entity: OrInitRes<crate::resource::DebugEntity>
 ) {
 	if r.0 {
 		return;

@@ -55,7 +55,7 @@ use crate::{
     },
     resource::{
         draw_obj::{ClearDrawObj, CommonSampler, DepthCache, DynFboClearColorBindGroup, PostBindGroupLayout, TargetCacheMgr},
-        RenderContextMarkType, PassGraphMap, DebugEntity,
+        RenderContextMarkType, PassGraphMap,
     },
     shader::{
         camera::CameraBind,
@@ -134,7 +134,8 @@ pub struct QueryParam<'w, 's> {
     as_image_mark_type: OrInitRes<'w, RenderContextMarkType<AsImage>>,
     depth_cache: OrInitRes<'w, DepthCache>,
 	pass_graph_map: Res<'w, PassGraphMap>,
-	debug_entity: OrInitRes<'w, DebugEntity>,
+	#[cfg(debug_assertions)]
+	debug_entity: OrInitRes<'w, crate::resource::DebugEntity>,
 }
 
 // vballocator: &mut VertexBufferAllocator,
@@ -192,7 +193,7 @@ pub struct Param<'w, 's> {
     depth_cache: &'s DepthCache,
 	pass_graph_map: &'s PassGraphMap,
 	#[cfg(debug_assertions)]
-	debug_entity: OrInitRes<'s, DebugEntity>,
+	debug_entity: OrInitRes<'s, crate::resource::DebugEntity>,
 }
 
 // last_rt_type: RenderTargetType,
@@ -321,6 +322,7 @@ impl Node for Pass2DNode {
                 as_image_mark_type: query_param.as_image_mark_type,
                 depth_cache: &query_param.depth_cache,
 				pass_graph_map: &query_param.pass_graph_map,
+				#[cfg(debug_assertions)]
 				debug_entity: query_param.debug_entity,
             };
 
@@ -903,6 +905,7 @@ impl Pass2DNode {
         last_view_port: &(f32, f32, f32, f32),
         cur_view_port: &(f32, f32, f32, f32),
     ) {
+
         if let Some(camera) = &cur_camera.bind_group {
             camera.set(rp, CameraBind::set());
         }
@@ -980,8 +983,7 @@ impl Pass2DNode {
 								}
 							}
 						}
-						
-				
+					
                         state.draw(rp);
                     }
                 }

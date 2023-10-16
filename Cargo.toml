@@ -1,6 +1,6 @@
 [package]
 name = "pi_ui_render"
-version = "0.1.13"
+version = "0.1.15"
 authors = ["suncy <suncy@gmail.com>"]
 edition = "2021"
 description = "Renderer 2D UI with Bevy Ecs"
@@ -13,12 +13,14 @@ crate-type = ["lib"]
 
 [features]
 default = ["single_thread"]
+# "glow/debug_trace_calls"
 wasm_bindgen = []
 debug = []
 trace=["debug", "bevy/trace_chrome", "pi_bevy_render_plugin/trace", "pi_bevy_log/tracing-chrome"]
 single_thread = ["pi_bevy_render_plugin/single_thread", "pi_hal/single_thread"] # 本地平台，设置该feature有效，运行时为单线程运行时
 
 [dependencies]
+glow = "0.12"
 bitflags="1.2"
 serde_json = "1.0"
 pi_print_any= "0.1"
@@ -138,10 +140,10 @@ bevy_math = { path = "../bevy/crates/bevy_math" }
 # pi_bevy_window= { path = "../pi_bevy/crates/window" }
 
 # pi_render
-# pi_render = { path = "../pi_render" }
-# render_core = {path = "../pi_render/crates/render_core"}
-# render_derive = {path = "../pi_render/crates/render_derive"}
-# render_compile = {path = "../pi_render/crates/render_compile"}
+pi_render = { path = "../pi_render" }
+render_core = {path = "../pi_render/crates/render_core"}
+render_derive = {path = "../pi_render/crates/render_derive"}
+render_compile = {path = "../pi_render/crates/render_compile"}
 
 # pi_postprocess = { path = "../pi_post_process"}
 # pi_graph = {path = "../pi_graph"}
@@ -174,7 +176,7 @@ postcard = {version = "1.0", features = ["use-std"]}
 flame = "0.2"
 wgpu = {version = "0.1", registry = "yn", package="pi_wgpu"}
 # wgpu = {version = "0.1", registry = "yn", package="pi_wgpu", features=["wgpu"]}
-# wgpu1 = { version = "0.16", default-features = false, package="wgpu", features=["glsl"]}
+wgpu1 = { version = "0.16", default-features = false, package="wgpu", features=["glsl"]}
 pi_bevy_winit_window = {version="0.1", registry = "yn"}
 # pi_export_gui = {path="../pi_export/crates/gui"}
 # bevy_mod_debugdump = "0.6"

@@ -35,7 +35,7 @@ pub struct UiCmdTracePlugin {
 
 impl Plugin for UiCmdTracePlugin {
     fn build(&self, app: &mut App) {
-        log::warn!("self.option==============={:?}", self.option);
+        log::info!("self.option==============={:?}", self.option);
         match self.option {
             TraceOption::Record => {
                 app.add_systems(Update, cmd_record.in_set(UiSystemSet::Setting).before(user_setting::user_setting));

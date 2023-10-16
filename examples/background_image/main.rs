@@ -65,134 +65,134 @@ impl Example for QuadExample {
         self.cmd.set_style(div1, PositionTypeType(PositionType::Relative));
         self.cmd
             .set_style(div1, BackgroundImageType(Atom::from("examples/background_image/source/dialog_bg.png")));
-        self.cmd.set_style(
-            div1,
-            BorderRadiusType(BorderRadius {
-                x: [
-                    LengthUnit::Pixel(10.0),
-                    LengthUnit::Pixel(10.0),
-                    LengthUnit::Pixel(10.0),
-                    LengthUnit::Pixel(10.0),
-                ],
-                y: [
-                    LengthUnit::Pixel(10.0),
-                    LengthUnit::Pixel(10.0),
-                    LengthUnit::Pixel(10.0),
-                    LengthUnit::Pixel(10.0),
-                ],
-            }),
-        );
+        // self.cmd.set_style(
+        //     div1,
+        //     BorderRadiusType(BorderRadius {
+        //         x: [
+        //             LengthUnit::Pixel(10.0),
+        //             LengthUnit::Pixel(10.0),
+        //             LengthUnit::Pixel(10.0),
+        //             LengthUnit::Pixel(10.0),
+        //         ],
+        //         y: [
+        //             LengthUnit::Pixel(10.0),
+        //             LengthUnit::Pixel(10.0),
+        //             LengthUnit::Pixel(10.0),
+        //             LengthUnit::Pixel(10.0),
+        //         ],
+        //     }),
+        // );
         self.cmd.append(div1, root);
 
-        // Repeat
-        let div2 = world.spawn(NodeBundle::default()).id();
-        self.cmd.set_style(div2, WidthType(Dimension::Points(190.0)));
-        self.cmd.set_style(div2, HeightType(Dimension::Points(160.0)));
-        self.cmd.set_style(div2, PositionTypeType(PositionType::Relative));
-        self.cmd
-            .set_style(div2, BackgroundImageType(Atom::from("examples/background_image/source/dialog_bg.png")));
-        self.cmd.set_style(
-            div2,
-            BackgroundRepeatType(ImageRepeat {
-                x: ImageRepeatOption::Repeat,
-                y: ImageRepeatOption::Repeat,
-            }),
-        );
-        self.cmd.append(div2, root);
+        // // Repeat
+        // let div2 = world.spawn(NodeBundle::default()).id();
+        // self.cmd.set_style(div2, WidthType(Dimension::Points(190.0)));
+        // self.cmd.set_style(div2, HeightType(Dimension::Points(160.0)));
+        // self.cmd.set_style(div2, PositionTypeType(PositionType::Relative));
+        // self.cmd
+        //     .set_style(div2, BackgroundImageType(Atom::from("examples/background_image/source/dialog_bg.png")));
+        // self.cmd.set_style(
+        //     div2,
+        //     BackgroundRepeatType(ImageRepeat {
+        //         x: ImageRepeatOption::Repeat,
+        //         y: ImageRepeatOption::Repeat,
+        //     }),
+        // );
+        // self.cmd.append(div2, root);
 
-        // Round
-        let div3 = world.spawn(NodeBundle::default()).id();
-        self.cmd.set_style(div3, WidthType(Dimension::Points(190.0)));
-        self.cmd.set_style(div3, HeightType(Dimension::Points(160.0)));
-        self.cmd.set_style(div3, PositionTypeType(PositionType::Relative));
-        self.cmd
-            .set_style(div3, BackgroundImageType(Atom::from("examples/background_image/source/dialog_bg.png")));
-        self.cmd.set_style(
-            div3,
-            BackgroundRepeatType(ImageRepeat {
-                x: ImageRepeatOption::Round,
-                y: ImageRepeatOption::Round,
-            }),
-        );
-        self.cmd.append(div3, root);
+        // // Round
+        // let div3 = world.spawn(NodeBundle::default()).id();
+        // self.cmd.set_style(div3, WidthType(Dimension::Points(190.0)));
+        // self.cmd.set_style(div3, HeightType(Dimension::Points(160.0)));
+        // self.cmd.set_style(div3, PositionTypeType(PositionType::Relative));
+        // self.cmd
+        //     .set_style(div3, BackgroundImageType(Atom::from("examples/background_image/source/dialog_bg.png")));
+        // self.cmd.set_style(
+        //     div3,
+        //     BackgroundRepeatType(ImageRepeat {
+        //         x: ImageRepeatOption::Round,
+        //         y: ImageRepeatOption::Round,
+        //     }),
+        // );
+        // self.cmd.append(div3, root);
 
-        // space
-        let div4 = world.spawn(NodeBundle::default()).id();
-        self.cmd.set_style(div4, WidthType(Dimension::Points(190.0)));
-        self.cmd.set_style(div4, HeightType(Dimension::Points(160.0)));
-        self.cmd.set_style(div4, PositionTypeType(PositionType::Relative));
-        self.cmd
-            .set_style(div4, BackgroundImageType(Atom::from("examples/background_image/source/dialog_bg.png")));
-        self.cmd.set_style(
-            div4,
-            BackgroundRepeatType(ImageRepeat {
-                x: ImageRepeatOption::Space,
-                y: ImageRepeatOption::Space,
-            }),
-        );
-        self.cmd.append(div4, root);
+        // // space
+        // let div4 = world.spawn(NodeBundle::default()).id();
+        // self.cmd.set_style(div4, WidthType(Dimension::Points(190.0)));
+        // self.cmd.set_style(div4, HeightType(Dimension::Points(160.0)));
+        // self.cmd.set_style(div4, PositionTypeType(PositionType::Relative));
+        // self.cmd
+        //     .set_style(div4, BackgroundImageType(Atom::from("examples/background_image/source/dialog_bg.png")));
+        // self.cmd.set_style(
+        //     div4,
+        //     BackgroundRepeatType(ImageRepeat {
+        //         x: ImageRepeatOption::Space,
+        //         y: ImageRepeatOption::Space,
+        //     }),
+        // );
+        // self.cmd.append(div4, root);
 
-        // space
-        let div5 = world.spawn(NodeBundle::default()).id();
-        self.cmd.set_style(div5, WidthType(Dimension::Points(300.0)));
-        self.cmd.set_style(div5, HeightType(Dimension::Points(300.0)));
-        self.cmd.set_style(div5, PositionTypeType(PositionType::Relative));
-        self.cmd
-            .set_style(div5, BackgroundImageType(Atom::from("examples/background_image/source/dialog_bg.png")));
-        self.cmd.set_style(
-            div5,
-            BackgroundRepeatType(ImageRepeat {
-                x: ImageRepeatOption::Space,
-                y: ImageRepeatOption::Space,
-            }),
-        );
-        self.cmd.append(div5, root);
+        // // space
+        // let div5 = world.spawn(NodeBundle::default()).id();
+        // self.cmd.set_style(div5, WidthType(Dimension::Points(300.0)));
+        // self.cmd.set_style(div5, HeightType(Dimension::Points(300.0)));
+        // self.cmd.set_style(div5, PositionTypeType(PositionType::Relative));
+        // self.cmd
+        //     .set_style(div5, BackgroundImageType(Atom::from("examples/background_image/source/dialog_bg.png")));
+        // self.cmd.set_style(
+        //     div5,
+        //     BackgroundRepeatType(ImageRepeat {
+        //         x: ImageRepeatOption::Space,
+        //         y: ImageRepeatOption::Space,
+        //     }),
+        // );
+        // self.cmd.append(div5, root);
 
-        // imageclip
-        let div6 = world.spawn(NodeBundle::default()).id();
-        self.cmd.set_style(div6, WidthType(Dimension::Points(50.0)));
-        self.cmd.set_style(div6, HeightType(Dimension::Points(100.0)));
-        self.cmd.set_style(div6, PositionTypeType(PositionType::Relative));
-        self.cmd
-            .set_style(div6, BackgroundImageType(Atom::from("examples/background_image/source/dialog_bg.png")));
-        self.cmd.set_style(
-            div6,
-            BackgroundImageClipType(NotNanRect(unsafe {
-                Rect {
-                    top: NotNan::new_unchecked(0.0),
-                    right: NotNan::new_unchecked(0.5),
-                    bottom: NotNan::new_unchecked(0.5),
-                    left: NotNan::new_unchecked(0.0),
-                }
-            })),
-        );
-        self.cmd.append(div6, root);
+        // // imageclip
+        // let div6 = world.spawn(NodeBundle::default()).id();
+        // self.cmd.set_style(div6, WidthType(Dimension::Points(50.0)));
+        // self.cmd.set_style(div6, HeightType(Dimension::Points(100.0)));
+        // self.cmd.set_style(div6, PositionTypeType(PositionType::Relative));
+        // self.cmd
+        //     .set_style(div6, BackgroundImageType(Atom::from("examples/background_image/source/dialog_bg.png")));
+        // self.cmd.set_style(
+        //     div6,
+        //     BackgroundImageClipType(NotNanRect(unsafe {
+        //         Rect {
+        //             top: NotNan::new_unchecked(0.0),
+        //             right: NotNan::new_unchecked(0.5),
+        //             bottom: NotNan::new_unchecked(0.5),
+        //             left: NotNan::new_unchecked(0.0),
+        //         }
+        //     })),
+        // );
+        // self.cmd.append(div6, root);
 
-        // 圆角
-        let div7 = world.spawn(NodeBundle::default()).id();
-        self.cmd.set_style(div7, WidthType(Dimension::Points(100.0)));
-        self.cmd.set_style(div7, HeightType(Dimension::Points(100.0)));
-        self.cmd.set_style(div7, PositionTypeType(PositionType::Relative));
-        self.cmd.set_style(
-            div7,
-            BorderRadiusType(BorderRadius {
-                x: [
-                    LengthUnit::Pixel(50.0),
-                    LengthUnit::Pixel(50.0),
-                    LengthUnit::Pixel(50.0),
-                    LengthUnit::Pixel(50.0),
-                ],
-                y: [
-                    LengthUnit::Pixel(50.0),
-                    LengthUnit::Pixel(50.0),
-                    LengthUnit::Pixel(50.0),
-                    LengthUnit::Pixel(50.0),
-                ],
-            }),
-        );
-        self.cmd
-            .set_style(div7, BackgroundImageType(Atom::from("examples/background_image/source/dialog_bg.png")));
-        self.cmd.append(div7, root);
+        // // 圆角
+        // let div7 = world.spawn(NodeBundle::default()).id();
+        // self.cmd.set_style(div7, WidthType(Dimension::Points(100.0)));
+        // self.cmd.set_style(div7, HeightType(Dimension::Points(100.0)));
+        // self.cmd.set_style(div7, PositionTypeType(PositionType::Relative));
+        // self.cmd.set_style(
+        //     div7,
+        //     BorderRadiusType(BorderRadius {
+        //         x: [
+        //             LengthUnit::Pixel(50.0),
+        //             LengthUnit::Pixel(50.0),
+        //             LengthUnit::Pixel(50.0),
+        //             LengthUnit::Pixel(50.0),
+        //         ],
+        //         y: [
+        //             LengthUnit::Pixel(50.0),
+        //             LengthUnit::Pixel(50.0),
+        //             LengthUnit::Pixel(50.0),
+        //             LengthUnit::Pixel(50.0),
+        //         ],
+        //     }),
+        // );
+        // self.cmd
+        //     .set_style(div7, BackgroundImageType(Atom::from("examples/background_image/source/dialog_bg.png")));
+        // self.cmd.append(div7, root);
     }
 
     fn render(&mut self, cmd: &mut UserCommands, _cmd1: &mut Commands) { swap(&mut self.cmd, cmd); }
