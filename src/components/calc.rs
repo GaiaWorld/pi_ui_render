@@ -194,7 +194,7 @@ impl WorldMatrix {
         }
 
         // 计算tranform
-        for func in all_transform.transform.iter().rev() {
+        for func in all_transform.transform.iter() {
             m = m * Self::get_matrix(func, width, height);
         }
 
