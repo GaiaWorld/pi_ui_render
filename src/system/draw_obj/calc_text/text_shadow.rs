@@ -2,7 +2,7 @@ use std::borrow::BorrowMut;
 
 use bevy_ecs::prelude::{DetectChanges, Ref};
 use bevy_ecs::query::{Changed, Or, With};
-use bevy_ecs::system::{Query, Res, SystemParam, SystemState};
+use bevy_ecs::system::{Query, Res, SystemParam, SystemState, SystemChangeTick};
 use bevy_app::{Plugin, Update, App};
 use bevy_ecs::prelude::{Commands, Component, IntoSystemConfigs};
 use bevy_ecs::prelude::{Entity, EventReader, EventWriter, ParamSet, RemovedComponents, ResMut, Without, World};
@@ -111,6 +111,7 @@ pub fn text_shadow_life(
         EventWriter<ComponentEvent<Changed<RenderContextMark>>>,
         Commands,
 		OrInitRes<IsRun>,
+		SystemChangeTick,
     )>,
 ) {
     let (
@@ -128,7 +129,8 @@ pub fn text_shadow_life(
         mark_type,
         mut event_writer,
         mut commands,
-		r
+		r,
+		system_change_tick
     ) = state.get_mut(world);
 	if r.0 {
 		return;
@@ -168,6 +170,10 @@ pub fn text_shadow_life(
     // 收集需要创建DrawObject的实体
     for changed in changed.iter() {
         if let Ok((shadow, mut draw_list, mut render_mark_value)) = query.p1().get_mut(changed.id) {
+			// changed中的id肯呢个重复， 这里判断被system当帧运行是否已经修改过draw_list， 如果已经修改过，则忽略
+			if draw_list.last_changed() == system_change_tick.this_run() {
+				continue;
+			}
             render_mark_true(changed.id, ***mark_type, &mut event_writer, &mut render_mark_value);
             let mut need_count = shadow.len();
             let mut i = 0;

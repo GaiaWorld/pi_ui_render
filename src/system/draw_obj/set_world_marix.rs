@@ -5,7 +5,7 @@ use bevy_ecs::{
 };
 use pi_assets::{asset::Handle, mgr::AssetMgr};
 use pi_bevy_ecs_extend::{prelude::{OrDefault, Up}, system_param::res::OrInitRes};
-use pi_render::{rhi::bind_group_layout::BindGroupLayout, renderer::draw_obj::DrawBindGroup};
+use pi_render::rhi::bind_group_layout::BindGroupLayout;
 use pi_render::rhi::{asset::RenderRes, bind_group::BindGroup, buffer::Buffer, device::RenderDevice, RenderQueue};
 use pi_share::Share;
 // use wgpu::BindGroupLayout;

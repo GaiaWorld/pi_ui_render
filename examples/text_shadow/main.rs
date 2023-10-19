@@ -93,6 +93,23 @@ impl Example for QuadExample {
                 },
             ]),
         );
+		self.cmd.set_style(
+            div1,
+            TextShadowType(smallvec![
+                TextShadow {
+                    h: 0.0,
+                    v: 0.0,
+                    blur: 5.0,
+                    color: CgColor::new(1.0, 0.0, 0.0, 1.0)
+                },
+                TextShadow {
+                    h: 0.0,
+                    v: 0.0,
+                    blur: 3.0,
+                    color: CgColor::new(1.0, 0.0, 0.0, 1.0)
+                },
+            ]),
+        );
         // rgb(255,0,0) 0px 0px 5px, rgb(255,0,0) 0px 0px 3px, rgb(255,255,255) 0px 0px 1px;
         self.cmd.set_style(div1, FontFamilyType(Atom::from("hwkt")));
         self.cmd.set_style(div1, ColorType(Color::RGBA(CgColor::new(0.0, 1.0, 0.0, 1.0))));
