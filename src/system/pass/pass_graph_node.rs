@@ -1108,8 +1108,8 @@ pub fn create_rp<'a>(
                     Some(r) => Some(wgpu::RenderPassDepthStencilAttachment {
                         stencil_ops: None,
                         depth_ops: Some(wgpu::Operations {
-                            load: wgpu::LoadOp::Load,
-                            store: true,
+                            load: wgpu::LoadOp::Clear(0.0),
+                            store: false,
                         }),
                         view: r,
                     }),
@@ -1180,8 +1180,8 @@ pub fn create_rp_for_fbo<'a>(
             Some(r) => Some(wgpu::RenderPassDepthStencilAttachment {
                 stencil_ops: None,
                 depth_ops: Some(wgpu::Operations {
-                    load: wgpu::LoadOp::Load,
-                    store: true,
+                    load: wgpu::LoadOp::Clear(0.0),
+                    store: false,
                 }),
                 view: &r.0,
             }),

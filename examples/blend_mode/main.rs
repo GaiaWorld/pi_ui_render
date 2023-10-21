@@ -47,7 +47,7 @@ fn test() {
 impl Example for QuadExample {
     fn get_init_size(&self) -> Option<Size<u32>> {
         // None表示使用默认值
-        Some(Size { width: 1020, height: 959 })
+        Some(Size { width: 1020, height: 960 })
     }
 
     fn init(&mut self, world: &mut World, size: (usize, usize)) {
