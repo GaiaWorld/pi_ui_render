@@ -37,6 +37,13 @@ pub struct QuadExample {
     cmd: UserCommands,
 }
 
+#[test]
+#[wasm_bindgen_test::wasm_bindgen_test]
+fn test() {
+	web_sys::console::log_1(&"blend_mode===========".into());
+	framework::start(QuadExample::default());
+}
+
 impl Example for QuadExample {
     fn get_init_size(&self) -> Option<Size<u32>> {
         // None表示使用默认值

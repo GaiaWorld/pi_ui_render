@@ -36,7 +36,7 @@ fn main() { framework::start(QuadExample::default()) }
 #[test]
 #[wasm_bindgen_test::wasm_bindgen_test]
 fn test() {
-	web_sys::console::log_1(&"aaaa===========".into());
+	web_sys::console::log_1(&"background_image===========".into());
 	framework::start(QuadExample::default());
 }
 

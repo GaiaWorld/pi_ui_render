@@ -28,6 +28,14 @@ use pi_ui_render::{
 
 fn main() { framework::start(QuadExample::default()) }
 
+#[test]
+#[wasm_bindgen_test::wasm_bindgen_test]
+fn test() {
+	web_sys::console::log_1(&"background_compress_texture===========".into());
+	framework::start(QuadExample::default());
+}
+
+
 #[derive(Default)]
 pub struct QuadExample {
     cmd: UserCommands,

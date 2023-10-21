@@ -29,7 +29,7 @@ fn main() { framework::start(QuadExample::default()) }
 #[test]
 #[wasm_bindgen_test::wasm_bindgen_test]
 fn test() {
-	web_sys::console::log_1(&"bbbb===========".into());
+	web_sys::console::log_1(&"quad===========".into());
 	framework::start(QuadExample::default());
 }
 

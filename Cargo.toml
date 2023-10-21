@@ -156,11 +156,6 @@ pi_bevy_window= { path = "../pi_bevy/crates/window" }
 # pi_dirty = { path = "../pi_dirty" }
 wgpu = {path = "../pi_wgpu", package="pi_wgpu"}
 
-
-[[example]]
-name = "quad"
-test = true
-
 [dev-dependencies]
 float-ord = "0.3"
 async-trait="0.1"
@@ -251,7 +246,17 @@ codegen-units = 1
 # offline = true
 
 [[example]]
+name = "quad"
+test = true
+
+[[example]]
 name = "background_image"
 test = true
 
+[[example]]
+name = "blend_mode"
+test = true
 
+[[example]]
+name = "background_compress_texture"
+test = true
