@@ -64,16 +64,19 @@ pub fn start<T: Example + Sync + Send + 'static>(example: T) {
 
 	#[cfg(target_arch = "wasm32")]
     init_load_cb(Arc::new(|path: String| {
+		log::warn!("load==============={:?}", path);
         MULTI_MEDIA_RUNTIME
             .spawn(async move {
+				log::warn!("load1==============={:?}", path);
 				// wasm暂时只允许加载这几张资源
-				if path.as_str() == "example/z_source/bx_lanseguanbi.s3tc.ktx" {
+				if path.as_str() == "examples/z_source/bx_lanseguanbi.s3tc.ktx" {
 					on_load(path.as_str(), Vec::from(&include_bytes!("./z_source/bx_lanseguanbi.s3tc.ktx")[..]));
-				} else if path.as_str() == "example/z_source/3675173.jpg" {
+				} else if path.as_str() == "examples/z_source/3675173.jpg" {
 					on_load(path.as_str(), Vec::from(&include_bytes!("./z_source/3675173.jpg")[..]));
-				} else if path.as_str() == "example/z_source/bx_lanseguanbi.png" {
+				} else if path.as_str() == "examples/z_source/bx_lanseguanbi.png" {
 					on_load(path.as_str(), Vec::from(&include_bytes!("./z_source/bx_lanseguanbi.png")[..]));
-				} else if path.as_str() == "example/z_source/dialog_bg.png" {
+				} else if path.as_str() == "examples/z_source/dialog_bg.png" {
+					log::warn!("dialog_bg.png is load success");
 					on_load(path.as_str(), Vec::from(&include_bytes!("./z_source/dialog_bg.png")[..]));
 				}
             })
