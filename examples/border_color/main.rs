@@ -5,7 +5,7 @@ mod framework;
 
 use std::mem::swap;
 
-use bevy::{ecs::system::Commands, prelude::World};
+use bevy_ecs::prelude::{Commands, World};
 use framework::Example;
 /// 渲染四边形 demo
 use pi_flex_layout::style::{Dimension, PositionType};

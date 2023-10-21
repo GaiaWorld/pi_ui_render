@@ -6,7 +6,7 @@ mod framework;
 use std::mem::swap;
 
 use async_trait::async_trait;
-use bevy::prelude::{Commands, World};
+use bevy_ecs::prelude::{Commands, World};
 use framework::Example;
 use pi_atom::Atom;
 /// 渲染四边形 demo

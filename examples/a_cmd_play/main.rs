@@ -3,8 +3,8 @@ mod framework;
 
 use std::mem::swap;
 
-use bevy::ecs::system::Commands;
-use bevy::prelude::World;
+use bevy_ecs::system::Commands;
+use bevy_ecs::prelude::World;
 use font_kit::font::new_face_by_path;
 use framework::Example;
 use pi_flex_layout::prelude::Size;

@@ -1,3 +1,20 @@
+# 1. 使用
+
+## 1.2. 运行 Windows 平台
+
+执行 `cargo run --example background_image` 命令运行 background_image example
+
+## 1.3. 运行 [Web 平台](https://rustwasm.github.io/docs/wasm-bindgen/contributing/testing.html)
+
++ 执行`wasm-pack test  --chrome --example background_image`命令，构建wasm以及测试环境，并开启服务器监听在`8000`端口 
++  在浏览器中访问`http://127.0.0.1:8000`地址，即可运行测试
+
+## 1.4. 运行 Android 平台
+
++ 打开Linux Shell, 执行 `cargo apk run --example background_image --lib` 编译 example为apk
++ 链接手机 在 `target\debug\apk\examples` 中打开cmd， 并执行 `adb install background_image.apk` 来安装apk
++ 
+
 ## 运行quad demo： `cargo run --example quad`
 	
 ## 测试gui性能 

@@ -5,8 +5,8 @@ mod framework;
 
 use std::mem::swap;
 
-use bevy::ecs::system::Commands;
-use bevy::prelude::World;
+use bevy_ecs::system::Commands;
+use bevy_ecs::prelude::World;
 use framework::{spawn, Example};
 use pi_atom::Atom;
 use pi_flex_layout::style::{Dimension, PositionType};

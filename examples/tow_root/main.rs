@@ -7,7 +7,7 @@ use std::mem::swap;
 
 use async_trait::async_trait;
 /// 渲染四边形 demo
-use bevy::prelude::{Commands, World};
+use bevy_ecs::prelude::{Commands, World};
 use framework::Example;
 use pi_flex_layout::style::{Dimension, PositionType};
 use pi_null::Null;

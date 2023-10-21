@@ -6,8 +6,8 @@ mod framework;
 use std::mem::swap;
 
 use async_trait::async_trait;
-use bevy::prelude::Commands;
-use bevy::prelude::World;
+use bevy_ecs::prelude::Commands;
+use bevy_ecs::prelude::World;
 use framework::Example;
 use pi_flex_layout::style::{Dimension, PositionType};
 use pi_null::Null;

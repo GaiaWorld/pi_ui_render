@@ -3,7 +3,7 @@
 #[path = "../framework.rs"]
 mod framework;
 
-use bevy::{ecs::system::Commands, prelude::World};
+use bevy_ecs::prelude::{Commands, World};
 use framework::Example;
 use ordered_float::NotNan;
 use pi_atom::Atom;

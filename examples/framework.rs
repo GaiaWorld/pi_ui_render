@@ -1,13 +1,10 @@
 use std::{sync::Arc, time::Instant};
 
-use bevy::prelude::{IntoSystemConfigs, Update, Startup, Entity};
-use bevy::prelude::{ App, SystemSet };
+use bevy_ecs::prelude::{IntoSystemConfigs, Entity, SystemSet, Local};
+use bevy_app::prelude::{ App, Update, Startup };
 #[cfg(feature = "debug")]
-use bevy::prelude::Local;
-use bevy::ecs::{
-	system::{Commands, ResMut, SystemState},
-	world::World,
-};
+use bevy_ecs::prelude::{Commands, ResMut, World};
+use bevy_ecs::system::SystemState;
 
 use bevy_ecs::system::Resource;
 use bevy_window::{Window, WindowResolution};
@@ -24,12 +21,15 @@ use pi_share::{Share, ShareMutex};
 // use pi_ui_render::system::draw_obj::calc_text::IsRun;
 use pi_ui_render::system::{system_set::UiSystemSet, RunState};
 use pi_ui_render::{prelude::UiPlugin, resource::UserCommands};
-use pi_winit::platform::windows::EventLoopBuilderExtWindows;
 
 #[cfg(feature = "debug")]
 use pi_ui_render::system::cmd_play::{CmdNodeCreate, PlayState, Records};
 use pi_winit::event::{Event, WindowEvent};
 use pi_winit::event_loop::{EventLoop, ControlFlow};
+#[cfg(target_arch = "wasm32")]
+use pi_async_rt::rt::serial_local_compatible_wasm_runtime::{LocalTaskRunner, LocalTaskRuntime};
+
+wasm_bindgen_test::wasm_bindgen_test_configure!(run_in_browser);
 
 pub trait Example: 'static + Sized {
     fn setting(&mut self, _app: &mut App) {}
@@ -45,8 +45,12 @@ pub trait Example: 'static + Sized {
     fn play_option(&self) -> Option<PlayOption> { None }
 }
 
+#[cfg(target_arch = "wasm32")]
+pub static mut RUNNER: std::cell::OnceCell<LocalTaskRunner<()>> = std::cell::OnceCell::new();
+
 pub fn start<T: Example + Sync + Send + 'static>(example: T) {
-    init_load_cb(Arc::new(|path: String| {
+	#[cfg(not(target_arch = "wasm32"))]
+	init_load_cb(Arc::new(|path: String| {
         MULTI_MEDIA_RUNTIME
             .spawn(async move {
                 if let Ok(dynamic_image) = std::fs::read(path.clone()) {
@@ -54,6 +58,24 @@ pub fn start<T: Example + Sync + Send + 'static>(example: T) {
                 } else {
                     log::warn!("not find image,path: {:?}", path);
                 }
+            })
+            .unwrap();
+    }));
+
+	#[cfg(target_arch = "wasm32")]
+    init_load_cb(Arc::new(|path: String| {
+        MULTI_MEDIA_RUNTIME
+            .spawn(async move {
+				// wasm暂时只允许加载这几张资源
+				if path.as_str() == "example/z_source/bx_lanseguanbi.s3tc.ktx" {
+					on_load(path.as_str(), Vec::from(&include_bytes!("./z_source/bx_lanseguanbi.s3tc.ktx")[..]));
+				} else if path.as_str() == "example/z_source/3675173.jpg" {
+					on_load(path.as_str(), Vec::from(&include_bytes!("./z_source/3675173.jpg")[..]));
+				} else if path.as_str() == "example/z_source/bx_lanseguanbi.png" {
+					on_load(path.as_str(), Vec::from(&include_bytes!("./z_source/bx_lanseguanbi.png")[..]));
+				} else if path.as_str() == "example/z_source/dialog_bg.png" {
+					on_load(path.as_str(), Vec::from(&include_bytes!("./z_source/dialog_bg.png")[..]));
+				}
             })
             .unwrap();
     }));
@@ -80,8 +102,49 @@ pub fn start<T: Example + Sync + Send + 'static>(example: T) {
         exmple.lock().render(&mut commands.0, &mut commands.1);
     };
 
-	let event_loop = pi_winit::event_loop::EventLoopBuilder::new().with_any_thread(true).build();
+	let event_loop = EventLoop::new();
+	#[cfg(not(target_arch = "wasm32"))]
 	let window = Arc::new(pi_winit::window::Window::new(&event_loop).unwrap());
+	#[cfg(target_arch = "wasm32")]
+	let (window, canvas) = {
+		use pi_winit::platform::web::WindowBuilderExtWebSys;
+		use wasm_bindgen::JsCast;
+		let canvas: wasm_bindgen::JsValue = web_sys::window().unwrap().document().unwrap().create_element("canvas").unwrap().into();
+		let canvas: web_sys::HtmlCanvasElement = canvas.into();
+		(
+			Arc::new(
+				pi_winit::window::WindowBuilder::new()
+					.with_canvas(Some(canvas.clone()))
+					.build(&event_loop)
+					.unwrap(),
+			),
+			canvas
+		)
+	};
+
+	#[cfg(target_arch = "wasm32")]
+    {
+		// 将window中的canvas添加到dom树中
+        web_sys::window()
+            .and_then(|win| win.document())
+            .and_then(|doc| doc.body())
+            .and_then(|body| {
+                body.append_child(&web_sys::Element::from(canvas))
+                    .ok()
+            })
+            .expect("couldn't append canvas to document body");
+
+			// 初始化运行时（全局localRuntime需要初始化）
+			let runner = LocalTaskRunner::new();
+			let rt = runner.get_runtime();
+			//非线程安全，外部保证同一时间只有一个线程在多读或单写变量
+			unsafe {
+				RUNNER.set(runner);
+				pi_hal::runtime::MULTI_MEDIA_RUNTIME.0.set(rt.clone());
+				pi_hal::runtime::RENDER_RUNTIME.0.set(rt);
+			}
+    }
+
     let mut app = init(width, height, &event_loop, window.clone());
 
     app.world.insert_resource(RunState::RENDER);
@@ -119,7 +182,20 @@ pub fn start<T: Example + Sync + Send + 'static>(example: T) {
                 window.request_redraw();
             }
 			Event::RedrawRequested(_) => {
+				#[cfg(not(target_arch = "wasm32"))]
                 app.update();
+
+				#[cfg(target_arch = "wasm32")] 
+				{
+					// 资源运行时
+					let rt = unsafe{RUNNER.get().unwrap()};
+					while pi_hal::runtime::RENDER_RUNTIME.len() > 0 {
+						rt.poll();
+						rt.run_once();
+					}
+					app.update();
+				}
+				
             }
 			Event::WindowEvent {
                 event: WindowEvent::CloseRequested,
@@ -241,8 +317,8 @@ pub fn init(width: u32, height: u32, _event_loop: &EventLoop<()>, w: Arc<pi_wini
         level: LOG_LEVEL,
 		chrome_write: None,
     })
-    .add_plugins(bevy::a11y::AccessibilityPlugin)
-    // .add_plugins(bevy::input::InputPlugin::default())
+    .add_plugins(bevy_a11y::AccessibilityPlugin)
+    // .add_plugins(bevy_input::InputPlugin::default())
     .add_plugins(window_plugin)
     // .add_plugins(WinitPlugin::default())
 	.add_plugins(pi_bevy_winit_window::WinitPlugin::new(w).with_size(width, height))
@@ -258,7 +334,7 @@ pub fn init(width: u32, height: u32, _event_loop: &EventLoop<()>, w: Arc<pi_wini
 
 
     // let h = app.world.get_resource_mut::<pi_bevy_log::LogFilterHandle>().unwrap();
-    // let default_filter = { format!("{},my_target=info", bevy::log::Level::WARN) };
+    // let default_filter = { format!("{},my_target=info", bevy_log::Level::WARN) };
     // let filter_layer = tracing_subscriber::EnvFilter::try_from_default_env()
     // 	.or_else(|_| tracing_subscriber::EnvFilter::try_new(&default_filter))
     // 	.unwrap();
@@ -417,5 +493,5 @@ pub struct PlayOption {
 // pub const FILTER: &'static str = "wgpu=warn,naga=warn,bevy_app=warn";
 pub const FILTER: &'static str = "wgpu=warn,naga=warn,pi_wgpu=trace";
 // pub const FILTER: &'static str = "";
-pub const LOG_LEVEL: bevy::log::Level = bevy::log::Level::WARN;
-// pub const LOG_LEVEL: bevy::log::Level = bevy::log::Level::INFO;
+pub const LOG_LEVEL: bevy_log::Level = bevy_log::Level::WARN;
+// pub const LOG_LEVEL: bevy_log::Level = bevy_log::Level::INFO;

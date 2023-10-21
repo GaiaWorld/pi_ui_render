@@ -5,7 +5,7 @@ mod framework;
 
 use std::mem::swap;
 
-use bevy::prelude::{Commands, World};
+use bevy_ecs::prelude::{Commands, World};
 use framework::Example;
 use pi_atom::Atom;
 use pi_curves::steps::EStepMode;

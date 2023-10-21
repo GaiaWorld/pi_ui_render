@@ -6,7 +6,8 @@ mod framework;
 use std::mem::swap;
 
 use async_trait::async_trait;
-use bevy::prelude::{Commands, Component, Deref, World};
+use bevy_ecs::prelude::{Commands, Component, World};
+use derive_deref_rs::Deref;
 use framework::Example;
 /// 渲染四边形 demo
 use pi_flex_layout::style::{Dimension, PositionType};

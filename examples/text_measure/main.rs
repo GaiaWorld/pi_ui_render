@@ -4,7 +4,7 @@
 mod framework;
 
 use async_trait::async_trait;
-use bevy::prelude::{Commands, World};
+use bevy_ecs::prelude::{Commands, World};
 use font_kit::font::new_face_by_path;
 use framework::Example;
 use ordered_float::NotNan;
