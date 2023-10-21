@@ -76,9 +76,14 @@ pub fn start<T: Example + Sync + Send + 'static>(example: T) {
 				} else if path.as_str() == "examples/z_source/bx_lanseguanbi.png" {
 					on_load(path.as_str(), Vec::from(&include_bytes!("./z_source/bx_lanseguanbi.png")[..]));
 				} else if path.as_str() == "examples/z_source/dialog_bg.png" {
-					log::warn!("dialog_bg.png is load success");
 					on_load(path.as_str(), Vec::from(&include_bytes!("./z_source/dialog_bg.png")[..]));
+				} else if path.as_str() == "examples/z_source/6.png" {
+					on_load(path.as_str(), Vec::from(&include_bytes!("./z_source/6.png")[..]));
+				} else if path.as_str() == "examples/z_source/chouka_shitou_1.png" {
+					on_load(path.as_str(), Vec::from(&include_bytes!("./z_source/chouka_shitou_1.png")[..]));
 				}
+
+				
             })
             .unwrap();
     }));

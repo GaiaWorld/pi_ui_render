@@ -72,7 +72,7 @@ impl Example for QuadExample {
         self.cmd.set_style(div1, HeightType(Dimension::Points(480.0)));
         self.cmd.set_style(div1, PositionTypeType(PositionType::Absolute));
         self.cmd
-            .set_style(div1, BackgroundImageType(Atom::from("examples/blend_mode/source/chouka_shitou_1.png")));
+            .set_style(div1, BackgroundImageType(Atom::from("examples/z_source/chouka_shitou_1.png")));
         self.cmd.append(div1, root);
 
         let div2 = world.spawn(NodeBundle::default()).id();
@@ -81,7 +81,7 @@ impl Example for QuadExample {
         self.cmd.set_style(div2, BlendModeType(BlendMode::AlphaAdd));
         self.cmd.set_style(div2, PositionTypeType(PositionType::Absolute));
         self.cmd
-            .set_style(div2, BackgroundImageType(Atom::from("examples/blend_mode/source/6.png")));
+            .set_style(div2, BackgroundImageType(Atom::from("examples/z_source/6.png")));
         self.cmd.append(div2, root);
     }
 
