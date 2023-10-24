@@ -142,10 +142,12 @@ pub fn set_gylph(
                 None => {
                     // 纹理空间不足
                     log::warn!(
-                        "异常，无法计算字形,char:{:?}, family:{:?}, id:{:?}",
+                        "异常，无法计算字形,char:{:?}, family:{:?}, id:{:?}, texture_width: {:?}, texture_height: {:?}",
                         char_node.ch,
                         text_style.font_family,
-                        entity
+                        entity,
+						font_sheet.texture_view().width,
+						font_sheet.texture_view().height,
                     );
                     return Err(());
                 }

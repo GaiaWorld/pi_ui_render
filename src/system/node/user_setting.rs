@@ -18,7 +18,7 @@ use pi_slotmap_tree::InsertType;
 use crate::{
     components::{
         calc::EntityKey,
-        user::{RenderDirty, Viewport},
+        user::{RenderDirty, Viewport, ZIndex},
         NodeBundle,
     },
     resource::{
@@ -64,6 +64,21 @@ pub fn user_setting(
     let fragments = std::mem::replace(&mut **fragments, FragmentMap::default());
     let class_sheet = std::mem::replace(&mut *class_sheet, ClassSheet::default());
 
+	// 初始化节点
+	for (node, tag) in user_commands.node_init_commands.drain(..) {
+		if let Some(mut entity) = world.get_entity_mut(node) {
+			let mut bundle = NodeBundle::default();
+			if tag == NodeTag::VNode {
+				bundle.node_state.set_vnode(true);
+				log::debug!("insert NodeBundle, {:?}", node);
+				entity.insert((bundle, ZIndex(-1))); // vnode节点，Zindex应该为auto
+				continue;
+			}
+			log::debug!("insert NodeBundle, {:?}", node);
+			entity.insert(bundle);
+		}
+	}
+
     // 插入bundle
     for c in user_commands.fragment_commands.iter() {
         // 组织模板的节点关系
@@ -84,6 +99,9 @@ pub fn user_setting(
                 let mut bundle = NodeBundle::default();
                 if n.tag == NodeTag::VNode {
                     bundle.node_state.set_vnode(true);
+					log::debug!("insert NodeBundle for fragment , {:?}", node);
+					entity.insert((bundle, ZIndex(-1))); // vnode节点，Zindex应该为auto
+					continue;
                 }
                 log::debug!("insert NodeBundle for fragment , {:?}", node);
                 entity.insert(bundle);

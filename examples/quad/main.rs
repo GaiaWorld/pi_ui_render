@@ -21,15 +21,14 @@ use pi_ui_render::{
         user::{CgColor, ClearColor, Color, RenderDirty, Viewport},
         NodeBundle,
     },
-    resource::{NodeCmd, UserCommands},
+    resource::{NodeCmd, UserCommands, fragment::NodeTag},
 };
 
 fn main() { framework::start(QuadExample::default()) }
 
-#[test]
+#[cfg(predicate)]
 #[wasm_bindgen_test::wasm_bindgen_test]
 fn test() {
-	web_sys::console::log_1(&"quad===========".into());
 	framework::start(QuadExample::default());
 }
 
@@ -44,7 +43,8 @@ impl Example for QuadExample {
         // gui.gui.world_mut().insert_resource(ClearColor(CgColor::new(0.0, 1.0, 1.0, 1.0)));
 
         // 添加根节点
-        let root = world.spawn(NodeBundle::default()).id();
+        let root = world.spawn(()).id();
+		self.cmd.init_node(root, NodeTag::Div);
         self.cmd.push_cmd(NodeCmd(ClearColor(CgColor::new(1.0, 1.0, 1.0, 1.0), true), root));
         self.cmd.push_cmd(NodeCmd(
             Viewport(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(size.0 as f32, size.1 as f32))),

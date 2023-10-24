@@ -8,7 +8,7 @@ use crate::{
         user::{serialize::StyleTypeReader, style_attr_list_to_buffer, ClassName, StyleAttribute},
     },
     prelude::UserCommands,
-    resource::{CmdType, FragmentCommand, NodeCommand},
+    resource::{CmdType, FragmentCommand, NodeCommand, fragment::NodeTag},
 };
 use bevy_ecs::{
     system::SystemState,
@@ -84,6 +84,7 @@ pub fn cmd_record(
             frame_index,
             state: **run_state,
             node_commands: user_commands.node_commands.clone(),
+			node_init_commands: user_commands.node_init_commands.clone(),
             fragment_commands: user_commands.fragment_commands.clone(),
             style_commands: ss,
             class_commands: user_commands.class_commands.clone(),
@@ -324,6 +325,7 @@ pub struct Record {
     pub frame_index: usize, // 所在帧位置
     pub state: RunState,
     pub node_commands: Vec<NodeCommand>,
+	pub node_init_commands: Vec<(Entity, NodeTag)>,
     pub fragment_commands: Vec<FragmentCommand>,
     pub style_commands: Vec<StyleCmd>,
     pub class_commands: Vec<(Entity, ClassName)>,

@@ -37,6 +37,7 @@ use pi_spatial::quad_helper::QuadTree as QuadTree1;
 use crate::components::user::ClassName;
 
 use self::draw_obj::{CommonBlendState, DrawObjDefault};
+use self::fragment::NodeTag;
 
 #[derive(Default, Deref, Resource, Serialize, Deserialize)]
 pub struct ClassSheet(pi_style::style_type::ClassSheet);
@@ -51,6 +52,8 @@ pub struct UserCommandsCache(pub UserCommands);
 pub struct UserCommands {
     /// 节点指令
     pub node_commands: Vec<NodeCommand>,
+	/// 节点初始化
+	pub node_init_commands: Vec<(Entity, NodeTag)>,
     pub fragment_commands: Vec<FragmentCommand>,
     /// 样式指令
     pub style_commands: StyleCommands,
@@ -69,6 +72,11 @@ pub struct UserCommands {
 }
 
 impl UserCommands {
+	// 初始化节点
+	#[inline]
+	pub fn init_node(&mut self, entity: Entity, tag: NodeTag) {
+		self.node_init_commands.push((entity, tag));
+	}
     /// 将节点作为子节点挂在父上
     pub fn append(&mut self, entity: Entity, parent: Entity) -> &mut Self {
         // log::debug!("append====={:?}, {:?}", entity, parent);
