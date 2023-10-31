@@ -44,7 +44,7 @@ const Z_AUTO: isize = -1;
 // const Z_MAX: usize = 16;//usize::MAX;
 const Z_MAX: usize = usize::MAX;
 /// 每个节点自身占用的zindex区间大小
-const Z_SELF: usize = 3;
+const Z_SELF: usize = 1;
 /// 子节点将区间劈分成3段，自身在中间段
 const Z_SPLIT: usize = 3;
 
