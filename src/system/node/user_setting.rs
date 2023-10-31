@@ -48,7 +48,6 @@ pub fn user_setting(
     style_query: Local<StyleQuery>,
     mut destroy_entity_list: Local<Vec<Entity>>, // 需要销毁的实体列表作为本地变量，避免每次重新分配内存
 ) {
-    // log::warn!("setting=====================");
     let (mut user_commands, _class_sheet, _fragments, r) = commands.get_mut(world);
 	if r.0 {
 		return;

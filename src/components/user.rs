@@ -540,10 +540,10 @@ pub fn get_size(s: &FontSize) -> usize {
 pub mod serialize {
     use std::mem::forget;
 
-    use crate::components::{
+    use crate::{components::{
         calc::{BackgroundImageTexture, BorderImageTexture, StyleMark},
         user::*,
-    };
+    }, resource::draw_obj::DirtyList};
     use pi_atom::Atom;
     // use pi_ecs::{
     //     prelude::{Query, ResMut},
@@ -551,7 +551,7 @@ pub mod serialize {
     // };
     use bevy_ecs::{
         component::ComponentId,
-        prelude::{Entity, FromWorld, World, Events},
+        prelude::{Entity, FromWorld, World, Events}
     };
     use pi_bevy_ecs_extend::prelude::DefaultComponent;
     use pi_flex_layout::{
@@ -605,6 +605,7 @@ pub mod serialize {
         entity: Entity,
         component_id: ComponentId,
         default_component_id: ComponentId,
+		dirty_list: ComponentId,
         v: V,
         mut f: F,
     ) {
@@ -626,8 +627,12 @@ pub mod serialize {
                 world.entity_mut(entity).insert(r);
             }
         };
+		unsafe { world.get_resource_mut_by_id(dirty_list).unwrap().into_inner().deref_mut::<DirtyList>() }.push(entity);
+		// unsafe { dirty_list.into_inner().deref_mut::<DirtyList>() }
+		// dirty_list
     }
 
+	// 在设置Class、styleMark时调用， 不需要进脏列表
     pub fn set_style_attr_or_default<V, C: Component + Clone + Default, F: FnMut(&mut C, V)>(
         world: &mut World,
         entity: Entity,
@@ -678,6 +683,7 @@ pub mod serialize {
         entity: Entity,
         component_id: ComponentId,
         default_component_id: ComponentId,
+		dirty_list: ComponentId,
         mut f: F,
     ) {
         match world.get_resource_by_id(default_component_id) {
@@ -696,6 +702,7 @@ pub mod serialize {
                 );
             }
         };
+		unsafe { world.get_resource_mut_by_id(dirty_list).unwrap().into_inner().deref_mut::<DirtyList>() }.push(entity);
     }
 
     impl<'a> StyleTypeReader<'a> {
@@ -814,6 +821,7 @@ pub mod serialize {
                     entity,
                     query.style.$name,
                     query.style.default.$name,
+					query.style.dirty_list,
                     v,
                     |item: &mut $value_ty, v: $value_ty| *item = v,
                 );
@@ -829,7 +837,7 @@ pub mod serialize {
                     unsafe { v.read_unaligned() }
                 };
                 cur_style_mark.set(Self::get_type() as usize, true);
-                set_style_attr(&mut query.world, entity, query.style.$name, query.style.default.$name, v, $f);
+                set_style_attr(&mut query.world, entity, query.style.$name, query.style.default.$name, query.style.dirty_list, v, $f);
             }
         };
 
@@ -842,7 +850,7 @@ pub mod serialize {
                     unsafe { v.read_unaligned() }
                 };
                 cur_style_mark.set(Self::get_type() as usize, true);
-                set_style_attr(&mut query.world, entity, query.style.$name, query.style.default.$name, v, $f);
+                set_style_attr(&mut query.world, entity, query.style.$name, query.style.default.$name, query.style.dirty_list, v, $f);
                 if let Some(component) = query.world.get_resource_mut_by_id(query.style.event.$name) {
                     unsafe { component.into_inner().deref_mut::<Events<ComponentEvent<Changed<$c_ty>>>>() }
                         .send(ComponentEvent::<Changed<$c_ty>>::new(entity));
@@ -887,6 +895,7 @@ pub mod serialize {
                     entity,
                     query.style.$name,
                     query.style.default.$name,
+					query.style.dirty_list,
                     v,
                     |item: &mut $c_ty, v: $value_ty| {
                         item.$feild = v;
@@ -909,6 +918,7 @@ pub mod serialize {
                     entity,
                     query.style.$name,
                     query.style.default.$name,
+					query.style.dirty_list,
                     v,
                     |item: &mut $c_ty, v: $value_ty| {
                         item.$set_func(v);
@@ -933,6 +943,7 @@ pub mod serialize {
                     entity,
                     query.style.$name,
                     query.style.default.$name,
+					query.style.dirty_list,
                     v,
                     |item: &mut $c_ty, v: $value_ty| {
                         item.$feild1.$feild2 = v;
@@ -956,6 +967,7 @@ pub mod serialize {
                     entity,
                     query.style.$name,
                     query.style.default.$name,
+					query.style.dirty_list,
                     v,
                     |item: &mut $value_ty, v: $value_ty| {
                         *item = v;
@@ -1056,6 +1068,7 @@ pub mod serialize {
                     entity,
                     query.style.$name,
                     query.style.default.$name,
+					query.style.dirty_list,
                     |item: &mut $value_ty, v: &$value_ty| {
                         *item = v.clone();
                     },
@@ -1070,6 +1083,7 @@ pub mod serialize {
                     entity,
                     query.style.$name,
                     query.style.default.$name,
+					query.style.dirty_list,
                     |item: &mut $value_ty, v: &$value_ty| {
                         *item = v.clone();
                     },
@@ -1088,6 +1102,7 @@ pub mod serialize {
                     entity,
                     query.style.$name,
                     query.style.default.$name,
+					query.style.dirty_list,
                     |item: &mut $c_ty, v: &$c_ty| {
                         item.$feild = v.$feild.clone();
                     },
@@ -1103,6 +1118,7 @@ pub mod serialize {
                     entity,
                     query.style.$name,
                     query.style.default.$name,
+					query.style.dirty_list,
                     |item: &mut $c_ty, v: &$c_ty| {
                         item.$set_func(v.$get_func());
                     },
@@ -1117,6 +1133,7 @@ pub mod serialize {
                     entity,
                     query.style.$name,
                     query.style.default.$name,
+					query.style.dirty_list,
                     |item: &mut $c_ty, v: &$c_ty| {
                         item.$feild1.$feild2 = v.$feild1.$feild2.clone();
                     },
@@ -1131,6 +1148,7 @@ pub mod serialize {
                     entity,
                     query.style.$name,
                     query.style.default.$name,
+					query.style.dirty_list,
                     |item: &mut $c_ty, v: &$c_ty| {
                         item.$feild = v.$feild;
                     },
@@ -1145,6 +1163,7 @@ pub mod serialize {
                     entity,
                     query.style.$name,
                     query.style.default.$name,
+					query.style.dirty_list,
                     |item: &mut $value_ty, v: &$value_ty| {
                         let mut is_changed = false;
                         $crate::paste::item! {
@@ -1554,6 +1573,7 @@ pub mod serialize {
                 entity,
                 query.style.text_content,
                 query.style.default.text_content,
+				query.style.dirty_list,
                 v,
                 |item: &mut TextContent, v| {
                     item.0 = v;
@@ -1790,6 +1810,7 @@ pub mod serialize {
                 entity,
                 query.style.background_image,
                 query.style.default.background_image,
+				query.style.dirty_list,
                 |item: &mut BackgroundImage, v: &BackgroundImage| {
                     *item = v.clone();
                 },
@@ -1905,6 +1926,7 @@ pub mod serialize {
                 entity,
                 query.style.border_image,
                 query.style.default.border_image,
+				query.style.dirty_list,
                 |item: &mut BorderImage, v: &BorderImage| {
                     *item = v.clone();
                 },
@@ -3032,6 +3054,8 @@ pub mod serialize {
                 as_image: world.init_component::<AsImage>(),
                 default: DefaultStyle::from_world(world),
                 event: ChangeEvent::from_world(world),
+
+				dirty_list: world.components().get_resource_id(std::any::TypeId::of::<DirtyList>()).unwrap(),
             }
         }
     }
@@ -3082,6 +3106,8 @@ pub mod serialize {
         pub default: DefaultStyle,
 
         pub event: ChangeEvent,
+
+		pub dirty_list: ComponentId,
     }
 
     pub struct DefaultStyle {

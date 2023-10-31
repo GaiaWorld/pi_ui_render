@@ -3,9 +3,9 @@ use crate::{
         calc::{ContentBox, LayoutResult, Quad},
         user::Transform,
     },
-    resource::{animation_sheet::KeyFramesSheet, ClassSheet, QuadTree, TimeInfo, UserCommands},
+    resource::{animation_sheet::KeyFramesSheet, ClassSheet, QuadTree, TimeInfo, UserCommands, draw_obj::DirtyList},
 };
-use bevy_ecs::prelude::{IntoSystemConfigs, IntoSystemSetConfig, Changed};
+use bevy_ecs::{prelude::{IntoSystemConfigs, IntoSystemSetConfig, Changed}, system::{ResMut, SystemChangeTick}};
 use bevy_app::{Plugin, Update, App};
 use pi_bevy_ecs_extend::{prelude::Layer, system_param::layer_dirty::ComponentEvent};
 use pi_bevy_render_plugin::should_run;
@@ -26,6 +26,9 @@ pub mod z_index;
 // pub mod context_mask_texture;
 pub mod animation;
 
+pub fn clear_dirty_list(mut dirty_list: ResMut<DirtyList>, system_tick: SystemChangeTick) {
+	dirty_list.clear(system_tick.this_run());
+}
 
 pub struct UiNodePlugin;
 
@@ -42,6 +45,11 @@ impl Plugin for UiNodePlugin {
             .init_resource::<ClassSheet>()
             .init_resource::<TimeInfo>()
             .init_resource::<KeyFramesSheet>()
+
+			// 维护脏列表
+			.init_resource::<DirtyList>()
+			.add_systems(Update, clear_dirty_list.run_if(should_run).after(UiSystemSet::PassCalc))
+			
             // 设置相关
             .add_systems(Update, user_setting::user_setting.in_set(UiSystemSet::Setting))
             .add_systems(Update, 

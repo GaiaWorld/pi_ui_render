@@ -314,7 +314,8 @@ pub fn init(width: u32, height: u32, _event_loop: &EventLoop<()>, w: Arc<pi_wini
 	window_plugin.primary_window = None;
 
 	let mut o = PiRenderOptions::default();
-	o.present_mode = wgpu::PresentMode::Mailbox;
+	o.present_mode = wgpu::PresentMode::Fifo;
+	o.backends = wgpu::Backends::GL;
 	app.world.insert_resource(o);
 
 	// app.world.insert_resource(IsRun(true));
@@ -499,7 +500,7 @@ pub struct PlayOption {
 // pub const FILTER: &'static str = "wgpu=warn,pi_ui_render::system::pass::pass_graph_node=trace,pi_ui_render::system::pass_effect::radial_wave=trace,pi_ui_render::system::pass::pass_life=trace";
 // pub const FILTER: &'static str = "wgpu=warn,pi_ui_render::system::pass_effect::radial_wave=trace,pi_ui_render::system::pass::pass_life=trace,pi_ui_render::system::pass::update_graph=trace";
 // pub const FILTER: &'static str = "wgpu=warn,naga=warn,bevy_app=warn";
-pub const FILTER: &'static str = "wgpu=warn,naga=warn,pi_wgpu=info";
+pub const FILTER: &'static str = "wgpu=warn,naga=warn";
 // pub const FILTER: &'static str = "";
-pub const LOG_LEVEL: bevy_log::Level = bevy_log::Level::WARN;
+pub const LOG_LEVEL: bevy_log::Level = bevy_log::Level::INFO;
 // pub const LOG_LEVEL: bevy_log::Level = bevy_log::Level::INFO;

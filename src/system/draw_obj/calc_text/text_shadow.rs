@@ -33,11 +33,11 @@ use crate::components::calc::{DrawInfo, DrawList, EntityKey, NodeId, NodeState, 
 use crate::components::draw_obj::DrawState;
 use crate::components::draw_obj::{BoxType, DynTargetType, PipelineMeta, TextMark, TextShadowMark};
 use crate::components::pass_2d::{Camera, ParentPassId, PostProcess};
-use crate::components::user::{Matrix4, TextShadow};
+use crate::components::user::{Matrix4, TextShadow, Animation};
 use crate::components::DrawBundle;
 use crate::resource::draw_obj::{
     ClearDrawObj, DepthCache, EmptyVertexBuffer, PosUvColorVertexLayout, ProgramMetaRes, ShaderInfoCache,
-    ShareGroupAlloter, TextTextureGroup, UiMaterialGroup,
+    ShareGroupAlloter, TextTextureGroup, UiMaterialGroup, DynMark,
 };
 use crate::resource::{RenderContextMarkType, ShareFontSheet, TextRenderObjType, TextShadowRenderObjType};
 use crate::shader::camera::CameraBind;
@@ -96,15 +96,15 @@ pub fn text_shadow_life(
         EventReader<ComponentEvent<Changed<TextShadow>>>,
         RemovedComponents<TextShadow>,
         ParamSet<(
-            Query<(Option<&'static TextShadow>, &'static mut DrawList, &'static mut RenderContextMark)>,
-            Query<(&'static TextShadow, &'static mut DrawList, &'static mut RenderContextMark), Changed<TextShadow>>,
-            Query<&'static mut DrawList>,
+            Query<(Option<&'static TextShadow>, &'static mut DrawList, &'static mut RenderContextMark, Option<&'static Animation>)>,
+            Query<(&'static TextShadow, &'static mut DrawList, &'static mut RenderContextMark, Option<&'static Animation>), Changed<TextShadow>>,
         )>,
         Query<&'static TextShadowMark>,
         OrInitRes<ProgramMetaRes<crate::shader::text::ProgramMeta>>,
         OrInitRes<PosUvColorVertexLayout>,
         OrInitRes<ShaderInfoCache>,
-        OrInitRes<ShareGroupAlloter<UiMaterialGroup>>,
+        (OrInitRes<ShareGroupAlloter<UiMaterialGroup>>, OrInitRes<ShareGroupAlloter<UiMaterialGroup, DynMark>>),
+		
         ResMut<PiRenderGraph>,
         Query<&'static GraphId>,
         OrInitRes<RenderContextMarkType<TextShadow>>,
@@ -123,7 +123,7 @@ pub fn text_shadow_life(
         program_meta,
         vert_layout,
         shader_catch,
-        group_alloter,
+        (group_alloter, dyn_group_alloter),
         mut rg,
         graph_id_query,
         mark_type,
@@ -135,12 +135,13 @@ pub fn text_shadow_life(
 	if r.0 {
 		return;
 	}
+	let time = pi_time::Instant::now();
     let group_alloter = group_alloter.clone();
     let render_type = ***render_type;
 
     // TextShadow组件被移除时，删除对应的DrawObj
     for del in del.iter() {
-        if let Ok((text_shadow, mut draw_list, mut render_mark_value)) = query.p0().get_mut(del) {
+        if let Ok((text_shadow, mut draw_list, mut render_mark_value, animation)) = query.p0().get_mut(del) {
             if text_shadow.is_some() {
                 continue;
             }
@@ -169,7 +170,7 @@ pub fn text_shadow_life(
 
     // 收集需要创建DrawObject的实体
     for changed in changed.iter() {
-        if let Ok((shadow, mut draw_list, mut render_mark_value)) = query.p1().get_mut(changed.id) {
+        if let Ok((shadow, mut draw_list, mut render_mark_value, animation)) = query.p1().get_mut(changed.id) {
 			// changed中的id肯呢个重复， 这里判断被system当帧运行是否已经修改过draw_list， 如果已经修改过，则忽略
 			if draw_list.last_changed() == system_change_tick.this_run() {
 				continue;
@@ -239,6 +240,7 @@ pub fn text_shadow_life(
     }
 
     state.apply(world);
+	// log::warn!("text_shadow======{:?}", pi_time::Instant::now() - time);
 }
 
 /// 设置文字阴影的顶点、索引、uv，和颜色的Uniform

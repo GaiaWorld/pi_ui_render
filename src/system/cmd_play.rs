@@ -178,6 +178,14 @@ pub fn cmd_play(world: &mut World, state: &mut SystemState<(Commands, OrInitRes<
         cmds.node_commands.push(cmd);
     }
 
+	for (n, node_tag) in r.node_init_commands.iter() {
+        let node = match play_state.get_node(n) {
+            Some(r) => r,
+            None => continue,
+        };
+        cmds.node_init_commands.push((node, *node_tag));
+    }
+
     for (n, class_name) in r.class_commands.iter() {
         let node = match play_state.get_node(n) {
             Some(r) => r,

@@ -123,7 +123,7 @@ fn get_parent(query: &Query<&ZIndex>, tree: &EntityTree, ranges: &Query<&mut ZRa
         };
 
         // log::error!("get_parent======node: {:?}, parent: {:?}, down: {:?}, layer: {:?}, z_index: {:?}, z_range: {:?} ", node, tree.up(node).parent(), tree.down(node), tree.get_layer(node), query.get(node), range);
-        if range.end - range.start > (children_count + 1) * Z_SELF {
+        if range.end - range.start >= children_count + 1 {
             return (node, children_count, range, local);
         }
         // println!("node range:{:?}, children_count:{}", range, children_count);

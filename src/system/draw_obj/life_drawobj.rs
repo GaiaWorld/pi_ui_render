@@ -45,6 +45,7 @@ pub fn draw_object_life<
 	// #[allow(dead_code)]
     // query_draw_list: &mut SystemState<Query<&'static mut DrawList>>, 
 ) {
+	// let time1 = pi_time::Instant::now();
     let (render_type, mut changed, mut del, mut query_texture, program_meta, vert_layout, shader_catch, group_alloter, mut commands, r) =
         state.get_mut(world);
 	if r.0 {
@@ -53,8 +54,12 @@ pub fn draw_object_life<
     let group_alloter = group_alloter.clone();
     let render_type = ***render_type;
 
+	// let mut count1 = 0;
+	// let mut count2 = 0;
+
     // 收集需要删除DrawObject的实体
     for del in del.iter() {
+		// count1 += 1;
         if let Ok((texture, mut draw_list)) = query_texture.get_mut(del) {
             if texture.is_some() {
                 continue;
@@ -72,9 +77,11 @@ pub fn draw_object_life<
     let program_meta = program_meta.clone();
     let p_state = shader_catch.common.clone();
     let vert_layout = vert_layout.clone();
+	// let time2 = pi_time::Instant::now();
 
     // 收集需要创建DrawObject的实体
     for changed in changed.iter() {
+		// count2 += 1;
         if let Ok((texture, mut draw_list)) = query_texture.get_mut(changed.id) {
             if texture.is_none() {
                 continue;
@@ -108,6 +115,8 @@ pub fn draw_object_life<
     }
 
     state.apply(world);
+	// let time3 = pi_time::Instant::now();
+	// log::warn!("life======{:?}, {:?}, {:?}, {:?}, {:?}", std::any::type_name::<Src>(), time2 - time1, time3 - time2, count1, count2);
 }
 
 

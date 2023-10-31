@@ -14,7 +14,7 @@ use std::{
 
 use bevy_ecs::{
 	query::{Changed, Or},
-	system::{Local, Query},
+	system::{Local, Query, Res},
 	world::Mut,
     prelude::{DetectChanges, With, Entity, EventWriter, Ref},
 };
@@ -30,7 +30,7 @@ use pi_flex_layout::prelude::{
 use crate::{components::{
     calc::{EntityKey, LayoutResult, NodeState},
     user::{Border, FlexContainer, FlexNormal, Margin, MinMax, Padding, Position, Show, Size, TextContent, TextStyle},
-}, system::draw_obj::calc_text::IsRun};
+}, system::draw_obj::calc_text::IsRun, resource::draw_obj::DirtyList};
 use pi_dirty::LayerDirty;
 use pi_null::Null;
 use pi_slotmap_tree::{Down, Up};
@@ -86,33 +86,24 @@ pub fn calc_layout(
             Option<Ref<TextContent>>,
             Option<Ref<TextStyle>>,
         ),
-        (
-            Or<(
-                Changed<Layer>,
-                Changed<Size>,
-                Changed<Margin>,
-                Changed<Padding>,
-                Changed<Border>,
-                Changed<Position>,
-                Changed<MinMax>,
-                Changed<FlexContainer>,
-                Changed<FlexNormal>,
-                Changed<Show>,
-                Changed<TextContent>,
-                Changed<TextStyle>,
-            )>,
-            With<Size>,
-        ),
+        With<Size>,
     >,
     mut layout_r: Query<&'static mut LayoutResult>,
     mut layer_dirty: Local<LayerDirty<LayoutKey>>,
     default_style: Local<(Size, Margin, Padding, Border, Position, MinMax, FlexContainer, FlexNormal, Show)>,
     mut event_write: EventWriter<ComponentEvent<Changed<LayoutResult>>>,
-	r: OrInitRes<IsRun>
+	r: OrInitRes<IsRun>,
+	dirty_list: Res<DirtyList>,
 ) {
 	if r.0 {
 		return;
 	}
+	if dirty_list.len() == 0 {
+		return;
+	}
+
+	let time = pi_time::Instant::now();
+
     // let node_states_ptr = &mut inodes as *mut Query<&'static mut NodeState>;
     let layout_styles = LayoutStyles {
         query: &query,
@@ -140,104 +131,193 @@ pub fn calc_layout(
         style: &layout_styles,
     };
     let mut layout = Layout(layout_context);
-    let mut count = 0;
+    // let mut count = 0;
+	// let mut count1 = 0;
 
     // 遍历布局脏节点，重新设置脏为层次脏
-    {
+    // {
+		for e in dirty_list.keys() {
+			if let Ok((
+				e,
+				(size, margin, padding, border, position, min_max, flex_container, flex_normal, show),
+				size_dirty,
+				margin_dirty,
+				padding_dirty,
+				border_dirty,
+				position_dirty,
+				min_max_dirty,
+				flex_container_dirty,
+				flex_normal_dirty,
+				show_dirty,
+				layer,
+				text_context,
+				text_style,
+			)) = dirtys.get(e.0) {
+
+				// 不在idtree上，跳过
+				if layer.is_null() {
+					continue;
+				}
+
+				let (rect_dirty, children_dirty, normal_style_dirty, self_style_dirty, display_dirty) = (
+					size_dirty.map_or(false, |size| size.is_changed())
+						|| position_dirty.map_or(false, |position| position.is_changed())
+						|| margin_dirty.map_or(false, |margin| margin.is_changed())
+						|| layer.as_ref().map_or(false, |layer| layer.is_changed())
+						|| min_max_dirty.map_or(false, |min_max| min_max.is_changed()),
+					text_context.map_or(false, |text_context| text_context.is_changed())
+						|| text_style.map_or(false, |text_style| text_style.is_changed())
+						|| flex_container_dirty.map_or(false, |flex_container| flex_container.is_changed())
+						|| layer.map_or(false, |layer| layer.is_changed()),
+					flex_normal_dirty.map_or(false, |flex_normal| flex_normal.is_changed()),
+					padding_dirty.map_or(false, |padding| padding.is_changed()) || border_dirty.map_or(false, |border| border.is_changed()),
+					show_dirty.map_or(false, |show| show.is_changed()),
+				);
+
+				if !(rect_dirty || children_dirty || normal_style_dirty || self_style_dirty || display_dirty) {
+					continue;
+				}
+
+				let k = LayoutKey {
+					entity: e,
+					text_index: usize::null(),
+				};
+				let style = LayoutStyle((size, margin, padding, border, position, min_max, flex_container, flex_normal, show));
+
+				if rect_dirty {
+					// let __ss = inodes.get_mut(e).map(|mut s| s.state.self_dirty_true());
+					// layer_dirty.
+					// log::warn!("set rect ===================={:?}, {:?}, {:?}, {:?}", e, layout.0.style.get(LayoutKey {
+					// 	entity: e,
+					// 	text_index: usize::null(),
+					// }), size.map_or(false, |size| size.is_changed() ), s);
+
+					layout.set_rect(&mut layer_dirty, k, true, true, &style);
+				}
+
+				// 文字修改，容器属性修改、层脏，则需要标记子脏
+				if children_dirty {
+					// log::info!("mark_children_dirty ===================={:?}", e);
+					layout.mark_children_dirty(&mut layer_dirty, k);
+				}
+
+
+				if normal_style_dirty {
+					// log::info!("calc layout2===================={:?}", e);
+					layout.set_normal_style(&mut layer_dirty, k, &style);
+				}
+
+				if self_style_dirty {
+					// log::info!("calc layout3===================={:?}", e);
+					layout.set_self_style(k, &mut layer_dirty, &style);
+				}
+
+				if display_dirty {
+					// log::info!("calc layout5===================={:?}", e);
+					layout.set_display(k, &mut layer_dirty, &style);
+				}
+
+				// count1 += 1;
+			}
+		}
+		// let time1 = pi_time::Instant::now();
         // #[cfg(feature = "trace")]
         // let _ss = tracing::info_span!("layout set dirty").entered();
-        for (
-            e,
-            (size, margin, padding, border, position, min_max, flex_container, flex_normal, show),
-            size_dirty,
-            margin_dirty,
-            padding_dirty,
-            border_dirty,
-            position_dirty,
-            min_max_dirty,
-            flex_container_dirty,
-            flex_normal_dirty,
-            show_dirty,
-            layer,
-            text_context,
-            text_style,
-            // char_node
-        ) in dirtys.iter()
-        {
-			// 不在idtree上，跳过
-			if layer.is_null() {
-				continue;
-			}
+        // for (
+        //     e,
+        //     (size, margin, padding, border, position, min_max, flex_container, flex_normal, show),
+        //     size_dirty,
+        //     margin_dirty,
+        //     padding_dirty,
+        //     border_dirty,
+        //     position_dirty,
+        //     min_max_dirty,
+        //     flex_container_dirty,
+        //     flex_normal_dirty,
+        //     show_dirty,
+        //     layer,
+        //     text_context,
+        //     text_style,
+        //     // char_node
+        // ) in dirtys.iter()
+        // {
+		// 	// // 不在idtree上，跳过
+		// 	// if layer.is_null() {
+		// 	// 	continue;
+		// 	// }
 
-            let (rect_dirty, children_dirty, normal_style_dirty, self_style_dirty, display_dirty) = (
-                size_dirty.map_or(false, |size| size.is_changed())
-                    || position_dirty.map_or(false, |position| position.is_changed())
-                    || margin_dirty.map_or(false, |margin| margin.is_changed())
-                    || layer.as_ref().map_or(false, |layer| layer.is_changed())
-                    || min_max_dirty.map_or(false, |min_max| min_max.is_changed()),
-                text_context.map_or(false, |text_context| text_context.is_changed())
-                    || text_style.map_or(false, |text_style| text_style.is_changed())
-                    || flex_container_dirty.map_or(false, |flex_container| flex_container.is_changed())
-                    || layer.map_or(false, |layer| layer.is_changed()),
-                flex_normal_dirty.map_or(false, |flex_normal| flex_normal.is_changed()),
-                padding_dirty.map_or(false, |padding| padding.is_changed()) || border_dirty.map_or(false, |border| border.is_changed()),
-                show_dirty.map_or(false, |show| show.is_changed()),
-            );
+        //     // let (rect_dirty, children_dirty, normal_style_dirty, self_style_dirty, display_dirty) = (
+        //     //     size_dirty.map_or(false, |size| size.is_changed())
+        //     //         || position_dirty.map_or(false, |position| position.is_changed())
+        //     //         || margin_dirty.map_or(false, |margin| margin.is_changed())
+        //     //         || layer.as_ref().map_or(false, |layer| layer.is_changed())
+        //     //         || min_max_dirty.map_or(false, |min_max| min_max.is_changed()),
+        //     //     text_context.map_or(false, |text_context| text_context.is_changed())
+        //     //         || text_style.map_or(false, |text_style| text_style.is_changed())
+        //     //         || flex_container_dirty.map_or(false, |flex_container| flex_container.is_changed())
+        //     //         || layer.map_or(false, |layer| layer.is_changed()),
+        //     //     flex_normal_dirty.map_or(false, |flex_normal| flex_normal.is_changed()),
+        //     //     padding_dirty.map_or(false, |padding| padding.is_changed()) || border_dirty.map_or(false, |border| border.is_changed()),
+        //     //     show_dirty.map_or(false, |show| show.is_changed()),
+        //     // );
 
-            if !(rect_dirty || children_dirty || normal_style_dirty || self_style_dirty || display_dirty) {
-                continue;
-            }
+        //     // if !(rect_dirty || children_dirty || normal_style_dirty || self_style_dirty || display_dirty) {
+        //     //     continue;
+        //     // }
 
-            let k = LayoutKey {
-                entity: e,
-                text_index: usize::null(),
-            };
-            let style = LayoutStyle((size, margin, padding, border, position, min_max, flex_container, flex_normal, show));
+        //     // let k = LayoutKey {
+        //     //     entity: e,
+        //     //     text_index: usize::null(),
+        //     // };
+        //     // let style = LayoutStyle((size, margin, padding, border, position, min_max, flex_container, flex_normal, show));
 
-            if rect_dirty {
-                // let __ss = inodes.get_mut(e).map(|mut s| s.state.self_dirty_true());
-                // layer_dirty.
-                // log::warn!("set rect ===================={:?}, {:?}, {:?}, {:?}", e, layout.0.style.get(LayoutKey {
-                // 	entity: e,
-                // 	text_index: usize::null(),
-                // }), size.map_or(false, |size| size.is_changed() ), s);
+        //     // if rect_dirty {
+        //     //     // let __ss = inodes.get_mut(e).map(|mut s| s.state.self_dirty_true());
+        //     //     // layer_dirty.
+        //     //     // log::warn!("set rect ===================={:?}, {:?}, {:?}, {:?}", e, layout.0.style.get(LayoutKey {
+        //     //     // 	entity: e,
+        //     //     // 	text_index: usize::null(),
+        //     //     // }), size.map_or(false, |size| size.is_changed() ), s);
 
-                layout.set_rect(&mut layer_dirty, k, true, true, &style);
-            }
+        //     //     layout.set_rect(&mut layer_dirty, k, true, true, &style);
+        //     // }
 
-            // 文字修改，容器属性修改、层脏，则需要标记子脏
-            if children_dirty {
-                // log::info!("mark_children_dirty ===================={:?}", e);
-                layout.mark_children_dirty(&mut layer_dirty, k);
-            }
+        //     // // 文字修改，容器属性修改、层脏，则需要标记子脏
+        //     // if children_dirty {
+        //     //     // log::info!("mark_children_dirty ===================={:?}", e);
+        //     //     layout.mark_children_dirty(&mut layer_dirty, k);
+        //     // }
 
 
-            if normal_style_dirty {
-                // log::info!("calc layout2===================={:?}", e);
-                layout.set_normal_style(&mut layer_dirty, k, &style);
-            }
+        //     // if normal_style_dirty {
+        //     //     // log::info!("calc layout2===================={:?}", e);
+        //     //     layout.set_normal_style(&mut layer_dirty, k, &style);
+        //     // }
 
-            if self_style_dirty {
-                // log::info!("calc layout3===================={:?}", e);
-                layout.set_self_style(k, &mut layer_dirty, &style);
-            }
+        //     // if self_style_dirty {
+        //     //     // log::info!("calc layout3===================={:?}", e);
+        //     //     layout.set_self_style(k, &mut layer_dirty, &style);
+        //     // }
 
-            if display_dirty {
-                // log::info!("calc layout5===================={:?}", e);
-                layout.set_display(k, &mut layer_dirty, &style);
-            }
+        //     // if display_dirty {
+        //     //     // log::info!("calc layout5===================={:?}", e);
+        //     //     layout.set_display(k, &mut layer_dirty, &style);
+        //     // }
 
-            count += 1;
-            // println!("set layout end==============={:?}", e);
-        }
-    }
+        //     count += 1;
+        //     // println!("set layout end==============={:?}", e);
+        // }
+    // }
 
+	// let time2 = pi_time::Instant::now();
     // #[cfg(feature = "trace")]
     // let layer_dirty_count = layer_dirty.count();
     // // 计算布局
     // #[cfg(feature = "trace")]
     // let _sss = tracing::info_span!("layout compute", count, layer_dirty_count).entered();
     layout.compute(&mut layer_dirty);
+	let time3 = pi_time::Instant::now();
+	// log::warn!("layout======{:?}, {:?}, {:?}, {}, {}", time1 - time, time2 - time1, time3 - time2, count, count1);
 }
 
 

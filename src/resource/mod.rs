@@ -613,8 +613,9 @@ impl FromWorld for ShareFontSheet {
     fn from_world(world: &mut World) -> Self {
         let texture_res_mgr = world.get_resource::<ShareAssetMgr<TextureRes>>().unwrap();
         let device = world.get_resource::<PiRenderDevice>().unwrap();
-        let queue = world.get_resource::<PiRenderQueue>().unwrap();
-        ShareFontSheet(Share::new(ShareCell::new(FontSheet::new(&device.0, &texture_res_mgr.0, &queue.0))))
+		let queue = world.get_resource::<PiRenderQueue>().unwrap();
+		let limits = device.limits();
+        ShareFontSheet(Share::new(ShareCell::new(FontSheet::new(&device.0, &texture_res_mgr.0, &queue.0, limits.max_texture_dimension_2d))))
     }
 }
 

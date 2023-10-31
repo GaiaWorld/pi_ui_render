@@ -37,6 +37,7 @@ pub fn last_update_wgpu(
 	if r.0 {
 		return;
 	}
+	// let time1 = pi_time::Instant::now();
     // let depeth_group = group_alloter.alloc();
     // 			draw_state.bindgroups.insert_group(UiMaterialBind::set(), ui_material_group);
     for root in query_root.iter() {
@@ -57,8 +58,8 @@ pub fn last_update_wgpu(
     group_alloc_center.write_buffer(&device, &queue);
     vertbuffer_alloter.write_buffer();
     index_alloter.write_buffer();
-
-	log::debug!("last_update_wgpu===================");
+	// let time2 = pi_time::Instant::now();
+	// log::warn!("last_update_wgpu==================={:?}", time2 - time1);
 }
 
 

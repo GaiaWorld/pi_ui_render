@@ -3,8 +3,8 @@
 use std::{collections::hash_map::Entry, hash::Hash, marker::PhantomData, num::NonZeroU32, sync::atomic::{Ordering, AtomicUsize}};
 
 use bevy_ecs::{
-    prelude::{FromWorld, World},
-    system::Resource,
+    prelude::{FromWorld, World, Entity},
+    system::Resource, component::Tick,
 };
 use ordered_float::NotNan;
 use pi_assets::{asset::Handle, mgr::AssetMgr};
@@ -28,14 +28,14 @@ use pi_render::{
     },
 };
 use pi_share::Share;
-use pi_slotmap::{DefaultKey, SlotMap};
+use pi_slotmap::{DefaultKey, SlotMap, SecondaryMap};
 use wgpu::{
     BlendState, CompareFunction, DepthBiasState, DepthStencilState, Limits, MultisampleState, PipelineLayout, Sampler, ShaderModule, StencilState,
     TextureFormat,
 };
 
 use crate::{
-    components::{draw_obj::{DrawState, PipelineMeta}, pass_2d::CacheTarget},
+    components::{draw_obj::{DrawState, PipelineMeta}, pass_2d::CacheTarget, calc::EntityKey},
     shader::{
         camera::CameraBind,
         depth::{DepthBind, DepthUniform},
@@ -743,7 +743,7 @@ pub fn list_share_as_ref<'a, T, I: Iterator<Item = &'a Option<Share<T>>>>(list: 
 // }
 
 #[derive(Resource)]
-pub struct GroupAlloterCenter(Vec<Share<GroupAlloter>>, wgpu::Limits);
+pub struct GroupAlloterCenter<>(Vec<Share<GroupAlloter>>, wgpu::Limits);
 
 impl FromWorld for GroupAlloterCenter {
     fn from_world(world: &mut World) -> Self {
@@ -772,21 +772,55 @@ pub struct CameraGroup;
 /// ui材质绑定组
 pub struct UiMaterialGroup;
 
-/// buffer累的的binding组的分配器
-#[derive(Resource)]
-pub struct ShareGroupAlloter<T> {
-    pub group_index: u32,
-    alloter: Share<GroupAlloter>,
-    mark: PhantomData<T>,
+/// 动态标记
+#[derive(Debug, Default)]
+pub struct DynMark;
+
+#[derive(Resource, Debug, Deref)]
+pub struct DirtyList {
+	#[deref]
+	list: SecondaryMap<EntityKey, ()>,
+	pre_clear_tick: Tick, // 上次清理list的World节拍
 }
 
-impl<T> std::ops::Deref for ShareGroupAlloter<T> {
+impl Default for DirtyList {
+    fn default() -> Self {
+        Self { 
+			list: Default::default(), 
+			pre_clear_tick: Tick::new(0),
+		}
+    }
+}
+
+impl DirtyList {
+	#[inline]
+	pub fn push(&mut self, entity: Entity) {
+		self.list.insert(EntityKey(entity), ());
+	}
+
+	#[inline]
+	pub fn clear(&mut self, tick: Tick) {
+		self.list.clear();
+		self.pre_clear_tick = tick;
+
+	}
+}
+
+/// buffer累的的binding组的分配器
+#[derive(Resource)]
+pub struct ShareGroupAlloter<T, M = ()> {
+    pub group_index: u32,
+    alloter: Share<GroupAlloter>,
+    mark: PhantomData<(T, M)>,
+}
+
+impl<T, M> std::ops::Deref for ShareGroupAlloter<T, M> {
     type Target = Share<GroupAlloter>;
 
     fn deref(&self) -> &Self::Target { &self.alloter }
 }
 
-impl FromWorld for ShareGroupAlloter<CameraGroup> {
+impl<M> FromWorld for ShareGroupAlloter<CameraGroup, M> {
     fn from_world(world: &mut World) -> Self {
         world.init_resource::<ShaderInfoCache>();
         let world = world.cell();
@@ -820,7 +854,7 @@ impl FromWorld for ShareGroupAlloter<CameraGroup> {
     }
 }
 
-impl FromWorld for ShareGroupAlloter<UiMaterialGroup> {
+impl<M> FromWorld for ShareGroupAlloter<UiMaterialGroup, M> {
     fn from_world(world: &mut World) -> Self {
         world.init_resource::<GroupAlloterCenter>();
         world.init_resource::<ShaderInfoCache>();
@@ -859,7 +893,7 @@ impl FromWorld for ShareGroupAlloter<UiMaterialGroup> {
     }
 }
 
-impl FromWorld for ShareGroupAlloter<DepthGroup> {
+impl<M> FromWorld for ShareGroupAlloter<DepthGroup, M> {
     fn from_world(world: &mut World) -> Self {
         world.init_resource::<GroupAlloterCenter>();
         world.init_resource::<ShaderInfoCache>();

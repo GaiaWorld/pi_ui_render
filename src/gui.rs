@@ -537,6 +537,7 @@ fn insert_resource(world: &mut World, x: u32, y: u32, width: u32, height: u32) {
     let device = world.get_resource::<RenderDevice>().unwrap().clone();
     let queue = world.get_resource::<RenderQueue>().unwrap().clone();
     let limit = device.limits();
+	let max_texture_dimension_2d = limit.max_texture_dimension_2d;
     world.insert_resource(limit);
 
     let view_port = Viewport(Aabb2::new(
@@ -569,7 +570,7 @@ fn insert_resource(world: &mut World, x: u32, y: u32, width: u32, height: u32) {
     world.insert_resource(common_sampler);
 
     // 插入FontSheet
-    world.insert_resource(Share::new(ShareCell::new(FontSheet::new(&device, &texture_res_mgr1, &queue))));
+    world.insert_resource(Share::new(ShareCell::new(FontSheet::new(&device, &texture_res_mgr1, &queue, max_texture_dimension_2d))));
 }
 
 // 创建深度缓冲区

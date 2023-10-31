@@ -1,6 +1,6 @@
 [package]
 name = "pi_ui_render"
-version = "0.1.21"
+version = "0.1.22"
 authors = ["suncy <suncy@gmail.com>"]
 edition = "2021"
 description = "Renderer 2D UI with Bevy Ecs"
@@ -12,11 +12,11 @@ keywords = ["pi", "bevy", "ecs", "ui"]
 crate-type = ["lib"]
 
 [features]
-default = ["single_thread"]
+default = ["single_thread", "debug"]
 # "glow/debug_trace_calls"
 wasm_bindgen = []
 debug = []
-trace = ["debug", "pi_bevy_render_plugin/trace", "pi_bevy_log/tracing-chrome"]
+trace = ["debug", "pi_bevy_render_plugin/trace", "pi_bevy_log/tracing-chrome", "bevy_app/trace", "bevy_ecs/trace",]
 single_thread = [
 	"pi_bevy_render_plugin/single_thread",
 	"pi_hal/single_thread",
@@ -111,15 +111,15 @@ probabilistic-collections = { git = "https://github.com/GaiaWorld/pi_probabilist
 # geo = { path = "../geo/geo" }
 # pi_assets = { path = "../pi_assets" }
 
-# bevy_app = { path = "../bevy/crates/bevy_app" }
-# bevy_ecs = { path = "../bevy/crates/bevy_ecs" }
-# bevy_tasks = { path = "../bevy/crates/bevy_tasks" }
-# bevy_window = { path = "../bevy/crates/bevy_window" }
-# bevy_utils = { path = "../bevy/crates/bevy_utils" }
-# bevy_a11y = { path = "../bevy/crates/bevy_a11y" }
-# bevy_input = { path = "../bevy/crates/bevy_input" }
-# bevy_reflect = { path = "../bevy/crates/bevy_reflect" }
-# bevy_math = { path = "../bevy/crates/bevy_math" }
+bevy_app = { path = "../bevy/crates/bevy_app" }
+bevy_ecs = { path = "../bevy/crates/bevy_ecs" }
+bevy_tasks = { path = "../bevy/crates/bevy_tasks" }
+bevy_window = { path = "../bevy/crates/bevy_window" }
+bevy_utils = { path = "../bevy/crates/bevy_utils" }
+bevy_a11y = { path = "../bevy/crates/bevy_a11y" }
+bevy_input = { path = "../bevy/crates/bevy_input" }
+bevy_reflect = { path = "../bevy/crates/bevy_reflect" }
+bevy_math = { path = "../bevy/crates/bevy_math" }
 
 # pi_slotmap_tree = { path = "../pi_slotmap_tree" }
 # pi_map = { path = "../pi_map" }
@@ -150,10 +150,10 @@ pi_bevy_post_process = { path = "../pi_bevy/crates/post_process" }
 pi_bevy_window = { path = "../pi_bevy/crates/window" }
 
 # pi_render
-# pi_render = { path = "../pi_render" }
-# render_core = {path = "../pi_render/crates/render_core"}
-# render_derive = {path = "../pi_render/crates/render_derive"}
-# render_compile = {path = "../pi_render/crates/render_compile"}
+pi_render = { path = "../pi_render" }
+render_core = {path = "../pi_render/crates/render_core"}
+render_derive = {path = "../pi_render/crates/render_derive"}
+render_compile = {path = "../pi_render/crates/render_compile"}
 
 # pi_postprocess = { path = "../pi_post_process"}
 # pi_graph = {path = "../pi_graph"}
@@ -163,6 +163,7 @@ pi_bevy_window = { path = "../pi_bevy/crates/window" }
 # pi_dirty = { path = "../pi_dirty" }
 
 [dev-dependencies]
+log = { version = "0.4", features = ["kv_unstable", "release_max_level_info"] }
 float-ord = "0.3"
 async-trait = "0.1"
 spin_sleep = "1.1"
@@ -235,7 +236,6 @@ lto = true
 opt-level = 's'
 codegen-units = 1
 # debug = false
-
 
 # im = "*"
 
