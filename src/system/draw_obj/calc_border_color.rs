@@ -23,7 +23,7 @@ use crate::components::draw_obj::{BorderColorMark, BoxType, PipelineMeta};
 use crate::components::user::{BorderRadius, CgColor};
 use crate::components::{calc::NodeId, draw_obj::DrawState, user::BorderColor};
 use crate::shader::color::BORDER_DEFINE;
-use crate::shader::ui_meterial::{ClipSdfUniform, ColorUniform, TextureSizeOrBottomLeftBorderUniform};
+use crate::shader::ui_meterial::{ClipSdfOrSdflineUniform, ColorUniform, TextureSizeOrBottomLeftBorderUniform};
 use crate::utils::tools::{cal_border_radius, calc_float_hash, calc_hash, BorderRadiusPixel};
 
 use super::calc_text::IsRun;
@@ -98,7 +98,7 @@ fn modify<'a>(
         if let Some(border_radius) = border_radius {
             let border_radius = cal_border_radius(border_radius, &layout.rect);
             let (width, height) = (layout.rect.right - layout.rect.left, layout.rect.bottom - layout.rect.top);
-            draw_state.bindgroups.set_uniform(&ClipSdfUniform(&[
+            draw_state.bindgroups.set_uniform(&ClipSdfOrSdflineUniform(&[
                 width / 2.0,
                 height / 2.0,
                 layout.border.bottom,

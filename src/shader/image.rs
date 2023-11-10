@@ -139,35 +139,35 @@ precision highp float;
         },
         CodeSlice {
             code: pi_atom::Atom::from(
-                "	color.a=color.a*calc_alpha(vVertexPosition, clipSdf);
+                "	color.a=color.a*calc_alpha(vVertexPosition, clipSdfOrSdfline);
 "
             ),
             defines: vec![Define::new(true, BORDER_RADIUS_DEFINE.clone())]
         },
         CodeSlice {
             code: pi_atom::Atom::from(
-                "	color.a=color.a*calc_alpha(vVertexPosition, clipSdf);
+                "	color.a=color.a*calc_alpha(vVertexPosition, clipSdfOrSdfline);
 "
             ),
             defines: vec![Define::new(true, SECTOR_DEFINE.clone())]
         },
         CodeSlice {
             code: pi_atom::Atom::from(
-                "	color.a=color.a*calc_alpha(vVertexPosition, clipSdf);
+                "	color.a=color.a*calc_alpha(vVertexPosition, clipSdfOrSdfline);
 "
             ),
             defines: vec![Define::new(true, RECT_DEFINE.clone())]
         },
         CodeSlice {
             code: pi_atom::Atom::from(
-                "	color.a=color.a*calc_alpha(vVertexPosition, clipSdf);
+                "	color.a=color.a*calc_alpha(vVertexPosition, clipSdfOrSdfline);
 "
             ),
             defines: vec![Define::new(true, ELLIPSE_DEFINE.clone())]
         },
         CodeSlice {
             code: pi_atom::Atom::from(
-                "	color.a=color.a*calc_alpha(vVertexPosition, clipSdf);
+                "	color.a=color.a*calc_alpha(vVertexPosition, clipSdfOrSdfline);
 "
             ),
             defines: vec![Define::new(true, CIRCLE_DEFINE.clone())]
@@ -180,9 +180,9 @@ precision highp float;
             defines: vec![]
         }
     ];
-    pub static ref CIRCLE_DEFINE: pi_atom::Atom = pi_atom::Atom::from("CIRCLE");
-    pub static ref BORDER_RADIUS_DEFINE: pi_atom::Atom = pi_atom::Atom::from("BORDER_RADIUS");
     pub static ref SECTOR_DEFINE: pi_atom::Atom = pi_atom::Atom::from("SECTOR");
+    pub static ref CIRCLE_DEFINE: pi_atom::Atom = pi_atom::Atom::from("CIRCLE");
     pub static ref RECT_DEFINE: pi_atom::Atom = pi_atom::Atom::from("RECT");
+    pub static ref BORDER_RADIUS_DEFINE: pi_atom::Atom = pi_atom::Atom::from("BORDER_RADIUS");
     pub static ref ELLIPSE_DEFINE: pi_atom::Atom = pi_atom::Atom::from("ELLIPSE");
 }

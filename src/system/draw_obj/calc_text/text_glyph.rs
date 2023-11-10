@@ -146,8 +146,8 @@ pub fn set_gylph(
                         char_node.ch,
                         text_style.font_family,
                         entity,
-						font_sheet.texture_view().width,
-						font_sheet.texture_view().height,
+						font_sheet.font_mgr().size().width,
+						font_sheet.font_mgr().size().height,
                     );
                     return Err(());
                 }

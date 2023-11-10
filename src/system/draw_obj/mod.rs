@@ -41,7 +41,9 @@ pub mod root_clear_color;
 pub mod root_view_port;
 pub mod set_world_marix;
 
-pub struct UiReadyDrawPlugin;
+pub struct UiReadyDrawPlugin {
+	pub use_sdf: bool,
+}
 
 impl Plugin for UiReadyDrawPlugin {
     fn build(&self, app: &mut App) {
@@ -100,7 +102,7 @@ impl Plugin for UiReadyDrawPlugin {
                     .before(calc_border_radius::calc_border_radius),
             )
             // 文字功能
-            .add_plugins(UiTextPlugin)
+            .add_plugins(UiTextPlugin {use_sdf: self.use_sdf})
             // 背景颜色功能
             .add_frame_event::<ComponentEvent<Changed<BackgroundColor>>>()
             .add_systems(Update, 

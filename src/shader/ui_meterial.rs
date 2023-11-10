@@ -19,7 +19,7 @@ pub struct WorldUniform<'a>(pub &'a [f32]);
 
 #[derive(Uniform)]
 #[uniform(offset(64), len(64), bind(UiMaterialBind))]
-pub struct ClipSdfUniform<'a>(pub &'a [f32]);
+pub struct ClipSdfOrSdflineUniform<'a>(pub &'a [f32]);
 
 
 #[derive(Uniform)]
@@ -61,7 +61,7 @@ pub fn push_meta(_meta: &mut ShaderMeta, _visibility: wgpu::ShaderStages, _defin
                         ArrayLen::None,
                     ),
                     BindingExpandDesc::new_buffer::<f32>(
-                        "clipSdf",
+                        "clipSdfOrSdfline",
                         &[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
                         TypeKind::Float,
                         TypeSize::Mat { rows: 4, columns: 4 },

@@ -8,7 +8,7 @@ layout(set=2,binding=0)uniform UiMaterial{
 		//    vec3 (布局缩放.y, sin(对称轴-y轴), cos(对称轴-y轴))
 		//    vec3 (sin(边缘-对称轴), cos(边缘-对称轴), r)
 	// ]
-	mat4 clipSdf;// border_radius | ellipse | circle | sector | rect | border
+	mat4 clipSdfOrSdfline;// border_radius | ellipse | circle | sector | rect | border | [0](x: 0~1的sdf代表的像素值 * 缩放值， y: 填充边界的sdf(0~1), z: 描边边界的sdf(0~1), w: 模糊半径)
 	// 模糊半径（阴影使用）
 	float blur;
 	// 如果是渲染文字，表示文字纹理大小， 如果渲染边框，表示边框下左两个值（clipSdf中不够放）

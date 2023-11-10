@@ -1,8 +1,7 @@
 use bevy_ecs::prelude::{DetectChanges, Ref};
 use bevy_ecs::query::{Changed, Or, With};
-use bevy_ecs::system::{Local, Query, Res};
+use bevy_ecs::system::{Local, Query, Res, ResMut};
 use bevy_ecs::prelude::DetectChangesMut;
-use ordered_float::NotNan;
 use pi_assets::asset::Handle;
 use pi_assets::mgr::AssetMgr;
 use pi_atom::Atom;
@@ -11,7 +10,7 @@ use pi_bevy_ecs_extend::prelude::OrDefault;
 use pi_bevy_ecs_extend::system_param::res::OrInitRes;
 use pi_bevy_render_plugin::{PiRenderDevice, PiVertexBufferAlloter};
 use pi_polygon::{find_lg_endp, interp_mult_by_lg, mult_to_triangle, split_by_lg, LgCfg};
-use pi_render::font::{FontSheet, Glyph, GlyphId};
+use pi_render::font::{FontSheet, Glyph, GlyphId, Font};
 use pi_render::renderer::draw_obj::DrawBindGroup;
 use pi_render::renderer::vertices::{EVerticesBufferUsage, RenderIndices};
 use pi_render::rhi::asset::RenderRes;
@@ -23,12 +22,15 @@ use wgpu::IndexFormat;
 
 use crate::components::calc::{LayoutResult, NodeId, NodeState};
 use crate::components::draw_obj::{BoxType, PipelineMeta, TextMark};
-use crate::components::user::{CgColor, TextStyle};
+use crate::components::user::{CgColor, TextStyle, get_size};
 use crate::components::{draw_obj::DrawState, user::Color};
 use crate::resource::draw_obj::{TextTextureGroup, PosUv1VertexLayout, PosUvColorVertexLayout};
 use crate::resource::ShareFontSheet;
 use crate::shader::text::{PositionVert, SampBind, UvVert, VcolorVert, STROKE_DEFINE, VERTEX_COLOR_DEFINE};
-use crate::shader::ui_meterial::{ColorUniform, StrokeColorOrURectUniform, TextureSizeOrBottomLeftBorderUniform};
+// use crate::shader::text;
+// use crate::shader::text_sdf;
+
+use crate::shader::ui_meterial::{ColorUniform, StrokeColorOrURectUniform, TextureSizeOrBottomLeftBorderUniform, ClipSdfOrSdflineUniform};
 use crate::system::utils::set_vert_buffer;
 use crate::utils::tools::{calc_hash, calc_hash_slice};
 
@@ -50,7 +52,7 @@ pub fn calc_text(
     res: (
         Res<PiRenderDevice>,
         Res<ShareAssetMgr<RenderRes<Buffer>>>,
-        Res<ShareFontSheet>,
+        ResMut<ShareFontSheet>,
     ),
     mut buffer: Local<(Vec<f32>, Vec<f32>)>,
     vertex_buffer_alloter: OrInitRes<PiVertexBufferAlloter>,
@@ -63,7 +65,7 @@ pub fn calc_text(
 		return;
 	}
     let (device, buffer_assets, font_sheet) = res;
-    let font_sheet = font_sheet.borrow();
+    let mut font_sheet = font_sheet.borrow_mut();
 
     // 更新纹理尺寸
     let size = font_sheet.texture_size();
@@ -100,7 +102,7 @@ pub fn calc_text(
             let old_hash = calc_hash(&*pipeline_meta, 0);
             let pipeline_meta1 = pipeline_meta.bypass_change_detection();
             modify(
-                &font_sheet,
+                &mut font_sheet,
                 &node_state,
                 &text_style,
                 layout,
@@ -126,7 +128,7 @@ pub fn calc_text(
 
 // 返回当前需要的StaticIndex
 pub fn modify<'a>(
-    font_sheet: &FontSheet,
+    font_sheet: &mut FontSheet,
     node_state: &NodeState,
     text_style: &TextStyle,
     layout: &LayoutResult,
@@ -143,6 +145,16 @@ pub fn modify<'a>(
 	vert_layout1: &PosUv1VertexLayout,
 	vert_layout2: &PosUvColorVertexLayout,
 ) {
+	let font_size = get_size(&text_style.font_size) as f32;
+	let font_id = font_sheet.font_id(Font::new(
+		text_style.font_family.clone(),
+		font_size as usize,
+		text_style.font_weight,
+		text_style.text_stroke.width, // todo 或许应该设置比例
+	));
+	let font_height = font_sheet.font_height(font_id, font_size as usize);
+
+
     // 修改vert buffer
 	let color_temp;
     let (is_change_geo, color) = match &text_style.color {
@@ -187,10 +199,11 @@ pub fn modify<'a>(
             index_buffer_max_len,
             buffer_assets,
             scale,
-            text_style.text_stroke.width,
+            text_style,
             positions,
             uvs,
             vertex_buffer_alloter,
+			font_height,
         );
     }
 
@@ -215,6 +228,23 @@ pub fn modify<'a>(
     } else {
         pipeline_meta.defines.remove(&STROKE_DEFINE);
     }
+
+	if font_sheet.font_mgr().use_sdf() {
+		let font_info = font_sheet.font_mgr().font_info(font_id);
+		let metrics = font_sheet.font_mgr().brush.sdf_brush.metrics_info(&font_info.font_ids[0]);
+		let scale0 = scale * font_height / (metrics.ascender - metrics.descender);
+		let sw = (scale * *text_style.text_stroke.width).round();
+		let distance_px_range = scale0 * metrics.distance_range;
+		let fill_bound = 0.5 - (text_style.font_weight as f32 / 500 as f32 - 1.0) / distance_px_range;
+		let stroke = sw/2.0/distance_px_range;
+		let stroke_bound = fill_bound - stroke;
+		draw_state.bindgroups.set_uniform(&ClipSdfOrSdflineUniform(&[distance_px_range, fill_bound, stroke_bound]));
+
+		// log::warn!("distance_px_range======{:?}", [distance_px_range, fill_bound, stroke_bound, scale0, font_height as f32, metrics.ascender - metrics.descender, font_size, scale,  metrics.distance_range as f32, metrics.font_size]);
+		// fill_bound = fill_bound + stroke;
+		// log::info!("=====state_scale:{:?}, scale: {}, font_height:{:?}, sw: {:?}, stroke_width: {:?}, distance_px_range: {:?}, ", node_states[*id].0.scale, scale, font_height, sw, text_style.text.stroke.width, distance_px_range);
+		// render_obj.paramter.set_single_uniform("line", UniformValue::Float4(distance_px_range, fill_bound, stroke_bound, 0.0));
+	}
 }
 
 //
@@ -224,20 +254,21 @@ pub fn modify_geo(
     draw_state: &mut DrawState,
     layout: &LayoutResult,
     color: &Color,
-    font_sheet: &FontSheet,
+    font_sheet: &mut FontSheet,
     device: &RenderDevice,
     index_buffer_max_len: &mut usize,
     buffer_assets: &Share<AssetMgr<RenderRes<Buffer>>>,
     scale: f32,
-    stroke_width: NotNan<f32>,
+    text_style: &TextStyle,
     positions: &mut Vec<f32>,
     uvs: &mut Vec<f32>,
     vertex_buffer_alloter: &PiVertexBufferAlloter,
+	font_height: f32,
 ) {
     positions.clear();
     uvs.clear();
     let rect = &layout.rect;
-    text_vert(node_state, layout, font_sheet, scale, stroke_width, positions, uvs);
+    text_vert(node_state, layout, font_sheet, scale, text_style, positions, uvs, font_height);
 
     // 顶点长度为0，删除geo
     if positions.len() == 0 {
@@ -466,16 +497,18 @@ fn get_or_create_buffer_index(
 pub fn text_vert(
     node_state: &NodeState,
     layout: &LayoutResult,
-    font_sheet: &FontSheet,
+    font_sheet: &mut FontSheet,
     scale: f32,
-    stroke_width: NotNan<f32>,
+    text_style: &TextStyle,
     positions: &mut Vec<f32>,
     uvs: &mut Vec<f32>,
+	font_height: f32,
 ) {
+	let is_sdf = font_sheet.font_mgr().use_sdf();
     let mut word_pos = (0.0, 0.0);
     let offset = (layout.border.left + layout.padding.left, layout.border.top + layout.padding.top);
     let mut count = 0;
-    let half_stroke = *stroke_width / 2.0;
+    let half_stroke = *text_style.text_stroke.width / 2.0;
     for c in node_state.0.text.iter() {
         if c.ch == char::from(0) {
             if c.count > 0 {
@@ -501,6 +534,10 @@ pub fn text_vert(
                 c.pos.right - c.pos.left,
                 c.pos.bottom - c.pos.top,
                 scale,
+				is_sdf,
+				text_style.font_weight,
+				*text_style.text_stroke.width,
+				font_height,
             );
         } else {
             push_pos_uv(
@@ -512,16 +549,50 @@ pub fn text_vert(
                 c.pos.right - c.pos.left,
                 c.pos.bottom - c.pos.top,
                 scale,
+				is_sdf,
+				text_style.font_weight,
+				*text_style.text_stroke.width,
+				font_height,
             );
         }
     }
 }
 
 #[allow(unused_variables)]
-pub fn push_pos_uv(positions: &mut Vec<f32>, uvs: &mut Vec<f32>, x: f32, mut y: f32, glyph: &Glyph, width: f32, height: f32, scale: f32) {
-    // let font_ratio = width/glyph.width;
-    let w = glyph.width / scale;
-    let h = glyph.height / scale;
+pub fn push_pos_uv(
+	positions: &mut Vec<f32>, 
+	uvs: &mut Vec<f32>, 
+	x: f32, 
+	mut y: f32, 
+	glyph: &Glyph, 
+	width: f32, 
+	height: f32, 
+	scale: f32,
+	is_sdf: bool,
+	weight: usize,
+	stroke_width: f32,
+	font_height: f32,
+
+) {
+	if is_sdf {
+		push_pos_uv_sdf(
+			positions,
+			uvs, 
+			x,
+			y,
+			glyph,
+			width,
+			height,
+			weight, 
+			stroke_width,
+			font_height, 
+		);
+		return;
+	}
+
+	// let font_ratio = width/glyph.width;
+	let w = glyph.width / scale;
+	let h = glyph.height / scale;
 
     // height为行高， 当行高高于字体高度时，需要居中
     y += (height - h) / 2.0;
@@ -550,4 +621,77 @@ pub fn push_pos_uv(positions: &mut Vec<f32>, uvs: &mut Vec<f32>, x: f32, mut y: 
     uvs.extend_from_slice(&uv);
     // log::warn!("uv=================={:?}, {:?}, w:{:?},h:{:?},scale:{:?},glyph:{:?}", uv, ps, width, height, scale, glyph);
     positions.extend_from_slice(&ps[..]);
+}
+
+fn push_pos_uv_sdf(
+    positions: &mut Vec<f32>,
+    uvs: &mut Vec<f32>,
+	mut x: f32,
+	mut y: f32,
+    glyph: &Glyph,
+	width: f32,
+	height: f32,
+	weight: usize,
+	stroke_width: f32,
+	font_height: f32, // 单位： 逻辑像素
+	// scale: f32,
+	// c: char,
+) {
+
+	y += (height - font_height) / 2.0;
+	let (xx, font_width) = pi_hal::font::font::fix_box(true, width, weight, stroke_width);
+	x += xx;
+
+	let font_ratio = font_width/glyph.advance;
+
+	let ox = font_height * glyph.ox;
+	let oy = font_height * glyph.oy;
+
+	let w = (glyph.width - 1.0)*font_ratio;
+	let h = (glyph.height - 1.0)*font_ratio;
+	// height为行高， 当行高高于字体高度时，需要居中
+	// if is_pixel {
+	// 	y += (height - h)/2.0;
+	// } else {
+	// 	y += yy;
+	// 	y += (height - oy - h) / 2.0;
+
+		
+	// }
+	
+	let left_top = (
+		x + ox,
+		y  + oy, // 保证顶点对应整数像素
+	);
+	let right_bootom = (
+		left_top.0 + w,
+		left_top.1 + h,
+	);
+	// log::info!("y=====c: {:?},is_pixel: {:?},left_top: {:?}, right_bootom: {:?}, font_width: {:?}, font_height: {:?}, glyph: {:?}, x: {}, y: {}, width: {}, height: {}, ox: {}, oy: {}, w: {}, h: {}", c, is_pixel, left_top, right_bootom, font_width, font_height, glyph, x, y, width, height, ox, oy, w, h);
+
+    let ps = [
+        left_top.0,
+        left_top.1,
+        left_top.0,
+        right_bootom.1,
+        right_bootom.0,
+        right_bootom.1,
+        right_bootom.0,
+        left_top.1,
+	];
+	// 加0.5和减0.5，是为了保证采样不超出文字范围
+	let uv = [
+        glyph.x + 0.5,
+        glyph.y + 0.5,
+        glyph.x + 0.5,
+        glyph.y + glyph.height - 0.5,
+        glyph.x + glyph.width - 0.5,
+        glyph.y + glyph.height - 0.5,
+        glyph.x + glyph.width - 0.5,
+        glyph.y + 0.5,
+	];
+    uvs.extend_from_slice(&uv);
+	// log::info!("uv=================={:?}, {:?}, w:{:?},h:{:?},glyph:{:?}, font_height: {:?}, stroke_width: {:?}", uv, ps, width, height, glyph, font_height, stroke_width,);
+    positions.extend_from_slice(&ps[..]);
+	
 }

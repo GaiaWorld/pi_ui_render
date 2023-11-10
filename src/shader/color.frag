@@ -88,11 +88,11 @@ void main() {
 	#endif
 
 	#ifdef BORDER_RADIUS
-		c.a = c.a * calc_alpha(vVertexPosition, clipSdf);
+		c.a = c.a * calc_alpha(vVertexPosition, clipSdfOrSdfline);
 	#endif
 
 	#ifdef BORDER
-		c.a = c.a * calc_alpha(vVertexPosition, clipSdf);
+		c.a = c.a * calc_alpha(vVertexPosition, clipSdfOrSdfline);
 	#endif
 
 	o_Target = c;

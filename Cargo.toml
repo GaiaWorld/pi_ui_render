@@ -1,6 +1,6 @@
 [package]
 name = "pi_ui_render"
-version = "0.1.23"
+version = "0.1.24"
 authors = ["suncy <suncy@gmail.com>"]
 edition = "2021"
 description = "Renderer 2D UI with Bevy Ecs"
@@ -111,15 +111,15 @@ probabilistic-collections = { git = "https://github.com/GaiaWorld/pi_probabilist
 # geo = { path = "../geo/geo" }
 # pi_assets = { path = "../pi_assets" }
 
-bevy_app = { path = "../bevy/crates/bevy_app" }
-bevy_ecs = { path = "../bevy/crates/bevy_ecs" }
-bevy_tasks = { path = "../bevy/crates/bevy_tasks" }
-bevy_window = { path = "../bevy/crates/bevy_window" }
-bevy_utils = { path = "../bevy/crates/bevy_utils" }
-bevy_a11y = { path = "../bevy/crates/bevy_a11y" }
-bevy_input = { path = "../bevy/crates/bevy_input" }
-bevy_reflect = { path = "../bevy/crates/bevy_reflect" }
-bevy_math = { path = "../bevy/crates/bevy_math" }
+# bevy_app = { path = "../bevy/crates/bevy_app" }
+# bevy_ecs = { path = "../bevy/crates/bevy_ecs" }
+# bevy_tasks = { path = "../bevy/crates/bevy_tasks" }
+# bevy_window = { path = "../bevy/crates/bevy_window" }
+# bevy_utils = { path = "../bevy/crates/bevy_utils" }
+# bevy_a11y = { path = "../bevy/crates/bevy_a11y" }
+# bevy_input = { path = "../bevy/crates/bevy_input" }
+# bevy_reflect = { path = "../bevy/crates/bevy_reflect" }
+# bevy_math = { path = "../bevy/crates/bevy_math" }
 
 # pi_slotmap_tree = { path = "../pi_slotmap_tree" }
 # pi_map = { path = "../pi_map" }
@@ -136,24 +136,24 @@ bevy_math = { path = "../bevy/crates/bevy_math" }
 # pi_style = {path = "../pi_style"}
 # winit = {path = "../winit"}
 # font_kit = { path = "../font_kit" }
-pi_hal = { path = "../pi_hal" }
-wgpu = { path="../pi_wgpu", package = "pi_wgpu" }
+# pi_hal = { path = "../pi_hal" }
+# wgpu = { path="../pi_wgpu", package = "pi_wgpu" }
 
 # bevy
-pi_bevy_ecs_extend = { path = "../pi_bevy/crates/ecs_extend" }
-pi_bevy_render_plugin = { path = "../pi_bevy/crates/render" }
-pi_bevy_asset = { path = "../pi_bevy/crates/asset" }
-pi_bevy_winit_window = { path = "../pi_bevy/crates/winit_window" }
-pi_bevy_log = { path = "../pi_bevy/crates/log" }
-pi_bevy_ecs_macro = { path = "../pi_bevy/crates/ecs_extend/macro" }
-pi_bevy_post_process = { path = "../pi_bevy/crates/post_process" }
-pi_bevy_window = { path = "../pi_bevy/crates/window" }
+# pi_bevy_ecs_extend = { path = "../pi_bevy/crates/ecs_extend" }
+# pi_bevy_render_plugin = { path = "../pi_bevy/crates/render" }
+# pi_bevy_asset = { path = "../pi_bevy/crates/asset" }
+# pi_bevy_winit_window = { path = "../pi_bevy/crates/winit_window" }
+# pi_bevy_log = { path = "../pi_bevy/crates/log" }
+# pi_bevy_ecs_macro = { path = "../pi_bevy/crates/ecs_extend/macro" }
+# pi_bevy_post_process = { path = "../pi_bevy/crates/post_process" }
+# pi_bevy_window = { path = "../pi_bevy/crates/window" }
 
 # pi_render
-pi_render = { path = "../pi_render" }
-render_core = {path = "../pi_render/crates/render_core"}
-render_derive = {path = "../pi_render/crates/render_derive"}
-render_compile = {path = "../pi_render/crates/render_compile"}
+# pi_render = { path = "../pi_render" }
+# render_core = {path = "../pi_render/crates/render_core"}
+# render_derive = {path = "../pi_render/crates/render_derive"}
+# render_compile = {path = "../pi_render/crates/render_compile"}
 
 # pi_postprocess = { path = "../pi_post_process"}
 # pi_graph = {path = "../pi_graph"}
@@ -177,8 +177,8 @@ pi_ui_render = { path = "./", features = ["debug"] }
 tracing = "0.1"
 postcard = { version = "1.0", features = ["use-std"] }
 
-wgpu = { version = "0.1", registry = "yn", package = "pi_wgpu" }
-# wgpu = { version = "0.1", registry = "yn", package = "pi_wgpu", features=["use_wgpu"]}
+# wgpu = { version = "0.1", registry = "yn", package = "pi_wgpu" }
+wgpu = { version = "0.1", registry = "yn", package = "pi_wgpu"}
 
 pi_bevy_winit_window = { version = "0.1", registry = "yn" }
 wasm-bindgen-test = "0.3"

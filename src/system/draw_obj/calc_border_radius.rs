@@ -9,7 +9,7 @@ use crate::components::calc::LayoutResult;
 use crate::components::draw_obj::{BoxType, PipelineMeta};
 
 use crate::components::{calc::DrawList, draw_obj::DrawState, user::BorderRadius};
-use crate::shader::{sdf::BORDER_RADIUS_DEFINE, ui_meterial::ClipSdfUniform};
+use crate::shader::{sdf::BORDER_RADIUS_DEFINE, ui_meterial::ClipSdfOrSdflineUniform};
 use crate::utils::tools::{cal_border_radius, cal_content_border_radius};
 
 use super::calc_text::IsRun;
@@ -81,7 +81,7 @@ pub fn calc_border_radius(
                     BoxType::BorderNone | BoxType::BorderUnitRect => &border_radius,
                     _ => continue,
                 };
-                draw_state.bindgroups.set_uniform(&ClipSdfUniform(&[
+                draw_state.bindgroups.set_uniform(&ClipSdfOrSdflineUniform(&[
                     x,
                     y,
                     z,

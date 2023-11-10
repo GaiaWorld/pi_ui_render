@@ -1,3 +1,4 @@
+use std::mem::transmute;
 use std::{sync::Arc, time::Instant};
 
 use bevy_ecs::prelude::{IntoSystemConfigs, Entity, SystemSet, Local};
@@ -10,6 +11,7 @@ use bevy_ecs::system::Resource;
 use bevy_window::{Window, WindowResolution};
 
 use pi_async_rt::prelude::AsyncRuntime;
+use pi_atom::Atom;
 use pi_bevy_asset::{AssetConfig, PiAssetPlugin};
 // use pi_bevy_ecs_extend::prelude::Root;
 use pi_bevy_post_process::PiPostProcessPlugin;
@@ -17,6 +19,7 @@ use pi_bevy_render_plugin::{PiRenderPlugin, PiRenderOptions};
 use pi_flex_layout::prelude::Size;
 use pi_hal::{init_load_cb, on_load, runtime::MULTI_MEDIA_RUNTIME};
 use pi_share::{Share, ShareMutex};
+use pi_slotmap::DefaultKey;
 // use pi_ui_render::components::user::AsImage;
 // use pi_ui_render::system::draw_obj::calc_text::IsRun;
 use pi_ui_render::system::{system_set::UiSystemSet, RunState};
@@ -40,6 +43,9 @@ pub trait Example: 'static + Sized {
         // None表示使用默认值
         None
     }
+	fn use_sdf(&self) -> bool {
+        false
+    }
     #[cfg(feature = "debug")]
     fn record_option(&self) -> pi_ui_render::system::cmd_play::TraceOption { pi_ui_render::system::cmd_play::TraceOption::None }
     fn play_option(&self) -> Option<PlayOption> { None }
@@ -49,6 +55,7 @@ pub trait Example: 'static + Sized {
 pub static mut RUNNER: std::cell::OnceCell<LocalTaskRunner<()>> = std::cell::OnceCell::new();
 
 pub fn start<T: Example + Sync + Send + 'static>(example: T) {
+	let current_dir = std::env::current_dir().unwrap();
 	#[cfg(not(target_arch = "wasm32"))]
 	init_load_cb(Arc::new(|path: String| {
         MULTI_MEDIA_RUNTIME
@@ -102,8 +109,10 @@ pub fn start<T: Example + Sync + Send + 'static>(example: T) {
     let record_option = example.record_option();
 	#[cfg(feature = "debug")]
 	let play_option = example.play_option();
+	let use_sdf = example.use_sdf();
     let exmple = Share::new(ShareMutex::new(example));
     let exmple1 = exmple.clone();
+
     let exmple_run = move |world: &mut World, commands: &mut SystemState<(ResMut<UserCommands>, Commands)>| {
         // log::warn!("zzzzzzzzzzzzzzzzzzzzzzzzbbbbbb");
         let mut commands = commands.get_mut(world);
@@ -155,6 +164,31 @@ pub fn start<T: Example + Sync + Send + 'static>(example: T) {
 
     let mut app = init(width, height, &event_loop, window.clone());
 
+	// 初始化sdf的加载方法
+	if use_sdf {
+		log::warn!("init_load_cb1===========" );
+		pi_hal::font::sdf_brush::init_load_cb(Arc::new(move |key: DefaultKey, font_family: usize, chars: &[char]| {
+			let current_dir = current_dir.clone();
+			log::warn!("init_load_cb==========={:?}, {:?}", key, chars);
+			let chars = Vec::from(chars);
+			MULTI_MEDIA_RUNTIME.spawn(async move { // 这里必须异步，否则会造成死锁
+				let font_name = Atom::get(font_family).unwrap();
+				let mut result: Vec<Vec<u8>> = Vec::with_capacity(chars.len());
+				for char in chars.iter() {
+					let unicode = unsafe{transmute::<_, u32>(*char)};
+					let path = current_dir.join(format!("examples/z_source/{}/_{}.bin", font_name.as_str(), unicode));
+					if let Ok(buffer) = std::fs::read(path.clone()) {
+						result.push(buffer);
+					} else {
+						panic!("not find sdf font,path: {:?}", path);
+					}
+				}
+				log::warn!("onload==========={:?}, {:?}, {:?}", key, chars, result.len());
+				pi_hal::font::sdf_brush::on_load(key, result);
+			}).unwrap();
+		}));
+	}
+
     app.world.insert_resource(RunState::RENDER);
 	#[cfg(feature = "debug")]
 	if let Some(play_option) = play_option {
@@ -162,7 +196,7 @@ pub fn start<T: Example + Sync + Send + 'static>(example: T) {
 	}
 
     #[cfg(feature = "debug")]
-    app.add_plugins(UiPlugin { cmd_trace: record_option });
+    app.add_plugins(UiPlugin { cmd_trace: record_option, use_sdf });
     #[cfg(not(feature = "debug"))]
     app.add_plugins(UiPlugin::default());
 	exmple1.lock().setting(&mut app);

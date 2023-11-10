@@ -28,7 +28,7 @@ use pi_ui_render::{
 
 fn main() { framework::start(QuadExample::default()) }
 
-#[test]
+#[cfg(target_arch = "wasm32")]
 #[wasm_bindgen_test::wasm_bindgen_test]
 fn test() {
 	web_sys::console::log_1(&"background_compress_texture===========".into());

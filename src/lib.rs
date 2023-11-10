@@ -44,6 +44,7 @@ pub mod prelude {
     pub struct UiPlugin {
         #[cfg(feature = "debug")]
         pub cmd_trace: crate::system::cmd_play::TraceOption,
+		pub use_sdf: bool,
     }
     impl Plugin for UiPlugin {
         fn build(&self, app: &mut App) {
@@ -85,7 +86,9 @@ pub mod prelude {
             .add_plugins(UiShaderPlugin)
             .add_plugins(UiNodePlugin)
             .add_plugins(UiEffectPlugin)
-            .add_plugins(UiReadyDrawPlugin)
+            .add_plugins(UiReadyDrawPlugin {
+				use_sdf: self.use_sdf
+			})
             .add_plugins(UiPassPlugin)
             // .add_systems(Update, apply_system_buffers.in_set(UiSystemSet::LoadFlush))
             .add_systems(Update, apply_deferred.in_set(UiSystemSet::LifeDrawObjectFlush))

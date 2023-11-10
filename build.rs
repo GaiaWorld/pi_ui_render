@@ -4,15 +4,17 @@ use render_compile::{CompileShaderError, Parser};
 
 fn main() -> Result<(), CompileShaderError> {
     // 除非修改build.rs， 否则不重新运行脚本
-    println!("cargo:rerun-if-changed=build.rs");
-    // visit_dirs("src/shader/", &mut |file| {
-    //     if let Some(r) = file.extension() {
-    //         let r = r.to_string_lossy();
-    //         if r.ends_with("glsl") || r.ends_with("vert") || r.ends_with("frag") {
-    //             println!("cargo:rerun-if-changed={:?}", file);
-    //         }
-    //     }
-    // });
+    // println!("cargo:rerun-if-changed=build.rs");
+
+    visit_dirs("src/shader/", &mut |file| {
+        if let Some(r) = file.extension() {
+            let r = r.to_string_lossy();
+			let file = file.to_string_lossy();
+            if r.ends_with("glsl") || r.ends_with("vert") || r.ends_with("frag") {
+                println!("cargo:rerun-if-changed={}", file);
+            }
+        }
+    });
     // style 宏展开
     // let out = std::process::Command::new("cargo")
     // 		.current_dir("exports_macro")
@@ -51,18 +53,18 @@ fn main() -> Result<(), CompileShaderError> {
     Ok(())
 }
 
-// fn visit_dirs<F: FnMut(&PathBuf), P: AsRef<Path>>(path: P, cb: &mut F) {
-//     let path = path.as_ref();
-//     if path.is_dir() {
-//         for entry in std::fs::read_dir(path).unwrap() {
-//             if let Ok(entry) = entry {
-//                 let path = entry.path();
-//                 if path.is_dir() {
-//                     visit_dirs(&path, cb);
-//                 } else {
-//                     cb(&path);
-//                 }
-//             }
-//         }
-//     }
-// }
+fn visit_dirs<F: FnMut(&std::path::PathBuf), P: AsRef<Path>>(path: P, cb: &mut F) {
+    let path = path.as_ref();
+    if path.is_dir() {
+        for entry in std::fs::read_dir(path).unwrap() {
+            if let Ok(entry) = entry {
+                let path = entry.path();
+                if path.is_dir() {
+                    visit_dirs(&path, cb);
+                } else {
+                    cb(&path);
+                }
+            }
+        }
+    }
+}

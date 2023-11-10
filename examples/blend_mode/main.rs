@@ -37,7 +37,7 @@ pub struct QuadExample {
     cmd: UserCommands,
 }
 
-#[test]
+#[cfg(target_arch = "wasm32")]
 #[wasm_bindgen_test::wasm_bindgen_test]
 fn test() {
 	web_sys::console::log_1(&"blend_mode===========".into());

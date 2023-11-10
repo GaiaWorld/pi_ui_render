@@ -19,6 +19,7 @@ use pi_futures::BoxFuture;
 use pi_null::Null;
 use pi_postprocess::prelude::{BlurGauss, PostprocessTexture};
 use pi_render::components::view::target_alloc::ShareTargetView;
+use pi_render::font::Font;
 use pi_render::renderer::draw_obj::DrawBindGroup;
 use pi_render::renderer::texture::ETextureViewUsage;
 use pi_render::renderer::vertices::{EVerticesBufferUsage, RenderVertices};
@@ -33,7 +34,7 @@ use crate::components::calc::{DrawInfo, DrawList, EntityKey, NodeId, NodeState, 
 use crate::components::draw_obj::DrawState;
 use crate::components::draw_obj::{BoxType, DynTargetType, PipelineMeta, TextMark, TextShadowMark};
 use crate::components::pass_2d::{Camera, ParentPassId, PostProcess};
-use crate::components::user::{Matrix4, TextShadow, Animation};
+use crate::components::user::{Matrix4, TextShadow, Animation, get_size, TextStyle};
 use crate::components::DrawBundle;
 use crate::resource::draw_obj::{
     ClearDrawObj, DepthCache, EmptyVertexBuffer, PosUvColorVertexLayout, ProgramMetaRes, ShaderInfoCache,
@@ -44,7 +45,7 @@ use crate::shader::camera::CameraBind;
 use crate::shader::depth::DepthBind;
 use crate::shader::text::SHADOW_DEFINE;
 use crate::shader::text::{PositionVert, SampBind, UvVert};
-use crate::shader::ui_meterial::{ColorUniform, StrokeColorOrURectUniform, TextureSizeOrBottomLeftBorderUniform, UiMaterialBind, WorldUniform};
+use crate::shader::ui_meterial::{ColorUniform, StrokeColorOrURectUniform, TextureSizeOrBottomLeftBorderUniform, UiMaterialBind, WorldUniform, ClipSdfOrSdflineUniform};
 use crate::system::pass::pass_graph_node::create_rp_for_fbo;
 use crate::system::pass::pass_life::{cal_context, render_mark_true};
 use crate::system::pass::update_graph::{get_to, update_graph};
@@ -100,7 +101,11 @@ pub fn text_shadow_life(
             Query<(&'static TextShadow, &'static mut DrawList, &'static mut RenderContextMark, Option<&'static Animation>), Changed<TextShadow>>,
         )>,
         Query<&'static TextShadowMark>,
-        OrInitRes<ProgramMetaRes<crate::shader::text::ProgramMeta>>,
+        (
+			OrInitRes<ProgramMetaRes<crate::shader::text::ProgramMeta>>,
+			OrInitRes<ProgramMetaRes<crate::shader::text_sdf::ProgramMeta>>,
+			Res<ShareFontSheet>
+		),
         OrInitRes<PosUvColorVertexLayout>,
         OrInitRes<ShaderInfoCache>,
         (OrInitRes<ShareGroupAlloter<UiMaterialGroup>>, OrInitRes<ShareGroupAlloter<UiMaterialGroup, DynMark>>),
@@ -120,7 +125,11 @@ pub fn text_shadow_life(
         mut del,
         mut query,
         mark_query,
-        program_meta,
+        (
+			program_meta,
+			text_sdf_program_meta,
+			font_sheet,
+		),
         vert_layout,
         shader_catch,
         (group_alloter, dyn_group_alloter),
@@ -165,8 +174,10 @@ pub fn text_shadow_life(
     }
 
     let program_meta = program_meta.clone();
+	let sdf_program_meta = text_sdf_program_meta.clone();
     let p_state = shader_catch.premultiply.clone();
     let vert_layout = vert_layout.clone();
+	let use_sdf = font_sheet.borrow().font_mgr().use_sdf();
 
     // 收集需要创建DrawObject的实体
     for changed in changed.iter() {
@@ -219,7 +230,7 @@ pub fn text_shadow_life(
                                 box_type: BoxType::ContentNone,
                                 pipeline_meta: PipelineMeta {
                                     type_mark: render_type,
-                                    program: program_meta.clone(),
+                                    program: if use_sdf {sdf_program_meta.clone()} else {program_meta.clone()},
                                     state: p_state.clone(),
                                     vert_layout: vert_layout.clone(),
                                     defines: Default::default(),
@@ -247,7 +258,7 @@ pub fn text_shadow_life(
 pub fn calc_text_shadow(
     render_type: Res<TextRenderObjType>,
     query: Query<
-        (&NodeState, Ref<NodeState>, Ref<TextShadow>, Ref<WorldMatrix>, &DrawList),
+        (&NodeState, Ref<NodeState>, Ref<TextShadow>, Ref<WorldMatrix>, &DrawList, &TextStyle),
         // TextContent改变，NodeState必然改变; 存在NodeState， 也必然存在TextContent
         (With<TextShadow>, Or<(Changed<NodeState>, Changed<TextShadow>)>),
     >,
@@ -268,7 +279,7 @@ pub fn calc_text_shadow(
 
     text_texture_group: OrInitRes<TextTextureGroup>,
 
-    font_sheet: Res<ShareFontSheet>,
+    font_sheet: ResMut<ShareFontSheet>,
     empty_vert_buffer: Res<EmptyVertexBuffer>,
     mut post_resource: ResMut<PostprocessResource>,
     device: Res<PiRenderDevice>,
@@ -278,7 +289,7 @@ pub fn calc_text_shadow(
 	if r.0 {
 		return;
 	}
-    let font_sheet = font_sheet.borrow();
+    let mut font_sheet = (***font_sheet).borrow_mut();
 
     // 更新纹理尺寸
     let size = font_sheet.texture_size();
@@ -289,7 +300,7 @@ pub fn calc_text_shadow(
 
     // let mut init_spawn_drawobj = Vec::new();
     for (mut draw_state, mut box_type, mut clear_color_group, node_id, shadow_mark, mut post_process, mut pipeline_meta) in query_draw.iter_mut() {
-        if let Ok((node_state, node_state_change, text_shadow, world_matrix, draw_list)) = query.get(***node_id) {
+        if let Ok((node_state, node_state_change, text_shadow, world_matrix, draw_list, text_style)) = query.get(***node_id) {
             if node_state.0.scale < 0.000001 {
                 continue;
             }
@@ -356,6 +367,28 @@ pub fn calc_text_shadow(
                 });
                 post_process.calc(16, &device, &queue, &mut post_resource.resources);
             }
+
+			if font_sheet.font_mgr().use_sdf() && (text_shadow.is_changed() || world_matrix.is_changed()) {
+				let scale = node_state.0.scale;
+				let font_size = get_size(&text_style.font_size) as f32;
+				let font_id = font_sheet.font_id(Font::new(
+					text_style.font_family.clone(),
+					font_size as usize,
+					text_style.font_weight,
+					text_style.text_stroke.width, // todo 或许应该设置比例
+				));
+				let font_height = font_sheet.font_height(font_id, font_size as usize);
+
+				let font_info = font_sheet.font_mgr().font_info(font_id);
+				let metrics = font_sheet.font_mgr().brush.sdf_brush.metrics_info(&font_info.font_ids[0]);
+				let scale0 = scale * font_height / (metrics.ascender - metrics.descender);
+				let sw = (scale * *text_style.text_stroke.width).round();
+				let distance_px_range = scale0 * metrics.distance_range;
+				let fill_bound = 0.5 - (text_style.font_weight as f32 / 500 as f32 - 1.0) / distance_px_range;
+				let stroke = sw/2.0/distance_px_range;
+				let stroke_bound = fill_bound - stroke;
+				draw_state.bindgroups.set_uniform(&ClipSdfOrSdflineUniform(&[distance_px_range, fill_bound, stroke_bound]));
+			}
         }
     }
 }

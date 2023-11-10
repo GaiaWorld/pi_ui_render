@@ -39,7 +39,7 @@ pub fn calc_text_texture(
 	}
     let font_sheet = font_sheet.borrow();
     let size = font_sheet.texture_size();
-    let (size_is_change, version_is_change) = texture_state.is_change(&size, font_sheet.texture_version());
+    let (size_is_change, version_is_change) = texture_state.is_change(&size, &font_sheet);
     // 纹理大小不同，需要重新创建bind_group
     if size_is_change || text_texture_group.is_none() {
         let texture_group_layout = &shader_static.bind_group_layout[SampBind::set() as usize];
@@ -47,6 +47,11 @@ pub fn calc_text_texture(
         let texture_group = match bind_group_assets.get(&texture_group_key) {
             Some(r) => r,
             None => {
+				let view = if font_sheet.font_mgr().use_sdf() {
+					&font_sheet.sdf_texture_view().as_ref().unwrap().texture_view
+				} else {
+					&font_sheet.texture_view().as_ref().unwrap().texture_view
+				};
                 let group = device.create_bind_group(&wgpu::BindGroupDescriptor {
                     layout: texture_group_layout,
                     entries: &[
@@ -56,7 +61,7 @@ pub fn calc_text_texture(
                         },
                         wgpu::BindGroupEntry {
                             binding: 1,
-                            resource: wgpu::BindingResource::TextureView(&font_sheet.texture_view().texture_view),
+                            resource: wgpu::BindingResource::TextureView(view),
                         },
                     ],
                     label: Some("post process texture bind group create"),

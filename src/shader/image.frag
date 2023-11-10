@@ -19,23 +19,23 @@ void main(){
 	vec4 color=texture(sampler2D(tex2d,samp),vUv);
 	
 	#ifdef BORDER_RADIUS
-	color.a=color.a*calc_alpha(vVertexPosition, clipSdf);
+	color.a=color.a*calc_alpha(vVertexPosition, clipSdfOrSdfline);
 	#endif
 	
 	#ifdef SECTOR
-	color.a=color.a*calc_alpha(vVertexPosition, clipSdf);
+	color.a=color.a*calc_alpha(vVertexPosition, clipSdfOrSdfline);
 	#endif
 	
 	#ifdef RECT
-	color.a=color.a*calc_alpha(vVertexPosition, clipSdf);
+	color.a=color.a*calc_alpha(vVertexPosition, clipSdfOrSdfline);
 	#endif
 	
 	#ifdef ELLIPSE
-	color.a=color.a*calc_alpha(vVertexPosition, clipSdf);
+	color.a=color.a*calc_alpha(vVertexPosition, clipSdfOrSdfline);
 	#endif
 	
 	#ifdef CIRCLE
-	color.a=color.a*calc_alpha(vVertexPosition, clipSdf);
+	color.a=color.a*calc_alpha(vVertexPosition, clipSdfOrSdfline);
 	#endif
 	
 	// 預乘模式

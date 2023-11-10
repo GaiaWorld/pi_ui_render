@@ -54,6 +54,7 @@ pub struct KeyFramesSheet {
     animation_attr_types: CurveMgr, // Vec<TypeAnimationContext<T>>,
 
     static_key_frames_map: XHashMap<(usize, Atom), KeyFrames>, // 永不释放的帧动画列表
+	key_frames_attr_map: XHashMap<(usize, Atom), XHashMap<NotNan<f32>, VecDeque<Attribute>>>, // 用于缓存帧动画的元数据（未变成曲线之前），方便高层能取到帧动画值
     key_frames_map: XHashMap<(usize, Atom), KeyFrames>,       // 帧动画列表, key为（作用域hash，动画名称）
     // curve_infos: FrameCurveInfoManager,
     type_use_mark: BitVec, // 标记被使用的TypeAnimationContext，加速run（只有被使用到的TypeAnimationContext才会被嗲用run方法）
@@ -181,6 +182,7 @@ impl Default for KeyFramesSheet {
             animation_attr_types: CurveMgr { list: animation_attr_types },
             static_key_frames_map: Default::default(),
             key_frames_map: Default::default(),
+			key_frames_attr_map: Default::default(),
             animation_bind: SecondaryMap::with_capacity(0),
             group_bind: SecondaryMap::with_capacity(0),
             animation_context_amount: AnimationContextAmount::default(AnimationGroupManagerDefault::default()),
@@ -249,6 +251,23 @@ impl KeyFramesSheet {
     // ) {
     //     // self.animation_events_callback = Some(callback);
     // }
+	pub fn get_keyframes(&self, name: Atom, scope_hash: usize) -> Option<&XHashMap<NotNan<f32>, VecDeque<Attribute>>> {
+		let key = (scope_hash, name.clone());
+		let key_frame = match self.key_frames_attr_map.get(&key) {
+			Some(r) => r,
+			None => {
+				let key = (0, name);
+				// 取全局动画
+				match self.key_frames_attr_map.get(&key) {
+					Some(r) => r,
+					None => {
+						return None;
+					}
+				}
+			}
+		};
+		Some(key_frame)
+	} 
 
     // 将动画绑定到目标上（目标即节点的实体id）
     pub fn bind_static_animation(&mut self, target: ObjKey, animation: &Animation) -> Result<(), Vec<KeyFrameError>> {
@@ -279,7 +298,7 @@ impl KeyFramesSheet {
         );
         for name in animation.name.value.iter() {
             if let Some(m) = value.remove(name) {
-                self.add_keyframes(animation.name.scope_hash, name.clone(), m);
+                self.add_keyframes(animation.name.scope_hash, name.clone(), &m);
                 names.push((
                     animation.name.scope_hash,
                     name.clone(),
@@ -375,17 +394,18 @@ impl KeyFramesSheet {
     // 添加一个静态的帧动画
     // 该动画无法移除
     pub fn add_static_keyframes(&mut self, scope_hash: usize, name: Atom, value: XHashMap<NotNan<f32>, VecDeque<Attribute>>) {
-        self.add_keyframes(scope_hash, name.clone(), value);
+        self.add_keyframes(scope_hash, name.clone(), &value);
+		self.key_frames_attr_map.insert((scope_hash, name.clone()), value);
         self.static_key_frames_map
             .insert((scope_hash, name.clone()), self.key_frames_map.get(&(scope_hash, name)).unwrap().clone());
     }
 
     // 添加一个帧动画
-    pub fn add_keyframes(&mut self, scope_hash: usize, name: Atom, value: XHashMap<NotNan<f32>, VecDeque<Attribute>>) {
+    pub fn add_keyframes(&mut self, scope_hash: usize, name: Atom, value: &XHashMap<NotNan<f32>, VecDeque<Attribute>>) {
         debug!("add_keyframes, name: {:?}, scope_hash: {:?}", name, scope_hash);
         fn add_progress<T: Attr + FrameDataValue>(
             progress: u16,
-            value: T,
+            value: &T,
             temp_keyframes_ptr: &mut VecMap<Share<dyn Any + Send + Sync>>,
             temp_keyframes_mark: &mut BitVec,
         ) {
@@ -399,10 +419,10 @@ impl KeyFramesSheet {
                 }
             };
             let f = Share::downcast::<FrameCurve<T>>(ptr.clone()).unwrap();
-            unsafe { &mut *(Share::as_ptr(&f) as usize as *mut FrameCurve<T>) }.curve_frame_values_frame(progress, value);
+            unsafe { &mut *(Share::as_ptr(&f) as usize as *mut FrameCurve<T>) }.curve_frame_values_frame(progress, value.clone());
         }
 
-        for (progress, attrs) in value.into_iter() {
+        for (progress, attrs) in value.iter() {
             let progress = (progress * FRAME_COUNT).round() as u16;
             for attr in attrs.into_iter() {
                 match attr {

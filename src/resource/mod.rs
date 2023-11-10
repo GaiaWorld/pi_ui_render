@@ -30,7 +30,6 @@ use bevy_ecs::system::{Command, CommandQueue};
 use crate::components::calc::{EntityKey, Quad};
 use crate::components::user::serialize::StyleAttr;
 use crate::components::user::{AsImage, ClearColor, ClipPath, MaskImage, Point2, RenderDirty, RenderTargetType, Vector2, Viewport};
-use crate::components::NodeBundle;
 use pi_spatial::quad_helper::QuadTree as QuadTree1;
 // use crate::utils::cmd::{CommandQueue, Command, DataQuery};
 // use bevy_ecs::prelude::{CommandQueue, Commands, World};
@@ -233,18 +232,6 @@ impl UserCommands {
 
         #[cfg(feature = "debug")]
         self.other_commands_list.push(CmdType::NodeCmdRenderRenderDirty(r.clone()));
-
-        self.other_commands.push(r);
-		self
-    }
-
-    /// 设置几点初始化值
-    pub fn set_node_bundle(&mut self, node: Entity, cmd: NodeBundle) -> &mut Self {
-        // println_any!("push_cmd===={:?}", 1);
-        let r = NodeCmd(cmd, node);
-
-        #[cfg(feature = "debug")]
-        self.other_commands_list.push(CmdType::NodeCmdRenderNodeBundle(r.clone()));
 
         self.other_commands.push(r);
 		self
@@ -609,13 +596,23 @@ unsafe impl Send for ShareFontSheet {}
 #[cfg(target_arch = "wasm32")]
 unsafe impl Sync for ShareFontSheet {}
 
-impl FromWorld for ShareFontSheet {
-    fn from_world(world: &mut World) -> Self {
+// impl FromWorld for ShareFontSheet {
+//     fn from_world(world: &mut World) -> Self {
+//         let texture_res_mgr = world.get_resource::<ShareAssetMgr<TextureRes>>().unwrap();
+//         let device = world.get_resource::<PiRenderDevice>().unwrap();
+// 		let queue = world.get_resource::<PiRenderQueue>().unwrap();
+// 		let limits = device.limits();
+//         ShareFontSheet(Share::new(ShareCell::new(FontSheet::new(&device.0, &texture_res_mgr.0, &queue.0, limits.max_texture_dimension_2d, false))))
+//     }
+// }
+
+impl ShareFontSheet {
+    pub fn new(world: &mut World, use_sdf: bool) -> Self {
         let texture_res_mgr = world.get_resource::<ShareAssetMgr<TextureRes>>().unwrap();
         let device = world.get_resource::<PiRenderDevice>().unwrap();
 		let queue = world.get_resource::<PiRenderQueue>().unwrap();
 		let limits = device.limits();
-        ShareFontSheet(Share::new(ShareCell::new(FontSheet::new(&device.0, &texture_res_mgr.0, &queue.0, limits.max_texture_dimension_2d))))
+        ShareFontSheet(Share::new(ShareCell::new(FontSheet::new(&device.0, &texture_res_mgr.0, &queue.0, limits.max_texture_dimension_2d, use_sdf))))
     }
 }
 

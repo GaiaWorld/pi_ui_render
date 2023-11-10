@@ -13,7 +13,7 @@ use std::{
 };
 
 use bevy_ecs::{
-	query::{Changed, Or},
+	query::Changed,
 	system::{Local, Query, Res},
 	world::Mut,
     prelude::{DetectChanges, With, Entity, EventWriter, Ref},

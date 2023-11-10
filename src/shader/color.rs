@@ -180,14 +180,14 @@ precision highp float;
         },
         CodeSlice {
             code: pi_atom::Atom::from(
-                "		c.a = c.a * calc_alpha(vVertexPosition, clipSdf);
+                "		c.a = c.a * calc_alpha(vVertexPosition, clipSdfOrSdfline);
 "
             ),
             defines: vec![Define::new(true, BORDER_RADIUS_DEFINE.clone())]
         },
         CodeSlice {
             code: pi_atom::Atom::from(
-                "		c.a = c.a * calc_alpha(vVertexPosition, clipSdf);
+                "		c.a = c.a * calc_alpha(vVertexPosition, clipSdfOrSdfline);
 "
             ),
             defines: vec![Define::new(true, BORDER_DEFINE.clone())]
@@ -202,6 +202,6 @@ precision highp float;
     ];
     pub static ref BORDER_DEFINE: pi_atom::Atom = pi_atom::Atom::from("BORDER");
     pub static ref SHADOW_DEFINE: pi_atom::Atom = pi_atom::Atom::from("SHADOW");
-    pub static ref VERT_COLOR_DEFINE: pi_atom::Atom = pi_atom::Atom::from("VERT_COLOR");
     pub static ref BORDER_RADIUS_DEFINE: pi_atom::Atom = pi_atom::Atom::from("BORDER_RADIUS");
+    pub static ref VERT_COLOR_DEFINE: pi_atom::Atom = pi_atom::Atom::from("VERT_COLOR");
 }
