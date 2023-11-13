@@ -1,6 +1,6 @@
 //! 指令
 
-use std::{collections::VecDeque, mem::replace};
+use std::{collections::VecDeque, mem::replace, borrow::BorrowMut};
 
 use bevy_ecs::{
 	system::Command,
@@ -10,6 +10,7 @@ use bevy_ecs::{
 use ordered_float::NotNan;
 use pi_atom::Atom;
 use pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent;
+use pi_hal::font::sdf_brush::FontCfg;
 use pi_hash::XHashMap;
 use pi_print_any::out_any;
 use pi_style::style_parse::{Attribute, ClassItem, ClassMap, KeyFrameList};
@@ -29,7 +30,7 @@ use crate::{
 use super::{
     animation_sheet::ObjKey,
     fragment::{FragmentMap, Fragments},
-    ClassSheet,
+    ClassSheet, ShareFontSheet,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -154,6 +155,31 @@ impl Command for RuntimeAnimationBindCmd {
     }
 }
 
+// 运行时动画绑定指令
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct FontCfgCmd(pub FontCfg);
+impl Command for FontCfgCmd {
+    fn apply(self, world: &mut World) {
+        let sheet = &***world.get_resource_mut::<ShareFontSheet>().unwrap();
+		let mut sheet = (*sheet).borrow_mut();
+		sheet.font_mgr_mut().add_sdf_cfg(self.0);
+    }
+}
+
+// 运行时动画绑定指令
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SdfDefaultCharCmd {
+	pub font_face: Atom,
+	pub char: char,
+}
+impl Command for SdfDefaultCharCmd {
+    fn apply(self, world: &mut World) {
+        let sheet = &***world.get_resource_mut::<ShareFontSheet>().unwrap();
+		let mut sheet = (*sheet).borrow_mut();
+		sheet.borrow_mut().font_mgr_mut().add_sdf_default_char(self.font_face, self.char);
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 /// 节点指令
 pub enum NodeCommand {
@@ -188,6 +214,8 @@ pub enum CmdType {
     ExtendFragmentCmd(ExtendFragmentCmd),
     ExtendCssCmd(ExtendCssCmd),
     DefaultStyleCmd(DefaultStyleCmd),
+	SdfCfgCmd(FontCfgCmd),
+	SdfDefaultCharCmd(SdfDefaultCharCmd),
 }
 
 // #[derive(Clone)]

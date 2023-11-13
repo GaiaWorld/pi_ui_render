@@ -5,6 +5,7 @@ pub mod cmd;
 pub mod draw_obj;
 pub mod fragment;
 pub use cmd::*;
+use pi_atom::Atom;
 use pi_bevy_asset::ShareAssetMgr;
 use pi_bevy_render_plugin::{PiRenderDevice, PiRenderQueue, node:: NodeId as GraphNodeId};
 use pi_hash::XHashMap;
@@ -22,6 +23,7 @@ use std::ops::{Index, IndexMut};
 use pi_style::style_parse::{parse_animation, parse_class_map_from_string, parse_style_list_from_string};
 use pi_style::style_type::Attr;
 use pi_time::Instant;
+use pi_hal::font::sdf_brush::FontCfg;
 
 // use pi_ecs::prelude::{FromWorld, Id, World};
 use bevy_ecs::prelude::{Entity, FromWorld, Resource, World};
@@ -186,6 +188,30 @@ impl UserCommands {
     pub fn push_cmd<T: Command>(&mut self, cmd: T) -> &mut Self {
         // println_any!("push_cmd===={:?}", 1);
         self.other_commands.push(cmd);
+		self
+    }
+
+	/// 添加sdf字体配置
+    pub fn add_sdf_font(&mut self, cfg: FontCfg) -> &mut Self {
+        // println_any!("push_cmd===={:?}", 1);
+        let r = FontCfgCmd(cfg);
+
+        #[cfg(feature = "debug")]
+        self.other_commands_list.push(CmdType::SdfCfgCmd(r.clone()));
+
+        self.other_commands.push(r);
+		self
+    }
+
+	/// 添加默认文字
+    pub fn add_sdf_default_char(&mut self, font_face: Atom, char: char) -> &mut Self {
+        // println_any!("push_cmd===={:?}", 1);
+        let r = SdfDefaultCharCmd{font_face, char};
+
+        #[cfg(feature = "debug")]
+        self.other_commands_list.push(CmdType::SdfDefaultCharCmd(r.clone()));
+
+        self.other_commands.push(r);
 		self
     }
 

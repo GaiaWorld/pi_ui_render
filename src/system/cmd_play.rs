@@ -268,6 +268,12 @@ pub fn cmd_play(world: &mut World, state: &mut SystemState<(Commands, OrInitRes<
             CmdType::ExtendFragmentCmd(r) => {
                 cmds.push_cmd(r.clone());
             }
+            CmdType::SdfCfgCmd(r) => {
+				cmds.push_cmd(r.clone());
+			},
+            CmdType::SdfDefaultCharCmd(r) => {
+				cmds.push_cmd(r.clone());
+			},
         };
     }
 

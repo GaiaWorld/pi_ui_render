@@ -176,7 +176,7 @@ pub fn start<T: Example + Sync + Send + 'static>(example: T) {
 				let mut result: Vec<Vec<u8>> = Vec::with_capacity(chars.len());
 				for char in chars.iter() {
 					let unicode = unsafe{transmute::<_, u32>(*char)};
-					let path = current_dir.join(format!("examples/z_source/{}/_{}.bin", font_name.as_str(), unicode));
+					let path = current_dir.join(format!("D://0_js/cdqxz_new_mult_gui_exe/dst_font/{}/_{}.bin", font_name.as_str(), unicode));
 					if let Ok(buffer) = std::fs::read(path.clone()) {
 						result.push(buffer);
 					} else {
