@@ -41,38 +41,10 @@ impl Example for ExampleCommonPlay {
     }
 
 	fn use_sdf(&self) -> bool {
-		true
+		false
 	}
 
     fn init(&mut self, world: &mut World, size: (usize, usize)) {
-		{
-			let font_sheet = world.get_resource_mut::<pi_ui_render::resource::ShareFontSheet>().unwrap();
-			let mut font_sheet = font_sheet.borrow_mut();
-			let sdf_cfg = match postcard::from_bytes::<pi_hal::font::sdf_brush::FontCfg>(include_bytes!("../z_source/ht.sdf").as_slice()) {
-				Ok(r) => r,
-				Err(e) => {
-					panic!("parse fail================{:?}", e);
-				}
-			};
-			
-			font_sheet.font_mgr_mut().add_sdf_cfg(sdf_cfg);
-		}
-
-		{
-			let font_sheet = world.get_resource_mut::<pi_ui_render::resource::ShareFontSheet>().unwrap();
-			let mut font_sheet = font_sheet.borrow_mut();
-			let sdf_cfg = match postcard::from_bytes::<pi_hal::font::sdf_brush::FontCfg>(include_bytes!("../z_source/hwxw.sdf").as_slice()) {
-				Ok(r) => r,
-				Err(e) => {
-					panic!("parse fail================{:?}", e);
-				}
-			};
-			
-			font_sheet.font_mgr_mut().add_sdf_cfg(sdf_cfg);
-
-			font_sheet.font_mgr_mut().add_sdf_default_char(Atom::from("ht"), '□')
-		}
-		
 
 		let r = world.get_resource::<framework::PlayOption>().unwrap();
         // let r: Commands1 = unsafe { transmute(command) };
@@ -100,7 +72,7 @@ impl Example for ExampleCommonPlay {
 
     fn play_option(&self) -> Option<framework::PlayOption> {
 		Some(framework::PlayOption {
-			play_path: Some("D://0_js/cdqxz_new_mult_gui_exe/dst"),
+			play_path: Some("D://0_js/cdqxz_new_mult_gui_exe/dst_release"),
 			play_version: "test",
 		})
 	}

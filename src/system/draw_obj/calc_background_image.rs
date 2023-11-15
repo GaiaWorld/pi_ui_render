@@ -180,12 +180,12 @@ pub fn modify(
             let uvs = [
                 *clip.left,
                 *clip.top,
-                *clip.right,
-                *clip.top,
-                *clip.right,
-                *clip.bottom,
                 *clip.left,
                 *clip.bottom,
+                *clip.right,
+                *clip.bottom,
+                *clip.right,
+                *clip.top,
             ];
             set_vert_buffer(UvVert::location(), 8, bytemuck::cast_slice(&uvs), vertex_buffer_alloter, draw_state);
         }
