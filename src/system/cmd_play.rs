@@ -16,6 +16,7 @@ use bevy_ecs::{
 };
 use bevy_app::{Update, Plugin, App};
 use pi_bevy_ecs_extend::system_param::res::{OrInitRes, OrInitResMut};
+use pi_bevy_render_plugin::FrameState;
 use pi_null::Null;
 use pi_slotmap::SecondaryMap;
 
@@ -57,11 +58,14 @@ pub fn cmd_record(
     mut node_creates: OrInitResMut<CmdNodeCreate>,
     mut records: OrInitResMut<Records>,
     run_state: OrInitRes<RunState>,
+	frame_state: OrInitRes<FrameState>,
 ) {
     records.cur_frame_count += 1;
     let cur_frame_count = records.cur_frame_count;
-    if **run_state != RunState::SETTING && **run_state != RunState::RENDER {
-        records.run_state.push((**run_state, cur_frame_count));
+    if **run_state != RunState::SETTING  {
+		if let FrameState::UnActive = **frame_state {
+			records.run_state.push((**run_state, cur_frame_count));
+		}
     }
 
     let mut ss = Vec::with_capacity(user_commands.style_commands.commands.len());
@@ -233,13 +237,13 @@ pub fn cmd_play(world: &mut World, state: &mut SystemState<(Commands, OrInitRes<
                 cmds.push_cmd(r);
             }
             CmdType::NodeCmdRenderClearColor(r) => {
-                let mut r = r.clone();
-                let node = match play_state.get_node(&r.1) {
-                    Some(r) => r,
-                    None => continue,
-                };
-                r.1 = node;
-                cmds.push_cmd(r);
+                // let mut r = r.clone();
+                // let node = match play_state.get_node(&r.1) {
+                //     Some(r) => r,
+                //     None => continue,
+                // };
+                // r.1 = node;
+                cmds.push_cmd(r.clone());
             }
             CmdType::NodeCmdRenderRenderDirty(r) => {
                 let mut r = r.clone();

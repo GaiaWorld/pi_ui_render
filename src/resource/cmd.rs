@@ -10,17 +10,18 @@ use bevy_ecs::{
 use ordered_float::NotNan;
 use pi_atom::Atom;
 use pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent;
+use pi_bevy_render_plugin::PiClearOptions;
 use pi_hal::font::sdf_brush::FontCfg;
 use pi_hash::XHashMap;
 use pi_print_any::out_any;
-use pi_style::style_parse::{Attribute, ClassItem, ClassMap, KeyFrameList};
+use pi_style::{style_parse::{Attribute, ClassItem, ClassMap, KeyFrameList}, style::CgColor};
 use serde::{Deserialize, Serialize};
 
 use crate::{
     components::{
         user::{
             serialize::{DefaultStyle, StyleTypeReader},
-            Animation, Canvas, ClearColor, RenderDirty, RenderTargetType, Viewport, AsImage,
+            Animation, Canvas, RenderDirty, RenderTargetType, Viewport, AsImage,
         },
         NodeBundle, calc::EntityKey,
     },
@@ -180,6 +181,23 @@ impl Command for SdfDefaultCharCmd {
     }
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ClearColorCmd(pub CgColor);
+
+impl Command for ClearColorCmd {
+    fn apply(self, world: &mut World) {
+		let color = wgpu::Color { r: self.0.x as f64, g: self.0.y as f64, b: self.0.z as f64, a: self.0.w as f64 };
+		match world.get_resource_mut::<PiClearOptions>() {
+			Some(mut r) => r.color = color ,
+			None => {
+				let mut option = PiClearOptions::default();
+				option.color = color;
+				world.insert_resource(option);
+			},
+		}
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 /// 节点指令
 pub enum NodeCommand {
@@ -207,7 +225,7 @@ pub enum CmdType {
 
     NodeCmdViewport(NodeCmd<Viewport>),
     NodeCmdRenderTargetType(NodeCmd<RenderTargetType>),
-    NodeCmdRenderClearColor(NodeCmd<ClearColor>),
+    NodeCmdRenderClearColor(ClearColorCmd),
     NodeCmdRenderRenderDirty(NodeCmd<RenderDirty>),
     NodeCmdRenderNodeBundle(NodeCmd<NodeBundle>),
 

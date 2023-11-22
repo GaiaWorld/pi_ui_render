@@ -37,7 +37,8 @@ impl ExampleCommonPlay {
 impl Example for ExampleCommonPlay {
     fn get_init_size(&self) -> Option<Size<u32>> {
         // None表示使用默认值
-        Some(Size { width: 1080, height: 2160 })
+        // Some(Size { width: 1080, height: 2160 })
+		Some(Size { width: 545, height: 963 })
     }
 
 	fn use_sdf(&self) -> bool {
@@ -72,7 +73,7 @@ impl Example for ExampleCommonPlay {
 
     fn play_option(&self) -> Option<framework::PlayOption> {
 		Some(framework::PlayOption {
-			play_path: Some("D://0_js/cdqxz_new_mult_gui_exe/dst_release"),
+			play_path: Some("D://0_js/cdqxz_new_mult_gui_exe/dst"),
 			play_version: "test",
 		})
 	}

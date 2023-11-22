@@ -33,7 +33,7 @@ use crate::{
             Camera, DirtyMark, DirtyRectState, Draw2DList, DrawIndex, LastDirtyRect, ParentPassId, PostProcess, PostProcessInfo, RenderTarget,
             RenderTargetCache, ViewMatrix, StrongTarget,
         },
-        user::{Aabb2, AsImage, Matrix4, Point2, RenderDirty, Vector2, Viewport},
+        user::{Aabb2, AsImage, Matrix4, Point2, RenderDirty, Vector2, Viewport, BackgroundImage},
     },
     resource::{
         draw_obj::{CameraGroup, DepthCache, GroupAlloterCenter, ShareGroupAlloter, ShareLayout},
@@ -63,13 +63,15 @@ pub fn calc_camera_depth_and_renderlist(
                 &Layer,
                 Option<&AsImage>,
                 &mut RenderTarget,
+				Option<&BackgroundImage>,
             ),
             Without<DrawState>,
         >,
-        (Query<(Option<&ParentPassId>, &LastDirtyRect, &Camera)>, Query<(&'static mut Draw2DList, &Camera)>),
+        (Query<(&LastDirtyRect, &Camera)>, Query<(&'static mut Draw2DList, &Camera)>),
         (Query<(&Camera, &View)>, Query<&'static mut PostProcessInfo>),
     )>,
     node_query: Query<(
+		Option<&'static ParentPassId>,
         &'static InPassId,
         &'static DrawList,
         &'static Quad,
@@ -110,10 +112,12 @@ pub fn calc_camera_depth_and_renderlist(
     let mut all_dirty_rect = Aabb2::new(Point2::new(std::f32::MAX, std::f32::MAX), Point2::new(std::f32::MIN, std::f32::MIN));
 
     // 迭代根节点，得到最大脏包围盒
-    for (global_dirty_rect, render_dirty_mark, _) in p0.iter() {
-        if render_dirty_mark.0 || global_dirty_rect.state != DirtyRectState::UnInit {
+    for (global_dirty_rect, render_dirty_mark, view_port) in p0.iter() {
+        if global_dirty_rect.state != DirtyRectState::UnInit {
             box_aabb(&mut all_dirty_rect, &global_dirty_rect.value);
-        }
+        } else if render_dirty_mark.0 {
+			box_aabb(&mut all_dirty_rect, &view_port.0);
+		}
     }
 
     for (
@@ -129,6 +133,7 @@ pub fn calc_camera_depth_and_renderlist(
         layer,
         as_image,
         mut render_target,
+		bg,
     ) in query_pass.p0().iter_mut()
     {
         camera.is_active = false;
@@ -145,7 +150,7 @@ pub fn calc_camera_depth_and_renderlist(
             }
             _ => continue,
         };
-		// log::warn!("local_dirty_mark============{:?}, {:?}, {:?}", entity, local_dirty_mark, as_image);
+		// log::warn!("local_dirty_mark============{:?}, {:?}, {:?}, {:?}", entity, local_dirty_mark, as_image, global_dirty_rect);
 
         // 不脏，不需要组织渲染图， 也不需要渲染脏
         if global_dirty_rect.state == DirtyRectState::UnInit && !render_dirty_mark.0 {
@@ -157,9 +162,11 @@ pub fn calc_camera_depth_and_renderlist(
 
         // 如果render_dirty_mark.0, 表示全屏脏
         let mut dirty_rect = global_dirty_rect.value.clone();
-        if render_dirty_mark.0 {
+		// 如果该pass2d是根节点， 则其脏区域始终为视口区域
+        if render_dirty_mark.0 { 
             dirty_rect = viewport.0;
         }
+
 
         // log::warn!("pass_id1========={:?}, {:?}", dirty_rect, willchange_matrix);
         // 计算视图区域（坐标系为本节点的非旋转坐标系）
@@ -294,6 +301,8 @@ pub fn calc_camera_depth_and_renderlist(
             is_active: true,
             is_change: true,
         };
+
+		// log::warn!("pass==================={:?}, {:?}, {:?}, {:?}", entity, global_dirty_rect, overflow_aabb, aabb);
         // 一些不需要后处理的，可以不用计算view_port和matrix， TODO
         let post_info = post_info.bypass_change_detection();
         post_info.view_port = aabb;
@@ -301,22 +310,55 @@ pub fn calc_camera_depth_and_renderlist(
         if let OverflowDesc::Rotate(matrix) = &overflow_aabb.desc {
             post_info.matrix = WorldMatrix(&matrix.from_context_rotate * world_matrix, true);
         } else {
+			// if bg.is_some() {
+			// 	log::warn!("aaaa================={:?}, {:?}, {:?}", entity, aabb, world_matrix);
+			// }
             post_info.matrix = WorldMatrix(world_matrix, false);
         }
 
         if let &StrongTarget::None = &render_target.target {
-			render_target.bound_box = camera.view_port.clone();
-		}
-		else{
+			// if bg.is_some() {
+			// 	log::warn!("aaaa1================={:?}, {:?}, {:?}, {}", entity, render_target.bound_box, &camera.view_port, render_target.bound_box.maxs.x - render_target.bound_box.mins.x);
+			// 	log::warn!("aaaa0================={:?}, {:?}, {:?}, {}", entity, dirty_rect, );
+			// }
+			if layer.root() == entity {
+				// 根节点必须分配与根节点overflow_aabb等大的fbo
+				// 因为根节点fbo要缓冲上一帧的内容，其fbo大小必须包含整个视口内容
+				let overflow_aabb = &overflow_aabb.view_box.aabb;
+				render_target.bound_box = Aabb2::new(
+					Point2::new(overflow_aabb.mins.x.floor(), overflow_aabb.mins.y.floor()),
+					Point2::new(overflow_aabb.maxs.x.ceil(), overflow_aabb.maxs.y.ceil()),
+				);
+			} else {
+				// 非根节点，在没有旧的fbo的情况下，只需要开与渲染区域等大的fbo
+				render_target.bound_box = camera.view_port.clone();
+			}
+		} else {
+			// 能进入该分支， 说明节点内容fbo需要强制缓冲（强制缓冲的内容应该包含节点下的所有内容，而不仅仅是当前脏区域的内容， 因此bound_box应为节点内容大小）
+			let overflow_aabb = &overflow_aabb.view_box.aabb;
+			let overflow_aabb = Aabb2::new(
+				Point2::new(overflow_aabb.mins.x.floor(), overflow_aabb.mins.y.floor()),
+				Point2::new(overflow_aabb.maxs.x.ceil(), overflow_aabb.maxs.y.ceil()),
+			);
+			// log::warn!("target_size_change========{:?}, {:?}, {:?}, {:?}", entity, &render_target.bound_box, overflow_aabb.view_box.aabb.clone(), &camera.view_port);
+			
+
+			
             let target_size_change = !(eq_f32(
                 render_target.bound_box.maxs.x - render_target.bound_box.mins.x,
-                overflow_aabb.view_box.aabb.maxs.x - overflow_aabb.view_box.aabb.mins.x,
+                overflow_aabb.maxs.x - overflow_aabb.mins.x,
             ) && eq_f32(
                 render_target.bound_box.maxs.y - render_target.bound_box.mins.y,
-                overflow_aabb.view_box.aabb.maxs.y - overflow_aabb.view_box.aabb.mins.y,
+                overflow_aabb.maxs.y - overflow_aabb.mins.y,
             ));
+
+			render_target.bound_box = overflow_aabb; 
+
             if target_size_change {
-                render_target.bound_box = overflow_aabb.view_box.aabb.clone();
+				
+				// if bg.is_some() {
+				// 	log::warn!("aaaa2================={:?}, {:?}, {:?}, {}", entity, render_target.bound_box, &camera.view_port, render_target.bound_box.maxs.x - render_target.bound_box.mins.x);
+				// }
                 // 从资源管理器中删除原有的渲染目标（TODO， 另外还需要在RenderTarget销毁时， 从资源管理器中删除）
                 render_target.target = StrongTarget::None; // 设置为None， 等待渲染时重新分配
                 render_target.cache = RenderTargetCache::None;
@@ -344,7 +386,6 @@ pub fn calc_camera_depth_and_renderlist(
         post_process: draw_obj_post_query,
     };
 
-    // log::trace!("all_dirty_rect: {:?}", all_dirty_rect);
     quad_tree.query(&all_dirty_rect, intersects, &mut args, ab_query_func);
 
     // // 遍历所有的pass，设置不透明渲染列表和透明渲染列表
@@ -393,8 +434,8 @@ pub fn calc_camera_depth_and_renderlist(
 }
 
 pub struct AbQueryArgs<'s, 'a> {
-    node_query: Query<'a, 'a, (&'s InPassId, &'s DrawList, &'s Quad, &'s ZRange, &'s IsShow, Entity)>,
-    pass_query: Query<'a, 'a, (Option<&'s ParentPassId>, &'s LastDirtyRect, &'s Camera)>,
+    node_query: Query<'a, 'a, (Option<&'s ParentPassId>, &'s InPassId, &'s DrawList, &'s Quad, &'s ZRange, &'s IsShow, Entity)>,
+    pass_query: Query<'a, 'a, (&'s LastDirtyRect, &'s Camera)>,
     draw_list: Query<'a, 'a, (&'s mut Draw2DList, &'s Camera)>,
     post_process: Query<'a, 'a, (), (With<PostProcess>, With<DrawState>)>,
     draw_info: Query<'a, 'a, &'s DrawInfo>,
@@ -402,12 +443,13 @@ pub struct AbQueryArgs<'s, 'a> {
 
 fn ab_query_func(arg: &mut AbQueryArgs, id: EntityKey, _aabb: &Aabb2, _bind: &()) {
     // quad_tree.
-    if let Ok((in_pass_id, draw_list, quad, z_range, is_show, entity)) = arg.node_query.get(*id) {
+    if let Ok((parent_pass_id, in_pass_id, draw_list, quad, z_range, is_show, entity)) = arg.node_query.get(*id) {
         // log::warn!("draw_list1==================entity: {:?}, draw_list: {:?}, {}, {:?}", entity, draw_list, is_show.get_visibility(), quad, );
-        let (parent_pass_id, context_dirty, camera) = match arg.pass_query.get(***in_pass_id) {
+        let (context_dirty, camera) = match arg.pass_query.get(***in_pass_id) {
             Ok(r) => r,
             _ => return,
         };
+
         // log::trace!(target: format!("entity_{:?}", id.0).as_str(), "try collect render all_list, is_show: {:?}, quad: {:?}, context_dirty: {:?}, intersects={:?}", is_show.get_visibility(), quad, context_dirty.no_will_change, intersects(quad, &context_dirty.no_will_change));
         // log::trace!(
         //     "try collect render all_list, entity: {:?}, is_show: {:?}, quad: {:?}, context_dirty: {:?}, is_change:{:?}, is_active: {:?}",

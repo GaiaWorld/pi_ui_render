@@ -1,9 +1,5 @@
-use bevy_ecs::prelude::{Events, IntoSystemConfigs, Resource, Event};
-use bevy_app::{App, Update};
+use bevy_ecs::prelude::Resource;
 use pi_bevy_ecs_extend::system_param::res::OrInitRes;
-use pi_bevy_render_plugin::should_run;
-
-use self::system_set::UiSystemSet;
 
 #[cfg(feature = "debug")]
 pub mod cmd_play;
@@ -24,22 +20,7 @@ bitflags::bitflags! {
         const SETTING            = (1 << 0); // 设置
         const LAYOUT      = (1 << 1); // 计算布局
         const MATRIX     = (1 << 2); // 计算世界矩阵
-        const RENDER     = (1 << 2); // 渲染
-    }
-}
-
-pub trait AddEvent {
-    // 添加事件， 该实现每帧清理一次
-    fn add_frame_event<T: Event>(&mut self) -> &mut Self;
-}
-
-impl AddEvent for App {
-    fn add_frame_event<T: Event>(&mut self) -> &mut Self {
-        if !self.world.contains_resource::<Events<T>>() {
-            self.init_resource::<Events<T>>()
-                .add_systems(Update, Events::<T>::update_system.run_if(should_run).after(UiSystemSet::PassCalc));
-        }
-        self
+        // const RENDER     = (1 << 2); // 渲染
     }
 }
 
@@ -67,10 +48,4 @@ pub fn matrix_run(state: OrInitRes<RunState>) -> bool {
         false
     }
 }
-pub fn render_run(state: OrInitRes<RunState>) -> bool {
-    if **state >= RunState::RENDER {
-        true
-    } else {
-        false
-    }
-}
+

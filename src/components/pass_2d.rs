@@ -286,7 +286,7 @@ pub struct RenderTarget {
     pub target: StrongTarget,
     // 缓冲ShareTargetView，当RenderTargetCache为Strong时， 强制缓冲， 当ShareTargetView为Weak时，此处并不强行缓冲ShareTargetView， 可能会被资产管理器回收
     pub cache: RenderTargetCache,
-    // 当前target所对应的在该节点的非旋转坐标系下的包围盒
+    // 当前target所对应的在该节点的非旋转坐标系下的包围盒（分配fbo的尺寸）
     pub bound_box: Aabb2,
 }
 

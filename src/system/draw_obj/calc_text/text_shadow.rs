@@ -50,7 +50,7 @@ use crate::system::pass::pass_graph_node::create_rp_for_fbo;
 use crate::system::pass::pass_life::{cal_context, render_mark_true};
 use crate::system::pass::update_graph::{get_to, update_graph};
 use crate::system::system_set::UiSystemSet;
-use crate::system::AddEvent;
+use bevy_window::AddFrameEvent;
 
 use super::text::calc_text;
 use super::IsRun;

@@ -13,7 +13,8 @@ use pi_bevy_render_plugin::should_run;
 use self::world_matrix::OldQuad;
 
 use super::system_set::UiSystemSet;
-use super::{layout_run, matrix_run, render_run, AddEvent};
+use super::{layout_run, matrix_run};
+use bevy_window::AddFrameEvent;
 
 // pub mod flush;
 pub mod layout;
@@ -37,8 +38,8 @@ impl Plugin for UiNodePlugin {
         app.configure_set(Update, UiSystemSet::Load.run_if(layout_run));
         app.configure_set(Update, UiSystemSet::Layout.run_if(layout_run));
         app.configure_set(Update, UiSystemSet::Matrix.run_if(matrix_run));
-        app.configure_set(Update, UiSystemSet::BaseCalc.run_if(render_run));
-        app.configure_set(Update, UiSystemSet::LifeDrawObject.run_if(render_run));
+        app.configure_set(Update, UiSystemSet::BaseCalc.run_if(pi_bevy_render_plugin::should_run));
+        app.configure_set(Update, UiSystemSet::LifeDrawObject.run_if(pi_bevy_render_plugin::should_run));
 
         app.add_frame_event::<ComponentEvent<Changed<Layer>>>()
             .init_resource::<UserCommands>()

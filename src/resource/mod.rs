@@ -14,7 +14,7 @@ use pi_null::Null;
 use pi_render::font::FontSheet;
 use pi_render::rhi::asset::TextureRes;
 use pi_share::{Share, ShareCell};
-use pi_style::style::Aabb2;
+use pi_style::style::{Aabb2, CgColor};
 
 use std::marker::PhantomData;
 use std::mem::transmute;
@@ -31,7 +31,7 @@ use bevy_ecs::system::{Command, CommandQueue};
 
 use crate::components::calc::{EntityKey, Quad};
 use crate::components::user::serialize::StyleAttr;
-use crate::components::user::{AsImage, ClearColor, ClipPath, MaskImage, Point2, RenderDirty, RenderTargetType, Vector2, Viewport};
+use crate::components::user::{AsImage, ClipPath, MaskImage, Point2, RenderDirty, RenderTargetType, Vector2, Viewport};
 use pi_spatial::quad_helper::QuadTree as QuadTree1;
 // use crate::utils::cmd::{CommandQueue, Command, DataQuery};
 // use bevy_ecs::prelude::{CommandQueue, Commands, World};
@@ -240,14 +240,13 @@ impl UserCommands {
     }
 
     /// 设置清屏颜色
-    pub fn set_clear_color(&mut self, node: Entity, cmd: ClearColor) -> &mut Self {
+    pub fn set_clear_color(&mut self, color: CgColor) -> &mut Self {
         // println_any!("push_cmd===={:?}", 1);
-        let r = NodeCmd(cmd, node);
-
+		let cmd = ClearColorCmd(color);
         #[cfg(feature = "debug")]
-        self.other_commands_list.push(CmdType::NodeCmdRenderClearColor(r.clone()));
+        self.other_commands_list.push(CmdType::NodeCmdRenderClearColor(cmd.clone()));
 
-        self.other_commands.push(r);
+        self.other_commands.push(cmd);
 		self
     }
 

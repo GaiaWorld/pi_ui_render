@@ -3,7 +3,7 @@ use bevy_app::{Plugin, Update, Startup, App};
 
 use crate::resource::draw_obj::{EmptyVertexBuffer, MaxViewSize};
 
-use super::{render_run, system_set::UiSystemSet, AddEvent, pass::update_graph::update_graph};
+use super::{system_set::UiSystemSet, pass::update_graph::update_graph};
 
 use pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent;
 use pi_bevy_render_plugin::component::GraphId;
@@ -22,6 +22,7 @@ use crate::resource::{
 
 use self::{calc_background_image::calc_background_image_texture, calc_text::UiTextPlugin};
 use super::draw_obj::set_world_marix::set_matrix_group;
+use bevy_window::AddFrameEvent;
 
 pub mod calc_background_color;
 pub mod calc_background_image;
@@ -47,7 +48,7 @@ pub struct UiReadyDrawPlugin {
 
 impl Plugin for UiReadyDrawPlugin {
     fn build(&self, app: &mut App) {
-        app.configure_set(Update, UiSystemSet::PrepareDrawObj.run_if(render_run));
+        app.configure_set(Update, UiSystemSet::PrepareDrawObj.run_if(pi_bevy_render_plugin::should_run));
 
         app.add_systems(Startup, clear_draw_obj::init)// PostStartup, 
             .init_resource::<MaxViewSize>()
@@ -67,7 +68,7 @@ impl Plugin for UiReadyDrawPlugin {
             )
             .add_systems(Update, 
                 root_clear_color::clear_change
-                    .run_if(render_run)
+                    .run_if(pi_bevy_render_plugin::should_run)
                     .after(UiSystemSet::PassFlush)
                     .after(UiSystemSet::PassCalc),
             )

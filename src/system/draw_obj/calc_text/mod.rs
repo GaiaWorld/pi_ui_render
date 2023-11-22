@@ -15,9 +15,9 @@ use crate::{
     system::{
         node::{layout::calc_layout, world_matrix::cal_matrix},
         system_set::UiSystemSet,
-        AddEvent,
     },
 };
+use bevy_window::AddFrameEvent;
 
 use self::{text::calc_text, text_shadow::UiTextShadowPlugin, text_texture::calc_text_texture};
 

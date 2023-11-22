@@ -46,11 +46,9 @@ pub fn calc_background_image(
             OrDefault<BackgroundImageClip>,
             OrDefault<BackgroundImageMod>,
             &BackgroundImageTexture,
+			&BackgroundImage,
         ),
-        (
-            With<BackgroundImageTexture>,
-            Or<(Changed<BackgroundImageTexture>, Changed<BackgroundImageClip>, Changed<LayoutResult>)>,
-        ),
+        Or<(Changed<BackgroundImageTexture>, Changed<BackgroundImageClip>, Changed<LayoutResult>)>,
     >,
     // mut query_draw: Query<(&'static mut DrawState, &mut BoxType, &'static mut StaticIndex, &'static mut FSDefines, &'static mut VSDefines)>,
     mut query_draw: Query<(&mut DrawState, &mut BoxType, &NodeId), With<BackgroundImageMark>>,
@@ -69,9 +67,15 @@ pub fn calc_background_image(
     let query = &query;
     for (mut draw_state, mut old_box_type, node_id) in query_draw.iter_mut() {
         // query_draw.par_iter_mut().for_each_mut(move |(mut draw_state, mut old_box_type, node_id)| {
-        if let Ok((layout, background_image_clip, background_image_mod, background_image_texture)) = query.get(***node_id) {
+        if let Ok((layout, background_image_clip, background_image_mod, background_image_texture, background_image)) = query.get(***node_id) {
             let background_image_texture = match &background_image_texture.0 {
-                Some(r) => r,
+                Some(r) => {
+					// 图片不一致， 返回
+					if *r.key() != background_image.0.get_hash() as u64 {
+						continue;
+					}
+					r
+				},
                 None => {
                     *old_box_type.bypass_change_detection() = BoxType::NotChange;
                     continue;

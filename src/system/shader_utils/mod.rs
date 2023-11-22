@@ -38,7 +38,6 @@ use crate::{
     utils::tools::{calc_float_hash, calc_hash},
 };
 
-use super::render_run;
 use super::system_set::UiSystemSet;
 
 pub struct UiShaderPlugin;
@@ -92,7 +91,7 @@ impl Plugin for UiShaderPlugin {
 			.init_resource::<ShareLayout>()
 			.init_resource::<UnitQuadBuffer>()
 
-			.add_systems(Update, screen_target_resize.run_if(render_run).before(UiSystemSet::Setting))
+			.add_systems(Update, screen_target_resize.run_if(pi_bevy_render_plugin::should_run).before(UiSystemSet::Setting))
 			// .add_startup_system(color::init)
 			// .add_startup_system(image::init)
 			// .add_startup_system(text::init)

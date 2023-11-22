@@ -93,6 +93,7 @@ pub fn calc_global_dirty_rect(
             Ok(r) => r,
             _ => continue,
         };
+		// log::warn!("dirty========{:?}, {:?}", node_id, quad);
         mark_pass_dirty_rect(***in_pass_id, quad, &mut p2);
     }
     // 处理包围盒改变前的区域，与脏区域求并
@@ -132,11 +133,11 @@ pub fn calc_global_dirty_rect(
         }
     }
 
-    // 新增了fbo缓冲的功能， 因此这里总设置根节点在时候范围内脏了（通常应该设置非跟节点缓冲，才能充分利用脏更）
-    for (viewport, _root_node, mut pass_dirty_rect) in query_pass.p3().iter_mut() {
-        pass_dirty_rect.value = viewport.0.clone();
-        pass_dirty_rect.state = DirtyRectState::Inited;
-    }
+    // // 新增了fbo缓冲的功能， 因此这里总设置根节点在视口范围内脏了（通常应该设置非根节点缓冲，才能充分利用脏更）
+    // for (viewport, _root_node, mut pass_dirty_rect) in query_pass.p3().iter_mut() {
+    //     pass_dirty_rect.value = viewport.0.clone();
+    //     pass_dirty_rect.state = DirtyRectState::Inited;
+    // }
 
     // 遍历所有pass的脏区域，求并，得全局脏区域
     for (mut pass_dirty_rect, layer, will_change_matrix, post_ref, _children_ref, content_box, transform_willchange_ref, entity, parent_pass_id) in

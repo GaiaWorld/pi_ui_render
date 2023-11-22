@@ -15,10 +15,9 @@ use self::{as_image::UiAsImagePlugin, clip_path::UiClipPathPlugin, mask_image::U
 use super::{
     node::{content_box, world_matrix},
     pass::{pass_dirty_rect::OldTransformWillChange, pass_life},
-    render_run,
     system_set::UiSystemSet,
-    AddEvent,
 };
+use bevy_window::AddFrameEvent;
 
 pub mod as_image;
 pub mod blur;
@@ -36,9 +35,9 @@ pub struct UiEffectPlugin;
 impl Plugin for UiEffectPlugin {
     fn build(&self, app: &mut App) {
         app.configure_sets(Update, (UiSystemSet::Setting, UiSystemSet::PassMark, UiSystemSet::PassFlush).chain())
-            .configure_set(Update, UiSystemSet::PassMark.run_if(render_run))
-            .configure_set(Update, UiSystemSet::PassFlush.run_if(render_run))
-            .configure_set(Update, UiSystemSet::PassSetting.run_if(render_run))
+            .configure_set(Update, UiSystemSet::PassMark.run_if(pi_bevy_render_plugin::should_run))
+            .configure_set(Update, UiSystemSet::PassFlush.run_if(pi_bevy_render_plugin::should_run))
+            .configure_set(Update, UiSystemSet::PassSetting.run_if(pi_bevy_render_plugin::should_run))
             .add_frame_event::<ComponentEvent<Changed<RenderContextMark>>>()
             .add_frame_event::<ComponentEvent<Changed<ParentPassId>>>()
             .add_frame_event::<OldTransformWillChange>()

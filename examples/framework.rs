@@ -20,9 +20,10 @@ use pi_flex_layout::prelude::Size;
 use pi_hal::{init_load_cb, on_load, runtime::MULTI_MEDIA_RUNTIME};
 use pi_share::{Share, ShareMutex};
 use pi_slotmap::DefaultKey;
+use pi_ui_render::system::RunState;
 // use pi_ui_render::components::user::AsImage;
 // use pi_ui_render::system::draw_obj::calc_text::IsRun;
-use pi_ui_render::system::{system_set::UiSystemSet, RunState};
+use pi_ui_render::system::system_set::UiSystemSet;
 use pi_ui_render::{prelude::UiPlugin, resource::UserCommands};
 
 #[cfg(feature = "debug")]
@@ -189,7 +190,7 @@ pub fn start<T: Example + Sync + Send + 'static>(example: T) {
 		}));
 	}
 
-    app.world.insert_resource(RunState::RENDER);
+    app.world.insert_resource(RunState::MATRIX);
 	#[cfg(feature = "debug")]
 	if let Some(play_option) = play_option {
 		app.world.insert_resource(play_option);
@@ -349,7 +350,9 @@ pub fn init(width: u32, height: u32, _event_loop: &EventLoop<()>, w: Arc<pi_wini
 
 	let mut o = PiRenderOptions::default();
 	o.present_mode = wgpu::PresentMode::Fifo;
-	o.backends = wgpu::Backends::GL;
+	// o.backends = wgpu::Backends::GL;
+	// o.present_mode = wgpu::PresentMode::Mailbox;
+	o.backends = wgpu::Backends::VULKAN;
 	app.world.insert_resource(o);
 
 	// app.world.insert_resource(IsRun(true));

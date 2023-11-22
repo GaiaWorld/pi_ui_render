@@ -338,7 +338,7 @@ impl Node for Pass2DNode {
                 // log::warn!("run5======{:?}, {:?}, {:?}, {:?}", pass2d_id, list.transparent, list.opaque, &render_target.bound_box);
                 // log::warn!("run graph4==============, pass2d_id: {:?}, input count: {}, opaque: {}, transparent: {}, is_active: {:?}, is_changed: {:?}, opaque_list: {:?}, transparent_list: {:?}, view_port: {:?}, render_target: {:?}", pass2d_id, input.0.len(), list.opaque.len(), list.transparent.len(), camera.is_active, camera.is_change, &list.opaque, &list.transparent, &camera.view_port, &render_target.target);
 				log::trace!(pass = format!("{:?}", pass2d_id).as_str();"run graph node1, pass2d_id: {pass2d_id:?}, \nparent_pass2d_id: {:?}, \ninput count: {}, \ninput: {:?} \nopaque: {}, \ntransparent: {}, \nis_active: {:?}, \nis_changed: {:?}, \nopaque_list: {:?}, \ntransparent_list: {:?}, \nview_port: {:?}, \nlast_rt_type: {:?}, \nfrom: {from:?}, \nto: {to:?}", parent_pass2d_id, input.0.len(), input.0.iter().map(|r| {(r.0.clone(), r.1.target.is_some(), &r.1.valid_rect)}).collect::<Vec<_>>(), list.opaque.len(), list.transparent.len(), camera.is_active, camera.is_change, &list.opaque, &list.transparent, &camera.view_port, param.last_rt_type);
-                if camera.is_active {
+				if camera.is_active || parent_pass2d_id.is_null() {
                     let mut render_to_fbo = false;
                     let (offsetx, offsety) = (
                         render_target.bound_box.mins.x - camera.view_port.mins.x,
@@ -395,7 +395,7 @@ impl Node for Pass2DNode {
                                             (RenderPassTarget::Fbo(out.target.as_ref().unwrap()), &param.fbo_clear_color.0)
                                         }
                                         None => {
-											log::trace!("none==============={:?}", pass2d_id);
+											// log::trace!("none==============={:?}", pass2d_id);
                                             // 不进行渲染（可能由父节点对它进行渲染）
                                             return Ok(SimpleInOut {
                                                 target: None,
@@ -406,7 +406,7 @@ impl Node for Pass2DNode {
                                 }
                             }
                             _ => {
-								log::trace!("non2==============={:?}", pass2d_id);
+								// log::trace!("non2==============={:?}", pass2d_id);
                                 // 应该不会进入该分支
                                 return Ok(SimpleInOut {
                                     target: None,
@@ -416,32 +416,19 @@ impl Node for Pass2DNode {
                         };
 						
                         let (_offset, _view_port) = {
-                            let mut input_groups = Vec::with_capacity(input.0.len());
-                            let mut post_draw = Vec::with_capacity(input.0.len());
-							for _i in 0..input.0.len() {
-								post_draw.push(None);
-								input_groups.push(None);
-							}
-							let mut draw_i = 0;
-							let mut group_i = 0;
+                            let mut input_groups = LinkNode { value: None, next: None };
+                            let mut post_draw = LinkNode { value: None, next: None };
+							
                             // 创建一个渲染Pass
                             let (mut rp, view_port, clear_port, offset) = create_rp(
                                 rt.clone(),
                                 commands.borrow_mut(),
                                 &camera.view_port,
                                 &render_target.bound_box,
-                                Some(wgpu::Operations {
-                                    load: wgpu::LoadOp::Clear(wgpu::Color {
-                                        r: 0.0,
-                                        g: 0.0,
-                                        b: 0.0,
-                                        a: 1.0,
-                                    }),
-                                    store: true,
-                                }), // TODO，外部设置
+                                None,
                             );
 
-
+							// log::warn!("set_viewport clear_port 1============={:?}, clear_port: {:?}, view_port: {:?}, render_target_view: {:?}", pass2d_id, clear_port, &camera.view_port, render_target.bound_box);
                             // 清屏
                             // if let Some(clear_color) = clear_color {
                             // fbo总是需要使用draw的方式清屏，如果是根节点，直接绘制到屏幕，就不需要使用这种方式清屏
@@ -453,16 +440,16 @@ impl Node for Pass2DNode {
                             param.clear_draw.0.draw(&mut rp);
                             // 相机在drawObj中已经描述
                             // }
-                            // log::warn!("set_viewport============={:?}", view_port);
+                            // log::warn!("set_viewport2============={:?}", view_port);
                             // 设置视口
                             rp.set_viewport(view_port.0, view_port.1, view_port.2, view_port.3, 0.0, 1.0);
 
                             Self::draw_list(
                                 &input.0,
-                                &post_draw,
-								&mut draw_i,
-                                &input_groups,
-								&mut group_i,
+                                &mut post_draw.value,
+								&mut post_draw.next,
+                                &mut input_groups.value,
+								&mut input_groups.next,
                                 &mut rp,
                                 (view_port.2 as u32, view_port.3 as u32),
                                 &world,
@@ -481,11 +468,12 @@ impl Node for Pass2DNode {
 							StrongTarget::Raw(r) => out.target = Some(r.0.clone()),
 							StrongTarget::None => ()
 						};
+						render_to_fbo = true;
 					}
 
                     out.valid_rect = Some((offsetx as u32, offsety as u32, view_port_w as u32, view_port_h as u32));
-
                     if let (Ok((post_process, post_info, _graph_id, _as_image)), Some(rt), true) = (post_list, &mut out.target, render_to_fbo) {
+						
                         if post_info.has_effect() {
                             let rect: guillotiere::euclid::Box2D<i32, guillotiere::euclid::UnknownUnit> = rt.rect().clone();
                             let mut target = PostprocessTexture::from_share_target(rt.clone(), wgpu::TextureFormat::pi_render_default());
@@ -519,8 +507,8 @@ impl Node for Pass2DNode {
                                 let post_draw;
                                 let rect = rt.rect();
                                 let view_port = Aabb2::new(
-                                    Point2::new(rect.min.x as f32, rect.min.y as f32),
-                                    Point2::new(rect.max.x as f32, rect.max.y as f32),
+                                    Point2::new(rect.min.x as f32 + render_target.bound_box.mins.x, rect.min.y as f32 + render_target.bound_box.mins.y),
+                                    Point2::new(rect.max.x as f32 + render_target.bound_box.mins.x, rect.max.y as f32 + render_target.bound_box.mins.y),
                                 );
                                 // 将最终渲染目标渲染到屏幕上
                                 // 创建一个渲染Pass
@@ -529,17 +517,8 @@ impl Node for Pass2DNode {
                                     commands.borrow_mut(),
                                     &view_port,
                                     &view_port,
-                                    Some(wgpu::Operations {
-                                        load: wgpu::LoadOp::Clear(wgpu::Color {
-                                            r: 0.0,
-                                            g: 0.0,
-                                            b: 0.0,
-                                            a: 1.0,
-                                        }),
-                                        store: true,
-                                    }),
+                                    None,
                                 );
-
                                 // 设置视口
                                 rp.set_viewport(view_port.0, view_port.1, view_port.2, view_port.3, 0.0, 1.0);
                                 let matrix = &camera.project * &post_info.matrix.0; // post_info.matrix?TODO
@@ -582,8 +561,12 @@ impl Node for Pass2DNode {
                     }
                 }
 
-                // 每帧都清理掉render_target.target， 避免握住无法释放
-                render_target.target = StrongTarget::None;
+				if let Some(as_image) = as_image {
+					if as_image.level != pi_style::style::AsImage::Force {
+						// 每帧都清理掉render_target.target， 避免握住无法释放
+						render_target.target = StrongTarget::None;
+					}
+				}
             }
             // log::warn!("out1=========={:?}, {:?}", pass2d_id, out.target.is_some());
             Ok(out)
@@ -597,13 +580,14 @@ impl Pass2DNode {
     /// * last_camera-当前渲染目标的根相机（渲染过程是一个递归过程，每遇到一个Pass2d，当前相机会发生变化，当last_camera在递归过程保持不变）
     /// * cur_view_port-当前设置的视口
     /// * cur_camera-当前设置的相机
+	#[inline]
     pub fn render_pass_2d<'a, 'b>(
         pass2d_id: EntityKey,
         input: &'a XHashMap<GraphNodeId, SimpleInOut>,
-        post_draw: &'a Vec<Option<DrawObj>>,
-		draw_i: &'b mut usize,
-        input_groups: &'a Vec<Option<(BindGroup, Buffer)>>,
-		group_i: &'b mut usize,
+		mut post_draw: &'a mut Option<DrawObj>,
+		mut post_draw_next: &'a mut Option<Box<LinkNode<DrawObj>>>,
+        mut input_groups: &'a mut Option<(BindGroup, Buffer)>,
+		mut input_groups_next: &'a mut Option<Box<LinkNode<(BindGroup, Buffer)>>>,
         rp: &mut RenderPass<'a>,
         target_size: (u32, u32),
         world: &'a World,
@@ -613,7 +597,7 @@ impl Pass2DNode {
         last_view_port: &(f32, f32, f32, f32),
         cur_view_port: &(f32, f32, f32, f32),
         depth: usize,
-    ) {
+    ) -> (&'a mut Option<DrawObj>, &'a mut Option<Box<LinkNode<DrawObj>>>, &'a mut Option<(BindGroup, Buffer)>, &'a mut Option<Box<LinkNode<(BindGroup, Buffer)>>>) {
         match param.post_query.get(*pass2d_id) {
             Ok((r, post_info, graph_id, as_image)) if post_info.has_effect() => {
 				let graph_id = match as_image {
@@ -634,7 +618,7 @@ impl Pass2DNode {
                     Some(r) => (
                         match &r.target {
                             Some(r) => r,
-                            None => return,
+                            None => return (post_draw, post_draw_next, input_groups, input_groups_next),
                         },
                         &r.valid_rect,
                     ),
@@ -645,7 +629,7 @@ impl Pass2DNode {
                             pass2d_id,
                             graph_id
                         );
-                        return;
+                        return (post_draw, post_draw_next, input_groups, input_groups_next);
                     }
                 };
 
@@ -724,14 +708,27 @@ impl Pass2DNode {
                     param.t_type.has_depth,
                     wgpu::TextureFormat::pi_render_default(),
                 ) {
-                    // 这里使用非安全的方式将不可变引用转为可变引用的前提是，Vec在创建时容量足够，使得push时不需要扩容，同时使用Vec的地方不能多线程
-					let rr = unsafe { &mut *(post_draw as *const Vec<Option<DrawObj>> as usize as *mut Vec<Option<DrawObj>>) };
-					if rr.capacity() == *draw_i {
-						panic!("xxxxx");
-					}
-					rr[*draw_i] = Some(draw_obj);
-					rr[*draw_i].as_ref().unwrap().draw(rp);
-					*draw_i += 1;
+					*post_draw = Some(draw_obj);
+					post_draw.as_ref().unwrap().draw(rp);
+
+					*post_draw_next = Some(Box::new(LinkNode{ value: None, next: None}));
+					let LinkNode { value, next } = &mut **post_draw_next.as_mut().unwrap();
+					return (value, next, input_groups, input_groups_next);
+                    // // 这里使用非安全的方式将不可变引用转为可变引用的前提是，Vec在创建时容量足够，使得push时不需要扩容，同时使用Vec的地方不能多线程
+					// let rr = unsafe { &mut *(post_draw as *const Vec<Vec<Option<DrawObj>>> as usize as *mut Vec<Vec<Option<DrawObj>>>) };
+					// let capacity = rr.last_mut().unwrap().capacity();
+					// if capacity == *draw_i {
+					// 	let mut v: Vec<Option<DrawObj>> = Vec::with_capacity(10);
+					// 	for _i in 0..10 {
+					// 		v.push(None);
+					// 	}
+					// 	rr.push(v);
+					// 	*draw_i = *draw_i - capacity;
+					// }
+					// let last = rr.last_mut().unwrap();
+					// last[*draw_i] = Some(draw_obj);
+					// last[*draw_i].as_ref().unwrap().draw(rp);
+					// *draw_i += 1;
 
                     // // log::warn!("zzzz=========={:p}", post_draw);
 					// let rr = unsafe { &mut *(post_draw as *const Vec<DrawObj> as usize as *mut Vec<DrawObj>) };
@@ -770,16 +767,16 @@ impl Pass2DNode {
                     );
 
                     if v.2 <= 0.0 || v.3 <= 0.0 {
-                        return;
+                        return (post_draw, post_draw_next, input_groups, input_groups_next);
                     }
-
+					// log::warn!("set_viewport4============={:?}", v);
                     rp.set_viewport(v.0, v.1, v.2, v.3, 0.0, 1.0);
-                    Self::draw_list(
+                    let r = Self::draw_list(
                         input,
                         post_draw,
-						draw_i,
+						post_draw_next,
                         input_groups,
-						group_i,
+						input_groups_next,
                         rp,
                         target_size,
                         world,
@@ -790,7 +787,11 @@ impl Pass2DNode {
                         last_view_port,
                         &v,
                     );
-
+					post_draw = r.0;
+					post_draw_next = r.1;
+					input_groups = r.2;
+					input_groups_next = r.3;
+					// log::warn!("set_viewport5============={:?}", cur_view_port);
                     rp.set_viewport(cur_view_port.0, cur_view_port.1, cur_view_port.2, cur_view_port.3, 0.0, 1.0);
                     if let Some(camera) = &cur_camera.bind_group {
                         camera.set(rp, CameraBind::set());
@@ -798,36 +799,38 @@ impl Pass2DNode {
                 }
             }
         }
+		return (post_draw, post_draw_next, input_groups, input_groups_next);
     }
 
     // 将单个DrawObj的后处理结果渲染到目标上
-    pub fn render_draw_obj_post<'a, 'b>(
+    #[inline]
+	pub fn render_draw_obj_post<'a, 'b>(
         draw_obj_id: EntityKey,
         input: &'a XHashMap<GraphNodeId, SimpleInOut>,
-        post_draw: &'a Vec<Option<DrawObj>>,
-		draw_i: &'b mut usize,
+        post_draw: &'a mut Option<DrawObj>,
+		post_draw_next: &'a mut Option<Box<LinkNode<DrawObj>>>,
         rp: &mut RenderPass<'a>,
         target_size: (u32, u32),
         param: &'a Param<'a, 'a>,
         cur_camera: &'a Camera,
         depth: usize,
-    ) {
+    ) -> (&'a mut Option<DrawObj>, &'a mut Option<Box<LinkNode<DrawObj>>>) {
         if let Ok((r, graph_id, node_id)) = param.draw_post_query.get(*draw_obj_id) {
             let src = match input.get(&graph_id.0) {
                 Some(r) => match &r.target {
                     Some(r) => r,
-                    None => return,
+                    None => return (post_draw, post_draw_next),
                 },
                 None => {
                     // 这种情况有可能出现，后处理对象可能为空
                     // log::error!("prepare render post process, but pre result is none");
-                    return;
+                    return (post_draw, post_draw_next);
                 }
             };
 
             let post_info = match param.draw_post_info.get(***node_id) {
                 Ok(r) => r,
-                Err(_) => return,
+                Err(_) => return (post_draw, post_draw_next),
             };
             // log::warn!("node_id======{:?}, {:?}", node_id, post_info.matrix);
             let matrix = &cur_camera.project * &post_info.matrix.0;
@@ -867,14 +870,28 @@ impl Pass2DNode {
                 param.t_type.has_depth,
                 wgpu::TextureFormat::pi_render_default(),
             ) {
+				*post_draw = Some(draw_obj);
+				post_draw.as_ref().unwrap().draw(rp);
+
+				*post_draw_next = Some(Box::new(LinkNode{ value: None, next: None}));
+				let LinkNode { value, next } = &mut **post_draw_next.as_mut().unwrap();
+				return (value, next);
+
 				// 这里使用非安全的方式将不可变引用转为可变引用的前提是，Vec在创建时容量足够，使得push时不需要扩容，同时使用Vec的地方不能多线程
-				let rr = unsafe { &mut *(post_draw as *const Vec<Option<DrawObj>> as usize as *mut Vec<Option<DrawObj>>) };
-				if rr.capacity() == *draw_i {
-					panic!("xxxxx");
-				}
-				rr[*draw_i] = Some(draw_obj);
-				rr[*draw_i].as_ref().unwrap().draw(rp);
-				*draw_i += 1;
+				// let rr = unsafe { &mut *(post_draw as *const Vec<Vec<Option<DrawObj>>> as usize as *mut Vec<Vec<Option<DrawObj>>>) };
+				// let capacity = rr.last_mut().unwrap().capacity();
+				// if capacity == *draw_i {
+				// 	let mut v: Vec<Option<DrawObj>> = Vec::with_capacity(10);
+				// 	for _i in 0..10 {
+				// 		v.push(None);
+				// 	}
+				// 	rr.push(v);
+				// 	*draw_i = *draw_i - capacity;
+				// }
+				// let last = rr.last_mut().unwrap();
+				// last[*draw_i] = Some(draw_obj);
+				// last[*draw_i].as_ref().unwrap().draw(rp);
+				// *draw_i += 1;
 				// rr.push(draw_obj);
 				// let index = rr.len() - 1;
 				// log::warn!("bbb=========={:?}, {:?}, index= {}", rr.len(), rr.capacity(), rr.get(index).is_some());
@@ -886,14 +903,16 @@ impl Pass2DNode {
                 // log::error!("draw_final fail, {:?} ", e);
             }
         }
+
+		(post_draw, post_draw_next)
     }
 
     fn draw_list<'a, 'w, 'b>(
         input: &'a XHashMap<GraphNodeId, SimpleInOut>,
-        post_draw: &'a Vec<Option<DrawObj>>,
-		draw_i: &'b mut usize,
-        input_groups: &'a Vec<Option<(BindGroup, Buffer)>>,
-		groups_i: &'b mut usize,
+        mut post_draw: &'a mut Option<DrawObj>,
+		mut post_draw_next: &'a mut Option<Box<LinkNode<DrawObj>>>,
+        mut input_groups: &'a mut Option<(BindGroup, Buffer)>,
+		mut input_groups_next: &'a mut Option<Box<LinkNode<(BindGroup, Buffer)>>>,
         rp: &'w mut RenderPass<'a>,
         target_size: (u32, u32),
         world: &'a World,
@@ -904,7 +923,7 @@ impl Pass2DNode {
         cur_camera: &'a Camera,
         last_view_port: &(f32, f32, f32, f32),
         cur_view_port: &(f32, f32, f32, f32),
-    ) {
+    ) -> (&'a mut Option<DrawObj>, &'a mut Option<Box<LinkNode<DrawObj>>>, &'a mut Option<(BindGroup, Buffer)>, &'a mut Option<Box<LinkNode<(BindGroup, Buffer)>>>) {
 
         if let Some(camera) = &cur_camera.bind_group {
             camera.set(rp, CameraBind::set());
@@ -944,19 +963,35 @@ impl Pass2DNode {
                             } else {
                                 &param.common_sampler.default
                             };
-                            // 这里使用非安全的方式将不可变引用转为可变引用的前提是，Vec在创建时容量足够，使得push时不需要扩容，同时使用Vec的地方不能多线程
-							let rr = unsafe {
-                                &mut *(input_groups as *const Vec<Option<(BindGroup, Buffer)>> as usize
-                                    as *mut Vec<Option<(BindGroup, Buffer)>>)
-                            };
-							if rr.capacity() == *groups_i {
-								panic!("yyy");
-							}
-                            rr[*groups_i] = Some(Self::create_post_process_data(src, &param, s));
 
-                            rp.set_bind_group(SampBind::set(), &rr[*groups_i].as_ref().unwrap().0, &[]);
-                            rp.set_vertex_buffer(UvVert::location() as u32, *rr[*groups_i].as_ref().unwrap().1.slice(..));
-							*groups_i += 1;
+							let group = Self::create_post_process_data(src, &param, s);
+							*input_groups = Some(group);
+                            // 这里使用非安全的方式将不可变引用转为可变引用的前提是，Vec在创建时容量足够，使得push时不需要扩容，同时使用Vec的地方不能多线程
+							// let rr = unsafe {
+                            //     &mut *(input_groups as *const Vec<Vec<Option<(BindGroup, Buffer)>>> as usize
+                            //         as *mut Vec<Vec<Option<(BindGroup, Buffer)>>>)
+                            // };
+							// let capacity = rr.last_mut().unwrap().capacity();
+							// if capacity == *groups_i {
+							// 	let mut v = Vec::with_capacity(10);
+							// 	for _i in 0..10 {
+							// 		v.push(None);
+							// 	}
+							// 	rr.push(v);
+							// 	*groups_i = *groups_i - capacity;
+							// }
+							// let last = rr.last_mut().unwrap();
+                            // last[*groups_i] = Some(Self::create_post_process_data(src, &param, s));
+							
+							// let input_groups = unsafe {transmute::<_, &'a mut Option<(BindGroup, Buffer)>>(input_groups)};
+                            rp.set_bind_group(SampBind::set(), &input_groups.as_ref().unwrap().0, &[]);
+                            rp.set_vertex_buffer(UvVert::location() as u32, *input_groups.as_ref().unwrap().1.slice(..));
+
+							*input_groups_next = Some(Box::new(LinkNode { value: None, next: None }));
+							let LinkNode{value, next} = &mut **input_groups_next.as_mut().unwrap();
+							input_groups = value;
+							input_groups_next = next;
+							// *groups_i += 1;
                         }
 
 
@@ -988,16 +1023,20 @@ impl Pass2DNode {
                     }
                 }
                 DrawIndex::DrawObjPost(e) => {
-                    Self::render_draw_obj_post(*e, input, post_draw, draw_i, rp, target_size, param, cur_camera, *depth);
+
+                    let r = Self::render_draw_obj_post(*e, input, post_draw, post_draw_next, rp, target_size, param, cur_camera, *depth);
+					post_draw = r.0;
+					post_draw_next = r.1;
                 }
                 DrawIndex::Pass2D(e) => {
-                    Self::render_pass_2d(
+
+                    let r = Self::render_pass_2d(
                         *e,
                         input,
                         post_draw,
-						draw_i,
+						post_draw_next,
                         input_groups,
-						groups_i,
+						input_groups_next,
                         rp,
                         target_size,
                         world,
@@ -1008,9 +1047,15 @@ impl Pass2DNode {
                         cur_view_port,
                         *depth,
                     );
+					post_draw = r.0;
+					post_draw_next = r.1;
+					input_groups = r.2;
+					input_groups_next = r.3;
                 }
             }
         }
+
+		return (post_draw, post_draw_next,input_groups, input_groups_next);
     }
 
     // 创建后处理数据（bindgroup和uv buffer）
@@ -1189,7 +1234,7 @@ pub fn create_rp_for_fbo<'a>(
         },
     });
     let rect = r.rect();
-    let (offsetx, offsety) = (target_view_port.mins.x - view_port.mins.x, target_view_port.mins.y - view_port.mins.y);
+    let (offsetx, offsety) = (view_port.mins.x - target_view_port.mins.x, view_port.mins.y - target_view_port.mins.y);
     let view_port_ = (
         rect.min.x as f32 + offsetx,
         rect.min.y as f32 + offsety,
@@ -1197,23 +1242,32 @@ pub fn create_rp_for_fbo<'a>(
         view_port.maxs.y - view_port.mins.y,
     );
     // 如果
-    let scissor_rect = if target_view_port.mins.x == view_port.mins.x
+    let scissor = if target_view_port.mins.x == view_port.mins.x
         && target_view_port.maxs.x == view_port.maxs.x
         && target_view_port.mins.y == view_port.mins.y
         && target_view_port.maxs.y == view_port.maxs.y
     {
         // 如果target对应的视口区域跟当前需要渲染的视口区域一样，则设置裁剪口为border区域（因为这很可能是第一次渲染该target，分配出来的fbo中的数据是随机的，如果不清理边框区域，边缘可能会有黑线）
-        r.rect_with_border()
+       let rect_border: &guillotiere::euclid::Box2D<i32, guillotiere::euclid::UnknownUnit> = r.rect_with_border();
+	//    log::warn!("rect_with_border========{:?}, {:?}", rect, rect_border);
+	   (
+        rect_border.min.x as f32,
+        rect_border.min.y as f32,
+        (rect_border.max.x - rect_border.min.x) as f32,
+        (rect_border.max.y - rect_border.min.y) as f32,
+    )
     } else {
-        // 否则为rect区域
-        rect
+		// log::warn!("rect_with_border1========{:?}, {:?}, {:?}", rect, target_view_port, view_port);
+        // 否则为视口区域
+        view_port_
     };
-    let scissor = (
-        scissor_rect.min.x as f32 + offsetx,
-        scissor_rect.min.y as f32 + offsety,
-        (scissor_rect.max.x - scissor_rect.min.x) as f32,
-        (scissor_rect.max.y - scissor_rect.min.y) as f32,
-    );
+	// log::warn!("!!!!=========={:?}, {:?}, {:?}", target_view_port, view_port, view_port_);
+    // let scissor = (
+    //     scissor_rect.min.x as f32 + offsetx,
+    //     scissor_rect.min.y as f32 + offsety,
+    //     (scissor_rect.max.x - scissor_rect.min.x) as f32,
+    //     (scissor_rect.max.y - scissor_rect.min.y) as f32,
+    // );
 
     // log::warn!(
     //     "offsetx==========={}, {}, {:?}, {:?}, {:?}, {:?}",
@@ -1284,8 +1338,14 @@ impl RenderTarget {
 						r => {
 							let t = assets.push(t.clone());
 							match r {
-								AsImage1::Advise => self.cache = RenderTargetCache::Weak(Share::downgrade(&t)),
-								AsImage1::Force => self.cache = RenderTargetCache::Strong(t.clone()),
+								AsImage1::Advise => {
+									self.target = StrongTarget::Asset(t.clone());
+									self.cache = RenderTargetCache::Weak(Share::downgrade(&t))
+								},
+								AsImage1::Force => {
+									self.target = StrongTarget::Asset(t.clone());
+									self.cache = RenderTargetCache::Strong(t.clone())
+								},
 								_ => (),
 							};
 							// self.target = StrongTarget::Asset(t.clone());
@@ -1310,3 +1370,8 @@ impl RenderTarget {
     }
 }
 
+
+pub struct LinkNode<T> {
+	value: Option<T>,
+	next: Option<Box<LinkNode<T>>>,
+}

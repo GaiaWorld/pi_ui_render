@@ -18,7 +18,7 @@ use crate::{
     system::{
         node::user_setting::user_setting,
         pass::{last_update_wgpu::last_update_wgpu, pass_camera::calc_camera_depth_and_renderlist},
-        render_run, draw_obj::calc_text::IsRun,
+        draw_obj::calc_text::IsRun,
     },
 };
 use pi_postprocess::prelude::CopyIntensity;
@@ -48,13 +48,13 @@ impl Plugin for UiAsImagePlugin {
                 pass_life::pass_mark::<AsImage>
                     .after(user_setting)
                     .before(pass_life::cal_context)
-                    .run_if(render_run),
+                    .run_if(pi_bevy_render_plugin::should_run),
             )
             .add_systems(Update, 
                 as_image_post_process
                     .before(last_update_wgpu)
                     .after(calc_camera_depth_and_renderlist)
-                    .run_if(render_run),
+                    .run_if(pi_bevy_render_plugin::should_run),
             );
     }
 }

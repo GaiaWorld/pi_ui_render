@@ -23,7 +23,6 @@ use crate::{
         },
         node::world_matrix::cal_matrix,
         pass::{pass_graph_node::create_rp_for_fbo, pass_life, update_graph},
-        render_run,
         system_set::UiSystemSet,
         utils::{create_project, set_index_buffer, set_vert_buffer},
     },
@@ -78,20 +77,20 @@ impl Plugin for UiMaskImagePlugin {
                 pass_life::pass_mark::<MaskImage>
                     .in_set(UiSystemSet::PassMark)
                     .before(pass_life::cal_context)
-                    .run_if(render_run),
+                    .run_if(pi_bevy_render_plugin::should_run),
             )
             // 设置mask_image的后处理效果
             .add_systems(Update, 
                 mask_image_post_process
                     .after(cal_matrix)
                     .after(update_graph::update_graph)
-                    .run_if(render_run),
+                    .run_if(pi_bevy_render_plugin::should_run),
             )
             .add_systems(Update, 
                 apply_deferred
                     .after(mask_image_post_process)
                     .before(calc_node_pipeline)
-                    .run_if(render_run),
+                    .run_if(pi_bevy_render_plugin::should_run),
             );
     }
 }
