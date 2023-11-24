@@ -62,8 +62,13 @@ pub fn radial_wave_post_process(
 
 	// RadialWave 如果修改，添加上下文标记， 并设置后处理
     for (radial_wave, mut post_list, mut post_info) in query.p0().iter_mut() {
-		post_info.effect_mark.set(***mark_type, true);
-        post_list.radial_wave = Some(radial_wave.0.clone());
+		if radial_wave.0.weight == 0.0 {
+			post_info.effect_mark.set(***mark_type, false);
+			post_list.radial_wave = None;
+		} else {
+			post_info.effect_mark.set(***mark_type, true);
+       		post_list.radial_wave = Some(radial_wave.0.clone());
+		}
 
 		log::debug!("set RadialWave: {:?}", &post_list.radial_wave);
     }

@@ -2,7 +2,7 @@ use std::sync::atomic::AtomicUsize;
 
 use bevy_ecs::{
     prelude::RemovedComponents, query::Changed, system::Query,
-    prelude::{Added, Or, ParamSet, IntoSystemConfigs},
+    prelude::{Or, ParamSet, IntoSystemConfigs},
 };
 use bevy_app::{Plugin, Update, App};
 use pi_bevy_asset::{AssetConfig, AssetDesc, ShareAssetMgr};
@@ -67,7 +67,7 @@ pub fn as_image_post_process(
     mark_type: OrInitRes<RenderContextMarkType<AsImage>>,
     overflow_mark_type: OrInitRes<RenderContextMarkType<Overflow>>,
     mut query: ParamSet<(
-        Query<(&AsImage, &mut PostProcess, &mut PostProcessInfo), Or<(Changed<AsImage>, Added<PostProcess>)>>,
+        Query<(&AsImage, &mut PostProcess, &mut PostProcessInfo), Or<(Changed<AsImage>, Changed<PostProcess>)>>,
         Query<(&mut PostProcess, &mut PostProcessInfo)>,
     )>,
 	r: OrInitRes<IsRun>
@@ -93,13 +93,28 @@ pub fn as_image_post_process(
         match (as_image.level, as_image.post_process.is_null()) {
             (pi_style::style::AsImage::None, true) => {
                 post_info.effect_mark.set(***mark_type, false);
-                if post_info.effect_mark.get(***overflow_mark_type).as_deref() != Some(&true) {
+                if post_list.copy.is_some() && post_info.effect_mark.get(***overflow_mark_type).as_deref() != Some(&true) {
                     post_list.copy = None;
                 }
             }
             _ => {
-                post_info.effect_mark.set(***mark_type, true);
-                post_list.copy = Some(CopyIntensity::default());
+				// log::warn!("as_image================{:?}, {:?}, {:?}", as_image.post_process.is_null(), post_list.copy.is_some(), post_info.effect_mark.get(***overflow_mark_type).as_deref() != Some(&true));
+				if as_image.post_process.is_null() && post_list.copy.is_some() && post_info.effect_mark.get(***overflow_mark_type).as_deref() != Some(&true){
+					let mut effect_mark = post_info.effect_mark.clone();
+					effect_mark.set(***mark_type, false);
+					// log::warn!("as_image================{:?}, {:?}", effect_mark, &effect_mark.any());
+					// 除了Asimage以外， 还有其他后处理效果， 但没有overflow， 则不需要再copy
+					if effect_mark.any() {
+						post_list.copy = None;
+						return;
+					}
+				}
+				
+				if post_list.copy.is_none() {
+					post_info.effect_mark.set(***mark_type, true);
+					post_list.copy = Some(CopyIntensity::default());
+				}
+                
             }
         }
     }

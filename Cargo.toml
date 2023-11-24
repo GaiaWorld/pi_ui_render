@@ -1,6 +1,6 @@
 [package]
 name = "pi_ui_render"
-version = "0.1.29"
+version = "0.1.30"
 authors = ["suncy <suncy@gmail.com>"]
 edition = "2021"
 description = "Renderer 2D UI with Bevy Ecs"
@@ -156,10 +156,10 @@ probabilistic-collections = { git = "https://github.com/GaiaWorld/pi_probabilist
 # pi_bevy_window = { path = "../pi_bevy/crates/window" }
 
 # pi_render
-# pi_render = { path = "../pi_render" }
-# render_core = {path = "../pi_render/crates/render_core"}
-# render_derive = {path = "../pi_render/crates/render_derive"}
-# render_compile = {path = "../pi_render/crates/render_compile"}
+pi_render = { path = "../pi_render" }
+render_core = {path = "../pi_render/crates/render_core"}
+render_derive = {path = "../pi_render/crates/render_derive"}
+render_compile = {path = "../pi_render/crates/render_compile"}
 
 # pi_postprocess = { path = "../pi_post_process"}
 # pi_graph = {path = "../pi_graph"}
@@ -180,7 +180,8 @@ pi_bevy_log = { version = "0.1", registry = "yn" }
 criterion = { version = "0.3", features = ["html_reports"] }
 pi_winit = { version = "0.27", registry = "yn", package = "winit" }
 # pi_ui_render = { path = "./", features = ["trace", "single_thread"] }
-pi_ui_render = { path = "./", features = ["trace"] }
+# pi_ui_render = { path = "./", features = ["trace"] }
+pi_ui_render = { path = "./", features = ["debug"] }
 tracing = "0.1"
 postcard = { version = "1.0", features = ["use-std"] }
 

@@ -474,20 +474,35 @@ impl Node for Pass2DNode {
                     out.valid_rect = Some((offsetx as u32, offsety as u32, view_port_w as u32, view_port_h as u32));
                     if let (Ok((post_process, post_info, _graph_id, _as_image)), Some(rt), true) = (post_list, &mut out.target, render_to_fbo) {
 						
+						
                         if post_info.has_effect() {
+							let mut target = PostprocessTexture::from_share_target(rt.clone(), wgpu::TextureFormat::pi_render_default());
                             let rect: guillotiere::euclid::Box2D<i32, guillotiere::euclid::UnknownUnit> = rt.rect().clone();
-                            let mut target = PostprocessTexture::from_share_target(rt.clone(), wgpu::TextureFormat::pi_render_default());
-                            target.use_x = rect.min.x as u32 + offsetx as u32; // TODO(浮点误差？)
-                            target.use_y = rect.min.y as u32 + offsety as u32;
-                            target.use_w = view_port_w as u32;
-                            target.use_h = view_port_h as u32;
+
+							let dst_size = if parent_pass2d_id.is_null() {
+								// 根节点必须整个target做后处理
+								target.use_x = rect.min.x as u32; // TODO(浮点误差？)
+								target.use_y = rect.min.y as u32;
+								(rect.max.x as u32 - rect.min.x as u32, rect.max.y as u32 - rect.min.y as u32)
+							} else {
+								// 其他节点只对脏区域做后处理
+								target.use_x = rect.min.x as u32 + offsetx as u32; // TODO(浮点误差？)
+								target.use_y = rect.min.y as u32 + offsety as u32;
+								(view_port_w as u32, view_port_h as u32)
+							};
+
+							// log::warn!("dst_size============{:?}, {:?}", dst_size, &post_info.effect_mark);
+
+							target.use_w = dst_size.0;
+							target.use_h = dst_size.1;
+                            
                             // 渲染后处理
                             if let Ok(r) = post_process.draw_front(
                                 param.device,
                                 param.queue,
                                 commands.borrow_mut(),
                                 target,
-                                (view_port_w as u32, view_port_h as u32),
+                                dst_size,
                                 &param.atlas_allocator,
                                 &param.post_resource.resources,
                                 &param.pipline_assets,
@@ -505,11 +520,16 @@ impl Node for Pass2DNode {
                         if parent_pass2d_id.is_null() {
                             if let RenderTargetType::Screen = param.last_rt_type {
                                 let post_draw;
-                                let rect = rt.rect();
-                                let view_port = Aabb2::new(
-                                    Point2::new(rect.min.x as f32 + render_target.bound_box.mins.x, rect.min.y as f32 + render_target.bound_box.mins.y),
-                                    Point2::new(rect.max.x as f32 + render_target.bound_box.mins.x, rect.max.y as f32 + render_target.bound_box.mins.y),
+                                // let rect = rt.rect();
+                                // let view_port = Aabb2::new(
+                                //     Point2::new(rect.min.x as f32 + render_target.bound_box.mins.x, rect.min.y as f32 + render_target.bound_box.mins.y),
+                                //     Point2::new(rect.max.x as f32 + render_target.bound_box.mins.x, rect.max.y as f32 + render_target.bound_box.mins.y),
+                                // );
+								let view_port = Aabb2::new(
+                                    Point2::new(render_target.bound_box.mins.x as f32, render_target.bound_box.mins.y as f32),
+                                    Point2::new(render_target.bound_box.maxs.x as f32 - render_target.bound_box.mins.x as f32, render_target.bound_box.maxs.y as f32 - render_target.bound_box.mins.y as f32),
                                 );
+								// log::warn!("set view_port============{:?}, {:?}", view_port, &render_target.bound_box);
                                 // 将最终渲染目标渲染到屏幕上
                                 // 创建一个渲染Pass
                                 let (mut rp, view_port, _clear_port, _) = create_rp(
@@ -1320,6 +1340,7 @@ impl RenderTarget {
 
                     // 分配渲染目标
                     let t = CacheTarget(atlas_allocator.allocate(width, height, t_type.has_depth, exclude));
+					// log::warn!("alloc======={:?}, {:?}, {:?}", width, height, t);
 
                     match as_image {
                         AsImage1::None => {

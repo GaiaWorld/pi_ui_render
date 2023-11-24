@@ -3,7 +3,7 @@ use std::{sync::Arc, time::Instant};
 
 use bevy_ecs::prelude::{IntoSystemConfigs, Entity, SystemSet, Local};
 use bevy_app::prelude::{ App, Update, Startup };
-#[cfg(feature = "debug")]
+// #[cfg(feature = "debug")]
 use bevy_ecs::prelude::{Commands, ResMut, World};
 use bevy_ecs::system::SystemState;
 
