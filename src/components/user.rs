@@ -1,9 +1,11 @@
 //！ 定义用户设置的组件
 
+use std::marker::PhantomData;
 use std::mem::{transmute, forget};
 use std::ptr::read_unaligned;
 use std::{collections::VecDeque, fmt::Debug};
 
+use bevy_ecs::event::Event;
 use bevy_ecs::prelude::{Changed, Component, DetectChangesMut, Entity};
 use bitvec::prelude::BitArray;
 use ordered_float::NotNan;
@@ -57,6 +59,13 @@ pub type Vector4 = nalgebra::Vector4<f32>;
 //     /// 扭曲强度
 //     pub weight: f32,
 // }
+
+#[derive(Deref, Clone, Debug, Event)]
+pub struct ComponentRemove<T: Component> {
+	#[deref]
+	pub id: Entity,
+	mark: PhantomData<T>,
+}
 
 #[derive(Deref, Clone, Debug, Component)]
 pub struct RadialWave(pub pi_postprocess::prelude::RadialWave);
@@ -384,11 +393,11 @@ pub type TextShadowList = SmallVec<[TextShadow1; 1]>;
 // TransformWillChange， 用于优化频繁变化的Transform
 #[derive(Default, Debug, Clone, Serialize, Deserialize, Component)]
 #[component(storage = "SparseSet")]
-pub struct TransformWillChange(pub AllTransform);
+pub struct TransformWillChange(pub Option<AllTransform>); //
 
 impl NeedMark for TransformWillChange {
     #[inline]
-    fn need_mark(&self) -> bool { true }
+    fn need_mark(&self) -> bool { self.0.is_some() }
 }
 
 impl Default for Opacity {
@@ -720,7 +729,6 @@ pub mod serialize {
         // 小心使用该方法， 保证self.buffer中的内存只被使用一次
         pub fn write_to_component(&mut self, cur_style_mark: &mut BitArray<[u32; 3]>, entity: Entity, query: &mut Setting, is_clone: bool) -> bool {
             let next_type = self.next_type();
-            // log::warn!("write_to_component ty: {:?}, cursor:{}, buffer_len:{}", next_type, self.cursor, self.buffer.len());
             if let Some(style_type) = next_type {
                 StyleAttr::set(cur_style_mark, style_type, &self.buffer, self.cursor, query, entity, is_clone);
                 let size = StyleAttr::size(style_type);
@@ -734,7 +742,6 @@ pub mod serialize {
         // 将当前style写入默认组件
         pub fn write_to_default(&mut self, query: &DefaultStyle, world: &mut World) -> Option<StyleType> {
             let next_type = self.next_type();
-            // log::info!("write_to_component ty: {:?}, cursor:{}, buffer_len:{}", next_type, self.cursor, self.buffer.len());
             if let Some(style_type) = next_type {
                 StyleAttr::set_default(style_type, &self.buffer, self.cursor, query, world);
                 let size = StyleAttr::size(style_type);
@@ -748,7 +755,6 @@ pub mod serialize {
         // 将当前style写入组件
         pub fn to_attr(&mut self) -> Option<StyleAttribute> {
             let next_type = self.next_type();
-            // log::info!("write_to_component ty: {:?}, cursor:{}, buffer_len:{}", next_type, self.cursor, self.buffer.len());
             if let Some(style_type) = next_type {
                 let r = if style_type <= 91 {
                     let r = StyleAttr::to_attr(style_type, &self.buffer, self.cursor);
@@ -797,7 +803,6 @@ pub mod serialize {
             // let ty_size = std::mem::size_of::<u8>();
             let ty = unsafe { Some(self.buffer.as_ptr().add(self.cursor).cast::<u8>().read_unaligned()) };
 
-            // log::info!("next_type ty: {:?}, type_size:{:?}", ty, ty_size);
             // self.cursor += ty_size;
             self.cursor += 1;
             ty
@@ -1502,7 +1507,6 @@ pub mod serialize {
 
     // 		if let (Ok(mut text_style_item), Ok(mut flex_container_item)) = (query.style.text_style.get_mut(entity), query.style.flex_container.get_mut(entity)) {
     // 			let v = unsafe { ptr.cast::<WhiteSpace>().read_unaligned() };
-    // 			log::info!("set_style, type: {:?}, value: {:?}, entity: {:?}", std::any::type_name::<Self>(), v, entity);
 
     // 			cur_style_mark.set(Self::get_type() as usize, true);
     // 			cur_style_mark.set(JustifyContentType::get_type() as usize, true);
@@ -1615,7 +1619,6 @@ pub mod serialize {
     // 		// 取不到说明实体已经销毁
     // 		if let (Ok(mut text_style_item), Ok(mut flex_container_item)) = (query.style.text_style.get_mut(entity), query.style.flex_container.get_mut(entity)) {
     // 			let v = unsafe { ptr.cast::<TextAlign>().read_unaligned() };
-    // 			log::info!("set_style, type: {:?}, value: {:?}, entity: {:?}", std::any::type_name::<Self>(), v, entity);
 
     // 			cur_style_mark.set(Self::get_type() as usize, true);
     // 			cur_style_mark.set(JustifyContentType::get_type() as usize, true);
@@ -1675,7 +1678,6 @@ pub mod serialize {
     // 			Self: Sized {
     // 		if let (Ok(mut text_style_item), Ok(mut flex_container_item)) = (query.style.text_style.get_mut(entity), query.style.flex_container.get_mut(entity)) {
     // 			let v = unsafe { ptr.cast::<VerticalAlign>().read_unaligned() };
-    // 			log::info!("set_style, type: {:?}, value: {:?}, entity: {:?}", std::any::type_name::<Self>(), v, entity);
 
     // 			cur_style_mark.set(Self::get_type() as usize, true);
     // 			cur_style_mark.set(JustifyContentType::get_type() as usize, true);
@@ -1981,32 +1983,35 @@ pub mod serialize {
                 v,
                 entity
             );
-            match world.get_mut_by_id(entity, query.style.transform_will_change) {
-                Some(mut component) => {
-                    // 如果存在transform_willChange,则将Transform设置在TransformWillChange上
-                    component.set_changed();
-                    unsafe { component.into_inner().deref_mut::<TransformWillChange>() }.0.transform.push(v);
-                }
-                None => {
-                    // 不存在transform_willChange， 则设置在Transfrom上
-                    match world.get_mut_by_id(entity, query.style.transform) {
-                        Some(mut component) => {
-                            // 如果存在transform_willChange,则将Transform设置在TransformWillChange上
-                            component.set_changed();
-                            unsafe { component.into_inner().deref_mut::<Transform>() }.all_transform.transform.push(v);
-                        }
-                        None => {
-                            world.entity_mut(entity).insert(Transform {
-                                all_transform: AllTransform {
-                                    transform: vec![v],
-                                    ..Default::default()
-                                },
-                                ..Default::default()
-                            });
-                        }
-                    }
-                }
+            if let Some(mut component) = world.get_mut_by_id(entity, query.style.transform_will_change) {
+				let r = unsafe { component.as_ref().deref::<TransformWillChange>() };
+				if r.0.is_some() {
+					// 如果存在transform_willChange,则将Transform设置在TransformWillChange上
+					component.set_changed();
+				}
+				let r = unsafe { component.into_inner().deref_mut::<TransformWillChange>() };
+				if let Some(r) = &mut r.0 {
+					r.transform.push(v);
+					return
+				}
             };
+			// 不存在transform_willChange， 则设置在Transfrom上
+			match world.get_mut_by_id(entity, query.style.transform) {
+				Some(mut component) => {
+					// 如果存在transform_willChange,则将Transform设置在TransformWillChange上
+					component.set_changed();
+					unsafe { component.into_inner().deref_mut::<Transform>() }.all_transform.transform.push(v);
+				}
+				None => {
+					world.entity_mut(entity).insert(Transform {
+						all_transform: AllTransform {
+							transform: vec![v],
+							..Default::default()
+						},
+						..Default::default()
+					});
+				}
+			}
         }
 
         /// 为样式设置默认值
@@ -2074,32 +2079,37 @@ pub mod serialize {
                 v,
                 entity
             );
-            match world.get_mut_by_id(entity, query.style.transform_will_change) {
-                Some(mut component) => {
-                    // 如果存在transform_willChange,则将Transform设置在TransformWillChange上
-                    component.set_changed();
-                    unsafe { component.into_inner().deref_mut::<TransformWillChange>() }.0.transform = v;
-                }
-                None => {
-                    // 不存在transform_willChange， 则设置在Transfrom上
-                    match world.get_mut_by_id(entity, query.style.transform) {
-                        Some(mut component) => {
-                            // 如果存在transform_willChange,则将Transform设置在TransformWillChange上
-                            component.set_changed();
-                            unsafe { component.into_inner().deref_mut::<Transform>() }.all_transform.transform = v;
-                        }
-                        None => {
-                            world.entity_mut(entity).insert(Transform {
-                                all_transform: AllTransform {
-                                    transform: v,
-                                    ..Default::default()
-                                },
-                                ..Default::default()
-                            });
-                        }
-                    }
-                }
+
+			if let Some(mut component) = world.get_mut_by_id(entity, query.style.transform_will_change) {
+				let r = unsafe { component.as_ref().deref::<TransformWillChange>() };
+				if r.0.is_some() {
+					// 如果存在transform_willChange,则将Transform设置在TransformWillChange上
+					component.set_changed();
+				}
+				let r = unsafe { component.into_inner().deref_mut::<TransformWillChange>() };
+				if let Some(r) = &mut r.0 {
+					r.transform = v;
+					return
+				}
             };
+			
+            // 不存在transform_willChange， 则设置在Transfrom上
+			match world.get_mut_by_id(entity, query.style.transform) {
+				Some(mut component) => {
+					// 如果存在transform_willChange,则将Transform设置在TransformWillChange上
+					component.set_changed();
+					unsafe { component.into_inner().deref_mut::<Transform>() }.all_transform.transform = v;
+				}
+				None => {
+					world.entity_mut(entity).insert(Transform {
+						all_transform: AllTransform {
+							transform: v,
+							..Default::default()
+						},
+						..Default::default()
+					});
+				}
+			}
         }
 
         /// 为样式设置默认值
@@ -2124,19 +2134,26 @@ pub mod serialize {
         where
             Self: Sized,
         {
-            match query.world.get_mut_by_id(entity, query.style.transform_will_change) {
-                Some(mut component) => {
-                    component.set_changed();
-                    unsafe { component.into_inner().deref_mut::<TransformWillChange>() }.0.transform = Default::default();
-                }
-                None => match query.world.get_mut_by_id(entity, query.style.transform) {
-                    Some(mut component) => {
-                        component.set_changed();
-                        unsafe { component.into_inner().deref_mut::<Transform>() }.all_transform.transform = Default::default();
-                    }
-                    None => (),
-                },
+			if let Some(mut component) = query.world.get_mut_by_id(entity, query.style.transform_will_change) {
+				let r = unsafe { component.as_ref().deref::<TransformWillChange>() };
+				if r.0.is_some() {
+					// 如果存在transform_willChange,则将Transform设置在TransformWillChange上
+					component.set_changed();
+				}
+				let r = unsafe { component.into_inner().deref_mut::<TransformWillChange>() };
+				if let Some(r) = &mut r.0 {
+					r.transform = Default::default();
+					return
+				}
             };
+
+            match query.world.get_mut_by_id(entity, query.style.transform) {
+				Some(mut component) => {
+					component.set_changed();
+					unsafe { component.into_inner().deref_mut::<Transform>() }.all_transform.transform = Default::default();
+				}
+				None => (),
+			}
         }
 
         /// 为样式设置默认值
@@ -2177,32 +2194,36 @@ pub mod serialize {
                 v,
                 entity
             );
-            match world.get_mut_by_id(entity, query.style.transform_will_change) {
-                Some(mut component) => {
-                    // 如果存在transform_willChange,则将Transform设置在TransformWillChange上
-                    component.set_changed();
-                    unsafe { component.into_inner().deref_mut::<TransformWillChange>() }.0.translate = Some(v);
-                }
-                None => {
-                    // 不存在transform_willChange， 则设置在Transfrom上
-                    match world.get_mut_by_id(entity, query.style.transform) {
-                        Some(mut component) => {
-                            // 如果存在transform_willChange,则将Transform设置在TransformWillChange上
-                            component.set_changed();
-                            unsafe { component.into_inner().deref_mut::<Transform>() }.all_transform.translate = Some(v);
-                        }
-                        None => {
-                            world.entity_mut(entity).insert(Transform {
-                                all_transform: AllTransform {
-                                    translate: Some(v),
-                                    ..Default::default()
-                                },
-                                ..Default::default()
-                            });
-                        }
-                    }
-                }
+			if let Some(mut component) = world.get_mut_by_id(entity, query.style.transform_will_change) {
+				let r = unsafe { component.as_ref().deref::<TransformWillChange>() };
+				if r.0.is_some() {
+					// 如果存在transform_willChange,则将Transform设置在TransformWillChange上
+					component.set_changed();
+				}
+				let r = unsafe { component.into_inner().deref_mut::<TransformWillChange>() };
+				if let Some(r) = &mut r.0 {
+					r.translate = Some(v);
+					return
+				}
             };
+
+           // 不存在transform_willChange， 则设置在Transfrom上
+		   match world.get_mut_by_id(entity, query.style.transform) {
+			Some(mut component) => {
+				// 如果存在transform_willChange,则将Transform设置在TransformWillChange上
+				component.set_changed();
+				unsafe { component.into_inner().deref_mut::<Transform>() }.all_transform.translate = Some(v);
+			}
+			None => {
+				world.entity_mut(entity).insert(Transform {
+					all_transform: AllTransform {
+						translate: Some(v),
+						..Default::default()
+					},
+					..Default::default()
+				});
+			}
+		}
         }
 
         /// 为样式设置默认值
@@ -2227,19 +2248,26 @@ pub mod serialize {
         where
             Self: Sized,
         {
-            match query.world.get_mut_by_id(entity, query.style.transform_will_change) {
-                Some(mut component) => {
-                    component.set_changed();
-                    unsafe { component.into_inner().deref_mut::<TransformWillChange>() }.0.translate = None;
-                }
-                None => match query.world.get_mut_by_id(entity, query.style.transform) {
-                    Some(mut component) => {
-                        component.set_changed();
-                        unsafe { component.into_inner().deref_mut::<Transform>() }.all_transform.translate = None;
-                    }
-                    None => (),
-                },
+			if let Some(mut component) = query.world.get_mut_by_id(entity, query.style.transform_will_change) {
+				let r = unsafe { component.as_ref().deref::<TransformWillChange>() };
+				if r.0.is_some() {
+					// 如果存在transform_willChange,则将Transform设置在TransformWillChange上
+					component.set_changed();
+				}
+				let r = unsafe { component.into_inner().deref_mut::<TransformWillChange>() };
+				if let Some(r) = &mut r.0 {
+					r.translate = None;
+					return
+				}
             };
+
+            match query.world.get_mut_by_id(entity, query.style.transform) {
+				Some(mut component) => {
+					component.set_changed();
+					unsafe { component.into_inner().deref_mut::<Transform>() }.all_transform.translate = None;
+				}
+				None => (),
+			}
         }
 
         /// 为样式设置默认值
@@ -2280,32 +2308,35 @@ pub mod serialize {
                 v,
                 entity
             );
-            match world.get_mut_by_id(entity, query.style.transform_will_change) {
-                Some(mut component) => {
-                    // 如果存在transform_willChange,则将Transform设置在TransformWillChange上
-                    component.set_changed();
-                    unsafe { component.into_inner().deref_mut::<TransformWillChange>() }.0.scale = Some(v);
-                }
-                None => {
-                    // 不存在transform_willChange， 则设置在Transfrom上
-                    match world.get_mut_by_id(entity, query.style.transform) {
-                        Some(mut component) => {
-                            // 如果存在transform_willChange,则将Transform设置在TransformWillChange上
-                            component.set_changed();
-                            unsafe { component.into_inner().deref_mut::<Transform>() }.all_transform.scale = Some(v);
-                        }
-                        None => {
-                            world.entity_mut(entity).insert(Transform {
-                                all_transform: AllTransform {
-                                    scale: Some(v),
-                                    ..Default::default()
-                                },
-                                ..Default::default()
-                            });
-                        }
-                    }
-                }
+			if let Some(mut component) = world.get_mut_by_id(entity, query.style.transform_will_change) {
+				let r = unsafe { component.as_ref().deref::<TransformWillChange>() };
+				if r.0.is_some() {
+					// 如果存在transform_willChange,则将Transform设置在TransformWillChange上
+					component.set_changed();
+				}
+				let r = unsafe { component.into_inner().deref_mut::<TransformWillChange>() };
+				if let Some(r) = &mut r.0 {
+					r.scale = Some(v);
+					return;
+				}
             };
+            // 不存在transform_willChange， 则设置在Transfrom上
+			match world.get_mut_by_id(entity, query.style.transform) {
+				Some(mut component) => {
+					// 如果存在transform_willChange,则将Transform设置在TransformWillChange上
+					component.set_changed();
+					unsafe { component.into_inner().deref_mut::<Transform>() }.all_transform.scale = Some(v);
+				}
+				None => {
+					world.entity_mut(entity).insert(Transform {
+						all_transform: AllTransform {
+							scale: Some(v),
+							..Default::default()
+						},
+						..Default::default()
+					});
+				}
+			}
         }
 
         /// 为样式设置默认值
@@ -2330,19 +2361,25 @@ pub mod serialize {
         where
             Self: Sized,
         {
-            match query.world.get_mut_by_id(entity, query.style.transform_will_change) {
-                Some(mut component) => {
-                    component.set_changed();
-                    unsafe { component.into_inner().deref_mut::<TransformWillChange>() }.0.scale = None;
-                }
-                None => match query.world.get_mut_by_id(entity, query.style.transform) {
-                    Some(mut component) => {
-                        component.set_changed();
-                        unsafe { component.into_inner().deref_mut::<Transform>() }.all_transform.scale = None;
-                    }
-                    None => (),
-                },
+			if let Some(mut component) = query.world.get_mut_by_id(entity, query.style.transform_will_change) {
+				let r = unsafe { component.as_ref().deref::<TransformWillChange>() };
+				if r.0.is_some() {
+					// 如果存在transform_willChange,则将Transform设置在TransformWillChange上
+					component.set_changed();
+				}
+				let r = unsafe { component.into_inner().deref_mut::<TransformWillChange>() };
+				if let Some(r) = &mut r.0 {
+					r.scale = None;
+					return
+				}
             };
+			match query.world.get_mut_by_id(entity, query.style.transform) {
+				Some(mut component) => {
+					component.set_changed();
+					unsafe { component.into_inner().deref_mut::<Transform>() }.all_transform.scale = None;
+				}
+				None => (),
+			}
         }
 
         /// 为样式设置默认值
@@ -2383,32 +2420,35 @@ pub mod serialize {
                 v,
                 entity
             );
-            match world.get_mut_by_id(entity, query.style.transform_will_change) {
-                Some(mut component) => {
-                    // 如果存在transform_willChange,则将Transform设置在TransformWillChange上
-                    component.set_changed();
-                    unsafe { component.into_inner().deref_mut::<TransformWillChange>() }.0.rotate = Some(v);
-                }
-                None => {
-                    // 不存在transform_willChange， 则设置在Transfrom上
-                    match world.get_mut_by_id(entity, query.style.transform) {
-                        Some(mut component) => {
-                            // 如果存在transform_willChange,则将Transform设置在TransformWillChange上
-                            component.set_changed();
-                            unsafe { component.into_inner().deref_mut::<Transform>() }.all_transform.rotate = Some(v);
-                        }
-                        None => {
-                            world.entity_mut(entity).insert(Transform {
-                                all_transform: AllTransform {
-                                    rotate: Some(v),
-                                    ..Default::default()
-                                },
-                                ..Default::default()
-                            });
-                        }
-                    }
-                }
+			if let Some(mut component) = world.get_mut_by_id(entity, query.style.transform_will_change) {
+				let r = unsafe { component.as_ref().deref::<TransformWillChange>() };
+				if r.0.is_some() {
+					// 如果存在transform_willChange,则将Transform设置在TransformWillChange上
+					component.set_changed();
+				}
+				let r = unsafe { component.into_inner().deref_mut::<TransformWillChange>() };
+				if let Some(r) = &mut r.0 {
+					r.rotate = Some(v);
+					return;
+				}
             };
+            // 不存在transform_willChange， 则设置在Transfrom上
+			match world.get_mut_by_id(entity, query.style.transform) {
+				Some(mut component) => {
+					// 如果存在transform_willChange,则将Transform设置在TransformWillChange上
+					component.set_changed();
+					unsafe { component.into_inner().deref_mut::<Transform>() }.all_transform.rotate = Some(v);
+				}
+				None => {
+					world.entity_mut(entity).insert(Transform {
+						all_transform: AllTransform {
+							rotate: Some(v),
+							..Default::default()
+						},
+						..Default::default()
+					});
+				}
+			}
         }
 
         /// 为样式设置默认值
@@ -2433,19 +2473,26 @@ pub mod serialize {
         where
             Self: Sized,
         {
-            match query.world.get_mut_by_id(entity, query.style.transform_will_change) {
-                Some(mut component) => {
-                    component.set_changed();
-                    unsafe { component.into_inner().deref_mut::<TransformWillChange>() }.0.rotate = None;
-                }
-                None => match query.world.get_mut_by_id(entity, query.style.transform) {
-                    Some(mut component) => {
-                        component.set_changed();
-                        unsafe { component.into_inner().deref_mut::<Transform>() }.all_transform.rotate = None;
-                    }
-                    None => (),
-                },
+			if let Some(mut component) = query.world.get_mut_by_id(entity, query.style.transform_will_change) {
+				let r = unsafe { component.as_ref().deref::<TransformWillChange>() };
+				if r.0.is_some() {
+					// 如果存在transform_willChange,则将Transform设置在TransformWillChange上
+					component.set_changed();
+				}
+				let r = unsafe { component.into_inner().deref_mut::<TransformWillChange>() };
+				if let Some(r) = &mut r.0 {
+					r.rotate = None;
+					return;
+				}
             };
+
+            match query.world.get_mut_by_id(entity, query.style.transform) {
+				Some(mut component) => {
+					component.set_changed();
+					unsafe { component.into_inner().deref_mut::<Transform>() }.all_transform.rotate = None;
+				}
+				None => (),
+			}
         }
 
         /// 为样式设置默认值
@@ -2486,43 +2533,55 @@ pub mod serialize {
                 v,
                 entity
             );
-            match world.get_mut_by_id(entity, query.style.transform_will_change) {
-                Some(component) => {
-                    // 删除TransformWillChange, 设置Transform
-                    if !v {
-                        let c = unsafe { component.into_inner().deref_mut::<TransformWillChange>() }.clone();
-                        // 设置transform
-                        match world.get_mut_by_id(entity, query.style.transform) {
-                            Some(mut component) => {
-                                // 如果存在transform_willChange,则将Transform设置在TransformWillChange上
-                                component.set_changed();
-                                unsafe { component.into_inner().deref_mut::<Transform>() }.all_transform = c.0;
-                            }
-                            None => {
-                                world.entity_mut(entity).insert(Transform {
-                                    all_transform: c.0,
-                                    ..Default::default()
-                                });
-                            }
-                        }
-                        world.entity_mut(entity).remove::<TransformWillChange>();
-                    }
-                }
-                None => {
-                    if v {
-                        // 不存在transform_willChange， 则设置在Transfrom上
-                        match world.get_mut_by_id(entity, query.style.transform) {
-                            Some(component) => {
-                                let c = unsafe { component.into_inner().deref_mut::<Transform>() }.clone();
-                                world.entity_mut(entity).insert(TransformWillChange(c.all_transform));
-                            }
-                            None => {
-                                world.entity_mut(entity).insert(TransformWillChange::default());
-                            }
-                        }
-                    }
-                }
-            };
+
+			if !v {
+				if let Some(mut component) = world.get_mut_by_id(entity, query.style.transform_will_change) {
+					let r = unsafe { component.as_ref().deref::<TransformWillChange>() }.clone();
+					if r.0.is_some() {
+						// 如果存在transform_willChange,则将Transform设置在TransformWillChange上
+						component.set_changed();
+						let r = unsafe { component.into_inner().deref_mut::<TransformWillChange>() };
+						r.0 = None;
+					}
+					if let Some(c) = &r.0 {
+						// 删除TransformWillChange, 设置Transform
+					
+							// 设置transform
+						match world.get_mut_by_id(entity, query.style.transform) {
+							Some(mut component) => {
+								// 如果存在transform_willChange,则将Transform设置在TransformWillChange上
+								component.set_changed();
+								unsafe { component.into_inner().deref_mut::<Transform>() }.all_transform = c.clone();
+							}
+							None => {
+								world.entity_mut(entity).insert(Transform {
+									all_transform: c.clone(),
+									..Default::default()
+								});
+							}
+						}
+				
+						return;
+						// world.entity_mut(entity).remove::<TransformWillChange>();
+						// if let Some(component) = query.world.get_resource_mut_by_id(query.style.event.transform_will_change) {
+						// 	unsafe { component.into_inner().deref_mut::<Events<ComponentRemove<TransformWillChange>>>() }
+						// 		.send(ComponentRemove::<TransformWillChange>{id: entity, mark: PhantomData});
+						// };
+					}
+					
+				}
+			} else {
+				// 不存在transform_willChange， 则设置在Transfrom上
+				match world.get_mut_by_id(entity, query.style.transform) {
+					Some(component) => {
+						let c = unsafe { component.into_inner().deref_mut::<Transform>() }.clone();
+						world.entity_mut(entity).insert(TransformWillChange(Some(c.all_transform)));
+					}
+					None => {
+						world.entity_mut(entity).insert(TransformWillChange::default());
+					}
+				}
+			}
         }
 
         /// 为样式设置默认值
@@ -2546,24 +2605,37 @@ pub mod serialize {
         {
             let world = &mut query.world;
             log::debug!("reset_style_attr, type: TransformWillChange, entity: {:?}", entity);
-            if let Some(component) = world.get_mut_by_id(entity, query.style.transform_will_change) {
+            if let Some(mut component) = world.get_mut_by_id(entity, query.style.transform_will_change) {
                 // 删除TransformWillChange, 设置Transform
-                let c = unsafe { component.into_inner().deref_mut::<TransformWillChange>() }.clone();
-                // 设置transform
-                match world.get_mut_by_id(entity, query.style.transform) {
-                    Some(mut component) => {
-                        // 如果存在transform_willChange,则将Transform设置在TransformWillChange上
-                        component.set_changed();
-                        unsafe { component.into_inner().deref_mut::<Transform>() }.all_transform = c.0;
-                    }
-                    None => {
-                        world.entity_mut(entity).insert(Transform {
-                            all_transform: c.0,
-                            ..Default::default()
-                        });
-                    }
-                }
-                world.entity_mut(entity).remove::<TransformWillChange>();
+                let r = unsafe { component.as_ref().deref::<TransformWillChange>() }.0.clone();
+				if let Some(c) = r {
+					component.set_changed();
+					unsafe { component.into_inner().deref_mut::<TransformWillChange>() }.0 = None;
+					log::warn!("remove1=============={:?}", entity);
+
+					// 设置transform
+					match world.get_mut_by_id(entity, query.style.transform) {
+						Some(mut component) => {
+							// 如果存在transform_willChange,则将Transform设置在TransformWillChange上
+							component.set_changed();
+							unsafe { component.into_inner().deref_mut::<Transform>() }.all_transform = c;
+						}
+						None => {
+							world.entity_mut(entity).insert(Transform {
+								all_transform: c,
+								..Default::default()
+							});
+						}
+					}
+				}
+               
+				
+                // world.entity_mut(entity).remove::<TransformWillChange>();
+				// if let Some(component) = query.world.get_resource_mut_by_id(query.style.event.transform_will_change) {
+				// 	unsafe { component.into_inner().deref_mut::<Events<ComponentRemove<TransformWillChange>>>() }
+				// 		.send(ComponentRemove::<TransformWillChange>{id: entity, mark: PhantomData});
+				// };
+				
             }
         }
 
@@ -3423,6 +3495,7 @@ pub mod serialize {
         pub background_color: ComponentId,
         pub border_color: ComponentId,
         pub canvas: ComponentId,
+		pub transform_will_change: ComponentId,
     }
 
     impl FromWorld for ChangeEvent {
@@ -3468,6 +3541,13 @@ pub mod serialize {
                     world
                         .components()
                         .get_resource_id(std::any::TypeId::of::<Events<ComponentEvent<Changed<Canvas>>>>())
+                        .unwrap()
+                },
+				transform_will_change: {
+                    world.init_resource::<Events<ComponentRemove<TransformWillChange>>>();
+                    world
+                        .components()
+                        .get_resource_id(std::any::TypeId::of::<Events<ComponentRemove<TransformWillChange>>>())
                         .unwrap()
                 },
             }

@@ -1034,7 +1034,7 @@ impl Pass2DNode {
 							if let DrawBindGroup::Offset(r) = o {
 								let group = r.get_group();
 								if ***node_id == param.debug_entity.0.0 {
-									log::warn!("draw group====={:?}, {:?}", group.bind_group, &group.offsets);
+									log::debug!("draw group====={:?}, {:?}", group.bind_group, &group.offsets);
 								}
 							}
 						}

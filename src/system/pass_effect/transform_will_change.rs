@@ -66,19 +66,39 @@ pub fn transform_will_change_post_process(
 		return;
 	}
     for del in del.iter() {
+		log::warn!("remove 2============{:?}", del);
         matrix_invert.0.remove(&del);
+		
+		// 标记层脏
+		if let Ok((mut m, layer, _)) = query_will_change_matrix.get_mut(del) {
+			if let Ok(_) = query_parent_pass.get(del) {
+				layer_dirty.marked_with_layer(del, del, layer.layer());
+			} else {
+				m.0 = None;
+				log::warn!("m none============{:?}", del);
+			}
+		}
     }
 
     // 世界矩阵变化、layer变化、tansform_will_change变化，设置层脏
     for (id, layer, tracker_matrix, tracker_willchange, tracker_layer) in query.iter() {
-        if tracker_willchange.is_changed() || tracker_layer.is_changed() || tracker_matrix.is_changed() {
-            layer_dirty.marked_with_layer(id, id, layer.layer());
-        }
-
-        // 插入需要更新逆矩阵的节点
-        if tracker_matrix.is_changed() || tracker_willchange.is_added() {
-            matrix_invert.1.insert(id);
-        }
+		if query_parent_pass.get(id).is_ok() {
+			if tracker_willchange.is_changed() || tracker_layer.is_changed() || tracker_matrix.is_changed() {
+				layer_dirty.marked_with_layer(id, id, layer.layer());
+			}
+	
+			// 插入需要更新逆矩阵的节点
+			if tracker_matrix.is_changed() || tracker_willchange.is_added() {
+				matrix_invert.1.insert(id);
+			}
+		} else if tracker_willchange.is_changed() {
+			if let Ok((mut m, _, _)) = query_will_change_matrix.get_mut(id) {
+				if m.0.is_some() {
+					m.0 = None;
+				}
+			}
+		}
+        
     }
 
     // ParentPassId修改的节点，也需要插入到层脏
@@ -148,7 +168,8 @@ pub fn recursive_set_matrix(
     }
 
     match query_node.get(id) {
-        Ok((will_change, transform, up, layout)) => {
+        Ok((will_change1, transform, up, layout)) if will_change1.0.is_some() => {
+			let will_change = will_change1.0.as_ref().unwrap();
             let ((p_matrix, parent_layout), invert) = match (query_matrix.get(up.parent()), inverts.get(&id)) {
                 (Ok(r), Some(invert)) => (r, invert),
                 _ => return,
@@ -159,7 +180,7 @@ pub fn recursive_set_matrix(
             let offset = (layout.rect.left + parent_layout.padding.left, layout.rect.top + parent_layout.padding.top);
             // TransformWillChange跟Transform是替换的关系， 而不是补充的关系（一旦设置了TransformWillChange， Transform不再有效）
             let mut will_change_matrix =
-                WorldMatrix::form_transform_layout(&will_change.0, &transform.origin, width, height, &Point2::new(offset.0, offset.1));
+                WorldMatrix::form_transform_layout(will_change, &transform.origin, width, height, &Point2::new(offset.0, offset.1));
 
             // 如果父上没有TransformWillChange， 此处m为TransformWillChange作用后， 节点真实的世界矩阵
             let mut m = p_matrix * &will_change_matrix * invert;
@@ -170,9 +191,11 @@ pub fn recursive_set_matrix(
                 will_change_matrix = &parent_will_change_matrix.primitive * &will_change_matrix;
             }
 
+			// log::warn!("will_change: {:?}, {:?}, \nparent_will_change_matrix: {:?}, will_change: {:?}, invert: {:?}", id, will_change_matrix, parent_will_change_matrix, will_change, invert);
+
             if let Ok((mut r, layer, inpass_id)) = query.get_mut(id) {
                 // will_change修改， 发送就的Willchange矩阵
-                if will_change.is_changed() {
+                if will_change1.is_changed() {
                     events_writer.send(OldTransformWillChange {
                         matrix: (*r).clone(),
                         entity: id,

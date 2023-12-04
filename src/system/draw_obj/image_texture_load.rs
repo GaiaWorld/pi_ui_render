@@ -21,6 +21,8 @@ use pi_null::Null;
 use pi_render::rhi::asset::{ImageTextureDesc, TextureRes};
 use pi_share::Share;
 
+use crate::components::user::RenderDirty;
+
 use super::calc_text::IsRun;
 
 #[derive(Clone, Resource)]
@@ -51,7 +53,8 @@ pub fn image_change<
     // mut commands: Commands,
     mut query_dst: Query<&mut D>,
     mut event_writer: EventWriter<ComponentEvent<Changed<D>>>,
-	r: OrInitRes<IsRun>
+	r: OrInitRes<IsRun>,
+	mut dirty: Query<&mut RenderDirty>
 ) {
 	if r.0 {
 		return;
@@ -82,7 +85,12 @@ pub fn image_change<
         );
     }
 
-    set_texture(&image_await, Some(&mut event_writer), &query_src, &mut query_dst, f);
+    let is_change = set_texture(&image_await, Some(&mut event_writer), &query_src, &mut query_dst, f);
+	if is_change {
+		for mut r in dirty.iter_mut() {
+			**r = true;
+		}
+	}
 }
 
 #[inline]
@@ -134,14 +142,16 @@ pub fn load_image<'w, S: Component, D: Component, F: FnMut(&mut D, Handle<Textur
     }
 }
 
+// 设置纹理， 返回是否修改问题（同一节点，修改图片路径， 且新旧图片尺寸不一致，新图片异步加载会导致脏区域计算问题，此时此时直接设置全局脏）
 #[inline]
-pub fn set_texture<'w, S: Component + From<Atom> + std::cmp::PartialEq, D: Component, F: FnMut(&mut D, Handle<TextureRes>, Entity)>(
+pub fn set_texture<'w, S: Component + From<Atom> + std::cmp::PartialEq, D: Component + Null, F: FnMut(&mut D, Handle<TextureRes>, Entity)>(
     image_await: &ImageAwait<S>,
     mut event_writer: Option<&mut EventWriter<ComponentEvent<Changed<D>>>>,
     query_src: &Query<(Entity, &S)>,
     query_dst: &mut Query<&'w mut D>,
     mut f: F,
-) {
+) -> bool {
+	let mut is_change = false;
     // 处理已经成功加载的图片，放入到对应组件中
     while let Some((id, key, texture)) = image_await.0.pop() {
         match query_src.get(id) {
@@ -151,6 +161,7 @@ pub fn set_texture<'w, S: Component + From<Atom> + std::cmp::PartialEq, D: Compo
                     continue;
                 }
                 if let Ok(mut dst) = query_dst.get_mut(id) {
+					is_change = is_change || dst.is_null();
                     f(&mut dst, texture, id);
                     if let Some(event_writer) = &mut event_writer {
                         event_writer.send(ComponentEvent::new(id));
@@ -161,4 +172,5 @@ pub fn set_texture<'w, S: Component + From<Atom> + std::cmp::PartialEq, D: Compo
             _ => continue,
         };
     }
+	is_change
 }

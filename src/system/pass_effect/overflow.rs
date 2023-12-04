@@ -47,6 +47,7 @@ pub fn overflow_post_process(
         Ref<TransformWillChangeMatrix>,
         Option<Ref<Overflow>>,
         Ref<Layer>,
+		Entity,
     )>,
     mark_type: OrInitRes<RenderContextMarkType<Overflow>>,
     as_image_mark_type: OrInitRes<RenderContextMarkType<AsImage>>,
@@ -104,6 +105,7 @@ fn recursive_cal_overflow(
         Ref<TransformWillChangeMatrix>,
         Option<Ref<Overflow>>,
         Ref<Layer>,
+		Entity,
     )>,
     mark_type: &RenderContextMarkType<Overflow>,
     as_image_mark_type: &RenderContextMarkType<AsImage>,
@@ -122,6 +124,7 @@ fn recursive_cal_overflow(
             tracker_willchange,
             tracker_overflow,
             tracker_layer,
+			entity,
         )),
     ) = (pass_mut.get_mut(id), pass_read.get(id))
     {
@@ -252,6 +255,7 @@ fn recursive_cal_overflow(
 
                 // 存在父裁剪框，则与父裁剪框相交
                 let r = intersect_or_zero(&quad, &parent_aabb.aabb);
+				// log::warn!("is_change======tracker_matrix: {:?}, tracker_willchange: {:?}, overflow: {:?}, entity: {:?}, \nparent_aabb: {:?}, willchange: {:?}, \nmatrix: {:?}", tracker_matrix.is_changed(),tracker_willchange.is_changed(), overflow, entity, parent_aabb, tracker_willchange, tracker_matrix);
 
                 *oveflow_aabb = View {
                     desc: OverflowDesc::NoRotate(quad.clone()),

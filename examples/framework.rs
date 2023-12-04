@@ -56,6 +56,7 @@ pub trait Example: 'static + Sized {
 pub static mut RUNNER: std::cell::OnceCell<LocalTaskRunner<()>> = std::cell::OnceCell::new();
 
 pub fn start<T: Example + Sync + Send + 'static>(example: T) {
+	let aa = pi_async_rt::rt::startup_global_time_loop(10);
 	let current_dir = std::env::current_dir().unwrap();
 	#[cfg(not(target_arch = "wasm32"))]
 	init_load_cb(Arc::new(|path: String| {
@@ -453,6 +454,8 @@ pub fn setting_next_record(world: &mut World, mut local_state: Local<NextState>)
 
 #[cfg(feature = "debug")]
 fn setting(cmd_path: Option<&str>, file_index1: &mut usize, world: &mut World, is_end: &mut bool, play_option: &PlayOption) {
+    use pi_ui_render::system::draw_obj::calc_text::IsRun;
+
     let mut file_index = *file_index1;
     let play_state = world.get_resource::<PlayState>();
     if let Some(r) = play_state {
@@ -490,6 +493,7 @@ fn setting(cmd_path: Option<&str>, file_index1: &mut usize, world: &mut World, i
                 Err(_) => {
                     if !*is_end {
                         log::warn!("play end, {:?}", path);
+						world.insert_resource(IsRun(true)); // 屏蔽所有节点运行
                     }
                     *is_end = true;
                     return;
