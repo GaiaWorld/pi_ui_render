@@ -180,6 +180,7 @@ pub fn mask_image_post_process(
                     &mut query_dst,
                     &texture_assets_mgr,
                     |d, s, _| {
+						let is_null = d.image_mask.is_null();
                         d.image_mask = Some(ImageMask::new(PostprocessTexture {
                             use_x: (mask_image_clip.left * s.width as f32).round() as u32,
                             use_y: (mask_image_clip.top * s.height as f32).round() as u32,
@@ -190,6 +191,7 @@ pub fn mask_image_post_process(
                             format: s.format,
                             view: ETextureViewUsage::Tex(s),
                         }));
+						is_null
                     },
                 );
             }
@@ -289,6 +291,7 @@ pub fn mask_image_post_process(
 
     set_texture(&image_await, None, &query_src, &mut query_dst, |d, s, entity| {
         let mask_image_clip = query_clip.get(entity).unwrap();
+		let is_null = d.image_mask.is_null();
         d.image_mask = Some(ImageMask::new(PostprocessTexture {
             use_x: (mask_image_clip.left * s.width as f32).round() as u32,
             use_y: (mask_image_clip.top * s.height as f32).round() as u32,
@@ -299,6 +302,8 @@ pub fn mask_image_post_process(
             format: s.format,
             view: ETextureViewUsage::Tex(s),
         }));
+		
+		is_null
     });
 }
 
