@@ -83,6 +83,7 @@ pub mod prelude {
                 )
                     .chain(),
             )
+			.add_systems(Update, crate::system::res_load::load_res.in_set(UiSystemSet::Setting))
             .add_plugins(UiShaderPlugin)
             .add_plugins(UiNodePlugin)
             .add_plugins(UiEffectPlugin)

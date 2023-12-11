@@ -118,7 +118,7 @@ pub fn mask_image_post_process(
     mut del: RemovedComponents<MaskImage>,
 
     mut mask_draw_list: OrInitResMut<LinearMaskDrawList>,
-    image_await: OrInitRes<ImageAwait<MaskImage>>,
+    image_await: OrInitRes<ImageAwait<Entity, MaskImage>>,
     texture_assets_mgr: Res<ShareAssetMgr<TextureRes>>,
     queue: Res<PiRenderQueue>,
     device: Res<PiRenderDevice>,

@@ -26,9 +26,9 @@ use crate::components::user::RenderDirty;
 use super::calc_text::IsRun;
 
 #[derive(Clone, Resource)]
-pub struct ImageAwait<T>(Share<SegQueue<(Entity, Atom, Handle<TextureRes>)>>, PhantomData<T>);
+pub struct ImageAwait<Key: 'static + Send + Sync, T>(pub Share<SegQueue<(Key, Atom, Handle<TextureRes>)>>, PhantomData<T>);
 
-impl<T> Default for ImageAwait<T> {
+impl<Key: 'static + Send + Sync, T> Default for ImageAwait<Key, T> {
     fn default() -> Self { Self(Share::new(SegQueue::new()), PhantomData) }
 }
 
@@ -46,7 +46,7 @@ pub fn image_change<
     query_src: Query<(Entity, &S)>,
     mut del: RemovedComponents<S>,
     texture_assets_mgr: Res<ShareAssetMgr<TextureRes>>,
-    image_await: OrInitRes<ImageAwait<S>>,
+    image_await: OrInitRes<ImageAwait<Entity, S>>,
     queue: Res<PiRenderQueue>,
     device: Res<PiRenderDevice>,
 
@@ -99,7 +99,7 @@ pub fn image_change<
 pub fn load_image<'w, S: Component, D: Component, F: FnMut(&mut D, Handle<TextureRes>, Entity) -> bool>(
     entity: Entity,
     key: &Atom,
-    image_await: &ImageAwait<S>,
+    image_await: &ImageAwait<Entity, S>,
     device: &PiRenderDevice,
     queue: &PiRenderQueue,
     event_writer: Option<&mut EventWriter<ComponentEvent<Changed<D>>>>,
@@ -147,7 +147,7 @@ pub fn load_image<'w, S: Component, D: Component, F: FnMut(&mut D, Handle<Textur
 // 设置纹理， 返回是否修改问题（同一节点，修改图片路径， 且新旧图片尺寸不一致，新图片异步加载会导致脏区域计算问题，此时此时直接设置全局脏）
 #[inline]
 pub fn set_texture<'w, S: Component + From<Atom> + std::cmp::PartialEq, D: Component, F: FnMut(&mut D, Handle<TextureRes>, Entity) -> bool>(
-    image_await: &ImageAwait<S>,
+    image_await: &ImageAwait<Entity, S>,
     mut event_writer: Option<&mut EventWriter<ComponentEvent<Changed<D>>>>,
     query_src: &Query<(Entity, &S)>,
     query_dst: &mut Query<&'w mut D>,
@@ -163,7 +163,7 @@ pub fn set_texture<'w, S: Component + From<Atom> + std::cmp::PartialEq, D: Compo
                     continue;
                 }
                 if let Ok(mut dst) = query_dst.get_mut(id) {
-                    let old_is_null = f(&mut dst, texture, id);
+                    is_change =  f(&mut dst, texture, id) || is_change;
                     if let Some(event_writer) = &mut event_writer {
                         event_writer.send(ComponentEvent::new(id));
                     }
