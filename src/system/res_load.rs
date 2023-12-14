@@ -5,14 +5,12 @@ use crossbeam::queue::SegQueue;
 use pi_assets::mgr::{AssetMgr, LoadResult};
 use pi_atom::Atom;
 use pi_bevy_asset::ShareAssetMgr;
-use pi_bevy_ecs_extend::system_param::res::{OrInitRes, OrInitResMut};
+use pi_bevy_ecs_extend::system_param::res::OrInitResMut;
 use pi_bevy_render_plugin::{PiRenderQueue, PiRenderDevice};
 use pi_hal::{runtime::RENDER_RUNTIME, loader::AsyncLoader};
 use pi_render::rhi::asset::{TextureRes, ImageTextureDesc};
 use pi_share::Share;
 use pi_async_rt::prelude::AsyncRuntime;
-
-use super::draw_obj::image_texture_load::ImageAwait;
 
 
 #[derive(Clone, Resource)]

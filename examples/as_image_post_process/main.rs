@@ -102,7 +102,7 @@ pub fn create_post_graph(
 	for as_image in query.iter() {
 		if let Ok(mut graph_id) = query1.get_mut(*as_image.post_process) {
 			if graph_id.is_null() {
-				let graph_node_id = match rg.add_node(format!("Test_CustomPost{:?}", *as_image.post_process), CustomPostNode) {
+				let graph_node_id = match rg.add_node(format!("Test_CustomPost{:?}", *as_image.post_process), CustomPostNode, GraphNodeId::default()) {
 					Ok(r) => r,
 					Err(e) => {
 						log::error!("node: {:?}, {:?}", format!("Test_CustomPost_{:?}", *as_image.post_process), e);
@@ -127,16 +127,30 @@ impl Node for CustomPostNode {
     type Input = SimpleInOut;
     type Output = SimpleInOut;
 
-    type Param = ();
+    type RunParam = ();
+	type BuildParam = ();
 
+	fn build<'a>(
+		&'a mut self,
+		_world: &'a mut bevy_ecs::world::World,
+		_param: &'a mut bevy_ecs::system::SystemState<Self::BuildParam>,
+		_context: pi_bevy_render_plugin::RenderContext,
+		input: &'a Self::Input,
+		_usage: &'a pi_bevy_render_plugin::node::ParamUsage,
+		_id: GraphNodeId,
+		_from: &'a [GraphNodeId],
+		_to: &'a [GraphNodeId],
+	) -> Result<Self::Output, String> {
+		Ok(input.clone())
+	}
 
     fn run<'a>(
         &'a mut self,
         _world: &'a World,
-        _query_param_state: &'a mut SystemState<Self::Param>,
+        _query_param_state: &'a mut SystemState<Self::RunParam>,
         _context: RenderContext,
         _commands: ShareRefCell<CommandEncoder>,
-        input: &'a Self::Input,
+        _input: &'a Self::Input,
         _usage: &'a ParamUsage,
         _id: GraphNodeId,
         _from: &'a [GraphNodeId],
@@ -144,9 +158,9 @@ impl Node for CustomPostNode {
         // context: RenderContext,
         // mut commands: ShareRefCell<CommandEncoder>,
         // inputs: &'a [Self::Output],
-    ) -> BoxFuture<'a, Result<Self::Output, String>> {
+    ) -> BoxFuture<'a, Result<(), String>> {
 		Box::pin(async move {
-			Ok(input.clone())
+			Ok(())
 			// Err("".to_string())
 		})
 	}
