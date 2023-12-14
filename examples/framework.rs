@@ -351,9 +351,9 @@ pub fn init(width: u32, height: u32, _event_loop: &EventLoop<()>, w: Arc<pi_wini
 
 	let mut o = PiRenderOptions::default();
 	o.present_mode = wgpu::PresentMode::Fifo;
-	// o.backends = wgpu::Backends::GL;
+	o.backends = wgpu::Backends::GL;
 	// o.present_mode = wgpu::PresentMode::Mailbox;
-	o.backends = wgpu::Backends::VULKAN;
+	// o.backends = wgpu::Backends::VULKAN;
 	app.world.insert_resource(o);
 
 	// app.world.insert_resource(IsRun(true));
@@ -493,7 +493,7 @@ fn setting(cmd_path: Option<&str>, file_index1: &mut usize, world: &mut World, i
                 Err(_) => {
                     if !*is_end {
                         log::warn!("play end, {:?}", path);
-						world.insert_resource(IsRun(true)); // 屏蔽所有节点运行
+						// world.insert_resource(IsRun(true)); // 屏蔽所有节点运行
                     }
                     *is_end = true;
                     return;
