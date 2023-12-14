@@ -434,7 +434,7 @@ impl Node for Pass2DNode {
 				render_target.target = StrongTarget::None;
 			}
 		}
-		log::warn!("out1=========={:?}, {:?}", pass2d_id, out.target);
+		// log::warn!("out1=========={:?}, {:?}", pass2d_id, out.target);
 		Ok(out)
 	}
 
@@ -458,23 +458,23 @@ impl Node for Pass2DNode {
         let pass2d_id = self.pass2d_id;
 		let rt = self.rt.take();
 		let post_draw = self.post_draw.take();
-		log::warn!("draw1==={:?}", pass2d_id);
+		// log::warn!("draw1==={:?}", pass2d_id);
         Box::pin(async move {
-			log::warn!("run0======{:?}", pass2d_id);
+			// log::warn!("run0======{:?}", pass2d_id);
 			let rt = match rt {
 				Some(r) => r,
 				None => return Ok(()),
 			};
             let query_param = query_param_state.get(world);
             log::trace!(pass = format!("{:?}", pass2d_id).as_str(); "run graph node");
-            log::warn!("run1======{:?}", pass2d_id);
+            // log::warn!("run1======{:?}", pass2d_id);
             let layer = match query_param.pass2d_query.0.get(pass2d_id) {
                 Ok(r) if r.layer() > 0 => r.clone(),
                 _ => {
                     return Ok(())
                 }
             };
-            log::warn!("run2======{:?}", pass2d_id);
+            // log::warn!("run2======{:?}", pass2d_id);
 
             let surface = match &**query_param.surface {
                 Some(r) => r,
@@ -484,7 +484,7 @@ impl Node for Pass2DNode {
             };
 
 
-            log::warn!("run3======{:?}", pass2d_id);
+            // log::warn!("run3======{:?}", pass2d_id);
             let (t_type, last_rt_type) = {
                 match query_param.query_pass_node.get(layer.root()) {
                     Ok(r) => (
@@ -501,7 +501,7 @@ impl Node for Pass2DNode {
                     }
                 }
             };
-            log::warn!("run4======{:?}", pass2d_id);
+            // log::warn!("run4======{:?}", pass2d_id);
 
             let param = Param {
 				graph_node_query: query_param.graph_node_query,
@@ -540,7 +540,7 @@ impl Node for Pass2DNode {
             let post_list = param.post_query.get(pass2d_id);
 
             if let Ok((camera, list, parent_pass2d_id, _clear_group, render_target)) = param.pass2d_query.get(pass2d_id) {
-				log::warn!("run5==={:?}", pass2d_id);
+				// log::warn!("run5==={:?}", pass2d_id);
 				// SAFE: 保证渲染图并行时不会访问同时访问同一个实体的renderTarget，这里的转换是安全的
 				// let render_target = unsafe { &mut *(render_target as *const RenderTarget as usize as *mut RenderTarget) };
 				// log::warn!("run5======{:?}, {:?}, {:?}, {:?}", pass2d_id, list.transparent, list.opaque, &render_target.bound_box);
@@ -605,7 +605,7 @@ impl Node for Pass2DNode {
 							&view_port,
 							&view_port,
 						);
-						log::warn!("draw=========={:?}, {:?}, {:?}", pass2d_id, list.transparent.len(), list.opaque.len());
+						// log::warn!("draw=========={:?}, {:?}, {:?}", pass2d_id, list.transparent.len(), list.opaque.len());
 						(offset, view_port)
 					};
 				}
@@ -613,9 +613,9 @@ impl Node for Pass2DNode {
 				// out.valid_rect = Some((offsetx as u32, offsety as u32, view_port_w as u32, view_port_h as u32));
 				
 				if let Ok((post_process, post_info, _graph_id, _as_image)) = post_list {
-					log::warn!("run6==={:?}", pass2d_id);
+					// log::warn!("run6==={:?}", pass2d_id);
 					if let Some(post_draw) = post_draw {
-						log::warn!("run7==={:?}", pass2d_id);
+						// log::warn!("run7==={:?}", pass2d_id);
 						// 渲染后处理
 						post_process.draw_front(
 							commands.borrow_mut(),
@@ -683,7 +683,7 @@ impl Node for Pass2DNode {
 									// log::error!("draw_final fail, {:?} ", e);
 								}
 
-								log::warn!("draw screen=========={:?}", pass2d_id);
+								// log::warn!("draw screen=========={:?}", pass2d_id);
 							}
 						}
 					}
@@ -1446,7 +1446,7 @@ impl RenderTarget {
                     };
 
                     // 分配渲染目标
-                    let t = CacheTarget(atlas_allocator.allocate(width, height, t_type.has_depth, exclude));
+                    let t = CacheTarget(atlas_allocator.allocate_not_hold(width, height, t_type.has_depth, exclude));
 					// log::warn!("alloc======={:?}, {:?}, {:?}", width, height, t);
 
                     match as_image {
