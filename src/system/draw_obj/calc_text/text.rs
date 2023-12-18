@@ -573,7 +573,6 @@ pub fn text_vert(
     for c in node_state.0.text.iter() {
         if c.ch == char::from(0) {
             if c.count > 0 {
-				log::warn!("c.pos======{:?},line_max: {:?}", c.pos, line_max);
                 word_pos = (c.pos.left + offset.0, c.pos.top + offset.1);
                 count = c.count - 1;
             }
@@ -586,8 +585,6 @@ pub fn text_vert(
 		let mut left = word_pos.0 + c.pos.left;
 		let w = c.pos.right - c.pos.left;
 		let top = word_pos.1 + c.pos.top;
-
-		log::warn!("c======{:?}, {:?}", c.ch, c.pos);
 
 		if  text_overflow.0 && c.pos.top == start_y && left + w + text_overflow.1 > line_max {
 			if let Some(text_overflow_data) = text_overflow_data {
@@ -618,11 +615,10 @@ pub fn text_vert(
 					i += 1;
 				}
 			}
-			log::warn!("overflow======{:?}, {:?}", c, line_max);
 			break;
 		}
 
-        log::warn!("glyph!!!==================={:?}, {:?}, {left:?}, {top:?}", c.ch_id, c.ch);
+        // log::warn!("glyph!!!==================={:?}, {:?}, {left:?}, {top:?}", c.ch_id, c.ch);
         let glyph = font_sheet.glyph(GlyphId(c.ch_id));
 		push_pos_uv(
 			positions,

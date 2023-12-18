@@ -132,8 +132,7 @@ impl Example for QuadExample {
 		self.cmd.set_style(div4, PositionTopType(Dimension::Points(250.0)));
         self.cmd
             .set_style(div4, TextContentType(TextContent("测试OverflowWrap222222222222222222222222222222222222222222222222".to_string(), Atom::from("测试OverflowWrap222222222222222222222222222222222222222222222222"))));
-		// self.cmd.set_style(div4, OverflowWrapType(OverflowWrap::BreakWord));
-		// self.cmd.set_style(div4, FlexWrapType(pi_flex_layout::style::FlexWrap::NoWrap));
+		self.cmd.set_style(div4, OverflowWrapType(OverflowWrap::BreakWord));
         self.cmd.set_style(div4, FontFamilyType(Atom::from("hwkt")));
         self.cmd.set_style(div4, ColorType(Color::RGBA(CgColor::new(0.0, 1.0, 0.0, 1.0))));
         self.cmd.set_style(div4, FontSizeType(FontSize::Length(17)));
