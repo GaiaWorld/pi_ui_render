@@ -1,3 +1,5 @@
+
+use bevy_ecs::entity::Entity;
 use bevy_ecs::prelude::{DetectChanges, Ref};
 use bevy_ecs::query::{Changed, Or, With};
 use bevy_ecs::system::{Local, Query, Res, ResMut};
@@ -8,6 +10,7 @@ use pi_atom::Atom;
 use pi_bevy_asset::ShareAssetMgr;
 use pi_bevy_ecs_extend::prelude::OrDefault;
 use pi_bevy_ecs_extend::system_param::res::OrInitRes;
+use pi_bevy_ecs_extend::system_param::tree::Up;
 use pi_bevy_render_plugin::{PiRenderDevice, PiVertexBufferAlloter};
 use pi_polygon::{find_lg_endp, interp_mult_by_lg, mult_to_triangle, split_by_lg, LgCfg};
 use pi_render::font::{FontSheet, Glyph, GlyphId, Font};
@@ -18,11 +21,12 @@ use pi_render::rhi::buffer::Buffer;
 use pi_render::rhi::device::RenderDevice;
 use pi_render::rhi::shader::{BindLayout, Input};
 use pi_share::Share;
+use pi_style::style::TextOverflow;
 use wgpu::IndexFormat;
 
 use crate::components::calc::{LayoutResult, NodeId, NodeState};
 use crate::components::draw_obj::{BoxType, PipelineMeta, TextMark};
-use crate::components::user::{CgColor, TextStyle, get_size};
+use crate::components::user::{CgColor, TextStyle, get_size, TextOverflowData};
 use crate::components::{draw_obj::DrawState, user::Color};
 use crate::resource::draw_obj::{TextTextureGroup, PosUv1VertexLayout, PosUvColorVertexLayout};
 use crate::resource::ShareFontSheet;
@@ -41,9 +45,11 @@ use super::IsRun;
 #[allow(unused_must_use)]
 pub fn calc_text(
     query: Query<
-        (&NodeState, &LayoutResult, OrDefault<TextStyle>, Ref<NodeState>),
-        Or<(Changed<TextStyle>, Changed<NodeState>)>, // TextContent改变，NodeState必然改;存在NodeState， 也必然存在TextContent
+        (&NodeState, &LayoutResult, OrDefault<TextStyle>, Ref<NodeState>, Option<&TextOverflowData>, Entity),
+		// TextContent改变，NodeState必然改, TextOverflowData改变，NodeState也必然改变 ;存在NodeState， 也必然存在TextContent
+        Or<(Changed<TextStyle>, Changed<NodeState>)>, 
     >,
+	query_layout: Query<(&'static LayoutResult, &'static Up, &'static NodeState)>,
 
     mut query_draw: Query<(&mut DrawState, &mut BoxType, &mut PipelineMeta, &NodeId), With<TextMark>>,
 
@@ -77,7 +83,7 @@ pub fn calc_text(
     let buffer = &mut *buffer;
     // let mut init_spawn_drawobj = Vec::new();
     for (mut draw_state, mut box_type, mut pipeline_meta, node_id) in query_draw.iter_mut() {
-        if let Ok((node_state, layout, text_style, node_state_change)) = query.get(***node_id) {
+        if let Ok((node_state, layout, text_style, node_state_change, text_overflow_data, entity)) = query.get(***node_id) {
             if node_state.0.scale < 0.000001 {
                 continue;
             }
@@ -118,6 +124,9 @@ pub fn calc_text(
                 &vertex_buffer_alloter,
 				&vert_layout1,
 				&vert_layout2,
+				text_overflow_data,
+				&query_layout,
+				entity,
             );
             if old_hash != calc_hash(pipeline_meta1, 0) {
                 pipeline_meta.set_changed()
@@ -144,6 +153,9 @@ pub fn modify<'a>(
     vertex_buffer_alloter: &PiVertexBufferAlloter,
 	vert_layout1: &PosUv1VertexLayout,
 	vert_layout2: &PosUvColorVertexLayout,
+	text_overflow_data: Option<&TextOverflowData>,
+	query_layout: &Query<(&'static LayoutResult, &'static Up, &'static NodeState)>,
+	entity: Entity,
 ) {
 	let font_size = get_size(&text_style.font_size) as f32;
 	let font_id = font_sheet.font_id(Font::new(
@@ -204,6 +216,9 @@ pub fn modify<'a>(
             uvs,
             vertex_buffer_alloter,
 			font_height,
+			text_overflow_data,
+			query_layout,
+			entity,
         );
     }
 
@@ -264,11 +279,14 @@ pub fn modify_geo(
     uvs: &mut Vec<f32>,
     vertex_buffer_alloter: &PiVertexBufferAlloter,
 	font_height: f32,
+	text_overflow_data: Option<&TextOverflowData>,
+	query_layout: &Query<(&'static LayoutResult, &'static Up, &'static NodeState)>,
+	entity: Entity,
 ) {
     positions.clear();
     uvs.clear();
     let rect = &layout.rect;
-    text_vert(node_state, layout, font_sheet, scale, text_style, positions, uvs, font_height);
+    text_vert(node_state, layout, font_sheet, scale, text_style, positions, uvs, font_height, text_overflow_data,  query_layout, entity);
 
     // 顶点长度为0，删除geo
     if positions.len() == 0 {
@@ -493,6 +511,26 @@ fn get_or_create_buffer_index(
     }
 }
 
+#[inline]
+fn calc_text_overflow_data(text_overflow_data: Option<&TextOverflowData>, text_style: &TextStyle) -> (bool, f32) {
+	if let Some(text_overflow_data) = text_overflow_data {
+		let width = match &text_overflow_data.text_overflow {
+			pi_style::style::TextOverflow::None => return (false, 0.0),
+			pi_style::style::TextOverflow::Clip => return (true, 0.0),
+			pi_style::style::TextOverflow::Ellipsis => text_overflow_data.text_overflow_char[0].width * 3.0 + text_style.letter_spacing * 3.0,
+			pi_style::style::TextOverflow::Custom(_) => {
+				let mut width = text_style.letter_spacing * text_overflow_data.text_overflow_char.len() as f32;
+				for c in text_overflow_data.text_overflow_char.iter() {
+					width += c.width;
+				}
+				width
+			},
+		};
+		return (true, width)
+	}
+	(false, 0.0)
+}
+
 #[allow(unused_variables)]
 pub fn text_vert(
     node_state: &NodeState,
@@ -503,15 +541,39 @@ pub fn text_vert(
     positions: &mut Vec<f32>,
     uvs: &mut Vec<f32>,
 	font_height: f32,
+	text_overflow_data: Option<&TextOverflowData>,
+	query_layout: &Query<(&'static LayoutResult, &'static Up, &'static NodeState)>,
+	mut entity: Entity,
 ) {
+	if  node_state.0.text.len() == 0 {
+		return;
+	}
 	let is_sdf = font_sheet.font_mgr().use_sdf();
     let mut word_pos = (0.0, 0.0);
     let offset = (layout.border.left + layout.padding.left, layout.border.top + layout.padding.top);
     let mut count = 0;
     let half_stroke = *text_style.text_stroke.width / 2.0;
+
+	// 文字是否存在换行（如果存在换行， text_overflow无效）
+	let start_y = node_state.0.text[0].pos.top + offset.1; 
+	let text_overflow = calc_text_overflow_data(text_overflow_data, text_style);
+
+	let mut line_max = 0.0;
+	if text_overflow.0 {
+		while let Ok((p_layout, up, p_node_state)) = query_layout.get(entity) {
+			if !p_node_state.is_vnode() {
+				line_max = p_layout.rect.right - p_layout.border.right - p_layout.padding.right - p_layout.border.left - p_layout.padding.left - p_layout.rect.left ;
+				break;
+			} else {
+				entity = up.parent();
+			}
+		}
+	}
+
     for c in node_state.0.text.iter() {
         if c.ch == char::from(0) {
             if c.count > 0 {
+				log::warn!("c.pos======{:?},line_max: {:?}", c.pos, line_max);
                 word_pos = (c.pos.left + offset.0, c.pos.top + offset.1);
                 count = c.count - 1;
             }
@@ -521,40 +583,67 @@ pub fn text_vert(
             continue;
         }
 
-        // log::warn!("glyph!!!==================={:?}, {:?}", c.ch_id, c.ch);
+		let mut left = word_pos.0 + c.pos.left;
+		let w = c.pos.right - c.pos.left;
+		let top = word_pos.1 + c.pos.top;
+
+		log::warn!("c======{:?}, {:?}", c.ch, c.pos);
+
+		if  text_overflow.0 && c.pos.top == start_y && left + w + text_overflow.1 > line_max {
+			if let Some(text_overflow_data) = text_overflow_data {
+				let mut max = 1;
+				if let TextOverflow::Ellipsis = text_overflow_data.text_overflow {
+					max = 3;
+				}
+				let mut i = 0;
+				while i < max {
+					for c1 in text_overflow_data.text_overflow_char.iter() {
+						let glyph = font_sheet.glyph(GlyphId(c1.ch_id));
+						push_pos_uv(
+							positions,
+							uvs,
+							left - half_stroke + text_style.letter_spacing,
+							top,
+							&glyph,
+							c1.width,
+							c.pos.bottom - c.pos.top,
+							scale,
+							is_sdf,
+							text_style.font_weight,
+							*text_style.text_stroke.width,
+							font_height,
+						);
+						left += c1.width + text_style.letter_spacing;
+					}
+					i += 1;
+				}
+			}
+			log::warn!("overflow======{:?}, {:?}", c, line_max);
+			break;
+		}
+
+        log::warn!("glyph!!!==================={:?}, {:?}, {left:?}, {top:?}", c.ch_id, c.ch);
         let glyph = font_sheet.glyph(GlyphId(c.ch_id));
-        if count > 0 {
-            count -= 1;
-            push_pos_uv(
-                positions,
-                uvs,
-                word_pos.0 + c.pos.left - half_stroke,
-                word_pos.1 + c.pos.top,
-                &glyph,
-                c.pos.right - c.pos.left,
-                c.pos.bottom - c.pos.top,
-                scale,
-				is_sdf,
-				text_style.font_weight,
-				*text_style.text_stroke.width,
-				font_height,
-            );
-        } else {
-            push_pos_uv(
-                positions,
-                uvs,
-                c.pos.left + offset.0 - half_stroke,
-                c.pos.top + offset.1,
-                &glyph,
-                c.pos.right - c.pos.left,
-                c.pos.bottom - c.pos.top,
-                scale,
-				is_sdf,
-				text_style.font_weight,
-				*text_style.text_stroke.width,
-				font_height,
-            );
-        }
+		push_pos_uv(
+			positions,
+			uvs,
+			left - half_stroke,
+			top,
+			&glyph,
+			w,
+			c.pos.bottom - c.pos.top,
+			scale,
+			is_sdf,
+			text_style.font_weight,
+			*text_style.text_stroke.width,
+			font_height,
+		);
+		if count > 0 {
+			count -= 1;
+			if count == 0 {
+				word_pos = offset;
+			}
+		}
     }
 }
 

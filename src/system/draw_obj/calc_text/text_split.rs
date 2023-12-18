@@ -6,7 +6,7 @@ use bevy_ecs::{
     prelude::{Entity, EventWriter},
     query::{Changed, Or},
     system::{Query, ResMut},
-    world::Mut,
+    world::Mut, change_detection::DetectChangesMut,
 };
 use ordered_float::NotNan;
 use pi_bevy_ecs_extend::{
@@ -20,12 +20,12 @@ use pi_flex_layout::{
 use pi_null::Null;
 use pi_render::font::{split, Font, FontFamilyId, FontSheet, SplitResult};
 use pi_slotmap::DefaultKey;
-use pi_style::style::{StyleType, TextAlign, VerticalAlign};
+use pi_style::style::{StyleType, TextAlign, VerticalAlign, TextOverflow};
 
 use crate::{
     components::{
         calc::{EntityKey, NodeState, StyleMark},
-        user::{get_size, FlexContainer, FlexNormal, LineHeight, Size as FlexSize, TextContent, TextStyle},
+        user::{get_size, FlexContainer, FlexNormal, LineHeight, Size as FlexSize, TextContent, TextStyle, TextOverflowData, TextOverflowChar},
     },
     resource::ShareFontSheet,
 };
@@ -48,8 +48,9 @@ pub fn text_split(
             &'static StyleMark,
             Option<&'static mut FlexContainer>,
             &Layer,
+			Option<&'static mut TextOverflowData>,
         ),
-        Or<(Changed<TextContent>, Changed<TextStyle>, Changed<Layer>)>,
+        Or<(Changed<TextContent>, Changed<TextStyle>, Changed<Layer>, Changed<TextOverflowData>)>,
     >,
     font_sheet: ResMut<ShareFontSheet>,
     mut event_writer: EventWriter<ComponentEvent<Changed<NodeState>>>,
@@ -59,7 +60,7 @@ pub fn text_split(
 		return;
 	}
     let mut font_sheet = font_sheet.0.borrow_mut();
-    for (entity, text_content, text_style, up, size, normal_style, node_state, style_mark, flex_container, layer) in query.iter_mut() {
+    for (entity, text_content, text_style, up, size, normal_style, node_state, style_mark, flex_container, layer, text_overflow_data) in query.iter_mut() {
         if layer.layer() == 0 {
             continue;
         }
@@ -110,6 +111,35 @@ pub fn text_split(
         } else {
             calc.node_state.set_vnode(true);
         }
+
+		// 如果存在text_overflow, 并且相关属性更改， 需要重新劈分text_overflow的字符
+		if let Some(mut text_overflow) = text_overflow_data {
+			let TextOverflowData { text_overflow, text_overflow_char } = text_overflow.bypass_change_detection();
+			text_overflow_char.clear();
+			
+			match &text_overflow {
+				TextOverflow::Ellipsis => {
+					let width = font_sheet.measure_width(font_id, '.');
+					text_overflow_char.push(TextOverflowChar {
+						width,
+						ch: '.',
+						ch_id: DefaultKey::default(),
+					});
+				},
+				TextOverflow::Custom(s) => {
+					for c in s.chars() {
+						let width = font_sheet.measure_width(font_id, c);
+						text_overflow_char.push(TextOverflowChar {
+							width,
+							ch: c,
+							ch_id: DefaultKey::default(),
+						});
+					}
+					
+				},
+				_ => (),
+			}
+		}
 
         event_writer.send(ComponentEvent::new(entity));
     }

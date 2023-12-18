@@ -13,8 +13,10 @@ use pi_atom::Atom;
 use pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent;
 use pi_flex_layout::prelude::INode;
 pub use pi_flex_layout::prelude::{Dimension, Number, Rect, Size as FlexSize};
-use pi_flex_layout::style::{AlignContent, AlignItems, AlignSelf, Direction, Display, FlexDirection, FlexWrap, JustifyContent, PositionType};
+use pi_flex_layout::style::{AlignContent, AlignItems, AlignSelf, Direction, Display, FlexDirection, FlexWrap, JustifyContent, PositionType, OverflowWrap};
 use pi_null::Null;
+use pi_slotmap::DefaultKey;
+use pi_style::style::TextOverflow;
 pub use pi_style::style::{
     Aabb2, AnimationDirection, AnimationFillMode, AnimationName, AnimationPlayState, AnimationTimingFunction, CgColor, Color, ColorAndPosition,
     Enable, FitType, FontSize, FontStyle, ImageRepeat, IterationCount, LengthUnit, LineHeight, LinearGradientColor, NotNanRect, ShowType, Stroke,
@@ -348,20 +350,52 @@ pub struct BorderImageRepeat(pub ImageRepeat);
 
 #[derive(Debug, Clone, Serialize, Deserialize, Component)]
 pub struct TextStyle {
-    pub color: Color, //颜色
-    pub text_indent: f32,
-    pub text_stroke: Stroke,
-    pub text_align: TextAlign,
-    pub letter_spacing: f32,     //字符间距， 单位：像素
-    pub word_spacing: f32,       //字符间距， 单位：像素
-    pub white_space: WhiteSpace, //空白处理
-    pub line_height: LineHeight, //设置行高
-    pub vertical_align: VerticalAlign,
-
-    pub font_style: FontStyle, //	规定字体样式。参阅：font-style 中可能的值。
+	pub font_style: FontStyle, //	规定字体样式。参阅：font-style 中可能的值。
     pub font_weight: usize,    //	规定字体粗细。参阅：font-weight 中可能的值。
     pub font_size: FontSize,   //
     pub font_family: Atom,     //	规定字体系列。参阅：font-family 中可能的值。
+
+    pub line_height: LineHeight,  //设置行高
+	pub letter_spacing: f32,      //字符间距， 单位：像素
+    pub word_spacing: f32,        //字符间距， 单位：像素
+    pub white_space: WhiteSpace,  //空白处理
+
+    pub text_indent: f32,
+	pub text_stroke: Stroke,
+	pub vertical_align: VerticalAlign,
+	pub text_align: TextAlign,
+
+	pub color: Color, //颜色
+
+    // pub color: Color, //颜色
+    // pub text_indent: f32,
+    // pub text_stroke: Stroke,
+    // pub text_align: TextAlign,
+    // pub letter_spacing: f32,     //字符间距， 单位：像素
+    // pub word_spacing: f32,       //字符间距， 单位：像素
+    // pub white_space: WhiteSpace, //空白处理
+    // pub line_height: LineHeight, //设置行高
+    // pub vertical_align: VerticalAlign,
+
+    // pub font_style: FontStyle, //	规定字体样式。参阅：font-style 中可能的值。
+    // pub font_weight: usize,    //	规定字体粗细。参阅：font-weight 中可能的值。
+    // pub font_size: FontSize,   //
+    // pub font_family: Atom,     //	规定字体系列。参阅：font-family 中可能的值。
+}
+
+
+#[derive(Debug, Clone, Serialize, Deserialize, Component, Default)]
+pub struct TextOverflowData {
+	pub text_overflow: TextOverflow,
+	pub text_overflow_char: SmallVec<[TextOverflowChar;1]>, // 通常是...
+}
+
+
+#[derive(Debug, Clone, Serialize, Deserialize, Component)]
+pub struct TextOverflowChar {
+	pub width: f32,
+	pub ch: char,
+	pub ch_id: DefaultKey,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Component, Default, Deref)]
@@ -472,6 +506,7 @@ pub struct FlexContainer {
     pub align_items: AlignItems,
     pub align_content: AlignContent,
     pub direction: Direction,
+	pub overflow_wrap: OverflowWrap,
 }
 
 // 描述节点自身行为的flex布局属性
@@ -506,6 +541,7 @@ impl Default for FlexContainer {
             align_items: Default::default(),
             align_content: AlignContent::FlexStart,
             direction: Default::default(),
+			overflow_wrap: Default::default(),
         }
     }
 }
@@ -1496,6 +1532,7 @@ pub mod serialize {
     impl_style!(LineHeightType, text_style, TextStyle, line_height, LineHeight, LineHeight);
     impl_style!(TextIndentType, text_style, TextStyle, text_indent, TextIndent, f32);
     impl_style!(WhiteSpaceType, text_style, TextStyle, white_space, WhiteSpace, WhiteSpace);
+	impl_style!(TextOverflowType, text_overflow, TextOverflowData, text_overflow, TextOverflow, TextOverflow);
     // impl ConvertToComponent for WhiteSpaceType {
     // 	// 设置white_space,需要同时设置flex_wrap
     // 	fn set(cur_style_mark: &mut BitArray<[u32; 3]>, ptr: *const u8, query: &mut Setting, entity: Entity)
@@ -2740,6 +2777,7 @@ pub mod serialize {
     impl_style!(AlignContentType, flex_container, FlexContainer, align_content, AlignContent, AlignContent);
     impl_style!(AlignItemsType, flex_container, FlexContainer, align_items, AlignItems, AlignItems);
     impl_style!(FlexWrapType, flex_container, FlexContainer, flex_wrap, FlexWrap, FlexWrap);
+	impl_style!(OverflowWrapType, flex_container, FlexContainer, overflow_wrap, OverflowWrap, OverflowWrap);
 
     impl_style!(FlexShrinkType, flex_normal, FlexNormal, flex_shrink, FlexShrink, f32);
     impl_style!(FlexGrowType, flex_normal, FlexNormal, flex_grow, FlexGrow, f32);
@@ -2830,7 +2868,7 @@ pub mod serialize {
 
     lazy_static::lazy_static! {
 
-        static ref STYLE_ATTR: [StyleFunc; 183] = [
+        static ref STYLE_ATTR: [StyleFunc; 187] = [
             StyleFunc::new::<EmptyType>(), // 0 empty 占位， 无实际作用
             StyleFunc::new::<BackgroundRepeatType>(), // 1
             StyleFunc::new::<FontStyleType>(), // 2
@@ -2943,6 +2981,8 @@ pub mod serialize {
             StyleFunc::new::<ScaleType>(), // 89
             StyleFunc::new::<RotateType>(), // 90
             StyleFunc::new::<AsImageType>(), // 91
+			StyleFunc::new::<TextOverflowType>(), // 92
+			StyleFunc::new::<OverflowWrapType>(), // 93
 
         /******************************* reset ******************************************************/
             StyleFunc::new::<ResetBackgroundRepeatType>(), // 1 text
@@ -3057,6 +3097,8 @@ pub mod serialize {
             StyleFunc::new::<ResetScaleType>(), // 89
             StyleFunc::new::<ResetRotateType>(), // 90
             StyleFunc::new::<ResetAsImageType>(), // 91
+			StyleFunc::new::<ResetTextOverflowType>(), // 92
+			StyleFunc::new::<ResetOverflowWrapType>(), // 93
 
         ];
     }
@@ -3128,6 +3170,8 @@ pub mod serialize {
                 event: ChangeEvent::from_world(world),
 
 				dirty_list: world.components().get_resource_id(std::any::TypeId::of::<DirtyList>()).unwrap(),
+
+				text_overflow: world.init_component::<TextOverflowData>(),
             }
         }
     }
@@ -3180,6 +3224,8 @@ pub mod serialize {
         pub event: ChangeEvent,
 
 		pub dirty_list: ComponentId,
+
+		pub text_overflow: ComponentId,
     }
 
     pub struct DefaultStyle {
@@ -3220,6 +3266,7 @@ pub mod serialize {
         pub animation: ComponentId,
         pub node_state: ComponentId,
         pub as_image: ComponentId,
+		pub text_overflow: ComponentId,
     }
 
     impl FromWorld for DefaultStyle {
@@ -3482,6 +3529,13 @@ pub mod serialize {
                     world
                         .components()
                         .get_resource_id(std::any::TypeId::of::<DefaultComponent<AsImage>>())
+                        .unwrap()
+                },
+				text_overflow: {
+                    world.init_resource::<DefaultComponent<TextOverflowData>>();
+                    world
+                        .components()
+                        .get_resource_id(std::any::TypeId::of::<DefaultComponent<TextOverflowData>>())
                         .unwrap()
                 },
             }

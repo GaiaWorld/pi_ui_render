@@ -4,7 +4,7 @@
 use bevy_ecs::{
     prelude::{Entity, EventWriter},
     query::{Changed, Or, With},
-    system::{ParamSet, Query, ResMut},
+    system::{ParamSet, Query, ResMut}, change_detection::DetectChangesMut,
 };
 use ordered_float::NotNan;
 use pi_bevy_ecs_extend::{
@@ -16,7 +16,7 @@ use pi_render::font::{Font, FontSheet};
 use crate::{
     components::{
         calc::{NodeState, WorldMatrix},
-        user::{get_size, TextContent, TextStyle, Vector4},
+        user::{get_size, TextContent, TextStyle, Vector4, TextOverflowData},
     },
     resource::ShareFontSheet,
 };
@@ -24,7 +24,6 @@ use crate::{
 use super::IsRun;
 
 /// 文字字形计算
-/// 将需要图文混排的文字节点，劈分为单个文字节点
 pub fn text_glyph(
     mut query: ParamSet<(
         Query<
@@ -34,11 +33,12 @@ pub fn text_glyph(
                 OrDefault<TextStyle>,
                 // &'static TextContent,
                 &'static mut NodeState,
+				&'static Layer,
+				Option<&'static mut TextOverflowData>,
             ),
             (
-                Or<(Changed<TextContent>, Changed<TextStyle>, Changed<WorldMatrix>)>,
+                Or<(Changed<TextContent>, Changed<TextStyle>, Changed<WorldMatrix>, Changed<TextOverflowData>)>,
                 With<TextContent>,
-                With<Layer>,
             ),
         >,
         Query<
@@ -48,8 +48,10 @@ pub fn text_glyph(
                 OrDefault<TextStyle>,
                 // &'static TextContent,
                 &'static mut NodeState,
+				&'static Layer,
+				Option<&'static mut TextOverflowData>,
             ),
-            (With<TextContent>, With<Layer>),
+            With<TextContent>,
         >,
     )>,
     font_sheet: ResMut<ShareFontSheet>,
@@ -67,9 +69,11 @@ pub fn text_glyph(
         text_style,
         // text_content,
         mut node_state,
+		layer,
+		text_overflow_data,
     ) in query.p0().iter_mut()
     {
-        if let Err(_) = set_gylph(entity, world_matrix, text_style, &mut node_state, &mut font_sheet, &mut event_writer) {
+        if let Err(_) = set_gylph(entity, layer, world_matrix, text_style, &mut node_state, &mut font_sheet, &mut event_writer, text_overflow_data) {
             // 清空文字纹理TODO（清屏为玫红色）
 
             is_reset = true;
@@ -87,9 +91,11 @@ pub fn text_glyph(
             text_style,
             // text_content,
             mut node_state,
+			layer,
+			text_overflow_data,
         ) in query.p1().iter_mut()
         {
-            set_gylph(entity, world_matrix, text_style, &mut node_state, &mut font_sheet, &mut event_writer).unwrap();
+            set_gylph(entity, layer, world_matrix, text_style, &mut node_state, &mut font_sheet, &mut event_writer, text_overflow_data).unwrap();
         }
     }
 
@@ -99,15 +105,20 @@ pub fn text_glyph(
 }
 
 
-pub fn set_gylph(
+fn set_gylph(
     entity: Entity,
+	layer: &Layer,
     world_matrix: &WorldMatrix,
     text_style: &TextStyle,
     // text_content: &TextContent,
     node_state: &mut NodeState,
     font_sheet: &mut FontSheet,
     event_writer: &mut EventWriter<ComponentEvent<Changed<NodeState>>>,
+	text_overflow_data: Option<bevy_ecs::change_detection::Mut<'_, TextOverflowData>>
 ) -> Result<(), ()> {
+	if layer.layer() == 0 {
+		return Ok(());
+	}
     let scale = Vector4::from(world_matrix.fixed_columns(1));
     let scale = scale.dot(&scale).sqrt();
     // log::warn!("set_gylph============={:?}, {:?}, {:?}", entity, text_content, scale);
@@ -155,6 +166,30 @@ pub fn set_gylph(
             char_node.ch_id = *char_id;
         }
     }
+
+	if let Some(mut text_overflow) = text_overflow_data {
+		let text_overflow = text_overflow.bypass_change_detection();
+		for char_node in text_overflow.text_overflow_char.iter_mut() {
+			let glyph_id = font_sheet.glyph_id(font_id, char_node.ch);
+			// 异常，无法计算字形
+			char_id = match glyph_id {
+                Some(r) => r,
+                None => {
+                    // 纹理空间不足
+                    log::info!(
+                        "异常，无法计算字形,char:{:?}, family:{:?}, id:{:?}, texture_width: {:?}, texture_height: {:?}",
+                        char_node.ch,
+                        text_style.font_family,
+                        entity,
+						font_sheet.font_mgr().size().width,
+						font_sheet.font_mgr().size().height,
+                    );
+                    return Err(());
+                }
+            };
+            char_node.ch_id = *char_id;
+		}
+	}
     event_writer.send(ComponentEvent::new(entity));
     Ok(())
 }
