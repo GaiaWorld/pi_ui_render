@@ -518,6 +518,8 @@ impl KeyFramesSheet {
                     Attribute::AnimationFillMode(_) => (),
                     Attribute::AnimationPlayState(_) => (),
                     Attribute::AsImage(_) => (),
+                    Attribute::TextOverflow(_) => (),
+                    Attribute::OverflowWrap(_) => (),
                 }
             }
         }

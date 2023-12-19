@@ -1,6 +1,6 @@
 [package]
 name = "pi_ui_render"
-version = "0.1.33"
+version = "0.1.36"
 authors = ["suncy <suncy@gmail.com>"]
 edition = "2021"
 description = "Renderer 2D UI with Bevy Ecs"
@@ -103,7 +103,7 @@ thiserror = "1.0"
 wgpu = { version = "0.1", registry = "yn", package = "pi_wgpu"}
 
 pi-async-rt = "0.1"
-pi_share = { version = "0.4" }
+pi_share = { version = "=0.4.7" }
 pi_render = { version = "0.1", registry = "yn" }
 # derive_deref = "1.1"
 tracing-subscriber = "0.3"

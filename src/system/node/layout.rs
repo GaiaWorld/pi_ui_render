@@ -22,10 +22,10 @@ use pi_bevy_ecs_extend::{
     prelude::{EntityTree, Layer, OrDefault},
     system_param::{layer_dirty::ComponentEvent, res::OrInitRes},
 };
-use pi_flex_layout::prelude::{
+use pi_flex_layout::{prelude::{
     AlignContent, AlignItems, AlignSelf, CharNode, Dimension, Direction, Display, FlexDirection, FlexLayoutStyle, FlexWrap, Get, GetMut, INode,
     INodeStateType, JustifyContent, Layout, LayoutContext, LayoutR, Number, Overflow, PositionType, Rect, TreeStorage,
-};
+}, style::OverflowWrap};
 
 use crate::{components::{
     calc::{EntityKey, LayoutResult, NodeState},
@@ -576,6 +576,10 @@ impl<'a> FlexLayoutStyle for LayoutStyle<'a> {
     fn max_width(&self) -> Dimension { self.0 .5.max.width }
     fn max_height(&self) -> Dimension { self.0 .5.max.height }
     fn aspect_ratio(&self) -> Number { self.0 .7.aspect_ratio }
+
+	fn overflow_wrap(&self) -> OverflowWrap {
+		self.0.6.overflow_wrap
+	}
 }
 
 pub struct Tree<'a, 'b> {

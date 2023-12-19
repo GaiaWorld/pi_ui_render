@@ -11,7 +11,7 @@ use bevy_ecs::prelude::World;
 use font_kit::font::new_face_by_path;
 use framework::Example;
 use pi_atom::Atom;
-use pi_flex_layout::style::{Dimension, PositionType};
+use pi_flex_layout::style::{Dimension, PositionType, OverflowWrap};
 use pi_null::Null;
 use pi_ui_render::{
     components::{
@@ -24,10 +24,10 @@ use pi_ui_render::{
 
 fn main() { framework::start(QuadExample::default()) }
 use pi_style::{
-    style::{Aabb2, Point2, TextContent},
+    style::{Aabb2, Point2, TextContent, TextOverflow},
     style_type::{
         BackgroundColorType, ColorType, FontFamilyType, FontSizeType, HeightType, MarginLeftType, MarginTopType, PositionLeftType, PositionTopType,
-        PositionTypeType, TextContentType, WidthType,
+        PositionTypeType, TextContentType, WidthType, TextOverflowType, FlexWrapType, OverflowWrapType,
     },
 };
 
@@ -98,6 +98,45 @@ impl Example for QuadExample {
         // 	width: unsafe {NotNan::new_unchecked(2.0)},
         // 	color: CgColor::new(1.0, 0.0, 0.0, 1.0)}));
         self.cmd.append(div2, root);
+
+		let div3 = world.spawn(NodeBundle::default()).id();
+        self.cmd.set_style(div3, WidthType(Dimension::Points(150.0)));
+        self.cmd.set_style(div3, HeightType(Dimension::Points(100.0)));
+		self.cmd.set_style(div3, PositionTopType(Dimension::Points(200.0)));
+        self.cmd
+            .set_style(div3, TextContentType(TextContent("测试TextOverflow111111111111111111111111".to_string(), Atom::from("测试TextOverflow111111111111111111111111"))));
+		self.cmd.set_style(div3, TextOverflowType(TextOverflow::Ellipsis));
+		self.cmd.set_style(div3, FlexWrapType(pi_flex_layout::style::FlexWrap::NoWrap));
+        self.cmd.set_style(div3, FontFamilyType(Atom::from("hwkt")));
+        self.cmd.set_style(div3, ColorType(Color::RGBA(CgColor::new(0.0, 1.0, 0.0, 1.0))));
+        self.cmd.set_style(div3, FontSizeType(FontSize::Length(17)));
+        self.cmd.append(div3, root);
+
+		let div4 = world.spawn(NodeBundle::default()).id();
+        self.cmd.set_style(div4, WidthType(Dimension::Points(250.0)));
+        self.cmd.set_style(div4, HeightType(Dimension::Points(100.0)));
+		self.cmd.set_style(div4, PositionTopType(Dimension::Points(250.0)));
+        self.cmd
+            .set_style(div4, TextContentType(TextContent("测试TextOverflow11111111111111111111111111111111111".to_string(), Atom::from("测试TextOverflow11111111111111111111111111111111111"))));
+		self.cmd.set_style(div4, TextOverflowType(TextOverflow::Custom("，后续省略..".to_string())));
+		self.cmd.set_style(div4, FlexWrapType(pi_flex_layout::style::FlexWrap::NoWrap));
+        self.cmd.set_style(div4, FontFamilyType(Atom::from("hwkt")));
+        self.cmd.set_style(div4, ColorType(Color::RGBA(CgColor::new(0.0, 1.0, 0.0, 1.0))));
+        self.cmd.set_style(div4, FontSizeType(FontSize::Length(17)));
+        self.cmd.append(div4, root);
+
+
+		let div4 = world.spawn(NodeBundle::default()).id();
+        self.cmd.set_style(div4, WidthType(Dimension::Points(250.0)));
+        self.cmd.set_style(div4, HeightType(Dimension::Points(100.0)));
+		self.cmd.set_style(div4, PositionTopType(Dimension::Points(250.0)));
+        self.cmd
+            .set_style(div4, TextContentType(TextContent("测试OverflowWrap222222222222222222222222222222222222222222222222".to_string(), Atom::from("测试OverflowWrap222222222222222222222222222222222222222222222222"))));
+		self.cmd.set_style(div4, OverflowWrapType(OverflowWrap::BreakWord));
+        self.cmd.set_style(div4, FontFamilyType(Atom::from("hwkt")));
+        self.cmd.set_style(div4, ColorType(Color::RGBA(CgColor::new(0.0, 1.0, 0.0, 1.0))));
+        self.cmd.set_style(div4, FontSizeType(FontSize::Length(17)));
+        self.cmd.append(div4, root);
     }
 
     fn render(&mut self, cmd: &mut UserCommands, _cmd1: &mut Commands) {
