@@ -2082,7 +2082,7 @@ pub mod serialize {
         where
             Self: Sized,
         {
-            todo!()
+            // todo!()
         }
 
         fn to_attr(_ptr: *const u8) -> Attribute
@@ -3680,7 +3680,7 @@ pub mod serialize {
 
         #[inline]
         pub fn reset(cur_style_mark: &mut BitArray<[u32; 3]>, style_index: u8, buffer: &Vec<u8>, offset: usize, query: &mut Setting, entity: Entity) {
-            (STYLE_ATTR[style_index as usize + 91].set)(cur_style_mark, unsafe { buffer.as_ptr().add(offset) }, query, entity, false);
+            (STYLE_ATTR[style_index as usize + 93].set)(cur_style_mark, unsafe { buffer.as_ptr().add(offset) }, query, entity, false);
         }
 
         #[inline]
@@ -3722,116 +3722,7 @@ pub fn style_attr_list_to_buffer(style_buffer: &mut Vec<u8>, style_list: &mut Ve
 }
 
 
-/// 样式设置
-pub enum ResetAttribute {
-    BackgroundRepeat, // 0 empty 占位， 无实际作用
-    FontStyle,        // 2
-    FontWeight,       // 3
-    FontSize,         // 4
-    FontFamily,       // 5
-    LetterSpacing,    // 6
-    WordSpacing,      // 7
-    LineHeight,       // 8
-    TextIndent,       // 9
-    WhiteSpace,       // 10
 
-    TextAlign,     // 11
-    VerticalAlign, // 12
-    Color,         // 13
-    TextStroke,    // 14
-    TextShadow,    // 15
-
-    BackgroundImage,     // 16
-    BackgroundImageClip, // 17
-    ObjectFit,           // 18
-    BackgroundColor,     // 19
-    BoxShadow,           // 20
-    BorderImage,         // 21
-    BorderImageClip,     // 22
-    BorderImageSlice,    // 23
-    BorderImageRepeat,   // 24
-
-    BorderColor, // 25
-
-    Hsi,                 // 26
-    Blur,                // 27
-    MaskImage,           // 28
-    MaskImageClip,       // 29
-    Transform,           // 31
-    TransformOrigin,     // 32
-    TransformWillChange, // 33
-    BorderRadius,        // 34
-    ZIndex,              // 35
-    Overflow,            // 36
-
-    BlendMode,  // 37
-    Display,    // 38
-    Visibility, // 39
-    Enable,     // 40
-
-    Width,  // 41
-    Height, // 42
-
-    MarginTop,    // 43
-    MarginRight,  // 44
-    MarginBottom, // 45
-    MarginLeft,   // 46
-
-    PaddingTop,    // 47
-    PaddingRight,  // 48
-    PaddingBottom, // 49
-    PaddingLeft,   // 50
-
-    BorderTop,    // 51
-    BorderRight,  // 52
-    BorderBottom, // 53
-    BorderLeft,   // 54
-
-    PositionTop,    // 55
-    PositionRight,  // 56
-    PositionBottom, // 57
-    PositionLeft,   // 58
-
-    MinWidth,       // 59
-    MinHeight,      // 60
-    MaxHeight,      // 61
-    MaxWidth,       // 62
-    Direction,      // 63
-    FlexDirection,  // 64
-    FlexWrap,       // 65
-    JustifyContent, // 66
-    AlignContent,   // 67
-    AlignItems,     // 68
-
-    PositionType, // 69
-    AlignSelf,    // 70
-    FlexShrink,   // 71
-    FlexGrow,     // 72
-    AspectRatio,  // 73
-    Order,        // 74
-    FlexBasis,    // 75
-    Opacity,      // 80
-
-    TextContent, // 81
-
-    VNode, // 82
-
-    TransformFunc, // 83
-
-    AnimationName,           // 79
-    AnimationDuration,       // 80
-    AnimationTimingFunction, // 81
-    AnimationDelay,          // 82
-    AnimationIterationCount, // 83
-    AnimationDirection,      // 84
-    AnimationFillMode,       // 85
-    AnimationPlayState,      // 86
-    ClipPath,                // 87
-    Translate,               // 88
-    Scale,                   // 89
-    Rotate,                  // 90
-    AsImage,                 // 91
-}
 
 // clone指针指向的对象（可能未对齐）
 fn clone_unaligned<T: Clone>(src: *const T) -> T {

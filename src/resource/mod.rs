@@ -11,6 +11,7 @@ use pi_bevy_render_plugin::{PiRenderDevice, PiRenderQueue, node:: NodeId as Grap
 use pi_hash::XHashMap;
 use pi_map::Map;
 use pi_null::Null;
+use pi_print_any::out_any;
 use pi_render::font::FontSheet;
 use pi_render::rhi::asset::TextureRes;
 use pi_share::{Share, ShareCell};
@@ -109,7 +110,7 @@ impl UserCommands {
     /// 设置节点样式
     pub fn set_style<T: Attr>(&mut self, entity: Entity, value: T) -> &mut Self {
         // out_any!(log::debug, "set_style, entity: {:?}, value: {:?}", entity, &value);
-        // out_any!(trace, "set_style, entity: {:?}, value: {:?}", entity, &value);
+        // out_any!(log::warn, "set_style, entity: {:?}, value: {:?}", entity, &value);
         let start = self.style_commands.style_buffer.len();
         unsafe { StyleAttr::write(value, &mut self.style_commands.style_buffer) };
         if let Some(r) = self.style_commands.commands.last_mut() {

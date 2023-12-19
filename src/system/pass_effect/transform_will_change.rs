@@ -66,7 +66,6 @@ pub fn transform_will_change_post_process(
 		return;
 	}
     for del in del.iter() {
-		log::warn!("remove 2============{:?}", del);
         matrix_invert.0.remove(&del);
 		
 		// 标记层脏
@@ -75,7 +74,6 @@ pub fn transform_will_change_post_process(
 				layer_dirty.marked_with_layer(del, del, layer.layer());
 			} else {
 				m.0 = None;
-				log::warn!("m none============{:?}", del);
 			}
 		}
     }
