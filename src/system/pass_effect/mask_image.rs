@@ -158,6 +158,7 @@ pub fn mask_image_post_process(
     // 渐变色fbo在MaskImage、MaskImageClip、 Quad不变的情况下，永远不会重新绘制，因此总是每帧检查，并删除
     // 如果这些属性发生改变， 后续或重新创建新的DrawObj（这种情况应该很少发生）
     for (entity, _) in mask_draw_list.0.drain(..) {
+		log::warn!("despawn mask====={:?}", entity);
         // 删除对应的RenderObj（由于绘制渐变色的RenderObj没有放入DrawList中， 常规处理无法销毁该Obj， 因此在此处对其销毁）
         commands.entity(entity).despawn();
     }

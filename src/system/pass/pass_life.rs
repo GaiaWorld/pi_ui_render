@@ -115,7 +115,7 @@ pub fn cal_context(
                 parent_context_id.0
             } else if mark.any() {
                 //  post_info
-                // log::debug!("pass======node: {:?}, parent_context_id: {:?}, effect_mark{:?} {:?}, {:?}", node, parent_context_id, **effect_mark & **mark, mark, **effect_mark);
+                log::trace!("pass======node: {:?}, parent_context_id: {:?}, effect_mark{:?} {:?}, {:?}", node, parent_context_id, **effect_mark & **mark, mark, **effect_mark);
                 match parent_pass_id {
                     None => {
                         let mut bundle = PassBundle::new(*parent_context_id);

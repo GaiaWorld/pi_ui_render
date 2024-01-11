@@ -94,13 +94,21 @@ pub mod prelude {
             // .add_systems(Update, apply_system_buffers.in_set(UiSystemSet::LoadFlush))
             .add_systems(Update, apply_deferred.in_set(UiSystemSet::LifeDrawObjectFlush))
             // .add_systems(Update, apply_system_buffers.in_set(UiSystemSet::BaseCalcFlush))
-            .add_systems(Update, apply_deferred.in_set(UiSystemSet::PrepareDrawObjFlush));
+            .add_systems(Update, apply_deferred.in_set(UiSystemSet::PrepareDrawObjFlush))
+
+			.add_systems(Update, crate::clear_remove_component.run_if(pi_bevy_render_plugin::should_run).after(bevy_window::FrameSet)); // 在每帧结束时清理删除组件的列表
 
             #[cfg(feature = "debug")]
             app.add_plugins(crate::system::cmd_play::UiCmdTracePlugin { option: self.cmd_trace });
         }
     }
 }
+
+pub fn clear_remove_component(world: &mut bevy_ecs::prelude::World) {
+	world.removed_components_update();
+}
+
+
 
 #[test]
 fn test() {

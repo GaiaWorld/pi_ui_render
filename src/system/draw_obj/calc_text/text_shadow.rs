@@ -104,7 +104,8 @@ pub fn text_shadow_life(
         (
 			OrInitRes<ProgramMetaRes<crate::shader::text::ProgramMeta>>,
 			OrInitRes<ProgramMetaRes<crate::shader::text_sdf::ProgramMeta>>,
-			Res<ShareFontSheet>
+			Res<ShareFontSheet>,
+			RemovedComponents<TextShadowMark>,
 		),
         OrInitRes<PosUvColorVertexLayout>,
         OrInitRes<ShaderInfoCache>,
@@ -129,6 +130,7 @@ pub fn text_shadow_life(
 			program_meta,
 			text_sdf_program_meta,
 			font_sheet,
+			mut text_shadow_mark_del,
 		),
         vert_layout,
         shader_catch,
@@ -144,7 +146,6 @@ pub fn text_shadow_life(
 	if r.0 {
 		return;
 	}
-	let time = pi_time::Instant::now();
     let group_alloter = group_alloter.clone();
     let render_type = ***render_type;
 
@@ -157,12 +158,8 @@ pub fn text_shadow_life(
             // 删除对应的DrawObject
             draw_list.remove(render_type, |draw_obj| {
                 if let Some(mut r) = commands.get_entity(draw_obj.id) {
+					log::warn!("despawn shadow2====={:?}", draw_obj.id);
                     r.despawn();
-                }
-
-                // 删除渲染图节点
-                if let Ok(r) = graph_id_query.get(draw_obj.id) {
-                    let _ = rg.remove_node(**r);
                 }
             });
 
@@ -173,12 +170,17 @@ pub fn text_shadow_life(
         }
     }
 
+	for id in text_shadow_mark_del.iter() {
+		let _ = rg.remove_node(format!("TextShadow_{:?}", id));
+	}
+
     let program_meta = program_meta.clone();
 	let sdf_program_meta = text_sdf_program_meta.clone();
     let p_state = shader_catch.premultiply.clone();
     let vert_layout = vert_layout.clone();
 	let use_sdf = font_sheet.borrow().font_mgr().use_sdf();
 
+	// let mut spawn_list = Vec::new();
     // 收集需要创建DrawObject的实体
     for changed in changed.iter() {
         if let Ok((shadow, mut draw_list, mut render_mark_value, animation)) = query.p1().get_mut(changed.id) {
@@ -196,6 +198,7 @@ pub fn text_shadow_life(
                         // 多余的， 删除
                         let draw_obj = draw_list.swap_remove(i);
 						if let Some(mut r) = commands.get_entity(draw_obj.id) {
+							log::warn!("despawn shadow1====={:?}", draw_obj.id);
 							r.despawn();
 						}
                         continue;
@@ -243,12 +246,18 @@ pub fn text_shadow_life(
                             TextShadowColorBindGroup(clear_group.into()),
                         ))
                         .id();
+					// spawn_list.push(id);
                     draw_list.push(render_type, id);
+					// log::warn!("create drawobj=================draw={:?}, node={:?}", id, changed.id);
                     start += 1;
                 }
             }
         }
     }
+
+	// if spawn_list.len() > 0 {
+	// 	log::warn!("spawn shadow=================draw={:?}", &spawn_list);
+	// }
 
     state.apply(world);
 	// log::warn!("text_shadow======{:?}", pi_time::Instant::now() - time);
@@ -410,6 +419,7 @@ pub fn calc_graph_depend(
         if parent_graph_id.is_null() {
             continue;
         }
+		
         for draw_id in draw_list.iter() {
             if draw_id.ty == **render_type {
                 if let Ok(mut g) = shadow_draw_query.get_mut(draw_id.id) {

@@ -41,14 +41,14 @@ use crate::{
 pub fn user_setting(
     world: &mut World,
 
-    commands: &mut SystemState<(ResMut<UserCommands>, ResMut<ClassSheet>, OrInitResMut<FragmentMap>, OrInitRes<IsRun>)>,
+    commands: &mut SystemState<(ResMut<UserCommands>, ResMut<ClassSheet>, OrInitResMut<FragmentMap>, OrInitResMut<IsRun>)>,
 
-    state: &mut SystemState<(Query<&DrawList>, Query<Entity>, EntityTreeMut)>,
+    state: &mut SystemState<(Query<&DrawList>, Query<Entity>, EntityTreeMut, OrInitResMut<IsRun>)>,
     quad_delete: &mut SystemState<(ResMut<QuadTree>, Query<Entity, With<Viewport>>)>,
     style_query: Local<StyleQuery>,
     mut destroy_entity_list: Local<Vec<Entity>>, // 需要销毁的实体列表作为本地变量，避免每次重新分配内存
 ) {
-    let (mut user_commands, _class_sheet, _fragments, r) = commands.get_mut(world);
+    let (mut user_commands, _class_sheet, _fragments, mut r) = commands.get_mut(world);
 	if r.0 {
 		return;
 	}
@@ -63,7 +63,13 @@ pub fn user_setting(
     let fragments = std::mem::replace(&mut **fragments, FragmentMap::default());
     let class_sheet = std::mem::replace(&mut *class_sheet, ClassSheet::default());
 
-	// 初始化节点
+	// if user_commands.node_init_commands.len() > 0 || user_commands.fragment_commands.len() > 0 || user_commands.node_commands.len() > 0{
+	// 	log::warn!("insert entity====================node_list: {:?}, \n{:?}, \n{:?}, \n: {:?}", user_commands.version, &user_commands.node_init_commands, &user_commands.fragment_commands, &mut user_commands.node_commands);
+	// }
+
+	user_commands.version += 1;
+
+	// 初始化节点, 插入bundle
 	for (node, tag) in user_commands.node_init_commands.drain(..) {
 		if let Some(mut entity) = world.get_entity_mut(node) {
 			let mut bundle = NodeBundle::default();
@@ -75,6 +81,8 @@ pub fn user_setting(
 			}
 			log::debug!("insert NodeBundle, {:?}", node);
 			entity.insert(bundle);
+		} else {
+			log::error!("insert NodeBundle fail, entity is not exist, {:?}, {:?}", node, tag);
 		}
 	}
 
@@ -90,6 +98,9 @@ pub fn user_setting(
         };
         log::debug!("fragment_commands === {}", c.key);
         debug_assert_eq!(t.end - t.start, c.entitys.len());
+		if t.end - t.start != c.entitys.len() {
+			panic!("fragment_commands === {}, {}, {}", c.key, t.end - t.start, c.entitys.len());
+		}
 
         for i in t.clone() {
             let n = &fragments.fragments[i];
@@ -104,11 +115,13 @@ pub fn user_setting(
                 }
                 log::debug!("insert NodeBundle for fragment , {:?}", node);
                 entity.insert(bundle);
-            }
+            } else {
+				log::error!("insert NodeBundle fail, fragment entity is not exist, {:?}, {:?}", node, n.tag);
+			}
         }
     }
 
-    let (draw_list, entitys, mut tree) = state.get_mut(world);
+    let (draw_list, entitys, mut tree, mut r) = state.get_mut(world);
 
     for c in user_commands.fragment_commands.iter() {
         // 组织模板的节点关系
@@ -146,12 +159,34 @@ pub fn user_setting(
         match c {
             NodeCommand::AppendNode(node, parent) => {
                 if entitys.get(node).is_ok() {
+					if !EntityKey( parent ).is_null() && draw_list.get(node).is_err() {
+						log::warn!("AppendNode parent error============={:?}, {:?}", parent, unsafe{transmute::<_, f64>(parent.to_bits())});
+						r.0 = true;
+						return;
+					}
+					if !EntityKey( node ).is_null() && draw_list.get(node).is_err() {
+						log::warn!("AppendNode node error============={:?}, {:?}", node, unsafe{transmute::<_, f64>(node.to_bits())});
+						r.0 = true;
+						return;
+					}
+					
                     log::debug!("AppendNode node====================node： {:?}, parent： {:?}", node, parent);
                     // log::warn!("AppendNode node====================node： {:?}, parent： {:?}", node, parent);
                     tree.insert_child(node, parent, std::usize::MAX);
                 }
             }
             NodeCommand::InsertBefore(node, anchor) => {
+				if !EntityKey( anchor ).is_null() && draw_list.get(node).is_err() {
+					log::warn!("InsertBefore anchor error============={:?}, {:?}", anchor, unsafe{transmute::<_, f64>(anchor.to_bits())});
+					r.0 = true;
+					return;
+				}
+				if !EntityKey( node ).is_null() && draw_list.get(node).is_err() {
+					log::warn!("InsertBefore node error============={:?}, {:?}", node, unsafe{transmute::<_, f64>(node.to_bits())});
+					r.0 = true;
+					return;
+				}
+
                 if entitys.get(node).is_ok() {
                     log::debug!("InsertBefore node====================node：{:?}, anchor： {:?}", node, anchor);
                     // log::warn!("InsertBefore node====================node：{:?}, anchor： {:?}", node, anchor);
@@ -159,10 +194,23 @@ pub fn user_setting(
                 }
             }
             NodeCommand::RemoveNode(node) => {
+				if !EntityKey( node ).is_null() && draw_list.get(node).is_err() {
+					log::warn!("RemoveNode node error============={:?}, {:?}", node, unsafe{transmute::<_, f64>(node.to_bits())});
+					r.0 = true;
+						return;
+				}
+
+
 				log::debug!("RemoveNode node====================node={node:?}");
                 tree.remove(node);
             }
             NodeCommand::DestroyNode(node) => {
+				if !EntityKey( node ).is_null() && draw_list.get(node).is_err() {
+					log::warn!("DestroyNode node error============={:?}, {:?}", node, unsafe{transmute::<_, f64>(node.to_bits())});
+					r.0 = true;
+						return;
+				}
+				log::debug!("DestroyNode node====================node={node:?}");
                 // 删除所有子节点对应的实体
                 if let Some(down) = tree.get_down(node) {
                     let head = down.head();
@@ -173,7 +221,6 @@ pub fn user_setting(
                     }
                 }
                 tree.remove(node);
-				log::debug!("DestroyNode node====================node={node:?}, node_list: {:?}", destroy_entity_list);
                 delete_draw_list(node, &draw_list, &mut destroy_entity_list);
             }
         };
@@ -191,6 +238,7 @@ pub fn user_setting(
         // }
         // Query<(&RootDirtyRect, OrDefault<RenderDirty>, &Viewport)>,
 
+		// log::warn!("DestroyNode entity====================node_list: {:?}", destroy_entity_list);
         // 删除实体
         for entity in destroy_entity_list.iter() {
             world.despawn(*entity);
@@ -385,7 +433,7 @@ fn set_class(node: Entity, style_query: &mut Setting, class: ClassName, class_sh
         style_query.style.class_name,
         class,
         |item: &mut ClassName, v| {
-            log::debug!("set_class======={:?}, {:?}, old: {:?}", node, v, item);
+            log::trace!("set_class======={:?}, {:?}, old: {:?}", node, v, item);
             *item = v;
         },
     );
@@ -393,7 +441,7 @@ fn set_class(node: Entity, style_query: &mut Setting, class: ClassName, class_sh
 
 fn delete_draw_list(id: Entity, draw_list: &Query<&DrawList>, draw_objects: &mut Vec<Entity>) {
     draw_objects.push(id);
-    log::debug!("RemoveNode node====================node：{:?}", id);
+    log::debug!("deleteNode node====================node：{:?}", id);
     if let Ok(list) = draw_list.get(id) {
         for i in list.iter() {
             draw_objects.push(i.id);

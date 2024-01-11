@@ -20,7 +20,7 @@ use bevy_ecs::{
 };
 use pi_bevy_ecs_extend::{
     prelude::{EntityTree, Layer, OrDefault},
-    system_param::{layer_dirty::ComponentEvent, res::OrInitRes},
+    system_param::{layer_dirty::ComponentEvent, res::{OrInitRes, OrInitResMut}},
 };
 use pi_flex_layout::{prelude::{
     AlignContent, AlignItems, AlignSelf, CharNode, Dimension, Direction, Display, FlexDirection, FlexLayoutStyle, FlexWrap, Get, GetMut, INode,
@@ -92,7 +92,7 @@ pub fn calc_layout(
     mut layer_dirty: Local<LayerDirty<LayoutKey>>,
     default_style: Local<(Size, Margin, Padding, Border, Position, MinMax, FlexContainer, FlexNormal, Show)>,
     mut event_write: EventWriter<ComponentEvent<Changed<LayoutResult>>>,
-	r: OrInitRes<IsRun>,
+	mut r: OrInitResMut<IsRun>,
 	dirty_list: Res<DirtyList>,
 ) {
 	if r.0 {
@@ -178,10 +178,21 @@ pub fn calc_layout(
 					continue;
 				}
 
+				
+
 				let k = LayoutKey {
 					entity: e,
 					text_index: usize::null(),
 				};
+
+				if let Some(up) = layout.0.tree.get_up(k) {
+					if !up.parent().is_null() && inodes.get(up.parent().entity).is_err() {
+						log::error!("layout error======{:?}, {:?}", k, up.parent() );
+						r.0 = true;
+						return;
+					}
+				}
+
 				let style = LayoutStyle((size, margin, padding, border, position, min_max, flex_container, flex_normal, show));
 
 				if rect_dirty {

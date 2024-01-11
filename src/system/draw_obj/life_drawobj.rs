@@ -68,6 +68,7 @@ pub fn draw_object_life<
             draw_list.remove(render_type, |draw_obj| {
 				if let Some(mut r) = commands.get_entity(draw_obj.id) {
 					r.despawn();
+					log::warn!("despawn drawobj====={:?}", draw_obj.id);
 					log::debug!(target: format!("entity_{:?}", del).as_str(), "remove RenderObj {:?} for {} destroy, ", &draw_obj.id, std::any::type_name::<Src>());
 				}
 			});
@@ -79,6 +80,7 @@ pub fn draw_object_life<
     let vert_layout = vert_layout.clone();
 	// let time2 = pi_time::Instant::now();
 
+	// let mut spawn_list = Vec::new();
     // 收集需要创建DrawObject的实体
     for changed in changed.iter() {
 		// count2 += 1;
@@ -108,11 +110,16 @@ pub fn draw_object_life<
                         other: With::default(),
                     })
                     .id();
+				// spawn_list.push(id);
                 log::debug!(target: format!("entity_{:?}", changed.id).as_str(), "create RenderObj {:?} for {} changed, ", &id, std::any::type_name::<Src>());
                 draw_list.push(render_type, id);
+				// log::warn!("create drawobj=================draw={:?}, node={:?}", id, changed.id);
             }
         }
     }
+	// if spawn_list.len() > 0 {
+	// 	log::warn!("spawn drawobj=================draw={:?}", &spawn_list);
+	// }
 
     state.apply(world);
 	// let time3 = pi_time::Instant::now();

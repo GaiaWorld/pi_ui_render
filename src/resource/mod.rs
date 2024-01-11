@@ -71,6 +71,8 @@ pub struct UserCommands {
 
     #[cfg(feature = "debug")]
     pub other_commands_list: Vec<CmdType>, // 是CommandQueue中元素的枚举形式，便于序列化
+
+	pub version: usize,
 }
 
 impl UserCommands {
@@ -110,7 +112,7 @@ impl UserCommands {
     /// 设置节点样式
     pub fn set_style<T: Attr>(&mut self, entity: Entity, value: T) -> &mut Self {
         // out_any!(log::debug, "set_style, entity: {:?}, value: {:?}", entity, &value);
-        // out_any!(log::warn, "set_style, entity: {:?}, value: {:?}", entity, &value);
+        // out_any!(log::warn, "set_style, entity: {:?}, {:?}, value: {:?}", entity, unsafe {transmute::<_, f64>(entity.to_bits())}, &value);
         let start = self.style_commands.style_buffer.len();
         unsafe { StyleAttr::write(value, &mut self.style_commands.style_buffer) };
         if let Some(r) = self.style_commands.commands.last_mut() {
@@ -181,6 +183,7 @@ impl UserCommands {
     /// 设置节点的class
     pub fn set_class(&mut self, entity: Entity, value: ClassName) -> &mut Self {
         // println_any!("set_class===={:?}", &value);
+		// out_any!(log::warn, "set_class, entity: {:?}, {:?}, value: {:?}", entity, unsafe {transmute::<_, f64>(entity.to_bits())}, &value);
         self.class_commands.push((entity, value));
 		self
     }

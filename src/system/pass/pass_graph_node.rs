@@ -768,6 +768,7 @@ impl Pass2DNode {
                 }
             }
             _ => {
+				
                 // 如果不存在后处理，则将pass2d中的所有渲染对象渲染到rp上
                 if let Ok((
                     camera_new,
@@ -779,6 +780,8 @@ impl Pass2DNode {
                     _,
                 )) = param.pass2d_query.get(*pass2d_id)
                 {
+
+					log::trace!("run pass, pass_id: {:?}, opaque={:?}, transparent={:?}", pass2d_id, &list.opaque,  &list.transparent);
                     let v = (
                         (last_view_port.0 as f32 - last_camera.view_port.mins.x) + camera_new.view_port.mins.x,
                         (last_view_port.1 as f32 - last_camera.view_port.mins.y) + camera_new.view_port.mins.y,
@@ -789,7 +792,6 @@ impl Pass2DNode {
                     if v.2 <= 0.0 || v.3 <= 0.0 {
                         return (post_draw, post_draw_next, input_groups, input_groups_next);
                     }
-					// log::warn!("set_viewport4============={:?}", v);
                     rp.set_viewport(v.0, v.1, v.2, v.3, 0.0, 1.0);
                     let r = Self::draw_list(
                         input,

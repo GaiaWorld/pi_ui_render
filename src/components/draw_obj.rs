@@ -9,6 +9,7 @@ use crate::resource::{
 };
 use bevy_ecs::prelude::Component;
 use pi_atom::Atom;
+use pi_bevy_render_plugin::NodeId;
 use pi_hash::XHashSet;
 use pi_render::renderer::draw_obj::DrawObj as DrawState1;
 use pi_share::Share;

@@ -10,7 +10,7 @@ use pi_atom::Atom;
 use pi_bevy_asset::ShareAssetMgr;
 use pi_bevy_ecs_extend::prelude::OrDefault;
 use pi_bevy_ecs_extend::system_param::res::OrInitRes;
-use pi_bevy_ecs_extend::system_param::tree::Up;
+use pi_bevy_ecs_extend::system_param::tree::{Up, Layer};
 use pi_bevy_render_plugin::{PiRenderDevice, PiVertexBufferAlloter};
 use pi_polygon::{find_lg_endp, interp_mult_by_lg, mult_to_triangle, split_by_lg, LgCfg};
 use pi_render::font::{FontSheet, Glyph, GlyphId, Font};
@@ -45,7 +45,7 @@ use super::IsRun;
 #[allow(unused_must_use)]
 pub fn calc_text(
     query: Query<
-        (&NodeState, &LayoutResult, OrDefault<TextStyle>, Ref<NodeState>, Option<&TextOverflowData>, Entity),
+        (&NodeState, &LayoutResult, OrDefault<TextStyle>, Ref<NodeState>, Option<&TextOverflowData>, Entity, &Layer),
 		// TextContent改变，NodeState必然改, TextOverflowData改变，NodeState也必然改变 ;存在NodeState， 也必然存在TextContent
         Or<(Changed<TextStyle>, Changed<NodeState>)>, 
     >,
@@ -83,10 +83,14 @@ pub fn calc_text(
     let buffer = &mut *buffer;
     // let mut init_spawn_drawobj = Vec::new();
     for (mut draw_state, mut box_type, mut pipeline_meta, node_id) in query_draw.iter_mut() {
-        if let Ok((node_state, layout, text_style, node_state_change, text_overflow_data, entity)) = query.get(***node_id) {
+        if let Ok((node_state, layout, text_style, node_state_change, text_overflow_data, entity, layer)) = query.get(***node_id) {
             if node_state.0.scale < 0.000001 {
                 continue;
             }
+
+			if layer.layer() == 0 {
+				continue;
+			}
 
             // 如果不存在，插入默认值（只有刚创建时不存在）
             if draw_state.vertices.get(VcolorVert::location()).is_none() {
