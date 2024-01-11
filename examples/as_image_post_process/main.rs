@@ -71,6 +71,7 @@ impl Example for CustomPostExample {
         self.cmd.set_style(root, PositionTopType(Dimension::Points(0.0)));
         self.cmd.set_style(root, MarginLeftType(Dimension::Points(0.0)));
         self.cmd.set_style(root, MarginTopType(Dimension::Points(0.0)));
+		self.cmd.set_style(root, AsImageType(pi_style::style::AsImage::Force));
         self.cmd.append(root, <EntityKey as pi_null::Null>::null().0);
 
 		let post_entity = world.spawn(GraphId::default()).id();

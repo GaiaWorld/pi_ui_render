@@ -408,6 +408,7 @@ impl IsShow {
 pub struct StyleMark {
     pub local_style: BitArray<[u32; 3]>, // 本地样式， 表示节点样式中，哪些样式是由style设置的（而非class设置）
     pub class_style: BitArray<[u32; 3]>, // class样式， 表示节点样式中，哪些样式是由class设置的
+	pub dirty_style: BitArray<[u32; 3]>, // 样式脏（标记有哪些样式在本帧中脏了）
 }
 
 /// 标记渲染context中需要的效果， 如Blur、Opacity、Hsi、MasImage等
@@ -713,4 +714,21 @@ impl Null for BackgroundImageTexture {
     fn null() -> Self { Self(None) }
 
     fn is_null(&self) -> bool { self.0.is_none() }
+}
+
+
+#[inline]
+pub const fn style_bit() -> BitArray<[u32;3]> {
+	BitArray::ZERO
+}
+
+pub trait StyleBit {
+	fn set_bit(self, index: usize) -> Self;
+}
+
+impl StyleBit for BitArray<[u32;3]> {
+    fn set_bit(mut self, index: usize) -> Self {
+        self.set(index, true);
+		self
+    }
 }

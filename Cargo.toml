@@ -139,10 +139,10 @@ bevy_math = { path = "../bevy/crates/bevy_math" }
 [patch.yn]
 # pi_curves  = {path="../pi_curves"}
 # pi_animation = { path="../pi_animation"}
-# pi_style = {path = "../pi_style"}
+pi_style = {path = "../pi_style"}
 # winit = {path = "../winit"}
 # font_kit = { path = "../font_kit" }
-pi_hal = { path = "../pi_hal" }
+# pi_hal = { path = "../pi_hal" }
 wgpu = { path="../pi_wgpu", package = "pi_wgpu" }
 
 # bevy

@@ -3,7 +3,7 @@ use std::intrinsics::transmute;
 
 use bevy_ecs::{
     prelude::{Changed, Entity, EventReader, Local, Query, RemovedComponents, ResMut, World, With},
-    system::SystemState,
+    system::SystemState, event::{EventWriter, Event}, change_detection::DetectChangesMut,
 };
 use bitvec::array::BitArray;
 use pi_bevy_ecs_extend::{
@@ -41,17 +41,26 @@ use crate::{
 pub fn user_setting(
     world: &mut World,
 
-    commands: &mut SystemState<(ResMut<UserCommands>, ResMut<ClassSheet>, OrInitResMut<FragmentMap>, OrInitResMut<IsRun>)>,
+    commands: &mut SystemState<(ResMut<UserCommands>, ResMut<ClassSheet>, OrInitResMut<FragmentMap>, OrInitRes<IsRun>, EventWriter<StyleChange>)>,
 
     state: &mut SystemState<(Query<&DrawList>, Query<Entity>, EntityTreeMut, OrInitResMut<IsRun>)>,
     quad_delete: &mut SystemState<(ResMut<QuadTree>, Query<Entity, With<Viewport>>)>,
     style_query: Local<StyleQuery>,
+	mut dirty_mark: Local<bitvec::vec::BitVec<u64>>,
     mut destroy_entity_list: Local<Vec<Entity>>, // 需要销毁的实体列表作为本地变量，避免每次重新分配内存
 ) {
-    let (mut user_commands, _class_sheet, _fragments, mut r) = commands.get_mut(world);
+    let (mut user_commands, _class_sheet, _fragments, r, events) = commands.get_mut(world);
 	if r.0 {
 		return;
 	}
+
+	// 此处强制转换是安全的， 本system逻辑保证， events访问不会读写冲突， 且生命周期足够
+	let events: EventWriter<'static, StyleChange> = unsafe { transmute(events) };
+	let mut dirty_list = StyleDirtyList {
+		list: events,
+		mark: &mut *dirty_mark,
+	};
+
     // let (class_commands_len, style_commands_len, node_len) = (user_commands.class_commands.len(), user_commands.style_commands.commands.len(), user_commands.node_commands.len());
     let mut user_commands = std::mem::replace(&mut *user_commands, UserCommands::default());
     // let class_sheet = std::mem::replace(&mut *class_sheet, ClassSheet::default());
@@ -59,7 +68,7 @@ pub fn user_setting(
     // 先作用other_commands（通常是修改单例， 如动画表，css表）
     user_commands.other_commands.apply(world);
 
-    let (_user_commands, mut class_sheet, mut fragments, _) = commands.get_mut(world);
+    let (_user_commands, mut class_sheet, mut fragments, _,  _) = commands.get_mut(world);
     let fragments = std::mem::replace(&mut **fragments, FragmentMap::default());
     let class_sheet = std::mem::replace(&mut *class_sheet, ClassSheet::default());
 
@@ -274,10 +283,10 @@ pub fn user_setting(
             let node = c.entitys[i - t.start];
             if let Some(_entity) = setting.world.get_entity_mut(node) {
                 if n.style_meta.end > n.style_meta.start {
-                    set_style(node, n.style_meta.start, n.style_meta.end, &fragments.style_buffer, &mut setting, true);
+                    set_style(node, n.style_meta.start, n.style_meta.end, &fragments.style_buffer, &mut setting, true, &mut dirty_list);
                 }
                 if n.class.len() > 0 {
-                    set_class(node, &mut setting, n.class.clone(), &class_sheet);
+                    set_class(node, &mut setting, n.class.clone(), &class_sheet, &mut dirty_list);
                 }
             }
         }
@@ -285,22 +294,64 @@ pub fn user_setting(
 
 
     // 设置style只要节点存在,样式一定能设置成功
-    set_styles(&mut user_commands.style_commands, &mut setting);
+    set_styles(&mut user_commands.style_commands, &mut setting, &mut dirty_list);
     // 设置class样式
     for (node, class) in user_commands.class_commands.drain(..) {
-        set_class(node, &mut setting, class, &class_sheet);
+        set_class(node, &mut setting, class, &class_sheet, &mut dirty_list);
     }
 
-    let (mut user_commands1, mut class_sheet1, mut fragments1, _) = commands.get_mut(world);
+    let (mut user_commands1, mut class_sheet1, mut fragments1, _, _) = commands.get_mut(world);
     *user_commands1 = user_commands;
     *class_sheet1 = class_sheet;
     **fragments1 = fragments;
+
+	// 清理标记（该标记用于将本次修改样式的操作合并成一个事件）
+	dirty_list.clear_mark();
 
     // 指令需要手动apply
     state.apply(world);
 
     // log::warn!("new time=============={:?}, {}, {}, {}", std::time::Instant::now() - tt, class_commands_len, style_commands_len, node_len);
 }
+
+/// 清理StyleMark上的脏标记
+pub fn clear_dirty_mark(mut dirty_list: EventReader<StyleChange>, mut style_mark: Query<&mut StyleMark>) {
+	for entity in dirty_list.iter() {
+		if let Ok(mut r) = style_mark.get_mut(**entity) {
+			r.bypass_change_detection().dirty_style = Default::default();
+		}
+	}
+}
+
+pub struct StyleDirtyList<'s, 'w> {
+	pub list: EventWriter<'w, StyleChange>,
+	pub mark: &'s mut bitvec::vec::BitVec<u64>,
+}
+
+impl<'s, 'w> StyleDirtyList<'s, 'w> {
+	/// 标记脏
+	pub fn mark_dirty(&mut self, entity: Entity) {
+		let index = entity.index() as usize;
+		if self.mark.len() <= index {
+			let count = (index - self.mark.len()) / 64 + 1;
+			for _ in 0..count {
+				self.mark.extend(Some(0));
+			}
+		}
+
+		if !self.mark[index] {
+			self.list.send(StyleChange(entity));
+		}
+	}
+
+	/// 清理标记
+	pub fn clear_mark(&mut self) {
+		self.mark.clear();
+	}
+}
+
+#[derive(Debug, Copy, Clone, Deref, Event)]
+pub struct StyleChange(pub Entity);
 
 
 /// 处理图片纹理加载成功，为没设置Size的节点设置默认的Size组件（与图片宽高相同）
@@ -344,15 +395,15 @@ pub fn set_image_default_size(
     }
 }
 
-pub fn set_styles(style_commands: &mut StyleCommands, style_query: &mut Setting) {
+pub fn set_styles<'w, 's>(style_commands: &mut StyleCommands, style_query: &mut Setting, dirty_list: &mut StyleDirtyList<'w, 's>) {
     let (style_buffer, commands) = (&mut style_commands.style_buffer, &mut style_commands.commands);
     for (node, start, end) in commands.drain(..) {
-        set_style(node, start, end, style_buffer, style_query, false);
+        set_style(node, start, end, style_buffer, style_query, false, dirty_list);
     }
     unsafe { style_buffer.set_len(0) };
 }
 
-pub fn set_style(node: Entity, start: usize, end: usize, style_buffer: &Vec<u8>, style_query: &mut Setting, is_clone: bool) {
+pub fn set_style<'w, 's>(node: Entity, start: usize, end: usize, style_buffer: &Vec<u8>, style_query: &mut Setting, is_clone: bool, dirty_list: &mut StyleDirtyList<'w, 's>) {
     // 不存在实体，不处理
     if style_query.world.get_entity(node).is_none() {
         log::debug!("node is not exist: {:?}", node);
@@ -370,13 +421,16 @@ pub fn set_style(node: Entity, start: usize, end: usize, style_buffer: &Vec<u8>,
         local_mark,
         |style_mark: &mut StyleMark, v| {
             style_mark.local_style |= v;
+			style_mark.dirty_style |= v;
         },
     );
+
+	dirty_list.mark_dirty(node);
     // 取消样式， TODO，注意，宽高取消时，还要考虑图片宽高的重置问题
 }
 
 
-fn set_class(node: Entity, style_query: &mut Setting, class: ClassName, class_sheet: &ClassSheet) {
+fn set_class<'w, 's>(node: Entity, style_query: &mut Setting, class: ClassName, class_sheet: &ClassSheet, dirty_list: &mut StyleDirtyList<'w, 's>) {
     if style_query.world.get_entity(node).is_none() {
         log::debug!("node is not exist: {:?}", node);
         return;
@@ -423,7 +477,8 @@ fn set_class(node: Entity, style_query: &mut Setting, class: ClassName, class_sh
         style_query.style.style_mark,
         new_class_style_mark,
         |item: &mut StyleMark, v| {
-            item.class_style |= v;// ？？yiyi
+            item.class_style |= v;// ？？意义
+			item.dirty_style |= v;
         },
     );
 
@@ -437,6 +492,8 @@ fn set_class(node: Entity, style_query: &mut Setting, class: ClassName, class_sh
             *item = v;
         },
     );
+
+	dirty_list.mark_dirty(node);
 }
 
 fn delete_draw_list(id: Entity, draw_list: &Query<&DrawList>, draw_objects: &mut Vec<Entity>) {

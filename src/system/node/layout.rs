@@ -14,9 +14,9 @@ use std::{
 
 use bevy_ecs::{
 	query::Changed,
-	system::{Local, Query, Res},
+	system::{Local, Query},
 	world::Mut,
-    prelude::{DetectChanges, With, Entity, EventWriter, Ref},
+    prelude::{DetectChanges, With, Entity, EventWriter, Ref}, event::EventReader,
 };
 use pi_bevy_ecs_extend::{
     prelude::{EntityTree, Layer, OrDefault},
@@ -30,16 +30,72 @@ use pi_flex_layout::{prelude::{
 use crate::{components::{
     calc::{EntityKey, LayoutResult, NodeState},
     user::{Border, FlexContainer, FlexNormal, Margin, MinMax, Padding, Position, Show, Size, TextContent, TextStyle},
-}, system::draw_obj::calc_text::IsRun, resource::draw_obj::DirtyList};
+}, system::draw_obj::calc_text::IsRun};
 use pi_dirty::LayerDirty;
 use pi_null::Null;
 use pi_slotmap_tree::{Down, Up};
+
+use super::user_setting::StyleChange;
 
 // =LayoutKey { entity: Id(LocalVersion(4607182418800017408)), text_index: 18446744073709551615 }
 #[test]
 fn test() {
     println!("id: {:?}", LayoutKey::null());
 }
+
+// lazy_static! {
+// 	// margin标记
+// 	pub static ref LAYOUT_MARGIN_MARK: BitArray<[u32; 3]> =
+// 	style_bit().set_bit(StyleType::MarginTop as usize).set_bit(StyleType::MarginRight as usize).set_bit(StyleType::MarginBottom as usize).set_bit(StyleType::MarginLeft as usize);
+// 	// pading标记
+// 	pub static ref LAYOUT_PADDING_MARK: BitArray<[u32; 3]> =
+// 	style_bit().set_bit(StyleType::PaddingTop as usize).set_bit(StyleType::PaddingRight as usize).set_bit(StyleType::PaddingBottom as usize).set_bit(StyleType::PaddingLeft as usize);
+// 	// border标记
+// 	pub static ref LAYOUT_BORDER_MARK: BitArray<[u32; 3]> =
+// 	style_bit().set_bit(StyleType::BorderTop as usize).set_bit(StyleType::BorderRight as usize).set_bit(StyleType::BorderBottom as usize).set_bit(StyleType::BorderLeft as usize);
+// 	// border标记
+// 	pub static ref LAYOUT_POSITION_MARK: BitArray<[u32; 3]> =
+// 	style_bit().set_bit(StyleType::PositionTop as usize).set_bit(StyleType::PositionRight as usize).set_bit(StyleType::PositionBottom as usize).set_bit(StyleType::PositionLeft as usize);
+// 	// 矩形属性标记
+// 	pub static ref LAYOUT_RECT_MARK: BitArray<[u32; 3]> = style_bit().set_bit(StyleType::Width as usize).set_bit(StyleType::Height as usize) | &*LAYOUT_MARGIN_MARK;
+
+
+// 	// 矩形区域脏，绝对定位下，设自身self_dirty，相对定位下，设自身self_dirty后，还要设父child_dirty
+// 	pub static ref RECT_DIRTY: BitArray<[u32; 3]> = style_bit().set_bit(StyleType::Width as usize)
+// 	.set_bit(StyleType::Height as usize)
+// 		| &*LAYOUT_POSITION_MARK
+// 		| &*LAYOUT_MARGIN_MARK;
+
+// 	// 普通脏及子节点添加或移除， 设父child_dirty
+// 	pub static ref NORMAL_DIRTY: BitArray<[u32; 3]> = //StyleType::FlexBasis as usize 
+// 		//.set_bit(StyleType::Order as usize)
+// 		style_bit().set_bit(StyleType::FlexShrink as usize)
+// 		.set_bit(StyleType::FlexGrow as usize)
+// 		.set_bit(StyleType::AlignSelf as usize)
+// 		.set_bit(StyleType::PositionType as usize);
+
+// 	// 自身脏， 仅设自身self_dirty
+// 	pub static ref SELF_DIRTY: BitArray<[u32; 3]> = LAYOUT_PADDING_MARK.clone() 
+// 		| &*LAYOUT_BORDER_MARK;
+
+// 	// 子节点脏， 仅设自身child_dirty
+// 	pub static ref CHILD_DIRTY: BitArray<[u32; 3]> = style_bit().set_bit(StyleType::FlexDirection as usize)
+// 		.set_bit(StyleType::FlexWrap as usize)
+// 		.set_bit(StyleType::AlignItems as usize)
+// 		.set_bit(StyleType::JustifyContent as usize)
+// 		.set_bit(StyleType::AlignContent as usize);
+
+
+// 	pub static ref DIRTY2: BitArray<[u32; 3]> = style_bit()
+// 		.set_bit(StyleType::Display as usize)
+// 		.set_bit(StyleType::FlexBasis as usize)
+// 		.set_bit(StyleType::FlexDirection as usize)
+// 		.set_bit(StyleType::FlexWrap as usize)
+// 		.set_bit(StyleType::AlignItems as usize)
+// 		.set_bit(StyleType::JustifyContent as usize)
+// 		.set_bit(StyleType::AlignContent as usize) | &*RECT_DIRTY | &*NORMAL_DIRTY | &*SELF_DIRTY;
+// }
+
 pub struct CalcLayout;
 
 /// 根据布局样式，计算布局
@@ -93,7 +149,8 @@ pub fn calc_layout(
     default_style: Local<(Size, Margin, Padding, Border, Position, MinMax, FlexContainer, FlexNormal, Show)>,
     mut event_write: EventWriter<ComponentEvent<Changed<LayoutResult>>>,
 	mut r: OrInitResMut<IsRun>,
-	dirty_list: Res<DirtyList>,
+	mut dirty_list: EventReader<StyleChange>,
+	// dirty_list: Res<DirtyList>,
 ) {
 	if r.0 {
 		return;
@@ -136,7 +193,7 @@ pub fn calc_layout(
 
     // 遍历布局脏节点，重新设置脏为层次脏
     // {
-		for e in dirty_list.keys() {
+		for e in dirty_list.iter() {
 			if let Ok((
 				e,
 				(size, margin, padding, border, position, min_max, flex_container, flex_normal, show),
@@ -198,10 +255,7 @@ pub fn calc_layout(
 				if rect_dirty {
 					// let __ss = inodes.get_mut(e).map(|mut s| s.state.self_dirty_true());
 					// layer_dirty.
-					// log::warn!("set rect ===================={:?}, {:?}, {:?}, {:?}", e, layout.0.style.get(LayoutKey {
-					// 	entity: e,
-					// 	text_index: usize::null(),
-					// }), size.map_or(false, |size| size.is_changed() ), s);
+					// log::warn!("set rect ===================={:?}", e);
 
 					layout.set_rect(&mut layer_dirty, k, true, true, &style);
 				}

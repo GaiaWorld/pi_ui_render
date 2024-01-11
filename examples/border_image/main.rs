@@ -13,7 +13,7 @@ use pi_style::{
     style::{Aabb2, BorderImageSlice, ImageRepeatOption, Point2},
     style_type::{
         BorderBottomType, BorderImageRepeatType, BorderImageSliceType, BorderImageType, BorderLeftType, BorderRightType, BorderTopType, FlexWrapType,
-        HeightType, MarginLeftType, MarginTopType, PositionLeftType, PositionTopType, PositionTypeType, WidthType,
+        HeightType, MarginLeftType, MarginTopType, PositionLeftType, PositionTopType, PositionTypeType, WidthType, AsImageType,
     },
 };
 use pi_ui_render::{
@@ -53,6 +53,7 @@ impl Example for QuadExample {
         self.cmd.set_style(root, MarginLeftType(Dimension::Points(0.0)));
         self.cmd.set_style(root, MarginTopType(Dimension::Points(0.0)));
         self.cmd.set_style(root, FlexWrapType(FlexWrap::Wrap));
+		self.cmd.set_style(root, AsImageType(pi_style::style::AsImage::Force));
         self.cmd.append(root, EntityKey::null().0);
 
         // repeat 整数倍数

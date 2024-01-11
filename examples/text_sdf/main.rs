@@ -28,7 +28,7 @@ use pi_style::{
     style::{Aabb2, Point2, TextContent},
     style_type::{
         BackgroundColorType, ColorType, FontFamilyType, FontSizeType, HeightType, MarginLeftType, MarginTopType, PositionLeftType, PositionTopType,
-        PositionTypeType, TextContentType, WidthType,
+        PositionTypeType, TextContentType, WidthType, AsImageType,
     },
 };
 
@@ -73,6 +73,7 @@ impl Example for QuadExample {
         self.cmd.set_style(root, PositionTopType(Dimension::Points(0.0)));
         self.cmd.set_style(root, MarginLeftType(Dimension::Points(0.0)));
         self.cmd.set_style(root, MarginTopType(Dimension::Points(0.0)));
+		self.cmd.set_style(root, AsImageType(pi_style::style::AsImage::Force));
         self.cmd
             .set_style(root, BackgroundColorType(Color::RGBA(CgColor::new(1.0, 1.0, 1.0, 1.0))));
 

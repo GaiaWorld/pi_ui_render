@@ -16,7 +16,7 @@ use pi_null::Null;
 use pi_style::{
     style::{Aabb2, Point2,TransformFunc},
     style_type::{BackgroundImageType, HeightType, MarginLeftType, MarginTopType, OpacityType, PositionLeftType, PositionTopType,
-        PositionTypeType, TransformType, WidthType,
+        PositionTypeType, TransformType, WidthType, AsImageType,
     },
 };
 use pi_ui_render::{
@@ -65,6 +65,7 @@ impl Example for QuadExample {
         self.cmd.set_style(root, PositionTopType(Dimension::Points(0.0)));
         self.cmd.set_style(root, MarginLeftType(Dimension::Points(0.0)));
         self.cmd.set_style(root, MarginTopType(Dimension::Points(0.0)));
+		self.cmd.set_style(root, AsImageType(pi_style::style::AsImage::Force));
         self.cmd.append(root, EntityKey::null().0);
 
 

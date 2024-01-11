@@ -3,8 +3,8 @@
 use std::{collections::hash_map::Entry, hash::Hash, marker::PhantomData, num::NonZeroU32, sync::atomic::{Ordering, AtomicUsize}};
 
 use bevy_ecs::{
-    prelude::{FromWorld, World, Entity},
-    system::Resource, component::Tick,
+    prelude::{FromWorld, World},
+    system::Resource,
 };
 use ordered_float::NotNan;
 use pi_assets::{asset::Handle, mgr::AssetMgr};
@@ -28,14 +28,14 @@ use pi_render::{
     },
 };
 use pi_share::Share;
-use pi_slotmap::{DefaultKey, SlotMap, SecondaryMap};
+use pi_slotmap::{DefaultKey, SlotMap};
 use wgpu::{
     BlendState, CompareFunction, DepthBiasState, DepthStencilState, Limits, MultisampleState, PipelineLayout, Sampler, ShaderModule, StencilState,
     TextureFormat,
 };
 
 use crate::{
-    components::{draw_obj::{DrawState, PipelineMeta}, pass_2d::CacheTarget, calc::EntityKey},
+    components::{draw_obj::{DrawState, PipelineMeta}, pass_2d::CacheTarget},
     shader::{
         camera::CameraBind,
         depth::{DepthBind, DepthUniform},
@@ -776,35 +776,35 @@ pub struct UiMaterialGroup;
 #[derive(Debug, Default)]
 pub struct DynMark;
 
-#[derive(Resource, Debug, Deref)]
-pub struct DirtyList {
-	#[deref]
-	list: SecondaryMap<EntityKey, ()>,
-	pre_clear_tick: Tick, // 上次清理list的World节拍
-}
+// #[derive(Resource, Debug, Deref)]
+// pub struct DirtyList {
+// 	#[deref]
+// 	list: SecondaryMap<EntityKey, ()>,
+// 	pre_clear_tick: Tick, // 上次清理list的World节拍
+// }
 
-impl Default for DirtyList {
-    fn default() -> Self {
-        Self { 
-			list: Default::default(), 
-			pre_clear_tick: Tick::new(0),
-		}
-    }
-}
+// impl Default for DirtyList {
+//     fn default() -> Self {
+//         Self { 
+// 			list: Default::default(), 
+// 			pre_clear_tick: Tick::new(0),
+// 		}
+//     }
+// }
 
-impl DirtyList {
-	#[inline]
-	pub fn push(&mut self, entity: Entity) {
-		self.list.insert(EntityKey(entity), ());
-	}
+// impl DirtyList {
+// 	#[inline]
+// 	pub fn push(&mut self, entity: Entity) {
+// 		self.list.insert(EntityKey(entity), ());
+// 	}
 
-	#[inline]
-	pub fn clear(&mut self, tick: Tick) {
-		self.list.clear();
-		self.pre_clear_tick = tick;
+// 	#[inline]
+// 	pub fn clear(&mut self, tick: Tick) {
+// 		self.list.clear();
+// 		self.pre_clear_tick = tick;
 
-	}
-}
+// 	}
+// }
 
 /// buffer累的的binding组的分配器
 #[derive(Resource)]

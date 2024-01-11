@@ -24,7 +24,7 @@ fn main() { framework::start(QuadExample::default()) }
 use pi_style::{
     style::{Aabb2, ColorAndPosition, LinearGradientColor, MaskImage, Point2},
     style_type::{
-        BackgroundColorType, HeightType, MarginLeftType, MarginTopType, MaskImageType, PositionLeftType, PositionTopType, PositionTypeType, WidthType,
+        BackgroundColorType, HeightType, MarginLeftType, MarginTopType, MaskImageType, PositionLeftType, PositionTopType, PositionTypeType, WidthType, AsImageType,
     },
 };
 
@@ -60,6 +60,7 @@ impl Example for QuadExample {
         self.cmd.set_style(root, PositionTopType(Dimension::Points(0.0)));
         self.cmd.set_style(root, MarginLeftType(Dimension::Points(0.0)));
         self.cmd.set_style(root, MarginTopType(Dimension::Points(0.0)));
+		self.cmd.set_style(root, AsImageType(pi_style::style::AsImage::Force));
 
         self.cmd.append(root, EntityKey::null().0);
 
