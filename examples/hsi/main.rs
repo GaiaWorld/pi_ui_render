@@ -15,7 +15,7 @@ use pi_style::{
     style::{Aabb2, Hsi, Point2},
     style_type::{
         BackgroundColorType, BackgroundImageType, HeightType, HsiType, MarginLeftType, MarginTopType, PositionLeftType, PositionTopType,
-        PositionTypeType, WidthType,
+        PositionTypeType, WidthType, AsImageType,
     },
 };
 use pi_ui_render::{
@@ -53,6 +53,7 @@ impl Example for QuadExample {
         self.cmd.set_style(root, PositionTopType(Dimension::Points(0.0)));
         self.cmd.set_style(root, MarginLeftType(Dimension::Points(0.0)));
         self.cmd.set_style(root, MarginTopType(Dimension::Points(0.0)));
+		self.cmd.set_style(root, AsImageType(pi_style::style::AsImage::Force));
         self.cmd
             .set_style(root, BackgroundColorType(Color::RGBA(CgColor::new(0.0, 0.0, 0.0, 1.0))));
         self.cmd.append(root, EntityKey::null().0);

@@ -3,14 +3,14 @@ use crate::{
         calc::{ContentBox, LayoutResult, Quad},
         user::Transform,
     },
-    resource::{animation_sheet::KeyFramesSheet, ClassSheet, QuadTree, TimeInfo, UserCommands, draw_obj::DirtyList},
+    resource::{animation_sheet::KeyFramesSheet, ClassSheet, QuadTree, TimeInfo, UserCommands},
 };
-use bevy_ecs::{prelude::{IntoSystemConfigs, IntoSystemSetConfig, Changed}, system::{ResMut, SystemChangeTick}};
+use bevy_ecs::prelude::{IntoSystemConfigs, IntoSystemSetConfig, Changed};
 use bevy_app::{Plugin, Update, App};
 use pi_bevy_ecs_extend::{prelude::Layer, system_param::layer_dirty::ComponentEvent};
 use pi_bevy_render_plugin::should_run;
 
-use self::world_matrix::OldQuad;
+use self::{world_matrix::OldQuad, user_setting::{StyleChange, clear_dirty_mark}, transition::TransitionPlugin};
 
 use super::system_set::UiSystemSet;
 use super::{layout_run, matrix_run};
@@ -26,10 +26,11 @@ pub mod user_setting;
 pub mod z_index;
 // pub mod context_mask_texture;
 pub mod animation;
+pub mod transition;
 
-pub fn clear_dirty_list(mut dirty_list: ResMut<DirtyList>, system_tick: SystemChangeTick) {
-	dirty_list.clear(system_tick.this_run());
-}
+// pub fn clear_dirty_list(mut dirty_list: ResMut<DirtyList>, system_tick: SystemChangeTick) {
+// 	dirty_list.clear(system_tick.this_run());
+// }
 
 pub struct UiNodePlugin;
 
@@ -42,14 +43,14 @@ impl Plugin for UiNodePlugin {
         app.configure_set(Update, UiSystemSet::LifeDrawObject.run_if(pi_bevy_render_plugin::should_run));
 
         app.add_frame_event::<ComponentEvent<Changed<Layer>>>()
+			.add_frame_event::<StyleChange>()
             .init_resource::<UserCommands>()
             .init_resource::<ClassSheet>()
             .init_resource::<TimeInfo>()
             .init_resource::<KeyFramesSheet>()
 
-			// 维护脏列表
-			.init_resource::<DirtyList>()
-			.add_systems(Update, clear_dirty_list.run_if(should_run).after(UiSystemSet::PassCalc))
+			// // 维护脏列表
+			.add_systems(Update, clear_dirty_mark.run_if(should_run).after(UiSystemSet::PassCalc))
 			
             // 设置相关
             .add_systems(Update, user_setting::user_setting.in_set(UiSystemSet::Setting))
@@ -81,6 +82,8 @@ impl Plugin for UiNodePlugin {
             )
             // zinde、show、contex等于其他计算无关，仅仅与用户设置属性相关的system运行
             .add_systems(Update, z_index::calc_zindex.in_set(UiSystemSet::BaseCalc))
-            .add_systems(Update, show::calc_show.in_set(UiSystemSet::BaseCalc));
+            .add_systems(Update, show::calc_show.in_set(UiSystemSet::BaseCalc))
+			.add_plugins(TransitionPlugin)
+		;
     }
 }

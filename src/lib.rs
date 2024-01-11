@@ -8,6 +8,7 @@
 #![feature(fmt_internals)]
 #![feature(fmt_helpers_for_derive)]
 #![feature(print_internals)]
+#![feature(const_trait_impl)]
 
 // use pi_hash::XHashSet;
 
@@ -124,36 +125,36 @@ fn test() {
 }
 
 
-#[test]
-fn aa() {
-	use pi_async_rt::prelude::AsyncRuntime;
-	use std::sync::Arc;
-	use std::sync::atomic::AtomicU32;
-	let aa = pi_async_rt::rt::startup_global_time_loop(10);
+// #[test]
+// fn aa() {
+// 	use pi_async_rt::prelude::AsyncRuntime;
+// 	use std::sync::Arc;
+// 	use std::sync::atomic::AtomicU32;
+// 	let aa = pi_async_rt::rt::startup_global_time_loop(10);
 
-	let a = Arc::new(AtomicU32::new(0));
-	for i in 0..100 {
-		// let mut t = Vec::new();
-		// for i in 0..100 {
-		// 	let a1 = a.clone();
-		// 	let task = async move {
-		// 		// a1.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-		// 	};
-		// 	t.push(task);
-		// }
-		let time = std::time::Instant::now();
-		for i in 0..100000 {
-			// let a1 = a.clone();
-			let task = async move {
-				// a1.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-			};
-			pi_hal::runtime::MULTI_MEDIA_RUNTIME.spawn(task);
-		}
-		let time1 = std::time::Instant::now();
-		println!("time====={:?}, {:?}", a, time1 - time);
-	}
+// 	let a = Arc::new(AtomicU32::new(0));
+// 	for i in 0..100 {
+// 		// let mut t = Vec::new();
+// 		// for i in 0..100 {
+// 		// 	let a1 = a.clone();
+// 		// 	let task = async move {
+// 		// 		// a1.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+// 		// 	};
+// 		// 	t.push(task);
+// 		// }
+// 		let time = std::time::Instant::now();
+// 		for i in 0..100000 {
+// 			// let a1 = a.clone();
+// 			let task = async move {
+// 				// a1.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+// 			};
+// 			pi_hal::runtime::MULTI_MEDIA_RUNTIME.spawn(task);
+// 		}
+// 		let time1 = std::time::Instant::now();
+// 		println!("time====={:?}, {:?}", a, time1 - time);
+// 	}
 	
-}
+// }
 
 // #[test]
 // fn test1() {

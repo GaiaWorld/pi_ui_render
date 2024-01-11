@@ -11,6 +11,7 @@ use bevy_ecs::prelude::World;
 use framework::Example;
 use pi_flex_layout::style::{Dimension, PositionType};
 use pi_null::Null;
+use pi_style::style_type::AsImageType;
 use pi_style::{
     style::{Aabb2, Point2},
     style_type::{
@@ -55,6 +56,7 @@ impl Example for QuadExample {
         self.cmd.set_style(root, PositionTopType(Dimension::Points(0.0)));
         self.cmd.set_style(root, MarginLeftType(Dimension::Points(0.0)));
         self.cmd.set_style(root, MarginTopType(Dimension::Points(0.0)));
+		self.cmd.set_style(root, AsImageType(pi_style::style::AsImage::Force));
         self.cmd.append(root, EntityKey::null().0);
 
         // 添加一个玫红色div到根节点， 并添加overflow属性

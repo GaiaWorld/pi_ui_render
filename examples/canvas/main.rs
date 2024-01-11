@@ -14,7 +14,7 @@ use pi_flex_layout::style::{Dimension, PositionType};
 use pi_null::Null;
 use pi_style::{
     style::{Aabb2, Point2},
-    style_type::{BackgroundColorType, HeightType, MarginLeftType, MarginTopType, PositionLeftType, PositionTopType, PositionTypeType, WidthType},
+    style_type::{BackgroundColorType, HeightType, MarginLeftType, MarginTopType, PositionLeftType, PositionTopType, PositionTypeType, WidthType, AsImageType},
 };
 use pi_ui_render::{
     components::{
@@ -80,6 +80,7 @@ impl Example for QuadExample {
         self.cmd.set_style(root_one, PositionTopType(Dimension::Points(0.0)));
         self.cmd.set_style(root_one, MarginLeftType(Dimension::Points(0.0)));
         self.cmd.set_style(root_one, MarginTopType(Dimension::Points(0.0)));
+		self.cmd.set_style(root_one, AsImageType(pi_style::style::AsImage::Force));
         self.cmd.append(root_one, EntityKey::null().0);
 
         // 添加一个红色div到根节点
@@ -107,6 +108,7 @@ impl Example for QuadExample {
         self.cmd.set_style(root_tow, PositionTopType(Dimension::Points(0.0)));
         self.cmd.set_style(root_tow, MarginLeftType(Dimension::Points(0.0)));
         self.cmd.set_style(root_tow, MarginTopType(Dimension::Points(0.0)));
+		self.cmd.set_style(root_tow, AsImageType(pi_style::style::AsImage::Force));
         self.cmd.append(root_tow, EntityKey::null().0);
 
         // 添加一个绿色div到根节点

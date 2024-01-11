@@ -1,13 +1,13 @@
 //! 1. 处理animation组件，为节点绑定动画或解绑动画
 //! 2. 推动动画运行
 
-use std::mem::replace;
+use std::mem::{replace, transmute};
 
 use bevy_ecs::{
     prelude::{Entity, World},
     query::Changed,
     removal_detection::RemovedComponents,
-    system::{Local, Query, ResMut, SystemState},
+    system::{Local, Query, ResMut, SystemState}, event::EventWriter,
 };
 use pi_bevy_ecs_extend::system_param::res::OrInitRes;
 use pi_time::Instant;
@@ -23,7 +23,7 @@ use crate::{
     }, system::draw_obj::calc_text::IsRun,
 };
 
-use super::user_setting::set_styles;
+use super::user_setting::{set_styles, StyleChange, StyleDirtyList};
 
 /// * 记录帧推时间（暂时性的，时间应该是全局共享的，应该挪到pi_bevy_render,组委共享资源）
 /// * 为删除了Animation组件的节点，解绑动画
@@ -40,19 +40,28 @@ pub fn calc_animation(
         ResMut<KeyFramesSheet>,
         ResMut<TimeInfo>,
         ResMut<UserCommands>,
-		OrInitRes<IsRun>
+		OrInitRes<IsRun>,
+		EventWriter<StyleChange>,
     )>,
 
     user_commands: &mut SystemState<ResMut<UserCommands>>,
+	mut dirty_mark: Local<bitvec::vec::BitVec<u64>>,
 ) {
 
     let time = Instant::now();
 
-    let (animation, mut del, mut keyframes_sheet, mut time_info, mut user_commands1, r) = animation.get_mut(world);
+    let (animation, mut del, mut keyframes_sheet, mut time_info, mut user_commands1, r, events) = animation.get_mut(world);
 
 	if r.0 {
 		return;
 	}
+
+	// 此处强制转换是安全的， 本system逻辑保证， events访问不会读写冲突， 且生命周期足够
+	let events: EventWriter<'static, StyleChange> = unsafe { transmute(events) };
+	let mut dirty_list = StyleDirtyList {
+		list: events,
+		mark: &mut *dirty_mark,
+	};
 	
     *time_info = TimeInfo {
         cur_time: time,
@@ -81,7 +90,7 @@ pub fn calc_animation(
 
     let mut setting = Setting { style: &style_query, world };
     // 设置style只要节点存在,样式一定能设置成功
-    set_styles(&mut commands, &mut setting);
+    set_styles(&mut commands, &mut setting, &mut dirty_list);
 
     user_commands.get_mut(world).style_commands = commands;
 }

@@ -2,7 +2,7 @@
 use std::{any::Any, collections::VecDeque, mem::replace};
 
 use bevy_ecs::prelude::{Entity, Resource};
-use bitvec::vec::BitVec;
+use bitvec::array::BitArray;
 use log::debug;
 use ordered_float::NotNan;
 use pi_animation::{
@@ -33,6 +33,7 @@ use pi_style::{style_parse::Attribute, style_type::*};
 use smallvec::SmallVec;
 
 use crate::components::user::{serialize::StyleAttr, Animation};
+use pi_style::style::Time;
 
 use super::StyleCommands;
 
@@ -54,19 +55,22 @@ pub struct KeyFramesSheet {
     animation_attr_types: CurveMgr, // Vec<TypeAnimationContext<T>>,
 
     static_key_frames_map: XHashMap<(usize, Atom), KeyFrames>, // 永不释放的帧动画列表
-	key_frames_attr_map: XHashMap<(usize, Atom), XHashMap<NotNan<f32>, VecDeque<Attribute>>>, // 用于缓存帧动画的元数据（未变成曲线之前），方便高层能取到帧动画值
-    key_frames_map: XHashMap<(usize, Atom), KeyFrames>,       // 帧动画列表, key为（作用域hash，动画名称）
+	key_frames_attr_map: XHashMap<(usize, Atom),  XHashMap<NotNan<f32>, VecDeque<Attribute>>>, // 用于缓存帧动画的元数据（未变成曲线之前），方便高层能取到帧动画值
+    key_frames_map: XHashMap<(usize, Atom), KeyFrameAttr>,       // 帧动画列表, key为（作用域hash，动画名称）
     // curve_infos: FrameCurveInfoManager,
-    type_use_mark: BitVec, // 标记被使用的TypeAnimationContext，加速run（只有被使用到的TypeAnimationContext才会被嗲用run方法）
+    type_use_mark: BitArray<[u32;3]>, // 标记被使用的TypeAnimationContext，加速run（只有被使用到的TypeAnimationContext才会被调用run方法）
 
     runtime_info_map: RuntimeInfoMap<ObjKey>,
     animation_context_amount: AnimationContextAmount<ObjKey, AnimationGroupManagerDefault<ObjKey>>,
 
     animation_bind: SecondaryMap<ObjKey, SmallVec<[AnimationGroupID; 1]>>, // 描述节点上绑定了什么动画
-    group_bind: SecondaryMap<AnimationGroupID, (ObjKey, (usize, Atom))>,   // 描述group对应的节点， 以及group的名称
+
+	transition_bind: SecondaryMap<ObjKey, SmallVec<[(AnimationGroupID, usize/*property*/); 1]>>, // 描述节点上绑定了什么transition
+
+    group_bind: SecondaryMap<AnimationGroupID, (ObjKey, GroupType)>,   // 描述group对应的节点， 以及group的名称
 
     temp_keyframes_ptr: VecMap<Share<dyn Any + Send + Sync>>, // 临时帧动画指针（添加帧动画时用到）
-    temp_keyframes_mark: BitVec,                              // 临时帧动画标记，表示哪些属性存在曲线（加帧动画时用到）
+    temp_keyframes_mark: BitArray<[u32;3]>,                              // 临时帧动画标记，表示哪些属性存在曲线（加帧动画时用到）
 
     // animation_events: Vec<(AnimationGroupID, EAnimationEvent, u32)>,
     // animation_events_callback: Option<Share<dyn Fn(&Vec<(AnimationGroupID, EAnimationEvent, u32)>, &SecondaryMap<AnimationGroupID, (ObjKey, Atom)>)>>, // 动画事件回调函数
@@ -76,6 +80,18 @@ pub struct KeyFramesSheet {
     // run_count: usize,
 }
 
+#[derive(Clone)]
+pub struct KeyFrameAttr {
+	pub data: Vec<(Share<dyn Any + Send + Sync>, usize)>,
+	pub property_mark: BitArray<[u32;3]>,
+}
+
+#[derive(Debug, Clone)]
+pub enum GroupType{
+	Animation((usize, Atom)),
+	Transition(usize),
+}
+
 unsafe impl Send for KeyFramesSheet {}
 unsafe impl Sync for KeyFramesSheet {}
 
@@ -83,7 +99,6 @@ impl Default for KeyFramesSheet {
     fn default() -> Self {
         let mut b = RuntimeInfoMap::<ObjKey>::default();
         let animation_attr_types = vec![
-            AnimationType::new::<PaddingTopType>(&mut b),          // 占位0
             AnimationType::new::<BackgroundRepeatType>(&mut b),    // 占位1
             AnimationType::new::<FontStyleType>(&mut b),           // 2
             AnimationType::new::<FontWeightType>(&mut b),          // 3
@@ -161,42 +176,47 @@ impl Default for KeyFramesSheet {
             AnimationType::new::<OpacityType>(&mut b),             // 75
             AnimationType::new::<TextContentType>(&mut b),         // 76
             AnimationType::new::<VNodeType>(&mut b),               // 77
-            AnimationType::new::<TransformFuncType>(&mut b),       // 78
-            AnimationType::new::<TransformFuncType>(&mut b),       // 占位79
-            AnimationType::new::<TransformFuncType>(&mut b),       // 占位80
-            AnimationType::new::<TransformFuncType>(&mut b),       //  占位81
-            AnimationType::new::<TransformFuncType>(&mut b),       // 占位82
-            AnimationType::new::<TransformFuncType>(&mut b),       // 占位83
-            AnimationType::new::<TransformFuncType>(&mut b),       //  占位84
-            AnimationType::new::<TransformFuncType>(&mut b),       // 占位85
-            AnimationType::new::<TransformFuncType>(&mut b),       //  占位 86
+            AnimationType::new::<EmptyType>(&mut b),       // 78
+            AnimationType::new::<EmptyType>(&mut b),       // 占位79
+            AnimationType::new::<EmptyType>(&mut b),       // 占位80
+            AnimationType::new::<EmptyType>(&mut b),       //  占位81
+            AnimationType::new::<EmptyType>(&mut b),       // 占位82
+            AnimationType::new::<EmptyType>(&mut b),       // 占位83
+            AnimationType::new::<EmptyType>(&mut b),       //  占位84
+            AnimationType::new::<EmptyType>(&mut b),       // 占位85
+            AnimationType::new::<EmptyType>(&mut b),       //  占位 86
             AnimationType::new::<ClipPathType>(&mut b),            // 87
             AnimationType::new::<TranslateType>(&mut b),           // 88
             AnimationType::new::<ScaleType>(&mut b),               // 89
             AnimationType::new::<RotateType>(&mut b),              // 90
         ];
-        let mut temp_keyframes_mark = BitVec::with_capacity(animation_attr_types.len());
-        unsafe { temp_keyframes_mark.set_len(animation_attr_types.len()) };
-        temp_keyframes_mark.fill(false);
         Self {
             animation_attr_types: CurveMgr { list: animation_attr_types },
             static_key_frames_map: Default::default(),
             key_frames_map: Default::default(),
 			key_frames_attr_map: Default::default(),
             animation_bind: SecondaryMap::with_capacity(0),
+			transition_bind: SecondaryMap::with_capacity(0),
             group_bind: SecondaryMap::with_capacity(0),
             animation_context_amount: AnimationContextAmount::default(AnimationGroupManagerDefault::default()),
             // curve_infos: c,
-            type_use_mark: temp_keyframes_mark.clone(),
+            type_use_mark: BitArray::default(),
             runtime_info_map: b,
             temp_keyframes_ptr: Default::default(),
-            temp_keyframes_mark: temp_keyframes_mark,
+            temp_keyframes_mark: BitArray::default(),
             temp_keyframnames: XHashMap::default(),
             // run_count: 0,
             temp_errs: Vec::default(),
             // animation_events:  Vec::new(),
         }
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct TransitionData {
+	pub start: Option<Attribute>,
+	pub end: Option<Attribute>,
+	pub property: usize,
 }
 
 
@@ -242,7 +262,7 @@ impl KeyFramesSheet {
         // self.animation_context_amount.log_groups();
     }
 
-    pub fn get_group_bind(&self) -> &SecondaryMap<AnimationGroupID, (ObjKey, (usize, Atom))> { &self.group_bind }
+    pub fn get_group_bind(&self) -> &SecondaryMap<AnimationGroupID, (ObjKey, GroupType)> { &self.group_bind }
 
     /// 设置事件监听回调
     // pub fn set_event_listener(
@@ -269,6 +289,100 @@ impl KeyFramesSheet {
 		Some(key_frame)
 	} 
 
+	/// 绑定transition
+	pub fn bind_trasition(
+		&mut self, 
+		target: ObjKey, 
+		property: usize, 
+		duration: Time, 
+		delay: Time, 
+		timing_function: &AnimationTimingFunction,
+		data: &TransitionData
+	) -> Result<(), Vec<KeyFrameError>> {
+        log::debug!("bind_trasition=====target={:?}, property={:?}, duration={:?}, delay={:?}, timing_function={:?}, data={:?}", target, property, duration, delay, timing_function, data);
+
+		// 如果当前运行动画正在支配该属性， 则不需要添加对该属性的transition
+		if let Some(animation_bind) = self.animation_bind.get(target) {
+			for i in animation_bind.iter() {
+				if let GroupType::Animation(name) = &self.group_bind[*i].1 {
+					if let Some(animation) = self.key_frames_map.get(name) {
+						if animation.property_mark.get(property).as_deref() == Some(&true) && 
+							self.animation_context_amount.group_infos[*i].is_playing
+						 {
+							return Ok(())
+						}
+					}
+				}
+			}
+		}
+
+		// 移除当前属性的旧的transition
+		if let Some(r) = self.transition_bind.get_mut(target) {
+			for i in 0..r.len() {
+				if r[i].1 == property {
+					r.swap_remove(i);
+					break;
+				}
+			}
+		} else {
+			self.transition_bind.insert(target, SmallVec::default());
+		}
+
+        // 创建新的属性曲线
+        if let (Some(start), Some(end)) = (&data.start, &data.end) {
+			self.add_progress(0.0, start);
+			self.add_progress(1.0, end);
+		} else {
+			return Ok(());
+		}
+        
+		let curve = self.temp_keyframes_ptr.remove(property).unwrap();
+        self.temp_keyframes_mark.fill(false);
+
+		let group0 = self.animation_context_amount.create_animation_group();
+		let ctx = &mut self.animation_attr_types.list[property];
+			// 向动画组添加 动画
+			(ctx.add_target_animation)(
+				&mut self.animation_context_amount,
+				&mut ctx.context,
+				curve.clone(),
+				group0,
+				target,
+			)
+			.unwrap();
+		self.type_use_mark.set(property, true);
+
+		self.group_bind.insert(group0, (target, GroupType::Transition(property)));
+
+		let duration = *duration as f32 / 1000.0;
+		let delay = *delay as f32 / 1000.0;
+		let _ = self.animation_context_amount
+			.force_group_total_frames(group0, Some(FRAME_COUNT), FRAME_COUNT as FramePerSecond);
+		self.animation_context_amount
+			.start_complete(
+				group0,
+				duration,
+				ELoopMode::Positive(Some(1)),
+				120,
+				match timing_function {
+					AnimationTimingFunction::Linear => AnimationAmountCalc::from_easing(EEasingMode::None),
+					AnimationTimingFunction::Ease(r) => AnimationAmountCalc::from_easing(*r),
+					AnimationTimingFunction::Step(step, mode) => AnimationAmountCalc::from_steps(*step as u16, *mode),
+					AnimationTimingFunction::CubicBezier(x1, y1, x2, y2) => AnimationAmountCalc::from_cubic_bezier(*x1, *y1, *x2, *y2),
+				},
+				delay,
+				EFillMode::FORWARDS,
+			)
+			.unwrap();
+		
+        self.transition_bind[target].push((group0, property));
+
+        if self.temp_errs.len() > 0 {
+            return Err(replace(&mut self.temp_errs, Vec::default()));
+        }
+		Ok(())
+    }
+
     // 将动画绑定到目标上（目标即节点的实体id）
     pub fn bind_static_animation(&mut self, target: ObjKey, animation: &Animation) -> Result<(), Vec<KeyFrameError>> {
         log::debug!("bind_static_animation====={:?}, {:?}", target, animation);
@@ -277,6 +391,8 @@ impl KeyFramesSheet {
         // 再绑定新的动画
         self.bind_animation(target, animation)
     }
+
+	
 
     /// 绑定运行时动画
     /// 运行时动画不会放入static_key_frames_map中，当其不在被引用时， 会被销毁
@@ -302,7 +418,7 @@ impl KeyFramesSheet {
                 names.push((
                     animation.name.scope_hash,
                     name.clone(),
-                    self.key_frames_map.get(&(animation.name.scope_hash, name.clone())).unwrap().clone(),
+                    KeyFrames(self.key_frames_map.get(&(animation.name.scope_hash, name.clone())).unwrap().data.clone()),
                 ));
             }
         }
@@ -347,6 +463,33 @@ impl KeyFramesSheet {
         }
     }
 
+	// 解绑定过度动画
+    pub fn unbind_transition_all(&mut self, target: ObjKey) {
+        if let Some(r) = self.transition_bind.remove(target) {
+			log::debug!("unbind_transition, target:{:?}", target);
+			for i in r.into_iter() {
+				self.animation_context_amount.remove_animation_group(i.0, &mut self.animation_attr_types);
+			}
+        }
+    }
+
+	// 解绑定过度动画中的单个属性
+    pub fn unbind_transition_single(&mut self, property: usize, target: ObjKey) {
+		// 移除当前属性的旧的transition
+		if let Some(r) = self.transition_bind.get_mut(target) {
+			for i in 0..r.len() {
+				if r[i].1 == property {
+					log::debug!("unbind_transition_single, target:{:?}, property: {:?}", target, property);
+					let i = r.swap_remove(i);
+					self.animation_context_amount.remove_animation_group(i.0, &mut self.animation_attr_types);
+					break;
+				}
+			}
+		}
+    }
+
+	
+
     // 移除运行时帧数据
     pub fn remove_runtime_keyframs(&mut self, target: ObjKey) {
         // 移除运行时动画帧数据
@@ -356,10 +499,10 @@ impl KeyFramesSheet {
                     let _i = key.2;
                 }; // 在此处销毁KeyFrames
                 if let Some(key_frame) = self.key_frames_map.get(&(key.0, key.1.clone())) {
-                    if key_frame.0.len() == 0 {
+                    if key_frame.data.len() == 0 {
                         return;
                     }
-                    if Share::strong_count(&key_frame.0[0].0) == 1 {
+                    if Share::strong_count(&key_frame.data[0].0) == 1 {
                         self.key_frames_map.remove(&(key.0, key.1));
                     }
                 }
@@ -375,16 +518,18 @@ impl KeyFramesSheet {
             while i < r.len() {
                 let single_animation = r[i];
                 if let Some(group_bind) = self.group_bind.get(single_animation) {
-                    if group_bind.1 .0 == scope_hash && group_bind.1 .1 == name {
-                        Self::remove_animation(
-                            &mut self.animation_context_amount,
-                            &mut self.group_bind,
-                            &mut self.animation_attr_types,
-                            single_animation,
-                        );
-                        r.swap_remove(i);
-                        continue;
-                    }
+					if let GroupType::Animation(group_bind) = &group_bind.1 {
+						if group_bind.0 == scope_hash && group_bind.1 == name {
+							Self::remove_animation(
+								&mut self.animation_context_amount,
+								&mut self.group_bind,
+								&mut self.animation_attr_types,
+								single_animation,
+							);
+							r.swap_remove(i);
+							continue;
+						}
+					}
                 }
                 i += 1;
             }
@@ -397,17 +542,19 @@ impl KeyFramesSheet {
         self.add_keyframes(scope_hash, name.clone(), &value);
 		self.key_frames_attr_map.insert((scope_hash, name.clone()), value);
         self.static_key_frames_map
-            .insert((scope_hash, name.clone()), self.key_frames_map.get(&(scope_hash, name)).unwrap().clone());
+            .insert((scope_hash, name.clone()), KeyFrames(self.key_frames_map.get(&(scope_hash, name)).unwrap().data.clone()));
     }
-
-    // 添加一个帧动画
-    pub fn add_keyframes(&mut self, scope_hash: usize, name: Atom, value: &XHashMap<NotNan<f32>, VecDeque<Attribute>>) {
-        debug!("add_keyframes, name: {:?}, scope_hash: {:?}", name, scope_hash);
-        fn add_progress<T: Attr + FrameDataValue>(
+	fn add_progress(
+		&mut self,
+		progress: f32,
+		attr: &Attribute,
+	) {
+		let progress = (progress * FRAME_COUNT).round() as u16;
+		fn add_progress<T: Attr + FrameDataValue>(
             progress: u16,
             value: &T,
             temp_keyframes_ptr: &mut VecMap<Share<dyn Any + Send + Sync>>,
-            temp_keyframes_mark: &mut BitVec,
+            temp_keyframes_mark: &mut BitArray<[u32;3]>,
         ) {
             let index = T::get_style_index() as usize;
             let ptr = match temp_keyframes_ptr.get_mut(index) {
@@ -422,119 +569,128 @@ impl KeyFramesSheet {
             unsafe { &mut *(Share::as_ptr(&f) as usize as *mut FrameCurve<T>) }.curve_frame_values_frame(progress, value.clone());
         }
 
-        for (progress, attrs) in value.iter() {
-            let progress = (progress * FRAME_COUNT).round() as u16;
-            for attr in attrs.into_iter() {
-                match attr {
-                    Attribute::BackgroundRepeat(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::FontStyle(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::FontWeight(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::FontSize(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::FontFamily(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::LetterSpacing(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::WordSpacing(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::LineHeight(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::TextIndent(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::WhiteSpace(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::TextAlign(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::VerticalAlign(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::Color(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::TextStroke(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::TextShadow(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::BackgroundImage(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::BackgroundImageClip(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::ObjectFit(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::BackgroundColor(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::BoxShadow(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::BorderImage(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::BorderImageClip(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::BorderImageSlice(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::BorderImageRepeat(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::BorderColor(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::Hsi(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::Blur(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::MaskImage(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::MaskImageClip(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::Transform(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::TransformOrigin(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::TransformWillChange(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::BorderRadius(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::ZIndex(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::Overflow(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::BlendMode(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::Display(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::Visibility(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::Enable(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::Width(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::Height(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::MarginTop(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::MarginRight(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::MarginBottom(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::MarginLeft(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::PaddingTop(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::PaddingRight(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::PaddingBottom(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::PaddingLeft(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::BorderTop(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::BorderRight(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::BorderBottom(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::BorderLeft(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::PositionTop(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::PositionRight(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::PositionBottom(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::PositionLeft(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::MinWidth(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::MinHeight(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::MaxHeight(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::MaxWidth(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::Direction(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::FlexDirection(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::FlexWrap(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::JustifyContent(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::AlignContent(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::AlignItems(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::PositionType(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::AlignSelf(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::FlexShrink(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::FlexGrow(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::AspectRatio(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::Order(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::FlexBasis(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::Opacity(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::TextContent(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::VNode(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::TransformFunc(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::Translate(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::Scale(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::Rotate(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
-                    Attribute::ClipPath(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+		match attr {
+			Attribute::BackgroundRepeat(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::FontStyle(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::FontWeight(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::FontSize(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::FontFamily(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::LetterSpacing(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::WordSpacing(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::LineHeight(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::TextIndent(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::WhiteSpace(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::TextAlign(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::VerticalAlign(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::Color(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::TextStroke(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::TextShadow(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::BackgroundImage(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::BackgroundImageClip(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::ObjectFit(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::BackgroundColor(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::BoxShadow(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::BorderImage(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::BorderImageClip(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::BorderImageSlice(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::BorderImageRepeat(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::BorderColor(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::Hsi(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::Blur(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::MaskImage(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::MaskImageClip(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::Transform(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::TransformOrigin(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::TransformWillChange(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::BorderRadius(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::ZIndex(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::Overflow(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::BlendMode(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::Display(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::Visibility(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::Enable(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::Width(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::Height(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::MarginTop(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::MarginRight(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::MarginBottom(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::MarginLeft(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::PaddingTop(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::PaddingRight(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::PaddingBottom(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::PaddingLeft(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::BorderTop(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::BorderRight(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::BorderBottom(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::BorderLeft(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::PositionTop(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::PositionRight(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::PositionBottom(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::PositionLeft(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::MinWidth(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::MinHeight(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::MaxHeight(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::MaxWidth(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::Direction(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::FlexDirection(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::FlexWrap(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::JustifyContent(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::AlignContent(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::AlignItems(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::PositionType(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::AlignSelf(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::FlexShrink(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::FlexGrow(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::AspectRatio(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::Order(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::FlexBasis(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::Opacity(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::TextContent(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::VNode(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::Translate(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::Scale(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::Rotate(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
+			Attribute::ClipPath(r) => add_progress(progress, r, &mut self.temp_keyframes_ptr, &mut self.temp_keyframes_mark),
 
-                    Attribute::AnimationName(_) => (),
-                    Attribute::AnimationDuration(_) => (),
-                    Attribute::AnimationTimingFunction(_) => (),
-                    Attribute::AnimationDelay(_) => (),
-                    Attribute::AnimationIterationCount(_) => (),
-                    Attribute::AnimationDirection(_) => (),
-                    Attribute::AnimationFillMode(_) => (),
-                    Attribute::AnimationPlayState(_) => (),
-                    Attribute::AsImage(_) => (),
-                    Attribute::TextOverflow(_) => (),
-                    Attribute::OverflowWrap(_) => (),
-                }
+			Attribute::AnimationName(_) => (),
+			Attribute::AnimationDuration(_) => (),
+			Attribute::AnimationTimingFunction(_) => (),
+			Attribute::AnimationDelay(_) => (),
+			Attribute::AnimationIterationCount(_) => (),
+			Attribute::AnimationDirection(_) => (),
+			Attribute::AnimationFillMode(_) => (),
+			Attribute::AnimationPlayState(_) => (),
+			Attribute::AsImage(_) => (),
+			Attribute::TextOverflow(_) => (),
+			Attribute::OverflowWrap(_) => (),
+			Attribute::TransitionProperty(_) => (),
+			Attribute::TransitionDuration(_) => (),
+			Attribute::TransitionTimingFunction(_) => (),
+			Attribute::TransitionDelay(_) => (),
+		}
+
+	}
+
+    // 添加一个帧动画
+    pub fn add_keyframes(&mut self, scope_hash: usize, name: Atom, value: &XHashMap<NotNan<f32>, VecDeque<Attribute>>) {
+        debug!("add_keyframes, name: {:?}, scope_hash: {:?}", name, scope_hash);
+        for (progress, attrs) in value.iter() {
+            for attr in attrs.into_iter() {
+                self.add_progress(**progress, attr);
             }
         }
 
-        let mut key_frame = KeyFrames(Vec::new());
+        let mut key_frame = Vec::new();
         for i in self.temp_keyframes_mark.iter_ones() {
             let curve = self.temp_keyframes_ptr.remove(i).unwrap();
             // let curve_id = (ctx.create_animation)(&mut ctx.context, &mut self.curve_infos, curve);
             // let attr_animation_id = (ctx.create_animation)(&mut ctx.context, curve);
-            key_frame.0.push((curve, i));
+            key_frame.push((curve, i));
         }
-        self.temp_keyframes_mark.fill(false);
+        let mark = std::mem::take(&mut self.temp_keyframes_mark);
 
         // 记录KeyFrames
-        self.key_frames_map.insert((scope_hash, name.clone()), key_frame);
+        self.key_frames_map.insert((scope_hash, name.clone()), KeyFrameAttr { data: key_frame, property_mark: mark });
     }
 
     // 将动画绑定到目标上（目标即节点的实体id）
@@ -563,7 +719,7 @@ impl KeyFramesSheet {
             debug!("bind_animation, target: {:?}, animation: {:?}", target, animation);
             let group0 = self.animation_context_amount.create_animation_group();
             groups.push(group0);
-            for (attr_animation, curve_id) in curves.0.iter() {
+            for (attr_animation, curve_id) in curves.data.iter() {
                 let ctx = &mut self.animation_attr_types.list[*curve_id];
                 // 向动画组添加 动画
                 (ctx.add_target_animation)(
@@ -576,7 +732,7 @@ impl KeyFramesSheet {
                 .unwrap();
                 self.type_use_mark.set(*curve_id, true);
             }
-            self.group_bind.insert(group0, (target, name.clone()));
+            self.group_bind.insert(group0, (target, GroupType::Animation(name.clone())));
 
             // 启动动画组
             debug!(
@@ -642,7 +798,7 @@ impl KeyFramesSheet {
     // 移除动画
     fn remove_animation(
         animation_context_amount: &mut AnimationContextAmount<ObjKey, AnimationGroupManagerDefault<ObjKey>>,
-        group_bind: &mut SecondaryMap<AnimationGroupID, (ObjKey, (usize, Atom))>,
+        group_bind: &mut SecondaryMap<AnimationGroupID, (ObjKey, GroupType)>,
         animation_attr_types: &mut CurveMgr,
         single_animation: DefaultKey,
     ) {
@@ -683,6 +839,7 @@ impl Default for ObjKey {
 
 #[derive(Clone)]
 pub struct KeyFrames(Vec<(Share<dyn Any + Send + Sync>, usize)>); // Vec<(动画曲线， 曲线类型)>
+
 
 pub struct CurveId {
     pub ty: usize,

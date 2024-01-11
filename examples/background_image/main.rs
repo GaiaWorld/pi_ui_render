@@ -19,7 +19,7 @@ use pi_style::{
     style::{Aabb2, BorderRadius, CgColor, ImageRepeat, ImageRepeatOption, NotNanRect, Point2},
     style_type::{
         BackgroundImageClipType, BackgroundImageType, BackgroundRepeatType, BorderRadiusType, FlexWrapType, HeightType, MarginLeftType,
-        MarginTopType, PositionLeftType, PositionTopType, PositionTypeType, WidthType,
+        MarginTopType, PositionLeftType, PositionTopType, PositionTypeType, WidthType, AsImageType,
     },
 };
 use pi_ui_render::{
@@ -64,6 +64,7 @@ impl Example for QuadExample {
         self.cmd.set_style(root, MarginLeftType(Dimension::Points(0.0)));
         self.cmd.set_style(root, MarginTopType(Dimension::Points(0.0)));
         self.cmd.set_style(root, FlexWrapType(FlexWrap::Wrap));
+		self.cmd.set_style(root, AsImageType(pi_style::style::AsImage::Force));
         self.cmd.append(root, EntityKey::null().0);
 
         let div1 = world.spawn(NodeBundle::default()).id();
