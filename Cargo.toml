@@ -158,13 +158,30 @@ wgpu = { path="../pi_wgpu", package = "pi_wgpu" }
 # pi_bevy_post_process = { path = "../pi_bevy/crates/post_process" }
 # pi_bevy_window = { path = "../pi_bevy/crates/window" }
 
+pi_bevy_ecs_extend = { path = "../pi_bevy_new_graphic/crates/ecs_extend" }
+pi_bevy_render_plugin = { path = "../pi_bevy_new_graphic/crates/render" }
+pi_bevy_asset = { path = "../pi_bevy_new_graphic/crates/asset" }
+pi_bevy_winit_window = { path = "../pi_bevy_new_graphic/crates/winit_window" }
+pi_bevy_log = { path = "../pi_bevy_new_graphic/crates/log" }
+pi_bevy_ecs_macro = { path = "../pi_bevy_new_graphic/crates/ecs_extend/macro" }
+pi_bevy_post_process = { path = "../pi_bevy_new_graphic/crates/post_process" }
+pi_bevy_window = { path = "../pi_bevy_new_graphic/crates/window" }
+
 # pi_render
-pi_render = { path = "../pi_render" }
-render_core = {path = "../pi_render/crates/render_core"}
-render_derive = {path = "../pi_render/crates/render_derive"}
-render_compile = {path = "../pi_render/crates/render_compile"}
+# pi_render = { path = "../pi_render" }
+# render_core = {path = "../pi_render/crates/render_core"}
+# render_derive = {path = "../pi_render/crates/render_derive"}
+# render_compile = {path = "../pi_render/crates/render_compile"}
+
+pi_render = { path = "../pi_render_new_graphic" }
+render_core = {path = "../pi_render_new_graphic/crates/render_core"}
+render_derive = {path = "../pi_render_new_graphic/crates/render_derive"}
+render_compile = {path = "../pi_render_new_graphic/crates/render_compile"}
 
 # pi_postprocess = { path = "../pi_post_process"}
+
+pi_postprocess = { path = "../pi_post_process"}
+
 # pi_graph = {path = "../pi_graph"}
 
 # pi_slotmap = { path = "../pi_slotmap" }
@@ -191,7 +208,6 @@ wgpu = { version = "0.1", registry = "yn", package = "pi_wgpu" }
 # pi_ui_render = { path = "./", features = ["trace"] }
 pi_ui_render = { path = "./", features = ["debug", "single_thread"] }
 # bevy_ecs = {version = "0.11",  features = ["multi-threaded"]}
-bevy_ecs = "0.11"
 
 pi_bevy_winit_window = { version = "0.1", registry = "yn" }
 wasm-bindgen-test = "0.3"

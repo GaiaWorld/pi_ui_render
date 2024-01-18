@@ -17,6 +17,7 @@ use pi_bevy_render_plugin::node::{Node, ParamUsage};
 use pi_bevy_render_plugin::{PiRenderDevice, PiRenderGraph, PiRenderQueue, PiSafeAtlasAllocator, RenderContext, SimpleInOut};
 use pi_futures::BoxFuture;
 use pi_null::Null;
+use pi_postprocess::image_effect::PostProcessDraw;
 use pi_postprocess::prelude::{BlurGauss, PostprocessTexture};
 use pi_render::components::view::target_alloc::ShareTargetView;
 use pi_render::font::Font;
@@ -294,9 +295,6 @@ pub fn calc_text_shadow(
 
     font_sheet: ResMut<ShareFontSheet>,
     empty_vert_buffer: Res<EmptyVertexBuffer>,
-    mut post_resource: ResMut<PostprocessResource>,
-    device: Res<PiRenderDevice>,
-    queue: Res<PiRenderQueue>,
 	r: OrInitRes<IsRun>,
 ) {
 	if r.0 {
@@ -378,7 +376,6 @@ pub fn calc_text_shadow(
                 post_process.blur_gauss = Some(BlurGauss {
                     radius: text_shadow[shadow_mark.0].blur * node_state.0.scale,
                 });
-                post_process.calc(16, &device, &queue, &mut post_resource.resources);
             }
 
 			// if font_sheet.font_mgr().use_sdf() && (text_shadow.is_changed() || world_matrix.is_changed()) {
@@ -428,7 +425,7 @@ pub fn calc_graph_depend(
             if draw_id.ty == **render_type {
                 if let Ok(mut g) = shadow_draw_query.get_mut(draw_id.id) {
                     if g.is_null() {
-                        **g = match rg.add_node(format!("TextShadow_{:?}", draw_id.id), TextShadowNode(draw_id.id)) {
+                        **g = match rg.add_node(format!("TextShadow_{:?}", draw_id.id), TextShadowNode{id: draw_id.id, post_process: None, rt: None }, GraphNodeId::default()) {
                             Ok(r) => r,
                             Err(e) => {
                                 log::error!("node: {:?}, {:?}", format!("TextShadow_{:?}", draw_id.id), e);
@@ -445,42 +442,122 @@ pub fn calc_graph_depend(
     }
 }
 
+#[derive(SystemParam)]
+pub struct BuildParam<'w, 's> {
+	atlas_allocator: Res<'w, PiSafeAtlasAllocator>,
+	device: Res<'w, PiRenderDevice>,
+	queue: Res<'w, PiRenderQueue>,
+	post_process_query:  Query<'w, 's,( &'static mut PostProcess, &'static NodeId,)>,
+	camera_query: Query<'w, 's, (&'static Camera, &'static Layer)>,
+	query_root: Query<'w, 's, &'static DynTargetType>,
+	post_resource: Res<'w, PostprocessResource>,
+    pipline_assets: Res<'w, ShareAssetMgr<RenderRes<RenderPipeline>>>,
+}
 
 #[derive(SystemParam)]
 pub struct QueryParam<'w, 's> {
-    query_post_info: Query<'w, 's, &'static Camera>,
+    camera_query: Query<'w, 's, &'static Camera>,
     draw_query: Query<
         'w,
         's,
         (
-            &'static DrawState,
-            &'static NodeId,
-            &'static PostProcess,
-            &'static TextShadowColorBindGroup,
-        ),
+			&'static DrawState,
+			&'static NodeId,
+			&'static TextShadowColorBindGroup,
+			&'static PostProcess,
+		)
     >,
-    atlas_allocator: Res<'w, PiSafeAtlasAllocator>,
     clear_draw: Res<'w, ClearDrawObj>,
-    query_root: Query<'w, 's, &'static DynTargetType>,
-    query_layer: Query<'w, 's, &'static Layer>,
-    post_resource: Res<'w, PostprocessResource>,
-    pipline_assets: Res<'w, ShareAssetMgr<RenderRes<RenderPipeline>>>,
     depth_cache: OrInitRes<'w, DepthCache>,
 }
 
 /// 渲染图节点， 用于将文字做模糊处理（draw_front）
-pub struct TextShadowNode(Entity);
+pub struct TextShadowNode {
+	id: Entity,
+	post_process: Option<Vec<PostProcessDraw>>,
+	rt: Option<ShareTargetView>,
+}
 
 impl Node for TextShadowNode {
     type Input = ();
     type Output = SimpleInOut;
 
-    type Param = QueryParam<'static, 'static>;
+    type RunParam = QueryParam<'static, 'static>;
+	type BuildParam = BuildParam<'static, 'static>;
+	fn build<'a>(
+		&'a mut self,
+		world: &'a mut bevy_ecs::world::World,
+		query_param_state: &'a mut bevy_ecs::system::SystemState<Self::BuildParam>,
+		_context: pi_bevy_render_plugin::RenderContext,
+		_input: &'a Self::Input,
+		_usage: &'a pi_bevy_render_plugin::node::ParamUsage,
+		_id: GraphNodeId,
+		_from: &'a [GraphNodeId],
+		_to: &'a [GraphNodeId],
+	) -> Result<Self::Output, String> {
+		let mut param = query_param_state.get_mut(world);
+		let draw_id = self.id;
+		if let Ok((mut post_process, node_id)) = param.post_process_query.get_mut(draw_id) {
+			if let Ok((camera, layer)) = param.camera_query.get(***node_id) {
+				if camera.is_active {
+					if layer.layer() <= 0 {
+						return Ok(SimpleInOut::default());
+					};
+
+					let t_type = param.query_root.get(layer.root()).unwrap();
+
+					let e: [ShareTargetView; 0] = [];
+					let rt = param.atlas_allocator.allocate_not_hold(
+						(camera.view_port.maxs.x - camera.view_port.mins.x).ceil() as u32,
+						(camera.view_port.maxs.y - camera.view_port.mins.y).ceil() as u32,
+						t_type.has_depth,
+						e.iter(),
+					);
+					
+
+					let rect = rt.rect().clone();
+                    let (w, h) = ((rect.max.x - rect.min.x) as u32, (rect.max.y - rect.min.y) as u32);
+
+					match post_process.calc(
+						16, 
+						&param.device, 
+						&param.queue, 
+						PostprocessTexture::from_share_target(rt.clone(), wgpu::TextureFormat::pi_render_default()),
+						(w, h),
+						&param.atlas_allocator,
+						&param.post_resource.resources,
+						&param.pipline_assets,
+						t_type.no_depth,
+						wgpu::TextureFormat::pi_render_default(),
+					) {
+						Ok(r) => {
+							if let ETextureViewUsage::SRT(target) = &r.1.view {
+								self.rt = Some(rt);
+								self.post_process = Some(r.0);
+								return Ok(SimpleInOut{
+									target: Some(target.clone()),
+									valid_rect: None,
+								});
+							}
+						},
+						_ => {
+							self.rt = Some(rt.clone());
+							return Ok(SimpleInOut{
+								target: Some(rt),
+								valid_rect: None,
+							})
+						},
+					};
+				}
+			}
+		}
+		return Ok(SimpleInOut::default());
+	}
 
     fn run<'a>(
         &'a mut self,
         world: &'a World,
-        query_param_state: &'a mut SystemState<Self::Param>,
+        query_param_state: &'a mut SystemState<Self::RunParam>,
         context: RenderContext,
         mut commands: ShareRefCell<CommandEncoder>,
         _input: &'a Self::Input,
@@ -491,81 +568,56 @@ impl Node for TextShadowNode {
         // context: RenderContext,
         // mut commands: ShareRefCell<CommandEncoder>,
         // inputs: &'a [Self::Output],
-    ) -> BoxFuture<'a, Result<Self::Output, String>> {
+    ) -> BoxFuture<'a, Result<(), String>> {
         let RenderContext { device, queue, .. } = context;
-        let draw_id = self.0;
+        let (draw_id, post_process_draw, rt) = (self.id, self.post_process.take(), self.rt.take());
         Box::pin(async move {
-            let param = query_param_state.get(world);
-            if let Ok((draw_state, node_id, post_process, clear_color)) = param.draw_query.get(draw_id) {
-                if let Ok(camera) = param.query_post_info.get(***node_id) {
-                    if camera.is_active {
-                        let layer = match param.query_layer.get(***node_id) {
-                            Ok(r) if r.layer() > 0 => r.clone(),
-                            _ => return Ok(SimpleInOut::default()),
-                        };
+			let rt = match rt {
+				Some(r) => r,
+				None => return Ok(()), // 没有分配rt， 不需要渲染
+			};
 
-                        let t_type = param.query_root.get(layer.root()).unwrap();
-                        let e: [ShareTargetView; 0] = [];
-                        let rt = param.atlas_allocator.allocate(
-                            (camera.view_port.maxs.x - camera.view_port.mins.x).ceil() as u32,
-                            (camera.view_port.maxs.y - camera.view_port.mins.y).ceil() as u32,
-                            t_type.has_depth,
-                            e.iter(),
-                        );
-                        {
-                            // 创建一个渲染Pass
-                            let (mut rp, view_port, clear_port, _) =
-                                create_rp_for_fbo(&rt, commands.borrow_mut(), &camera.view_port, &camera.view_port, None);
+            let param: QueryParam<'_, '_> = query_param_state.get(world);
+            if let Ok((draw_state, node_id,  clear_color, post_process)) = param.draw_query.get(draw_id) {
+				if let Ok(camera) = param.camera_query.get(***node_id) {
+					{
+						// 创建一个渲染Pass
+						let (mut rp, view_port, clear_port, _) =
+							create_rp_for_fbo(&rt, commands.borrow_mut(), &camera.view_port, &camera.view_port, None);
+	
+						// 设置视口
+						// let clear_obj = &param.fbo_clear_color.0;
+						rp.set_viewport(clear_port.0, clear_port.1, clear_port.2, clear_port.3, 0.0, 1.0);
+						clear_color.0.set(&mut rp, UiMaterialBind::set());
+						// clear_obj.0.set(&mut rp, UiMaterialBind::set());
+						param.depth_cache.list[0].set(&mut rp, DepthBind::set());
+						param.clear_draw.0.draw(&mut rp);
+	
+						// 设置视口
+						rp.set_viewport(view_port.0, view_port.1, view_port.2, view_port.3, 0.0, 1.0);
+	
+						// 渲染
+						if let Some(r) = &camera.bind_group {
+							r.set(&mut rp, CameraBind::set());
+						}
+	
+						draw_state.draw(&mut rp);
+					}
+	
+					// 后处理
+					let rect = rt.rect().clone();
+					let (w, h) = ((rect.max.x - rect.min.x) as u32, (rect.max.y - rect.min.y) as u32);
 
-                            // 设置视口
-                            // let clear_obj = &param.fbo_clear_color.0;
-                            rp.set_viewport(clear_port.0, clear_port.1, clear_port.2, clear_port.3, 0.0, 1.0);
-                            clear_color.0.set(&mut rp, UiMaterialBind::set());
-                            // clear_obj.0.set(&mut rp, UiMaterialBind::set());
-                            param.depth_cache.list[0].set(&mut rp, DepthBind::set());
-                            param.clear_draw.0.draw(&mut rp);
-
-                            // 设置视口
-                            rp.set_viewport(view_port.0, view_port.1, view_port.2, view_port.3, 0.0, 1.0);
-
-                            // 渲染
-                            if let Some(r) = &camera.bind_group {
-                                r.set(&mut rp, CameraBind::set());
-                            }
-
-                            draw_state.draw(&mut rp);
-                        }
-
-                        // 后处理
-                        let rect = rt.rect().clone();
-                        let (w, h) = ((rect.max.x - rect.min.x) as u32, (rect.max.y - rect.min.y) as u32);
-                        // 渲染后处理
-                        if let Ok(r) = post_process.draw_front(
-                            &device,
-                            &queue,
-                            commands.borrow_mut(),
-                            PostprocessTexture::from_share_target(rt.clone(), wgpu::TextureFormat::pi_render_default()),
-                            (w, h),
-                            &param.atlas_allocator,
-                            &param.post_resource.resources,
-                            &param.pipline_assets,
-                            t_type.no_depth,
-                            wgpu::TextureFormat::pi_render_default(),
-                        ) {
-                            if let ETextureViewUsage::SRT(r) = r.view {
-                                return Ok(SimpleInOut {
-                                    target: Some(r),
-                                    valid_rect: None,
-                                });
-                            }
-                        };
-                    }
-                }
-            }
-            return Ok(SimpleInOut {
-                target: None,
-                valid_rect: None,
-            });
+					if let Some(post_process_draw) = post_process_draw {
+						// 渲染后处理
+						post_process.draw_front(
+							commands.borrow_mut(),
+							&post_process_draw
+						)
+					}
+				}
+			}
+			return Ok(());
         })
     }
 }

@@ -321,7 +321,7 @@ pub fn init(
 	if r.0 {
 		return;
 	}
-    match rg.add_node("MaskImageLinear".to_string(), LinearMaskNode) {
+    match rg.add_node("MaskImageLinear".to_string(), LinearMaskNode, GraphNodeId::default()) {
         Ok(r) => {
             ****id = r;
         }
@@ -346,12 +346,27 @@ impl Node for LinearMaskNode {
     type Input = ();
     type Output = ();
 
-    type Param = QueryParam<'static, 'static>;
+	type BuildParam = QueryParam<'static, 'static>;
+    type RunParam = QueryParam<'static, 'static>;
+
+	fn build<'a>(
+		&'a mut self,
+		_world: &'a mut bevy_ecs::world::World,
+		_param: &'a mut bevy_ecs::system::SystemState<Self::BuildParam>,
+		_context: pi_bevy_render_plugin::RenderContext,
+		_input: &'a Self::Input,
+		_usage: &'a pi_bevy_render_plugin::node::ParamUsage,
+		_id: GraphNodeId,
+		_from: &'a [GraphNodeId],
+		_to: &'a [GraphNodeId],
+	) -> Result<Self::Output, String> {
+		Ok(())
+	}
 
     fn run<'a>(
         &'a mut self,
         world: &'a World,
-        query_param_state: &'a mut SystemState<Self::Param>,
+        query_param_state: &'a mut SystemState<Self::RunParam>,
         _context: RenderContext,
         mut commands: ShareRefCell<CommandEncoder>,
         _input: &'a Self::Input,

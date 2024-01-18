@@ -7,7 +7,7 @@ use std::mem::swap;
 
 use bevy_ecs::system::Commands;
 use bevy_ecs::prelude::World;
-use framework::{spawn, Example};
+use framework::Example;
 use pi_atom::Atom;
 use pi_flex_layout::style::{Dimension, PositionType};
 use pi_null::Null;
