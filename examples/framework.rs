@@ -111,7 +111,7 @@ pub fn start<T: Example + Sync + Send + 'static>(example: T) {
     let record_option = example.record_option();
 	#[cfg(feature = "debug")]
 	let play_option = example.play_option();
-	let use_sdf = example.use_sdf();
+	// let use_sdf = example.use_sdf();
     let exmple = Share::new(ShareMutex::new(example));
     let exmple1 = exmple.clone();
 
@@ -166,30 +166,30 @@ pub fn start<T: Example + Sync + Send + 'static>(example: T) {
 
     let mut app = init(width, height, &event_loop, window.clone());
 
-	// 初始化sdf的加载方法
-	if use_sdf {
-		log::warn!("init_load_cb1===========" );
-		pi_hal::font::sdf_brush::init_load_cb(Arc::new(move |key: DefaultKey, font_family: usize, chars: &[char]| {
-			let current_dir = current_dir.clone();
-			log::warn!("init_load_cb==========={:?}, {:?}", key, chars);
-			let chars = Vec::from(chars);
-			MULTI_MEDIA_RUNTIME.spawn(async move { // 这里必须异步，否则会造成死锁
-				let font_name = Atom::get(font_family).unwrap();
-				let mut result: Vec<Vec<u8>> = Vec::with_capacity(chars.len());
-				for char in chars.iter() {
-					let unicode = unsafe{transmute::<_, u32>(*char)};
-					let path = current_dir.join(format!("D://0_js/cdqxz_new_mult_gui_exe/dst_font/{}/_{}.bin", font_name.as_str(), unicode));
-					if let Ok(buffer) = std::fs::read(path.clone()) {
-						result.push(buffer);
-					} else {
-						panic!("not find sdf font,path: {:?}", path);
-					}
-				}
-				log::warn!("onload==========={:?}, {:?}, {:?}", key, chars, result.len());
-				pi_hal::font::sdf_brush::on_load(key, result);
-			}).unwrap();
-		}));
-	}
+	// // 初始化sdf的加载方法
+	// if use_sdf {
+	// 	log::warn!("init_load_cb1===========" );
+	// 	pi_hal::font::sdf_brush::init_load_cb(Arc::new(move |key: DefaultKey, font_family: usize, chars: &[char]| {
+	// 		let current_dir = current_dir.clone();
+	// 		log::warn!("init_load_cb==========={:?}, {:?}", key, chars);
+	// 		let chars = Vec::from(chars);
+	// 		MULTI_MEDIA_RUNTIME.spawn(async move { // 这里必须异步，否则会造成死锁
+	// 			let font_name = Atom::get(font_family).unwrap();
+	// 			let mut result: Vec<Vec<u8>> = Vec::with_capacity(chars.len());
+	// 			for char in chars.iter() {
+	// 				let unicode = unsafe{transmute::<_, u32>(*char)};
+	// 				let path = current_dir.join(format!("D://0_js/cdqxz_new_mult_gui_exe/dst_font/{}/_{}.bin", font_name.as_str(), unicode));
+	// 				if let Ok(buffer) = std::fs::read(path.clone()) {
+	// 					result.push(buffer);
+	// 				} else {
+	// 					panic!("not find sdf font,path: {:?}", path);
+	// 				}
+	// 			}
+	// 			log::warn!("onload==========={:?}, {:?}, {:?}", key, chars, result.len());
+	// 			pi_hal::font::sdf_brush::on_load(key, result);
+	// 		}).unwrap();
+	// 	}));
+	// }
 
     app.world.insert_resource(RunState::MATRIX);
 	#[cfg(feature = "debug")]
@@ -198,7 +198,7 @@ pub fn start<T: Example + Sync + Send + 'static>(example: T) {
 	}
 
     #[cfg(feature = "debug")]
-    app.add_plugins(UiPlugin { cmd_trace: record_option, use_sdf });
+    app.add_plugins(UiPlugin { cmd_trace: record_option, font_type: pi_hal::font::font::FontType::Bitmap });
     #[cfg(not(feature = "debug"))]
     app.add_plugins(UiPlugin::default());
 	exmple1.lock().setting(&mut app);

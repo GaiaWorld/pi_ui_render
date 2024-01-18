@@ -18,7 +18,7 @@ use pi_flex_layout::{
     style::{AlignContent, AlignItems, Dimension, FlexWrap, JustifyContent, PositionType},
 };
 use pi_null::Null;
-use pi_render::font::{split, Font, FontFamilyId, FontSheet, SplitResult};
+use pi_render::font::{split, Font, FontId, FontSheet, SplitResult};
 use pi_slotmap::DefaultKey;
 use pi_style::style::{StyleType, TextAlign, VerticalAlign, TextOverflow};
 
@@ -152,7 +152,7 @@ struct Calc<'a> {
     text_style: &'a TextStyle,
 
     font_sheet: &'a mut FontSheet,
-    font_id: FontFamilyId,
+    font_id: FontId,
     font_size: usize,
     line_height: f32,
     sw: NotNan<f32>,

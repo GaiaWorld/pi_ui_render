@@ -3,6 +3,7 @@ use std::path::Path;
 use render_compile::{CompileShaderError, Parser};
 
 fn main() -> Result<(), CompileShaderError> {
+
     // 除非修改build.rs， 否则不重新运行脚本
     // println!("cargo:rerun-if-changed=build.rs");
 

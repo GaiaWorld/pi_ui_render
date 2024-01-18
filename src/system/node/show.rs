@@ -29,6 +29,7 @@ pub fn calc_show(
 
     for node in dirty.iter() {
         let mut parent_c_visibility = true;
+		let mut parent_c_display = true;
         let mut parent_c_enable = true;
         let item = match query.get(node) {
             Ok(r) => r,
@@ -38,6 +39,7 @@ pub fn calc_show(
             let parent = up.parent();
             if let Ok(w) = write.get(parent) {
                 parent_c_visibility = w.get_visibility();
+				parent_c_display = w.get_display();
                 parent_c_enable = w.get_enable();
             }
         }
@@ -50,7 +52,9 @@ pub fn calc_show(
         let visibility_value = show_value.get_visibility();
         let enable_value = show_value.get_enable();
 
-        let c_visibility = display_value && visibility_value && parent_c_visibility;
+        let c_visibility =  visibility_value && parent_c_visibility;
+		let c_display = display_value && parent_c_display;
+
         let c_enable = match enable_value {
             Enable::Visible => true,
             Enable::Auto => parent_c_enable,
@@ -59,6 +63,7 @@ pub fn calc_show(
         let c_enable = c_visibility && c_enable;
         let mut write_item = write.get_mut(node).unwrap();
         write_item.set_visibility(c_visibility);
+		write_item.set_display(parent_c_display);
         // log::warn!("show=============entity: {:?}, c_enable: {:?}, parent: {:?}, enable_value: {:?}", node, c_enable, parent_c_enable, enable_value);
         write_item.set_enable(c_enable);
     }

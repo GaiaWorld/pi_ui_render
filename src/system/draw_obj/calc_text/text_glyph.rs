@@ -101,7 +101,7 @@ pub fn text_glyph(
 
 
     // 绘制文字
-    font_sheet.draw();
+    font_sheet.update();
 }
 
 

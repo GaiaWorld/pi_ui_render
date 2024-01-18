@@ -11,7 +11,7 @@ use ordered_float::NotNan;
 use pi_atom::Atom;
 use pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent;
 use pi_bevy_render_plugin::PiClearOptions;
-use pi_hal::font::sdf_brush::FontCfg;
+use pi_hal::font::sdf_table::FontCfg;
 use pi_hash::XHashMap;
 use pi_print_any::out_any;
 use pi_style::{style_parse::{Attribute, ClassItem, ClassMap, KeyFrameList}, style::CgColor};

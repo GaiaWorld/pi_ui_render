@@ -100,6 +100,15 @@ impl DrawInfo {
 
     pub fn is_opacity(&self) -> bool { (self.0 & (1 << 31)) > 0 }
 
+	// 不透明排前面，透明排后面
+	pub fn opacity_order(&self) -> usize { 
+		if self.is_opacity() {
+			0
+		} else {
+			1
+		}
+	}
+
     pub fn set_is_opacity(&mut self, value: bool) { self.0 = self.0 << 1 >> 1 | ((unsafe { transmute::<_, u8>(value) } as u32) << 31); }
 }
 
@@ -387,6 +396,18 @@ impl IsShow {
             self.0 |= ShowType::Visibility as usize;
         } else {
             self.0 &= !(ShowType::Visibility as usize);
+        }
+    }
+
+	#[inline]
+    pub fn get_display(&self) -> bool { (self.0 & (ShowType::Display as usize)) != 0 }
+
+    #[inline]
+    pub fn set_display(&mut self, display: bool) {
+        if display {
+            self.0 |= ShowType::Display as usize;
+        } else {
+            self.0 &= !(ShowType::Display as usize);
         }
     }
 

@@ -14,7 +14,7 @@ use pi_bevy_ecs_extend::prelude::{Down, Layer, Up};
 
 use self::{
     calc::{DrawInfo, DrawList, EntityKey, IsShow, NodeState, RenderContextMark, TransformWillChangeMatrix, View},
-    draw_obj::{BoxType, ClearColorBindGroup, CopyFboToScreen, PipelineMeta},
+    draw_obj::{BoxType, ClearColorBindGroup, CopyFboToScreen, PipelineMeta, InstanceIndex},
     pass_2d::{ChildrenPass, GraphId, ParentPassId, PostProcess, PostProcessInfo, RenderTarget, ViewMatrix},
     root::RootDirtyRect,
     user::Overflow,
@@ -49,6 +49,20 @@ pub struct DrawBundle<T: FromWorld + Bundle> {
     // pub fs_defines: FSDefines,
     // pub vs_defines: VSDefines,
     pub pipeline_meta: PipelineMeta,
+    pub draw_info: DrawInfo,
+    pub other: T,
+}
+
+/// 绘制对象Bundle（新）
+#[derive(Bundle)]
+pub struct DrawBundleNew<T: FromWorld + Bundle> {
+    pub node_id: calc::NodeId,
+	pub instance_index: InstanceIndex,
+    // pub draw_state: draw_obj::DrawState,
+    pub box_type: BoxType,
+    // pub fs_defines: FSDefines,
+    // pub vs_defines: VSDefines,
+    // pub pipeline_meta: PipelineMeta,
     pub draw_info: DrawInfo,
     pub other: T,
 }

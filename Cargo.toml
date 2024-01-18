@@ -107,6 +107,7 @@ pi_share = { version = "=0.4.7" }
 pi_render = { version = "0.1", registry = "yn" }
 # derive_deref = "1.1"
 tracing-subscriber = "0.3"
+ahash = "=0.8.6"
 
 # flume = "0.10"
 
@@ -135,6 +136,8 @@ bevy_math = { path = "../bevy/crates/bevy_math" }
 
 # pi_spatial = {path = "../pi_spatial"}
 
+[patch."https://github.com/GaiaWorld/pi_sdf"]
+pi_sdf = { path = "../pi_sdf" }
 
 [patch.yn]
 # pi_curves  = {path="../pi_curves"}
@@ -142,7 +145,7 @@ bevy_math = { path = "../bevy/crates/bevy_math" }
 pi_style = {path = "../pi_style"}
 # winit = {path = "../winit"}
 # font_kit = { path = "../font_kit" }
-# pi_hal = { path = "../pi_hal" }
+pi_hal = { path = "../pi_hal" }
 wgpu = { path="../pi_wgpu", package = "pi_wgpu" }
 
 # bevy

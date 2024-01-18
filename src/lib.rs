@@ -27,13 +27,17 @@ extern crate lazy_static;
 pub mod components;
 pub mod resource;
 pub mod shader;
+pub mod shader1;
 pub mod system;
 pub mod utils;
+pub mod events;
+
 
 pub mod prelude {
     use bevy_ecs::prelude::{IntoSystemSetConfigs, apply_deferred, IntoSystemConfigs};
 	use bevy_app::{App, Plugin, Update};
     use pi_bevy_render_plugin::PiRenderSystemSet;
+    use pi_hal::font::font::FontType;
 
     pub use crate::resource::UserCommands;
     use crate::system::{
@@ -45,7 +49,7 @@ pub mod prelude {
     pub struct UiPlugin {
         #[cfg(feature = "debug")]
         pub cmd_trace: crate::system::cmd_play::TraceOption,
-		pub use_sdf: bool,
+		pub font_type: FontType,
     }
     impl Plugin for UiPlugin {
         fn build(&self, app: &mut App) {
@@ -89,7 +93,7 @@ pub mod prelude {
             .add_plugins(UiNodePlugin)
             .add_plugins(UiEffectPlugin)
             .add_plugins(UiReadyDrawPlugin {
-				use_sdf: self.use_sdf
+				font_type: self.font_type
 			})
             .add_plugins(UiPassPlugin)
             // .add_systems(Update, apply_system_buffers.in_set(UiSystemSet::LoadFlush))

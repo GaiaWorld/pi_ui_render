@@ -136,3 +136,13 @@ pub struct BorderImageMark;
 // 标记Canvas 放在DrawObject原型中，可以区分不同类型的DarwObject， 使得系统能够更好的并行
 #[derive(Debug, Component, Default)]
 pub struct CanvasMark;
+
+// 实例索引
+#[derive(Debug, Component)]
+pub struct InstanceIndex(pub usize);
+
+impl Default for InstanceIndex {
+	fn default() -> Self {
+		Self(pi_null::Null::null())
+	}
+}

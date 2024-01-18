@@ -111,6 +111,16 @@ impl FromWorld for PosColorVertexLayout {
     }
 }
 
+#[derive(Deref, Resource)]
+pub struct Sdf2VertexLayout(pub Share<VertexBufferLayoutWithHash>);
+impl FromWorld for Sdf2VertexLayout {
+    fn from_world(world: &mut World) -> Self {
+        world.init_resource::<ShaderInfoCache>();
+        let mut catch = world.get_resource_mut::<ShaderInfoCache>().unwrap();
+        Self(catch.vert_layout(create_vertex_buffer_layout_sdf2()))
+    }
+}
+
 #[derive(Debug)]
 pub struct VertexBufferLayoutWithHash {
     pub value: VertexBufferLayouts,
@@ -970,8 +980,10 @@ impl FromWorld for CommonSampler {
 // #[derive(Deref, Default, DerefMut)]
 // pub struct LayerPass2D (LayerDirty<Entity>);
 
-#[derive(Deref, Resource, Default)]
-pub struct TextTextureGroup(pub Option<Handle<RenderRes<BindGroup>>>);
+// 如果是sdf2方案，会有第二张纹理
+#[derive(Resource, Default)]
+pub struct TextTextureGroup(pub Option<Handle<RenderRes<BindGroup>>>, pub Option<Handle<RenderRes<BindGroup>>>);
+
 
 #[derive(Deref, Resource)]
 pub struct EmptyVertexBuffer(pub Handle<RenderRes<Buffer>>);
@@ -1208,6 +1220,56 @@ pub fn create_vertex_buffer_layout_p_v_c() -> VertexBufferLayouts {
                 shader_location: 2,
             }],
         },
+    ]
+}
+
+pub fn create_vertex_buffer_layout_sdf2() -> VertexBufferLayouts {
+    vec![
+		VertexBufferLayout {
+			array_stride: std::mem::size_of::<[f32; 4]>() as wgpu::BufferAddress,
+			step_mode: wgpu::VertexStepMode::Vertex,
+			attributes: vec![wgpu::VertexAttribute {
+				format: wgpu::VertexFormat::Float32x4,
+				offset: 0,
+				shader_location: 0,
+			}],
+		},
+		VertexBufferLayout {
+			array_stride: std::mem::size_of::<[f32; 4]>() as wgpu::BufferAddress,
+			step_mode: wgpu::VertexStepMode::Instance,
+			attributes: vec![wgpu::VertexAttribute {
+				format: wgpu::VertexFormat::Float32x4,
+				offset: 0,
+				shader_location: 1,
+			}],
+		},
+		VertexBufferLayout {
+			array_stride: std::mem::size_of::<[f32; 2]>() as wgpu::BufferAddress,
+			step_mode: wgpu::VertexStepMode::Instance,
+			attributes: vec![wgpu::VertexAttribute {
+				format: wgpu::VertexFormat::Float32x2,
+				offset: 0,
+				shader_location: 2,
+			}],
+		},
+		VertexBufferLayout {
+			array_stride: std::mem::size_of::<[f32; 2]>() as wgpu::BufferAddress,
+			step_mode: wgpu::VertexStepMode::Instance,
+			attributes: vec![wgpu::VertexAttribute {
+				format: wgpu::VertexFormat::Float32x2,
+				offset: 0,
+				shader_location: 3,
+			}],
+		},
+		VertexBufferLayout {
+			array_stride: std::mem::size_of::<[f32; 4]>() as wgpu::BufferAddress,
+			step_mode: wgpu::VertexStepMode::Instance,
+			attributes: vec![wgpu::VertexAttribute {
+				format: wgpu::VertexFormat::Float32x4,
+				offset: 0,
+				shader_location: 4,
+			}],
+		},
     ]
 }
 

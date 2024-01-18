@@ -1,5 +1,6 @@
 use bevy_ecs::prelude::{Changed, IntoSystemSetConfig, IntoSystemConfigs};
 use bevy_app::{Plugin, Update, Startup, App};
+use pi_hal::font::font::FontType;
 
 use crate::resource::draw_obj::{EmptyVertexBuffer, MaxViewSize};
 
@@ -43,7 +44,7 @@ pub mod root_view_port;
 pub mod set_world_marix;
 
 pub struct UiReadyDrawPlugin {
-	pub use_sdf: bool,
+	pub font_type: FontType,
 }
 
 impl Plugin for UiReadyDrawPlugin {
@@ -103,7 +104,7 @@ impl Plugin for UiReadyDrawPlugin {
                     .before(calc_border_radius::calc_border_radius),
             )
             // 文字功能
-            .add_plugins(UiTextPlugin {use_sdf: self.use_sdf})
+            .add_plugins(UiTextPlugin {font_type: self.font_type})
             // 背景颜色功能
             .add_frame_event::<ComponentEvent<Changed<BackgroundColor>>>()
             .add_systems(Update, 

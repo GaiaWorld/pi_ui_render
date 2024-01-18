@@ -1,5 +1,7 @@
 //! 定义与Pass2D相关的组件
 
+use std::ops::Range;
+
 use bevy_ecs::{prelude::Component, system::Resource};
 use pi_assets::asset::{Handle, Size, Asset, Droper};
 pub use pi_bevy_render_plugin::component::GraphId;
@@ -15,7 +17,7 @@ use crate::resource::RenderContextMarkType;
 
 use super::{
     calc::{DrawInfo, EntityKey, WorldMatrix, ZRange},
-    user::{Aabb2, AsImage, Matrix4, Point2},
+    user::{Aabb2, AsImage, Matrix4, Point2}, draw_obj::{DrawObject, DrawState},
 };
 
 /// 一个渲染Pass
@@ -59,10 +61,36 @@ pub struct ParentPassId(pub EntityKey);
 #[derive(Debug, Default, Deref, Component, Clone)]
 pub struct ChildrenPass(pub Vec<EntityKey>);
 
+#[derive(Debug)]
+pub enum DrawElement {
+	DrawInstance {
+		instance_data_range: Range<usize>, // 在单列RenderInstances中的范围
+		draw_range: Range<usize>, // 在排序后的all_list列表中的范围
+	}, 
+	Pass2D(EntityKey),
+}
+
 // 渲染 物件 列表
 #[derive(Debug, Component)]
 pub struct Draw2DList {
+	// 渲染列表的长度
+	// 在收集渲染列表的过程中，all_list保留了上一帧的列表数据，此字段用于记录all_list中有多少元素是当前帧有效的
+	// 在收集过程中， 任何一个push的元素，与all_list[all_list_len]中的描述不匹配，都应该清理掉all_list_len之后的元素，并标记list_is_change为true
+	// 在收集结束后，如果all_list_len与all_list.len不相等， 也应该清理掉all_list_len之后的元素，并标记list_is_change为true
+	pub all_list_len: usize, 
+	// 列表内容是否改变
+	// 如果列表内容发生改变，则需要对all_list重新排序（排序结果记录在新的列表中）
+	pub list_is_change: bool,
+	// 绘制列表，每个上下文按此列表顺序绘制
+	// 绘制内容可能是一个实例化Draw，也可能是一个上下文draw
+	// 此列表根据all_list的排序结果，根据其中的DrawIndex::Pass2D将all_list劈分为多个"段"，每个段收缩为一个或多个实例化draw（肯呢个由于纹理个数的限制变成多个，通常为1个）
+	// 并按原有的顺序，将实例化draw和pass2d存储在此结构体中
+	pub draw_list: Vec<DrawElement>,
+
+	// 用于收集上下文中的渲染列表
     pub all_list: Vec<(DrawIndex, ZRange, DrawInfo)>,
+	// all_list的排序结果
+	pub all_list_sort: Vec<(DrawIndex, ZRange, DrawInfo)>,
     pub single_list: Vec<DrawIndex>, // 单独一个drawObj绘制在一个fbo上（需要做后处理的drawObj）
     /// 不透明 列表
     /// 注：渲染时，假设 Vec已经 排好序 了
@@ -76,6 +104,10 @@ pub struct Draw2DList {
 impl Default for Draw2DList {
     fn default() -> Self {
         Self {
+			list_is_change: false,
+			all_list_len: 0,
+			draw_list: Vec::default(),
+			all_list_sort: Vec::default(),
             all_list: Vec::default(),
             single_list: Vec::default(),
             opaque: Vec::default(),
@@ -84,8 +116,40 @@ impl Default for Draw2DList {
     }
 }
 
+impl Draw2DList {
+	// push一个元素
+	pub fn push_element(&mut self, draw_index: DrawIndex, z_range: ZRange, draw_info: DrawInfo) {
+		if self.all_list_len == self.all_list.len() {
+			self.all_list.push((draw_index, z_range, draw_info));
+			self.list_is_change = true;
+			self.all_list_len += 1;
+			return;
+		}
+
+		let r = &self.all_list[self.all_list_len];
+
+		if r.0 != draw_index || r.1.start != z_range.start || r.2 != draw_info {
+			self.all_list[self.all_list_len] = (draw_index, z_range, draw_info);
+			self.all_list_len += 1;
+			self.shrink();
+			return;
+		}
+
+		// push的元素与当前位置元素一样，则不需要push
+		self.all_list_len += 1;
+	}
+
+	// 删除多余元素
+	pub fn shrink(&mut self) {
+		for _ in 0..self.all_list.len() - self.all_list_len {
+			self.all_list.pop();
+		}
+		self.list_is_change = true;
+	}
+}
+
 /// 渲染对象的索引
-#[derive(Debug, Clone, Copy, Hash, Component)]
+#[derive(Debug, Clone, Copy, Hash, Component, PartialEq, Eq)]
 pub enum DrawIndex {
     // 一个渲染对象
     DrawObj(EntityKey),

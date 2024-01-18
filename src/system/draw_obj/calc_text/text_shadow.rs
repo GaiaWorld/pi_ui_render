@@ -178,7 +178,11 @@ pub fn text_shadow_life(
 	let sdf_program_meta = text_sdf_program_meta.clone();
     let p_state = shader_catch.premultiply.clone();
     let vert_layout = vert_layout.clone();
-	let use_sdf = font_sheet.borrow().font_mgr().use_sdf();
+	let use_sdf = match font_sheet.borrow().font_mgr().font_type {
+		pi_hal::font::font::FontType::Bitmap => false,
+		pi_hal::font::font::FontType::Sdf1 => true,
+		pi_hal::font::font::FontType::Sdf2 => false,
+	};
 
 	// let mut spawn_list = Vec::new();
     // 收集需要创建DrawObject的实体
@@ -302,7 +306,7 @@ pub fn calc_text_shadow(
 
     // 更新纹理尺寸
     let size = font_sheet.texture_size();
-    let texture_group = match &***text_texture_group {
+    let texture_group = match &text_texture_group.0 {
         Some(r) => r,
         None => panic!(), // 必须要创建TextTextureGroup
     };
@@ -377,27 +381,27 @@ pub fn calc_text_shadow(
                 post_process.calc(16, &device, &queue, &mut post_resource.resources);
             }
 
-			if font_sheet.font_mgr().use_sdf() && (text_shadow.is_changed() || world_matrix.is_changed()) {
-				let scale = node_state.0.scale;
-				let font_size = get_size(&text_style.font_size) as f32;
-				let font_id = font_sheet.font_id(Font::new(
-					text_style.font_family.clone(),
-					font_size as usize,
-					text_style.font_weight,
-					text_style.text_stroke.width, // todo 或许应该设置比例
-				));
-				let font_height = font_sheet.font_height(font_id, font_size as usize);
+			// if font_sheet.font_mgr().use_sdf() && (text_shadow.is_changed() || world_matrix.is_changed()) {
+			// 	let scale = node_state.0.scale;
+			// 	let font_size = get_size(&text_style.font_size) as f32;
+			// 	let font_id = font_sheet.font_id(Font::new(
+			// 		text_style.font_family.clone(),
+			// 		font_size as usize,
+			// 		text_style.font_weight,
+			// 		text_style.text_stroke.width, // todo 或许应该设置比例
+			// 	));
+			// 	let font_height = font_sheet.font_height(font_id, font_size as usize);
 
-				let font_info = font_sheet.font_mgr().font_info(font_id);
-				let metrics = font_sheet.font_mgr().brush.sdf_brush.metrics_info(&font_info.font_ids[0]);
-				let scale0 = scale * font_height / (metrics.ascender - metrics.descender);
-				let sw = (scale * *text_style.text_stroke.width).round();
-				let distance_px_range = scale0 * metrics.distance_range;
-				let fill_bound = 0.5 - (text_style.font_weight as f32 / 500 as f32 - 1.0) / distance_px_range;
-				let stroke = sw/2.0/distance_px_range;
-				let stroke_bound = fill_bound - stroke;
-				draw_state.bindgroups.set_uniform(&ClipSdfOrSdflineUniform(&[distance_px_range, fill_bound, stroke_bound]));
-			}
+			// 	let font_info = font_sheet.font_mgr().font_info(font_id);
+			// 	let metrics = font_sheet.font_mgr().brush.sdf_brush.metrics_info(&font_info.font_ids[0]);
+			// 	let scale0 = scale * font_height / (metrics.ascender - metrics.descender);
+			// 	let sw = (scale * *text_style.text_stroke.width).round();
+			// 	let distance_px_range = scale0 * metrics.distance_range;
+			// 	let fill_bound = 0.5 - (text_style.font_weight as f32 / 500 as f32 - 1.0) / distance_px_range;
+			// 	let stroke = sw/2.0/distance_px_range;
+			// 	let stroke_bound = fill_bound - stroke;
+			// 	draw_state.bindgroups.set_uniform(&ClipSdfOrSdflineUniform(&[distance_px_range, fill_bound, stroke_bound]));
+			// }
         }
     }
 }

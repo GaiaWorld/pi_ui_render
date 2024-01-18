@@ -6,45 +6,52 @@ use bevy_ecs::system::{Local, Query, Res, ResMut};
 use bevy_ecs::prelude::DetectChangesMut;
 use pi_assets::asset::Handle;
 use pi_assets::mgr::AssetMgr;
-use pi_atom::Atom;
 use pi_bevy_asset::ShareAssetMgr;
 use pi_bevy_ecs_extend::prelude::OrDefault;
 use pi_bevy_ecs_extend::system_param::res::OrInitRes;
 use pi_bevy_ecs_extend::system_param::tree::{Up, Layer};
 use pi_bevy_render_plugin::{PiRenderDevice, PiVertexBufferAlloter};
 use pi_hal::font::font::FontType;
-use pi_polygon::{find_lg_endp, interp_mult_by_lg, mult_to_triangle, split_by_lg, LgCfg};
+use pi_hal::font::sdf2_table::TexInfo;
 use pi_render::font::{FontSheet, Glyph, GlyphId, Font};
 use pi_render::renderer::draw_obj::DrawBindGroup;
-use pi_render::renderer::vertices::{EVerticesBufferUsage, RenderIndices};
+use pi_render::renderer::vertices::{EVerticesBufferUsage, RenderVertices};
 use pi_render::rhi::asset::RenderRes;
 use pi_render::rhi::buffer::Buffer;
+use pi_render::rhi::buffer_alloc::BufferIndex;
 use pi_render::rhi::device::RenderDevice;
 use pi_render::rhi::shader::{BindLayout, Input};
 use pi_share::Share;
+use pi_slotmap::{SecondaryMap, DefaultKey};
 use pi_style::style::TextOverflow;
-use wgpu::IndexFormat;
 
 use crate::components::calc::{LayoutResult, NodeId, NodeState};
 use crate::components::draw_obj::{BoxType, PipelineMeta, TextMark};
 use crate::components::user::{CgColor, TextStyle, get_size, TextOverflowData};
 use crate::components::{draw_obj::DrawState, user::Color};
-use crate::resource::draw_obj::{TextTextureGroup, PosUv1VertexLayout, PosUvColorVertexLayout};
+use crate::resource::draw_obj::TextTextureGroup;
 use crate::resource::ShareFontSheet;
-use crate::shader::text::{PositionVert, SampBind, UvVert, VcolorVert, STROKE_DEFINE, VERTEX_COLOR_DEFINE};
+use crate::shader::text::{SampBind, VcolorVert, STROKE_DEFINE};
+use crate::shader1::text_sdf2::{DataTexSampBind, AGlyphVertexVert, IndexInfoVert, TranslationVert, DataOffsetVert, InfoVert};
 // use crate::shader::text;
 // use crate::shader::text_sdf;
 
-use crate::shader::ui_meterial::{ColorUniform, StrokeColorOrURectUniform, TextureSizeOrBottomLeftBorderUniform, ClipSdfOrSdflineUniform};
+use crate::shader::ui_meterial::{ColorUniform, StrokeColorOrURectUniform, TextureSizeOrBottomLeftBorderUniform, ClipSdfOrSdflineUniform, DataTexSizeUniform, UGradientStarteEndUniform, ScaleUniform};
 use crate::system::utils::set_vert_buffer;
 use crate::utils::tools::{calc_hash, calc_hash_slice};
 
 use super::IsRun;
+use super::text_split::get_line_height;
 
+/// 每个字体buffer不同
+#[derive(Default)]
+pub struct VertexBuffers {
+	buffers: SecondaryMap<DefaultKey, Share<BufferIndex>>,
+}
 
 /// 设置文字的的顶点、索引，和颜色、边框颜色、边框宽度的Uniform
 #[allow(unused_must_use)]
-pub fn calc_text(
+pub fn calc_text_sdf2(
     query: Query<
         (&NodeState, &LayoutResult, OrDefault<TextStyle>, Ref<NodeState>, Option<&TextOverflowData>, Entity, &Layer),
 		// TextContent改变，NodeState必然改, TextOverflowData改变，NodeState也必然改变 ;存在NodeState， 也必然存在TextContent
@@ -61,12 +68,11 @@ pub fn calc_text(
         Res<ShareAssetMgr<RenderRes<Buffer>>>,
         ResMut<ShareFontSheet>,
     ),
-    mut buffer: Local<(Vec<f32>, Vec<f32>)>,
+    mut buffer: Local<(Vec<f32>, Vec<f32>, Vec<f32>, Vec<f32>)>,
     vertex_buffer_alloter: OrInitRes<PiVertexBufferAlloter>,
-	vert_layout1: OrInitRes<PosUv1VertexLayout>,
-    vert_layout2: OrInitRes<PosUvColorVertexLayout>,
 
-	r: OrInitRes<IsRun>
+	r: OrInitRes<IsRun>,
+	mut vertex_buffers: Local<VertexBuffers>,
 ) {
 	if r.0 {
 		return;
@@ -75,9 +81,14 @@ pub fn calc_text(
     let mut font_sheet = font_sheet.borrow_mut();
 
     // 更新纹理尺寸
-    let size = font_sheet.texture_size();
-    let texture_group = match &text_texture_group.0 {
-        Some(r) => r,
+    let index_size = font_sheet.texture_size();
+	let data_size = font_sheet.font_mgr().table.sdf2_table.data_packer_size();
+    let texture_group: std::sync::Arc<pi_assets::asset::Droper<RenderRes<pi_render::rhi::bind_group::BindGroup>>> = match &text_texture_group.0 {
+        Some(r) => r.clone(),
+        None => panic!(), // 必须要创建TextTextureGroup
+    };
+	let texture_group1 = match &text_texture_group.1 {
+        Some(r) => r.clone(),
         None => panic!(), // 必须要创建TextTextureGroup
     };
 
@@ -95,18 +106,18 @@ pub fn calc_text(
 
             // 如果不存在，插入默认值（只有刚创建时不存在）
             if draw_state.vertices.get(VcolorVert::location()).is_none() {
-                // draw_state.insert_vertices(RenderVertices {
-                //     slot: VcolorVert::location(),
-                //     buffer: EVerticesBufferUsage::GUI((*empty_vert_buffer).clone()),
-                //     buffer_range: None,
-                //     size_per_value: 16,
-                // });
                 draw_state
                     .bindgroups
                     .insert_group(SampBind::set(), DrawBindGroup::Independ(texture_group.clone()));
+				draw_state
+                    .bindgroups
+                    .insert_group(DataTexSampBind::set(), DrawBindGroup::Independ(texture_group1.clone()));
                 draw_state
                     .bindgroups
-                    .set_uniform(&TextureSizeOrBottomLeftBorderUniform(&[size.width as f32, size.height as f32]));
+                    .set_uniform(&TextureSizeOrBottomLeftBorderUniform(&[index_size.width as f32, index_size.height as f32]));
+				draw_state
+                    .bindgroups
+                    .set_uniform(&DataTexSizeUniform(&[data_size.width as f32, data_size.height as f32]));
                 *box_type = BoxType::ContentRect;
             }
 
@@ -126,12 +137,13 @@ pub fn calc_text(
                 node_state.0.scale,
                 &mut buffer.0,
                 &mut buffer.1,
+				&mut buffer.2,
+                &mut buffer.3,
                 &vertex_buffer_alloter,
-				&vert_layout1,
-				&vert_layout2,
 				text_overflow_data,
 				&query_layout,
 				entity,
+				&mut vertex_buffers,
             );
             if old_hash != calc_hash(pipeline_meta1, 0) {
                 pipeline_meta.set_changed()
@@ -139,7 +151,6 @@ pub fn calc_text(
         }
     }
 }
-
 
 // 返回当前需要的StaticIndex
 pub fn modify<'a>(
@@ -154,14 +165,15 @@ pub fn modify<'a>(
     pipeline_meta: &mut PipelineMeta,
     index_buffer_max_len: &mut usize,
     scale: f32,
-    positions: &mut Vec<f32>,
-    uvs: &mut Vec<f32>,
+    translation: &mut Vec<f32>, 
+	index_info: &mut Vec<f32>, 
+	data_offset: &mut Vec<f32>, 
+	u_info: &mut Vec<f32>, 
     vertex_buffer_alloter: &PiVertexBufferAlloter,
-	vert_layout1: &PosUv1VertexLayout,
-	vert_layout2: &PosUvColorVertexLayout,
 	text_overflow_data: Option<&TextOverflowData>,
 	query_layout: &Query<(&'static LayoutResult, &'static Up, &'static NodeState)>,
 	entity: Entity,
+	vertex_buffers: &mut VertexBuffers,
 ) {
 	let font_size = get_size(&text_style.font_size) as f32;
 	let font_id = font_sheet.font_id(Font::new(
@@ -174,39 +186,53 @@ pub fn modify<'a>(
 
 
     // 修改vert buffer
-	let color_temp;
-    let (is_change_geo, color) = match &text_style.color {
+     match &text_style.color {
         // 如果是rgba颜色，只有当文字内容、文字布局修改时，或上一次为渐变色时，才会重新计算顶点流
-        Color::RGBA(c) => {
-			(
-				if pipeline_meta.defines.get(&Atom::from("VERTEX_COLOR")).is_some() {
-					pipeline_meta.vert_layout = (*vert_layout1).clone();
-					pipeline_meta.defines.remove(&VERTEX_COLOR_DEFINE);
-					draw_state.vertices.remove(VcolorVert::location()); // 移除对应的vb
-					true
-				} else {
-					if node_state_change.is_changed() {
-						true
-					} else {
-						false
-					}
-				},
-				c
-			)
-        }
+        Color::RGBA(color) => draw_state.bindgroups.set_uniform(&ColorUniform(&[color.x, color.y, color.z, color.w])),
         // 如果是渐变色，无论当前是修改了文字内容、颜色、还是布局，都必须重新计算顶点流
-        Color::LinearGradient(_) => {
-			if pipeline_meta.defines.get(&Atom::from("VERTEX_COLOR")).is_none() {
-				pipeline_meta.vert_layout = (*vert_layout2).clone();
-				pipeline_meta.defines.insert(VERTEX_COLOR_DEFINE.clone());
+        Color::LinearGradient(color) => {
+			let mut p = [0.0, 0.0, 0.0, 0.0];
+			let mut c = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
+			if color.list.len() > 0 {
+				for i in 0..4 {
+					let c1 = match color.list.get(i) {
+						Some(r) => r,
+						None => color.list.last().unwrap(),
+					};
+					p[i] = c1.position;
+					let p1 = i * 4;
+					c[p1] = c1.rgba.x;
+					c[p1 + 1] = c1.rgba.y;
+					c[p1 + 2] = c1.rgba.z;
+					c[p1 + 3] = c1.rgba.w;
+				}
 			}
-			color_temp = CgColor::default();
-			(true, &color_temp)
+
+			draw_state.bindgroups.set_uniform(&UGradientStarteEndUniform(&p));
+			draw_state.bindgroups.set_uniform(&ClipSdfOrSdflineUniform(&c)); // 这里实际是用作渐变颜色
 		},
     };
 
+	draw_state.bindgroups.set_uniform(&ScaleUniform(&[font_size, font_size]));
+
     // 如果顶点流需要重新计算，则修改顶点流
-    if is_change_geo {
+    if node_state_change.is_changed() {
+		// 顶点（一个四边形）
+		let font_info = font_sheet.font_mgr().font_info(font_id);
+		let font_family_id = font_info.font_family_id;
+		let first_font_face_id = font_info.font_ids[0];
+		if !vertex_buffers.buffers.contains_key(font_family_id.0) {
+			let buffer = font_sheet.font_mgr().table.sdf2_table.fonts[first_font_face_id.0].verties();
+			let index = vertex_buffer_alloter.alloc(bytemuck::cast_slice(buffer.as_slice()));
+			vertex_buffers.buffers.insert(font_family_id.0, Share::new(index));
+		}
+		draw_state.insert_vertices(RenderVertices {
+			slot: AGlyphVertexVert::location(),
+			buffer: EVerticesBufferUsage::Part(vertex_buffers.buffers[font_family_id.0].clone()),
+			buffer_range: None,
+			size_per_value: 8,
+		});
+
         modify_geo(
             node_state,
             draw_state,
@@ -218,8 +244,10 @@ pub fn modify<'a>(
             buffer_assets,
             scale,
             text_style,
-            positions,
-            uvs,
+            translation,
+            index_info,
+			data_offset,
+			u_info,
             vertex_buffer_alloter,
 			font_height,
 			text_overflow_data,
@@ -239,7 +267,7 @@ pub fn modify<'a>(
     };
 
     // let buffer = &[color.x, color.y, color.z, color.w, stroke.x, stroke.y, stroke.z, stroke.w];
-    draw_state.bindgroups.set_uniform(&ColorUniform(&[color.x, color.y, color.z, color.w]));
+   
     draw_state
         .bindgroups
         .set_uniform(&StrokeColorOrURectUniform(&[stroke.x, stroke.y, stroke.z, stroke.w]));
@@ -281,160 +309,61 @@ pub fn modify_geo(
     buffer_assets: &Share<AssetMgr<RenderRes<Buffer>>>,
     scale: f32,
     text_style: &TextStyle,
-    positions: &mut Vec<f32>,
-    uvs: &mut Vec<f32>,
+	translation: &mut Vec<f32>, 
+	index_info: &mut Vec<f32>, 
+	data_offset: &mut Vec<f32>, 
+	u_info: &mut Vec<f32>, 
     vertex_buffer_alloter: &PiVertexBufferAlloter,
 	font_height: f32,
 	text_overflow_data: Option<&TextOverflowData>,
 	query_layout: &Query<(&'static LayoutResult, &'static Up, &'static NodeState)>,
 	entity: Entity,
+	
 ) {
-    positions.clear();
-    uvs.clear();
-    let rect = &layout.rect;
-    text_vert(node_state, layout, font_sheet, scale, text_style, positions, uvs, font_height, text_overflow_data,  query_layout, entity);
+    translation.clear();
+    index_info.clear();
+	data_offset.clear();
+    u_info.clear();
+
+    text_vert(node_state, layout, font_sheet, scale, text_style, translation, index_info, data_offset, u_info, font_height, text_overflow_data,  query_layout, entity);
 
     // 顶点长度为0，删除geo
-    if positions.len() == 0 {
+    if translation.len() == 0 {
         draw_state.indices = None;
         draw_state.vertices.clear();
 		draw_state.vertex = 0..0;
         return;
     }
-    let mut positions1;
-    match color {
-        Color::RGBA(_) => {
-            // 更新ib
-            let l = positions.len() / 8;
-            while l > *index_buffer_max_len {
-                *index_buffer_max_len = l + 50;
-            }
-            let index_buffer = get_or_create_index_buffer(*index_buffer_max_len, device, buffer_assets);
-            draw_state.indices = Some(RenderIndices {
-                buffer: EVerticesBufferUsage::GUI(index_buffer),
-                buffer_range: Some(0..(l * 6 * 2) as u64),
-                format: IndexFormat::Uint16,
-            });
-            set_vert_buffer(
-                PositionVert::location(),
-                8,
-                bytemuck::cast_slice(&positions),
-                vertex_buffer_alloter,
-                draw_state,
-            );
-        }
-        Color::LinearGradient(color) => {
-            let mut i = 0;
-            let mut colors = vec![Vec::new()];
-            let mut indices = Vec::with_capacity(6);
 
-            let endp = match node_state.0.is_vnode() {
-                // 如果是虚拟节点，则节点自身的布局信息会在顶点上体现，此时找渐变端点需要考虑布局结果的起始点
-                true => find_lg_endp(
-                    &[
-                        rect.left,
-                        rect.top,
-                        rect.left,
-                        rect.bottom,
-                        rect.right,
-                        rect.bottom,
-                        rect.right,
-                        rect.top, //渐变端点
-                    ],
-                    color.direction,
-                ),
-                // 非虚拟节点，顶点总是以0，0作为起始点，布局起始点体现在世界矩阵上
-                false => find_lg_endp(
-                    &[
-                        0.0,
-                        0.0,
-                        0.0,
-                        rect.bottom - rect.top,
-                        rect.right - rect.left,
-                        rect.bottom - rect.top,
-                        rect.right - rect.left,
-                        0.0,
-                    ],
-                    color.direction,
-                ),
-            };
-
-            let mut lg_pos = Vec::with_capacity(color.list.len());
-            let mut lg_color = Vec::with_capacity(color.list.len() * 4);
-            for v in color.list.iter() {
-                lg_pos.push(v.position);
-                lg_color.extend_from_slice(&[v.rgba.x, v.rgba.y, v.rgba.z, v.rgba.w]);
-            }
-            let lg_color = vec![LgCfg { unit: 4, data: lg_color }];
-
-
-            let len = positions.len() / 2;
-            let mut old_len = positions.len();
-            positions1 = positions.clone();
-            while (i as usize) < len {
-                // log::info!("position: {:?}, {:?}, {:?}, {:?}, {:?}", positions, node_state.0.text, lg_pos, &endp.0, &endp.1);
-                let (ps1, indices_arr) = split_by_lg(
-                    positions1,
-                    vec![i, i + 1, i + 2, i + 3],
-                    lg_pos.as_slice(),
-                    endp.0.clone(),
-                    endp.1.clone(),
-                );
-                positions1 = ps1;
-
-                // 颜色插值
-                colors = interp_mult_by_lg(
-                    positions1.as_slice(),
-                    &indices_arr,
-                    colors,
-                    lg_color.clone(),
-                    lg_pos.as_slice(),
-                    endp.0.clone(),
-                    endp.1.clone(),
-                );
-
-                // 尝试为新增的点计算uv
-                if positions1.len() > old_len {
-                    fill_uv(&mut positions1, uvs, i as usize, old_len);
-                    old_len = positions1.len();
-                }
-
-                indices = mult_to_triangle(&indices_arr, indices);
-                i = i + 4;
-            }
-
-            let index_buffer = get_or_create_buffer_index(bytemuck::cast_slice(&indices), "text vert index buffer", device, buffer_assets);
-            draw_state.indices = Some(RenderIndices {
-                buffer: EVerticesBufferUsage::GUI(index_buffer),
-                buffer_range: None,
-                format: IndexFormat::Uint16,
-            });
-
-            let colors = colors.pop().unwrap();
-            set_vert_buffer(
-                VcolorVert::location(),
-                16,
-                bytemuck::cast_slice(&colors),
-                vertex_buffer_alloter,
-                draw_state,
-            );
-            set_vert_buffer(
-                PositionVert::location(),
-                8,
-                bytemuck::cast_slice(&positions1),
-                vertex_buffer_alloter,
-                draw_state,
-            );
-            // draw_state.insert_vertices(RenderVertices { slot: 2, buffer: EVerticesBufferUsage::GUI(color_buffer), buffer_range: None, size_per_value: 16 });
-        }
-    }
-
-    // let positions_buffer = get_or_create_buffer(bytemuck::cast_slice(&positions), "text position buffer", device, buffer_assets);
-    // draw_state.insert_vertices(RenderVertices { slot: PositionVert::location(), buffer: EVerticesBufferUsage::GUI(positions_buffer), buffer_range: None, size_per_value: 8 });
-    set_vert_buffer(UvVert::location(), 8, bytemuck::cast_slice(&uvs), vertex_buffer_alloter, draw_state);
-    // let uv_buffer = get_or_create_buffer(bytemuck::cast_slice(&uvs), "text uv buffer", device, buffer_assets);
-    // draw_state.insert_vertices(RenderVertices { slot: UvVert::location(), buffer: EVerticesBufferUsage::GUI(uv_buffer), buffer_range: None, size_per_value: 8 });
-    draw_state.vertex = 0..(positions.len() * 4 / 8) as u32;
+	set_vert_buffer(
+		IndexInfoVert::location(),
+		8,
+		bytemuck::cast_slice(&index_info),
+		vertex_buffer_alloter,
+		draw_state,
+	);
+	set_vert_buffer(
+		TranslationVert::location(),
+		8,
+		bytemuck::cast_slice(&translation),
+		vertex_buffer_alloter,
+		draw_state,
+	);
+	set_vert_buffer(
+		DataOffsetVert::location(),
+		8,
+		bytemuck::cast_slice(&data_offset),
+		vertex_buffer_alloter,
+		draw_state,
+	);
+	set_vert_buffer(
+		InfoVert::location(),
+		8,
+		bytemuck::cast_slice(&u_info),
+		vertex_buffer_alloter,
+		draw_state,
+	);
+    draw_state.vertex = 0..4;
 }
 
 #[inline]
@@ -544,8 +473,10 @@ pub fn text_vert(
     font_sheet: &mut FontSheet,
     scale: f32,
     text_style: &TextStyle,
-    positions: &mut Vec<f32>,
-    uvs: &mut Vec<f32>,
+    translation: &mut Vec<f32>, 
+	index_info: &mut Vec<f32>, 
+	data_offset: &mut Vec<f32>, 
+	u_info: &mut Vec<f32>, 
 	font_height: f32,
 	text_overflow_data: Option<&TextOverflowData>,
 	query_layout: &Query<(&'static LayoutResult, &'static Up, &'static NodeState)>,
@@ -554,6 +485,9 @@ pub fn text_vert(
 	if  node_state.0.text.len() == 0 {
 		return;
 	}
+	let line_height = get_line_height(font_height as usize, &text_style.line_height);
+
+	let offset_y = (line_height - font_height) / 2.0;
 	let font_type = font_sheet.font_mgr().font_type;
 	let is_sdf = match font_type {
 		FontType::Bitmap => false,
@@ -607,24 +541,20 @@ pub fn text_vert(
 				while i < max {
 					for c1 in text_overflow_data.text_overflow_char.iter() {
 						let glyph = match font_type {
-							FontType::Bitmap => font_sheet.font_mgr().table.bitmap_table.glyph(GlyphId(c1.ch_id)),
-							FontType::Sdf1 => font_sheet.font_mgr().table.sdf_table.glyph(GlyphId(c1.ch_id)),
-							FontType::Sdf2 => todo!(),
+							FontType::Bitmap => todo!(),
+							FontType::Sdf1 => todo!(),
+							FontType::Sdf2 => font_sheet.font_mgr().table.sdf2_table.glyph(GlyphId(c1.ch_id)),
 						};
-						push_pos_uv(
-							positions,
-							uvs,
-							left - half_stroke + text_style.letter_spacing,
-							top,
-							&glyph,
-							c1.width,
-							c.pos.bottom - c.pos.top,
-							scale,
-							is_sdf,
-							text_style.font_weight,
-							*text_style.text_stroke.width,
-							font_height,
+						push_instance_data(
+							translation,
+							index_info,
+							data_offset,
+							u_info,
+							glyph,
+							left + text_style.letter_spacing,
+							top + offset_y,
 						);
+
 						left += c1.width + text_style.letter_spacing;
 					}
 					i += 1;
@@ -635,23 +565,18 @@ pub fn text_vert(
 
         // log::warn!("glyph!!!==================={:?}, {:?}, {left:?}, {top:?}", c.ch_id, c.ch);
 		let glyph = match font_type {
-			FontType::Bitmap => font_sheet.font_mgr().table.bitmap_table.glyph(GlyphId(c.ch_id)),
-			FontType::Sdf1 => font_sheet.font_mgr().table.sdf_table.glyph(GlyphId(c.ch_id)),
-			FontType::Sdf2 => todo!(),
+			FontType::Bitmap => todo!(),
+			FontType::Sdf1 => todo!(),
+			FontType::Sdf2 => font_sheet.font_mgr().table.sdf2_table.glyph(GlyphId(c.ch_id)),
 		};
-		push_pos_uv(
-			positions,
-			uvs,
-			left - half_stroke,
-			top,
-			&glyph,
-			w,
-			c.pos.bottom - c.pos.top,
-			scale,
-			is_sdf,
-			text_style.font_weight,
-			*text_style.text_stroke.width,
-			font_height,
+		push_instance_data(
+			translation,
+			index_info,
+			data_offset,
+			u_info,
+			glyph,
+			left,
+			top + offset_y,
 		);
 		if count > 0 {
 			count -= 1;
@@ -662,69 +587,33 @@ pub fn text_vert(
     }
 }
 
+// push实例数据
 #[allow(unused_variables)]
-pub fn push_pos_uv(
-	positions: &mut Vec<f32>, 
-	uvs: &mut Vec<f32>, 
-	x: f32, 
-	mut y: f32, 
-	glyph: &Glyph, 
-	width: f32, 
-	height: f32, 
-	scale: f32,
-	is_sdf: bool,
-	weight: usize,
-	stroke_width: f32,
-	font_height: f32,
-
+pub fn push_instance_data(
+	translation: &mut Vec<f32>, 
+	index_info: &mut Vec<f32>, 
+	data_offset: &mut Vec<f32>, 
+	u_info: &mut Vec<f32>, 
+	info: &TexInfo, 
+	x: f32,
+	y: f32,
 ) {
-	if is_sdf {
-		push_pos_uv_sdf(
-			positions,
-			uvs, 
-			x,
-			y,
-			glyph,
-			width,
-			height,
-			weight, 
-			stroke_width,
-			font_height, 
-		);
-		return;
-	}
+	index_info.push(info.index_offset.0 as f32);
+	index_info.push(info.index_offset.1 as f32);
+	index_info.push(info.grid_w);
+	index_info.push(info.grid_w);
 
-	// let font_ratio = width/glyph.width;
-	let w = glyph.width / scale;
-	let h = glyph.height / scale;
+	data_offset.push(info.data_offset.0 as f32);
+	data_offset.push(info.data_offset.1 as f32);
 
-    // height为行高， 当行高高于字体高度时，需要居中
-    y += (height - h) / 2.0;
-    let left_top = (
-        (x * scale).round() / scale,
-        (y * scale).round() / scale, // 保证顶点对应整数像素
-    );
-    let right_bootom = (left_top.0 + w, left_top.1 + h);
+	let check = info.cell_size * 0.5 * 2.0f32.sqrt();
+	u_info.push(info.max_offset as f32);
+	u_info.push(info.min_sdf as f32);
+	u_info.push(info.sdf_step as f32);
+	u_info.push(check);
 
-    let ps = [
-        left_top.0,
-        left_top.1,
-        left_top.0,
-        right_bootom.1,
-        right_bootom.0,
-        right_bootom.1,
-        right_bootom.0,
-        left_top.1,
-    ];
-
-    let gx = glyph.x as f32 + 0.5;
-    let gy = glyph.y as f32 + 0.5;
-	let gx_right = glyph.x as f32 + glyph.width - 0.5;
-	let gx_bottom = glyph.y as f32 + glyph.height - 0.5;
-    let uv = [gx, gy, gx, gx_bottom, gx_right, gx_bottom, gx_right, gy];
-    uvs.extend_from_slice(&uv);
-    // log::warn!("uv=================={:?}, {:?}, w:{:?},h:{:?},scale:{:?},glyph:{:?}", uv, ps, width, height, scale, glyph);
-    positions.extend_from_slice(&ps[..]);
+	translation.push(x as f32);
+	translation.push(y as f32);
 }
 
 fn push_pos_uv_sdf(

@@ -8,6 +8,7 @@ pub use cmd::*;
 use pi_atom::Atom;
 use pi_bevy_asset::ShareAssetMgr;
 use pi_bevy_render_plugin::{PiRenderDevice, PiRenderQueue, node:: NodeId as GraphNodeId};
+use pi_hal::font::font::FontType;
 use pi_hash::XHashMap;
 use pi_map::Map;
 use pi_null::Null;
@@ -23,7 +24,7 @@ use std::ops::{Index, IndexMut};
 use pi_style::style_parse::{parse_animation, parse_class_map_from_string, parse_style_list_from_string};
 use pi_style::style_type::Attr;
 use pi_time::Instant;
-use pi_hal::font::sdf_brush::FontCfg;
+use pi_hal::font::sdf_table::FontCfg;
 
 // use pi_ecs::prelude::{FromWorld, Id, World};
 use bevy_ecs::prelude::{Entity, FromWorld, Resource, World};
@@ -635,12 +636,12 @@ unsafe impl Sync for ShareFontSheet {}
 // }
 
 impl ShareFontSheet {
-    pub fn new(world: &mut World, use_sdf: bool) -> Self {
+    pub fn new(world: &mut World, font_type: FontType) -> Self {
         let texture_res_mgr = world.get_resource::<ShareAssetMgr<TextureRes>>().unwrap();
         let device = world.get_resource::<PiRenderDevice>().unwrap();
 		let queue = world.get_resource::<PiRenderQueue>().unwrap();
 		let limits = device.limits();
-        ShareFontSheet(Share::new(ShareCell::new(FontSheet::new(&device.0, &texture_res_mgr.0, &queue.0, limits.max_texture_dimension_2d, use_sdf))))
+        ShareFontSheet(Share::new(ShareCell::new(FontSheet::new(&device.0, &texture_res_mgr.0, &queue.0, limits.max_texture_dimension_2d, font_type))))
     }
 }
 
