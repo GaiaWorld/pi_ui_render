@@ -181,7 +181,7 @@ pub fn modify<'a>(
 			(
 				if pipeline_meta.defines.get(&Atom::from("VERTEX_COLOR")).is_some() {
 					pipeline_meta.vert_layout = (*vert_layout1).clone();
-					pipeline_meta.defines.remove(&VERTEX_COLOR_DEFINE);
+					pipeline_meta.defines.remove(&*VERTEX_COLOR_DEFINE);
 					draw_state.vertices.remove(VcolorVert::location()); // 移除对应的vb
 					true
 				} else {
@@ -247,7 +247,7 @@ pub fn modify<'a>(
     if *text_style.text_stroke.width > 0.0 {
         pipeline_meta.defines.insert(STROKE_DEFINE.clone());
     } else {
-        pipeline_meta.defines.remove(&STROKE_DEFINE);
+        pipeline_meta.defines.remove(&*STROKE_DEFINE);
     }
 
 	if font_sheet.font_mgr().font_type == FontType::Sdf1{

@@ -130,7 +130,7 @@ impl Example for QuadExample {
         self.cmd.set_style(canvas, HeightType(Dimension::Points(300.0)));
         self.cmd.set_style(canvas, PositionLeftType(Dimension::Points(100.0)));
         self.cmd.set_style(canvas, PositionTopType(Dimension::Points(100.0)));
-        self.cmd.push_cmd(ComponentCmd(Canvas(root_tow), canvas));
+        self.cmd.push_cmd(ComponentCmd(Canvas{id: root_tow, by_draw_list: false}, canvas));
         self.cmd.append(canvas, self.root_one.0);
     }
 

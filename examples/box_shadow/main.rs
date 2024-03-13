@@ -62,7 +62,7 @@ impl Example for QuadExample {
                 h: 50.0,
                 v: 50.0,
                 spread: 0.0,
-                blur: 20.0,
+                blur: 5.0,
                 color: CgColor::new(0.5, 0.5, 0.5, 1.0),
             }),
         );

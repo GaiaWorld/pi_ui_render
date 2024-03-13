@@ -45,7 +45,7 @@ pub fn calc_animation(
     )>,
 
     user_commands: &mut SystemState<ResMut<UserCommands>>,
-	mut dirty_mark: Local<bitvec::vec::BitVec<u64>>,
+	mut dirty_mark: Local<bitvec::vec::BitVec<usize>>,
 ) {
 
     let time = Instant::now();

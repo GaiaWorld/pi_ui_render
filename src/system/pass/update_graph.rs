@@ -1,3 +1,5 @@
+
+
 use bevy_ecs::{
     prelude::{Entity, RemovedComponents, With},
     query::{Added, Changed, Or, ReadOnlyWorldQuery},
@@ -16,6 +18,7 @@ use crate::{
     system::{pass::pass_graph_node::Pass2DNode, draw_obj::calc_text::IsRun}, resource::PassGraphMap,
 };
 
+/// 根据声明创建图节点，删除图节点， 建立图节点的依赖关系
 pub fn update_graph(
     mut pass_query: ParamSet<(
         Query<(&mut GraphId, Entity, &ParentPassId, &PostProcessInfo), (Or<(Added<Camera>, Changed<RenderContextMark>)>, With<Camera>)>,
@@ -26,7 +29,6 @@ pub fn update_graph(
 		),
     )>,
     mut del: RemovedComponents<Camera>,
-    canvas_query: Query<(&Canvas, &InPassId, Option<&AsImage>), Changed<Canvas>>,
     inpass_query: Query<&ParentPassId>,
     mut rg: ResMut<PiRenderGraph>,
 	mut pass_graph_map: OrInitResMut<PassGraphMap>,
@@ -99,33 +101,10 @@ pub fn update_graph(
             }
         }
     }
-
-    // canvas的图节点id由外部系统设置
-    for (canvas, in_pass_id, as_image) in canvas_query.iter() {
-        if let Ok(from_graph_id) = p2.2.get(canvas.0) {
-			let id = type_to_post_process(**from_graph_id, as_image, &p2.2, &mut rg);
-            let mut in_pass_id = **in_pass_id;
-            loop {
-                if let Ok(to_graph_id) = p2.2.get(*in_pass_id) {
-                    if !to_graph_id.is_null() {
-                        if let Err(e) = rg.add_depend(id, **to_graph_id) {
-                            log::error!("add_depend fail, {:?}", e);
-                        }
-                        break;
-                    }
-                }
-                if let Ok(parent_pass_id) = inpass_query.get(*in_pass_id) {
-                    in_pass_id = **parent_pass_id;
-                } else {
-                    break;
-                }
-            }
-        }
-    }
 }
 
 // 如果存在后处理，连接到后处理
-fn type_to_post_process(id: NodeId, as_image: Option<&AsImage>, graph_id_query: &Query<&GraphId>, rg: &mut PiRenderGraph) -> NodeId {
+pub fn type_to_post_process(id: NodeId, as_image: Option<&AsImage>, graph_id_query: &Query<&GraphId>, rg: &mut PiRenderGraph) -> NodeId {
 	if let Some(r) = as_image {
 		if let Ok(post_process_graph) = graph_id_query.get(*r.post_process) {
 			if !post_process_graph.is_null() {

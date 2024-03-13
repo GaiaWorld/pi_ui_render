@@ -3,6 +3,7 @@
 use bevy_ecs::prelude::{Changed, IntoSystemSetConfig, IntoSystemSetConfigs, IntoSystemConfigs};
 use bevy_app::{Plugin, Update, App};
 use pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent;
+use pi_bevy_render_plugin::FrameDataPrepare;
 
 use crate::components::{
     calc::RenderContextMark,
@@ -10,7 +11,7 @@ use crate::components::{
     user::{Blur, Hsi, Opacity, Overflow, TransformWillChange},
 };
 
-use self::{as_image::UiAsImagePlugin, clip_path::UiClipPathPlugin, mask_image::UiMaskImagePlugin, radial_wave::RadialWavePlugin};
+use self::{as_image::UiAsImagePlugin, clip_path::UiClipPathPlugin, radial_wave::RadialWavePlugin};
 
 use super::{
     node::{content_box, world_matrix},
@@ -35,9 +36,9 @@ pub struct UiEffectPlugin;
 impl Plugin for UiEffectPlugin {
     fn build(&self, app: &mut App) {
         app.configure_sets(Update, (UiSystemSet::Setting, UiSystemSet::PassMark, UiSystemSet::PassFlush).chain())
-            .configure_set(Update, UiSystemSet::PassMark.run_if(pi_bevy_render_plugin::should_run))
-            .configure_set(Update, UiSystemSet::PassFlush.run_if(pi_bevy_render_plugin::should_run))
-            .configure_set(Update, UiSystemSet::PassSetting.run_if(pi_bevy_render_plugin::should_run))
+            .configure_set(Update, UiSystemSet::PassMark.in_set(FrameDataPrepare))
+            .configure_set(Update, UiSystemSet::PassFlush.in_set(FrameDataPrepare))
+            .configure_set(Update, UiSystemSet::PassSetting.in_set(FrameDataPrepare))
             .add_frame_event::<ComponentEvent<Changed<RenderContextMark>>>()
             .add_frame_event::<ComponentEvent<Changed<ParentPassId>>>()
             .add_frame_event::<OldTransformWillChange>()
@@ -78,7 +79,7 @@ impl Plugin for UiEffectPlugin {
                     .in_set(UiSystemSet::PassSetting)
                     .after(UiSystemSet::PassFlush),
             )
-            .add_plugins(UiMaskImagePlugin)
+            // .add_plugins(UiMaskImagePlugin)
             .add_plugins(UiClipPathPlugin)
             .add_plugins(UiAsImagePlugin)
 			.add_plugins(RadialWavePlugin)

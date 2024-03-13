@@ -17,9 +17,9 @@ use bevy_ecs::{
     prelude::{Entity, World},
     system::{Local, Query, ResMut, SystemState}, event::EventReader, change_detection::{DetectChanges, DetectChangesMut}, schedule::IntoSystemConfigs,
 };
-use bevy_window::should_run;
 use bitvec::array::BitArray;
 use pi_bevy_ecs_extend::system_param::res::OrInitRes;
+use pi_bevy_render_plugin::FrameDataPrepare;
 use pi_null::Null;
 use pi_style::style::StyleType;
 use smallvec::SmallVec;
@@ -40,8 +40,8 @@ pub struct TransitionPlugin;
 impl Plugin for TransitionPlugin {
     fn build(&self, app: &mut App) {
 		app
-			.add_systems(Update, transition_1.run_if(should_run).in_set(UiSystemSet::Setting).after(user_setting).before(calc_animation))
-			.add_systems(Update, transition_2.run_if(should_run).in_set(UiSystemSet::Setting).after(calc_animation))
+			.add_systems(Update, transition_1.in_set(FrameDataPrepare).in_set(UiSystemSet::Setting).after(user_setting).before(calc_animation))
+			.add_systems(Update, transition_2.in_set(FrameDataPrepare).in_set(UiSystemSet::Setting).after(calc_animation))
 		;
 	}
 }

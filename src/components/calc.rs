@@ -20,6 +20,7 @@ use pi_share::Share;
 use pi_slotmap::Key;
 
 use crate::resource::RenderObjType;
+use crate::resource::draw_obj::{AssetWithId, TextureKeyAlloter};
 
 use super::user::*;
 
@@ -57,6 +58,74 @@ impl Default for LayoutResult {
             },
         }
     }
+}
+
+impl LayoutResult {
+	pub fn padding_box(&self) -> [f32; 4]{
+		[
+			self.border.left,
+			self.border.top,
+			self.rect.right - self.rect.left - self.border.left - self.border.right,
+			self.rect.bottom - self.rect.top - self.border.top - self.border.bottom
+		]
+	}
+
+	pub fn padding_aabb(&self) -> Aabb2 {
+		Aabb2::new(
+			Point2::new(
+				self.border.left,
+				self.border.top,
+			),
+			Point2::new(
+				self.rect.right - self.rect.left - self.border.right,
+				self.rect.bottom - self.rect.top - self.border.bottom
+			)
+		)
+	}
+
+	pub fn content_box(&self) -> [f32; 4]{
+		[
+			self.border.left + self.padding.left,
+			self.border.top + self.padding.top,
+			self.rect.right - self.rect.left - self.border.left - self.padding.left - self.border.right - self.padding.right,
+			self.rect.bottom - self.rect.top - self.border.top - self.padding.top - self.border.bottom - self.padding.bottom
+		]
+	}
+
+	pub fn content_aabb(&self) -> Aabb2{
+		Aabb2::new(
+			Point2::new(
+				self.border.left + self.padding.left,
+				self.border.top + self.padding.top,
+			),
+			Point2::new(
+				self.rect.right - self.rect.left - self.border.left - self.padding.left,
+				self.rect.bottom - self.rect.top - self.border.top - self.padding.top
+			)
+		)
+	}
+
+	pub fn border_box(&self) -> [f32; 4]{
+		[
+			0.0,
+			0.0,
+			self.rect.right - self.rect.left,
+			self.rect.bottom - self.rect.top,
+		]
+	}
+
+	pub fn border_aabb(&self) -> Aabb2{
+		Aabb2::new(
+			Point2::new(
+				0.0,
+				0.0,
+			),
+			Point2::new(
+				self.rect.right - self.rect.left,
+				self.rect.bottom - self.rect.top,
+			)
+		)
+	}
 }
 
 /// 内容最大包围盒范围(所有递归子节点的包围盒的最大范围，不包含自身)
@@ -99,6 +168,10 @@ impl DrawInfo {
     }
 
     pub fn is_opacity(&self) -> bool { (self.0 & (1 << 31)) > 0 }
+
+	pub fn is_visibility(&self) -> bool { (self.0 & (1 << 30)) > 0 }
+
+	pub fn set_visibility(&mut self, value: bool) { self.0 = self.0 << 1 >> 1 | ((unsafe { transmute::<_, u8>(value) } as u32) << 30); }
 
 	// 不透明排前面，透明排后面
 	pub fn opacity_order(&self) -> usize { 
@@ -501,23 +574,25 @@ pub struct TransformWillChangeMatrixInner {
 }
 
 #[derive(Debug, Clone, Default, Component)]
-pub struct MaskTexture(pub Option<Handle<TextureRes>>);
+pub struct MaskTexture (pub Option<AssetWithId<TextureRes>>);
 
 impl Null for MaskTexture {
-    fn null() -> Self { Self(None) }
+    fn null() -> Self { 
+		Self (None)
+	}
 
     fn is_null(&self) -> bool { self.0.is_none() }
 }
 
-impl From<Handle<TextureRes>> for MaskTexture {
-    fn from(handle: Handle<TextureRes>) -> Self { MaskTexture(Some(handle)) }
+impl From<(Handle<TextureRes>, TextureKeyAlloter)> for MaskTexture {
+    fn from(handle: (Handle<TextureRes>, TextureKeyAlloter)) -> Self { MaskTexture(Some(AssetWithId::new(handle.0, handle.1.0))) }
 }
 
-impl From<Option<Handle<TextureRes>>> for MaskTexture {
-    fn from(handle: Option<Handle<TextureRes>>) -> Self { MaskTexture(handle) }
+impl From<Option<AssetWithId<TextureRes>>> for MaskTexture {
+    fn from(handle: Option<AssetWithId<TextureRes>>) -> Self { MaskTexture(handle) }
 }
 
-impl From<MaskTexture> for Option<Handle<TextureRes>> {
+impl From<MaskTexture> for Option<AssetWithId<TextureRes>>{
     fn from(mask_texture: MaskTexture) -> Self { mask_texture.0 }
 }
 
@@ -709,11 +784,12 @@ impl Default for OverflowDesc {
 /// BorderImageTexture.0只有在设置了图片路径，但纹理还未加载成功的情况下，才会为none
 /// 如果删除了图片路径，会删除该组件
 #[derive(Deref, Component, Default)]
-pub struct BorderImageTexture(pub Option<Handle<TextureRes>>);
+pub struct BorderImageTexture(pub Option<AssetWithId<TextureRes>>);
 
-impl From<Handle<TextureRes>> for BorderImageTexture {
-    fn from(h: Handle<TextureRes>) -> Self { Self(Some(h)) }
+impl From<(Handle<TextureRes>, TextureKeyAlloter)> for BorderImageTexture {
+    fn from(handle: (Handle<TextureRes>, TextureKeyAlloter)) -> Self { Self(Some(AssetWithId::new(handle.0, handle.1.0))) }
 }
+
 
 impl Null for BorderImageTexture {
     fn null() -> Self { Self(None) }
@@ -724,10 +800,10 @@ impl Null for BorderImageTexture {
 /// BackgroundImageTexture.0只有在设置了图片路径，但纹理还未加载成功的情况下，才会为none
 /// 如果删除了图片路径，会删除该组件
 #[derive(Deref, Component, Default)]
-pub struct BackgroundImageTexture(pub Option<Handle<TextureRes>>);
+pub struct BackgroundImageTexture(pub Option<AssetWithId<TextureRes>>);
 
-impl From<Handle<TextureRes>> for BackgroundImageTexture {
-    fn from(h: Handle<TextureRes>) -> Self { Self(Some(h)) }
+impl From<(Handle<TextureRes>, TextureKeyAlloter)> for BackgroundImageTexture {
+    fn from(handle: (Handle<TextureRes>, TextureKeyAlloter)) -> Self { Self(Some(AssetWithId::new(handle.0, handle.1.0))) }
 }
 
 

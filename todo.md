@@ -70,6 +70,7 @@ struct InstanceData {
 }
 
 #### 问题
+节点增加或删除， 会导致实例数据重新组织，消耗较多的时间， 但某些场景确实这样（比如每帧刷新一组数字， 数字的个数不一样）
 
 
 
@@ -123,4 +124,4 @@ glyph is not exist, GlyphId(DefaultKey(4294967295v0))（点击美食家这个角
 节点不销毁问题(场景中出现)
 flex_layout parent不存在问题
 pi_share, 多次借用问题
-pi_ui_render, 插入一个节点是，已经存在一个parent
+pi_ui_render, 插入一个节点时，已经存在一个parent

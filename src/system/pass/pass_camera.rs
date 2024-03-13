@@ -16,6 +16,7 @@ use pi_bevy_ecs_extend::{
 };
 use pi_bevy_post_process::PostprocessResource;
 use pi_bevy_render_plugin::{PiIndexBufferAlloter, PiRenderDevice, PiRenderQueue, PiVertexBufferAlloter};
+use pi_null::Null;
 use pi_render::{
     renderer::draw_obj::DrawBindGroup,
     rhi::{asset::RenderRes, bind_group::BindGroup, buffer::Buffer},
@@ -36,11 +37,11 @@ use crate::{
         user::{Aabb2, AsImage, Matrix4, Point2, RenderDirty, Vector2, Viewport, BackgroundImage},
     },
     resource::{
-        draw_obj::{CameraGroup, DepthCache, GroupAlloterCenter, ShareGroupAlloter, ShareLayout},
-        QuadTree,
+        draw_obj::{CameraGroup, DepthCache, GroupAlloterCenter, ShareGroupAlloter, ShareLayout, InstanceContext},
+        QuadTree, ShareFontSheet,
     },
-    shader::camera::{ProjectUniform, ViewUniform},
-    system::{utils::{create_project, rotatequad_quad_intersection}, draw_obj::calc_text::IsRun},
+    shader1::meterial::{ProjectUniform, ViewUniform, Sdf2TextureSizeUniform, BoxUniform, QuadUniform},
+    system::{utils::{create_project, rotatequad_quad_intersection}, draw_obj::{calc_text::IsRun, set_box}},
     utils::tools::{box_aabb, calc_bound_box, eq_f32, intersect},
 };
 
@@ -65,6 +66,7 @@ pub fn calc_camera_depth_and_renderlist(
                 &mut RenderTarget,
 				Option<&BackgroundImage>,
 				&Quad,
+				&Draw2DList,
             ),
             Without<DrawState>,
         >,
@@ -96,11 +98,13 @@ pub fn calc_camera_depth_and_renderlist(
         OrInitRes<PiVertexBufferAlloter>,
         OrInitRes<PiIndexBufferAlloter>,
         Res<QuadTree>,
+		Res<ShareFontSheet>,
         // Res<NotDrawListMark>,
     ),
     depth_cache: OrInitResMut<DepthCache>,
-    camera_material_alloter: OrInitRes<ShareGroupAlloter<CameraGroup>>,
+    // camera_material_alloter: OrInitRes<ShareGroupAlloter<CameraGroup>>,
 
+	mut instance_context: ResMut<InstanceContext>,
     post_resource: ResMut<PostprocessResource>,
     // mut geometrys: ResMut<PiPostProcessGeometryManager>,
     // mut postprocess_pipelines: ResMut<PiPostProcessMaterialMgr>,
@@ -109,8 +113,12 @@ pub fn calc_camera_depth_and_renderlist(
 	if r.0 {
 		return;
 	}
-    let (share_layout, device, queue, buffer_assets, bind_group_assets, group_alloc_center, vertbuffer_alloter, index_alloter, quad_tree) = res;
+    let (share_layout, device, queue, buffer_assets, bind_group_assets, group_alloc_center, vertbuffer_alloter, index_alloter, quad_tree, font_sheet) = res;
     let p0 = query_root.p0();
+	let font_sheet = font_sheet.0.borrow();
+	let font_texture_size = font_sheet.texture_size();
+	let font_type =  font_sheet.font_mgr().font_type;
+
 	// 所有根共同的脏区域
     let mut all_dirty_rect = Aabb2::new(Point2::new(std::f32::MAX, std::f32::MAX), Point2::new(std::f32::MIN, std::f32::MIN));
 
@@ -118,6 +126,7 @@ pub fn calc_camera_depth_and_renderlist(
     for (global_dirty_rect, render_dirty_mark, view_port) in p0.iter() {
         if global_dirty_rect.state != DirtyRectState::UnInit {
             box_aabb(&mut all_dirty_rect, &global_dirty_rect.value);
+			// box_aabb(&mut all_dirty_rect, &view_port.0);
         } else if render_dirty_mark.0 {
 			box_aabb(&mut all_dirty_rect, &view_port.0);
 		}
@@ -138,6 +147,7 @@ pub fn calc_camera_depth_and_renderlist(
         mut render_target,
 		bg,
 		quad,
+		draw2d_list
     ) in query_pass.p0().iter_mut()
     {
         camera.is_active = false;
@@ -154,10 +164,12 @@ pub fn calc_camera_depth_and_renderlist(
             }
             _ => continue,
         };
-		// log::warn!("local_dirty_mark============{:?}, {:?}, {:?}, {:?}, {:?}", entity, local_dirty_mark, as_image, global_dirty_rect, quad);
+		log::trace!("local_dirty_mark============{:?}, {:?}, {:?}, {:?}, {:?}, {:?}", entity, local_dirty_mark, as_image, global_dirty_rect, quad, render_dirty_mark);
 
+		let render_dirty_mark = render_dirty_mark.0;
+		let render_dirty_mark = true;
         // 不脏，不需要组织渲染图， 也不需要渲染脏
-        if global_dirty_rect.state == DirtyRectState::UnInit && !render_dirty_mark.0 {
+        if global_dirty_rect.state == DirtyRectState::UnInit && !render_dirty_mark {
             continue;
         }
 
@@ -167,7 +179,7 @@ pub fn calc_camera_depth_and_renderlist(
         // 如果render_dirty_mark.0, 表示全屏脏
         let mut dirty_rect = global_dirty_rect.value.clone();
 		// 如果该pass2d是根节点， 则其脏区域始终为视口区域
-        if render_dirty_mark.0 { 
+        if render_dirty_mark { 
             dirty_rect = viewport.0;
         }
 
@@ -249,6 +261,16 @@ pub fn calc_camera_depth_and_renderlist(
             Point2::new(no_rotate_view_aabb.maxs.x.ceil(), no_rotate_view_aabb.maxs.y.ceil()),
         );
 
+		if !draw2d_list.clear_instance.is_null() {
+			instance_context.instance_data.instance_data_mut(draw2d_list.clear_instance).set_data(&BoxUniform(&[aabb.mins.x, aabb.mins.y, aabb.maxs.x - aabb.mins.x, aabb.maxs.y - aabb.mins.y]));
+			instance_context.instance_data.instance_data_mut(draw2d_list.clear_instance).set_data(&QuadUniform(&[
+				aabb.mins.x, aabb.mins.y,
+				aabb.mins.x, aabb.maxs.y,
+				aabb.maxs.x, aabb.maxs.y,
+				aabb.maxs.x, aabb.mins.y,
+			]));
+		}
+
         // 计算投影矩阵（投影矩阵将view_aabb范围内的对象投影到-1~1， 注意view_aabb所在坐标系为当前节点的非旋转坐标系）
         let project_matrix = create_project(aabb.mins.x, aabb.maxs.x, aabb.mins.y, aabb.maxs.y);
 
@@ -271,9 +293,18 @@ pub fn calc_camera_depth_and_renderlist(
 
         // log::warn!("pass_id2=========\nentity: {:?}, \nproject_matrix: {:?}, \nview_matrix: {}, \nwillchange_matrix:{:?} \naabb:{:?}, \noverflow_aabb: {:?}", entity, project_matrix, view_matrix, willchange_matrix, aabb, overflow_aabb);
 
-        let mut camera_group = camera_material_alloter.alloc();
+        let mut camera_group = instance_context.camera_alloter.alloc();
         camera_group.set_uniform(&ProjectUniform(project_matrix.as_slice()));
         camera_group.set_uniform(&ViewUniform(view_matrix.as_slice()));
+		let data_texture_size = if let pi_hal::font::font::FontType::Sdf2 = font_type { 
+			font_sheet.font_mgr().table.sdf2_table.data_packer_size().clone()
+		} else {
+			pi_hal::font::font::Size {
+				width: 0,
+				height: 0,
+			}
+		};
+		camera_group.set_uniform(&Sdf2TextureSizeUniform(&[font_texture_size.width as f32, font_texture_size.height as f32, font_texture_size.width as f32, font_texture_size.height as f32]));
 
 
         let scale_x = (aabb.maxs.x - aabb.mins.x) / 2.0;

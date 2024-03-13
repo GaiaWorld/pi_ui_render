@@ -38,23 +38,19 @@ impl Example for ExampleCommonPlay {
     fn get_init_size(&self) -> Option<Size<u32>> {
         // None表示使用默认值
         // Some(Size { width: 1080, height: 2160 })
-		Some(Size { width: 545, height: 963 })
+		Some(Size { width: 647, height: 919 })
     }
-
-	fn use_sdf(&self) -> bool {
-		false
-	}
 
     fn init(&mut self, world: &mut World, size: (usize, usize)) {
 
 		let r = world.get_resource::<framework::PlayOption>().unwrap();
         // let r: Commands1 = unsafe { transmute(command) };
-        let mut ttf = std::env::current_dir().unwrap();
+        // let mut ttf = std::env::current_dir().unwrap();
         // log::warn!("cur_dir========{:?}", ttf);
-        ttf.push("examples/a_cmd_play/source/SOURCEHANSANSK-MEDIUM.TTF");
-        log::warn!("font========ttf={:?}， PLAY_PATH={:?}", ttf, &r.play_path);
-        // 设置默认字体
-        new_face_by_path("default".to_string(), ttf.to_str().unwrap());
+        // ttf.push("examples/a_cmd_play/source/SOURCEHANSANSK-MEDIUM.TTF");
+        // log::warn!("font========ttf={:?}， PLAY_PATH={:?}", ttf, &r.play_path);
+        // // 设置默认字体
+        // new_face_by_path("default".to_string(), ttf.to_str().unwrap());
 
         if let Some(r) = &r.play_path {
             std::env::set_current_dir(r).unwrap();
@@ -73,7 +69,7 @@ impl Example for ExampleCommonPlay {
 
     fn play_option(&self) -> Option<framework::PlayOption> {
 		Some(framework::PlayOption {
-			play_path: Some("D://0_js/cdqxz_new_mult_gui_exe/dst_release"),
+			play_path: Some("D://0_js/cdqxz_new_mult_gui_exe/dst"),
 			play_version: "test",
 		})
 	}

@@ -1,288 +1,162 @@
+use bevy_app::{Plugin, Update};
+use bevy_ecs::change_detection::DetectChangesMut;
 use bevy_ecs::query::{Changed, Or, With};
+use bevy_ecs::schedule::IntoSystemConfigs;
 use bevy_ecs::{
     prelude::Ref,
-    system::{Query, Res},
+    system::Query,
 };
-use bevy_ecs::prelude::DetectChanges;
-use ordered_float::NotNan;
-use pi_assets::mgr::AssetMgr;
-use pi_bevy_asset::ShareAssetMgr;
-use pi_bevy_ecs_extend::system_param::res::OrInitRes;
-use pi_bevy_render_plugin::PiRenderDevice;
-use pi_flex_layout::prelude::Size;
-use pi_polygon::{find_lg_endp, interp_mult_by_lg, mult_to_triangle, split_by_lg, to_triangle, LgCfg};
-use pi_render::renderer::vertices::{EVerticesBufferUsage, RenderIndices, RenderVertices};
-use pi_render::rhi::asset::RenderRes;
-use pi_render::rhi::buffer::Buffer;
-use pi_render::rhi::device::RenderDevice;
-use pi_share::Share;
-use pi_style::style::LinearGradientColor;
-use wgpu::IndexFormat;
+use bevy_window::AddFrameEvent;
+use pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent;
+use pi_bevy_ecs_extend::system_param::res::{OrInitRes, OrInitResMut};
 
-use crate::components::calc::LayoutResult;
-use crate::components::draw_obj::{BackgroundColorMark, PipelineMeta};
-use crate::resource::draw_obj::{PosColorVertexLayout, PosVertexLayout};
-use crate::shader::color::VERT_COLOR_DEFINE;
-use crate::shader::ui_meterial::ColorUniform;
-use crate::utils::tools::{calc_hash, get_padding_rect};
-use crate::{
-    components::{
-        calc::NodeId,
-        draw_obj::{BoxType, DrawState},
-        user::{BackgroundColor, Color},
-    },
-    resource::draw_obj::UnitQuadBuffer,
-};
+use crate::components::calc::{LayoutResult, WorldMatrix, DrawList, IsShow};
+use crate::components::draw_obj::{BackgroundColorMark, InstanceIndex};
+use crate::resource::BackgroundColorRenderObjType;
+use crate::resource::draw_obj::InstanceContext;
+use crate::shader1::meterial::{GradientColorUniform, GradientPositionUniform, RenderFlagType, ColorUniform, TyUniform, GradientEndUniform};
+use crate::components::user::{BackgroundColor, Color, Vector2};
+use crate::system::draw_obj::set_box;
+use crate::system::system_set::UiSystemSet;
 
 use super::calc_text::IsRun;
+use super::life_drawobj;
+
+pub struct BackgroundColorPlugin;
+
+impl Plugin for BackgroundColorPlugin {
+    fn build(&self, app: &mut bevy_app::App) {
+		 // BackgroundColor功能
+		app
+		.add_frame_event::<ComponentEvent<Changed<BackgroundColor>>>()
+		.add_systems(
+			Update, 
+			life_drawobj::draw_object_life_new::<
+				BackgroundColor,
+				BackgroundColorRenderObjType,
+				BackgroundColorMark,
+				{ BACKGROUND_COLOR_ORDER },
+			>
+				.in_set(UiSystemSet::LifeDrawObject)
+				.before(calc_background_color),
+		)
+		.add_systems(
+			Update, 
+			calc_background_color
+				.after(super::super::node::world_matrix::cal_matrix)
+				.in_set(UiSystemSet::PrepareDrawObj)
+		);
+    }
+}
 
 pub const BACKGROUND_COLOR_ORDER: u8 = 2;
 
 /// 设置背景颜色的顶点，和颜色Uniform
 pub fn calc_background_color(
-    query: Query<(&BackgroundColor, &LayoutResult, Ref<BackgroundColor>, Ref<LayoutResult>), Or<(Changed<BackgroundColor>, Changed<LayoutResult>)>>,
-
-    mut query_draw: Query<(&mut DrawState, &mut BoxType, &mut PipelineMeta, &NodeId), With<BackgroundColorMark>>,
-    device: Res<PiRenderDevice>,
-
-    unit_quad_buffer: Res<UnitQuadBuffer>,
-
-    buffer_assets: Res<ShareAssetMgr<RenderRes<Buffer>>>,
-    vert_layout1: OrInitRes<PosVertexLayout>,
-    vert_layout2: OrInitRes<PosColorVertexLayout>,
-	r: OrInitRes<IsRun>
+	mut instances: OrInitResMut<InstanceContext>,
+    query: Query<(Ref<WorldMatrix>, Ref<BackgroundColor>, Ref<LayoutResult>, &DrawList), Or<(Changed<BackgroundColor>, Changed<WorldMatrix>)>>,
+    mut query_draw: Query<&InstanceIndex, With<BackgroundColorMark>>,
+	r: OrInitRes<IsRun>,
+	render_type: OrInitRes<BackgroundColorRenderObjType>,
 ) {
 	if r.0 {
 		return;
 	}
-    for (mut draw_state, mut old_unit_quad, mut pipeline_meta, node_id) in query_draw.iter_mut() {
-        if let Ok((background_color, layout, background_color_change, layout_change)) = query.get(***node_id) {
-            let new_unit_quad = modify(
-                &background_color,
-                layout,
-                &mut draw_state,
-                &device,
-                &buffer_assets,
-                &background_color_change,
-                &layout_change,
-                &unit_quad_buffer,
-            );
-            if *old_unit_quad != new_unit_quad {
-                *old_unit_quad = new_unit_quad;
-            }
 
-            let (vert_layout, has_vert) = match &**background_color {
-                Color::LinearGradient(_) => (&***vert_layout2, true),
-                Color::RGBA(_) => (&***vert_layout1, false),
-            };
+	let render_type = ***render_type;
+	for (world_matrix, background_color, layout, draw_list) in query.iter() {
+		let draw_id = match draw_list.get_one(render_type) {
+			Some(r) => r.id,
+			None => continue,
+		};
+		// log::warn!("color1==========={:?}", (id, &background_color, query_draw.get_mut(Entity::from_raw(24))));
+		
+		if let Ok(instance_index) = query_draw.get_mut(draw_id) {
+			// 节点可能设置为dispaly none， 此时instance_index可能为Null
+			if pi_null::Null::is_null(&instance_index.0.start) {
+				continue;
+			}
 
-            // 修改顶点布局
-            if !Share::ptr_eq(vert_layout, &pipeline_meta.vert_layout) {
-                pipeline_meta.vert_layout = vert_layout.clone();
-                if has_vert {
-                    pipeline_meta.defines.insert(VERT_COLOR_DEFINE.clone());
-                } else {
-                    pipeline_meta.defines.remove(&*VERT_COLOR_DEFINE);
-                }
-            }
-        }
-    }
-}
+			let mut instance_data = instances.bypass_change_detection().instance_data.instance_data_mut(instance_index.0.start);
+			let mut render_flag = instance_data.get_render_ty();
+			
+			match &background_color.0 {
+				Color::RGBA(color) => {
+					// let r1 = query2.get(Entity::from_raw(13));
+					// log::warn!("color==========={:?}", (id, &background_color, query_draw.get_mut(Entity::from_raw(24))));
+					// 颜色改变，重新设置color_group
+					instance_data.set_data(&ColorUniform(&[color.x, color.y, color.z, color.w]));
+	
+					render_flag |= 1 << RenderFlagType::Color as usize;
+					render_flag &= !(1 << RenderFlagType::LinearGradient as usize);
+				}
+				Color::LinearGradient(color) => {
+					let mut colors: [f32; 16] = [0.0; 16];
+					let mut positions: [f32; 4] = [1.0; 4];
+					if color.list.len() > 0 {
+						for i in 0..4 {
+							match color.list.get(i) {
+								Some(r) => {
+									positions[i] = r.position;
+									let j = i * 4;
+									colors[j] = r.rgba.x;
+									colors[j + 1] = r.rgba.y;
+									colors[j + 2] = r.rgba.z;
+									colors[j + 3] = r.rgba.w;
+								},
+								None => {
+									positions[i] = 1.0;
+									let j = i * 4;
+									colors[j] = colors[j - 4];
+									colors[j + 1] = colors[j - 3];
+									colors[j + 2] = colors[j - 2];
+									colors[j + 3] = colors[j - 1];
+								},
+							}
+						}
+					}
+					let normalize_direction = Vector2::new(color.direction.cos(), color.direction.sin());
+					let r = [
+						Vector2::new(layout.border.left, layout.border.top).dot(&normalize_direction), 
+						Vector2::new(layout.rect.right - layout.border.right - layout.rect.left, layout.border.top).dot(&normalize_direction),
+						Vector2::new(layout.rect.right - layout.border.right - layout.rect.left, layout.rect.bottom - layout.border.bottom - layout.rect.top).dot(&normalize_direction),
+						Vector2::new(layout.border.left, layout.rect.bottom - layout.border.bottom - layout.rect.top).dot(&normalize_direction),
+					];
+					let (min, max) = (r[0].min(r[1]).min(r[2]).min(r[3]), r[0].max(r[1]).max(r[2]).max(r[3]));
+					let end = (normalize_direction * min, normalize_direction * max);
+					instance_data.set_data(&GradientColorUniform(&colors));
+					instance_data.set_data(&GradientPositionUniform(&positions));
+					instance_data.set_data(&GradientEndUniform([end.0.x, end.0.y, end.1.x, end.1.y].as_slice()));
 
-// 返回当前需要的StaticIndex
-fn modify<'a>(
-    color: &Color,
-    layout: &LayoutResult,
-    draw_state: &mut DrawState,
-    device: &RenderDevice,
-    buffer_assets: &Share<AssetMgr<RenderRes<Buffer>>>,
-    bg_color_change: &Ref<BackgroundColor>,
-    layout_change: &Ref<LayoutResult>,
-    unit_quad_buffer: &UnitQuadBuffer,
-) -> BoxType {
-    // modify_radius_linear_geo
-    match color {
-        Color::RGBA(color) => {
-            // 颜色改变，重新设置color_group
-            if bg_color_change.is_changed() {
-                draw_state.bindgroups.set_uniform(&ColorUniform(&[color.x, color.y, color.z, color.w]));
-            }
-        }
-        _ => (),
-    };
+					log::trace!("normalize_direction======normalize_direction={:?}, \nr={:?}, \nmin={:?}, \nmax={:?}, \nend={:?}, \ndata={:?}", normalize_direction, r, min, max, end, [
+						Vector2::new(layout.border.left, layout.border.top), 
+						Vector2::new(layout.rect.right - layout.border.right - layout.rect.left, layout.border.top),
+						Vector2::new(layout.rect.right - layout.border.right - layout.rect.left, layout.rect.bottom - layout.border.bottom - layout.rect.top),
+						Vector2::new(layout.border.left, layout.rect.bottom - layout.border.bottom - layout.rect.top),
+					]);
+	
+					render_flag |= 1 << RenderFlagType::LinearGradient as usize;
+					render_flag &= !(1 << RenderFlagType::Color as usize);
+				},
+			};
+			instance_data.set_data(&TyUniform(&[render_flag as f32]));
 
-    if let Color::LinearGradient(_) = color {
-    } else {
-        if bg_color_change.is_changed() {
-            draw_state.vertex = 0..4;
-            draw_state.insert_vertices(RenderVertices {
-                slot: 0,
-                buffer: EVerticesBufferUsage::GUI(unit_quad_buffer.vertex.clone()),
-                buffer_range: None,
-                size_per_value: 16,
-            });
-            draw_state.indices = Some(RenderIndices {
-                buffer: EVerticesBufferUsage::GUI(unit_quad_buffer.index.clone()),
-                buffer_range: None,
-                format: IndexFormat::Uint16,
-            });
-        }
-        return BoxType::PaddingUnitRect;
-    }
+			// 这里世界矩阵和layout的设置，不单独抽取到一个system中， 有由当前设计的数据结构决定的
+			// 当前的实例数据，将每个drawobj所有数据放在一个连续的内存中，当修改材质数据和修改世界矩阵、布局是连续的操作是，缓冲命中率高
+			// 而像clip这类不是每个draw_obj都具有的属性，可以单独在一个system设置，不怎么会影响性能
+			// if is_add || world_matrix.is_changed() {
+			// 	instance_data.set_data(&WorldUniform(world_matrix.as_slice()));
+				
+			// }
+			// if is_add || layout.is_changed() {
+			// 	instance_data.set_data(&BoxUniform(layout.padding_box().as_slice()));
+			// }
 
-    // 否则，需要切分顶点，如果是渐变色，还要设置color vb
-    // ib、position vb、color vb
-    if bg_color_change.is_changed() || layout_change.is_changed() {
-        try_modify_as_radius_linear_geo(layout, device, draw_state, buffer_assets, color);
-    }
+			// if is_add || layout.is_changed() || world_matrix.is_changed(){
+			// 	set_box(&world_matrix, &layout.padding_aabb(), &mut instance_data);
+			// }
 
-    BoxType::PaddingNone
-}
-
-#[inline]
-fn try_modify_as_radius_linear_geo(
-    layout: &LayoutResult,
-    device: &RenderDevice,
-    draw_state: &mut DrawState,
-    buffer_asset_mgr: &Share<AssetMgr<RenderRes<Buffer>>>,
-    color: &Color,
-) {
-    let rect = get_padding_rect(layout);
-    let size = Size {
-        width: rect.right - rect.left,
-        height: rect.bottom - rect.top,
-    };
-    let vb_pos_hash = calc_hash(&rect, calc_hash(&"color vert", 0));
-    let ib_hash = calc_hash(&rect, calc_hash(&"color index", 0)); // 计算颜色hash， TODO
-
-    let vb_color_hash = if let Color::LinearGradient(color) = color {
-        calc_hash(&(&rect, color), calc_hash(&"color vert", 0))
-    } else {
-        vb_pos_hash
-    };
-
-    let (vb, color_vb, ib) = match (
-        buffer_asset_mgr.get(&vb_pos_hash),
-        buffer_asset_mgr.get(&vb_color_hash),
-        buffer_asset_mgr.get(&ib_hash),
-    ) {
-        (Some(vb), Some(color_vb), Some(ib)) => (vb, color_vb, ib),
-        (vb, _color_vb, ib) => {
-            let (mut positions, mut indices) = (
-                vec![
-                    *rect.left,
-                    *rect.top, // left_top
-                    *rect.left,
-                    *rect.bottom, // left_bootom
-                    *rect.right,
-                    *rect.bottom, // right_bootom
-                    *rect.right,
-                    *rect.top, // right_top
-                ],
-                vec![0, 1, 2, 3],
-            );
-            let color_vb = if let Color::LinearGradient(color) = color {
-                let (positions1, colors, indices1) = linear_gradient_split(color, positions, indices, &size);
-                let buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
-                    label: Some("radius or linear Color Buffer"),
-                    contents: bytemuck::cast_slice(colors.as_slice()),
-                    usage: wgpu::BufferUsages::VERTEX,
-                });
-                let color_hash = calc_hash(&rect, calc_hash(&"vert color", 0));
-
-                let color_size = colors.len() * 4;
-                let color = buffer_asset_mgr
-                    .get(&color_hash)
-                    .unwrap_or_else(|| buffer_asset_mgr.insert(color_hash, RenderRes::new(buf, color_size)).unwrap());
-                positions = positions1;
-                indices = indices1;
-                Some(color)
-            } else {
-                indices = to_triangle(&indices, Vec::with_capacity(indices.len()));
-                None
-            };
-
-            let vb = match vb {
-                Some(r) => r,
-                None => {
-                    let buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
-                        label: Some("radius or linear Vertex Buffer"),
-                        contents: bytemuck::cast_slice(positions.as_slice()),
-                        usage: wgpu::BufferUsages::VERTEX,
-                    });
-                    buffer_asset_mgr.insert(vb_color_hash, RenderRes::new(buf, positions.len() * 4)).unwrap()
-                }
-            };
-
-            let ib = match ib {
-                Some(r) => r,
-                None => {
-                    let buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
-                        label: Some("radius or linear Index Buffer"),
-                        contents: bytemuck::cast_slice(indices.as_slice()),
-                        usage: wgpu::BufferUsages::INDEX,
-                    });
-                    buffer_asset_mgr.insert(ib_hash, RenderRes::new(buf, indices.len() * 2)).unwrap()
-                }
-            };
-            (vb.clone(), color_vb.unwrap_or(vb), ib)
-        }
-    };
-    if let Color::LinearGradient(_) = color {
-        draw_state.insert_vertices(RenderVertices {
-            slot: 1,
-            buffer: EVerticesBufferUsage::GUI(color_vb),
-            buffer_range: None,
-            size_per_value: 16,
-        });
-    }
-
-    draw_state.insert_vertices(RenderVertices {
-        slot: 0,
-        buffer: EVerticesBufferUsage::GUI(vb),
-        buffer_range: None,
-        size_per_value: 8,
-    });
-    draw_state.indices = Some(RenderIndices {
-        buffer: EVerticesBufferUsage::GUI(ib),
-        buffer_range: None,
-        format: IndexFormat::Uint16,
-    });
-}
-
-pub fn linear_gradient_split(
-    color: &LinearGradientColor,
-    positions: Vec<f32>,
-    indices: Vec<u16>,
-    size: &Size<NotNan<f32>>,
-) -> (Vec<f32>, Vec<f32>, Vec<u16>) {
-    let mut lg_pos = Vec::with_capacity(color.list.len());
-    let mut colors = Vec::with_capacity(color.list.len() * 4);
-    for v in color.list.iter() {
-        lg_pos.push(v.position);
-        colors.extend_from_slice(&[v.rgba.x, v.rgba.y, v.rgba.z, v.rgba.w]);
-    }
-
-    //渐变端点
-    let endp = find_lg_endp(
-        &[0.0, 0.0, 0.0, *size.height, *size.width, *size.height, *size.width, 0.0],
-        color.direction,
-    );
-
-    let (positions1, indices1) = split_by_lg(positions, indices, lg_pos.as_slice(), endp.0.clone(), endp.1.clone());
-
-    let mut colors = interp_mult_by_lg(
-        positions1.as_slice(),
-        &indices1,
-        vec![Vec::new()],
-        vec![LgCfg { unit: 4, data: colors }],
-        lg_pos.as_slice(),
-        endp.0,
-        endp.1,
-    );
-
-    let indices = mult_to_triangle(&indices1, Vec::new());
-    let colors = colors.pop().unwrap();
-
-    (positions1, colors, indices)
+			set_box(&world_matrix, &layout.padding_aabb(), &mut instance_data);
+		}
+	}
 }

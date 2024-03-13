@@ -583,8 +583,11 @@ impl Default for FlexNormal {
 }
 
 /// 绘制canvas的图节点
-#[derive(Debug, Clone, Serialize, Deserialize, Component, Deref)]
-pub struct Canvas(pub Entity);
+#[derive(Debug, Clone, Serialize, Deserialize, Component)]
+pub struct Canvas {
+	pub id: Entity,
+	pub by_draw_list: bool,
+}
 
 /// 显示改变（一般是指canvas，gui不能感知除了style属性以外的属性改变，如果canvas内容发生改变，应该通过style设置，以便gui能感知，从而设置脏区域）
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Component)]
@@ -628,6 +631,7 @@ pub mod serialize {
             PositionType as PositionType1,
         },
     };
+    use pi_print_any::println_any;
     use pi_style::{
         style::{NotNanRect, StyleType},
         style_parse::Attribute,
@@ -684,6 +688,7 @@ pub mod serialize {
         v: V,
         mut f: F,
     ) {
+		// log::debug!("type: {:?}, entity: {:?}", std::any::type_name::<C>(), entity);
         log::debug!(
             "set_style_attr, type: {:?}, value: {:?}, entity: {:?}",
             std::any::type_name::<C>(),
@@ -738,6 +743,7 @@ pub mod serialize {
 
 
     fn set_default_style_attr<V, C: Component + Clone, F: FnMut(&mut C, V)>(world: &mut World, default_component_id: ComponentId, v: V, mut f: F) {
+		pi_print_any::out_any!(log::trace, "set_default_style_attr==={:?}", &v);
         match world.get_resource_mut_by_id(default_component_id) {
             Some(mut component) => {
                 component.set_changed();
@@ -796,6 +802,7 @@ pub mod serialize {
         pub fn write_to_component(&mut self, cur_style_mark: &mut BitArray<[u32; 3]>, entity: Entity, query: &mut Setting, is_clone: bool) -> bool {
             let next_type = self.next_type();
             if let Some(style_type) = next_type {
+				// pi_print_any::out_any!(log::trace, "write_to_component==={:?}, cursor:{:?}, next_type: {:?}", style_type, self.cursor, next_type);
                 StyleAttr::set(cur_style_mark, style_type, &self.buffer, self.cursor, query, entity, is_clone);
                 let size = StyleAttr::size(style_type);
                 self.cursor += size;
@@ -820,14 +827,16 @@ pub mod serialize {
 
         // 将当前style写入组件
         pub fn to_attr(&mut self) -> Option<StyleAttribute> {
+			let c = self.cursor;
             let next_type = self.next_type();
             if let Some(style_type) = next_type {
                 let r = if style_type < 96 {
                     let r = StyleAttr::to_attr(style_type, &self.buffer, self.cursor);
                     StyleAttribute::Set(r)
                 } else {
+					
                     // reset
-                    StyleAttribute::Reset(style_type - 96)
+                    StyleAttribute::Reset(style_type)
                 };
 
                 let size = StyleAttr::size(style_type);
@@ -2634,7 +2643,6 @@ pub mod serialize {
 				if let Some(c) = r {
 					component.set_changed();
 					unsafe { component.into_inner().deref_mut::<TransformWillChange>() }.0 = None;
-					log::warn!("remove1=============={:?}", entity);
 
 					// 设置transform
 					match world.get_mut_by_id(entity, query.style.transform) {
@@ -2876,242 +2884,244 @@ pub mod serialize {
     lazy_static::lazy_static! {
 
         static ref STYLE_ATTR: [StyleFunc; 96] = [
-            StyleFunc::new::<BackgroundRepeatType>(), // 1
-            StyleFunc::new::<FontStyleType>(), // 2
-            StyleFunc::new::<FontWeightType>(), // 3
-            StyleFunc::new::<FontSizeType>(), // 4
-            StyleFunc::new::<FontFamilyType>(), // 5
-            StyleFunc::new::<LetterSpacingType>(), // 6
-            StyleFunc::new::<WordSpacingType>(), // 7
-            StyleFunc::new::<LineHeightType>(), // 8
-            StyleFunc::new::<TextIndentType>(), // 9
-            StyleFunc::new::<WhiteSpaceType>(), // 10
+            StyleFunc::new::<BackgroundRepeatType>(), // 0
+            StyleFunc::new::<FontStyleType>(), // 1
+            StyleFunc::new::<FontWeightType>(), // 2
+            StyleFunc::new::<FontSizeType>(), // 3
+            StyleFunc::new::<FontFamilyType>(), // 4
+            StyleFunc::new::<LetterSpacingType>(), // 5
+            StyleFunc::new::<WordSpacingType>(), // 6
+            StyleFunc::new::<LineHeightType>(), // 7
+            StyleFunc::new::<TextIndentType>(), // 8
+            StyleFunc::new::<WhiteSpaceType>(), // 9
 
-            StyleFunc::new::<TextAlignType>(), // 11
-            StyleFunc::new::<VerticalAlignType>(), // 12
-            StyleFunc::new::<ColorType>(), // 13
-            StyleFunc::new::<TextStrokeType>(), // 14
-            StyleFunc::new::<TextShadowType>(), // 15
+            StyleFunc::new::<TextAlignType>(), // 10
+            StyleFunc::new::<VerticalAlignType>(), // 11
+            StyleFunc::new::<ColorType>(), // 12
+            StyleFunc::new::<TextStrokeType>(), // 13
+            StyleFunc::new::<TextShadowType>(), // 14
 
-            StyleFunc::new::<BackgroundImageType>(), // 16
-            StyleFunc::new::<BackgroundImageClipType>(), // 17
-            StyleFunc::new::<ObjectFitType>(), // 18
-            StyleFunc::new::<BackgroundColorType>(), // 19
-            StyleFunc::new::<BoxShadowType>(), // 20
-            StyleFunc::new::<BorderImageType>(), // 21
-            StyleFunc::new::<BorderImageClipType>(), // 22
-            StyleFunc::new::<BorderImageSliceType>(), // 23
-            StyleFunc::new::<BorderImageRepeatType>(), // 24
+            StyleFunc::new::<BackgroundImageType>(), // 15
+            StyleFunc::new::<BackgroundImageClipType>(), // 16
+            StyleFunc::new::<ObjectFitType>(), // 17
+            StyleFunc::new::<BackgroundColorType>(), // 18
+            StyleFunc::new::<BoxShadowType>(), // 19
+            StyleFunc::new::<BorderImageType>(), // 20
+            StyleFunc::new::<BorderImageClipType>(), // 21
+            StyleFunc::new::<BorderImageSliceType>(), // 22
+            StyleFunc::new::<BorderImageRepeatType>(), // 23
 
-            StyleFunc::new::<BorderColorType>(), // 25
-
-
-            StyleFunc::new::<HsiType>(), // 26
-            StyleFunc::new::<BlurType>(), // 27
-            StyleFunc::new::<MaskImageType>(), // 28
-            StyleFunc::new::<MaskImageClipType>(), // 29
-            StyleFunc::new::<TransformType>(), // 30
-            StyleFunc::new::<TransformOriginType>(), // 31
-            StyleFunc::new::<TransformWillChangeType>(), // 32
-            StyleFunc::new::<BorderRadiusType>(), // 33
-            StyleFunc::new::<ZIndexType>(), // 34
-            StyleFunc::new::<OverflowType>(), // 35
+            StyleFunc::new::<BorderColorType>(), // 24
 
 
-            StyleFunc::new::<BlendModeType>(), // 36
-            StyleFunc::new::<DisplayType>(), // 37
-            StyleFunc::new::<VisibilityType>(), // 38
-            StyleFunc::new::<EnableType>(), // 30
+            StyleFunc::new::<HsiType>(), // 25
+            StyleFunc::new::<BlurType>(), // 26
+            StyleFunc::new::<MaskImageType>(), // 27
+            StyleFunc::new::<MaskImageClipType>(), // 28
+            StyleFunc::new::<TransformType>(), // 29
+            StyleFunc::new::<TransformOriginType>(), // 30
+            StyleFunc::new::<TransformWillChangeType>(), // 31
+            StyleFunc::new::<BorderRadiusType>(), // 32
+            StyleFunc::new::<ZIndexType>(), // 33
+            StyleFunc::new::<OverflowType>(), // 34
 
 
-            StyleFunc::new::<WidthType>(), // 40
-            StyleFunc::new::<HeightType>(), // 41
-
-            StyleFunc::new::<MarginTopType>(), // 42
-            StyleFunc::new::<MarginRightType>(), // 43
-            StyleFunc::new::<MarginBottomType>(), // 44
-            StyleFunc::new::<MarginLeftType>(), // 45
-
-            StyleFunc::new::<PaddingTopType>(), // 46
-            StyleFunc::new::<PaddingRightType>(), // 47
-            StyleFunc::new::<PaddingBottomType>(), // 48
-            StyleFunc::new::<PaddingLeftType>(), // 49
-
-            StyleFunc::new::<BorderTopType>(), // 50
-            StyleFunc::new::<BorderRightType>(), // 51
-            StyleFunc::new::<BorderBottomType>(), // 52
-            StyleFunc::new::<BorderLeftType>(), // 53
-
-            StyleFunc::new::<PositionTopType>(), // 54
-            StyleFunc::new::<PositionRightType>(), // 55
-            StyleFunc::new::<PositionBottomType>(), // 56
-            StyleFunc::new::<PositionLeftType>(), // 57
-
-            StyleFunc::new::<MinWidthType>(), // 58
-            StyleFunc::new::<MinHeightType>(), // 59
-            StyleFunc::new::<MaxHeightType>(), // 60
-            StyleFunc::new::<MaxWidthType>(), // 61
-            StyleFunc::new::<DirectionType>(), // 62
-            StyleFunc::new::<FlexDirectionType>(), // 63
-            StyleFunc::new::<FlexWrapType>(), // 64
-            StyleFunc::new::<JustifyContentType>(), // 65
-            StyleFunc::new::<AlignContentType>(), // 66
-            StyleFunc::new::<AlignItemsType>(), // 67
+            StyleFunc::new::<BlendModeType>(), // 35
+            StyleFunc::new::<DisplayType>(), // 36
+            StyleFunc::new::<VisibilityType>(), // 37
+            StyleFunc::new::<EnableType>(), // 38
 
 
-            StyleFunc::new::<PositionTypeType>(), // 68
-            StyleFunc::new::<AlignSelfType>(), // 69
-            StyleFunc::new::<FlexShrinkType>(), // 70
-            StyleFunc::new::<FlexGrowType>(), // 71
-            StyleFunc::new::<AspectRatioType>(), // 72
-            StyleFunc::new::<OrderType>(), // 73
-            StyleFunc::new::<FlexBasisType>(), // 74
-            StyleFunc::new::<OpacityType>(), // 75
+            StyleFunc::new::<WidthType>(), // 39
+            StyleFunc::new::<HeightType>(), // 40
 
-            StyleFunc::new::<TextContentType>(), // 76
+            StyleFunc::new::<MarginTopType>(), // 41
+            StyleFunc::new::<MarginRightType>(), // 42
+            StyleFunc::new::<MarginBottomType>(), // 43
+            StyleFunc::new::<MarginLeftType>(), // 44
 
-            StyleFunc::new::<VNodeType>(), // 77
+            StyleFunc::new::<PaddingTopType>(), // 45
+            StyleFunc::new::<PaddingRightType>(), // 46
+            StyleFunc::new::<PaddingBottomType>(), // 47
+            StyleFunc::new::<PaddingLeftType>(), // 48
 
-            StyleFunc::new::<AnimationNameType>(), // 78
-            StyleFunc::new::<AnimationDurationType>(), // 79
-            StyleFunc::new::<AnimationTimingFunctionType>(), // 80
-            StyleFunc::new::<AnimationDelayType>(), // 81
-            StyleFunc::new::<AnimationIterationCountType>(), // 82
-            StyleFunc::new::<AnimationDirectionType>(), // 83
-            StyleFunc::new::<AnimationFillModeType>(), // 84
-            StyleFunc::new::<AnimationPlayStateType>(), // 85
-            StyleFunc::new::<ClipPathType>(), // 86
-            StyleFunc::new::<TranslateType>(), // 87
-            StyleFunc::new::<ScaleType>(), // 88
-            StyleFunc::new::<RotateType>(), // 89
-            StyleFunc::new::<AsImageType>(), // 90
-			StyleFunc::new::<TextOverflowType>(), // 91
-			StyleFunc::new::<OverflowWrapType>(), // 92
+            StyleFunc::new::<BorderTopType>(), // 49
+            StyleFunc::new::<BorderRightType>(), // 50
+            StyleFunc::new::<BorderBottomType>(), // 51
+            StyleFunc::new::<BorderLeftType>(), // 52
 
-			StyleFunc::new::<TransitionPropertyType>(), // 93
-			StyleFunc::new::<TransitionDurationType>(), // 94
-			StyleFunc::new::<TransitionTimingFunctionType>(), // 95
-			StyleFunc::new::<TransitionDelayType>(), // 96
+            StyleFunc::new::<PositionTopType>(), // 53
+            StyleFunc::new::<PositionRightType>(), // 54
+            StyleFunc::new::<PositionBottomType>(), // 55
+            StyleFunc::new::<PositionLeftType>(), // 56
+
+            StyleFunc::new::<MinWidthType>(), // 57
+            StyleFunc::new::<MinHeightType>(), // 58
+            StyleFunc::new::<MaxHeightType>(), // 59
+            StyleFunc::new::<MaxWidthType>(), // 60
+            StyleFunc::new::<DirectionType>(), // 61
+            StyleFunc::new::<FlexDirectionType>(), // 62
+            StyleFunc::new::<FlexWrapType>(), // 63
+            StyleFunc::new::<JustifyContentType>(), // 64
+            StyleFunc::new::<AlignContentType>(), // 65
+            StyleFunc::new::<AlignItemsType>(), // 66
+
+
+            StyleFunc::new::<PositionTypeType>(), // 67
+            StyleFunc::new::<AlignSelfType>(), // 68
+            StyleFunc::new::<FlexShrinkType>(), // 79
+            StyleFunc::new::<FlexGrowType>(), // 70
+            StyleFunc::new::<AspectRatioType>(), // 71
+            StyleFunc::new::<OrderType>(), // 72
+            StyleFunc::new::<FlexBasisType>(), // 73
+            StyleFunc::new::<OpacityType>(), // 74
+
+            StyleFunc::new::<TextContentType>(), // 75
+
+            StyleFunc::new::<VNodeType>(), // 76
+
+            StyleFunc::new::<AnimationNameType>(), // 77
+            StyleFunc::new::<AnimationDurationType>(), // 78
+            StyleFunc::new::<AnimationTimingFunctionType>(), // 79
+            StyleFunc::new::<AnimationDelayType>(), // 80
+            StyleFunc::new::<AnimationIterationCountType>(), // 81
+            StyleFunc::new::<AnimationDirectionType>(), // 82
+            StyleFunc::new::<AnimationFillModeType>(), // 83
+            StyleFunc::new::<AnimationPlayStateType>(), // 84
+            StyleFunc::new::<ClipPathType>(), // 85
+            StyleFunc::new::<TranslateType>(), // 86
+            StyleFunc::new::<ScaleType>(), // 87
+            StyleFunc::new::<RotateType>(), // 88
+            StyleFunc::new::<AsImageType>(), // 89
+			StyleFunc::new::<TextOverflowType>(), // 90
+			StyleFunc::new::<OverflowWrapType>(), // 91
+
+			StyleFunc::new::<TransitionPropertyType>(), // 92
+			StyleFunc::new::<TransitionDurationType>(), // 93
+			StyleFunc::new::<TransitionTimingFunctionType>(), // 94
+			StyleFunc::new::<TransitionDelayType>(), // 95
 		];
+
+		
 		static ref RESET_STYLE_ATTR: [ResetStyleFunc; 96] = [
         /******************************* reset ******************************************************/
-            ResetStyleFunc::new::<ResetBackgroundRepeatType>(), // 1 text
-            ResetStyleFunc::new::<ResetFontStyleType>(), // 2
-            ResetStyleFunc::new::<ResetFontWeightType>(), // 3
-            ResetStyleFunc::new::<ResetFontSizeType>(), // 4
-            ResetStyleFunc::new::<FontFamilyType>(), // 5
-            ResetStyleFunc::new::<LetterSpacingType>(), // 6
-            ResetStyleFunc::new::<WordSpacingType>(), // 7
-            ResetStyleFunc::new::<ResetLineHeightType>(), // 8
-            ResetStyleFunc::new::<TextIndentType>(), // 9
-            ResetStyleFunc::new::<ResetWhiteSpaceType>(), // 10
+            ResetStyleFunc::new::<ResetBackgroundRepeatType>(), // 0
+            ResetStyleFunc::new::<ResetFontStyleType>(), // 1
+            ResetStyleFunc::new::<ResetFontWeightType>(), // 2
+            ResetStyleFunc::new::<ResetFontSizeType>(), // 3
+            ResetStyleFunc::new::<FontFamilyType>(), // 4
+            ResetStyleFunc::new::<LetterSpacingType>(), // 5
+            ResetStyleFunc::new::<WordSpacingType>(), // 6
+            ResetStyleFunc::new::<ResetLineHeightType>(), // 7
+            ResetStyleFunc::new::<TextIndentType>(), // 8
+            ResetStyleFunc::new::<ResetWhiteSpaceType>(), // 9
 
-            ResetStyleFunc::new::<ResetTextAlignType>(), // 11
-            ResetStyleFunc::new::<ResetVerticalAlignType>(), // 12
-            ResetStyleFunc::new::<ResetColorType>(), // 13
-            ResetStyleFunc::new::<ResetTextStrokeType>(), // 14
-            ResetStyleFunc::new::<ResetTextShadowType>(), // 15
+            ResetStyleFunc::new::<ResetTextAlignType>(), // 10
+            ResetStyleFunc::new::<ResetVerticalAlignType>(), // 11
+            ResetStyleFunc::new::<ResetColorType>(), // 12
+            ResetStyleFunc::new::<ResetTextStrokeType>(), // 13
+            ResetStyleFunc::new::<ResetTextShadowType>(), // 14
 
-            ResetStyleFunc::new::<ResetBackgroundImageType>(), // 16
-            ResetStyleFunc::new::<ResetBackgroundImageClipType>(), // 17
-            ResetStyleFunc::new::<ResetObjectFitType>(), // 18
-            ResetStyleFunc::new::<ResetBackgroundColorType>(), // 19
-            ResetStyleFunc::new::<ResetBoxShadowType>(), // 20
-            ResetStyleFunc::new::<ResetBorderImageType>(), // 21
-            ResetStyleFunc::new::<ResetBorderImageClipType>(), // 22
-            ResetStyleFunc::new::<ResetBorderImageSliceType>(), // 23
-            ResetStyleFunc::new::<ResetBorderImageRepeatType>(), // 24
+            ResetStyleFunc::new::<ResetBackgroundImageType>(), // 15
+            ResetStyleFunc::new::<ResetBackgroundImageClipType>(), // 16
+            ResetStyleFunc::new::<ResetObjectFitType>(), // 17
+            ResetStyleFunc::new::<ResetBackgroundColorType>(), // 18
+            ResetStyleFunc::new::<ResetBoxShadowType>(), // 19
+            ResetStyleFunc::new::<ResetBorderImageType>(), // 20
+            ResetStyleFunc::new::<ResetBorderImageClipType>(), // 21
+            ResetStyleFunc::new::<ResetBorderImageSliceType>(), // 22
+            ResetStyleFunc::new::<ResetBorderImageRepeatType>(), // 23
 
-            ResetStyleFunc::new::<ResetBorderColorType>(), // 25
-
-
-            ResetStyleFunc::new::<ResetHsiType>(), // 26
-            ResetStyleFunc::new::<ResetBlurType>(), // 27
-            ResetStyleFunc::new::<ResetMaskImageType>(), // 28
-            ResetStyleFunc::new::<ResetMaskImageClipType>(), // 29
-            ResetStyleFunc::new::<ResetTransformType>(), // 30
-            ResetStyleFunc::new::<ResetTransformOriginType>(), // 31
-            ResetStyleFunc::new::<ResetTransformWillChangeType>(), // 32
-            ResetStyleFunc::new::<ResetBorderRadiusType>(), // 33
-            ResetStyleFunc::new::<ResetZIndexType>(), // 34
-            ResetStyleFunc::new::<ResetOverflowType>(), // 35
+            ResetStyleFunc::new::<ResetBorderColorType>(), // 24
 
 
-            ResetStyleFunc::new::<ResetBlendModeType>(), // 36
-            ResetStyleFunc::new::<ResetDisplayType>(), // 37
-            ResetStyleFunc::new::<ResetVisibilityType>(), // 38
-            ResetStyleFunc::new::<ResetEnableType>(), // 39
+            ResetStyleFunc::new::<ResetHsiType>(), // 25
+            ResetStyleFunc::new::<ResetBlurType>(), // 26
+            ResetStyleFunc::new::<ResetMaskImageType>(), // 27
+            ResetStyleFunc::new::<ResetMaskImageClipType>(), // 28
+            ResetStyleFunc::new::<ResetTransformType>(), // 29
+            ResetStyleFunc::new::<ResetTransformOriginType>(), // 30
+            ResetStyleFunc::new::<ResetTransformWillChangeType>(), // 31
+            ResetStyleFunc::new::<ResetBorderRadiusType>(), // 32
+            ResetStyleFunc::new::<ResetZIndexType>(), // 32
+            ResetStyleFunc::new::<ResetOverflowType>(), // 34
 
 
-            ResetStyleFunc::new::<ResetWidthType>(), // 40
-            ResetStyleFunc::new::<ResetHeightType>(), // 41
-
-            ResetStyleFunc::new::<ResetMarginTopType>(), // 42
-            ResetStyleFunc::new::<ResetMarginRightType>(), // 43
-            ResetStyleFunc::new::<ResetMarginBottomType>(), // 44
-            ResetStyleFunc::new::<ResetMarginLeftType>(), // 45
-
-            ResetStyleFunc::new::<ResetPaddingTopType>(), // 46
-            ResetStyleFunc::new::<ResetPaddingRightType>(), // 47
-            ResetStyleFunc::new::<ResetPaddingBottomType>(), // 48
-            ResetStyleFunc::new::<ResetPaddingLeftType>(), // 49
-
-            ResetStyleFunc::new::<ResetBorderTopType>(), // 50
-            ResetStyleFunc::new::<ResetBorderRightType>(), // 51
-            ResetStyleFunc::new::<ResetBorderBottomType>(), // 52
-            ResetStyleFunc::new::<ResetBorderLeftType>(), // 53
-
-            ResetStyleFunc::new::<ResetPositionTopType>(), // 54
-            ResetStyleFunc::new::<ResetPositionRightType>(), // 55
-            ResetStyleFunc::new::<ResetPositionBottomType>(), // 56
-            ResetStyleFunc::new::<ResetPositionLeftType>(), // 57
-
-            ResetStyleFunc::new::<ResetMinWidthType>(), // 58
-            ResetStyleFunc::new::<ResetMinHeightType>(), // 59
-            ResetStyleFunc::new::<ResetMaxHeightType>(), // 60
-            ResetStyleFunc::new::<ResetMaxWidthType>(), // 61
-            ResetStyleFunc::new::<ResetDirectionType>(), // 62
-            ResetStyleFunc::new::<ResetFlexDirectionType>(), // 63
-            ResetStyleFunc::new::<ResetFlexWrapType>(), // 64
-            ResetStyleFunc::new::<ResetJustifyContentType>(), // 65
-            ResetStyleFunc::new::<ResetAlignContentType>(), // 66
-            ResetStyleFunc::new::<ResetAlignItemsType>(), // 67
+            ResetStyleFunc::new::<ResetBlendModeType>(), // 35
+            ResetStyleFunc::new::<ResetDisplayType>(), // 36
+            ResetStyleFunc::new::<ResetVisibilityType>(), // 37
+            ResetStyleFunc::new::<ResetEnableType>(), // 38
 
 
-            ResetStyleFunc::new::<ResetPositionTypeType>(), // 68
-            ResetStyleFunc::new::<ResetAlignSelfType>(), // 69
-            ResetStyleFunc::new::<FlexShrinkType>(), // 70
-            ResetStyleFunc::new::<FlexGrowType>(), // 71
-            ResetStyleFunc::new::<ResetAspectRatioType>(), // 72
-            ResetStyleFunc::new::<ResetOrderType>(), // 73
-            ResetStyleFunc::new::<ResetFlexBasisType>(), // 74
-            ResetStyleFunc::new::<ResetOpacityType>(), // 75
+            ResetStyleFunc::new::<ResetWidthType>(), // 39
+            ResetStyleFunc::new::<ResetHeightType>(), // 40
 
-            ResetStyleFunc::new::<ResetTextContentType>(), // 76
+            ResetStyleFunc::new::<ResetMarginTopType>(), // 41
+            ResetStyleFunc::new::<ResetMarginRightType>(), // 42
+            ResetStyleFunc::new::<ResetMarginBottomType>(), // 43
+            ResetStyleFunc::new::<ResetMarginLeftType>(), // 44
 
-            ResetStyleFunc::new::<ResetVNodeType>(), // 77
+            ResetStyleFunc::new::<ResetPaddingTopType>(), // 45
+            ResetStyleFunc::new::<ResetPaddingRightType>(), // 46
+            ResetStyleFunc::new::<ResetPaddingBottomType>(), // 47
+            ResetStyleFunc::new::<ResetPaddingLeftType>(), // 48
 
-            ResetStyleFunc::new::<ResetAnimationNameType>(), // 78
-            ResetStyleFunc::new::<ResetAnimationDurationType>(), // 79
-            ResetStyleFunc::new::<ResetAnimationTimingFunctionType>(), // 80
-            ResetStyleFunc::new::<ResetAnimationDelayType>(), // 81
-            ResetStyleFunc::new::<ResetAnimationIterationCountType>(), // 82
-            ResetStyleFunc::new::<ResetAnimationDirectionType>(), // 83
-            ResetStyleFunc::new::<ResetAnimationFillModeType>(), // 84
-            ResetStyleFunc::new::<ResetAnimationPlayStateType>(), // 85
+            ResetStyleFunc::new::<ResetBorderTopType>(), // 49
+            ResetStyleFunc::new::<ResetBorderRightType>(), // 50
+            ResetStyleFunc::new::<ResetBorderBottomType>(), // 51
+            ResetStyleFunc::new::<ResetBorderLeftType>(), // 52
 
-            ResetStyleFunc::new::<ResetClipPathType>(), // 86
-            ResetStyleFunc::new::<ResetTranslateType>(), // 87
-            ResetStyleFunc::new::<ResetScaleType>(), // 88
-            ResetStyleFunc::new::<ResetRotateType>(), // 89
-            ResetStyleFunc::new::<ResetAsImageType>(), // 90
-			ResetStyleFunc::new::<ResetTextOverflowType>(), // 91
-			ResetStyleFunc::new::<ResetOverflowWrapType>(), // 92
+            ResetStyleFunc::new::<ResetPositionTopType>(), // 53
+            ResetStyleFunc::new::<ResetPositionRightType>(), // 54
+            ResetStyleFunc::new::<ResetPositionBottomType>(), // 55
+            ResetStyleFunc::new::<ResetPositionLeftType>(), // 56
 
-			ResetStyleFunc::new::<ResetTransitionPropertyType>(), // 93
-			ResetStyleFunc::new::<ResetTransitionDurationType>(), // 94
-			ResetStyleFunc::new::<ResetTransitionTimingFunctionType>(), // 95
-			ResetStyleFunc::new::<ResetTransitionDelayType>(), // 96
+            ResetStyleFunc::new::<ResetMinWidthType>(), // 57
+            ResetStyleFunc::new::<ResetMinHeightType>(), // 58
+            ResetStyleFunc::new::<ResetMaxHeightType>(), // 59
+            ResetStyleFunc::new::<ResetMaxWidthType>(), // 60
+            ResetStyleFunc::new::<ResetDirectionType>(), // 61
+            ResetStyleFunc::new::<ResetFlexDirectionType>(), // 62
+            ResetStyleFunc::new::<ResetFlexWrapType>(), // 63
+            ResetStyleFunc::new::<ResetJustifyContentType>(), // 64
+            ResetStyleFunc::new::<ResetAlignContentType>(), // 65
+            ResetStyleFunc::new::<ResetAlignItemsType>(), // 66
+
+
+            ResetStyleFunc::new::<ResetPositionTypeType>(), // 67
+            ResetStyleFunc::new::<ResetAlignSelfType>(), // 68
+            ResetStyleFunc::new::<FlexShrinkType>(), // 69
+            ResetStyleFunc::new::<FlexGrowType>(), // 70
+            ResetStyleFunc::new::<ResetAspectRatioType>(), // 71
+            ResetStyleFunc::new::<ResetOrderType>(), // 72
+            ResetStyleFunc::new::<ResetFlexBasisType>(), // 73
+            ResetStyleFunc::new::<ResetOpacityType>(), // 74
+
+            ResetStyleFunc::new::<ResetTextContentType>(), // 75
+
+            ResetStyleFunc::new::<ResetVNodeType>(), // 76
+
+            ResetStyleFunc::new::<ResetAnimationNameType>(), // 77
+            ResetStyleFunc::new::<ResetAnimationDurationType>(), // 78
+            ResetStyleFunc::new::<ResetAnimationTimingFunctionType>(), // 79
+            ResetStyleFunc::new::<ResetAnimationDelayType>(), // 80
+            ResetStyleFunc::new::<ResetAnimationIterationCountType>(), // 81
+            ResetStyleFunc::new::<ResetAnimationDirectionType>(), // 82
+            ResetStyleFunc::new::<ResetAnimationFillModeType>(), // 83
+            ResetStyleFunc::new::<ResetAnimationPlayStateType>(), // 84
+
+            ResetStyleFunc::new::<ResetClipPathType>(), // 85
+            ResetStyleFunc::new::<ResetTranslateType>(), // 86
+            ResetStyleFunc::new::<ResetScaleType>(), // 87
+            ResetStyleFunc::new::<ResetRotateType>(), // 88
+            ResetStyleFunc::new::<ResetAsImageType>(), // 89
+			ResetStyleFunc::new::<ResetTextOverflowType>(), // 90
+			ResetStyleFunc::new::<ResetOverflowWrapType>(), // 91
+
+			ResetStyleFunc::new::<ResetTransitionPropertyType>(), // 92
+			ResetStyleFunc::new::<ResetTransitionDurationType>(), // 93
+			ResetStyleFunc::new::<ResetTransitionTimingFunctionType>(), // 94
+			ResetStyleFunc::new::<ResetTransitionDelayType>(), // 95
 
         ];
     }
@@ -3690,8 +3700,8 @@ pub mod serialize {
             entity: Entity,
             is_clone: bool,
         ) {
-			if style_index > 97 {
-				(RESET_STYLE_ATTR[style_index as usize - 97].set)(cur_style_mark, unsafe { buffer.as_ptr().add(offset) }, query, entity, is_clone)
+			if style_index > 96 {
+				(RESET_STYLE_ATTR[style_index as usize - 96].set)(cur_style_mark, unsafe { buffer.as_ptr().add(offset) }, query, entity, is_clone)
 			} else {
 				(STYLE_ATTR[style_index as usize].set)(cur_style_mark, unsafe { buffer.as_ptr().add(offset) }, query, entity, is_clone)
 			}
@@ -3712,7 +3722,13 @@ pub mod serialize {
         }
 
         #[inline]
-        pub fn size(style_index: u8) -> usize { (STYLE_ATTR[style_index as usize].size)() }
+        pub fn size(style_index: u8) -> usize { 
+			if style_index > 96 {
+				0
+			} else {
+				(STYLE_ATTR[style_index as usize].size)()
+			}
+		 }
 
         #[inline]
         pub fn reset(cur_style_mark: &mut BitArray<[u32; 3]>, style_index: u8, buffer: &Vec<u8>, offset: usize, query: &mut Setting, entity: Entity) {

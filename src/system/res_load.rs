@@ -48,7 +48,7 @@ pub fn load_res(
 
 		// 加载纹理
 		if path.ends_with(".png") || path.ends_with(".jpg") || path.ends_with(".jpeg") || path.ends_with(".ktx") || path.ends_with(".ktx2") {
-			let result = AssetMgr::load(&texture_assets_mgr, &(path.get_hash() as u64));
+			let result = AssetMgr::load(&texture_assets_mgr, &(path.str_hash() as u64));
 			match result {
 				LoadResult::Ok(r) => {
 					// 加载成功后, 添加到成功队列

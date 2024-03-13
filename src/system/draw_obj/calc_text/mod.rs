@@ -13,7 +13,7 @@ use pi_render::font::{Size, FontSheet};
 
 use crate::{
     components::{calc::NodeState, draw_obj::TextMark, user::TextContent},
-    resource::{draw_obj::{PosUv1VertexLayout, Sdf2VertexLayout}, ShareFontSheet, TextRenderObjType},
+    resource::{ShareFontSheet, TextRenderObjType},
     system::{
         node::{layout::calc_layout, world_matrix::cal_matrix},
         system_set::UiSystemSet,
@@ -21,9 +21,8 @@ use crate::{
 };
 use bevy_window::AddFrameEvent;
 
-use self::{text::calc_text, text_shadow::UiTextShadowPlugin, text_texture::calc_text_texture, text_sdf2::calc_text_sdf2};
+use self::{text::calc_text, text_shadow::UiTextShadowPlugin, text_texture::calc_text_texture, text_sdf2::Sdf2TextPlugin};
 
-use super::set_world_marix::set_matrix_group;
 use super::life_drawobj::draw_object_life_new as draw_object_life;
 
 #[derive(Debug, Resource, Default)]
@@ -35,128 +34,44 @@ pub struct UiTextPlugin {
 
 impl Plugin for UiTextPlugin {
     fn build(&self, app: &mut App) {
-		let font_sheet = ShareFontSheet::new(&mut app.world, self.font_type);
-        app.insert_resource(font_sheet)
-            .add_frame_event::<ComponentEvent<Changed<NodeState>>>()
-            .add_frame_event::<ComponentEvent<Changed<TextContent>>>()
-            // 文字劈分
-            .add_systems(Update, text_split::text_split.before(calc_layout).in_set(UiSystemSet::Layout))
-            // 字形计算
-            .add_systems(Update, text_glyph::text_glyph.after(cal_matrix).before(calc_text).in_set(UiSystemSet::Matrix))
-            // 更新文字纹理
-            .add_systems(Update, calc_text_texture.in_set(UiSystemSet::PrepareDrawObj))
-			// 文字drawobj创建
-			.add_systems(Update, 
-				draw_object_life::<
-					TextContent,
-					TextRenderObjType,
-					TextMark,
-					{ TEXT_ORDER },
-				>
-					.in_set(UiSystemSet::LifeDrawObject),
-			)// 设置文字的的顶点、索引，和颜色、边框颜色、边框宽度的Uniform
+		// let font_sheet = ShareFontSheet::new(&mut app.world, self.font_type);
+        // app.insert_resource(font_sheet)
+        //     .add_frame_event::<ComponentEvent<Changed<NodeState>>>()
+        //     .add_frame_event::<ComponentEvent<Changed<TextContent>>>()
+        //     // 文字劈分
+        //     .add_systems(Update, text_split::text_split.before(calc_layout).in_set(UiSystemSet::Layout))
+        //     // 字形计算
+        //     .add_systems(Update, text_glyph::text_glyph.after(cal_matrix).before(calc_text).in_set(UiSystemSet::Matrix))
+            // // 更新文字纹理
+            // .add_systems(Update, calc_text_texture.in_set(UiSystemSet::PrepareDrawObj))
+			// // 文字drawobj创建
+			// .add_systems(Update, 
+			// 	draw_object_life::<
+			// 		TextContent,
+			// 		TextRenderObjType,
+			// 		TextMark,
+			// 		{ TEXT_ORDER },
+			// 	>
+			// 		.in_set(UiSystemSet::LifeDrawObject),
+			// )// 设置文字的的顶点、索引，和颜色、边框颜色、边框宽度的Uniform
             
             // 文字阴影
-            .add_plugins(UiTextShadowPlugin);
+            // .add_plugins(UiTextShadowPlugin);
 		match self.font_type {
 			FontType::Bitmap => app.add_systems(Update, 
                 calc_text
                     .in_set(UiSystemSet::PrepareDrawObj)
-                    .before(set_matrix_group)
                     .after(calc_text_texture)
-                    .before(super::blend_mode::calc_drawobj_blendstate),
             ),
 			FontType::Sdf1 => app.add_systems(Update, 
                 calc_text
                     .in_set(UiSystemSet::PrepareDrawObj)
-                    .before(set_matrix_group)
                     .after(calc_text_texture)
-                    .before(super::blend_mode::calc_drawobj_blendstate),
             ),
-			FontType::Sdf2 => app.add_systems(Update, 
-                calc_text_sdf2
-                    .in_set(UiSystemSet::PrepareDrawObj)
-                    .before(set_matrix_group)
-                    .after(calc_text_texture)
-                    .before(super::blend_mode::calc_drawobj_blendstate),
-            ),
+			FontType::Sdf2 => app.add_plugins(Sdf2TextPlugin),
 		};
     }
 }
-
-// impl Plugin for UiTextPlugin {
-//     fn build(&self, app: &mut App) {
-// 		let font_sheet = ShareFontSheet::new(&mut app.world, self.font_type);
-//         app.insert_resource(font_sheet)
-//             .add_frame_event::<ComponentEvent<Changed<NodeState>>>()
-//             .add_frame_event::<ComponentEvent<Changed<TextContent>>>()
-//             // 文字劈分
-//             .add_systems(Update, text_split::text_split.before(calc_layout).in_set(UiSystemSet::Layout))
-//             // 字形计算
-//             .add_systems(Update, text_glyph::text_glyph.after(cal_matrix).before(calc_text).in_set(UiSystemSet::Matrix))
-//             // 更新文字纹理
-//             .add_systems(Update, calc_text_texture.in_set(UiSystemSet::PrepareDrawObj))
-//             // 文字阴影
-//             .add_plugins(UiTextShadowPlugin);
-// 		match self.font_type {
-// 			FontType::Bitmap => app.add_systems(Update, 
-// 				life_drawobj::draw_object_life::<
-// 					TextContent,
-// 					TextRenderObjType,
-// 					TextMark,
-// 					PosUv1VertexLayout,
-// 					crate::shader::text::ProgramMeta,
-// 					{ TEXT_ORDER },
-// 				>
-// 					.in_set(UiSystemSet::LifeDrawObject),
-// 			)// 设置文字的的顶点、索引，和颜色、边框颜色、边框宽度的Uniform
-//             .add_systems(Update, 
-//                 calc_text
-//                     .in_set(UiSystemSet::PrepareDrawObj)
-//                     .before(set_matrix_group)
-//                     .after(calc_text_texture)
-//                     .before(super::blend_mode::calc_drawobj_blendstate),
-//             ),
-// 			FontType::Sdf1 => app.add_systems(Update, 
-// 				life_drawobj::draw_object_life::<
-// 					TextContent,
-// 					TextRenderObjType,
-// 					TextMark,
-// 					PosUv1VertexLayout,
-// 					crate::shader::text_sdf::ProgramMeta,
-// 					{ TEXT_ORDER },
-// 				>
-// 					.in_set(UiSystemSet::LifeDrawObject),
-// 			)// 设置文字的的顶点、索引，和颜色、边框颜色、边框宽度的Uniform
-//             .add_systems(Update, 
-//                 calc_text
-//                     .in_set(UiSystemSet::PrepareDrawObj)
-//                     .before(set_matrix_group)
-//                     .after(calc_text_texture)
-//                     .before(super::blend_mode::calc_drawobj_blendstate),
-//             ),
-// 			FontType::Sdf2 => app.add_systems(Update, 
-// 				life_drawobj::draw_object_life::<
-// 					TextContent,
-// 					TextRenderObjType,
-// 					TextMark,
-// 					Sdf2VertexLayout,
-// 					crate::shader1::text_sdf2::ProgramMeta,
-// 					{ TEXT_ORDER },
-// 				>
-// 					.in_set(UiSystemSet::LifeDrawObject),
-// 			)// 设置文字的的顶点、索引，和颜色、边框颜色、边框宽度的Uniform
-//             .add_systems(Update, 
-//                 calc_text_sdf2
-//                     .in_set(UiSystemSet::PrepareDrawObj)
-//                     .before(set_matrix_group)
-//                     .after(calc_text_texture)
-//                     .before(super::blend_mode::calc_drawobj_blendstate),
-//             ),
-// 		};
-//     }
-// }
-
 
 
 pub const TEXT_ORDER: u8 = 8;
@@ -181,7 +96,7 @@ impl TextureState {
 		let version = match font_type {
 			FontType::Bitmap => font_sheet.texture_version(),
 			FontType::Sdf1 => font_sheet.sdf_texture_version(),
-			FontType::Sdf2 => todo!(),
+			FontType::Sdf2 => font_sheet.texture_version(),
 		};
 
 		let version_is_change = version != self.version;

@@ -1,8 +1,9 @@
-use bevy_app::{Plugin, Update, App};
+use bevy_app::{Plugin, Update, PostUpdate, App};
 use bevy_ecs::prelude::{IntoSystemSetConfig, IntoSystemSetConfigs, IntoSystemConfigs};
 use bevy_ecs::schedule::apply_deferred;
-use pi_bevy_render_plugin::PiRenderSystemSet;
+use pi_bevy_render_plugin::{PiRenderSystemSet, FrameDataPrepare, GraphBuild, GraphRun};
 
+use super::draw_obj::life_drawobj::update_render_instance_data;
 use super::system_set::UiSystemSet;
 
 pub mod last_update_wgpu;
@@ -18,12 +19,12 @@ pub struct UiPassPlugin;
 impl Plugin for UiPassPlugin {
     fn build(&self, app: &mut App) {
         // 设置运行条件和运行顺序
-        app.configure_set(Update, UiSystemSet::PassMark.run_if(pi_bevy_render_plugin::should_run))
-			.configure_set(Update, UiSystemSet::PassLife.run_if(pi_bevy_render_plugin::should_run))
-			.configure_set(Update, UiSystemSet::PassFlush.run_if(pi_bevy_render_plugin::should_run))
-			.configure_set(Update, UiSystemSet::PassSetting.run_if(pi_bevy_render_plugin::should_run))
-			.configure_set(Update, UiSystemSet::PassSettingWithParent.run_if(pi_bevy_render_plugin::should_run))
-			.configure_set(Update, UiSystemSet::PassCalc.run_if(pi_bevy_render_plugin::should_run))
+        app.configure_set(Update, UiSystemSet::PassMark.in_set(FrameDataPrepare))
+			.configure_set(Update, UiSystemSet::PassLife.in_set(FrameDataPrepare))
+			.configure_set(Update, UiSystemSet::PassFlush.in_set(FrameDataPrepare))
+			.configure_set(Update, UiSystemSet::PassSetting.in_set(FrameDataPrepare))
+			.configure_set(Update, UiSystemSet::PassSettingWithParent.in_set(FrameDataPrepare))
+			.configure_set(Update, UiSystemSet::PassCalc.in_set(FrameDataPrepare))
 
             .configure_sets(Update, (UiSystemSet::PassMark, UiSystemSet::PassLife, UiSystemSet::PassFlush, UiSystemSet::PassSetting, UiSystemSet::PassCalc, PiRenderSystemSet).chain())
 			.configure_sets(Update, (UiSystemSet::Setting, UiSystemSet::PassMark, PiRenderSystemSet).chain())	
@@ -47,10 +48,11 @@ impl Plugin for UiPassPlugin {
                     .after(pass_dirty_rect::calc_global_dirty_rect)
                     .in_set(UiSystemSet::PassCalc),
             )
-            .add_systems(Update, 
+			
+            .add_systems(PostUpdate, 
                 last_update_wgpu::last_update_wgpu
-                    .after(pass_camera::calc_camera_depth_and_renderlist)
-                    .in_set(UiSystemSet::PassCalc),
+                    .after(GraphBuild)
+					.before(GraphRun),
             );
     }
 }

@@ -28,6 +28,7 @@
 
 use std::ops::Range;
 
+use bevy_ecs::event::EventWriter;
 use bevy_ecs::prelude::{Changed, Component, Entity, Query};
 use bevy_ecs::query::Or;
 use pi_bevy_ecs_extend::prelude::{EntityTree, Layer, LayerDirty, Up};
@@ -37,6 +38,7 @@ use pi_null::Null;
 
 use crate::components::calc::{EntityKey, ZRange};
 use crate::components::user::ZIndex;
+use crate::events::NodeZindexChange;
 use crate::system::draw_obj::calc_text::IsRun;
 
 /// 如果节点设置zindex为auto，则自身zindex为-1
@@ -58,7 +60,8 @@ pub fn calc_zindex(
     mut dirtys: LayerDirty<Changed<Layer>>,
     zindex_change: Query<Entity, Or<(Changed<ZIndex>, Changed<Up>)>>,
     mut ranges: Query<&mut ZRange>,
-	r: OrInitRes<IsRun>
+	r: OrInitRes<IsRun>,
+	mut events: EventWriter<NodeZindexChange>,
 ) {
 	if r.0 {
 		return;
@@ -66,6 +69,10 @@ pub fn calc_zindex(
     for entity in zindex_change.iter() {
         dirtys.mark(entity);
     }
+
+	if dirtys.count() > 0 {
+		events.send(NodeZindexChange);
+	}
 
     let mut vec: Vec<ZSort> = vec![];
     for (id, mark, _) in dirtys.iter_manual() {

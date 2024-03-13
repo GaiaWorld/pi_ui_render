@@ -1,52 +1,578 @@
 //! 与DrawObject相关的资源
-
-use std::{collections::hash_map::Entry, hash::Hash, marker::PhantomData, num::NonZeroU32, sync::atomic::{Ordering, AtomicUsize}};
+use std::{collections::hash_map::Entry, hash::Hash, marker::PhantomData, num::NonZeroU32, sync::atomic::{Ordering, AtomicUsize}, borrow::Cow};
+use std::ops::Deref;
 
 use bevy_ecs::{
     prelude::{FromWorld, World},
-    system::Resource,
+    system::Resource
 };
 use ordered_float::NotNan;
-use pi_assets::{asset::Handle, mgr::AssetMgr};
+use pi_assets::{asset::{Handle, Asset}, mgr::AssetMgr};
 use pi_atom::Atom;
 use pi_bevy_asset::ShareAssetMgr;
 use pi_bevy_render_plugin::{PiRenderDevice, PiRenderQueue};
 use pi_hash::{XHashMap, XHashSet};
+use pi_key_alloter::KeyData;
 use pi_map::vecmap::VecMap;
 use pi_render::{
-    renderer::draw_obj::DrawBindGroup,
+    renderer::{draw_obj::DrawBindGroup, vertices::{RenderVertices, EVerticesBufferUsage}},
     rhi::{
-        asset::RenderRes,
+        asset::{RenderRes, TextureRes},
         bind_group::BindGroup,
         bind_group_layout::BindGroupLayout,
         buffer::Buffer,
         device::RenderDevice,
         dyn_uniform_buffer::GroupAlloter,
         pipeline::RenderPipeline,
-        shader::{AsLayoutEntry, BindLayout, ShaderMeta, ShaderProgram},
-        texture::PiRenderDefault,
+        shader::{AsLayoutEntry, BindLayout, ShaderMeta, ShaderProgram, Input},
+        texture::PiRenderDefault, RenderQueue,
     },
 };
 use pi_share::Share;
-use pi_slotmap::{DefaultKey, SlotMap};
+use pi_slotmap::{DefaultKey, SlotMap, SecondaryMap};
 use wgpu::{
     BlendState, CompareFunction, DepthBiasState, DepthStencilState, Limits, MultisampleState, PipelineLayout, Sampler, ShaderModule, StencilState,
-    TextureFormat,
+    TextureFormat, util::{BufferInitDescriptor, DeviceExt}, ShaderStages, BindingType, TextureSampleType, TextureViewDimension, SamplerBindingType, BindGroupEntry, TextureDescriptor, Extent3d, TextureViewDescriptor, RenderPass,
 };
 
 use crate::{
-    components::{draw_obj::{DrawState, PipelineMeta}, pass_2d::CacheTarget},
+    components::{draw_obj::{DrawState, PipelineMeta}, pass_2d::{CacheTarget, InstanceDrawState}},
+	shader1::meterial::{CameraBind, MeterialBind},
     shader::{
-        camera::CameraBind,
         depth::{DepthBind, DepthUniform},
-        ui_meterial::UiMaterialBind,
+        ui_meterial::UiMaterialBind, color::PositionVert,
     },
     system::draw_obj::clear_draw_obj::create_clear_pipeline_state,
     utils::{
         shader_helper::{create_depth_layout, create_empty_layout, create_matrix_group_layout, create_project_layout, create_view_layout},
         tools::{calc_float_hash, calc_hash, calc_hash_slice},
-    },
+    }, shader1::RenderInstances,
 };
+
+// /// 一组纹理的绑定， 用于实例化渲染
+// #[derive(Debug, Default)]
+// pub struct TexturesBindTemp {
+// 	pub texture_indexs: SecondaryMap<DefaultKey, (u32, u32)>, // 纹理对应BindGroup在texture_bind_groups中的索引， 以及纹理在该bindgroup中的binding
+// }
+
+// impl TexturesBindItem {
+
+// 	fn clear(&mut self) {
+// 		self.texture_bind_groups.clear();
+// 		self.texture_indexs.clear();
+// 	}
+// }
+
+// pub struct TexturesBind {
+// 	pub max_bind: usize, // 一个BindGroup最大的绑定数量
+// 	pub texture_id_alloc: Share<pi_key_alloter::KeyAlloter>, // 每个纹理应该分配一个索引，方便后续进行纹理对比
+// 	// pub cur_bindgroups: Vec<BindGroup>, // 当前渲染，根据该数据设置bindgroup
+// 	// pub prepare_bindgroups: Vec<BindGroup>, // 空闲的BindGroup， 通常用于本次改变时， 准备当前数据（准备完成后， 需要跟cur进行交换， 使得渲染数据得以更新）
+// }
+
+#[derive(Debug)]
+pub struct AssetWithId<T: Asset> {
+	pub id: KeyData,
+	pub value: Handle<T>,
+	alloter: Share<Share<pi_key_alloter::KeyAlloter>>,
+}
+impl<T: Asset> AssetWithId<T> {
+    pub fn new(value: Handle<T>, alloter: Share<pi_key_alloter::KeyAlloter>) -> Self {
+		let r = alloter.alloc(1, 1);
+        Self {
+            id: r,
+            value,
+            alloter: Share::new(alloter),
+        }
+    }
+}
+
+impl<T: Asset> Deref for AssetWithId<T> {
+    type Target = Handle<T>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.value
+    }
+}
+
+
+impl<T: Asset> Drop for AssetWithId<T> {
+    fn drop(&mut self) {
+		if Share::strong_count(&self.alloter) == 1 {
+			self.alloter.recycle(self.id);
+		}
+    }
+}
+
+impl<T: Asset> Clone for AssetWithId<T> {
+    fn clone(&self) -> Self {
+        Self { id: self.id.clone(), value: self.value.clone(), alloter: self.alloter.clone() }
+    }
+}
+
+// 纹理key分配器
+#[derive(Debug, Default, Resource, Clone)]
+pub struct TextureKeyAlloter(pub Share<pi_key_alloter::KeyAlloter>);
+
+// 批处理纹理
+pub struct BatchTexture {
+	// max_bind: usize,
+	
+	temp_texture_indexs: SecondaryMap<DefaultKey, u32>, // 纹理在该bindgroup中的binding, 以及本利本身
+	temp_textures: Vec<(Handle<TextureRes>, Share<wgpu::Sampler>)>,
+
+	// group_layouts: Vec<wgpu::BindGroupLayout>,
+	group_layout: wgpu::BindGroupLayout,
+	pub(crate) default_texture_view: wgpu::TextureView,
+	pub(crate) default_sampler: wgpu::Sampler,
+}
+
+impl BatchTexture {
+	const BINDING_COUNT: u32 = 14;
+	pub fn new(device: &wgpu::Device) -> Self {
+		let mut entry = Vec::with_capacity(Self::BINDING_COUNT as usize);
+		for i in 0..Self::BINDING_COUNT {
+			entry.push(wgpu::BindGroupLayoutEntry {
+				binding: i * 2,
+				visibility: ShaderStages::FRAGMENT,
+				ty: BindingType::Texture {
+					sample_type: TextureSampleType::Float { filterable: true },
+					view_dimension: TextureViewDimension::D2,
+					multisampled: false,
+				},
+				count: None,
+			});
+			entry.push(wgpu::BindGroupLayoutEntry {
+				binding: i * 2 + 1,
+				visibility: ShaderStages::FRAGMENT,
+				ty: BindingType::Sampler(SamplerBindingType::Filtering),
+				count: None,
+			});
+		}
+		// let mut layouts: Vec<wgpu::BindGroupLayout> = Vec::new();
+		// for i in 1..Self::BINDING_COUNT + 1 {
+		// 	layouts.push(device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+		// 		label: Some("batch texture layout"),
+		// 		entries: &entry[0..i as usize * 2],
+		// 	}));
+		// }
+		let group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+			label: Some("batch texture layout"),
+			entries: &entry[..],
+		});
+		let default_texture = device.create_texture(&TextureDescriptor {
+			label: Some("default texture"),
+			size: Extent3d { width: 4, height: 4, depth_or_array_layers: 1 },
+			mip_level_count: 1,
+			sample_count: 1,
+			dimension: wgpu::TextureDimension::D2,
+			format: TextureFormat::R8Unorm,
+			usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+			view_formats: &[],
+		});
+		let texture_view = default_texture.create_view(&TextureViewDescriptor::default());
+	
+		let r = Self {
+			// max_bind: Self::BINDING_COUNT,
+			temp_texture_indexs: SecondaryMap::new(),
+			temp_textures: Vec::new(),
+
+			group_layout,
+			default_texture_view: texture_view,
+			default_sampler: device.create_sampler(&wgpu::SamplerDescriptor {
+                label: Some("default sampler"),
+                address_mode_u: wgpu::AddressMode::ClampToEdge,
+                address_mode_v: wgpu::AddressMode::ClampToEdge,
+                address_mode_w: wgpu::AddressMode::ClampToEdge,
+                mag_filter: wgpu::FilterMode::Linear,
+                min_filter: wgpu::FilterMode::Linear,
+                mipmap_filter: wgpu::FilterMode::Linear,
+                ..Default::default()
+            }),
+			// common_sampler: CommonSampler::new(device),
+		};
+		r
+	}
+	/// push一张纹理，返回纹理索引， 当纹理数量达到max_bind限制时， 会返回一个wgpu::BindGroup，并先清空当前所有的临时数据， 再添加数据
+	/// 注意， 目前同一张纹理只能用同一种采样方式，使用不同的采样样式push纹理，将不会覆盖之前的（主要原因是目前gui并没有不同采样方式的需求）
+	pub fn push(&mut self, texture: &AssetWithId<TextureRes>, sampler: &Share<Sampler>, device: &wgpu::Device) -> (usize, Option<wgpu::BindGroup>) {
+		let mut index = self.temp_textures.len();
+
+		if let Some(r) = self.temp_texture_indexs.get(DefaultKey::from(texture.id)) {
+			return (*r as usize, None); //
+		}
+
+		let group;
+		if index == Self::BINDING_COUNT as usize {
+			group = self.take_group(device);
+			index = 0;
+		} else {
+			group = None;
+		}
+
+		self.temp_texture_indexs.insert(DefaultKey::from(texture.id), index as u32);
+		self.temp_textures.push((texture.value.clone(), sampler.clone()));
+
+		(index, group)
+	}
+
+	/// 将当前的临时数据立即创建一个bindgroup，并返回
+	pub fn take_group(&mut self, device: &wgpu::Device) -> Option<wgpu::BindGroup> {
+		let mut entrys = Vec::with_capacity(Self::BINDING_COUNT as usize * 2);
+		for (binding, (texture, sampler)) in self.temp_textures.iter().enumerate() {
+			entrys.push(
+				BindGroupEntry {
+					binding: (binding * 2) as u32,
+					resource: wgpu::BindingResource::TextureView(&texture.texture_view) ,
+				}
+			);
+			entrys.push(
+				BindGroupEntry {
+					binding: (binding * 2 + 1) as u32,
+					resource: wgpu::BindingResource::Sampler(&**sampler) ,
+				}
+			);
+		}
+
+		
+		for binding in self.temp_textures.len()..Self::BINDING_COUNT as usize {
+			// log::warn!("len===================={:?}", (self.temp_textures.len(), binding));
+			entrys.push(
+				BindGroupEntry {
+					binding: (binding * 2) as u32,
+					resource: wgpu::BindingResource::TextureView(&self.default_texture_view) ,
+				}
+			);
+			entrys.push(
+				BindGroupEntry {
+					binding: (binding * 2 + 1) as u32,
+					resource: wgpu::BindingResource::Sampler(&self.default_sampler) ,
+				}
+			);
+		}
+		
+		let group = Some(device.create_bind_group(&wgpu::BindGroupDescriptor {
+			label: Some("batch texture bindgroup"),
+			layout: &self.group_layout, //&self.group_layouts[self.temp_textures.len() - 1],
+			entries: entrys.as_slice(),
+		}));
+		// 清理临时数据
+		self.temp_texture_indexs.clear();
+		self.temp_textures.clear();
+		group
+	}
+
+	/// 将当前的临时数据立即创建一个bindgroup，并返回
+	pub fn create_group(&self, device: &wgpu::Device, texture: &wgpu::TextureView, sampler: &wgpu::Sampler) -> wgpu::BindGroup {
+		let mut entrys = Vec::with_capacity(Self::BINDING_COUNT as usize * 2);
+		entrys.push(
+			BindGroupEntry {
+				binding: (0 * 2) as u32,
+				resource: wgpu::BindingResource::TextureView(texture) ,
+			}
+		);
+		entrys.push(
+			BindGroupEntry {
+				binding: (0 * 2 + 1) as u32,
+				resource: wgpu::BindingResource::Sampler(&sampler) ,
+			}
+		);
+		for binding in 1..Self::BINDING_COUNT as usize {
+			entrys.push(
+				BindGroupEntry {
+					binding: (binding * 2) as u32,
+					resource: wgpu::BindingResource::TextureView(&self.default_texture_view) ,
+				}
+			);
+			entrys.push(
+				BindGroupEntry {
+					binding: (binding * 2 + 1) as u32,
+					resource: wgpu::BindingResource::Sampler(&self.default_sampler) ,
+				}
+			);
+		}
+		
+		device.create_bind_group(&wgpu::BindGroupDescriptor {
+			label: Some("batch texture bindgroup"),
+			layout: &self.group_layout, //&self.group_layouts[self.temp_textures.len() - 1],
+			entries: entrys.as_slice(),
+		})
+	}
+}
+
+#[derive(Resource)]
+pub struct InstanceContext {
+	pub vert: RenderVertices,
+
+	vs: wgpu::ShaderModule,
+	fs: wgpu::ShaderModule,
+
+	pipeline_cache: XHashMap<u64, Share<wgpu::RenderPipeline>>,
+	pub common_blend_state_hash: u64,
+	pub premultiply_blend_state_hash: u64,
+
+	pub common_pipeline: Share<wgpu::RenderPipeline>,
+	pub premultiply_pipeline: Share<wgpu::RenderPipeline>,
+	pub clear_pipeline: Share<wgpu::RenderPipeline>,
+
+	pub instance_data: RenderInstances,
+	pub instance_buffer: Option<(wgpu::Buffer, usize)>,
+
+	// // 深度buffer
+	pub depth_data: RenderInstances,
+	pub depth_buffer: Option<(wgpu::Buffer, usize)>,
+
+	pub batch_texture: BatchTexture,
+
+	// sdf纹理(由于实例数据槽位有限， text的数据填充后没有空间放置纹理索引， 因此这里将文字纹理单独放在group中， 文字采样固定纹理)
+	pub sdf2_texture_group: Option<Share<wgpu::BindGroup>>,
+	pub sdf2_texture_layout: wgpu::BindGroupLayout,
+	pub camera_alloter: ShareGroupAlloter<CameraGroup>,
+
+	pub pipeline_layout: PipelineLayout,
+}
+// wgpu::RenderPipeline
+
+impl InstanceContext {
+	pub fn draw<'a>(&'a self, rp: &mut RenderPass<'a>, instance_draw: &'a InstanceDrawState) {
+		rp.set_pipeline(match &instance_draw.pipeline {
+			Some(r) => &**r,
+			None => &*self.common_pipeline,
+		});
+		if let Some(texture) = &self.sdf2_texture_group {
+			rp.set_bind_group(2, texture, &[]);
+		};
+		if let Some(texture) = &instance_draw.texture_bind_group {
+			rp.set_bind_group(1, texture, &[]);
+		};
+		
+		rp.set_vertex_buffer(0, self.vert.slice());
+		// rp.set_vertex_buffer(1, depth_vert.buffer().slice(depth_vert.range()));
+		rp.set_vertex_buffer(1, self.instance_buffer.as_ref().unwrap().0.slice(0..instance_draw.instance_data_range.end as u64));
+		// rp.set_vertex_buffer(18, param.instance_draw.instance_buffer.as_ref().unwrap().0.slice(..));
+
+		rp.draw(0..6, instance_draw.instance_data_range.start as u32/self.instance_data.alignment as u32..instance_draw.instance_data_range.end as u32/self.instance_data.alignment as u32)
+
+		
+
+	}
+}
+
+impl FromWorld for InstanceContext {
+	
+    fn from_world(world: &mut World) -> Self {
+		world.init_resource::<UnitQuadBuffer>();
+		let world = world.cell();
+        let device = world.get_resource::<PiRenderDevice>().unwrap();
+        let mut group_center = world.get_resource_mut::<GroupAlloterCenter>().unwrap();
+
+        let vertex_data: [f32; 12] = [0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0];
+        let vertex_buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
+            label: Some("Unit Quad Vertex Buffer"),
+            contents: bytemuck::cast_slice(&vertex_data),
+            usage: wgpu::BufferUsages::VERTEX,
+        });
+
+		let batch_texture = BatchTexture::new(&**device);
+
+
+        let limits = group_center.limits();
+        let min_alignment = limits.min_uniform_buffer_offset_alignment;
+        let max_binding_size = limits.max_uniform_buffer_binding_size;
+
+        let camera_entry = CameraBind::as_layout_entry(wgpu::ShaderStages::VERTEX_FRAGMENT);
+		let uniform_layout = Share::new(device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+			label: None,
+			entries: &[camera_entry],
+		}));
+        let alloter = Share::new(
+            GroupAlloter::new(
+                Some("uniform group".to_string()),
+                min_alignment,
+                max_binding_size,
+                None,
+                vec![CameraBind::as_layout_entry(wgpu::ShaderStages::VERTEX_FRAGMENT)],
+                uniform_layout.clone(),
+            )
+            .unwrap(),
+        );
+        group_center.add_alloter(alloter.clone());
+		let camera_alloter:  ShareGroupAlloter<CameraGroup> = ShareGroupAlloter {
+            alloter: alloter,
+            group_index: CameraBind::set(),
+            mark: PhantomData,
+        };
+		
+
+		let text_texture_layout =(***device).create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+			label: None,
+			entries: &[wgpu::BindGroupLayoutEntry {
+				binding: 0,
+				visibility: ShaderStages::FRAGMENT,
+				ty: BindingType::Texture { sample_type: TextureSampleType::Float { filterable: true }, view_dimension: TextureViewDimension::D2, multisampled: false },
+				count: None,
+			},
+			wgpu::BindGroupLayoutEntry {
+				binding: 1,
+				visibility: ShaderStages::FRAGMENT,
+				ty: BindingType::Texture { sample_type: TextureSampleType::Float { filterable: true }, view_dimension: TextureViewDimension::D2, multisampled: false },
+				count: None,
+			},
+			wgpu::BindGroupLayoutEntry {
+				binding: 2,
+				visibility: ShaderStages::FRAGMENT,
+				ty: BindingType::Sampler(SamplerBindingType::Filtering),
+				count: None,
+			}],
+		});
+		// let default_texture_group = Share::new((***device).create_bind_group(&wgpu::BindGroupDescriptor {
+		// 	label: Some("default text texture bindgroup"),
+		// 	layout: &text_texture_layout,
+		// 	entries: &[
+		// 		BindGroupEntry {
+		// 			binding: 0,
+		// 			resource: wgpu::BindingResource::TextureView(&batch_texture.default_texture_view) ,
+		// 		},
+		// 		BindGroupEntry {
+		// 			binding: 1,
+		// 			resource: wgpu::BindingResource::TextureView(&batch_texture.default_texture_view) ,
+		// 		},
+		// 		BindGroupEntry {
+		// 			binding: 2,
+		// 			resource: wgpu::BindingResource::Sampler(&batch_texture.default_sampler) ,
+		// 		}
+		// 	],
+		// }));
+
+
+
+		// pipeline
+		let vs = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some(&"ui_vs"),
+            source: wgpu::ShaderSource::Glsl {
+                shader: Cow::Borrowed(include_str!("../shader1/shader.vert")),
+                stage: naga::ShaderStage::Vertex,
+                defines: naga::FastHashMap::default(),
+            },
+        });
+        let fs = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some(&"ui_fs"),
+            source: wgpu::ShaderSource::Glsl {
+                shader: Cow::Borrowed(include_str!("../shader1/shader.frag")),
+                stage: naga::ShaderStage::Fragment,
+                defines: naga::FastHashMap::default(),
+            },
+        });
+
+        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("ui_shader"),
+            bind_group_layouts: &[&*uniform_layout, &batch_texture.group_layout, &text_texture_layout],
+            push_constant_ranges: &[],
+        });
+
+		let common_blend_state_hash = calc_hash(&CommonBlendState::NORMAL, 0);
+		let common_pipeline = Share::new(create_render_pipeline(&device, &pipeline_layout, &vs, &fs, Some(CommonBlendState::NORMAL), CompareFunction::GreaterEqual));
+
+		let premultiply_blend_state_hash = calc_hash(&CommonBlendState::PREMULTIPLY, 0);
+		let premultiply_pipeline = Share::new(create_render_pipeline(&device, &pipeline_layout, &vs, &fs, Some(CommonBlendState::PREMULTIPLY), CompareFunction::GreaterEqual));
+
+		let clear_blend_state_hash = calc_hash(&CompareFunction::Always, calc_hash(&CommonBlendState::NORMAL, 0));
+		let clear_pipeline = Share::new(create_render_pipeline(&device, &pipeline_layout, &vs, &fs, Some(BlendState {
+			color: wgpu::BlendComponent {
+				src_factor: wgpu::BlendFactor::One,
+				dst_factor: wgpu::BlendFactor::Zero,
+				operation: wgpu::BlendOperation::Add,
+			},
+			alpha: wgpu::BlendComponent {
+				src_factor: wgpu::BlendFactor::One,
+				dst_factor: wgpu::BlendFactor::Zero,
+				operation: wgpu::BlendOperation::Add,
+			},
+		}), CompareFunction::Always));
+
+		let mut pipeline_cache = XHashMap::default();
+		pipeline_cache.insert(common_blend_state_hash, common_pipeline.clone());
+		pipeline_cache.insert(premultiply_blend_state_hash, premultiply_pipeline.clone());
+		pipeline_cache.insert(clear_blend_state_hash, clear_pipeline.clone());
+
+		
+		Self {
+			vert: RenderVertices {
+				slot: PositionVert::location(),
+				buffer: EVerticesBufferUsage::Temp(Share::new(vertex_buf)),
+				buffer_range: None,
+				size_per_value: 8,
+			},
+			vs,
+			fs,
+			pipeline_cache,
+			common_blend_state_hash,
+			premultiply_blend_state_hash,
+			common_pipeline,
+			premultiply_pipeline,
+			clear_pipeline,
+			instance_data: RenderInstances::new(MeterialBind::SIZE, 200 * MeterialBind::SIZE),
+			instance_buffer: None,
+
+			batch_texture,
+
+			depth_data: RenderInstances::new(4, 0),
+			depth_buffer: None,
+
+			sdf2_texture_group: None,
+			sdf2_texture_layout: text_texture_layout,
+			camera_alloter,
+			pipeline_layout,
+		}
+    }
+	
+	
+}
+
+impl InstanceContext {
+	pub fn get_or_create_pipeline(&mut self, device: &RenderDevice, blend_state: wgpu::BlendState) -> Share<wgpu::RenderPipeline> {
+		let blend_state_hash = calc_hash(&blend_state, 0);
+		match self.pipeline_cache.entry(blend_state_hash) {
+			Entry::Occupied(r) => r.get().clone(),
+			Entry::Vacant(r) => {
+				let pipeline = Share::new(create_render_pipeline(&device, &self.pipeline_layout, &self.vs, &self.fs, Some(blend_state), CompareFunction::GreaterEqual));
+				r.insert(pipeline.clone());
+				pipeline
+			},
+		}
+	}
+
+	pub fn update(&mut self, device: &RenderDevice, queue: &RenderQueue) {
+		log::trace!("update instance_buffer={:?}", &self.instance_data.dirty_range);
+		Self::update1(device, queue, &mut self.instance_data, &mut self.instance_buffer);
+		// Self::update1(device, queue, &mut self.depth_data, &mut self.depth_buffer);
+		
+	}
+
+	pub fn update1(device: &RenderDevice, queue: &RenderQueue, instance_data: &mut RenderInstances, instance_buffer: &mut Option<(wgpu::Buffer, usize)>) {
+		log::trace!("update instance_buffer={:?}", &instance_data.dirty_range);
+		if instance_data.dirty_range.len() != 0 {
+			if let Some((buffer, size)) = &instance_buffer {
+				if *size >= instance_data.dirty_range.end {
+					queue.write_buffer(
+						buffer,
+						instance_data.dirty_range.start as u64,
+						&instance_data.data()[instance_data.dirty_range.clone()],
+					);
+					return;
+				}
+			} 
+			*instance_buffer = Some(((***device).create_buffer_init(&BufferInitDescriptor {
+				label: Some("instance_buffer"),
+				usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+				contents: instance_data.data(),
+			}), instance_data.data().len()));
+			
+			// log::trace!("create instance_buffer={:?}", instance_data.data());
+			instance_data.dirty_range = std::usize::MAX..std::usize::MAX;
+		}
+	}
+}
 
 use super::RenderObjType;
 
@@ -696,6 +1222,7 @@ impl FromWorld for ShareLayout {
     }
 }
 
+
 // #[derive(Debug, Clone)]
 // pub struct EmptyBind(pub Handle<RenderRes<BindGroup>>);
 
@@ -944,16 +1471,15 @@ impl<M> FromWorld for ShareGroupAlloter<DepthGroup, M> {
 
 #[derive(Resource)]
 pub struct CommonSampler {
-    pub default: Sampler,
-    pub pointer: Sampler,
+    pub default: Share<Sampler>,
+    pub pointer: Share<Sampler>,
 }
 
-impl FromWorld for CommonSampler {
-    fn from_world(world: &mut World) -> Self {
-        let device = world.get_resource::<PiRenderDevice>().unwrap();
-        Self {
-            default: (***device).create_sampler(&wgpu::SamplerDescriptor {
-                label: Some("default sampler"),
+impl CommonSampler {
+	pub fn new(device: &wgpu::Device) -> Self {
+		Self {
+            default: Share::new(device.create_sampler(&wgpu::SamplerDescriptor {
+                label: Some("linear sampler"),
                 address_mode_u: wgpu::AddressMode::ClampToEdge,
                 address_mode_v: wgpu::AddressMode::ClampToEdge,
                 address_mode_w: wgpu::AddressMode::ClampToEdge,
@@ -961,9 +1487,9 @@ impl FromWorld for CommonSampler {
                 min_filter: wgpu::FilterMode::Linear,
                 mipmap_filter: wgpu::FilterMode::Linear,
                 ..Default::default()
-            }),
-            pointer: (***device).create_sampler(&wgpu::SamplerDescriptor {
-                label: Some("default sampler"),
+            })),
+            pointer: Share::new(device.create_sampler(&wgpu::SamplerDescriptor {
+                label: Some("pointer sampler"),
                 address_mode_u: wgpu::AddressMode::ClampToEdge,
                 address_mode_v: wgpu::AddressMode::ClampToEdge,
                 address_mode_w: wgpu::AddressMode::ClampToEdge,
@@ -971,8 +1497,15 @@ impl FromWorld for CommonSampler {
                 min_filter: wgpu::FilterMode::Nearest,
                 mipmap_filter: wgpu::FilterMode::Nearest,
                 ..Default::default()
-            }),
+            })),
         }
+	}
+}
+
+impl FromWorld for CommonSampler {
+    fn from_world(world: &mut World) -> Self {
+        let device = world.get_resource::<PiRenderDevice>().unwrap();
+        Self::new(device)
     }
 }
 
@@ -1359,3 +1892,277 @@ impl TargetCacheMgr {
 		self.assets.insert(key, value).unwrap()
 	}
 }
+
+pub fn create_render_pipeline(
+	device: &wgpu::Device, 
+	pipeline_layout: &PipelineLayout, 
+	vs: &wgpu::ShaderModule, 
+	fs: &wgpu::ShaderModule,
+	blend: Option<BlendState>,
+	depth_compare: CompareFunction,
+) -> wgpu::RenderPipeline {
+	let state = PipelineState {
+        targets: vec![Some(wgpu::ColorTargetState {
+            format: wgpu::TextureFormat::pi_render_default(),
+            blend,
+            write_mask: wgpu::ColorWrites::ALL,
+        })],
+        primitive: wgpu::PrimitiveState {
+            front_face: wgpu::FrontFace::Ccw,
+            cull_mode: None,
+            polygon_mode: wgpu::PolygonMode::Fill,
+            ..Default::default()
+        },
+        depth_stencil: Some(DepthStencilState {
+            format: TextureFormat::Depth32Float,
+            depth_write_enabled: true,
+            depth_compare,
+            // depth_compare: CompareFunction::Always,
+            stencil: StencilState::default(),
+            bias: DepthBiasState::default(),
+        }),
+        multisample: MultisampleState::default(),
+        multiview: None,
+    };
+
+	let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+		label: Some(&"ui_pipeline"),
+		layout: Some(&pipeline_layout),
+		vertex: wgpu::VertexState {
+			module: vs,
+			entry_point: "main",
+			buffers: &[
+				wgpu::VertexBufferLayout {
+					array_stride: std::mem::size_of::<[f32; 2]>() as wgpu::BufferAddress,
+					step_mode: wgpu::VertexStepMode::Vertex,
+					attributes: &[wgpu::VertexAttribute {
+						format: wgpu::VertexFormat::Float32x2,
+						offset: 0,
+						shader_location: 0,
+					}],
+				},
+
+				wgpu::VertexBufferLayout {
+					array_stride: MeterialBind::SIZE as u64,
+					step_mode: wgpu::VertexStepMode::Instance,
+					attributes: &[
+						wgpu::VertexAttribute {
+							format: wgpu::VertexFormat::Float32x4,
+							offset: 0,
+							shader_location: 1,
+						},
+						wgpu::VertexAttribute {
+							format: wgpu::VertexFormat::Float32x4,
+							offset: 16,
+							shader_location: 2,
+						},
+						wgpu::VertexAttribute {
+							format: wgpu::VertexFormat::Float32x4,
+							offset: 32,
+							shader_location: 3,
+						},
+						wgpu::VertexAttribute {
+							format: wgpu::VertexFormat::Float32x4,
+							offset: 48,
+							shader_location: 4,
+						},
+						wgpu::VertexAttribute {
+							format: wgpu::VertexFormat::Float32x4,
+							offset: 64,
+							shader_location: 5,
+						},
+						wgpu::VertexAttribute {
+							format: wgpu::VertexFormat::Float32x4,
+							offset: 80,
+							shader_location: 6,
+						},
+						wgpu::VertexAttribute {
+							format: wgpu::VertexFormat::Float32x4,
+							offset: 96,
+							shader_location: 7,
+						},
+						wgpu::VertexAttribute {
+							format: wgpu::VertexFormat::Float32x4,
+							offset: 112,
+							shader_location: 8,
+						},
+						wgpu::VertexAttribute {
+							format: wgpu::VertexFormat::Float32x4,
+							offset: 128,
+							shader_location: 9,
+						},
+						wgpu::VertexAttribute {
+							format: wgpu::VertexFormat::Float32x4,
+							offset: 144,
+							shader_location: 10,
+						},
+						wgpu::VertexAttribute {
+							format: wgpu::VertexFormat::Float32x4,
+							offset: 160,
+							shader_location: 11,
+						},
+						wgpu::VertexAttribute {
+							format: wgpu::VertexFormat::Float32x4,
+							offset: 176,
+							shader_location: 12,
+						},
+						wgpu::VertexAttribute {
+							format: wgpu::VertexFormat::Float32x4,
+							offset: 192,
+							shader_location: 13,
+						},
+						wgpu::VertexAttribute {
+							format: wgpu::VertexFormat::Float32x4,
+							offset: 208,
+							shader_location: 14,
+						},
+						// wgpu::VertexAttribute {
+						// 	format: wgpu::VertexFormat::Float32x4,
+						// 	offset: 224,
+						// 	shader_location: 15,
+						// },
+						// wgpu::VertexAttribute {
+						// 	format: wgpu::VertexFormat::Float32x4,
+						// 	offset: 240,
+						// 	shader_location: 16,
+						// },
+					],
+				},
+			],
+		},
+		fragment: Some(wgpu::FragmentState {
+			module: fs,
+			entry_point: "main",
+			targets: state.targets.as_slice(),
+		}),
+		primitive: state.primitive.clone(),
+		depth_stencil: state.depth_stencil.clone(),
+		multisample: state.multisample.clone(),
+		multiview: state.multiview.clone(),
+	});
+
+	pipeline
+}
+
+
+
+
+
+// pub struct GpuArrayBuffer {
+// 	buffer: RenderInstances,
+//     // Uniform(BatchedUniformBuffer<T>),
+//     // Storage((StorageBuffer<Vec<T>>, Vec<T>)),
+// }
+
+// impl GpuArrayBuffer {
+//     pub fn update_dirty_range(&mut self, range: Range<usize>) {
+// 		log::trace!("update_dirty_range= {:?}", range);
+// 		if self.dirty_range.start == std::usize::MAX {
+// 			self.dirty_range.start = range.start;
+// 		}
+
+// 		self.dirty_range.end = range.end;
+// 	}
+
+// 	/// 如果data的长度不足（小于cur_index,则对data进行扩容)
+// 	pub fn reserve(&mut self) {
+// 		if self.data.capacity() < self.cur_index {
+// 			self.data.reserve(self.cur_index - self.data.capacity());
+// 		}
+
+// 		// 安全： 前一步保证了容量一定足够， 这里的操作必然是安全的
+// 		unsafe {self.data.set_len(self.cur_index)};
+// 	}
+
+// 	/// 分配一个实例数据
+// 	pub fn alloc_instance_data(&mut self) -> InstanceIndex {
+// 		let ret = self.cur_index;
+// 		self.cur_index += self.alignment;
+// 		self.update_dirty_range(ret..self.cur_index);
+// 		ret
+// 	}
+
+// 	/// 引用一个实例数据
+// 	#[inline]
+// 	pub fn instance_data_mut(&mut self, index: InstanceIndex) -> InstanceData {
+// 		InstanceData {
+// 			index,
+// 			data: self
+// 		}
+// 	}
+
+// 	/// 在cur_index索引之后扩展片段
+// 	#[inline]
+// 	pub fn extend(&mut self, slice: &[u8]) {
+// 		debug_assert_eq!(slice.len() % self.alignment, 0);
+// 		self.reserve();
+// 		self.data.extend_from_slice(slice);
+
+// 		self.cur_index += slice.len();
+// 	}
+
+// 	// 为该实例设置数据
+// 	pub fn set_data(&mut self, index: usize, value: &[u8]) {
+// 		// 在debug版本， 检查数据写入是否超出自身对齐范围
+// 		debug_assert!((value.byte_len() as usize + index) > self.data.len());
+// 		let d = self.data.as_mut_slice();
+// 		for i in 0..value.len() {
+// 			d[i] = value[i];
+// 		}
+
+// 		// value.write_into(self.index as u32, &mut self.data.data);
+// 		log::trace!("byte_len1========={:?}", value.byte_len());
+// 		self.update_dirty_range(index..index + value.len());
+// 	}
+
+	
+
+// 	/// 在cur_index索引之后扩展片段
+// 	#[inline]
+// 	pub fn extend_count(&mut self, count: usize) {
+// 		self.cur_index += count * self.alignment;
+// 		self.reserve();
+// 	}
+
+// 	#[inline]
+// 	pub fn extend_to(&mut self, index: usize) {
+// 		if self.cur_index < index {
+// 			self.cur_index = index;
+// 			self.reserve();
+// 		}
+		
+// 	}
+
+// 	#[inline]
+// 	pub fn slice(&self, range: Range<usize>) -> &[u8] {
+// 		&self.data[range]
+// 	}
+
+// 	/// 当前索引
+// 	pub fn cur_index(&self) -> usize {
+// 		self.cur_index
+// 	}
+
+// 	/// 下一个索引
+// 	pub fn next_index(&self, index: InstanceIndex) -> usize {
+// 		index + self.alignment
+// 	}
+
+// 	pub fn data(&self) -> &[u8] {
+// 		&self.data
+// 	}
+// }
+
+// /// An index into a [`GpuArrayBuffer`] for a given element.
+// #[derive(Component, Clone)]
+// pub struct GpuArrayBufferIndex<T: > {
+//     /// The index to use in a shader into the array.
+//     pub index: NonMaxU32,
+//     /// The dynamic offset to use when setting the bind group in a pass.
+//     /// Only used on platforms that don't support storage buffers.
+//     pub dynamic_offset: Option<NonMaxU32>,
+//     pub element_type: PhantomData<T>,
+// }
+
+
+

@@ -18,7 +18,7 @@ use pi_assets::{
     mgr::AssetMgr,
 };
 use pi_bevy_asset::ShareAssetMgr;
-use pi_bevy_render_plugin::PiRenderDevice;
+use pi_bevy_render_plugin::{PiRenderDevice, FrameDataPrepare};
 use pi_render::{
     components::view::target_alloc::DEPTH_TEXTURE,
     rhi::{
@@ -91,7 +91,7 @@ impl Plugin for UiShaderPlugin {
 			.init_resource::<ShareLayout>()
 			.init_resource::<UnitQuadBuffer>()
 
-			.add_systems(Update, screen_target_resize.run_if(pi_bevy_render_plugin::should_run).before(UiSystemSet::Setting))
+			.add_systems(Update, screen_target_resize.in_set(FrameDataPrepare).before(UiSystemSet::Setting))
 			// .add_startup_system(color::init)
 			// .add_startup_system(image::init)
 			// .add_startup_system(text::init)
@@ -214,7 +214,7 @@ fn create_depth_buffer(
     });
     let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
 
-    let hash = calc_hash(&(DEPTH_TEXTURE.get_hash(), width, height), calc_hash(&"depth texture", 0));
+    let hash = calc_hash(&(DEPTH_TEXTURE.str_hash(), width, height), calc_hash(&"depth texture", 0));
     texture_res_mgr
         .insert(hash, RenderRes::new(texture_view, (width * height * 3) as usize))
         .unwrap()

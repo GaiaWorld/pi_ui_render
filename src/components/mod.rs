@@ -59,7 +59,7 @@ pub struct DrawBundleNew<T: FromWorld + Bundle> {
     pub node_id: calc::NodeId,
 	pub instance_index: InstanceIndex,
     // pub draw_state: draw_obj::DrawState,
-    pub box_type: BoxType,
+    // pub box_type: BoxType,
     // pub fs_defines: FSDefines,
     // pub vs_defines: VSDefines,
     // pub pipeline_meta: PipelineMeta,

@@ -68,6 +68,7 @@ pub fn cal_context(
 	if r.0 {
 		return;
 	}
+	log::trace!("pass_life========================");
     // layer_dirty.clear();
     let mut pass_2d_init = Vec::new();
     // let mut pass_2d_id_insert = Vec::new();

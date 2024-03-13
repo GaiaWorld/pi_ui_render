@@ -1,19 +1,20 @@
 //! 定义与DrawObject相关的组件
 
-use std::hash::{Hash, Hasher};
+use std::{hash::{Hash, Hasher}, ops::Range};
 
 
 use crate::resource::{
-    draw_obj::{PipelineStateWithHash, ProgramMetaInner, VertexBufferLayoutWithHash},
+    draw_obj::{PipelineStateWithHash, ProgramMetaInner, VertexBufferLayoutWithHash, AssetWithId},
     RenderObjType,
 };
 use bevy_ecs::prelude::Component;
 use pi_atom::Atom;
-use pi_bevy_render_plugin::NodeId;
 use pi_hash::XHashSet;
-use pi_render::renderer::draw_obj::DrawObj as DrawState1;
+use pi_render::{renderer::draw_obj::DrawObj as DrawState1, rhi::asset::TextureRes};
 use pi_share::Share;
+use wgpu::RenderPipeline;
 
+use super::{calc::{BorderImageTexture, BackgroundImageTexture}, user::{Canvas, BackgroundColor, BorderColor, BoxShadow, TextContent}};
 pub use super::root::{ClearColorBindGroup, CopyFboToScreen, DynTargetType};
 
 pub struct DrawObject;
@@ -137,12 +138,95 @@ pub struct BorderImageMark;
 #[derive(Debug, Component, Default)]
 pub struct CanvasMark;
 
-// 实例索引
-#[derive(Debug, Component)]
-pub struct InstanceIndex(pub usize);
+// 实例索引(当只有一个实例时， InstanceIndex.0.start为该实例的属性， 当存在多个时，在从InstanceIndex.0范围内， 从InstanceIndex.0.start起， 每间隔一个实例长度，就是一个实例数据)
+#[derive(Debug, Component, Clone)]
+pub struct InstanceIndex(pub Range<usize>);
 
 impl Default for InstanceIndex {
 	fn default() -> Self {
 		Self(pi_null::Null::null())
 	}
 }
+
+// 渲染属性（像文字这类特殊的渲染， 每个字符都是一个实例渲染， 因此一个span可能存在多个渲染实例， 如果不存在该组件， 表示一个渲染实例， 否则用该组件描述渲染实例的数量）
+#[derive(Debug, Component, Clone)]
+pub struct RenderCount(pub u32);
+
+impl Default for RenderCount {
+	fn default() -> Self {
+		Self(1)
+	}
+}
+
+// // 渲染标记(是什么类型的渲染， 如文字类型， 图片类型， 是否存在裁剪等等)
+// #[derive(Debug, Component, Default, Clone)]
+// pub struct RenderFlag(pub u32);
+
+/// 实例劈分方式
+/// DrawObj的组件：
+/// 1. 可能是因为存在纹理而劈分
+/// 2. 可能是因为pipeline不同而需要劈分
+#[derive(Debug, Component)]
+pub enum InstanceSplit {
+	ByTexture(AssetWithId<TextureRes>),
+	ByCross(bool), // 交叉渲染， 表示该节点的渲染为一个外部系统的渲染， bool表示是否用运行图的方式渲染（如果是false，则为外部渲染为一个fbo，gui内部需要将其作为渲染对象渲染）
+}
+
+#[derive(Debug, Component)]
+pub struct Pipeline(pub Share<wgpu::RenderPipeline>);
+
+// DepthUniform
+
+pub trait GetInstanceSplit {
+	fn get_split(&self) -> Option<InstanceSplit>;
+}
+
+impl GetInstanceSplit for BorderImageTexture {
+	fn get_split(&self) -> Option<InstanceSplit> {
+		match &self.0 {
+			Some(r) => Some(InstanceSplit::ByTexture(r.clone())),
+			None => None,
+		}
+		
+	}
+}
+
+impl GetInstanceSplit for BackgroundImageTexture {
+	fn get_split(&self) -> Option<InstanceSplit> {
+		match &self.0 {
+			Some(r) => Some(InstanceSplit::ByTexture(r.clone())),
+			None => None,
+		}
+	}
+}
+
+impl GetInstanceSplit for Canvas {
+	fn get_split(&self) -> Option<InstanceSplit> {
+		Some(InstanceSplit::ByCross(self.by_draw_list))
+	}
+}
+
+impl GetInstanceSplit for BackgroundColor {
+	fn get_split(&self) -> Option<InstanceSplit> {
+		None
+	}
+}
+
+impl GetInstanceSplit for BorderColor {
+	fn get_split(&self) -> Option<InstanceSplit> {
+		None
+	}
+}
+
+impl GetInstanceSplit for BoxShadow {
+	fn get_split(&self) -> Option<InstanceSplit> {
+		None
+	}
+}
+
+impl GetInstanceSplit for TextContent {
+	fn get_split(&self) -> Option<InstanceSplit> {
+		None
+	}
+}
+

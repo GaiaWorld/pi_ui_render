@@ -20,8 +20,9 @@ trace = [
 	"debug", 
 	"pi_bevy_render_plugin/trace", 
 	"pi_bevy_log/tracing-chrome", 
+	# "pi_bevy_log/tracing-tracy", 
 	"bevy_app/trace", 
-	# "bevy_ecs/trace",
+	"bevy_ecs/trace",
 ]
 single_thread = [
 	"pi_bevy_render_plugin/single_thread",
@@ -52,9 +53,9 @@ smallvec = { version = "1.8", features = ["serde"] }
 bitvec = { version = "1.0", features = ["serde"] }
 cssparser = "0.29"
 pi_hash = "0.1"
-pi_atom = { version = "0.2", features = ["serde", "pointer_width_32"] }
+pi_atom = { version = "0.5", features = ["serde", "pointer_width_32", "lookup_by_hash"] }
 pi_enum_default_macro = "0.1"
-pi_map = "0.1"
+pi_map = "0.2"
 pi_null = "0.1"
 pi_ucd = "0.1"
 pi_data_view = "0.1"
@@ -65,7 +66,7 @@ pi_cg2d = "0.3"
 crossbeam = "0.8"
 fixedbitset = { version = "0.4", features = ["serde"] }
 bytemuck = { version = "1.4", features = ["derive"] }
-naga = { version = "0.12" }
+naga = { version = "0.19" }
 pi_assets = "0.13"
 image = "0.24"
 polygon2 = "0.3"
@@ -100,96 +101,21 @@ derive-deref-rs = "0.1"
 thiserror = "1.0"
 
 # wgpu = { version = "0.1", registry = "yn", package = "pi_wgpu" }
-wgpu = { version = "0.1", registry = "yn", package = "pi_wgpu"}
+wgpu = { version = "0.1", registry = "yn", package = "pi_wgpu", features = ["use_wgpu"]}
 
 pi-async-rt = "0.1"
-pi_share = { version = "=0.4.7" }
+pi_share = { version = "0.4" }
 pi_render = { version = "0.1", registry = "yn" }
 # derive_deref = "1.1"
 tracing-subscriber = "0.3"
 ahash = "=0.8.6"
+pi_key_alloter = "0.4"
 
 # flume = "0.10"
 
-[patch.crates-io]
-probabilistic-collections = { git = "https://github.com/GaiaWorld/pi_probabilistic_collections.git" }
-# pi_graph = { path = "../pi_graph" }
-# pi_async_graph = { path = "../pi_async_graph" }
-# geo = { path = "../geo/geo" }
-# pi_assets = { path = "../pi_assets" }
-
-bevy_app = { path = "../bevy/crates/bevy_app" }
-bevy_ecs = { path = "../bevy/crates/bevy_ecs" }
-bevy_tasks = { path = "../bevy/crates/bevy_tasks" }
-bevy_window = { path = "../bevy/crates/bevy_window" }
-bevy_utils = { path = "../bevy/crates/bevy_utils" }
-bevy_a11y = { path = "../bevy/crates/bevy_a11y" }
-bevy_input = { path = "../bevy/crates/bevy_input" }
-bevy_reflect = { path = "../bevy/crates/bevy_reflect" }
-bevy_math = { path = "../bevy/crates/bevy_math" }
-
-# pi_slotmap_tree = { path = "../pi_slotmap_tree" }
-# pi_map = { path = "../pi_map" }
-# pi_flex_layout = { path = "../pi_flex_layout" }
-# pi_dirty={path = "../pi_dirty" }
-# pi_spatial = { path="../pi_spatial" }
-
-# pi_spatial = {path = "../pi_spatial"}
-
-[patch."https://github.com/GaiaWorld/pi_sdf"]
-pi_sdf = { path = "../pi_sdf" }
-
-[patch.yn]
-# pi_curves  = {path="../pi_curves"}
-# pi_animation = { path="../pi_animation"}
-pi_style = {path = "../pi_style"}
-# winit = {path = "../winit"}
-# font_kit = { path = "../font_kit" }
-pi_hal = { path = "../pi_hal" }
-wgpu = { path="../pi_wgpu", package = "pi_wgpu" }
-
-# bevy
-# pi_bevy_ecs_extend = { path = "../pi_bevy/crates/ecs_extend" }
-# pi_bevy_render_plugin = { path = "../pi_bevy/crates/render" }
-# pi_bevy_asset = { path = "../pi_bevy/crates/asset" }
-# pi_bevy_winit_window = { path = "../pi_bevy/crates/winit_window" }
-# pi_bevy_log = { path = "../pi_bevy/crates/log" }
-# pi_bevy_ecs_macro = { path = "../pi_bevy/crates/ecs_extend/macro" }
-# pi_bevy_post_process = { path = "../pi_bevy/crates/post_process" }
-# pi_bevy_window = { path = "../pi_bevy/crates/window" }
-
-pi_bevy_ecs_extend = { path = "../pi_bevy_new_graphic/crates/ecs_extend" }
-pi_bevy_render_plugin = { path = "../pi_bevy_new_graphic/crates/render" }
-pi_bevy_asset = { path = "../pi_bevy_new_graphic/crates/asset" }
-pi_bevy_winit_window = { path = "../pi_bevy_new_graphic/crates/winit_window" }
-pi_bevy_log = { path = "../pi_bevy_new_graphic/crates/log" }
-pi_bevy_ecs_macro = { path = "../pi_bevy_new_graphic/crates/ecs_extend/macro" }
-pi_bevy_post_process = { path = "../pi_bevy_new_graphic/crates/post_process" }
-pi_bevy_window = { path = "../pi_bevy_new_graphic/crates/window" }
-
-# pi_render
-# pi_render = { path = "../pi_render" }
-# render_core = {path = "../pi_render/crates/render_core"}
-# render_derive = {path = "../pi_render/crates/render_derive"}
-# render_compile = {path = "../pi_render/crates/render_compile"}
-
-pi_render = { path = "../pi_render_new_graphic" }
-render_core = {path = "../pi_render_new_graphic/crates/render_core"}
-render_derive = {path = "../pi_render_new_graphic/crates/render_derive"}
-render_compile = {path = "../pi_render_new_graphic/crates/render_compile"}
-
-# pi_postprocess = { path = "../pi_post_process"}
-
-pi_postprocess = { path = "../pi_post_process"}
-
-# pi_graph = {path = "../pi_graph"}
-
-# pi_slotmap = { path = "../pi_slotmap" }
-
-# pi_dirty = { path = "../pi_dirty" }
-
 [dev-dependencies]
 log = { version = "0.4", features = ["kv_unstable", "release_max_level_info"] }
+# log = { version = "0.4", features = ["kv_unstable", "max_level_off"] }
 float-ord = "0.3"
 async-trait = "0.1"
 spin_sleep = "1.1"
@@ -202,8 +128,8 @@ pi_winit = { version = "0.27", registry = "yn", package = "winit" }
 tracing = "0.1"
 postcard = { version = "1.0", features = ["use-std"] }
 
-wgpu = { version = "0.1", registry = "yn", package = "pi_wgpu" }
-# wgpu = { version = "0.1", registry = "yn", package = "pi_wgpu", features = ["use_wgpu"]}
+# wgpu = { version = "0.1", registry = "yn", package = "pi_wgpu" }
+wgpu = { version = "0.1", registry = "yn", package = "pi_wgpu", features = ["use_wgpu"]}
 # pi_ui_render = { path = "./", features = ["trace", "single_thread"] }
 # pi_ui_render = { path = "./", features = ["trace"] }
 pi_ui_render = { path = "./", features = ["debug", "single_thread"] }
@@ -262,7 +188,7 @@ render_compile = { version = "0.1", registry = "yn" }
 
 
 [profile.release]
-lto = true
+# lto = true
 opt-level = 's'
 codegen-units = 1
 # debug = false
@@ -293,3 +219,82 @@ test = true
 [[example]]
 name = "background_compress_texture"
 test = true
+
+
+
+[patch.crates-io]
+probabilistic-collections = { git = "https://github.com/GaiaWorld/pi_probabilistic_collections.git" }
+# pi_graph = { path = "../pi_graph" }
+# pi_async_graph = { path = "../pi_async_graph" }
+# geo = { path = "../geo/geo" }
+# pi_assets = { path = "../pi_assets" }
+# pi_share = { path = "../pi_share" }
+
+bevy_app = { path = "../bevy/crates/bevy_app" }
+bevy_ecs = { path = "../bevy/crates/bevy_ecs" }
+bevy_tasks = { path = "../bevy/crates/bevy_tasks" }
+bevy_window = { path = "../bevy/crates/bevy_window" }
+bevy_utils = { path = "../bevy/crates/bevy_utils" }
+bevy_a11y = { path = "../bevy/crates/bevy_a11y" }
+bevy_input = { path = "../bevy/crates/bevy_input" }
+bevy_reflect = { path = "../bevy/crates/bevy_reflect" }
+bevy_math = { path = "../bevy/crates/bevy_math" }
+
+# pi_slotmap_tree = { path = "../pi_slotmap_tree" }
+# pi_map = { path = "../pi_map" }
+# pi_flex_layout = { path = "../pi_flex_layout" }
+# pi_dirty={path = "../pi_dirty" }
+# pi_spatial = { path="../pi_spatial" }
+
+# pi_spatial = {path = "../pi_spatial"}
+
+[patch.yn]
+# pi_curves  = {path="../pi_curves"}
+# pi_animation = { path="../pi_animation"}
+# pi_style = {path = "../pi_style"}
+# pi_wgpu = {path = "../pi_wgpu"}
+# pi_egl = {path = "../pi_egl"}
+# winit = {path = "../winit"}
+# font_kit = { path = "../font_kit" }
+# pi_hal = { path = "../pi_hal" }
+# pi_sdf = { path = "../pi_sdf" }
+
+# bevy
+# pi_bevy_ecs_extend = { path = "../pi_bevy/crates/ecs_extend" }
+# pi_bevy_render_plugin = { path = "../pi_bevy/crates/render" }
+# pi_bevy_asset = { path = "../pi_bevy/crates/asset" }
+# pi_bevy_winit_window = { path = "../pi_bevy/crates/winit_window" }
+# pi_bevy_log = { path = "../pi_bevy/crates/log" }
+# pi_bevy_ecs_macro = { path = "../pi_bevy/crates/ecs_extend/macro" }
+# pi_bevy_post_process = { path = "../pi_bevy/crates/post_process" }
+# pi_bevy_window = { path = "../pi_bevy/crates/window" }
+
+# pi_bevy_ecs_extend = { path = "../pi_bevy/crates/ecs_extend" }
+# pi_bevy_render_plugin = { path = "../pi_bevy/crates/render" }
+# pi_bevy_asset = { path = "../pi_bevy/crates/asset" }
+# pi_bevy_winit_window = { path = "../pi_bevy/crates/winit_window" }
+# pi_bevy_log = { path = "../pi_bevy/crates/log" }
+# pi_bevy_ecs_macro = { path = "../pi_bevy/crates/ecs_extend/macro" }
+# pi_bevy_post_process = { path = "../pi_bevy/crates/post_process" }
+# pi_bevy_window = { path = "../pi_bevy/crates/window" }
+
+# pi_render
+# pi_render = { path = "../pi_render" }
+# render_core = {path = "../pi_render/crates/render_core"}
+# render_derive = {path = "../pi_render/crates/render_derive"}
+# render_compile = {path = "../pi_render/crates/render_compile"}
+
+# pi_render = { path = "../pi_render" }
+# render_core = {path = "../pi_render/crates/render_core"}
+# render_derive = {path = "../pi_render/crates/render_derive"}
+# render_compile = {path = "../pi_render/crates/render_compile"}
+
+# pi_postprocess = { path = "../pi_post_process"}
+
+# pi_postprocess = { path = "../pi_post_process"}
+
+# pi_graph = {path = "../pi_graph"}
+
+# pi_slotmap = { path = "../pi_slotmap" }
+
+# pi_dirty = { path = "../pi_dirty" }

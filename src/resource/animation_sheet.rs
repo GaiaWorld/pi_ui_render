@@ -99,16 +99,16 @@ impl Default for KeyFramesSheet {
     fn default() -> Self {
         let mut b = RuntimeInfoMap::<ObjKey>::default();
         let animation_attr_types = vec![
-            AnimationType::new::<BackgroundRepeatType>(&mut b),    // 占位1
-            AnimationType::new::<FontStyleType>(&mut b),           // 2
-            AnimationType::new::<FontWeightType>(&mut b),          // 3
-            AnimationType::new::<FontSizeType>(&mut b),            // 4
-            AnimationType::new::<FontFamilyType>(&mut b),          // 5
-            AnimationType::new::<LetterSpacingType>(&mut b),       // 6
-            AnimationType::new::<WordSpacingType>(&mut b),         // 7
-            AnimationType::new::<LineHeightType>(&mut b),          // 8
-            AnimationType::new::<TextIndentType>(&mut b),          // 9
-            AnimationType::new::<WhiteSpaceType>(&mut b),          // 10
+            AnimationType::new::<BackgroundRepeatType>(&mut b),    // 0
+            AnimationType::new::<FontStyleType>(&mut b),           // 1
+            AnimationType::new::<FontWeightType>(&mut b),          // 2
+            AnimationType::new::<FontSizeType>(&mut b),            // 3
+            AnimationType::new::<FontFamilyType>(&mut b),          // 4
+            AnimationType::new::<LetterSpacingType>(&mut b),       // 5
+            AnimationType::new::<WordSpacingType>(&mut b),         // 6
+            AnimationType::new::<LineHeightType>(&mut b),          // 7
+            AnimationType::new::<TextIndentType>(&mut b),          // 8
+            AnimationType::new::<WhiteSpaceType>(&mut b),          // 9
             AnimationType::new::<TextAlignType>(&mut b),           // 11
             AnimationType::new::<VerticalAlignType>(&mut b),       // 12
             AnimationType::new::<ColorType>(&mut b),               // 13
@@ -123,72 +123,79 @@ impl Default for KeyFramesSheet {
             AnimationType::new::<BorderImageClipType>(&mut b),     // 22
             AnimationType::new::<BorderImageSliceType>(&mut b),    // 23
             AnimationType::new::<BorderImageRepeatType>(&mut b),   // 24
-            AnimationType::new::<BorderColorType>(&mut b),         // 25
-            AnimationType::new::<HsiType>(&mut b),                 // 26
-            AnimationType::new::<BlurType>(&mut b),                // 27
-            AnimationType::new::<MaskImageType>(&mut b),           // 28
-            AnimationType::new::<MaskImageClipType>(&mut b),       // 29
-            AnimationType::new::<TransformType>(&mut b),           // 30
-            AnimationType::new::<TransformOriginType>(&mut b),     // 31
-            AnimationType::new::<TransformWillChangeType>(&mut b), // 32
-            AnimationType::new::<BorderRadiusType>(&mut b),        // 33
-            AnimationType::new::<ZIndexType>(&mut b),              // 34
-            AnimationType::new::<OverflowType>(&mut b),            // 35
-            AnimationType::new::<BlendModeType>(&mut b),           // 36
-            AnimationType::new::<DisplayType>(&mut b),             // 37
-            AnimationType::new::<VisibilityType>(&mut b),          // 38
-            AnimationType::new::<EnableType>(&mut b),              // 39
-            AnimationType::new::<WidthType>(&mut b),               // 40
-            AnimationType::new::<HeightType>(&mut b),              // 41
-            AnimationType::new::<MarginTopType>(&mut b),           // 42
-            AnimationType::new::<MarginRightType>(&mut b),         // 43
-            AnimationType::new::<MarginBottomType>(&mut b),        // 44
-            AnimationType::new::<MarginLeftType>(&mut b),          // 45
-            AnimationType::new::<PaddingTopType>(&mut b),          // 46
-            AnimationType::new::<PaddingRightType>(&mut b),        // 47
-            AnimationType::new::<PaddingBottomType>(&mut b),       // 48
-            AnimationType::new::<PaddingLeftType>(&mut b),         // 49
-            AnimationType::new::<BorderTopType>(&mut b),           // 50
-            AnimationType::new::<BorderRightType>(&mut b),         // 51
-            AnimationType::new::<BorderBottomType>(&mut b),        // 52
-            AnimationType::new::<BorderLeftType>(&mut b),          // 53
-            AnimationType::new::<PositionTopType>(&mut b),         // 54
-            AnimationType::new::<PositionRightType>(&mut b),       // 55
-            AnimationType::new::<PositionBottomType>(&mut b),      // 56
-            AnimationType::new::<PositionLeftType>(&mut b),        // 57
-            AnimationType::new::<MinWidthType>(&mut b),            // 58
-            AnimationType::new::<MinHeightType>(&mut b),           // 59
-            AnimationType::new::<MaxHeightType>(&mut b),           // 60
-            AnimationType::new::<MaxWidthType>(&mut b),            // 61
-            AnimationType::new::<DirectionType>(&mut b),           // 62
-            AnimationType::new::<FlexDirectionType>(&mut b),       // 63
-            AnimationType::new::<FlexWrapType>(&mut b),            // 64
-            AnimationType::new::<JustifyContentType>(&mut b),      // 65
+            AnimationType::new::<BorderColorType>(&mut b),         // 23
+            AnimationType::new::<HsiType>(&mut b),                 // 24
+            AnimationType::new::<BlurType>(&mut b),                // 26
+            AnimationType::new::<MaskImageType>(&mut b),           // 27
+            AnimationType::new::<MaskImageClipType>(&mut b),       // 28
+            AnimationType::new::<TransformType>(&mut b),           // 29
+            AnimationType::new::<TransformOriginType>(&mut b),     // 30
+            AnimationType::new::<TransformWillChangeType>(&mut b), // 31
+            AnimationType::new::<BorderRadiusType>(&mut b),        // 32
+            AnimationType::new::<ZIndexType>(&mut b),              // 33
+            AnimationType::new::<OverflowType>(&mut b),            // 34
+            AnimationType::new::<BlendModeType>(&mut b),           // 35
+            AnimationType::new::<DisplayType>(&mut b),             // 36
+            AnimationType::new::<VisibilityType>(&mut b),          // 37
+            AnimationType::new::<EnableType>(&mut b),              // 38
+            AnimationType::new::<WidthType>(&mut b),               // 39
+            AnimationType::new::<HeightType>(&mut b),              // 40
+            AnimationType::new::<MarginTopType>(&mut b),           // 41
+            AnimationType::new::<MarginRightType>(&mut b),         // 42
+            AnimationType::new::<MarginBottomType>(&mut b),        // 43
+            AnimationType::new::<MarginLeftType>(&mut b),          // 44
+            AnimationType::new::<PaddingTopType>(&mut b),          // 45
+            AnimationType::new::<PaddingRightType>(&mut b),        // 46
+            AnimationType::new::<PaddingBottomType>(&mut b),       // 47
+            AnimationType::new::<PaddingLeftType>(&mut b),         // 48
+            AnimationType::new::<BorderTopType>(&mut b),           // 49
+            AnimationType::new::<BorderRightType>(&mut b),         // 50
+            AnimationType::new::<BorderBottomType>(&mut b),        // 51
+            AnimationType::new::<BorderLeftType>(&mut b),          // 52
+            AnimationType::new::<PositionTopType>(&mut b),         // 53
+            AnimationType::new::<PositionRightType>(&mut b),       // 54
+            AnimationType::new::<PositionBottomType>(&mut b),      // 55
+            AnimationType::new::<PositionLeftType>(&mut b),        // 56
+            AnimationType::new::<MinWidthType>(&mut b),            // 57
+            AnimationType::new::<MinHeightType>(&mut b),           // 58
+            AnimationType::new::<MaxHeightType>(&mut b),           // 59
+            AnimationType::new::<MaxWidthType>(&mut b),            // 60
+            AnimationType::new::<DirectionType>(&mut b),           // 61
+            AnimationType::new::<FlexDirectionType>(&mut b),       // 62
+            AnimationType::new::<FlexWrapType>(&mut b),            // 63
+            AnimationType::new::<JustifyContentType>(&mut b),      // 64
             AnimationType::new::<AlignContentType>(&mut b),        // 65
-            AnimationType::new::<AlignItemsType>(&mut b),          // 67
-            AnimationType::new::<PositionTypeType>(&mut b),        // 68
-            AnimationType::new::<AlignSelfType>(&mut b),           // 69
-            AnimationType::new::<FlexShrinkType>(&mut b),          // 70
-            AnimationType::new::<FlexGrowType>(&mut b),            // 71
-            AnimationType::new::<AspectRatioType>(&mut b),         // 72
-            AnimationType::new::<OrderType>(&mut b),               // 73
-            AnimationType::new::<FlexBasisType>(&mut b),           // 74
-            AnimationType::new::<OpacityType>(&mut b),             // 75
-            AnimationType::new::<TextContentType>(&mut b),         // 76
-            AnimationType::new::<VNodeType>(&mut b),               // 77
-            AnimationType::new::<EmptyType>(&mut b),       // 78
-            AnimationType::new::<EmptyType>(&mut b),       // 占位79
+            AnimationType::new::<AlignItemsType>(&mut b),          // 66
+            AnimationType::new::<PositionTypeType>(&mut b),        // 67
+            AnimationType::new::<AlignSelfType>(&mut b),           // 68
+            AnimationType::new::<FlexShrinkType>(&mut b),          // 69
+            AnimationType::new::<FlexGrowType>(&mut b),            // 70
+            AnimationType::new::<AspectRatioType>(&mut b),         // 71
+            AnimationType::new::<OrderType>(&mut b),               // 72
+            AnimationType::new::<FlexBasisType>(&mut b),           // 73
+            AnimationType::new::<OpacityType>(&mut b),             // 74
+            AnimationType::new::<TextContentType>(&mut b),         // 75
+            AnimationType::new::<VNodeType>(&mut b),               // 76
+            AnimationType::new::<EmptyType>(&mut b),       // 占位77
+            AnimationType::new::<EmptyType>(&mut b),       // 占位78
+            AnimationType::new::<EmptyType>(&mut b),       //  占位79
             AnimationType::new::<EmptyType>(&mut b),       // 占位80
-            AnimationType::new::<EmptyType>(&mut b),       //  占位81
-            AnimationType::new::<EmptyType>(&mut b),       // 占位82
+            AnimationType::new::<EmptyType>(&mut b),       // 占位81
+            AnimationType::new::<EmptyType>(&mut b),       //  占位82
             AnimationType::new::<EmptyType>(&mut b),       // 占位83
-            AnimationType::new::<EmptyType>(&mut b),       //  占位84
-            AnimationType::new::<EmptyType>(&mut b),       // 占位85
-            AnimationType::new::<EmptyType>(&mut b),       //  占位 86
-            AnimationType::new::<ClipPathType>(&mut b),            // 87
-            AnimationType::new::<TranslateType>(&mut b),           // 88
-            AnimationType::new::<ScaleType>(&mut b),               // 89
-            AnimationType::new::<RotateType>(&mut b),              // 90
+            AnimationType::new::<EmptyType>(&mut b),       //  占位 84
+            AnimationType::new::<ClipPathType>(&mut b),            // 85
+            AnimationType::new::<TranslateType>(&mut b),           // 86
+            AnimationType::new::<ScaleType>(&mut b),               // 87
+            AnimationType::new::<RotateType>(&mut b),              // 88
+
+			AnimationType::new::<EmptyType>(&mut b),       // 占位89
+            AnimationType::new::<EmptyType>(&mut b),       // 占位80
+            AnimationType::new::<EmptyType>(&mut b),       //  占位91
+            AnimationType::new::<EmptyType>(&mut b),       // 占位92
+            AnimationType::new::<EmptyType>(&mut b),       //  占位 93
+			AnimationType::new::<EmptyType>(&mut b),       //  占位 94
+			AnimationType::new::<EmptyType>(&mut b),       //  占位 95
         ];
         Self {
             animation_attr_types: CurveMgr { list: animation_attr_types },

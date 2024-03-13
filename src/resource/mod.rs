@@ -112,7 +112,7 @@ impl UserCommands {
     /// 设置节点样式
     pub fn set_style<T: Attr>(&mut self, entity: Entity, value: T) -> &mut Self {
         // out_any!(log::debug, "set_style, entity: {:?}, value: {:?}", entity, &value);
-        // out_any!(log::warn, "set_style, entity: {:?}, {:?}, value: {:?}", entity, unsafe {transmute::<_, f64>(entity.to_bits())}, &value);
+        pi_print_any::out_any!(log::trace, "set_style, entity: {:?}, {:?}, value: {:?}", entity, unsafe {transmute::<_, f64>(entity.to_bits())}, &value);
         let start = self.style_commands.style_buffer.len();
         unsafe { StyleAttr::write(value, &mut self.style_commands.style_buffer) };
         if let Some(r) = self.style_commands.commands.last_mut() {
@@ -202,6 +202,18 @@ impl UserCommands {
 
         #[cfg(feature = "debug")]
         self.other_commands_list.push(CmdType::SdfCfgCmd(r.clone()));
+
+        self.other_commands.push(r);
+		self
+    }
+
+	/// 添加sdf2字体
+    pub fn add_sdf2_font(&mut self, name: Atom, buffer: Vec<u8>) -> &mut Self {
+        // println_any!("push_cmd===={:?}", 1);
+        let r = FontSdf2Cmd(name, buffer);
+
+        #[cfg(feature = "debug")]
+        self.other_commands_list.push(CmdType::Sdf2CfgCmd(r.clone()));
 
         self.other_commands.push(r);
 		self
@@ -593,8 +605,10 @@ impl Map for QuadTree {
         }
         return None;
     }
+	
     fn remove(&mut self, key: &Self::Key) -> Option<Self::Val> { unsafe { transmute(self.0.remove(key.clone())) } }
 }
+
 
 // 用于debug的节点， 如果不为空， 则运行过程中会打印该节点的各种信息
 #[cfg(debug_assertions)]
@@ -620,6 +634,7 @@ impl IndexMut<EntityKey> for QuadTree {
 
 #[derive(Deref, Resource)]
 pub struct ShareFontSheet(pub Share<ShareCell<FontSheet>>);
+
 #[cfg(target_arch = "wasm32")]
 unsafe impl Send for ShareFontSheet {}
 #[cfg(target_arch = "wasm32")]

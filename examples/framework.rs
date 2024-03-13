@@ -20,6 +20,7 @@ use pi_flex_layout::prelude::Size;
 use pi_hal::{init_load_cb, on_load, runtime::MULTI_MEDIA_RUNTIME};
 use pi_share::{Share, ShareMutex};
 use pi_slotmap::DefaultKey;
+use pi_hal::font::font::FontType;
 use pi_ui_render::system::RunState;
 // use pi_ui_render::components::user::AsImage;
 // use pi_ui_render::system::draw_obj::calc_text::IsRun;
@@ -44,8 +45,8 @@ pub trait Example: 'static + Sized {
         // None表示使用默认值
         None
     }
-	fn use_sdf(&self) -> bool {
-        false
+	fn font_type(&self) -> FontType {
+        FontType::Sdf2
     }
     #[cfg(feature = "debug")]
     fn record_option(&self) -> pi_ui_render::system::cmd_play::TraceOption { pi_ui_render::system::cmd_play::TraceOption::None }
@@ -111,14 +112,15 @@ pub fn start<T: Example + Sync + Send + 'static>(example: T) {
     let record_option = example.record_option();
 	#[cfg(feature = "debug")]
 	let play_option = example.play_option();
-	// let use_sdf = example.use_sdf();
+	let font_type = example.font_type();
     let exmple = Share::new(ShareMutex::new(example));
     let exmple1 = exmple.clone();
 
     let exmple_run = move |world: &mut World, commands: &mut SystemState<(ResMut<UserCommands>, Commands)>| {
         // log::warn!("zzzzzzzzzzzzzzzzzzzzzzzzbbbbbb");
         let mut commands = commands.get_mut(world);
-        exmple.lock().render(&mut commands.0, &mut commands.1);
+        exmple.lock().unwrap().render(&mut commands.0, &mut commands.1);
+		bevy_ecs::system::CommandQueue::default().apply(world);
     };
 
 	let event_loop = EventLoop::new();
@@ -198,14 +200,14 @@ pub fn start<T: Example + Sync + Send + 'static>(example: T) {
 	}
 
     #[cfg(feature = "debug")]
-    app.add_plugins(UiPlugin { cmd_trace: record_option, font_type: pi_hal::font::font::FontType::Bitmap });
+    app.add_plugins(UiPlugin { cmd_trace: record_option, font_type });
     #[cfg(not(feature = "debug"))]
     app.add_plugins(UiPlugin::default());
-	exmple1.lock().setting(&mut app);
+	exmple1.lock().unwrap().setting(&mut app);
 
     app.add_systems(Update, exmple_run.before(UiSystemSet::Setting).in_set(ExampleSet))
         .add_systems(Startup, move |world: &mut World| {
-            exmple1.lock().init(world, (width as usize, height as usize));
+            exmple1.lock().unwrap().init(world, (width as usize, height as usize));
         });
 
     #[cfg(feature = "debug")]
@@ -350,10 +352,10 @@ pub fn init(width: u32, height: u32, _event_loop: &EventLoop<()>, w: Arc<pi_wini
 	window_plugin.primary_window = None;
 
 	let mut o = PiRenderOptions::default();
-	o.present_mode = wgpu::PresentMode::Fifo;
-	o.backends = wgpu::Backends::GL;
-	// o.present_mode = wgpu::PresentMode::Mailbox;
-	// o.backends = wgpu::Backends::VULKAN;
+	// o.present_mode = wgpu::PresentMode::Fifo;
+	// o.backends = wgpu::Backends::GL;
+	o.present_mode = wgpu::PresentMode::Mailbox;
+	o.backends = wgpu::Backends::VULKAN;
 	app.world.insert_resource(o);
 
 	// app.world.insert_resource(IsRun(true));
@@ -536,12 +538,13 @@ pub struct PlayOption {
 // pub const PLAY_VERSION: &'static str = "test";
 
 // pi_flex_layout=trace
-// pub const FILTER: &'static str = "wgpu=warn,naga=warn,pi_ui_render::components::user=debug";
-// pub const FILTER: &'static str = "wgpu=warn,entity_3v0=trace";
+// pub const FILTER: &'static str = "wgpu=warn,naga=warn,pi_ui_render::system::draw_obj::life_drawobj=trace";// pi_ui_render::system::draw_obj::calc_text::text_sdf2=trace
+// pub const FILTER: &'static str = "wgpu=warn,naga=warn,pi_ui_render::components::user=trace";//pi_ui_render::resource::animation_sheet=trace
+// pub const FILTER: &'static str = "wgpu=warn,naga=trace";
 // pub const FILTER: &'static str = "wgpu=warn,pi_ui_render::system::pass::pass_graph_node=trace,pi_ui_render::system::pass_effect::radial_wave=trace,pi_ui_render::system::pass::pass_life=trace";
 // pub const FILTER: &'static str = "wgpu=warn,pi_ui_render::system::pass_effect::radial_wave=trace,pi_ui_render::system::pass::pass_life=trace,pi_ui_render::system::pass::update_graph=trace";
-// pub const FILTER: &'static str = "wgpu=warn,naga=warn,bevy_app=warn";
-pub const FILTER: &'static str = "wgpu=warn,naga=warn,pi_wgpu=warn";
+pub const FILTER: &'static str = "wgpu=warn,naga=warn,bevy_app=warn";
+// pub const FILTER: &'static str = "wgpu=warn,naga=warn,pi_wgpu=warn,pi_ui_render::system::draw_obj::life_drawobj=trace,pi_ui_render::system::pass::pass_graph_node=trace";
 // pub const FILTER: &'static str = "";
 pub const LOG_LEVEL: bevy_log::Level = bevy_log::Level::INFO;
 // pub const LOG_LEVEL: bevy_log::Level = bevy_log::Level::INFO;

@@ -4,20 +4,21 @@ use std::ops::Range;
 
 use bevy_ecs::{prelude::Component, system::Resource};
 use pi_assets::asset::{Handle, Size, Asset, Droper};
-pub use pi_bevy_render_plugin::component::GraphId;
+pub use pi_bevy_render_plugin::render_cross::GraphId;
 use pi_postprocess::postprocess::PostProcess as PostProcess1;
 use pi_render::{
     components::view::target_alloc::ShareTargetView,
     renderer::draw_obj::DrawBindGroup,
-    rhi::{asset::RenderRes, bind_group::BindGroup, buffer::Buffer},
+    rhi::{asset::RenderRes, bind_group::BindGroup, buffer::Buffer, buffer_alloc::BufferIndex},
 };
-use pi_share::ShareWeak;
+use pi_share::{ShareWeak, Share};
+use wgpu::RenderPipeline;
 
 use crate::resource::RenderContextMarkType;
 
 use super::{
     calc::{DrawInfo, EntityKey, WorldMatrix, ZRange},
-    user::{Aabb2, AsImage, Matrix4, Point2}, draw_obj::{DrawObject, DrawState},
+    user::{Aabb2, AsImage, Matrix4, Point2},
 };
 
 /// 一个渲染Pass
@@ -64,15 +65,38 @@ pub struct ChildrenPass(pub Vec<EntityKey>);
 #[derive(Debug)]
 pub enum DrawElement {
 	DrawInstance {
-		instance_data_range: Range<usize>, // 在单列RenderInstances中的范围
+		draw_state: InstanceDrawState,
 		draw_range: Range<usize>, // 在排序后的all_list列表中的范围
+		depth_start: usize,
 	}, 
-	Pass2D(EntityKey),
+	Pass2D{
+		id: EntityKey,
+		depth: f32,
+	},
+	GraphDrawList{
+		id: EntityKey,
+		depth_start: f32,
+	}, // 由另一个图节点渲染，需要调用图节点的run, EntityKey为DrawObj节点id
+	GraphFbo{
+		id: EntityKey,
+		draw_state: InstanceDrawState,
+		draw_range: Range<usize>, // 在排序后的all_list列表中的范围
+		depth_start: usize,
+	}, // 由另一个图节点渲染，需要调用图节点的run, EntityKey为DrawObj节点id
 }
+
+#[derive(Debug)]
+pub struct InstanceDrawState {
+	pub instance_data_range: Range<usize>, // 在单列RenderInstances中的范围
+	pub pipeline: Option<Share<RenderPipeline>>, // 为None时， 默认使用全局默认的pipeline
+	pub texture_bind_group: Option<wgpu::BindGroup>, // 为None时， 不需要绑定texture_bind
+}
+
 
 // 渲染 物件 列表
 #[derive(Debug, Component)]
 pub struct Draw2DList {
+	pub clear_instance: usize, // 清屏实例数据（清屏需要一次draw）
 	// 渲染列表的长度
 	// 在收集渲染列表的过程中，all_list保留了上一帧的列表数据，此字段用于记录all_list中有多少元素是当前帧有效的
 	// 在收集过程中， 任何一个push的元素，与all_list[all_list_len]中的描述不匹配，都应该清理掉all_list_len之后的元素，并标记list_is_change为true
@@ -86,6 +110,7 @@ pub struct Draw2DList {
 	// 此列表根据all_list的排序结果，根据其中的DrawIndex::Pass2D将all_list劈分为多个"段"，每个段收缩为一个或多个实例化draw（肯呢个由于纹理个数的限制变成多个，通常为1个）
 	// 并按原有的顺序，将实例化draw和pass2d存储在此结构体中
 	pub draw_list: Vec<DrawElement>,
+	pub need_dyn_fbo_index: Vec<usize>, // 一组在draw_list中的索引， 表示该draw_element需要在渲染图的build阶段动态创建资源（渲染资源，通常是fbo作为纹理的bindgroup，和uv）
 
 	// 用于收集上下文中的渲染列表
     pub all_list: Vec<(DrawIndex, ZRange, DrawInfo)>,
@@ -104,9 +129,11 @@ pub struct Draw2DList {
 impl Default for Draw2DList {
     fn default() -> Self {
         Self {
+			clear_instance: pi_null::Null::null(),
 			list_is_change: false,
 			all_list_len: 0,
 			draw_list: Vec::default(),
+			need_dyn_fbo_index: Vec::default(),
 			all_list_sort: Vec::default(),
             all_list: Vec::default(),
             single_list: Vec::default(),
@@ -119,6 +146,7 @@ impl Default for Draw2DList {
 impl Draw2DList {
 	// push一个元素
 	pub fn push_element(&mut self, draw_index: DrawIndex, z_range: ZRange, draw_info: DrawInfo) {
+		log::trace!("push_element============{:?}, {:?}", self.all_list_len, self.all_list.len());
 		if self.all_list_len == self.all_list.len() {
 			self.all_list.push((draw_index, z_range, draw_info));
 			self.list_is_change = true;
@@ -146,11 +174,17 @@ impl Draw2DList {
 		}
 		self.list_is_change = true;
 	}
+
+	pub fn reset(&mut self) {
+		self.all_list_len = 0;
+	}
 }
 
 /// 渲染对象的索引
 #[derive(Debug, Clone, Copy, Hash, Component, PartialEq, Eq)]
 pub enum DrawIndex {
+	// // 清理屏幕
+	// ClearScreen,
     // 一个渲染对象
     DrawObj(EntityKey),
     // 一个Pass2D的内容

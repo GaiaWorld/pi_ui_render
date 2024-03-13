@@ -5,12 +5,13 @@ mod framework;
 
 use std::mem::swap;
 
-use bevy_ecs::system::Commands;
+use bevy_ecs::{system::Commands, entity::Entity};
 use bevy_ecs::prelude::World;
 use framework::Example;
 /// 渲染四边形 demo
 use pi_flex_layout::style::{Dimension, PositionType};
 use pi_null::Null;
+use pi_style::style::{LinearGradientColor, ColorAndPosition};
 use pi_style::{
     style::{Aabb2, Point2},
     style_type::{BackgroundColorType, HeightType, MarginLeftType, MarginTopType, PositionLeftType, PositionTopType, PositionTypeType, WidthType, AsImageType},
@@ -35,6 +36,7 @@ fn test() {
 #[derive(Default)]
 pub struct QuadExample {
     cmd: UserCommands,
+	root: EntityKey,
 }
 
 impl Example for QuadExample {
@@ -50,7 +52,8 @@ impl Example for QuadExample {
             Viewport(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(size.0 as f32, size.1 as f32))),
             root,
         ));
-        // self.cmd.push_cmd(NodeCmd(RenderDirty(true), root));
+        self.cmd.push_cmd(NodeCmd(RenderDirty(true), root));
+		self.root = EntityKey(root);
 
         self.cmd.set_style(root, WidthType(Dimension::Points(size.0 as f32)));
         self.cmd.set_style(root, HeightType(Dimension::Points(size.1 as f32)));
@@ -72,6 +75,22 @@ impl Example for QuadExample {
             .set_style(div1, BackgroundColorType(Color::RGBA(CgColor::new(1.0, 0.0, 1.0, 1.0))));
 
         self.cmd.append(div1, root);
+
+		// 渐变
+		let div2 = world.spawn(NodeBundle::default()).id();
+        self.cmd.set_style(div2, WidthType(Dimension::Points(300.0)));
+        self.cmd.set_style(div2, HeightType(Dimension::Points(300.0)));
+		self.cmd.set_style(div2, PositionTopType(Dimension::Points(100.0)));
+        self.cmd
+            .set_style(div2, BackgroundColorType(Color::LinearGradient(LinearGradientColor {
+                direction: 1.0,
+                list: vec![
+					ColorAndPosition { position: 0.0, rgba: CgColor::new(1.0, 0.0, 0.0, 1.0) },
+					ColorAndPosition { position: 1.0, rgba: CgColor::new(0.0, 0.0, 1.0, 1.0) }
+				],
+            })));
+
+        self.cmd.append(div2, root);
 
         // // 添加一个红色div到红节点
         // let div2 = world.spawn(NodeBundle::default()).id();
@@ -110,5 +129,8 @@ impl Example for QuadExample {
         // self.cmd.append(div3, div1);
     }
 
-    fn render(&mut self, cmd: &mut UserCommands, _cmd1: &mut Commands) { swap(&mut self.cmd, cmd); }
+    fn render(&mut self, cmd: &mut UserCommands, _cmd1: &mut Commands) { 
+		self.cmd.push_cmd(NodeCmd(RenderDirty(true), self.root.0));
+		swap(&mut self.cmd, cmd); 
+	}
 }

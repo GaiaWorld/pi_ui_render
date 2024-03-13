@@ -1,722 +1,233 @@
+use bevy_app::{Plugin, Update};
+use bevy_ecs::change_detection::DetectChanges;
 use bevy_ecs::query::{Changed, Or, With};
-use bevy_ecs::system::{Query, Res};
-use bytemuck::{Pod, Zeroable};
-use ordered_float::NotNan;
-use pi_assets::asset::Handle;
-use pi_assets::mgr::AssetMgr;
-use pi_bevy_asset::ShareAssetMgr;
-use pi_bevy_ecs_extend::prelude::OrDefault;
-use pi_bevy_ecs_extend::system_param::res::OrInitRes;
-use pi_bevy_render_plugin::PiRenderDevice;
-use pi_render::renderer::draw_obj::DrawBindGroup;
-use pi_render::renderer::vertices::{EVerticesBufferUsage, RenderIndices, RenderVertices};
-use pi_render::rhi::asset::{RenderRes, TextureRes};
-use pi_render::rhi::bind_group::BindGroup;
-use pi_render::rhi::bind_group_layout::BindGroupLayout;
-use pi_render::rhi::buffer::Buffer;
-use pi_render::rhi::device::RenderDevice;
-use pi_render::rhi::shader::{BindLayout, Input};
-use pi_share::Share;
-use pi_style::style::ImageRepeatOption;
-use wgpu::IndexFormat;
+use bevy_ecs::schedule::IntoSystemConfigs;
+use bevy_ecs::system::Query;
+use bevy_ecs::prelude::DetectChangesMut;
+use bevy_ecs::world::Ref;
+use bevy_window::AddFrameEvent;
+use pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent;
+use pi_bevy_ecs_extend::system_param::res::{OrInitRes, OrInitResMut};
+use pi_flex_layout::prelude::{Rect, Size};
+use pi_style::style::Aabb2;
 
-use crate::components::calc::{BorderImageTexture, LayoutResult, NodeId};
-use crate::components::draw_obj::BorderImageMark;
-use crate::components::user::{BorderImage, BorderImageClip, BorderImageSlice, ImageRepeat, Point2};
-use crate::components::{draw_obj::DrawState, user::BorderImageRepeat};
-use crate::resource::draw_obj::{CommonSampler, ProgramMetaRes};
-use crate::shader::image::{PositionVert, ProgramMeta, SampBind};
-use crate::utils::tools::{calc_hash, eq_f32};
+use crate::components::calc::{BorderImageTexture, DrawList, LayoutResult, WorldMatrix};
+use crate::components::draw_obj::{BorderImageMark, InstanceIndex};
+use crate::components::user::{BorderImageClip, Point2, BorderImageRepeat, BorderImageSlice};
+use crate::resource::draw_obj::InstanceContext;
+use crate::resource::BorderImageRenderObjType;
+
+use crate::shader1::meterial::{RenderFlagType, TyUniform, UvUniform, BorderImageInfoUniform};
+use crate::system::draw_obj::calc_background_image::calc_step;
+use crate::system::draw_obj::set_box;
+use crate::system::system_set::UiSystemSet;
+use crate::components::user::BorderImage;
 
 use super::calc_text::IsRun;
-pub const BORDER_IMAGE_ORDER: u8 = 3;
+use super::{life_drawobj, image_texture_load};
 
-/// 设置边框图片的顶点、索引、和边框纹理
+pub struct BorderImagePlugin;
+
+impl Plugin for BorderImagePlugin {
+    fn build(&self, app: &mut bevy_app::App) {
+		app
+			.add_frame_event::<ComponentEvent<Changed<BorderImageTexture>>>()
+			.add_systems(Update, image_texture_load::image_load::<BorderImage, BorderImageTexture>.in_set(UiSystemSet::Load))
+			.add_systems(Update, 
+				life_drawobj::draw_object_life_new::<
+					BorderImageTexture,
+					BorderImageRenderObjType,
+					BorderImageMark,
+					{ BORDER_IMAGE_ORDER },
+				>
+					.in_set(UiSystemSet::LifeDrawObject)
+					.after(image_texture_load::image_load::<BorderImage, BorderImageTexture>),
+			)
+			.add_systems(Update, 
+				calc_border_image
+					.after(super::super::node::world_matrix::cal_matrix)
+					.in_set(UiSystemSet::PrepareDrawObj)
+			);
+    }
+}
+
+pub const BORDER_IMAGE_ORDER: u8 = 5;
+
+/// 设置背景颜色的顶点，和颜色Uniform
 pub fn calc_border_image(
-    query: Query<
-        (
-            &BorderImage,
-            &BorderImageTexture,
-            OrDefault<BorderImageClip>,
-            OrDefault<BorderImageSlice>,
-            OrDefault<BorderImageRepeat>,
-            &LayoutResult,
-        ),
-        Or<(
-            Changed<BorderImageTexture>,
-            Changed<BorderImageClip>,
-            Changed<BorderImageSlice>,
-            Changed<BorderImageRepeat>,
-            Changed<LayoutResult>,
-        )>,
-    >,
-
-    mut query_draw: Query<(&mut DrawState, &NodeId), With<BorderImageMark>>,
-    // mut query_draw: Query<&'static mut DrawState>,
-    device: Res<PiRenderDevice>,
-
-    buffer_assets: Res<ShareAssetMgr<RenderRes<Buffer>>>,
-    bind_group_assets: Res<ShareAssetMgr<RenderRes<BindGroup>>>,
-    common_sampler: Res<CommonSampler>,
-    program_meta: OrInitRes<ProgramMetaRes<ProgramMeta>>,
-	r: OrInitRes<IsRun>
+	mut instances: OrInitResMut<InstanceContext>,
+	query: Query<
+		(
+			Ref<WorldMatrix>,
+			Ref<LayoutResult>,
+			&DrawList,
+			Ref<BorderImageTexture>,
+			Option<Ref<BorderImageClip>>,
+			Option<Ref<BorderImageRepeat>>,
+			Option<Ref<BorderImageSlice>>,
+			&BorderImage,
+		),
+		Or<(Changed<BorderImageTexture>, Changed<BorderImageClip>, Changed<BorderImageRepeat>, Changed<BorderImageSlice>,  Changed<WorldMatrix>)>,
+	>,
+    mut query_draw: Query<&InstanceIndex, With<BorderImageMark>>,
+	r: OrInitRes<IsRun>,
+	render_type: OrInitRes<BorderImageRenderObjType>,
 ) {
 	if r.0 {
 		return;
 	}
-    let texture_group_layout = &program_meta.bind_group_layout[SampBind::set() as usize];
-    for (mut draw_state, node_id) in query_draw.iter_mut() {
-        if let Ok((border_image, border_texture, border_image_clip, border_image_slice, border_image_repeat, layout)) = query.get(***node_id) {
-            let border_texture = match &border_texture.0 {
-                Some(r) => r,
-                None => continue,
-            };
+	let render_type = ***render_type;
+	let image_clip = BorderImageClip::default();
+	let image_mod = BorderImageRepeat::default();
+	let image_slice = BorderImageSlice::default();
 
-            modify(
-                &border_image,
-                &border_texture,
-                &border_image_clip,
-                &border_image_slice,
-                &border_image_repeat,
-                layout,
-                &mut draw_state,
-                &device,
-                &buffer_assets,
-                &bind_group_assets,
-                texture_group_layout,
-                &common_sampler,
-            );
-        }
-    }
+	for (world_matrix, layout, draw_list, border_image_texture_ref, border_image_clip, border_image_repeat, border_image_slice, background_image) in query.iter() {
+		let border_image_texture = match &border_image_texture_ref.0 {
+			Some(r) => {
+				// 图片不一致， 返回
+				if *r.key() != background_image.0.str_hash() as u64 {
+					continue;
+				}
+				r
+			},
+			None => continue, 
+		};
+
+		let draw_id = match draw_list.get_one(render_type) {
+			Some(r) => r.id,
+			None => continue,
+		};
+		if let Ok(instance_index) = query_draw.get_mut(draw_id) {
+			// 节点可能设置为dispaly none， 此时instance_index可能为Null
+			if pi_null::Null::is_null(&instance_index.0.start) {
+				continue;
+			}
+			
+			let mut instance_data = instances.bypass_change_detection().instance_data.instance_data_mut(instance_index.0.start);
+			let mut render_flag = instance_data.get_render_ty();
+			let layout_is_changed = layout.is_changed();
+			if border_image_texture_ref.is_changed() || 
+				border_image_clip.as_ref().map(|r| {r.is_changed()}).unwrap_or(false) || 
+				border_image_repeat.as_ref().map(|r| {r.is_changed()}).unwrap_or(false) || 
+				layout_is_changed || world_matrix.is_changed(){
+
+				render_flag |= 1 << RenderFlagType::Uv as usize;
+				
+				let border_clip = match &border_image_clip {
+					Some(r) => &*r,
+					None => &image_clip,
+				};
+				let border_slice = match &border_image_slice {
+					Some(r) => &*r,
+					None => &image_slice,
+				};
+				let border_image_mod = match &border_image_repeat {
+					Some(r) => &*r,
+					None => &image_mod,
+				};
+
+				let border_box = layout.border_box();
+
+				let p1 = Point2::new(border_box[0], border_box[1]);
+				let p2 = Point2::new(p1.x + border_box[2], p1.y + border_box[3]);
+				let layout_width = border_box[2].max(0.003);
+				let layout_height = border_box[3].max(0.003);
+				
+				let mut clip = Rect {
+					left: *border_clip.left,
+					right: *border_clip.right,
+					top: *border_clip.top,
+					bottom: *border_clip.bottom,
+				};
+				verify_sero_size(&mut clip, 0.001);
+				let clip_size = Size{ width: clip.right - clip.left, height: clip.bottom - clip.top };
+
+				let mut slice_uv = Rect {
+					left:   (clip.left   + *border_slice.left   * clip_size.width) * border_image_texture.width as f32,
+					right:  (clip.right  - *border_slice.right  * clip_size.width) * border_image_texture.width as f32,
+					top:    (clip.top    + *border_slice.top    * clip_size.height) * border_image_texture.height as f32,
+					bottom: (clip.bottom - *border_slice.bottom * clip_size.height) * border_image_texture.height as f32,
+				};
+				verify_sero_size(&mut slice_uv, 0.001);
+				let slice_size = Size {
+					width: (slice_uv.right - slice_uv.left),
+					height: (slice_uv.bottom - slice_uv.top),
+				};
+
+				let mut border = Rect {
+					left:   layout.border.left.max(0.001),
+					right:  (layout_width - layout.border.right).max(0.002),
+					top:    layout.border.top.max(0.001),
+					bottom: (layout_height - layout.border.bottom).max(0.002),
+				};
+				verify_sero_size(&mut border, 0.001);
+
+				render_flag |= 1 << RenderFlagType::BorderImage as usize;
+				let w = p2.x - p1.x - layout.border.left - layout.border.right;
+				let h = p2.y - p1.y - layout.border.top - layout.border.bottom;
+
+				
+				 // 上右下左，比率
+				let factor = (
+					border.top / slice_uv.top.max(0.001), 
+					(layout_width - border.right).max(0.001) / (clip_size.width * border_image_texture.width as f32 - slice_uv.right).max(0.001), 
+					(layout_height - border.bottom).max(0.001) / (clip_size.height * border_image_texture.height as f32 - slice_uv.bottom).max(0.001), 
+					border.left / slice_uv.left.max(0.001)
+				);
+				
+				// 上右下左
+				let (offset_top, step_top, space_top) = calc_step(w, slice_size.width * factor.0, border_image_mod.x);
+				let (offset_right, step_right, space_right ) = calc_step(h, slice_size.height * factor.1, border_image_mod.y);
+				let (offset_bottom, step_bottom, space_bottom) = calc_step(w, slice_size.width * factor.2, border_image_mod.x);
+				let (offset_left, step_left, space_left) = calc_step(h, slice_size.height * factor.3, border_image_mod.y);
+
+				instance_data.set_data(&UvUniform(&[clip.left, clip.top, clip.left + clip_size.width, clip.top + clip_size.height])); // uv 0~1
+				// instance_data.set_data(&BoxUniform(&[p1.x, p1.y, layout_width, layout_height]));
+				set_box(&world_matrix, &Aabb2::new(p1, p2), &mut instance_data);
+				instance_data.set_data(&BorderImageInfoUniform(&[
+					if border_slice.fill {1.0} else { 0.0 },
+					border_image_texture.width as f32, border_image_texture.height as f32,
+					border.top, layout_width - border.right, layout_height - border.bottom, border.left, // 变宽宽度
+					slice_uv.top, slice_uv.right, slice_uv.bottom, slice_uv.left,
+					step_top, step_right, step_bottom, step_left,
+					space_top, space_right, space_bottom, space_left,
+					offset_top, offset_right, offset_bottom, offset_left,
+				]));
+
+				log::trace!("border image, fill={:?}, \ntexture_size={:?}, \nborder_width={:?}, \nslice_uv={:?}, \nstep={:?}, \nspace={:?}, \noffset={:?}", 
+					if border_slice.fill {1.0} else { 0.0 },  // data5.y 表示中心部分是否需要填充 1.0000
+
+					&[border_image_texture.width as f32, border_image_texture.height as f32], // data5.zw 边框纹理的宽高 684.0000	104.0000
+
+					&[border.top, layout_width - border.right, layout_height - border.bottom, border.left], // data6 border宽度(这里表示上右下左的border的宽度, 单位： 像素)
+					&[slice_uv.top, slice_uv.right, slice_uv.bottom, slice_uv.left], // data7 (纹理左上角为原点， 这里表示上右下左的切割线相对原点的位置， 单位： 像素) 0.0000	624.0132	0.0010	59.9868
+
+					&[step_top, step_right, step_bottom, step_left],  // data8 (步长， 这里表示上右下左的中间部分，纹理重复的步长(布局单位)， 即每重复渲染一次纹理， 实际的布局空间占用多少) 564.0264	0.0010	564.0209	0.0010
+
+
+					&[space_top, space_right, space_bottom, space_left],  // data9 (空白长度， 这里表示上右下左的中间部分，每次纹理重复， 需要间隔多少布局空间)564.0264	0.0010	564.0209	0.0010
+
+					&[offset_top, offset_right, offset_bottom, offset_left,]); // data10 (偏移，空白长度， 这里表示上右下左的中间部分，开始的第一个纹理， 需要偏移多少布局空间) 0.0000	0.0000	0.0000	0.0000
+
+
+				instance_data.set_data(&TyUniform(&[render_flag as f32]));
+				
+			}
+
+			// 这里世界矩阵和layout的设置，不单独抽取到一个system中， 有由当前设计的数据结构决定的
+			// 当前的实例数据，将每个drawobj所有数据放在一个连续的内存中，当修改材质数据和修改世界矩阵、布局是连续的操作是，缓冲命中率高
+			// 而像clip这类不是每个draw_obj都具有的属性，可以单独在一个system设置，不怎么会影响性能
+			// let is_add =  border_image_texture_ref.is_changed(); // background_image_texture会提前创建
+			// if is_add || world_matrix.is_changed() {
+			// 	instance_data.set_data(&WorldUniform(world_matrix.as_slice()));
+				
+			// }
+		}
+	}
 }
 
-#[repr(C)]
-#[derive(Clone, Copy, Pod, Zeroable)]
-struct Vertex {
-    _pos: [f32; 4],
-    _tex_coord: [f32; 2],
-}
 
-// 返回当前需要的StaticIndex
-fn modify<'a>(
-    image: &BorderImage,
-    texture: &Handle<TextureRes>,
-    clip: &BorderImageClip,
-    slice: &BorderImageSlice,
-    repeat: &ImageRepeat,
-    layout: &LayoutResult,
-    draw_state: &mut DrawState,
-    device: &RenderDevice,
-    buffer_assets: &Share<AssetMgr<RenderRes<Buffer>>>,
-    group_assets: &Share<AssetMgr<RenderRes<BindGroup>>>,
-    texture_group_layout: &BindGroupLayout,
-    common_sampler: &CommonSampler,
-) {
-    // key TODO
-    // &layout.border, &layout.rect
-    let layout_data = [
-        NotNan::new(layout.rect.top).unwrap(),
-        NotNan::new(layout.rect.right).unwrap(),
-        NotNan::new(layout.rect.bottom).unwrap(),
-        NotNan::new(layout.rect.left).unwrap(),
-        NotNan::new(layout.border.top).unwrap(),
-        NotNan::new(layout.border.right).unwrap(),
-        NotNan::new(layout.border.bottom).unwrap(),
-        NotNan::new(layout.border.left).unwrap(),
-    ];
-    // TODO, layout 使用NotNan
-    let buffer_key = calc_hash(&("border image", image, clip, slice, repeat, &layout_data), 0);
-    let index_key = calc_hash(&("border image index", image, clip, slice, repeat, &layout_data), 0);
-    let (vertex_buffer, index_buffer) = match (buffer_assets.get(&buffer_key), buffer_assets.get(&index_key)) {
-        (Some(r1), Some(r2)) => (r1, r2),
-        (buffer, index) => {
-            let (vertex, indices) = get_border_image_stream(texture, clip, slice, repeat, layout, Vec::new(), Vec::new());
-            let index = match index {
-                Some(r1) => r1,
-                _ => {
-                    let buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
-                        label: Some("border image index buffer init"),
-                        contents: bytemuck::cast_slice(&indices),
-                        usage: wgpu::BufferUsages::INDEX,
-                    });
-                    buffer_assets.insert(index_key, RenderRes::new(buf, indices.len() * 2)).unwrap()
-                }
-            };
-            (
-                match buffer {
-                    Some(r1) => r1,
-                    None => {
-                        let buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
-                            label: Some("border image vert buffer init"),
-                            contents: bytemuck::cast_slice(&vertex),
-                            usage: wgpu::BufferUsages::VERTEX,
-                        });
-                        buffer_assets.insert(buffer_key, RenderRes::new(buf, vertex.len() * 4)).unwrap()
-                    }
-                },
-                index,
-            )
-        }
-    };
-
-    draw_state.vertex = 0..(vertex_buffer.size() / 8) as u32;
-    draw_state.insert_vertices(RenderVertices {
-        slot: PositionVert::location(),
-        buffer: EVerticesBufferUsage::GUI(vertex_buffer),
-        buffer_range: None,
-        size_per_value: 8,
-    });
-    draw_state.indices = Some(RenderIndices {
-        buffer: EVerticesBufferUsage::GUI(index_buffer),
-        buffer_range: None,
-        format: IndexFormat::Uint16,
-    });
-
-    // texture BindGroup
-    let texture_group = match group_assets.get(&buffer_key) {
-        Some(r) => r,
-        None => {
-            let group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-                layout: texture_group_layout,
-                entries: &[
-                    wgpu::BindGroupEntry {
-                        binding: 0,
-                        resource: wgpu::BindingResource::Sampler(&common_sampler.default),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 1,
-                        resource: wgpu::BindingResource::TextureView(&texture.texture_view),
-                    },
-                ],
-                label: Some("border image group create"),
-            });
-            group_assets.insert(buffer_key, RenderRes::new(group, 5)).unwrap()
-        }
-    };
-    draw_state
-        .bindgroups
-        .insert_group(SampBind::set(), DrawBindGroup::Independ(texture_group));
-}
-
-// // 返回当前需要的StaticIndex
-// fn modify<'a>(
-//     image: &BorderImage,
-//     texture: &BorderImageTexture,
-//     clip: &BorderImageClip,
-//     slice: &BorderImageSlice,
-//     repeat: &ImageRepeat,
-//     layout: &LayoutResult,
-//     draw_state: &mut DrawState,
-//     device: &RenderDevice,
-//     buffer_assets: &Share<AssetMgr<RenderRes<Buffer>>>,
-//     group_assets: &Share<AssetMgr<RenderRes<BindGroup>>>,
-//     texture_group_layout: &BindGroupLayout,
-//     common_sampler: &CommonSampler,
-// ) {
-//     // key TODO
-//     // &layout.border, &layout.rect
-//     let layout_data = [
-//         NotNan::new(layout.rect.top).unwrap(),
-//         NotNan::new(layout.rect.right).unwrap(),
-//         NotNan::new(layout.rect.bottom).unwrap(),
-//         NotNan::new(layout.rect.left).unwrap(),
-//         NotNan::new(layout.border.top).unwrap(),
-//         NotNan::new(layout.border.right).unwrap(),
-//         NotNan::new(layout.border.bottom).unwrap(),
-//         NotNan::new(layout.border.left).unwrap(),
-//     ];
-//     // TODO, layout 使用NotNan
-//     let buffer_key = calc_hash(&("border image", image, clip, slice, repeat, &layout_data), 0);
-//     let index_key = calc_hash(&("border image index", image, clip, slice, repeat, &layout_data), 0);
-//     let (index_len, vertex_buffer, index_buffer) = match (AssetMgr::load(buffer_assets, &buffer_key), AssetMgr::load(buffer_assets, &index_key)) {
-//         (LoadResult::Ok(r1), LoadResult::Ok(r2)) => (r2.size() / 2, r1, r2),
-//         (buffer, index) => {
-//             let (vertex, indices) = get_border_image_stream(texture, clip, slice, repeat, layout, Vec::new(), Vec::new());
-//             let index = match index {
-//                 LoadResult::Ok(r1) => r1,
-//                 LoadResult::Wait(r1) => r1.await.unwrap(),
-//                 LoadResult::Receiver(r1) => {
-//                     let buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
-//                         label: Some("border image index buffer init"),
-//                         contents: bytemuck::cast_slice(&indices),
-//                         usage: wgpu::BufferUsages::INDEX,
-//                     });
-//                     r1.receive(index_key, Ok(RenderRes::new(buf, indices.len() * 2))).await.unwrap()
-//                 }
-//             };
-//             (
-//                 index.size() / 2,
-//                 match buffer {
-//                     LoadResult::Ok(r1) => r1,
-//                     LoadResult::Wait(r1) => r1.await.unwrap(),
-//                     LoadResult::Receiver(r1) => {
-//                         let buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
-//                             label: Some("border image vert buffer init"),
-//                             contents: bytemuck::cast_slice(&vertex),
-//                             usage: wgpu::BufferUsages::VERTEX,
-//                         });
-//                         r1.receive(buffer_key, Ok(RenderRes::new(buf, vertex.len() * 4))).await.unwrap()
-//                     }
-//                 },
-//                 index,
-//             )
-//         }
-//     };
-
-//     draw_state.vertices.insert(PositionVertexBuffer::id() as usize, (vertex_buffer, 0));
-//     draw_state.indices = Some((index_buffer, index_len as u64, IndexFormat::Uint16));
-
-//     // texture BindGroup
-//     let texture_group = match group_assets.get(&buffer_key) {
-//         Some(r) => r,
-//         None => {
-//             let group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-//                 layout: texture_group_layout,
-//                 entries: &[
-//                     wgpu::BindGroupEntry {
-//                         binding: 0,
-//                         resource: wgpu::BindingResource::Sampler(&common_sampler.default),
-//                     },
-//                     wgpu::BindGroupEntry {
-//                         binding: 1,
-//                         resource: wgpu::BindingResource::TextureView(&texture.texture_view),
-//                     },
-//                 ],
-//                 label: Some("border image group create"),
-//             });
-//             group_assets.insert(buffer_key, RenderRes::new(group, 5)).unwrap()
-//         }
-//     };
-//     draw_state
-//         .bindgroups
-//         .insert_group(SampTex2DGroup::id(), DrawBindGroup::Static(texture_group));
-// }
-
-
-#[inline]
-fn get_border_image_stream(
-    texture: &Handle<TextureRes>,
-    clip: &BorderImageClip,
-    slice: &BorderImageSlice,
-    repeat: &ImageRepeat,
-    layout: &LayoutResult,
-    mut vert_arr: Vec<f32>,
-    mut index_arr: Vec<u16>,
-) -> (Vec<f32>, Vec<u16>) {
-    let width = layout.rect.right - layout.rect.left;
-    let height = layout.rect.bottom - layout.rect.top;
-    let p1 = Point2::new(0.0, 0.0);
-    let p2 = Point2::new(width, height);
-    let left = layout.border.left;
-    let right = width - layout.border.right;
-    let top = layout.border.top;
-    let bottom = height - layout.border.bottom;
-    let uvw = *clip.right - *clip.left;
-    let uvh = *clip.bottom - *clip.top;
-    let (uv_left, uv_right, uv_top, uv_bottom) = (
-        *clip.left + *slice.left * uvw,
-        *clip.right - *slice.right * uvw,
-        *clip.top + *slice.top * uvh,
-        *clip.bottom - *slice.bottom * uvh,
-    );
-
-    //  p1, p2, w, h, left, right, top, bottom, "UV::", uv1, uv2, uvw, uvh, uv_left, uv_right, uv_top, uv_bottom);
-    // TODO 在仅使用左或上的边框时， 应该优化成8个顶点
-    // 先将16个顶点和uv放入数组，记录偏移量
-    let mut pi = (vert_arr.len() / 3) as u16;
-    // 左上的4个点
-    let p_x1_y1 = push_vertex(&mut vert_arr, p1.x, p1.y, *clip.left, *clip.top, &mut pi);
-    let p_x1_top = push_vertex(&mut vert_arr, p1.x, top, *clip.left, uv_top, &mut pi);
-    let mut p_left_top = push_vertex(&mut vert_arr, left, top, uv_left, uv_top, &mut pi);
-    let p_left_y1 = push_vertex(&mut vert_arr, left, p1.y, uv_left, *clip.top, &mut pi);
-    push_quad(&mut index_arr, p_x1_y1, p_x1_top, p_left_top, p_left_y1);
-
-    // 左下的4个点
-    let p_x1_bottom = push_vertex(&mut vert_arr, p1.x, bottom, *clip.left, uv_bottom, &mut pi);
-    let p_x1_y2 = push_vertex(&mut vert_arr, p1.x, p2.y, *clip.left, *clip.bottom, &mut pi);
-    let p_left_y2 = push_vertex(&mut vert_arr, left, p2.y, uv_left, *clip.bottom, &mut pi);
-    let mut p_left_bottom = push_vertex(&mut vert_arr, left, bottom, uv_left, uv_bottom, &mut pi);
-    push_quad(&mut index_arr, p_x1_bottom, p_x1_y2, p_left_y2, p_left_bottom);
-
-    // 右下的4个点calc_step
-    let mut p_right_bottom = push_vertex(&mut vert_arr, right, bottom, uv_right, uv_bottom, &mut pi);
-    let p_right_y2 = push_vertex(&mut vert_arr, right, p2.y, uv_right, *clip.bottom, &mut pi);
-    let p_x2_y2 = push_vertex(&mut vert_arr, p2.x, p2.y, *clip.right, *clip.bottom, &mut pi);
-    let p_x2_bottom = push_vertex(&mut vert_arr, p2.x, bottom, *clip.right, uv_bottom, &mut pi);
-    push_quad(&mut index_arr, p_right_bottom, p_right_y2, p_x2_y2, p_x2_bottom);
-
-    // 右上的4个点
-    let p_right_y1 = push_vertex(&mut vert_arr, right, p1.y, uv_right, *clip.top, &mut pi);
-    let mut p_right_top = push_vertex(&mut vert_arr, right, top, uv_right, uv_top, &mut pi);
-    let p_x2_top = push_vertex(&mut vert_arr, p2.x, top, *clip.right, uv_top, &mut pi);
-    let p_x2_y1 = push_vertex(&mut vert_arr, p2.x, p1.y, *clip.right, *clip.top, &mut pi);
-    push_quad(&mut index_arr, p_right_y1, p_right_top, p_x2_top, p_x2_y1);
-
-    // 根据图像大小和uv计算
-    let texture_center_width = texture.width as f32 * (uv_right - uv_left);
-    let texture_center_height = texture.height as f32 * (uv_bottom - uv_top);
-
-    let (texture_left_width, texture_right_width, texture_top_height, texture_bottom_height) = (
-        texture.width as f32 * (uv_left - *clip.left),
-        texture.width as f32 * (*clip.right - uv_right),
-        texture.height as f32 * (uv_top - *clip.top),
-        texture.height as f32 * (*clip.bottom - uv_bottom),
-    );
-
-    let (mut uoffset_top, mut uspace_top, mut ustep_top) = (0.0, 0.0, 0.0);
-    if texture_top_height > 0.0 {
-        (uoffset_top, uspace_top, ustep_top) = calc_step(right - left, top / texture_top_height * texture_center_width, repeat.x);
-
-        if ustep_top > 0.0 {
-            push_u_arr(
-                &mut vert_arr,
-                &mut index_arr,
-                p_left_y1,
-                p_left_top,
-                p_right_top,
-                p_right_y1,
-                uv_left,
-                *clip.top,
-                uv_right,
-                uv_top,
-                ustep_top,
-                uoffset_top,
-                uspace_top,
-                &mut pi,
-            ); // 上边
-        }
-    }
-
-    if texture_bottom_height > 0.0 {
-        let (uoffest_bottom, uspace_bottom, ustep_bottom) = calc_step(
-            right - left,
-            layout.border.bottom / texture_bottom_height * texture_center_width,
-            repeat.x,
-        );
-        if ustep_bottom > 0.0 {
-            push_u_arr(
-                &mut vert_arr,
-                &mut index_arr,
-                p_left_bottom,
-                p_left_y2,
-                p_right_y2,
-                p_right_bottom,
-                uv_left,
-                uv_bottom,
-                uv_right,
-                *clip.bottom,
-                ustep_bottom,
-                uoffest_bottom,
-                uspace_bottom,
-                &mut pi,
-            ); // 下边
-        }
-    }
-
-    let (mut voffset_left, mut vspace_left, mut vstep_left) = (0.0, 0.0, 0.0);
-    if texture_left_width > 0.0 {
-        (voffset_left, vspace_left, vstep_left) = calc_step(bottom - top, left / texture_left_width * texture_center_height, repeat.y);
-        if vstep_left > 0.0 {
-            push_v_arr(
-                &mut vert_arr,
-                &mut index_arr,
-                p_x1_top,
-                p_x1_bottom,
-                p_left_bottom,
-                p_left_top,
-                *clip.left,
-                uv_top,
-                uv_left,
-                uv_bottom,
-                vstep_left,
-                voffset_left,
-                vspace_left,
-                &mut pi,
-            ); // 左边
-        }
-    }
-
-    if texture_right_width > 0.0 {
-        let (voffset_right, vspace_bottom, vstep_right) =
-            calc_step(bottom - top, layout.border.right / texture_right_width * texture_center_height, repeat.y);
-        if vstep_right > 0.0 {
-            push_v_arr(
-                &mut vert_arr,
-                &mut index_arr,
-                p_right_top,
-                p_right_bottom,
-                p_x2_bottom,
-                p_x2_top,
-                uv_right,
-                uv_top,
-                *clip.right,
-                uv_bottom,
-                vstep_right,
-                voffset_right,
-                vspace_bottom,
-                &mut pi,
-            ); // 右边
-        }
-    }
-
-    // 处理中间
-    if slice.fill {
-        if repeat.x == ImageRepeatOption::Stretch {
-            ustep_top = right - left;
-        }
-        if repeat.y == ImageRepeatOption::Stretch {
-            vstep_left = bottom - top;
-        }
-        if vstep_left > 0.0 && ustep_top > 0.0 {
-            let mut cur_y = top;
-            let mut y_end = bottom;
-            push_v_box(
-                &mut vert_arr,
-                &mut p_left_top,
-                &mut p_left_bottom,
-                &mut p_right_bottom,
-                &mut p_right_top,
-                &mut cur_y,
-                &mut y_end,
-                uv_left,
-                uv_top,
-                uv_right,
-                uv_bottom,
-                vstep_left,
-                voffset_left,
-                vspace_left,
-                &mut pi, // point_arr, index_arr, &mut p1, &mut p2, &mut p3, &mut p4, &mut cur, &mut max, u1, v1, u2, u2, step, offset, i,
-            );
-            let (mut v1, v2) = (vert_arr[(p_left_top * 4 + 3) as usize], vert_arr[(p_right_bottom * 4 + 3) as usize]);
-            cur_y += vstep_left;
-
-            while !(cur_y > y_end || eq_f32(cur_y, y_end)) {
-                let p_left_bottom = push_vertex(&mut vert_arr, left, cur_y, uv_left, uv_bottom, &mut pi);
-                let p_right_bottom = push_vertex(&mut vert_arr, right, cur_y, uv_right, uv_bottom, &mut pi);
-
-                push_u_arr(
-                    &mut vert_arr,
-                    &mut index_arr,
-                    p_left_top,
-                    p_left_bottom,
-                    p_right_bottom,
-                    p_right_top,
-                    uv_left,
-                    v1,
-                    uv_right,
-                    uv_bottom,
-                    ustep_top,
-                    uoffset_top,
-                    uspace_top,
-                    &mut pi,
-                );
-                cur_y += vspace_left;
-                p_left_top = push_vertex(&mut vert_arr, left, cur_y, uv_left, uv_top, &mut pi);
-                p_right_top = push_vertex(&mut vert_arr, right, cur_y, uv_right, uv_top, &mut pi);
-                v1 = uv_top;
-                cur_y += vstep_left;
-            }
-            push_u_arr(
-                &mut vert_arr,
-                &mut index_arr,
-                p_left_top,
-                p_left_bottom,
-                p_right_bottom,
-                p_right_top,
-                uv_left,
-                uv_top,
-                uv_right,
-                v2,
-                ustep_top,
-                uoffset_top,
-                uspace_top,
-                &mut pi,
-            );
-        }
-    }
-
-    (vert_arr, index_arr)
-}
-// 将四边形放进数组中
-pub fn push_vertex(point_arr: &mut Vec<f32>, x: f32, y: f32, u: f32, v: f32, i: &mut u16) -> u16 {
-    point_arr.extend_from_slice(&[x, y]);
-    point_arr.extend_from_slice(&[u, v]);
-    // uv_arr.extend_from_slice(&[u, v]);
-    let r = *i;
-    *i += 1;
-    r
-}
-
-// 将四边形放进数组中
-pub fn push_quad(index_arr: &mut Vec<u16>, p1: u16, p2: u16, p3: u16, p4: u16) { index_arr.extend_from_slice(&[p1, p2, p3, p1, p3, p4]); }
-
-/// 根据参数计算uv的step
-/// 返回初始偏移和不掉宽度
-pub fn calc_step(csize: f32, img_size: f32, rtype: ImageRepeatOption) -> (f32, f32, f32) {
-    if let ImageRepeatOption::Stretch = rtype {
-        return (0.0, 0.0, csize);
-    }
-    if img_size == 0.0 {
-        return (0.0, 0.0, 0.0);
-    }
-    let c = csize / img_size;
-    let f = c.round();
-    if eq_f32(f, c) {
-        // 整数倍的情况（这里消除了浮点误差，大致为整数倍，都认为是整数倍）
-        return (0.0, 0.0, img_size);
-    }
-
-    match rtype {
-        ImageRepeatOption::Repeat => (-(csize % img_size) / 2.0, 0.0, img_size),
-        ImageRepeatOption::Round => (0.0, 0.0, if f > 0.0 { csize / f } else { csize }),
-        ImageRepeatOption::Space => {
-            let space = csize % img_size; // 空白尺寸
-            let pre_space = space / (c.floor() + 1.0);
-            (0.0, pre_space, if c >= 1.0 { img_size } else { 0.0 })
-        }
-        _ => (0.0, 0.0, csize),
-    }
-}
-
-// 将指定区域按u切开
-pub fn push_u_arr(
-    point_arr: &mut Vec<f32>,
-    index_arr: &mut Vec<u16>,
-    mut p1: u16,
-    mut p2: u16,
-    mut p3: u16,
-    mut p4: u16,
-    u1: f32,
-    v1: f32,
-    u2: f32,
-    v2: f32,
-    step: f32,
-    offset: f32,
-    space: f32,
-    i: &mut u16,
-) {
-    let y1 = point_arr[p1 as usize * 4 + 1];
-    let y2 = point_arr[p2 as usize * 4 + 1];
-    let mut max = point_arr[p3 as usize * 4];
-
-    let mut cur = point_arr[p1 as usize * 4];
-    if offset != 0.0 {
-        // repeat
-        let u_diff = offset / step * (u2 - u1);
-        let (u_start, u_end) = (u1 - u_diff, u2 + u_diff);
-        p1 = push_vertex(point_arr, cur, y1, u_start, v1, i);
-        p2 = push_vertex(point_arr, cur, y2, u_start, v2, i);
-        p3 = push_vertex(point_arr, max, y2, u_end, v2, i);
-        p4 = push_vertex(point_arr, max, y1, u_end, v1, i);
-        cur += offset;
-    }
-
-    if space != 0.0 {
-        max = max - space;
-        cur = cur + space;
-        p1 = push_vertex(point_arr, cur, y1, u1, v1, i);
-        p2 = push_vertex(point_arr, cur, y2, u1, v2, i);
-        p3 = push_vertex(point_arr, max, y2, u2, v2, i);
-        p4 = push_vertex(point_arr, max, y1, u2, v1, i);
-    }
-
-    cur += step;
-
-    let mut pt1 = p1;
-    let mut pt2 = p2;
-    while !(cur > max || eq_f32(cur, max)) {
-        let i3 = push_vertex(point_arr, cur, y2, u2, v2, i);
-        let i4 = push_vertex(point_arr, cur, y1, u2, v1, i);
-        push_quad(index_arr, pt1, pt2, i3, i4);
-        // 因为uv不同，新插入2个顶点
-        cur += space;
-        pt1 = push_vertex(point_arr, cur, y1, u1, v1, i);
-        pt2 = push_vertex(point_arr, cur, y2, u1, v2, i);
-        cur += step;
-    }
-    push_quad(index_arr, pt1, pt2, p3, p4);
-}
-// 将指定区域按v切开
-pub fn push_v_arr(
-    point_arr: &mut Vec<f32>,
-    index_arr: &mut Vec<u16>,
-    mut p1: u16,
-    mut p2: u16,
-    mut p3: u16,
-    mut p4: u16,
-    u1: f32,
-    v1: f32,
-    u2: f32,
-    v2: f32,
-    step: f32,
-    offset: f32,
-    space: f32,
-    i: &mut u16,
-) {
-    let x1 = point_arr[p1 as usize * 4];
-    let x2 = point_arr[p4 as usize * 4];
-
-    let (mut cur, mut max) = (0.0, 0.0);
-    push_v_box(
-        point_arr, &mut p1, &mut p2, &mut p3, &mut p4, &mut cur, &mut max, u1, v1, u2, v2, step, offset, space, i,
-    );
-    cur += step;
-
-    let mut pt1 = p1;
-    let mut pt4 = p4;
-    while !(cur > max || eq_f32(cur, max)) {
-        let i2 = push_vertex(point_arr, x1, cur, u1, v2, i);
-        let i3 = push_vertex(point_arr, x2, cur, u2, v2, i);
-        push_quad(index_arr, pt1, i2, i3, pt4);
-        cur += space;
-        // 因为uv不同，新插入2个顶点
-        pt1 = push_vertex(point_arr, x1, cur, u1, v1, i);
-        pt4 = push_vertex(point_arr, x2, cur, u2, v1, i);
-        cur += step;
-    }
-    push_quad(index_arr, pt1, p2, p3, pt4);
-}
-
-#[inline]
-pub fn push_v_box(
-    point_arr: &mut Vec<f32>,
-    p1: &mut u16,
-    p2: &mut u16,
-    p3: &mut u16,
-    p4: &mut u16,
-    cur: &mut f32,
-    max: &mut f32,
-    u1: f32,
-    v1: f32,
-    u2: f32,
-    v2: f32,
-    step: f32,
-    offset: f32,
-    space: f32,
-    i: &mut u16,
-) {
-    let x1 = point_arr[*p1 as usize * 4];
-    let x2 = point_arr[*p4 as usize * 4];
-
-    *max = point_arr[*p3 as usize * 4 + 1];
-    *cur = point_arr[*p1 as usize * 4 + 1];
-    if offset != 0.0 {
-        // repeat
-        let v_diff = offset / step * (v2 - v1);
-        let (v_start, v_end) = (v1 - v_diff, v2 + v_diff);
-        *p1 = push_vertex(point_arr, x1, *cur, u1, v_start, i);
-        *p2 = push_vertex(point_arr, x1, *max, u1, v_end, i);
-        *p3 = push_vertex(point_arr, x2, *max, u2, v_end, i);
-        *p4 = push_vertex(point_arr, x2, *cur, u2, v_start, i);
-        *cur += offset;
-    }
-
-    if space != 0.0 {
-        *cur = *cur + space;
-        *max = *max - space;
-        *p1 = push_vertex(point_arr, x1, *cur, u1, v1, i);
-        *p2 = push_vertex(point_arr, x1, *max, u1, v2, i);
-        *p3 = push_vertex(point_arr, x2, *max, u2, v2, i);
-        *p4 = push_vertex(point_arr, x2, *cur, u2, v1, i);
-    }
+pub fn verify_sero_size(value: &mut Rect<f32>, min_size: f32) {
+	value.right = value.left + (value.right - value.left).max(min_size);
+	value.bottom = value.top + (value.bottom - value.top).max(min_size);
 }

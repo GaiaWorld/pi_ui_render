@@ -3,15 +3,16 @@
 //! BlendMode组件删除时， 设置恢复pipeline的状态到默认值
 
 use bevy_ecs::{
-    query::Changed, system::Query,
+    query::Changed, system::{Query, Commands, Res},
     prelude::{Or, RemovedComponents},
 };
 use pi_bevy_ecs_extend::system_param::res::{OrInitRes, OrInitResMut};
+use pi_bevy_render_plugin::PiRenderDevice;
 
-use crate::components::draw_obj::PipelineMeta;
+use crate::{components::draw_obj::Pipeline, resource::draw_obj::InstanceContext};
 use crate::{
     components::{calc::DrawList, user::BlendMode},
-    resource::draw_obj::{CommonBlendState, DrawObjDefaults, ShaderInfoCache},
+    resource::draw_obj::CommonBlendState,
 };
 use pi_style::style::BlendMode as BlendMode1;
 
@@ -22,10 +23,10 @@ pub fn calc_drawobj_blendstate(
     mut blend_mod_removes: RemovedComponents<BlendMode>,
     query_node: Query<(&BlendMode, &DrawList), Or<(Changed<BlendMode>, Changed<DrawList>)>>,
     query_node1: Query<(Option<&BlendMode>, &DrawList)>,
-    mut query_draw: Query<&'static mut PipelineMeta>,
-    defaults: OrInitRes<DrawObjDefaults>,
-    mut cache: OrInitResMut<ShaderInfoCache>,
-	r: OrInitRes<IsRun>
+	mut instances: OrInitResMut<InstanceContext>,
+	device: Res<PiRenderDevice> ,
+	mut cmds: Commands,
+	r: OrInitRes<IsRun>,
 ) {
 	if r.0 {
 		return;
@@ -35,24 +36,7 @@ pub fn calc_drawobj_blendstate(
         if let Ok((blend_mode, draw_list)) = query_node1.get(remove_blend) {
             if let None = blend_mode {
                 for draw_id in draw_list.iter() {
-                    if let Ok(mut pipeline_meta) = query_draw.get_mut(draw_id.id) {
-                        let blend_state = match defaults.get(*pipeline_meta.type_mark) {
-                            Some(r) => r.blend_state.clone(),
-                            None => {
-                                log::info!("default blend_state is not exist, {:?}", pipeline_meta.type_mark);
-                                continue;
-                            }
-                        };
-                        let mut state = pipeline_meta.state.state.clone();
-                        if state.targets.len() > 0 {
-                            if let Some(s) = &mut state.targets[0] {
-                                s.blend = Some(blend_state.clone());
-                            }
-                        }
-                        let state = cache.pipeline_state(state);
-
-                        pipeline_meta.state = state;
-                    }
+                    cmds.entity(draw_id.id).remove::<Pipeline>();
                 }
             }
         }
@@ -65,18 +49,9 @@ pub fn calc_drawobj_blendstate(
         }
 
         let blend_state = to_blend_state((**blend_mode).clone());
+		let pipeline = instances.get_or_create_pipeline(&device, blend_state);
         for draw_id in draw_list.iter() {
-            if let Ok(mut pipeline_meta) = query_draw.get_mut(draw_id.id) {
-                let mut state = pipeline_meta.state.state.clone();
-                if state.targets.len() > 0 {
-                    if let Some(s) = &mut state.targets[0] {
-                        s.blend = Some(blend_state.clone());
-                    }
-                }
-                let state = cache.pipeline_state(state);
-
-                pipeline_meta.state = state;
-            }
+			cmds.entity(draw_id.id).insert(Pipeline(pipeline.clone()));
         }
     }
 }

@@ -21,7 +21,7 @@ use pi_null::Null;
 use pi_render::rhi::asset::{ImageTextureDesc, TextureRes};
 use pi_share::Share;
 
-use crate::components::user::RenderDirty;
+use crate::{components::user::RenderDirty, resource::draw_obj::TextureKeyAlloter};
 
 use super::calc_text::IsRun;
 
@@ -38,9 +38,9 @@ pub struct CalcImageLoad<S: std::ops::Deref<Target = Atom>, D: From<Handle<Textu
 /// 图片加载是异步，加载成功后，不能立即将图片对应的纹理设置到BorderImageTexture上
 /// 因为BorderImageTexture未加锁，其他线程可能正在使用
 /// 这里是将一个加载成功的Texture放入一个加锁的列表中，在system执行时，再放入到BorderImageTexture中
-pub fn image_change<
+pub fn image_load<
     S: Component + std::ops::Deref<Target = Atom> + From<Atom> + std::cmp::PartialEq,
-    D: Component + From<Handle<TextureRes>> + Null,
+    D: Component + From<(Handle<TextureRes>, TextureKeyAlloter)> + Null,
 >(
     query: Query<(Entity, &S), Changed<S>>,
     query_src: Query<(Entity, &S)>,
@@ -49,6 +49,7 @@ pub fn image_change<
     image_await: OrInitRes<ImageAwait<Entity, S>>,
     queue: Res<PiRenderQueue>,
     device: Res<PiRenderDevice>,
+	key_alloter: OrInitRes<TextureKeyAlloter>,
 
     // mut commands: Commands,
     mut query_dst: Query<&mut D>,
@@ -83,11 +84,12 @@ pub fn image_change<
             Some(&mut event_writer),
             &mut query_dst,
             &texture_assets_mgr,
+			&key_alloter,
             f,
         );
     }
 
-    let is_change = set_texture(&image_await, Some(&mut event_writer), &query_src, &mut query_dst, f);
+    let is_change = set_texture(&image_await, Some(&mut event_writer), &query_src, &mut query_dst, &key_alloter, f);
 	if is_change {
 		for mut r in dirty.iter_mut() {
 			**r = true;
@@ -96,7 +98,7 @@ pub fn image_change<
 }
 
 #[inline]
-pub fn load_image<'w, S: Component, D: Component, F: FnMut(&mut D, Handle<TextureRes>, Entity) -> bool>(
+pub fn load_image<'w, S: Component, D: Component, F: FnMut(&mut D, (Handle<TextureRes>, TextureKeyAlloter), Entity) -> bool>(
     entity: Entity,
     key: &Atom,
     image_await: &ImageAwait<Entity, S>,
@@ -105,13 +107,14 @@ pub fn load_image<'w, S: Component, D: Component, F: FnMut(&mut D, Handle<Textur
     event_writer: Option<&mut EventWriter<ComponentEvent<Changed<D>>>>,
     query_dst: &mut Query<&'w mut D>,
     texture_assets_mgr: &ShareAssetMgr<TextureRes>,
+	key_alloter: &TextureKeyAlloter,
     mut f: F,
 ) {
-    let result = AssetMgr::load(&texture_assets_mgr, &(key.get_hash() as u64));
+    let result = AssetMgr::load(&texture_assets_mgr, &(key.str_hash() as u64));
     match result {
         LoadResult::Ok(r) => {
             if let Ok(mut dst) = query_dst.get_mut(entity) {
-                f(&mut dst, r, entity);
+                f(&mut dst, (r, key_alloter.clone()), entity);
                 if let Some(event_writer) = event_writer {
                     event_writer.send(ComponentEvent::new(entity));
                 }
@@ -146,11 +149,12 @@ pub fn load_image<'w, S: Component, D: Component, F: FnMut(&mut D, Handle<Textur
 
 // 设置纹理， 返回是否修改问题（同一节点，修改图片路径， 且新旧图片尺寸不一致，新图片异步加载会导致脏区域计算问题，此时此时直接设置全局脏）
 #[inline]
-pub fn set_texture<'w, S: Component + From<Atom> + std::cmp::PartialEq, D: Component, F: FnMut(&mut D, Handle<TextureRes>, Entity) -> bool>(
+pub fn set_texture<'w, S: Component + From<Atom> + std::cmp::PartialEq, D: Component, F: FnMut(&mut D, (Handle<TextureRes>, TextureKeyAlloter), Entity) -> bool>(
     image_await: &ImageAwait<Entity, S>,
     mut event_writer: Option<&mut EventWriter<ComponentEvent<Changed<D>>>>,
     query_src: &Query<(Entity, &S)>,
     query_dst: &mut Query<&'w mut D>,
+	key_alloter: &TextureKeyAlloter,
     mut f: F,
 ) -> bool {
 	let mut is_change = false;
@@ -163,7 +167,7 @@ pub fn set_texture<'w, S: Component + From<Atom> + std::cmp::PartialEq, D: Compo
                     continue;
                 }
                 if let Ok(mut dst) = query_dst.get_mut(id) {
-                    is_change =  f(&mut dst, texture, id) || is_change;
+                    is_change =  f(&mut dst, (texture, key_alloter.clone()), id) || is_change;
                     if let Some(event_writer) = &mut event_writer {
                         event_writer.send(ComponentEvent::new(id));
                     }

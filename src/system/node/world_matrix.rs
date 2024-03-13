@@ -91,19 +91,27 @@ pub fn cal_matrix(
 	if r.0 {
 		return;
 	}
+	// let count = dirtys.count();
+	// let time = pi_time::Instant::now();
     // transform修改，标记层脏(这里transform_change不直接在层脏中声明，是因为transform改变不会发送对应的事件)
     for e in transform_change.iter() {
         dirtys.mark(e);
     }
+	// let time1 = pi_time::Instant::now();
 
     // let layer_dirty_count = dirtys.count();
     // 计算布局
     // let _sss = tracing::info_span!("matrix compute", layer_dirty_count).entered();
 
+	// if dirtys.count() > 0 {
+	// 	log::warn!("start parent==========={:?}", dirtys.count());
+	// }
+	let count = dirtys.count();
     for id in dirtys.iter() {
-        // log::warn!("start parent==========={:?}",id);
-
-        // print_parent(&idtree, id);
+        // if count == 1 {
+		// 	log::warn!("matrix time0========{:?}", pi_time::Instant::now() - time1);
+		// }
+		let time1 = pi_time::Instant::now();
         if let Ok((transform, layout, up, layer)) = query.get(id) {
             let parent_id = up.parent();
 
@@ -161,19 +169,23 @@ pub fn cal_matrix(
                     }
                 }
             };
+			// if count == 1 {
+			// 	log::warn!("matrix time1========{:?}", pi_time::Instant::now() - time1);
+			// }
             // 将计算结果写入组件
             match matrix_calc.p1().get_mut(id) {
                 Ok((mut world_matrix, mut quad)) => {
-                    calc_quad(
-                        id,
-                        layout,
-                        &matrix,
-                        &mut quad,
-                        &mut quad_tree,
-                        &mut event_writer,
-                        &mut event_writer1,
-                        layer,
-                    );
+					calc_quad(
+						id,
+						layout,
+						&matrix,
+						&mut quad,
+						&mut quad_tree,
+						&mut event_writer,
+						&mut event_writer1,
+						layer,
+					);
+                   
 					#[cfg(debug_assertions)]
 					if id == debug_entity.0.0 {
 						log::warn!("matrix=============id={:?}, \nlayout={:?}, \nmatrix={:?}, \nquad={:?}", id, layout, &matrix, &quad);
@@ -187,6 +199,9 @@ pub fn cal_matrix(
             };
         }
     }
+	// if count == 1 {
+	// 	log::warn!("matrix time========{:?}, {:?}", pi_time::Instant::now() - time1, time1 - time);
+	// }
 }
 
 pub fn calc_quad(
@@ -219,6 +234,7 @@ pub fn calc_quad(
 
     *quad = item;
 }
+
 
 
 // #[cfg(test)]

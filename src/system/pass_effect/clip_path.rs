@@ -4,6 +4,7 @@ use bevy_ecs::{
 };
 use bevy_app::{Plugin, Update, App};
 use pi_bevy_ecs_extend::{prelude::OrDefault, system_param::res::OrInitRes};
+use pi_bevy_render_plugin::FrameDataPrepare;
 use pi_flex_layout::prelude::Rect;
 use pi_style::style::{Aabb2, BaseShape, LengthUnit};
 
@@ -32,14 +33,14 @@ impl Plugin for UiClipPathPlugin {
             pass_life::pass_mark::<ClipPath>
                 .after(user_setting)
                 .before(pass_life::cal_context)
-                .run_if(pi_bevy_render_plugin::should_run),
+                .in_set(FrameDataPrepare),
         )
-        .add_systems(Update, clip_path_del.after(user_setting).run_if(pi_bevy_render_plugin::should_run))
+        .add_systems(Update, clip_path_del.after(user_setting).in_set(FrameDataPrepare))
         .add_systems(Update, 
             clip_path_post_process
                 .before(last_update_wgpu)
                 .after(calc_camera_depth_and_renderlist)
-                .run_if(pi_bevy_render_plugin::should_run),
+                .in_set(FrameDataPrepare),
         );
     }
 }
@@ -61,8 +62,6 @@ pub fn clip_path_del(
 }
 
 /// 处理ClipPath属性
-/// 如果hsi删除，设置PostProcess中的hsb位None
-/// 如果hsi修改，将其设置在PostProcess中
 pub fn clip_path_post_process(
     mut query: Query<
         (

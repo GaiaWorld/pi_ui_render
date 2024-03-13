@@ -3,14 +3,14 @@ use crate::{
         calc::{ContentBox, LayoutResult, Quad},
         user::Transform,
     },
-    resource::{animation_sheet::KeyFramesSheet, ClassSheet, QuadTree, TimeInfo, UserCommands},
+    resource::{animation_sheet::KeyFramesSheet, ClassSheet, QuadTree, TimeInfo, UserCommands}, events::EntityChange,
 };
 use bevy_ecs::prelude::{IntoSystemConfigs, IntoSystemSetConfig, Changed};
 use bevy_app::{Plugin, Update, App};
 use pi_bevy_ecs_extend::{prelude::Layer, system_param::layer_dirty::ComponentEvent};
-use pi_bevy_render_plugin::should_run;
+use pi_bevy_render_plugin::FrameDataPrepare;
 
-use self::{world_matrix::OldQuad, user_setting::{StyleChange, clear_dirty_mark}, transition::TransitionPlugin};
+use self::{world_matrix::OldQuad, user_setting::{StyleChange, clear_dirty_mark}, transition::TransitionPlugin, show::ShowPlugin};
 
 use super::system_set::UiSystemSet;
 use super::{layout_run, matrix_run};
@@ -39,8 +39,8 @@ impl Plugin for UiNodePlugin {
         app.configure_set(Update, UiSystemSet::Load.run_if(layout_run));
         app.configure_set(Update, UiSystemSet::Layout.run_if(layout_run));
         app.configure_set(Update, UiSystemSet::Matrix.run_if(matrix_run));
-        app.configure_set(Update, UiSystemSet::BaseCalc.run_if(pi_bevy_render_plugin::should_run));
-        app.configure_set(Update, UiSystemSet::LifeDrawObject.run_if(pi_bevy_render_plugin::should_run));
+        app.configure_set(Update, UiSystemSet::BaseCalc.in_set(FrameDataPrepare));
+        app.configure_set(Update, UiSystemSet::LifeDrawObject.in_set(FrameDataPrepare));
 
         app.add_frame_event::<ComponentEvent<Changed<Layer>>>()
 			.add_frame_event::<StyleChange>()
@@ -50,7 +50,7 @@ impl Plugin for UiNodePlugin {
             .init_resource::<KeyFramesSheet>()
 
 			// // 维护脏列表
-			.add_systems(Update, clear_dirty_mark.run_if(should_run).after(UiSystemSet::PassCalc))
+			.add_systems(Update, clear_dirty_mark.in_set(FrameDataPrepare).after(UiSystemSet::PassCalc))
 			
             // 设置相关
             .add_systems(Update, user_setting::user_setting.in_set(UiSystemSet::Setting))
@@ -58,7 +58,7 @@ impl Plugin for UiNodePlugin {
                 animation::calc_animation
                     .after(user_setting::user_setting)
                     .in_set(UiSystemSet::Setting)
-                    .run_if(should_run),
+                    .in_set(FrameDataPrepare),
             )
             // 布局相关
             .add_systems(Update, user_setting::set_image_default_size.in_set(UiSystemSet::Layout))
@@ -82,7 +82,7 @@ impl Plugin for UiNodePlugin {
             )
             // zinde、show、contex等于其他计算无关，仅仅与用户设置属性相关的system运行
             .add_systems(Update, z_index::calc_zindex.in_set(UiSystemSet::BaseCalc))
-            .add_systems(Update, show::calc_show.in_set(UiSystemSet::BaseCalc))
+			.add_plugins(ShowPlugin)
 			.add_plugins(TransitionPlugin)
 		;
     }

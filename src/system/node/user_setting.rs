@@ -24,7 +24,7 @@ use crate::{
     resource::{
         fragment::{FragmentMap, NodeTag},
         ClassSheet, QuadTree,
-    }, system::draw_obj::calc_text::IsRun,
+    }, system::draw_obj::calc_text::IsRun, events::EntityChange,
 };
 use crate::{
     components::{
@@ -46,8 +46,10 @@ pub fn user_setting(
     state: &mut SystemState<(Query<&DrawList>, Query<Entity>, EntityTreeMut, OrInitResMut<IsRun>)>,
     quad_delete: &mut SystemState<(ResMut<QuadTree>, Query<Entity, With<Viewport>>)>,
     style_query: Local<StyleQuery>,
-	mut dirty_mark: Local<bitvec::vec::BitVec<u64>>,
+	mut dirty_mark: Local<bitvec::vec::BitVec<usize>>,
     mut destroy_entity_list: Local<Vec<Entity>>, // 需要销毁的实体列表作为本地变量，避免每次重新分配内存
+
+	node_change: &mut SystemState<EventWriter<EntityChange>>,
 ) {
     let (mut user_commands, _class_sheet, _fragments, r, events) = commands.get_mut(world);
 	if r.0 {
@@ -77,6 +79,8 @@ pub fn user_setting(
 	// }
 
 	user_commands.version += 1;
+
+	let mut is_node_change = user_commands.node_init_commands.len() > 0 || user_commands.fragment_commands.len() > 0 || user_commands.node_commands.len() > 0;
 
 	// 初始化节点, 插入bundle
 	for (node, tag) in user_commands.node_init_commands.drain(..) {
@@ -235,6 +239,12 @@ pub fn user_setting(
         };
     }
 
+	
+	is_node_change = is_node_change || destroy_entity_list.len() > 0;
+	if is_node_change {
+		let mut events = node_change.get_mut(world);
+		events.send(EntityChange);
+	}
     // 删除需要销毁的实体
     if destroy_entity_list.len() > 0 {
         // let mut quad_tree = quad_tree.0.get_mut(world);
@@ -325,7 +335,7 @@ pub fn clear_dirty_mark(mut dirty_list: EventReader<StyleChange>, mut style_mark
 
 pub struct StyleDirtyList<'s, 'w> {
 	pub list: EventWriter<'w, StyleChange>,
-	pub mark: &'s mut bitvec::vec::BitVec<u64>,
+	pub mark: &'s mut bitvec::vec::BitVec<usize>,
 }
 
 impl<'s, 'w> StyleDirtyList<'s, 'w> {
@@ -333,7 +343,7 @@ impl<'s, 'w> StyleDirtyList<'s, 'w> {
 	pub fn mark_dirty(&mut self, entity: Entity) {
 		let index = entity.index() as usize;
 		if self.mark.len() <= index {
-			let count = (index - self.mark.len()) / 64 + 1;
+			let count = (index - self.mark.len()) / std::mem::size_of::<usize>()  + 1;
 			for _ in 0..count {
 				self.mark.extend(Some(0));
 			}
@@ -409,6 +419,7 @@ pub fn set_style<'w, 's>(node: Entity, start: usize, end: usize, style_buffer: &
         log::debug!("node is not exist: {:?}", node);
         return;
     }
+	log::trace!("set_style==========={:?}", node);
 
     let mut style_reader = StyleTypeReader::new(style_buffer, start, end);
     let mut local_mark = BitArray::new([0, 0, 0]);
@@ -442,7 +453,7 @@ fn set_class<'w, 's>(node: Entity, style_query: &mut Setting, class: ClassName, 
     // 设置class样式
     for i in class.iter() {
         if let Some(class) = class_sheet.class_map.get(i) {
-            // log::warn!("set class1==========={:?}, {:?}", node, i);
+            log::trace!("set class==========={:?}, {:?}", node, i);
             let mut style_reader = StyleTypeReader::new(&class_sheet.style_buffer, class.start, class.end);
             let is_write = |ty: StyleType| {
                 // if !local_style_mark[ty as usize] {
@@ -488,7 +499,6 @@ fn set_class<'w, 's>(node: Entity, style_query: &mut Setting, class: ClassName, 
         style_query.style.class_name,
         class,
         |item: &mut ClassName, v| {
-            log::trace!("set_class======={:?}, {:?}, old: {:?}", node, v, item);
             *item = v;
         },
     );

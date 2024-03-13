@@ -278,6 +278,9 @@ pub fn cmd_play(world: &mut World, state: &mut SystemState<(Commands, OrInitRes<
             CmdType::SdfDefaultCharCmd(r) => {
 				cmds.push_cmd(r.clone());
 			},
+            CmdType::Sdf2CfgCmd(r) => {
+				cmds.push_cmd(r.clone());
+			},
         };
     }
 

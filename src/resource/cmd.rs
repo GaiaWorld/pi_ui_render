@@ -167,6 +167,18 @@ impl Command for FontCfgCmd {
     }
 }
 
+// 添加sdf2字体指令
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct FontSdf2Cmd(pub Atom, pub Vec<u8>);
+impl Command for FontSdf2Cmd {
+    fn apply(self, world: &mut World) {
+        let sheet = &***world.get_resource_mut::<ShareFontSheet>().unwrap();
+		let mut sheet = (*sheet).borrow_mut();
+		let face_id = sheet.font_mgr_mut().create_font_face(&self.0);
+		sheet.font_mgr_mut().table.sdf2_table.add_font(face_id, self.1);
+    }
+}
+
 // 运行时动画绑定指令
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SdfDefaultCharCmd {
@@ -234,6 +246,7 @@ pub enum CmdType {
     DefaultStyleCmd(DefaultStyleCmd),
 	SdfCfgCmd(FontCfgCmd),
 	SdfDefaultCharCmd(SdfDefaultCharCmd),
+	Sdf2CfgCmd(FontSdf2Cmd),
 }
 
 // #[derive(Clone)]

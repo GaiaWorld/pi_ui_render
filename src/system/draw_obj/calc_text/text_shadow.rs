@@ -11,7 +11,7 @@ use pi_bevy_ecs_extend::prelude::Layer;
 use pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent;
 use pi_bevy_ecs_extend::system_param::res::OrInitRes;
 use pi_bevy_post_process::PostprocessResource;
-use pi_bevy_render_plugin::component::GraphId;
+use pi_bevy_render_plugin::render_cross::GraphId;
 use pi_bevy_render_plugin::node::NodeId as GraphNodeId;
 use pi_bevy_render_plugin::node::{Node, ParamUsage};
 use pi_bevy_render_plugin::{PiRenderDevice, PiRenderGraph, PiRenderQueue, PiSafeAtlasAllocator, RenderContext, SimpleInOut};
@@ -20,7 +20,6 @@ use pi_null::Null;
 use pi_postprocess::image_effect::PostProcessDraw;
 use pi_postprocess::prelude::{BlurGauss, PostprocessTexture};
 use pi_render::components::view::target_alloc::ShareTargetView;
-use pi_render::font::Font;
 use pi_render::renderer::draw_obj::DrawBindGroup;
 use pi_render::renderer::texture::ETextureViewUsage;
 use pi_render::renderer::vertices::{EVerticesBufferUsage, RenderVertices};
@@ -42,7 +41,7 @@ use crate::resource::draw_obj::{
     ShareGroupAlloter, TextTextureGroup, UiMaterialGroup, DynMark,
 };
 use crate::resource::{RenderContextMarkType, ShareFontSheet, TextRenderObjType, TextShadowRenderObjType};
-use crate::shader::camera::CameraBind;
+use crate::shader1::meterial::CameraBind;
 use crate::shader::depth::DepthBind;
 use crate::shader::text::SHADOW_DEFINE;
 use crate::shader::text::{PositionVert, SampBind, UvVert};
@@ -74,7 +73,6 @@ impl Plugin for UiTextShadowPlugin {
                     .in_set(UiSystemSet::PrepareDrawObj)
                     .in_set(UiSystemSet::PassSetting)
                     .after(calc_text)
-                    .before(crate::system::draw_obj::blend_mode::calc_drawobj_blendstate),
             )
             .add_systems(Update, calc_graph_depend.in_set(UiSystemSet::PassCalc).after(update_graph));
     }
@@ -159,7 +157,7 @@ pub fn text_shadow_life(
             // 删除对应的DrawObject
             draw_list.remove(render_type, |draw_obj| {
                 if let Some(mut r) = commands.get_entity(draw_obj.id) {
-					log::warn!("despawn shadow2====={:?}", draw_obj.id);
+					log::trace!("despawn shadow2====={:?}", draw_obj.id);
                     r.despawn();
                 }
             });
@@ -203,7 +201,7 @@ pub fn text_shadow_life(
                         // 多余的， 删除
                         let draw_obj = draw_list.swap_remove(i);
 						if let Some(mut r) = commands.get_entity(draw_obj.id) {
-							log::warn!("despawn shadow1====={:?}", draw_obj.id);
+							log::trace!("despawn shadow1====={:?}", draw_obj.id);
 							r.despawn();
 						}
                         continue;
@@ -582,8 +580,9 @@ impl Node for TextShadowNode {
 				if let Ok(camera) = param.camera_query.get(***node_id) {
 					{
 						// 创建一个渲染Pass
+						let mut c = (*commands).borrow_mut();
 						let (mut rp, view_port, clear_port, _) =
-							create_rp_for_fbo(&rt, commands.borrow_mut(), &camera.view_port, &camera.view_port, None);
+							create_rp_for_fbo(&rt, &mut c, &camera.view_port, &camera.view_port, None);
 	
 						// 设置视口
 						// let clear_obj = &param.fbo_clear_color.0;
@@ -611,7 +610,7 @@ impl Node for TextShadowNode {
 					if let Some(post_process_draw) = post_process_draw {
 						// 渲染后处理
 						post_process.draw_front(
-							commands.borrow_mut(),
+							&mut commands.borrow_mut(),
 							&post_process_draw
 						)
 					}

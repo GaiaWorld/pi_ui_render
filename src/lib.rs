@@ -1,14 +1,12 @@
 #![feature(specialization)]
 #![feature(proc_macro_hygiene)]
 #![feature(stmt_expr_attributes)]
-#![feature(type_name_of_val)]
 #![feature(box_into_inner)]
 #![feature(if_let_guard)]
-#![feature(core_panic)]
-#![feature(fmt_internals)]
 #![feature(fmt_helpers_for_derive)]
-#![feature(print_internals)]
 #![feature(const_trait_impl)]
+#![feature(adt_const_params)]
+#![allow(invalid_reference_casting)]
 
 // use pi_hash::XHashSet;
 
@@ -36,14 +34,15 @@ pub mod events;
 pub mod prelude {
     use bevy_ecs::prelude::{IntoSystemSetConfigs, apply_deferred, IntoSystemConfigs};
 	use bevy_app::{App, Plugin, Update};
+    use bevy_window::AddFrameEvent;
     use pi_bevy_render_plugin::PiRenderSystemSet;
     use pi_hal::font::font::FontType;
 
     pub use crate::resource::UserCommands;
-    use crate::system::{
+    use crate::{system::{
         /*shader_utils::UiShaderPlugin, */ draw_obj::UiReadyDrawPlugin, node::UiNodePlugin, pass::UiPassPlugin, pass_effect::UiEffectPlugin,
         shader_utils::UiShaderPlugin, system_set::UiSystemSet, RunState,
-    };
+    }, events::{EntityChange, NodeZindexChange, NodeDisplayChange}};
 
     #[derive(Default)]
     pub struct UiPlugin {
@@ -88,6 +87,9 @@ pub mod prelude {
                 )
                     .chain(),
             )
+			.add_frame_event::<EntityChange>()
+			.add_frame_event::<NodeZindexChange>()
+			.add_frame_event::<NodeDisplayChange>()
 			.add_systems(Update, crate::system::res_load::load_res.in_set(UiSystemSet::Setting))
             .add_plugins(UiShaderPlugin)
             .add_plugins(UiNodePlugin)

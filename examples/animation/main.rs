@@ -41,10 +41,14 @@ pub struct AnimationExample {
 impl Example for AnimationExample {
     fn init(&mut self, world: &mut World, size: (usize, usize)) {
         // 添加keyframes
-        let css = "@keyframes test-animation {
-			0% {transform: scale(1.0, 1.0); }
-			33% {transform: scale(1.5, 1.5); }
-			66% {transform: scale(2.0, 2.0); }
+        // let css = "@keyframes test-animation {
+		// 	0% {transform: scale(1.0, 1.0); }
+		// 	33% {transform: scale(1.5, 1.5); }
+		// 	66% {transform: scale(2.0, 2.0); }
+		// }";
+		let css = "@keyframes test-animation {
+			0% {opacity: 0; }
+			100% {opacity: 1.0; }
 		}";
         let class_map = parse_class_map_from_string(css, 0).unwrap();
         self.cmd.push_cmd(ExtendCssCmd(vec![class_map]));
@@ -82,11 +86,11 @@ impl Example for AnimationExample {
                 value: smallvec![Atom::from("test-animation")],
             }),
         );
-        self.cmd.set_style(div1, AnimationIterationCountType(smallvec![IterationCount(10000.0)]));
-        self.cmd.set_style(
-            div1,
-            AnimationTimingFunctionType(smallvec![AnimationTimingFunction::Step(1, EStepMode::JumpEnd)]),
-        );
+        self.cmd.set_style(div1, AnimationIterationCountType(smallvec![IterationCount(1.0)]));
+        // self.cmd.set_style(
+        //     div1,
+        //     AnimationTimingFunctionType(smallvec![AnimationTimingFunction::Step(1, EStepMode::JumpEnd)]),
+        // );
         // self.cmd.set_style(div1, AnimationDirectionType(smallvec![AnimationDirection::Reverse]));
         self.cmd.set_style(div1, AnimationDurationType(smallvec![Time(3000)]));
         self.cmd.set_style(div1, AnimationFillModeType(smallvec![AnimationFillMode::Forwards]));
