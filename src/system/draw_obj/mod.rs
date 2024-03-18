@@ -18,7 +18,7 @@ use pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent;
 use pi_bevy_render_plugin::render_cross::GraphId;
 
 use crate::components::draw_obj::{BackgroundColorMark, BackgroundImageMark, BorderColorMark, BorderImageMark, BoxShadowMark, CanvasMark, BoxType};
-use crate::components::user::{BackgroundColor, BorderColor, BoxShadow, Canvas};
+use crate::components::user::{BackgroundColor, BorderColor, BoxShadow, Canvas, Vector4};
 use crate::components::{
     calc::{BackgroundImageTexture, BorderImageTexture},
     user::{BackgroundImage, BorderImage},
@@ -116,12 +116,16 @@ impl Plugin for UiReadyDrawPlugin {
 }
 
 pub fn set_box(world_matrix: &WorldMatrix, layou_rect: &Aabb2, instance_data: &mut InstanceData) {
-	let aabb = calc_bound_box(layou_rect, world_matrix);
+	let left_top = world_matrix * Vector4::new(layou_rect.mins.x, layou_rect.mins.y, 0.0, 1.0);
+	let left_bottom = world_matrix * Vector4::new(layou_rect.mins.x, layou_rect.maxs.y, 0.0, 1.0);
+	let right_bottom = world_matrix * Vector4::new(layou_rect.maxs.x, layou_rect.maxs.y, 0.0, 1.0);
+	let right_top = world_matrix * Vector4::new(layou_rect.maxs.x, layou_rect.mins.y, 0.0, 1.0);
+
 	instance_data.set_data(&BoxUniform(&[layou_rect.mins.x, layou_rect.mins.y, layou_rect.maxs.x - layou_rect.mins.x, layou_rect.maxs.y - layou_rect.mins.y]));
 	instance_data.set_data(&QuadUniform(&[
-		aabb.mins.x, aabb.mins.y,
-		aabb.mins.x, aabb.maxs.y,
-		aabb.maxs.x, aabb.maxs.y,
-		aabb.maxs.x, aabb.mins.y,
+		left_top.x, left_top.y,
+		left_bottom.x, left_bottom.y,
+		right_bottom.x, right_bottom.y,
+		right_top.x, right_top.y,
 	]));
 }

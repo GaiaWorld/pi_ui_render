@@ -2,6 +2,8 @@ use std::ops::Range;
 
 use pi_render::rhi::shader::{WriteBuffer, GetBuffer};
 
+use crate::shader1::meterial::TyUniform;
+
 use self::meterial::TyUniformMut;
 
 pub mod text_sdf2;
@@ -151,7 +153,7 @@ impl RenderInstances {
  }
 
 pub struct InstanceData<'a> {
-	index: InstanceIndex,
+	pub index: InstanceIndex,
 	data: &'a mut RenderInstances,
 }
 
@@ -176,6 +178,7 @@ impl<'a> std::fmt::Debug for InstanceData<'a> {
 impl<'a> InstanceData<'a> {
 	// 为该实例设置数据
 	pub fn set_data<T: WriteBuffer>(&mut self, value: &T) {
+
 		log::trace!("byte_len========={:?}, {:?}, {:?}, {:?}, {:?}, {:?}", self.index, value.offset(), value.byte_len(), self.data.data.len(), self.data.capacity(), self.data.alignment);
 
 		if (self.index + value.offset() as usize + value.byte_len() as usize) > self.data.data.len() {

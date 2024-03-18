@@ -5,12 +5,14 @@ use crossbeam::queue::SegQueue;
 use pi_assets::mgr::{AssetMgr, LoadResult};
 use pi_atom::Atom;
 use pi_bevy_asset::ShareAssetMgr;
-use pi_bevy_ecs_extend::system_param::res::OrInitResMut;
+use pi_bevy_ecs_extend::system_param::res::{OrInitResMut, OrInitRes};
 use pi_bevy_render_plugin::{PiRenderQueue, PiRenderDevice};
 use pi_hal::{runtime::RENDER_RUNTIME, loader::AsyncLoader};
-use pi_render::rhi::asset::{TextureRes, ImageTextureDesc};
+use pi_render::rhi::asset::{TextureRes, ImageTextureDesc, AssetWithId, TextureAssetDesc};
 use pi_share::Share;
 use pi_async_rt::prelude::AsyncRuntime;
+
+use crate::resource::draw_obj::TextureKeyAlloter;
 
 
 #[derive(Clone, Resource)]
@@ -40,10 +42,12 @@ pub fn load_res(
 	mut success_list: OrInitResMut<ResSuccess>,
 	queue: Res<PiRenderQueue>,
     device: Res<PiRenderDevice>,
-	texture_assets_mgr: Res<ShareAssetMgr<TextureRes>>,
+	texture_assets_mgr: Res<ShareAssetMgr<AssetWithId<TextureRes>>>,
+	key_alloter: OrInitRes<TextureKeyAlloter>,
 ) {
 	
 	let ResList{await_list} = &mut **res_list;
+	let key_alloter: Share<pi_key_alloter::KeyAlloter> = (*key_alloter).0.clone();
 	for path in await_list.drain(..) {
 
 		// 加载纹理
@@ -58,15 +62,17 @@ pub fn load_res(
 					let (async_list, device, queue) = (success_list.async_list.clone(), (*device).clone(), (*queue).clone());
 					let path = path.clone();
 
+					let key_alloter = key_alloter.clone();
 					RENDER_RUNTIME
 						.spawn(async move {
-							let desc = ImageTextureDesc {
+							let desc = TextureAssetDesc {
+								alloter: &key_alloter,            
 								url: &path,
 								device: &device,
 								queue: &queue,
 							};
 
-							let r = TextureRes::async_load(desc, result).await;
+							let r = AssetWithId::<TextureRes>::async_load(desc, result).await;
 							match r {
 								Ok(r) => {
 									async_list.push((path.clone(), r));

@@ -13,7 +13,7 @@ use pi_hash::XHashMap;
 use pi_map::Map;
 use pi_null::Null;
 use pi_render::font::FontSheet;
-use pi_render::rhi::asset::TextureRes;
+use pi_render::rhi::asset::{TextureRes, AssetWithId};
 use pi_share::{Share, ShareCell};
 use pi_style::style::{Aabb2, CgColor};
 
@@ -25,6 +25,7 @@ use pi_style::style_parse::{parse_animation, parse_class_map_from_string, parse_
 use pi_style::style_type::Attr;
 use pi_time::Instant;
 use pi_hal::font::sdf_table::FontCfg;
+use crate::resource::draw_obj::TextureKeyAlloter;
 
 // use pi_ecs::prelude::{FromWorld, Id, World};
 use bevy_ecs::prelude::{Entity, FromWorld, Resource, World};
@@ -652,11 +653,14 @@ unsafe impl Sync for ShareFontSheet {}
 
 impl ShareFontSheet {
     pub fn new(world: &mut World, font_type: FontType) -> Self {
-        let texture_res_mgr = world.get_resource::<ShareAssetMgr<TextureRes>>().unwrap();
+		world.init_resource::<TextureKeyAlloter>();
+        let texture_res_mgr = world.get_resource::<ShareAssetMgr<AssetWithId<TextureRes>>>().unwrap();
+		let alloter = world.get_resource::<TextureKeyAlloter>().unwrap();
+		
         let device = world.get_resource::<PiRenderDevice>().unwrap();
 		let queue = world.get_resource::<PiRenderQueue>().unwrap();
 		let limits = device.limits();
-        ShareFontSheet(Share::new(ShareCell::new(FontSheet::new(&device.0, &texture_res_mgr.0, &queue.0, limits.max_texture_dimension_2d, font_type))))
+        ShareFontSheet(Share::new(ShareCell::new(FontSheet::new(&device.0, &texture_res_mgr.0, alloter.0.clone(),&queue.0, limits.max_texture_dimension_2d, font_type))))
     }
 }
 

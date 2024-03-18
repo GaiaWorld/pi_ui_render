@@ -6,13 +6,14 @@ use bevy_ecs::{
     system::{ParamSet, Query, ResMut},
 };
 use pi_bevy_ecs_extend::system_param::res::{OrInitRes, OrInitResMut};
-use pi_bevy_render_plugin::{NodeId, PiRenderGraph};
+use pi_bevy_render_plugin::{NodeId, PiRenderGraph, NodeLabel};
 use pi_null::Null;
+use pi_render::depend_graph::graph;
 
 use crate::{
     components::{
         calc::{InPassId, RenderContextMark},
-        pass_2d::{Camera, GraphId, ParentPassId, PostProcessInfo},
+        pass_2d::{Camera, GraphId, ParentPassId, PostProcessInfo, ChildrenPass},
         user::{Canvas, AsImage},
     },
     system::{pass::pass_graph_node::Pass2DNode, draw_obj::calc_text::IsRun}, resource::PassGraphMap,
@@ -21,11 +22,12 @@ use crate::{
 /// 根据声明创建图节点，删除图节点， 建立图节点的依赖关系
 pub fn update_graph(
     mut pass_query: ParamSet<(
-        Query<(&mut GraphId, Entity, &ParentPassId, &PostProcessInfo), (Or<(Added<Camera>, Changed<RenderContextMark>)>, With<Camera>)>,
+        Query<(&mut GraphId, Entity, &ParentPassId, &PostProcessInfo), Or<(Added<Camera>, Changed<RenderContextMark>)>>,
         (
-			Query<(&ParentPassId, &GraphId, Option<&AsImage>), (Or<(Changed<ParentPassId>, Changed<AsImage>)>, With<Camera>)>, 
+			Query<(&ParentPassId, &GraphId, Option<&AsImage>), (Or<(Changed<ParentPassId>, Changed<AsImage>, Changed<GraphId>)>, With<Camera>)>, 
 			Query<(&ParentPassId, &GraphId), With<Camera>>,
-			Query<&GraphId>
+			Query<&GraphId>,
+			Query<&ChildrenPass>,
 		),
     )>,
     mut del: RemovedComponents<Camera>,
@@ -63,9 +65,7 @@ pub fn update_graph(
                 continue;
             }
 
-            if let Ok(graph_id) = rg.remove_node(graph_id.0) {
-				pass_graph_map.remove(&graph_id);
-			}
+			remove_node(**graph_id, &mut rg, &mut pass_graph_map);
             *graph_id = GraphId(NodeId::null());
         }
     }
@@ -73,9 +73,7 @@ pub fn update_graph(
     // 移除渲染图节点
     for id in del.iter() {
 		log::debug!(entity=format!("entity_{:?}", id).as_str(); "remove graph node, entity={id:?}");
-		if let Ok(graph_id) = rg.remove_node(format!("Pass2D_{:?}", id)) {
-			pass_graph_map.remove(&graph_id);
-		}
+		remove_node(format!("Pass2D_{:?}", id), &mut rg, &mut pass_graph_map);
     }
 
     let p2 = pass_query.p1();
@@ -95,7 +93,7 @@ pub fn update_graph(
 			let id = type_to_post_process(**graph_id, as_image, &p2.2, &mut rg);
 
             // 建立父子依赖关系，使得子pass先渲染
-            log::debug!("add_depend======{:?}, {:?}", id, parent_graph_id);
+            log::debug!("add_depend======{:?}, {:?}, {:?}", id, graph_id, parent_graph_id);
             if let Err(e) = rg.add_depend(id, parent_graph_id) {
                 log::error!("{:?}", e);
             }
@@ -108,7 +106,7 @@ pub fn type_to_post_process(id: NodeId, as_image: Option<&AsImage>, graph_id_que
 	if let Some(r) = as_image {
 		if let Ok(post_process_graph) = graph_id_query.get(*r.post_process) {
 			if !post_process_graph.is_null() {
-				log::debug!("add_depend======{:?}, {:?}", id, **post_process_graph);
+				log::debug!("add_depend1======{:?}, {:?}", id, **post_process_graph);
 				if rg.add_depend(id, **post_process_graph).is_ok() {
 					return **post_process_graph
 				} else {
@@ -135,4 +133,49 @@ pub fn get_to<'w, 's, F: ReadOnlyWorldQuery>(parent_id: Entity, query: &Query<(&
         return parent_graph_id.0;
     }
     NodeId::null()
+}
+
+// pub fn children_depend<'w>(
+// 	next_graph_node: GraphId, 
+// 	node: Entity, 
+// 	query_children: &Query<(&'w ChildrenPass, &'w GraphId)>,
+// 	query: &Query<(&'w ParentPassId, &'w GraphId, Option<&'w AsImage>, Entity), (Or<(Changed<ParentPassId>, Changed<AsImage>)>, With<Camera>)>,
+// ) -> NodeId {
+// 	if let Ok((children, graph_id)) = query_children.get(node) {
+// 		if graph_id.is_null() {
+// 			for child in (**children).iter() {
+// 				if query.contains(**child) {
+// 					// 如果子节点的父pass或as_image改变， 则后续遍历会处理， 不需要在此处重复处理
+// 					continue;
+// 				}
+// 				// 继续递归处理子节点
+// 				children_depend(next_graph_node.clone(), **child, query_children, query);
+// 			}
+// 		} else {
+// 			// 
+// 		}
+		
+// 	}
+
+//     NodeId::null()
+// }
+
+
+pub fn remove_node<T: Into<NodeLabel> + Clone>(graph_id: T, rg: &mut PiRenderGraph, pass_graph_map: &mut PassGraphMap) {
+	if let (Ok(from), Ok(to)) = (rg.before_nodes(graph_id.clone()), rg.after_nodes(graph_id.clone())) {
+		let from: Vec<NodeId> = Vec::from(from);
+		let to: Vec<NodeId> = Vec::from(to);
+		if let Ok(graph_id) = rg.remove_node(graph_id) {
+			pass_graph_map.remove(&graph_id);
+
+			// 重新绑定依赖关系
+			if from.len() > 0 && to.len() > 0 {
+				for before in from.into_iter() {
+					for after in to.iter() {
+						let _ = rg.add_depend(before, *after);
+					}
+				}
+			}
+		}
+	}
 }

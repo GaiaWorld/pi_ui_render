@@ -21,7 +21,7 @@ use pi_style::style::{CgColor, Aabb2};
 
 use crate::components::calc::{DrawInfo, EntityKey, NodeId, InPassId, IsShow, ZRange, RenderContextMark, WorldMatrix};
 use crate::components::draw_obj::{BoxType, PipelineMeta, InstanceIndex, GetInstanceSplit, InstanceSplit, RenderCount, Pipeline};
-use crate::components::user::{Size, Vector4};
+use crate::components::user::{Size, Vector4, BackgroundImage};
 use crate::components::{DrawBundle, DrawBundleNew};
 use crate::components::pass_2d::{Draw2DList, ParentPassId, Camera, DrawIndex, DrawElement, PostProcessInfo, InstanceDrawState};
 use crate::events::{ NodeZindexChange, NodeDisplayChange, EntityChange};
@@ -31,7 +31,7 @@ use crate::resource::RenderObjType;
 use crate::components::{calc::DrawList, draw_obj::DrawState};
 use crate::shader::ui_meterial::UiMaterialBind;
 use crate::shader1::{RenderInstances, InstanceData};
-use crate::shader1::meterial::{TextureIndexUniform, DepthUniform, ColorUniform, RenderFlagType, TyUniform, MeterialBind, TextWeightUniform};
+use crate::shader1::meterial::{TextureIndexUniform, DepthUniform, ColorUniform, RenderFlagType, TyUniform, MeterialBind, TextWeightUniform, BoxUniform, QuadUniform};
 
 use super::calc_text::IsRun;
 
@@ -190,7 +190,6 @@ pub fn update_render_instance_data(
 	pass2d_change.clear();
 	node_display_change.clear();
 
-
 	// 否则，先迭代所有的drawObj,如果drawobj可见,
 	for (parent_pass_id, in_pass_id, draw_list, z_range, is_show, id, layer) in node_query.iter() {
 		log::debug!("draw info========id={:?}, is_display={:?}, has_draw2d_list={:?}, in_pass_id={:?}, draw_list={:?}", id, is_show.get_display(), in_pass_id, pass_query.get_mut(***in_pass_id).is_ok(),draw_list);
@@ -249,6 +248,13 @@ pub fn update_render_instance_data(
 
 		// 渲染列表未改变， 拷贝旧数据到新的实例数据中， 如果数据偏移发生变化， 还需要标记脏区域
 		if !draw_2d_list.list_is_change {
+			// 清屏数据
+			if !draw_2d_list.clear_instance.is_null() {
+				let cur_index = new_instances.cur_index();
+				new_instances.extend(instances.instance_data.slice(draw_2d_list.clear_instance..draw_2d_list.clear_instance + new_instances.alignment));
+				draw_2d_list.clear_instance = cur_index;
+			}
+
 			for draw_element in draw_2d_list.draw_list.iter() {
 				if let DrawElement::DrawInstance{draw_state: InstanceDrawState { instance_data_range, ..}, draw_range, .. } = draw_element {
 					let mut cur_index = new_instances.cur_index();
@@ -261,27 +267,16 @@ pub fn update_render_instance_data(
 								let (mut index, render_count) = instance_index.get_mut(draw_entity.0).unwrap();
 								let end = cur_index + render_count.0 as usize * new_instances.alignment;
 								index.bypass_change_detection().0 = cur_index..end;
-								// if cur_index == 228 * 224 {
-								// 	log::warn!("modify 228=============={:?}", draw_entity);
-								// }
 								cur_index = end;
 							}
 						}
-						draw_2d_list.list_is_change = false;
+						draw_2d_list.list_is_change = false; // 在列表中的位置发生改变， 设置脏， 后续会重新设置深度（如果深度值是局部排序， 似乎不需要？TODO）
 					}
 					max_depth_count = draw_range.len().max(max_depth_count);
 
 				}
 
 			}
-
-			// 清屏数据
-			if !draw_2d_list.clear_instance.is_null() {
-				let cur_index = new_instances.cur_index();
-				new_instances.extend(instances.instance_data.slice(draw_2d_list.clear_instance..draw_2d_list.clear_instance + new_instances.alignment));
-				draw_2d_list.clear_instance = cur_index;
-			}
-
 			continue;
 		}
 		
@@ -331,15 +326,15 @@ pub fn update_render_instance_data(
 				let index = set_clear_screen_instance(&CgColor::new(0.0, 0.0, 0.0, 0.0), new_instances);
 				draw_2d_list.clear_instance = index;
 
-				draw_2d_list.draw_list.push(DrawElement::DrawInstance {
-					draw_state: InstanceDrawState { 
-						instance_data_range: index..(index + new_instances.alignment), 
-						pipeline: Some(instances.clear_pipeline.clone()),
-						texture_bind_group: instances.batch_texture.take_group(&device),
-					},
-					depth_start: 0,
-					draw_range: start..start,
-				});
+				// draw_2d_list.draw_list.push(DrawElement::DrawInstance {
+				// 	draw_state: InstanceDrawState { 
+				// 		instance_data_range: index..(index + new_instances.alignment), 
+				// 		pipeline: Some(instances.clear_pipeline.clone()),
+				// 		texture_bind_group: instances.batch_texture.take_group(&device),
+				// 	},
+				// 	depth_start: 0,
+				// 	draw_range: start..start,
+				// });
 			},
 			_ => {
 				// 不清屏
@@ -351,32 +346,51 @@ pub fn update_render_instance_data(
 
 		let mut instance_data_start = new_instances.cur_index();
 
-		// log::warn!("draw_index=================================");
 		// let mut pipeline;
         for (draw_index, _, draw_info) in draw_2d_list.all_list_sort.iter() {
 			match draw_index {
 				DrawIndex::DrawObj(draw_entity) => {
 
 					if let Ok((instance_split, pipeline)) = draw_query.get(**draw_entity) {
-						let pipeline =  if let Some(InstanceSplit::ByCross(_)) = instance_split {
-							pre_pipeline = instances.premultiply_pipeline.clone();
-							Some(instances.premultiply_pipeline.clone())
+						let p = if let Some(pipeline) = pipeline {
+							&pipeline.0
+						} else if let Some(InstanceSplit::ByCross(_)) = instance_split {
+							&instances.premultiply_pipeline
 						} else {
-							let p = if let Some(pipeline) = pipeline {
-								&pipeline.0
-							} else {
-								&instances.common_pipeline
-							};
-							// 当前pipeline与上一个pipeline不相等， 需要让之前的
-							if !Share::ptr_eq(&pre_pipeline, &p) {
-								let r = pre_pipeline.clone();
-								pre_pipeline = p.clone();
-								Some(r)
-							} else {
-								// None
-								Some(pre_pipeline.clone()) // 一个一个渲染
-							}
+							&instances.common_pipeline
 						};
+						// 当前pipeline与上一个pipeline不相等， 需要让之前的
+						let pipeline = if !Share::ptr_eq(&pre_pipeline, &p) {
+							let r = pre_pipeline.clone();
+							pre_pipeline = p.clone();
+							Some(r)
+						}  else if let Some(InstanceSplit::ByCross(_)) = instance_split {
+							// 目前跨引擎渲染不合并， 单独一个drawcall (TODO, 由于纹理在渲染图build阶段才能拿到， 这里无法正确创建bindgroup)
+							Some(p.clone())
+						} else {
+							None
+							// Some(pre_pipeline.clone()) // 一个一个渲染
+						};
+
+						// let pipeline =  if let Some(InstanceSplit::ByCross(_)) = instance_split {
+						// 	pre_pipeline = instances.premultiply_pipeline.clone();
+						// 	Some(instances.premultiply_pipeline.clone())
+						// } else {
+						// 	let p = if let Some(pipeline) = pipeline {
+						// 		&pipeline.0
+						// 	} else {
+						// 		&instances.common_pipeline
+						// 	};
+						// 	// 当前pipeline与上一个pipeline不相等， 需要让之前的
+						// 	if !Share::ptr_eq(&pre_pipeline, &p) {
+						// 		let r = pre_pipeline.clone();
+						// 		pre_pipeline = p.clone();
+						// 		Some(r)
+						// 	} else {
+						// 		None
+						// 		// Some(pre_pipeline.clone()) // 一个一个渲染
+						// 	}
+						// };
 
 						if let Some(p)= &pipeline {
 							// 将前一部分劈分出去
@@ -404,7 +418,7 @@ pub fn update_render_instance_data(
 						let (mut index, render_count) = instance_index.get_mut(draw_entity.0).unwrap();
 						let old_index = index.bypass_change_detection().0.clone();
 						let new_index;
-						if old_index.is_null() {
+						if old_index.is_null() || old_index.len() != new_instances.alignment * render_count.0 as usize {
 							// 不存在旧的，则分配一个新索引
 							new_index = new_instances.alloc_instance_data_mult(render_count.0 as usize);
 							let mut ty = 0;
@@ -420,17 +434,19 @@ pub fn update_render_instance_data(
 								new_instances.instance_data_mut(new_index.start + i as usize * new_instances.alignment).set_data(&TextWeightUniform(&[draw_entity.0.index() as f32]));
 							}
 							index.0 = new_index.clone();
+
 						} else {
 							new_index = new_instances.cur_index()..new_instances.cur_index() + render_count.0 as usize * new_instances.alignment;
 							log::trace!("new_index============{:?}", new_index);
 							if render_count.0 > 0 {
 								new_instances.extend(instances.instance_data.slice(old_index.clone()));
 
-								if new_index.start != old_index.start {
+								if new_index.start != old_index.start || new_index.end != old_index.end {
 									new_instances.update_dirty_range(new_index.clone());
 								}
 							}
 							index.bypass_change_detection().0 = new_index.clone();
+							
 						}
 						log::trace!("life1========================insatnce_index={:?}, instance_data_start={:?}, draw_index={:?}, split={:?}, cur_index={:?}, render_count: {:?}, cursor: {}, start: {}", new_index, instance_data_start, draw_index, draw_query.get(**draw_entity), new_instances.cur_index(), render_count, cursor, start);
 						
@@ -718,8 +734,18 @@ fn set_clear_screen_instance(color: &CgColor, instances: &mut RenderInstances) -
 
 	instance_data.set_data(&ColorUniform(&[color.x, color.y, color.z, color.w]));
 	instance_data.set_data(&TyUniform(&[render_flag as f32]));
+	// let world = Matrix4::new(2.0, 0.0, 0.0, -1.0, 0.0, 2.0, 0.0, -1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0);
 	// instance_data.set_data(&WorldUniform(WorldMatrix::default().as_slice()));
 	instance_data.set_data(&DepthUniform(&[0.0]));
+
+	instance_data.set_data(&BoxUniform(&[0.0, 0.0, 1.0, 1.0]));
+	instance_data.set_data(&QuadUniform(&[
+		-1.0, 1.0,
+		-1.0, -1.0,
+		1.0, -1.0,
+		1.0, 1.0,
+	]));
+
 	new_index
 }
 

@@ -15,12 +15,12 @@ use nalgebra::Matrix4;
 use ordered_float::NotNan;
 use pi_assets::asset::Handle;
 use pi_null::Null;
-use pi_render::rhi::asset::TextureRes;
+use pi_render::rhi::asset::{TextureRes, AssetWithId};
 use pi_share::Share;
 use pi_slotmap::Key;
 
 use crate::resource::RenderObjType;
-use crate::resource::draw_obj::{AssetWithId, TextureKeyAlloter};
+use crate::resource::draw_obj::TextureKeyAlloter;
 
 use super::user::*;
 
@@ -574,7 +574,7 @@ pub struct TransformWillChangeMatrixInner {
 }
 
 #[derive(Debug, Clone, Default, Component)]
-pub struct MaskTexture (pub Option<AssetWithId<TextureRes>>);
+pub struct MaskTexture (pub Option<Handle<AssetWithId<TextureRes>>>);
 
 impl Null for MaskTexture {
     fn null() -> Self { 
@@ -584,15 +584,29 @@ impl Null for MaskTexture {
     fn is_null(&self) -> bool { self.0.is_none() }
 }
 
-impl From<(Handle<TextureRes>, TextureKeyAlloter)> for MaskTexture {
-    fn from(handle: (Handle<TextureRes>, TextureKeyAlloter)) -> Self { MaskTexture(Some(AssetWithId::new(handle.0, handle.1.0))) }
+impl PartialEq for MaskTexture {
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+		match (&self.0, &other.0) {
+			(None, None) => true,
+			(None, Some(_)) => false,
+			(Some(_), None) => false,
+			(Some(r1), Some(r2)) =>  Share::ptr_eq(r1, r2),
+		}
+    }
+}
+impl Eq for MaskTexture {}
+
+
+impl From<Handle<AssetWithId<TextureRes>>> for MaskTexture {
+    fn from(handle: Handle<AssetWithId<TextureRes>>) -> Self { MaskTexture(Some(handle)) }
 }
 
-impl From<Option<AssetWithId<TextureRes>>> for MaskTexture {
-    fn from(handle: Option<AssetWithId<TextureRes>>) -> Self { MaskTexture(handle) }
+impl From<Option<Handle<AssetWithId<TextureRes>>>> for MaskTexture {
+    fn from(handle: Option<Handle<AssetWithId<TextureRes>>>) -> Self { MaskTexture(handle) }
 }
 
-impl From<MaskTexture> for Option<AssetWithId<TextureRes>>{
+impl From<MaskTexture> for Option<Handle<AssetWithId<TextureRes>>>{
     fn from(mask_texture: MaskTexture) -> Self { mask_texture.0 }
 }
 
@@ -784,10 +798,24 @@ impl Default for OverflowDesc {
 /// BorderImageTexture.0只有在设置了图片路径，但纹理还未加载成功的情况下，才会为none
 /// 如果删除了图片路径，会删除该组件
 #[derive(Deref, Component, Default)]
-pub struct BorderImageTexture(pub Option<AssetWithId<TextureRes>>);
+pub struct BorderImageTexture(pub Option<Handle<AssetWithId<TextureRes>>>);
 
-impl From<(Handle<TextureRes>, TextureKeyAlloter)> for BorderImageTexture {
-    fn from(handle: (Handle<TextureRes>, TextureKeyAlloter)) -> Self { Self(Some(AssetWithId::new(handle.0, handle.1.0))) }
+impl PartialEq for BorderImageTexture {
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+		match (&self.0, &other.0) {
+			(None, None) => true,
+			(None, Some(_)) => false,
+			(Some(_), None) => false,
+			(Some(r1), Some(r2)) =>  Share::ptr_eq(r1, r2),
+		}
+    }
+}
+impl Eq for BorderImageTexture {}
+
+
+impl From<Handle<AssetWithId<TextureRes>>> for BorderImageTexture {
+    fn from(handle: Handle<AssetWithId<TextureRes>>) -> Self { Self(Some(handle)) }
 }
 
 
@@ -800,12 +828,24 @@ impl Null for BorderImageTexture {
 /// BackgroundImageTexture.0只有在设置了图片路径，但纹理还未加载成功的情况下，才会为none
 /// 如果删除了图片路径，会删除该组件
 #[derive(Deref, Component, Default)]
-pub struct BackgroundImageTexture(pub Option<AssetWithId<TextureRes>>);
+pub struct BackgroundImageTexture(pub Option<Handle<AssetWithId<TextureRes>>>);
 
-impl From<(Handle<TextureRes>, TextureKeyAlloter)> for BackgroundImageTexture {
-    fn from(handle: (Handle<TextureRes>, TextureKeyAlloter)) -> Self { Self(Some(AssetWithId::new(handle.0, handle.1.0))) }
+impl PartialEq for BackgroundImageTexture {
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+		match (&self.0, &other.0) {
+			(None, None) => true,
+			(None, Some(_)) => false,
+			(Some(_), None) => false,
+			(Some(r1), Some(r2)) =>  Share::ptr_eq(r1, r2),
+		}
+    }
 }
+impl Eq for BackgroundImageTexture {}
 
+impl From<Handle<AssetWithId<TextureRes>>> for BackgroundImageTexture {
+    fn from(handle: Handle<AssetWithId<TextureRes>>) -> Self { Self(Some(handle)) }
+}
 
 impl Null for BackgroundImageTexture {
     fn null() -> Self { Self(None) }

@@ -13,7 +13,7 @@ use pi_style::style::{ImageRepeatOption, Aabb2};
 
 use crate::components::calc::{BackgroundImageTexture, DrawList, LayoutResult, WorldMatrix};
 use crate::components::draw_obj::{BackgroundImageMark, InstanceIndex};
-use crate::components::user::{BackgroundImageClip, BackgroundImageMod, FitType, Point2, Vector2};
+use crate::components::user::{BackgroundImageClip, BackgroundImageMod, FitType, Point2, Vector2, Transform};
 use crate::resource::draw_obj::InstanceContext;
 use crate::resource::BackgroundImageRenderObjType;
 
@@ -63,11 +63,13 @@ pub fn calc_background_image(
 			&DrawList,
 			Ref<BackgroundImageTexture>,
 			Option<Ref<BackgroundImageClip>>,
+			
 			Option<Ref<BackgroundImageMod>>,
 			// OrDefault<BackgroundImageClip>,
 			// OrDefault<BackgroundImageMod>,
 			&BackgroundImage,
 			Entity,
+			Option<&Transform>,
 		),
 		Or<(Changed<BackgroundImageTexture>, Changed<BackgroundImageClip>,  Changed<WorldMatrix>)>,
 	>,
@@ -83,7 +85,7 @@ pub fn calc_background_image(
 	let image_clip = BackgroundImageClip::default();
 	let image_mod = BackgroundImageMod::default();
 
-	for (world_matrix, layout, draw_list, background_image_texture_ref, background_image_clip, background_image_mod, background_image, entity) in query.iter() {
+	for (world_matrix, layout, draw_list, background_image_texture_ref, background_image_clip, background_image_mod, background_image, entity, transform) in query.iter() {
 		let background_image_texture = match &background_image_texture_ref.0 {
 			Some(r) => {
 				// 图片不一致， 返回
@@ -99,6 +101,7 @@ pub fn calc_background_image(
 			Some(r) => r.id,
 			None => continue,
 		};
+
 		if let Ok(instance_index) = query_draw.get_mut(draw_id) {
 			// 节点可能设置为dispaly none， 此时instance_index可能为Null
 			if pi_null::Null::is_null(&instance_index.0.start) {
@@ -218,7 +221,7 @@ pub fn calc_background_image(
 				set_box(&world_matrix, &Aabb2::new(p1, p2), &mut instance_data);
 				instance_data.set_data(&UvUniform(&[uv1.x, uv1.y, uv2.x, uv2.y]));
 				instance_data.set_data(&TyUniform(&[render_flag as f32]));
-				
+
 			}
 
 			// 这里世界矩阵和layout的设置，不单独抽取到一个system中， 有由当前设计的数据结构决定的

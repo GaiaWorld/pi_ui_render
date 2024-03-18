@@ -261,16 +261,6 @@ pub fn calc_camera_depth_and_renderlist(
             Point2::new(no_rotate_view_aabb.maxs.x.ceil(), no_rotate_view_aabb.maxs.y.ceil()),
         );
 
-		if !draw2d_list.clear_instance.is_null() {
-			instance_context.instance_data.instance_data_mut(draw2d_list.clear_instance).set_data(&BoxUniform(&[aabb.mins.x, aabb.mins.y, aabb.maxs.x - aabb.mins.x, aabb.maxs.y - aabb.mins.y]));
-			instance_context.instance_data.instance_data_mut(draw2d_list.clear_instance).set_data(&QuadUniform(&[
-				aabb.mins.x, aabb.mins.y,
-				aabb.mins.x, aabb.maxs.y,
-				aabb.maxs.x, aabb.maxs.y,
-				aabb.maxs.x, aabb.mins.y,
-			]));
-		}
-
         // 计算投影矩阵（投影矩阵将view_aabb范围内的对象投影到-1~1， 注意view_aabb所在坐标系为当前节点的非旋转坐标系）
         let project_matrix = create_project(aabb.mins.x, aabb.maxs.x, aabb.mins.y, aabb.maxs.y);
 

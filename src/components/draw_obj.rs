@@ -4,13 +4,14 @@ use std::{hash::{Hash, Hasher}, ops::Range};
 
 
 use crate::resource::{
-    draw_obj::{PipelineStateWithHash, ProgramMetaInner, VertexBufferLayoutWithHash, AssetWithId},
+    draw_obj::{PipelineStateWithHash, ProgramMetaInner, VertexBufferLayoutWithHash},
     RenderObjType,
 };
 use bevy_ecs::prelude::Component;
+use pi_assets::asset::Handle;
 use pi_atom::Atom;
 use pi_hash::XHashSet;
-use pi_render::{renderer::draw_obj::DrawObj as DrawState1, rhi::asset::TextureRes};
+use pi_render::{renderer::draw_obj::DrawObj as DrawState1, rhi::asset::{TextureRes, AssetWithId}};
 use pi_share::Share;
 use wgpu::RenderPipeline;
 
@@ -168,7 +169,7 @@ impl Default for RenderCount {
 /// 2. 可能是因为pipeline不同而需要劈分
 #[derive(Debug, Component)]
 pub enum InstanceSplit {
-	ByTexture(AssetWithId<TextureRes>),
+	ByTexture(Handle<AssetWithId<TextureRes>>),
 	ByCross(bool), // 交叉渲染， 表示该节点的渲染为一个外部系统的渲染， bool表示是否用运行图的方式渲染（如果是false，则为外部渲染为一个fbo，gui内部需要将其作为渲染对象渲染）
 }
 

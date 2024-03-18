@@ -626,6 +626,7 @@ impl Node for Pass2DNode {
 							RenderPassTarget::Screen => RPTarget::Screen(&param.surface, &param.screen.depth),
 						};
 						let mut c = (*commands).borrow_mut();
+						let clear_state;
 						// 创建一个渲染Pass
 						let (mut rp, view_port, clear_port, offset) = create_rp(
 							rp_rt,
@@ -635,7 +636,34 @@ impl Node for Pass2DNode {
 							None,
 						);
 
-					
+						if !list.clear_instance.is_null() {
+							rp.set_viewport(clear_port.0, clear_port.1, clear_port.2, clear_port.3, 0.0, 1.0);
+							clear_state = InstanceDrawState {
+								instance_data_range: list.clear_instance..list.clear_instance + param.instance_draw.instance_data.alignment,
+								pipeline: Some(param.instance_draw.clear_pipeline.clone()),
+								texture_bind_group: None,
+							};
+							// param.instance_draw.default_camera.set(rp, CameraBind::set());
+							let group = param.instance_draw.default_camera.get_group();
+							rp.set_bind_group(CameraBind::set(), group.bind_group, group.offsets);
+							rp.set_bind_group(1, &param.instance_draw.batch_texture.default_texture_group, &[]);
+
+							param.instance_draw.draw(&mut rp, &clear_state);
+						}
+
+						// 清屏
+						// if let Some(clear_color) = clear_color {
+						// fbo总是需要使用draw的方式清屏，如果是根节点，直接绘制到屏幕，就不需要使用这种方式清屏
+						// if !parent_pass2d_id.is_null() {
+						// 设置视口
+						// rp.set_viewport(clear_port.0, clear_port.1, clear_port.2, clear_port.3, 0.0, 1.0);
+						// 清屏， TODO
+						// clear_color.set(&mut rp, UiMaterialBind::set());
+						// param.depth_cache.list[0].set(&mut rp, DepthBind::set()); // 清屏所用深度总用0
+						// param.clear_draw.0.draw(&mut rp);
+						// 相机在drawObj中已经描述
+						// }
+						
 
 						// 清屏
 						// if let Some(clear_color) = clear_color {
@@ -654,6 +682,7 @@ impl Node for Pass2DNode {
 						rp.set_viewport(view_port.0, view_port.1, view_port.2, view_port.3, 0.0, 1.0);
 						
 						Self::draw_list(
+							_id,
 							&input.0,
 							&mut post_draw.value,
 							&mut post_draw.next,
@@ -768,7 +797,8 @@ impl Pass2DNode {
     /// * cur_camera-当前设置的相机
 	#[inline]
     pub fn render_pass_2d<'a, 'b>(
-        pass2d_id: EntityKey,
+        graph_id: GraphNodeId,
+		pass2d_id: EntityKey,
         input: &'a XHashMap<GraphNodeId, SimpleInOut>,
 		mut post_draw: &'a mut Option<DrawObj>,
 		mut post_draw_next: &'a mut Option<Box<LinkNode<DrawObj>>>,
@@ -786,11 +816,11 @@ impl Pass2DNode {
     ) -> (&'a mut Option<DrawObj>, &'a mut Option<Box<LinkNode<DrawObj>>>, &'a mut Option<(wgpu::BindGroup, wgpu::Buffer)>, &'a mut Option<Box<LinkNode<(wgpu::BindGroup, wgpu::Buffer)>>>) {
 		log::trace!("run pass1, pass_id={:?}", pass2d_id);
         match param.post_query.get(*pass2d_id) {
-            Ok((r, post_info, graph_id, as_image)) if post_info.has_effect() => {
-				let graph_id = match as_image {
+            Ok((r, post_info, from_graph_id, as_image)) if post_info.has_effect() => {
+				let from_graph_id = match as_image {
 					Some(r) => {
 						if r.post_process.is_null() {
-							graph_id.clone()
+							from_graph_id.clone()
 						} else if let Ok(r) = param.graph_node_query.get(*r.post_process) {
 							r.clone()
 						} else {
@@ -798,22 +828,25 @@ impl Pass2DNode {
 						}
 						
 					},
-					None => graph_id.clone(),
+					None => from_graph_id.clone(),
 				};
-                let (src, valid_rect) = match input.get(&graph_id) {
+                let (src, valid_rect) = match input.get(&from_graph_id) {
                     Some(r) => (
                         match &r.target {
                             Some(r) => r,
-                            None => {return (post_draw, post_draw_next, input_groups, input_groups_next)},
+                            None => {
+								return (post_draw, post_draw_next, input_groups, input_groups_next)
+							},
                         },
                         &r.valid_rect,
                     ),
                     None => {
                         // 这种情况有可能出现，后处理对象可能为空
-                        log::debug!(
-                            "prepare render post process, but input is none, pass2d_id={:?}, graph_id={:?}",
+                        log::warn!(
+                            "prepare render post process, but input is none, pass2d_id={:?}, from_graph_id={:?}, graph_id: {:?}",
                             pass2d_id,
-                            graph_id
+                            from_graph_id,
+							graph_id
                         );
                         return (post_draw, post_draw_next, input_groups, input_groups_next);
                     }
@@ -957,6 +990,7 @@ impl Pass2DNode {
 					log::trace!("set view_port1============{:?}, {:?}, {:?}", v, camera_new.view_port, &last_view_port);
                     rp.set_viewport(v.0, v.1, v.2, v.3, 0.0, 1.0);
                     let r = Self::draw_list(
+						graph_id,
                         input,
                         post_draw,
 						post_draw_next,
@@ -1093,6 +1127,7 @@ impl Pass2DNode {
     }
 
     fn draw_list<'a, 'w, 'b>(
+		graph_id: GraphNodeId,
         input: &'a XHashMap<GraphNodeId, SimpleInOut>,
         mut post_draw: &'a mut Option<DrawObj>,
 		mut post_draw_next: &'a mut Option<Box<LinkNode<DrawObj>>>,
@@ -1133,6 +1168,7 @@ impl Pass2DNode {
                 DrawElement::Pass2D{id, depth} => {
 					camera_change = true;
                     let r = Self::render_pass_2d(
+						graph_id,
                     *id,
                         input,
                         post_draw,
@@ -1181,7 +1217,7 @@ impl Pass2DNode {
 					if draw_state.texture_bind_group.is_some() {
 						param.instance_draw.draw(rp, draw_state);
 					} else {
-						log::warn!("texture_bind_group is none");
+						log::warn!("texture_bind_group is none, entity: {:?}", id);
 					}
 				},
             }

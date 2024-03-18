@@ -155,7 +155,7 @@ pub fn calc_sdf2_text_len(
 		node_state, 
 		text_overflow_data,
 		draw_list,
-		layout,
+		mut layout,
 		text_style) in query.iter() {
 		
 		let render_type = ***render_type;
@@ -166,25 +166,30 @@ pub fn calc_sdf2_text_len(
 		if let Ok(mut render_count) = query_draw.get_mut(draw_id) {
 			let mut new_count = 0;
 			if node_state.0.scale > 0.000001 && node_state.0.text.len() > 0 {
-				let mut word_pos = (0.0, 0.0);
-				let offset = (layout.border.left + layout.padding.left, layout.border.top + layout.padding.top);
-				let mut count = 0;
-
-				// 文字是否存在换行（如果存在换行， text_overflow无效）
-				let start_y = node_state.0.text[0].pos.top + offset.1; 
+				
 				let text_overflow = calc_text_overflow_data(text_overflow_data, text_style);
 
 				let mut line_max = 0.0;
-				if text_overflow.0 {
+				if text_overflow.0 && node_state.is_vnode() {
 					while let Ok((p_layout, up, p_node_state)) = query_up.get(entity) {
 						if !p_node_state.is_vnode() {
 							line_max = p_layout.rect.right - p_layout.border.right - p_layout.padding.right - p_layout.border.left - p_layout.padding.left - p_layout.rect.left ;
+							layout = p_layout;
 							break;
 						} else {
 							entity = up.parent();
 						}
 					}
+				} else {
+					line_max = layout.rect.right - layout.border.right - layout.padding.right - layout.border.left - layout.padding.left - layout.rect.left ;
 				}
+
+				let offset = (layout.border.left + layout.padding.left, layout.border.top + layout.padding.top);
+				let mut word_pos = offset.clone();
+				let mut count = 0;
+
+				// 文字是否存在换行（如果存在换行， text_overflow无效）
+				let start_y = node_state.0.text[0].pos.top + offset.1; 
 
 
 				for c in node_state.0.text.iter() {
@@ -253,7 +258,7 @@ pub fn calc_sdf2_text(
 	render_type: OrInitRes<TextRenderObjType>,
 	font_sheet: ResMut<ShareFontSheet>,
 	query_parent: Query<&Up>,
-	query_matrix: Query<(&WorldMatrix, &NodeState)>,
+	query_matrix: Query<(&WorldMatrix, &NodeState, &LayoutResult)>,
 ) {
 	if r.0 {
 		return;
@@ -298,18 +303,20 @@ pub fn calc_sdf2_text(
 			let mut n = entity;
 			let mut state = &*node_state;
 			let mut matrix = &*world_matrix;
+			let mut layout1 = &*layout;
 			while state.is_vnode() {
 				// 虚拟节点，现阶段只有图文混排的文字节点，直接使用父节点的世界矩阵
 				if let Ok(up) = query_parent.get(n) {
-					if let Ok((m, s)) = query_matrix.get(up.parent()) {
+					if let Ok((m, s, l)) = query_matrix.get(up.parent()) {
 						if s.is_vnode() {
 							n = up.parent();
 							continue;
 						}
 						matrix = m;
 						state = s;
-						// layout_result = l;
+						layout1 = l;
 					}
+				
 				}
 			}
 
@@ -340,16 +347,17 @@ pub fn calc_sdf2_text(
 			);
 
 			text_vert(&node_state,
-				&layout,
+				layout1,
 				&mut font_sheet,
 				text_style, 
 				text_overflow_data,
 				&query_up,
 				entity,
+				draw_id,
 				instance_data,
 				instance_index.clone(),
 				&mut instances.instance_data,
-				font_id);
+				font_id, );
 			
 
 
@@ -479,6 +487,7 @@ fn text_vert(
 	text_overflow_data: Option<&TextOverflowData>,
 	query_layout: &Query<(&'static LayoutResult, &'static Up, &'static NodeState)>,
 	mut entity: Entity,
+	mut draw_id: Entity,
 	uniform_data: UniformData,
 	instance_index: InstanceIndex,
 	instances: &mut RenderInstances,
@@ -490,8 +499,8 @@ fn text_vert(
 	
 
 	let font_type = font_sheet.font_mgr().font_type;
-    let mut word_pos = (0.0, 0.0);
     let offset = (layout.border.left + layout.padding.left, layout.border.top + layout.padding.top);
+	let mut word_pos = offset.clone();
     let mut count = 0;
     let half_stroke = *text_style.text_stroke.width / 2.0;
 
@@ -558,7 +567,7 @@ fn text_vert(
 							_ => &default_range,
 						};
 											// let offset_y = (line_height - font_height) / 2.0;
-						uniform_data.set_data(instances.instance_data_mut(cur_instance_index), glyph, render_range, (left + text_style.letter_spacing, top + (line_height - (render_range.maxs.y - render_range.mins.y) * font_size) / 2.0), font_size);
+						uniform_data.set_data(instances.instance_data_mut(cur_instance_index), glyph, render_range, (left + text_style.letter_spacing, top + (line_height - (render_range.maxs.y - render_range.mins.y) * font_size) / 2.0), font_size, draw_id);
 						left += c1.width + text_style.letter_spacing;
 						cur_instance_index = instances.next_index(cur_instance_index);
 					}
@@ -585,11 +594,9 @@ fn text_vert(
 		};
 
 		if font_sheet.font_mgr().table.sdf2_table.fonts.get(face_id.0).is_none() {
-			log::warn!("default_range============{}, {:?}, {:?}, {:?}, {:?}", font_sheet.font_mgr().table.sdf2_table.glyphs[c.ch_id].font_face_index, c.ch, fontface_ids, font_sheet.font_mgr().sheet.fonts[font_id.0].font_family_id,
-			&font_sheet.font_mgr().sheet.font_familys[font_sheet.font_mgr().sheet.fonts[font_id.0].font_family_id.0]
-		);
+			log::warn!("default_range============{}, {:?}, {:?}, {:?}, {:?}", font_sheet.font_mgr().table.sdf2_table.glyphs[c.ch_id].font_face_index, c.ch, fontface_ids, font_sheet.font_mgr().sheet.fonts[font_id.0].font_family_id,&font_sheet.font_mgr().sheet.font_familys[font_sheet.font_mgr().sheet.fonts[font_id.0].font_family_id.0]);
 		}
-		uniform_data.set_data(instances.instance_data_mut(cur_instance_index), glyph, render_range, (left, top + (line_height - (render_range.maxs.y - render_range.mins.y) * font_size) / 2.0), font_size);
+		uniform_data.set_data(instances.instance_data_mut(cur_instance_index), glyph, render_range, (left, top + (line_height - (render_range.maxs.y - render_range.mins.y) * font_size) / 2.0), font_size, draw_id);
 		cur_instance_index = instances.next_index(cur_instance_index);
 		if count > 0 {
 			count -= 1;
@@ -623,7 +630,7 @@ enum ColorData {
 
 impl UniformData {
 	#[inline]
-	fn set_data(&self, mut instance_data: InstanceData, tex_info: &TexInfo, render_range: &Aabb2, offset: (f32, f32), font_size: f32) {
+	fn set_data(&self, mut instance_data: InstanceData, tex_info: &TexInfo, render_range: &Aabb2, offset: (f32, f32), font_size: f32, entity: Entity) {
 		log::trace!("set_data===================={:?}, {:?}, offset={:?}, font_size={}", instance_data, tex_info, offset, font_size);
 		let mut render_flag = instance_data.get_render_ty();
 		render_flag |= 1 << RenderFlagType::Sdf2 as usize;
