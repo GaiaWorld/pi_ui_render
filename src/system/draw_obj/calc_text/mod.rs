@@ -74,7 +74,7 @@ impl Plugin for UiTextPlugin {
 }
 
 
-pub const TEXT_ORDER: u8 = 8;
+pub const TEXT_ORDER: u8 = 9;
 
 #[derive(Debug, Default)]
 pub struct TextureState {

@@ -14,7 +14,7 @@ use pi_render::{renderer::draw_obj::DrawObj as DrawState1, rhi::asset::TextureRe
 use pi_share::Share;
 use wgpu::RenderPipeline;
 
-use super::{calc::{BorderImageTexture, BackgroundImageTexture}, user::{Canvas, BackgroundColor, BorderColor, BoxShadow, TextContent}};
+use super::{calc::{BorderImageTexture, BackgroundImageTexture}, user::{Canvas, BackgroundColor, BorderColor, BoxShadow, TextContent, SvgContent}};
 pub use super::root::{ClearColorBindGroup, CopyFboToScreen, DynTargetType};
 
 pub struct DrawObject;
@@ -120,6 +120,10 @@ pub struct BackgroundImageMark;
 // 标记文字 放在DrawObject原型中，可以区分不同类型的DarwObject， 使得系统能够更好的并行
 #[derive(Debug, Component, Default)]
 pub struct TextMark;
+
+// 标记文字 放在DrawObject原型中，可以区分不同类型的DarwObject， 使得系统能够更好的并行
+#[derive(Debug, Component, Default)]
+pub struct SvgMark;
 
 // 标记文字阴影 放在DrawObject原型中，可以区分不同类型的DarwObject， 使得系统能够更好的并行
 // TextShadowMark.0表示是第几个Shadow创建的DrawObj
@@ -230,3 +234,8 @@ impl GetInstanceSplit for TextContent {
 	}
 }
 
+impl GetInstanceSplit for SvgContent {
+	fn get_split(&self) -> Option<InstanceSplit> {
+		None
+	}
+}

@@ -5,7 +5,7 @@ use std::{collections::VecDeque, mem::replace, borrow::BorrowMut};
 use bevy_ecs::{
 	system::Command,
 	world::{FromWorld, World},
-    prelude::{Changed, Component, Events, Bundle, Entity},
+    prelude::{Changed, Component, Events, Bundle, Entity}, change_detection::DetectChangesMut,
 };
 use ordered_float::NotNan;
 use pi_atom::Atom;
@@ -14,14 +14,14 @@ use pi_bevy_render_plugin::PiClearOptions;
 use pi_hal::font::sdf_table::FontCfg;
 use pi_hash::XHashMap;
 use pi_print_any::out_any;
-use pi_style::{style_parse::{Attribute, ClassItem, ClassMap, KeyFrameList}, style::CgColor};
+use pi_style::{style_parse::{Attribute, ClassItem, ClassMap, KeyFrameList}, style::{CgColor, StrokeDasharray, Stroke}};
 use serde::{Deserialize, Serialize};
 
 use crate::{
     components::{
         user::{
             serialize::{DefaultStyle, StyleTypeReader},
-            Animation, Canvas, RenderDirty, RenderTargetType, Viewport, AsImage,
+            Animation, Canvas, RenderDirty, RenderTargetType, Viewport, AsImage, SvgContent,
         },
         NodeBundle, calc::EntityKey,
     },
@@ -247,6 +247,10 @@ pub enum CmdType {
 	SdfCfgCmd(FontCfgCmd),
 	SdfDefaultCharCmd(SdfDefaultCharCmd),
 	Sdf2CfgCmd(FontSdf2Cmd),
+    // SVG
+    SvgStrokeCmd(SvgStrokeCmd),
+    StrokeDasharrayCmd(StrokeDasharrayCmd),
+    SvgShapeCmd(SvgShapeCmd),
 }
 
 // #[derive(Clone)]
@@ -256,3 +260,88 @@ pub enum CmdType {
 // 		world.get_resource_mut::<KeyFramesSheet>().unwrap().set_event_listener(self.0);
 //     }
 // }
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SvgColorCmd(pub Entity, pub CgColor);
+
+impl Command for SvgColorCmd {
+    fn apply(self, world: &mut World) {
+        let component_id = world.init_component::<SvgContent>();
+        println!("component_id3: {:?}", component_id);
+        if let Some(mut component) = world.get_mut_by_id(self.0, component_id) {
+            component.set_changed();
+            let v = unsafe { component.into_inner().deref_mut::<SvgContent>() };
+            v.style.fill_color = pi_style::style::Color::RGBA(self.1);
+        } else {
+            let mut svg = SvgContent::default();
+            svg.style.fill_color = pi_style::style::Color::RGBA(self.1);
+            world.entity_mut(self.0).insert(svg);
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SvgStrokeCmd(pub Entity, pub Stroke);
+
+impl Command for SvgStrokeCmd {
+    fn apply(self, world: &mut World) {
+        let component_id = world.init_component::<SvgContent>();
+        if let Some(mut component) = world.get_mut_by_id(self.0, component_id) {
+            component.set_changed();
+            let v = unsafe { component.into_inner().deref_mut::<SvgContent>() };
+            v.style.stroke = self.1;
+        } else {
+            let mut svg = SvgContent::default();
+            svg.style.stroke = self.1;
+            world.entity_mut(self.0).insert(svg);
+        }
+
+        // event_writer.send(ComponentEvent::<Changed<SvgContent>>::new(*entity));
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct StrokeDasharrayCmd(pub Entity, pub StrokeDasharray);
+
+impl Command for StrokeDasharrayCmd {
+    fn apply(self, world: &mut World) {
+        let component_id = world.init_component::<SvgContent>();
+        if let Some(mut component) = world.get_mut_by_id(self.0, component_id) {
+            component.set_changed();
+            let v = unsafe { component.into_inner().deref_mut::<SvgContent>() };
+            v.style.stroke_dasharray = self.1;
+        } else {
+            let mut svg = SvgContent::default();
+            svg.style.stroke_dasharray = self.1;
+            world.entity_mut(self.0).insert(svg);
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum Shape {
+    Rect { x: f32, y: f32, width: f32, height: f32 },
+    Circle { cx: f32, cy: f32, radius: f32 },
+    Ellipse { cx: f32, cy: f32, rx: f32, ry: f32 },
+    Segment { ax: f32, ay: f32, bx: f32, by: f32},
+    Polygon { points: Vec<[f32; 2]> },
+    Polyline { points: Vec<[f32; 2]> },
+    Path { points: Vec<[f32; 2]>, verb: Vec<pi_hal::pi_sdf::shape::PathVerb>}
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SvgShapeCmd(pub Entity, pub Shape);
+
+impl Command for SvgShapeCmd {
+    fn apply(self, world: &mut World) {
+        let component_id = world.init_component::<SvgContent>();
+        if let Some(mut component) = world.get_mut_by_id(self.0, component_id) {
+            component.set_changed();
+            let v = unsafe { component.into_inner().deref_mut::<SvgContent>() };
+            v.shape = Some(self.1);
+        } else {
+            let mut svg = SvgContent::default();
+            svg.shape = Some(self.1);
+            world.entity_mut(self.0).insert(svg);
+        }
+    }
+}

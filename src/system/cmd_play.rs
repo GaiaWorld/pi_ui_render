@@ -281,6 +281,9 @@ pub fn cmd_play(world: &mut World, state: &mut SystemState<(Commands, OrInitRes<
             CmdType::Sdf2CfgCmd(r) => {
 				cmds.push_cmd(r.clone());
 			},
+            CmdType::SvgStrokeCmd(c) => todo!(),
+            CmdType::StrokeDasharrayCmd(c) => todo!(),
+            CmdType::SvgShapeCmd(c) => todo!(),
         };
     }
 

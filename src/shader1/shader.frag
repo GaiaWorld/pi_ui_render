@@ -14,6 +14,7 @@ layout(location = 10) in vec4 vData8; // vec4 gradient_color3
 layout(location = 11) in vec4 vData9; // vec4 gradient_end
 layout(location = 12) in vec4 vData10; // vec4 border_image_uv_offset | vec4 u_outline(描边颜色rgb + 描边宽度u_outline.w); 
 layout(location = 13) in vec4 vData11; // float alpha; float ty;float depth;
+layout(location = 14) in vec2 vData12; // float alpha; float ty;float depth;
 
 layout(set = 0, binding = 0) uniform Camera {
 	mat4 project;
@@ -865,6 +866,21 @@ vec4 outer_glow(float dist_f_, vec4 color_v4_, vec4 input_color_v4_, float radiu
     return color_v4_ + input_color_v4_ * b_f;
 }
 
+// 虚线处理
+vec4 stroke_dasharray(vec4 input_color,vec4 start_and_step){
+	vec2 u_pos = vData12;
+	vec2 start = start_and_step.xy;
+	float u_step = start_and_step.z + start_and_step.w;
+	float a1 = mod(length(u_pos - start), u_step);
+	a1 = smoothstep(0.0, 1.0, -(a1 - start_and_step.z + 0.2));
+
+	float a2 = mod(length(u_pos - start) + start_and_step.w, u_step);
+	a2 = smoothstep(0.0, 1.0, (a2 - start_and_step.w + 0.2));
+
+	float a = a1 * a2;
+	return vec4(input_color.xyz, input_color.w * a);
+}
+
 void calc_sdf_color(int ty1) {
 	vec2 nominal_size = vData3.zw;
 	vec2 p = vUv * nominal_size;
@@ -886,9 +902,11 @@ void calc_sdf_color(int ty1) {
 	sdist = sdist - weight * distancePerPixel;
 
 	float alpha = antialias_sdf2(sdist);
+	if (vData10.w > 0.0){
+		alpha = step(0., -sdist);
+	}
 
-
-	vec4 faceColor = vec4(vData0.rgb, alpha);
+	vec4 faceColor = vec4(vData0.rgb, vData0.a * alpha);
 
 	if ((ty1 & 4096) != 0) { // 线性渐变颜色
 
@@ -925,18 +943,25 @@ void calc_sdf_color(int ty1) {
 	float outlineWidth 		= u_outline.w * distancePerPixel;
 	vec4 outlineColor 		= vec4(u_outline.xyz, 1.0);
 	// outlineColor.rgb *=0.0;
-	float outline 			= (1.0 - smoothstep(0., outlineWidth, abs(sdist))) * step(-0.1, sdist);
-	float alphaOutline 		= min(outline, 1.0 - alpha) * step(0.001, outline);
+	float outline 			= (1.0 - smoothstep(0., outlineWidth, abs(sdist)));// * step(-0.1, sdist);
+	float alphaOutline 		= outline; // min(outline, 1.0 - alpha) * step(0.001, outline);
 	float outlineFactor 	= smoothstep(0.0, outlineSofeness, alphaOutline);
-	outlineColor.a 			= outlineFactor;
+	// outlineColor.a 			= outlineFactor;
 	vec4 finalColor 		= mix(faceColor, outlineColor, outlineFactor);
 
 	if ((ty1 & 262144) != 0) {// 外发光
 		vec4 outer_glow_color_and_dist = vData5;
 		o_Target = outer_glow(sdist, finalColor, vec4(outer_glow_color_and_dist.xyz, 1.0) , outer_glow_color_and_dist.w);
-	} else {
+	} 
+	else if ((ty1 & 524288) != 0) {// 虚线
+		vec4 start_and_step = vData5;
+		o_Target = stroke_dasharray(finalColor, start_and_step);
+	} 
+	else {
 		o_Target = finalColor;
 	}
+	// vec2 u_pos = vData12;
+	// o_Target = vec4(u_pos.y / 420.0, 0.0, 0.0, 1.0);
 
 	// o_Target = vec4(1.0, 0.0, 0.0, 1.0);
 }

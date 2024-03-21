@@ -52,7 +52,7 @@ layout(location = 10) out vec4 vData8; // vec4 gradient_color3
 layout(location = 11) out vec4 vData9; // vec4 gradient_end
 layout(location = 12) out vec4 vData10; // vec4 border_image_offset | vec4 u_outline(描边颜色rgb + 描边宽度u_outline.w)
 layout(location = 13) out vec4 vData11; // float alpha; float ty;
-// layout(location = 14) out vec2 index_1; // float alpha; float ty;
+layout(location = 14) out vec2 vData12; // float alpha; float ty;
 
 
 void main() {
@@ -99,14 +99,19 @@ void main() {
 		vec2 slope = data4.zw;
 		float x = (slope.y - a_glyph_vertex.y) * slope.x;
 		vVertexPosition = vec2(a_glyph_vertex.x + x, a_glyph_vertex.y) + data1.xy;
-
 		// vVertexPosition = position * 20.0 + data1.xy;
 		// if data1.x > 10.0 && data1.x < 11.0 {
 		// 	vVertexPosition = position * 20.0 + vec2(50.0, 50.0 );
 		// } else {
 		// 	vVertexPosition = position * 20.0 + data1.xy;
 		// }
-		vUv = vec2(position.x, 1.0 - position.y);
+		if ((ty1 & 1048576) != 0){
+			// svg uv不需要y轴颠倒
+			vUv = vec2(position.x, position.y);
+		}else{
+			// 字体需要颠倒
+			vUv = vec2(position.x, 1.0 - position.y);
+		}
 	} else {
 		vVertexPosition = position * vData1.zw + vData1.xy; // 位置（布局坐标系）
 	}
@@ -117,6 +122,7 @@ void main() {
 			+ quad1.zw * step(0.9, p_index) * step(p_index, 1.1) // 0.9 < p_index <= 1.1, 只可能是1.0
 			+ quad2.zw * step(1.9, p_index) * step(p_index, 2.1) // 1.9 < p_index <= 2.1， 只可能是2.0
 			+ quad2.zy * step(2.9, p_index); // > 2.9, 只肯可能是3.0
+	vData12 = p;
 	gl_Position = project * view * vec4(p, 1.0, 1.0);
 	// gl_Position = project * view * vec4(vVertexPosition, 1.0, 1.0);
 	// gl_Position.z = depth_offset +  depth;

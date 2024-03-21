@@ -16,7 +16,7 @@ pub use pi_flex_layout::prelude::{Dimension, Number, Rect, Size as FlexSize};
 use pi_flex_layout::style::{AlignContent, AlignItems, AlignSelf, Direction, Display, FlexDirection, FlexWrap, JustifyContent, PositionType, OverflowWrap};
 use pi_null::Null;
 use pi_slotmap::DefaultKey;
-use pi_style::style::TextOverflow;
+use pi_style::style::{TextOverflow, StrokeDasharray};
 pub use pi_style::style::{
     Aabb2, AnimationDirection, AnimationFillMode, AnimationName, AnimationPlayState, AnimationTimingFunction, CgColor, Color, ColorAndPosition,
     Enable, FitType, FontSize, FontStyle, ImageRepeat, IterationCount, LengthUnit, LineHeight, LinearGradientColor, NotNanRect, ShowType, Stroke,
@@ -32,6 +32,7 @@ use pi_style::{
     style_type::ClassMeta,
 };
 
+use crate::resource::Shape;
 use crate::resource::animation_sheet::TransitionData;
 
 use super::calc::{NeedMark, EntityKey};
@@ -269,6 +270,13 @@ impl NeedMark for Opacity {
 pub struct TextContent(pub TextContent1);
 
 
+#[derive(Component, Default)]
+pub struct SvgContent {
+    pub shape: Option<Shape>,
+    pub style: SvgStyle,
+    pub hash: u64,
+}
+
 // 将display、visibility、enable合并为show组件
 #[derive(Deref, Clone, Debug, PartialEq, Serialize, Deserialize, Component)]
 pub struct Show(pub usize);
@@ -405,6 +413,22 @@ pub struct TextStyle {
     // pub font_family: Atom,     //	规定字体系列。参阅：font-family 中可能的值。
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, Component)]
+pub struct SvgStyle {
+    pub stroke: Stroke,
+    pub fill_color: Color, //颜色
+    pub stroke_dasharray: StrokeDasharray,
+}
+
+impl Default for SvgStyle {
+    fn default() -> Self {
+        Self {
+            stroke: Default::default(),
+            fill_color: Default::default(),
+            stroke_dasharray: Default::default(),
+        }
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, Component, Default)]
 pub struct TextOverflowData {
