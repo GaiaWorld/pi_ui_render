@@ -1,6 +1,6 @@
 [package]
 name = "pi_ui_render"
-version = "0.1.37"
+version = "0.1.38"
 authors = ["suncy <suncy@gmail.com>"]
 edition = "2021"
 description = "Renderer 2D UI with Bevy Ecs"
@@ -257,17 +257,17 @@ pi_style = {path = "../pi_style"}
 # winit = {path = "../winit"}
 # font_kit = { path = "../font_kit" }
 pi_hal = { path = "../pi_hal" }
-pi_sdf = { path = "../pi_sdf" }
+# pi_sdf = { path = "../pi_sdf" }
 
 # bevy
-# pi_bevy_ecs_extend = { path = "../pi_bevy/crates/ecs_extend" }
-# pi_bevy_render_plugin = { path = "../pi_bevy/crates/render" }
-# pi_bevy_asset = { path = "../pi_bevy/crates/asset" }
-# pi_bevy_winit_window = { path = "../pi_bevy/crates/winit_window" }
-# pi_bevy_log = { path = "../pi_bevy/crates/log" }
-# pi_bevy_ecs_macro = { path = "../pi_bevy/crates/ecs_extend/macro" }
-# pi_bevy_post_process = { path = "../pi_bevy/crates/post_process" }
-# pi_bevy_window = { path = "../pi_bevy/crates/window" }
+pi_bevy_ecs_extend = { path = "../pi_bevy/crates/ecs_extend" }
+pi_bevy_render_plugin = { path = "../pi_bevy/crates/render" }
+pi_bevy_asset = { path = "../pi_bevy/crates/asset" }
+pi_bevy_winit_window = { path = "../pi_bevy/crates/winit_window" }
+pi_bevy_log = { path = "../pi_bevy/crates/log" }
+pi_bevy_ecs_macro = { path = "../pi_bevy/crates/ecs_extend/macro" }
+pi_bevy_post_process = { path = "../pi_bevy/crates/post_process" }
+pi_bevy_window = { path = "../pi_bevy/crates/window" }
 
 # pi_bevy_ecs_extend = { path = "../pi_bevy/crates/ecs_extend" }
 # pi_bevy_render_plugin = { path = "../pi_bevy/crates/render" }
@@ -279,10 +279,10 @@ pi_sdf = { path = "../pi_sdf" }
 # pi_bevy_window = { path = "../pi_bevy/crates/window" }
 
 # pi_render
-# pi_render = { path = "../pi_render" }
-# render_core = {path = "../pi_render/crates/render_core"}
-# render_derive = {path = "../pi_render/crates/render_derive"}
-# render_compile = {path = "../pi_render/crates/render_compile"}
+pi_render = { path = "../pi_render" }
+render_core = {path = "../pi_render/crates/render_core"}
+render_derive = {path = "../pi_render/crates/render_derive"}
+render_compile = {path = "../pi_render/crates/render_compile"}
 
 # pi_render = { path = "../pi_render" }
 # render_core = {path = "../pi_render/crates/render_core"}

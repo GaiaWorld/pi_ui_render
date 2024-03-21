@@ -17,12 +17,12 @@ use pi_map::vecmap::VecMap;
 use pi_render::{
     renderer::{draw_obj::DrawBindGroup, vertices::{RenderVertices, EVerticesBufferUsage}},
     rhi::{
-        asset::{RenderRes, TextureRes},
+        asset::{RenderRes, TextureRes, AssetWithId},
         bind_group::BindGroup,
         bind_group_layout::BindGroupLayout,
         buffer::Buffer,
         device::RenderDevice,
-        dyn_uniform_buffer::GroupAlloter,
+        dyn_uniform_buffer::{GroupAlloter, BufferGroup},
         pipeline::RenderPipeline,
         shader::{AsLayoutEntry, BindLayout, ShaderMeta, ShaderProgram, Input},
         texture::PiRenderDefault, RenderQueue,
@@ -36,8 +36,8 @@ use wgpu::{
 };
 
 use crate::{
-    components::{draw_obj::{DrawState, PipelineMeta}, pass_2d::{CacheTarget, InstanceDrawState}},
-	shader1::meterial::{CameraBind, MeterialBind},
+    components::{draw_obj::{DrawState, PipelineMeta}, pass_2d::{CacheTarget, InstanceDrawState}, calc::WorldMatrix},
+	shader1::meterial::{CameraBind, MeterialBind, ProjectUniform, ViewUniform},
     shader::{
         depth::{DepthBind, DepthUniform},
         ui_meterial::UiMaterialBind, color::PositionVert,
@@ -70,48 +70,8 @@ use crate::{
 // 	// pub prepare_bindgroups: Vec<BindGroup>, // 空闲的BindGroup， 通常用于本次改变时， 准备当前数据（准备完成后， 需要跟cur进行交换， 使得渲染数据得以更新）
 // }
 
-#[derive(Debug)]
-pub struct AssetWithId<T: Asset> {
-	pub id: KeyData,
-	pub value: Handle<T>,
-	alloter: Share<Share<pi_key_alloter::KeyAlloter>>,
-}
-impl<T: Asset> AssetWithId<T> {
-    pub fn new(value: Handle<T>, alloter: Share<pi_key_alloter::KeyAlloter>) -> Self {
-		let r = alloter.alloc(1, 1);
-        Self {
-            id: r,
-            value,
-            alloter: Share::new(alloter),
-        }
-    }
-}
-
-impl<T: Asset> Deref for AssetWithId<T> {
-    type Target = Handle<T>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.value
-    }
-}
-
-
-impl<T: Asset> Drop for AssetWithId<T> {
-    fn drop(&mut self) {
-		if Share::strong_count(&self.alloter) == 1 {
-			self.alloter.recycle(self.id);
-		}
-    }
-}
-
-impl<T: Asset> Clone for AssetWithId<T> {
-    fn clone(&self) -> Self {
-        Self { id: self.id.clone(), value: self.value.clone(), alloter: self.alloter.clone() }
-    }
-}
-
 // 纹理key分配器
-#[derive(Debug, Default, Resource, Clone)]
+#[derive(Debug, Default, Resource, Clone, Deref)]
 pub struct TextureKeyAlloter(pub Share<pi_key_alloter::KeyAlloter>);
 
 // 批处理纹理
@@ -119,12 +79,13 @@ pub struct BatchTexture {
 	// max_bind: usize,
 	
 	temp_texture_indexs: SecondaryMap<DefaultKey, u32>, // 纹理在该bindgroup中的binding, 以及本利本身
-	temp_textures: Vec<(Handle<TextureRes>, Share<wgpu::Sampler>)>,
+	temp_textures: Vec<(Handle<AssetWithId<TextureRes>>, Share<wgpu::Sampler>)>,
 
 	// group_layouts: Vec<wgpu::BindGroupLayout>,
 	group_layout: wgpu::BindGroupLayout,
 	pub(crate) default_texture_view: wgpu::TextureView,
 	pub(crate) default_sampler: wgpu::Sampler,
+	pub default_texture_group: wgpu::BindGroup,
 }
 
 impl BatchTexture {
@@ -171,6 +132,18 @@ impl BatchTexture {
 			view_formats: &[],
 		});
 		let texture_view = default_texture.create_view(&TextureViewDescriptor::default());
+		let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+			label: Some("default sampler"),
+			address_mode_u: wgpu::AddressMode::ClampToEdge,
+			address_mode_v: wgpu::AddressMode::ClampToEdge,
+			address_mode_w: wgpu::AddressMode::ClampToEdge,
+			mag_filter: wgpu::FilterMode::Linear,
+			min_filter: wgpu::FilterMode::Linear,
+			mipmap_filter: wgpu::FilterMode::Linear,
+			..Default::default()
+		});
+
+		let default_texture_group = Self::take_group1(device, &Vec::new(), &texture_view, &sampler, &group_layout);
 	
 		let r = Self {
 			// max_bind: Self::BINDING_COUNT,
@@ -179,23 +152,15 @@ impl BatchTexture {
 
 			group_layout,
 			default_texture_view: texture_view,
-			default_sampler: device.create_sampler(&wgpu::SamplerDescriptor {
-                label: Some("default sampler"),
-                address_mode_u: wgpu::AddressMode::ClampToEdge,
-                address_mode_v: wgpu::AddressMode::ClampToEdge,
-                address_mode_w: wgpu::AddressMode::ClampToEdge,
-                mag_filter: wgpu::FilterMode::Linear,
-                min_filter: wgpu::FilterMode::Linear,
-                mipmap_filter: wgpu::FilterMode::Linear,
-                ..Default::default()
-            }),
+			default_sampler: sampler,
+			default_texture_group,
 			// common_sampler: CommonSampler::new(device),
 		};
 		r
 	}
 	/// push一张纹理，返回纹理索引， 当纹理数量达到max_bind限制时， 会返回一个wgpu::BindGroup，并先清空当前所有的临时数据， 再添加数据
 	/// 注意， 目前同一张纹理只能用同一种采样方式，使用不同的采样样式push纹理，将不会覆盖之前的（主要原因是目前gui并没有不同采样方式的需求）
-	pub fn push(&mut self, texture: &AssetWithId<TextureRes>, sampler: &Share<Sampler>, device: &wgpu::Device) -> (usize, Option<wgpu::BindGroup>) {
+	pub fn push(&mut self, texture: &Handle<AssetWithId<TextureRes>>, sampler: &Share<Sampler>, device: &wgpu::Device) -> (usize, Option<wgpu::BindGroup>) {
 		let mut index = self.temp_textures.len();
 
 		if let Some(r) = self.temp_texture_indexs.get(DefaultKey::from(texture.id)) {
@@ -211,15 +176,24 @@ impl BatchTexture {
 		}
 
 		self.temp_texture_indexs.insert(DefaultKey::from(texture.id), index as u32);
-		self.temp_textures.push((texture.value.clone(), sampler.clone()));
+		self.temp_textures.push((texture.clone(), sampler.clone()));
 
 		(index, group)
 	}
 
 	/// 将当前的临时数据立即创建一个bindgroup，并返回
 	pub fn take_group(&mut self, device: &wgpu::Device) -> Option<wgpu::BindGroup> {
+		let group = Some(Self::take_group1(device, &self.temp_textures, &self.default_texture_view, &self.default_sampler, &self.group_layout));
+		// 清理临时数据
+		self.temp_texture_indexs.clear();
+		self.temp_textures.clear();
+		group
+	}
+
+	/// 将当前的临时数据立即创建一个bindgroup，并返回
+	fn take_group1(device: &wgpu::Device, temp_textures: &Vec<(Handle<AssetWithId<TextureRes>>, Share<wgpu::Sampler>)>, default_texture_view: &wgpu::TextureView, default_sampler: &wgpu::Sampler, group_layout: &wgpu::BindGroupLayout) -> wgpu::BindGroup {
 		let mut entrys = Vec::with_capacity(Self::BINDING_COUNT as usize * 2);
-		for (binding, (texture, sampler)) in self.temp_textures.iter().enumerate() {
+		for (binding, (texture, sampler)) in temp_textures.iter().enumerate() {
 			entrys.push(
 				BindGroupEntry {
 					binding: (binding * 2) as u32,
@@ -235,31 +209,27 @@ impl BatchTexture {
 		}
 
 		
-		for binding in self.temp_textures.len()..Self::BINDING_COUNT as usize {
+		for binding in temp_textures.len()..Self::BINDING_COUNT as usize {
 			// log::warn!("len===================={:?}", (self.temp_textures.len(), binding));
 			entrys.push(
 				BindGroupEntry {
 					binding: (binding * 2) as u32,
-					resource: wgpu::BindingResource::TextureView(&self.default_texture_view) ,
+					resource: wgpu::BindingResource::TextureView(default_texture_view) ,
 				}
 			);
 			entrys.push(
 				BindGroupEntry {
 					binding: (binding * 2 + 1) as u32,
-					resource: wgpu::BindingResource::Sampler(&self.default_sampler) ,
+					resource: wgpu::BindingResource::Sampler(default_sampler) ,
 				}
 			);
 		}
 		
-		let group = Some(device.create_bind_group(&wgpu::BindGroupDescriptor {
+		device.create_bind_group(&wgpu::BindGroupDescriptor {
 			label: Some("batch texture bindgroup"),
-			layout: &self.group_layout, //&self.group_layouts[self.temp_textures.len() - 1],
+			layout: group_layout, //&self.group_layouts[self.temp_textures.len() - 1],
 			entries: entrys.as_slice(),
-		}));
-		// 清理临时数据
-		self.temp_texture_indexs.clear();
-		self.temp_textures.clear();
-		group
+		})
 	}
 
 	/// 将当前的临时数据立即创建一个bindgroup，并返回
@@ -330,8 +300,9 @@ pub struct InstanceContext {
 	pub camera_alloter: ShareGroupAlloter<CameraGroup>,
 
 	pub pipeline_layout: PipelineLayout,
+
+	pub default_camera: BufferGroup,
 }
-// wgpu::RenderPipeline
 
 impl InstanceContext {
 	pub fn draw<'a>(&'a self, rp: &mut RenderPass<'a>, instance_draw: &'a InstanceDrawState) {
@@ -495,6 +466,11 @@ impl FromWorld for InstanceContext {
 		pipeline_cache.insert(premultiply_blend_state_hash, premultiply_pipeline.clone());
 		pipeline_cache.insert(clear_blend_state_hash, clear_pipeline.clone());
 
+		let view_project = WorldMatrix::default().0;
+		let mut default_camera = camera_alloter.alloc();
+		let _ = default_camera.set_uniform(&ProjectUniform(view_project.as_slice()));
+		let _ = default_camera.set_uniform(&ViewUniform(view_project.as_slice()));
+
 		
 		Self {
 			vert: RenderVertices {
@@ -523,6 +499,7 @@ impl FromWorld for InstanceContext {
 			sdf2_texture_layout: text_texture_layout,
 			camera_alloter,
 			pipeline_layout,
+			default_camera,
 		}
     }
 	

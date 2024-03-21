@@ -929,7 +929,7 @@ void calc_sdf_color(int ty1) {
 		vec3 color      = gColor1 * step(gradient, gPosition.x)
 								// 这里加上0.00001 避免除以0
 								+ mix(gColor1, gColor2, (gradient - gPosition.x) / (gPosition.y - gPosition.x + 0.00001)) * step(gPosition.x, gradient) * step(gradient, gPosition.y) 
-								+ mix(gColor2, gColor3, (gradient - gPosition.y) / (gPosition.z - gPosition.w + 0.00001)) * step(gPosition.y, gradient) * step(gradient, gPosition.z)
+								+ mix(gColor2, gColor3, (gradient - gPosition.y) / (gPosition.z - gPosition.y + 0.00001)) * step(gPosition.y, gradient) * step(gradient, gPosition.z)
 								+ mix(gColor3, gColor4, (gradient - gPosition.z) / (gPosition.w - gPosition.z + 0.00001)) * step(gPosition.z, gradient) * step(gradient, gPosition.w) 
 								+ gColor4 * step(gPosition.w, gradient);
 		faceColor = vec4(color, alpha);
@@ -1185,7 +1185,7 @@ void main(void) {
 		color      = gColor1 * step(gradient, gPosition.x)
 								// 这里加上0.00001 避免除以0
 								+ mix(gColor1, gColor2, (gradient - gPosition.x) / (gPosition.y - gPosition.x + 0.00001)) * step(gPosition.x, gradient) * step(gradient, gPosition.y) 
-								+ mix(gColor2, gColor3, (gradient - gPosition.y) / (gPosition.z - gPosition.w + 0.00001)) * step(gPosition.y, gradient) * step(gradient, gPosition.z)
+								+ mix(gColor2, gColor3, (gradient - gPosition.y) / (gPosition.z - gPosition.y + 0.00001)) * step(gPosition.y, gradient) * step(gradient, gPosition.z)
 								+ mix(gColor3, gColor4, (gradient - gPosition.z) / (gPosition.w - gPosition.z + 0.00001)) * step(gPosition.z, gradient) * step(gradient, gPosition.w) 
 								+ gColor4 * step(gPosition.w, gradient);
 	} else if ((ty1 & 16384) != 0) {  // box_shadow

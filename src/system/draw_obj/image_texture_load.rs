@@ -18,7 +18,7 @@ use pi_bevy_ecs_extend::system_param::res::OrInitRes;
 use pi_bevy_render_plugin::{PiRenderDevice, PiRenderQueue};
 use pi_hal::{loader::AsyncLoader, runtime::RENDER_RUNTIME};
 use pi_null::Null;
-use pi_render::rhi::asset::{ImageTextureDesc, TextureRes};
+use pi_render::rhi::asset::{ImageTextureDesc, TextureRes, AssetWithId, TextureAssetDesc};
 use pi_share::Share;
 
 use crate::{components::user::RenderDirty, resource::draw_obj::TextureKeyAlloter};
@@ -26,13 +26,13 @@ use crate::{components::user::RenderDirty, resource::draw_obj::TextureKeyAlloter
 use super::calc_text::IsRun;
 
 #[derive(Clone, Resource)]
-pub struct ImageAwait<Key: 'static + Send + Sync, T>(pub Share<SegQueue<(Key, Atom, Handle<TextureRes>)>>, PhantomData<T>);
+pub struct ImageAwait<Key: 'static + Send + Sync, T>(pub Share<SegQueue<(Key, Atom, Handle<AssetWithId<TextureRes>>)>>, PhantomData<T>);
 
 impl<Key: 'static + Send + Sync, T> Default for ImageAwait<Key, T> {
     fn default() -> Self { Self(Share::new(SegQueue::new()), PhantomData) }
 }
 
-pub struct CalcImageLoad<S: std::ops::Deref<Target = Atom>, D: From<Handle<TextureRes>>>(PhantomData<(S, D)>);
+pub struct CalcImageLoad<S: std::ops::Deref<Target = Atom>, D: From<Handle<AssetWithId<TextureRes>>>>(PhantomData<(S, D)>);
 
 /// Image创建，加载对应的图片
 /// 图片加载是异步，加载成功后，不能立即将图片对应的纹理设置到BorderImageTexture上
@@ -40,12 +40,12 @@ pub struct CalcImageLoad<S: std::ops::Deref<Target = Atom>, D: From<Handle<Textu
 /// 这里是将一个加载成功的Texture放入一个加锁的列表中，在system执行时，再放入到BorderImageTexture中
 pub fn image_load<
     S: Component + std::ops::Deref<Target = Atom> + From<Atom> + std::cmp::PartialEq,
-    D: Component + From<(Handle<TextureRes>, TextureKeyAlloter)> + Null,
+    D: Component + From<Handle<AssetWithId<TextureRes>>> + Null + Eq + PartialEq,
 >(
     query: Query<(Entity, &S), Changed<S>>,
     query_src: Query<(Entity, &S)>,
     mut del: RemovedComponents<S>,
-    texture_assets_mgr: Res<ShareAssetMgr<TextureRes>>,
+    texture_assets_mgr: Res<ShareAssetMgr<AssetWithId<TextureRes>>>,
     image_await: OrInitRes<ImageAwait<Entity, S>>,
     queue: Res<PiRenderQueue>,
     device: Res<PiRenderDevice>,
@@ -69,7 +69,7 @@ pub fn image_load<
 
     let f = |d: &mut D, s, _entity| {
 		let is_null = d.is_null();
-        *d = D::from(s);
+		*d = s;
 		is_null
     };
 
@@ -89,7 +89,7 @@ pub fn image_load<
         );
     }
 
-    let is_change = set_texture(&image_await, Some(&mut event_writer), &query_src, &mut query_dst, &key_alloter, f);
+    let is_change = set_texture(&image_await, Some(&mut event_writer), &query_src, &mut query_dst, f);
 	if is_change {
 		for mut r in dirty.iter_mut() {
 			**r = true;
@@ -98,7 +98,7 @@ pub fn image_load<
 }
 
 #[inline]
-pub fn load_image<'w, S: Component, D: Component, F: FnMut(&mut D, (Handle<TextureRes>, TextureKeyAlloter), Entity) -> bool>(
+pub fn load_image<'w, S: Component, D: Component + Eq + PartialEq + From<Handle<AssetWithId<TextureRes>>> + Null, F: FnMut(&mut D, D, Entity) -> bool>(
     entity: Entity,
     key: &Atom,
     image_await: &ImageAwait<Entity, S>,
@@ -106,7 +106,7 @@ pub fn load_image<'w, S: Component, D: Component, F: FnMut(&mut D, (Handle<Textu
     queue: &PiRenderQueue,
     event_writer: Option<&mut EventWriter<ComponentEvent<Changed<D>>>>,
     query_dst: &mut Query<&'w mut D>,
-    texture_assets_mgr: &ShareAssetMgr<TextureRes>,
+    texture_assets_mgr: &ShareAssetMgr<AssetWithId<TextureRes>>,
 	key_alloter: &TextureKeyAlloter,
     mut f: F,
 ) {
@@ -114,25 +114,31 @@ pub fn load_image<'w, S: Component, D: Component, F: FnMut(&mut D, (Handle<Textu
     match result {
         LoadResult::Ok(r) => {
             if let Ok(mut dst) = query_dst.get_mut(entity) {
-                f(&mut dst, (r, key_alloter.clone()), entity);
-                if let Some(event_writer) = event_writer {
-                    event_writer.send(ComponentEvent::new(entity));
-                }
+				let r = D::from(r);
+				if *dst != r {
+					f(&mut dst, r, entity);
+					if let Some(event_writer) = event_writer {
+						event_writer.send(ComponentEvent::new(entity));
+					}
+				}
+                
             }
         }
         _ => {
             let (awaits, device, queue) = (image_await.0.clone(), (*device).clone(), (*queue).clone());
             let (id, key) = (entity, (*key).clone());
 
+			let key_alloter = key_alloter.0.clone();
             RENDER_RUNTIME
                 .spawn(async move {
-                    let desc = ImageTextureDesc {
+                    let desc = TextureAssetDesc {
                         url: &key,
                         device: &device,
                         queue: &queue,
+                        alloter: &key_alloter,
                     };
 
-                    let r = TextureRes::async_load(desc, result).await;
+                    let r = AssetWithId::<TextureRes>::async_load(desc, result).await;
                     match r {
                         Ok(r) => {
                             awaits.push((id, key.clone(), r));
@@ -149,12 +155,11 @@ pub fn load_image<'w, S: Component, D: Component, F: FnMut(&mut D, (Handle<Textu
 
 // 设置纹理， 返回是否修改问题（同一节点，修改图片路径， 且新旧图片尺寸不一致，新图片异步加载会导致脏区域计算问题，此时此时直接设置全局脏）
 #[inline]
-pub fn set_texture<'w, S: Component + From<Atom> + std::cmp::PartialEq, D: Component, F: FnMut(&mut D, (Handle<TextureRes>, TextureKeyAlloter), Entity) -> bool>(
+pub fn set_texture<'w, S: Component + From<Atom> + std::cmp::PartialEq, D: Component + Eq + PartialEq + From<Handle<AssetWithId<TextureRes>>> + Null, F: FnMut(&mut D, D, Entity) -> bool>(
     image_await: &ImageAwait<Entity, S>,
     mut event_writer: Option<&mut EventWriter<ComponentEvent<Changed<D>>>>,
     query_src: &Query<(Entity, &S)>,
     query_dst: &mut Query<&'w mut D>,
-	key_alloter: &TextureKeyAlloter,
     mut f: F,
 ) -> bool {
 	let mut is_change = false;
@@ -167,7 +172,7 @@ pub fn set_texture<'w, S: Component + From<Atom> + std::cmp::PartialEq, D: Compo
                     continue;
                 }
                 if let Ok(mut dst) = query_dst.get_mut(id) {
-                    is_change =  f(&mut dst, (texture, key_alloter.clone()), id) || is_change;
+                    is_change =  f(&mut dst, D::from(texture), id) || is_change;
                     if let Some(event_writer) = &mut event_writer {
                         event_writer.send(ComponentEvent::new(id));
                     }
