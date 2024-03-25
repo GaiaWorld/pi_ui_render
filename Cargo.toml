@@ -266,7 +266,7 @@ bevy_math = { path = "../bevy/crates/bevy_math" }
 [patch.yn]
 # pi_curves  = {path="../pi_curves"}
 # pi_animation = { path="../pi_animation"}
-# pi_style = {path = "../pi_style"}
+pi_style = {path = "../pi_style"}
 # pi_wgpu = {path = "../pi_wgpu"}
 # pi_egl = {path = "../pi_egl"}
 # winit = {path = "../winit"}

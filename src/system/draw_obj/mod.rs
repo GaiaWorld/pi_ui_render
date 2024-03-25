@@ -35,6 +35,7 @@ use self::calc_border_color::BorderColorPlugin;
 use self::calc_border_image::BorderImagePlugin;
 use self::calc_box_shadow::BoxShadowPlugin;
 use self::calc_canvas::CanvasPlugin;
+use self::calc_svg::SvgPlugin;
 use self::life_drawobj::update_render_instance_data;
 use self::calc_text::UiTextPlugin;
 use bevy_window::AddFrameEvent;
@@ -49,6 +50,7 @@ pub mod calc_canvas;
 pub mod calc_text;
 pub mod image_texture_load;
 pub mod life_drawobj;
+pub mod calc_svg;
 
 pub mod blend_mode;
 pub mod clear_draw_obj;
@@ -111,7 +113,9 @@ impl Plugin for UiReadyDrawPlugin {
 		    // box-shadow功能
 		    .add_plugins(BoxShadowPlugin)
 		    // canvas功能
-		    .add_plugins(CanvasPlugin);
+		    .add_plugins(CanvasPlugin)
+            // svg功能
+		    .add_plugins(SvgPlugin);
     }
 }
 

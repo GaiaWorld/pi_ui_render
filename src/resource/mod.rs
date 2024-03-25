@@ -429,6 +429,23 @@ impl FromWorld for TextRenderObjType {
     }
 }
 
+// 文字渲染类型（在DrawList中分配槽位）
+#[derive(Debug, Deref, Clone, Copy, Resource)]
+pub struct SvgRenderObjType(RenderObjType);
+impl FromWorld for SvgRenderObjType {
+    fn from_world(world: &mut World) -> Self {
+        let ty = RenderObjType::from_world(world);
+        DrawObjDefault::add(
+            world,
+            ty,
+            DrawObjDefault {
+                blend_state: CommonBlendState::NORMAL,
+            },
+        );
+        Self(ty)
+    }
+}
+
 // 文字阴影渲染类型（在DrawList中分配槽位）
 #[derive(Debug, Deref, Clone, Copy, Resource)]
 pub struct TextShadowRenderObjType(RenderObjType);
