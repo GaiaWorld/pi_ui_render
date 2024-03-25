@@ -1445,6 +1445,10 @@ impl RenderTarget {
                     let width = (self.bound_box.maxs.x - self.bound_box.mins.x).ceil() as u32;
                     let height = (self.bound_box.maxs.y - self.bound_box.mins.y).ceil() as u32;
 
+					if width == 0 || height == 0 {
+						return None;
+					}
+
                     let as_image = match as_image {
                         Some(r) => r.level.clone(),
                         None => pi_style::style::AsImage::None,

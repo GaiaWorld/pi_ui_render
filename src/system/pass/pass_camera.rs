@@ -66,7 +66,8 @@ pub fn calc_camera_depth_and_renderlist(
                 &mut RenderTarget,
 				Option<&BackgroundImage>,
 				&Quad,
-				&Draw2DList,
+				(&Draw2DList,
+				&IsShow),
             ),
             Without<DrawState>,
         >,
@@ -147,10 +148,15 @@ pub fn calc_camera_depth_and_renderlist(
         mut render_target,
 		bg,
 		quad,
-		draw2d_list
+		(draw2d_list,
+		is_show),
     ) in query_pass.p0().iter_mut()
     {
         camera.is_active = false;
+
+		if !is_show.get_visibility() || !is_show.get_display() {
+			continue;
+		}
 
         let mut local_dirty_mark = local_dirty.0;
         local_dirty.0 = false;

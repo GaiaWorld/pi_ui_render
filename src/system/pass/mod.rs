@@ -46,6 +46,7 @@ impl Plugin for UiPassPlugin {
             .add_systems(Update, 
                 pass_camera::calc_camera_depth_and_renderlist
                     .after(pass_dirty_rect::calc_global_dirty_rect)
+					.after(UiSystemSet::BaseCalcFlush)
                     .in_set(UiSystemSet::PassCalc),
             )
 			

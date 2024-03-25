@@ -18,6 +18,7 @@
 ## 运行quad demo： `cargo run --example quad`
 	
 ## 测试gui性能 
++ `cargo run --example a_cmd_play --release --features tracing-chrome`
 + 利用feature屏蔽掉info一下的日志（性能将大幅度提升， 以layout为例，可以从400ms降为10ms）
 + 谨慎使用bevy command的**insert_or_spawn_batch**方法， 可能进入巨大的性能陷阱
 + 某些场景smallvecmap代替vecmap（calc_background_image system从48ms降低至35ms）

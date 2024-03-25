@@ -2,12 +2,12 @@
 mod framework;
 
 use std::mem::swap;
+use std::path::PathBuf;
 
 use bevy_ecs::system::Commands;
 use bevy_ecs::prelude::World;
-use font_kit::font::new_face_by_path;
+// use font_kit::font::new_face_by_path;
 use framework::Example;
-use pi_atom::Atom;
 use pi_flex_layout::prelude::Size;
 use pi_ui_render::resource::UserCommands;
 //
@@ -15,6 +15,7 @@ fn main() { framework::start(ExampleCommonPlay::new()) }
 
 pub struct ExampleCommonPlay {
     cmd: UserCommands,
+	current_dir: PathBuf,
 	// pub speed: f32, // 0~1的小数，<1时会放慢播放速度
 	// pub pre_time: std::time::Instant,
 }
@@ -23,11 +24,14 @@ impl ExampleCommonPlay {
 	fn new() -> Self {
 		Self {
 			cmd: UserCommands::default(),
+			current_dir: std::env::current_dir().unwrap(),
 			// speed: 0.5,
 			// pre_time: std::time::Instant::now(),
 		}
 	}
 }
+
+// pub const FILTER: &'static str = "wgpu=error,naga=warn,bevy_app=warn,bevy_ecs::schedule::executor::single_threaded=warn,bevy_ecs::system::commands=warn,pi_bevy_render_plugin=error";
 
 // pub struct Commands1 {
 //     queue: &'static mut CommandQueue,
@@ -57,7 +61,7 @@ impl Example for ExampleCommonPlay {
         }
 
         // let _dir = std::env::current_dir().unwrap();
-        // log::warn!("current_dir: {:?}", dir);
+        
 
         println!("view_port:{:?}", size);
     }
@@ -68,10 +72,26 @@ impl Example for ExampleCommonPlay {
     fn record_option(&self) -> pi_ui_render::system::cmd_play::TraceOption { pi_ui_render::system::cmd_play::TraceOption::Play }
 
     fn play_option(&self) -> Option<framework::PlayOption> {
-		Some(framework::PlayOption {
-			play_path: Some("D://0_js/cdqxz_new_mult_gui_exe/dst"),
-			play_version: "test",
-		})
+		let mut option = framework::PlayOption {
+			play_path: None,
+			play_version: "".to_string(),
+		};
+		if let Ok(config) = std::fs::read_to_string(self.current_dir.join("examples/a_cmd_play/source/run_config.txt")) {
+			let r = config.split(";");
+			for i in r {
+				let mut r = i.split("=");
+				if let (Some(key), Some(value)) = (r.next(), r.next()) {
+					let key = key.trim();
+					if key == "play_path" {
+						option.play_path = Some(value.trim().to_string());
+					} else if key == "play_version" {
+						option.play_version = value.trim().to_string();
+					}
+				}
+			}
+		};
+
+		Some(option)
 	}
 
     // fn render(&mut self, cmd: &mut UserCommands, _cmd1: &mut Commands) {

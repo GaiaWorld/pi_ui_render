@@ -1,5 +1,6 @@
 use std::ops::Range;
 
+use pi_null::Null;
 use pi_render::rhi::shader::{WriteBuffer, GetBuffer};
 
 use crate::shader1::meterial::TyUniform;
@@ -43,7 +44,7 @@ impl RenderInstances {
 			self.dirty_range.start = range.start;
 		}
 
-		if range.end > self.dirty_range.end {
+		if self.dirty_range.end.is_null() || range.end > self.dirty_range.end {
 			self.dirty_range.end = range.end;
 		}
 	}

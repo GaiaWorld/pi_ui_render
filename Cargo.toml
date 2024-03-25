@@ -13,17 +13,26 @@ crate-type = ["lib"]
 
 [features]
 # "glow/debug_trace_calls"
-# default = ["single_thread"]
+# default = ["single_thread", "trace"]
 wasm_bindgen = []
 debug = []
-trace = [
-	"debug", 
+trace = []
+tracing-chrome = [
+	"trace",
 	"pi_bevy_render_plugin/trace", 
 	"pi_bevy_log/tracing-chrome", 
-	# "pi_bevy_log/tracing-tracy", 
 	"bevy_app/trace", 
 	"bevy_ecs/trace",
 ]
+
+tracing-tracy = [
+	"trace",
+	"pi_bevy_render_plugin/trace", 
+	"pi_bevy_log/tracing-tracy", 
+	"bevy_app/trace", 
+	"bevy_ecs/trace",
+]
+
 single_thread = [
 	"pi_bevy_render_plugin/single_thread",
 	"pi_hal/single_thread",
@@ -114,6 +123,12 @@ pi_key_alloter = "0.4"
 # flume = "0.10"
 
 [dev-dependencies]
+
+# tracy-client-sys = "=0.22.0"
+# tracy-client = "=0.16.4"
+tracing-tracy = {version = "0.11", features = ["flush-on-exit"]}
+
+
 log = { version = "0.4", features = ["kv_unstable", "release_max_level_info"] }
 # log = { version = "0.4", features = ["kv_unstable", "max_level_off"] }
 float-ord = "0.3"
