@@ -352,18 +352,36 @@ pub fn init(width: u32, height: u32, _event_loop: &EventLoop<()>, w: Arc<pi_wini
 	window_plugin.primary_window = None;
 
 	let mut o = PiRenderOptions::default();
-	// o.present_mode = wgpu::PresentMode::Fifo;
+
+	o.present_mode = wgpu::PresentMode::Fifo;
 	// o.backends = wgpu::Backends::GL;
-	o.present_mode = wgpu::PresentMode::Mailbox;
+
+	// o.present_mode = wgpu::PresentMode::Mailbox;
 	o.backends = wgpu::Backends::VULKAN;
+
 	app.world.insert_resource(o);
 
 	// app.world.insert_resource(IsRun(true));
 
+	let filter = match std::env::var("RUST_LOG") {
+		Ok(r) => r,
+		Err(_) => "naga=warn,wgpu=warn".to_string(),
+	};
+
+	// let level = match std::env::var("RUST_LOG") {
+	// 	Ok(r) => match r.as_str() {
+	// 		"trace" => bevy_log::Level::TRACE,
+	// 		"info" => bevy_log::Level::INFO,
+	// 		"warn" => bevy_log::Level::WARN,
+	// 		"error" => bevy_log::Level::ERROR,
+	// 		_ => bevy_log::Level::INFO
+	// 	},
+	// 	Err(_) => bevy_log::Level::INFO,
+	// };
 
     app.add_plugins(pi_bevy_log::LogPlugin::<Vec<u8>> {
-        filter: FILTER.to_string(),
-        level: LOG_LEVEL,
+        filter,
+        level: LOG_LEVEL.clone(),
 		chrome_write: None,
     })
     .add_plugins(bevy_a11y::AccessibilityPlugin)
@@ -469,9 +487,9 @@ fn setting(cmd_path: Option<&str>, file_index1: &mut usize, world: &mut World, i
                 Some(r) => r.to_string(),
                 None => "examples/a_cmd_play/source".to_string(),
             };
-            let path = dir + "/cmd_" + play_option.play_version + "_" + file_index.to_string().as_str() + ".gui_cmd";
+            let path = dir + "/cmd_" + play_option.play_version.as_str() + "_" + file_index.to_string().as_str() + ".gui_cmd";
             // log::warn!("r================{:?}", path);
-            let _span = tracing::warn_span!("gui_cmd").entered();
+            // let _span = tracing::warn_span!("gui_cmd").entered();
             match std::fs::read(path.clone()) {
                 Ok(bin) => {
                     match postcard::from_bytes::<Records>(&bin) {
@@ -525,8 +543,8 @@ pub fn spawn(world: &mut World) -> Entity {
 
 #[derive(Resource, Clone)]
 pub struct PlayOption {
-	pub play_path: Option<&'static str>,
-	pub play_version: &'static str,
+	pub play_path: Option<String>,
+	pub play_version: String,
 }
 
 // #[allow(dead_code)]
@@ -544,8 +562,9 @@ pub struct PlayOption {
 // pub const FILTER: &'static str = "wgpu=warn,naga=trace";
 // pub const FILTER: &'static str = "wgpu=warn,pi_ui_render::system::pass::pass_graph_node=trace,pi_ui_render::system::pass_effect::radial_wave=trace,pi_ui_render::system::pass::pass_life=trace";
 // pub const FILTER: &'static str = "wgpu=warn,pi_ui_render::system::pass_effect::radial_wave=trace,pi_ui_render::system::pass::pass_life=trace,pi_ui_render::system::pass::update_graph=trace";
-pub const FILTER: &'static str = "wgpu=warn,naga=warn,bevy_app=warn,pi_ui_render::system::draw_obj::calc_svg=trace,pi_ui_render::system::draw_obj::life_drawobj=trace";
+// pi_bevy_render_plugin=error
+// pub const FILTER: &'static str = "wgpu=error,naga=warn,bevy_app=warn,bevy_ecs::schedule::executor::single_threaded=warn,bevy_ecs::system::commands=warn,pi_bevy_render_plugin=error";
 // pub const FILTER: &'static str = "wgpu=warn,naga=warn,pi_wgpu=warn,pi_ui_render::system::draw_obj::life_drawobj=trace,pi_ui_render::system::pass::pass_graph_node=trace";
 // pub const FILTER: &'static str = "";
-pub const LOG_LEVEL: bevy_log::Level = bevy_log::Level::INFO;
 // pub const LOG_LEVEL: bevy_log::Level = bevy_log::Level::INFO;
+pub const LOG_LEVEL: bevy_log::Level = bevy_log::Level::INFO;

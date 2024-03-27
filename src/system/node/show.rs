@@ -115,6 +115,7 @@ pub fn calc_show(
 /// visibility为false时， 设置渲染实例不可见
 pub fn set_show_data(
 	mut visisble_events: EventReader<NodeVisibilityChange>,
+	mut display_events: EventReader<NodeDisplayChange>,
 	mut instances: OrInitResMut<InstanceContext>,
 	query: Query<(&DrawList, &IsShow, Entity), Changed<IsShow>>,
     mut query_draw: Query<&InstanceIndex>,
@@ -123,13 +124,14 @@ pub fn set_show_data(
 	if r.0 {
 		return;
 	}
-	if visisble_events.len() == 0 {
+	if visisble_events.len() == 0 && display_events.len() == 0{
 		return;
 	}
 	visisble_events.clear();
+	display_events.clear();
 
 	for (draw_list, is_show, id) in query.iter() {
-		let visibility = is_show.get_visibility();
+		let visibility = is_show.get_visibility() || is_show.get_display();
 		for draw_id in draw_list.iter() {
 			if let Ok(instance_index) = query_draw.get(draw_id.id) {
 				let alignment = instances.instance_data.alignment;

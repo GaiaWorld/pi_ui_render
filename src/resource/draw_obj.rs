@@ -541,7 +541,9 @@ impl InstanceContext {
 					);
 					return;
 				}
-			} 
+
+			}
+
 			*instance_buffer = Some(((***device).create_buffer_init(&BufferInitDescriptor {
 				label: Some("instance_buffer"),
 				usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,

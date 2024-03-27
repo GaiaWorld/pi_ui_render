@@ -189,6 +189,7 @@ pub fn update_render_instance_data(
 	node_zindex_change.clear();
 	pass2d_change.clear();
 	node_display_change.clear();
+	
 
 	// 否则，先迭代所有的drawObj,如果drawobj可见,
 	for (parent_pass_id, in_pass_id, draw_list, z_range, is_show, id, layer) in node_query.iter() {

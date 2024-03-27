@@ -1,0 +1,2 @@
+play_path=D://0_js/cdqxz_new_mult_gui_exe/dst_release;
+play_version=xssj_biography
