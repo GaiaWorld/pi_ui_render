@@ -281,9 +281,78 @@ pub fn cmd_play(world: &mut World, state: &mut SystemState<(Commands, OrInitRes<
             CmdType::Sdf2CfgCmd(r) => {
 				cmds.push_cmd(r.clone());
 			},
-            CmdType::SvgStrokeCmd(c) => todo!(),
-            CmdType::StrokeDasharrayCmd(c) => todo!(),
-            CmdType::SvgShapeCmd(c) => todo!(),
+            CmdType::SvgStrokeCmd(r) => { 
+                let mut r = r.clone();
+                let node = match play_state.get_node(&r.0) {
+                    Some(r) => r,
+                    None => continue,
+                };
+                r.0 = node;
+                cmds.push_cmd(r);
+            },
+            CmdType::StrokeDasharrayCmd(r) => {
+                let mut r = r.clone();
+                let node = match play_state.get_node(&r.0) {
+                    Some(r) => r,
+                    None => continue,
+                };
+                r.0 = node;
+                cmds.push_cmd(r);
+            },
+            CmdType::SvgShapeCmd(r) => {
+                let mut r = r.clone();
+                let node = match play_state.get_node(&r.0) {
+                    Some(r) => r,
+                    None => continue,
+                };
+                r.0 = node;
+                cmds.push_cmd(r);
+            },
+            CmdType::SvgStrokeWidthCmd(r) => {
+                let mut r = r.clone();
+                let node = match play_state.get_node(&r.0) {
+                    Some(r) => r,
+                    None => continue,
+                };
+                r.0 = node;
+                cmds.push_cmd(r);
+            },
+            CmdType::SvgShapeWidthCmd(r) => {
+                let mut r = r.clone();
+                let node = match play_state.get_node(&r.0) {
+                    Some(r) => r,
+                    None => continue,
+                };
+                r.0 = node;
+                cmds.push_cmd(r);
+            },
+            CmdType::SvgShapeHeightCmd(r) => {
+                let mut r = r.clone();
+                let node = match play_state.get_node(&r.0) {
+                    Some(r) => r,
+                    None => continue,
+                };
+                r.0 = node;
+                cmds.push_cmd(r);
+            },
+            CmdType::SvgShapeXCmd(r) => {
+                let mut r = r.clone();
+                let node = match play_state.get_node(&r.0) {
+                    Some(r) => r,
+                    None => continue,
+                };
+                r.0 = node;
+                cmds.push_cmd(r);
+            },
+            CmdType::SvgShapeYCmd(r) => {
+                let mut r = r.clone();
+                let node = match play_state.get_node(&r.0) {
+                    Some(r) => r,
+                    None => continue,
+                };
+                r.0 = node;
+                cmds.push_cmd(r);
+            },
         };
     }
 

@@ -94,8 +94,9 @@ pub fn calc_show(
 			visibility_change = true;
 			write_item1.set_visibility(c_visibility);
 		}
-		
-        // log::warn!("show=============entity: {:?}, c_enable: {:?}, parent: {:?}, enable_value: {:?}", node, c_enable, parent_c_enable, enable_value);
+		// log::debug!("c_enable: {}", c_enable);
+		// log::warn!("show=============entity: {:?}, c_enable: {:?}, parent: {:?}, enable_value: {:?}", node, c_enable, parent_c_enable, enable_value);
+        log::warn!("show=============entity: {:?}, c_display: {:?}, parent: {:?}, enable_value: {:?}", node, c_display, parent_c_enable, enable_value);
 		write_item.set_enable(c_enable);
     }
 

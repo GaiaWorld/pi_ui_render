@@ -255,6 +255,6 @@ float sdfRoundRect(vec2 pt, vec2 extent, vec2 offset1, vec2 offset2, vec2 offset
             defines: vec![Define::new(true, BORDER_DEFINE.clone())]
         }
     ];
-    pub static ref BORDER_DEFINE: pi_atom::Atom = pi_atom::Atom::from("BORDER");
     pub static ref BORDER_RADIUS_DEFINE: pi_atom::Atom = pi_atom::Atom::from("BORDER_RADIUS");
+    pub static ref BORDER_DEFINE: pi_atom::Atom = pi_atom::Atom::from("BORDER");
 }

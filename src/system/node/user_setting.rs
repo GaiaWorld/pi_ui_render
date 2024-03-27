@@ -298,6 +298,7 @@ pub fn user_setting(
                 if n.class.len() > 0 {
                     set_class(node, &mut setting, n.class.clone(), &class_sheet, &mut dirty_list);
                 }
+                
             }
         }
     }

@@ -72,26 +72,10 @@ impl Example for ExampleCommonPlay {
     fn record_option(&self) -> pi_ui_render::system::cmd_play::TraceOption { pi_ui_render::system::cmd_play::TraceOption::Play }
 
     fn play_option(&self) -> Option<framework::PlayOption> {
-		let mut option = framework::PlayOption {
-			play_path: None,
-			play_version: "".to_string(),
-		};
-		if let Ok(config) = std::fs::read_to_string(self.current_dir.join("examples/a_cmd_play/source/run_config.txt")) {
-			let r = config.split(";");
-			for i in r {
-				let mut r = i.split("=");
-				if let (Some(key), Some(value)) = (r.next(), r.next()) {
-					let key = key.trim();
-					if key == "play_path" {
-						option.play_path = Some(value.trim().to_string());
-					} else if key == "play_version" {
-						option.play_version = value.trim().to_string();
-					}
-				}
-			}
-		};
-
-		Some(option)
+		Some(framework::PlayOption {
+			play_path: Some("E://game_project/pi_demo_gui/dst"),
+			play_version: "1711503876816",
+		})
 	}
 
     // fn render(&mut self, cmd: &mut UserCommands, _cmd1: &mut Commands) {
