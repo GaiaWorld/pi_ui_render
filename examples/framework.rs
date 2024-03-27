@@ -205,12 +205,7 @@ pub fn start<T: Example + Sync + Send + 'static>(example: T) {
     app.add_plugins(UiPlugin::default());
 	exmple1.lock().unwrap().setting(&mut app);
 
-    app.add_systems(Update, exmple_run.before(UiSystemSet::Setting).in_set(ExampleSet))
-        .add_systems(Startup, move |world: &mut World| {
-            exmple1.lock().unwrap().init(world, (width as usize, height as usize));
-        });
-
-    #[cfg(feature = "debug")]
+	#[cfg(feature = "debug")]
     match record_option {
         pi_ui_render::system::cmd_play::TraceOption::None => (),
         pi_ui_render::system::cmd_play::TraceOption::Record => {
@@ -220,6 +215,11 @@ pub fn start<T: Example + Sync + Send + 'static>(example: T) {
             app.add_systems(Update, setting_next_record.before(UiSystemSet::Setting));
         }
     }
+
+    app.add_systems(Update, exmple_run.before(UiSystemSet::Setting).in_set(ExampleSet))
+        .add_systems(Startup, move |world: &mut World| {
+            exmple1.lock().unwrap().init(world, (width as usize, height as usize));
+        });
 
 	event_loop.run(move |event, _, control_flow| {
 
@@ -423,8 +423,6 @@ pub fn init(width: u32, height: u32, _event_loop: &EventLoop<()>, w: Arc<pi_wini
 #[cfg(feature = "debug")]
 pub struct NextState {
     file_index: usize,
-    // play_path: &'static str,
-    cmd_path: Option<&'static str>,
     is_end: bool,
 }
 
@@ -435,7 +433,6 @@ impl Default for NextState {
             file_index: 0,
             // play_version: "performance",
             // play_version: "test",
-            cmd_path: Some("D://0_rust/pi_ui_render_new/examples/a_cmd_play/source/cmds"),
             // play_path: "D://0_js/cdqxz_new_mult_gui_exe/dst",
             // play_path: "D://0_js/cdqxz_new_gui_exe/dst",
             // cmd_path: Some("D://0_rust/pi_export/crates/gui/examples/cmd_play/source/cmds"),
@@ -468,12 +465,14 @@ pub fn record_cmd_to_file(mut records: ResMut<Records>) {
 pub fn setting_next_record(world: &mut World, mut local_state: Local<NextState>) {
 	let play_option  = world.get_resource::<PlayOption>().unwrap().clone();
     let local_state = &mut *local_state;
-    setting(local_state.cmd_path, &mut local_state.file_index, world, &mut local_state.is_end, &play_option)
+    setting(&mut local_state.file_index, world, &mut local_state.is_end, &play_option)
 }
 
 
 #[cfg(feature = "debug")]
-fn setting(cmd_path: Option<&str>, file_index1: &mut usize, world: &mut World, is_end: &mut bool, play_option: &PlayOption) {
+fn setting(file_index1: &mut usize, world: &mut World, is_end: &mut bool, play_option: &PlayOption) {
+    use std::path::Path;
+
     use pi_ui_render::system::draw_obj::calc_text::IsRun;
 
     let mut file_index = *file_index1;
@@ -482,12 +481,7 @@ fn setting(cmd_path: Option<&str>, file_index1: &mut usize, world: &mut World, i
         if r.is_running {
             return;
         } else {
-            let dir = match cmd_path {
-                Some(r) => r.to_string(),
-                None => "examples/a_cmd_play/source".to_string(),
-            };
-            let path = dir + "/cmd_" + play_option.play_version.as_str() + "_" + file_index.to_string().as_str() + ".gui_cmd";
-            // log::warn!("r================{:?}", path);
+            let path = Path::new(play_option.cmd_path.as_str()).join(("cmd_".to_string() + play_option.play_version.as_str() + "_" + file_index.to_string().as_str() + ".gui_cmd").as_str());
             // let _span = tracing::warn_span!("gui_cmd").entered();
             match std::fs::read(path.clone()) {
                 Ok(bin) => {
@@ -540,10 +534,11 @@ pub fn spawn(world: &mut World) -> Entity {
     r
 }
 
-#[derive(Resource, Clone)]
+#[derive(Resource, Clone, Debug)]
 pub struct PlayOption {
 	pub play_path: Option<String>,
 	pub play_version: String,
+	pub cmd_path: String,
 }
 
 // #[allow(dead_code)]

@@ -42,7 +42,7 @@ impl Example for ExampleCommonPlay {
     fn get_init_size(&self) -> Option<Size<u32>> {
         // None表示使用默认值
         // Some(Size { width: 1080, height: 2160 })
-		Some(Size { width: 647, height: 919 })
+		Some(Size { width: 838, height: 937 })
     }
 
     fn init(&mut self, world: &mut World, size: (usize, usize)) {
@@ -75,7 +75,9 @@ impl Example for ExampleCommonPlay {
 		let mut option = framework::PlayOption {
 			play_path: None,
 			play_version: "".to_string(),
+    		cmd_path: self.current_dir.join("examples/a_cmd_play/source/cmds").to_string_lossy().to_string(),
 		};
+
 		if let Ok(config) = std::fs::read_to_string(self.current_dir.join("examples/a_cmd_play/source/run_config.txt")) {
 			let r = config.split(";");
 			for i in r {
@@ -86,11 +88,13 @@ impl Example for ExampleCommonPlay {
 						option.play_path = Some(value.trim().to_string());
 					} else if key == "play_version" {
 						option.play_version = value.trim().to_string();
+					} else if key == "cmd_path" {
+						option.cmd_path = value.trim().to_string();
 					}
 				}
 			}
 		};
-
+		println!("play_option==={:?}", option);
 		Some(option)
 	}
 

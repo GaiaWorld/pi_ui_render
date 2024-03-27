@@ -24,16 +24,19 @@ use pi_render::{
         device::RenderDevice,
         dyn_uniform_buffer::{GroupAlloter, BufferGroup},
         pipeline::RenderPipeline,
-        shader::{AsLayoutEntry, BindLayout, ShaderMeta, ShaderProgram, Input},
+        shader::{ShaderMeta, ShaderProgram},
         texture::PiRenderDefault, RenderQueue,
     },
 };
+use pi_render::rhi::shader::AsLayoutEntry;
+use pi_render::rhi::shader::BindLayout;
 use pi_share::Share;
 use pi_slotmap::{DefaultKey, SlotMap, SecondaryMap};
 use wgpu::{
     BlendState, CompareFunction, DepthBiasState, DepthStencilState, Limits, MultisampleState, PipelineLayout, Sampler, ShaderModule, StencilState,
     TextureFormat, util::{BufferInitDescriptor, DeviceExt}, ShaderStages, BindingType, TextureSampleType, TextureViewDimension, SamplerBindingType, BindGroupEntry, TextureDescriptor, Extent3d, TextureViewDescriptor, RenderPass,
 };
+use pi_render::rhi::shader::Input;
 
 use crate::{
     components::{draw_obj::{DrawState, PipelineMeta}, pass_2d::{CacheTarget, InstanceDrawState, DrawElement}, calc::WorldMatrix},

@@ -15,7 +15,7 @@ use pi_render::{renderer::draw_obj::DrawObj as DrawState1, rhi::asset::{TextureR
 use pi_share::Share;
 use wgpu::RenderPipeline;
 
-use super::{calc::{BorderImageTexture, BackgroundImageTexture}, user::{Canvas, BackgroundColor, BorderColor, BoxShadow, TextContent, SvgContent}};
+use super::{calc::{BorderImageTexture, BackgroundImageTexture}, user::{Canvas, BackgroundColor, BorderColor, BoxShadow, TextContent, SvgContent, SvgInnerContent}};
 pub use super::root::{ClearColorBindGroup, CopyFboToScreen, DynTargetType};
 
 pub struct DrawObject;
@@ -242,6 +242,12 @@ impl GetInstanceSplit for TextContent {
 }
 
 impl GetInstanceSplit for SvgContent {
+	fn get_split(&self) -> Option<InstanceSplit> {
+		None
+	}
+}
+
+impl GetInstanceSplit for SvgInnerContent {
 	fn get_split(&self) -> Option<InstanceSplit> {
 		None
 	}

@@ -1,10 +1,12 @@
 //! 文字字形系统
 //! 为字符分配纹理位置，得到字符的位置索引关联到CharNode中的ch_id_or_count字段上
 //! 在fontsheet中，文字最多缓存一张纹理。为字符分配纹理，可能存在空间不足的情况。此时，本系统将清空fontsheet中所有缓存的字符，并重新为当前所有显示节点上的文字重新绘制纹理。
+use std::collections::HashMap;
+
 use crate::{
     components::{
         calc::{DrawList, WorldMatrix},
-        draw_obj::{InstanceIndex, SvgMark},
+        draw_obj::{InstanceIndex, SvgMark}, user::SvgInnerContent,
     },
     resource::SvgRenderObjType,
     shader1::{
@@ -28,7 +30,7 @@ use pi_bevy_ecs_extend::{
     prelude::Layer,
     system_param::{
         layer_dirty::ComponentEvent,
-        res::{OrInitRes, OrInitResMut},
+        res::{OrInitRes, OrInitResMut}, tree::Up,
     },
 };
 use pi_bevy_render_plugin::PiRenderDevice;
@@ -93,11 +95,13 @@ pub fn update_sdf2_texture(
 
 /// 文字字形计算
 pub fn text_svg(
-    mut query: ParamSet<(Query<(Entity, &'static mut SvgContent)>, Query<&mut SvgContent>)>,
+    mut query: ParamSet<(Query<(Entity, &'static mut SvgInnerContent), Changed<SvgInnerContent>>, Query<&mut SvgInnerContent>)>,
     font_sheet: ResMut<ShareFontSheet>,
-    mut event_writer: EventWriter<ComponentEvent<Changed<SvgContent>>>,
+    mut event_writer: EventWriter<ComponentEvent<Changed<SvgInnerContent>>>,
     r: OrInitRes<IsRun>,
     await_list: Local<SvgShapeAwaitList>,
+    query_parent: Query<&Up>,
+	query_view_box: Query<&SvgContent>,
 ) {
     if r.0 {
         return;
@@ -106,34 +110,39 @@ pub fn text_svg(
     let mut font_sheet = font_sheet.borrow_mut();
 
     let mut await_set_gylph = Vec::new();
+    // let 
     for (entity, mut node_state) in query.p0().iter_mut() {
-        if node_state.shape.is_some() {
-            if let Some(shape) = node_state.shape.take() {
+        if node_state.shape.is_ready() {
+            // if let Some(shape) = node_state.shape.take() {
+            let hash = node_state.shape.hash();
+            let sdf2_table = &mut font_sheet.font_mgr_mut().table.sdf2_table;
+
+            if sdf2_table.shapes.get(&hash).is_none() {
                 await_set_gylph.push(entity);
                 println!("add_shape");
-                let sdf2_table = &mut font_sheet.font_mgr_mut().table.sdf2_table;
-                let hash = match shape {
-                    Shape::Rect { x, y, width, height } => sdf2_table.add_shape(Box::new(pi_sdf::shape::Rect::new(x, y, width, height))),
-                    Shape::Circle { cx, cy, radius } => sdf2_table.add_shape(Box::new(pi_sdf::shape::Circle::new(cx, cy, radius).unwrap())),
-                    Shape::Ellipse { cx, cy, rx, ry } => sdf2_table.add_shape(Box::new(pi_sdf::shape::Ellipse::new(cx, cy, rx, ry))),
+                match node_state.shape.clone() {
+                    Shape::Rect { x, y, width, height } => sdf2_table.add_shape(hash, Box::new(pi_sdf::shape::Rect::new(x, y, width, height))),
+                    Shape::Circle { cx, cy, radius } => sdf2_table.add_shape(hash, Box::new(pi_sdf::shape::Circle::new(cx, cy, radius).unwrap())),
+                    Shape::Ellipse { cx, cy, rx, ry } => sdf2_table.add_shape(hash, Box::new(pi_sdf::shape::Ellipse::new(cx, cy, rx, ry))),
                     Shape::Segment { ax, ay, bx, by } => {
-                        sdf2_table.add_shape(Box::new(pi_sdf::shape::Segment::new(Point2::new(ax, ay), Point2::new(bx, by))))
+                        sdf2_table.add_shape(hash, Box::new(pi_sdf::shape::Segment::new(Point2::new(ax, ay), Point2::new(bx, by))))
                     }
                     Shape::Polygon { points } => {
                         let points = points.into_iter().map(|v| Point2::new(v[0], v[1])).collect::<Vec<Point2>>();
-                        sdf2_table.add_shape(Box::new(pi_sdf::shape::Polygon::new(points)))
+                        sdf2_table.add_shape(hash, Box::new(pi_sdf::shape::Polygon::new(points)))
                     }
                     Shape::Polyline { points } => {
                         let points = points.into_iter().map(|v| Point2::new(v[0], v[1])).collect::<Vec<Point2>>();
-                        sdf2_table.add_shape(Box::new(pi_sdf::shape::Polyline::new(points)))
+                        sdf2_table.add_shape(hash, Box::new(pi_sdf::shape::Polyline::new(points)))
                     }
                     Shape::Path { points, verb } => {
                         let points = points.into_iter().map(|v| Point2::new(v[0], v[1])).collect::<Vec<Point2>>();
-                        sdf2_table.add_shape(Box::new(pi_sdf::shape::Path::new(verb, points)))
+                        sdf2_table.add_shape(hash, Box::new(pi_sdf::shape::Path::new(verb, points)))
                     }
                 };
-                node_state.hash = hash;
             }
+            node_state.hash = hash;
+            // }
         }
     }
 
@@ -159,7 +168,7 @@ pub fn text_svg(
             if let Ok(mut node_state) = p2.get_mut(*entity) {
                 node_state.set_changed();
             }
-            event_writer.send(ComponentEvent::<Changed<SvgContent>>::new(*entity));
+            event_writer.send(ComponentEvent::<Changed<SvgInnerContent>>::new(*entity));
         }
         log::debug!("await_set_gylph================{:?}", await_set_gylph);
     }
@@ -170,7 +179,7 @@ pub fn text_svg(
 /// 设置背景颜色的顶点，和颜色Uniform
 pub fn calc_sdf2_text(
     mut instances: OrInitResMut<InstanceContext>,
-    query: Query<(Entity, Ref<WorldMatrix>, Ref<SvgContent>, Ref<LayoutResult>, &DrawList, &Layer), Changed<SvgContent>>,
+    query: Query<(Entity, Ref<WorldMatrix>, Ref<SvgInnerContent>, Ref<LayoutResult>, &DrawList, &Layer), Changed<SvgInnerContent>>,
     mut query_draw: Query<&InstanceIndex, With<SvgMark>>,
     r: OrInitRes<IsRun>,
     render_type: OrInitRes<SvgRenderObjType>,
@@ -179,30 +188,30 @@ pub fn calc_sdf2_text(
     if r.0 {
         return;
     }
-    // println!("calc_sdf2_text1");
+    // log::debug!("calc_sdf2_text1");
     let render_type = ***render_type;
 
     let mut font_sheet = font_sheet.borrow_mut();
 
 
     for (entity, world_matrix, node_state, layout, draw_list, layer) in query.iter() {
-        // println!("calc_sdf2_text2");
+        log::debug!("calc_sdf2_text2");
         let draw_id = match draw_list.get_one(render_type) {
             Some(r) => r.id,
             None => continue,
         };
-        // println!("calc_sdf2_text211111");
+        log::debug!("calc_sdf2_text211111");
         if let Ok(instance_index) = query_draw.get_mut(draw_id) {
-            // println!("calc_sdf2_text22");
+            log::debug!("calc_sdf2_text22, instance_index.0.start,{}", instance_index.0.start);
             // 节点可能设置为dispaly none， 此时instance_index可能为Null
             if pi_null::Null::is_null(&instance_index.0.start) {
                 continue;
             }
-            // println!("calc_sdf2_text222");
+            log::debug!("calc_sdf2_text222");
             if layer.layer() == 0 {
                 continue;
             }
-            // println!("calc_sdf2_text3");
+            log::debug!("calc_sdf2_text3");
             let mut _n = entity;
             let mut _state = &*node_state;
             let matrix = &*world_matrix;
@@ -214,7 +223,6 @@ pub fn calc_sdf2_text(
             let instance_data = instance_data(text_style_change, is_added, world_matrix.is_changed(), text_style, matrix.clone());
 
             text_vert(
-                &node_state,
                 &layout,
                 &mut font_sheet,
                 &node_state,
@@ -348,10 +356,9 @@ fn instance_data(
 
 #[allow(unused_variables)]
 fn text_vert(
-    node_state: &SvgContent,
     layout: &LayoutResult,
     font_sheet: &mut FontSheet,
-    svg_content: &SvgContent,
+    svg_content: &SvgInnerContent,
     entity: Entity,
     uniform_data: UniformData,
     instance_index: InstanceIndex,
@@ -428,11 +435,11 @@ impl UniformData {
         render_flag |= 1 << RenderFlagType::Svg as usize;
 
         if self.is_style_change {
-            println!("stroke: {:?}", self.stroke);
+            log::debug!("stroke: {:?}", self.stroke);
             instance_data.set_data(&TextOutlineUniform(&self.stroke));
             instance_data.set_data(&TextWeightUniform(&[0.0]));
             if self.stroke_dasharray[2] < 100000. && self.stroke_dasharray[3] > 0. {
-                println!("set stroke_dasharray: {:?}", self.stroke_dasharray);
+                log::debug!("set stroke_dasharray: {:?}", self.stroke_dasharray);
                 instance_data.set_data(&TextOuterGlowUniform(&self.stroke_dasharray));
                 render_flag |= 1 << RenderFlagType::SvgStrokeDasharray as usize;
                 render_flag &= !(1 << RenderFlagType::Sdf2OutGlow as usize);
@@ -441,7 +448,7 @@ impl UniformData {
                 ColorData::Rgba(r) => {
                     render_flag |= 1 << RenderFlagType::Color as usize;
                     render_flag &= !(1 << RenderFlagType::LinearGradient as usize);
-                    println!("color: {:?}", r);
+                    log::debug!("color: {:?}", r);
                     instance_data.set_data(&ColorUniform(r))
                 }
                 ColorData::LinearGradient { colors, positions, end } => {
@@ -482,7 +489,7 @@ impl UniformData {
 
             // 设置文字在布局空间的偏移和宽高
             // instance_data.set_data(&BoxUniform(&[offset.0, offset.1, (render_range.maxs.x - render_range.mins.x) * font_size, (render_range.maxs.y - render_range.mins.y) * font_size]));
-            println!("view_box: {:?}", render_range);
+            log::debug!("view_box: {:?}", render_range);
             let rect = Aabb2::new(
                 Point2::new(offset.0, offset.1),
                 Point2::new(
@@ -490,7 +497,7 @@ impl UniformData {
                     (render_range.maxs.y - render_range.mins.y) + offset.1,
                 ),
             );
-            println!("set_box: {:?}， world_matrix: {:?}", rect, self.world_matrix);
+            log::debug!("set_box: {:?}, world_matrix: {:?}", rect, self.world_matrix);
             set_box(&self.world_matrix, &rect, &mut instance_data);
 
             // 设置渲染类型
