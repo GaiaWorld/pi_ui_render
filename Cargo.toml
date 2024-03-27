@@ -257,7 +257,8 @@ pi_style = {path = "../pi_style"}
 # winit = {path = "../winit"}
 # font_kit = { path = "../font_kit" }
 pi_hal = { path = "../pi_hal" }
-# pi_sdf = { path = "../pi_sdf" }
+pi_sdf = { path = "../pi_sdf" }
+pi_ui_render = { path = "../pi_ui_render" }
 
 # bevy
 pi_bevy_ecs_extend = { path = "../pi_bevy/crates/ecs_extend" }

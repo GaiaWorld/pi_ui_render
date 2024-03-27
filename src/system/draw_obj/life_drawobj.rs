@@ -176,7 +176,7 @@ pub fn update_render_instance_data(
 	query_root: Query<Entity, (With<Root>, With<Size>)>, // 只有gui的Root才会有Size
 	mut catche_buffer: Local<RenderInstances1>,
 ) {
-	log::trace!("life========================node_change={:?}, node_zindex_change={:?}, pass2d_change={:?}, node_display_change={:?}", node_change.len(), node_zindex_change.len(), pass2d_change.len(), node_display_change.len());
+	// log::trace!("life========================node_change={:?}, node_zindex_change={:?}, pass2d_change={:?}, node_display_change={:?}", node_change.len(), node_zindex_change.len(), pass2d_change.len(), node_display_change.len());
 	// 如果没有实体创建， 也没有实体删除， zindex也没改变，山下文结构也没改变， 则不需要更新实例数据
 	if node_change.len() == 0 &&
 		node_zindex_change.len() == 0 && 
@@ -266,6 +266,7 @@ pub fn update_render_instance_data(
 							if let DrawIndex::DrawObj(draw_entity) = &draw_2d_list.all_list_sort[i].0 {
 								let (mut index, render_count) = instance_index.get_mut(draw_entity.0).unwrap();
 								let end = cur_index + render_count.0 as usize * new_instances.alignment;
+								log::debug!("update_render_instance_data3: {:?}", cur_index..end);
 								index.bypass_change_detection().0 = cur_index..end;
 								cur_index = end;
 							}
@@ -433,6 +434,7 @@ pub fn update_render_instance_data(
 								// 用于debug， 实际上是其他信息
 								new_instances.instance_data_mut(new_index.start + i as usize * new_instances.alignment).set_data(&TextWeightUniform(&[draw_entity.0.index() as f32]));
 							}
+							log::debug!("update_render_instance_data1: {:?}", new_index);
 							index.0 = new_index.clone();
 
 						} else {
@@ -445,6 +447,7 @@ pub fn update_render_instance_data(
 									new_instances.update_dirty_range(new_index.clone());
 								}
 							}
+							log::debug!("update_render_instance_data2: {:?}", new_index);
 							index.bypass_change_detection().0 = new_index.clone();
 							
 						}

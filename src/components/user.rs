@@ -271,10 +271,20 @@ pub struct TextContent(pub TextContent1);
 
 
 #[derive(Component, Default)]
-pub struct SvgContent {
-    pub shape: Option<Shape>,
+pub struct SvgInnerContent {
+    pub shape: Shape,
     pub style: SvgStyle,
     pub hash: u64,
+}
+
+#[derive(Component, Default)]
+pub struct SvgContent {
+    pub width: f32,
+    pub height: f32,
+    pub min_x: f32,
+    pub min_y: f32,
+    pub max_x: f32,
+    pub max_y: f32,
 }
 
 // 将display、visibility、enable合并为show组件
@@ -519,7 +529,7 @@ impl Show {
 }
 
 impl Default for Show {
-    fn default() -> Show { Show(ShowType::Visibility as usize) }
+    fn default() -> Show { Show(ShowType::Visibility as usize | ShowType::Display as usize) }
 }
 
 /// 布局外边距

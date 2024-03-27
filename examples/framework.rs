@@ -417,7 +417,8 @@ impl Default for NextState {
             file_index: 0,
             // play_version: "performance",
             // play_version: "test",
-            cmd_path: Some("D://0_rust/pi_ui_render_new/examples/a_cmd_play/source/cmds"),
+            // cmd_path: Some("D://0_rust/pi_ui_render_new/examples/a_cmd_play/source/cmds"),
+            cmd_path: Some("E://app_new_gui/pi_ui_render/examples/a_cmd_play/source/cmds"),
             // play_path: "D://0_js/cdqxz_new_mult_gui_exe/dst",
             // play_path: "D://0_js/cdqxz_new_gui_exe/dst",
             // cmd_path: Some("D://0_rust/pi_export/crates/gui/examples/cmd_play/source/cmds"),
@@ -543,7 +544,7 @@ pub struct PlayOption {
 // pub const FILTER: &'static str = "wgpu=warn,naga=trace";
 // pub const FILTER: &'static str = "wgpu=warn,pi_ui_render::system::pass::pass_graph_node=trace,pi_ui_render::system::pass_effect::radial_wave=trace,pi_ui_render::system::pass::pass_life=trace";
 // pub const FILTER: &'static str = "wgpu=warn,pi_ui_render::system::pass_effect::radial_wave=trace,pi_ui_render::system::pass::pass_life=trace,pi_ui_render::system::pass::update_graph=trace";
-pub const FILTER: &'static str = "wgpu=warn,naga=warn,bevy_app=warn";
+pub const FILTER: &'static str = "wgpu=warn,naga=warn,bevy_app=warn,pi_ui_render::system::draw_obj::calc_svg=trace,pi_ui_render::system::draw_obj::life_drawobj=trace";
 // pub const FILTER: &'static str = "wgpu=warn,naga=warn,pi_wgpu=warn,pi_ui_render::system::draw_obj::life_drawobj=trace,pi_ui_render::system::pass::pass_graph_node=trace";
 // pub const FILTER: &'static str = "";
 pub const LOG_LEVEL: bevy_log::Level = bevy_log::Level::INFO;

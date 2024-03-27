@@ -69,8 +69,8 @@ impl Example for ExampleCommonPlay {
 
     fn play_option(&self) -> Option<framework::PlayOption> {
 		Some(framework::PlayOption {
-			play_path: Some("D://0_js/cdqxz_new_mult_gui_exe/dst"),
-			play_version: "test",
+			play_path: Some("E://game_project/pi_demo_gui/dst"),
+			play_version: "1711503876816",
 		})
 	}
 

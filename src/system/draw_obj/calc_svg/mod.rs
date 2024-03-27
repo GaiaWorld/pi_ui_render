@@ -6,7 +6,7 @@ use pi_bevy_render_plugin::FrameDataPrepare;
 use crate::{
     components::{
         draw_obj::SvgMark,
-        user::SvgContent,
+        user::{SvgContent, SvgInnerContent},
     },
     resource::SvgRenderObjType,
     system::system_set::UiSystemSet,
@@ -27,11 +27,11 @@ impl Plugin for SvgPlugin {
         println!("add SvgPlugin");
         app
             .add_systems(Update, text_svg)
-            .add_frame_event::<ComponentEvent<Changed<SvgContent>>>()
+            .add_frame_event::<ComponentEvent<Changed<SvgInnerContent>>>()
             // 创建drawobj
             .add_systems(
                 Update,
-                draw_object_life_new::<SvgContent, SvgRenderObjType, SvgMark, { SVG_ORDER }>.in_set(UiSystemSet::LifeDrawObject).after(text_svg),
+                draw_object_life_new::<SvgInnerContent, SvgRenderObjType, SvgMark, { SVG_ORDER }>.in_set(UiSystemSet::LifeDrawObject).after(text_svg),
             )
             // 统计drawobj的实例长度
             // .add_systems(
