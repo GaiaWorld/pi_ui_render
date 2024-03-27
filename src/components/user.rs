@@ -529,7 +529,7 @@ impl Show {
 }
 
 impl Default for Show {
-    fn default() -> Show { Show(ShowType::Visibility as usize | ShowType::Display as usize) }
+    fn default() -> Show { Show(ShowType::Visibility as usize) }
 }
 
 /// 布局外边距

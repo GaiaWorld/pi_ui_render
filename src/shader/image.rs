@@ -1,3 +1,4 @@
+
 use pi_render::rhi::shader::{
     merge_defines, AsLayoutEntry, BindingExpandDesc, BindingExpandDescList, BlockCodeAtom, CodeSlice, Define, InOut, ShaderInput, ShaderMeta,
     ShaderOutput, ShaderProgram, ShaderVarying,
@@ -179,9 +180,9 @@ precision highp float;
             defines: vec![]
         }
     ];
-    pub static ref SECTOR_DEFINE: pi_atom::Atom = pi_atom::Atom::from("SECTOR");
     pub static ref CIRCLE_DEFINE: pi_atom::Atom = pi_atom::Atom::from("CIRCLE");
-    pub static ref RECT_DEFINE: pi_atom::Atom = pi_atom::Atom::from("RECT");
     pub static ref BORDER_RADIUS_DEFINE: pi_atom::Atom = pi_atom::Atom::from("BORDER_RADIUS");
+    pub static ref SECTOR_DEFINE: pi_atom::Atom = pi_atom::Atom::from("SECTOR");
+    pub static ref RECT_DEFINE: pi_atom::Atom = pi_atom::Atom::from("RECT");
     pub static ref ELLIPSE_DEFINE: pi_atom::Atom = pi_atom::Atom::from("ELLIPSE");
 }
