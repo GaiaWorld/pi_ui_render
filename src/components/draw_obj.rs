@@ -11,7 +11,7 @@ use bevy_ecs::prelude::Component;
 use pi_assets::asset::Handle;
 use pi_atom::Atom;
 use pi_hash::XHashSet;
-use pi_render::{renderer::draw_obj::DrawObj as DrawState1, rhi::asset::{TextureRes, AssetWithId}};
+use pi_render::{renderer::draw_obj::DrawObj as DrawState1, rhi::asset::{TextureRes, AssetWithId}, components::view::target_alloc::ShareTargetView};
 use pi_share::Share;
 use wgpu::RenderPipeline;
 
@@ -161,6 +161,12 @@ impl Default for RenderCount {
 	fn default() -> Self {
 		Self(1)
 	}
+}
+
+#[derive(Debug, Component, Default)]
+pub struct FboInfo {
+	pub fbo: Option<ShareTargetView>, // canvas,后处理杰斯安都会分配fbo， 该fbo在渲染图build阶段产生
+	pub in_batch: usize, // 当为null时， 表示还没有分配pi， 否则表示所在批的索引
 }
 
 // // 渲染标记(是什么类型的渲染， 如文字类型， 图片类型， 是否存在裁剪等等)

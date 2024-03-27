@@ -12,7 +12,7 @@ use pi_bevy_render_plugin::render_cross::GraphId;
 use pi_null::Null;
 
 use crate::components::calc::{InPassId, DrawList, WorldMatrix, LayoutResult};
-use crate::components::draw_obj::{CanvasMark, InstanceIndex};
+use crate::components::draw_obj::{CanvasMark, InstanceIndex, FboInfo};
 use crate::components::pass_2d::ParentPassId;
 use crate::components::user::{Canvas, AsImage};
 use crate::resource::CanvasRenderObjType;
@@ -36,7 +36,7 @@ impl Plugin for CanvasPlugin {
 			life_drawobj::draw_object_life_new::<
 				Canvas,
 				CanvasRenderObjType,
-				(CanvasMark, GraphId),
+				(CanvasMark, GraphId, FboInfo),
 				{ CANVAS_ORDER },
 			>
 				.in_set(UiSystemSet::LifeDrawObject),

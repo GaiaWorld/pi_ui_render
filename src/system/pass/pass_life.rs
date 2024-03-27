@@ -19,12 +19,12 @@
 use bevy_ecs::{
     prelude::{Component, Entity, EventReader, EventWriter, RemovedComponents, Local, Ref, Res},
 	query::Changed,
-	system::{Commands, ParamSet, Query},
+	system::{Commands, ParamSet, Query, Resource},
 	world::Mut,
 };
 use pi_bevy_ecs_extend::{
     prelude::{Layer, LayerDirty, Up},
-    system_param::{layer_dirty::ComponentEvent, res::OrInitRes},
+    system_param::{layer_dirty::ComponentEvent, res::{OrInitRes, OrInitResMut}},
 };
 use pi_densevec::DenseVecMap;
 use pi_map::Map;
@@ -169,41 +169,80 @@ pub fn cal_context(
     }
 }
 
+// pass的toop排序
+#[derive(Debug, Resource, Default)]
+pub struct PassToopSort{
+	pub list: Vec<Entity>, //从叶子开始的广度遍历排序
+	pub next_node_with_depend: Vec<usize>, // 层分割（下一个依赖未就绪的节点，在list中的顺序）
+}
+
 /// Pass2D设置children
 pub fn calc_pass_children_and_clear(
     mut event_reader: EventReader<ComponentEvent<Changed<RenderContextMark>>>,
-    mut query: Query<&mut ChildrenPass>,
+    mut query: ParamSet<(
+		Query<&mut ChildrenPass>,
+		Query<(&mut ChildrenPass, Entity)>,
+	)>,
     query_pass: Query<(Entity, &ParentPassId)>,
-    mut local: Local<DenseVecMap<(Entity, ChildrenPass)>>,
+    mut local: Local<(Vec<Entity>, Vec<Entity>)>,
+	mut sort: OrInitResMut<PassToopSort>,
 	r: OrInitRes<IsRun>
 ) {
 	if r.0 {
 		return;
 	}
+	let local = &mut *local;
     if event_reader.len() > 0 {
         event_reader.clear();
+		let sort = &mut *sort;
+		let from1 = &mut local.1;
+		let from2 = &mut local.2;
+
+		// 先清理旧的子节点
+		let query_children = query.p0();
+		for children in query_children.iter() {
+			children.clear();
+		}
+
         // 重新组织渲染上下文的树
         for (entity, parent) in query_pass.iter() {
             if parent.0.is_null() {
                 continue;
             }
-            match local.get_mut(&(parent.index() as usize)) {
-                Some(r) => r.1.push(EntityKey(entity)),
-                None => {
-                    let mut c = ChildrenPass::default();
-                    c.push(EntityKey(entity));
-                    local.insert(parent.index() as usize, ((***parent).clone(), c));
-                }
+			if let Ok(mut children) = query_children.get_mut(parent) {
+                *children.push(EntityKey(entity));
             }
         }
 
-        for item in local.values() {
-            if let Ok(mut children) = query.get_mut(item.0) {
-                *children = item.1.clone(); // 不clone, TODO
-            }
-        }
+		// 找到叶子节点
+		for (children, entity) in query.p1().iter() {
+			if children.len() == 0 {
+				from1.push(entity);
+			}
+			children.temp_count = children.len();
+		}
 
-        local.clear();
+		let query_children = query.p0();
+		while from1.len() > 0 {
+			for entity in from1.drain(..) {
+				if let Ok((_, parent)) = query_pass.get(entity) {
+					if let Ok(children) = query_children.get(parent) {
+						children.temp_count -= 1;
+						if children.temp_count == 0 {
+							from2.push(parent);
+						}
+					}
+				}
+			    sort.list.push(entity);
+			}
+			let l = sort.list.len();
+			sort.next_node_with_depend.push(l); // 下一个存在依赖的节点在toop排序中的索引
+			std::mem::swap(from1, from2);
+		}
+
+        local.0.clear();
+		local.1.clear();
+
     }
 }
 

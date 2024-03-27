@@ -15,6 +15,7 @@ use pi_null::Null;
 use pi_render::font::FontSheet;
 use pi_render::rhi::asset::{TextureRes, AssetWithId};
 use pi_share::{Share, ShareCell};
+use pi_slotmap::SecondaryMap;
 use pi_style::style::{Aabb2, CgColor};
 
 use std::marker::PhantomData;
@@ -683,4 +684,4 @@ impl ShareFontSheet {
 
 /// 建立PassId和GraphNodeId的映射
 #[derive(Deref, Resource, Default)]
-pub struct PassGraphMap(pub XHashMap<GraphNodeId, Entity>);
+pub struct PassGraphMap(pub SecondaryMap<GraphNodeId, Entity>);

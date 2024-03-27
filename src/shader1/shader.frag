@@ -1127,6 +1127,11 @@ void main(void) {
 		} else {
 			color = vec4(1.0, 0.0, 1.0, 1.0);
 		}
+
+		if ((ty1 & 2097152) != 0) { // 预乘模式
+			color.rgb = color.rgb / clamp(color.a, 0.001, 1.0);
+		}
+		
 		
 		//  else if (texture_layer == 14.0) {
 		// 	color = texture(sampler2D(tex2d14, samp14),uv);

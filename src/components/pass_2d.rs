@@ -2,7 +2,7 @@
 
 use std::ops::Range;
 
-use bevy_ecs::{prelude::Component, system::Resource};
+use bevy_ecs::{entity::Entity, prelude::Component, system::Resource};
 use pi_assets::asset::{Handle, Size, Asset, Droper};
 pub use pi_bevy_render_plugin::render_cross::GraphId;
 use pi_postprocess::postprocess::PostProcess as PostProcess1;
@@ -60,7 +60,11 @@ pub struct ViewMatrix {
 pub struct ParentPassId(pub EntityKey);
 
 #[derive(Debug, Default, Deref, Component, Clone)]
-pub struct ChildrenPass(pub Vec<EntityKey>);
+pub struct ChildrenPass {
+	#[deref]
+	pub list: Vec<EntityKey>, 
+	pub temp_count: usize,/*一个临时计数， 用于对依赖关系进行topp排序*/
+}
 
 #[derive(Debug)]
 pub enum DrawElement {
@@ -68,6 +72,7 @@ pub enum DrawElement {
 		draw_state: InstanceDrawState,
 		draw_range: Range<usize>, // 在排序后的all_list列表中的范围
 		depth_start: usize,
+		pass: Entity, // 所在的psss
 	}, 
 	Pass2D{
 		id: EntityKey,
@@ -77,19 +82,19 @@ pub enum DrawElement {
 		id: EntityKey,
 		depth_start: f32,
 	}, // 由另一个图节点渲染，需要调用图节点的run, EntityKey为DrawObj节点id
-	GraphFbo{
-		id: EntityKey,
-		draw_state: InstanceDrawState,
-		draw_range: Range<usize>, // 在排序后的all_list列表中的范围
-		depth_start: usize,
-	}, // 由另一个图节点渲染，需要调用图节点的run, EntityKey为DrawObj节点id
+	// GraphFbo{
+	// 	id: EntityKey,
+	// 	draw_state: InstanceDrawState,
+	// 	draw_range: Range<usize>, // 在排序后的all_list列表中的范围
+	// 	depth_start: usize,
+	// }, // 由另一个图节点渲染，需要调用图节点的run, EntityKey为DrawObj节点id
 }
 
 #[derive(Debug)]
 pub struct InstanceDrawState {
 	pub instance_data_range: Range<usize>, // 在单列RenderInstances中的范围
 	pub pipeline: Option<Share<RenderPipeline>>, // 为None时， 默认使用全局默认的pipeline
-	pub texture_bind_group: Option<wgpu::BindGroup>, // 为None时， 不需要绑定texture_bind
+	pub texture_bind_group: Option<Share<wgpu::BindGroup>>, // 为None时， 不需要绑定texture_bind
 }
 
 
@@ -109,7 +114,8 @@ pub struct Draw2DList {
 	// 绘制内容可能是一个实例化Draw，也可能是一个上下文draw
 	// 此列表根据all_list的排序结果，根据其中的DrawIndex::Pass2D将all_list劈分为多个"段"，每个段收缩为一个或多个实例化draw（肯呢个由于纹理个数的限制变成多个，通常为1个）
 	// 并按原有的顺序，将实例化draw和pass2d存储在此结构体中
-	pub draw_list: Vec<DrawElement>,
+	// pub draw_list: Range<usize>,
+	pub start_instace: usize, // 实例的开始索引
 	pub need_dyn_fbo_index: Vec<usize>, // 一组在draw_list中的索引， 表示该draw_element需要在渲染图的build阶段动态创建资源（渲染资源，通常是fbo作为纹理的bindgroup，和uv）
 
 	// 用于收集上下文中的渲染列表
@@ -131,8 +137,9 @@ impl Default for Draw2DList {
         Self {
 			clear_instance: pi_null::Null::null(),
 			list_is_change: false,
+			start_instace: 0,
 			all_list_len: 0,
-			draw_list: Vec::default(),
+			// draw_list: Vec::default(),
 			need_dyn_fbo_index: Vec::default(),
 			all_list_sort: Vec::default(),
             all_list: Vec::default(),

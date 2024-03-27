@@ -49,7 +49,7 @@ use wgpu::{RenderPass, Sampler, util::DeviceExt, Device};
 use crate::{
     components::{
         calc::{EntityKey, NodeId, Quad},
-        draw_obj::{ClearColorBindGroup, DrawState, DynTargetType},
+        draw_obj::{ClearColorBindGroup, DrawState, DynTargetType, FboInfo},
         pass_2d::{Camera, Draw2DList, DrawIndex, GraphId, ParentPassId, PostProcess, PostProcessInfo, RenderTarget, ScreenTarget, StrongTarget, CacheTarget, RenderTargetCache, DrawElement, InstanceDrawState},
         user::{Aabb2, AsImage, Point2, RenderTargetType, Canvas},
     },
@@ -84,6 +84,11 @@ pub struct Pass2DNode {
 
 #[derive(SystemParam)]
 pub struct BuildParam<'w, 's> {
+	fbo_query: Query<
+		'w,
+		's,
+		&'static mut FboInfo,
+	>,
 	pass2d_query: Query<
 		'w,
 		's,
@@ -332,28 +337,36 @@ impl Node for Pass2DNode {
 			Ok(r) => r,
 			Err(_) => return Ok(out),
 		};
-		let mut list = std::mem::take(&mut list0.draw_list);
-		let need_dyn_fbo_index = std::mem::take(&mut list0.need_dyn_fbo_index);
 
-		log::trace!("set_canvas=0========={:?}", &need_dyn_fbo_index);
-		set_canvas(
-			&need_dyn_fbo_index, 
-			&mut list,
-			&mut param.pass2d_draw_list,
-			input,
-			&param.render_cross,
-			&param.node_id_query,
-			&param.canvas_query, 
-			&param.node_query,
-			&mut param.instance_draw,
-			&param.common_sampler,
-			&param.device);
+		let fbo_info = match param.fbo_query.get_mut(pass2d_id) {
+			Ok(r) => r,
+			Err(_) => return Ok(out),
+		};
+		if list0.all_list.len() == 0 || !camera.is_active {
+			fbo_info.fbo = None;
+		}
+		// let mut list = std::mem::take(&mut list0.draw_list);
+		// let need_dyn_fbo_index = std::mem::take(&mut list0.need_dyn_fbo_index);
+
+		// log::trace!("set_canvas=0========={:?}", &need_dyn_fbo_index);
+		// set_canvas(
+		// 	&need_dyn_fbo_index, 
+		// 	&mut list,
+		// 	&mut param.pass2d_draw_list,
+		// 	input,
+		// 	&param.render_cross,
+		// 	&param.node_id_query,
+		// 	&param.canvas_query, 
+		// 	&param.node_query,
+		// 	&mut param.instance_draw,
+		// 	&param.common_sampler,
+		// 	&param.device);
 
 		// SAFE: 保证渲染图并行时不会访问同时访问同一个实体的renderTarget，这里的转换是安全的
 		let render_target = unsafe { &mut *(render_target as *const RenderTarget as *mut RenderTarget) };
 		// log::warn!("graph build======{:?}, {:?}, {:?}, {:?}", pass2d_id, list.transparent, list.opaque, &render_target.bound_box);
 		// log::warn!("run graph4==============, pass2d_id: {:?}, input count: {}, opaque: {}, transparent: {}, is_active: {:?}, is_changed: {:?}, opaque_list: {:?}, transparent_list: {:?}, view_port: {:?}, render_target: {:?}", pass2d_id, input.0.len(), list.opaque.len(), list.transparent.len(), camera.is_active, camera.is_change, &list.opaque, &list.transparent, &camera.view_port, &render_target.target);
-		log::trace!(pass = format!("{:?}", pass2d_id).as_str();"build graph node1, pass2d_id: {pass2d_id:?}, \nparent_pass2d_id: {:?}, \ninput count: {}, \ninput: {:?} \ndraw_list: {}, \nis_active: {:?}, \nis_changed: {:?}, \ndraw_list: {:?}, \nview_port: {:?}, \nfrom: {_from:?}, \nto: {to:?}, \nneed_dyn_fbo_index={:?}", parent_pass2d_id, input.0.len(), input.0.iter().map(|r| {(r.0.clone(), r.1.target.is_some(), &r.1.valid_rect)}).collect::<Vec<_>>(), list.len(), camera.is_active, camera.is_change, &list, &camera.view_port, &need_dyn_fbo_index);
+		log::trace!(pass = format!("{:?}", pass2d_id).as_str();"build graph node1, pass2d_id: {pass2d_id:?}, \nparent_pass2d_id: {:?}, \ninput count: {}, \ninput: {:?}, \nis_active: {:?}, \nis_changed: {:?}, \nview_port: {:?}, \nfrom: {_from:?}, \nto: {to:?}", parent_pass2d_id, input.0.len(), input.0.iter().map(|r| {(r.0.clone(), r.1.target.is_some(), &r.1.valid_rect)}).collect::<Vec<_>>(), camera.is_active, camera.is_change, &camera.view_port);
 		if camera.is_active || parent_pass2d_id.is_null() {
 			let mut render_to_fbo = false;
 			let (offsetx, offsety) = (
@@ -364,18 +377,6 @@ impl Node for Pass2DNode {
 				camera.view_port.maxs.x - camera.view_port.mins.x,
 				camera.view_port.maxs.y - camera.view_port.mins.y,
 			);
-
-			
-
-			
-			let list_len = list.len();
-			// 还回list
-			let mut list1 = match param.pass2d_draw_list.get_mut(pass2d_id) {
-				Ok(r) => r,
-				Err(_) => return Ok(out),
-			};
-			list1.draw_list = list;
-			list1.need_dyn_fbo_index = need_dyn_fbo_index;
 
 			// if list.opaque.len() > 0 || list.transparent.len() > 0 {
 			if list_len > 0 {
@@ -498,6 +499,8 @@ impl Node for Pass2DNode {
 		}
 
 		self.out_put_target = out.target.clone();
+
+		fbo_info.fbo = out.target.clone(); // 设置到组件上， 后续批处理需要用到
 		Ok(out)
 	}
 

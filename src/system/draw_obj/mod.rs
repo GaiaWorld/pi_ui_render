@@ -74,6 +74,7 @@ impl Plugin for UiReadyDrawPlugin {
 				.after( UiSystemSet::PassFlush)
 				.after(z_index::calc_zindex)
             	.after(show::calc_show)
+				.after(update_graph)
 				.before(UiSystemSet::PrepareDrawObj)
 				.in_set(FrameDataPrepare))
             .add_systems(Update, root_view_port::calc_dyn_target_type.in_set(UiSystemSet::BaseCalc))

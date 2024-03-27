@@ -14,7 +14,7 @@ use pi_bevy_ecs_extend::prelude::{Down, Layer, Up};
 
 use self::{
     calc::{DrawInfo, DrawList, EntityKey, IsShow, NodeState, RenderContextMark, TransformWillChangeMatrix, View},
-    draw_obj::{BoxType, ClearColorBindGroup, CopyFboToScreen, PipelineMeta, InstanceIndex},
+    draw_obj::{BoxType, ClearColorBindGroup, CopyFboToScreen, PipelineMeta, InstanceIndex, FboInfo},
     pass_2d::{ChildrenPass, GraphId, ParentPassId, PostProcess, PostProcessInfo, RenderTarget, ViewMatrix},
     root::RootDirtyRect,
     user::Overflow,
@@ -124,6 +124,8 @@ pub struct PassBundle {
     pub graph_id: GraphId,
     pub will_change_matrix: TransformWillChangeMatrix,
     pub render_target: RenderTarget,
+	pub instance_index: InstanceIndex,
+	pub fbo_info: FboInfo,
 }
 
 impl PassBundle {
@@ -144,6 +146,8 @@ impl PassBundle {
             will_change_matrix: Default::default(),
             graph_id: Default::default(),
             render_target: Default::default(),
+			instance_index: InstanceIndex::default(),
+			fbo_info: FboInfo::default(),
         }
     }
 }

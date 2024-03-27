@@ -5,7 +5,7 @@ use bevy_ecs::{
     query::{Added, Changed, Or, ReadOnlyWorldQuery},
     system::{ParamSet, Query, ResMut},
 };
-use pi_bevy_ecs_extend::system_param::res::{OrInitRes, OrInitResMut};
+use pi_bevy_ecs_extend::system_param::{res::{OrInitRes, OrInitResMut}, tree::Root};
 use pi_bevy_render_plugin::{NodeId, PiRenderGraph, NodeLabel};
 use pi_null::Null;
 use pi_render::depend_graph::graph;
@@ -43,13 +43,19 @@ pub fn update_graph(
     // 插入Draw2DList
     for (mut graph_id, entity, parent_passs_id, post_info) in pass_query.p0().iter_mut() {
 		log::debug!(entity=format!("entity_{:?}", entity).as_str();  "add graph node1, entity={entity:?}, has_effect={:?}, parent_passs_id={:?}", post_info.has_effect(), parent_passs_id);
-        if post_info.has_effect() || pi_null::Null::is_null(&parent_passs_id.0) {
+		let is_root = pi_null::Null::is_null(&parent_passs_id.0);
+        if post_info.has_effect() || is_root {
             // 存在后处理效果，或者节点本身是根节点， 才能成为一个渲染节点
             if !graph_id.0.is_null() {
                 continue;
             }
 
-            let graph_node_id = match rg.add_node(format!("Pass2D_{:?}", entity), Pass2DNode::new(entity), NodeId::default()) {
+			let add_r = if is_root {
+				rg.add_node(format!("Pass2D_{:?}", entity), Pass2DNode::new(entity), NodeId::default())
+			} else {
+				rg.add_node_not_run(format!("Pass2D_{:?}", entity), Pass2DNode::new(entity), NodeId::default())
+			};
+            let graph_node_id = match add_r {
                 Ok(r) => r,
                 Err(e) => {
                     log::error!("node: {:?}, {:?}", format!("Pass2D_{:?}", entity), e);
@@ -99,6 +105,9 @@ pub fn update_graph(
             }
         }
     }
+
+	// 更新图结构
+	rg.update();
 }
 
 // 如果存在后处理，连接到后处理

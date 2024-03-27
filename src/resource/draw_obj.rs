@@ -36,7 +36,7 @@ use wgpu::{
 };
 
 use crate::{
-    components::{draw_obj::{DrawState, PipelineMeta}, pass_2d::{CacheTarget, InstanceDrawState}, calc::WorldMatrix},
+    components::{draw_obj::{DrawState, PipelineMeta}, pass_2d::{CacheTarget, InstanceDrawState, DrawElement}, calc::WorldMatrix},
 	shader1::meterial::{CameraBind, MeterialBind, ProjectUniform, ViewUniform},
     shader::{
         depth::{DepthBind, DepthUniform},
@@ -183,11 +183,20 @@ impl BatchTexture {
 
 	/// 将当前的临时数据立即创建一个bindgroup，并返回
 	pub fn take_group(&mut self, device: &wgpu::Device) -> Option<wgpu::BindGroup> {
+		if self.temp_textures.len() == 0 {
+			return None;
+		}
+
 		let group = Some(Self::take_group1(device, &self.temp_textures, &self.default_texture_view, &self.default_sampler, &self.group_layout));
 		// 清理临时数据
 		self.temp_texture_indexs.clear();
 		self.temp_textures.clear();
 		group
+	}
+
+	/// 将当前的临时数据立即创建一个bindgroup，并返回
+	pub fn default_group(&mut self, device: &wgpu::Device) -> wgpu::BindGroup {
+		Self::take_group1(device, &Vec::new(), &self.default_texture_view, &self.default_sampler, &self.group_layout)
 	}
 
 	/// 将当前的临时数据立即创建一个bindgroup，并返回
@@ -302,6 +311,8 @@ pub struct InstanceContext {
 	pub pipeline_layout: PipelineLayout,
 
 	pub default_camera: BufferGroup,
+
+	pub draw_list: Vec<DrawElement>, // 渲染元素
 }
 
 impl InstanceContext {
@@ -500,6 +511,7 @@ impl FromWorld for InstanceContext {
 			camera_alloter,
 			pipeline_layout,
 			default_camera,
+            draw_list: Vec::new(),
 		}
     }
 	
