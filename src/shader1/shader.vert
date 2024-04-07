@@ -32,7 +32,7 @@ layout(location = 11) in vec4 data10; // vec4 border_image_offset; | vec4 u_outl
 layout(location = 12) in vec4 data11; // float alpha; float ty;float depth; float weight(文字粗细); 
 layout(location = 13) in vec4 quad1; // 四边形 （分别为四个顶点（0， 0）、（0， 1）、（1， 1），（1， 0）在世界坐标系上的位置， 由于槽位有限， 没有传入世界矩阵， 而是算出了绝对值）
 layout(location = 14) in vec4 quad2; // 四边形 （分别为四个顶点（0， 0）、（0， 1）、（1， 1），（1， 0）在世界坐标系上的位置， 由于槽位有限， 没有传入世界矩阵， 而是算出了绝对值）
-// layout(location = 18) in float depth; // 深度
+layout(location = 15) in vec3 data13; // 阴影偏移和模糊等级
 // bgcolor = 1;bordercolor = 2;borderimage = 3;bgimage=4;borderimage_repeat = 5;bgimage_repeat=6;bitmaptext = 7;fbo_rect = 8;fbo_circel=9;fbo_ellipse=10;fbo_sector=11;fbo_radius=12;fbo_svg=13;
 
 
@@ -53,7 +53,7 @@ layout(location = 11) out vec4 vData9; // vec4 gradient_end
 layout(location = 12) out vec4 vData10; // vec4 border_image_offset | vec4 u_outline(描边颜色rgb + 描边宽度u_outline.w)
 layout(location = 13) out vec4 vData11; // float alpha; float ty;
 layout(location = 14) out vec2 vData12; // float alpha; float ty;
-
+layout(location = 15) out vec3 vData13; // 阴影偏移和模糊等级
 
 void main() {
 	int ty1 = int(data11.y); // clip = 1;uv = 4;
@@ -70,7 +70,7 @@ void main() {
 	vData9 = data9;
 	vData10 = data10;
 	vData11 = data11;
-
+	vData13 = data13;
 	if ((ty1 & 16384) != 0) {  // box_shadow
 		float extend = data5.z + data5.w;
 		vData1.zw = vData1.zw + extend;

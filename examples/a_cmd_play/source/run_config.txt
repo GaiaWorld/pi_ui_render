@@ -1,2 +1,2 @@
-play_path=D://0_js/pi_demo_mult_gui/dst;
-play_version=1711505433639
+play_path=E:/game_project/pi_demo_gui/dst;
+play_version=1711516715910

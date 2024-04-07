@@ -28,7 +28,7 @@ use pi_async_rt::prelude::AsyncRuntime;
 
 use super::IsRun;
 
-pub struct Sdf2GlpyhAwaitList(pub Share<ShareMutex<Vec<(Vec<Entity>, Share<ShareMutex<(usize, Vec<(DefaultKey, TexInfo, Vec<u8>, Vec<u8>)>)>>)>>>);
+pub struct Sdf2GlpyhAwaitList(pub Share<ShareMutex<Vec<(Vec<Entity>, Share<ShareMutex<(usize, Vec<(DefaultKey, TexInfo, Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>)>)>>)>>>);
 
 impl Default for Sdf2GlpyhAwaitList {
     fn default() -> Self {

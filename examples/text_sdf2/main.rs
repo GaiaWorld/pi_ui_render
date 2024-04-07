@@ -23,7 +23,7 @@ use pi_ui_render::{
 
 fn main() { framework::start(QuadExample::default()) }
 use pi_style::{
-    style::{Aabb2, Point2, TextContent, TextOverflow, FontStyle},
+    style::{Aabb2, Point2, TextContent, TextOverflow, FontStyle, LinearGradientColor, ColorAndPosition},
     style_type::{
         BackgroundColorType, ColorType, FontFamilyType, FontSizeType, HeightType, MarginLeftType, MarginTopType, PositionLeftType, PositionTopType,
         PositionTypeType, TextContentType, WidthType, TextOverflowType, FlexWrapType, OverflowWrapType, AsImageType, FontWeightType, FontStyleType,
@@ -145,7 +145,28 @@ impl Example for QuadExample {
 		self.cmd.set_style(div5, TextOverflowType(TextOverflow::Custom("，后续省略..".to_string())));
 		self.cmd.set_style(div5, FlexWrapType(pi_flex_layout::style::FlexWrap::NoWrap));
         self.cmd.set_style(div5, FontFamilyType(Atom::from("hwkt")));
-        self.cmd.set_style(div5, ColorType(Color::RGBA(CgColor::new(0.0, 1.0, 0.0, 1.0))));
+        // self.cmd.set_style(div5, ColorType(Color::RGBA(CgColor::new(0.0, 1.0, 0.0, 1.0))));
+        self.cmd.set_style(div5, ColorType(Color::LinearGradient(LinearGradientColor {
+            direction: 0.5 * 3.14,
+            list: vec![
+                ColorAndPosition {
+                    position: 0.0,
+                    rgba: CgColor::new(0.0, 0.0, 0.0, 1.0),
+                },
+                ColorAndPosition {
+                    position: 0.5,
+                    rgba: CgColor::new(0.3, 0.0, 0.0, 1.0),
+                },
+                ColorAndPosition {
+                    position: 1.0,
+                    rgba: CgColor::new(0.6, 0.0, 0.0, 1.0),
+                },
+                ColorAndPosition {
+                    position: 1.0,
+                    rgba: CgColor::new(1.0, 0.0, 0.0, 1.0),
+                },
+            ],
+        })));
         self.cmd.set_style(div5, FontSizeType(FontSize::Length(17)));
         self.cmd.append(div5, root);
 

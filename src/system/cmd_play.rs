@@ -353,6 +353,15 @@ pub fn cmd_play(world: &mut World, state: &mut SystemState<(Commands, OrInitRes<
                 r.0 = node;
                 cmds.push_cmd(r);
             },
+            CmdType::SvgColorCmd(r) => {
+                let mut r = r.clone();
+                let node = match play_state.get_node(&r.0) {
+                    Some(r) => r,
+                    None => continue,
+                };
+                r.0 = node;
+                cmds.push_cmd(r);
+            },
         };
     }
 

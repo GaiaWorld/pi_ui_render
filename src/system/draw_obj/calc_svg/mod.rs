@@ -1,3 +1,7 @@
+pub mod calc_tex;
+pub mod filter;
+pub mod gradient;
+
 use bevy_app::{Plugin, Update};
 use bevy_window::AddFrameEvent;
 use pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent;
@@ -13,10 +17,11 @@ use crate::{
 };
 
 use self::calc_tex::{calc_sdf2_text, text_svg, update_sdf2_texture};
+use self::filter::{flter_blur, flter_offset};
+use self::gradient::{gradient_offset, gradient_stop};
+use super::life_drawobj::draw_object_life_new;
 
-use super::life_drawobj::{draw_object_life_new, update_render_instance_data};
 
-pub mod calc_tex;
 use bevy_ecs::{schedule::IntoSystemConfigs, query::Changed};
 
 pub const SVG_ORDER: u8 = 8;
@@ -44,6 +49,10 @@ impl Plugin for SvgPlugin {
             // )
             // 更新实例数据
             .add_systems(Update, calc_sdf2_text.in_set(UiSystemSet::PrepareDrawObj))
+            .add_systems(Update, flter_blur.in_set(UiSystemSet::PrepareDrawObj))
+            .add_systems(Update, flter_offset.in_set(UiSystemSet::PrepareDrawObj))
+            .add_systems(Update, gradient_offset.in_set(UiSystemSet::PrepareDrawObj))
+            .add_systems(Update, gradient_stop.in_set(UiSystemSet::PrepareDrawObj))
             // 更新纹理
             .add_systems(
                 Update,

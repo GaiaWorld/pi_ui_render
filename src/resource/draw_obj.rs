@@ -92,7 +92,7 @@ pub struct BatchTexture {
 }
 
 impl BatchTexture {
-	const BINDING_COUNT: u32 = 14;
+	const BINDING_COUNT: u32 = 13;
 	pub fn new(device: &wgpu::Device) -> Self {
 		let mut entry = Vec::with_capacity(Self::BINDING_COUNT as usize);
 		for i in 0..Self::BINDING_COUNT {
@@ -397,8 +397,20 @@ impl FromWorld for InstanceContext {
 				visibility: ShaderStages::FRAGMENT,
 				ty: BindingType::Sampler(SamplerBindingType::Filtering),
 				count: None,
-			}],
-		});
+			},
+            wgpu::BindGroupLayoutEntry {
+				binding: 3,
+				visibility: ShaderStages::FRAGMENT,
+				ty: BindingType::Texture { sample_type: TextureSampleType::Float { filterable: true }, view_dimension: TextureViewDimension::D2, multisampled: false },
+				count: None,
+			},
+			wgpu::BindGroupLayoutEntry {
+				binding: 4,
+				visibility: ShaderStages::FRAGMENT,
+				ty: BindingType::Sampler(SamplerBindingType::Filtering),
+				count: None,
+			}
+            ]});
 		// let default_texture_group = Share::new((***device).create_bind_group(&wgpu::BindGroupDescriptor {
 		// 	label: Some("default text texture bindgroup"),
 		// 	layout: &text_texture_layout,
@@ -1462,12 +1474,8 @@ impl CommonSampler {
 		Self {
             default: Share::new(device.create_sampler(&wgpu::SamplerDescriptor {
                 label: Some("linear sampler"),
-                address_mode_u: wgpu::AddressMode::ClampToEdge,
-                address_mode_v: wgpu::AddressMode::ClampToEdge,
-                address_mode_w: wgpu::AddressMode::ClampToEdge,
                 mag_filter: wgpu::FilterMode::Linear,
                 min_filter: wgpu::FilterMode::Linear,
-                mipmap_filter: wgpu::FilterMode::Linear,
                 ..Default::default()
             })),
             pointer: Share::new(device.create_sampler(&wgpu::SamplerDescriptor {
@@ -1998,11 +2006,11 @@ pub fn create_render_pipeline(
 							offset: 208,
 							shader_location: 14,
 						},
-						// wgpu::VertexAttribute {
-						// 	format: wgpu::VertexFormat::Float32x4,
-						// 	offset: 224,
-						// 	shader_location: 15,
-						// },
+						wgpu::VertexAttribute {
+							format: wgpu::VertexFormat::Float32x3,
+							offset: 224,
+							shader_location: 15,
+						},
 						// wgpu::VertexAttribute {
 						// 	format: wgpu::VertexFormat::Float32x4,
 						// 	offset: 240,
