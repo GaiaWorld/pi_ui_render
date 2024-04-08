@@ -217,7 +217,7 @@ pub fn calc_background_image(
 					instance_data.set_data(&UvUniform(&[uv1.x, uv1.y, uv2.x, uv2.y]));
 				}
 				// instance_data.set_data(&BoxUniform(&[p1.x, p1.y, p2.x - p1.x, p2.y - p1.y]));
-				log::debug!("bg========================{:?}, {:?}, {:?}, {:?}, {:?}", entity, draw_id, instance_index, background_image, layout);
+				log::trace!("bg========================{:?}, {:?}, {:?}, {:?}, {:?}", entity, draw_id, instance_index, background_image, layout);
 				set_box(&world_matrix, &Aabb2::new(p1, p2), &mut instance_data);
 				instance_data.set_data(&UvUniform(&[uv1.x, uv1.y, uv2.x, uv2.y]));
 				instance_data.set_data(&TyUniform(&[render_flag as f32]));

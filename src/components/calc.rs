@@ -20,7 +20,6 @@ use pi_share::Share;
 use pi_slotmap::Key;
 
 use crate::resource::RenderObjType;
-use crate::resource::draw_obj::TextureKeyAlloter;
 
 use super::user::*;
 
@@ -131,9 +130,9 @@ impl LayoutResult {
 /// 内容最大包围盒范围(所有递归子节点的包围盒的最大范围，不包含自身)
 #[derive(Clone, Debug, Serialize, Deserialize, Component)]
 pub struct ContentBox {
-    // 内容包围盒(不包含阴影的扩展)
+    // 内容包围盒（自身+递归子节点的并）(不包含阴影的扩展)
     pub oct: Aabb2,
-    // 布局包围盒（还包含了阴影的扩展）
+    // 布局包围盒（以父节点content的左上角为原点， 自身+递归子节点的并）（还包含了阴影的扩展）
     pub layout: Aabb2,
 }
 

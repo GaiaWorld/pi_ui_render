@@ -14,7 +14,7 @@ use crate::{
             ColorUniform, GradientColorUniform, GradientEndUniform, GradientPositionUniform, RenderFlagType, Sdf2InfoUniform, TextOuterGlowUniform,
             TextOutlineUniform, TextWeightUniform, TyUniform,
         },
-        InstanceData, RenderInstances,
+        InstanceData, GpuBuffer,
     },
     system::draw_obj::set_box,
 };
@@ -362,7 +362,7 @@ fn text_vert(
     entity: Entity,
     uniform_data: UniformData,
     instance_index: InstanceIndex,
-    instances: &mut RenderInstances,
+    instances: &mut GpuBuffer,
 ) {
     let font_size = 1.0;
     let line_height = 1.0;

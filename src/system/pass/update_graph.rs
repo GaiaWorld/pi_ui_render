@@ -5,18 +5,16 @@ use bevy_ecs::{
     query::{Added, Changed, Or, ReadOnlyWorldQuery},
     system::{ParamSet, Query, ResMut},
 };
-use pi_bevy_ecs_extend::system_param::{res::{OrInitRes, OrInitResMut}, tree::Root};
+use pi_bevy_ecs_extend::system_param::res::{OrInitRes, OrInitResMut};
 use pi_bevy_render_plugin::{NodeId, PiRenderGraph, NodeLabel};
 use pi_null::Null;
-use pi_render::depend_graph::graph;
 
 use crate::{
     components::{
-        calc::{InPassId, RenderContextMark},
-        pass_2d::{Camera, GraphId, ParentPassId, PostProcessInfo, ChildrenPass},
-        user::{Canvas, AsImage},
-    },
-    system::{pass::pass_graph_node::Pass2DNode, draw_obj::calc_text::IsRun}, resource::PassGraphMap,
+        calc::{EntityKey, RenderContextMark},
+        pass_2d::{Camera, ChildrenPass, GraphId, ParentPassId, PostProcessInfo},
+        user::AsImage,
+    }, resource::{draw_obj::InstanceContext, PassGraphMap}, system::{draw_obj::calc_text::IsRun, pass::pass_graph_node::Pass2DNode}
 };
 
 /// 根据声明创建图节点，删除图节点， 建立图节点的依赖关系
@@ -30,6 +28,7 @@ pub fn update_graph(
 			Query<&ChildrenPass>,
 		),
     )>,
+    mut instances: ResMut<InstanceContext>,
     mut del: RemovedComponents<Camera>,
     inpass_query: Query<&ParentPassId>,
     mut rg: ResMut<PiRenderGraph>,
@@ -39,6 +38,13 @@ pub fn update_graph(
 	if r.0 {
 		return;
 	}
+
+    if instances.last_graph_id.is_null() {
+        instances.last_graph_id = rg.add_node("Pass2DLast".to_string(), Pass2DNode::new(EntityKey::null().0), NodeId::default()).unwrap();
+        if let Err(e) = rg.set_finish(instances.last_graph_id, true) {
+            log::error!("{:?}", e);
+        }
+    }
     // 创建渲染图节点
     // 插入Draw2DList
     for (mut graph_id, entity, parent_passs_id, post_info) in pass_query.p0().iter_mut() {
@@ -50,11 +56,7 @@ pub fn update_graph(
                 continue;
             }
 
-			let add_r = if is_root {
-				rg.add_node(format!("Pass2D_{:?}", entity), Pass2DNode::new(entity), NodeId::default())
-			} else {
-				rg.add_node_not_run(format!("Pass2D_{:?}", entity), Pass2DNode::new(entity), NodeId::default())
-			};
+            let add_r = rg.add_node_not_run(format!("Pass2D_{:?}", entity), Pass2DNode::new(entity), NodeId::default());
             let graph_node_id = match add_r {
                 Ok(r) => r,
                 Err(e) => {
@@ -62,6 +64,11 @@ pub fn update_graph(
                     return;
                 }
             };
+
+			if is_root {
+				 rg.add_depend(graph_node_id, instances.last_graph_id).unwrap();
+                
+			}
 			pass_graph_map.insert(graph_node_id, entity);
             log::debug!(entity=format!("entity_{:?}", entity).as_str();  "add graph node, entity: {entity:?}: {graph_node_id:?}");
 
@@ -89,12 +96,12 @@ pub fn update_graph(
             continue;
         }
 
-        if pi_null::Null::is_null(&parent_id.0) {
-            if let Err(e) = rg.set_finish(**graph_id, true) {
-                log::error!("{:?}", e);
-            }
-			// 根节点忽略post_process
-        } else {
+        // if pi_null::Null::is_null(&parent_id.0) {
+        //     if let Err(e) = rg.set_finish(**graph_id, true) {
+        //         log::error!("{:?}", e);
+        //     }
+		// 	// 根节点忽略post_process
+        // } else {
             let parent_graph_id = get_to(***parent_id, &p2.1);
 			let id = type_to_post_process(**graph_id, as_image, &p2.2, &mut rg);
 
@@ -103,7 +110,7 @@ pub fn update_graph(
             if let Err(e) = rg.add_depend(id, parent_graph_id) {
                 log::error!("{:?}", e);
             }
-        }
+        // }
     }
 
 	// 更新图结构
@@ -175,7 +182,7 @@ pub fn remove_node<T: Into<NodeLabel> + Clone>(graph_id: T, rg: &mut PiRenderGra
 		let from: Vec<NodeId> = Vec::from(from);
 		let to: Vec<NodeId> = Vec::from(to);
 		if let Ok(graph_id) = rg.remove_node(graph_id) {
-			pass_graph_map.remove(&graph_id);
+			pass_graph_map.remove(graph_id);
 
 			// 重新绑定依赖关系
 			if from.len() > 0 && to.len() > 0 {

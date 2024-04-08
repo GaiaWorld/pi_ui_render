@@ -23,7 +23,7 @@ use crate::components::user::{TextStyle, get_size, TextOverflowData, TextContent
 use crate::components::user::Color;
 use crate::events::EntityChange;
 use crate::resource::{ShareFontSheet, TextRenderObjType};
-use crate::shader1::{InstanceData, RenderInstances};
+use crate::shader1::{InstanceData, GpuBuffer};
 // use crate::shader::text;
 // use crate::shader::text_sdf;
 
@@ -490,7 +490,7 @@ fn text_vert(
 	mut draw_id: Entity,
 	uniform_data: UniformData,
 	instance_index: InstanceIndex,
-	instances: &mut RenderInstances,
+	instances: &mut GpuBuffer,
 	font_id: pi_hal::font::font::FontId,
 ) {
 

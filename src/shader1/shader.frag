@@ -1130,6 +1130,7 @@ void main(void) {
 
 		if ((ty1 & 2097152) != 0) { // 预乘模式
 			color.rgb = color.rgb / clamp(color.a, 0.001, 1.0);
+			// color.rgb = vec3(0.0, 1.0, 0.0);
 		}
 		
 		

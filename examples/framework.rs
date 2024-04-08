@@ -353,11 +353,21 @@ pub fn init(width: u32, height: u32, _event_loop: &EventLoop<()>, w: Arc<pi_wini
 
 	let mut o = PiRenderOptions::default();
 
-	o.present_mode = wgpu::PresentMode::Fifo;
+    match std::env::var("GL") {
+        Ok(r) if r == "opengl" => {
+            o.present_mode = wgpu::PresentMode::Fifo;
+            o.backends = wgpu::Backends::GL;
+        },
+		_ => {
+            o.present_mode = wgpu::PresentMode::Mailbox;
+            o.backends = wgpu::Backends::VULKAN;
+        },
+    };
+	// o.present_mode = wgpu::PresentMode::Fifo;
 	// o.backends = wgpu::Backends::GL;
 
 	// o.present_mode = wgpu::PresentMode::Mailbox;
-	o.backends = wgpu::Backends::VULKAN;
+	// o.backends = wgpu::Backends::VULKAN;
 
 	app.world.insert_resource(o);
 

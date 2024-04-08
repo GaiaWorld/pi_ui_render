@@ -17,26 +17,18 @@
 //!
 
 use bevy_ecs::{
-    prelude::{Component, Entity, EventReader, EventWriter, RemovedComponents, Local, Ref, Res},
-	query::Changed,
-	system::{Commands, ParamSet, Query, Resource},
-	world::Mut,
+    change_detection::DetectChangesMut, prelude::{Component, Entity, EventReader, EventWriter, Ref, RemovedComponents, Res}, query::{Changed, Or}, system::{Commands, Local, ParamSet, Query, ResMut}, world::Mut
 };
 use pi_bevy_ecs_extend::{
     prelude::{Layer, LayerDirty, Up},
     system_param::{layer_dirty::ComponentEvent, res::{OrInitRes, OrInitResMut}},
 };
-use pi_densevec::DenseVecMap;
-use pi_map::Map;
 use pi_null::Null;
 
 use crate::{
     components::{
-        calc::{EntityKey, InPassId, NeedMark, RenderContextMark},
-        pass_2d::{Camera, ChildrenPass, ParentPassId, PostProcessInfo},
-        PassBundle,
-    },
-    resource::{EffectRenderContextMark, RenderContextMarkType}, system::draw_obj::calc_text::IsRun,
+        calc::{ContentBox, EntityKey, InPassId, LayoutResult, NeedMark, RenderContextMark, WorldMatrix}, draw_obj::InstanceIndex, pass_2d::{Camera, ChildrenPass, ParentPassId, PostProcessInfo}, root::RootInstance, user::{Point2, Vector2}, PassBundle
+    }, resource::{draw_obj::InstanceContext, EffectRenderContextMark, RenderContextMarkType}, shader1::meterial::{BoxUniform, QuadUniform, RenderFlagType, TyUniform, UvUniform}, system::draw_obj::{calc_text::IsRun, set_box}
 };
 
 /// 记录RenderContext添加和删除的脏，同时记录节点添加到树上的脏
@@ -169,38 +161,29 @@ pub fn cal_context(
     }
 }
 
-// pass的toop排序
-#[derive(Debug, Resource, Default)]
-pub struct PassToopSort{
-	pub list: Vec<Entity>, //从叶子开始的广度遍历排序
-	pub next_node_with_depend: Vec<usize>, // 层分割（下一个依赖未就绪的节点，在list中的顺序）
-}
-
 /// Pass2D设置children
 pub fn calc_pass_children_and_clear(
     mut event_reader: EventReader<ComponentEvent<Changed<RenderContextMark>>>,
     mut query: ParamSet<(
 		Query<&mut ChildrenPass>,
-		Query<(&mut ChildrenPass, Entity)>,
+        Query<(&mut ChildrenPass, Entity, &Layer)>,
 	)>,
     query_pass: Query<(Entity, &ParentPassId)>,
-    mut local: Local<(Vec<Entity>, Vec<Entity>)>,
-	mut sort: OrInitResMut<PassToopSort>,
+    // mut query_root: Query<&mut RootInstance>,
+    // mut temp: Local<(Vec<Entity>, Vec<Entity>)>,
+    mut instances: ResMut<InstanceContext>,
 	r: OrInitRes<IsRun>
 ) {
+    
 	if r.0 {
 		return;
 	}
-	let local = &mut *local;
     if event_reader.len() > 0 {
         event_reader.clear();
-		let sort = &mut *sort;
-		let from1 = &mut local.1;
-		let from2 = &mut local.2;
 
 		// 先清理旧的子节点
-		let query_children = query.p0();
-		for children in query_children.iter() {
+		let mut query_children = query.p0();
+		for mut children in query_children.iter_mut() {
 			children.clear();
 		}
 
@@ -209,42 +192,82 @@ pub fn calc_pass_children_and_clear(
             if parent.0.is_null() {
                 continue;
             }
-			if let Ok(mut children) = query_children.get_mut(parent) {
-                *children.push(EntityKey(entity));
+			if let Ok(mut children) = query_children.get_mut(*parent.0) {
+                children.push(EntityKey(entity));
             }
         }
 
 		// 找到叶子节点
-		for (children, entity) in query.p1().iter() {
-			if children.len() == 0 {
-				from1.push(entity);
-			}
-			children.temp_count = children.len();
+		for (mut children, entity, layer) in query.p1().iter_mut() {
+            // if let Ok(mut root_instance) = query_root.get_mut(layer.root()) {
+                if children.len() == 0 {
+                    instances.temp.0.push(entity);
+                }
+                children.temp_count = children.len();
+            // }
 		}
-
-		let query_children = query.p0();
-		while from1.len() > 0 {
-			for entity in from1.drain(..) {
-				if let Ok((_, parent)) = query_pass.get(entity) {
-					if let Ok(children) = query_children.get(parent) {
-						children.temp_count -= 1;
-						if children.temp_count == 0 {
-							from2.push(parent);
-						}
-					}
-				}
-			    sort.list.push(entity);
-			}
-			let l = sort.list.len();
-			sort.next_node_with_depend.push(l); // 下一个存在依赖的节点在toop排序中的索引
-			std::mem::swap(from1, from2);
-		}
-
-        local.0.clear();
-		local.1.clear();
-
+        // }
     }
 }
+
+// 
+pub fn calc_pass_toop_sort(
+    mut event_reader: EventReader<ComponentEvent<Changed<RenderContextMark>>>,
+    mut query_children: Query<&mut ChildrenPass>,
+    query_pass: Query<(Entity, &ParentPassId, &PostProcessInfo)>,
+    // mut query_root: Query<&mut RootInstance>,
+    mut instances: ResMut<InstanceContext>,
+	r: OrInitRes<IsRun>
+) {
+    if r.0 {
+		return;
+	}
+    if event_reader.len() == 0 {
+        return;
+    }
+
+    event_reader.clear();
+
+    let InstanceContext {pass_toop_list,  next_node_with_depend, temp, ..} = &mut *instances;
+    // 从叶子节点开始排序
+    pass_toop_list.clear();
+    next_node_with_depend.clear();
+    // for mut root_instance in query_root.iter_mut() {
+        // root_instance.pass_toop_list.clear();
+        // root_instance.next_node_with_depend.clear();
+        // let root_instance = root_instance.bypass_change_detection();
+    while temp.0.len() > 0 {
+        for entity in temp.0.drain(..) {
+            if let Ok((_, parent, post_info)) = query_pass.get(entity) {
+                if let Ok(mut children) = query_children.get_mut(*parent.0) {
+                    children.temp_count -= 1;
+                    children.temp_has_effect |= post_info.has_effect();
+                    if children.temp_count == 0 {
+                        if !children.temp_has_effect {
+                            temp.1.push(*parent.0);
+                        } else {
+                            temp.2.push(*parent.0);
+                        }
+                        children.temp_has_effect = false;
+                    }
+                }
+            }
+            pass_toop_list.push(entity);
+        }
+        if temp.1.len() > 0 {
+            std::mem::swap(&mut temp.0, &mut temp.1);
+        } else {
+            let l = pass_toop_list.len();
+            next_node_with_depend.push(l); // 下一个存在依赖的节点在toop排序中的索引
+            std::mem::swap(&mut temp.0, &mut temp.2);
+        } 
+    }
+
+    temp.0.clear();
+    temp.1.clear();
+    temp.2.clear();
+}
+
 
 /// 标记RenderContextMark
 /// Opacity、Blur、Hsi等属性，需要标记RenderContextMark
@@ -277,6 +300,53 @@ pub fn pass_mark<T: Component + NeedMark>(
             render_mark_false(entity, ***mark_type, &mut event_writer, &mut render_mark_value);
         }
     }
+}
+
+/// 设置背景颜色的顶点，和颜色Uniform
+pub fn calc_pass(
+	mut instances: OrInitResMut<InstanceContext>,
+	query: Query<
+		(
+            &InstanceIndex,
+			Ref<WorldMatrix>,
+            Ref<ContentBox>,
+            &ParentPassId,
+            Entity,
+		),
+		Or<(Changed<PostProcessInfo>, Changed<WorldMatrix>, Changed<ContentBox>)>,
+	>,
+	r: OrInitRes<IsRun>,
+) {
+    if r.0 {
+		return;
+	}
+
+    for (instance_index, world_matrix, content_box, parent_pass_id, entity) in query.iter() {
+		// 节点可能设置为dispaly none， 此时instance_index可能为Null
+        if pi_null::Null::is_null(&instance_index.0.start) {
+            continue;
+        }
+        
+        let mut instance_data = instances.bypass_change_detection().instance_data.instance_data_mut(instance_index.0.start);
+        let mut render_flag = instance_data.get_render_ty();
+        render_flag |= 1 << RenderFlagType::Uv as usize;
+        render_flag |= 1 << RenderFlagType::Premulti as usize;
+        // instance_data.set_data(&BoxUniform(&[p1.x, p1.y, p2.x - p1.x, p2.y - p1.y]));
+        if parent_pass_id.0.is_null() {
+            // 如果是根节点， 渲染时设置的投影矩阵和视图矩阵都是单位阵
+            instance_data.set_data(&BoxUniform(&[0.0, 0.0, 1.0, 1.0]));
+            instance_data.set_data(&QuadUniform(&[
+                -1.0, 1.0,
+                -1.0, -1.0,
+                1.0, -1.0,
+                1.0, 1.0,
+            ]));
+        } else {
+            set_box(&world_matrix, &content_box.layout, &mut instance_data);
+        }
+       
+        instance_data.set_data(&TyUniform(&[render_flag as f32]));
+	}
 }
 
 fn context_attr_del<T: Component>(

@@ -3,30 +3,29 @@ use std::{collections::hash_map::Entry, hash::Hash, marker::PhantomData, num::No
 use std::ops::Deref;
 
 use bevy_ecs::{
-    prelude::{FromWorld, World},
-    system::Resource
+    entity::Entity, prelude::{FromWorld, World}, system::Resource
 };
 use ordered_float::NotNan;
 use pi_assets::{asset::{Handle, Asset}, mgr::AssetMgr};
 use pi_atom::Atom;
 use pi_bevy_asset::ShareAssetMgr;
-use pi_bevy_render_plugin::{PiRenderDevice, PiRenderQueue};
+use pi_bevy_render_plugin::{NodeId, PiRenderDevice, PiRenderQueue};
 use pi_hash::{XHashMap, XHashSet};
 use pi_key_alloter::KeyData;
 use pi_map::vecmap::VecMap;
+use pi_null::Null;
 use pi_render::{
-    renderer::{draw_obj::DrawBindGroup, vertices::{RenderVertices, EVerticesBufferUsage}},
-    rhi::{
-        asset::{RenderRes, TextureRes, AssetWithId},
+    components::view::target_alloc::ShareTargetView, renderer::{draw_obj::DrawBindGroup, vertices::{EVerticesBufferUsage, RenderVertices}}, rhi::{
+        asset::{AssetWithId, RenderRes, TextureRes},
         bind_group::BindGroup,
         bind_group_layout::BindGroupLayout,
         buffer::Buffer,
         device::RenderDevice,
-        dyn_uniform_buffer::{GroupAlloter, BufferGroup},
+        dyn_uniform_buffer::{BufferGroup, GroupAlloter},
         pipeline::RenderPipeline,
         shader::{ShaderMeta, ShaderProgram},
         texture::PiRenderDefault, RenderQueue,
-    },
+    }
 };
 use pi_render::rhi::shader::AsLayoutEntry;
 use pi_render::rhi::shader::BindLayout;
@@ -49,7 +48,7 @@ use crate::{
     utils::{
         shader_helper::{create_depth_layout, create_empty_layout, create_matrix_group_layout, create_project_layout, create_view_layout},
         tools::{calc_float_hash, calc_hash, calc_hash_slice},
-    }, shader1::RenderInstances,
+    }, shader1::GpuBuffer,
 };
 
 // /// 一组纹理的绑定， 用于实例化渲染
@@ -73,22 +72,18 @@ use crate::{
 // 	// pub prepare_bindgroups: Vec<BindGroup>, // 空闲的BindGroup， 通常用于本次改变时， 准备当前数据（准备完成后， 需要跟cur进行交换， 使得渲染数据得以更新）
 // }
 
-// 纹理key分配器
-#[derive(Debug, Default, Resource, Clone, Deref)]
-pub struct TextureKeyAlloter(pub Share<pi_key_alloter::KeyAlloter>);
-
 // 批处理纹理
 pub struct BatchTexture {
 	// max_bind: usize,
 	
 	temp_texture_indexs: SecondaryMap<DefaultKey, u32>, // 纹理在该bindgroup中的binding, 以及本利本身
-	temp_textures: Vec<(Handle<AssetWithId<TextureRes>>, Share<wgpu::Sampler>)>,
+	pub temp_textures: Vec<(Handle<AssetWithId<TextureRes>>, Share<wgpu::Sampler>)>,
 
 	// group_layouts: Vec<wgpu::BindGroupLayout>,
 	group_layout: wgpu::BindGroupLayout,
 	pub(crate) default_texture_view: wgpu::TextureView,
 	pub(crate) default_sampler: wgpu::Sampler,
-	pub default_texture_group: wgpu::BindGroup,
+	pub default_texture_group: Share<wgpu::BindGroup>,
 }
 
 impl BatchTexture {
@@ -156,7 +151,7 @@ impl BatchTexture {
 			group_layout,
 			default_texture_view: texture_view,
 			default_sampler: sampler,
-			default_texture_group,
+			default_texture_group: Share::new(default_texture_group),
 			// common_sampler: CommonSampler::new(device),
 		};
 		r
@@ -189,6 +184,8 @@ impl BatchTexture {
 		if self.temp_textures.len() == 0 {
 			return None;
 		}
+
+        let len = self.temp_textures.len();
 
 		let group = Some(Self::take_group1(device, &self.temp_textures, &self.default_texture_view, &self.default_sampler, &self.group_layout));
 		// 清理临时数据
@@ -297,11 +294,11 @@ pub struct InstanceContext {
 	pub premultiply_pipeline: Share<wgpu::RenderPipeline>,
 	pub clear_pipeline: Share<wgpu::RenderPipeline>,
 
-	pub instance_data: RenderInstances,
+	pub instance_data: GpuBuffer,
 	pub instance_buffer: Option<(wgpu::Buffer, usize)>,
 
 	// // 深度buffer
-	pub depth_data: RenderInstances,
+	pub depth_data: GpuBuffer,
 	pub depth_buffer: Option<(wgpu::Buffer, usize)>,
 
 	pub batch_texture: BatchTexture,
@@ -315,34 +312,72 @@ pub struct InstanceContext {
 
 	pub default_camera: BufferGroup,
 
-	pub draw_list: Vec<DrawElement>, // 渲染元素
+	pub draw_list: Vec<(DrawElement, Entity/*passid*/)>, // 渲染元素
+    // /// 批处理是否需要调整
+    // /// 当draw_obj新增和删除、RenderCount发生改变、纹理发生改变（包含动态分配的fbo）时， 需要重新调整批处理
+    pub rebatch: bool, 
+    pub posts: Vec<Entity>, // 渲染元素
+
+    // 用于将根节点渲染到屏幕的图节点
+    pub last_graph_id: NodeId,
+
+    pub pass_toop_list: Vec<Entity>, //该根下 从叶子开始的广度遍历排序
+    pub next_node_with_depend: Vec<usize>,
+    pub temp: (Vec<Entity>, Vec<Entity>, Vec<Entity>),
 }
 
 impl InstanceContext {
-	pub fn draw<'a>(&'a self, rp: &mut RenderPass<'a>, instance_draw: &'a InstanceDrawState) {
-		rp.set_pipeline(match &instance_draw.pipeline {
-			Some(r) => &**r,
-			None => &*self.common_pipeline,
-		});
-		if let Some(texture) = &self.sdf2_texture_group {
-			rp.set_bind_group(2, texture, &[]);
+    pub fn set_pipeline<'a>(&'a self, rp: &mut RenderPass<'a>, instance_draw: &'a InstanceDrawState, render_state: &mut RenderState) {
+        let p = match &instance_draw.pipeline {
+			Some(r) => r,
+			None => &self.common_pipeline,
 		};
-		if let Some(texture) = &instance_draw.texture_bind_group {
-			rp.set_bind_group(1, texture, &[]);
-		};
-		
-		rp.set_vertex_buffer(0, self.vert.slice());
-		// rp.set_vertex_buffer(1, depth_vert.buffer().slice(depth_vert.range()));
-		rp.set_vertex_buffer(1, self.instance_buffer.as_ref().unwrap().0.slice(0..instance_draw.instance_data_range.end as u64));
-		// rp.set_vertex_buffer(18, param.instance_draw.instance_buffer.as_ref().unwrap().0.slice(..));
+        if render_state.reset || !Share::ptr_eq(&p, &render_state.pipeline)  {
+            rp.set_pipeline(p);
+            render_state.pipeline = p.clone();
+        } else {
+            // log::warn!("aaa==========");
+            let aa = 0.0;
+            log::info!("aaa======");
+        }
+    }
+	pub fn draw<'a>(&'a self, rp: &mut RenderPass<'a>, instance_draw: &'a InstanceDrawState, render_state: &mut RenderState) {
+        // log::warn!("draw====={:?}", (render_state.reset, &instance_draw.texture_bind_group, &render_state.texture));
+        if render_state.reset  {
+            if let Some(texture) = &self.sdf2_texture_group {
+                rp.set_bind_group(2, texture, &[]);
+            }
+            if let Some(texture) = &instance_draw.texture_bind_group {
+                rp.set_bind_group(1, texture, &[]);
+                render_state.texture = texture.clone();
+            }
+            rp.set_vertex_buffer(0, self.vert.slice());
+		    rp.set_vertex_buffer(1, self.instance_buffer.as_ref().unwrap().0.slice(..));
+            render_state.reset = false;
+        } else {   
+            if let Some(texture) = &instance_draw.texture_bind_group {
+                if !Share::ptr_eq(&texture, &render_state.texture) {
+                    rp.set_bind_group(1, texture, &[]);
+                    render_state.texture = texture.clone();
+                }
+            };
+        }
 
-		rp.draw(0..6, instance_draw.instance_data_range.start as u32/self.instance_data.alignment as u32..instance_draw.instance_data_range.end as u32/self.instance_data.alignment as u32)
-
-		
+        // log::warn!("darw================={:?}", instance_draw.instance_data_range.start as u32/self.instance_data.alignment as u32..instance_draw.instance_data_range.end as u32/self.instance_data.alignment as u32 );
+        // log::warn!("instance_data_range====={:?}", (&instance_draw.instance_data_range, instance_draw.instance_data_range.start as u32/self.instance_data.alignment as u32..instance_draw.instance_data_range.end as u32/self.instance_data.alignment as u32));
+		// for i in instance_draw.instance_data_range.start as u32/self.instance_data.alignment as u32..instance_draw.instance_data_range.end as u32/self.instance_data.alignment as u32 {
+            // rp.draw(0..6, i..i+1);
+        // }
+        rp.draw(0..6, instance_draw.instance_data_range.start as u32/self.instance_data.alignment as u32..instance_draw.instance_data_range.end as u32/self.instance_data.alignment as u32);
 
 	}
 }
 
+pub struct RenderState {
+    pub reset: bool,
+    pub pipeline: Share<wgpu::RenderPipeline>,
+    pub texture: Share<wgpu::BindGroup>,
+}
 impl FromWorld for InstanceContext {
 	
     fn from_world(world: &mut World) -> Self {
@@ -501,12 +536,12 @@ impl FromWorld for InstanceContext {
 			common_pipeline,
 			premultiply_pipeline,
 			clear_pipeline,
-			instance_data: RenderInstances::new(MeterialBind::SIZE, 200 * MeterialBind::SIZE),
+			instance_data: GpuBuffer::new(MeterialBind::SIZE, 200 * MeterialBind::SIZE),
 			instance_buffer: None,
 
 			batch_texture,
 
-			depth_data: RenderInstances::new(4, 0),
+			depth_data: GpuBuffer::new(4, 0),
 			depth_buffer: None,
 
 			sdf2_texture_group: None,
@@ -515,6 +550,13 @@ impl FromWorld for InstanceContext {
 			pipeline_layout,
 			default_camera,
             draw_list: Vec::new(),
+            rebatch: false,
+            posts: Vec::new(),
+
+            last_graph_id: NodeId::null(),
+            pass_toop_list: Default::default(),
+            next_node_with_depend: Default::default(),
+            temp: Default::default(),
 		}
     }
 	
@@ -541,8 +583,8 @@ impl InstanceContext {
 		
 	}
 
-	pub fn update1(device: &RenderDevice, queue: &RenderQueue, instance_data: &mut RenderInstances, instance_buffer: &mut Option<(wgpu::Buffer, usize)>) {
-		log::trace!("update instance_buffer={:?}", &instance_data.dirty_range);
+	pub fn update1(device: &RenderDevice, queue: &RenderQueue, instance_data: &mut GpuBuffer, instance_buffer: &mut Option<(wgpu::Buffer, usize)>) {
+        log::trace!("update instance_buffer1==============={:?}, {:?}", &instance_data.dirty_range, instance_data.data().len());
 		if instance_data.dirty_range.len() != 0 {
 			if let Some((buffer, size)) = &instance_buffer {
 				if *size >= instance_data.dirty_range.end {

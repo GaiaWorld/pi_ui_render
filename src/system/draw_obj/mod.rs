@@ -1,6 +1,6 @@
 use bevy_ecs::prelude::{Changed, IntoSystemSetConfig, IntoSystemConfigs};
-use bevy_app::{Plugin, Update, Startup, App};
-use pi_bevy_render_plugin::FrameDataPrepare;
+use bevy_app::{App, Plugin, PostUpdate, Startup, Update};
+use pi_bevy_render_plugin::{FrameDataPrepare, GraphBuild, GraphRun};
 use pi_hal::font::font::FontType;
 use pi_style::style::Aabb2;
 
@@ -11,6 +11,7 @@ use crate::shader1::meterial::{BoxUniform, QuadUniform};
 use crate::utils::tools::calc_bound_box;
 
 use super::node::{z_index, show};
+use super::pass::last_update_wgpu::last_update_wgpu;
 use super::pass::pass_life;
 use super::{system_set::UiSystemSet, pass::update_graph::update_graph};
 
@@ -36,7 +37,7 @@ use self::calc_border_image::BorderImagePlugin;
 use self::calc_box_shadow::BoxShadowPlugin;
 use self::calc_canvas::CanvasPlugin;
 use self::calc_svg::SvgPlugin;
-use self::life_drawobj::update_render_instance_data;
+use self::life_drawobj::{batch_instance_data, update_render_instance_data};
 use self::calc_text::UiTextPlugin;
 use bevy_window::AddFrameEvent;
 
@@ -75,7 +76,13 @@ impl Plugin for UiReadyDrawPlugin {
 				.after(z_index::calc_zindex)
             	.after(show::calc_show)
 				.after(update_graph)
+				.after(pass_life::calc_pass_toop_sort)
 				.before(UiSystemSet::PrepareDrawObj)
+				.in_set(FrameDataPrepare))
+			.add_systems(PostUpdate, batch_instance_data
+				.before(last_update_wgpu)
+				.after(GraphBuild)
+				.before(GraphRun)
 				.in_set(FrameDataPrepare))
             .add_systems(Update, root_view_port::calc_dyn_target_type.in_set(UiSystemSet::BaseCalc))
             .add_systems(Update, pipeline::calc_node_pipeline.in_set(UiSystemSet::PrepareDrawObj))

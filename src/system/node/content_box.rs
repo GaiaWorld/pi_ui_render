@@ -46,18 +46,19 @@ pub fn calc_content_box(
             let mut chilren_change = false;
 
             // 当前节点的oct
-            let (mut oct, mut layout, x, y, text_shadow, box_shadow, world_matrix) = match node_box.get(id) {
+            let (mut oct, mut layout, x, y, text_shadow, box_shadow, world_matrix, l) = match node_box.get(id) {
                 Ok(r) => (
                     r.0 .0.clone(),
                     Aabb2::new(
                         Point2::new(0.0, 0.0),
                         Point2::new(r.1.rect.right - r.1.rect.left, r.1.rect.bottom - r.1.rect.top),
                     ),
-                    r.1.rect.left,
-                    r.1.rect.top,
+                    r.1.rect.left + r.1.border.left + r.1.padding.left,
+                    r.1.rect.top + r.1.border.top + r.1.padding.top,
                     r.2,
                     r.3,
                     r.4,
+                    r.1,
                 ),
                 _ => continue,
             };
@@ -84,7 +85,7 @@ pub fn calc_content_box(
             }
 
             if has_extends {
-                // 由于阴影的影响， 重新阶段layout和oct
+                // 由于阴影的影响， 重新计算layout和oct
                 layout.mins.x += offset.0;
                 layout.mins.y += offset.1;
                 layout.maxs.x += offset.2;
@@ -99,7 +100,6 @@ pub fn calc_content_box(
             // )
 
             // log::warn!("oct====={:?}, {:?}", id, oct);
-
             // 如果存在子节点，求所有子节点的ContextBox和自身的Oct的并
             if let Ok(down_item) = down.get(id) {
                 let mut child = down_item.head();
@@ -149,6 +149,14 @@ pub fn calc_content_box(
 
 // 两个aabb的并
 fn box_and(aabb1: &mut Aabb2, aabb2: &Aabb2) {
+    aabb1.mins.x = aabb1.mins.x.min(aabb2.mins.x);
+    aabb1.mins.y = aabb1.mins.y.min(aabb2.mins.y);
+    aabb1.maxs.x = aabb1.maxs.x.max(aabb2.maxs.x);
+    aabb1.maxs.y = aabb1.maxs.y.max(aabb2.maxs.y);
+}
+
+// 两个aabb的并
+fn box_and_offset(aabb1: &mut Aabb2, aabb2: &Aabb2) {
     aabb1.mins.x = aabb1.mins.x.min(aabb2.mins.x);
     aabb1.mins.y = aabb1.mins.y.min(aabb2.mins.y);
     aabb1.maxs.x = aabb1.maxs.x.max(aabb2.maxs.x);

@@ -1,2 +1,2 @@
-play_path=D://0_js/pi_demo_mult_gui/dst;
-play_version=1711505433639
+play_path=D://0_js/cdqxz_new_mult_gui_exe/dst_release;
+play_version=xssj_biography

@@ -3,6 +3,8 @@ use bevy_ecs::prelude::{IntoSystemSetConfig, IntoSystemSetConfigs, IntoSystemCon
 use bevy_ecs::schedule::apply_deferred;
 use pi_bevy_render_plugin::{PiRenderSystemSet, FrameDataPrepare, GraphBuild, GraphRun};
 
+use self::pass_life::calc_pass;
+
 use super::draw_obj::life_drawobj::update_render_instance_data;
 use super::system_set::UiSystemSet;
 
@@ -30,6 +32,11 @@ impl Plugin for UiPassPlugin {
 			.configure_sets(Update, (UiSystemSet::Setting, UiSystemSet::PassMark, PiRenderSystemSet).chain())	
             .configure_sets(Update, (UiSystemSet::PrepareDrawObj, UiSystemSet::PassCalc, PiRenderSystemSet).chain())
             // 创建、删除Pass，为Pass组织树结构
+            .add_systems(Update, 
+				calc_pass
+					.after(super::node::world_matrix::cal_matrix)
+					.in_set(UiSystemSet::PrepareDrawObj)
+			)
             .add_systems(Update, pass_life::cal_context.in_set(UiSystemSet::PassLife))
             .add_systems(Update, apply_deferred.in_set(UiSystemSet::PassFlush))
             .add_systems(Update, 
@@ -38,6 +45,7 @@ impl Plugin for UiPassPlugin {
 					.before(UiSystemSet::PassSettingWithParent) // 在所有依赖父子关系的system之前执行
                     .after(UiSystemSet::PassFlush), // 在上下文创建之后执行
             )
+            .add_systems(Update, pass_life::calc_pass_toop_sort.in_set(FrameDataPrepare).after(UiSystemSet::PassSetting))
             // 计算图节点及其依赖
             .add_systems(Update, update_graph::update_graph.after(UiSystemSet::PassSettingWithParent).after(UiSystemSet::PassSetting))
             // 渲染前，计算Pass的属性
@@ -53,7 +61,8 @@ impl Plugin for UiPassPlugin {
             .add_systems(PostUpdate, 
                 last_update_wgpu::last_update_wgpu
                     .after(GraphBuild)
-					.before(GraphRun),
+					.before(GraphRun)
+                    .in_set(FrameDataPrepare),
             );
     }
 }

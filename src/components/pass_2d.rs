@@ -64,6 +64,7 @@ pub struct ChildrenPass {
 	#[deref]
 	pub list: Vec<EntityKey>, 
 	pub temp_count: usize,/*一个临时计数， 用于对依赖关系进行topp排序*/
+    pub temp_has_effect: bool,
 }
 
 #[derive(Debug)]
@@ -74,14 +75,22 @@ pub enum DrawElement {
 		depth_start: usize,
 		pass: Entity, // 所在的psss
 	}, 
-	Pass2D{
-		id: EntityKey,
-		depth: f32,
-	},
-	GraphDrawList{
+    // 清理屏幕
+    Clear {
+		draw_state: InstanceDrawState,
+		pass: Entity, // 所在的psss
+	}, 
+    // // Pass2D类型， 需要递归渲染其对应的实例
+	// Pass2D{
+	// 	id: EntityKey,
+	// 	depth: f32,
+	// },
+	GraphDrawList {
 		id: EntityKey,
 		depth_start: f32,
 	}, // 由另一个图节点渲染，需要调用图节点的run, EntityKey为DrawObj节点id
+    // 绘制后处理
+    DrawPost(Range<usize>)
 	// GraphFbo{
 	// 	id: EntityKey,
 	// 	draw_state: InstanceDrawState,
@@ -110,13 +119,11 @@ pub struct Draw2DList {
 	// 列表内容是否改变
 	// 如果列表内容发生改变，则需要对all_list重新排序（排序结果记录在新的列表中）
 	pub list_is_change: bool,
-	// 绘制列表，每个上下文按此列表顺序绘制
-	// 绘制内容可能是一个实例化Draw，也可能是一个上下文draw
-	// 此列表根据all_list的排序结果，根据其中的DrawIndex::Pass2D将all_list劈分为多个"段"，每个段收缩为一个或多个实例化draw（肯呢个由于纹理个数的限制变成多个，通常为1个）
-	// 并按原有的顺序，将实例化draw和pass2d存储在此结构体中
-	// pub draw_list: Range<usize>,
-	pub start_instace: usize, // 实例的开始索引
-	pub need_dyn_fbo_index: Vec<usize>, // 一组在draw_list中的索引， 表示该draw_element需要在渲染图的build阶段动态创建资源（渲染资源，通常是fbo作为纹理的bindgroup，和uv）
+	/// 实例范围(不包含清屏实例): 当一些节点发生改变， 而当前pass的节点未发生变动， 则根据该范围从旧的实例数据拷贝到新的实例数据
+	pub instance_range: Range<usize>,
+    /// draw_call范围
+    pub draw_range: Range<usize>,
+	// pub need_dyn_fbo_index: Vec<usize>, // 一组在draw_list中的索引， 表示该draw_element需要在渲染图的build阶段动态创建资源（渲染资源，通常是fbo作为纹理的bindgroup，和uv）
 
 	// 用于收集上下文中的渲染列表
     pub all_list: Vec<(DrawIndex, ZRange, DrawInfo)>,
@@ -137,10 +144,10 @@ impl Default for Draw2DList {
         Self {
 			clear_instance: pi_null::Null::null(),
 			list_is_change: false,
-			start_instace: 0,
+			draw_range: Default::default(),
 			all_list_len: 0,
-			// draw_list: Vec::default(),
-			need_dyn_fbo_index: Vec::default(),
+			instance_range: Default::default(),
+			// need_dyn_fbo_index: Vec::default(),
 			all_list_sort: Vec::default(),
             all_list: Vec::default(),
             single_list: Vec::default(),

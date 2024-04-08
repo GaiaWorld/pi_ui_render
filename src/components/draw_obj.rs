@@ -3,14 +3,15 @@
 use std::{hash::{Hash, Hasher}, ops::Range};
 
 
-use crate::resource::{
+use crate::{resource::{
     draw_obj::{PipelineStateWithHash, ProgramMetaInner, VertexBufferLayoutWithHash},
     RenderObjType,
-};
+}, system::pass::pass_graph_node::RenderPassTarget};
 use bevy_ecs::prelude::Component;
 use pi_assets::asset::Handle;
 use pi_atom::Atom;
 use pi_hash::XHashSet;
+use pi_postprocess::image_effect::PostProcessDraw;
 use pi_render::{renderer::draw_obj::DrawObj as DrawState1, rhi::asset::{TextureRes, AssetWithId}, components::view::target_alloc::ShareTargetView};
 use pi_share::Share;
 use wgpu::RenderPipeline;
@@ -144,7 +145,7 @@ pub struct BorderImageMark;
 pub struct CanvasMark;
 
 // 实例索引(当只有一个实例时， InstanceIndex.0.start为该实例的属性， 当存在多个时，在从InstanceIndex.0范围内， 从InstanceIndex.0.start起， 每间隔一个实例长度，就是一个实例数据)
-#[derive(Debug, Component, Clone)]
+#[derive(Debug, Component, Clone, Deref)]
 pub struct InstanceIndex(pub Range<usize>);
 
 impl Default for InstanceIndex {
@@ -163,10 +164,12 @@ impl Default for RenderCount {
 	}
 }
 
-#[derive(Debug, Component, Default)]
+#[derive(Component, Default)]
 pub struct FboInfo {
 	pub fbo: Option<ShareTargetView>, // canvas,后处理杰斯安都会分配fbo， 该fbo在渲染图build阶段产生
-	pub in_batch: usize, // 当为null时， 表示还没有分配pi， 否则表示所在批的索引
+	pub out: Option<ShareTargetView>, // canvas,后处理杰斯安都会分配fbo， 该fbo在渲染图build阶段产生
+	pub in_batch: usize, // 当为null时， 表示还没有分批， 否则表示所在批的索引
+	pub post_draw: Option<(Vec<PostProcessDraw>, pi_render::renderer::draw_obj::DrawObj)>,
 }
 
 // // 渲染标记(是什么类型的渲染， 如文字类型， 图片类型， 是否存在裁剪等等)
@@ -183,7 +186,7 @@ pub enum InstanceSplit {
 	ByCross(bool), // 交叉渲染， 表示该节点的渲染为一个外部系统的渲染， bool表示是否用运行图的方式渲染（如果是false，则为外部渲染为一个fbo，gui内部需要将其作为渲染对象渲染）
 }
 
-#[derive(Debug, Component)]
+#[derive(Debug, Component, Deref)]
 pub struct Pipeline(pub Share<wgpu::RenderPipeline>);
 
 // DepthUniform

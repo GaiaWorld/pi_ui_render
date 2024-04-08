@@ -9,12 +9,13 @@ use self::meterial::TyUniformMut;
 
 pub mod text_sdf2;
 pub mod meterial;
+pub mod gup_arraybuffer;
 
 pub type InstanceIndex = usize;
 
 // 渲染实例数据
 #[derive(Clone, Debug)]
-pub struct RenderInstances {
+pub struct GpuBuffer {
 	pub data: Vec<u8>,
 	pub alignment: usize,
 	pub cur_index: usize,
@@ -22,7 +23,7 @@ pub struct RenderInstances {
 	pub dirty_range: Range<usize>,
 }
 
-impl RenderInstances {
+impl GpuBuffer {
 	/// 创建
 	pub fn new(alignment: usize, capacity: usize) -> Self {
 		Self {
@@ -65,6 +66,7 @@ impl RenderInstances {
 		self.cur_index += self.alignment;
 		self.update_dirty_range(ret..self.cur_index);
 		self.reserve();
+		// log::warn!("alloc_instance_data=============={:?}", ret);
 		ret
 	}
 
@@ -74,6 +76,7 @@ impl RenderInstances {
 		self.cur_index += self.alignment * count;
 		self.update_dirty_range(ret..self.cur_index);
 		self.reserve();
+		// log::warn!("alloc_instance_data_mult=============={:?}", ret..self.cur_index);
 		ret..self.cur_index
 	}
 
@@ -155,7 +158,7 @@ impl RenderInstances {
 
 pub struct InstanceData<'a> {
 	pub index: InstanceIndex,
-	data: &'a mut RenderInstances,
+	data: &'a mut GpuBuffer,
 }
 
 impl<'a> InstanceData<'a> {

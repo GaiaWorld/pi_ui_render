@@ -7,6 +7,7 @@ pub mod fragment;
 pub use cmd::*;
 use pi_atom::Atom;
 use pi_bevy_asset::ShareAssetMgr;
+use pi_bevy_render_plugin::TextureKeyAlloter;
 use pi_bevy_render_plugin::{PiRenderDevice, PiRenderQueue, node:: NodeId as GraphNodeId};
 use pi_hal::font::font::FontType;
 use pi_hash::XHashMap;
@@ -26,7 +27,6 @@ use pi_style::style_parse::{parse_animation, parse_class_map_from_string, parse_
 use pi_style::style_type::Attr;
 use pi_time::Instant;
 use pi_hal::font::sdf_table::FontCfg;
-use crate::resource::draw_obj::TextureKeyAlloter;
 
 // use pi_ecs::prelude::{FromWorld, Id, World};
 use bevy_ecs::prelude::{Entity, FromWorld, Resource, World};

@@ -3,7 +3,7 @@
 pub mod calc;
 pub mod draw_obj;
 pub mod pass_2d;
-mod root;
+pub mod root;
 pub mod user;
 
 use bevy_ecs::{
@@ -14,9 +14,9 @@ use pi_bevy_ecs_extend::prelude::{Down, Layer, Up};
 
 use self::{
     calc::{DrawInfo, DrawList, EntityKey, IsShow, NodeState, RenderContextMark, TransformWillChangeMatrix, View},
-    draw_obj::{BoxType, ClearColorBindGroup, CopyFboToScreen, PipelineMeta, InstanceIndex, FboInfo},
+    draw_obj::{BoxType, ClearColorBindGroup, CopyFboToScreen, FboInfo, InstanceIndex, PipelineMeta},
     pass_2d::{ChildrenPass, GraphId, ParentPassId, PostProcess, PostProcessInfo, RenderTarget, ViewMatrix},
-    root::RootDirtyRect,
+    root::{RootDirtyRect, RootInstance},
     user::Overflow,
 };
 
@@ -161,6 +161,7 @@ pub struct RootBundle {
     pub dirty_rect: RootDirtyRect,
     // pub clear_color: ClearColor,
     pub overflow: Overflow,
+    pub root_instance: RootInstance,
 }
 
 impl Default for RootBundle {
@@ -172,6 +173,7 @@ impl Default for RootBundle {
             dirty_rect: Default::default(),
             // clear_color: Default::default(),
             overflow: Overflow(true),
+            root_instance: RootInstance::default(),
         }
     }
 }
