@@ -21,7 +21,7 @@ use pi_hal::font::sdf_table::FontCfg;
 use pi_hash::XHashMap;
 use pi_print_any::out_any;
 use pi_style::{
-    style::{CgColor, Stroke, StrokeDasharray},
+    style::{CgColor, Color, Stroke, StrokeDasharray},
     style_parse::{Attribute, ClassItem, ClassMap, KeyFrameList},
 };
 use serde::{Deserialize, Serialize};
@@ -31,7 +31,8 @@ use crate::{
         calc::EntityKey,
         user::{
             serialize::{DefaultStyle, StyleTypeReader},
-            Animation, AsImage, Canvas, RenderDirty, RenderTargetType, SvgContent, Viewport, SvgInnerContent,
+            Animation, AsImage, Canvas, RenderDirty, RenderTargetType, SvgContent, SvgFilter, SvgFilterBlurLevel, SvgFilterOffset, SvgGradient,
+            SvgInnerContent, SvgStop, Viewport,
         },
         NodeBundle,
     },
@@ -262,6 +263,7 @@ pub enum CmdType {
     Sdf2CfgCmd(FontSdf2Cmd),
     // SVG
     SvgStrokeCmd(SvgStrokeColorCmd),
+    SvgColorCmd(SvgColorCmd),
     SvgStrokeWidthCmd(SvgStrokeWidthCmd),
     StrokeDasharrayCmd(StrokeDasharrayCmd),
     SvgShapeCmd(SvgShapeCmd),
@@ -289,7 +291,6 @@ impl Command for SvgWidthCmd {
             component.set_changed();
             let v = unsafe { component.into_inner().deref_mut::<SvgContent>() };
             v.width = self.1;
-            
         } else {
             let mut svg = SvgContent::default();
             svg.width = self.1;
@@ -308,7 +309,6 @@ impl Command for SvgHeightCmd {
             component.set_changed();
             let v = unsafe { component.into_inner().deref_mut::<SvgContent>() };
             v.height = self.1;
-           
         } else {
             let mut svg = SvgContent::default();
             svg.height = self.1;
@@ -320,7 +320,7 @@ impl Command for SvgHeightCmd {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct SvgColorCmd(pub Entity, pub CgColor);
+pub struct SvgColorCmd(pub Entity, pub Color);
 
 impl Command for SvgColorCmd {
     fn apply(self, world: &mut World) {
@@ -329,11 +329,10 @@ impl Command for SvgColorCmd {
         if let Some(mut component) = world.get_mut_by_id(self.0, component_id) {
             component.set_changed();
             let v = unsafe { component.into_inner().deref_mut::<SvgInnerContent>() };
-            v.style.fill_color = pi_style::style::Color::RGBA(self.1);
-            
+            v.style.fill_color = self.1;
         } else {
             let mut svg = SvgInnerContent::default();
-            svg.style.fill_color = pi_style::style::Color::RGBA(self.1);
+            svg.style.fill_color = self.1;
             world.entity_mut(self.0).insert(svg);
         }
     }
@@ -349,7 +348,6 @@ impl Command for SvgStrokeColorCmd {
             component.set_changed();
             let v = unsafe { component.into_inner().deref_mut::<SvgInnerContent>() };
             v.style.stroke.color = self.1;
-           
         } else {
             let mut svg = SvgInnerContent::default();
             svg.style.stroke.color = self.1;
@@ -370,7 +368,6 @@ impl Command for SvgStrokeWidthCmd {
             component.set_changed();
             let v = unsafe { component.into_inner().deref_mut::<SvgInnerContent>() };
             v.style.stroke.width = self.1;
-            
         } else {
             let mut svg = SvgInnerContent::default();
             svg.style.stroke.width = self.1;
@@ -412,8 +409,8 @@ pub enum Shape {
     Path { points: Vec<[f32; 2]>, verb: Vec<pi_hal::pi_sdf::shape::PathVerb>}
 }
 
-impl Shape{
-    pub fn is_ready(&self)-> bool{
+impl Shape {
+    pub fn is_ready(&self) -> bool {
         match self {
             Shape::Rect { x, y, width, height } => !(x.is_infinite() || y.is_infinite() || width.is_infinite() || height.is_infinite()),
             Shape::Circle { cx, cy, radius } => !(cx.is_infinite() || cy.is_infinite() || radius.is_infinite()),
@@ -425,35 +422,38 @@ impl Shape{
         }
     }
 
-    pub fn hash(&self)-> u64 {
+    pub fn hash(&self) -> u64 {
         use std::hash::Hasher;
-        
+
         let mut hasher = pi_hash::DefaultHasher::default();
         let data = match self {
             Shape::Rect { x, y, width, height } => vec![*x, *y, *width, *height, 1.0],
             Shape::Circle { cx, cy, radius } => vec![*cx, *cy, *radius, 2.0],
             Shape::Ellipse { cx, cy, rx, ry } => vec![*cx, *cy, *rx, *ry, 3.0],
             Shape::Segment { ax, ay, bx, by } => vec![*ax, *ay, *bx, *by, 4.0],
-            Shape::Polygon { points } => { 
+            Shape::Polygon { points } => {
                 let mut p = points.iter().flat_map(|[x, y]| vec![*x, *y]).collect::<Vec<f32>>();
                 p.push(5.0);
                 p
-            },
-            Shape::Polyline { points } =>{ 
+            }
+            Shape::Polyline { points } => {
                 let mut p = points.iter().flat_map(|[x, y]| vec![*x, *y]).collect::<Vec<f32>>();
                 p.push(6.0);
                 p
-            },
-            Shape::Path { points, verb } => { 
+            }
+            Shape::Path { points, verb } => {
                 let mut p = points.iter().flat_map(|[x, y]| vec![*x, *y]).collect::<Vec<f32>>();
                 let mut v = verb.iter().map(|v| (*v).into()).collect::<Vec<f32>>();
                 p.append(&mut v);
                 p.push(7.0);
                 p
-            },
+            }
         };
+        println!("hash data: {:?}", data.as_bytes());
         hasher.write(data.as_bytes());
-        hasher.seed().into()
+        let hash = hasher.finish() as u64;
+        println!("hash: {}", hash);
+        hash
     }
 }
 
@@ -492,10 +492,8 @@ impl From<f32> for Shape {
     }
 }
 
-impl Default for Shape{
-    fn default() -> Self {
-        Self::from(0.0)
-    }
+impl Default for Shape {
+    fn default() -> Self { Self::from(0.0) }
 }
 
 
@@ -508,8 +506,7 @@ impl Command for SvgShapeCmd {
         if let Some(mut component) = world.get_mut_by_id(self.0, component_id) {
             component.set_changed();
             let v = unsafe { component.into_inner().deref_mut::<SvgInnerContent>() };
-            v.shape =self.1;
-            
+            v.shape = self.1;
         } else {
             let mut svg = SvgInnerContent::default();
             svg.shape = self.1;
@@ -529,10 +526,14 @@ impl Command for SvgShapeWidthCmd {
             component.set_changed();
             let v = unsafe { component.into_inner().deref_mut::<SvgInnerContent>() };
 
-            match &mut v.shape{
-                Shape::Rect { x: _, y: _, width, height: _ } => {
+            match &mut v.shape {
+                Shape::Rect {
+                    x: _,
+                    y: _,
+                    width,
+                    height: _,
+                } => {
                     *width = self.1;
-                    
                 }
                 _ => {}
             }
@@ -551,7 +552,12 @@ impl Command for SvgShapeHeightCmd {
             let v = unsafe { component.into_inner().deref_mut::<SvgInnerContent>() };
 
             match &mut v.shape {
-                Shape::Rect { x: _, y: _, width: _, height } => {
+                Shape::Rect {
+                    x: _,
+                    y: _,
+                    width: _,
+                    height,
+                } => {
                     *height = self.1;
                 }
                 _ => {}
@@ -572,9 +578,13 @@ impl Command for SvgShapeXCmd {
             let v = unsafe { component.into_inner().deref_mut::<SvgInnerContent>() };
 
             match &mut v.shape {
-                Shape::Rect { x, y: _, width: _, height: _ } => {
+                Shape::Rect {
+                    x,
+                    y: _,
+                    width: _,
+                    height: _,
+                } => {
                     *x = self.1;
-                    
                 }
                 _ => {}
             }
@@ -592,13 +602,537 @@ impl Command for SvgShapeYCmd {
             component.set_changed();
             let v = unsafe { component.into_inner().deref_mut::<SvgInnerContent>() };
 
-            match &mut v.shape{
-                Shape::Rect { x: _, y, width: _, height: _ } => {
+            match &mut v.shape {
+                Shape::Rect {
+                    x: _,
+                    y,
+                    width: _,
+                    height: _,
+                } => {
                     *y = self.1;
-                    
                 }
                 _ => {}
             }
+        }
+    }
+}
+
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SvgShapeCXCmd(pub Entity, pub f32);
+
+impl Command for SvgShapeCXCmd {
+    fn apply(self, world: &mut World) {
+        let component_id = world.init_component::<SvgInnerContent>();
+        if let Some(mut component) = world.get_mut_by_id(self.0, component_id) {
+            component.set_changed();
+            let v = unsafe { component.into_inner().deref_mut::<SvgInnerContent>() };
+
+            match &mut v.shape {
+                Shape::Circle { cx, cy: _, radius: _ } => {
+                    *cx = self.1;
+                }
+                Shape::Ellipse { cx, cy: _, rx, ry } => {
+                    *cx = self.1;
+                }
+                _ => {}
+            }
+        }
+    }
+}
+
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SvgShapeCYCmd(pub Entity, pub f32);
+
+impl Command for SvgShapeCYCmd {
+    fn apply(self, world: &mut World) {
+        let component_id = world.init_component::<SvgInnerContent>();
+        if let Some(mut component) = world.get_mut_by_id(self.0, component_id) {
+            component.set_changed();
+            let v = unsafe { component.into_inner().deref_mut::<SvgInnerContent>() };
+
+            match &mut v.shape {
+                Shape::Ellipse { cx: _, cy, rx, ry } => {
+                    *cy = self.1;
+                }
+                Shape::Circle { cx: _, cy, radius: _ } => {
+                    *cy = self.1;
+                }
+                _ => {}
+            }
+        }
+    }
+}
+
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SvgShaperRadiusCmd(pub Entity, pub f32);
+
+impl Command for SvgShaperRadiusCmd {
+    fn apply(self, world: &mut World) {
+        let component_id = world.init_component::<SvgInnerContent>();
+        if let Some(mut component) = world.get_mut_by_id(self.0, component_id) {
+            component.set_changed();
+            let v = unsafe { component.into_inner().deref_mut::<SvgInnerContent>() };
+
+            match &mut v.shape {
+                Shape::Circle { cx: _, cy: _, radius } => {
+                    *radius = self.1;
+                }
+                _ => {}
+            }
+        }
+    }
+}
+
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SvgShapeRadiusXCmd(pub Entity, pub f32);
+
+impl Command for SvgShapeRadiusXCmd {
+    fn apply(self, world: &mut World) {
+        let component_id = world.init_component::<SvgInnerContent>();
+        if let Some(mut component) = world.get_mut_by_id(self.0, component_id) {
+            component.set_changed();
+            let v = unsafe { component.into_inner().deref_mut::<SvgInnerContent>() };
+
+            match &mut v.shape {
+                Shape::Ellipse { cx: _, cy: _, rx, ry: _ } => {
+                    *rx = self.1;
+                }
+                _ => {}
+            }
+        }
+    }
+}
+
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SvgShapeRadiusYCmd(pub Entity, pub f32);
+
+impl Command for SvgShapeRadiusYCmd {
+    fn apply(self, world: &mut World) {
+        let component_id = world.init_component::<SvgInnerContent>();
+        if let Some(mut component) = world.get_mut_by_id(self.0, component_id) {
+            component.set_changed();
+            let v = unsafe { component.into_inner().deref_mut::<SvgInnerContent>() };
+
+            match &mut v.shape {
+                Shape::Ellipse { cx: _, cy: _, rx: _, ry } => {
+                    *ry = self.1;
+                }
+                _ => {}
+            }
+        }
+    }
+}
+
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SvgShapeAXCmd(pub Entity, pub f32);
+
+impl Command for SvgShapeAXCmd {
+    fn apply(self, world: &mut World) {
+        let component_id = world.init_component::<SvgInnerContent>();
+        if let Some(mut component) = world.get_mut_by_id(self.0, component_id) {
+            component.set_changed();
+            let v = unsafe { component.into_inner().deref_mut::<SvgInnerContent>() };
+
+            match &mut v.shape {
+                Shape::Segment { ax, ay, bx, by } => {
+                    *ax = self.1;
+                }
+                _ => {}
+            }
+        }
+    }
+}
+
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SvgShapeAYCmd(pub Entity, pub f32);
+
+impl Command for SvgShapeAYCmd {
+    fn apply(self, world: &mut World) {
+        let component_id = world.init_component::<SvgInnerContent>();
+        if let Some(mut component) = world.get_mut_by_id(self.0, component_id) {
+            component.set_changed();
+            let v = unsafe { component.into_inner().deref_mut::<SvgInnerContent>() };
+
+            match &mut v.shape {
+                Shape::Segment { ax, ay, bx, by } => {
+                    *ay = self.1;
+                }
+                _ => {}
+            }
+        }
+    }
+}
+
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SvgShapeBXCmd(pub Entity, pub f32);
+
+impl Command for SvgShapeBXCmd {
+    fn apply(self, world: &mut World) {
+        let component_id = world.init_component::<SvgInnerContent>();
+        if let Some(mut component) = world.get_mut_by_id(self.0, component_id) {
+            component.set_changed();
+            let v = unsafe { component.into_inner().deref_mut::<SvgInnerContent>() };
+
+            match &mut v.shape {
+                Shape::Segment { ax, ay, bx, by } => {
+                    *bx = self.1;
+                }
+                _ => {}
+            }
+        }
+    }
+}
+
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SvgShapeBYCmd(pub Entity, pub f32);
+
+impl Command for SvgShapeBYCmd {
+    fn apply(self, world: &mut World) {
+        let component_id = world.init_component::<SvgInnerContent>();
+        if let Some(mut component) = world.get_mut_by_id(self.0, component_id) {
+            component.set_changed();
+            let v = unsafe { component.into_inner().deref_mut::<SvgInnerContent>() };
+
+            match &mut v.shape {
+                Shape::Segment { ax, ay, bx, by } => {
+                    *by = self.1;
+                }
+                _ => {}
+            }
+        }
+    }
+}
+
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SvgShapePointsCmd(pub Entity, pub Vec<f32>);
+
+impl Command for SvgShapePointsCmd {
+    fn apply(self, world: &mut World) {
+        let component_id = world.init_component::<SvgInnerContent>();
+        if let Some(mut component) = world.get_mut_by_id(self.0, component_id) {
+            component.set_changed();
+            let v = unsafe { component.into_inner().deref_mut::<SvgInnerContent>() };
+
+            match &mut v.shape {
+                Shape::Polygon { points } | Shape::Polyline { points } => *points = self.1.chunks(2).map(|v| [v[0], v[1]]).collect::<Vec<[f32; 2]>>(),
+                _ => {}
+            }
+        }
+    }
+}
+
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SvgShapePathCmd(pub Entity, pub Vec<f32>, pub Vec<f32>);
+
+impl Command for SvgShapePathCmd {
+    fn apply(self, world: &mut World) {
+        let component_id = world.init_component::<SvgInnerContent>();
+        if let Some(mut component) = world.get_mut_by_id(self.0, component_id) {
+            component.set_changed();
+            let v = unsafe { component.into_inner().deref_mut::<SvgInnerContent>() };
+
+            match &mut v.shape {
+                Shape::Path { points, verb } => {
+                    *points = self.2.chunks(2).map(|v| [v[0], v[1]]).collect::<Vec<[f32; 2]>>();
+                    *verb = self
+                        .1
+                        .iter()
+                        .map(|v| unsafe { transmute(*v as u8) })
+                        .collect::<Vec<pi_hal::pi_sdf::shape::PathVerb>>();
+                }
+                _ => {}
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SvgShadowColorCmd(pub Entity, pub CgColor);
+
+impl Command for SvgShadowColorCmd {
+    fn apply(self, world: &mut World) {
+        let component_id = world.init_component::<SvgInnerContent>();
+        if let Some(mut component) = world.get_mut_by_id(self.0, component_id) {
+            component.set_changed();
+            let v = unsafe { component.into_inner().deref_mut::<SvgInnerContent>() };
+            v.style.shadow.color = self.1;
+        }
+    }
+}
+
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SvgShadowOffsetXCmd(pub Entity, pub f32);
+
+impl Command for SvgShadowOffsetXCmd {
+    fn apply(self, world: &mut World) {
+        let component_id = world.init_component::<SvgInnerContent>();
+        if let Some(mut component) = world.get_mut_by_id(self.0, component_id) {
+            component.set_changed();
+            let v = unsafe { component.into_inner().deref_mut::<SvgInnerContent>() };
+            v.style.shadow.offset_x = self.1;
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SvgShadowOffsetYCmd(pub Entity, pub f32);
+
+impl Command for SvgShadowOffsetYCmd {
+    fn apply(self, world: &mut World) {
+        let component_id = world.init_component::<SvgInnerContent>();
+        if let Some(mut component) = world.get_mut_by_id(self.0, component_id) {
+            component.set_changed();
+            let v = unsafe { component.into_inner().deref_mut::<SvgInnerContent>() };
+            v.style.shadow.offset_y = self.1;
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SvgShadowBlurLevelCmd(pub Entity, pub f32);
+
+impl Command for SvgShadowBlurLevelCmd {
+    fn apply(self, world: &mut World) {
+        let component_id = world.init_component::<SvgInnerContent>();
+        if let Some(mut component) = world.get_mut_by_id(self.0, component_id) {
+            component.set_changed();
+            let v = unsafe { component.into_inner().deref_mut::<SvgInnerContent>() };
+            v.style.shadow.blur_level = self.1;
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SvgFilterOffsetXCmd(pub Entity, pub f32);
+
+impl Command for SvgFilterOffsetXCmd {
+    fn apply(self, world: &mut World) {
+        let component_id = world.init_component::<SvgFilterOffset>();
+        if let Some(mut component) = world.get_mut_by_id(self.0, component_id) {
+            component.set_changed();
+            let v = unsafe { component.into_inner().deref_mut::<SvgFilterOffset>() };
+            v.offset_x = self.1;
+        } else {
+            let mut svg = SvgFilterOffset::default();
+            svg.offset_x = self.1;
+            world.entity_mut(self.0).insert(svg);
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SvgFilterOffsetYCmd(pub Entity, pub f32);
+
+impl Command for SvgFilterOffsetYCmd {
+    fn apply(self, world: &mut World) {
+        let component_id = world.init_component::<SvgFilterOffset>();
+        if let Some(mut component) = world.get_mut_by_id(self.0, component_id) {
+            component.set_changed();
+            let v = unsafe { component.into_inner().deref_mut::<SvgFilterOffset>() };
+            v.offset_y = self.1;
+        } else {
+            let mut svg = SvgFilterOffset::default();
+            svg.offset_y = self.1;
+            world.entity_mut(self.0).insert(svg);
+        }
+    }
+}
+
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SvgFilterColorCmd(pub Entity, pub f32);
+
+impl Command for SvgFilterColorCmd {
+    fn apply(self, world: &mut World) {
+        let component_id = world.init_component::<SvgFilterOffset>();
+        if let Some(mut component) = world.get_mut_by_id(self.0, component_id) {
+            component.set_changed();
+            let v = unsafe { component.into_inner().deref_mut::<SvgFilterOffset>() };
+            v.color = self.1;
+        } else {
+            let mut svg = SvgFilterOffset::default();
+            svg.color = self.1;
+            world.entity_mut(self.0).insert(svg);
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SvgFilterBlurLevelCmd(pub Entity, pub f32);
+
+impl Command for SvgFilterBlurLevelCmd {
+    fn apply(self, world: &mut World) {
+        let component_id = world.init_component::<SvgFilterBlurLevel>();
+        if let Some(mut component) = world.get_mut_by_id(self.0, component_id) {
+            component.set_changed();
+            let v = unsafe { component.into_inner().deref_mut::<SvgFilterBlurLevel>() };
+            v.level = self.1;
+        } else {
+            let mut svg = SvgFilterBlurLevel::default();
+            svg.level = self.1;
+            world.entity_mut(self.0).insert(svg);
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SvgGradientX1Cmd(pub Entity, pub f32);
+
+impl Command for SvgGradientX1Cmd {
+    fn apply(self, world: &mut World) {
+        let component_id = world.init_component::<SvgGradient>();
+        if let Some(mut component) = world.get_mut_by_id(self.0, component_id) {
+            component.set_changed();
+            let v = unsafe { component.into_inner().deref_mut::<SvgGradient>() };
+            v.x1 = self.1;
+        } else {
+            let mut svg = SvgGradient::default();
+            svg.x1 = self.1;
+            world.entity_mut(self.0).insert(svg);
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SvgGradientY1Cmd(pub Entity, pub f32);
+
+impl Command for SvgGradientY1Cmd {
+    fn apply(self, world: &mut World) {
+        let component_id = world.init_component::<SvgGradient>();
+        if let Some(mut component) = world.get_mut_by_id(self.0, component_id) {
+            component.set_changed();
+            let v = unsafe { component.into_inner().deref_mut::<SvgGradient>() };
+            v.y1 = self.1;
+        } else {
+            let mut svg = SvgGradient::default();
+            svg.y1 = self.1;
+            world.entity_mut(self.0).insert(svg);
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SvgGradientX2Cmd(pub Entity, pub f32);
+
+impl Command for SvgGradientX2Cmd {
+    fn apply(self, world: &mut World) {
+        let component_id = world.init_component::<SvgGradient>();
+        if let Some(mut component) = world.get_mut_by_id(self.0, component_id) {
+            component.set_changed();
+            let v = unsafe { component.into_inner().deref_mut::<SvgGradient>() };
+            v.x2 = self.1;
+        } else {
+            let mut svg = SvgGradient::default();
+            svg.x2 = self.1;
+            world.entity_mut(self.0).insert(svg);
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SvgGradientY2Cmd(pub Entity, pub f32);
+
+impl Command for SvgGradientY2Cmd {
+    fn apply(self, world: &mut World) {
+        log::debug!("SvgGradientY2Cmd: {:?}, {}", self.0, self.1);
+        let component_id = world.init_component::<SvgGradient>();
+        if let Some(mut component) = world.get_mut_by_id(self.0, component_id) {
+            component.set_changed();
+            let v = unsafe { component.into_inner().deref_mut::<SvgGradient>() };
+            v.y2 = self.1;
+        } else {
+            let mut svg = SvgGradient::default();
+            svg.y2 = self.1;
+            world.entity_mut(self.0).insert(svg);
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SvgStopOffsetCmd(pub Entity, pub f32);
+
+impl Command for SvgStopOffsetCmd {
+    fn apply(self, world: &mut World) {
+       
+        let component_id = world.init_component::<SvgStop>();
+        if let Some(mut component) = world.get_mut_by_id(self.0, component_id) {
+            component.set_changed();
+            let v = unsafe { component.into_inner().deref_mut::<SvgStop>() };
+            v.offset = self.1;
+        } else {
+            let mut svg = SvgStop::default();
+            svg.offset = self.1;
+            world.entity_mut(self.0).insert(svg);
+        }
+    }
+}
+
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SvgStopColorCmd(pub Entity, pub CgColor);
+
+impl Command for SvgStopColorCmd {
+    fn apply(self, world: &mut World) {
+        let component_id = world.init_component::<SvgStop>();
+        if let Some(mut component) = world.get_mut_by_id(self.0, component_id) {
+            component.set_changed();
+            let v = unsafe { component.into_inner().deref_mut::<SvgStop>() };
+            v.color = self.1;
+        } else {
+            let mut svg = SvgStop::default();
+            svg.color = self.1;
+            world.entity_mut(self.0).insert(svg);
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SvgGradientCmd(pub Entity, pub Entity);
+
+impl Command for SvgGradientCmd {
+    fn apply(self, world: &mut World) {
+        let component_id = world.init_component::<SvgGradient>();
+        log::debug!("SvgGradientCmd: {:?}, {:?}", self.0,self.1);
+        if let Some(mut component) = world.get_mut_by_id(self.0, component_id) {
+            component.set_changed();
+            let v = unsafe { component.into_inner().deref_mut::<SvgGradient>() };
+            v.id.push(self.1);
+        } else {
+            let mut svg = SvgGradient::default();
+            svg.id.push(self.1);
+            world.entity_mut(self.0).insert(svg);
+        }
+    }
+}
+
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SvgFilterCmd(pub Entity, pub Entity);
+
+impl Command for SvgFilterCmd {
+    fn apply(self, world: &mut World) {
+        let component_id = world.init_component::<SvgFilter>();
+        log::debug!("SvgFilterCmd: {:?}, {:?}", self.0, self.1);
+        if let Some(mut component) = world.get_mut_by_id(self.0, component_id) {
+            component.set_changed();
+            let v = unsafe { component.into_inner().deref_mut::<SvgFilter>() };
+            v.0.push(self.1);
+        } else {
+            let mut svg = SvgFilter::default();
+            svg.0.push(self.1);
+            world.entity_mut(self.0).insert(svg);
         }
     }
 }

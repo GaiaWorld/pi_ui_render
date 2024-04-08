@@ -15,6 +15,7 @@ layout(location = 11) in vec4 vData9; // vec4 gradient_end
 layout(location = 12) in vec4 vData10; // vec4 border_image_uv_offset | vec4 u_outline(描边颜色rgb + 描边宽度u_outline.w); 
 layout(location = 13) in vec4 vData11; // float alpha; float ty;float depth;
 layout(location = 14) in vec2 vData12; // float alpha; float ty;float depth;
+layout(location = 15) in vec3 vData13; // 阴影偏移和模糊等级
 
 layout(set = 0, binding = 0) uniform Camera {
 	mat4 project;
@@ -38,7 +39,7 @@ layout(set=1,binding=18) uniform texture2D tex2d9;
 layout(set=1,binding=20) uniform texture2D tex2d10;
 layout(set=1,binding=22) uniform texture2D tex2d11;
 layout(set=1,binding=24) uniform texture2D tex2d12;
-layout(set=1,binding=26) uniform texture2D tex2d13;
+// layout(set=1,binding=26) uniform texture2D tex2d13;
 // layout(set=1,binding=28) uniform texture2D tex2d14;
 // layout(set=1,binding=30) uniform texture2D tex2d15;
 
@@ -56,14 +57,15 @@ layout(set=1,binding=19) uniform sampler samp9;
 layout(set=1,binding=21) uniform sampler samp10;
 layout(set=1,binding=23) uniform sampler samp11;
 layout(set=1,binding=25) uniform sampler samp12;
-layout(set=1,binding=27) uniform sampler samp13;
+// layout(set=1,binding=27) uniform sampler samp13;
 // layout(set=1,binding=29) uniform sampler samp14;
 // layout(set=1,binding=31) uniform sampler samp15;
 
 layout(set=2,binding=0) uniform texture2D u_index_tex;
 layout(set=2,binding=1) uniform texture2D u_data_tex;
 layout(set=2,binding=2) uniform sampler tex_samp;
-
+layout(set=2,binding=3) uniform texture2D u_shadow_tex;
+layout(set=2,binding=4) uniform sampler shadow_samp;
 
 // 输出颜色
 layout(location=0) out vec4 o_Target;
@@ -669,17 +671,17 @@ glyphy_index_t decode_glyphy_index(vec4 v, const vec2 nominal_size)
 }
 
 // 取 索引 uv
-vec2 get_index_uv(vec2 nominal_size)
+vec2 get_index_uv(vec2 p)
 {
 	vec2 offset = vData3.xy; // 索引纹理偏移（单位： 像素）
-	return (nominal_size * vUv + offset) / index_tex_size;
+	return (p + offset) / index_tex_size;
 }
 
 
 
-glyphy_index_t get_glyphy_index(vec2 nominal_size) {
+glyphy_index_t get_glyphy_index(vec2 p, vec2 nominal_size) {
 	
-	vec2 index_uv = get_index_uv(nominal_size);
+	vec2 index_uv = get_index_uv(p);
 	
 	vec4 c = texture(sampler2D(u_index_tex, tex_samp), index_uv).rgba;
 	// vec4 c = vec4(0.0, 0.0, 0.0, 0.0);
@@ -691,7 +693,7 @@ glyphy_index_t get_glyphy_index(vec2 nominal_size) {
 float glyphy_sdf(vec2 p, vec2 nominal_size) {
 	vec2 u_data_offset = vData4.xy;
 
-	glyphy_index_t index_info = get_glyphy_index(nominal_size);
+	glyphy_index_t index_info = get_glyphy_index(p, nominal_size);
 		
 	// if (index_info.sdf >= GLYPHY_INFINITY - GLYPHY_EPSILON) {
 	// 	// 全外面
@@ -881,9 +883,76 @@ vec4 stroke_dasharray(vec4 input_color,vec4 start_and_step){
 	return vec4(input_color.xyz, input_color.w * a);
 }
 
+vec4 get_blur_modulus(float blur_level){
+	float level = round(blur_level) % 7.0;
+	if (abs(level - 3.0) < 0.1) {
+		return vec4(1.0, 0.0, 0.0, 0.0);
+	} else if (abs(level - 4.0) < 0.1) {
+		return vec4(0.5, 0.5, 0.0, 0.0);
+	} else if (abs(level - 5.0) < 0.1) {
+		return vec4(0.5, 0.3, 0.2, 0.0);
+	} else if (abs(level - 6.0) < 0.1) {
+		return vec4(0.33, 0.33, 0.33, 0.0);
+	}
+
+	return vec4(1.0, 0.0, 0.0, 0.0);
+}
+
+// 阴影模糊
+// 1 => 
+vec4 shadow_blur(vec4 input_color, vec4 shadow_color, vec2 offset, float blur_level){
+	vec2 nominal_size = vec2(vData3.zw);
+	float x;
+	float y;
+	if (offset.x > 0.0){
+		x = clamp((vUv.x - offset.x) / (1.0 - offset.x), 0.01, 0.99);
+	} else {
+		x = clamp(vUv.x / (1.0 - abs(offset.x)), 0.01, 0.99);
+	}
+
+	if (offset.y > 0.0){
+		y = clamp((vUv.y - offset.y) / (1.0 - offset.y), 0.01, 0.99);
+	} else {
+		y = clamp(vUv.y / (1.0 - abs(offset.y)), 0.01, 0.99);
+	}
+
+	vec2 uv1 = vec2(x, y);
+	vec2 p1 = uv1 * nominal_size;
+	float outlineWidth = vData10.w;
+	float a1 =  textureLod(sampler2D(u_shadow_tex, shadow_samp), get_index_uv(p1), 0).r;
+	float a2 =  textureLod(sampler2D(u_shadow_tex, shadow_samp), get_index_uv(p1), 1).r;
+	float a3 =  textureLod(sampler2D(u_shadow_tex, shadow_samp), get_index_uv(p1), 2).r;
+	// float a4 =  textureLod(sampler2D(u_sdf_tex, sdf_tex_samp), get_index_uv(p1), 3).r;
+	vec4 modulus = get_blur_modulus(blur_level);
+	float a = shadow_color.w * (a1 * modulus.x + a2  * modulus.y + a3 * modulus.z) ; // + a4 * modulus.w);
+
+	return mix(input_color, vec4(shadow_color.rgb, smoothstep(0.1, 0.99, a) * shadow_color.w), 1.0 - input_color.w);
+	// return vec4(x, y, 0.0, 1.);
+}
+
 void calc_sdf_color(int ty1) {
 	vec2 nominal_size = vData3.zw;
-	vec2 p = vUv * nominal_size;
+	vec2 uv = vUv; 
+	if ((ty1 & 2097152) != 0){
+		float x;
+		float y;
+		if (vData13.x > 0.0){
+			x = clamp(vUv.x / (1.0 - vData13.x), 0.0, 0.99);
+		} else {
+			float uvx = abs(vData13.x);
+			x = clamp((vUv.x - uvx) / (1.0 - uvx), 0.0, 0.99);
+		}
+
+		if (vData13.y > 0.0){
+			y = clamp(vUv.y / (1.0 - vData13.y), 0.0, 0.99);
+		} else {
+			float uvy = abs(vData13.y);
+			y = clamp((vUv.y - uvy) / (1.0 - uvy), 0.0, 0.99);
+		}
+
+		uv = vec2(x, y); // vUv / (vec2(1.0, 1.0) - vData13.xy);
+	}
+	vec2 p = uv * nominal_size;
 	// 重点：计算 SDF 
 	float gsdist = glyphy_sdf(p, nominal_size);
 
@@ -914,7 +983,7 @@ void calc_sdf_color(int ty1) {
 		// 如果必须要支持4通道， 可将将外发光单独绘制为一个实例， 就有空间防止4通道了
 		vec3 gColor1     = vData6.xyz;
 		vec3 gColor2     = vec3(vData6.w, vData7.xy);
-		vec3 gColor3     = vec3(vData7.xy, vData8.x);
+		vec3 gColor3     = vec3(vData7.zw, vData8.x);
 		vec3 gColor4     = vData8.yzw;
 
 		vec4 gPosition   = vData0;
@@ -956,6 +1025,13 @@ void calc_sdf_color(int ty1) {
 	else if ((ty1 & 524288) != 0) {// 虚线
 		vec4 start_and_step = vData5;
 		o_Target = stroke_dasharray(finalColor, start_and_step);
+	} 
+	else if ((ty1 & 2097152) != 0) {// 阴影
+		vec4 shadow_color = vData5;
+		vec3 shadow_offset_and_blur_level = vData13;
+		o_Target = shadow_blur(finalColor, shadow_color, shadow_offset_and_blur_level.xy, shadow_offset_and_blur_level.z);
+
+		// o_Target = finalColor;
 	} 
 	else {
 		o_Target = finalColor;
@@ -1122,9 +1198,11 @@ void main(void) {
 			color = texture(sampler2D(tex2d11, samp11),uv);
 		} else if (texture_layer == 12.0) {
 			color = texture(sampler2D(tex2d12, samp12),uv);
-		} else if (texture_layer == 13.0) {
-			color = texture(sampler2D(tex2d13, samp13),uv);
-		} else {
+		}
+		//  else if (texture_layer == 13.0) {
+		// 	color = texture(sampler2D(tex2d13, samp13),uv);
+		// } 
+		else {
 			color = vec4(1.0, 0.0, 1.0, 1.0);
 		}
 

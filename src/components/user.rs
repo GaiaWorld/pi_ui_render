@@ -16,7 +16,7 @@ pub use pi_flex_layout::prelude::{Dimension, Number, Rect, Size as FlexSize};
 use pi_flex_layout::style::{AlignContent, AlignItems, AlignSelf, Direction, Display, FlexDirection, FlexWrap, JustifyContent, PositionType, OverflowWrap};
 use pi_null::Null;
 use pi_slotmap::DefaultKey;
-use pi_style::style::{TextOverflow, StrokeDasharray};
+use pi_style::style::{TextOverflow, StrokeDasharray, Shadow};
 pub use pi_style::style::{
     Aabb2, AnimationDirection, AnimationFillMode, AnimationName, AnimationPlayState, AnimationTimingFunction, CgColor, Color, ColorAndPosition,
     Enable, FitType, FontSize, FontStyle, ImageRepeat, IterationCount, LengthUnit, LineHeight, LinearGradientColor, NotNanRect, ShowType, Stroke,
@@ -287,6 +287,44 @@ pub struct SvgContent {
     pub max_y: f32,
 }
 
+#[derive(Component,Debug, Default)]
+pub struct SvgGradient {
+    pub x1: f32,
+    pub y1: f32,
+    pub x2: f32,
+    pub y2: f32,
+    pub id: Vec<Entity>
+}
+
+#[derive(Component,Debug, Default)]
+pub struct SvgStop {
+    pub offset: f32,
+    pub color: CgColor,
+}
+
+#[derive(Component, Debug, Default)]
+pub struct SvgFilterBlurLevel {
+    pub level: f32,
+}
+
+#[derive(Component, Debug, Default)]
+pub struct SvgFilterOffset {
+    pub offset_x: f32,
+    pub offset_y: f32,
+    pub color: f32,
+}
+
+#[derive(Component, Debug, Default)]
+pub struct SvgFilter(pub Vec<Entity>);
+
+
+// impl Default for SvgColor{
+//     fn default() -> Self {
+//         todo!()
+//     }
+// }
+
+
 // 将display、visibility、enable合并为show组件
 #[derive(Deref, Clone, Debug, PartialEq, Serialize, Deserialize, Component)]
 pub struct Show(pub usize);
@@ -428,14 +466,20 @@ pub struct SvgStyle {
     pub stroke: Stroke,
     pub fill_color: Color, //颜色
     pub stroke_dasharray: StrokeDasharray,
+    pub shadow: Shadow,
+    pub outer_glow_color_and_dist: [f32; 4],
+    pub filter :Entity
 }
 
 impl Default for SvgStyle {
     fn default() -> Self {
         Self {
-            stroke: Default::default(),
-            fill_color: Default::default(),
+            stroke: Stroke{ width: unsafe { NotNan::new_unchecked(0.0) }, color: CgColor::new(0.0, 0.0, 0.0, 0.0) },
+            fill_color: Color::RGBA(CgColor::new(0.0, 0.0, 0.0, 0.0)),
             stroke_dasharray: Default::default(),
+            shadow: Shadow::default(),
+            outer_glow_color_and_dist: [0.0,0.0,0.0,f32::INFINITY],
+            filter: Entity::PLACEHOLDER
         }
     }
 }

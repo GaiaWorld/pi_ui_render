@@ -23,10 +23,9 @@ pub enum RenderFlagType {
 	BorderImage = 16, // 65536 border图片uv重复
 	Sdf2 = 17, // 131072 sdf2渲染
 	Sdf2OutGlow = 18, // 262144 sdf2文字外发光
-	SvgStrokeDasharray = 19, // 524288 sdf2文字外发光
+	SvgStrokeDasharray = 19, // 524288 需要占用外发光槽位
 	Svg = 20, // 1048576 svg uv 不需要y轴颠倒
-
-	Premulti = 21, // 2097152 预乘模式渲染（需要预乘模式渲染的物体用普通模式渲染， 则设置此标记， 在着色器中会将预乘结果还原）
+	Shadow = 21, // 2097152 阴影 需要占用外发光槽位
 }
 
 /*******************************************************************************相机**************************************************************/
@@ -57,12 +56,12 @@ pub struct Sdf2TextureSizeUniform<'a>(pub &'a [f32]);
 /***************************************************************************材质*********************************************************************************/
 #[derive(BindLayout, BufferSize, BindingType)]
 #[layout(set(2), binding(0))]
-#[min_size(224)]
+#[min_size(240)]
 #[uniformbuffer]
 pub struct MeterialBind; // storagebuffer: TODO
 
 impl MeterialBind {
-	pub const SIZE: usize = 224;
+	pub const SIZE: usize = 240;
 }
 
 
@@ -122,7 +121,7 @@ pub struct ColorUniform<'a>(pub &'a [f32]);
 pub struct GradientPositionUniform<'a>(pub &'a [f32]);
 
 #[derive(Uniform)]
-#[uniform(offset(80), len(64), bind(MeterialBind))]
+#[uniform(offset(96), len(48), bind(MeterialBind))]
 pub struct GradientColorUniform<'a>(pub &'a [f32]);
 
 #[derive(Uniform)]
@@ -270,6 +269,10 @@ pub struct TextOutlineUniform<'a>(pub &'a [f32]);
 #[uniform(offset(32), len(48), bind(MeterialBind))]
 pub struct Sdf2InfoUniform<'a>(pub &'a [f32]);
 
+/// 阴影偏移和模糊等级[offest_x, offest_y, blur_level]
+#[derive(Uniform)]
+#[uniform(offset(224), len(12), bind(MeterialBind))]
+pub struct ShadowUniform<'a>(pub &'a [f32]);
 
 // layout(location = 1) in vec4 matrix0; // matrix[0] （这里因为顶点流最大仅支持vec4，因此将矩阵分为4个vec4）
 // layout(location = 2) in vec4 matrix1; // matrix[0] （这里因为顶点流最大仅支持vec4，因此将矩阵分为4个vec4）

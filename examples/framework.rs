@@ -375,7 +375,7 @@ pub fn init(width: u32, height: u32, _event_loop: &EventLoop<()>, w: Arc<pi_wini
 
 	let filter = match std::env::var("RUST_LOG") {
 		Ok(r) => r,
-		Err(_) => "naga=warn,wgpu=warn".to_string(),
+		Err(_) => "pi_ui_render::system::draw_obj::calc_svg=trace,pi_ui_render::system::draw_obj::life_drawobj=trace".to_string(),
 	};
 
 	// let level = match std::env::var("RUST_LOG") {

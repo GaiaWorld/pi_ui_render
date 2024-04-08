@@ -27,6 +27,7 @@ use crate::shader1::{InstanceData, GpuBuffer};
 // use crate::shader::text;
 // use crate::shader::text_sdf;
 
+use crate::system::draw_obj::calc_svg::calc_tex::update_sdf2_texture;
 // use crate::shader1::ui_meterial::{ColorUniform, StrokeColorOrURectUniform, TextureSizeOrBottomLeftBorderUniform, ClipSdfOrSdflineUniform, DataTexSizeUniform, UGradientStarteEndUniform, ScaleUniform};
 use crate::system::draw_obj::life_drawobj::{draw_object_life_new, update_render_instance_data};
 use crate::system::draw_obj::set_box;
@@ -104,38 +105,38 @@ impl Plugin for Sdf2TextPlugin {
 }
 
 /// 更新sdf2的纹理
-pub fn update_sdf2_texture(
-	mut instances: OrInitResMut<InstanceContext>, 
-	font_sheet: ResMut<ShareFontSheet>,
-	device: Res<PiRenderDevice>,
-    common_sampler: Res<crate::resource::draw_obj::CommonSampler>,
-) {
-	let font_sheet = font_sheet.0.borrow();
-	if let (Some(sdf2_index_texture_view), Some(sdf2_data_texture_view)) = (&font_sheet.sdf2_index_texture_view, &font_sheet.sdf2_data_texture_view) {
-		if instances.sdf2_texture_group.is_none() {
-			let group = (***device).create_bind_group(&wgpu::BindGroupDescriptor {
-				layout: &instances.sdf2_texture_layout,
-				entries: &[
-					wgpu::BindGroupEntry {
-						binding: 0,
-						resource: wgpu::BindingResource::TextureView(&sdf2_index_texture_view.texture_view),
-					},
-					wgpu::BindGroupEntry {
-						binding: 1,
-						resource: wgpu::BindingResource::TextureView(&sdf2_data_texture_view.texture_view),
-					},
-					wgpu::BindGroupEntry {
-						binding: 2,
-						resource: wgpu::BindingResource::Sampler(&common_sampler.pointer),
-					},
-				],
-				label: Some("sdf2 texture bind group create"),
-			});
+// pub fn update_sdf2_texture(
+// 	mut instances: OrInitResMut<InstanceContext>, 
+// 	font_sheet: ResMut<ShareFontSheet>,
+// 	device: Res<PiRenderDevice>,
+//     common_sampler: Res<crate::resource::draw_obj::CommonSampler>,
+// ) {
+// 	let font_sheet = font_sheet.0.borrow();
+// 	if let (Some(sdf2_index_texture_view), Some(sdf2_data_texture_view)) = (&font_sheet.sdf2_index_texture_view, &font_sheet.sdf2_data_texture_view) {
+// 		if instances.sdf2_texture_group.is_none() {
+// 			let group = (***device).create_bind_group(&wgpu::BindGroupDescriptor {
+// 				layout: &instances.sdf2_texture_layout,
+// 				entries: &[
+// 					wgpu::BindGroupEntry {
+// 						binding: 0,
+// 						resource: wgpu::BindingResource::TextureView(&sdf2_index_texture_view.texture_view),
+// 					},
+// 					wgpu::BindGroupEntry {
+// 						binding: 1,
+// 						resource: wgpu::BindingResource::TextureView(&sdf2_data_texture_view.texture_view),
+// 					},
+// 					wgpu::BindGroupEntry {
+// 						binding: 2,
+// 						resource: wgpu::BindingResource::Sampler(&common_sampler.pointer),
+// 					},
+// 				],
+// 				label: Some("sdf2 texture bind group create"),
+// 			});
 
-			instances.sdf2_texture_group = Some(Share::new(group));
-		}
-	}
-}
+// 			instances.sdf2_texture_group = Some(Share::new(group));
+// 		}
+// 	}
+// }
 
 /// 共计sdf文字的的实例数量
 pub fn calc_sdf2_text_len(
