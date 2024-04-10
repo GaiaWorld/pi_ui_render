@@ -22,7 +22,7 @@ use pi_render::{
         device::RenderDevice,
         dyn_uniform_buffer::{BufferGroup, GroupAlloter},
         pipeline::RenderPipeline,
-        shader::{ShaderMeta, ShaderProgram},
+        shader::ShaderMeta,
         texture::PiRenderDefault, RenderQueue,
     }
 };
@@ -37,7 +37,7 @@ use wgpu::{
 use pi_render::rhi::shader::Input;
 
 use crate::{
-    components::{calc::WorldMatrix, draw_obj::{DrawState, PipelineMeta}, pass_2d::{CacheTarget, DrawElement, InstanceDrawState}},
+    components::{calc::WorldMatrix, pass_2d::{CacheTarget, DrawElement, InstanceDrawState}},
 	shader1::{meterial::{CameraBind, MeterialBind, PositionVert, ProjectUniform, ViewUniform}, GpuBuffer},
     // shader::{
     //     depth::{DepthBind, DepthUniform},
@@ -45,10 +45,7 @@ use crate::{
     //     color::PositionVert,
     // },
     // system::draw_obj::clear_draw_obj::create_clear_pipeline_state,
-    utils::{
-        shader_helper::{create_depth_layout, create_empty_layout, create_matrix_group_layout, create_project_layout, create_view_layout},
-        tools::{calc_float_hash, calc_hash, calc_hash_slice},
-    },
+    utils::tools::{calc_float_hash, calc_hash},
 };
 
 // /// 一组纹理的绑定， 用于实例化渲染

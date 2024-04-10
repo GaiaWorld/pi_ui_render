@@ -17,7 +17,7 @@ use wgpu::RenderPipeline;
 use crate::resource::RenderContextMarkType;
 
 use super::{
-    calc::{DrawInfo, EntityKey, WorldMatrix, ZRange},
+    calc::{DrawInfo, EntityKey, ZRange},
     user::{Aabb2, AsImage, Matrix4, Point2},
 };
 
