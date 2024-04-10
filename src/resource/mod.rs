@@ -10,7 +10,6 @@ use pi_bevy_asset::ShareAssetMgr;
 use pi_bevy_render_plugin::TextureKeyAlloter;
 use pi_bevy_render_plugin::{PiRenderDevice, PiRenderQueue, node:: NodeId as GraphNodeId};
 use pi_hal::font::font::FontType;
-use pi_hash::XHashMap;
 use pi_map::Map;
 use pi_null::Null;
 use pi_render::font::FontSheet;

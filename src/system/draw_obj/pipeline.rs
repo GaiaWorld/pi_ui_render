@@ -6,7 +6,7 @@ use std::{
 use bevy_ecs::{
     prelude::Entity,
     query::Changed,
-    system::{Query, Res, ResMut},
+    system::{Query, Res},
 };
 use pi_assets::{
     asset::{GarbageEmpty, Handle},
@@ -23,7 +23,7 @@ use pi_share::Share;
 use crate::utils::tools::calc_hash;
 use crate::{
     components::draw_obj::{DrawState, PipelineMeta},
-    resource::draw_obj::{ClearDrawObj, Program},
+    resource::draw_obj::Program,
 };
 
 use super::calc_text::IsRun;
@@ -40,7 +40,6 @@ pub fn calc_node_pipeline(
     shader_map: Res<ShareAssetMgr<RenderRes<Program>>>,
     // mut pipeline_map: ResMut<PipelineMap>,
     // mut shader_map: ResMut<ShaderInfoMap>,
-    clear_color_obj: ResMut<ClearDrawObj>,
 	r: OrInitRes<IsRun>
 ) {
 	if r.0 {
@@ -55,11 +54,10 @@ pub fn calc_node_pipeline(
 
     let pipeline_map: Res<'static, ShareAssetMgr<RenderRes<RenderPipeline>>> = unsafe { transmute(pipeline_map) };
     let shader_map: Res<'static, ShareAssetMgr<RenderRes<Program>>> = unsafe { transmute(shader_map) };
-    let clear_color_obj: ResMut<'static, ClearDrawObj> = unsafe { transmute(clear_color_obj) };
 
     RENDER_RUNTIME
         .block_on(async move {
-            calc_node_pipeline1(query_draw, draw_state, device, pipeline_map, shader_map, clear_color_obj).await;
+            calc_node_pipeline1(query_draw, draw_state, device, pipeline_map, shader_map).await;
         })
         .unwrap();
 }
@@ -69,12 +67,8 @@ pub async fn calc_node_pipeline1(
     query_draw: Query<'static, 'static, (Entity, &'static PipelineMeta), Changed<PipelineMeta>>,
     mut draw_state_query: Query<'static, 'static, &'static mut DrawState>,
     device: Res<'static, PiRenderDevice>,
-    // shader_statics: Res<'static,Shaders>,
     pipeline_map: Res<'static, ShareAssetMgr<RenderRes<RenderPipeline>>>,
     shader_map: Res<'static, ShareAssetMgr<RenderRes<Program>>>,
-    // mut pipeline_map: ResMut<PipelineMap>,
-    // mut shader_map: ResMut<ShaderInfoMap>,
-    mut clear_color_obj: ResMut<'static, ClearDrawObj>,
 ) {
     let value = AsyncVariableNonBlocking::<(
         Vec<(Entity, Handle<RenderRes<RenderPipeline>>)>,
@@ -168,92 +162,91 @@ pub async fn calc_node_pipeline1(
             .unwrap();
     }
 
-    // let clear_pipeline = Share::new(ShareMutex::new(None));
-    if let None = clear_color_obj.0.pipeline {
-        let pipeline_meta = &clear_color_obj.1;
-        let hash = calc_hash(pipeline_meta, 0);
+    // // let clear_pipeline = Share::new(ShareMutex::new(None));
+    // if let None = clear_color_obj.0.pipeline {
+    //     let pipeline_meta = &clear_color_obj.1;
+    //     let hash = calc_hash(pipeline_meta, 0);
 
-        let load = AssetMgr::load(&pipeline_map, &hash);
-        match load {
-            LoadResult::Ok(pipeline) => {
-                clear_color_obj.0.pipeline = Some(pipeline);
-            }
-            LoadResult::Wait(r) => {
-                let value_copy = value.clone();
-                let count_copy = count.clone();
-                count_copy.fetch_add(1, Ordering::Relaxed);
-                task_count += 1;
-                RENDER_RUNTIME
-                    .spawn(async move {
-                        match r.await {
-                            Ok(r) => {
-                                let mut locked = value_copy.lock().unwrap();
-                                if let &None = &*locked {
-                                    *locked = Some((Vec::new(), 0, None));
-                                }
-                                let value = locked.as_mut().unwrap();
-                                value.2 = Some(r);
-                                if count_copy.fetch_sub(1, Ordering::Relaxed) == 1 {
-                                    locked.finish();
-                                }
-                            }
-                            Err(e) => {
-                                let locked = value_copy.lock().unwrap();
-                                if count_copy.fetch_sub(1, Ordering::Relaxed) == 1 {
-                                    locked.finish();
-                                }
-                                log::error!("{:?}", e);
-                            }
-                        };
-                        ()
-                    })
-                    .unwrap();
-            }
-            LoadResult::Receiver(r) => {
-                let value_copy = value.clone();
-                let count_copy = count.clone();
-                count_copy.fetch_add(1, Ordering::Relaxed);
-                task_count += 1;
-                let (shader_meta, shader_map) = (pipeline_meta.clone(), shader_map.clone());
-                RENDER_RUNTIME
-                    .spawn(async move {
-                        match async_calc_pipeline(&shader_meta, &device, &shader_map, r, hash).await {
-                            Ok(r) => {
-                                let mut locked = value_copy.lock().unwrap();
-                                if let &None = &*locked {
-                                    *locked = Some((Vec::new(), 0, None));
-                                }
-                                let value = locked.as_mut().unwrap();
-                                value.2 = Some(r);
-                                if count_copy.fetch_sub(1, Ordering::Relaxed) == 1 {
-                                    locked.finish();
-                                }
-                            }
-                            Err(e) => {
-                                let locked = value_copy.lock().unwrap();
-                                if count_copy.fetch_sub(1, Ordering::Relaxed) == 1 {
-                                    locked.finish();
-                                }
-                                log::error!("{:?}", e);
-                            }
-                        }
-                        ()
-                    })
-                    .unwrap();
-            }
-        };
-    }
+    //     let load = AssetMgr::load(&pipeline_map, &hash);
+    //     match load {
+    //         LoadResult::Ok(pipeline) => {
+    //             clear_color_obj.0.pipeline = Some(pipeline);
+    //         }
+    //         LoadResult::Wait(r) => {
+    //             let value_copy = value.clone();
+    //             let count_copy = count.clone();
+    //             count_copy.fetch_add(1, Ordering::Relaxed);
+    //             task_count += 1;
+    //             RENDER_RUNTIME
+    //                 .spawn(async move {
+    //                     match r.await {
+    //                         Ok(r) => {
+    //                             let mut locked = value_copy.lock().unwrap();
+    //                             if let &None = &*locked {
+    //                                 *locked = Some((Vec::new(), 0, None));
+    //                             }
+    //                             let value = locked.as_mut().unwrap();
+    //                             value.2 = Some(r);
+    //                             if count_copy.fetch_sub(1, Ordering::Relaxed) == 1 {
+    //                                 locked.finish();
+    //                             }
+    //                         }
+    //                         Err(e) => {
+    //                             let locked = value_copy.lock().unwrap();
+    //                             if count_copy.fetch_sub(1, Ordering::Relaxed) == 1 {
+    //                                 locked.finish();
+    //                             }
+    //                             log::error!("{:?}", e);
+    //                         }
+    //                     };
+    //                     ()
+    //                 })
+    //                 .unwrap();
+    //         }
+    //         LoadResult::Receiver(r) => {
+    //             let value_copy = value.clone();
+    //             let count_copy = count.clone();
+    //             count_copy.fetch_add(1, Ordering::Relaxed);
+    //             task_count += 1;
+    //             let (shader_meta, shader_map) = (pipeline_meta.clone(), shader_map.clone());
+    //             RENDER_RUNTIME
+    //                 .spawn(async move {
+    //                     match async_calc_pipeline(&shader_meta, &device, &shader_map, r, hash).await {
+    //                         Ok(r) => {
+    //                             let mut locked = value_copy.lock().unwrap();
+    //                             if let &None = &*locked {
+    //                                 *locked = Some((Vec::new(), 0, None));
+    //                             }
+    //                             let value = locked.as_mut().unwrap();
+    //                             value.2 = Some(r);
+    //                             if count_copy.fetch_sub(1, Ordering::Relaxed) == 1 {
+    //                                 locked.finish();
+    //                             }
+    //                         }
+    //                         Err(e) => {
+    //                             let locked = value_copy.lock().unwrap();
+    //                             if count_copy.fetch_sub(1, Ordering::Relaxed) == 1 {
+    //                                 locked.finish();
+    //                             }
+    //                             log::error!("{:?}", e);
+    //                         }
+    //                     }
+    //                     ()
+    //                 })
+    //                 .unwrap();
+    //         }
+    //     };
+    // }
 
     // 没有任务，返回
     if task_count > 0 {
         let mut result = value.await;
-        set_result(&mut draw_state_query, &mut clear_color_obj, &mut result);
+        set_result(&mut draw_state_query, &mut result);
     }
 }
 
 fn set_result(
     query_draw: &mut Query<&'static mut DrawState>,
-    clear_color_obj: &mut ClearDrawObj,
     result: &mut (
         Vec<(Entity, Handle<RenderRes<RenderPipeline>>)>,
         usize,
@@ -266,9 +259,9 @@ fn set_result(
         }
     }
 
-    if let Some(r) = &result.2 {
-        clear_color_obj.0.pipeline = Some(r.clone());
-    }
+    // if let Some(r) = &result.2 {
+    //     clear_color_obj.0.pipeline = Some(r.clone());
+    // }
 }
 
 async fn async_calc_pipeline(

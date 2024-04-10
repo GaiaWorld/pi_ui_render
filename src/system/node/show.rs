@@ -11,7 +11,7 @@ use pi_flex_layout::style::Display;
 use crate::{components::{
     calc::{IsShow, DrawList},
     user::{Enable, Show}, draw_obj::InstanceIndex,
-}, system::{draw_obj::{calc_text::IsRun, life_drawobj::update_render_instance_data}, system_set::UiSystemSet}, events::{NodeDisplayChange, NodeVisibilityChange}, resource::draw_obj::InstanceContext, shader1::meterial::{TyUniform, TyUniformMut, RenderFlagType}};
+}, system::{draw_obj::{calc_text::IsRun, life_drawobj::update_render_instance_data}, system_set::UiSystemSet}, events::{NodeDisplayChange, NodeVisibilityChange}, resource::draw_obj::InstanceContext, shader1::meterial::{TyUniform, RenderFlagType}};
 
 pub struct ShowPlugin;
 
@@ -117,8 +117,8 @@ pub fn set_show_data(
 	mut visisble_events: EventReader<NodeVisibilityChange>,
 	mut display_events: EventReader<NodeDisplayChange>,
 	mut instances: OrInitResMut<InstanceContext>,
-	query: Query<(&DrawList, &IsShow, Entity), Changed<IsShow>>,
-    mut query_draw: Query<&InstanceIndex>,
+	query: Query<(&DrawList, &IsShow), Changed<IsShow>>,
+    query_draw: Query<&InstanceIndex>,
 	r: OrInitRes<IsRun>,
 ) {
 	if r.0 {
@@ -130,7 +130,7 @@ pub fn set_show_data(
 	visisble_events.clear();
 	display_events.clear();
 
-	for (draw_list, is_show, id) in query.iter() {
+	for (draw_list, is_show) in query.iter() {
 		let visibility = is_show.get_visibility() || is_show.get_display();
 		for draw_id in draw_list.iter() {
 			if let Ok(instance_index) = query_draw.get(draw_id.id) {

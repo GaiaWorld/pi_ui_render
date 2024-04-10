@@ -24,7 +24,6 @@ layout(set = 0, binding = 0) uniform Camera {
 	vec2 data_tex_size; // sdf2： 数据纹理尺寸
 };
 
-
 // 纹理， 最多一次传16张纹理
 layout(set=1,binding=0) uniform texture2D tex2d0;
 layout(set=1,binding=2) uniform texture2D tex2d1;
@@ -62,10 +61,11 @@ layout(set=1,binding=25) uniform sampler samp12;
 // layout(set=1,binding=31) uniform sampler samp15;
 
 layout(set=2,binding=0) uniform texture2D u_index_tex;
-layout(set=2,binding=1) uniform texture2D u_data_tex;
-layout(set=2,binding=2) uniform sampler tex_samp;
-layout(set=2,binding=3) uniform texture2D u_shadow_tex;
-layout(set=2,binding=4) uniform sampler shadow_samp;
+layout(set=2,binding=1) uniform sampler index_samp;
+layout(set=2,binding=2) uniform texture2D u_data_tex;
+layout(set=2,binding=3) uniform sampler data_samp;
+layout(set=2,binding=4) uniform texture2D u_shadow_tex;
+layout(set=2,binding=5) uniform sampler shadow_samp;
 
 // 输出颜色
 layout(location=0) out vec4 o_Target;
@@ -683,7 +683,7 @@ glyphy_index_t get_glyphy_index(vec2 p, vec2 nominal_size) {
 	
 	vec2 index_uv = get_index_uv(p);
 	
-	vec4 c = texture(sampler2D(u_index_tex, tex_samp), index_uv).rgba;
+	vec4 c = texture(sampler2D(u_index_tex, index_samp), index_uv).rgba;
 	// vec4 c = vec4(0.0, 0.0, 0.0, 0.0);
 	return decode_glyphy_index(c, nominal_size);
 }
@@ -715,7 +715,7 @@ float glyphy_sdf(vec2 p, vec2 nominal_size) {
 	float y = floor(offset / 8.0) + u_data_offset.y;
 
 
-	vec4 rgba = texture(sampler2D(u_data_tex, tex_samp), vec2(x, y) / data_tex_size);
+	vec4 rgba = texture(sampler2D(u_data_tex, data_samp), vec2(x, y) / data_tex_size);
 	// vec4 rgba =vec4(0.0, 0.0, 0.0, 0.0);
 	
 
@@ -731,7 +731,7 @@ float glyphy_sdf(vec2 p, vec2 nominal_size) {
 		float x = mod(offset, 8.0) + u_data_offset.x;
 		float y = floor(offset / 8.0) + u_data_offset.y;
 		
-		vec4 rgba = texture(sampler2D(u_data_tex, tex_samp), vec2(x, y) / data_tex_size);
+		vec4 rgba = texture(sampler2D(u_data_tex, data_samp), vec2(x, y) / data_tex_size);
 		// vec4 rgba =vec4(0.0, 0.0, 0.0, 0.0);
 
 		if(index_info.num_endpoints == 0) {
@@ -922,7 +922,7 @@ vec4 shadow_blur(vec4 input_color, vec4 shadow_color, vec2 offset, float blur_le
 	float a1 =  textureLod(sampler2D(u_shadow_tex, shadow_samp), get_index_uv(p1), 0).r;
 	float a2 =  textureLod(sampler2D(u_shadow_tex, shadow_samp), get_index_uv(p1), 1).r;
 	float a3 =  textureLod(sampler2D(u_shadow_tex, shadow_samp), get_index_uv(p1), 2).r;
-	// float a4 =  textureLod(sampler2D(u_sdf_tex, sdf_tex_samp), get_index_uv(p1), 3).r;
+	// float a4 =  textureLod(sampler2D(u_sdf_tex, sdf_index_samp), get_index_uv(p1), 3).r;
 	vec4 modulus = get_blur_modulus(blur_level);
 	float a = shadow_color.w * (a1 * modulus.x + a2  * modulus.y + a3 * modulus.z) ; // + a4 * modulus.w);
 
@@ -1049,6 +1049,12 @@ void main(void) {
 
 	if ((ty1 & 131072) != 0) {// 圆弧方案的sdf
 		calc_sdf_color(ty1);
+		// o_Target = vec4(texture(sampler2D(u_data_tex, data_samp), vUv/128.0).rg, 0.0, 1.0);
+		// o_Target = vec4(texture(sampler2D(u_index_tex, index_samp), vUv/128.0).r, 0.0, 0.0, 1.0);
+		
+// layout(set=2,binding=0) uniform texture2D u_index_tex;
+// layout(set=2,binding=1) uniform texture2D u_data_tex;
+// layout(set=2,binding=2) uniform sampler index_samp;
 		return;
 	}
 

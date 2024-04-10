@@ -18,7 +18,7 @@ use pi_bevy_ecs_extend::system_param::res::OrInitRes;
 use pi_bevy_render_plugin::{PiRenderDevice, PiRenderQueue, TextureKeyAlloter};
 use pi_hal::{loader::AsyncLoader, runtime::RENDER_RUNTIME};
 use pi_null::Null;
-use pi_render::rhi::asset::{ImageTextureDesc, TextureRes, AssetWithId, TextureAssetDesc};
+use pi_render::rhi::asset::{TextureRes, AssetWithId, TextureAssetDesc};
 use pi_share::Share;
 
 use crate::components::user::RenderDirty;

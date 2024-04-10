@@ -30,7 +30,6 @@ pub fn update_graph(
     )>,
     mut instances: ResMut<InstanceContext>,
     mut del: RemovedComponents<Camera>,
-    inpass_query: Query<&ParentPassId>,
     mut rg: ResMut<PiRenderGraph>,
 	mut pass_graph_map: OrInitResMut<PassGraphMap>,
 	r: OrInitRes<IsRun>
@@ -114,7 +113,7 @@ pub fn update_graph(
     }
 
 	// 更新图结构
-	rg.update();
+	let _ = rg.update();
 }
 
 // 如果存在后处理，连接到后处理

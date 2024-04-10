@@ -34,7 +34,7 @@ use crate::{
         pass_2d::ScreenTarget,
         user::{Matrix4, Point2},
     },
-    resource::draw_obj::{CommonSampler, PipelineState, Program, ShareLayout, UnitQuadBuffer},
+    resource::draw_obj::{CommonSampler, PipelineState, Program, UnitQuadBuffer},
     utils::tools::{calc_float_hash, calc_hash},
 };
 
@@ -88,7 +88,7 @@ impl Plugin for UiShaderPlugin {
 				60 * 1024 * 1024,
 				3 * 60 * 1000,
 			)))
-			.init_resource::<ShareLayout>()
+			// .init_resource::<ShareLayout>()
 			.init_resource::<UnitQuadBuffer>()
 
 			.add_systems(Update, screen_target_resize.in_set(FrameDataPrepare).before(UiSystemSet::Setting))
@@ -256,49 +256,49 @@ pub fn create_camera_bind_group(
     }
 }
 
-pub fn create_depth_group(
-    cur_depth: usize,
-    buffer_assets: &Share<AssetMgr<RenderRes<Buffer>>>,
-    bind_group_assets: &Share<AssetMgr<RenderRes<BindGroup>>>,
-    depth_cache: &mut Vec<Handle<RenderRes<BindGroup>>>,
-    device: &RenderDevice,
-    share_layout: &ShareLayout,
-) -> Handle<RenderRes<BindGroup>> {
-    match depth_cache.get(cur_depth) {
-        Some(r) => r.clone(),
-        None => {
-            // let value = cur_depth as f32 / 600000.0;
-            let key = calc_hash(&cur_depth, calc_hash(&"depth uniform", 0)); // TODO
-            let d = match bind_group_assets.get(&key) {
-                Some(r) => r,
-                None => {
-                    let uniform_buf = match buffer_assets.get(&key) {
-                        Some(r) => r,
-                        None => {
-                            let uniform_buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
-                                label: Some("depth buffer init"),
-                                contents: bytemuck::cast_slice(&[cur_depth as f32]),
-                                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-                            });
-                            buffer_assets.insert(key, RenderRes::new(uniform_buf, 5)).unwrap()
-                        }
-                    };
-                    let group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-                        layout: &share_layout.depth,
-                        entries: &[wgpu::BindGroupEntry {
-                            binding: 0,
-                            resource: uniform_buf.as_entire_binding(),
-                        }],
-                        label: Some("depth group create"),
-                    });
-                    bind_group_assets.insert(key, RenderRes::new(group, 5)).unwrap()
-                }
-            };
-            depth_cache.push(d.clone());
-            d
-        }
-    }
-}
+// pub fn create_depth_group(
+//     cur_depth: usize,
+//     buffer_assets: &Share<AssetMgr<RenderRes<Buffer>>>,
+//     bind_group_assets: &Share<AssetMgr<RenderRes<BindGroup>>>,
+//     depth_cache: &mut Vec<Handle<RenderRes<BindGroup>>>,
+//     device: &RenderDevice,
+//     share_layout: &ShareLayout,
+// ) -> Handle<RenderRes<BindGroup>> {
+//     match depth_cache.get(cur_depth) {
+//         Some(r) => r.clone(),
+//         None => {
+//             // let value = cur_depth as f32 / 600000.0;
+//             let key = calc_hash(&cur_depth, calc_hash(&"depth uniform", 0)); // TODO
+//             let d = match bind_group_assets.get(&key) {
+//                 Some(r) => r,
+//                 None => {
+//                     let uniform_buf = match buffer_assets.get(&key) {
+//                         Some(r) => r,
+//                         None => {
+//                             let uniform_buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
+//                                 label: Some("depth buffer init"),
+//                                 contents: bytemuck::cast_slice(&[cur_depth as f32]),
+//                                 usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+//                             });
+//                             buffer_assets.insert(key, RenderRes::new(uniform_buf, 5)).unwrap()
+//                         }
+//                     };
+//                     let group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+//                         layout: &share_layout.depth,
+//                         entries: &[wgpu::BindGroupEntry {
+//                             binding: 0,
+//                             resource: uniform_buf.as_entire_binding(),
+//                         }],
+//                         label: Some("depth group create"),
+//                     });
+//                     bind_group_assets.insert(key, RenderRes::new(group, 5)).unwrap()
+//                 }
+//             };
+//             depth_cache.push(d.clone());
+//             d
+//         }
+//     }
+// }
 
 pub fn create_common_pipeline_state() -> PipelineState {
     PipelineState {

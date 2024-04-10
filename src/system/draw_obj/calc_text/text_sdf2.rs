@@ -4,17 +4,16 @@ use bevy_ecs::entity::Entity;
 use bevy_ecs::event::EventWriter;
 use bevy_ecs::prelude::{DetectChanges, Ref};
 use bevy_ecs::query::{Changed, Or, With};
-use bevy_ecs::system::{Query, ResMut, Res};
+use bevy_ecs::system::{Query, ResMut};
 use bevy_ecs::prelude::DetectChangesMut;
 
 use pi_bevy_ecs_extend::query::or_default::OrDefault;
 use pi_bevy_ecs_extend::system_param::res::OrInitRes;
 use pi_bevy_ecs_extend::system_param::tree::{Up, Layer};
-use pi_bevy_render_plugin::{PiRenderDevice, FrameDataPrepare};
+use pi_bevy_render_plugin::FrameDataPrepare;
 use pi_hal::font::font::FontType;
 use pi_hal::font::sdf2_table::TexInfo;
 use pi_render::font::{FontSheet, GlyphId, Font};
-use pi_share::Share;
 use pi_style::style::{TextOverflow, Aabb2, FontStyle};
 
 use crate::components::calc::{LayoutResult, NodeState};
@@ -488,7 +487,7 @@ fn text_vert(
 	text_overflow_data: Option<&TextOverflowData>,
 	query_layout: &Query<(&'static LayoutResult, &'static Up, &'static NodeState)>,
 	mut entity: Entity,
-	mut draw_id: Entity,
+	draw_id: Entity,
 	uniform_data: UniformData,
 	instance_index: InstanceIndex,
 	instances: &mut GpuBuffer,
@@ -568,7 +567,7 @@ fn text_vert(
 							_ => &default_range,
 						};
 											// let offset_y = (line_height - font_height) / 2.0;
-						uniform_data.set_data(instances.instance_data_mut(cur_instance_index), glyph, render_range, (left + text_style.letter_spacing, top + (line_height - (render_range.maxs.y - render_range.mins.y) * font_size) / 2.0), font_size, draw_id);
+						uniform_data.set_data(instances.instance_data_mut(cur_instance_index), glyph, render_range, (left + text_style.letter_spacing, top + (line_height - (render_range.maxs.y - render_range.mins.y) * font_size) / 2.0), font_size);
 						left += c1.width + text_style.letter_spacing;
 						cur_instance_index = instances.next_index(cur_instance_index);
 					}
@@ -597,7 +596,7 @@ fn text_vert(
 		if font_sheet.font_mgr().table.sdf2_table.fonts.get(face_id.0).is_none() {
 			log::warn!("default_range============{}, {:?}, {:?}, {:?}, {:?}", font_sheet.font_mgr().table.sdf2_table.glyphs[c.ch_id].font_face_index, c.ch, fontface_ids, font_sheet.font_mgr().sheet.fonts[font_id.0].font_family_id,&font_sheet.font_mgr().sheet.font_familys[font_sheet.font_mgr().sheet.fonts[font_id.0].font_family_id.0]);
 		}
-		uniform_data.set_data(instances.instance_data_mut(cur_instance_index), glyph, render_range, (left, top + (line_height - (render_range.maxs.y - render_range.mins.y) * font_size) / 2.0), font_size, draw_id);
+		uniform_data.set_data(instances.instance_data_mut(cur_instance_index), glyph, render_range, (left, top + (line_height - (render_range.maxs.y - render_range.mins.y) * font_size) / 2.0), font_size);
 		cur_instance_index = instances.next_index(cur_instance_index);
 		if count > 0 {
 			count -= 1;
@@ -631,7 +630,7 @@ enum ColorData {
 
 impl UniformData {
 	#[inline]
-	fn set_data(&self, mut instance_data: InstanceData, tex_info: &TexInfo, render_range: &Aabb2, offset: (f32, f32), font_size: f32, entity: Entity) {
+	fn set_data(&self, mut instance_data: InstanceData, tex_info: &TexInfo, render_range: &Aabb2, offset: (f32, f32), font_size: f32) {
 		log::trace!("set_data===================={:?}, {:?}, offset={:?}, font_size={}", instance_data, tex_info, offset, font_size);
 		let mut render_flag = instance_data.get_render_ty();
 		render_flag |= 1 << RenderFlagType::Sdf2 as usize;

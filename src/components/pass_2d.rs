@@ -9,7 +9,7 @@ use pi_postprocess::postprocess::PostProcess as PostProcess1;
 use pi_render::{
     components::view::target_alloc::ShareTargetView,
     renderer::draw_obj::DrawBindGroup,
-    rhi::{asset::RenderRes, bind_group::BindGroup, buffer::Buffer, buffer_alloc::BufferIndex},
+    rhi::{asset::RenderRes, bind_group::BindGroup, buffer::Buffer},
 };
 use pi_share::{ShareWeak, Share};
 use wgpu::RenderPipeline;
@@ -31,7 +31,6 @@ pub struct Camera {
     pub project: Matrix4,
     pub bind_group: Option<DrawBindGroup>,
     pub view_port: Aabb2,      // 视口区域（相对于全局的0,0点）
-    pub world_matrix: Matrix4, // 将该相机内容整体渲染到其他目标时，所用的世界矩阵
     pub is_active: bool,       // 是否激活相机（如果未激活，该相机不会渲染任何物体），通常相机不在脏区域内， 或相机内无任何drawobj，则该值为false
     pub is_change: bool, // 表示相机内的渲染内容是否改变， is_active为false时，该值为任何值都无所谓，is_active为true时，仅仅当内容相对于上一帧发生改变时，该值为true
 }
@@ -43,7 +42,6 @@ impl Default for Camera {
             project: Default::default(),
             bind_group: None,
             view_port: Aabb2::new(Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)),
-            world_matrix: Matrix4::default(),
             is_active: false,
             is_change: true,
         }
@@ -312,16 +310,16 @@ pub struct PostTemp {
 #[derive(Component, Debug)]
 pub struct PostProcessInfo {
     pub effect_mark: bitvec::prelude::BitArray<[u32; 1]>,
-    pub view_port: Aabb2,
-    pub matrix: WorldMatrix, // 矩阵变换
+    // pub view_port: Aabb2,
+    // pub matrix: WorldMatrix, // 矩阵变换
 }
 
 impl Default for PostProcessInfo {
     fn default() -> Self {
         Self {
             effect_mark: bitvec::prelude::BitArray::default(),
-            view_port: Aabb2::new(Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)),
-            matrix: Default::default(),
+            // view_port: Aabb2::new(Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)),
+            // matrix: Default::default(),
         }
     }
 }

@@ -20,7 +20,7 @@ use bevy_ecs::{
 };
 use pi_bevy_ecs_extend::{
     prelude::{EntityTree, Layer, OrDefault},
-    system_param::{layer_dirty::ComponentEvent, res::{OrInitRes, OrInitResMut}},
+    system_param::{layer_dirty::ComponentEvent, res::OrInitResMut},
 };
 use pi_flex_layout::{prelude::{
     AlignContent, AlignItems, AlignSelf, CharNode, Dimension, Direction, Display, FlexDirection, FlexLayoutStyle, FlexWrap, Get, GetMut, INode,

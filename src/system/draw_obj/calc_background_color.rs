@@ -10,7 +10,7 @@ use bevy_window::AddFrameEvent;
 use pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent;
 use pi_bevy_ecs_extend::system_param::res::{OrInitRes, OrInitResMut};
 
-use crate::components::calc::{LayoutResult, WorldMatrix, DrawList, IsShow};
+use crate::components::calc::{LayoutResult, WorldMatrix, DrawList};
 use crate::components::draw_obj::{BackgroundColorMark, InstanceIndex};
 use crate::resource::BackgroundColorRenderObjType;
 use crate::resource::draw_obj::InstanceContext;

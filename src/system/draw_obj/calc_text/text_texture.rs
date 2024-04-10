@@ -116,7 +116,7 @@ pub fn calc_text_texture(
                 .set_uniform(&TextureSizeOrBottomLeftBorderUniform(&[size.width as f32, size.height as f32]));
 
 			if let FontType::Sdf2 = font_type {
-				let data_texture_size = font_sheet.font_mgr().table.sdf2_table.data_packer_size();
+				// let data_texture_size = font_sheet.font_mgr().table.sdf2_table.data_packer_size();
 				draw_state
                 .bindgroups
                 .set_uniform(&DataTexSizeUniform(&[size.width as f32, size.height as f32]));

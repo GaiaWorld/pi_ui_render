@@ -34,7 +34,7 @@ use crate::components::calc::{DrawInfo, DrawList, EntityKey, NodeId, NodeState, 
 use crate::components::draw_obj::DrawState;
 use crate::components::draw_obj::{BoxType, DynTargetType, PipelineMeta, TextMark, TextShadowMark};
 use crate::components::pass_2d::{Camera, ParentPassId, PostProcess};
-use crate::components::user::{Matrix4, TextShadow, Animation, get_size, TextStyle};
+use crate::components::user::{Matrix4, TextShadow, Animation, TextStyle};
 use crate::components::DrawBundle;
 use crate::resource::draw_obj::{
     ClearDrawObj, DepthCache, EmptyVertexBuffer, PosUvColorVertexLayout, ProgramMetaRes, ShaderInfoCache,
@@ -45,7 +45,7 @@ use crate::shader1::meterial::CameraBind;
 use crate::shader::depth::DepthBind;
 use crate::shader::text::SHADOW_DEFINE;
 use crate::shader::text::{PositionVert, SampBind, UvVert};
-use crate::shader::ui_meterial::{ColorUniform, StrokeColorOrURectUniform, TextureSizeOrBottomLeftBorderUniform, UiMaterialBind, WorldUniform, ClipSdfOrSdflineUniform};
+use crate::shader::ui_meterial::{ColorUniform, StrokeColorOrURectUniform, TextureSizeOrBottomLeftBorderUniform, UiMaterialBind, WorldUniform};
 use crate::system::pass::pass_graph_node::create_rp_for_fbo;
 use crate::system::pass::pass_life::{cal_context, render_mark_true};
 use crate::system::pass::update_graph::{get_to, update_graph};

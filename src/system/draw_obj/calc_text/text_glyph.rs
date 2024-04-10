@@ -6,7 +6,6 @@ use bevy_ecs::{
     query::{Changed, Or, With},
     system::{ParamSet, Query, ResMut, Local}, change_detection::DetectChangesMut,
 };
-use crossbeam::queue::SegQueue;
 use ordered_float::NotNan;
 use pi_bevy_ecs_extend::{
     prelude::{Layer, OrDefault},
@@ -71,7 +70,7 @@ pub fn text_glyph(
     font_sheet: ResMut<ShareFontSheet>,
     mut event_writer: EventWriter<ComponentEvent<Changed<NodeState>>>,
 	r: OrInitRes<IsRun>,
-	mut await_list: Local<Sdf2GlpyhAwaitList>,
+	await_list: Local<Sdf2GlpyhAwaitList>,
 ) {
 	if r.0 {
 		return;

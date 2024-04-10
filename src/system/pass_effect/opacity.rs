@@ -1,9 +1,8 @@
-use std::marker::PhantomData;
 
 use bevy_ecs::{
 	query::Changed,
 	system::{ParamSet, Query},
-    prelude::{Added, Or, RemovedComponents}, entity::Entity,
+    prelude::{Added, Or, RemovedComponents},
 };
 use pi_bevy_ecs_extend::system_param::res::OrInitRes;
 
@@ -21,7 +20,7 @@ pub fn opacity_post_process(
     mut del: RemovedComponents<Opacity>,
     mark_type: OrInitRes<RenderContextMarkType<Opacity>>,
     mut query: ParamSet<(
-        Query<(&Opacity, &mut PostProcess, &mut PostProcessInfo, Entity), Or<(Changed<Opacity>, Added<PostProcess>)>>,
+        Query<(&Opacity, &mut PostProcess, &mut PostProcessInfo), Or<(Changed<Opacity>, Added<PostProcess>)>>,
         Query<(&mut PostProcess, &mut PostProcessInfo)>,
     )>,
 	r: OrInitRes<IsRun>
@@ -38,7 +37,7 @@ pub fn opacity_post_process(
         }
     }
 
-    for (opacity, mut post_list, mut post_info, entity) in query.p0().iter_mut() {
+    for (opacity, mut post_list, mut post_info) in query.p0().iter_mut() {
         if **opacity >= 1.0 {
             post_list.alpha = None;
             post_info.effect_mark.set(***mark_type, false);

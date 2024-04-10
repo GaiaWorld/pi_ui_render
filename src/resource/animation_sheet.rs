@@ -425,7 +425,7 @@ impl KeyFramesSheet {
                 names.push((
                     animation.name.scope_hash,
                     name.clone(),
-                    KeyFrames(self.key_frames_map.get(&(animation.name.scope_hash, name.clone())).unwrap().data.clone()),
+                    self.key_frames_map.get(&(animation.name.scope_hash, name.clone())).unwrap().data.clone(),
                 ));
             }
         }
@@ -549,7 +549,7 @@ impl KeyFramesSheet {
         self.add_keyframes(scope_hash, name.clone(), &value);
 		self.key_frames_attr_map.insert((scope_hash, name.clone()), value);
         self.static_key_frames_map
-            .insert((scope_hash, name.clone()), KeyFrames(self.key_frames_map.get(&(scope_hash, name)).unwrap().data.clone()));
+            .insert((scope_hash, name.clone()), self.key_frames_map.get(&(scope_hash, name)).unwrap().data.clone());
     }
 	fn add_progress(
 		&mut self,
@@ -844,8 +844,7 @@ impl Default for ObjKey {
     fn default() -> Self { Self(Entity::from_bits(u64::null())) }
 }
 
-#[derive(Clone)]
-pub struct KeyFrames(Vec<(Share<dyn Any + Send + Sync>, usize)>); // Vec<(动画曲线， 曲线类型)>
+type KeyFrames = Vec<(Share<dyn Any + Send + Sync>, usize)>; // Vec<(动画曲线， 曲线类型)>
 
 
 pub struct CurveId {

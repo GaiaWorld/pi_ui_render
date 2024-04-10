@@ -3,11 +3,9 @@ use std::ops::Range;
 use pi_null::Null;
 use pi_render::rhi::shader::{WriteBuffer, GetBuffer};
 
-use crate::shader1::meterial::TyUniform;
-
 use self::meterial::TyUniformMut;
 
-pub mod text_sdf2;
+// pub mod text_sdf2;
 pub mod meterial;
 pub mod gup_arraybuffer;
 

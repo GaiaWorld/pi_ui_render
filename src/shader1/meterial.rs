@@ -1,5 +1,5 @@
 use pi_render::rhi::shader::{GetBuffer, WriteBuffer};
-use render_derive::{BindLayout, BindingType, BufferSize, Uniform};
+use render_derive::{BindLayout, BindingType, BufferSize, Input, Uniform};
 
 // clip_rect = 1; clip_rect_radius = 4; clip_circel= 8; clip_ellipse = 16; clip_secotor = 32; uv = 64; color = 128; canvas_text = 256;text_stroke = 512;is_not_visibility = 1024;pointer_samp = 2048;linear_gradient = 4096
 
@@ -28,6 +28,10 @@ pub enum RenderFlagType {
 	Shadow = 21, // 2097152 阴影 需要占用外发光槽位
 	Premulti = 22, // 4194304 预乘模式渲染（需要预乘模式渲染的物体用普通模式渲染， 则设置此标记， 在着色器中会将预乘结果还原）
 }
+
+#[derive(Input)]
+#[location(0)]
+pub struct PositionVert;
 
 /*******************************************************************************相机**************************************************************/
 #[derive(BindLayout, BufferSize, BindingType)]

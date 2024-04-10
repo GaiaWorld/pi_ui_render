@@ -1,5 +1,5 @@
-use bevy_ecs::prelude::{Changed, IntoSystemSetConfig, IntoSystemConfigs};
-use bevy_app::{App, Plugin, PostUpdate, Startup, Update};
+use bevy_ecs::prelude::{IntoSystemSetConfig, IntoSystemConfigs};
+use bevy_app::{App, Plugin, PostUpdate, Update};
 use pi_bevy_render_plugin::{FrameDataPrepare, GraphBuild, GraphRun};
 use pi_hal::font::font::FontType;
 use pi_style::style::Aabb2;
@@ -8,27 +8,13 @@ use crate::components::calc::WorldMatrix;
 use crate::resource::draw_obj::{EmptyVertexBuffer, MaxViewSize};
 use crate::shader1::InstanceData;
 use crate::shader1::meterial::{BoxUniform, QuadUniform};
-use crate::utils::tools::calc_bound_box;
 
 use super::node::{z_index, show};
 use super::pass::last_update_wgpu::last_update_wgpu;
 use super::pass::pass_life;
 use super::{system_set::UiSystemSet, pass::update_graph::update_graph};
 
-use pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent;
-use pi_bevy_render_plugin::render_cross::GraphId;
-
-use crate::components::draw_obj::{BackgroundColorMark, BackgroundImageMark, BorderColorMark, BorderImageMark, BoxShadowMark, CanvasMark, BoxType};
-use crate::components::user::{BackgroundColor, BorderColor, BoxShadow, Canvas, Vector4};
-use crate::components::{
-    calc::{BackgroundImageTexture, BorderImageTexture},
-    user::{BackgroundImage, BorderImage},
-};
-use crate::resource::draw_obj::{PosUv1VertexLayout, PosUv2VertexLayout, PosVertexLayout};
-use crate::resource::{
-    BackgroundColorRenderObjType, BackgroundImageRenderObjType, BorderColorRenderObjType, BorderImageRenderObjType, BoxShadowRenderObjType,
-    CanvasRenderObjType,
-};
+use crate::components::user::Vector4;
 
 use self::calc_background_color::BackgroundColorPlugin;
 use self::calc_background_image::BackgroundImagePlugin;
@@ -37,9 +23,9 @@ use self::calc_border_image::BorderImagePlugin;
 use self::calc_box_shadow::BoxShadowPlugin;
 use self::calc_canvas::CanvasPlugin;
 use self::calc_svg::SvgPlugin;
-use self::life_drawobj::{batch_instance_data, update_render_instance_data};
 use self::calc_text::UiTextPlugin;
-use bevy_window::AddFrameEvent;
+use self::life_drawobj::{batch_instance_data, update_render_instance_data};
+// use self::calc_text::UiTextPlugin;
 
 pub mod calc_background_color;
 pub mod calc_background_image;
@@ -54,11 +40,11 @@ pub mod life_drawobj;
 pub mod calc_svg;
 
 pub mod blend_mode;
-pub mod clear_draw_obj;
+// pub mod clear_draw_obj;
 pub mod pipeline;
-pub mod root_clear_color;
+// pub mod root_clear_color;
 pub mod root_view_port;
-pub mod set_world_marix;
+// pub mod set_world_marix;
 
 pub struct UiReadyDrawPlugin {
 	pub font_type: FontType,
@@ -68,7 +54,8 @@ impl Plugin for UiReadyDrawPlugin {
     fn build(&self, app: &mut App) {
         app.configure_set(Update, UiSystemSet::PrepareDrawObj.in_set(FrameDataPrepare));
 
-        app.add_systems(Startup, clear_draw_obj::init)// PostStartup, 
+        app
+			// .add_systems(Startup, clear_draw_obj::init)// PostStartup, 
             .init_resource::<MaxViewSize>()
 			.add_systems(Update, update_render_instance_data
 				.after(UiSystemSet::LifeDrawObjectFlush)
@@ -93,12 +80,12 @@ impl Plugin for UiReadyDrawPlugin {
                     .before(UiSystemSet::LifeDrawObjectFlush)
                     .after(UiSystemSet::LifeDrawObject),
             )
-            .add_systems(Update, 
-                root_clear_color::clear_change
-                    .in_set(FrameDataPrepare)
-                    .after(UiSystemSet::PassFlush)
-                    .after(UiSystemSet::PassCalc),
-            )
+            // .add_systems(Update, 
+            //     root_clear_color::clear_change
+            //         .in_set(FrameDataPrepare)
+            //         .after(UiSystemSet::PassFlush)
+            //         .after(UiSystemSet::PassCalc),
+            // )
 
 			// 圆角
 			.add_systems(Update, 

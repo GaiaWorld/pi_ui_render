@@ -709,7 +709,6 @@ pub mod serialize {
             PositionType as PositionType1,
         },
     };
-    use pi_print_any::println_any;
     use pi_style::{
         style::{NotNanRect, StyleType},
         style_parse::Attribute,
@@ -905,7 +904,7 @@ pub mod serialize {
 
         // 将当前style写入组件
         pub fn to_attr(&mut self) -> Option<StyleAttribute> {
-			let c = self.cursor;
+			// let c = self.cursor;
             let next_type = self.next_type();
             if let Some(style_type) = next_type {
                 let r = if style_type < 96 {

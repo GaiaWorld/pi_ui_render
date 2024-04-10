@@ -46,7 +46,7 @@ pub fn calc_content_box(
             let mut chilren_change = false;
 
             // 当前节点的oct
-            let (mut oct, mut layout, x, y, text_shadow, box_shadow, world_matrix, l) = match node_box.get(id) {
+            let (mut oct, mut layout, x, y, text_shadow, box_shadow, world_matrix) = match node_box.get(id) {
                 Ok(r) => (
                     r.0 .0.clone(),
                     Aabb2::new(
@@ -58,7 +58,6 @@ pub fn calc_content_box(
                     r.2,
                     r.3,
                     r.4,
-                    r.1,
                 ),
                 _ => continue,
             };
@@ -149,14 +148,6 @@ pub fn calc_content_box(
 
 // 两个aabb的并
 fn box_and(aabb1: &mut Aabb2, aabb2: &Aabb2) {
-    aabb1.mins.x = aabb1.mins.x.min(aabb2.mins.x);
-    aabb1.mins.y = aabb1.mins.y.min(aabb2.mins.y);
-    aabb1.maxs.x = aabb1.maxs.x.max(aabb2.maxs.x);
-    aabb1.maxs.y = aabb1.maxs.y.max(aabb2.maxs.y);
-}
-
-// 两个aabb的并
-fn box_and_offset(aabb1: &mut Aabb2, aabb2: &Aabb2) {
     aabb1.mins.x = aabb1.mins.x.min(aabb2.mins.x);
     aabb1.mins.y = aabb1.mins.y.min(aabb2.mins.y);
     aabb1.maxs.x = aabb1.maxs.x.max(aabb2.maxs.x);

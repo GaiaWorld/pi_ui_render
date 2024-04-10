@@ -1,22 +1,9 @@
-use std::mem::replace;
 
-use bevy_ecs::prelude::{DetectChangesMut, Entity, Query, Res, ResMut, With};
-use pi_bevy_ecs_extend::{
-    prelude::Root,
-    system_param::res::{OrInitRes, OrInitResMut},
-};
-use pi_bevy_post_process::PostprocessResource;
-use pi_bevy_render_plugin::{PiIndexBufferAlloter, PiRenderDevice, PiRenderQueue, PiVertexBufferAlloter};
-use pi_render::rhi::{device::RenderDevice, RenderQueue};
+use bevy_ecs::system::Res;
+use pi_bevy_ecs_extend::system_param::res::{OrInitRes, OrInitResMut};
+use pi_bevy_render_plugin::{PiRenderDevice, PiRenderQueue, PiVertexBufferAlloter};
 
-use crate::{
-    components::{
-        draw_obj::DrawState,
-        pass_2d::{Draw2DList, DrawIndex, PostProcess},
-        user::Size,
-    },
-    resource::draw_obj::{DepthCache, DepthGroup, GroupAlloterCenter, ShareGroupAlloter, InstanceContext}, system::draw_obj::calc_text::IsRun,
-};
+use crate::{resource::draw_obj::{GroupAlloterCenter, InstanceContext}, system::draw_obj::calc_text::IsRun};
 
 // pub fn last_update_wgpu(
 //     query_root: Query<Entity, (With<Root>, With<Size>)>, // 只有gui的Root才会有Size

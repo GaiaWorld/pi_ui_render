@@ -3,10 +3,10 @@
 use std::{hash::{Hash, Hasher}, ops::Range};
 
 
-use crate::{resource::{
+use crate::resource::{
     draw_obj::{PipelineStateWithHash, ProgramMetaInner, VertexBufferLayoutWithHash},
     RenderObjType,
-}, system::pass::pass_graph_node::RenderPassTarget};
+};
 use bevy_ecs::prelude::Component;
 use pi_assets::asset::Handle;
 use pi_atom::Atom;
@@ -14,10 +14,9 @@ use pi_hash::XHashSet;
 use pi_postprocess::image_effect::PostProcessDraw;
 use pi_render::{renderer::draw_obj::DrawObj as DrawState1, rhi::asset::{TextureRes, AssetWithId}, components::view::target_alloc::ShareTargetView};
 use pi_share::Share;
-use wgpu::RenderPipeline;
 
 use super::{calc::{BorderImageTexture, BackgroundImageTexture}, user::{Canvas, BackgroundColor, BorderColor, BoxShadow, TextContent, SvgContent, SvgInnerContent}};
-pub use super::root::{ClearColorBindGroup, CopyFboToScreen, DynTargetType};
+pub use super::root::{CopyFboToScreen, DynTargetType};
 
 pub struct DrawObject;
 

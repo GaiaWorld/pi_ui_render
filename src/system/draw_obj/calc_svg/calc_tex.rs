@@ -98,18 +98,22 @@ pub fn update_sdf2_texture(
                     },
                     wgpu::BindGroupEntry {
                         binding: 1,
-                        resource: wgpu::BindingResource::TextureView(&sdf2_data_texture_view.texture_view),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 2,
                         resource: wgpu::BindingResource::Sampler(&common_sampler.pointer),
                     },
                     wgpu::BindGroupEntry {
+                        binding: 2,
+                        resource: wgpu::BindingResource::TextureView(&sdf2_data_texture_view.texture_view),
+                    },
+                    wgpu::BindGroupEntry {
                         binding: 3,
-                        resource: wgpu::BindingResource::TextureView(&sdf2_shadow_texture_view.texture_view),
+                        resource: wgpu::BindingResource::Sampler(&common_sampler.pointer),
                     },
                     wgpu::BindGroupEntry {
                         binding: 4,
+                        resource: wgpu::BindingResource::TextureView(&sdf2_shadow_texture_view.texture_view),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 5,
                         resource: wgpu::BindingResource::Sampler(&common_sampler.default),
                     },
                 ],

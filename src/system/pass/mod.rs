@@ -4,8 +4,6 @@ use bevy_ecs::schedule::apply_deferred;
 use pi_bevy_render_plugin::{PiRenderSystemSet, FrameDataPrepare, GraphBuild, GraphRun};
 
 use self::pass_life::calc_pass;
-
-use super::draw_obj::life_drawobj::update_render_instance_data;
 use super::system_set::UiSystemSet;
 
 pub mod last_update_wgpu;

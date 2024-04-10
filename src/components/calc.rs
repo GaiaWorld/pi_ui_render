@@ -696,9 +696,6 @@ pub enum FlexStyleType {
 #[derive(Deref, Debug, Clone, Copy, Hash, Default, Component)]
 pub struct NodeId(pub EntityKey);
 
-/// 宏标记(最多支持size::of::<usize>()个宏开关)
-pub struct DefineMark(bitvec::prelude::BitArray);
-
 /// 每节点的渲染列表
 #[derive(Deref, Default, Debug, Component, Clone, Serialize, Deserialize)]
 pub struct DrawList(pub SmallVec<[DrawObjId; 1]>); // 通常只会有一个DrawObject

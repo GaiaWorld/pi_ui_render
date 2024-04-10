@@ -106,12 +106,12 @@ pub fn cal_matrix(
 	// if dirtys.count() > 0 {
 	// 	log::warn!("start parent==========={:?}", dirtys.count());
 	// }
-	let count = dirtys.count();
+	// let count = dirtys.count();
     for id in dirtys.iter() {
         // if count == 1 {
 		// 	log::warn!("matrix time0========{:?}", pi_time::Instant::now() - time1);
 		// }
-		let time1 = pi_time::Instant::now();
+		// let time1 = pi_time::Instant::now();
         if let Ok((transform, layout, up, layer)) = query.get(id) {
             let parent_id = up.parent();
 

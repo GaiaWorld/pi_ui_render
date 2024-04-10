@@ -14,9 +14,9 @@ use pi_bevy_ecs_extend::prelude::{Down, Layer, Up};
 
 use self::{
     calc::{DrawInfo, DrawList, EntityKey, IsShow, NodeState, RenderContextMark, TransformWillChangeMatrix, View},
-    draw_obj::{BoxType, ClearColorBindGroup, CopyFboToScreen, FboInfo, InstanceIndex, PipelineMeta},
+    draw_obj::{BoxType, CopyFboToScreen, FboInfo, InstanceIndex, PipelineMeta},
     pass_2d::{ChildrenPass, GraphId, ParentPassId, PostProcess, PostProcessInfo, RenderTarget, ViewMatrix},
-    root::{RootDirtyRect, RootInstance},
+    root::RootDirtyRect,
     user::Overflow,
 };
 
@@ -157,11 +157,11 @@ impl PassBundle {
 pub struct RootBundle {
     pub render_target: RenderTarget,
     pub copy_draw_obj: CopyFboToScreen,
-    pub clear_color_group: ClearColorBindGroup,
+    // pub clear_color_group: ClearColorBindGroup,
     pub dirty_rect: RootDirtyRect,
     // pub clear_color: ClearColor,
     pub overflow: Overflow,
-    pub root_instance: RootInstance,
+    // pub root_instance: RootInstance,
 }
 
 impl Default for RootBundle {
@@ -169,11 +169,11 @@ impl Default for RootBundle {
         Self {
             render_target: Default::default(),
             copy_draw_obj: Default::default(),
-            clear_color_group: Default::default(),
+            // clear_color_group: Default::default(),
             dirty_rect: Default::default(),
             // clear_color: Default::default(),
             overflow: Overflow(true),
-            root_instance: RootInstance::default(),
+            // root_instance: RootInstance::default(),
         }
     }
 }

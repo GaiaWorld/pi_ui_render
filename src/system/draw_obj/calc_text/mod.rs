@@ -1,29 +1,19 @@
-mod text;
+// mod text;
 mod text_glyph;
-mod text_shadow;
+// mod text_shadow;
 mod text_split;
-mod text_texture;
+// mod text_texture;
 mod text_sdf2;
 
-use bevy_ecs::prelude::{Changed, IntoSystemConfigs, Resource};
-use bevy_app::{Plugin, Update, App};
-use pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent;
+use bevy_ecs::prelude::Resource;
+use bevy_app::{Plugin, App};
 use pi_hal::font::font::FontType;
 use pi_render::font::{Size, FontSheet};
 
-use crate::{
-    components::{calc::NodeState, draw_obj::TextMark, user::TextContent},
-    resource::{ShareFontSheet, TextRenderObjType},
-    system::{
-        node::{layout::calc_layout, world_matrix::cal_matrix},
-        system_set::UiSystemSet,
-    },
-};
-use bevy_window::AddFrameEvent;
+// use crate::system::system_set::UiSystemSet;
+use self::text_sdf2::Sdf2TextPlugin;
+// use self::{text::calc_text, text_texture::calc_text_texture, text_sdf2::Sdf2TextPlugin};
 
-use self::{text::calc_text, text_shadow::UiTextShadowPlugin, text_texture::calc_text_texture, text_sdf2::Sdf2TextPlugin};
-
-use super::life_drawobj::draw_object_life_new as draw_object_life;
 
 #[derive(Debug, Resource, Default)]
 pub struct IsRun(pub bool);
@@ -57,19 +47,21 @@ impl Plugin for UiTextPlugin {
             
             // 文字阴影
             // .add_plugins(UiTextShadowPlugin);
-		match self.font_type {
-			FontType::Bitmap => app.add_systems(Update, 
-                calc_text
-                    .in_set(UiSystemSet::PrepareDrawObj)
-                    .after(calc_text_texture)
-            ),
-			FontType::Sdf1 => app.add_systems(Update, 
-                calc_text
-                    .in_set(UiSystemSet::PrepareDrawObj)
-                    .after(calc_text_texture)
-            ),
-			FontType::Sdf2 => app.add_plugins(Sdf2TextPlugin),
-		};
+		// match self.font_type {
+		// 	// FontType::Bitmap => app.add_systems(Update, 
+        //     //     calc_text
+        //     //         .in_set(UiSystemSet::PrepareDrawObj)
+        //     //         .after(calc_text_texture)
+        //     // ),
+		// 	// FontType::Sdf1 => app.add_systems(Update, 
+        //     //     calc_text
+        //     //         .in_set(UiSystemSet::PrepareDrawObj)
+        //     //         .after(calc_text_texture)
+        //     // ),
+		// 	FontType::Sdf2 => app.add_plugins(Sdf2TextPlugin),
+        //     _ => (),
+		// };
+        app.add_plugins(Sdf2TextPlugin);
     }
 }
 

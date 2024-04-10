@@ -3,7 +3,7 @@ use crate::{
         calc::{ContentBox, LayoutResult, Quad},
         user::Transform,
     },
-    resource::{animation_sheet::KeyFramesSheet, ClassSheet, QuadTree, TimeInfo, UserCommands}, events::EntityChange,
+    resource::{animation_sheet::KeyFramesSheet, ClassSheet, QuadTree, TimeInfo, UserCommands},
 };
 use bevy_ecs::prelude::{IntoSystemConfigs, IntoSystemSetConfig, Changed};
 use bevy_app::{Plugin, Update, App};

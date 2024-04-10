@@ -17,7 +17,7 @@
 //!
 
 use bevy_ecs::{
-    change_detection::DetectChangesMut, prelude::{Component, Entity, EventReader, EventWriter, Ref, RemovedComponents, Res}, query::{Changed, Or}, system::{Commands, Local, ParamSet, Query, ResMut}, world::Mut
+    change_detection::DetectChangesMut, prelude::{Component, Entity, EventReader, EventWriter, Ref, RemovedComponents, Res}, query::{Changed, Or}, system::{Commands, ParamSet, Query, ResMut}, world::Mut
 };
 use pi_bevy_ecs_extend::{
     prelude::{Layer, LayerDirty, Up},
@@ -27,8 +27,8 @@ use pi_null::Null;
 
 use crate::{
     components::{
-        calc::{ContentBox, EntityKey, InPassId, LayoutResult, NeedMark, RenderContextMark, WorldMatrix}, draw_obj::InstanceIndex, pass_2d::{Camera, ChildrenPass, ParentPassId, PostProcessInfo}, root::RootInstance, user::{Point2, Vector2}, PassBundle
-    }, resource::{draw_obj::InstanceContext, EffectRenderContextMark, RenderContextMarkType}, shader1::meterial::{BoxUniform, QuadUniform, RenderFlagType, TyUniform, UvUniform}, system::draw_obj::{calc_text::IsRun, set_box}
+        calc::{ContentBox, EntityKey, InPassId, NeedMark, RenderContextMark, WorldMatrix}, draw_obj::InstanceIndex, pass_2d::{Camera, ChildrenPass, ParentPassId, PostProcessInfo}, PassBundle
+    }, resource::{draw_obj::InstanceContext, EffectRenderContextMark, RenderContextMarkType}, shader1::meterial::{BoxUniform, QuadUniform, RenderFlagType, TyUniform}, system::draw_obj::{calc_text::IsRun, set_box}
 };
 
 /// 记录RenderContext添加和删除的脏，同时记录节点添加到树上的脏
@@ -166,7 +166,7 @@ pub fn calc_pass_children_and_clear(
     mut event_reader: EventReader<ComponentEvent<Changed<RenderContextMark>>>,
     mut query: ParamSet<(
 		Query<&mut ChildrenPass>,
-        Query<(&mut ChildrenPass, Entity, &Layer)>,
+        Query<(&mut ChildrenPass, Entity)>,
 	)>,
     query_pass: Query<(Entity, &ParentPassId)>,
     // mut query_root: Query<&mut RootInstance>,
@@ -198,7 +198,7 @@ pub fn calc_pass_children_and_clear(
         }
 
 		// 找到叶子节点
-		for (mut children, entity, layer) in query.p1().iter_mut() {
+		for (mut children, entity) in query.p1().iter_mut() {
             // if let Ok(mut root_instance) = query_root.get_mut(layer.root()) {
                 if children.len() == 0 {
                     instances.temp.0.push(entity);
@@ -311,7 +311,6 @@ pub fn calc_pass(
 			Ref<WorldMatrix>,
             Ref<ContentBox>,
             &ParentPassId,
-            Entity,
 		),
 		Or<(Changed<PostProcessInfo>, Changed<WorldMatrix>, Changed<ContentBox>)>,
 	>,
@@ -321,7 +320,7 @@ pub fn calc_pass(
 		return;
 	}
 
-    for (instance_index, world_matrix, content_box, parent_pass_id, entity) in query.iter() {
+    for (instance_index, world_matrix, content_box, parent_pass_id) in query.iter() {
 		// 节点可能设置为dispaly none， 此时instance_index可能为Null
         if pi_null::Null::is_null(&instance_index.0.start) {
             continue;

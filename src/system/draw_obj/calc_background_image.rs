@@ -13,7 +13,7 @@ use pi_style::style::{ImageRepeatOption, Aabb2};
 
 use crate::components::calc::{BackgroundImageTexture, DrawList, LayoutResult, WorldMatrix};
 use crate::components::draw_obj::{BackgroundImageMark, InstanceIndex};
-use crate::components::user::{BackgroundImageClip, BackgroundImageMod, FitType, Point2, Vector2, Transform};
+use crate::components::user::{BackgroundImageClip, BackgroundImageMod, FitType, Point2, Vector2};
 use crate::resource::draw_obj::InstanceContext;
 use crate::resource::BackgroundImageRenderObjType;
 
@@ -69,7 +69,6 @@ pub fn calc_background_image(
 			// OrDefault<BackgroundImageMod>,
 			&BackgroundImage,
 			Entity,
-			Option<&Transform>,
 		),
 		Or<(Changed<BackgroundImageTexture>, Changed<BackgroundImageClip>,  Changed<WorldMatrix>)>,
 	>,
@@ -85,7 +84,7 @@ pub fn calc_background_image(
 	let image_clip = BackgroundImageClip::default();
 	let image_mod = BackgroundImageMod::default();
 
-	for (world_matrix, layout, draw_list, background_image_texture_ref, background_image_clip, background_image_mod, background_image, entity, transform) in query.iter() {
+	for (world_matrix, layout, draw_list, background_image_texture_ref, background_image_clip, background_image_mod, background_image, entity) in query.iter() {
 		let background_image_texture = match &background_image_texture_ref.0 {
 			Some(r) => {
 				// 图片不一致， 返回

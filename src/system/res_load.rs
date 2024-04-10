@@ -8,7 +8,7 @@ use pi_bevy_asset::ShareAssetMgr;
 use pi_bevy_ecs_extend::system_param::res::{OrInitResMut, OrInitRes};
 use pi_bevy_render_plugin::{PiRenderDevice, PiRenderQueue, TextureKeyAlloter};
 use pi_hal::{runtime::RENDER_RUNTIME, loader::AsyncLoader};
-use pi_render::rhi::asset::{TextureRes, ImageTextureDesc, AssetWithId, TextureAssetDesc};
+use pi_render::rhi::asset::{TextureRes, AssetWithId, TextureAssetDesc};
 use pi_share::Share;
 use pi_async_rt::prelude::AsyncRuntime;
 

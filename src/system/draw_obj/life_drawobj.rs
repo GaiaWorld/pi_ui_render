@@ -4,7 +4,7 @@ use bevy_ecs::entity::Entity;
 use bevy_ecs::event::EventWriter;
 use bevy_ecs::prelude::RemovedComponents;
 use bevy_ecs::query::{Changed, With};
-use bevy_ecs::system::{Local, ParamSet, Query, Res, ResMut, SystemParam, SystemState};
+use bevy_ecs::system::{ParamSet, Query, Res, SystemParam, SystemState};
 use bevy_ecs::prelude::{Bundle, Commands, Component, EventReader, FromWorld, Resource, World};
 use bevy_ecs::world::Ref;
 use pi_assets::asset::Handle;
@@ -13,28 +13,25 @@ use pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent;
 use pi_bevy_ecs_extend::system_param::res::{OrInitRes, OrInitResMut};
 use pi_bevy_ecs_extend::system_param::tree::{Root, Layer};
 use pi_bevy_render_plugin::render_cross::DepthRange;
-use pi_bevy_render_plugin::{PiRenderDevice, PiRenderGraph};
+use pi_bevy_render_plugin::PiRenderDevice;
 use pi_null::Null;
 use pi_render::components::view::target_alloc::ShareTargetView;
-use pi_render::depend_graph::graph;
 use pi_render::rhi::asset::{AssetWithId, TextureRes};
 use pi_share::Share;
 use pi_style::style::CgColor;
-use wgpu::core::instance;
 
 use crate::components::calc::{DrawInfo, EntityKey, NodeId, InPassId, IsShow, ZRange, RenderContextMark};
 use crate::components::draw_obj::{InstanceIndex, GetInstanceSplit, InstanceSplit, RenderCount, Pipeline, FboInfo};
-use crate::components::root::RootInstance;
-use crate::components::user::{RenderTargetType, Size};
+// use crate::components::root::RootInstance;
+use crate::components::user::RenderTargetType;
 use crate::components::DrawBundleNew;
-use crate::components::pass_2d::{Camera, Draw2DList, DrawElement, DrawIndex, InstanceDrawState, ParentPassId, PostProcessInfo};
+use crate::components::pass_2d::{Draw2DList, DrawElement, DrawIndex, InstanceDrawState, ParentPassId, PostProcessInfo};
 use crate::events::{ NodeZindexChange, NodeDisplayChange, EntityChange};
 use crate::resource::draw_obj::{InstanceContext, CommonSampler};
-use crate::resource::{RenderObjType, PassGraphMap};
+use crate::resource::RenderObjType;
 
 use crate::components::calc::DrawList;
-use crate::shader::camera;
-use crate::shader1::{InstanceData, GpuBuffer};
+use crate::shader1::GpuBuffer;
 use crate::shader1::meterial::{TextureIndexUniform, DepthUniform, ColorUniform, RenderFlagType, TyUniform, MeterialBind, BoxUniform, QuadUniform};
 
 use super::calc_text::IsRun;
@@ -170,24 +167,16 @@ pub fn update_render_instance_data(
 		Query<(&mut Draw2DList, Entity)>,
 		Query<&mut Draw2DList>,
 	)>,
-	mut post_info_query: Query<(&PostProcessInfo, Option<&Root>)>,
-	mut render_cross_query: Query<(&mut DepthRange, &pi_bevy_render_plugin::render_cross::DrawList)>,
+	post_info_query: Query<(&PostProcessInfo, Option<&Root>)>,
 	mut instances : OrInitResMut<InstanceContext>,
 	node_query: Query<(Option<&ParentPassId>, &InPassId, &DrawList, &ZRange, &IsShow, Entity, &Layer)>,
-	draw_query: Query<(Option<&InstanceSplit>, Option<&Pipeline>)>,
 
 	mut instance_index: Query<(&'static mut InstanceIndex, OrDefault<RenderCount>)>,
 
 	draw_info: Query<(&DrawInfo, Option<Ref<RenderCount>>)>,
 
-	common_sampler: OrInitRes<CommonSampler>,
-	device: Res<PiRenderDevice>,
-
-	query_root: Query<Entity, (With<Root>, With<Size>)>, // 只有gui的Root才会有Size
-	query_root1: Query<(&RootInstance, Entity, OrDefault<RenderTargetType>, &PostProcessInfo, &IsShow, &Layer)>, // 只有gui的Root才会有Size
+	query_root1: Query<(Entity, OrDefault<RenderTargetType>, &PostProcessInfo, &IsShow, &Layer), With<Root>>, // 只有gui的Root才会有Size
 	mut catche_buffer: OrInitResMut<RenderInstances1>,
-	mut pass_graph_map: OrInitResMut<PassGraphMap>,
-	mut rg: ResMut<PiRenderGraph>,
 ) {
 	log::trace!("life========================node_change={:?}, node_zindex_change={:?}, pass2d_change={:?}, node_display_change={:?}", events.0.len(), events.1.len(), events.2.len(), events.3.len());
 	// 如果没有实体创建， 也没有实体删除， zindex也没改变，山下文结构也没改变， 则不需要更新实例数据
@@ -254,7 +243,7 @@ pub fn update_render_instance_data(
 	}
 
 
-	let mut alloc = |draw_index: &DrawIndex, draw_info: &DrawInfo, new_instances: &mut GpuBuffer, instances: &InstanceContext, instance_index: &mut Query<(&'static mut InstanceIndex, OrDefault<RenderCount>)>| {
+	let alloc = |draw_index: &DrawIndex, draw_info: &DrawInfo, new_instances: &mut GpuBuffer, instances: &InstanceContext, instance_index: &mut Query<(&'static mut InstanceIndex, OrDefault<RenderCount>)>| {
 		let mut alloc:  Option<Entity> = None;
 		match draw_index {
 			DrawIndex::DrawObj(draw_entity) => {
@@ -294,13 +283,13 @@ pub fn update_render_instance_data(
 					// instances.instance_data_mut(new_index.start + i as usize * instances.alignment).set_data(&TextWeightUniform(&[entity.index() as f32]));
 				}
 
-				log::trace!("instance_data_mut1============{:?}, {:?}", new_index, old_index);
+				log::trace!("instance_data_mut1============{:?}, {:?}, {:?}", entity, new_index, old_index);
 				index.0 = new_index.clone();
 
 			} else {
 				// 存在就的，从旧的实例上拷贝过来
 				new_index = new_instances.cur_index()..new_instances.cur_index() + render_count.0 as usize * new_instances.alignment;
-				log::trace!("new_index============{:?}, {:?}, {:?}", entity, new_index, old_index);
+				log::trace!("change_index============{:?}, {:?}, {:?}", entity, new_index, old_index);
 				if render_count.0 > 0 {
 					new_instances.extend(instances.instance_data.slice(old_index.clone()));
 
@@ -314,21 +303,12 @@ pub fn update_render_instance_data(
 			// log::trace!("life1========================insatnce_index={:?}, instance_data_start={:?}, draw_index={:?}, split={:?}, cur_index={:?}, render_count: {:?}", new_index, instance_data_start, draw_index, draw_query.get(entity), new_instances.cur_index(), render_count);
 		}
 	};
-	let mut p0 = pass_query.p0();
-	// let mut new_instances = RenderInstances::new(instances.instance_data.alignment, instances.instance_data.cur_index());
-	// for (root_instance, root_entity, render_target_type, post_process_info, is_show, layer) in query_root1.iter() {
-		// // root节点特殊处理， 需要将自身push在渲染列表中
-		// let (mut draw_2d_list, pass_id) = match p0.get_mut(root_entity) {
-		// 	Ok(r) => r,
-		// 	_ => continue
-		// };
-		// draw_2d_list.push_element(DrawIndex::Pass2D(EntityKey(root_entity)), ZRange(std::usize::MIN + 1..std::usize::MIN),  DrawInfo::new(10, false));
-		
-		
+	let mut p0 = pass_query.p0();	
 		
 	let pass_toop_list = std::mem::take(&mut instances.pass_toop_list);
+	log::trace!("pass_toop_list=============={:?}", &pass_toop_list);
 	for entity in pass_toop_list.iter() {
-		let (mut draw_2d_list, pass_id) = match p0.get_mut(*entity) {
+		let (mut draw_2d_list, _pass_id) = match p0.get_mut(*entity) {
 			Ok(r) => r,
 			_ => continue
 		};
@@ -406,7 +386,8 @@ pub fn update_render_instance_data(
 	}
 
 	// 为根节点分配实例， 用于将根节点拷贝到屏幕上
-	for (root_instance, root_entity, render_target_type, post_process_info, is_show, layer) in query_root1.iter() {
+	for (root_entity, render_target_type, post_process_info, is_show, layer) in query_root1.iter() {
+		log::trace!("alloc root========================{:?}", root_entity); 
 		if post_process_info.has_effect() && RenderTargetType::Screen == *render_target_type {
 			// 有后处理效果， 并且最终会渲染到屏幕上， 则需要分配一个实例用于将其渲染到屏幕
 			let mut info = DrawInfo::new(10, false);
@@ -420,6 +401,7 @@ pub fn update_render_instance_data(
 		}
 	}
 	
+	log::trace!("alloc clear========================");
 	// 分配清屏所需实例（清屏需要批渲染，因此将其分配在一起）
 	for entity in pass_toop_list.iter() {
 		let (mut draw_2d_list, pass_id) = match p0.get_mut(*entity) {
@@ -432,6 +414,7 @@ pub fn update_render_instance_data(
 				// 清屏数据
 				let index = if !draw_2d_list.clear_instance.is_null() {
 					let cur_index = new_instances.cur_index();
+					log::trace!("alloc clear========================{:?}", draw_2d_list.clear_instance);
 					new_instances.extend(instances.instance_data.slice(draw_2d_list.clear_instance..draw_2d_list.clear_instance + new_instances.alignment));
 					if cur_index != draw_2d_list.clear_instance {
 						let end = new_instances.cur_index();
@@ -477,7 +460,7 @@ fn batch_pass(
 	let mut instance_data_end =  draw_list.instance_range.start;
 	// let mut pipeline;
 	// log::warn!("batch_pass======={:?}", (pass_id, &draw_list.all_list_sort));
-	for (draw_index, _, draw_info) in draw_list.all_list_sort.iter() {
+	for (draw_index, _, _draw_info) in draw_list.all_list_sort.iter() {
 		let mut last_pipeline = None;
 		let mut split_by_texture:  Option<(InstanceIndex, &Handle<AssetWithId<TextureRes>>, &wgpu::Sampler)> = None;
 		let mut instance_data_end1 = instance_data_end;
@@ -617,7 +600,7 @@ fn batch_pass(
 		}
 
 		// 添加渲染所需纹理， 如果纹理溢出， 需要结束批处理
-		if let Some((index, texture, sampler)) = split_by_texture {
+		if let Some((index, texture, _)) = split_by_texture {
 			let (texture_index, group) = instances.batch_texture.push(texture, &query.common_sampler.default, &query.device);
 			instances.instance_data.instance_data_mut(index.start/*TODO,这里默认只有一个实例*/).set_data(&TextureIndexUniform(&[texture_index as f32])); // 设置drawobj的纹理索引
 			if let Some(group) = group {
@@ -671,7 +654,6 @@ fn batch_pass(
 			draw_range: start..cursor,
 			pass: pass_id,
 		}, parent_pass_id));
-		instance_data_start = instance_data_end;
 	}
 
 	// 设置all_list长度为0（数据还在，数据用于下次列表与新元素对比，来确定列表是否发生改变）
@@ -711,7 +693,7 @@ struct BatchGlobalState{
 /// 只将需要渲染的节点节点批处理
 pub fn batch_instance_data(
 	mut query: BatchQuery,
-	mut query_root: Query<(&mut RootInstance, Entity, &InstanceIndex), With<Root>>, // 只有gui的Root才会有Size
+	mut query_root: Query<(Entity, &InstanceIndex), With<Root>>, // 只有gui的Root才会有Size
 	mut instances : OrInitResMut<InstanceContext>,
 ) {
 
@@ -812,7 +794,7 @@ pub fn batch_instance_data(
 					// fbo未改变， 并且迭代结束了，则设置上一个清屏drawcall的实例范围
 					if let DrawElement::Clear {draw_state, ..} = &mut instances.draw_list[split_index].0 {
 						draw_state.instance_data_range.end = end;
-						log::warn!("is_split_clear========={:?}", (pass_id, split_index, pre_clear_index, draw_2d_list.clear_instance, fbo_changed1, &draw_state.instance_data_range, draw_state.instance_data_range.len() / 224));
+						// log::warn!("is_split_clear========={:?}", (pass_id, split_index, pre_clear_index, draw_2d_list.clear_instance, fbo_changed1, &draw_state.instance_data_range, draw_state.instance_data_range.len() / 224));
 					}
 				}
 
@@ -886,11 +868,10 @@ pub fn batch_instance_data(
 		// update_depth(root, &mut 1, &mut query.render_cross_query, instances, &mut root_instance);
 	// }
 
-	for (mut root_instance, root, instance_index) in query_root.iter_mut() {
+	for (root, instance_index) in query_root.iter_mut() {
 		// 将当前剩余未批处理的数据合批
 		// log::warn!("root======={:?}", root);
 		if !instance_index.start.is_null() {
-			root_instance.draw_index = instances.draw_list.len();
 			let p = instances.common_pipeline.clone();
 			instances.draw_list.push((DrawElement::DrawInstance {
 				draw_state: InstanceDrawState { 
@@ -945,14 +926,8 @@ pub fn batch_instance_data(
 /// 更新深度， 返回消耗的深度空间
 pub fn update_depth(
 	depth_count: &mut usize,
-	// pass_query: &mut Query<(&mut Draw2DList, Entity)>,
-	// post_info_query: &mut Query<(&PostProcessInfo, Option<&Root>)>,
 	render_cross_query: &mut Query<(&mut DepthRange, &pi_bevy_render_plugin::render_cross::DrawList)>,
-	
-	// mut pass_query: &mut Query<&mut Draw2DList>,
 	instances: &mut InstanceContext,
-	// root_instance: &mut RootInstance,
-	// vertex_buffer_alloter: &PiVertexBufferAlloter,
 ) {
 	for i in instances.draw_list.iter_mut() {
 		match &mut i.0 {
@@ -984,7 +959,7 @@ pub fn update_depth(
 				*depth_count += count;
 			},
 			DrawElement::DrawPost(_) => (),
-			DrawElement::Clear { draw_state, pass } => (),
+			DrawElement::Clear { .. } => (),
 		}
 	}
 }

@@ -21,7 +21,7 @@ use pi_hal::font::sdf_table::FontCfg;
 use pi_hash::XHashMap;
 use pi_print_any::out_any;
 use pi_style::{
-    style::{CgColor, Color, Stroke, StrokeDasharray},
+    style::{CgColor, Color, StrokeDasharray},
     style_parse::{Attribute, ClassItem, ClassMap, KeyFrameList},
 };
 use serde::{Deserialize, Serialize};
