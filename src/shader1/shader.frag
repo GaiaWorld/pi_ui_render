@@ -968,7 +968,8 @@ void calc_sdf_color(int ty1) {
 	float distancePerPixel = 1.;
 
 	float weight = vData11.w;
-	sdist = sdist - weight * distancePerPixel;
+	// 64 号字体时distancePerPixel正好等于1
+	sdist = sdist - weight * distancePerPixel * (vData1.z / 64.0);
 
 	float alpha = antialias_sdf2(sdist);
 	if (vData10.w > 0.0){
