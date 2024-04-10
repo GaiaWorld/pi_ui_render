@@ -3,96 +3,105 @@
 #[path = "../framework.rs"]
 mod framework;
 
-use async_trait::async_trait;
+use std::mem::swap;
+
+use bevy_ecs::system::Commands;
+use bevy_ecs::prelude::World;
 use framework::Example;
-/// 渲染四边形 demo
-use pi_ecs::prelude::Id;
+use pi_atom::Atom;
 use pi_flex_layout::style::{Dimension, PositionType};
 use pi_null::Null;
 use pi_style::{
-    style::Hsi,
+    style::{Aabb2, Hsi, Point2},
     style_type::{
-        BackgroundColorType, HeightType, HsiType, MarginLeftType, MarginTopType, PositionLeftType, PositionTopType, PositionTypeType, WidthType,
+        BackgroundColorType, BackgroundImageType, HeightType, HsiType, MarginLeftType, MarginTopType, PositionLeftType, PositionTopType,
+        PositionTypeType, WidthType, AsImageType,
     },
 };
 use pi_ui_render::{
-    components::user::{CgColor, Color, ClearColor},
-    export::Engine,
+    components::{
+        calc::EntityKey,
+        user::{CgColor, ClearColor, Color, RenderDirty, Viewport},
+        NodeBundle,
+    },
+    resource::{UserCommands, NodeCmd},
 };
 
 fn main() { framework::start(QuadExample::default()) }
 
 #[derive(Default)]
-pub struct QuadExample;
+pub struct QuadExample {
+    cmd: UserCommands,
+}
 
-#[async_trait]
 impl Example for QuadExample {
-    async fn init(&mut self, gui: &mut Engine, size: (usize, usize)) {
-        // 设置清屏颜色为绿色
-        gui.gui.world_mut().insert_resource(ClearColor(CgColor::new(0.0, 1.0, 1.0, 1.0), true));
-
+    fn init(&mut self, world: &mut World, size: (usize, usize)) {
         // 添加根节点
-        let root = gui.gui.create_node();
-        gui.gui.set_style(root, WidthType(Dimension::Points(size.0 as f32)));
-        gui.gui.set_style(root, HeightType(Dimension::Points(size.1 as f32)));
+        let root = world.spawn(NodeBundle::default()).id();
+        self.cmd.push_cmd(NodeCmd(ClearColor(CgColor::new(0.0, 1.0, 1.0, 1.0), true), root));
+        self.cmd.set_view_port(
+            root,
+            Viewport(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(size.0 as f32, size.1 as f32))),
+        );
+        self.cmd.set_render_dirty(root, RenderDirty(true));
 
-        gui.gui.set_style(root, PositionTypeType(PositionType::Absolute));
-        gui.gui.set_style(root, PositionLeftType(Dimension::Points(0.0)));
-        gui.gui.set_style(root, PositionTopType(Dimension::Points(0.0)));
-        gui.gui.set_style(root, MarginLeftType(Dimension::Points(0.0)));
-        gui.gui.set_style(root, MarginTopType(Dimension::Points(0.0)));
+        self.cmd.set_style(root, WidthType(Dimension::Points(size.0 as f32)));
+        self.cmd.set_style(root, HeightType(Dimension::Points(size.1 as f32)));
 
-
-        // if style.position_left().is_points()
-        // 	&& style.position_top().is_points()
-        // 	&& style.margin_left().is_points()
-        // 	&& style.margin_top().is_points()
-        // 	&& style.width().is_points()
-        // 	&& style.height().is_points()
-        gui.gui.append(root, Id::null());
+        self.cmd.set_style(root, PositionTypeType(PositionType::Absolute));
+        self.cmd.set_style(root, PositionLeftType(Dimension::Points(0.0)));
+        self.cmd.set_style(root, PositionTopType(Dimension::Points(0.0)));
+        self.cmd.set_style(root, MarginLeftType(Dimension::Points(0.0)));
+        self.cmd.set_style(root, MarginTopType(Dimension::Points(0.0)));
+		self.cmd.set_style(root, AsImageType(pi_style::style::AsImage::Force));
+        self.cmd
+            .set_style(root, BackgroundColorType(Color::RGBA(CgColor::new(0.0, 0.0, 0.0, 1.0))));
+        self.cmd.append(root, EntityKey::null().0);
 
         // 添加一个红色div
-        let div1 = gui.gui.create_node();
-        gui.gui.set_style(div1, WidthType(Dimension::Points(50.0)));
-        gui.gui.set_style(div1, HeightType(Dimension::Points(100.0)));
-        gui.gui
+        let div1 = world.spawn(NodeBundle::default()).id();
+        self.cmd.set_style(div1, WidthType(Dimension::Points(50.0)));
+        self.cmd.set_style(div1, HeightType(Dimension::Points(100.0)));
+        self.cmd
             .set_style(div1, BackgroundColorType(Color::RGBA(CgColor::new(1.0, 0.0, 0.0, 1.0))));
-        gui.gui.append(div1, root);
+        self.cmd.append(div1, root);
 
 
-        let div1 = gui.gui.create_node();
-        gui.gui.set_style(div1, PositionTopType(Dimension::Points(100.0)));
-        gui.gui.set_style(div1, WidthType(Dimension::Points(100.0)));
-        gui.gui.set_style(div1, HeightType(Dimension::Points(200.0)));
-        gui.gui.set_style(
+        let div1 = world.spawn(NodeBundle::default()).id();
+        self.cmd.set_style(div1, PositionTopType(Dimension::Points(100.0)));
+        self.cmd.set_style(div1, WidthType(Dimension::Points(100.0)));
+        self.cmd.set_style(div1, HeightType(Dimension::Points(200.0)));
+        self.cmd.set_style(
             div1,
             HsiType(Hsi {
                 hue_rotate: 0.0,
-                saturate: -1.0,
-                bright_ness: 0.0,
+                saturate: 0.0,
+                bright_ness: 0.2,
             }),
         );
-        // gui.gui.set_style(div1, OpacityType(Opacity(0.5)));
+        // self.cmd.set_style(div1, OpacityType(0.5));
+        // self.cmd.set_style(div1, OpacityType(Opacity(0.5)));
 
         // 添加一个绿色div
-        let div2 = gui.gui.create_node();
-        gui.gui.set_style(div2, WidthType(Dimension::Points(50.0)));
-        gui.gui.set_style(div2, HeightType(Dimension::Points(100.0)));
-        gui.gui
+        let div2 = world.spawn(NodeBundle::default()).id();
+        self.cmd.set_style(div2, WidthType(Dimension::Points(50.0)));
+        self.cmd.set_style(div2, HeightType(Dimension::Points(100.0)));
+        self.cmd
             .set_style(div2, BackgroundColorType(Color::RGBA(CgColor::new(0.0, 1.0, 0.0, 1.0))));
-        gui.gui.append(div2, div1);
+        self.cmd.append(div2, div1);
 
         // 添加一个黄色
-        let div3 = gui.gui.create_node();
-        gui.gui.set_style(div3, PositionTopType(Dimension::Points(100.0)));
-        gui.gui.set_style(div3, WidthType(Dimension::Points(50.0)));
-        gui.gui.set_style(div3, HeightType(Dimension::Points(100.0)));
-        gui.gui
-            .set_style(div3, BackgroundColorType(Color::RGBA(CgColor::new(1.0, 1.0, 0.0, 1.0))));
-        gui.gui.append(div3, div1);
+        let div3 = world.spawn(NodeBundle::default()).id();
+        self.cmd.set_style(div3, PositionTopType(Dimension::Points(100.0)));
+        self.cmd.set_style(div3, WidthType(Dimension::Points(50.0)));
+        self.cmd.set_style(div3, HeightType(Dimension::Points(100.0)));
+        self.cmd.set_style(div3, BackgroundImageType(Atom::from("examples/hsi/source/men.png")));
+        // self.cmd
+        // .set_style(div3, BackgroundColorType(Color::RGBA(CgColor::new(1.0, 1.0, 0.0, 1.0))));
+        self.cmd.append(div3, div1);
 
-        gui.gui.append(div1, root);
+        self.cmd.append(div1, root);
     }
 
-    fn render(&mut self, gui: &mut Engine) { gui.gui.run(); }
+    fn render(&mut self, cmd: &mut UserCommands, _cmd1: &mut Commands) { swap(&mut self.cmd, cmd); }
 }

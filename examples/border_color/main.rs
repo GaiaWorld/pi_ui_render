@@ -3,85 +3,99 @@
 #[path = "../framework.rs"]
 mod framework;
 
-use async_trait::async_trait;
+use std::mem::swap;
+
+use bevy_ecs::prelude::{Commands, World};
 use framework::Example;
 /// 渲染四边形 demo
-use pi_ecs::prelude::Id;
 use pi_flex_layout::style::{Dimension, PositionType};
 use pi_null::Null;
 use pi_ui_render::{
-    components::user::{CgColor, ClearColor, Viewport},
-    export::Engine,
-	utils::cmd::NodeCmd,
+    components::{
+        calc::EntityKey,
+        user::{CgColor, ClearColor, RenderDirty, Viewport},
+        NodeBundle,
+    },
+    resource::{NodeCmd, UserCommands},
 };
 
-use pi_style::{style_type::{
-    BorderBottomType, BorderColorType, BorderLeftType, BorderRightType, BorderTopType, HeightType, MarginLeftType, MarginTopType, PositionLeftType,
-    PositionTopType, PositionTypeType, WidthType, BorderRadiusType,
-}, style::{Aabb2, Point2, BorderRadius, LengthUnit}};
+use pi_style::{
+    style::{Aabb2, BorderRadius, LengthUnit, Point2},
+    style_type::{
+        BorderBottomType, BorderColorType, BorderLeftType, BorderRadiusType, BorderRightType, BorderTopType, HeightType, MarginLeftType,
+        MarginTopType, PositionLeftType, PositionTopType, PositionTypeType, WidthType, AsImageType,
+    },
+};
 
 fn main() { framework::start(QuadExample::default()) }
 
 #[derive(Default)]
-pub struct QuadExample;
+pub struct QuadExample {
+    cmd: UserCommands,
+}
 
-#[async_trait]
 impl Example for QuadExample {
-    async fn init(&mut self, gui: &mut Engine, size: (usize, usize)) {
-        // // 设置清屏颜色为绿色
-        // gui.gui.world_mut().insert_resource(ClearColor(CgColor::new(0.0, 1.0, 1.0, 1.0), true));
-
+    fn init(&mut self, world: &mut World, size: (usize, usize)) {
         // 添加根节点
-        let root = gui.gui.create_node();
-		gui.gui.push_cmd(NodeCmd(ClearColor(CgColor::new(0.7, 0.7, 0.7, 1.0), true), root));
-		gui.gui.push_cmd(NodeCmd(Viewport(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(size.0 as f32, size.1 as f32))), root));
+        let root = world.spawn(NodeBundle::default()).id();
+        self.cmd.push_cmd(NodeCmd(ClearColor(CgColor::new(1.0, 1.0, 1.0, 1.0), true), root));
+        self.cmd.push_cmd(NodeCmd(
+            Viewport(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(size.0 as f32, size.1 as f32))),
+            root,
+        ));
+        self.cmd.push_cmd(NodeCmd(RenderDirty(true), root));
 
-        gui.gui.set_style(root, WidthType(Dimension::Points(size.0 as f32)));
-        gui.gui.set_style(root, HeightType(Dimension::Points(size.1 as f32)));
+        self.cmd.set_style(root, WidthType(Dimension::Points(size.0 as f32)));
+        self.cmd.set_style(root, HeightType(Dimension::Points(size.1 as f32)));
 
-        gui.gui.set_style(root, PositionTypeType(PositionType::Absolute));
-        gui.gui.set_style(root, PositionLeftType(Dimension::Points(0.0)));
-        gui.gui.set_style(root, PositionTopType(Dimension::Points(0.0)));
-        gui.gui.set_style(root, MarginLeftType(Dimension::Points(0.0)));
-        gui.gui.set_style(root, MarginTopType(Dimension::Points(0.0)));
+        self.cmd.set_style(root, PositionTypeType(PositionType::Absolute));
+        self.cmd.set_style(root, PositionLeftType(Dimension::Points(0.0)));
+        self.cmd.set_style(root, PositionTopType(Dimension::Points(0.0)));
+        self.cmd.set_style(root, MarginLeftType(Dimension::Points(0.0)));
+        self.cmd.set_style(root, MarginTopType(Dimension::Points(0.0)));
+		self.cmd.set_style(root, AsImageType(pi_style::style::AsImage::Force));
 
-        gui.gui.append(root, Id::null());
+        self.cmd.append(root, EntityKey::null().0);
+
+        // 添加一个黄色div
+        let div1 = world.spawn(NodeBundle::default()).id();
+        self.cmd.set_style(div1, WidthType(Dimension::Points(110.0)));
+        self.cmd.set_style(div1, HeightType(Dimension::Points(144.0)));
+        self.cmd.set_style(div1, BorderColorType(CgColor::new(1.0, 1.0, 0.0, 1.0)));
+        self.cmd.set_style(div1, BorderTopType(Dimension::Points(10.0)));
+        self.cmd.set_style(div1, BorderRightType(Dimension::Points(10.0)));
+        self.cmd.set_style(div1, BorderBottomType(Dimension::Points(10.0)));
+        self.cmd.set_style(div1, BorderLeftType(Dimension::Points(10.0)));
+        self.cmd.append(div1, root);
 
         // 添加一个红色div
-        let div1 = gui.gui.create_node();
-        gui.gui.set_style(div1, WidthType(Dimension::Points(110.0)));
-        gui.gui.set_style(div1, HeightType(Dimension::Points(144.0)));
-        gui.gui.set_style(div1, BorderColorType(CgColor::new(0.0, 1.0, 0.0, 1.0)));
-        gui.gui.set_style(div1, BorderTopType(Dimension::Points(10.0)));
-        gui.gui.set_style(div1, BorderRightType(Dimension::Points(15.0)));
-        gui.gui.set_style(div1, BorderBottomType(Dimension::Points(10.0)));
-        gui.gui.set_style(div1, BorderLeftType(Dimension::Points(15.0)));
-		gui.gui.set_style(div1, MarginLeftType(Dimension::Points(10.0)));
-        gui.gui.append(div1, root);
-
-		let div2 = gui.gui.create_node();
-        gui.gui.set_style(div2, WidthType(Dimension::Points(110.0)));
-        gui.gui.set_style(div2, HeightType(Dimension::Points(144.0)));
-        gui.gui.set_style(div2, BorderColorType(CgColor::new(0.0, 1.0, 0.0, 1.0)));
-        gui.gui.set_style(div2, BorderTopType(Dimension::Points(10.0)));
-        gui.gui.set_style(div2, BorderRightType(Dimension::Points(15.0)));
-        gui.gui.set_style(div2, BorderBottomType(Dimension::Points(10.0)));
-        gui.gui.set_style(div2, BorderLeftType(Dimension::Points(15.0)));
-		gui.gui.set_style(div2, MarginLeftType(Dimension::Points(10.0)));
-		gui.gui.set_style(div2, MarginTopType(Dimension::Points(10.0)));
-		gui.gui.set_style(div2, BorderRadiusType(BorderRadius {
-			x: [
-				LengthUnit::Pixel(40.0),
-				LengthUnit::Pixel(40.0),
-				LengthUnit::Pixel(40.0),
-				LengthUnit::Pixel(40.0)],
-			y: [
-				LengthUnit::Pixel(40.0),
-				LengthUnit::Pixel(40.0),
-				LengthUnit::Pixel(40.0),
-				LengthUnit::Pixel(40.0)]}));
-        gui.gui.append(div2, root);
+        let div2 = world.spawn(NodeBundle::default()).id();
+        self.cmd.set_style(div2, WidthType(Dimension::Points(110.0)));
+        self.cmd.set_style(div2, HeightType(Dimension::Points(144.0)));
+        self.cmd.set_style(div2, BorderColorType(CgColor::new(1.0, 0.0, 0.0, 1.0)));
+        self.cmd.set_style(div2, BorderTopType(Dimension::Points(10.0)));
+        self.cmd.set_style(div2, BorderRightType(Dimension::Points(10.0)));
+        self.cmd.set_style(div2, BorderBottomType(Dimension::Points(10.0)));
+        self.cmd.set_style(div2, BorderLeftType(Dimension::Points(10.0)));
+        self.cmd.set_style(
+            div2,
+            BorderRadiusType(BorderRadius {
+                x: [
+                    LengthUnit::Pixel(20.0),
+                    LengthUnit::Pixel(20.0),
+                    LengthUnit::Pixel(20.0),
+                    LengthUnit::Pixel(20.0),
+                ],
+                y: [
+                    LengthUnit::Pixel(20.0),
+                    LengthUnit::Pixel(20.0),
+                    LengthUnit::Pixel(20.0),
+                    LengthUnit::Pixel(20.0),
+                ],
+            }),
+        );
+        self.cmd.append(div2, root);
     }
 
-    fn render(&mut self, gui: &mut Engine) { gui.gui.run(); }
+    fn render(&mut self, cmd: &mut UserCommands, _cmd1: &mut Commands) { swap(&mut self.cmd, cmd); }
 }

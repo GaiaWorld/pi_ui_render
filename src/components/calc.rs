@@ -1,29 +1,33 @@
+//! 定义计算组件（非用户设置的组件）
+
+use bevy_ecs::prelude::{Component, Entity};
+use pi_style::style::AllTransform;
+use smallvec::SmallVec;
 use std::hash::Hash;
 /// 中间计算的组件
 use std::{
     intrinsics::transmute,
-    ops::{Deref, DerefMut, Index, IndexMut, Mul},
+    ops::{Deref, DerefMut, Mul},
 };
 
 use bitvec::prelude::BitArray;
 use nalgebra::Matrix4;
 use ordered_float::NotNan;
 use pi_assets::asset::Handle;
-use pi_ecs::prelude::{Id, LocalVersion};
-use pi_ecs_macros::Component;
-use pi_map::Map;
-use pi_render::rhi::asset::TextureRes;
+use pi_null::Null;
+use pi_render::rhi::asset::{TextureRes, AssetWithId};
 use pi_share::Share;
-use pi_spatialtree::QuadTree as QuadTree1;
-use smallvec::SmallVec;
+use pi_slotmap::Key;
 
-use super::{draw_obj::DrawObject, pass_2d::Pass2D, user::*};
-use pi_flex_layout::prelude::*;
+use crate::resource::RenderObjType;
 
+use super::user::*;
+
+pub use super::root::RootDirtyRect;
 pub use super::user::{NodeState, StyleType};
 
 /// 布局结果
-#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize, Component)]
 pub struct LayoutResult {
     pub rect: Rect<f32>,
     pub border: Rect<f32>,
@@ -55,20 +59,98 @@ impl Default for LayoutResult {
     }
 }
 
+impl LayoutResult {
+	pub fn padding_box(&self) -> [f32; 4]{
+		[
+			self.border.left,
+			self.border.top,
+			self.rect.right - self.rect.left - self.border.left - self.border.right,
+			self.rect.bottom - self.rect.top - self.border.top - self.border.bottom
+		]
+	}
+
+	pub fn padding_aabb(&self) -> Aabb2 {
+		Aabb2::new(
+			Point2::new(
+				self.border.left,
+				self.border.top,
+			),
+			Point2::new(
+				self.rect.right - self.rect.left - self.border.right,
+				self.rect.bottom - self.rect.top - self.border.bottom
+			)
+		)
+	}
+
+	pub fn content_box(&self) -> [f32; 4]{
+		[
+			self.border.left + self.padding.left,
+			self.border.top + self.padding.top,
+			self.rect.right - self.rect.left - self.border.left - self.padding.left - self.border.right - self.padding.right,
+			self.rect.bottom - self.rect.top - self.border.top - self.padding.top - self.border.bottom - self.padding.bottom
+		]
+	}
+
+	pub fn content_aabb(&self) -> Aabb2{
+		Aabb2::new(
+			Point2::new(
+				self.border.left + self.padding.left,
+				self.border.top + self.padding.top,
+			),
+			Point2::new(
+				self.rect.right - self.rect.left - self.border.left - self.padding.left,
+				self.rect.bottom - self.rect.top - self.border.top - self.padding.top
+			)
+		)
+	}
+
+	pub fn border_box(&self) -> [f32; 4]{
+		[
+			0.0,
+			0.0,
+			self.rect.right - self.rect.left,
+			self.rect.bottom - self.rect.top,
+		]
+	}
+
+	pub fn border_aabb(&self) -> Aabb2{
+		Aabb2::new(
+			Point2::new(
+				0.0,
+				0.0,
+			),
+			Point2::new(
+				self.rect.right - self.rect.left,
+				self.rect.bottom - self.rect.top,
+			)
+		)
+	}
+}
+
 /// 内容最大包围盒范围(所有递归子节点的包围盒的最大范围，不包含自身)
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ContentBox(pub Aabb2);
+#[derive(Clone, Debug, Serialize, Deserialize, Component)]
+pub struct ContentBox {
+    // 内容包围盒（自身+递归子节点的并）(不包含阴影的扩展)
+    pub oct: Aabb2,
+    // 布局包围盒（以父节点content的左上角为原点， 自身+递归子节点的并）（还包含了阴影的扩展）
+    pub layout: Aabb2,
+}
 
 impl Default for ContentBox {
-    fn default() -> Self { Self(Aabb2::new(Point2::new(f32::MAX, f32::MAX), Point2::new(f32::MIN, f32::MIN))) }
+    fn default() -> Self {
+        Self {
+            oct: Aabb2::new(Point2::new(f32::MAX, f32::MAX), Point2::new(f32::MIN, f32::MIN)),
+            layout: Aabb2::new(Point2::new(f32::MAX, f32::MAX), Point2::new(f32::MIN, f32::MIN)),
+        }
+    }
 }
 
 // ZIndex计算结果， 按照节点的ZIndex分配的一个全局唯一的深度表示
-#[derive(Default, Deref, DerefMut, Clone, PartialEq, Eq, Hash, Debug)]
+#[derive(Default, Deref, Clone, PartialEq, Eq, Hash, Debug, Component, Serialize, Deserialize)]
 pub struct ZRange(pub std::ops::Range<usize>);
 
 /// 渲染顺序
-#[derive(Default, Deref, DerefMut, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Copy)]
+#[derive(Default, Deref, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Copy, Component)]
 pub struct DrawInfo(pub u32);
 
 impl DrawInfo {
@@ -86,11 +168,24 @@ impl DrawInfo {
 
     pub fn is_opacity(&self) -> bool { (self.0 & (1 << 31)) > 0 }
 
+	pub fn is_visibility(&self) -> bool { (self.0 & (1 << 30)) > 0 }
+
+	pub fn set_visibility(&mut self, value: bool) { self.0 = self.0 << 1 >> 1 | ((unsafe { transmute::<_, u8>(value) } as u32) << 30); }
+
+	// 不透明排前面，透明排后面
+	pub fn opacity_order(&self) -> usize { 
+		if self.is_opacity() {
+			0
+		} else {
+			1
+		}
+	}
+
     pub fn set_is_opacity(&mut self, value: bool) { self.0 = self.0 << 1 >> 1 | ((unsafe { transmute::<_, u8>(value) } as u32) << 31); }
 }
 
 // 世界矩阵，  WorldMatrix(矩阵, 矩阵描述的变换是存在旋转变换)， 如果不存在旋转变换， 可以简化矩阵的乘法
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Component)]
 pub struct WorldMatrix(pub Matrix4<f32>, pub bool);
 
 impl Hash for WorldMatrix {
@@ -109,7 +204,7 @@ impl Default for WorldMatrix {
 }
 
 impl WorldMatrix {
-    pub fn translate(&mut self, x: f32, y: f32, z: f32) {
+    pub fn translate(&mut self, x: f32, y: f32, z: f32) -> &mut Self {
         if self.1 {
             let r = &*self * WorldMatrix(Matrix4::new_translation(&Vector3::new(x, y, z)), false);
             *self = r;
@@ -119,6 +214,7 @@ impl WorldMatrix {
             slice[13] += slice[5] * y;
             slice[14] += slice[10] * z;
         }
+        self
     }
 
     pub fn form_transform_funcs(transformfuncs: &TransformFuncs, width: f32, height: f32) -> WorldMatrix {
@@ -146,13 +242,7 @@ impl WorldMatrix {
     //     }
     // }
 
-    pub fn form_transform_layout(
-        transform_funcs: &TransformFuncs,
-        origin: &TransformOrigin,
-        width: f32,
-        height: f32,
-        left_top: &Point2,
-    ) -> WorldMatrix {
+    pub fn form_transform_layout(all_transform: &AllTransform, origin: &TransformOrigin, width: f32, height: f32, left_top: &Point2) -> WorldMatrix {
         // M = T * R * S
         // let mut m = cg::Matrix4::new(
         //     1.0, 0.0, 0.0, 0.0,
@@ -169,8 +259,23 @@ impl WorldMatrix {
         // 变换前先将transform描述的原点位置移动到父节点的左上角
         let mut m = WorldMatrix(Matrix4::new_translation(&Vector3::new(move_value.x, move_value.y, 0.0)), false);
 
+        if let Some(scale) = &all_transform.scale {
+            m = m * WorldMatrix(Matrix4::new_nonuniform_scaling(&Vector3::new(scale[0], scale[1], 1.0)), false);
+        }
+
+        if let Some(rotate) = &all_transform.rotate {
+            m = m * WorldMatrix(
+                Matrix4::new_rotation(Vector3::new(0.0, 0.0, *rotate / 180.0 * std::f32::consts::PI)),
+                true,
+            );
+        }
+
+        if let Some(translate) = &all_transform.translate {
+            m.translate(translate[0].get_absolute_value(width), translate[1].get_absolute_value(height), 0.0);
+        }
+
         // 计算tranform
-        for func in transform_funcs.iter() {
+        for func in all_transform.transform.iter() {
             m = m * Self::get_matrix(func, width, height);
         }
 
@@ -183,13 +288,12 @@ impl WorldMatrix {
 
     fn get_matrix(func: &TransformFunc, width: f32, height: f32) -> WorldMatrix {
         match func {
-            TransformFunc::TranslateX(x) => WorldMatrix(Matrix4::new_translation(&Vector3::new(*x, 0.0, 0.0)), false),
-            TransformFunc::TranslateY(y) => WorldMatrix(Matrix4::new_translation(&Vector3::new(0.0, *y, 0.0)), false),
-            TransformFunc::Translate(x, y) => WorldMatrix(Matrix4::new_translation(&Vector3::new(*x, *y, 0.0)), false),
-
-            TransformFunc::TranslateXPercent(x) => WorldMatrix(Matrix4::new_translation(&Vector3::new(*x * width, 0.0, 0.0)), false),
-            TransformFunc::TranslateYPercent(y) => WorldMatrix(Matrix4::new_translation(&Vector3::new(0.0, *y * height, 0.0)), false),
-            TransformFunc::TranslatePercent(x, y) => WorldMatrix(Matrix4::new_translation(&Vector3::new(*x * width, *y * height, 0.0)), false),
+            TransformFunc::TranslateX(x) => WorldMatrix(Matrix4::new_translation(&Vector3::new(x.get_absolute_value(width), 0.0, 0.0)), false),
+            TransformFunc::TranslateY(y) => WorldMatrix(Matrix4::new_translation(&Vector3::new(0.0, y.get_absolute_value(height), 0.0)), false),
+            TransformFunc::Translate(x, y) => WorldMatrix(
+                Matrix4::new_translation(&Vector3::new(x.get_absolute_value(width), y.get_absolute_value(height), 0.0)),
+                false,
+            ),
 
             TransformFunc::ScaleX(x) => WorldMatrix(Matrix4::new_nonuniform_scaling(&Vector3::new(*x, 1.0, 1.0)), false),
             TransformFunc::ScaleY(y) => WorldMatrix(Matrix4::new_nonuniform_scaling(&Vector3::new(1.0, *y, 1.0)), false),
@@ -305,6 +409,11 @@ impl<'a> Mul<&'a Vector4> for WorldMatrix {
     fn mul(self, other: &'a Vector4) -> Vector4 { self.0 * other }
 }
 
+impl<'a> Mul<&'a Vector4> for &'a WorldMatrix {
+    type Output = Vector4;
+    fn mul(self, other: &'a Vector4) -> Vector4 { &self.0 * other }
+}
+
 impl<'a> Mul<Vector4> for &'a WorldMatrix {
     type Output = Vector4;
     fn mul(self, other: Vector4) -> Vector4 { self.0 * other }
@@ -321,15 +430,15 @@ impl WorldMatrix {
 
 // #[storage = ]
 #[derive(Clone, Debug, Component, Serialize, Deserialize)]
-#[storage(QuadTree)]
-pub struct Quad(Aabb2, ());
+// #[storage(QuadTree)]
+pub struct Quad(pub Aabb2);
 
 impl Quad {
-    pub fn new(aabb: Aabb2) -> Quad { Quad(aabb, ()) }
+    pub fn new(aabb: Aabb2) -> Quad { Quad(aabb) }
 }
 
 impl Default for Quad {
-    fn default() -> Self { Self(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)), ()) }
+    fn default() -> Self { Self(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(0.0, 0.0))) }
 }
 
 impl Deref for Quad {
@@ -342,89 +451,67 @@ impl DerefMut for Quad {
     fn deref_mut(&mut self) -> &mut Self::Target { &mut self.0 }
 }
 
-#[derive(Deref, DerefMut)]
-pub struct QuadTree(QuadTree1<LocalVersion, f32, ()>);
+#[derive(Debug, Component, Clone, Serialize, Deserialize)]
+pub struct IsShow(usize);
 
-impl Map for QuadTree {
-    type Key = LocalVersion;
-    type Val = Quad;
-    fn len(&self) -> usize { self.0.len() }
-    fn with_capacity(_capacity: usize) -> Self {
-        let max = Vector2::new(100f32, 100f32);
-        let min = max / 100f32;
-        Self(QuadTree1::new(
-            Aabb2::new(Point2::new(-1024f32, -1024f32), Point2::new(4096f32, 4096f32)),
-            max,
-            min,
-            0,
-            0,
-            16, //????
-        ))
-    }
-    fn capacity(&self) -> usize { 0 }
-    fn mem_size(&self) -> usize { 0 }
-    fn contains(&self, key: &Self::Key) -> bool { self.0.contains_key(key.clone()) }
-    fn get(&self, key: &Self::Key) -> Option<&Self::Val> { unsafe { transmute(self.0.get(key.clone())) } }
-    fn get_mut(&mut self, key: &Self::Key) -> Option<&mut Self::Val> { unsafe { transmute(self.0.get_mut(key.clone())) } }
-    unsafe fn get_unchecked(&self, key: &Self::Key) -> &Self::Val { transmute(self.0.get_unchecked(key.clone())) }
-    unsafe fn get_unchecked_mut(&mut self, key: &Self::Key) -> &mut Self::Val { transmute(self.0.get_unchecked_mut(key.clone())) }
-    unsafe fn remove_unchecked(&mut self, key: &Self::Key) -> Self::Val { transmute(self.0.remove(key.clone()).unwrap()) }
-    fn insert(&mut self, key: Self::Key, val: Self::Val) -> Option<Self::Val> {
-		if self.0.contains_key(key) {
-            self.0.update(key, val.0);
+impl Default for IsShow {
+    fn default() -> IsShow { IsShow(ShowType::Visibility as usize | ShowType::Enable as usize) }
+}
+
+impl IsShow {
+    #[inline]
+    pub fn get_visibility(&self) -> bool { (self.0 & (ShowType::Visibility as usize)) != 0 }
+
+    #[inline]
+    pub fn set_visibility(&mut self, visibility: bool) {
+        if visibility {
+            self.0 |= ShowType::Visibility as usize;
         } else {
-            self.0.add(key, val.0, val.1);
+            self.0 &= !(ShowType::Visibility as usize);
         }
-        return None;
     }
-    fn remove(&mut self, key: &Self::Key) -> Option<Self::Val> { unsafe { transmute(self.0.remove(key.clone())) } }
+
+	#[inline]
+    pub fn get_display(&self) -> bool { (self.0 & (ShowType::Display as usize)) != 0 }
+
+    #[inline]
+    pub fn set_display(&mut self, display: bool) {
+        if display {
+            self.0 |= ShowType::Display as usize;
+        } else {
+            self.0 &= !(ShowType::Display as usize);
+        }
+    }
+
+    #[inline]
+    pub fn get_enable(&self) -> bool { (self.0 & (ShowType::Enable as usize)) != 0 }
+
+    #[inline]
+    pub fn set_enable(&mut self, enable: bool) {
+        if enable {
+            self.0 |= ShowType::Enable as usize;
+        } else {
+            self.0 &= !(ShowType::Enable as usize);
+        }
+    }
 }
-
-impl Index<LocalVersion> for QuadTree {
-    type Output = Quad;
-
-    fn index(&self, index: LocalVersion) -> &Self::Output { unsafe { self.get_unchecked(&index) } }
-}
-
-impl IndexMut<LocalVersion> for QuadTree {
-    fn index_mut(&mut self, index: LocalVersion) -> &mut Self::Output { unsafe { self.get_unchecked_mut(&index) } }
-}
-
-//是否可见,
-#[derive(Deref, DerefMut, Clone, Debug)]
-pub struct Visibility(pub bool);
-
-impl Default for Visibility {
-    fn default() -> Self { Self(true) }
-}
-
-//是否响应事件
-#[derive(Deref, DerefMut, Clone, Debug)]
-pub struct IsEnable(pub bool);
-
-impl Default for IsEnable {
-    fn default() -> Self { Self(true) }
-}
-
-// 是否被裁剪
-#[derive(Clone, Debug, Default)]
-pub struct Culling(pub bool);
-
-// gui支持最多32个裁剪面， 该值按位表示节点被哪些裁剪面裁剪， 等于0时， 表示不被任何裁剪面裁剪， 等于1时， 被第一个裁剪面裁剪， 等于2时，表示被第二个裁剪面裁剪， 等于3表示被第一个和第二个裁剪面共同裁剪。。。。。
-#[derive(Clone, Default, Deref, DerefMut, Debug)]
-pub struct ByOverflow(pub usize);
 
 // 样式标记
-#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, Component)]
 pub struct StyleMark {
     pub local_style: BitArray<[u32; 3]>, // 本地样式， 表示节点样式中，哪些样式是由style设置的（而非class设置）
     pub class_style: BitArray<[u32; 3]>, // class样式， 表示节点样式中，哪些样式是由class设置的
+	pub dirty_style: BitArray<[u32; 3]>, // 样式脏（标记有哪些样式在本帧中脏了）
 }
 
 /// 标记渲染context中需要的效果， 如Blur、Opacity、Hsi、MasImage等
 /// 此数据结构仅记录位标记，具体哪些属性用哪一位来标记，这里并不关心，由逻辑保证
-#[derive(Clone, Debug, Default, Deref, DerefMut, Serialize, Deserialize)]
-pub struct RenderContextMark(bitvec::prelude::BitArray);
+#[derive(Clone, Debug, Default, Deref, Serialize, Deserialize, Component)]
+pub struct RenderContextMark(bitvec::prelude::BitArray<[u32; 1]>);
+
+pub trait NeedMark {
+    fn need_mark(&self) -> bool;
+}
 
 // // 字符节点， 对应一个字符的
 // #[derive(Debug, Clone, Default)]
@@ -461,40 +548,103 @@ pub struct RenderContextMark(bitvec::prelude::BitArray);
 // 	pub next: usize,
 // }
 
-// #[derive(Deref, DerefMut, Clone, Debug, Serialize, Deserialize)]
+// #[derive(Deref, Clone, Debug, Serialize, Deserialize)]
 // pub struct TextChars(Vec<CharNode>);
 
 // TransformWillChange的矩阵计算结果， 用于优化Transform的频繁改变
-#[derive(Debug, Clone, Default, Deref)]
-pub struct TransformWillChangeMatrix(Share<TransformWillChangeMatrixInner>);
+#[derive(Debug, Clone, Default, Deref, Component)]
+pub struct TransformWillChangeMatrix(pub Option<Share<TransformWillChangeMatrixInner>>);
 
 impl TransformWillChangeMatrix {
     pub fn new(will_change_invert: WorldMatrix, will_change: WorldMatrix, primitive: WorldMatrix) -> TransformWillChangeMatrix {
-        TransformWillChangeMatrix(Share::new(TransformWillChangeMatrixInner {
-            will_change_invert,
+        TransformWillChangeMatrix(Some(Share::new(TransformWillChangeMatrixInner {
             will_change,
+            will_change_invert,
             primitive,
-        }))
+        })))
     }
 }
 
 #[derive(Debug, Clone, Default)]
 pub struct TransformWillChangeMatrixInner {
-    pub will_change: WorldMatrix,        // = ParentWorldMatrix * primitive * ParentWorldMatrix逆
+    pub will_change: WorldMatrix, // 节点真实的世界矩阵（即will_change*worldmatrix*顶点=真实的世界坐标位置） = ParentWorldMatrix * primitive * ParentWorldMatrix逆
     pub will_change_invert: WorldMatrix, // will_change 逆
-    pub primitive: WorldMatrix,          // = Parent1.primitive * Parent2.primitive * ... * Transform
+    pub primitive: WorldMatrix,   // = Parent1.WillChangeTransform * Parent2.WillChangeTransform * ... * this.WillChangeTransform
 }
 
-#[derive(Debug, Clone, Default)]
-pub struct MaskTexture;
+#[derive(Debug, Clone, Default, Component)]
+pub struct MaskTexture (pub Option<Handle<AssetWithId<TextureRes>>>);
 
-/// 上下文的实体ID，作为Node的组件，关联由其创建的渲染上下文
-#[derive(Deref, DerefMut, Default, Debug)]
-pub struct Pass2DId(pub Id<Pass2D>);
+impl Null for MaskTexture {
+    fn null() -> Self { 
+		Self (None)
+	}
+
+    fn is_null(&self) -> bool { self.0.is_none() }
+}
+
+impl PartialEq for MaskTexture {
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+		match (&self.0, &other.0) {
+			(None, None) => true,
+			(None, Some(_)) => false,
+			(Some(_), None) => false,
+			(Some(r1), Some(r2)) =>  Share::ptr_eq(r1, r2),
+		}
+    }
+}
+impl Eq for MaskTexture {}
+
+
+impl From<Handle<AssetWithId<TextureRes>>> for MaskTexture {
+    fn from(handle: Handle<AssetWithId<TextureRes>>) -> Self { MaskTexture(Some(handle)) }
+}
+
+impl From<Option<Handle<AssetWithId<TextureRes>>>> for MaskTexture {
+    fn from(handle: Option<Handle<AssetWithId<TextureRes>>>) -> Self { MaskTexture(handle) }
+}
+
+impl From<MaskTexture> for Option<Handle<AssetWithId<TextureRes>>>{
+    fn from(mask_texture: MaskTexture) -> Self { mask_texture.0 }
+}
+
+#[derive(Deref, Debug, PartialEq, Eq, Hash, Ord, PartialOrd, Copy, Clone, Serialize, Deserialize)]
+pub struct EntityKey(pub Entity);
+
+impl Key for EntityKey {
+    fn data(&self) -> pi_slotmap::KeyData {
+        // (u64::from(self.version.get()) << 32) | u64::from(self.idx)
+
+        pi_slotmap::KeyData::from_ffi((u64::from(self.0.generation()) << 32) | u64::from(self.0.index()))
+    }
+
+	fn index(&self) -> usize {
+		self.0.index() as usize
+	}
+}
+
+impl From<pi_slotmap::KeyData> for EntityKey {
+    fn from(value: pi_slotmap::KeyData) -> Self { Self(Entity::from_bits(value.as_ffi())) }
+}
+
+impl Default for EntityKey {
+    fn default() -> Self { Self(Entity::from_bits(u64::null())) }
+}
+
+impl Null for EntityKey {
+    fn null() -> Self { Self(Entity::from_bits(u64::null())) }
+
+    fn is_null(&self) -> bool { self.0.to_bits().is_null() }
+}
+
+// /// 上下文的实体ID，作为Node的组件，关联由其创建的渲染上下文
+// #[derive(Deref, Default, Debug, Hash, Clone, Copy, Component)]
+// pub struct Pass2DId(pub EntityKey);
 
 /// 作为Node的组件，表示节点所在的渲染上下文的实体
-#[derive(Clone, Copy, Deref, DerefMut, Default, PartialEq, Eq, Debug)]
-pub struct InPassId(pub Id<Pass2D>);
+#[derive(Clone, Copy, Deref, Default, PartialEq, Eq, Debug, Hash, Component, Serialize, Deserialize)]
+pub struct InPassId(pub EntityKey);
 
 
 pub enum FlexStyleType {
@@ -543,41 +693,175 @@ pub enum FlexStyleType {
 }
 
 /// 节点的实体id，作为RenderContext的组件，引用创建该渲染上下文的节点
-#[derive(Deref, DerefMut, Default, Debug)]
-pub struct NodeId(pub Id<Node>);
-
-/// 宏标记(最多支持size::of::<usize>()个宏开关)
-pub struct DefineMark(bitvec::prelude::BitArray);
+#[derive(Deref, Debug, Clone, Copy, Hash, Default, Component)]
+pub struct NodeId(pub EntityKey);
 
 /// 每节点的渲染列表
-#[derive(Deref, DerefMut, Default, Debug)]
-pub struct DrawList(pub SmallVec<[Id<DrawObject>; 1]>);
+#[derive(Deref, Default, Debug, Component, Clone, Serialize, Deserialize)]
+pub struct DrawList(pub SmallVec<[DrawObjId; 1]>); // 通常只会有一个DrawObject
 
-/// 裁剪框
-/// 非旋转情况下，由世界矩阵、布局、TarnsformWillChange（包含父）计算、并与父的裁剪框相交而得
-/// 旋转情况下，由世界矩阵、布局、TarnsformWillChange（自身）计算，并逆旋转为矩形而得
-#[derive(Clone, Default, Debug)]
-pub struct OverflowAabb {
-    pub aabb: Option<Aabb2>,
-    pub matrix: Option<OveflowRotate>,
+impl DrawList {
+    #[inline]
+    pub fn push(&mut self, ty: RenderObjType, id: Entity) { self.0.push(DrawObjId { ty, id }); }
+
+    // 取到一个（大部分只有一个drawobj， 少数有多个，如text_shadow）
+    pub fn get_one(&self, ty: RenderObjType) -> Option<&DrawObjId> {
+        for i in 0..self.0.len() {
+            if self.0[i].ty == ty {
+                return Some(&self.0[i]);
+            }
+        }
+        None
+    }
+
+    // 移除全部
+    pub fn remove<F: FnMut(DrawObjId)>(&mut self, ty: RenderObjType, mut cb: F) {
+        let mut i: usize = 0;
+        while i < self.0.len() {
+            if self.0[i].ty == ty {
+                cb(self.0.swap_remove(i));
+            } else {
+                i += 1;
+            }
+        }
+    }
+}
+
+/// 节点上握住DrawObj的id
+#[derive(Debug, Component, Clone, Serialize, Deserialize)]
+pub struct DrawObjId {
+    pub ty: RenderObjType,
+    pub id: Entity,
+}
+
+/// 视图
+/// 每个Pass2d都必须存在一个视图
+#[derive(Clone, Default, Debug, Component)]
+pub struct View {
+    /// 为some时，节点山下文渲染需要新的视口，否则应该继承父节点的视口
+    pub view_box: ViewBox,
+    /// 旋转情况下是Some， 记录旋转矩阵和旋转逆矩阵
+    pub desc: OverflowDesc,
+}
+
+/// 可视包围盒
+/// 已经考虑了Overflow、TransformWillChange因素，得到了该节点的真实可视区域
+#[derive(Clone, Debug)]
+pub struct ViewBox {
+    /// 当前节点的可视包围盒
+    /// 其原点位置是对世界原点作本节点旋转变换的逆变换所得
+    /// 如果该节点overflow为**false**
+    /// ---如果当前节点**存在旋转**，则为当前节点的**ContentBox.oct * 旋转逆矩阵**
+    /// ---如果当前节点**不存在旋转**， 则为当前节点**ContentBox.oct 与 父上下文的ViewBox.aabb相交**
+    /// 如果节点overflow为**true**
+    /// ---如果当前节点**存在旋转**，则为当前节点的**ContentBox.layout * WorldMatrix * 旋转逆矩阵**
+    /// ---如果当前节点**不存在旋转**， 则为当前节点**ContentBox.layout * WorldMatrix 与 父上下文的ViewBox.aabb相交**
+    pub aabb: Aabb2,
+    /// 与aabb表示同一个矩形区域，只是原点为世界坐标原点（由于可能存在旋转， 如果原点为世界坐标原点时， 该区域不能用Aabb表示）
+    pub world_quad: (Vector2, Vector2, Vector2, Vector2),
+}
+
+impl Default for ViewBox {
+    fn default() -> Self {
+        Self {
+            aabb: Aabb2::new(Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)),
+            world_quad: Default::default(),
+        }
+    }
 }
 
 #[derive(Clone, Default, Debug)]
 pub struct OveflowRotate {
-    pub rotate_matrix: Matrix4<f32>,
-    pub rotate_matrix_invert: Matrix4<f32>,
+    // 相对于父上下文的旋转
+    pub from_context_rotate: Matrix4<f32>,
+    // 节点相对于世界坐标的渲染
+    pub world_rotate: Matrix4<f32>,
+    // 节点相对于世界坐标的旋转的逆
+    pub world_rotate_invert: Matrix4<f32>,
 }
 
-#[derive(Deref, DerefMut)]
-pub struct BorderImageTexture(pub Handle<TextureRes>);
-
-impl From<Handle<TextureRes>> for BorderImageTexture {
-    fn from(h: Handle<TextureRes>) -> Self { Self(h) }
+// 描述oveflow
+#[derive(Clone, Debug)]
+pub enum OverflowDesc {
+    Rotate(OveflowRotate), // 所在节点存在旋转的情况下， 描述旋转信息
+    NoRotate(Aabb2),       // 所在节点不存在旋转的情况下，描述自身的aabb
 }
 
-#[derive(Deref, DerefMut)]
-pub struct BackgroundImageTexture(pub Handle<TextureRes>);
+impl Default for OverflowDesc {
+    fn default() -> Self { OverflowDesc::NoRotate(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(0.0, 0.0))) }
+}
 
-impl From<Handle<TextureRes>> for BackgroundImageTexture {
-    fn from(h: Handle<TextureRes>) -> Self { Self(h) }
+/// BorderImageTexture.0只有在设置了图片路径，但纹理还未加载成功的情况下，才会为none
+/// 如果删除了图片路径，会删除该组件
+#[derive(Deref, Component, Default)]
+pub struct BorderImageTexture(pub Option<Handle<AssetWithId<TextureRes>>>);
+
+impl PartialEq for BorderImageTexture {
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+		match (&self.0, &other.0) {
+			(None, None) => true,
+			(None, Some(_)) => false,
+			(Some(_), None) => false,
+			(Some(r1), Some(r2)) =>  Share::ptr_eq(r1, r2),
+		}
+    }
+}
+impl Eq for BorderImageTexture {}
+
+
+impl From<Handle<AssetWithId<TextureRes>>> for BorderImageTexture {
+    fn from(handle: Handle<AssetWithId<TextureRes>>) -> Self { Self(Some(handle)) }
+}
+
+
+impl Null for BorderImageTexture {
+    fn null() -> Self { Self(None) }
+
+    fn is_null(&self) -> bool { self.0.is_none() }
+}
+
+/// BackgroundImageTexture.0只有在设置了图片路径，但纹理还未加载成功的情况下，才会为none
+/// 如果删除了图片路径，会删除该组件
+#[derive(Deref, Component, Default)]
+pub struct BackgroundImageTexture(pub Option<Handle<AssetWithId<TextureRes>>>);
+
+impl PartialEq for BackgroundImageTexture {
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+		match (&self.0, &other.0) {
+			(None, None) => true,
+			(None, Some(_)) => false,
+			(Some(_), None) => false,
+			(Some(r1), Some(r2)) =>  Share::ptr_eq(r1, r2),
+		}
+    }
+}
+impl Eq for BackgroundImageTexture {}
+
+impl From<Handle<AssetWithId<TextureRes>>> for BackgroundImageTexture {
+    fn from(handle: Handle<AssetWithId<TextureRes>>) -> Self { Self(Some(handle)) }
+}
+
+impl Null for BackgroundImageTexture {
+    fn null() -> Self { Self(None) }
+
+    fn is_null(&self) -> bool { self.0.is_none() }
+}
+
+
+#[inline]
+pub const fn style_bit() -> BitArray<[u32;3]> {
+	BitArray::ZERO
+}
+
+pub trait StyleBit {
+	fn set_bit(self, index: usize) -> Self;
+}
+
+impl StyleBit for BitArray<[u32;3]> {
+    fn set_bit(mut self, index: usize) -> Self {
+        self.set(index, true);
+		self
+    }
 }

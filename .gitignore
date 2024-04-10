@@ -1,3 +1,7 @@
 **/target
 **/*.rs.bk
 /.cargo
+/other/
+/Cargo.lock
+/libEGL.dll
+/libGLESv2.dll

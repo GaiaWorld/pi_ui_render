@@ -2,7 +2,6 @@
 //!
 //! ## 计算过程
 //! 节点必须存在如下组件：
-//! * NodeState
 //! * LayoutResult
 //! 节点可能存在如下组件：
 //! * Transform
@@ -39,17 +38,33 @@
 //!
 //! 可以考虑： 当父矩阵计算完成后，父节点所有子节点所形成的子树，可以并行计算（他们依赖的父矩阵已经计算完毕）
 
-use pi_ecs::prelude::{Changed, Id};
-use pi_ecs::prelude::{Or, Query, Write};
-use pi_ecs_macros::setup;
-use pi_ecs_utils::prelude::{EntityTree, LayerDirty};
+use bevy_ecs::prelude::{Entity, EventWriter};
+use bevy_ecs::query::{Changed, Or};
+use bevy_ecs::system::{ParamSet, Query, ResMut};
+use pi_bevy_ecs_extend::prelude::{Layer, LayerDirty, Up};
+use pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent;
+use pi_bevy_ecs_extend::system_param::res::OrInitRes;
+use pi_map::Map;
 use pi_null::Null;
-use pi_slotmap_tree::Storage;
+use pi_style::style::Aabb2;
+use bevy_ecs::event::Event;
 
-use crate::components::calc::{LayoutResult, WorldMatrix};
-use crate::components::user::{Node, Point2, Transform};
+use crate::components::calc::{EntityKey, LayoutResult, Quad, WorldMatrix};
+use crate::components::user::{Point2, Transform};
+use crate::resource::QuadTree;
+use crate::system::draw_obj::calc_text::IsRun;
+use crate::utils::tools::calc_bound_box;
 
 pub struct CalcMatrix;
+
+#[derive(Debug)]
+pub struct OldQuad {
+    pub entity: Entity,
+    pub root: Entity,
+    pub quad: Quad,
+}
+
+impl Event for OldQuad {}
 
 // fn print_parent(idtree: &EntityTree<Node>, id: Id<Node>) {
 //     let parent_id = idtree.get_up(id).map_or(Id::<Node>::null(), |up| up.parent());
@@ -59,34 +74,56 @@ pub struct CalcMatrix;
 //     }
 // }
 
-#[setup]
-impl CalcMatrix {
-    /// 计算世界矩阵
-    /// 世界矩阵以自身左上角为原点
-    #[system]
-    pub fn cal_matrix(
-        query: Query<Node, (Option<&Transform>, &LayoutResult)>,
-        query_layout: Query<Node, &LayoutResult>,
-        idtree: EntityTree<Node>,
-        mut dirtys: LayerDirty<Node, Or<(Changed<Transform>, Changed<LayoutResult>)>>,
-        mut matrixs: Query<Node, Write<WorldMatrix>>,
-    ) {
-        for id in dirtys.iter() {
-            // log::warn!("start parent==========={:?}",id);
+/// 计算世界矩阵
+/// 世界矩阵以自身左上角为原点
+pub fn cal_matrix(
+    query: Query<(Option<&Transform>, &LayoutResult, &Up, &Layer)>,
+    mut matrix_calc: ParamSet<(Query<(&LayoutResult, &WorldMatrix)>, Query<(&mut WorldMatrix, &mut Quad)>)>,
+    mut dirtys: LayerDirty<Or<(Changed<LayoutResult>, Changed<Layer>)>>,
+    transform_change: Query<Entity, Changed<Transform>>,
+    mut quad_tree: ResMut<QuadTree>,
+    mut event_writer: EventWriter<ComponentEvent<Changed<Quad>>>,
+    mut event_writer1: EventWriter<OldQuad>,
+	r: OrInitRes<IsRun>,
+	#[cfg(debug_assertions)]
+	debug_entity: OrInitRes<crate::resource::DebugEntity>
+) {
+	if r.0 {
+		return;
+	}
+	// let count = dirtys.count();
+	// let time = pi_time::Instant::now();
+    // transform修改，标记层脏(这里transform_change不直接在层脏中声明，是因为transform改变不会发送对应的事件)
+    for e in transform_change.iter() {
+        dirtys.mark(e);
+    }
+	// let time1 = pi_time::Instant::now();
 
-            // print_parent(&idtree, id);
-            let (transform, layout) = query.get_unchecked(id);
-            let parent_id = idtree.get_up(id).map_or(Id::<Node>::null(), |up| up.parent());
+    // let layer_dirty_count = dirtys.count();
+    // 计算布局
+    // let _sss = tracing::info_span!("matrix compute", layer_dirty_count).entered();
+
+	// if dirtys.count() > 0 {
+	// 	log::warn!("start parent==========={:?}", dirtys.count());
+	// }
+	// let count = dirtys.count();
+    for id in dirtys.iter() {
+        // if count == 1 {
+		// 	log::warn!("matrix time0========{:?}", pi_time::Instant::now() - time1);
+		// }
+		// let time1 = pi_time::Instant::now();
+        if let Ok((transform, layout, up, layer)) = query.get(id) {
+            let parent_id = up.parent();
 
             let width = layout.rect.right - layout.rect.left;
             let height = layout.rect.bottom - layout.rect.top;
 
-            let matrix = if parent_id.is_null() {
+            let matrix = if EntityKey(parent_id).is_null() {
                 // 父为空，则其为根节点，其世界矩阵为单位阵
                 let mut r = WorldMatrix::default();
                 if let Some(transform) = transform {
                     r = r * WorldMatrix::form_transform_layout(
-                        &transform.funcs,
+                        &transform.all_transform,
                         &transform.origin,
                         width,
                         height,
@@ -95,26 +132,28 @@ impl CalcMatrix {
                 }
                 r
             } else {
+                let p0 = matrix_calc.p0();
                 // 否则
-                let p_m = matrixs.get_mut(parent_id).unwrap();
-                let parent_world_matrix = match p_m.get() {
-                    Some(r) => r,
-                    None => {
-                        log::error!("calc matrix fail, parent matrix is not exist!, id:{:?}, parent_id: {:?}", id, parent_id);
+                let (parent_layout, parent_world_matrix) = match p0.get(parent_id) {
+                    Ok(r) => (&*r.0, &*r.1),
+                    Err(_) => {
+                        log::error!(
+                            "calc matrix fail, parent matrix or layout is not exist!, id:{:?}, parent_id: {:?}",
+                            id,
+                            parent_id
+                        );
                         return;
                     }
                 };
-                let offset = match query_layout.get(parent_id) {
-                    Some(parent_layout) => (layout.rect.left + parent_layout.padding.left, layout.rect.top + parent_layout.padding.top),
-                    None => (layout.rect.left, layout.rect.top),
-                };
+
+                let offset = (layout.rect.left + parent_layout.padding.left, layout.rect.top + parent_layout.padding.top);
 
                 match transform {
                     // transform存在时，根据transform和布局计算得到变换矩阵，再乘以父矩阵
                     Some(transform) => {
                         let r = parent_world_matrix
                             * WorldMatrix::form_transform_layout(
-                                &transform.funcs,
+                                &transform.all_transform,
                                 &transform.origin,
                                 width,
                                 height,
@@ -130,188 +169,275 @@ impl CalcMatrix {
                     }
                 }
             };
+			// if count == 1 {
+			// 	log::warn!("matrix time1========{:?}", pi_time::Instant::now() - time1);
+			// }
             // 将计算结果写入组件
-            matrixs.get_mut(id).unwrap().write(matrix);
+            match matrix_calc.p1().get_mut(id) {
+                Ok((mut world_matrix, mut quad)) => {
+					calc_quad(
+						id,
+						layout,
+						&matrix,
+						&mut quad,
+						&mut quad_tree,
+						&mut event_writer,
+						&mut event_writer1,
+						layer,
+					);
+                   
+					#[cfg(debug_assertions)]
+					if id == debug_entity.0.0 {
+						log::warn!("matrix=============id={:?}, \nlayout={:?}, \nmatrix={:?}, \nquad={:?}", id, layout, &matrix, &quad);
+					}
+                    // log::warn!("matrix============={:?}, {:?}, {:?}", id, layout, matrix);
+                    *world_matrix = matrix;
+
+					
+                }
+                Err(_) => {}
+            };
         }
     }
+	// if count == 1 {
+	// 	log::warn!("matrix time========{:?}, {:?}", pi_time::Instant::now() - time1, time1 - time);
+	// }
 }
 
+pub fn calc_quad(
+    id: Entity,
+    layout: &LayoutResult,
+    world_matrix: &WorldMatrix,
+    quad: &mut Quad,
+    quad_tree: &mut QuadTree,
+    event_writer: &mut EventWriter<ComponentEvent<Changed<Quad>>>,
+    event_writer1: &mut EventWriter<OldQuad>,
+    layer: &Layer,
+) {
+    let width = layout.rect.right - layout.rect.left;
+    let height = layout.rect.bottom - layout.rect.top;
+    let aabb = calc_bound_box(&Aabb2::new(Point2::new(0.0, 0.0), Point2::new(width, height)), world_matrix);
 
-#[cfg(test)]
-pub mod test {
-    use std::sync::Arc;
-
-    use pi_async::prelude::{multi_thread::MultiTaskRuntime, AsyncRuntimeBuilder};
-    use pi_ecs::prelude::{Dispatcher, Id, In, IntoSystem, Query, QueryState, Setup, SingleDispatcher, StageBuilder, System, World, Write};
-    use pi_ecs_utils::prelude::EntityTreeMut;
-    use pi_flex_layout::prelude::Rect;
-    use pi_null::Null;
-
-    use crate::components::calc::LayoutResult;
-    use crate::components::calc::WorldMatrix;
-    use crate::components::user::{Node, Transform, TransformFunc, Vector4};
-
-    use super::CalcMatrix;
-
-    #[test]
-    fn test() {
-        // 创建world
-        let mut world = World::new();
-
-        // 创建派发器
-        let mut dispatcher = get_dispatcher(&mut world);
-
-        modfiy_world_matrix(&mut world, &mut dispatcher);
-    }
-
-    // 绝对位置,节点以左上为原点，经过布局、变化，得到的最终位置
-    #[derive(Deref, DerefMut, Debug)]
-    pub struct AbsolutePosition(Rect<f32>);
-
-    // 初始化，将所有节点以根节点作为父节点组织为树
-    fn init_tree(root: In<Id<Node>>, mut tree: EntityTreeMut<Node>, entitys: Query<Node, Id<Node>>) {
-        let r = root.0;
-        for e in entitys.iter() {
-            if e != r {
-                tree.insert_child(e, r, std::usize::MAX);
-            } else {
-                tree.insert_child(e, Id::null(), std::usize::MAX);
-            }
-        }
-    }
-
-    pub fn modfiy_world_matrix(world: &mut World, dispatcher: &mut impl Dispatcher) {
-        // 创建原型
-        world.new_archetype::<Node>().register::<AbsolutePosition>().create();
-
-        let mut entitys = Vec::new();
-        let root = world
-            .spawn::<Node>()
-            .insert(LayoutResult {
-                rect: Rect {
-                    left: 0.0,
-                    right: 1000.0,
-                    top: 0.0,
-                    bottom: 1000.0,
-                },
-                border: Rect {
-                    left: 0.0,
-                    right: 0.0,
-                    top: 0.0,
-                    bottom: 0.0,
-                },
-                padding: Rect {
-                    left: 0.0,
-                    right: 0.0,
-                    top: 0.0,
-                    bottom: 0.0,
-                },
-            })
-            .insert(AbsolutePosition(Rect {
-                left: 0.0,
-                right: 1000.0,
-                top: 0.0,
-                bottom: 1000.0,
-            }))
-            .id();
-
-        //插入根节点
-        entitys.push(root);
-
-        let size = 50.0;
-        let mut left_top = 0.0;
-        let mut right_bottom;
-        // 插入三个节点作为子节点
-        for _i in 0..3 {
-            right_bottom = left_top + size;
-
-            let entity = world
-                .spawn::<Node>()
-                .insert(LayoutResult {
-                    rect: Rect {
-                        left: left_top,
-                        right: right_bottom,
-                        top: left_top,
-                        bottom: right_bottom,
-                    },
-                    border: Rect {
-                        left: 0.0,
-                        right: 0.0,
-                        top: 0.0,
-                        bottom: 0.0,
-                    },
-                    padding: Rect {
-                        left: 0.0,
-                        right: 0.0,
-                        top: 0.0,
-                        bottom: 0.0,
-                    },
-                })
-                .insert(AbsolutePosition(Rect {
-                    left: left_top,
-                    right: right_bottom,
-                    top: left_top,
-                    bottom: right_bottom,
-                }))
-                .id();
-            // 插入实体，以根节点作为父节点
-            entitys.push(entity);
-
-            left_top += size;
-        }
-
-        // 组织为树结构
-        let mut init_tree_sys = init_tree.system(world);
-        init_tree_sys.run(In(root));
-
-        let mut query = world.query::<Node, (Id<Node>, &WorldMatrix, &LayoutResult, &mut AbsolutePosition)>();
-
-        // 测试矩阵计算
-        dispatcher.run();
-        asset_matrix(world, &mut query);
-
-        // 最后一个实体，添加一个缩放为0.5的Transform
-        let mut transform_mut = world.query::<Node, (Id<Node>, Write<Transform>)>();
-        let last_entity = entitys[entitys.len() - 1];
-        let mut t = Transform::default();
-        t.funcs.push(TransformFunc::Scale(0.5, 0.5));
-        transform_mut.get_mut(world, last_entity).unwrap().1.write(t);
-
-        // 测试矩阵计算, 最后一个实体组件缩放为原来的0.5
-        dispatcher.run();
-        *query.get_mut(world, last_entity).unwrap().3 = AbsolutePosition(Rect {
-            left: 112.5,
-            right: 137.5,
-            top: 112.5,
-            bottom: 137.5,
+    let item = Quad::new(aabb);
+    // 在修改oct前，先发出一个删除事件，一些sys能够通过监听该事件知道在删除前，quad的值（如脏区域系统，需要了解oct在修改之前的值，来更新脏区域）
+    if let Some(r) = quad_tree.get(&EntityKey(id)) {
+        event_writer1.send(OldQuad {
+            entity: id,
+            quad: r.clone(),
+            root: layer.root(),
         });
-        asset_matrix(world, &mut query);
     }
+    event_writer.send(ComponentEvent::new(id));
 
-    pub fn get_dispatcher(world: &mut World) -> SingleDispatcher<MultiTaskRuntime> {
-        let rt = AsyncRuntimeBuilder::default_multi_thread(None, None, None, None);
+    quad_tree.insert(EntityKey(id), item.clone());
+    log::trace!(target: format!("entity_{:?}", id).as_str(), "calc_quad={:?}", item);
 
-        let mut stage = StageBuilder::new();
-        CalcMatrix::setup(world, &mut stage);
-
-        let mut stages = Vec::new();
-        stages.push(Arc::new(stage.build(world)));
-        let mut dispatcher = SingleDispatcher::new(rt);
-        dispatcher.init(stages, world);
-
-        dispatcher
-    }
-
-    fn asset_matrix(world: &mut World, query: &mut QueryState<Node, (Id<Node>, &WorldMatrix, &LayoutResult, &mut AbsolutePosition)>) {
-        for (_e, w, l, a_p) in query.iter_mut(world) {
-            let left_top = w * Vector4::new(0.0, 0.0, 1.0, 1.0);
-            let right_bottom = w * Vector4::new(l.rect.right - l.rect.left, l.rect.bottom - l.rect.top, 1.0, 1.0);
-            // println!("e: {:?}, a_p: {:?}, left_top: {:?}, right_bottom: {:?}", e, a_p, left_top, right_bottom);
-            // println!("matrix: {:?}, layout:{:?}", w, l);
-            assert_eq!(left_top.x, a_p.left);
-            assert_eq!(left_top.y, a_p.top);
-            assert_eq!(right_bottom.x, a_p.right);
-            assert_eq!(right_bottom.y, a_p.bottom);
-        }
-    }
+    *quad = item;
 }
+
+
+
+// #[cfg(test)]
+// pub mod test {
+
+//     use bevy_ecs::app::{App, CoreStage};
+//     use bevy_ecs::prelude::{Component, Entity, EventReader, EventWriter};
+//     use bevy_ecs::query::Changed;
+//     use bevy_ecs::system::{Commands, Query, Res, ResMut, Resource};
+//     use pi_bevy_ecs_extend::prelude::{Down, EntityTreeMut, Layer, Up};
+//     use pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent;
+//     use pi_flex_layout::prelude::Rect;
+//     use pi_map::Map;
+//     use pi_null::Null;
+
+//     use crate::components::calc::WorldMatrix;
+//     use crate::components::calc::{EntityKey, LayoutResult, Quad};
+//     use crate::components::user::{Transform, TransformFunc, Vector4};
+//     use crate::resource::QuadTree;
+
+//     use super::cal_matrix;
+
+//     #[test]
+//     fn test() {
+//         // 创建world
+//         env_logger::Builder::default().filter(None, log::LevelFilter::Warn).init();
+
+//         let mut app = App::default();
+//         let root = app.world.spawn(()).id();
+//         app.add_event::<ComponentEvent<Changed<Transform>>>()
+//             .add_event::<ComponentEvent<Changed<LayoutResult>>>()
+//             .add_event::<ComponentEvent<Changed<Layer>>>()
+//             .add_event::<ComponentEvent<Changed<Quad>>>()
+//             .add_event::<Vec<Entity>>()
+//             .insert_resource(QuadTree::with_capacity(0))
+//             .insert_resource(AllEntitys(Vec::new()))
+//             .insert_resource(RootNode(root))
+//             .add_startup_system(setup1)
+//             .add_systems(Update, init_tree)
+//             .add_system_to_stage(CoreStage::PostUpdate, cal_matrix)
+//             .add_system_to_stage(CoreStage::Last, asset_matrix)
+//             .add_system_to_stage(CoreStage::Last, asset_quad)
+//             .update();
+
+//         app.add_system_to_stage(CoreStage::PreUpdate, setup2).update();
+//     }
+
+//     #[derive(Resource, Deref)]
+//     pub struct RootNode(Entity);
+
+//     #[derive(Resource, Deref)]
+//     pub struct AllEntitys(Vec<Entity>);
+
+//     fn setup1(mut command: Commands, mut events: EventWriter<Vec<Entity>>, root: Res<RootNode>) {
+//         let mut entitys = Vec::new();
+//         let root = command
+//             .entity(root.0)
+//             .insert((
+//                 Up::default(),
+//                 Down::default(),
+//                 Layer::default(),
+//                 WorldMatrix::default(),
+//                 Quad::default(),
+//                 LayoutResult {
+//                     rect: Rect {
+//                         left: 0.0,
+//                         right: 1000.0,
+//                         top: 0.0,
+//                         bottom: 1000.0,
+//                     },
+//                     border: Rect {
+//                         left: 0.0,
+//                         right: 0.0,
+//                         top: 0.0,
+//                         bottom: 0.0,
+//                     },
+//                     padding: Rect {
+//                         left: 0.0,
+//                         right: 0.0,
+//                         top: 0.0,
+//                         bottom: 0.0,
+//                     },
+//                 },
+//                 AbsolutePosition(Rect {
+//                     left: 0.0,
+//                     right: 1000.0,
+//                     top: 0.0,
+//                     bottom: 1000.0,
+//                 }),
+//             ))
+//             .id();
+
+//         //插入根节点
+//         entitys.push(root);
+
+//         let size = 50.0;
+//         let mut left_top = 0.0;
+//         let mut right_bottom;
+//         // 插入三个节点作为子节点
+//         for _i in 0..3 {
+//             right_bottom = left_top + size;
+
+//             let entity = command
+//                 .spawn((
+//                     Up::default(),
+//                     Down::default(),
+//                     Layer::default(),
+//                     WorldMatrix::default(),
+//                     Quad::default(),
+//                     LayoutResult {
+//                         rect: Rect {
+//                             left: left_top,
+//                             right: right_bottom,
+//                             top: left_top,
+//                             bottom: right_bottom,
+//                         },
+//                         border: Rect {
+//                             left: 0.0,
+//                             right: 0.0,
+//                             top: 0.0,
+//                             bottom: 0.0,
+//                         },
+//                         padding: Rect {
+//                             left: 0.0,
+//                             right: 0.0,
+//                             top: 0.0,
+//                             bottom: 0.0,
+//                         },
+//                     },
+//                     AbsolutePosition(Rect {
+//                         left: left_top,
+//                         right: right_bottom,
+//                         top: left_top,
+//                         bottom: right_bottom,
+//                     }),
+//                 ))
+//                 .id();
+//             // 插入实体，以根节点作为父节点
+//             entitys.push(entity);
+
+//             left_top += size;
+//         }
+//         events.send(entitys);
+//     }
+
+//     /// 最后一个实体，添加一个缩放为0.5的Transform
+//     fn setup2(mut command: Commands, all_entitys: Res<AllEntitys>, mut event_writer: EventWriter<ComponentEvent<Changed<Transform>>>) {
+//         let last_entity = all_entitys.0[all_entitys.0.len() - 1];
+//         let mut t = Transform::default();
+//         t.funcs.push(TransformFunc::Scale(0.5, 0.5));
+//         command.entity(last_entity).insert((
+//             t,
+//             AbsolutePosition(Rect {
+//                 // 测试矩阵计算, 最后一个实体组件缩放为原来的0.5
+//                 left: 112.5,
+//                 right: 137.5,
+//                 top: 112.5,
+//                 bottom: 137.5,
+//             }),
+//         ));
+//         event_writer.send(ComponentEvent::new(last_entity));
+//     }
+
+//     // 绝对位置,节点以左上为原点，经过布局、变化，得到的最终位置
+//     #[derive(Deref, Debug, Component)]
+//     pub struct AbsolutePosition(Rect<f32>);
+
+//     // 初始化，将所有节点以根节点作为父节点组织为树
+//     fn init_tree(root: Res<RootNode>, mut tree: EntityTreeMut, mut entitys: EventReader<Vec<Entity>>, mut all_entitys: ResMut<AllEntitys>) {
+//         let r = root.0;
+//         for list in entitys.iter() {
+//             all_entitys.0.extend_from_slice(list.as_slice());
+//             for e in list.iter() {
+//                 if *e != r {
+//                     tree.insert_child(*e, r, std::usize::MAX);
+//                 } else {
+//                     tree.insert_child(*e, EntityKey::null().0, std::usize::MAX);
+//                 }
+//             }
+//         }
+//     }
+
+//     fn asset_matrix(query: Query<(Entity, &WorldMatrix, &LayoutResult, &AbsolutePosition)>) {
+//         // log::warn!("asset_matrix======");
+//         for (_e, w, l, a_p) in query.iter() {
+//             let left_top = w * Vector4::new(0.0, 0.0, 1.0, 1.0);
+//             let right_bottom = w * Vector4::new(l.rect.right - l.rect.left, l.rect.bottom - l.rect.top, 1.0, 1.0);
+//             // println!("e: {:?}, a_p: {:?}, left_top: {:?}, right_bottom: {:?}", _e, a_p, left_top, right_bottom);
+//             assert_eq!(left_top.x, a_p.left);
+//             assert_eq!(left_top.y, a_p.top);
+//             assert_eq!(right_bottom.x, a_p.right);
+//             assert_eq!(right_bottom.y, a_p.bottom);
+//         }
+//     }
+
+//     fn asset_quad(query: Query<(Entity, &Quad, &AbsolutePosition)>) {
+//         // log::warn!("asset_quad======");
+//         for (_e, quad, a_p) in query.iter() {
+//             // println!("e: {:?}, quad: {:?}, a_p:{:?}", _e, quad, a_p);
+//             assert_eq!(quad.mins.x, a_p.left);
+//             assert_eq!(quad.mins.y, a_p.top);
+//             assert_eq!(quad.maxs.x, a_p.right);
+//             assert_eq!(quad.maxs.y, a_p.bottom);
+//         }
+//     }
+// }
