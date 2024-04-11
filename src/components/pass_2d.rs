@@ -127,7 +127,7 @@ pub struct Draw2DList {
     pub all_list: Vec<(DrawIndex, ZRange, DrawInfo)>,
 	// all_list的排序结果
 	pub all_list_sort: Vec<(DrawIndex, ZRange, DrawInfo)>,
-    pub single_list: Vec<DrawIndex>, // 单独一个drawObj绘制在一个fbo上（需要做后处理的drawObj）
+    pub canvas_list: Vec<Entity>, // 单独一个drawObj绘制在一个fbo上（需要做后处理的drawObj）
     /// 不透明 列表
     /// 注：渲染时，假设 Vec已经 排好序 了
     pub opaque: Vec<(DrawIndex, usize /*DepthGroup在DepthCache中的偏移*/)>,
@@ -148,7 +148,7 @@ impl Default for Draw2DList {
 			// need_dyn_fbo_index: Vec::default(),
 			all_list_sort: Vec::default(),
             all_list: Vec::default(),
-            single_list: Vec::default(),
+            canvas_list: Vec::default(),
             opaque: Vec::default(),
             transparent: Vec::default(),
         }

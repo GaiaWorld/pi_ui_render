@@ -3,7 +3,7 @@
 use bevy_ecs::{
     prelude::{Entity, RemovedComponents, With},
     query::{Added, Changed, Or, ReadOnlyWorldQuery},
-    system::{ParamSet, Query, ResMut},
+    system::{ParamSet, Query, Res, ResMut},
 };
 use pi_bevy_ecs_extend::system_param::res::{OrInitRes, OrInitResMut};
 use pi_bevy_render_plugin::{NodeId, PiRenderGraph, NodeLabel};
@@ -17,6 +17,24 @@ use crate::{
     }, resource::{draw_obj::InstanceContext, PassGraphMap}, system::{draw_obj::calc_text::IsRun, pass::pass_graph_node::Pass2DNode}
 };
 
+// 初始化渲染图的根节点
+pub fn init_root_graph(
+    mut instances: OrInitResMut<InstanceContext>,
+    mut rg: ResMut<PiRenderGraph>,
+	r: OrInitRes<IsRun>
+) {
+    if r.0 {
+		return;
+	}
+
+    if instances.last_graph_id.is_null() {
+        instances.last_graph_id = rg.add_node("Pass2DLast".to_string(), Pass2DNode::new(EntityKey::null().0), NodeId::default()).unwrap();
+        if let Err(e) = rg.set_finish(instances.last_graph_id, true) {
+            log::error!("{:?}", e);
+        }
+    }
+}
+
 /// 根据声明创建图节点，删除图节点， 建立图节点的依赖关系
 pub fn update_graph(
     mut pass_query: ParamSet<(
@@ -28,7 +46,7 @@ pub fn update_graph(
 			Query<&ChildrenPass>,
 		),
     )>,
-    mut instances: ResMut<InstanceContext>,
+    instances: Res<InstanceContext>,
     mut del: RemovedComponents<Camera>,
     mut rg: ResMut<PiRenderGraph>,
 	mut pass_graph_map: OrInitResMut<PassGraphMap>,
@@ -37,13 +55,6 @@ pub fn update_graph(
 	if r.0 {
 		return;
 	}
-
-    if instances.last_graph_id.is_null() {
-        instances.last_graph_id = rg.add_node("Pass2DLast".to_string(), Pass2DNode::new(EntityKey::null().0), NodeId::default()).unwrap();
-        if let Err(e) = rg.set_finish(instances.last_graph_id, true) {
-            log::error!("{:?}", e);
-        }
-    }
     // 创建渲染图节点
     // 插入Draw2DList
     for (mut graph_id, entity, parent_passs_id, post_info) in pass_query.p0().iter_mut() {

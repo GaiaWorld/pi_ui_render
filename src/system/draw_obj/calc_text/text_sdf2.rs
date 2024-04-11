@@ -46,7 +46,7 @@ use pi_bevy_ecs_extend::system_param::res::OrInitResMut;
 use crate::components::calc::{WorldMatrix, DrawList};
 use crate::components::draw_obj::InstanceIndex;
 use crate::resource::draw_obj::InstanceContext;
-use crate::shader1::meterial::{GradientColorUniform, ColorUniform, GradientPositionUniform, RenderFlagType, GradientEndUniform, TextOutlineUniform, TextWeightUniform, Sdf2InfoUniform, TyUniform};
+use crate::shader1::meterial::{TextGradientColorUniform, ColorUniform, GradientPositionUniform, RenderFlagType, GradientEndUniform, TextOutlineUniform, TextWeightUniform, Sdf2InfoUniform, TyUniform};
 use crate::components::user::Vector2;
 use crate::system::system_set::UiSystemSet;
 
@@ -415,26 +415,26 @@ fn instance_data(
 		// 如果是渐变色，无论当前是修改了文字内容、颜色、还是布局，都必须重新计算顶点流
 		Color::LinearGradient(color) => {
 			// TODO， 渐变端点
-			let mut colors: [f32; 16] = [0.0; 16];
+			let mut colors: [f32; 12] = [0.0; 12];
 			let mut positions: [f32; 4] = [1.0; 4];
 			if color.list.len() > 0 {
 				for i in 0..4 {
 					match color.list.get(i) {
 						Some(r) => {
 							positions[i] = r.position;
-							let j = i * 4;
+							let j = i * 3;
 							colors[j] = r.rgba.x;
 							colors[j + 1] = r.rgba.y;
 							colors[j + 2] = r.rgba.z;
-							colors[j + 3] = r.rgba.w;
+							// colors[j + 3] = r.rgba.w;
 						},
 						None => {
 							positions[i] = 1.0;
-							let j = i * 4;
+							let j = i * 3;
 							colors[j] = colors[j - 4];
 							colors[j + 1] = colors[j - 3];
 							colors[j + 2] = colors[j - 2];
-							colors[j + 3] = colors[j - 1];
+							// colors[j + 3] = colors[j - 1];
 						},
 					}
 				}
@@ -593,9 +593,9 @@ fn text_vert(
 			_ => &default_range,
 		};
 
-		if font_sheet.font_mgr().table.sdf2_table.fonts.get(face_id.0).is_none() {
-			log::warn!("default_range============{}, {:?}, {:?}, {:?}, {:?}", font_sheet.font_mgr().table.sdf2_table.glyphs[c.ch_id].font_face_index, c.ch, fontface_ids, font_sheet.font_mgr().sheet.fonts[font_id.0].font_family_id,&font_sheet.font_mgr().sheet.font_familys[font_sheet.font_mgr().sheet.fonts[font_id.0].font_family_id.0]);
-		}
+		// if font_sheet.font_mgr().table.sdf2_table.fonts.get(face_id.0).is_none() {
+		// 	log::warn!("default_range============{}, {:?}, {:?}, {:?}, {:?}", font_sheet.font_mgr().table.sdf2_table.glyphs[c.ch_id].font_face_index, c.ch, fontface_ids, font_sheet.font_mgr().sheet.fonts[font_id.0].font_family_id,&font_sheet.font_mgr().sheet.font_familys[font_sheet.font_mgr().sheet.fonts[font_id.0].font_family_id.0]);
+		// }
 		uniform_data.set_data(instances.instance_data_mut(cur_instance_index), glyph, render_range, (left, top + (line_height - (render_range.maxs.y - render_range.mins.y) * font_size) / 2.0), font_size);
 		cur_instance_index = instances.next_index(cur_instance_index);
 		if count > 0 {
@@ -622,7 +622,7 @@ struct UniformData {
 enum ColorData {
 	Rgba([f32; 4]),
 	LinearGradient {
-		colors: [f32; 16],
+		colors: [f32; 12],
 		positions: [f32; 4],
 		end: [f32; 4],
 	},
@@ -647,7 +647,7 @@ impl UniformData {
 				ColorData::LinearGradient { colors, positions, end } => {
 					render_flag |= 1 << RenderFlagType::LinearGradient as usize;
 					render_flag &= !(1 << RenderFlagType::Color as usize);
-					instance_data.set_data(&GradientColorUniform(colors));
+					instance_data.set_data(&TextGradientColorUniform(colors));
 					instance_data.set_data(&GradientPositionUniform(positions));
 					instance_data.set_data(&GradientEndUniform(end));
 				},

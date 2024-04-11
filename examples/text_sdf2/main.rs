@@ -9,24 +9,24 @@ use std::mem::swap;
 use bevy_ecs::system::Commands;
 use bevy_ecs::prelude::World;
 use framework::Example;
+use ordered_float::NotNan;
 use pi_atom::Atom;
 use pi_flex_layout::style::{Dimension, PositionType, OverflowWrap};
 use pi_null::Null;
 use pi_ui_render::{
     components::{
         calc::EntityKey,
-        user::{CgColor, ClearColor, Color, FontSize, RenderDirty, Viewport},
+        user::{CgColor, ClearColor, Color, FontSize, RenderDirty, Transform, Viewport},
         NodeBundle,
     },
-    resource::{NodeCmd, UserCommands, ShareFontSheet},
+    resource::{NodeCmd, ShareFontSheet, UserCommands},
 };
 
 fn main() { framework::start(QuadExample::default()) }
 use pi_style::{
-    style::{Aabb2, Point2, TextContent, TextOverflow, FontStyle, LinearGradientColor, ColorAndPosition},
+    style::{Aabb2, ColorAndPosition, FontStyle, LinearGradientColor, Point2, Stroke, TextContent, TextOverflow, TransformFunc},
     style_type::{
-        BackgroundColorType, ColorType, FontFamilyType, FontSizeType, HeightType, MarginLeftType, MarginTopType, PositionLeftType, PositionTopType,
-        PositionTypeType, TextContentType, WidthType, TextOverflowType, FlexWrapType, OverflowWrapType, AsImageType, FontWeightType, FontStyleType,
+        AsImageType, BackgroundColorType, ColorType, FlexWrapType, FontFamilyType, FontSizeType, FontStyleType, FontWeightType, HeightType, MarginLeftType, MarginTopType, OverflowWrapType, PositionLeftType, PositionTopType, PositionTypeType, TextContentType, TextOverflowType, TextStrokeType, TransformType, WidthType
     },
 };
 
@@ -182,6 +182,37 @@ impl Example for QuadExample {
         self.cmd.set_style(div6, ColorType(Color::RGBA(CgColor::new(0.0, 1.0, 0.0, 1.0))));
         self.cmd.set_style(div6, FontSizeType(FontSize::Length(17)));
         self.cmd.append(div6, root);
+
+        let div7 = world.spawn(NodeBundle::default()).id();
+        self.cmd.set_style(div7, TransformType(vec![TransformFunc::Scale(0.5, 0.5)]));
+        self.cmd.set_style(div7, WidthType(Dimension::Points(300.0)));
+        self.cmd.set_style(div7, HeightType(Dimension::Points(100.0)));
+		self.cmd.set_style(div7, PositionTopType(Dimension::Points(250.0)));
+        self.cmd
+            .set_style(div7, TextContentType(TextContent("测试文字缩放".to_string(), Atom::from("测试文字缩放"))));
+		self.cmd.set_style(div7, OverflowWrapType(OverflowWrap::BreakWord));
+        self.cmd.set_style(div7, FontFamilyType(Atom::from("hwkt")));
+        self.cmd.set_style(div7, ColorType(Color::RGBA(CgColor::new(0.0, 1.0, 0.0, 1.0))));
+        self.cmd.set_style(div7, FontSizeType(FontSize::Length(44)));
+        self.cmd.set_style(div7, TextStrokeType(Stroke {
+        	width: unsafe {NotNan::new_unchecked(2.0)},
+        	color: CgColor::new(1.0, 0.0, 0.0, 1.0)}));
+        self.cmd.append(div7, root);
+
+        let div8 = world.spawn(NodeBundle::default()).id();
+        self.cmd.set_style(div8, WidthType(Dimension::Points(300.0)));
+        self.cmd.set_style(div8, HeightType(Dimension::Points(100.0)));
+		self.cmd.set_style(div8, PositionTopType(Dimension::Points(250.0)));
+        self.cmd
+            .set_style(div8, TextContentType(TextContent("测试文字缩放".to_string(), Atom::from("测试文字缩放"))));
+		self.cmd.set_style(div8, OverflowWrapType(OverflowWrap::BreakWord));
+        self.cmd.set_style(div8, FontFamilyType(Atom::from("hwkt")));
+        self.cmd.set_style(div8, ColorType(Color::RGBA(CgColor::new(0.0, 1.0, 0.0, 1.0))));
+        self.cmd.set_style(div8, FontSizeType(FontSize::Length(44)));
+        self.cmd.set_style(div8, TextStrokeType(Stroke {
+        	width: unsafe {NotNan::new_unchecked(2.0)},
+        	color: CgColor::new(1.0, 0.0, 0.0, 1.0)}));
+        self.cmd.append(div8, root);
     }
 
     fn render(&mut self, cmd: &mut UserCommands, _cmd1: &mut Commands) {

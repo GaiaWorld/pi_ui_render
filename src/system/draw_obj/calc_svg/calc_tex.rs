@@ -12,7 +12,7 @@ use crate::{
     resource::SvgRenderObjType,
     shader1::{
         meterial::{
-            ColorUniform, GradientColorUniform, GradientEndUniform, GradientPositionUniform, RenderFlagType, Sdf2InfoUniform, ShadowUniform,
+            ColorUniform, TextGradientColorUniform, GradientEndUniform, GradientPositionUniform, RenderFlagType, Sdf2InfoUniform, ShadowUniform,
             TextOuterGlowUniform, TextOutlineUniform, TextWeightUniform, TyUniform,
         },
         InstanceData, GpuBuffer,
@@ -547,7 +547,7 @@ impl UniformData {
                     render_flag |= 1 << RenderFlagType::LinearGradient as usize;
                     render_flag &= !(1 << RenderFlagType::Color as usize);
                     log::debug!("LinearGradient color: {:?}, positions: {:?}, end: {:?}", colors, positions, end);
-                    instance_data.set_data(&GradientColorUniform(colors));
+                    instance_data.set_data(&TextGradientColorUniform(colors));
                     instance_data.set_data(&GradientPositionUniform(positions));
                     instance_data.set_data(&GradientEndUniform(end));
                 }

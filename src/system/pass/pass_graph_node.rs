@@ -2,7 +2,7 @@
 use bevy_ecs::{
     prelude::Entity,
     query::With,
-    system::{Local, Query, Res, SystemParam, SystemState},
+    system::{Local, ParamSet, Query, Res, SystemParam, SystemState},
     world::World,
 };
 use pi_assets::asset::Handle;
@@ -17,7 +17,7 @@ use pi_bevy_render_plugin::{
 };
 use pi_futures::BoxFuture;
 use pi_null::Null;
-use pi_render::components::view::target_alloc::{SafeTargetView, SafeAtlasAllocator};
+use pi_render::components::view::target_alloc::{SafeAtlasAllocator, SafeTargetView};
 // use pi_postprocess::
 use pi_postprocess::prelude::PostprocessTexture;
 use pi_render::{
@@ -37,9 +37,9 @@ use wgpu::RenderPass;
 
 use crate::{
     components::{
-        calc::{EntityKey, NodeId, WorldMatrix}, draw_obj::{DynTargetType, FboInfo, InstanceIndex}, pass_2d::{CacheTarget, Camera, Draw2DList, DrawElement, GraphId, ParentPassId, PostProcess, PostProcessInfo, RenderTarget, RenderTargetCache, ScreenTarget, StrongTarget}, user::{Aabb2, AsImage, RenderTargetType, Viewport}
+        calc::{DrawList, EntityKey, NodeId, WorldMatrix}, draw_obj::{DynTargetType, FboInfo, InstanceIndex}, pass_2d::{CacheTarget, Camera, Draw2DList, DrawElement, GraphId, ParentPassId, PostProcess, PostProcessInfo, RenderTarget, RenderTargetCache, ScreenTarget, StrongTarget}, user::{Aabb2, AsImage, Canvas, RenderTargetType, Viewport}
     }, resource::{
-        draw_obj::{InstanceContext, RenderState, TargetCacheMgr}, PassGraphMap, RenderContextMarkType
+        draw_obj::{InstanceContext, RenderState, TargetCacheMgr}, CanvasRenderObjType, PassGraphMap, RenderContextMarkType
     }, shader1::meterial::{CameraBind, QuadUniform, UvUniform}
 };
 
@@ -54,23 +54,32 @@ pub struct Pass2DNode {
 
 #[derive(SystemParam)]
 pub struct BuildParam<'w, 's> {
-	pass2d_query: Query<
-		'w,
-		's,
-		(
-			&'static Layer,
-			&'static Camera,
-			&'static ParentPassId,
-			// Option<&'static ClearColorBindGroup>,
-			&'static RenderTarget,
-			Option<&'static AsImage>,
-			&'static mut PostProcess, 
-			&'static PostProcessInfo, 
-			&'static InstanceIndex,
-			&'static Draw2DList,
-			&'static mut FboInfo,
-		),
-	>,
+	query: ParamSet<'w, 's,(
+		Query<
+			'w,
+			's,
+			(
+				&'static Layer,
+				&'static Camera,
+				&'static ParentPassId,
+				// Option<&'static ClearColorBindGroup>,
+				&'static RenderTarget,
+				Option<&'static AsImage>,
+				&'static mut PostProcess, 
+				&'static PostProcessInfo, 
+				&'static InstanceIndex,
+				&'static Draw2DList,
+				&'static mut FboInfo,
+			),
+		>,
+		
+		Query<'w, 's, (&'static InstanceIndex, &'static mut FboInfo, )>,
+	)>,
+	query_graph_id: Query<'w, 's, &'static GraphId>,
+	query_canvas: Query<'w, 's, (
+		&'static Canvas,
+		&'static DrawList,
+	)>,
 	query_pass_node: Query<
         'w,
         's,
@@ -92,6 +101,7 @@ pub struct BuildParam<'w, 's> {
 	instance_draw: OrInitResMut<'w, InstanceContext>,
 
 	temp_next_target: Local<'s, Vec<SimpleInOut>>,
+	canvas_render_type: OrInitRes<'w, CanvasRenderObjType>,
 }
 
 #[derive(SystemParam)]
@@ -205,17 +215,55 @@ impl Node for Pass2DNode {
 			target: None,
 			valid_rect: None,
 		};
-
-		// pass2d_id为null， 表示一个空节点， 空节点在全局只会有一个， 用于将有后处理效果的根节点渲染到屏幕
-		// 因此该节点不需要build（因为不需要分配fbo）
-		if EntityKey(pass2d_id).is_null() {
-			return Ok(out);
-		}
 		// let t1 = std::time::Instant::now();
 		let mut param = query_param_state.get_mut(world);
+		// pass2d_id为null， 表示一个空节点， 空节点在全局只会有一个， 用于将所有根节点渲染到屏幕
+		// 该节点本身不需要分配fbo
+		// 但需要处理所有canvas节点的fbo， 将其放在组件上，以便进行批渲染
+		if EntityKey(pass2d_id).is_null() {	
+			let mut p1 = param.query.p1();
+			for (canvas, draw_obj_list) in param.query_canvas.iter() {
+				let (canvas_graph_id, canvas_draw_obj_id) = match (param.query_graph_id.get(canvas.id), draw_obj_list.get_one(***param.canvas_render_type)) {
+					(Ok(r), Some(r1)) => (r, r1),
+					_ => continue,
+				};
+				
+				let (instance_index, mut fbo_info) = match p1.get_mut(canvas_draw_obj_id.id) {
+					Ok(r) => r,
+					Err(_) => continue,
+				};
+
+				if let Some(out) = input.0.get(&canvas_graph_id.0) {
+					if let Some(target) = &out.target {
+						let mut is_set_uv = false;
+						if let Some(fbo) = &fbo_info.out {
+							if !Share::ptr_eq(&fbo.target().colors[0].0 , &target.target().colors[0].0) {
+								param.instance_draw.rebatch = true; // 设置rebatch为true， 使得后续重新进行批处理
+							}
+							let rect1 = fbo.rect();
+							let rect2 = target.rect();
+							if rect1 != rect2 {
+								is_set_uv = true;
+							}
+						} else {
+							is_set_uv = true;
+						}
+						if is_set_uv {
+							// uv变化，设置uv
+							let uv_box = target.uv_box();
+							param.instance_draw.instance_data.instance_data_mut(instance_index.start).set_data(&UvUniform(uv_box.as_slice()));
+						}
+					}
+					fbo_info.out = out.target.clone(); // 设置到组件上， 后续批处理需要用到
+				}
+			}
+			return Ok(out);
+		}
+		
 		// let t2 = std::time::Instant::now();
 		log::trace!(pass = format!("{:?}", pass2d_id).as_str(); "build graph node");
 		// log::warn!("run1======{:?}", pass2d_id);
+		let mut p0 = param.query.p0();
 		let (layer, 
 			camera,
 			parent_pass2d_id,
@@ -225,7 +273,7 @@ impl Node for Pass2DNode {
 			post_process_info,
 			instance_index,
 			list0,
-			mut fbo_info) = match param.pass2d_query.get_mut(pass2d_id) {
+			mut fbo_info) = match p0.get_mut(pass2d_id) {
 			Ok(r) if r.0.layer() > 0 => r,
 			_ => return Ok(out),
 		};

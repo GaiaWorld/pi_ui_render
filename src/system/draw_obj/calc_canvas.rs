@@ -2,7 +2,7 @@ use bevy_app::{Update, Plugin};
 use bevy_ecs::entity::Entity;
 use bevy_ecs::query::{Changed, With};
 use bevy_ecs::schedule::IntoSystemConfigs;
-use bevy_ecs::system::{Query, ResMut};
+use bevy_ecs::system::{Query, Res, ResMut};
 use bevy_ecs::prelude::{DetectChangesMut, DetectChanges, Ref};
 use bevy_window::AddFrameEvent;
 use pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent;
@@ -107,6 +107,7 @@ pub fn calc_canvas_graph(
 	inpass_query: Query<&ParentPassId>,
 
 	mut rg: ResMut<PiRenderGraph>,
+	instances: Res<InstanceContext>,
 	r: OrInitRes<IsRun>
 ) {
 	if r.0 {
@@ -145,6 +146,11 @@ pub fn calc_canvas_graph(
                         if let Err(e) = rg.add_depend(id, **to_graph_id) {
                             log::error!("add_depend fail, {:?}", e);
                         }
+						// 把canvas节点与根节点相连，在根节点处处理canvas bingroup
+						if let Err(e) = rg.add_depend(id, instances.last_graph_id) {
+                            log::error!("add_depend fail, {:?}", e);
+                        }
+
                         break;
                     }
                 }

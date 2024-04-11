@@ -1,9 +1,10 @@
-use bevy_app::{Plugin, Update, PostUpdate, App};
+use bevy_app::{App, Plugin, PostUpdate, Startup, Update};
 use bevy_ecs::prelude::{IntoSystemSetConfig, IntoSystemSetConfigs, IntoSystemConfigs};
 use bevy_ecs::schedule::apply_deferred;
 use pi_bevy_render_plugin::{PiRenderSystemSet, FrameDataPrepare, GraphBuild, GraphRun};
 
 use self::pass_life::calc_pass;
+use self::update_graph::init_root_graph;
 use super::system_set::UiSystemSet;
 
 pub mod last_update_wgpu;
@@ -44,6 +45,7 @@ impl Plugin for UiPassPlugin {
                     .after(UiSystemSet::PassFlush), // 在上下文创建之后执行
             )
             .add_systems(Update, pass_life::calc_pass_toop_sort.in_set(FrameDataPrepare).after(UiSystemSet::PassSetting))
+            .add_systems(Startup, init_root_graph)
             // 计算图节点及其依赖
             .add_systems(Update, update_graph::update_graph.after(UiSystemSet::PassSettingWithParent).after(UiSystemSet::PassSetting))
             // 渲染前，计算Pass的属性

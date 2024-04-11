@@ -126,7 +126,7 @@ pub struct ColorUniform<'a>(pub &'a [f32]);
 pub struct GradientPositionUniform<'a>(pub &'a [f32]);
 
 #[derive(Uniform)]
-#[uniform(offset(96), len(48), bind(MeterialBind))]
+#[uniform(offset(80), len(64), bind(MeterialBind))]
 pub struct GradientColorUniform<'a>(pub &'a [f32]);
 
 #[derive(Uniform)]
@@ -260,8 +260,8 @@ pub struct TextWeightUniform<'a>(pub &'a [f32]);
 // 文字渐变色（和普通渐变色的区别是， 文字渐变仅支持rgb， 而不支持alpha通道）
 // [vec3 color1, vec3 color2, vec3 color3, vec3 color4]
 #[derive(Uniform)]
-#[uniform(offset(96), len(16), bind(MeterialBind))]
-pub struct TextGradientUniform<'a>(pub &'a [f32]);
+#[uniform(offset(96), len(48), bind(MeterialBind))]
+pub struct TextGradientColorUniform<'a>(pub &'a [f32]);
 
 // 文字描边颜色rgb + 描边宽度u_outline.w
 

@@ -110,7 +110,7 @@ pub fn create_post_graph(
 						return;
 					}
 				};
-				log::warn!("add graph node: {:?}", graph_node_id);
+				log::trace!("add graph node: {:?}", graph_node_id);
 	
 				*graph_id = GraphId(graph_node_id);
 			}
