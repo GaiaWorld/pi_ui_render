@@ -636,8 +636,11 @@ impl UniformData {
 		render_flag |= 1 << RenderFlagType::Sdf2 as usize;
 
 		if self.is_style_change {
-			instance_data.set_data(&TextOutlineUniform(&self.stroke));
-			instance_data.set_data(&TextWeightUniform(&self.weight));
+			let scale = self.world_matrix.0[0];
+			let weight = self.weight[0] * scale;
+			let stroke = [self.stroke[0], self.stroke[1], self.stroke[2], self.stroke[3] * scale];
+			instance_data.set_data(&TextOutlineUniform(&stroke));
+			instance_data.set_data(&TextWeightUniform(&[weight]));
 			match &self.color {
 				ColorData::Rgba(r) => {
 					render_flag |= 1 << RenderFlagType::Color as usize;
@@ -674,6 +677,7 @@ impl UniformData {
 
 			// 设置文字在布局空间的偏移和宽高
 			// instance_data.set_data(&BoxUniform(&[offset.0, offset.1, (render_range.maxs.x - render_range.mins.x) * font_size, (render_range.maxs.y - render_range.mins.y) * font_size]));
+			println!("self.world_matrix: {:?}", self.world_matrix);
 			set_box(&self.world_matrix, &Aabb2::new(Point2::new(offset.0, offset.1), Point2::new((render_range.maxs.x - render_range.mins.x) * font_size + offset.0, (render_range.maxs.y - render_range.mins.y) * font_size + offset.1)), &mut instance_data);
 
 			// 设置渲染类型
