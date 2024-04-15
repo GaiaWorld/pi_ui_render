@@ -200,19 +200,51 @@ impl Example for QuadExample {
         self.cmd.append(div7, root);
 
         let div8 = world.spawn(NodeBundle::default()).id();
-        self.cmd.set_style(div8, WidthType(Dimension::Points(300.0)));
-        self.cmd.set_style(div8, HeightType(Dimension::Points(100.0)));
+        self.cmd.set_style(div8, WidthType(Dimension::Points(80.0)));
+        self.cmd.set_style(div8, HeightType(Dimension::Points(80.0)));
 		self.cmd.set_style(div8, PositionTopType(Dimension::Points(250.0)));
         self.cmd
-            .set_style(div8, TextContentType(TextContent("测试文字缩放".to_string(), Atom::from("测试文字缩放"))));
+            .set_style(div8, TextContentType(TextContent("放".to_string(), Atom::from("放"))));
 		self.cmd.set_style(div8, OverflowWrapType(OverflowWrap::BreakWord));
         self.cmd.set_style(div8, FontFamilyType(Atom::from("hwkt")));
         self.cmd.set_style(div8, ColorType(Color::RGBA(CgColor::new(0.0, 1.0, 0.0, 1.0))));
-        self.cmd.set_style(div8, FontSizeType(FontSize::Length(44)));
+        self.cmd.set_style(div8, FontSizeType(FontSize::Length(64)));
         self.cmd.set_style(div8, TextStrokeType(Stroke {
-        	width: unsafe {NotNan::new_unchecked(2.0)},
+        	width: unsafe {NotNan::new_unchecked(5.0)},
         	color: CgColor::new(1.0, 0.0, 0.0, 1.0)}));
         self.cmd.append(div8, root);
+
+        let div9 = world.spawn(NodeBundle::default()).id();
+        self.cmd.set_style(div9, WidthType(Dimension::Points(80.0)));
+        self.cmd.set_style(div9, HeightType(Dimension::Points(80.0)));
+		self.cmd.set_style(div9, PositionTopType(Dimension::Points(250.0)));
+        self.cmd.set_style(div9, PositionLeftType(Dimension::Points(50.0)));
+        self.cmd
+            .set_style(div9, TextContentType(TextContent("放".to_string(), Atom::from("放"))));
+		self.cmd.set_style(div9, OverflowWrapType(OverflowWrap::BreakWord));
+        self.cmd.set_style(div9, FontFamilyType(Atom::from("hwkt")));
+        self.cmd.set_style(div9, ColorType(Color::RGBA(CgColor::new(0.0, 1.0, 0.0, 1.0))));
+        self.cmd.set_style(div9, FontSizeType(FontSize::Length(64)));
+        self.cmd.set_style(div9, TextStrokeType(Stroke {
+        	width: unsafe {NotNan::new_unchecked(0.0)},
+        	color: CgColor::new(1.0, 0.0, 0.0, 1.0)}));
+        self.cmd.append(div9, root);
+
+        let div9 = world.spawn(NodeBundle::default()).id();
+        self.cmd.set_style(div9, WidthType(Dimension::Points(100.0)));
+        self.cmd.set_style(div9, HeightType(Dimension::Points(100.0)));
+		self.cmd.set_style(div9, PositionTopType(Dimension::Points(250.0)));
+        self.cmd.set_style(div9, PositionLeftType(Dimension::Points(150.0)));
+        self.cmd
+            .set_style(div9, TextContentType(TextContent("放".to_string(), Atom::from("放"))));
+		self.cmd.set_style(div9, OverflowWrapType(OverflowWrap::BreakWord));
+        self.cmd.set_style(div9, FontFamilyType(Atom::from("hwkt")));
+        self.cmd.set_style(div9, ColorType(Color::RGBA(CgColor::new(0.0, 1.0, 0.0, 1.0))));
+        self.cmd.set_style(div9, FontSizeType(FontSize::Length(32)));
+        self.cmd.set_style(div9, TextStrokeType(Stroke {
+        	width: unsafe {NotNan::new_unchecked(5.0)},
+        	color: CgColor::new(1.0, 0.0, 0.0, 1.0)}));
+        self.cmd.append(div9, root);
     }
 
     fn render(&mut self, cmd: &mut UserCommands, _cmd1: &mut Commands) {

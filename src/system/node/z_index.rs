@@ -74,7 +74,7 @@ pub fn calc_zindex(
 		events.send(NodeZindexChange);
 	}
 
-    println!();
+    // println!();
 
     let mut vec: Vec<ZSort> = vec![];
     for (id, mark, _) in dirtys.iter_manual() {

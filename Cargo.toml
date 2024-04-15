@@ -285,14 +285,14 @@ bevy_math = { path = "../bevy/crates/bevy_math" }
 # pi_bevy_post_process = { path = "../pi_bevy_new_graphic/crates/post_process" }
 # pi_bevy_window = { path = "../pi_bevy_new_graphic/crates/window" }
 
-# pi_bevy_ecs_extend = { path = "../pi_bevy/crates/ecs_extend" }
-# pi_bevy_render_plugin = { path = "../pi_bevy/crates/render" }
-# pi_bevy_asset = { path = "../pi_bevy/crates/asset" }
-# pi_bevy_winit_window = { path = "../pi_bevy/crates/winit_window" }
-# pi_bevy_log = { path = "../pi_bevy/crates/log" }
-# pi_bevy_ecs_macro = { path = "../pi_bevy/crates/ecs_extend/macro" }
-# pi_bevy_post_process = { path = "../pi_bevy/crates/post_process" }
-# pi_bevy_window = { path = "../pi_bevy/crates/window" }
+pi_bevy_ecs_extend = { path = "../pi_bevy/crates/ecs_extend" }
+pi_bevy_render_plugin = { path = "../pi_bevy/crates/render" }
+pi_bevy_asset = { path = "../pi_bevy/crates/asset" }
+pi_bevy_winit_window = { path = "../pi_bevy/crates/winit_window" }
+pi_bevy_log = { path = "../pi_bevy/crates/log" }
+pi_bevy_ecs_macro = { path = "../pi_bevy/crates/ecs_extend/macro" }
+pi_bevy_post_process = { path = "../pi_bevy/crates/post_process" }
+pi_bevy_window = { path = "../pi_bevy/crates/window" }
 
 # pi_render
 # pi_render = { path = "../pi_render" }

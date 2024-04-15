@@ -972,8 +972,8 @@ void calc_sdf_color(int ty1) {
 	sdist = sdist - weight * distancePerPixel * (vData1.z / 64.0);
 
 	float alpha = antialias_sdf2(sdist);
-	if (vData10.w > 0.0){
-		alpha = step(0., -sdist);
+	if (vData10.w > 0.0 && ((ty1 & 1048576) != 0)){
+		// alpha = step(0., -sdist);
 	}
 
 	vec4 faceColor = vec4(vData0.rgb, vData0.a * alpha);
@@ -1017,7 +1017,8 @@ void calc_sdf_color(int ty1) {
 	float alphaOutline 		= outline; // min(outline, 1.0 - alpha) * step(0.001, outline);
 	float outlineFactor 	= smoothstep(0.0, outlineSofeness, alphaOutline);
 	// outlineColor.a 			= outlineFactor;
-	vec4 finalColor 		= mix(faceColor, outlineColor, outlineFactor);
+	// vec4 finalColor 		= mix(faceColor, outlineColor, outlineFactor);
+	vec4 finalColor = mix(faceColor, outlineColor, abs(clamp(sdist - outlineWidth * 0.5, -0.5, 0.5) - clamp(sdist, -0.5, 0.5)));
 
 	if ((ty1 & 262144) != 0) {// 外发光
 		vec4 outer_glow_color_and_dist = vData5;
