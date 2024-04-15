@@ -1178,7 +1178,7 @@ void main(void) {
 			// return;
 		}
 
-		if (uv.x > vData0.z || uv.y > vData1.w) { // 空白处， 透明处理
+		if (uv.x > vData0.z || uv.y > vData0.w) { // 空白处， 透明处理
 			discard;
 		}else if (texture_layer == 0.0) {
 			color = texture(sampler2D(tex2d0, samp0),uv);

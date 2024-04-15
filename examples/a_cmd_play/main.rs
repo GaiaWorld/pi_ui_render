@@ -25,7 +25,7 @@ impl ExampleCommonPlay {
 		Self {
 			cmd: UserCommands::default(),
 			current_dir: std::env::current_dir().unwrap(),
-			// speed: 0.5,
+			// speed: 1.0,
 			// pre_time: std::time::Instant::now(),
 		}
 	}
@@ -76,6 +76,8 @@ impl Example for ExampleCommonPlay {
 			play_path: None,
 			play_version: "".to_string(),
     		cmd_path: self.current_dir.join("examples/a_cmd_play/source/cmds").to_string_lossy().to_string(),
+            max_index: std::usize::MAX,
+            speed: 1.0,
 		};
 
 		if let Ok(config) = std::fs::read_to_string(self.current_dir.join("examples/a_cmd_play/source/run_config.txt")) {
@@ -90,7 +92,11 @@ impl Example for ExampleCommonPlay {
 						option.play_version = value.trim().to_string();
 					} else if key == "cmd_path" {
 						option.cmd_path = value.trim().to_string();
-					}
+					} else if key == "max_index" {
+                        option.max_index = value.trim().parse().unwrap();
+                    } else if key == "speed" {
+                        option.speed = value.trim().parse().unwrap();
+                    }
 				}
 			}
 		};

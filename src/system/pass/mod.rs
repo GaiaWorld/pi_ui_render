@@ -3,6 +3,7 @@ use bevy_ecs::prelude::{IntoSystemSetConfig, IntoSystemSetConfigs, IntoSystemCon
 use bevy_ecs::schedule::apply_deferred;
 use pi_bevy_render_plugin::{PiRenderSystemSet, FrameDataPrepare, GraphBuild, GraphRun};
 
+use self::pass_camera::calc_camera_depth_and_renderlist;
 use self::pass_life::calc_pass;
 use self::update_graph::init_root_graph;
 use super::system_set::UiSystemSet;
@@ -33,8 +34,9 @@ impl Plugin for UiPassPlugin {
             // 创建、删除Pass，为Pass组织树结构
             .add_systems(Update, 
 				calc_pass
-					.after(super::node::world_matrix::cal_matrix)
-					.in_set(UiSystemSet::PrepareDrawObj)
+					.after(calc_camera_depth_and_renderlist)
+                    .after(UiSystemSet::PassFlush)
+					.in_set(FrameDataPrepare)
 			)
             .add_systems(Update, pass_life::cal_context.in_set(UiSystemSet::PassLife))
             .add_systems(Update, apply_deferred.in_set(UiSystemSet::PassFlush))

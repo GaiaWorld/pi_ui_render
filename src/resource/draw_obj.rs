@@ -321,6 +321,8 @@ pub struct InstanceContext {
     pub pass_toop_list: Vec<Entity>, //该根下 从叶子开始的广度遍历排序
     pub next_node_with_depend: Vec<usize>,
     pub temp: (Vec<Entity>, Vec<Entity>, Vec<Entity>),
+
+    pub debug_info: VecMap<String>,
 }
 
 impl InstanceContext {
@@ -358,10 +360,20 @@ impl InstanceContext {
 
         // log::warn!("darw================={:?}", instance_draw.instance_data_range.start as u32/self.instance_data.alignment as u32..instance_draw.instance_data_range.end as u32/self.instance_data.alignment as u32 );
         // log::warn!("instance_data_range====={:?}", (&instance_draw.instance_data_range, instance_draw.instance_data_range.start as u32/self.instance_data.alignment as u32..instance_draw.instance_data_range.end as u32/self.instance_data.alignment as u32));
-		for i in instance_draw.instance_data_range.start as u32/self.instance_data.alignment as u32..instance_draw.instance_data_range.end as u32/self.instance_data.alignment as u32 {
-            rp.draw(0..6, i..i+1);
-        }
-        // rp.draw(0..6, instance_draw.instance_data_range.start as u32/self.instance_data.alignment as u32..instance_draw.instance_data_range.end as u32/self.instance_data.alignment as u32);
+		// #[cfg(debug_assertions)]
+        // {
+        //     for i in instance_draw.instance_data_range.start as u32/self.instance_data.alignment as u32..instance_draw.instance_data_range.end as u32/self.instance_data.alignment as u32 {
+        //         let debug_info = self.debug_info.get(i as usize/MeterialBind::SIZE);
+        //         rp.draw(0..6, i..i+1);
+        //         if let Some(debug_info) = debug_info {
+        //             rp.insert_debug_marker(debug_info.as_str());
+        //             rp.draw(0..6, i..i+1);
+        //         } else {
+        //             rp.draw(0..6, i..i+1);
+        //         }
+        //     } 
+        // }
+        rp.draw(0..6, instance_draw.instance_data_range.start as u32/self.instance_data.alignment as u32..instance_draw.instance_data_range.end as u32/self.instance_data.alignment as u32);
 
 	}
 }
@@ -570,6 +582,7 @@ impl FromWorld for InstanceContext {
             pass_toop_list: Default::default(),
             next_node_with_depend: Default::default(),
             temp: Default::default(),
+            debug_info: VecMap::default(),
 		}
     }
 	
@@ -606,11 +619,11 @@ impl InstanceContext {
 						instance_data.dirty_range.start as u64,
 						&instance_data.data()[instance_data.dirty_range.clone()],
 					);
+                    instance_data.dirty_range = std::usize::MAX..std::usize::MAX;
 					return;
 				}
 
 			}
-
 			*instance_buffer = Some(((***device).create_buffer_init(&BufferInitDescriptor {
 				label: Some("instance_buffer"),
 				usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
@@ -2072,7 +2085,7 @@ pub fn create_render_pipeline(
 							shader_location: 14,
 						},
                         wgpu::VertexAttribute {
-							format: wgpu::VertexFormat::Float32x3,
+							format: wgpu::VertexFormat::Float32x4,
 							offset: 224,
 							shader_location: 15,
 						},

@@ -139,7 +139,7 @@ impl Plugin for Sdf2TextPlugin {
 
 /// 共计sdf文字的的实例数量
 pub fn calc_sdf2_text_len(
-    query: Query<(Entity, Ref<NodeState>, Option<&TextOverflowData>, &DrawList, &LayoutResult, OrDefault<TextStyle>), Or<(Changed<NodeState>, Changed<TextOverflowData>, Changed<LayoutResult>, Changed<TextStyle>)>>,
+    query: Query<(Entity, Ref<NodeState>, Option<&TextOverflowData>, &DrawList, &LayoutResult, OrDefault<TextStyle>), (Or<(Changed<NodeState>, Changed<TextOverflowData>, Changed<LayoutResult>, Changed<TextStyle>)>, With<TextContent>)>,
     mut query_draw: Query<&mut RenderCount, With<TextMark>>,
 	query_up: Query<(&'static LayoutResult, &'static Up, &'static NodeState)>,
 	r: OrInitRes<IsRun>,
@@ -252,7 +252,7 @@ pub fn calc_sdf2_text(
 	// sdf2_texture_version
 	mut instances: OrInitResMut<InstanceContext>,
     query: Query<(Entity, Ref<WorldMatrix>, Ref<NodeState>, Option<&TextOverflowData>, Option<Ref<TextStyle>>, Ref<LayoutResult>, &DrawList, &Layer), (Or<(Changed<TextStyle>, Changed<NodeState>, Changed<WorldMatrix>)>, With<TextContent>)>,
-    mut query_draw: Query<&InstanceIndex, With<TextMark>>,
+    mut query_draw: Query<(&InstanceIndex, &RenderCount), With<TextMark>>,
 	query_up: Query<(&'static LayoutResult, &'static Up, &'static NodeState)>,
 	r: OrInitRes<IsRun>,
 	render_type: OrInitRes<TextRenderObjType>,
@@ -283,7 +283,7 @@ pub fn calc_sdf2_text(
 		log::trace!("calc_sdf2_text1;");
 		
 
-		if let Ok(instance_index) = query_draw.get_mut(draw_id) {
+		if let Ok((instance_index, render_count)) = query_draw.get_mut(draw_id) {
 			// 节点可能设置为dispaly none， 此时instance_index可能为Null
 			if pi_null::Null::is_null(&instance_index.0.start) {
 				continue;
@@ -357,7 +357,8 @@ pub fn calc_sdf2_text(
 				instance_data,
 				instance_index.clone(),
 				&mut instances.instance_data,
-				font_id, );
+				font_id, 
+				render_count);
 			
 
 
@@ -492,6 +493,7 @@ fn text_vert(
 	instance_index: InstanceIndex,
 	instances: &mut GpuBuffer,
 	font_id: pi_hal::font::font::FontId,
+	render_count: &RenderCount,
 ) {
 
 	let font_size = get_size(&text_style.font_size) as f32;
@@ -553,7 +555,7 @@ fn text_vert(
 				while i < max {
 					for c1 in text_overflow_data.text_overflow_char.iter() {
 						if cur_instance_index > instance_index.0.end {
-							panic!("text len error, cur_instance_index: {}, instance_index end: {}, entity: {:?}, len: {}, node_state: {:?}", cur_instance_index, instance_index.0.end, entity, node_state.0.text.len(), &node_state);
+							panic!("text len error, cur_instance_index: {}, instance_index end: {}, entity: {:?}, len: {}, node_state: {:?}, render_count: {:?}", cur_instance_index, instance_index.0.end, entity, node_state.0.text.len(), &node_state, render_count);
 						}
 						let glyph = match font_type {
 							FontType::Bitmap => todo!(),
@@ -578,7 +580,7 @@ fn text_vert(
 		}
 
 		if cur_instance_index > instance_index.0.end {
-			panic!("text len error, cur_instance_index: {}, instance_index: {:?}, entity: {:?}, len: {}, node_state: {:?}", cur_instance_index, &instance_index.0, entity, node_state.0.text.len(), &node_state);
+			panic!("text len error, cur_instance_index: {}, instance_index: {:?}, entity: {:?}, len: {}, node_state: {:?}, render_count: {:?}", cur_instance_index, &instance_index.0, entity, node_state.0.text.len(), &node_state, render_count);
 		}
         // log::warn!("glyph!!!==================={:?}, {:?}, {left:?}, {top:?}", c.ch_id, c.ch);
 		let glyph = match font_type {

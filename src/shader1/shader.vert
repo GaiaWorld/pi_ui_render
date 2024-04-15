@@ -58,6 +58,11 @@ layout(location = 15) out vec3 vData13; // 阴影偏移和模糊等级
 void main() {
 	int ty1 = int(data11.y); // clip = 1;uv = 4;
 
+	if ((ty1 & 1024) != 0) { // is_not_visibility(不可见时， 返回的顶点面积为0)
+		gl_Position = vec4(0.0, 0.0, 0.0, 0.0);
+		return;
+	}
+
 	vData0 = data0;
 	vData1 = data1;
 	vData2 = data2;
@@ -118,7 +123,7 @@ void main() {
 	
 	// gl_Position = project * view * mat4(matrix0, matrix1, matrix2, matrix3) * vec4(vVertexPosition, 1.0, 1.0);
 	float p_index = position.x + position.x + position.y;// 得到索引位置0或1或2或3（left_top = 0, left_bottom = 1, right_top = 2, right_bottom = 3）
-	vec2 p = quad1.xy * step(p_index, 0.1) // 小于0.1， 只可能个是0.0
+	vec2 p = quad1.xy * step(p_index, 0.1) // 小于0.1， 只可能是0.0
 			+ quad1.zw * step(0.9, p_index) * step(p_index, 1.1) // 0.9 < p_index <= 1.1, 只可能是1.0
 			+ quad2.zw * step(1.9, p_index) * step(p_index, 2.1) // 1.9 < p_index <= 2.1， 只可能是2.0
 			+ quad2.xy * step(2.9, p_index); // > 2.9, 只肯可能是3.0
@@ -127,8 +132,4 @@ void main() {
 	// gl_Position = project * view * vec4(vVertexPosition, 1.0, 1.0);
 	// gl_Position.z = depth_offset +  depth;
 	gl_Position.z = data11.z;
-
-	if ((ty1 & 1024) != 0) { // is_not_visibility(不可见时， 返回的顶点面积为0)
-		gl_Position = vec4(0.0, 0.0, 0.0, 0.0);
-	}
 }

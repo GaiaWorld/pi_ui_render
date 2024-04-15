@@ -127,4 +127,8 @@ pub fn set_box(world_matrix: &WorldMatrix, layou_rect: &Aabb2, instance_data: &m
 		right_bottom.x, right_bottom.y,
 		right_top.x, right_top.y,
 	]));
+
+	// if right_bottom.x >= 700.0 && right_bottom.y >= 910.0 {
+	// 	println!("right_bottom.x >= 788, {:?}", (right_bottom.x, right_bottom.y));
+	// }
 }

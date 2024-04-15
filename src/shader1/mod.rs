@@ -94,6 +94,32 @@ impl GpuBuffer {
 		self.reserve();
 		self.data.extend_from_slice(slice);
 
+		// for i in 0..slice.len() / 240 {
+		// 	let offset = i * 240 + 180;
+		// 	let rrr = &slice[offset..offset + 4];
+		// 	let f32rr: &[f32] = bytemuck::cast_slice(rrr);
+		// 	// if f32rr[0] == 4195392.0 {
+		// 		if i + self.cur_index/240 == 64 || start_index.start / 240 + i == 64 || i + self.cur_index/240 == 65 || start_index.start / 240 + i == 65{
+		// 		pi_print_any::out_any!(log::error, "extend==={:?}, src: {:?}, dst: {:?}", f32rr, i + self.cur_index/240, start_index.start / 240 + i );
+		// 	}
+		// }
+		
+
+		// if self.cur_index / 240 <= 64 && slice.len() / 240 + self.cur_index/ 240 > 64{
+		// 	let start = (64 - self.cur_index / 240) * 240 + 180;
+		// 	let rrr = &slice[start..start + 4];
+		// 	let f32rr: &[f32] = bytemuck::cast_slice(rrr);
+		// 	pi_print_any::out_any!(log::error, "extend1==={:?}, src: {:?}, dst: 64", f32rr, (64 - self.cur_index / 240) + start_index.start/240);
+		// }
+
+		// if start_index.start/240 <= 64 && start_index.end/240 > 64  {
+		// 	let start = (64 - start_index.start/240) * 240 + 180;
+		// 	let rrr = &slice[start..start + 4];
+		// 	let f32rr: &[f32] = bytemuck::cast_slice(rrr);
+		// 	pi_print_any::out_any!(log::error, "extend2==={:?}, src: 64, dts: {:?}", f32rr, (64 - start_index.start/240) + self.cur_index / 240);
+		// }
+		
+
 		self.cur_index += slice.len();
 	}
 
@@ -105,7 +131,6 @@ impl GpuBuffer {
 		for i in 0..value.len() {
 			d[i] = value[i];
 		}
-
 		// value.write_into(self.index as u32, &mut self.data.data);
 		log::trace!("byte_len1========={:?}", value.byte_len());
 		self.update_dirty_range(index..index + value.len());
@@ -187,6 +212,10 @@ impl<'a> InstanceData<'a> {
 			panic!("byte_len========={:?}, {:?}, {:?}, {:?}, {:?}, {:?}", self.index, value.offset(), value.byte_len(), self.data.data.len(), self.data.capacity(), self.data.alignment);
 
 		}
+		// pi_print_any::out_any!(log::error, "set_data==={:?}, {:?}", value, (value.offset(), value.offset() + value.byte_len(), self.index));
+		// if (self.index/ 240 == 64 || self.index/ 240 == 65 || self.index/ 240 == 63) && value.offset() <= 180 && value.offset() + value.byte_len() >=184 {
+		// 	pi_print_any::out_any!(log::error, "set_data==={:?}, {:?}", self.index/ 240, value);
+		// }
 		// 在debug版本， 检查数据写入是否超出自身对齐范围
 		debug_assert_eq!((value.byte_len() as usize + self.index) / self.data.alignment, self.index / self.data.alignment);
 		debug_assert!((self.index + value.offset() as usize + value.byte_len() as usize) <= self.data.data.len());
@@ -194,6 +223,22 @@ impl<'a> InstanceData<'a> {
 		value.write_into(self.index as u32, &mut self.data.data);
 		log::trace!("byte_len0========={:?}", value.byte_len());
 		self.data.update_dirty_range(self.index..self.index + self.data.alignment);
+
+		// if value.offset() <= 180 && value.offset() + value.byte_len() >=184 {
+			// let start = 180 + self.index;
+			// let rrr = &self.data.data[start..start + 4];
+			// let f32rr: &[f32] = bytemuck::cast_slice(rrr);
+			// if f32rr[0] == 12582976.0 {
+			// 	pi_print_any::out_any!(println, "set_data1==={:?}, {:?}, {:?}",  self.index/ 240, value, f32rr);
+			// }
+		// }
+
+		// if self.index == 64 || self.index == 65 {
+		// 	let start = 180 + self.index;
+		// 	let rrr = &self.data.data[start..start + 4];
+		// 	let f32rr: &[f32] = bytemuck::cast_slice(rrr);
+		// 	pi_print_any::out_any!(log::error, "set_data1==={:?}, {:?}, {:?}",  self.index/ 240, value, (f32rr, f32rr1));
+		// }
 	}
 
 	pub fn get_data<T: WriteBuffer + GetBuffer>(&self, value: &mut T) {

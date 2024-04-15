@@ -88,13 +88,16 @@ pub fn last_update_wgpu(
     //         &depth_group_alloter,
     //     );
     // }
-
+    
+    // let time1 = pi_time::Instant::now();
     group_alloc_center.write_buffer(&device, &queue);
+    // let time2 = pi_time::Instant::now();
     vertbuffer_alloter.write_buffer();
+    // let time3 = pi_time::Instant::now();
     // index_alloter.write_buffer();
 	instances.update(&device, &queue);
-	// let time2 = pi_time::Instant::now();
-	// log::warn!("last_update_wgpu==================={:?}", time2 - time1);
+    // let time4 = pi_time::Instant::now();
+	// println!("last_update_wgpu==================={:?}", (time2 - time1, time3 - time2, time4 - time3));
 }
 
 

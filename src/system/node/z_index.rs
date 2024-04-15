@@ -30,8 +30,7 @@ use std::ops::Range;
 
 use bevy_ecs::event::EventWriter;
 use bevy_ecs::prelude::{Changed, Component, Entity, Query};
-use bevy_ecs::query::Or;
-use pi_bevy_ecs_extend::prelude::{EntityTree, Layer, LayerDirty, Up};
+use pi_bevy_ecs_extend::prelude::{EntityTree, Layer, LayerDirty};
 use pi_bevy_ecs_extend::system_param::layer_dirty::DirtyMark;
 use pi_bevy_ecs_extend::system_param::res::OrInitRes;
 use pi_null::Null;
@@ -58,7 +57,7 @@ pub fn calc_zindex(
     query: Query<&ZIndex>,
     tree: EntityTree,
     mut dirtys: LayerDirty<Changed<Layer>>,
-    zindex_change: Query<Entity, Or<(Changed<ZIndex>, Changed<Up>)>>,
+    zindex_change: Query<Entity, Changed<ZIndex>>,
     mut ranges: Query<&mut ZRange>,
 	r: OrInitRes<IsRun>,
 	mut events: EventWriter<NodeZindexChange>,

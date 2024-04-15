@@ -587,7 +587,6 @@ impl UniformData {
             let rect = extents;
             log::debug!("set_box: {:?}, world_matrix: {:?}", rect, self.world_matrix);
             set_box(&self.world_matrix, &rect, &mut instance_data);
-
             // 设置渲染类型
             instance_data.set_data(&TyUniform(&[render_flag as f32]));
         }

@@ -117,6 +117,17 @@ pub fn cmd_play(world: &mut World, state: &mut SystemState<(Commands, OrInitRes<
         play_state.cur_frame_count = 0;
         return;
     }
+
+    // 慢速播放设置
+    if play_state.await_frame_count > 0 {
+        play_state.await_frame_count -= 1;
+        return;
+    } else {
+        if play_state.speed < 1.0 && play_state.speed > 0.0 {
+            play_state.await_frame_count = (1.0 / play_state.speed) as usize;
+        }
+    }
+
     play_state.cur_frame_count += 1;
 
     let r = &records.list[play_state.next_state_index];
@@ -478,8 +489,13 @@ pub struct PlayState {
     pub node_map: SecondaryMap<EntityKey, Entity>,
     pub is_running: bool,
 
-    // 外部委会
     pub next_reord_index: usize,
+
+    // 播放速度
+    pub speed: f32,
+
+    // 等待帧数量（减速播放时需要用到）
+    pub await_frame_count: usize,
 }
 
 impl PlayState {

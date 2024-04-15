@@ -4,6 +4,7 @@ pub mod animation_sheet;
 pub mod cmd;
 pub mod draw_obj;
 pub mod fragment;
+use bitvec::array::BitArray;
 pub use cmd::*;
 use pi_atom::Atom;
 use pi_bevy_asset::ShareAssetMgr;
@@ -41,6 +42,9 @@ use crate::components::user::ClassName;
 
 use self::draw_obj::{CommonBlendState, DrawObjDefault};
 use self::fragment::NodeTag;
+
+#[derive(Default, Deref, Resource, Serialize, Deserialize)]
+pub struct GlobalDirtyType(pub BitArray<[u32; 3]>);
 
 #[derive(Default, Deref, Resource, Serialize, Deserialize)]
 pub struct ClassSheet(pi_style::style_type::ClassSheet);

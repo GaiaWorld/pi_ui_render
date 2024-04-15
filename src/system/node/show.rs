@@ -7,6 +7,7 @@ use bevy_window::AddFrameEvent;
 use pi_bevy_ecs_extend::{prelude::{Layer, LayerDirty, OrDefault, Up}, system_param::res::{OrInitRes, OrInitResMut}};
 use pi_bevy_render_plugin::FrameDataPrepare;
 use pi_flex_layout::style::Display;
+use pi_null::Null;
 
 use crate::{components::{
     calc::{IsShow, DrawList},
@@ -96,7 +97,7 @@ pub fn calc_show(
 		}
 		// log::debug!("c_enable: {}", c_enable);
 		// log::warn!("show=============entity: {:?}, c_enable: {:?}, parent: {:?}, enable_value: {:?}", node, c_enable, parent_c_enable, enable_value);
-        log::trace!("show=============entity: {:?}, c_display: {:?}, c_visibility: {:?}, c_enable: {:?}", node, c_display, c_visibility, c_enable);
+        log::trace!("show=============entity: {:?}, c_display: {:?}, c_visibility: {:?}, c_enable: {:?}, {:?}", node, c_display, c_visibility, c_enable, visibility_change);
 		write_item.set_enable(c_enable);
     }
 
@@ -117,7 +118,7 @@ pub fn set_show_data(
 	mut visisble_events: EventReader<NodeVisibilityChange>,
 	mut display_events: EventReader<NodeDisplayChange>,
 	mut instances: OrInitResMut<InstanceContext>,
-	query: Query<(&DrawList, &IsShow), Changed<IsShow>>,
+	query: Query<(&DrawList, &IsShow, Option<&InstanceIndex>, Entity), Changed<IsShow>>,
     query_draw: Query<&InstanceIndex>,
 	r: OrInitRes<IsRun>,
 ) {
@@ -130,7 +131,7 @@ pub fn set_show_data(
 	visisble_events.clear();
 	display_events.clear();
 
-	for (draw_list, is_show) in query.iter() {
+	for (draw_list, is_show, instance_index, entity) in query.iter() {
 		let visibility = is_show.get_visibility() || is_show.get_display();
 		for draw_id in draw_list.iter() {
 			if let Ok(instance_index) = query_draw.get(draw_id.id) {
@@ -150,6 +151,25 @@ pub fn set_show_data(
 						instance_data.set_data(&TyUniform(&[ty as f32]));
 					}
 				}
+			}
+		}
+
+		if let Some(instance_index) = instance_index {
+			if instance_index.start.is_null() {
+				return;
+			}
+			let mut instance_data = instances.bypass_change_detection().instance_data.instance_data_mut(instance_index.0.start);
+			let mut ty = instance_data.get_render_ty();
+
+			let old_visibility = (ty | (1 << RenderFlagType::NotVisibility as usize) ) == 0;
+			if old_visibility != visibility {
+				if visibility {
+					ty &= !(1 << RenderFlagType::NotVisibility as usize);
+				} else {
+					ty |= 1 << RenderFlagType::NotVisibility as usize;
+				}
+				// log::trace!("set show=============entity: {:?}, visibility: {:?}", entity, (visibility, ty));
+				instance_data.set_data(&TyUniform(&[ty as f32]));
 			}
 		}
 	}

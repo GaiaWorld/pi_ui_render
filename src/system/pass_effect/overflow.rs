@@ -213,8 +213,8 @@ fn recursive_cal_overflow(
                     desc: OverflowDesc::Rotate(OveflowRotate {
                         world_rotate_invert: world_rotate_invert.clone(),
                         from_context_rotate: match context_desc {
-                            OverflowDesc::Rotate(r) => r.world_rotate_invert * world_rotate,
-                            OverflowDesc::NoRotate(_) => world_rotate,
+                            OverflowDesc::Rotate(r) => WorldMatrix(r.world_rotate_invert * world_rotate, true),
+                            OverflowDesc::NoRotate(_) => WorldMatrix(world_rotate, false),
                         },
                         world_rotate, // TODO
                     }),
