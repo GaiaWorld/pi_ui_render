@@ -55,6 +55,7 @@ pub fn calc_animation(
 	if r.0 {
 		return;
 	}
+    // let t1 = std::time::Instant::now();
 
 	// 此处强制转换是安全的， 本system逻辑保证， events访问不会读写冲突， 且生命周期足够
 	let events: EventWriter<'static, StyleChange> = unsafe { transmute(events) };
@@ -75,6 +76,7 @@ pub fn calc_animation(
             keyframes_sheet.remove_runtime_keyframs(ObjKey(del));
         }
     }
+    // let t2 = std::time::Instant::now();
 
     // 绑定动画
     for (node, animation) in animation.iter() {
@@ -82,15 +84,17 @@ pub fn calc_animation(
             log::error!("{:?}", e);
         }
     }
+    // let t3 = std::time::Instant::now();
     // log::warn!("time_info.delta==============={:?}", time_info.delta);
     // 推动动画执行
     keyframes_sheet.run(&mut user_commands1.style_commands, time_info.delta);
-
+    // let t4 = std::time::Instant::now();
     let mut commands = replace(&mut user_commands1.style_commands, StyleCommands::default());
 
     let mut setting = Setting { style: &style_query, world };
     // 设置style只要节点存在,样式一定能设置成功
     set_styles(&mut commands, &mut setting, &mut dirty_list);
-
+    // let t5 = std::time::Instant::now();
+    // println!("calc_animation time: {:?}", (t5 - t4, t4-t3,t3-t2,t2-t1));
     user_commands.get_mut(world).style_commands = commands;
 }

@@ -18,7 +18,7 @@ use crate::resource::RenderContextMarkType;
 
 use super::{
     calc::{DrawInfo, EntityKey, ZRange},
-    user::{Aabb2, AsImage, Matrix4, Point2},
+    user::{Aabb2, AsImage, Point2},
 };
 
 /// 一个渲染Pass
@@ -27,8 +27,8 @@ pub struct Pass2D;
 /// 相机
 #[derive(Debug, Component)]
 pub struct Camera {
-    pub view: Matrix4,
-    pub project: Matrix4,
+    // pub view: Matrix4,
+    // pub project: Matrix4,
     pub bind_group: Option<DrawBindGroup>,
     pub view_port: Aabb2,      // 视口区域（相对于全局的0,0点）
     pub is_active: bool,       // 是否激活相机（如果未激活，该相机不会渲染任何物体），通常相机不在脏区域内， 或相机内无任何drawobj，则该值为false
@@ -38,8 +38,8 @@ pub struct Camera {
 impl Default for Camera {
     fn default() -> Self {
         Self {
-            view: Matrix4::default(),
-            project: Default::default(),
+            // view: Matrix4::default(),
+            // project: Default::default(),
             bind_group: None,
             view_port: Aabb2::new(Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)),
             is_active: false,
@@ -48,11 +48,11 @@ impl Default for Camera {
     }
 }
 
-#[derive(Debug, Default, Component)]
-pub struct ViewMatrix {
-    pub bind_group: Option<Handle<RenderRes<BindGroup>>>,
-    // pub value: WorldMatrix,
-}
+// #[derive(Debug, Default, Component)]
+// pub struct ViewMatrix {
+//     pub bind_group: Option<Handle<RenderRes<BindGroup>>>,
+//     // pub value: WorldMatrix,
+// }
 
 #[derive(Debug, Default, Deref, Component, Copy, Clone)]
 pub struct ParentPassId(pub EntityKey);
@@ -128,13 +128,13 @@ pub struct Draw2DList {
 	// all_list的排序结果
 	pub all_list_sort: Vec<(DrawIndex, ZRange, DrawInfo)>,
     pub canvas_list: Vec<Entity>, // 单独一个drawObj绘制在一个fbo上（需要做后处理的drawObj）
-    /// 不透明 列表
-    /// 注：渲染时，假设 Vec已经 排好序 了
-    pub opaque: Vec<(DrawIndex, usize /*DepthGroup在DepthCache中的偏移*/)>,
+    // /// 不透明 列表
+    // /// 注：渲染时，假设 Vec已经 排好序 了
+    // pub opaque: Vec<(DrawIndex, usize /*DepthGroup在DepthCache中的偏移*/)>,
 
-    /// 透明 列表
-    /// 注：渲染时，假设 Vec已经 排好序 了
-    pub transparent: Vec<(DrawIndex, usize /*DepthGroup在DepthCache中的偏移*/)>,
+    // /// 透明 列表
+    // /// 注：渲染时，假设 Vec已经 排好序 了
+    // pub transparent: Vec<(DrawIndex, usize /*DepthGroup在DepthCache中的偏移*/)>,
 }
 
 impl Default for Draw2DList {
@@ -149,8 +149,8 @@ impl Default for Draw2DList {
 			all_list_sort: Vec::default(),
             all_list: Vec::default(),
             canvas_list: Vec::default(),
-            opaque: Vec::default(),
-            transparent: Vec::default(),
+            // opaque: Vec::default(),
+            // transparent: Vec::default(),
         }
     }
 }
@@ -198,7 +198,11 @@ pub enum DrawIndex {
 	// // 清理屏幕
 	// ClearScreen,
     // 一个渲染对象
-    DrawObj(EntityKey),
+    DrawObj{
+        draw_entity: EntityKey,
+        #[cfg(debug_assertions)]
+        node_entity: EntityKey,
+    },
     // 一个Pass2D的内容
     Pass2D(EntityKey),
     // 一个经过后处理的渲染对象
@@ -234,22 +238,6 @@ impl Default for DirtyRect {
 // 用于判断缓存的fbo是否需要渲染
 #[derive(Clone, Debug, Component, Default)]
 pub struct DirtyMark(pub bool);
-
-/// 上下文自身的脏区域(已考虑TransformWillchange)
-#[derive(Clone, Debug, Component)]
-pub struct LastDirtyRect {
-    // pub last: Aabb2,
-    pub no_will_change: Aabb2,
-}
-
-impl Default for LastDirtyRect {
-    fn default() -> Self {
-        LastDirtyRect {
-            // last: Aabb2::new(Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)),
-            no_will_change: Aabb2::new(Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)),
-        }
-    }
-}
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub enum DirtyRectState {

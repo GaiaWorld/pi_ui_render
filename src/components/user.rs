@@ -772,6 +772,7 @@ pub mod serialize {
             v,
             entity
         );
+        // pi_print_any::out_any!(println, "set_default_style_attr==={:?}", (entity, std::any::type_name::<C>(), &v));
         match world.get_mut_by_id(entity, component_id) {
             Some(mut component) => {
                 component.set_changed();
@@ -879,7 +880,7 @@ pub mod serialize {
         pub fn write_to_component(&mut self, cur_style_mark: &mut BitArray<[u32; 3]>, entity: Entity, query: &mut Setting, is_clone: bool) -> bool {
             let next_type = self.next_type();
             if let Some(style_type) = next_type {
-				// pi_print_any::out_any!(log::trace, "write_to_component==={:?}, cursor:{:?}, next_type: {:?}", style_type, self.cursor, next_type);
+				// pi_print_any::out_any!(println, "write_to_component==={:?}, cursor:{:?}, next_type: {:?}", style_type, self.cursor, next_type);
                 StyleAttr::set(cur_style_mark, style_type, &self.buffer, self.cursor, query, entity, is_clone);
                 let size = StyleAttr::size(style_type);
                 self.cursor += size;

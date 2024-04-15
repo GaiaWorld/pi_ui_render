@@ -21,9 +21,9 @@ use pi_share::Share;
 use pi_style::style::CgColor;
 
 use crate::components::calc::{DrawInfo, EntityKey, NodeId, InPassId, IsShow, ZRange, RenderContextMark};
-use crate::components::draw_obj::{InstanceIndex, GetInstanceSplit, InstanceSplit, RenderCount, Pipeline, FboInfo};
+use crate::components::draw_obj::{BackgroundColorMark, BackgroundImageMark, BorderImageMark, BoxShadowMark, CanvasMark, FboInfo, GetInstanceSplit, InstanceIndex, InstanceSplit, Pipeline, RenderCount, TextMark, TextShadowMark};
 // use crate::components::root::RootInstance;
-use crate::components::user::RenderTargetType;
+use crate::components::user::{BackgroundColor, BackgroundImage, BlendMode, BorderImage, Canvas, RenderTargetType, TextContent};
 use crate::components::DrawBundleNew;
 use crate::components::pass_2d::{Draw2DList, DrawElement, DrawIndex, InstanceDrawState, ParentPassId, PostProcessInfo};
 use crate::events::{ NodeZindexChange, NodeDisplayChange, EntityChange};
@@ -32,7 +32,7 @@ use crate::resource::RenderObjType;
 
 use crate::components::calc::DrawList;
 use crate::shader1::GpuBuffer;
-use crate::shader1::meterial::{TextureIndexUniform, DepthUniform, ColorUniform, RenderFlagType, TyUniform, MeterialBind, BoxUniform, QuadUniform};
+use crate::shader1::meterial::{BoxUniform, ColorUniform, DebugInfo, DepthUniform, MeterialBind, QuadUniform, RenderFlagType, TextureIndexUniform, TyUniform};
 
 use super::calc_text::IsRun;
 
@@ -219,7 +219,11 @@ pub fn update_render_instance_data(
 				let mut info = info.clone();
 				info.set_visibility(is_show.get_visibility() && is_show.get_display() && layer.layer() > 0);
 				list.push_element(
-					DrawIndex::DrawObj(EntityKey(draw_id.id)),
+					DrawIndex::DrawObj{
+						draw_entity: EntityKey(draw_id.id),
+						#[cfg(debug_assertions)]
+						node_entity: EntityKey(id),
+					},
 					z_range.clone(),
 					info,
 				);
@@ -246,7 +250,7 @@ pub fn update_render_instance_data(
 	let alloc = |draw_index: &DrawIndex, draw_info: &DrawInfo, new_instances: &mut GpuBuffer, instances: &InstanceContext, instance_index: &mut Query<(&'static mut InstanceIndex, OrDefault<RenderCount>)>| {
 		let mut alloc:  Option<Entity> = None;
 		match draw_index {
-			DrawIndex::DrawObj(draw_entity) => {
+			DrawIndex::DrawObj{draw_entity, ..} => {
 				alloc = Some(draw_entity.0);
 			},
 			DrawIndex::Pass2D(entity) => {
@@ -255,6 +259,12 @@ pub fn update_render_instance_data(
 					if post_info.has_effect() {
 						// 如果存在后处理特效， 需要分配一个实例， 用于将特效拷贝到gui上
 						alloc = Some(entity.0);
+					} else {
+						// 如果不存在effect，则删除实例索引
+						if let Ok((mut index, _render_count)) = instance_index.get_mut(entity.0) {
+							*index.bypass_change_detection() = InstanceIndex::default();
+							// println!("null=================={:?}, {:?}", entity.0, (index, InstanceIndex::default()));
+						}
 					}
 				}
 			},
@@ -273,14 +283,16 @@ pub fn update_render_instance_data(
 				let mut ty = 0;
 				if !draw_info.is_visibility() {
 					ty |=1 << RenderFlagType::NotVisibility as usize;
+					// log::warn!("not==========={:?}", entity);
 				}
 				
 				// 初始化渲染类型
 				for i in 0..render_count.0 {
 					new_instances.instance_data_mut(new_index.start + i as usize * new_instances.alignment).set_data(&TyUniform(&[ty as f32]));
 
-					// // 用于debug， 实际上是其他信息
-					// instances.instance_data_mut(new_index.start + i as usize * instances.alignment).set_data(&TextWeightUniform(&[entity.index() as f32]));
+					// 用于debug
+					#[cfg(debug_assertions)]
+					new_instances.instance_data_mut(new_index.start + i as usize * new_instances.alignment).set_data(&DebugInfo(&[entity.index() as f32]));
 				}
 
 				log::trace!("instance_data_mut1============{:?}, {:?}, {:?}", entity, new_index, old_index);
@@ -306,7 +318,7 @@ pub fn update_render_instance_data(
 	let mut p0 = pass_query.p0();	
 		
 	let pass_toop_list = std::mem::take(&mut instances.pass_toop_list);
-	log::trace!("pass_toop_list=============={:?}", &pass_toop_list);
+	log::trace!("pass_toop_list1=============={:?}", &pass_toop_list);
 	for entity in pass_toop_list.iter() {
 		let (mut draw_2d_list, _pass_id) = match p0.get_mut(*entity) {
 			Ok(r) => r,
@@ -326,8 +338,8 @@ pub fn update_render_instance_data(
 			if cur_index != instance_data_range.start {
 				new_instances.update_dirty_range(cur_index..cur_index + instance_data_range.len());
 				for el in draw_2d_list.all_list_sort.iter() {
-					if let DrawIndex::DrawObj(entity) | DrawIndex::Pass2D(entity)  = &el.0 {
-						let (mut index, render_count) = instance_index.get_mut(entity.0).unwrap();
+					if let DrawIndex::DrawObj{draw_entity, ..} | DrawIndex::Pass2D(draw_entity)  = &el.0 {
+						let (mut index, render_count) = instance_index.get_mut(draw_entity.0).unwrap();
 						let end = cur_index + render_count.0 as usize * new_instances.alignment;
 						index.bypass_change_detection().0 = cur_index..end;
 						cur_index = end;
@@ -458,6 +470,7 @@ fn batch_pass(
 
 	let mut instance_data_start = draw_list.instance_range.start;
 	let mut instance_data_end =  draw_list.instance_range.start;
+
 	// let mut pipeline;
 	// log::warn!("batch_pass======={:?}", (pass_id, &draw_list.all_list_sort));
 	for (draw_index, _, _draw_info) in draw_list.all_list_sort.iter() {
@@ -467,7 +480,11 @@ fn batch_pass(
 		let mut cross_list: Option<EntityKey> = None;
 
 		let cur_pipeline = match draw_index.clone() {
-			DrawIndex::DrawObj(draw_entity) => if let Ok((instance_split, pipeline, fbo_info)) = query.draw_query.get(*draw_entity) {
+			DrawIndex::DrawObj{ 
+				draw_entity, 
+				#[cfg(debug_assertions)]
+				node_entity,
+			 } => if let Ok((instance_split, pipeline, fbo_info)) = query.draw_query.get(*draw_entity) {
 				// 为每一个drawObj分配新索引
 				let index = query.instance_index.get_mut(draw_entity.0).unwrap();
 				instance_data_end1 = instance_data_end;
@@ -481,6 +498,10 @@ fn batch_pass(
 				if let Some(instance_split) = instance_split {
 					match instance_split {
 						InstanceSplit::ByTexture(ui_texture) => {
+							#[cfg(debug_assertions)]
+							if !index.start.is_null() {
+								instances.debug_info.insert(index.start / MeterialBind::SIZE, format!("image: {:?}", draw_entity));
+							}
 							split_by_texture = Some(((*index).clone(), ui_texture, &query.common_sampler.default));
 						},
 						InstanceSplit::ByCross(is_list) =>  {
@@ -500,11 +521,39 @@ fn batch_pass(
 								instance_data.set_data(&TyUniform(&[ty as f32]));
 								if let Some(r) = &fbo_info.out {
 									split_by_texture = Some((index.clone(), &r.target().colors[0].0, &query.common_sampler.default)); // TODO， 根据纹理尺寸目标尺寸选择混合模式
-								};
+								}
+
+								#[cfg(debug_assertions)]
+								if !index.start.is_null() {
+									instances.debug_info.insert(index.start / MeterialBind::SIZE, format!("canvas: {:?}", draw_entity));
+									if index.start / MeterialBind::SIZE == 125 {
+										println!("canvas!!!================{:?}", draw_entity);
+									}
+								}
 							}
 						},
 					}
+				} else {
+					#[cfg(debug_assertions)]
+					if !index.start.is_null() {
+						instances.debug_info.insert(index.start / MeterialBind::SIZE, format!("node: {:?}", draw_entity));
+						// if index.start / MeterialBind::SIZE == 125 {
+						// 	let ty = instances.instance_data.instance_data_mut(index.start).get_render_ty();
+						// 	println!("node!!!================{:?}, node:{:?}, \ndraw:{:?}", ty, query.debug_node_query.get(*node_entity), query.debug_draw_query.get(*draw_entity));
+						// }
+					}
+					
 				}
+
+				// #[cfg(debug_assertions)]
+				// if !index.start.is_null() {
+				// 	if index.start / MeterialBind::SIZE == 125 {
+				// 		let ty = instances.instance_data.instance_data_mut(index.start).get_render_ty();
+				// 		println!("node!!!================{:?}, node:{:?}, \ndraw:{:?}", (ty, node_entity, draw_entity), query.debug_node_query.get(*node_entity), query.debug_draw_query.get(*draw_entity));
+				// 	}
+				// }
+
+				
 
 				cur_pipeline
 			} else {
@@ -518,9 +567,19 @@ fn batch_pass(
 					instance_data_end = index.end;
 					if let Some(r) = &fbo_info.out {
 						split_by_texture = Some((index.clone(), &r.target().colors[0].0, &query.common_sampler.default));
+
+						#[cfg(debug_assertions)]
+						if !index.start.is_null() {
+							instances.debug_info.insert(index.start / MeterialBind::SIZE, format!("pass:{:?}", r));
+							if index.start / MeterialBind::SIZE == 125 {
+								println!("pass!!!================{:?}", r);
+							}
+						}
+						// #[cfg(debug_assertions)]
+						// 	instances.instance_data_mut(index.start + i as usize * index.alignment).set_data(&DebugInfo(&[entity.index() as f32]));
 					}
 					
-					instances.posts.push(*r);// 后处理节点留在本层渲染末尾处理
+					// instances.posts.push(*r);// 后处理节点留在本层渲染末尾处理
 					&instances.common_pipeline
 				},
 				_ => {
@@ -669,6 +728,28 @@ pub struct BatchQuery<'s, 'w> {
 	instance_index: Query<'w, 's, &'static InstanceIndex>,
 	common_sampler: OrInitRes<'w,CommonSampler>,
 	device: Res<'w,PiRenderDevice>,
+
+	#[cfg(debug_assertions)]
+	debug_node_query: Query<'w, 's, (
+		Option< &'static BackgroundColor>,
+		Option< &'static BackgroundImage>,
+		Option< &'static BorderImage>,
+		Option< &'static Canvas>,
+		Option< &'static BlendMode>,
+		Option< &'static TextContent>,
+		// Option< &'static Svg>,
+	)>,
+
+	#[cfg(debug_assertions)]
+	debug_draw_query: Query<'w, 's, (
+		Option< &'static BackgroundColorMark>,
+		Option< &'static BackgroundImageMark>,
+		Option< &'static BorderImageMark>,
+		Option< &'static CanvasMark>,
+		Option< &'static TextMark>,
+		Option< &'static TextShadowMark>,
+		Option< &'static BoxShadowMark>,
+	)>,
 }
 
 // 批处理状态维护
@@ -704,6 +785,9 @@ pub fn batch_instance_data(
 	instances.draw_list.clear();
 	instances.posts.clear();
 	instances.rebatch = false;
+
+	#[cfg(debug_assertions)]
+	instances.debug_info.clear();
 	
 
 	let mut global_state = BatchGlobalState {
@@ -731,6 +815,7 @@ pub fn batch_instance_data(
 		let mut pre_clear_index = 0;
 		
 		let pass_toop_list = std::mem::take(&mut instances.pass_toop_list);
+		log::trace!("pass_toop_list===={:?}", pass_toop_list);
 		for (pass_index, pass_id) in pass_toop_list.iter().enumerate() {
 			let pass_index = pass_index + 1;
 
@@ -797,10 +882,16 @@ pub fn batch_instance_data(
 						// log::warn!("is_split_clear========={:?}", (pass_id, split_index, pre_clear_index, draw_2d_list.clear_instance, fbo_changed1, &draw_state.instance_data_range, draw_state.instance_data_range.len() / 224));
 					}
 				}
+				if let Ok(post_info) = query.post_info_query.get(*pass_id) {
+					if post_info.has_effect() {
+						instances.posts.push(*pass_id);// 后处理节点留在本层渲染末尾处理
+					}
+				}
 
 				// let mut instance_data_start = draw_2d_list.instance_range.start;
 				// let mut instance_data_end =  draw_2d_list.instance_range.start;
 				let mut draw_2d_list = std::mem::take(draw_2d_list);
+				// log::warn!("pass_index================{:?}", (pass_index, pass_id));
 				
 				batch_pass(&mut query, &mut batch_state, &mut global_state, instances, &mut draw_2d_list, *pass_id, *pass_id);
 
@@ -820,6 +911,7 @@ pub fn batch_instance_data(
 					batch_state.next_node_with_depend_index += 1;
 					batch_state.next_node_with_depend = instances.next_node_with_depend.get(batch_state.next_node_with_depend_index).map_or(std::usize::MAX, |r| {*r});
 					if global_state.post_start < instances.posts.len() {
+						// log::warn!("DrawPost====={:?}, {:?}, {:?}", pass_index, global_state.post_start..instances.posts.len(), instances.next_node_with_depend);
 						let post = (DrawElement::DrawPost(global_state.post_start..instances.posts.len()), *pass_id);
 						instances.draw_list.push(post);
 						global_state.post_start = instances.posts.len();

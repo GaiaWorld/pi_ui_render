@@ -208,8 +208,6 @@ pub fn calc_border_image(
 					&[space_top, space_right, space_bottom, space_left],  // data9 (空白长度， 这里表示上右下左的中间部分，每次纹理重复， 需要间隔多少布局空间)564.0264	0.0010	564.0209	0.0010
 
 					&[offset_top, offset_right, offset_bottom, offset_left,]); // data10 (偏移，空白长度， 这里表示上右下左的中间部分，开始的第一个纹理， 需要偏移多少布局空间) 0.0000	0.0000	0.0000	0.0000
-
-
 				instance_data.set_data(&TyUniform(&[render_flag as f32]));
 				
 			}

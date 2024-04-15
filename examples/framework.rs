@@ -473,6 +473,9 @@ pub fn record_cmd_to_file(mut records: ResMut<Records>) {
 // 设置下一条记录
 #[cfg(feature = "debug")]
 pub fn setting_next_record(world: &mut World, mut local_state: Local<NextState>) {
+    if local_state.is_end {
+        return;
+    }
 	let play_option  = world.get_resource::<PlayOption>().unwrap().clone();
     let local_state = &mut *local_state;
     setting(&mut local_state.file_index, world, &mut local_state.is_end, &play_option)
@@ -483,8 +486,6 @@ pub fn setting_next_record(world: &mut World, mut local_state: Local<NextState>)
 fn setting(file_index1: &mut usize, world: &mut World, is_end: &mut bool, play_option: &PlayOption) {
     use std::path::Path;
 
-    use pi_ui_render::system::draw_obj::calc_text::IsRun;
-
     let mut file_index = *file_index1;
     let play_state = world.get_resource::<PlayState>();
     if let Some(r) = play_state {
@@ -492,6 +493,14 @@ fn setting(file_index1: &mut usize, world: &mut World, is_end: &mut bool, play_o
             return;
         } else {
             let path = Path::new(play_option.cmd_path.as_str()).join(("cmd_".to_string() + play_option.play_version.as_str() + "_" + file_index.to_string().as_str() + ".gui_cmd").as_str());
+            if file_index > play_option.max_index {
+                if !*is_end {
+                    log::warn!("play end, {:?}", path);
+                    // world.insert_resource(IsRun(true)); // 屏蔽所有节点运行
+                }
+                *is_end = true;
+                return;
+            }
             // let _span = tracing::warn_span!("gui_cmd").entered();
             match std::fs::read(path.clone()) {
                 Ok(bin) => {
@@ -505,6 +514,7 @@ fn setting(file_index1: &mut usize, world: &mut World, is_end: &mut bool, play_o
                             play_state.next_reord_index = 0;
                             play_state.next_state_index = 0;
                             play_state.cur_frame_count = 0;
+                            play_state.speed = play_option.speed;
                         }
                         Err(e) => {
                             *is_end = true;
@@ -549,6 +559,8 @@ pub struct PlayOption {
 	pub play_path: Option<String>,
 	pub play_version: String,
 	pub cmd_path: String,
+    pub max_index: usize,
+    pub speed: f32,
 }
 
 // #[allow(dead_code)]

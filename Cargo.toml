@@ -36,6 +36,7 @@ tracing-tracy = [
 single_thread = [
 	"pi_bevy_render_plugin/single_thread",
 	"pi_hal/single_thread",
+	"wgpu/single_thread"
 ] # 本地平台，设置该feature有效，运行时为单线程运行时
 
 [dependencies]
@@ -144,7 +145,7 @@ tracing = "0.1"
 postcard = { version = "1.0", features = ["use-std"] }
 
 # wgpu = { version = "0.1", registry = "yn", package = "pi_wgpu" }
-wgpu = { version = "0.1", registry = "yn", package = "pi_wgpu", features = ["use_wgpu"]}
+wgpu = { version = "0.1", registry = "yn", package = "pi_wgpu"}
 # pi_ui_render = { path = "./", features = ["trace", "single_thread"] }
 # pi_ui_render = { path = "./", features = ["trace"] }
 pi_ui_render = { path = "./", features = ["debug", "single_thread"] }
@@ -263,13 +264,14 @@ bevy_math = { path = "../bevy/crates/bevy_math" }
 # pi_spatial = { path="../pi_spatial" }
 
 # pi_spatial = {path = "../pi_spatial"}
+glow = {path = "../glow"}
 
 [patch.yn]
 # pi_curves  = {path="../pi_curves"}
 # pi_animation = { path="../pi_animation"}
 # pi_style = {path = "../pi_style"}
-# pi_wgpu = {path = "../pi_wgpu"}
-# pi_egl = {path = "../pi_egl"}
+pi_wgpu = {path = "../pi_wgpu"}
+pi_egl = {path = "../pi_egl"}
 # winit = {path = "../winit"}
 # font_kit = { path = "../font_kit" }
 # pi_hal = { path = "../pi_hal" }
@@ -295,10 +297,10 @@ bevy_math = { path = "../bevy/crates/bevy_math" }
 # pi_bevy_window = { path = "../pi_bevy/crates/window" }
 
 # pi_render
-# pi_render = { path = "../pi_render" }
-# render_core = {path = "../pi_render/crates/render_core"}
-# render_derive = {path = "../pi_render/crates/render_derive"}
-# render_compile = {path = "../pi_render/crates/render_compile"}
+pi_render = { path = "../pi_render" }
+render_core = {path = "../pi_render/crates/render_core"}
+render_derive = {path = "../pi_render/crates/render_derive"}
+render_compile = {path = "../pi_render/crates/render_compile"}
 
 # pi_render = { path = "../pi_render" }
 # render_core = {path = "../pi_render/crates/render_core"}

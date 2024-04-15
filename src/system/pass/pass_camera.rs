@@ -6,31 +6,28 @@
 //! 5. 为删除的pass2D删除图节点，并建立正确的依赖关系
 
 use bevy_ecs::{
-    system::{ParamSet, Query, Res, ResMut},
-    prelude::{DetectChanges, Ref, With, Without, Entity},
+    prelude::{DetectChanges, Entity, Ref}, query::{Changed, Or}, system::{ParamSet, Query, Res}, world::Mut
 };
 use pi_bevy_ecs_extend::{
-    prelude::{Layer, OrDefault},
+    prelude::Layer,
     system_param::res::OrInitResMut,
 };
-use pi_bevy_post_process::PostprocessResource;
 use pi_render::renderer::draw_obj::DrawBindGroup;
 use pi_share::{Share, ShareWeak};
 
 use crate::{
     components::{
         calc::{
-            DrawInfo, DrawList, InPassId, IsShow, OverflowDesc, Quad, RootDirtyRect, TransformWillChangeMatrix, View, WorldMatrix, ZRange,
+            IsShow, OverflowDesc, Quad, TransformWillChangeMatrix, View, WorldMatrix,
         },
-        draw_obj::DrawState,
         pass_2d::{
-            Camera, DirtyMark, DirtyRectState, Draw2DList, LastDirtyRect, ParentPassId, PostProcess, PostProcessInfo, RenderTarget, RenderTargetCache, StrongTarget, ViewMatrix
+            Camera, DirtyMark, RenderTarget, RenderTargetCache, StrongTarget
         },
-        user::{Aabb2, AsImage, BackgroundImage, Point2, RenderDirty, Vector2, Viewport},
+        user::{Aabb2, AsImage, Point2, Vector2, Viewport},
     },
     resource::{
         draw_obj::InstanceContext,
-        QuadTree, ShareFontSheet,
+        ShareFontSheet,
     },
     shader1::meterial::{ProjectUniform, Sdf2TextureSizeUniform, ViewUniform},
     system::{draw_obj::calc_text::IsRun, utils::{create_project, rotatequad_quad_intersection}},
@@ -40,82 +37,46 @@ use crate::{
 #[allow(unused_must_use)]
 #[allow(unused_variables)]
 pub fn calc_camera_depth_and_renderlist(
-    // query_draw2d_list: Query<&'static mut Draw2DList>,
-    mut query_pass: Query<
+    mut query_pass: ParamSet<(
+        Query<
+            (
+                Entity,
+                &mut Camera,
+                &mut DirtyMark, // 本地脏区域
+                &View,
+                &TransformWillChangeMatrix,
+                &Layer,
+                Option<&AsImage>,
+                &mut RenderTarget,
+                &Quad,
+                &IsShow,
+            ),
+        >,
+        Query<
         (
             Entity,
             &mut Camera,
-            &mut ViewMatrix,
-            &mut LastDirtyRect,
             &mut DirtyMark, // 本地脏区域
-            Option<&mut PostProcess>,
-            &PostProcessInfo,
             &View,
             &TransformWillChangeMatrix,
             &Layer,
             Option<&AsImage>,
             &mut RenderTarget,
-            Option<&BackgroundImage>,
             &Quad,
-            (&Draw2DList,
-            &IsShow),
+            &IsShow,
         ),
-        Without<DrawState>,
-    >,
-    // mut query_pass: ParamSet<(
-    //     Query<
-    //         (
-    //             Entity,
-    //             &mut Camera,
-    //             &mut ViewMatrix,
-    //             &mut LastDirtyRect,
-    //             &mut DirtyMark, // 本地脏区域
-    //             Option<&mut PostProcess>,
-    //             &PostProcessInfo,
-    //             &View,
-    //             &TransformWillChangeMatrix,
-    //             &Layer,
-    //             Option<&AsImage>,
-    //             &mut RenderTarget,
-	// 			Option<&BackgroundImage>,
-	// 			&Quad,
-	// 			(&Draw2DList,
-	// 			&IsShow),
-    //         ),
-    //         Without<DrawState>,
-    //     >,
-    //     // (Query<(&LastDirtyRect, &Camera)>, Query<(&'static mut Draw2DList, &Camera)>),
-    //     // (Query<(&Camera, &View)>, Query<&'static mut PostProcessInfo>),
-	// 	// Query<(&'static mut Draw2DList, Entity, &Camera)>
-    // )>,
-    node_query: Query<(
-		Option<&'static ParentPassId>,
-        &'static InPassId,
-        &'static DrawList,
-        &'static Quad,
-        &'static ZRange,
-        &'static IsShow,
-        Entity,
-    )>,
-    draw_obj_post_query: Query<(), (With<PostProcess>, With<DrawState>)>,
-    mut query_root: ParamSet<(Query<(&RootDirtyRect, OrDefault<RenderDirty>, Ref<Viewport>)>, Query<&mut RenderDirty>)>,
-    draw_state: Query<&'static mut DrawState>,
-    draw_info: Query<&'static DrawInfo>,
-
-    res: (
-        Res<QuadTree>,
-		Res<ShareFontSheet>,
-    ),
-
+        Or<(Changed<View>, Changed<AsImage>, Changed<IsShow>)>
+    >)>,
+    // mut query_root: ParamSet<(Query<(&RootDirtyRect, OrDefault<RenderDirty>, Ref<Viewport>)>, Query<&mut RenderDirty>)>,
+    query_root: Query<Ref<Viewport>>,
+    font_sheet: Res<ShareFontSheet>,
 	instance_context: Res<InstanceContext>,
-    post_resource: ResMut<PostprocessResource>,
 	r: OrInitResMut<IsRun>
 ) {
 	if r.0 {
 		return;
 	}
-    let (quad_tree, font_sheet) = res;
-    let p0 = query_root.p0();
+    // let p0 = query_root.p0();
 	let font_sheet = font_sheet.0.borrow();
 	let font_texture_size = font_sheet.texture_size();
 	let font_type =  font_sheet.font_mgr().font_type;
@@ -123,71 +84,56 @@ pub fn calc_camera_depth_and_renderlist(
 	// 所有根共同的脏区域
     let mut all_dirty_rect = Aabb2::new(Point2::new(std::f32::MAX, std::f32::MAX), Point2::new(std::f32::MIN, std::f32::MIN));
 
+    let mut view_port_is_dirty = false;
     // 迭代根节点，得到最大脏包围盒
-    for (global_dirty_rect, render_dirty_mark, view_port) in p0.iter() {
-        if global_dirty_rect.state != DirtyRectState::UnInit {
-            box_aabb(&mut all_dirty_rect, &global_dirty_rect.value);
-			// box_aabb(&mut all_dirty_rect, &view_port.0);
-        } else if render_dirty_mark.0 {
-			box_aabb(&mut all_dirty_rect, &view_port.0);
-		}
+    for view_port in query_root.iter() {
+        if view_port.is_changed() {
+            view_port_is_dirty = true;
+        }
+        box_aabb(&mut all_dirty_rect, &view_port.0);
     }
-
-    for (
-        entity,
-        mut camera,
-        _view_matrix,
-        mut last_dirty,
-        mut local_dirty,
-        postprocess_list,
-        post_info,
-        overflow_aabb,
-        willchange_matrix,
-        layer,
-        as_image,
-        mut render_target,
-		bg,
-		quad,
-		(draw2d_list,
-		is_show),
-    ) in query_pass.iter_mut()
-    {
+    
+    let calc_camera = |
+        (
+            entity, 
+            mut camera, 
+            mut local_dirty, 
+            overflow_aabb, 
+            willchange_matrix, 
+            layer, 
+            as_image, 
+            mut render_target, 
+            quad, 
+            is_show): 
+        (
+            Entity,
+            Mut<Camera>,
+            Mut<DirtyMark>, // 本地脏区域
+            &View,
+            &TransformWillChangeMatrix,
+            &Layer,
+            Option<&AsImage>,
+            Mut<RenderTarget>,
+            &Quad,
+            &IsShow,
+        )
+    | {
         camera.is_active = false;
 
 		if !is_show.get_visibility() || !is_show.get_display() {
-			continue;
+			return;
 		}
 
-        let mut local_dirty_mark = local_dirty.0;
+        let local_dirty_mark = local_dirty.0;
         local_dirty.0 = false;
 
-        let (global_dirty_rect, render_dirty_mark, viewport) = match p0.get(layer.root()) {
-            Ok(r) => {
-                if r.2.is_changed() {
-                    local_dirty_mark = true; // root的视口脏了， 需要全部重新渲染
-                }
-                r
-            }
-            _ => continue,
+        let dirty_rect = match query_root.get(layer.root()) {
+            Ok(r) => r,
+            Err(_) => return,
         };
-		log::trace!("local_dirty_mark============{:?}, {:?}, {:?}, {:?}, {:?}, {:?}", entity, local_dirty_mark, as_image, global_dirty_rect, quad, render_dirty_mark);
-
-		let render_dirty_mark = render_dirty_mark.0;
-		let render_dirty_mark = true;
-        // 不脏，不需要组织渲染图， 也不需要渲染脏
-        if global_dirty_rect.state == DirtyRectState::UnInit && !render_dirty_mark {
-            continue;
-        }
 
         // 检查render_target的缓存情况， 设置rendertarget
         check_render_target(&mut render_target, as_image);
-
-        // 如果render_dirty_mark.0, 表示全屏脏
-        let mut dirty_rect = global_dirty_rect.value.clone();
-		// 如果该pass2d是根节点， 则其脏区域始终为视口区域
-        if render_dirty_mark { 
-            dirty_rect = viewport.0;
-        }
 
 
         // log::warn!("pass_id1========={:?}, {:?}", dirty_rect, willchange_matrix);
@@ -219,7 +165,7 @@ pub fn calc_camera_depth_and_renderlist(
 
 
         if no_rotate_view_aabb.mins.x >= no_rotate_view_aabb.maxs.x || no_rotate_view_aabb.mins.y >= no_rotate_view_aabb.maxs.y {
-            continue;
+            return;
         }
 
         // 计算视图区域（世界坐标系）
@@ -230,35 +176,6 @@ pub fn calc_camera_depth_and_renderlist(
                 &aabb_temp
             }
             _ => &no_rotate_view_aabb,
-        };
-
-        // 计算用于剔除的aabb
-        // 剔除使用quad和节点的脏区域判断相交来剔除， 注意坐标系都是世界坐标系
-        // 如果存在transformwillchange，则需要算上脏区域
-        // no_will_change用于包围盒剔除渲染对象（渲染对象使用quad来剔除，quad是没有willchange_matrix的参与的）
-        let cull_aabb = if let Some(r) = &willchange_matrix.0 {
-            // log::warn!("cull_aabb willchange_matrix======================{:?}, {:?}", entity, willchange_matrix);
-            if post_info.has_effect() {
-                let mm;
-                let m = match &overflow_aabb.desc {
-                    OverflowDesc::Rotate(rotate) => {
-                        mm = &r.will_change_invert.0 * &rotate.world_rotate;
-                        &mm
-                    }
-                    _ => &r.will_change_invert,
-                };
-                let r = calc_bound_box(&no_rotate_view_aabb, m);
-                r
-            } else {
-                view_world_aabb.clone()
-            }
-        } else {
-            view_world_aabb.clone()
-        };
-        // log::warn!("cull_aabb======{:?}, {:?}, {:?}", entity, cull_aabb, no_rotate_view_aabb);
-        *last_dirty = LastDirtyRect {
-            // last: view_aabb.clone(),
-            no_will_change: cull_aabb,
         };
 
 		// log::warn!("last_dirty======{:?}, {:?}", entity, cull_aabb);
@@ -302,52 +219,15 @@ pub fn calc_camera_depth_and_renderlist(
 		};
 		camera_group.set_uniform(&Sdf2TextureSizeUniform(&[font_texture_size.width as f32, font_texture_size.height as f32, font_texture_size.width as f32, font_texture_size.height as f32]));
 
-
-        let scale_x = (aabb.maxs.x - aabb.mins.x) / 2.0;
-        let scale_y = (aabb.maxs.y - aabb.mins.y) / 2.0;
-        // 后处理效果与gui坐标系使用不一致，所以缩放为-scale_y
-        // 这里的aabb是指当前非旋转坐标系
-        // let world_matrix = Matrix4::new(
-        //     scale_x,
-        //     0.0,
-        //     0.0,
-        //     aabb.mins.x + scale_x,
-        //     0.0,
-        //     -scale_y,
-        //     0.0,
-        //     aabb.mins.y + scale_y,
-        //     0.0,
-        //     0.0,
-        //     1.0,
-        //     0.0,
-        //     0.0,
-        //     0.0,
-        //     0.0,
-        //     1.0,
-        // );
         *camera = Camera {
-            view: view_matrix.clone(),
-            project: project_matrix,
+            // view: view_matrix.clone(),
+            // project: project_matrix,
             bind_group: Some(DrawBindGroup::Offset(camera_group)),
             view_port: aabb,
             // world_matrix: world_matrix.clone(),
             is_active: true,
             is_change: true,
         };
-
-		// log::warn!("pass==================={:?}, {:?}, {:?}, {:?}", entity, global_dirty_rect, overflow_aabb, aabb);
-        // 一些不需要后处理的，可以不用计算view_port和matrix， TODO
-        // let post_info = post_info.bypass_change_detection();
-        // post_info.view_port = aabb;
-        // // 存在旋转，需要旋转回父上下文
-        // if let OverflowDesc::Rotate(matrix) = &overflow_aabb.desc {
-        //     post_info.matrix = WorldMatrix(&matrix.from_context_rotate * world_matrix, true);
-        // } else {
-		// 	// if bg.is_some() {
-		// 	// 	log::warn!("aaaa================={:?}, {:?}, {:?}", entity, aabb, world_matrix);
-		// 	// }
-        //     post_info.matrix = WorldMatrix(world_matrix, false);
-        // }
 
         if let &StrongTarget::None = &render_target.target {
 			// if bg.is_some() {
@@ -401,225 +281,20 @@ pub fn calc_camera_depth_and_renderlist(
                 camera.is_change = false;
             }
         }
+    };
+    if view_port_is_dirty {
+        // 当视口发生变化时， 需要遍历所有的pass2d从新计算相机
+        for r in query_pass.p0().iter_mut() {
+            calc_camera(r);
+        }
+    } else {
+        // 当视口未发生改变时， 只需要冲洗计算脏了的pass
+        for r in query_pass.p1().iter_mut() {
+            calc_camera(r);
+        }
     }
-
-    // 没有渲染脏
-    if (all_dirty_rect.maxs.x - all_dirty_rect.mins.x) <= 0.0 || (all_dirty_rect.maxs.y - all_dirty_rect.mins.y) <= 0.0 {
-        return;
-    }
-
-    // 组织渲染列表
-	// let p1 = query_pass.p1();
-    // let mut args = AbQueryArgs {
-    //     node_query,
-    //     pass_query: p1.0,
-    //     draw_list: p1.1,
-    //     draw_info,
-    //     post_process: draw_obj_post_query,
-	// 	is_run: r,
-    // };
-
-	// ab_query_func(&mut args);
-    // quad_tree.query(&all_dirty_rect, intersects, &mut args, ab_query_func);
-
-	// log::warn!("all_dirty_rect====={:?}", all_dirty_rect);
-
-    // // 遍历所有的pass，设置不透明渲染列表和透明渲染列表
-    // for mut list in args.draw_list.iter_mut() {
-    //     let list = &mut list;
-    //     list.opaque.clear();
-    //     list.transparent.clear();
-    //     if list.all_list.len() == 0 {
-    //         continue;
-    //     }
-
-    //     // 按深度从小到大排序
-    //     list.all_list.sort_by(|(_a, a_z_depth, a_sort), (_b, b_z_depth, b_sort)| {
-    //         if a_z_depth.start < b_z_depth.start {
-    //             std::cmp::Ordering::Less
-    //         } else if a_z_depth.start > b_z_depth.start {
-    //             std::cmp::Ordering::Greater
-    //         } else {
-    //             if a_sort.order() < b_sort.order() {
-    //                 std::cmp::Ordering::Less
-    //             } else if a_sort.order() > b_sort.order() {
-    //                 std::cmp::Ordering::Greater
-    //             } else {
-    //                 std::cmp::Ordering::Equal
-    //             }
-    //         }
-    //         // 用渲染管线排序，TODO
-    //         // draw_state.get(a)
-    //     });
-
-    //     for i in 0..list.all_list.len() {
-    //         let (entity, _, draw_info) = list.all_list[i];
-    //         // 暂时放入不透明列表，TODO
-    //         if draw_info.is_opacity() {
-    //             list.opaque.push((entity, 0));
-    //         } else {
-    //             list.transparent.push((entity, 0));
-    //         }
-    //     }
-    // }
-
-	// for (list, entity, camera) in query_pass.p3().iter() {
-	// 	log::warn!("list======={:?}, {:?}, {:?}", entity, list.all_list, camera);
-	// }
-
-    // 重置渲染脏
-    for mut i in query_root.p1().iter_mut() {
-        **i = false;
-    }
+    
 }
-
-// pub struct AbQueryArgs<'s, 'a> {
-//     node_query: Query<'a, 'a, (Option<&'s ParentPassId>, &'s InPassId, &'s DrawList, &'s Quad, &'s ZRange, &'s IsShow, Entity)>,
-//     pass_query: Query<'a, 'a, (&'s LastDirtyRect, &'s Camera)>,
-//     draw_list: Query<'a, 'a, (&'s mut Draw2DList, &'s Camera)>,
-//     post_process: Query<'a, 'a, (), (With<PostProcess>, With<DrawState>)>,
-//     draw_info: Query<'a, 'a, &'s DrawInfo>,
-// 	is_run: OrInitResMut<'a, IsRun>,
-// }
-
-// /// 不能通过四叉树命中， 因为可能存在transformwillchange， 此时包围是不正确的， 不能正确查询
-// fn ab_query_func(arg: &mut AbQueryArgs) {
-// 	if arg.is_run.0 {
-// 		return;
-// 	}
-// 	for (parent_pass_id, in_pass_id, draw_list, quad, z_range, is_show, id) in arg.node_query.iter() {
-// 		let (context_dirty, camera) = match arg.pass_query.get(***in_pass_id) {
-//             Ok(r) => r,
-//             _ => return,
-//         };
-
-//         // log::trace!(target: format!("entity_{:?}", id.0).as_str(), "try collect render all_list, is_show: {:?}, quad: {:?}, context_dirty: {:?}, intersects={:?}", is_show.get_visibility(), quad, context_dirty.no_will_change, intersects(quad, &context_dirty.no_will_change));
-//         // log::trace!(
-//         //     "try collect render all_list, entity: {:?}, is_show: {:?}, quad: {:?}, context_dirty: {:?}, is_change:{:?}, is_active: {:?}",
-//         //     id.0,
-//         //     is_show.get_visibility(),
-//         //     quad,
-//         //     context_dirty.no_will_change,
-// 		// 	camera.is_change,
-// 		// 	camera.is_active,
-//         // );
-//         // log::warn!("draw_list2==================id: {:?}, {:?}, {:?}, quad: {:?}", id, in_pass_id, draw_list, quad);
-//         // global_dirty_rect应该是pass内部的aadd，（与TransformWillChange有关）
-//         if draw_list.len() > 0 && camera.is_change && is_show.get_visibility() {
-//             // log::warn!("ab_query_func======={:?}, {:?}, {:?}, {:?}, {:?}", id, in_pass_id, quad, context_dirty.no_will_change, intersects(quad, &context_dirty.no_will_change));
-//             if intersects(quad, &context_dirty.no_will_change) {
-//                 let (mut list, _) = arg.draw_list.get_mut(***in_pass_id).unwrap();
-//                 let list = &mut list;
-//                 for draw_id in draw_list.iter() {
-//                     if let Ok(_) = arg.post_process.get(draw_id.id) {
-//                         list.single_list.push(DrawIndex::DrawObj(EntityKey(draw_id.id)));
-//                         list.all_list.push((
-//                             DrawIndex::DrawObjPost(EntityKey(draw_id.id)),
-//                             z_range.clone(),
-//                             *arg.draw_info.get(draw_id.id).unwrap(),
-//                         ));
-//                     } else {
-// 						if arg.draw_info.get(draw_id.id).is_err() {
-// 							log::warn!("is_err================={:?}, {:?}, {:?}", draw_id, id, draw_list);
-// 							arg.is_run.0 = true;
-// 							return;
-// 						}
-//                         list.all_list.push((
-//                             DrawIndex::DrawObj(EntityKey(draw_id.id)),
-//                             z_range.clone(),
-//                             *arg.draw_info.get(draw_id.id).unwrap(),
-//                         ));
-//                     }
-//                 }
-//             } else {
-//                 // log::warn!("cull======{:?}, {:?}, is_show: {:?}", quad, &context_dirty.no_will_change, is_show.get_visibility());
-//             }
-//         }
-//         // parent_pass_id存在，表示本节点是一个pass2d
-//         if camera.is_active {
-//             if let Some(parent) = parent_pass_id {
-				
-//                 if let Ok((mut p, p_camera)) = arg.draw_list.get_mut(*parent.0) {
-// 					if p_camera.is_active && p_camera.is_change {
-// 						p.all_list
-//                         .push((DrawIndex::Pass2D(EntityKey(id)), z_range.clone(), DrawInfo::new(10, false)));
-// 					}
-//                 }
-//             }
-//         }
-// 	}
-// }
-
-
-// fn ab_query_func(arg: &mut AbQueryArgs, id: EntityKey, _aabb: &Aabb2, _bind: &()) {
-// 	if arg.is_run.0 {
-// 		return;
-// 	}
-//     // quad_tree.
-//     if let Ok((parent_pass_id, in_pass_id, draw_list, quad, z_range, is_show, entity)) = arg.node_query.get(*id) {
-//         // log::warn!("draw_list1==================entity: {:?}, draw_list: {:?}, {}, {:?}", entity, draw_list, is_show.get_visibility(), quad, );
-//         let (context_dirty, camera) = match arg.pass_query.get(***in_pass_id) {
-//             Ok(r) => r,
-//             _ => return,
-//         };
-
-//         // log::trace!(target: format!("entity_{:?}", id.0).as_str(), "try collect render all_list, is_show: {:?}, quad: {:?}, context_dirty: {:?}, intersects={:?}", is_show.get_visibility(), quad, context_dirty.no_will_change, intersects(quad, &context_dirty.no_will_change));
-//         // log::trace!(
-//         //     "try collect render all_list, entity: {:?}, is_show: {:?}, quad: {:?}, context_dirty: {:?}, is_change:{:?}, is_active: {:?}",
-//         //     id.0,
-//         //     is_show.get_visibility(),
-//         //     quad,
-//         //     context_dirty.no_will_change,
-// 		// 	camera.is_change,
-// 		// 	camera.is_active,
-//         // );
-//         // log::warn!("draw_list2==================id: {:?}, {:?}, {:?}, quad: {:?}", id, in_pass_id, draw_list, quad);
-//         // global_dirty_rect应该是pass内部的aadd，（与TransformWillChange有关）
-//         if draw_list.len() > 0 && camera.is_change && is_show.get_visibility() {
-//             // log::warn!("ab_query_func======={:?}, {:?}, {:?}, {:?}, {:?}", id, in_pass_id, quad, context_dirty.no_will_change, intersects(quad, &context_dirty.no_will_change));
-//             if intersects(quad, &context_dirty.no_will_change) {
-//                 let (mut list, _) = arg.draw_list.get_mut(***in_pass_id).unwrap();
-//                 let list = &mut list;
-//                 for draw_id in draw_list.iter() {
-//                     if let Ok(_) = arg.post_process.get(draw_id.id) {
-//                         list.single_list.push(DrawIndex::DrawObj(EntityKey(draw_id.id)));
-//                         list.all_list.push((
-//                             DrawIndex::DrawObjPost(EntityKey(draw_id.id)),
-//                             z_range.clone(),
-//                             *arg.draw_info.get(draw_id.id).unwrap(),
-//                         ));
-//                     } else {
-// 						if arg.draw_info.get(draw_id.id).is_err() {
-// 							log::warn!("is_err================={:?}, {:?}, {:?}", draw_id, id, draw_list);
-// 							arg.is_run.0 = true;
-// 							return;
-// 						}
-//                         list.all_list.push((
-//                             DrawIndex::DrawObj(EntityKey(draw_id.id)),
-//                             z_range.clone(),
-//                             *arg.draw_info.get(draw_id.id).unwrap(),
-//                         ));
-//                     }
-//                 }
-//             } else {
-//                 // log::warn!("cull======{:?}, {:?}, is_show: {:?}", quad, &context_dirty.no_will_change, is_show.get_visibility());
-//             }
-//         }
-// 		log::warn!("parent============{:?}, {:?}, {:?}, {:?}",id, parent_pass_id, camera.is_active, quad);
-//         // parent_pass_id存在，表示本节点是一个pass2d
-//         if camera.is_active {
-//             if let Some(parent) = parent_pass_id {
-				
-//                 if let Ok((mut p, p_camera)) = arg.draw_list.get_mut(*parent.0) {
-// 					if p_camera.is_active && p_camera.is_change {
-// 						p.all_list
-//                         .push((DrawIndex::Pass2D(EntityKey(entity)), z_range.clone(), DrawInfo::new(10, false)));
-// 					}
-//                 }
-//             }
-//         }
-//     }
-// }
 
 pub fn check_render_target(render_target: &mut RenderTarget, as_image: Option<&AsImage>) {
     match as_image {

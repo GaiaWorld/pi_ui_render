@@ -15,7 +15,6 @@
 //! 4. 在节点上创建其所在的Pass2D实体的索引（InPass2DId），表明节点上的渲染对象应该渲染到那个Psss2D上。
 //!
 //!
-
 use bevy_ecs::{
     change_detection::DetectChangesMut, prelude::{Component, Entity, EventReader, EventWriter, Ref, RemovedComponents, Res}, query::{Changed, Or}, system::{Commands, ParamSet, Query, ResMut}, world::Mut
 };
@@ -23,12 +22,14 @@ use pi_bevy_ecs_extend::{
     prelude::{Layer, LayerDirty, Up},
     system_param::{layer_dirty::ComponentEvent, res::{OrInitRes, OrInitResMut}},
 };
+use pi_hal::pi_sdf::glyphy::geometry::aabb::AabbEXT;
 use pi_null::Null;
+use pi_style::style::Aabb2;
 
 use crate::{
     components::{
-        calc::{ContentBox, EntityKey, InPassId, NeedMark, RenderContextMark, WorldMatrix}, draw_obj::InstanceIndex, pass_2d::{Camera, ChildrenPass, ParentPassId, PostProcessInfo}, PassBundle
-    }, resource::{draw_obj::InstanceContext, EffectRenderContextMark, RenderContextMarkType}, shader1::meterial::{BoxUniform, QuadUniform, RenderFlagType, TyUniform}, system::draw_obj::{calc_text::IsRun, set_box}
+        calc::{ContentBox, EntityKey, InPassId, NeedMark, OverflowDesc, RenderContextMark, View, WorldMatrix}, draw_obj::InstanceIndex, pass_2d::{Camera, ChildrenPass, ParentPassId, PostProcessInfo}, user::Point2, PassBundle
+    }, resource::{draw_obj::InstanceContext, EffectRenderContextMark, RenderContextMarkType}, shader::camera, shader1::meterial::{BoxUniform, QuadUniform, RenderFlagType, TyUniform}, system::draw_obj::{calc_text::IsRun, set_box}
 };
 
 /// 记录RenderContext添加和删除的脏，同时记录节点添加到树上的脏
@@ -311,6 +312,10 @@ pub fn calc_pass(
 			Ref<WorldMatrix>,
             Ref<ContentBox>,
             &ParentPassId,
+            Entity,
+            &PostProcessInfo,
+            &Camera,
+            &View,
 		),
 		Or<(Changed<PostProcessInfo>, Changed<WorldMatrix>, Changed<ContentBox>)>,
 	>,
@@ -320,7 +325,7 @@ pub fn calc_pass(
 		return;
 	}
 
-    for (instance_index, world_matrix, content_box, parent_pass_id) in query.iter() {
+    for (instance_index, world_matrix, content_box, parent_pass_id, entity, post_info, camera, overflow_aabb) in query.iter() {
 		// 节点可能设置为dispaly none， 此时instance_index可能为Null
         if pi_null::Null::is_null(&instance_index.0.start) {
             continue;
@@ -341,9 +346,47 @@ pub fn calc_pass(
                 1.0, 1.0,
             ]));
         } else {
-            set_box(&world_matrix, &content_box.layout, &mut instance_data);
+            // if content_box.layout.width() >= 700.0 && content_box.layout.height() >= 910.0 {
+                // println!("right_bottom.x >= 788, {:?}, \n{:?}", (entity, post_info.has_effect(), content_box.layout.width(), content_box.layout.height()), world_matrix);
+            // }
+            
+            // let aabb = &camera.view_port;
+            if let OverflowDesc::Rotate(matrix) = &overflow_aabb.desc {
+                // 注意， 此处设置的BoxUniform并不正确， 当此渲染也不需要改数据
+                set_box(&matrix.from_context_rotate, &camera.view_port, &mut instance_data);
+            } else {
+                // if bg.is_some() {
+                	// log::warn!("aaaa================={:?}, {:?}", entity, &camera.view_port);
+                // }
+                // post_info.matrix = WorldMatrix(world_matrix, false);
+                instance_data.set_data(&QuadUniform(&[
+                    camera.view_port.mins.x, camera.view_port.mins.y,
+                    camera.view_port.mins.x, camera.view_port.maxs.y,
+                    camera.view_port.maxs.x, camera.view_port.maxs.y,
+                    camera.view_port.maxs.x, camera.view_port.mins.y,
+                ]));
+            }
+
+            // // 存在旋转，需要旋转回父上下文
+            // if let OverflowDesc::Rotate(matrix) = &overflow_aabb.desc {
+            //     post_info.matrix = WorldMatrix(&matrix.from_context_rotate * world_matrix, true);
+            // } else {
+            //     // if bg.is_some() {
+            //     // 	log::warn!("aaaa================={:?}, {:?}, {:?}", entity, aabb, world_matrix);
+            //     // }
+            //     post_info.matrix = WorldMatrix(world_matrix, false);
+            // }
+
+            // let layout_rect = Aabb2::new(Point2::new(0.0, 0.0), Point2::new(content_box.layout.width(), content_box.layout.height()));
+            // instance_data.set_data(&BoxUniform(&[layout_rect.mins.x, layout_rect.mins.y, layout_rect.maxs.x - layout_rect.mins.x, layout_rect.maxs.y - layout_rect.mins.y]));
+            // instance_data.set_data(&QuadUniform(&[
+            //     left_top.x, left_top.y,
+            //     left_bottom.x, left_bottom.y,
+            //     right_bottom.x, right_bottom.y,
+            //     right_top.x, right_top.y,
+            // ]));
+            // set_box(&world_matrix, &Aabb2::new(Point2::new(0.0, 0.0), Point2::new(content_box.layout.width(), content_box.layout.height())), &mut instance_data);
         }
-       
         instance_data.set_data(&TyUniform(&[render_flag as f32]));
 	}
 }

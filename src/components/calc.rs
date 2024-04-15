@@ -170,7 +170,9 @@ impl DrawInfo {
 
 	pub fn is_visibility(&self) -> bool { (self.0 & (1 << 30)) > 0 }
 
-	pub fn set_visibility(&mut self, value: bool) { self.0 = self.0 << 1 >> 1 | ((unsafe { transmute::<_, u8>(value) } as u32) << 30); }
+	pub fn set_visibility(&mut self, value: bool) { 
+        self.0 = self.0 & !(1 << 30) | ((unsafe { transmute::<_, u8>(value) } as u32) << 30); 
+    }
 
 	// 不透明排前面，透明排后面
 	pub fn opacity_order(&self) -> usize { 
@@ -451,12 +453,12 @@ impl DerefMut for Quad {
     fn deref_mut(&mut self) -> &mut Self::Target { &mut self.0 }
 }
 
-#[derive(Debug, Component, Clone, Serialize, Deserialize)]
+#[derive(Debug, Component, Clone, Serialize, Deserialize, Default)]
 pub struct IsShow(usize);
 
-impl Default for IsShow {
-    fn default() -> IsShow { IsShow(ShowType::Visibility as usize | ShowType::Enable as usize) }
-}
+// impl Default for IsShow {
+//     fn default() -> IsShow { IsShow(ShowType::Visibility as usize | ShowType::Enable as usize) }
+// }
 
 impl IsShow {
     #[inline]
@@ -773,7 +775,7 @@ impl Default for ViewBox {
 #[derive(Clone, Default, Debug)]
 pub struct OveflowRotate {
     // 相对于父上下文的旋转
-    pub from_context_rotate: Matrix4<f32>,
+    pub from_context_rotate: WorldMatrix,
     // 节点相对于世界坐标的渲染
     pub world_rotate: Matrix4<f32>,
     // 节点相对于世界坐标的旋转的逆
