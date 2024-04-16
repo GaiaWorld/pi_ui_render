@@ -18,7 +18,6 @@ use pi_bevy_render_plugin::{
     node::{Node, NodeId as GraphNodeId, ParamUsage}, param::InParamCollector, PiRenderDevice, PiRenderQueue, PiSafeAtlasAllocator, PiScreenTexture, RenderContext, SimpleInOut
 };
 use pi_futures::BoxFuture;
-use pi_hal::pi_sdf::glyphy::geometry::aabb::AabbEXT;
 use pi_null::Null;
 use pi_render::components::view::target_alloc::{SafeAtlasAllocator, SafeTargetView};
 // use pi_postprocess::
@@ -40,10 +39,10 @@ use wgpu::RenderPass;
 
 use crate::{
     components::{
-        calc::{ContentBox, DrawList, EntityKey, IsShow, NodeId, WorldMatrix}, draw_obj::{DynTargetType, FboInfo, InstanceIndex}, pass_2d::{CacheTarget, Camera, Draw2DList, DrawElement, GraphId, ParentPassId, PostProcess, PostProcessInfo, RenderTarget, RenderTargetCache, ScreenTarget, StrongTarget}, user::{Aabb2, AsImage, Canvas, RenderTargetType, Viewport}
+        calc::{DrawList, EntityKey, IsShow, NodeId, WorldMatrix}, draw_obj::{DynTargetType, FboInfo, InstanceIndex}, pass_2d::{CacheTarget, Camera, Draw2DList, DrawElement, GraphId, ParentPassId, PostProcess, PostProcessInfo, RenderTarget, RenderTargetCache, ScreenTarget, StrongTarget}, user::{Aabb2, AsImage, Canvas, RenderTargetType, Viewport}
     }, resource::{
         draw_obj::{InstanceContext, RenderState, TargetCacheMgr}, CanvasRenderObjType, PassGraphMap, RenderContextMarkType
-    }, shader1::{meterial::{CameraBind, QuadUniform, RenderFlagType, TyUniform, UvUniform}, GpuBuffer}
+    }, shader1::meterial::{CameraBind, QuadUniform, RenderFlagType, TyUniform, UvUniform}
 };
 
 
@@ -65,7 +64,6 @@ pub struct BuildParam<'w, 's> {
 				&'static Layer,
 				&'static Camera,
 				&'static ParentPassId,
-				// Option<&'static ClearColorBindGroup>,
 				&'static RenderTarget,
 				Option<&'static AsImage>,
 				&'static mut PostProcess, 
@@ -73,7 +71,6 @@ pub struct BuildParam<'w, 's> {
 				&'static InstanceIndex,
 				&'static Draw2DList,
 				&'static mut FboInfo,
-				&'static ContentBox,
 				&'static IsShow, 
 			),
 		>,
@@ -306,7 +303,7 @@ impl Node for Pass2DNode {
 			post_process_info,
 			instance_index,
 			list0,
-			mut fbo_info, content_box, is_show) = match p0.get_mut(pass2d_id) {
+			mut fbo_info, is_show) = match p0.get_mut(pass2d_id) {
 			Ok(r) if r.0.layer() > 0 => r,
 			_ => return Ok(out),
 		};

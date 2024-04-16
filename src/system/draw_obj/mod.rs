@@ -1,11 +1,11 @@
-use bevy_ecs::prelude::{IntoSystemSetConfig, IntoSystemConfigs};
+use bevy_ecs::prelude::IntoSystemConfigs;
 use bevy_app::{App, Plugin, PostUpdate};
 use pi_bevy_render_plugin::{FrameDataPrepare, GraphBuild, GraphRun};
 use pi_hal::font::font::FontType;
 use pi_style::style::Aabb2;
 
 use crate::components::calc::WorldMatrix;
-use crate::resource::draw_obj::{EmptyVertexBuffer, MaxViewSize};
+use crate::resource::draw_obj::MaxViewSize;
 use crate::shader1::InstanceData;
 use crate::shader1::meterial::{BoxUniform, QuadUniform};
 
@@ -26,6 +26,7 @@ use self::calc_canvas::CanvasPlugin;
 use self::calc_svg::SvgPlugin;
 use self::calc_text::UiTextPlugin;
 use self::life_drawobj::{batch_instance_data, update_render_instance_data};
+use self::sdf2_texture_update::update_sdf2_texture;
 // use self::calc_text::UiTextPlugin;
 
 pub mod calc_background_color;
@@ -39,6 +40,7 @@ pub mod calc_text;
 pub mod image_texture_load;
 pub mod life_drawobj;
 pub mod calc_svg;
+pub mod sdf2_texture_update;
 
 pub mod blend_mode;
 // pub mod clear_draw_obj;
@@ -53,7 +55,6 @@ pub struct UiReadyDrawPlugin {
 
 impl Plugin for UiReadyDrawPlugin {
     fn build(&self, app: &mut App) {
-        app.configure_set(UiSchedule, UiSystemSet::PrepareDrawObj.in_set(FrameDataPrepare));
 
         app
 			// .add_systems(Startup, clear_draw_obj::init)// PostStartup, 
@@ -81,12 +82,6 @@ impl Plugin for UiReadyDrawPlugin {
                     .before(UiSystemSet::LifeDrawObjectFlush)
                     .after(UiSystemSet::LifeDrawObject),
             )
-            // .add_systems(UiSchedule, 
-            //     root_clear_color::clear_change
-            //         .in_set(FrameDataPrepare)
-            //         .after(UiSystemSet::PassFlush)
-            //         .after(UiSystemSet::PassCalc),
-            // )
 
 			// 圆角
 			.add_systems(UiSchedule, 
@@ -94,24 +89,32 @@ impl Plugin for UiReadyDrawPlugin {
                     .in_set(UiSystemSet::PrepareDrawObj)
                     .after(UiSystemSet::LifeDrawObject),
             )
-            // .add_systems(UiSchedule, root_view_port::view_port_change.in_set(UiSystemSet::PrepareDrawObj))
-            .init_resource::<EmptyVertexBuffer>()
 			// 背景图片功能
 			.add_plugins(BackgroundImagePlugin)
 			// 背景颜色功能
 			.add_plugins(BackgroundColorPlugin)
 			// 九宫格功能
 			.add_plugins(BorderImagePlugin)
-            // 文字功能
-            .add_plugins(UiTextPlugin {font_type: self.font_type})
 			// 边框颜色功能
             .add_plugins(BorderColorPlugin)
 		    // box-shadow功能
 		    .add_plugins(BoxShadowPlugin)
 		    // canvas功能
 		    .add_plugins(CanvasPlugin)
+			// 文字功能
+			.add_plugins(UiTextPlugin {font_type: self.font_type})
             // svg功能
-		    .add_plugins(SvgPlugin);
+		    .add_plugins(SvgPlugin)
+			;
+		
+		if self.font_type == FontType::Sdf2 {
+			// 更新sdf2纹理
+			app.add_systems(
+				UiSchedule, 
+				update_sdf2_texture
+					.in_set(UiSystemSet::PrepareDrawObj)
+			);
+		}
     }
 }
 

@@ -1591,27 +1591,27 @@ impl FromWorld for CommonSampler {
 pub struct TextTextureGroup(pub Option<Handle<RenderRes<BindGroup>>>, pub Option<Handle<RenderRes<BindGroup>>>);
 
 
-#[derive(Deref, Resource)]
-pub struct EmptyVertexBuffer(pub Handle<RenderRes<Buffer>>);
+// #[derive(Deref, Resource)]
+// pub struct EmptyVertexBuffer(pub Handle<RenderRes<Buffer>>);
 
-impl FromWorld for EmptyVertexBuffer {
-    fn from_world(world: &mut World) -> Self {
-        let device = world.get_resource::<PiRenderDevice>().unwrap();
-        let buffer_assets = world.get_resource::<ShareAssetMgr<RenderRes<Buffer>>>().unwrap();
+// impl FromWorld for EmptyVertexBuffer {
+//     fn from_world(world: &mut World) -> Self {
+//         let device = world.get_resource::<PiRenderDevice>().unwrap();
+//         let buffer_assets = world.get_resource::<ShareAssetMgr<RenderRes<Buffer>>>().unwrap();
 
-        let gradient_buf = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("Empty VERTEX Buffer"),
-            size: 4,
-            usage: wgpu::BufferUsages::VERTEX,
-            mapped_at_creation: false,
-        });
+//         let gradient_buf = device.create_buffer(&wgpu::BufferDescriptor {
+//             label: Some("Empty VERTEX Buffer"),
+//             size: 4,
+//             usage: wgpu::BufferUsages::VERTEX,
+//             mapped_at_creation: false,
+//         });
 
-        let key = calc_hash(&"Empty VERTEX Buffer", 0);
-        let gradient_buf = buffer_assets.insert(key, RenderRes::new(gradient_buf, 4)).unwrap();
+//         let key = calc_hash(&"Empty VERTEX Buffer", 0);
+//         let gradient_buf = buffer_assets.insert(key, RenderRes::new(gradient_buf, 4)).unwrap();
 
-        EmptyVertexBuffer(gradient_buf)
-    }
-}
+//         EmptyVertexBuffer(gradient_buf)
+//     }
+// }
 
 
 pub fn create_common_pipeline_state() -> PipelineState {

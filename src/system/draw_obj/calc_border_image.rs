@@ -33,7 +33,7 @@ impl Plugin for BorderImagePlugin {
     fn build(&self, app: &mut bevy_app::App) {
 		app
 			.add_frame_event::<ComponentEvent<Changed<BorderImageTexture>>>()
-			.add_systems(UiSchedule, image_texture_load::image_load::<BorderImage, BorderImageTexture>.in_set(UiSystemSet::Load))
+			.add_systems(UiSchedule, image_texture_load::image_load::<BorderImage, BorderImageTexture>.in_set(UiSystemSet::NextSetting))
 			.add_systems(UiSchedule, 
 				life_drawobj::draw_object_life_new::<
 					BorderImageTexture,

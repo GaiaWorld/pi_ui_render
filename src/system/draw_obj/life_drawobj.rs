@@ -21,9 +21,14 @@ use pi_share::Share;
 use pi_style::style::CgColor;
 
 use crate::components::calc::{DrawInfo, EntityKey, NodeId, InPassId, IsShow, ZRange, RenderContextMark};
-use crate::components::draw_obj::{BackgroundColorMark, BackgroundImageMark, BorderImageMark, BoxShadowMark, CanvasMark, FboInfo, GetInstanceSplit, InstanceIndex, InstanceSplit, Pipeline, RenderCount, TextMark, TextShadowMark};
+use crate::components::draw_obj::{ FboInfo, GetInstanceSplit, InstanceIndex, InstanceSplit, Pipeline, RenderCount};
 // use crate::components::root::RootInstance;
-use crate::components::user::{BackgroundColor, BackgroundImage, BlendMode, BorderImage, Canvas, RenderTargetType, TextContent};
+use crate::components::user::RenderTargetType;
+// #[cfg(debug_assertions)]
+// use crate::components::user::{BackgroundColor, BackgroundImage, BlendMode, BorderImage, Canvas, TextContent};
+// #[cfg(debug_assertions)]
+// use crate::components::draw_obj::{BackgroundColorMark, BackgroundImageMark, BorderImageMark, BoxShadowMark, CanvasMark, TextMark, TextShadowMark};
+
 use crate::components::DrawBundleNew;
 use crate::components::pass_2d::{Draw2DList, DrawElement, DrawIndex, InstanceDrawState, ParentPassId, PostProcessInfo};
 use crate::events::{ NodeZindexChange, NodeDisplayChange, EntityChange};
@@ -526,9 +531,6 @@ fn batch_pass(
 								#[cfg(debug_assertions)]
 								if !index.start.is_null() {
 									instances.debug_info.insert(index.start / MeterialBind::SIZE, format!("canvas: {:?}", draw_entity));
-									if index.start / MeterialBind::SIZE == 125 {
-										println!("canvas!!!================{:?}", draw_entity);
-									}
 								}
 							}
 						},
@@ -536,22 +538,10 @@ fn batch_pass(
 				} else {
 					#[cfg(debug_assertions)]
 					if !index.start.is_null() {
-						instances.debug_info.insert(index.start / MeterialBind::SIZE, format!("node: {:?}", draw_entity));
-						// if index.start / MeterialBind::SIZE == 125 {
-						// 	let ty = instances.instance_data.instance_data_mut(index.start).get_render_ty();
-						// 	println!("node!!!================{:?}, node:{:?}, \ndraw:{:?}", ty, query.debug_node_query.get(*node_entity), query.debug_draw_query.get(*draw_entity));
-						// }
+						instances.debug_info.insert(index.start / MeterialBind::SIZE, format!("node: {:?}, draw: {:?}", node_entity, draw_entity));
 					}
 					
 				}
-
-				// #[cfg(debug_assertions)]
-				// if !index.start.is_null() {
-				// 	if index.start / MeterialBind::SIZE == 125 {
-				// 		let ty = instances.instance_data.instance_data_mut(index.start).get_render_ty();
-				// 		println!("node!!!================{:?}, node:{:?}, \ndraw:{:?}", (ty, node_entity, draw_entity), query.debug_node_query.get(*node_entity), query.debug_draw_query.get(*draw_entity));
-				// 	}
-				// }
 
 				
 
@@ -571,9 +561,6 @@ fn batch_pass(
 						#[cfg(debug_assertions)]
 						if !index.start.is_null() {
 							instances.debug_info.insert(index.start / MeterialBind::SIZE, format!("pass:{:?}", r));
-							if index.start / MeterialBind::SIZE == 125 {
-								println!("pass!!!================{:?}", r);
-							}
 						}
 						// #[cfg(debug_assertions)]
 						// 	instances.instance_data_mut(index.start + i as usize * index.alignment).set_data(&DebugInfo(&[entity.index() as f32]));
@@ -729,27 +716,27 @@ pub struct BatchQuery<'s, 'w> {
 	common_sampler: OrInitRes<'w,CommonSampler>,
 	device: Res<'w,PiRenderDevice>,
 
-	#[cfg(debug_assertions)]
-	debug_node_query: Query<'w, 's, (
-		Option< &'static BackgroundColor>,
-		Option< &'static BackgroundImage>,
-		Option< &'static BorderImage>,
-		Option< &'static Canvas>,
-		Option< &'static BlendMode>,
-		Option< &'static TextContent>,
-		// Option< &'static Svg>,
-	)>,
+	// #[cfg(debug_assertions)]
+	// debug_node_query: Query<'w, 's, (
+	// 	Option< &'static BackgroundColor>,
+	// 	Option< &'static BackgroundImage>,
+	// 	Option< &'static BorderImage>,
+	// 	Option< &'static Canvas>,
+	// 	Option< &'static BlendMode>,
+	// 	Option< &'static TextContent>,
+	// 	// Option< &'static Svg>,
+	// )>,
 
-	#[cfg(debug_assertions)]
-	debug_draw_query: Query<'w, 's, (
-		Option< &'static BackgroundColorMark>,
-		Option< &'static BackgroundImageMark>,
-		Option< &'static BorderImageMark>,
-		Option< &'static CanvasMark>,
-		Option< &'static TextMark>,
-		Option< &'static TextShadowMark>,
-		Option< &'static BoxShadowMark>,
-	)>,
+	// #[cfg(debug_assertions)]
+	// debug_draw_query: Query<'w, 's, (
+	// 	Option< &'static BackgroundColorMark>,
+	// 	Option< &'static BackgroundImageMark>,
+	// 	Option< &'static BorderImageMark>,
+	// 	Option< &'static CanvasMark>,
+	// 	Option< &'static TextMark>,
+	// 	Option< &'static TextShadowMark>,
+	// 	Option< &'static BoxShadowMark>,
+	// )>,
 }
 
 // 批处理状态维护

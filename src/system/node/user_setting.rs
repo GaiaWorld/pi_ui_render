@@ -364,48 +364,6 @@ impl<'s, 'w> StyleDirtyList<'s, 'w> {
 #[derive(Debug, Copy, Clone, Deref, Event)]
 pub struct StyleChange(pub Entity);
 
-
-/// 处理图片纹理加载成功，为没设置Size的节点设置默认的Size组件（与图片宽高相同）
-/// 处理图片纹理删除， 如果实体依然存在，并且用户未设置Size组件， 则设置实体的Size为Undefined
-pub fn set_image_default_size(
-    mut event_reader: EventReader<ComponentEvent<Changed<BackgroundImageTexture>>>,
-    mut query: Query<(&mut Size, &BackgroundImageTexture, OrDefault<BackgroundImageClip>, &StyleMark)>,
-
-    mut removed_components: RemovedComponents<BackgroundImageTexture>,
-) {
-    // 处理删除的图片纹理
-    for removed in removed_components.iter() {
-        if let Ok((mut size, _texture, _clip, style_mark)) = query.get_mut(removed) {
-            // 本地样式和class样式都未设置宽度，设置默认图片宽度
-            if style_mark.local_style[StyleType::Width as usize] == false && style_mark.class_style[StyleType::Width as usize] == false {
-                size.width = Dimension::Undefined;
-            }
-
-            // 本地样式和class样式都未设置高度，设置默认图片高度
-            if style_mark.local_style[StyleType::Height as usize] == false && style_mark.class_style[StyleType::Height as usize] == false {
-                size.height = Dimension::Undefined;
-            }
-        }
-    }
-
-    // 处理增加的图片问题
-    for event in event_reader.iter() {
-        if let Ok((mut size, texture, clip, style_mark)) = query.get_mut(event.id) {
-            if let Some(texture) = &texture.0 {
-                // 本地样式和class样式都未设置宽度，设置默认图片宽度
-                if style_mark.local_style[StyleType::Width as usize] == false && style_mark.class_style[StyleType::Width as usize] == false {
-                    size.width = Dimension::Points(texture.width as f32 * *(clip.right - clip.left));
-                }
-
-                // 本地样式和class样式都未设置高度，设置默认图片高度
-                if style_mark.local_style[StyleType::Height as usize] == false && style_mark.class_style[StyleType::Height as usize] == false {
-                    size.height = Dimension::Points(texture.height as f32 * *(clip.bottom - clip.top));
-                }
-            }
-        }
-    }
-}
-
 pub fn set_styles<'w, 's>(style_commands: &mut StyleCommands, style_query: &mut Setting, dirty_list: &mut StyleDirtyList<'w, 's>) {
     let (style_buffer, commands) = (&mut style_commands.style_buffer, &mut style_commands.commands);
     for (node, start, end) in commands.drain(..) {

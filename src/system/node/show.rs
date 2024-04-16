@@ -119,7 +119,7 @@ pub fn set_show_data(
 	mut visisble_events: EventReader<NodeVisibilityChange>,
 	mut display_events: EventReader<NodeDisplayChange>,
 	mut instances: OrInitResMut<InstanceContext>,
-	query: Query<(&DrawList, &IsShow, Option<&InstanceIndex>, Entity), Changed<IsShow>>,
+	query: Query<(&DrawList, &IsShow, Option<&InstanceIndex>), Changed<IsShow>>,
     query_draw: Query<&InstanceIndex>,
 	r: OrInitRes<IsRun>,
 ) {
@@ -132,7 +132,7 @@ pub fn set_show_data(
 	visisble_events.clear();
 	display_events.clear();
 
-	for (draw_list, is_show, instance_index, entity) in query.iter() {
+	for (draw_list, is_show, instance_index) in query.iter() {
 		let visibility = is_show.get_visibility() || is_show.get_display();
 		for draw_id in draw_list.iter() {
 			if let Ok(instance_index) = query_draw.get(draw_id.id) {

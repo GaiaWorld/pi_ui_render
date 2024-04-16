@@ -26,9 +26,9 @@ use crate::shader1::{InstanceData, GpuBuffer};
 // use crate::shader::text;
 // use crate::shader::text_sdf;
 
-use crate::system::draw_obj::calc_svg::calc_tex::update_sdf2_texture;
 // use crate::shader1::ui_meterial::{ColorUniform, StrokeColorOrURectUniform, TextureSizeOrBottomLeftBorderUniform, ClipSdfOrSdflineUniform, DataTexSizeUniform, UGradientStarteEndUniform, ScaleUniform};
 use crate::system::draw_obj::life_drawobj::{draw_object_life_new, update_render_instance_data};
+use crate::system::draw_obj::sdf2_texture_update::update_sdf2_texture;
 use crate::system::draw_obj::set_box;
 use crate::system::node::layout::calc_layout;
 use crate::prelude::UiSchedule;
@@ -63,7 +63,7 @@ impl Plugin for Sdf2TextPlugin {
             // 文字劈分
             .add_systems(UiSchedule, text_split.before(calc_layout).in_set(UiSystemSet::Layout))
             // 字形计算
-            .add_systems(UiSchedule, text_glyph.after(text_split).in_set(UiSystemSet::Layout))
+            .add_systems(UiSchedule, text_glyph.after(text_split).in_set(UiSystemSet::Layout).before(update_sdf2_texture))
 			// 创建drawobj 
 			.add_systems(
 				UiSchedule, 
@@ -90,16 +90,7 @@ impl Plugin for Sdf2TextPlugin {
 				calc_sdf2_text
 					.in_set(UiSystemSet::PrepareDrawObj)
 			)
-			// 更新纹理
-			.add_systems(
-				UiSchedule, 
-				update_sdf2_texture
-					.in_set(UiSystemSet::PrepareDrawObj)
-					.after(text_glyph)
-					.before(calc_sdf2_text)
-			)
 		;
-		
     }
 }
 

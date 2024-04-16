@@ -22,14 +22,12 @@ use pi_bevy_ecs_extend::{
     prelude::{Layer, LayerDirty, Up},
     system_param::{layer_dirty::ComponentEvent, res::{OrInitRes, OrInitResMut}},
 };
-use pi_hal::pi_sdf::glyphy::geometry::aabb::AabbEXT;
 use pi_null::Null;
-use pi_style::style::Aabb2;
 
 use crate::{
     components::{
-        calc::{ContentBox, EntityKey, InPassId, NeedMark, OverflowDesc, RenderContextMark, View, WorldMatrix}, draw_obj::InstanceIndex, pass_2d::{Camera, ChildrenPass, ParentPassId, PostProcessInfo}, user::Point2, PassBundle
-    }, resource::{draw_obj::InstanceContext, EffectRenderContextMark, RenderContextMarkType}, shader::camera, shader1::meterial::{BoxUniform, QuadUniform, RenderFlagType, TyUniform}, system::draw_obj::{calc_text::IsRun, set_box}
+        calc::{ContentBox, EntityKey, InPassId, NeedMark, OverflowDesc, RenderContextMark, View, WorldMatrix}, draw_obj::InstanceIndex, pass_2d::{Camera, ChildrenPass, ParentPassId, PostProcessInfo}, PassBundle
+    }, resource::{draw_obj::InstanceContext, EffectRenderContextMark, RenderContextMarkType}, shader1::meterial::{BoxUniform, QuadUniform, RenderFlagType, TyUniform}, system::draw_obj::{calc_text::IsRun, set_box}
 };
 
 /// 记录RenderContext添加和删除的脏，同时记录节点添加到树上的脏
@@ -309,11 +307,7 @@ pub fn calc_pass(
 	query: Query<
 		(
             &InstanceIndex,
-			Ref<WorldMatrix>,
-            Ref<ContentBox>,
             &ParentPassId,
-            Entity,
-            &PostProcessInfo,
             &Camera,
             &View,
 		),
@@ -325,8 +319,9 @@ pub fn calc_pass(
 		return;
 	}
 
-    for (instance_index, world_matrix, content_box, parent_pass_id, entity, post_info, camera, overflow_aabb) in query.iter() {
+    for (instance_index, parent_pass_id, camera, overflow_aabb) in query.iter() {
 		// 节点可能设置为dispaly none， 此时instance_index可能为Null
+        // 节点可能没有后处理效果， 此时instance_index为Null
         if pi_null::Null::is_null(&instance_index.0.start) {
             continue;
         }

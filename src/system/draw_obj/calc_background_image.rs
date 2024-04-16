@@ -1,25 +1,29 @@
 use bevy_app::Plugin;
 use bevy_ecs::change_detection::DetectChanges;
-use bevy_ecs::entity::Entity;
+use bevy_ecs::event::EventReader;
 use bevy_ecs::query::{Changed, Or, With};
+use bevy_ecs::removal_detection::RemovedComponents;
 use bevy_ecs::schedule::IntoSystemConfigs;
 use bevy_ecs::system::Query;
 use bevy_ecs::prelude::DetectChangesMut;
 use bevy_ecs::world::Ref;
 use bevy_window::AddFrameEvent;
+use pi_bevy_ecs_extend::query::or_default::OrDefault;
 use pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent;
 use pi_bevy_ecs_extend::system_param::res::{OrInitRes, OrInitResMut};
-use pi_style::style::{ImageRepeatOption, Aabb2};
+use pi_flex_layout::style::Dimension;
+use pi_style::style::{Aabb2, ImageRepeatOption, StyleType};
 
-use crate::components::calc::{BackgroundImageTexture, DrawList, LayoutResult, WorldMatrix};
+use crate::components::calc::{BackgroundImageTexture, DrawList, LayoutResult, StyleMark, WorldMatrix};
 use crate::components::draw_obj::{BackgroundImageMark, InstanceIndex};
-use crate::components::user::{BackgroundImageClip, BackgroundImageMod, FitType, Point2, Vector2};
+use crate::components::user::{BackgroundImageClip, BackgroundImageMod, FitType, Point2, Size, Vector2};
 use crate::resource::draw_obj::InstanceContext;
 use crate::resource::BackgroundImageRenderObjType;
 use crate::prelude::UiSchedule;
 
 use crate::shader1::meterial::{RenderFlagType, TyUniform, ImageRepeatUniform, UvUniform};
 use crate::system::draw_obj::set_box;
+use crate::system::node::layout::calc_layout;
 use crate::system::system_set::UiSystemSet;
 use crate::utils::tools::eq_f32;
 use crate::components::user::BackgroundImage;
@@ -33,7 +37,8 @@ impl Plugin for BackgroundImagePlugin {
     fn build(&self, app: &mut bevy_app::App) {
 		app
 			.add_frame_event::<ComponentEvent<Changed<BackgroundImageTexture>>>()
-			.add_systems(UiSchedule, image_texture_load::image_load::<BackgroundImage, BackgroundImageTexture>.in_set(UiSystemSet::Load))
+			.add_systems(UiSchedule, image_texture_load::image_load::<BackgroundImage, BackgroundImageTexture>.in_set(UiSystemSet::NextSetting))
+			.add_systems(UiSchedule, set_image_default_size.in_set(UiSystemSet::BaseCalc).before(calc_layout))
 			.add_systems(UiSchedule, 
 				life_drawobj::draw_object_life_new::<
 					BackgroundImageTexture,
@@ -66,10 +71,7 @@ pub fn calc_background_image(
 			Option<Ref<BackgroundImageClip>>,
 			
 			Option<Ref<BackgroundImageMod>>,
-			// OrDefault<BackgroundImageClip>,
-			// OrDefault<BackgroundImageMod>,
 			&BackgroundImage,
-			Entity,
 		),
 		Or<(Changed<BackgroundImageTexture>, Changed<BackgroundImageClip>,  Changed<WorldMatrix>)>,
 	>,
@@ -85,7 +87,7 @@ pub fn calc_background_image(
 	let image_clip = BackgroundImageClip::default();
 	let image_mod = BackgroundImageMod::default();
 
-	for (world_matrix, layout, draw_list, background_image_texture_ref, background_image_clip, background_image_mod, background_image, entity) in query.iter() {
+	for (world_matrix, layout, draw_list, background_image_texture_ref, background_image_clip, background_image_mod, background_image) in query.iter() {
 		let background_image_texture = match &background_image_texture_ref.0 {
 			Some(r) => {
 				// 图片不一致， 返回
@@ -237,6 +239,47 @@ pub fn calc_background_image(
 	}
 
 	log::trace!("bg image end========================");
+}
+
+/// 处理图片纹理加载成功，为没设置Size的节点设置默认的Size组件（与图片宽高相同）
+/// 处理图片纹理删除， 如果实体依然存在，并且用户未设置Size组件， 则设置实体的Size为Undefined
+pub fn set_image_default_size(
+    mut event_reader: EventReader<ComponentEvent<Changed<BackgroundImageTexture>>>,
+    mut query: Query<(&mut Size, &BackgroundImageTexture, OrDefault<BackgroundImageClip>, &StyleMark)>,
+
+    mut removed_components: RemovedComponents<BackgroundImageTexture>,
+) {
+    // 处理删除的图片纹理
+    for removed in removed_components.iter() {
+        if let Ok((mut size, _texture, _clip, style_mark)) = query.get_mut(removed) {
+            // 本地样式和class样式都未设置宽度，设置默认图片宽度
+            if style_mark.local_style[StyleType::Width as usize] == false && style_mark.class_style[StyleType::Width as usize] == false {
+                size.width = Dimension::Undefined;
+            }
+
+            // 本地样式和class样式都未设置高度，设置默认图片高度
+            if style_mark.local_style[StyleType::Height as usize] == false && style_mark.class_style[StyleType::Height as usize] == false {
+                size.height = Dimension::Undefined;
+            }
+        }
+    }
+
+    // 处理增加的图片问题
+    for event in event_reader.iter() {
+        if let Ok((mut size, texture, clip, style_mark)) = query.get_mut(event.id) {
+            if let Some(texture) = &texture.0 {
+                // 本地样式和class样式都未设置宽度，设置默认图片宽度
+                if style_mark.local_style[StyleType::Width as usize] == false && style_mark.class_style[StyleType::Width as usize] == false {
+                    size.width = Dimension::Points(texture.width as f32 * *(clip.right - clip.left));
+                }
+
+                // 本地样式和class样式都未设置高度，设置默认图片高度
+                if style_mark.local_style[StyleType::Height as usize] == false && style_mark.class_style[StyleType::Height as usize] == false {
+                    size.height = Dimension::Points(texture.height as f32 * *(clip.bottom - clip.top));
+                }
+            }
+        }
+    }
 }
 
 pub fn calc_step(show_size: f32, img_size: f32, rtype: ImageRepeatOption) -> (f32/*第一个item的偏移（不是整数倍可能需要居中）*/ , f32/*每个item占用的布局宽度*/, f32/*每个item在布局空间的实际渲染宽度（存在间隔）*/) {

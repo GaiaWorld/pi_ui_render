@@ -1,9 +1,8 @@
 //! 与Pass相关的system
 
-use bevy_ecs::prelude::{Changed, IntoSystemSetConfig, IntoSystemSetConfigs, IntoSystemConfigs};
+use bevy_ecs::prelude::{Changed, IntoSystemConfigs};
 use bevy_app::{Plugin, App};
 use pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent;
-use pi_bevy_render_plugin::FrameDataPrepare;
 
 use crate::components::{
     calc::RenderContextMark,
@@ -36,10 +35,7 @@ pub struct UiEffectPlugin;
 
 impl Plugin for UiEffectPlugin {
     fn build(&self, app: &mut App) {
-        app.configure_sets(UiSchedule, (UiSystemSet::Setting, UiSystemSet::PassMark, UiSystemSet::PassFlush).chain())
-            .configure_set(UiSchedule, UiSystemSet::PassMark.in_set(FrameDataPrepare))
-            .configure_set(UiSchedule, UiSystemSet::PassFlush.in_set(FrameDataPrepare))
-            .configure_set(UiSchedule, UiSystemSet::PassSetting.in_set(FrameDataPrepare))
+        app
             .add_frame_event::<ComponentEvent<Changed<RenderContextMark>>>()
             .add_frame_event::<ComponentEvent<Changed<ParentPassId>>>()
             .add_frame_event::<OldTransformWillChange>()

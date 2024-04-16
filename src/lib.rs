@@ -32,17 +32,16 @@ pub mod events;
 
 
 pub mod prelude {
-    use bevy_ecs::{prelude::{apply_deferred, IntoSystemConfigs, IntoSystemSetConfigs, Schedule}, schedule::{ExecutorKind, ScheduleLabel}};
-	use bevy_app::{App, MainScheduleOrder, Plugin};
+    use bevy_ecs::{prelude::{apply_deferred, IntoSystemConfigs, IntoSystemSetConfigs}, schedule::IntoSystemSetConfig};
+	use bevy_app::{App, Plugin, PostUpdate};
     use bevy_window::AddFrameEvent;
-    use pi_bevy_render_plugin::PiRenderSystemSet;
+    use pi_bevy_render_plugin::FrameDataPrepare;
     use pi_hal::font::font::FontType;
 
     pub use crate::resource::UserCommands;
-    use crate::{system::{
-        /*shader_utils::UiShaderPlugin, */ draw_obj::UiReadyDrawPlugin, node::UiNodePlugin, pass::UiPassPlugin, pass_effect::UiEffectPlugin,
-        shader_utils::UiShaderPlugin, system_set::UiSystemSet, RunState,
-    }, events::{EntityChange, NodeZindexChange, NodeDisplayChange}};
+    use crate::{events::{EntityChange, NodeDisplayChange, NodeZindexChange}, system::{
+        /*shader_utils::UiShaderPlugin, */ draw_obj::UiReadyDrawPlugin, layout_run, matrix_run, node::UiNodePlugin, pass::UiPassPlugin, pass_effect::UiEffectPlugin, setting_run, shader_utils::UiShaderPlugin, system_set::UiSystemSet, RunState
+    }};
 
     // #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
     // pub struct UiSchedule;
@@ -65,44 +64,57 @@ pub mod prelude {
             // MainScheduleOrder
 
             app.init_resource::<RunState>();
-            app.configure_sets(
+            app
+            
+            // NextSetting在Setting之后运行， Setting用于作用用户指令， NextSetting用于设置加载、动画等派发过程中产生的指令
+            .configure_set(UiSchedule, UiSystemSet::NextSetting.in_set(FrameDataPrepare).after(UiSystemSet::Setting))
+            // 所有其他逻辑SystemSet应该在所有指令完成后运行
+            .configure_set(UiSchedule, UiSystemSet::Setting.run_if(setting_run))
+            .configure_set(UiSchedule, UiSystemSet::Layout.run_if(layout_run).after(UiSystemSet::NextSetting))
+            .configure_set(UiSchedule, UiSystemSet::Matrix.run_if(matrix_run).after(UiSystemSet::NextSetting))
+            .configure_set(UiSchedule, UiSystemSet::PrepareDrawObj.in_set(FrameDataPrepare).after(UiSystemSet::NextSetting))
+            .configure_set(UiSchedule, UiSystemSet::BaseCalc.in_set(FrameDataPrepare).after(UiSystemSet::NextSetting))
+            .configure_set(UiSchedule, UiSystemSet::LifeDrawObject.in_set(FrameDataPrepare).after(UiSystemSet::NextSetting))
+            .configure_set(UiSchedule, UiSystemSet::PassMark.in_set(FrameDataPrepare).after(UiSystemSet::NextSetting))
+            .configure_set(UiSchedule, UiSystemSet::PassFlush.in_set(FrameDataPrepare).after(UiSystemSet::NextSetting))
+            .configure_set(UiSchedule, UiSystemSet::PassSetting.in_set(FrameDataPrepare).after(UiSystemSet::NextSetting))
+            .configure_set(UiSchedule, UiSystemSet::PassLife.in_set(FrameDataPrepare).after(UiSystemSet::NextSetting))
+            .configure_set(UiSchedule, UiSystemSet::PassSettingWithParent.in_set(FrameDataPrepare).after(UiSystemSet::NextSetting))
+            .configure_set(UiSchedule, UiSystemSet::PassCalc.in_set(FrameDataPrepare).after(UiSystemSet::NextSetting))
+			
+            .configure_sets(
 				UiSchedule, 
                 (
-                    UiSystemSet::Setting,
-                    UiSystemSet::Load,
                     UiSystemSet::Layout,
-                    UiSystemSet::LifeDrawObjectFlush,
-                    UiSystemSet::PassFlush,
                     UiSystemSet::Matrix,
                 )
                     .chain(),
             )
+            .configure_sets(UiSchedule, (UiSystemSet::BaseCalc, UiSystemSet::BaseCalcFlush).chain())
+
+            .configure_sets(UiSchedule, (
+                UiSystemSet::PassMark, 
+                UiSystemSet::PassLife, 
+                UiSystemSet::PassFlush, 
+                UiSystemSet::PassSetting, 
+                UiSystemSet::PassCalc
+            ).chain())	
+
             .configure_sets(
 				UiSchedule, 
                 (
-                    UiSystemSet::Setting,
                     UiSystemSet::LifeDrawObject,
                     UiSystemSet::LifeDrawObjectFlush,
                     UiSystemSet::PrepareDrawObj,
-                    UiSystemSet::PrepareDrawObjFlush,
+                    UiSystemSet::PassCalc,
                 )
                     .chain(),
             )
-            .configure_sets(UiSchedule, (UiSystemSet::Setting, UiSystemSet::BaseCalc, UiSystemSet::BaseCalcFlush).chain())
-            .configure_sets(
-				UiSchedule, 
-                (
-                    UiSystemSet::Setting,
-                    UiSystemSet::PrepareDrawObjFlush,
-                    UiSystemSet::BaseCalcFlush,
-                    PiRenderSystemSet,
-                )
-                    .chain(),
-            )
+
 			.add_frame_event::<EntityChange>()
 			.add_frame_event::<NodeZindexChange>()
 			.add_frame_event::<NodeDisplayChange>()
-			.add_systems(UiSchedule, crate::system::res_load::load_res.in_set(UiSystemSet::Setting))
+			.add_systems(UiSchedule, crate::system::res_load::load_res.in_set(UiSystemSet::NextSetting))
             .add_plugins(UiShaderPlugin)
             .add_plugins(UiNodePlugin)
             .add_plugins(UiEffectPlugin)
@@ -110,12 +122,9 @@ pub mod prelude {
 				font_type: self.font_type
 			})
             .add_plugins(UiPassPlugin)
-            // .add_systems(UiSchedule, apply_system_buffers.in_set(UiSystemSet::LoadFlush))
             .add_systems(UiSchedule, apply_deferred.in_set(UiSystemSet::LifeDrawObjectFlush))
-            // .add_systems(UiSchedule, apply_system_buffers.in_set(UiSystemSet::BaseCalcFlush))
-            .add_systems(UiSchedule, apply_deferred.in_set(UiSystemSet::PrepareDrawObjFlush))
 
-			.add_systems(UiSchedule, crate::clear_remove_component.run_if(pi_bevy_render_plugin::should_run).after(bevy_window::FrameSet)); // 在每帧结束时清理删除组件的列表
+			.add_systems(PostUpdate, crate::clear_remove_component.in_set(FrameDataPrepare).after(bevy_window::FrameSet)); // 在每帧结束时清理删除组件的列表
 
             #[cfg(feature = "debug")]
             app.add_plugins(crate::system::cmd_play::UiCmdTracePlugin { option: self.cmd_trace });

@@ -19,7 +19,7 @@ use pi_share::{Share, ShareMutex};
 use crate::{
     components::{
         calc::{NodeState, WorldMatrix},
-        user::{get_size, TextContent, TextStyle, Vector4, TextOverflowData},
+        user::{get_size, TextContent, TextStyle, TextOverflowData},
     },
     resource::ShareFontSheet,
 };

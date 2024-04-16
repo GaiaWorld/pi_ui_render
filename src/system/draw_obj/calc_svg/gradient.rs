@@ -1,4 +1,4 @@
-use crate::components::user::{SvgFilterBlurLevel, SvgGradient, SvgInnerContent, SvgStop, Vector2};
+use crate::components::user::{SvgGradient, SvgInnerContent, SvgStop, Vector2};
 use bevy_ecs::{prelude::Entity, query::Changed, system::Query};
 use pi_bevy_ecs_extend::system_param::{res::OrInitRes, tree::Up};
 

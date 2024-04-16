@@ -34,15 +34,15 @@ use crate::{
 use crate::system::node::user_setting::StyleChange;
 use crate::prelude::UiSchedule;
 
-use super::{user_setting::user_setting, animation::calc_animation};
+use super::animation::calc_animation;
 
 pub struct TransitionPlugin;
 
 impl Plugin for TransitionPlugin {
     fn build(&self, app: &mut App) {
 		app
-			.add_systems(UiSchedule, transition_1.in_set(FrameDataPrepare).in_set(UiSystemSet::Setting).after(user_setting).before(calc_animation))
-			.add_systems(UiSchedule, transition_2.in_set(FrameDataPrepare).in_set(UiSystemSet::Setting).after(calc_animation))
+			.add_systems(UiSchedule, transition_1.in_set(UiSystemSet::NextSetting).before(calc_animation))
+			.add_systems(UiSchedule, transition_2.in_set(UiSystemSet::NextSetting).after(calc_animation))
 		;
 	}
 }

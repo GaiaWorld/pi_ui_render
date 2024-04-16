@@ -1,7 +1,7 @@
 use bevy_app::{App, Plugin, PostUpdate, Startup};
-use bevy_ecs::prelude::{IntoSystemSetConfig, IntoSystemSetConfigs, IntoSystemConfigs};
+use bevy_ecs::prelude::IntoSystemConfigs;
 use bevy_ecs::schedule::apply_deferred;
-use pi_bevy_render_plugin::{PiRenderSystemSet, FrameDataPrepare, GraphBuild, GraphRun};
+use pi_bevy_render_plugin::{FrameDataPrepare, GraphBuild, GraphRun};
 
 use self::pass_camera::calc_camera_depth_and_renderlist;
 use self::pass_life::calc_pass;
@@ -22,16 +22,7 @@ pub struct UiPassPlugin;
 impl Plugin for UiPassPlugin {
     fn build(&self, app: &mut App) {
         // 设置运行条件和运行顺序
-        app.configure_set(UiSchedule, UiSystemSet::PassMark.in_set(FrameDataPrepare))
-			.configure_set(UiSchedule, UiSystemSet::PassLife.in_set(FrameDataPrepare))
-			.configure_set(UiSchedule, UiSystemSet::PassFlush.in_set(FrameDataPrepare))
-			.configure_set(UiSchedule, UiSystemSet::PassSetting.in_set(FrameDataPrepare))
-			.configure_set(UiSchedule, UiSystemSet::PassSettingWithParent.in_set(FrameDataPrepare))
-			.configure_set(UiSchedule, UiSystemSet::PassCalc.in_set(FrameDataPrepare))
-
-            .configure_sets(UiSchedule, (UiSystemSet::PassMark, UiSystemSet::PassLife, UiSystemSet::PassFlush, UiSystemSet::PassSetting, UiSystemSet::PassCalc, PiRenderSystemSet).chain())
-			.configure_sets(UiSchedule, (UiSystemSet::Setting, UiSystemSet::PassMark, PiRenderSystemSet).chain())	
-            .configure_sets(UiSchedule, (UiSystemSet::PrepareDrawObj, UiSystemSet::PassCalc, PiRenderSystemSet).chain())
+        app
             // 创建、删除Pass，为Pass组织树结构
             .add_systems(UiSchedule, 
 				calc_pass
