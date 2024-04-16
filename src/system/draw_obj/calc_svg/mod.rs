@@ -32,7 +32,7 @@ impl Plugin for SvgPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         println!("add SvgPlugin");
         app
-            .add_systems(UiSchedule, text_svg.in_set(UiSystemSet::PrepareDrawObj).before(update_sdf2_texture))
+            .add_systems(UiSchedule, text_svg.in_set(UiSystemSet::Layout).before(update_sdf2_texture))
             .add_frame_event::<ComponentEvent<Changed<SvgInnerContent>>>()
             // 创建drawobj
             .add_systems(
