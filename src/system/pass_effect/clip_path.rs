@@ -2,7 +2,7 @@ use bevy_ecs::{
     prelude::RemovedComponents, query::Changed, system::Query,
     prelude::{Added, IntoSystemConfigs, Or, Without},
 };
-use bevy_app::{Plugin, Update, App};
+use bevy_app::{Plugin, App};
 use pi_bevy_ecs_extend::{prelude::OrDefault, system_param::res::OrInitRes};
 use pi_bevy_render_plugin::FrameDataPrepare;
 use pi_flex_layout::prelude::Rect;
@@ -24,19 +24,20 @@ use crate::{
 use pi_postprocess::prelude::ClipSdf;
 
 use crate::{components::pass_2d::PostProcess, system::pass::pass_life};
+use crate::prelude::UiSchedule;
 
 pub struct UiClipPathPlugin;
 
 impl Plugin for UiClipPathPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, 
+        app.add_systems(UiSchedule, 
             pass_life::pass_mark::<ClipPath>
                 .after(user_setting)
                 .before(pass_life::cal_context)
                 .in_set(FrameDataPrepare),
         )
-        .add_systems(Update, clip_path_del.after(user_setting).in_set(FrameDataPrepare))
-        .add_systems(Update, 
+        .add_systems(UiSchedule, clip_path_del.after(user_setting).in_set(FrameDataPrepare))
+        .add_systems(UiSchedule, 
             clip_path_post_process
                 .before(last_update_wgpu)
                 .after(calc_camera_depth_and_renderlist)

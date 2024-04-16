@@ -3,7 +3,7 @@ use std::borrow::BorrowMut;
 use bevy_ecs::prelude::{DetectChanges, Ref};
 use bevy_ecs::query::{Changed, Or, With};
 use bevy_ecs::system::{Query, Res, SystemParam, SystemState, SystemChangeTick};
-use bevy_app::{Plugin, Update, App};
+use bevy_app::{Plugin, UiSchedule, App};
 use bevy_ecs::prelude::{Commands, Component, IntoSystemConfigs};
 use bevy_ecs::prelude::{Entity, EventReader, EventWriter, ParamSet, RemovedComponents, ResMut, Without, World};
 use pi_bevy_asset::ShareAssetMgr;
@@ -62,19 +62,19 @@ pub struct UiTextShadowPlugin;
 impl Plugin for UiTextShadowPlugin {
     fn build(&self, app: &mut App) {
         app.add_frame_event::<ComponentEvent<Changed<TextShadow>>>()
-            .add_systems(Update, 
+            .add_systems(UiSchedule, 
                 text_shadow_life
                     .in_set(UiSystemSet::LifeDrawObject)
                     .in_set(UiSystemSet::PassMark)
                     .before(cal_context),
             )
-            .add_systems(Update, 
+            .add_systems(UiSchedule, 
                 calc_text_shadow
                     .in_set(UiSystemSet::PrepareDrawObj)
                     .in_set(UiSystemSet::PassSetting)
                     .after(calc_text)
             )
-            .add_systems(Update, calc_graph_depend.in_set(UiSystemSet::PassCalc).after(update_graph));
+            .add_systems(UiSchedule, calc_graph_depend.in_set(UiSystemSet::PassCalc).after(update_graph));
     }
 }
 

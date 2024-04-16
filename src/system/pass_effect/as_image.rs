@@ -4,7 +4,7 @@ use bevy_ecs::{
     prelude::RemovedComponents, query::Changed, system::Query,
     prelude::{Or, ParamSet, IntoSystemConfigs},
 };
-use bevy_app::{Plugin, Update, App};
+use bevy_app::{Plugin, App};
 use pi_bevy_asset::{AssetConfig, AssetDesc, ShareAssetMgr};
 use pi_bevy_ecs_extend::system_param::res::OrInitRes;
 use pi_bevy_render_plugin::FrameDataPrepare;
@@ -25,6 +25,7 @@ use crate::{
 use pi_postprocess::prelude::CopyIntensity;
 
 use crate::{components::pass_2d::PostProcess, system::pass::pass_life};
+use crate::prelude::UiSchedule;
 
 pub struct UiAsImagePlugin;
 
@@ -45,13 +46,13 @@ impl Plugin for UiAsImagePlugin {
 
         app.insert_resource(TargetCacheMgr { key: AtomicUsize::new(0), assets: assets_mgr })
             // 标记有AsImage组件的节点为渲染上下文
-            .add_systems(Update, 
+            .add_systems(UiSchedule, 
                 pass_life::pass_mark::<AsImage>
                     .after(user_setting)
                     .before(pass_life::cal_context)
                     .in_set(FrameDataPrepare),
             )
-            .add_systems(Update, 
+            .add_systems(UiSchedule, 
                 as_image_post_process
                     .before(last_update_wgpu)
                     .after(calc_camera_depth_and_renderlist)

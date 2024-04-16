@@ -29,13 +29,13 @@ impl Plugin for UiTextPlugin {
         //     .add_frame_event::<ComponentEvent<Changed<NodeState>>>()
         //     .add_frame_event::<ComponentEvent<Changed<TextContent>>>()
         //     // 文字劈分
-        //     .add_systems(Update, text_split::text_split.before(calc_layout).in_set(UiSystemSet::Layout))
+        //     .add_systems(UiSchedule, text_split::text_split.before(calc_layout).in_set(UiSystemSet::Layout))
         //     // 字形计算
-        //     .add_systems(Update, text_glyph::text_glyph.after(cal_matrix).before(calc_text).in_set(UiSystemSet::Matrix))
+        //     .add_systems(UiSchedule, text_glyph::text_glyph.after(cal_matrix).before(calc_text).in_set(UiSystemSet::Matrix))
             // // 更新文字纹理
-            // .add_systems(Update, calc_text_texture.in_set(UiSystemSet::PrepareDrawObj))
+            // .add_systems(UiSchedule, calc_text_texture.in_set(UiSystemSet::PrepareDrawObj))
 			// // 文字drawobj创建
-			// .add_systems(Update, 
+			// .add_systems(UiSchedule, 
 			// 	draw_object_life::<
 			// 		TextContent,
 			// 		TextRenderObjType,
@@ -48,12 +48,12 @@ impl Plugin for UiTextPlugin {
             // 文字阴影
             // .add_plugins(UiTextShadowPlugin);
 		// match self.font_type {
-		// 	// FontType::Bitmap => app.add_systems(Update, 
+		// 	// FontType::Bitmap => app.add_systems(UiSchedule, 
         //     //     calc_text
         //     //         .in_set(UiSystemSet::PrepareDrawObj)
         //     //         .after(calc_text_texture)
         //     // ),
-		// 	// FontType::Sdf1 => app.add_systems(Update, 
+		// 	// FontType::Sdf1 => app.add_systems(UiSchedule, 
         //     //     calc_text
         //     //         .in_set(UiSystemSet::PrepareDrawObj)
         //     //         .after(calc_text_texture)

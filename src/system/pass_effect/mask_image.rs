@@ -33,7 +33,7 @@
 //         Resource, World, IntoSystemConfigs, apply_deferred
 //     },
 // };
-// use bevy_app::{Plugin, Update, App, Startup};
+// use bevy_app::{Plugin, UiSchedule, App, Startup};
 // use guillotiere::Rectangle;
 // use ordered_float::NotNan;
 // use pi_bevy_asset::ShareAssetMgr;
@@ -73,20 +73,20 @@
 //             // 初始化渲染渐变色的图节点
 //             .add_systems(Startup, init)
 //             // 标记MaskImage所在节点为一个Pass
-//             .add_systems(Update, 
+//             .add_systems(UiSchedule, 
 //                 pass_life::pass_mark::<MaskImage>
 //                     .in_set(UiSystemSet::PassMark)
 //                     .before(pass_life::cal_context)
 //                     .in_set(FrameDataPrepare),
 //             )
 //             // 设置mask_image的后处理效果
-//             .add_systems(Update, 
+//             .add_systems(UiSchedule, 
 //                 mask_image_post_process
 //                     .after(cal_matrix)
 //                     .after(update_graph::update_graph)
 //                     .in_set(FrameDataPrepare),
 //             )
-//             .add_systems(Update, 
+//             .add_systems(UiSchedule, 
 //                 apply_deferred
 //                     .after(mask_image_post_process)
 //                     .before(calc_node_pipeline)

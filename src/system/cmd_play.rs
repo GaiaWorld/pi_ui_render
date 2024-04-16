@@ -14,13 +14,14 @@ use bevy_ecs::{
     system::SystemState,
     prelude::{Commands, Entity, Resource, World, IntoSystemConfigs},
 };
-use bevy_app::{Update, Plugin, App};
+use bevy_app::{Plugin, App};
 use pi_bevy_ecs_extend::system_param::res::{OrInitRes, OrInitResMut};
 use pi_bevy_render_plugin::FrameState;
 use pi_null::Null;
 use pi_slotmap::SecondaryMap;
 
 use super::{node::user_setting, system_set::UiSystemSet, RunState};
+use crate::prelude::UiSchedule;
 
 #[derive(Debug, Clone, Copy, Default)]
 pub enum TraceOption {
@@ -39,10 +40,10 @@ impl Plugin for UiCmdTracePlugin {
         log::info!("self.option==============={:?}", self.option);
         match self.option {
             TraceOption::Record => {
-                app.add_systems(Update, cmd_record.in_set(UiSystemSet::Setting).before(user_setting::user_setting));
+                app.add_systems(UiSchedule, cmd_record.in_set(UiSystemSet::Setting).before(user_setting::user_setting));
             }
             TraceOption::Play => {
-                app.add_systems(Update, cmd_play.in_set(UiSystemSet::Setting).before(user_setting::user_setting));
+                app.add_systems(UiSchedule, cmd_play.in_set(UiSystemSet::Setting).before(user_setting::user_setting));
             }
             TraceOption::None => return,
         };

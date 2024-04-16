@@ -519,7 +519,7 @@ fn set(
 //             .add_startup_system(init_1) // 插入根节点；插入前两个实体，以根节点作为父节点
 //             .add_system_to_stage(CoreStage::PreUpdate, init_2) // 插入第3个实体，以根节点作为父节点
 //             .add_system_to_stage(CoreStage::PreUpdate, init_3) // 插入第4个实体，以根节点作为父节点
-//             .add_systems(Update, calc_zindex)
+//             .add_systems(UiSchedule, calc_zindex)
 //             .update();
 //         asset(&mut app.world, &mut query, vec![(0, (0, 16)), (1, (4, 8)), (2, (9, 13))]);
 //         println!("------------------------");

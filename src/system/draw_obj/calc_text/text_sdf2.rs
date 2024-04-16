@@ -1,5 +1,5 @@
 
-use bevy_app::{Plugin, Update};
+use bevy_app::Plugin;
 use bevy_ecs::entity::Entity;
 use bevy_ecs::event::EventWriter;
 use bevy_ecs::prelude::{DetectChanges, Ref};
@@ -31,7 +31,7 @@ use crate::system::draw_obj::calc_svg::calc_tex::update_sdf2_texture;
 use crate::system::draw_obj::life_drawobj::{draw_object_life_new, update_render_instance_data};
 use crate::system::draw_obj::set_box;
 use crate::system::node::layout::calc_layout;
-use crate::system::node::world_matrix::cal_matrix;
+use crate::prelude::UiSchedule;
 
 use super::text_glyph::text_glyph;
 use super::{IsRun, TEXT_ORDER};
@@ -61,12 +61,12 @@ impl Plugin for Sdf2TextPlugin {
             .add_frame_event::<ComponentEvent<Changed<NodeState>>>()
             .add_frame_event::<ComponentEvent<Changed<TextContent>>>()
             // 文字劈分
-            .add_systems(Update, text_split.before(calc_layout).in_set(UiSystemSet::Layout))
+            .add_systems(UiSchedule, text_split.before(calc_layout).in_set(UiSystemSet::Layout))
             // 字形计算
-            .add_systems(Update, text_glyph.after(cal_matrix).in_set(UiSystemSet::Matrix))
+            .add_systems(UiSchedule, text_glyph.after(text_split).in_set(UiSystemSet::Layout))
 			// 创建drawobj 
 			.add_systems(
-				Update, 
+				UiSchedule, 
 				draw_object_life_new::<
 						TextContent,
 						TextRenderObjType,
@@ -77,7 +77,7 @@ impl Plugin for Sdf2TextPlugin {
 			)
 			// 统计drawobj的实例长度
 			.add_systems(
-				Update, 
+				UiSchedule, 
 				calc_sdf2_text_len
 					.in_set(FrameDataPrepare)
 					.after(UiSystemSet::LifeDrawObjectFlush)
@@ -86,13 +86,13 @@ impl Plugin for Sdf2TextPlugin {
 			)
 			// 更新实例数据
 			.add_systems(
-				Update, 
+				UiSchedule, 
 				calc_sdf2_text
 					.in_set(UiSystemSet::PrepareDrawObj)
 			)
 			// 更新纹理
 			.add_systems(
-				Update, 
+				UiSchedule, 
 				update_sdf2_texture
 					.in_set(UiSystemSet::PrepareDrawObj)
 					.after(text_glyph)
@@ -165,7 +165,7 @@ pub fn calc_sdf2_text_len(
 		};
 		if let Ok(mut render_count) = query_draw.get_mut(draw_id) {
 			let mut new_count = 0;
-			if node_state.0.scale > 0.000001 && node_state.0.text.len() > 0 {
+			if node_state.0.text.len() > 0 {
 				
 				let text_overflow = calc_text_overflow_data(text_overflow_data, text_style);
 
@@ -292,9 +292,9 @@ pub fn calc_sdf2_text(
 			if  node_state.0.text.len() == 0 {
 				continue;
 			}
-			if node_state.0.scale < 0.000001 {
-                continue;
-            }
+			// if node_state.0.scale < 0.000001 {
+            //     continue;
+            // }
 			if layer.layer() == 0 {
 				continue;
 			}
@@ -679,7 +679,6 @@ impl UniformData {
 
 			// 设置文字在布局空间的偏移和宽高
 			// instance_data.set_data(&BoxUniform(&[offset.0, offset.1, (render_range.maxs.x - render_range.mins.x) * font_size, (render_range.maxs.y - render_range.mins.y) * font_size]));
-			println!("self.world_matrix: {:?}", self.world_matrix);
 			set_box(&self.world_matrix, &Aabb2::new(Point2::new(offset.0, offset.1), Point2::new((render_range.maxs.x - render_range.mins.x) * font_size + offset.0, (render_range.maxs.y - render_range.mins.y) * font_size + offset.1)), &mut instance_data);
 
 			// 设置渲染类型

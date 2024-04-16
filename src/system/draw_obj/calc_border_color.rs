@@ -1,6 +1,6 @@
 //! 圆角从有到删除，没有正确处理顶点（TODO）
 
-use bevy_app::{Plugin, Update};
+use bevy_app::Plugin;
 use bevy_ecs::prelude::{DetectChanges, Ref, Query, Changed, Or, With, DetectChangesMut};
 use bevy_ecs::schedule::IntoSystemConfigs;
 use bevy_window::AddFrameEvent;
@@ -15,6 +15,7 @@ use crate::resource::BorderColorRenderObjType;
 use crate::resource::draw_obj::InstanceContext;
 use crate::shader1::meterial::{BorderColorUniform, RenderFlagType, TyUniform, BorderWidthUniform};
 use crate::system::system_set::UiSystemSet;
+use crate::prelude::UiSchedule;
 
 use super::calc_text::IsRun;
 use super::{life_drawobj, set_box};
@@ -27,7 +28,7 @@ impl Plugin for BorderColorPlugin {
 		app
 		.add_frame_event::<ComponentEvent<Changed<BorderColor>>>()
 		.add_systems(
-			Update, 
+			UiSchedule, 
 			life_drawobj::draw_object_life_new::<
 				BorderColor,
 				BorderColorRenderObjType,
@@ -38,7 +39,7 @@ impl Plugin for BorderColorPlugin {
 				.before(calc_border_color),
 		)
 		.add_systems(
-			Update, 
+			UiSchedule, 
 			calc_border_color
 				.after(super::super::node::world_matrix::cal_matrix)
 				.in_set(UiSystemSet::PrepareDrawObj)

@@ -92,20 +92,17 @@ pub fn cal_matrix(
 		return;
 	}
 	// let count = dirtys.count();
-	// let time = pi_time::Instant::now();
+	// let time1 = pi_time::Instant::now();
     // transform修改，标记层脏(这里transform_change不直接在层脏中声明，是因为transform改变不会发送对应的事件)
     for e in transform_change.iter() {
         dirtys.mark(e);
     }
-	// let time1 = pi_time::Instant::now();
+	// let time2 = pi_time::Instant::now();
 
     // let layer_dirty_count = dirtys.count();
     // 计算布局
     // let _sss = tracing::info_span!("matrix compute", layer_dirty_count).entered();
 
-	// if dirtys.count() > 0 {
-	// 	log::warn!("start parent==========={:?}", dirtys.count());
-	// }
 	// let count = dirtys.count();
     for id in dirtys.iter() {
         // if count == 1 {
@@ -199,6 +196,10 @@ pub fn cal_matrix(
             };
         }
     }
+    // let time3 = pi_time::Instant::now();
+    // if dirtys.count() > 0 {
+	// 	log::warn!("start parent==========={:?}", (dirtys.count(), time3 - time2, time2 - time1));
+	// }
 	// if count == 1 {
 	// 	log::warn!("matrix time========{:?}, {:?}", pi_time::Instant::now() - time1, time1 - time);
 	// }
@@ -273,7 +274,7 @@ pub fn calc_quad(
 //             .insert_resource(AllEntitys(Vec::new()))
 //             .insert_resource(RootNode(root))
 //             .add_startup_system(setup1)
-//             .add_systems(Update, init_tree)
+//             .add_systems(UiSchedule, init_tree)
 //             .add_system_to_stage(CoreStage::PostUpdate, cal_matrix)
 //             .add_system_to_stage(CoreStage::Last, asset_matrix)
 //             .add_system_to_stage(CoreStage::Last, asset_quad)

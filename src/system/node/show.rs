@@ -1,7 +1,7 @@
 //! 计算show
 //! 该系统默认为所有已经创建的Entity创建Show组件， 并监听Show和Display的创建修改， 以及监听idtree上的创建事件， 计算已经在idtree上///! 存在的实体的Enable和Visibility
 
-use bevy_app::{Plugin, Update};
+use bevy_app::Plugin;
 use bevy_ecs::{prelude::Entity, query::Changed, system::Query, event::{EventWriter, EventReader}, change_detection::DetectChangesMut, schedule::IntoSystemConfigs};
 use bevy_window::AddFrameEvent;
 use pi_bevy_ecs_extend::{prelude::{Layer, LayerDirty, OrDefault, Up}, system_param::res::{OrInitRes, OrInitResMut}};
@@ -14,14 +14,15 @@ use crate::{components::{
     user::{Enable, Show}, draw_obj::InstanceIndex,
 }, system::{draw_obj::{calc_text::IsRun, life_drawobj::update_render_instance_data}, system_set::UiSystemSet}, events::{NodeDisplayChange, NodeVisibilityChange}, resource::draw_obj::InstanceContext, shader1::meterial::{TyUniform, RenderFlagType}};
 
+use crate::prelude::UiSchedule;
 pub struct ShowPlugin;
 
 impl Plugin for ShowPlugin {
     fn build(&self, app: &mut bevy_app::App) {
 		app
 			.add_frame_event::<NodeVisibilityChange>()
-			.add_systems(Update, calc_show.in_set(UiSystemSet::BaseCalc))
-			.add_systems(Update, 
+			.add_systems(UiSchedule, calc_show.in_set(UiSystemSet::BaseCalc))
+			.add_systems(UiSchedule, 
 				set_show_data
 					.after(update_render_instance_data)
 					.after(UiSystemSet::PrepareDrawObj) // 这里是为了确保与其他设置实例数据的system不并行， 因为设置的数据冲突（TyUniform）

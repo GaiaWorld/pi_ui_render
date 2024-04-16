@@ -41,7 +41,7 @@ pub fn text_glyph(
         Query<
             (
                 Entity,
-                &'static WorldMatrix,
+                // &'static WorldMatrix,
                 OrDefault<TextStyle>,
                 // &'static TextContent,
                 &'static mut NodeState,
@@ -56,7 +56,7 @@ pub fn text_glyph(
         Query<
             (
                 Entity,
-                &'static WorldMatrix,
+                // &'static WorldMatrix,
                 OrDefault<TextStyle>,
                 // &'static TextContent,
                 &'static mut NodeState,
@@ -81,7 +81,7 @@ pub fn text_glyph(
 	let mut await_set_gylph = Vec::new();
     for (
         entity,
-        world_matrix,
+        // world_matrix,
         text_style,
         // text_content,
         mut node_state,
@@ -89,7 +89,7 @@ pub fn text_glyph(
 		text_overflow_data,
     ) in query.p0().iter_mut()
     {
-		let r = set_gylph(entity, layer, world_matrix, text_style, &mut node_state, &mut font_sheet, &mut event_writer, text_overflow_data);
+		let r = set_gylph(entity, layer, text_style, &mut node_state, &mut font_sheet, &mut event_writer, text_overflow_data);
         if let Err(_) = r {
             // 清空文字纹理TODO（清屏为玫红色）
 
@@ -107,7 +107,7 @@ pub fn text_glyph(
         // 为当前所有需要显示的字符，重新分配字形信息
         for (
             entity,
-            world_matrix,
+            // world_matrix,
             text_style,
             // text_content,
             mut node_state,
@@ -115,7 +115,7 @@ pub fn text_glyph(
 			text_overflow_data,
         ) in query.p1().iter_mut()
         {
-            let r = set_gylph(entity, layer, world_matrix, text_style, &mut node_state, &mut font_sheet, &mut event_writer, text_overflow_data).unwrap();
+            let r = set_gylph(entity, layer, text_style, &mut node_state, &mut font_sheet, &mut event_writer, text_overflow_data).unwrap();
 			if r == false {
 				await_set_gylph.push(entity);
 			}
@@ -154,7 +154,7 @@ pub fn text_glyph(
 fn set_gylph(
     entity: Entity,
 	layer: &Layer,
-    world_matrix: &WorldMatrix,
+    // world_matrix: &WorldMatrix,
     text_style: &TextStyle,
     // text_content: &TextContent,
     node_state: &mut NodeState,
@@ -166,21 +166,22 @@ fn set_gylph(
 		return Ok(true);
 	}
 	let font_type = font_sheet.font_mgr().font_type;
-    let scale = Vector4::from(world_matrix.fixed_columns(1));
-    let scale = scale.dot(&scale).sqrt();
-    // log::warn!("set_gylph============={:?}, {:?}, {:?}", entity, text_content, scale);
-    if scale < 0.000001 {
-        node_state.0.scale = scale;
-        return Ok(true);
-    }
+    // let scale = Vector4::from(world_matrix.fixed_columns(1));
+    // let scale = scale.dot(&scale).sqrt();
+    // // log::warn!("set_gylph============={:?}, {:?}, {:?}", entity, text_content, scale);
+    // if scale < 0.000001 {
+    //     node_state.0.scale = scale;
+    //     return Ok(true);
+    // }
 
 	let mut is_ready = true;
-    let font_size = (get_size(&text_style.font_size) as f32 * scale).round() as usize;
+    // let font_size = (get_size(&text_style.font_size) as f32 * scale).round() as usize;
+    let font_size = get_size(&text_style.font_size);
     let font_id = font_sheet.font_id(Font::new(
         text_style.font_family.clone(),
         font_size,
         text_style.font_weight,
-         unsafe { NotNan::new_unchecked((*text_style.text_stroke.width as f32 * scale).round())},
+         unsafe { NotNan::new_unchecked((*text_style.text_stroke.width as f32).round())},
     ));
 
 
@@ -188,7 +189,7 @@ fn set_gylph(
     // let weight = text_style.font_weight;
     // let sw = text_style.text_stroke.width;
 
-    node_state.0.scale = scale;
+    // node_state.0.scale = scale;
     let chars = &mut node_state.0.text;
     let mut char_id;
 

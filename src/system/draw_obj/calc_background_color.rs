@@ -1,4 +1,4 @@
-use bevy_app::{Plugin, Update};
+use bevy_app::Plugin;
 use bevy_ecs::change_detection::DetectChangesMut;
 use bevy_ecs::query::{Changed, Or, With};
 use bevy_ecs::schedule::IntoSystemConfigs;
@@ -18,6 +18,7 @@ use crate::shader1::meterial::{GradientColorUniform, GradientPositionUniform, Re
 use crate::components::user::{BackgroundColor, Color, Vector2};
 use crate::system::draw_obj::set_box;
 use crate::system::system_set::UiSystemSet;
+use crate::prelude::UiSchedule;
 
 use super::calc_text::IsRun;
 use super::life_drawobj;
@@ -30,7 +31,7 @@ impl Plugin for BackgroundColorPlugin {
 		app
 		.add_frame_event::<ComponentEvent<Changed<BackgroundColor>>>()
 		.add_systems(
-			Update, 
+			UiSchedule, 
 			life_drawobj::draw_object_life_new::<
 				BackgroundColor,
 				BackgroundColorRenderObjType,
@@ -41,7 +42,7 @@ impl Plugin for BackgroundColorPlugin {
 				.before(calc_background_color),
 		)
 		.add_systems(
-			Update, 
+			UiSchedule, 
 			calc_background_color
 				.after(super::super::node::world_matrix::cal_matrix)
 				.in_set(UiSystemSet::PrepareDrawObj)

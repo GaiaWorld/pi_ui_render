@@ -102,6 +102,7 @@ pi_bevy_ecs_extend = { version = "0.1", registry = "yn" }
 pi_bevy_render_plugin = { version = "0.1", registry = "yn" }
 pi_bevy_asset = { version = "0.1", registry = "yn" }
 bevy_ecs = "0.11"
+bevy_utils = "0.11"
 bevy_app = { version = "0.11", default_features = false }
 bevy_window = { version = "0.1", registry = "yn", package = "pi_bevy_window" }
 # bevy_window = "0.11"
@@ -264,14 +265,14 @@ bevy_math = { path = "../bevy/crates/bevy_math" }
 # pi_spatial = { path="../pi_spatial" }
 
 # pi_spatial = {path = "../pi_spatial"}
-glow = {path = "../glow"}
+# glow = {path = "../glow"}
 
 [patch.yn]
 # pi_curves  = {path="../pi_curves"}
 # pi_animation = { path="../pi_animation"}
 # pi_style = {path = "../pi_style"}
-pi_wgpu = {path = "../pi_wgpu"}
-pi_egl = {path = "../pi_egl"}
+# pi_wgpu = {path = "../pi_wgpu"}
+# pi_egl = {path = "../pi_egl"}
 # winit = {path = "../winit"}
 # font_kit = { path = "../font_kit" }
 # pi_hal = { path = "../pi_hal" }
@@ -297,10 +298,10 @@ pi_egl = {path = "../pi_egl"}
 # pi_bevy_window = { path = "../pi_bevy/crates/window" }
 
 # pi_render
-pi_render = { path = "../pi_render" }
-render_core = {path = "../pi_render/crates/render_core"}
-render_derive = {path = "../pi_render/crates/render_derive"}
-render_compile = {path = "../pi_render/crates/render_compile"}
+# pi_render = { path = "../pi_render" }
+# render_core = {path = "../pi_render/crates/render_core"}
+# render_derive = {path = "../pi_render/crates/render_derive"}
+# render_compile = {path = "../pi_render/crates/render_compile"}
 
 # pi_render = { path = "../pi_render" }
 # render_core = {path = "../pi_render/crates/render_core"}

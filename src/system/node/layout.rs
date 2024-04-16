@@ -159,7 +159,7 @@ pub fn calc_layout(
 		return;
 	}
 
-	let time = pi_time::Instant::now();
+	// let time = pi_time::Instant::now();
 
     // let node_states_ptr = &mut inodes as *mut Query<&'static mut NodeState>;
     let layout_styles = LayoutStyles {
@@ -381,7 +381,7 @@ pub fn calc_layout(
     // #[cfg(feature = "trace")]
     // let _sss = tracing::info_span!("layout compute", count, layer_dirty_count).entered();
     layout.compute(&mut layer_dirty);
-	let time3 = pi_time::Instant::now();
+	// let time3 = pi_time::Instant::now();
 	// log::warn!("layout======{:?}, {:?}, {:?}, {}, {}", time1 - time, time2 - time1, time3 - time2, count, count1);
 }
 

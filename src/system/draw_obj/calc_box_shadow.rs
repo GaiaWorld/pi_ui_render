@@ -1,4 +1,4 @@
-use bevy_app::{Plugin, Update};
+use bevy_app::Plugin;
 use bevy_ecs::change_detection::DetectChangesMut;
 use bevy_ecs::query::{Changed, Or, With};
 use bevy_ecs::schedule::IntoSystemConfigs;
@@ -19,6 +19,7 @@ use crate::shader1::meterial::{RenderFlagType, ColorUniform, TyUniform, BoxShado
 use crate::components::user::BoxShadow;
 use crate::system::draw_obj::set_box;
 use crate::system::system_set::UiSystemSet;
+use crate::prelude::UiSchedule;
 
 use super::calc_text::IsRun;
 use super::life_drawobj;
@@ -31,7 +32,7 @@ impl Plugin for BoxShadowPlugin {
 		app
 		.add_frame_event::<ComponentEvent<Changed<BoxShadow>>>()
 		.add_systems(
-			Update, 
+			UiSchedule, 
 			life_drawobj::draw_object_life_new::<
 				BoxShadow,
 				BoxShadowRenderObjType,
@@ -42,7 +43,7 @@ impl Plugin for BoxShadowPlugin {
 				.before(calc_box_shadow),
 		)
 		.add_systems(
-			Update, 
+			UiSchedule, 
 			calc_box_shadow
 				.after(super::super::node::layout::calc_layout)
 				.in_set(UiSystemSet::PrepareDrawObj)

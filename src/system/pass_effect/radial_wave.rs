@@ -2,7 +2,7 @@ use bevy_ecs::{
 	prelude::RemovedComponents, query::Changed, system::Query,
     prelude::{Added, Or, ParamSet, IntoSystemConfigs},
 };
-use bevy_app::{Plugin, Update, App};
+use bevy_app::{Plugin, App};
 use pi_bevy_ecs_extend::system_param::res::OrInitRes;
 
 use crate::{
@@ -17,6 +17,7 @@ use crate::{
 };
 
 use crate::{components::pass_2d::PostProcess, system::pass::pass_life};
+use crate::prelude::UiSchedule;
 
 /// 水波纹效果插件
 pub struct RadialWavePlugin;
@@ -25,11 +26,11 @@ impl Plugin for RadialWavePlugin {
     fn build(&self, app: &mut App) {
         app
             // 标记有RadialWave组件的节点为渲染上下文
-            .add_systems(Update, 
+            .add_systems(UiSchedule, 
                 pass_life::pass_mark::<RadialWave>
                     .before(pass_life::cal_context).in_set(UiSystemSet::PassMark)
             )
-            .add_systems(Update, 
+            .add_systems(UiSchedule, 
                 radial_wave_post_process
                     .in_set(UiSystemSet::PassSetting)
             );

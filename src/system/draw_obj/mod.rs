@@ -1,5 +1,5 @@
 use bevy_ecs::prelude::{IntoSystemSetConfig, IntoSystemConfigs};
-use bevy_app::{App, Plugin, PostUpdate, Update};
+use bevy_app::{App, Plugin, PostUpdate};
 use pi_bevy_render_plugin::{FrameDataPrepare, GraphBuild, GraphRun};
 use pi_hal::font::font::FontType;
 use pi_style::style::Aabb2;
@@ -15,6 +15,7 @@ use super::pass::pass_life;
 use super::{system_set::UiSystemSet, pass::update_graph::update_graph};
 
 use crate::components::user::Vector4;
+use crate::prelude::UiSchedule;
 
 use self::calc_background_color::BackgroundColorPlugin;
 use self::calc_background_image::BackgroundImagePlugin;
@@ -52,12 +53,12 @@ pub struct UiReadyDrawPlugin {
 
 impl Plugin for UiReadyDrawPlugin {
     fn build(&self, app: &mut App) {
-        app.configure_set(Update, UiSystemSet::PrepareDrawObj.in_set(FrameDataPrepare));
+        app.configure_set(UiSchedule, UiSystemSet::PrepareDrawObj.in_set(FrameDataPrepare));
 
         app
 			// .add_systems(Startup, clear_draw_obj::init)// PostStartup, 
             .init_resource::<MaxViewSize>()
-			.add_systems(Update, update_render_instance_data
+			.add_systems(UiSchedule, update_render_instance_data
 				.after(UiSystemSet::LifeDrawObjectFlush)
 				.after( UiSystemSet::PassFlush)
 				.after(z_index::calc_zindex)
@@ -71,16 +72,16 @@ impl Plugin for UiReadyDrawPlugin {
 				.after(GraphBuild)
 				.before(GraphRun)
 				.in_set(FrameDataPrepare))
-            .add_systems(Update, root_view_port::calc_dyn_target_type.in_set(UiSystemSet::BaseCalc))
-            .add_systems(Update, pipeline::calc_node_pipeline.in_set(UiSystemSet::PrepareDrawObj))
+            .add_systems(UiSchedule, root_view_port::calc_dyn_target_type.in_set(UiSystemSet::BaseCalc))
+            .add_systems(UiSchedule, pipeline::calc_node_pipeline.in_set(UiSystemSet::PrepareDrawObj))
             // 混合模式
-			.add_systems(Update, 
+			.add_systems(UiSchedule, 
                 blend_mode::calc_drawobj_blendstate
                     .in_set(FrameDataPrepare)
                     .before(UiSystemSet::LifeDrawObjectFlush)
                     .after(UiSystemSet::LifeDrawObject),
             )
-            // .add_systems(Update, 
+            // .add_systems(UiSchedule, 
             //     root_clear_color::clear_change
             //         .in_set(FrameDataPrepare)
             //         .after(UiSystemSet::PassFlush)
@@ -88,12 +89,12 @@ impl Plugin for UiReadyDrawPlugin {
             // )
 
 			// 圆角
-			.add_systems(Update, 
+			.add_systems(UiSchedule, 
                 calc_border_radius::calc_border_radius
                     .in_set(UiSystemSet::PrepareDrawObj)
                     .after(UiSystemSet::LifeDrawObject),
             )
-            // .add_systems(Update, root_view_port::view_port_change.in_set(UiSystemSet::PrepareDrawObj))
+            // .add_systems(UiSchedule, root_view_port::view_port_change.in_set(UiSystemSet::PrepareDrawObj))
             .init_resource::<EmptyVertexBuffer>()
 			// 背景图片功能
 			.add_plugins(BackgroundImagePlugin)

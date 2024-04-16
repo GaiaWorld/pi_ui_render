@@ -32,8 +32,8 @@ pub mod events;
 
 
 pub mod prelude {
-    use bevy_ecs::prelude::{IntoSystemSetConfigs, apply_deferred, IntoSystemConfigs};
-	use bevy_app::{App, Plugin, Update};
+    use bevy_ecs::{prelude::{apply_deferred, IntoSystemConfigs, IntoSystemSetConfigs, Schedule}, schedule::{ExecutorKind, ScheduleLabel}};
+	use bevy_app::{App, MainScheduleOrder, Plugin};
     use bevy_window::AddFrameEvent;
     use pi_bevy_render_plugin::PiRenderSystemSet;
     use pi_hal::font::font::FontType;
@@ -44,6 +44,11 @@ pub mod prelude {
         shader_utils::UiShaderPlugin, system_set::UiSystemSet, RunState,
     }, events::{EntityChange, NodeZindexChange, NodeDisplayChange}};
 
+    // #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+    // pub struct UiSchedule;
+
+    pub use bevy_app::prelude::PreUpdate as UiSchedule;
+
     #[derive(Default)]
     pub struct UiPlugin {
         #[cfg(feature = "debug")]
@@ -52,9 +57,16 @@ pub mod prelude {
     }
     impl Plugin for UiPlugin {
         fn build(&self, app: &mut App) {
+            // let mut ui_schedule = Schedule::new();
+            // ui_schedule.set_executor_kind(ExecutorKind::SingleThreaded);
+
+            // let mut order = app.world.get_resource_mut::<MainScheduleOrder>().unwrap();
+            // app.world.get_resource_mut::<MainScheduleOrder>().unwrap().ui_schedule = UiSchedule;
+            // MainScheduleOrder
+
             app.init_resource::<RunState>();
             app.configure_sets(
-				Update, 
+				UiSchedule, 
                 (
                     UiSystemSet::Setting,
                     UiSystemSet::Load,
@@ -66,7 +78,7 @@ pub mod prelude {
                     .chain(),
             )
             .configure_sets(
-				Update, 
+				UiSchedule, 
                 (
                     UiSystemSet::Setting,
                     UiSystemSet::LifeDrawObject,
@@ -76,9 +88,9 @@ pub mod prelude {
                 )
                     .chain(),
             )
-            .configure_sets(Update, (UiSystemSet::Setting, UiSystemSet::BaseCalc, UiSystemSet::BaseCalcFlush).chain())
+            .configure_sets(UiSchedule, (UiSystemSet::Setting, UiSystemSet::BaseCalc, UiSystemSet::BaseCalcFlush).chain())
             .configure_sets(
-				Update, 
+				UiSchedule, 
                 (
                     UiSystemSet::Setting,
                     UiSystemSet::PrepareDrawObjFlush,
@@ -90,7 +102,7 @@ pub mod prelude {
 			.add_frame_event::<EntityChange>()
 			.add_frame_event::<NodeZindexChange>()
 			.add_frame_event::<NodeDisplayChange>()
-			.add_systems(Update, crate::system::res_load::load_res.in_set(UiSystemSet::Setting))
+			.add_systems(UiSchedule, crate::system::res_load::load_res.in_set(UiSystemSet::Setting))
             .add_plugins(UiShaderPlugin)
             .add_plugins(UiNodePlugin)
             .add_plugins(UiEffectPlugin)
@@ -98,12 +110,12 @@ pub mod prelude {
 				font_type: self.font_type
 			})
             .add_plugins(UiPassPlugin)
-            // .add_systems(Update, apply_system_buffers.in_set(UiSystemSet::LoadFlush))
-            .add_systems(Update, apply_deferred.in_set(UiSystemSet::LifeDrawObjectFlush))
-            // .add_systems(Update, apply_system_buffers.in_set(UiSystemSet::BaseCalcFlush))
-            .add_systems(Update, apply_deferred.in_set(UiSystemSet::PrepareDrawObjFlush))
+            // .add_systems(UiSchedule, apply_system_buffers.in_set(UiSystemSet::LoadFlush))
+            .add_systems(UiSchedule, apply_deferred.in_set(UiSystemSet::LifeDrawObjectFlush))
+            // .add_systems(UiSchedule, apply_system_buffers.in_set(UiSystemSet::BaseCalcFlush))
+            .add_systems(UiSchedule, apply_deferred.in_set(UiSystemSet::PrepareDrawObjFlush))
 
-			.add_systems(Update, crate::clear_remove_component.run_if(pi_bevy_render_plugin::should_run).after(bevy_window::FrameSet)); // 在每帧结束时清理删除组件的列表
+			.add_systems(UiSchedule, crate::clear_remove_component.run_if(pi_bevy_render_plugin::should_run).after(bevy_window::FrameSet)); // 在每帧结束时清理删除组件的列表
 
             #[cfg(feature = "debug")]
             app.add_plugins(crate::system::cmd_play::UiCmdTracePlugin { option: self.cmd_trace });

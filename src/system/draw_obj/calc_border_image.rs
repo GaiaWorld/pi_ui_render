@@ -1,4 +1,4 @@
-use bevy_app::{Plugin, Update};
+use bevy_app::Plugin;
 use bevy_ecs::change_detection::DetectChanges;
 use bevy_ecs::query::{Changed, Or, With};
 use bevy_ecs::schedule::IntoSystemConfigs;
@@ -16,6 +16,7 @@ use crate::components::draw_obj::{BorderImageMark, InstanceIndex};
 use crate::components::user::{BorderImageClip, Point2, BorderImageRepeat, BorderImageSlice};
 use crate::resource::draw_obj::InstanceContext;
 use crate::resource::BorderImageRenderObjType;
+use crate::prelude::UiSchedule;
 
 use crate::shader1::meterial::{RenderFlagType, TyUniform, UvUniform, BorderImageInfoUniform};
 use crate::system::draw_obj::calc_background_image::calc_step;
@@ -32,8 +33,8 @@ impl Plugin for BorderImagePlugin {
     fn build(&self, app: &mut bevy_app::App) {
 		app
 			.add_frame_event::<ComponentEvent<Changed<BorderImageTexture>>>()
-			.add_systems(Update, image_texture_load::image_load::<BorderImage, BorderImageTexture>.in_set(UiSystemSet::Load))
-			.add_systems(Update, 
+			.add_systems(UiSchedule, image_texture_load::image_load::<BorderImage, BorderImageTexture>.in_set(UiSystemSet::Load))
+			.add_systems(UiSchedule, 
 				life_drawobj::draw_object_life_new::<
 					BorderImageTexture,
 					BorderImageRenderObjType,
@@ -43,7 +44,7 @@ impl Plugin for BorderImagePlugin {
 					.in_set(UiSystemSet::LifeDrawObject)
 					.after(image_texture_load::image_load::<BorderImage, BorderImageTexture>),
 			)
-			.add_systems(Update, 
+			.add_systems(UiSchedule, 
 				calc_border_image
 					.after(super::super::node::world_matrix::cal_matrix)
 					.in_set(UiSystemSet::PrepareDrawObj)

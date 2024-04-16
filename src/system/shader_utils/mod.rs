@@ -6,7 +6,7 @@
 //! TODO: 后续，可能将不可变因素通过shader静态编译出来（尚不确定哪些通常不变），当前通过手动编写代码的方式来确定
 //!
 
-use bevy_app::{Plugin, App, Update};
+use bevy_app::{Plugin, App};
 use bevy_ecs::{
     prelude::EventReader,
     system::{Commands, Res, ResMut},
@@ -37,6 +37,7 @@ use crate::{
     resource::draw_obj::{CommonSampler, PipelineState, Program, UnitQuadBuffer},
     utils::tools::{calc_float_hash, calc_hash},
 };
+use crate::prelude::UiSchedule;
 
 use super::system_set::UiSystemSet;
 
@@ -91,7 +92,7 @@ impl Plugin for UiShaderPlugin {
 			// .init_resource::<ShareLayout>()
 			.init_resource::<UnitQuadBuffer>()
 
-			.add_systems(Update, screen_target_resize.in_set(FrameDataPrepare).before(UiSystemSet::Setting))
+			.add_systems(UiSchedule, screen_target_resize.in_set(FrameDataPrepare).before(UiSystemSet::Setting))
 			// .add_startup_system(color::init)
 			// .add_startup_system(image::init)
 			// .add_startup_system(text::init)

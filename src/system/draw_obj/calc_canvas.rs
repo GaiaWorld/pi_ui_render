@@ -1,4 +1,4 @@
-use bevy_app::{Update, Plugin};
+use bevy_app::Plugin;
 use bevy_ecs::entity::Entity;
 use bevy_ecs::query::{Changed, With};
 use bevy_ecs::schedule::IntoSystemConfigs;
@@ -21,6 +21,7 @@ use crate::shader1::meterial::{RenderFlagType, TyUniform};
 use crate::system::draw_obj::set_box;
 use crate::system::pass::update_graph::{update_graph, type_to_post_process};
 use crate::system::system_set::UiSystemSet;
+use crate::prelude::UiSchedule;
 
 use super::calc_text::IsRun;
 use super::life_drawobj::{self, update_render_instance_data};
@@ -32,7 +33,7 @@ impl Plugin for CanvasPlugin {
     fn build(&self, app: &mut bevy_app::App) {
 		app
 		.add_frame_event::<ComponentEvent<Changed<Canvas>>>()
-		.add_systems(Update, 
+		.add_systems(UiSchedule, 
 			life_drawobj::draw_object_life_new::<
 				Canvas,
 				CanvasRenderObjType,
@@ -42,12 +43,12 @@ impl Plugin for CanvasPlugin {
 				.in_set(UiSystemSet::LifeDrawObject),
 		)
 		.add_systems(
-			Update, 
+			UiSchedule, 
 			calc_canvas
 				.in_set(UiSystemSet::PrepareDrawObj)
 		)
 		.add_systems(
-			Update, 
+			UiSchedule, 
 			calc_canvas_graph
 				.after(update_graph)
 				.before(update_render_instance_data)

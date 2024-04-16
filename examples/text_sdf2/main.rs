@@ -210,7 +210,7 @@ impl Example for QuadExample {
         self.cmd.set_style(div8, ColorType(Color::RGBA(CgColor::new(0.0, 1.0, 0.0, 1.0))));
         self.cmd.set_style(div8, FontSizeType(FontSize::Length(44)));
         self.cmd.set_style(div8, TextStrokeType(Stroke {
-        	width: unsafe {NotNan::new_unchecked(2.0)},
+        	width: unsafe {NotNan::new_unchecked(4.0)},
         	color: CgColor::new(1.0, 0.0, 0.0, 1.0)}));
         self.cmd.append(div8, root);
     }

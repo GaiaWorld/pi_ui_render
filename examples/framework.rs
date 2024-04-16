@@ -2,7 +2,7 @@ use std::mem::transmute;
 use std::{sync::Arc, time::Instant};
 
 use bevy_ecs::prelude::{IntoSystemConfigs, Entity, SystemSet, Local};
-use bevy_app::prelude::{ App, Update, Startup };
+use bevy_app::prelude::{ App, Startup };
 // #[cfg(feature = "debug")]
 use bevy_ecs::prelude::{Commands, ResMut, World};
 use bevy_ecs::system::SystemState;
@@ -25,7 +25,7 @@ use pi_ui_render::system::RunState;
 // use pi_ui_render::components::user::AsImage;
 // use pi_ui_render::system::draw_obj::calc_text::IsRun;
 use pi_ui_render::system::system_set::UiSystemSet;
-use pi_ui_render::{prelude::UiPlugin, resource::UserCommands};
+use pi_ui_render::{prelude::{UiPlugin, UiSchedule}, resource::UserCommands};
 
 #[cfg(feature = "debug")]
 use pi_ui_render::system::cmd_play::{CmdNodeCreate, PlayState, Records};
@@ -209,14 +209,14 @@ pub fn start<T: Example + Sync + Send + 'static>(example: T) {
     match record_option {
         pi_ui_render::system::cmd_play::TraceOption::None => (),
         pi_ui_render::system::cmd_play::TraceOption::Record => {
-            app.add_systems(Update, record_cmd_to_file.after(UiSystemSet::Setting));
+            app.add_systems(UiSchedule, record_cmd_to_file.after(UiSystemSet::Setting));
         }
         pi_ui_render::system::cmd_play::TraceOption::Play => {
-            app.add_systems(Update, setting_next_record.before(UiSystemSet::Setting));
+            app.add_systems(UiSchedule, setting_next_record.before(UiSystemSet::Setting));
         }
     }
 
-    app.add_systems(Update, exmple_run.before(UiSystemSet::Setting).in_set(ExampleSet))
+    app.add_systems(UiSchedule, exmple_run.before(UiSystemSet::Setting).in_set(ExampleSet))
         .add_systems(Startup, move |world: &mut World| {
             exmple1.lock().unwrap().init(world, (width as usize, height as usize));
         });

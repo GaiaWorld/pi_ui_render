@@ -6,7 +6,7 @@ mod framework;
 use std::mem::swap;
 
 use bevy_ecs::system::SystemState;
-use bevy_app::prelude::{Update, App};
+use bevy_app::prelude::App;
 use bevy_ecs::prelude::{World, Query, ResMut, IntoSystemConfigs, Commands};
 use framework::Example;
 use pi_bevy_render_plugin::{PiRenderGraph, SimpleInOut, RenderContext};
@@ -48,7 +48,7 @@ pub struct CustomPostExample {
 
 impl Example for CustomPostExample {
 	fn setting(&mut self, app: &mut App) {
-		app.add_systems(Update, create_post_graph.in_set(UiSystemSet::Setting).after(user_setting::user_setting));
+		app.add_systems(UiSchedule, create_post_graph.in_set(UiSystemSet::Setting).after(user_setting::user_setting));
 	}
 
     fn init(&mut self, world: &mut World, size: (usize, usize)) {

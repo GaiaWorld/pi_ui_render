@@ -1,4 +1,5 @@
 use bevy_ecs::prelude::Resource;
+use bevy_window::FrameState;
 use pi_bevy_ecs_extend::system_param::res::OrInitRes;
 
 #[cfg(feature = "debug")]
@@ -26,26 +27,32 @@ bitflags::bitflags! {
 }
 
 
-pub fn setting_run(state: OrInitRes<RunState>) -> bool {
-    if **state >= RunState::SETTING {
+pub fn setting_run(state: OrInitRes<RunState>, frame_state: OrInitRes<FrameState>) -> bool {
+    if **state >= RunState::SETTING{
+        true
+    } else if let FrameState::Active = **frame_state {
         true
     } else {
         false
     }
 }
 
-pub fn layout_run(state: OrInitRes<RunState>) -> bool {
+pub fn layout_run(state: OrInitRes<RunState>, frame_state: OrInitRes<FrameState>) -> bool {
     if **state >= RunState::LAYOUT {
         true
+    } else if let FrameState::Active = **frame_state {
+        true
     } else {
         false
     }
 }
 
-pub fn matrix_run(state: OrInitRes<RunState>) -> bool {
+pub fn matrix_run(state: OrInitRes<RunState>, frame_state: OrInitRes<FrameState>) -> bool {
     if **state >= RunState::MATRIX {
         true
-    } else {
+    } else if let FrameState::Active = **frame_state {
+        true
+    }  else {
         false
     }
 }

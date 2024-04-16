@@ -12,7 +12,7 @@
 
 use std::mem::transmute;
 
-use bevy_app::{Plugin, App, Update};
+use bevy_app::{Plugin, App};
 use bevy_ecs::{
     prelude::{Entity, World},
     system::{Local, Query, ResMut, SystemState}, event::EventReader, change_detection::{DetectChanges, DetectChangesMut}, schedule::IntoSystemConfigs,
@@ -32,6 +32,7 @@ use crate::{
 };
 
 use crate::system::node::user_setting::StyleChange;
+use crate::prelude::UiSchedule;
 
 use super::{user_setting::user_setting, animation::calc_animation};
 
@@ -40,8 +41,8 @@ pub struct TransitionPlugin;
 impl Plugin for TransitionPlugin {
     fn build(&self, app: &mut App) {
 		app
-			.add_systems(Update, transition_1.in_set(FrameDataPrepare).in_set(UiSystemSet::Setting).after(user_setting).before(calc_animation))
-			.add_systems(Update, transition_2.in_set(FrameDataPrepare).in_set(UiSystemSet::Setting).after(calc_animation))
+			.add_systems(UiSchedule, transition_1.in_set(FrameDataPrepare).in_set(UiSystemSet::Setting).after(user_setting).before(calc_animation))
+			.add_systems(UiSchedule, transition_2.in_set(FrameDataPrepare).in_set(UiSystemSet::Setting).after(calc_animation))
 		;
 	}
 }
