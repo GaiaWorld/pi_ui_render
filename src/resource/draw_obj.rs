@@ -360,20 +360,14 @@ impl InstanceContext {
 
         // log::warn!("darw================={:?}", instance_draw.instance_data_range.start as u32/self.instance_data.alignment as u32..instance_draw.instance_data_range.end as u32/self.instance_data.alignment as u32 );
         // log::warn!("instance_data_range====={:?}", (&instance_draw.instance_data_range, instance_draw.instance_data_range.start as u32/self.instance_data.alignment as u32..instance_draw.instance_data_range.end as u32/self.instance_data.alignment as u32));
-		// #[cfg(debug_assertions)]
-        // {
-        //     for i in instance_draw.instance_data_range.start as u32/self.instance_data.alignment as u32..instance_draw.instance_data_range.end as u32/self.instance_data.alignment as u32 {
-        //         let debug_info = self.debug_info.get(i as usize/MeterialBind::SIZE);
-        //         rp.draw(0..6, i..i+1);
-        //         if let Some(debug_info) = debug_info {
-        //             rp.insert_debug_marker(debug_info.as_str());
-        //             rp.draw(0..6, i..i+1);
-        //         } else {
-        //             rp.draw(0..6, i..i+1);
-        //         }
-        //     } 
-        // }
-        rp.draw(0..6, instance_draw.instance_data_range.start as u32/self.instance_data.alignment as u32..instance_draw.instance_data_range.end as u32/self.instance_data.alignment as u32);
+		#[cfg(debug_assertions)]
+        {
+            for i in instance_draw.instance_data_range.start as u32/self.instance_data.alignment as u32..instance_draw.instance_data_range.end as u32/self.instance_data.alignment as u32 {
+                let debug_info = self.debug_info.get(i as usize/MeterialBind::SIZE);
+                rp.draw(0..6, i..i+1);
+            } 
+        }
+        // rp.draw(0..6, instance_draw.instance_data_range.start as u32/self.instance_data.alignment as u32..instance_draw.instance_data_range.end as u32/self.instance_data.alignment as u32);
 
 	}
 }
@@ -638,77 +632,6 @@ impl InstanceContext {
 
 use super::RenderObjType;
 
-// /// depth 的BindGroupLayout
-// #[derive(Deref, Resource)]
-// pub struct DepthGroupLayout(pub Share<BindGroupLayout>);
-
-// /// depth的Group缓冲
-// #[derive(Resource)]
-// pub struct DepthGroup;
-
-// /// pos 和uv在同一个buffer中
-// #[derive(Deref, Resource)]
-// pub struct PosUv2VertexLayout(pub Share<VertexBufferLayoutWithHash>);
-// impl FromWorld for PosUv2VertexLayout {
-//     fn from_world(world: &mut World) -> Self {
-//         world.init_resource::<ShaderInfoCache>();
-//         let mut catch = world.get_resource_mut::<ShaderInfoCache>().unwrap();
-//         Self(catch.vert_layout(create_vertex_buffer_layout_p_v2()))
-//     }
-// }
-
-// /// pos和uv在不同buffer中
-// #[derive(Deref, Resource)]
-// pub struct PosUv1VertexLayout(pub Share<VertexBufferLayoutWithHash>);
-// impl FromWorld for PosUv1VertexLayout {
-//     fn from_world(world: &mut World) -> Self {
-//         world.init_resource::<ShaderInfoCache>();
-//         let mut catch = world.get_resource_mut::<ShaderInfoCache>().unwrap();
-//         Self(catch.vert_layout(create_vertex_buffer_layout_p_v1()))
-//     }
-// }
-
-// #[derive(Deref, Resource)]
-// pub struct PosVertexLayout(pub Share<VertexBufferLayoutWithHash>);
-// impl FromWorld for PosVertexLayout {
-//     fn from_world(world: &mut World) -> Self {
-//         world.init_resource::<ShaderInfoCache>();
-//         let mut catch = world.get_resource_mut::<ShaderInfoCache>().unwrap();
-//         Self(catch.vert_layout(create_vertex_buffer_layout()))
-//     }
-// }
-
-// #[derive(Deref, Resource)]
-// pub struct PosUvColorVertexLayout(pub Share<VertexBufferLayoutWithHash>);
-// impl FromWorld for PosUvColorVertexLayout {
-//     fn from_world(world: &mut World) -> Self {
-//         world.init_resource::<ShaderInfoCache>();
-//         let mut catch = world.get_resource_mut::<ShaderInfoCache>().unwrap();
-//         Self(catch.vert_layout(create_vertex_buffer_layout_p_v_c()))
-//     }
-// }
-
-
-// #[derive(Deref, Resource)]
-// pub struct PosColorVertexLayout(pub Share<VertexBufferLayoutWithHash>);
-// impl FromWorld for PosColorVertexLayout {
-//     fn from_world(world: &mut World) -> Self {
-//         world.init_resource::<ShaderInfoCache>();
-//         let mut catch = world.get_resource_mut::<ShaderInfoCache>().unwrap();
-//         Self(catch.vert_layout(create_vertex_buffer_layout_p_c()))
-//     }
-// }
-
-// #[derive(Deref, Resource)]
-// pub struct Sdf2VertexLayout(pub Share<VertexBufferLayoutWithHash>);
-// impl FromWorld for Sdf2VertexLayout {
-//     fn from_world(world: &mut World) -> Self {
-//         world.init_resource::<ShaderInfoCache>();
-//         let mut catch = world.get_resource_mut::<ShaderInfoCache>().unwrap();
-//         Self(catch.vert_layout(create_vertex_buffer_layout_sdf2()))
-//     }
-// }
-
 #[derive(Debug)]
 pub struct VertexBufferLayoutWithHash {
     pub value: VertexBufferLayouts,
@@ -762,197 +685,6 @@ impl std::ops::Deref for PipelineStateWithHash {
 impl Hash for PipelineStateWithHash {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) { self.hash.hash(state); }
 }
-
-
-// #[derive(Resource)]
-// pub struct ShaderInfoCache {
-//     // 缓冲BindGroupLayout
-//     pub bind_group_layout: XHashMap<u64, Share<BindGroupLayout>>,
-
-//     pub pipeline_state: XHashMap<u64, Share<PipelineStateWithHash>>,
-//     pub common: Share<PipelineStateWithHash>,
-//     pub common_no_depth: Share<PipelineStateWithHash>,
-//     pub premultiply: Share<PipelineStateWithHash>,
-//     pub clear: Share<PipelineStateWithHash>,
-
-//     pub vert_layout: XHashMap<u64, Share<VertexBufferLayoutWithHash>>,
-// }
-
-// impl Default for ShaderInfoCache {
-//     fn default() -> Self {
-//         // let clear = create_clear_pipeline_state();
-//         let common = create_common_pipeline_state();
-//         let premultiply = create_premultiply_pipeline_state();
-//         let mut common_no_depeth = common.clone();
-//         common_no_depeth.depth_stencil = None;
-
-//         let clear_hash = calc_hash(&clear, 0);
-//         let common_hash = calc_hash(&common, 0);
-//         let common_no_depeth_hash = calc_hash(&common_no_depeth, 0);
-//         let premultiply_hash = calc_hash(&premultiply, 0);
-
-//         let clear = Share::new(PipelineStateWithHash {
-//             hash: clear_hash,
-//             state: clear,
-//         });
-//         let common = Share::new(PipelineStateWithHash {
-//             hash: common_hash,
-//             state: common,
-//         });
-//         let common_no_depeth = Share::new(PipelineStateWithHash {
-//             hash: common_no_depeth_hash,
-//             state: common_no_depeth,
-//         });
-//         let premultiply = Share::new(PipelineStateWithHash {
-//             hash: premultiply_hash,
-//             state: premultiply,
-//         });
-
-//         let mut pipeline_state = XHashMap::default();
-//         pipeline_state.insert(clear_hash, clear.clone());
-//         pipeline_state.insert(common_hash, common.clone());
-//         pipeline_state.insert(premultiply_hash, premultiply.clone());
-//         Self {
-//             bind_group_layout: Default::default(),
-//             pipeline_state,
-//             common,
-//             common_no_depth: common_no_depeth,
-//             premultiply,
-//             clear,
-//             vert_layout: Default::default(),
-//         }
-//     }
-// }
-
-// impl ShaderInfoCache {
-//     pub fn bind_group_layout(&mut self, entrys: &[wgpu::BindGroupLayoutEntry], device: &PiRenderDevice) -> Share<BindGroupLayout> {
-//         let hash = calc_hash_slice(entrys, 0);
-//         match self.bind_group_layout.entry(hash) {
-//             Entry::Occupied(r) => r.get().clone(),
-//             Entry::Vacant(r) => r
-//                 .insert(Share::new(device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-//                     label: None,
-//                     entries: entrys,
-//                 })))
-//                 .clone(),
-//         }
-//     }
-
-//     pub fn pipeline_state(&mut self, state: PipelineState) -> Share<PipelineStateWithHash> {
-//         let hash = calc_hash(&state, 0);
-//         match self.pipeline_state.entry(hash) {
-//             Entry::Occupied(r) => r.get().clone(),
-//             Entry::Vacant(r) => r.insert(Share::new(PipelineStateWithHash { state, hash })).clone(),
-//         }
-//     }
-
-//     pub fn vert_layout(&mut self, value: VertexBufferLayouts) -> Share<VertexBufferLayoutWithHash> {
-//         let hash = calc_hash_slice(&value, 0);
-//         match self.vert_layout.entry(hash) {
-//             Entry::Occupied(r) => r.get().clone(),
-//             Entry::Vacant(r) => r.insert(Share::new(VertexBufferLayoutWithHash { value, hash })).clone(),
-//         }
-//     }
-// }
-
-// pub program: Share<ProgramMetaInner>,
-//     pub state: Share<PipelineStateWithHash>,
-//     pub vert_layout: Share<VertexBufferLayout>,
-//     pub defines: XHashSet<Atom>,
-
-
-// /// 每个渲染对象，关于shader的静态属性
-// #[derive(Resource)]
-// pub struct ProgramMetaRes<T: ShaderProgram>(Share<ProgramMetaInner>, PhantomData<T>);
-
-// impl<T: ShaderProgram> std::ops::Deref for ProgramMetaRes<T> {
-//     type Target = Share<ProgramMetaInner>;
-
-//     fn deref(&self) -> &Self::Target { &self.0 }
-// }
-
-// impl<T: ShaderProgram> FromWorld for ProgramMetaRes<T> {
-//     fn from_world(world: &mut World) -> Self {
-//         world.init_resource::<ShaderInfoCache>();
-
-//         let world = world.cell();
-
-//         let mut shader_info = world.get_resource_mut::<ShaderInfoCache>().unwrap();
-//         let device = world.get_resource::<PiRenderDevice>().unwrap();
-
-//         let meta = T::create_meta();
-//         // // depth不使用动态偏移
-//         // if let Some(depth_entry) = meta.bindings.bind_group_entrys.get_mut(DepthBind::set() as usize) {
-//         //     if depth_entry.len() == 1 {
-//         //         if let BindingType::Buffer { has_dynamic_offset, .. } = &mut depth_entry[0].ty {
-//         //             *has_dynamic_offset = false;
-//         //         }
-//         //     }
-//         // }
-//         let mut vert_layouts = Vec::with_capacity(meta.ins.0.len());
-//         for i in meta.ins.0.iter() {
-//             let (format, size) = match i.format.as_str() {
-//                 "vec4" => (wgpu::VertexFormat::Float32x4, 16),
-//                 "vec3" => (wgpu::VertexFormat::Float32x3, 12),
-//                 "vec2" => (wgpu::VertexFormat::Float32x2, 8),
-//                 "float" => (wgpu::VertexFormat::Float32, 4),
-//                 "ivec4" => (wgpu::VertexFormat::Sint32x4, 16),
-//                 "ivec3" => (wgpu::VertexFormat::Sint32x3, 12),
-//                 "ivec2" => (wgpu::VertexFormat::Sint32x2, 8),
-//                 "int" => (wgpu::VertexFormat::Sint32, 4),
-//                 "uvec4" => (wgpu::VertexFormat::Uint32x4, 16),
-//                 "uvec3" => (wgpu::VertexFormat::Uint32x3, 12),
-//                 "uvec2" => (wgpu::VertexFormat::Uint32x2, 8),
-//                 "uint" => (wgpu::VertexFormat::Uint32, 4),
-//                 r => panic!("vert format invalid, {:?}", r),
-//             };
-//             vert_layouts.push(VertexBufferLayout {
-//                 array_stride: size as wgpu::BufferAddress,
-//                 step_mode: wgpu::VertexStepMode::Vertex,
-//                 attributes: vec![wgpu::VertexAttribute {
-//                     format,
-//                     offset: 0,
-//                     shader_location: i.location,
-//                 }],
-//             });
-//         }
-
-//         let mut bind_group_layout = VecMap::new();
-//         for (index, item) in meta.bindings.bind_group_entrys.iter().enumerate() {
-//             if let Some(r) = item {
-//                 bind_group_layout.insert(index, shader_info.bind_group_layout(r.as_slice(), &device));
-//             }
-//         }
-
-//         let hash = calc_hash(&meta, 0);
-//         Self(
-//             Share::new(ProgramMetaInner {
-//                 bind_group_layout: bind_group_layout,
-//                 shader_meta: meta,
-//                 vert_layout: vert_layouts,
-//                 hash,
-//             }),
-//             PhantomData,
-//         )
-//         // log::warn!("shader_static_map.0=================={:?}, {:p}", shader_static_map.0.len(), &shader_static_map.0);
-
-//         // // 插入背景颜色shader的索引
-//         // let shader_index = shader_static_map.0.len() - 1;
-//         // command.insert_resource(ColorStaticIndex(StaticIndex {
-//         // 	shader: shader_index,
-//         // 	pipeline_state: common_state.common,
-//         // 	vertex_buffer_index,
-//         // 	name: COLOR_PIPELINE,
-//         // }));
-
-//         // command.insert_resource(GradientColorStaticIndex(StaticIndex {
-//         // 	shader: shader_index,
-//         // 	pipeline_state: common_state.common,
-//         // 	vertex_buffer_index: vertex_buffer_index1,
-//         // 	name: COLOR_PIPELINE,
-//         // }));
-//     }
-// }
 
 pub struct ProgramMetaInner {
     pub bind_group_layout: VecMap<Share<BindGroupLayout>>, // shader中全部的BindGroup
@@ -1033,99 +765,6 @@ impl ProgramMetaInner {
         }
     }
 }
-
-// pub fn init(
-// 	mut shader_static_map: ResMut<Shaders>,
-// 	color_layout: Res<DynBindGroupLayout<ColorMaterialGroup>>,
-// 	camera_layout: Res<DynBindGroupLayout<CameraMatrixGroup>>,
-// 	mut shader_catch: ResMut<ShaderCatch>,
-// 	mut shader_map: ResMut<ShaderMap>,
-// 	common_state: Res<CommonPipelineState>,
-// 	mut command: Commands,
-// 	// mut static_index: WriteRes<ColorStaticIndex>,
-// 	// mut gradient_static_index: WriteRes<GradientColorStaticIndex>,
-// ) {
-// 	let shader = GlslShaderStatic::init(
-// 		COLOR_SHADER_VS,
-// 		COLOR_SHADER_FS,
-// 		&mut shader_catch,
-// 		&mut shader_map,
-// 		|| include_str!("../../../resource/color.vert"),
-// 		|| include_str!("../../../resource/color.frag"),
-// 	);
-
-// 	let vertex_buffer = create_vertex_buffer_layout();
-// 	let vertex_buffer_index = vertex_buffer_map.insert(vertex_buffer);
-
-// 	let vertex_buffer1 = create_vertex_buffer_layout_with_color();
-// 	let vertex_buffer_index1 = vertex_buffer_map.insert(vertex_buffer1);
-
-// 	let mut bind_group_layout = VecMap::new();
-// 	bind_group_layout.insert(CameraMatrixGroup::id() as usize, (*camera_layout).clone());
-// 	bind_group_layout.insert(ColorMaterialGroup::id() as usize, (*color_layout).clone());
-
-// 	shader_static_map.0.push(ShaderStatic {
-// 		vs_shader_soruce: shader.shader_vs,
-// 		fs_shader_soruce: shader.shader_fs,
-// 		bind_group_layout,
-// 	});
-// 	log::warn!("shader_static_map.0=================={:?}, {:p}", shader_static_map.0.len(), &shader_static_map.0);
-
-// 	// 插入背景颜色shader的索引
-// 	let shader_index = shader_static_map.0.len() - 1;
-// 	command.insert_resource(ColorStaticIndex(StaticIndex {
-// 		shader: shader_index,
-// 		pipeline_state: common_state.common,
-// 		vertex_buffer_index,
-// 		name: COLOR_PIPELINE,
-// 	}));
-
-// 	command.insert_resource(GradientColorStaticIndex(StaticIndex {
-// 		shader: shader_index,
-// 		pipeline_state: common_state.common,
-// 		vertex_buffer_index: vertex_buffer_index1,
-// 		name: COLOR_PIPELINE,
-// 	}));
-// }
-
-
-// #[derive(Deref, Resource)]
-// pub struct PostBindGroupLayout(pub Share<BindGroupLayout>);
-
-// impl FromWorld for PostBindGroupLayout {
-//     fn from_world(world: &mut World) -> Self {
-//         world.init_resource::<ShaderInfoCache>();
-//         let world = world.cell();
-//         let mut cache = world.get_resource_mut::<ShaderInfoCache>().unwrap();
-//         // bind_group_layout
-//         let device = world.get_resource::<PiRenderDevice>().unwrap();
-//         let layout = cache.bind_group_layout(
-//             &[
-//                 wgpu::BindGroupLayoutEntry {
-//                     binding: 0,
-//                     visibility: wgpu::ShaderStages::FRAGMENT,
-//                     ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-//                     count: None,
-//                 },
-//                 wgpu::BindGroupLayoutEntry {
-//                     binding: 1,
-//                     visibility: wgpu::ShaderStages::FRAGMENT,
-//                     ty: wgpu::BindingType::Texture {
-//                         multisampled: false,
-//                         sample_type: wgpu::TextureSampleType::default(),
-//                         view_dimension: wgpu::TextureViewDimension::D2,
-//                     },
-//                     count: None,
-//                 },
-//             ],
-//             &device,
-//         );
-//         Self(layout)
-//     }
-// }
-
-// #[derive(Deref, Default, Resource)]
-// pub struct ShaderCatch(pub XHashMap<ShaderId, Shader>);
 
 /// Program, 根据shader的原始代码、defines计算获得
 pub struct Program {
@@ -1262,32 +901,6 @@ impl FromWorld for UnitQuadBuffer {
     }
 }
 
-// #[derive(Debug, Resource)]
-// pub struct ShareLayout {
-//     pub depth: BindGroupLayout,
-//     pub matrix: BindGroupLayout,
-//     pub view: BindGroupLayout,
-//     pub project: BindGroupLayout,
-//     pub empty: BindGroupLayout,
-// }
-
-// impl FromWorld for ShareLayout {
-//     fn from_world(world: &mut World) -> Self {
-//         let device = world.get_resource::<PiRenderDevice>().expect("create ShareLayout need RenderDevice");
-//         ShareLayout {
-//             project: create_project_layout(device),
-//             view: create_view_layout(device),
-//             matrix: create_matrix_group_layout(device),
-//             depth: create_depth_layout(device),
-//             empty: create_empty_layout(device),
-//         }
-//     }
-// }
-
-
-// #[derive(Debug, Clone)]
-// pub struct EmptyBind(pub Handle<RenderRes<BindGroup>>);
-
 /// 动态分配的纹理，清屏颜色的bindgroup（透明色）
 #[derive(Resource)]
 pub struct DynFboClearColorBindGroup(pub DrawBindGroup);
@@ -1301,45 +914,6 @@ pub fn list_share_as_ref<'a, T, I: Iterator<Item = &'a Option<Share<T>>>>(list: 
     }
     v
 }
-
-// #[derive(Deref, Default, Resource)]
-// pub struct DynBindGroups(Vec<(Option<BindGroup>, BindGroupLayout, fn(&RenderDevice, &BindGroupLayout, &Buffer) -> BindGroup)>);
-
-// // 在DynBindGroups中的索引
-// #[derive(Resource)]
-// pub struct DynBindGroupIndex<T>(usize, PhantomData<T>);
-// impl<T: BufferGroup + Group> FromWorld for DynBindGroupIndex<T> {
-// 	fn from_world(world: &mut World) -> Self {
-// 		let device = world.get_resource::<PiRenderDevice>().unwrap();
-// 		let layout = T::create_layout(device, true);
-
-// 		let mut groups = world.get_resource_mut::<DynBindGroups>().unwrap();
-// 		groups.push((None, layout, T::create_bind_group ));
-// 		let index= groups.len() - 1;
-//         Self(index, PhantomData)
-// 	}
-// }
-
-// impl<T> std::ops::Deref for DynBindGroupIndex<T> {
-//     type Target = usize;
-
-//     fn deref(&self) -> &Self::Target {
-//         &self.0
-//     }
-// }
-
-// #[derive(Deref, Resource)]
-// pub struct DynUniformBuffer (pi_render::rhi::dyn_uniform_buffer::DynUniformBuffer);
-
-// impl FromWorld for DynUniformBuffer {
-//     fn from_world(world: &mut World) -> Self {
-// 		let limits = world.get_resource::<PiRenderDevice>().unwrap().limits();
-//         DynUniformBuffer(
-// 			pi_render::rhi::dyn_uniform_buffer::DynUniformBuffer::new(
-// 				Some("DynUniformBuffer".to_string()),
-// 				limits.min_uniform_buffer_offset_alignment.max(192)))
-// 	}
-// }
 
 #[derive(Resource)]
 pub struct GroupAlloterCenter<>(Vec<Share<GroupAlloter>>, wgpu::Limits);
@@ -1374,36 +948,6 @@ pub struct UiMaterialGroup;
 /// 动态标记
 #[derive(Debug, Default)]
 pub struct DynMark;
-
-// #[derive(Resource, Debug, Deref)]
-// pub struct DirtyList {
-// 	#[deref]
-// 	list: SecondaryMap<EntityKey, ()>,
-// 	pre_clear_tick: Tick, // 上次清理list的World节拍
-// }
-
-// impl Default for DirtyList {
-//     fn default() -> Self {
-//         Self { 
-// 			list: Default::default(), 
-// 			pre_clear_tick: Tick::new(0),
-// 		}
-//     }
-// }
-
-// impl DirtyList {
-// 	#[inline]
-// 	pub fn push(&mut self, entity: Entity) {
-// 		self.list.insert(EntityKey(entity), ());
-// 	}
-
-// 	#[inline]
-// 	pub fn clear(&mut self, tick: Tick) {
-// 		self.list.clear();
-// 		self.pre_clear_tick = tick;
-
-// 	}
-// }
 
 /// buffer累的的binding组的分配器
 #[derive(Resource)]
@@ -1464,84 +1008,6 @@ impl<M> FromWorld for ShareGroupAlloter<CameraGroup, M> {
     }
 }
 
-// impl<M> FromWorld for ShareGroupAlloter<UiMaterialGroup, M> {
-//     fn from_world(world: &mut World) -> Self {
-//         world.init_resource::<GroupAlloterCenter>();
-//         world.init_resource::<ShaderInfoCache>();
-//         let world = world.cell();
-//         let mut cache = world.get_resource_mut::<ShaderInfoCache>().unwrap();
-//         let device = world.get_resource::<PiRenderDevice>().unwrap();
-
-
-//         let entry = UiMaterialBind::as_layout_entry(wgpu::ShaderStages::VERTEX_FRAGMENT);
-//         let layout = cache.bind_group_layout(&[entry.clone()], &device);
-
-//         let mut group_center = world.get_resource_mut::<GroupAlloterCenter>().unwrap();
-//         let limits = group_center.limits();
-//         let min_alignment = limits.min_uniform_buffer_offset_alignment;
-//         let max_binding_size = limits.max_uniform_buffer_binding_size;
-//         let alloter = Share::new(
-//             GroupAlloter::new(
-//                 Some("ui metarial group".to_string()),
-//                 min_alignment,
-//                 max_binding_size,
-//                 None,
-//                 vec![entry],
-//                 layout,
-//             )
-//             .unwrap(),
-//         );
-//         group_center.add_alloter(alloter.clone());
-
-//         // println!("ui============{:?}", &layout);
-
-//         Self {
-//             alloter: alloter,
-//             group_index: UiMaterialBind::set(),
-//             mark: PhantomData,
-//         }
-//     }
-// }
-
-// impl<M> FromWorld for ShareGroupAlloter<DepthGroup, M> {
-//     fn from_world(world: &mut World) -> Self {
-//         world.init_resource::<GroupAlloterCenter>();
-//         world.init_resource::<ShaderInfoCache>();
-//         let world = world.cell();
-//         let mut cache = world.get_resource_mut::<ShaderInfoCache>().unwrap();
-//         let device = world.get_resource::<PiRenderDevice>().unwrap();
-
-//         let entry = DepthBind::as_layout_entry(wgpu::ShaderStages::VERTEX);
-//         let layout = cache.bind_group_layout(&[entry.clone()], &device);
-
-//         let mut group_center = world.get_resource_mut::<GroupAlloterCenter>().unwrap();
-//         let limits = group_center.limits();
-//         let min_alignment = limits.min_uniform_buffer_offset_alignment;
-//         let max_binding_size = limits.max_uniform_buffer_binding_size;
-//         let alloter = Share::new(
-//             GroupAlloter::new(
-//                 Some("depth group".to_string()),
-//                 min_alignment,
-//                 max_binding_size,
-//                 None,
-//                 vec![entry],
-//                 layout,
-//             )
-//             .unwrap(),
-//         );
-//         group_center.add_alloter(alloter.clone());
-
-//         // println!("ui============{:?}", &layout);
-
-//         Self {
-//             alloter: alloter,
-//             group_index: DepthBind::set(),
-//             mark: PhantomData,
-//         }
-//     }
-// }
-
-
 #[derive(Resource)]
 pub struct CommonSampler {
     pub default: Share<Sampler>,
@@ -1589,30 +1055,6 @@ impl FromWorld for CommonSampler {
 // 如果是sdf2方案，会有第二张纹理
 #[derive(Resource, Default)]
 pub struct TextTextureGroup(pub Option<Handle<RenderRes<BindGroup>>>, pub Option<Handle<RenderRes<BindGroup>>>);
-
-
-// #[derive(Deref, Resource)]
-// pub struct EmptyVertexBuffer(pub Handle<RenderRes<Buffer>>);
-
-// impl FromWorld for EmptyVertexBuffer {
-//     fn from_world(world: &mut World) -> Self {
-//         let device = world.get_resource::<PiRenderDevice>().unwrap();
-//         let buffer_assets = world.get_resource::<ShareAssetMgr<RenderRes<Buffer>>>().unwrap();
-
-//         let gradient_buf = device.create_buffer(&wgpu::BufferDescriptor {
-//             label: Some("Empty VERTEX Buffer"),
-//             size: 4,
-//             usage: wgpu::BufferUsages::VERTEX,
-//             mapped_at_creation: false,
-//         });
-
-//         let key = calc_hash(&"Empty VERTEX Buffer", 0);
-//         let gradient_buf = buffer_assets.insert(key, RenderRes::new(gradient_buf, 4)).unwrap();
-
-//         EmptyVertexBuffer(gradient_buf)
-//     }
-// }
-
 
 pub fn create_common_pipeline_state() -> PipelineState {
     PipelineState {

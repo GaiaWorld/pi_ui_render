@@ -25,7 +25,7 @@ pub enum RenderFlagType {
 	Sdf2OutGlow = 18, // 262144 sdf2文字外发光
 	SvgStrokeDasharray = 19, // 524288 需要占用外发光槽位
 	Svg = 20, // 1048576 svg uv 不需要y轴颠倒
-	Shadow = 21, // 2097152 阴影 需要占用外发光槽位
+	Sdf2Shadow = 21, // 2097152 阴影 需要占用外发光槽位
 	Premulti = 22, // 4194304 预乘模式渲染（需要预乘模式渲染的物体用普通模式渲染， 则设置此标记， 在着色器中会将预乘结果还原）
 	Debug = 23, // 8388608
 }
@@ -252,6 +252,11 @@ pub struct ClipSectorRadianUniform<'a>(pub &'a [f32]);
 #[derive(Uniform, Debug)]
 #[uniform(offset(80), len(16), bind(MeterialBind))]
 pub struct TextOuterGlowUniform<'a>(pub &'a [f32]);
+
+// 文字阴影的颜色（与外发光数据冲突， 不能同时存在）
+#[derive(Uniform, Debug)]
+#[uniform(offset(80), len(16), bind(MeterialBind))]
+pub struct TextShadowColorUniform<'a>(pub &'a [f32]);
 
 // 文字粗细
 #[derive(Uniform, Debug)]

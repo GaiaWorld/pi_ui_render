@@ -9,9 +9,7 @@ use crate::{
     components::{
         draw_obj::SvgMark,
         user::SvgInnerContent,
-    },
-    resource::SvgRenderObjType,
-    system::{draw_obj::sdf2_texture_update::update_sdf2_texture, system_set::UiSystemSet},
+    }, resource::SvgRenderObjType, shader1::meterial::TextShadowColorUniform, system::{draw_obj::sdf2_texture_update::update_sdf2_texture, system_set::UiSystemSet}
 };
 use crate::prelude::UiSchedule;
 
@@ -492,10 +490,10 @@ impl UniformData {
                 instance_data.set_data(&TextOuterGlowUniform(&stroke_dasharray));
                 render_flag |= 1 << RenderFlagType::SvgStrokeDasharray as usize;
                 render_flag &= !(1 << RenderFlagType::Sdf2OutGlow as usize);
-                render_flag &= !(1 << RenderFlagType::Shadow as usize);
+                render_flag &= !(1 << RenderFlagType::Sdf2Shadow as usize);
             } else if self.shadow_color[3] > 0.0 {
                 log::debug!("set shadow_color: {:?}", self.shadow_color);
-                instance_data.set_data(&TextOuterGlowUniform(&self.shadow_color));
+                instance_data.set_data(&TextShadowColorUniform(&self.shadow_color));
                 if self.shadow_offset[0] > 0.0{
                     extents.maxs.x = extents.maxs.x + self.shadow_offset[0];
                 }else{
@@ -511,14 +509,14 @@ impl UniformData {
                 let shadow_offset_and_blur_level = [(self.shadow_offset[0])  / extents.width(), (self.shadow_offset[1] ) / extents.height(), self.shadow_blur_level];
                 log::debug!("set shadow_offset_and_blur_level: {:?}", shadow_offset_and_blur_level);
                 instance_data.set_data(&ShadowUniform(&shadow_offset_and_blur_level));
-                render_flag |= 1 << RenderFlagType::Shadow as usize;
+                render_flag |= 1 << RenderFlagType::Sdf2Shadow as usize;
                 render_flag &= !(1 << RenderFlagType::Sdf2OutGlow as usize);
                 render_flag &= !(1 << RenderFlagType::SvgStrokeDasharray as usize);
             } else if !self.outer_glow_color_and_dist[3].is_infinite() {
                 log::debug!("set outer_glow_color_and_dist: {:?}", self.outer_glow_color_and_dist);
                 instance_data.set_data(&TextOuterGlowUniform(&self.outer_glow_color_and_dist));
                 render_flag |= 1 << RenderFlagType::Sdf2OutGlow as usize;
-                render_flag &= !(1 << RenderFlagType::Shadow as usize);
+                render_flag &= !(1 << RenderFlagType::Sdf2Shadow as usize);
                 render_flag &= !(1 << RenderFlagType::SvgStrokeDasharray as usize);
             }
             log::debug!("index: {:?}", instance_data.index());

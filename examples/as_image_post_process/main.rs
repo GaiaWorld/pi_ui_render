@@ -10,7 +10,7 @@ use bevy_app::prelude::App;
 use bevy_ecs::prelude::{World, Query, ResMut, IntoSystemConfigs, Commands};
 use framework::Example;
 use pi_bevy_render_plugin::{PiRenderGraph, SimpleInOut, RenderContext};
-use pi_bevy_render_plugin::component::GraphId;
+use pi_bevy_render_plugin::render_cross::GraphId;
 use pi_bevy_render_plugin::node::{Node, ParamUsage};
 /// 渲染四边形 demo
 use pi_flex_layout::style::{Dimension, PositionType};
@@ -35,6 +35,7 @@ use pi_ui_render::{
         NodeBundle,
     },
     resource::{NodeCmd, UserCommands},
+    prelude::UiSchedule,
 };
 use wgpu::CommandEncoder;
 
