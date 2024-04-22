@@ -4,7 +4,6 @@ pub mod animation_sheet;
 pub mod cmd;
 pub mod draw_obj;
 pub mod fragment;
-use bitvec::array::BitArray;
 pub use cmd::*;
 use pi_atom::Atom;
 use pi_bevy_asset::ShareAssetMgr;
@@ -32,7 +31,7 @@ use pi_hal::font::sdf_table::FontCfg;
 use bevy_ecs::prelude::{Entity, FromWorld, Resource, World};
 use bevy_ecs::system::{Command, CommandQueue};
 
-use crate::components::calc::{EntityKey, Quad};
+use crate::components::calc::{EntityKey, Quad, StyleMarkType};
 use crate::components::user::serialize::StyleAttr;
 use crate::components::user::{AsImage, ClipPath, MaskImage, Point2, RenderDirty, RenderTargetType, Vector2, Viewport};
 use pi_spatial::quad_helper::QuadTree as QuadTree1;
@@ -44,7 +43,7 @@ use self::draw_obj::{CommonBlendState, DrawObjDefault};
 use self::fragment::NodeTag;
 
 #[derive(Default, Deref, Resource, Serialize, Deserialize)]
-pub struct GlobalDirtyType(pub BitArray<[u32; 3]>);
+pub struct GlobalDirtyType(pub StyleMarkType);
 
 #[derive(Default, Deref, Resource, Serialize, Deserialize)]
 pub struct ClassSheet(pi_style::style_type::ClassSheet);

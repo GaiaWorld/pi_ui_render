@@ -32,7 +32,7 @@ use pi_style::style::{AnimationDirection, AnimationTimingFunction};
 use pi_style::{style_parse::Attribute, style_type::*};
 use smallvec::SmallVec;
 
-use crate::components::user::{serialize::StyleAttr, Animation};
+use crate::components::{calc::StyleMarkType, user::{serialize::StyleAttr, Animation}};
 use pi_style::style::Time;
 
 use super::StyleCommands;
@@ -58,7 +58,7 @@ pub struct KeyFramesSheet {
 	key_frames_attr_map: XHashMap<(usize, Atom),  XHashMap<NotNan<f32>, VecDeque<Attribute>>>, // 用于缓存帧动画的元数据（未变成曲线之前），方便高层能取到帧动画值
     key_frames_map: XHashMap<(usize, Atom), KeyFrameAttr>,       // 帧动画列表, key为（作用域hash，动画名称）
     // curve_infos: FrameCurveInfoManager,
-    type_use_mark: BitArray<[u32;3]>, // 标记被使用的TypeAnimationContext，加速run（只有被使用到的TypeAnimationContext才会被调用run方法）
+    type_use_mark: StyleMarkType, // 标记被使用的TypeAnimationContext，加速run（只有被使用到的TypeAnimationContext才会被调用run方法）
 
     runtime_info_map: RuntimeInfoMap<ObjKey>,
     animation_context_amount: AnimationContextAmount<ObjKey, AnimationGroupManagerDefault<ObjKey>>,
@@ -70,7 +70,7 @@ pub struct KeyFramesSheet {
     group_bind: SecondaryMap<AnimationGroupID, (ObjKey, GroupType)>,   // 描述group对应的节点， 以及group的名称
 
     temp_keyframes_ptr: VecMap<Share<dyn Any + Send + Sync>>, // 临时帧动画指针（添加帧动画时用到）
-    temp_keyframes_mark: BitArray<[u32;3]>,                              // 临时帧动画标记，表示哪些属性存在曲线（加帧动画时用到）
+    temp_keyframes_mark: StyleMarkType,                              // 临时帧动画标记，表示哪些属性存在曲线（加帧动画时用到）
 
     // animation_events: Vec<(AnimationGroupID, EAnimationEvent, u32)>,
     // animation_events_callback: Option<Share<dyn Fn(&Vec<(AnimationGroupID, EAnimationEvent, u32)>, &SecondaryMap<AnimationGroupID, (ObjKey, Atom)>)>>, // 动画事件回调函数
@@ -83,7 +83,7 @@ pub struct KeyFramesSheet {
 #[derive(Clone)]
 pub struct KeyFrameAttr {
 	pub data: Vec<(Share<dyn Any + Send + Sync>, usize)>,
-	pub property_mark: BitArray<[u32;3]>,
+	pub property_mark: StyleMarkType,
 }
 
 #[derive(Debug, Clone)]
@@ -561,7 +561,7 @@ impl KeyFramesSheet {
             progress: u16,
             value: &T,
             temp_keyframes_ptr: &mut VecMap<Share<dyn Any + Send + Sync>>,
-            temp_keyframes_mark: &mut BitArray<[u32;3]>,
+            temp_keyframes_mark: &mut StyleMarkType,
         ) {
             let index = T::get_style_index() as usize;
             let ptr = match temp_keyframes_ptr.get_mut(index) {
@@ -674,6 +674,7 @@ impl KeyFramesSheet {
 			Attribute::TransitionDuration(_) => (),
 			Attribute::TransitionTimingFunction(_) => (),
 			Attribute::TransitionDelay(_) => (),
+            Attribute::TextOuterGlow(_) => (),
 		}
 
 	}
@@ -829,7 +830,7 @@ impl Key for ObjKey {
 		self.0.index() as usize
 	}
 
-    fn new(idx: usize) -> Self { Self(Entity::from_raw(idx as u32)) }
+    fn with(idx: usize) -> Self { Self(Entity::from_raw(idx as u32)) }
 }
 
 impl Null for ObjKey {

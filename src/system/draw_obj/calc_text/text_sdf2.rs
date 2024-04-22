@@ -19,7 +19,7 @@ use pi_style::style::{TextOverflow, Aabb2, FontStyle};
 
 use crate::components::calc::{LayoutResult, NodeState};
 use crate::components::draw_obj::{TextMark, RenderCount};
-use crate::components::user::{get_size, Point2, TextContent, TextOverflowData, TextShadow, TextStyle};
+use crate::components::user::{get_size, Point2, TextContent, TextOuterGlow, TextOverflowData, TextShadow, TextStyle};
 use crate::components::user::Color;
 use crate::events::EntityChange;
 use crate::resource::{ShareFontSheet, TextRenderObjType};
@@ -43,7 +43,7 @@ use pi_bevy_ecs_extend::system_param::res::OrInitResMut;
 use crate::components::calc::{WorldMatrix, DrawList};
 use crate::components::draw_obj::InstanceIndex;
 use crate::resource::draw_obj::InstanceContext;
-use crate::shader1::meterial::{ColorUniform, GradientEndUniform, GradientPositionUniform, RenderFlagType, Sdf2InfoUniform, ShadowUniform, TextGradientColorUniform, TextOutlineUniform, TextShadowColorUniform, TextWeightUniform, TyUniform};
+use crate::shader1::meterial::{ColorUniform, GradientEndUniform, GradientPositionUniform, RenderFlagType, Sdf2InfoUniform, ShadowUniform, TextGradientColorUniform, TextOuterGlowUniform, TextOutlineUniform, TextShadowColorUniform, TextWeightUniform, TyUniform};
 use crate::components::user::Vector2;
 use crate::system::system_set::UiSystemSet;
 
@@ -101,7 +101,7 @@ pub fn calc_sdf2_text_len(
 		&DrawList, 
 		&LayoutResult,
 		Option<&TextShadow>, 
-		OrDefault<TextStyle>
+		OrDefault<TextStyle>,
 	), (
 		Or<(Changed<NodeState>, 
 		Changed<TextOverflowData>, 
@@ -127,7 +127,8 @@ pub fn calc_sdf2_text_len(
 		draw_list,
 		mut layout,
 		text_shadow,
-		text_style,) in query.iter() {
+		text_style,
+	) in query.iter() {
 		
 		let render_type = ***render_type;
 		let draw_id = match draw_list.get_one(render_type) {
@@ -228,7 +229,7 @@ pub fn calc_sdf2_text_len(
 pub fn calc_sdf2_text(
 	// sdf2_texture_version
 	mut instances: OrInitResMut<InstanceContext>,
-    query: Query<(Entity, Ref<WorldMatrix>, Ref<NodeState>, Option<&TextOverflowData>, Option<Ref<TextStyle>>, Ref<LayoutResult>, &DrawList, &Layer, Option<&TextShadow>), (Or<(Changed<TextStyle>, Changed<NodeState>, Changed<WorldMatrix>)>, With<TextContent>)>,
+    query: Query<(Entity, Ref<WorldMatrix>, Ref<NodeState>, Option<&TextOverflowData>, Option<Ref<TextStyle>>, Ref<LayoutResult>, &DrawList, &Layer, Option<&TextShadow>, Option<&TextOuterGlow>, ), (Or<(Changed<TextStyle>, Changed<NodeState>, Changed<WorldMatrix>)>, With<TextContent>)>,
     mut query_draw: Query<(&InstanceIndex, &RenderCount), With<TextMark>>,
 	query_up: Query<(&'static LayoutResult, &'static Up, &'static NodeState)>,
 	r: OrInitRes<IsRun>,
@@ -253,7 +254,8 @@ pub fn calc_sdf2_text(
 		layout, 
 		draw_list, 
 		layer,
-		text_shadow) in query.iter() {
+		text_shadow,
+		text_outer_glow,) in query.iter() {
 		let draw_id = match draw_list.get_one(render_type) {
 			Some(r) => r.id,
 			None => continue,
@@ -323,6 +325,7 @@ pub fn calc_sdf2_text(
 				&layout,
 				&matrix,
 				text_shadow,
+				text_outer_glow,
 			);
 
 			set_chars_data(&node_state,
@@ -365,6 +368,7 @@ fn instance_data<'a>(
 	layout: &'a LayoutResult,
 	world_matrix: &'a WorldMatrix,
 	text_shadow: Option<&'a TextShadow>,
+	text_outer_glow: Option<&'a TextOuterGlow>,
 ) -> UniformData<'a> {
 	let stroke = if *text_style.text_stroke.width > 0.0 {
         [text_style.text_stroke.color.x, text_style.text_stroke.color.y, text_style.text_stroke.color.z, *text_style.text_stroke.width]
@@ -391,7 +395,8 @@ fn instance_data<'a>(
 				font_style: text_style.font_style,
 				color: ColorData::Rgba([color.x, color.y, color.z, color.w]),
 				world_matrix,
-				text_shadow
+				text_shadow,
+				text_outer_glow
 			}
 		},
 		// 如果是渐变色，无论当前是修改了文字内容、颜色、还是布局，都必须重新计算顶点流
@@ -456,6 +461,7 @@ fn instance_data<'a>(
 				},
 				world_matrix,
 				text_shadow,
+				text_outer_glow,
 			}
 		},
 	}
@@ -611,6 +617,7 @@ struct UniformData<'a> {
 	color: ColorData,
 	world_matrix: &'a WorldMatrix,
 	text_shadow: Option<&'a TextShadow>,
+	text_outer_glow: Option<&'a TextOuterGlow>,
 }
 
 enum ColorData {
@@ -664,6 +671,14 @@ impl<'a> UniformData<'a> {
 			}
 		} else {
 			render_flag &= !(1 << RenderFlagType::Sdf2Shadow as usize);
+			if let Some(text_outer_glow) = self.text_outer_glow {
+				if text_outer_glow.distance > 0.0 {
+					render_flag |=  1<< RenderFlagType::Sdf2OutGlow as usize;
+			    	instance_data.set_data(&TextOuterGlowUniform(&[text_outer_glow.color.x, text_outer_glow.color.y, text_outer_glow.color.z, text_outer_glow.distance]));
+				} else {
+					render_flag &= !(1 << RenderFlagType::Sdf2OutGlow as usize);
+				}
+			}
 		}
 
 		// 设置位置、大小、是否为斜体

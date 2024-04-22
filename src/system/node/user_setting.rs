@@ -16,14 +16,13 @@ use pi_slotmap_tree::InsertType;
 
 use crate::{
     components::{
-        calc::EntityKey,
+        calc::{EntityKey, StyleMarkType},
         user::{RenderDirty, Viewport, ZIndex},
         NodeBundle,
-    },
-    resource::{
+    }, events::EntityChange, resource::{
         fragment::{FragmentMap, NodeTag},
         ClassSheet, QuadTree,
-    }, system::draw_obj::calc_text::IsRun, events::EntityChange,
+    }, system::draw_obj::calc_text::IsRun
 };
 use crate::{
     components::{
@@ -380,7 +379,7 @@ pub fn set_style<'w, 's>(node: Entity, start: usize, end: usize, style_buffer: &
 	log::trace!("set_style==========={:?}", node);
 
     let mut style_reader = StyleTypeReader::new(style_buffer, start, end);
-    let mut local_mark = BitArray::new([0, 0, 0]);
+    let mut local_mark = BitArray::new([0, 0, 0, 0]);
     while style_reader.write_to_component(&mut local_mark, node, style_query, is_clone) {}
 
     set_style_attr_or_default(
@@ -406,7 +405,7 @@ fn set_class<'w, 's>(node: Entity, style_query: &mut Setting, class: ClassName, 
     }
     let style_mark = unsafe { get_component_mut::<StyleMark>(&mut style_query.world, node, style_query.style.style_mark) };
     let (old_class_style_mark, local_style_mark) = (style_mark.class_style.clone(), style_mark.local_style.clone());
-    let mut new_class_style_mark: BitArray<[u32; 3]> = BitArray::new([0, 0, 0]);
+    let mut new_class_style_mark: StyleMarkType = BitArray::new([0, 0, 0, 0]);
 
     // 设置class样式
     for i in class.iter() {

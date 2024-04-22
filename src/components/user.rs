@@ -16,7 +16,7 @@ pub use pi_flex_layout::prelude::{Dimension, Number, Rect, Size as FlexSize};
 use pi_flex_layout::style::{AlignContent, AlignItems, AlignSelf, Direction, Display, FlexDirection, FlexWrap, JustifyContent, PositionType, OverflowWrap};
 use pi_null::Null;
 use pi_slotmap::DefaultKey;
-use pi_style::style::{TextOverflow, StrokeDasharray, Shadow};
+use pi_style::style::{TextOverflow, StrokeDasharray, Shadow, OuterGlow};
 pub use pi_style::style::{
     Aabb2, AnimationDirection, AnimationFillMode, AnimationName, AnimationPlayState, AnimationTimingFunction, CgColor, Color, ColorAndPosition,
     Enable, FitType, FontSize, FontStyle, ImageRepeat, IterationCount, LengthUnit, LineHeight, LinearGradientColor, NotNanRect, ShowType, Stroke,
@@ -35,7 +35,7 @@ use pi_style::{
 use crate::resource::Shape;
 use crate::resource::animation_sheet::TransitionData;
 
-use super::calc::{NeedMark, EntityKey};
+use super::calc::{NeedMark, EntityKey, StyleMarkType};
 pub use super::root::{ClearColor, RenderDirty, RenderTargetType, Viewport};
 use smallvec::SmallVec;
 
@@ -193,7 +193,7 @@ pub struct Transition {
     pub timing_function: SmallVec<[AnimationTimingFunction; 1]>, // 插值函数
 
 	// 计算数据
-	pub mark: BitArray<[u32;3]>,
+	pub mark: StyleMarkType,
 	pub data: SmallVec<[TransitionData; 1]>,
 	pub is_all: usize,
 }
@@ -501,6 +501,9 @@ pub struct TextOverflowChar {
 #[derive(Debug, Clone, Serialize, Deserialize, Component, Default, Deref)]
 pub struct TextShadow(pub TextShadowList);
 
+#[derive(Debug, Clone, Serialize, Deserialize, Component, Default, Deref)]
+pub struct TextOuterGlow(pub OuterGlow);
+
 impl Default for TextStyle {
     fn default() -> Self {
         Self {
@@ -722,7 +725,7 @@ pub mod serialize {
         /// 将样式属性设置到组件上
         /// ptr为样式属性的指针
         /// 安全： entity必须存在
-        fn set<'w, 's>(cur_style_mark: &mut BitArray<[u32; 3]>, ptr: *const u8, query: &mut Setting, entity: Entity, is_clone: bool)
+        fn set<'w, 's>(cur_style_mark: &mut StyleMarkType, ptr: *const u8, query: &mut Setting, entity: Entity, is_clone: bool)
         where
             Self: Sized;
     }
@@ -877,7 +880,7 @@ pub mod serialize {
 
         // 将当前style写入组件
         // 小心使用该方法， 保证self.buffer中的内存只被使用一次
-        pub fn write_to_component(&mut self, cur_style_mark: &mut BitArray<[u32; 3]>, entity: Entity, query: &mut Setting, is_clone: bool) -> bool {
+        pub fn write_to_component(&mut self, cur_style_mark: &mut StyleMarkType, entity: Entity, query: &mut Setting, is_clone: bool) -> bool {
             let next_type = self.next_type();
             if let Some(style_type) = next_type {
 				// pi_print_any::out_any!(println, "write_to_component==={:?}, cursor:{:?}, next_type: {:?}", style_type, self.cursor, next_type);
@@ -908,7 +911,7 @@ pub mod serialize {
 			// let c = self.cursor;
             let next_type = self.next_type();
             if let Some(style_type) = next_type {
-                let r = if style_type < 96 {
+                let r = if style_type < 128 {
                     let r = StyleAttr::to_attr(style_type, &self.buffer, self.cursor);
                     StyleAttribute::Set(r)
                 } else {
@@ -929,7 +932,7 @@ pub mod serialize {
         // 同时，使用该函数， 属性将被clone后，放入world中 （设置class时使用， 因为class的buffer会被共享， 如果属性中存在堆属性， 堆被共享为多个所有权， 将会出现未知错误）
         pub fn or_write_to_component<F: Fn(StyleType) -> bool>(
             &mut self,
-            cur_style_mark: &mut BitArray<[u32; 3]>,
+            cur_style_mark: &mut StyleMarkType,
             entity: Entity,
             query: &mut Setting,
             f: F,
@@ -966,7 +969,7 @@ pub mod serialize {
     macro_rules! set {
         // 整体插入
         ($name: ident, $value_ty: ty) => {
-            fn set(cur_style_mark: &mut BitArray<[u32; 3]>, ptr: *const u8, query: &mut Setting, entity: Entity, is_clone: bool) {
+            fn set(cur_style_mark: &mut StyleMarkType, ptr: *const u8, query: &mut Setting, entity: Entity, is_clone: bool) {
                 let v = ptr.cast::<$value_ty>();
                 let v = if is_clone {
                     clone_unaligned(v)
@@ -987,7 +990,7 @@ pub mod serialize {
         };
         // 表达式
         (@fun $name: ident, $value_ty: ty, $f: expr) => {
-            fn set(cur_style_mark: &mut BitArray<[u32; 3]>, ptr: *const u8, query: &mut Setting, entity: Entity, is_clone: bool) {
+            fn set(cur_style_mark: &mut StyleMarkType, ptr: *const u8, query: &mut Setting, entity: Entity, is_clone: bool) {
                 let v = ptr.cast::<$value_ty>();
                 let v = if is_clone {
                     clone_unaligned(v)
@@ -1000,7 +1003,7 @@ pub mod serialize {
         };
 
         (@fun_send $name: ident, $value_ty: ty, $c_ty: ty, $f: expr) => {
-            fn set(cur_style_mark: &mut BitArray<[u32; 3]>, ptr: *const u8, query: &mut Setting, entity: Entity, is_clone: bool) {
+            fn set(cur_style_mark: &mut StyleMarkType, ptr: *const u8, query: &mut Setting, entity: Entity, is_clone: bool) {
                 let v = ptr.cast::<$value_ty>();
                 let v = if is_clone {
 					clone_unaligned(v)
@@ -1017,7 +1020,7 @@ pub mod serialize {
         };
         // 属性修改
         (@pack $name: ident, $pack_ty: ident, $value_ty: ty) => {
-            fn set(cur_style_mark: &mut BitArray<[u32; 3]>, ptr: *const u8, query: &mut Setting, entity: Entity, is_clone: bool) {
+            fn set(cur_style_mark: &mut StyleMarkType, ptr: *const u8, query: &mut Setting, entity: Entity, is_clone: bool) {
                 let v = ptr.cast::<$value_ty>();
                 let v = if is_clone {
                     clone_unaligned(v)
@@ -1039,7 +1042,7 @@ pub mod serialize {
         };
         // 属性修改
         ($name: ident, $c_ty: ty, $feild: ident, $value_ty: ty) => {
-            fn set(cur_style_mark: &mut BitArray<[u32; 3]>, ptr: *const u8, query: &mut Setting, entity: Entity, is_clone: bool) {
+            fn set(cur_style_mark: &mut StyleMarkType, ptr: *const u8, query: &mut Setting, entity: Entity, is_clone: bool) {
                 let v = ptr.cast::<$value_ty>();
                 let v = if is_clone {
                     clone_unaligned(v)
@@ -1063,7 +1066,7 @@ pub mod serialize {
         };
         // 属性修改
         (@func $name: ident, $c_ty: ty, $set_func: ident, $value_ty: ty) => {
-            fn set(cur_style_mark: &mut BitArray<[u32; 3]>, ptr: *const u8, query: &mut Setting, entity: Entity, is_clone: bool) {
+            fn set(cur_style_mark: &mut StyleMarkType, ptr: *const u8, query: &mut Setting, entity: Entity, is_clone: bool) {
                 let v = ptr.cast::<$value_ty>();
                 let v = if is_clone {
                     clone_unaligned(v)
@@ -1087,7 +1090,7 @@ pub mod serialize {
 
         // 属性修改
         ($name: ident, $c_ty: ty, $feild1: ident, $feild2: ident, $value_ty: ty) => {
-            fn set(cur_style_mark: &mut BitArray<[u32; 3]>, ptr: *const u8, query: &mut Setting, entity: Entity, is_clone: bool) {
+            fn set(cur_style_mark: &mut StyleMarkType, ptr: *const u8, query: &mut Setting, entity: Entity, is_clone: bool) {
                 let v = ptr.cast::<$value_ty>();
                 let v = if is_clone {
                     clone_unaligned(v)
@@ -1112,7 +1115,7 @@ pub mod serialize {
 
         // 盒模属性（上右下左）
         (@box_model $name: ident, $value_ty: ty) => {
-            fn set(cur_style_mark: &mut BitArray<[u32; 3]>, ptr: *const u8, query: &mut Setting, entity: Entity, is_clone: bool) {
+            fn set(cur_style_mark: &mut StyleMarkType, ptr: *const u8, query: &mut Setting, entity: Entity, is_clone: bool) {
                 let v = ptr.cast::<$value_ty>();
                 let v = if is_clone {
                     clone_unaligned(v)
@@ -1284,10 +1287,10 @@ pub mod serialize {
     macro_rules! reset {
         // 空实现
         (@empty) => {
-            fn set(_cur_style_mark: &mut BitArray<[u32; 3]>, _ptr: *const u8, _query: &mut Setting, _entity: Entity, _is_clone: bool) {}
+            fn set(_cur_style_mark: &mut StyleMarkType, _ptr: *const u8, _query: &mut Setting, _entity: Entity, _is_clone: bool) {}
         };
         ($name: ident, $value_ty: ident) => {
-            fn set(_cur_style_mark: &mut BitArray<[u32; 3]>, _ptr: *const u8, query: &mut Setting, entity: Entity, _is_clone: bool) {
+            fn set(_cur_style_mark: &mut StyleMarkType, _ptr: *const u8, query: &mut Setting, entity: Entity, _is_clone: bool) {
                 reset_style_attr(
                     &mut query.world,
                     entity,
@@ -1302,7 +1305,7 @@ pub mod serialize {
         };
 		// 属性重置， 并发送事件
         (@func_send $name: ident, $value_ty: ident) => {
-            fn set(_cur_style_mark: &mut BitArray<[u32; 3]>, _ptr: *const u8, query: &mut Setting, entity: Entity, _is_clone: bool) {
+            fn set(_cur_style_mark: &mut StyleMarkType, _ptr: *const u8, query: &mut Setting, entity: Entity, _is_clone: bool) {
                 reset_style_attr(
                     &mut query.world,
                     entity,
@@ -1321,7 +1324,7 @@ pub mod serialize {
         };
         // 属性修改
         ($name: ident, $c_ty: ty, $feild: ident) => {
-            fn set(_cur_style_mark: &mut BitArray<[u32; 3]>, _ptr: *const u8, query: &mut Setting, entity: Entity, _is_clone: bool) {
+            fn set(_cur_style_mark: &mut StyleMarkType, _ptr: *const u8, query: &mut Setting, entity: Entity, _is_clone: bool) {
                 reset_style_attr(
                     &mut query.world,
                     entity,
@@ -1337,7 +1340,7 @@ pub mod serialize {
 
         // 属性修改
         (@func $name: ident, $c_ty: ty, $set_func: ident, $get_func: ident) => {
-            fn set(_cur_style_mark: &mut BitArray<[u32; 3]>, _ptr: *const u8, query: &mut Setting, entity: Entity, _is_clone: bool) {
+            fn set(_cur_style_mark: &mut StyleMarkType, _ptr: *const u8, query: &mut Setting, entity: Entity, _is_clone: bool) {
                 reset_style_attr(
                     &mut query.world,
                     entity,
@@ -1352,7 +1355,7 @@ pub mod serialize {
         };
         // 属性修改
         ($name: ident, $c_ty: ty, $feild1: ident, $feild2: ident) => {
-            fn set(_cur_style_mark: &mut BitArray<[u32; 3]>, _ptr: *const u8, query: &mut Setting, entity: Entity, _is_clone: bool) {
+            fn set(_cur_style_mark: &mut StyleMarkType, _ptr: *const u8, query: &mut Setting, entity: Entity, _is_clone: bool) {
                 reset_style_attr(
                     &mut query.world,
                     entity,
@@ -1367,7 +1370,7 @@ pub mod serialize {
         };
         // 属性修改
         (@box_model_single $name: ident, $c_ty: ty, $feild: ident) => {
-            fn set(_cur_style_mark: &mut BitArray<[u32; 3]>, _ptr: *const u8, query: &mut Setting, entity: Entity, _is_clone: bool) {
+            fn set(_cur_style_mark: &mut StyleMarkType, _ptr: *const u8, query: &mut Setting, entity: Entity, _is_clone: bool) {
                 reset_style_attr(
                     &mut query.world,
                     entity,
@@ -1382,7 +1385,7 @@ pub mod serialize {
         };
 
         (@box_model $name: ident, $ty: ident) => {
-            fn set(cur_style_mark: &mut BitArray<[u32; 3]>, _ptr: *const u8, query: &mut Setting, entity: Entity, _is_clone: bool) {
+            fn set(cur_style_mark: &mut StyleMarkType, _ptr: *const u8, query: &mut Setting, entity: Entity, _is_clone: bool) {
                 reset_style_attr(
                     &mut query.world,
                     entity,
@@ -1723,7 +1726,7 @@ pub mod serialize {
 	impl_style!(TextOverflowType, text_overflow, TextOverflowData, text_overflow, TextOverflow, TextOverflow);
     // impl ConvertToComponent for WhiteSpaceType {
     // 	// 设置white_space,需要同时设置flex_wrap
-    // 	fn set(cur_style_mark: &mut BitArray<[u32; 3]>, ptr: *const u8, query: &mut Setting, entity: Entity)
+    // 	fn set(cur_style_mark: &mut StyleMarkType, ptr: *const u8, query: &mut Setting, entity: Entity)
     // 		where
     // 			Self: Sized {
     // 		// 取不到说明实体已经销毁
@@ -1757,7 +1760,7 @@ pub mod serialize {
     // }
 
     // impl ConvertToComponent for ResetWhiteSpaceType {
-    // 	fn set(_cur_style_mark: &mut BitArray<[u32; 3]>, _ptr: *const u8, query: &mut Setting, entity: Entity)
+    // 	fn set(_cur_style_mark: &mut StyleMarkType, _ptr: *const u8, query: &mut Setting, entity: Entity)
     // 		where
     // 			Self: Sized {
 
@@ -1785,7 +1788,7 @@ pub mod serialize {
 
 	impl AttrSet for TextContentType {
 		// 设置text_align,需要同时设置justify_content
-        fn set(cur_style_mark: &mut BitArray<[u32; 3]>, ptr: *const u8, query: &mut Setting, entity: Entity, is_clone: bool)
+        fn set(cur_style_mark: &mut StyleMarkType, ptr: *const u8, query: &mut Setting, entity: Entity, is_clone: bool)
         where
             Self: Sized,
         {
@@ -1842,7 +1845,7 @@ pub mod serialize {
 
     // impl ConvertToComponent for TextAlignType {
     // 	// 设置text_align,需要同时设置justify_content
-    // 	fn set(cur_style_mark: &mut BitArray<[u32; 3]>, ptr: *const u8, query: &mut Setting, entity: Entity)
+    // 	fn set(cur_style_mark: &mut StyleMarkType, ptr: *const u8, query: &mut Setting, entity: Entity)
     // 		where
     // 			Self: Sized {
     // 		// 取不到说明实体已经销毁
@@ -1874,7 +1877,7 @@ pub mod serialize {
     // }
 
     // impl ConvertToComponent for ResetTextAlignType {
-    // 	fn set(_cur_style_mark: &mut BitArray<[u32; 3]>, _ptr: *const u8, query: &mut Setting, entity: Entity)
+    // 	fn set(_cur_style_mark: &mut StyleMarkType, _ptr: *const u8, query: &mut Setting, entity: Entity)
     // 		where
     // 			Self: Sized {
     // 		if let (Ok(mut text_style_item), Ok(mut flex_container_item)) = (query.style.text_style.get_mut(entity), query.style.flex_container.get_mut(entity)) {
@@ -1902,7 +1905,7 @@ pub mod serialize {
     impl_style!(VerticalAlignType, text_style, TextStyle, vertical_align, VerticalAlign, VerticalAlign);
     // impl ConvertToComponent for VerticalAlignType {
     // 	// 设置vertical_align,需要同时设置jalign_items, align_content
-    // 	fn set(cur_style_mark: &mut BitArray<[u32; 3]>, ptr: *const u8, query: &mut Setting, entity: Entity)
+    // 	fn set(cur_style_mark: &mut StyleMarkType, ptr: *const u8, query: &mut Setting, entity: Entity)
     // 		where
     // 			Self: Sized {
     // 		if let (Ok(mut text_style_item), Ok(mut flex_container_item)) = (query.style.text_style.get_mut(entity), query.style.flex_container.get_mut(entity)) {
@@ -1935,7 +1938,7 @@ pub mod serialize {
     // }
 
     // impl ConvertToComponent for ResetVerticalAlignType {
-    // 	fn set(_cur_style_mark: &mut BitArray<[u32; 3]>, _ptr: *const u8, query: &mut Setting, entity: Entity)
+    // 	fn set(_cur_style_mark: &mut StyleMarkType, _ptr: *const u8, query: &mut Setting, entity: Entity)
     // 		where
     // 			Self: Sized {
     // 		if let (Ok(mut text_style_item), Ok(mut flex_container_item)) = (query.style.text_style.get_mut(entity), query.style.flex_container.get_mut(entity)) {
@@ -1966,12 +1969,13 @@ pub mod serialize {
     impl_style!(ColorType, text_style, TextStyle, color, Color, Color);
     impl_style!(TextStrokeType, text_style, TextStyle, text_stroke, TextStroke, Stroke);
     impl_style!(@pack_send TextShadowType, text_shadow, TextShadow, TextShadowList);
+    impl_style!(@pack TextOuterGlowType, text_outer_glow, TextOuterGlow, OuterGlow);
 
 	impl AttrSet for BackgroundImageType {
 		/// 将样式属性设置到组件上
         /// ptr为样式属性的指针
         /// 安全： entity必须存在
-        fn set<'w, 's>(cur_style_mark: &mut BitArray<[u32; 3]>, ptr: *const u8, query: &mut Setting, entity: Entity, is_clone: bool)
+        fn set<'w, 's>(cur_style_mark: &mut StyleMarkType, ptr: *const u8, query: &mut Setting, entity: Entity, is_clone: bool)
         where
             Self: Sized,
         {
@@ -2036,7 +2040,7 @@ pub mod serialize {
 		/// 将样式属性设置到组件上
         /// ptr为样式属性的指针
         /// 安全： entity必须存在
-        fn set<'w, 's>(_cur_style_mark: &mut BitArray<[u32; 3]>, _ptr: *const u8, query: &mut Setting, entity: Entity, _is_clone: bool)
+        fn set<'w, 's>(_cur_style_mark: &mut StyleMarkType, _ptr: *const u8, query: &mut Setting, entity: Entity, _is_clone: bool)
         where
             Self: Sized,
         {
@@ -2069,7 +2073,7 @@ pub mod serialize {
 		/// 将样式属性设置到组件上
         /// ptr为样式属性的指针
         /// 安全： entity必须存在
-        fn set<'w, 's>(cur_style_mark: &mut BitArray<[u32; 3]>, ptr: *const u8, query: &mut Setting, entity: Entity, is_clone: bool)
+        fn set<'w, 's>(cur_style_mark: &mut StyleMarkType, ptr: *const u8, query: &mut Setting, entity: Entity, is_clone: bool)
         where
             Self: Sized,
         {
@@ -2136,7 +2140,7 @@ pub mod serialize {
 		/// 将样式属性设置到组件上
         /// ptr为样式属性的指针
         /// 安全： entity必须存在
-        fn set<'w, 's>(_cur_style_mark: &mut BitArray<[u32; 3]>, _ptr: *const u8, query: &mut Setting, entity: Entity, _is_clone: bool)
+        fn set<'w, 's>(_cur_style_mark: &mut StyleMarkType, _ptr: *const u8, query: &mut Setting, entity: Entity, _is_clone: bool)
         where
             Self: Sized,
         {
@@ -2159,7 +2163,7 @@ pub mod serialize {
 		/// 将样式属性设置到组件上
         /// ptr为样式属性的指针
         /// 安全： entity必须存在
-        fn set<'w, 's>(cur_style_mark: &mut BitArray<[u32; 3]>, ptr: *const u8, query: &mut Setting, entity: Entity, is_clone: bool)
+        fn set<'w, 's>(cur_style_mark: &mut StyleMarkType, ptr: *const u8, query: &mut Setting, entity: Entity, is_clone: bool)
         where
             Self: Sized,
         {
@@ -2235,7 +2239,7 @@ pub mod serialize {
 		/// 将样式属性设置到组件上
         /// ptr为样式属性的指针
         /// 安全： entity必须存在
-        fn set<'w, 's>(_cur_style_mark: &mut BitArray<[u32; 3]>, _ptr: *const u8, query: &mut Setting, entity: Entity, _is_clone: bool)
+        fn set<'w, 's>(_cur_style_mark: &mut StyleMarkType, _ptr: *const u8, query: &mut Setting, entity: Entity, _is_clone: bool)
         where
             Self: Sized,
         {
@@ -2268,7 +2272,7 @@ pub mod serialize {
 		/// 将样式属性设置到组件上
         /// ptr为样式属性的指针
         /// 安全： entity必须存在
-        fn set<'w, 's>(cur_style_mark: &mut BitArray<[u32; 3]>, ptr: *const u8, query: &mut Setting, entity: Entity, is_clone: bool)
+        fn set<'w, 's>(cur_style_mark: &mut StyleMarkType, ptr: *const u8, query: &mut Setting, entity: Entity, is_clone: bool)
         where
             Self: Sized,
         {
@@ -2351,7 +2355,7 @@ pub mod serialize {
 		/// 将样式属性设置到组件上
         /// ptr为样式属性的指针
         /// 安全： entity必须存在
-        fn set<'w, 's>(_cur_style_mark: &mut BitArray<[u32; 3]>, _ptr: *const u8, query: &mut Setting, entity: Entity, _is_clone: bool)
+        fn set<'w, 's>(_cur_style_mark: &mut StyleMarkType, _ptr: *const u8, query: &mut Setting, entity: Entity, _is_clone: bool)
         where
             Self: Sized,
         {
@@ -2383,7 +2387,7 @@ pub mod serialize {
 		 /// 将样式属性设置到组件上
         /// ptr为样式属性的指针
         /// 安全： entity必须存在
-        fn set<'w, 's>(cur_style_mark: &mut BitArray<[u32; 3]>, ptr: *const u8, query: &mut Setting, entity: Entity, is_clone: bool)
+        fn set<'w, 's>(cur_style_mark: &mut StyleMarkType, ptr: *const u8, query: &mut Setting, entity: Entity, is_clone: bool)
         where
             Self: Sized,
         {
@@ -2465,7 +2469,7 @@ pub mod serialize {
 		/// 将样式属性设置到组件上
         /// ptr为样式属性的指针
         /// 安全： entity必须存在
-        fn set<'w, 's>(_cur_style_mark: &mut BitArray<[u32; 3]>, _ptr: *const u8, query: &mut Setting, entity: Entity, _is_clone: bool)
+        fn set<'w, 's>(_cur_style_mark: &mut StyleMarkType, _ptr: *const u8, query: &mut Setting, entity: Entity, _is_clone: bool)
         where
             Self: Sized,
         {
@@ -2495,7 +2499,7 @@ pub mod serialize {
 		/// 将样式属性设置到组件上
         /// ptr为样式属性的指针
         /// 安全： entity必须存在
-        fn set<'w, 's>(cur_style_mark: &mut BitArray<[u32; 3]>, ptr: *const u8, query: &mut Setting, entity: Entity, is_clone: bool)
+        fn set<'w, 's>(cur_style_mark: &mut StyleMarkType, ptr: *const u8, query: &mut Setting, entity: Entity, is_clone: bool)
         where
             Self: Sized,
         {
@@ -2577,7 +2581,7 @@ pub mod serialize {
 		/// 将样式属性设置到组件上
         /// ptr为样式属性的指针
         /// 安全： entity必须存在
-        fn set<'w, 's>(_cur_style_mark: &mut BitArray<[u32; 3]>, _ptr: *const u8, query: &mut Setting, entity: Entity, _is_clone: bool)
+        fn set<'w, 's>(_cur_style_mark: &mut StyleMarkType, _ptr: *const u8, query: &mut Setting, entity: Entity, _is_clone: bool)
         where
             Self: Sized,
         {
@@ -2609,7 +2613,7 @@ pub mod serialize {
 		/// 将样式属性设置到组件上
         /// ptr为样式属性的指针
         /// 安全： entity必须存在
-        fn set<'w, 's>(cur_style_mark: &mut BitArray<[u32; 3]>, ptr: *const u8, query: &mut Setting, entity: Entity, is_clone: bool)
+        fn set<'w, 's>(cur_style_mark: &mut StyleMarkType, ptr: *const u8, query: &mut Setting, entity: Entity, is_clone: bool)
         where
             Self: Sized,
         {
@@ -2709,7 +2713,7 @@ pub mod serialize {
     }
 
 	impl AttrSet for ResetTransformWillChangeType {
-		fn set<'w, 's>(_cur_style_mark: &mut BitArray<[u32; 3]>, _ptr: *const u8, query: &mut Setting, entity: Entity, _is_clone: bool)
+		fn set<'w, 's>(_cur_style_mark: &mut StyleMarkType, _ptr: *const u8, query: &mut Setting, entity: Entity, _is_clone: bool)
         where
             Self: Sized,
         {
@@ -2922,9 +2926,9 @@ pub mod serialize {
         // get_style_index: fn() -> u8,
         size: fn() -> usize,
         // /// 安全： entity必须存在
-        // fn set(&self, cur_style_mark: &mut BitArray<[u32;3]>, buffer: &Vec<u8>, offset: usize, query: &mut Setting, entity: Entity);
+        // fn set(&self, cur_style_mark: &mut StyleMarkType, buffer: &Vec<u8>, offset: usize, query: &mut Setting, entity: Entity);
         /// 安全： entity必须存在
-        set: fn(cur_style_mark: &mut BitArray<[u32; 3]>, ptr: *const u8, query: &mut Setting, entity: Entity, is_clone: bool),
+        set: fn(cur_style_mark: &mut StyleMarkType, ptr: *const u8, query: &mut Setting, entity: Entity, is_clone: bool),
 
         /// 设置默认值
         set_default: fn(buffer: &Vec<u8>, offset: usize, query: &DefaultStyle, world: &mut World),
@@ -2948,7 +2952,7 @@ pub mod serialize {
     }
 
 	pub struct ResetStyleFunc {
-		set: fn(cur_style_mark: &mut BitArray<[u32; 3]>, ptr: *const u8, query: &mut Setting, entity: Entity, is_clone: bool),
+		set: fn(cur_style_mark: &mut StyleMarkType, ptr: *const u8, query: &mut Setting, entity: Entity, is_clone: bool),
 	}
 
 	impl ResetStyleFunc {
@@ -2961,7 +2965,7 @@ pub mod serialize {
 
     lazy_static::lazy_static! {
 
-        static ref STYLE_ATTR: [StyleFunc; 96] = [
+        static ref STYLE_ATTR: [StyleFunc; 97] = [
             StyleFunc::new::<BackgroundRepeatType>(), // 0
             StyleFunc::new::<FontStyleType>(), // 1
             StyleFunc::new::<FontWeightType>(), // 2
@@ -3078,10 +3082,12 @@ pub mod serialize {
 			StyleFunc::new::<TransitionDurationType>(), // 93
 			StyleFunc::new::<TransitionTimingFunctionType>(), // 94
 			StyleFunc::new::<TransitionDelayType>(), // 95
+
+            StyleFunc::new::<TextOuterGlowType>(), // 96
 		];
 
 		
-		static ref RESET_STYLE_ATTR: [ResetStyleFunc; 96] = [
+		static ref RESET_STYLE_ATTR: [ResetStyleFunc; 97] = [
         /******************************* reset ******************************************************/
             ResetStyleFunc::new::<ResetBackgroundRepeatType>(), // 0
             ResetStyleFunc::new::<ResetFontStyleType>(), // 1
@@ -3201,6 +3207,8 @@ pub mod serialize {
 			ResetStyleFunc::new::<ResetTransitionTimingFunctionType>(), // 94
 			ResetStyleFunc::new::<ResetTransitionDelayType>(), // 95
 
+            ResetStyleFunc::new::<TextOuterGlowType>(), // 96
+
         ];
     }
 
@@ -3274,6 +3282,7 @@ pub mod serialize {
 				// dirty_list: world.components().get_resource_id(std::any::TypeId::of::<DirtyList>()).unwrap(),
 
 				text_overflow: world.init_component::<TextOverflowData>(),
+                text_outer_glow: world.init_component::<TextOuterGlow>(),
             }
         }
     }
@@ -3313,6 +3322,7 @@ pub mod serialize {
         pub box_shadow: ComponentId,
         pub text_style: ComponentId,
         pub text_shadow: ComponentId,
+        pub text_outer_glow: ComponentId,
         pub transform_will_change: ComponentId,
         pub text_content: ComponentId,
         pub node_state: ComponentId,
@@ -3364,6 +3374,7 @@ pub mod serialize {
         pub box_shadow: ComponentId,
         pub text_style: ComponentId,
         pub text_shadow: ComponentId,
+        pub text_outer_glow: ComponentId,
         pub transform_will_change: ComponentId,
         pub text_content: ComponentId,
         pub animation: ComponentId,
@@ -3600,6 +3611,13 @@ pub mod serialize {
                         .get_resource_id(std::any::TypeId::of::<DefaultComponent<TextShadow>>())
                         .unwrap()
                 },
+                text_outer_glow: {
+                    world.init_resource::<DefaultComponent<TextOuterGlow>>();
+                    world
+                        .components()
+                        .get_resource_id(std::any::TypeId::of::<DefaultComponent<TextOuterGlow>>())
+                        .unwrap()
+                },
                 transform_will_change: {
                     world.init_resource::<DefaultComponent<TransformWillChange>>();
                     world
@@ -3770,7 +3788,7 @@ pub mod serialize {
 
         #[inline]
         pub fn set(
-            cur_style_mark: &mut BitArray<[u32; 3]>,
+            cur_style_mark: &mut StyleMarkType,
             style_index: u8,
             buffer: &Vec<u8>,
             offset: usize,
@@ -3778,8 +3796,8 @@ pub mod serialize {
             entity: Entity,
             is_clone: bool,
         ) {
-			if style_index > 96 {
-				(RESET_STYLE_ATTR[style_index as usize - 96].set)(cur_style_mark, unsafe { buffer.as_ptr().add(offset) }, query, entity, is_clone)
+			if style_index > 128 {
+				(RESET_STYLE_ATTR[style_index as usize - 128].set)(cur_style_mark, unsafe { buffer.as_ptr().add(offset) }, query, entity, is_clone)
 			} else {
 				(STYLE_ATTR[style_index as usize].set)(cur_style_mark, unsafe { buffer.as_ptr().add(offset) }, query, entity, is_clone)
 			}
@@ -3801,7 +3819,7 @@ pub mod serialize {
 
         #[inline]
         pub fn size(style_index: u8) -> usize { 
-			if style_index > 96 {
+			if style_index > 128 {
 				0
 			} else {
 				(STYLE_ATTR[style_index as usize].size)()
@@ -3809,7 +3827,7 @@ pub mod serialize {
 		 }
 
         #[inline]
-        pub fn reset(cur_style_mark: &mut BitArray<[u32; 3]>, style_index: u8, buffer: &Vec<u8>, offset: usize, query: &mut Setting, entity: Entity) {
+        pub fn reset(cur_style_mark: &mut StyleMarkType, style_index: u8, buffer: &Vec<u8>, offset: usize, query: &mut Setting, entity: Entity) {
             (RESET_STYLE_ATTR[style_index as usize].set)(cur_style_mark, unsafe { buffer.as_ptr().add(offset) }, query, entity, false);
         }
 

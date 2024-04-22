@@ -501,10 +501,12 @@ impl IsShow {
 // 样式标记
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, Component)]
 pub struct StyleMark {
-    pub local_style: BitArray<[u32; 3]>, // 本地样式， 表示节点样式中，哪些样式是由style设置的（而非class设置）
-    pub class_style: BitArray<[u32; 3]>, // class样式， 表示节点样式中，哪些样式是由class设置的
-	pub dirty_style: BitArray<[u32; 3]>, // 样式脏（标记有哪些样式在本帧中脏了）
+    pub local_style: StyleMarkType, // 本地样式， 表示节点样式中，哪些样式是由style设置的（而非class设置）
+    pub class_style: StyleMarkType, // class样式， 表示节点样式中，哪些样式是由class设置的
+	pub dirty_style: StyleMarkType, // 样式脏（标记有哪些样式在本帧中脏了）
 }
+
+pub type StyleMarkType = BitArray<[u32; 4]>;
 
 /// 标记渲染context中需要的效果， 如Blur、Opacity、Hsi、MasImage等
 /// 此数据结构仅记录位标记，具体哪些属性用哪一位来标记，这里并不关心，由逻辑保证
@@ -625,7 +627,7 @@ impl Key for EntityKey {
 		self.0.index() as usize
 	}
 
-    fn new(idx: usize) -> Self { Self(Entity::from_raw(idx as u32)) }
+    fn with(idx: usize) -> Self { Self(Entity::from_raw(idx as u32)) }
 }
 
 impl From<pi_slotmap::KeyData> for EntityKey {
@@ -855,7 +857,7 @@ impl Null for BackgroundImageTexture {
 
 
 #[inline]
-pub const fn style_bit() -> BitArray<[u32;3]> {
+pub const fn style_bit() -> StyleMarkType {
 	BitArray::ZERO
 }
 
@@ -863,7 +865,7 @@ pub trait StyleBit {
 	fn set_bit(self, index: usize) -> Self;
 }
 
-impl StyleBit for BitArray<[u32;3]> {
+impl StyleBit for StyleMarkType {
     fn set_bit(mut self, index: usize) -> Self {
         self.set(index, true);
 		self

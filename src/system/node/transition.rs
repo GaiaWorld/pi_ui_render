@@ -17,16 +17,15 @@ use bevy_ecs::{
     prelude::{Entity, World},
     system::{Local, Query, ResMut, SystemState}, event::EventReader, change_detection::{DetectChanges, DetectChangesMut}, schedule::IntoSystemConfigs,
 };
-use bitvec::array::BitArray;
 use pi_bevy_ecs_extend::system_param::res::OrInitRes;
 use pi_null::Null;
 use pi_style::style::StyleType;
 use smallvec::SmallVec;
 
 use crate::{
-    components::{user::{
-        serialize::{Setting, StyleQuery, StyleAttr}, Transition,
-    }, calc::{StyleMark, style_bit, StyleBit}},
+    components::{calc::{style_bit, StyleBit, StyleMark, StyleMarkType}, user::{
+        serialize::{Setting, StyleAttr, StyleQuery}, Transition,
+    }},
     resource::animation_sheet::{KeyFramesSheet, ObjKey, TransitionData}, system::{draw_obj::calc_text::IsRun, system_set::UiSystemSet},
 };
 
@@ -128,7 +127,7 @@ pub fn transition_1(
 
 		// 属性脏，需要记录属性为start或end（如果属性是被删除了， 则需要删除对应的插值曲线， 并重置start和wnd）
 		// transition_is_change脏， 或属性脏, 如果记录后，既存在start， 也存在end， 则需要重新绑定插值曲线
-		let dirty: BitArray<[u32; 3]> = style_mark.dirty_style & transition.mark;
+		let dirty: StyleMarkType = style_mark.dirty_style & transition.mark;
 		if transition_is_change || dirty.any() {
 			if transition.is_all.is_null() {
 				for i in 0..transition.property.len() {
@@ -263,7 +262,7 @@ pub fn transition_2(
 		
 		// 属性脏，需要记录属性为start或end（如果属性是被删除了， 则需要删除对应的插值曲线， 并重置start和wnd）
 		// transition_is_change脏， 或属性脏, 如果记录后，既存在start， 也存在end， 则需要重新绑定插值曲线
-		let dirty: BitArray<[u32; 3]> = style_mark.dirty_style & transition.mark;
+		let dirty: StyleMarkType = style_mark.dirty_style & transition.mark;
 		if dirty.any() {
 			let mut set_data = |i: usize, property: usize| {
 				let data = &mut transition.data[i];
@@ -294,7 +293,7 @@ pub fn transition_2(
 
 lazy_static! {
 
-	pub static ref INTERPOLABLE_PROPERTY: BitArray<[u32;3]> = style_bit().set_bit(StyleType::BackgroundRepeat as usize)
+	pub static ref INTERPOLABLE_PROPERTY: StyleMarkType = style_bit().set_bit(StyleType::BackgroundRepeat as usize)
 	.set_bit(StyleType::Color as usize)
 	.set_bit(StyleType::BackgroundImageClip as usize)
 	.set_bit(StyleType::BackgroundColor as usize)
