@@ -857,15 +857,18 @@ float antialias_sdf2(float d) {
 	return clamp(r, 0.0, 1.0);
 }
 
+// 外发光
 vec4 outer_glow(float dist_f_, vec4 color_v4_, vec4 input_color_v4_, float radius_f_) {
+	float radius = radius_f_ * 4.0;
     // dist_f_ > radius_f_ 结果为 0
     // dist_f_ < 0 结果为 1
     // dist_f_ > 0 && dist_f_ < radius_f_ 则 dist_f_ 越大 a_f 越小，范围 0 ~ 1
-    float a_f = abs(clamp(dist_f_ / radius_f_, 0.0, 1.0) - 1.0);
+    float a_f = abs(clamp(dist_f_ / radius, 0.0, 1.0) - 1.0);
     // pow：平滑 a_f
     // max and min：防止在物体内部渲染
     float b_f = min(max(0.0, dist_f_), pow(a_f, 5.0));
-    return color_v4_ + input_color_v4_ * b_f;
+
+	return vec4(color_v4_.rgb * color_v4_.a,  color_v4_.a) + input_color_v4_ * b_f;
 }
 
 // 虚线处理
