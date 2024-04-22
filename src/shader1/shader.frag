@@ -905,15 +905,15 @@ vec4 shadow_blur(vec4 input_color, vec4 shadow_color, vec2 offset, float blur_le
 	float x;
 	float y;
 	if (offset.x > 0.0){
-		x = clamp((vUv.x - offset.x) / (1.0 - offset.x), 0.01, 0.99);
+		x = clamp((vUv.x - offset.x) / (1.0 - offset.x), 0.0, 1.0);
 	} else {
-		x = clamp(vUv.x / (1.0 - abs(offset.x)), 0.01, 0.99);
+		x = clamp(vUv.x / (1.0 - abs(offset.x)), 0.0, 1.0);
 	}
 
 	if (offset.y > 0.0){
-		y = clamp((vUv.y - offset.y) / (1.0 - offset.y), 0.01, 0.99);
+		y = clamp((vUv.y - offset.y) / (1.0 - offset.y), 0.0, 1.0);
 	} else {
-		y = clamp(vUv.y / (1.0 - abs(offset.y)), 0.01, 0.99);
+		y = clamp(vUv.y / (1.0 - abs(offset.y)), 0.0, 1.0);
 	}
 
 	vec2 uv1 = vec2(x, y);
