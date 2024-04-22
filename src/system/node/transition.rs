@@ -19,7 +19,6 @@ use bevy_ecs::{
 };
 use bitvec::array::BitArray;
 use pi_bevy_ecs_extend::system_param::res::OrInitRes;
-use pi_bevy_render_plugin::FrameDataPrepare;
 use pi_null::Null;
 use pi_style::style::StyleType;
 use smallvec::SmallVec;

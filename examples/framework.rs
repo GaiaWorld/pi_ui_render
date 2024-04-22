@@ -1,4 +1,4 @@
-use std::mem::transmute;
+
 use std::{sync::Arc, time::Instant};
 
 use bevy_ecs::prelude::{IntoSystemConfigs, Entity, SystemSet, Local};
@@ -11,7 +11,6 @@ use bevy_ecs::system::Resource;
 use bevy_window::{Window, WindowResolution};
 
 use pi_async_rt::prelude::AsyncRuntime;
-use pi_atom::Atom;
 use pi_bevy_asset::{AssetConfig, PiAssetPlugin};
 // use pi_bevy_ecs_extend::prelude::Root;
 use pi_bevy_post_process::PiPostProcessPlugin;
@@ -19,7 +18,6 @@ use pi_bevy_render_plugin::{PiRenderPlugin, PiRenderOptions};
 use pi_flex_layout::prelude::Size;
 use pi_hal::{init_load_cb, on_load, runtime::MULTI_MEDIA_RUNTIME};
 use pi_share::{Share, ShareMutex};
-use pi_slotmap::DefaultKey;
 use pi_hal::font::font::FontType;
 use pi_ui_render::system::RunState;
 // use pi_ui_render::components::user::AsImage;
@@ -57,8 +55,8 @@ pub trait Example: 'static + Sized {
 pub static mut RUNNER: std::cell::OnceCell<LocalTaskRunner<()>> = std::cell::OnceCell::new();
 
 pub fn start<T: Example + Sync + Send + 'static>(example: T) {
-	let aa = pi_async_rt::rt::startup_global_time_loop(10);
-	let current_dir = std::env::current_dir().unwrap();
+	// let aa = pi_async_rt::rt::startup_global_time_loop(10);
+	// let current_dir = std::env::current_dir().unwrap();
 	#[cfg(not(target_arch = "wasm32"))]
 	init_load_cb(Arc::new(|path: String| {
         MULTI_MEDIA_RUNTIME

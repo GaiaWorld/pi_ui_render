@@ -624,6 +624,8 @@ impl Key for EntityKey {
 	fn index(&self) -> usize {
 		self.0.index() as usize
 	}
+
+    fn new(idx: usize) -> Self { Self(Entity::from_raw(idx as u32)) }
 }
 
 impl From<pi_slotmap::KeyData> for EntityKey {

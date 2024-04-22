@@ -363,11 +363,12 @@ impl InstanceContext {
 		#[cfg(debug_assertions)]
         {
             for i in instance_draw.instance_data_range.start as u32/self.instance_data.alignment as u32..instance_draw.instance_data_range.end as u32/self.instance_data.alignment as u32 {
-                let debug_info = self.debug_info.get(i as usize/MeterialBind::SIZE);
+                // let debug_info = self.debug_info.get(i as usize/MeterialBind::SIZE);
                 rp.draw(0..6, i..i+1);
             } 
         }
-        // rp.draw(0..6, instance_draw.instance_data_range.start as u32/self.instance_data.alignment as u32..instance_draw.instance_data_range.end as u32/self.instance_data.alignment as u32);
+        #[cfg(not(debug_assertions))]
+        rp.draw(0..6, instance_draw.instance_data_range.start as u32/self.instance_data.alignment as u32..instance_draw.instance_data_range.end as u32/self.instance_data.alignment as u32);
 
 	}
 }

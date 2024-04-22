@@ -1058,9 +1058,6 @@ void main(void) {
 // layout(set=2,binding=1) uniform texture2D u_data_tex;
 // layout(set=2,binding=2) uniform sampler index_samp;
 		return;
-	} else if ((ty1 & 2097152) != 0) {// 圆弧方案的sdf, 不渲染文字填充、描边、只渲染阴影的情况
-		o_Target = shadow_blur(vec4(0.0, 0.0, 0.0, 0.0), vData5, vData13.xy, vData13.z);
-		return;
 	} 
 
 	vec4 color = vec4(0.0, 1.0, 0.0, 1.0);

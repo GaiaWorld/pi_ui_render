@@ -828,6 +828,8 @@ impl Key for ObjKey {
 	fn index(&self) -> usize {
 		self.0.index() as usize
 	}
+
+    fn new(idx: usize) -> Self { Self(Entity::from_raw(idx as u32)) }
 }
 
 impl Null for ObjKey {

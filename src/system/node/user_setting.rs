@@ -2,15 +2,14 @@
 use std::intrinsics::transmute;
 
 use bevy_ecs::{
-    prelude::{Changed, Entity, EventReader, Local, Query, RemovedComponents, ResMut, World, With},
+    prelude::{Entity, EventReader, Local, Query, ResMut, World, With},
     system::SystemState, event::{EventWriter, Event}, change_detection::DetectChangesMut,
 };
 use bitvec::array::BitArray;
 use pi_bevy_ecs_extend::{
-    prelude::{EntityTreeMut, OrDefault},
-    system_param::{layer_dirty::ComponentEvent, res::{OrInitResMut, OrInitRes}, tree::TreeKey},
+    prelude::EntityTreeMut,
+    system_param::{res::{OrInitResMut, OrInitRes}, tree::TreeKey},
 };
-use pi_flex_layout::style::Dimension;
 use pi_map::Map;
 use pi_null::Null;
 use pi_slotmap_tree::InsertType;
@@ -28,10 +27,10 @@ use crate::{
 };
 use crate::{
     components::{
-        calc::{BackgroundImageTexture, DrawList, StyleMark, StyleType},
+        calc::{DrawList, StyleMark, StyleType},
         user::{
             serialize::{get_component_mut, set_style_attr_or_default, Setting, StyleAttr, StyleQuery, StyleTypeReader},
-            BackgroundImageClip, ClassName, Size,
+            ClassName,
         },
     },
     resource::{NodeCommand, StyleCommands, UserCommands},

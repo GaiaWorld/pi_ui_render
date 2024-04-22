@@ -691,7 +691,6 @@ impl<'a> UniformData<'a> {
 		}
 
 		if shadow_index == 0 {
-			render_flag |= 1 << RenderFlagType::Sdf2 as usize;
 
 			if self.is_style_change {
 				let scale = self.world_matrix.0[0];
@@ -715,10 +714,14 @@ impl<'a> UniformData<'a> {
 				}
 			}
 		} else {
-			// 设置为非sdf， 因为此实例只渲染阴影， 不渲染填充等其他文字属性
-			render_flag &= !(1 << RenderFlagType::Sdf2 as usize);
+			let scale = self.world_matrix.0[0];
+			let weight = self.weight[0] * scale;
+			render_flag |= 1 << RenderFlagType::Color as usize;
+			render_flag &= !(1 << RenderFlagType::LinearGradient as usize);
+			instance_data.set_data(&TextOutlineUniform(&[0.0, 0.0, 0.0, 0.0]));
+			instance_data.set_data(&TextWeightUniform(&[weight]));
+			instance_data.set_data(&ColorUniform(&[0.0, 0.0, 0.0, 0.0]))
 		}
-		
 		// 设置渲染类型
 		instance_data.set_data(&TyUniform(&[render_flag as f32]));
 	}

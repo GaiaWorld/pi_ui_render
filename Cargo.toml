@@ -258,6 +258,8 @@ bevy_input = { path = "../bevy/crates/bevy_input" }
 bevy_reflect = { path = "../bevy/crates/bevy_reflect" }
 bevy_math = { path = "../bevy/crates/bevy_math" }
 
+pi_key_alloter = {path = "../pi_key_alloter"}
+
 # pi_slotmap_tree = { path = "../pi_slotmap_tree" }
 # pi_map = { path = "../pi_map" }
 # pi_flex_layout = { path = "../pi_flex_layout" }
