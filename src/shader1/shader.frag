@@ -859,16 +859,21 @@ float antialias_sdf2(float d) {
 
 // 外发光
 vec4 outer_glow(float dist_f_, vec4 color_v4_, vec4 input_color_v4_, float radius_f_) {
-	float radius = radius_f_ * 4.0;
+	// float radius = radius_f_ * 4.0;
     // dist_f_ > radius_f_ 结果为 0
     // dist_f_ < 0 结果为 1
     // dist_f_ > 0 && dist_f_ < radius_f_ 则 dist_f_ 越大 a_f 越小，范围 0 ~ 1
-    float a_f = abs(clamp(dist_f_ / radius, 0.0, 1.0) - 1.0);
+    // float a_f = abs(clamp(dist_f_ / radius, 0.0, 1.0) - 1.0);
     // pow：平滑 a_f
     // max and min：防止在物体内部渲染
-    float b_f = min(max(0.0, dist_f_), pow(a_f, 5.0));
-
-	return vec4(color_v4_.rgb * color_v4_.a,  color_v4_.a) + input_color_v4_ * b_f;
+    // float b_f = min(max(0.0, dist_f_), pow(a_f, 5.0));
+	// vec4 color = vec4(input_color_v4_.rgb, input_color_v4_.a * b_f);
+	// if (b_f <= 0.0 ){
+	// 	color.rbg = vec3(0.0,0.0,0.0);
+	// }
+	float b_f = pow(clamp((radius_f_ - dist_f_) / radius_f_, 0.0, 1.0), 5.0);
+	return mix(color_v4_, vec4(input_color_v4_.rgb, input_color_v4_.a * b_f), 1.0 - color_v4_.a);
+	// return vec4(input_color_v4_.rgb ,  b_f);
 }
 
 // 虚线处理
