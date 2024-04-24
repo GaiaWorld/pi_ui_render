@@ -647,7 +647,8 @@ impl<'a> UniformData<'a> {
 					width += shadow.h;
                     // render_range.maxs.x = render_range.maxs.x + h;
                 }else{
-					offset.0 += shadow.v;
+					offset.0 += shadow.h;
+					width -= shadow.h;
                     // render_range.mins.x = render_range.mins.x + shadow.h/width;
                 }
 
@@ -656,6 +657,7 @@ impl<'a> UniformData<'a> {
                     // render_range.maxs.y = render_range.maxs.y + v;
                 }else{
 					offset.1 += shadow.v;
+					height -= shadow.v;
                     // render_range.mins.y = render_range.mins.y + v;
                 }
 				
@@ -673,6 +675,10 @@ impl<'a> UniformData<'a> {
 			render_flag &= !(1 << RenderFlagType::Sdf2Shadow as usize);
 			if let Some(text_outer_glow) = self.text_outer_glow {
 				if text_outer_glow.distance > 0.0 {
+					// width += text_outer_glow.distance * 2.0;
+					// height += text_outer_glow.distance * 2.0;
+					// offset.1 -= text_outer_glow.distance;
+					// offset.0 -= text_outer_glow.distance;
 					render_flag |=  1<< RenderFlagType::Sdf2OutGlow as usize;
 			    	instance_data.set_data(&TextOuterGlowUniform(&[text_outer_glow.color.x, text_outer_glow.color.y, text_outer_glow.color.z, text_outer_glow.distance]));
 				} else {
