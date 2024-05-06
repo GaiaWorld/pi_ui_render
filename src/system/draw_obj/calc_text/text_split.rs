@@ -2,17 +2,10 @@
 //! 将文字劈分为字符，放入NodeState中，并设置好每个字符的布局宽高。等待布局系统布局
 use std::intrinsics::transmute;
 
-use bevy_ecs::{
-    prelude::{Entity, EventWriter},
-    query::{Changed, Or},
-    system::{Query, ResMut},
-    world::Mut, change_detection::DetectChangesMut,
-};
+use pi_world::prelude::{Changed, Query, SingleResMut, Entity, OrDefault, Mut};
+use pi_bevy_ecs_extend::prelude::{OrInitSingleRes, Up, Layer};
+
 use ordered_float::NotNan;
-use pi_bevy_ecs_extend::{
-    prelude::{Layer, OrDefault, Up},
-    system_param::{layer_dirty::ComponentEvent, res::OrInitRes},
-};
 use pi_flex_layout::{
     prelude::{CharNode, Rect, Size},
     style::{AlignContent, AlignItems, Dimension, FlexWrap, JustifyContent, PositionType},
@@ -50,11 +43,10 @@ pub fn text_split(
             &Layer,
 			Option<&'static mut TextOverflowData>,
         ),
-        Or<(Changed<TextContent>, Changed<TextStyle>, Changed<Layer>, Changed<TextOverflowData>)>,
+        (Changed<TextContent>, Changed<TextStyle>, Changed<Layer>, Changed<TextOverflowData>),
     >,
-    font_sheet: ResMut<ShareFontSheet>,
-    mut event_writer: EventWriter<ComponentEvent<Changed<NodeState>>>,
-	r: OrInitRes<IsRun>
+    font_sheet: SingleResMut<ShareFontSheet>,
+	r: OrInitSingleRes<IsRun>
 ) {
 	if r.0 {
 		return;
@@ -141,7 +133,7 @@ pub fn text_split(
 			}
 		}
 
-        event_writer.send(ComponentEvent::new(entity));
+        // event_writer.send(ComponentEvent::new(entity));
     }
 }
 

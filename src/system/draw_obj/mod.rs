@@ -1,6 +1,6 @@
-use bevy_ecs::prelude::IntoSystemConfigs;
-use bevy_app::{App, Plugin, PostUpdate};
-use pi_bevy_render_plugin::{FrameDataPrepare, GraphBuild, GraphRun};
+use pi_world::prelude::IntoSystemConfigs;
+use pi_world::prelude::{App, Plugin, Last, WorldPluginExtent};
+use pi_bevy_render_plugin::FrameDataPrepare;
 use pi_hal::font::font::FontType;
 use pi_style::style::Aabb2;
 
@@ -9,13 +9,10 @@ use crate::resource::draw_obj::MaxViewSize;
 use crate::shader1::InstanceData;
 use crate::shader1::meterial::{BoxUniform, QuadUniform};
 
-use super::node::{z_index, show};
-use super::pass::last_update_wgpu::last_update_wgpu;
-use super::pass::pass_life;
-use super::{system_set::UiSystemSet, pass::update_graph::update_graph};
+use super::system_set::UiSystemSet;
 
 use crate::components::user::Vector4;
-use crate::prelude::UiSchedule;
+use crate::prelude::UiStage;
 
 use self::calc_background_color::BackgroundColorPlugin;
 use self::calc_background_image::BackgroundImagePlugin;
@@ -55,39 +52,40 @@ pub struct UiReadyDrawPlugin {
 
 impl Plugin for UiReadyDrawPlugin {
     fn build(&self, app: &mut App) {
+		app.world.init_single_res::<MaxViewSize>();
 
         app
-			// .add_systems(Startup, clear_draw_obj::init)// PostStartup, 
-            .init_resource::<MaxViewSize>()
-			.add_systems(UiSchedule, update_render_instance_data
-				.after(UiSystemSet::LifeDrawObjectFlush)
-				.after( UiSystemSet::PassFlush)
-				.after(z_index::calc_zindex)
-            	.after(show::calc_show)
-				.after(update_graph)
-				.after(pass_life::calc_pass_toop_sort)
-				.before(UiSystemSet::PrepareDrawObj)
+			// .add_system(Startup, clear_draw_obj::init)// PostStartup, 
+            // .init_single_res::<MaxViewSize>()
+			.add_system(UiStage, update_render_instance_data
+				// .after(UiSystemSet::LifeDrawObjectFlush)
+				// .after( UiSystemSet::PassFlush)
+				// .after(z_index::calc_zindex)
+            	// .after(show::calc_show)
+				// .after(update_graph)
+				// .after(pass_life::calc_pass_toop_sort)
+				// .before(UiSystemSet::PrepareDrawObj)
 				.in_set(FrameDataPrepare))
-			.add_systems(PostUpdate, batch_instance_data
-				.before(last_update_wgpu)
-				.after(GraphBuild)
-				.before(GraphRun)
+			.add_system(Last, batch_instance_data
+				// .before(last_update_wgpu)
+				// .after(GraphBuild)
+				// .before(GraphRun)
 				.in_set(FrameDataPrepare))
-            .add_systems(UiSchedule, root_view_port::calc_dyn_target_type.in_set(UiSystemSet::BaseCalc))
-            .add_systems(UiSchedule, pipeline::calc_node_pipeline.in_set(UiSystemSet::PrepareDrawObj))
+            .add_system(UiStage, root_view_port::calc_dyn_target_type.in_set(UiSystemSet::BaseCalc))
+            .add_system(UiStage, pipeline::calc_node_pipeline.in_set(UiSystemSet::PrepareDrawObj))
             // 混合模式
-			.add_systems(UiSchedule, 
+			.add_system(UiStage, 
                 blend_mode::calc_drawobj_blendstate
                     .in_set(FrameDataPrepare)
-                    .before(UiSystemSet::LifeDrawObjectFlush)
-                    .after(UiSystemSet::LifeDrawObject),
+                    // .before(UiSystemSet::LifeDrawObjectFlush)
+                    // .after(UiSystemSet::LifeDrawObject),
             )
 
 			// 圆角
-			.add_systems(UiSchedule, 
+			.add_system(UiStage, 
                 calc_border_radius::calc_border_radius
                     .in_set(UiSystemSet::PrepareDrawObj)
-                    .after(UiSystemSet::LifeDrawObject),
+                    // .after(UiSystemSet::LifeDrawObject),
             )
 			// 背景图片功能
 			.add_plugins(BackgroundImagePlugin)
@@ -109,8 +107,8 @@ impl Plugin for UiReadyDrawPlugin {
 		
 		if self.font_type == FontType::Sdf2 {
 			// 更新sdf2纹理
-			app.add_systems(
-				UiSchedule, 
+			app.add_system(
+				UiStage, 
 				update_sdf2_texture
 					.in_set(UiSystemSet::PrepareDrawObj)
 			);

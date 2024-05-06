@@ -1,7 +1,7 @@
 use crate::components::user::{SvgFilter, SvgFilterBlurLevel, SvgFilterOffset, SvgInnerContent};
 
-use bevy_ecs::{prelude::Entity, query::Changed, system::Query};
-use pi_bevy_ecs_extend::system_param::{res::OrInitRes, tree::Up};
+use pi_world::prelude::{Entity, Changed, Query};
+use pi_bevy_ecs_extend::system_param::{res::OrInitSingleRes, tree::Up};
 use pi_style::style::CgColor;
 
 
@@ -11,7 +11,7 @@ use crate::system::draw_obj::calc_text::IsRun;
 
 pub fn flter_blur(
     query: Query<(Entity, &'static SvgFilterBlurLevel), Changed<SvgFilterBlurLevel>>,
-    r: OrInitRes<IsRun>,
+    r: OrInitSingleRes<IsRun>,
     query_parent: Query<&Up>,
     query_flter: Query<&SvgFilter>,
     mut query_svg: Query<&mut SvgInnerContent>,
@@ -39,7 +39,7 @@ pub fn flter_blur(
 
 pub fn flter_offset(
     query: Query<(Entity, &'static SvgFilterOffset), Changed<SvgFilterOffset>>,
-    r: OrInitRes<IsRun>,
+    r: OrInitSingleRes<IsRun>,
     query_parent: Query<&Up>,
     query_flter: Query<&SvgFilter>,
     mut query_svg: Query<&mut SvgInnerContent>,

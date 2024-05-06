@@ -3,8 +3,8 @@
 #[path = "../framework.rs"]
 mod framework;
 
-use bevy_ecs::prelude::{Commands, World};
-use framework::Example;
+
+use framework::{Param, Example};
 use ordered_float::NotNan;
 use pi_atom::Atom;
 use pi_flex_layout::style::{Dimension, FlexWrap, PositionType};
@@ -20,7 +20,7 @@ use pi_ui_render::{
     components::{
         calc::EntityKey,
         user::{CgColor, ClearColor, ImageRepeat, RenderDirty, Viewport},
-        NodeBundle,
+
     },
     resource::{NodeCmd, UserCommands},
 };
@@ -34,9 +34,9 @@ pub struct QuadExample {
 }
 
 impl Example for QuadExample {
-    fn init(&mut self, world: &mut World, size: (usize, usize)) {
+    fn init(&mut self, mut world: Param, size: (usize, usize)) {
         // 添加根节点
-        let root = world.spawn(NodeBundle::default()).id();
+        let root = world.spawn();
         self.cmd.push_cmd(NodeCmd(ClearColor(CgColor::new(1.0, 1.0, 1.0, 1.0), true), root));
         self.cmd.push_cmd(NodeCmd(
             Viewport(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(size.0 as f32, size.1 as f32))),
@@ -57,7 +57,7 @@ impl Example for QuadExample {
         self.cmd.append(root, EntityKey::null().0);
 
         // // repeat 整数倍数
-        // let div2 = world.spawn(NodeBundle::default()).id();
+        // let div2 = world.spawn();
         // self.cmd.set_style(div2, WidthType(Dimension::Points(200.0)));
         // self.cmd.set_style(div2, HeightType(Dimension::Points(200.0)));
         // self.cmd.set_style(div2, PositionTypeType(PositionType::Relative));
@@ -87,7 +87,7 @@ impl Example for QuadExample {
         // self.cmd.append(div2, root);
 
         // // repeat 非整数倍数
-        // let div3 = world.spawn(NodeBundle::default()).id();
+        // let div3 = world.spawn();
         // self.cmd.set_style(div3, WidthType(Dimension::Points(220.0)));
         // self.cmd.set_style(div3, HeightType(Dimension::Points(220.0)));
         // self.cmd.set_style(div3, PositionTypeType(PositionType::Relative));
@@ -117,7 +117,7 @@ impl Example for QuadExample {
         // self.cmd.append(div3, root);
 
         // // space 非整数倍数
-        // let div4 = world.spawn(NodeBundle::default()).id();
+        // let div4 = world.spawn();
         // self.cmd.set_style(div4, WidthType(Dimension::Points(220.0)));
         // self.cmd.set_style(div4, HeightType(Dimension::Points(220.0)));
         // self.cmd.set_style(div4, PositionTypeType(PositionType::Relative));
@@ -147,7 +147,7 @@ impl Example for QuadExample {
         // self.cmd.append(div4, root);
 
         // // round 非整数倍数
-        // let div5 = world.spawn(NodeBundle::default()).id();
+        // let div5 = world.spawn();
         // self.cmd.set_style(div5, WidthType(Dimension::Points(220.0)));
         // self.cmd.set_style(div5, HeightType(Dimension::Points(220.0)));
         // self.cmd.set_style(div5, PositionTypeType(PositionType::Relative));
@@ -177,7 +177,7 @@ impl Example for QuadExample {
         // self.cmd.append(div5, root);
 
         // // 测试中间不足一倍的情况 repeat
-        // let div6 = world.spawn(NodeBundle::default()).id();
+        // let div6 = world.spawn();
         // self.cmd.set_style(div6, WidthType(Dimension::Points(95.0)));
         // self.cmd.set_style(div6, HeightType(Dimension::Points(95.0)));
         // self.cmd.set_style(div6, PositionTypeType(PositionType::Relative));
@@ -207,7 +207,7 @@ impl Example for QuadExample {
         // self.cmd.append(div6, root);
 
         // 测试中间不足一倍的情况 round
-        let div7 = world.spawn(NodeBundle::default()).id();
+        let div7 = world.spawn();
         self.cmd.set_style(div7, WidthType(Dimension::Points(95.0)));
         self.cmd.set_style(div7, HeightType(Dimension::Points(95.0)));
         self.cmd.set_style(div7, PositionTypeType(PositionType::Relative));
@@ -237,7 +237,7 @@ impl Example for QuadExample {
         self.cmd.append(div7, root);
 
         // // 测试中间不足一倍的情况 space
-        // let div8 = world.spawn(NodeBundle::default()).id();
+        // let div8 = world.spawn();
         // self.cmd.set_style(div8, WidthType(Dimension::Points(95.0)));
         // self.cmd.set_style(div8, HeightType(Dimension::Points(95.0)));
         // self.cmd.set_style(div8, PositionTypeType(PositionType::Relative));
@@ -267,7 +267,7 @@ impl Example for QuadExample {
         // self.cmd.append(div8, root);
 
 		// // fill为false
-		// let div9 = world.spawn(NodeBundle::default()).id();
+		// let div9 = world.spawn();
         // self.cmd.set_style(div9, WidthType(Dimension::Points(448.0)));
         // self.cmd.set_style(div9, HeightType(Dimension::Points(62.0)));
         // self.cmd.set_style(div9, PositionTypeType(PositionType::Relative));
@@ -293,7 +293,7 @@ impl Example for QuadExample {
 
 
         // // 测试top\bottom为0，并且为Stretch的情况
-        // let div10 = world.spawn(NodeBundle::default()).id();
+        // let div10 = world.spawn();
         // self.cmd.set_style(div10, WidthType(Dimension::Points(448.0)));
         // self.cmd.set_style(div10, HeightType(Dimension::Points(62.0)));
         // self.cmd.set_style(div10, PositionTypeType(PositionType::Relative));
@@ -318,5 +318,5 @@ impl Example for QuadExample {
         // self.cmd.append(div10, root);
     }
 
-    fn render(&mut self, cmd: &mut UserCommands, _cmd1: &mut Commands) { swap(&mut self.cmd, cmd); }
+    fn render(&mut self, cmd: &mut UserCommands) { swap(&mut self.cmd, cmd); }
 }

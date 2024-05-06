@@ -5,8 +5,8 @@ mod framework;
 
 use std::mem::swap;
 
-use bevy_ecs::prelude::{Commands, World};
-use framework::Example;
+
+use framework::{Param, Example};
 use pi_atom::Atom;
 /// 渲染四边形 demo
 use pi_flex_layout::{
@@ -25,7 +25,7 @@ use pi_ui_render::{
     components::{
         calc::EntityKey,
         user::{ClearColor, RenderDirty, Viewport},
-        NodeBundle,
+
     },
     resource::{NodeCmd, UserCommands},
 };
@@ -50,9 +50,9 @@ impl Example for QuadExample {
         Some(Size { width: 1020, height: 960 })
     }
 
-    fn init(&mut self, world: &mut World, size: (usize, usize)) {
+    fn init(&mut self, mut world: Param, size: (usize, usize)) {
         // 添加根节点
-        let root = world.spawn(NodeBundle::default()).id();
+        let root = world.spawn();
         self.cmd.push_cmd(NodeCmd(ClearColor(CgColor::new(0.0, 0.0, 0.0, 1.0), true), root));
         self.cmd.push_cmd(NodeCmd(
             Viewport(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(size.0 as f32, size.1 as f32))),
@@ -75,7 +75,7 @@ impl Example for QuadExample {
 		self.cmd.set_style(root, AsImageType(pi_style::style::AsImage::Force));
         self.cmd.append(root, EntityKey::null().0);
 
-        let div1 = world.spawn(NodeBundle::default()).id();
+        let div1 = world.spawn();
         self.cmd.set_style(div1, WidthType(Dimension::Points(510.0)));
         self.cmd.set_style(div1, HeightType(Dimension::Points(480.0)));
         self.cmd.set_style(div1, PositionTypeType(PositionType::Absolute));
@@ -83,7 +83,7 @@ impl Example for QuadExample {
             .set_style(div1, BackgroundImageType(Atom::from("examples/z_source/chouka_shitou_1.png")));
         self.cmd.append(div1, root);
 
-        let div2 = world.spawn(NodeBundle::default()).id();
+        let div2 = world.spawn();
         self.cmd.set_style(div2, WidthType(Dimension::Points(450.0)));
         self.cmd.set_style(div2, HeightType(Dimension::Points(600.0)));
         self.cmd.set_style(div2, BlendModeType(BlendMode::AlphaAdd));
@@ -93,5 +93,5 @@ impl Example for QuadExample {
         self.cmd.append(div2, root);
     }
 
-    fn render(&mut self, cmd: &mut UserCommands, _cmd1: &mut Commands) { swap(&mut self.cmd, cmd); }
+    fn render(&mut self, cmd: &mut UserCommands) { swap(&mut self.cmd, cmd); }
 }

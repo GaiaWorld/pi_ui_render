@@ -1,5 +1,5 @@
-use bevy_ecs::system::{Commands, Res};
-use pi_bevy_ecs_extend::system_param::res::{OrInitRes, OrInitResMut};
+use pi_world::system::{Commands, SingleRes};
+use pi_bevy_ecs_extend::system_param::res::{OrInitSingleRes, OrInitSingleResMut};
 use pi_hash::XHashSet;
 use pi_render::{
     renderer::{
@@ -34,17 +34,17 @@ use crate::{
 /// 创建清屏的drawobj
 #[allow(unused_must_use)]
 pub fn init(
-    mut depth_cache: OrInitResMut<DepthCache>,
-    unit_quad_buffer: Res<UnitQuadBuffer>,
-    shader_static: OrInitRes<ProgramMetaRes<ProgramMeta>>,
-    vert_layout: OrInitRes<PosVertexLayout>,
-    // mut state_map: ResMut<StateMap>,
-    shader_info_cache: OrInitRes<ShaderInfoCache>,
+    mut depth_cache: OrInitSingleResMut<DepthCache>,
+    unit_quad_buffer: SingleRes<UnitQuadBuffer>,
+    shader_static: OrInitSingleRes<ProgramMetaRes<ProgramMeta>>,
+    vert_layout: OrInitSingleRes<PosVertexLayout>,
+    // mut state_map: SingleResMut<StateMap>,
+    shader_info_cache: OrInitSingleRes<ShaderInfoCache>,
 
-    ui_group_alloter: OrInitRes<ShareGroupAlloter<UiMaterialGroup>>,
-    color_render_type: OrInitRes<BackgroundColorRenderObjType>,
-    camera_group_alloter: OrInitRes<ShareGroupAlloter<CameraGroup>>,
-    depth_alloter: OrInitRes<ShareGroupAlloter<DepthGroup>>,
+    ui_group_alloter: OrInitSingleRes<ShareGroupAlloter<UiMaterialGroup>>,
+    color_render_type: OrInitSingleRes<BackgroundColorRenderObjType>,
+    camera_group_alloter: OrInitSingleRes<ShareGroupAlloter<CameraGroup>>,
+    depth_alloter: OrInitSingleRes<ShareGroupAlloter<DepthGroup>>,
     mut commands: Commands,
 ) {
     // let pipeline_state = state_map.insert(pipeline_state);
@@ -116,8 +116,8 @@ pub fn init(
 
     // 深度设置为-1(最远)
     depth_cache.or_create_depth(0, &depth_alloter); // 深度为0
-    commands.insert_resource(DynFboClearColorBindGroup(group));
-    commands.insert_resource(ClearDrawObj(draw_state, pipeline_meta.clone()));
+    commands.insert_single_res(DynFboClearColorBindGroup(group));
+    commands.insert_single_res(ClearDrawObj(draw_state, pipeline_meta.clone()));
 }
 
 

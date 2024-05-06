@@ -1,4 +1,4 @@
-use bevy_ecs::prelude::World;
+use pi_world::prelude::World;
 
 pub struct DataQuery<'a> {
     pub world: &'a mut World,
@@ -6,8 +6,8 @@ pub struct DataQuery<'a> {
     // pub view_port: Query<'static, 'static, Node,  Write<Viewport>>,
     // pub render_target_type: Query<'static, 'static, Node, Write<RenderTargetType>>,
     // pub canvas: Query<'static, 'static, Node, Write<Canvas>>,
-    // pub class_sheet: ResMut<'static, ClassSheet>,
-    // pub keyframes_sheet: ResMut<'static, KeyFramesSheet>,
+    // pub class_sheet: SingleResMut<'static, ClassSheet>,
+    // pub keyframes_sheet: SingleResMut<'static, KeyFramesSheet>,
 }
 
 pub struct SingleCmd<T>(pub T);

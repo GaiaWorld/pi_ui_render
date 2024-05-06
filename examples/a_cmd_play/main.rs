@@ -4,10 +4,8 @@ mod framework;
 use std::mem::swap;
 use std::path::PathBuf;
 
-use bevy_ecs::system::Commands;
-use bevy_ecs::prelude::World;
 // use font_kit::font::new_face_by_path;
-use framework::Example;
+use framework::{Param, Example};
 use pi_flex_layout::prelude::Size;
 use pi_ui_render::resource::UserCommands;
 //
@@ -31,7 +29,7 @@ impl ExampleCommonPlay {
 	}
 }
 
-// pub const FILTER: &'static str = "wgpu=error,naga=warn,bevy_app=warn,bevy_ecs::schedule::executor::single_threaded=warn,bevy_ecs::system::commands=warn,pi_bevy_render_plugin=error";
+// pub const FILTER: &'static str = "wgpu=error,naga=warn,bevy_app=warn,pi_world::schedule::executor::single_threaded=warn,pi_world::system::commands=warn,pi_bevy_render_plugin=error";
 
 // pub struct Commands1 {
 //     queue: &'static mut CommandQueue,
@@ -45,9 +43,9 @@ impl Example for ExampleCommonPlay {
 		Some(Size { width: 838, height: 937 })
     }
 
-    fn init(&mut self, world: &mut World, size: (usize, usize)) {
+    fn init(&mut self, world: Param, size: (usize, usize)) {
 
-		let r = world.get_resource::<framework::PlayOption>().unwrap();
+		let r = world.play_option.as_ref().unwrap();
         // let r: Commands1 = unsafe { transmute(command) };
         // let mut ttf = std::env::current_dir().unwrap();
         // log::warn!("cur_dir========{:?}", ttf);
@@ -66,7 +64,7 @@ impl Example for ExampleCommonPlay {
         println!("view_port:{:?}", size);
     }
 
-    fn render(&mut self, cmd: &mut UserCommands, _cmd1: &mut Commands) { swap(&mut self.cmd, cmd); }
+    fn render(&mut self, cmd: &mut UserCommands) { swap(&mut self.cmd, cmd); }
 
     #[cfg(feature = "debug")]
     fn record_option(&self) -> pi_ui_render::system::cmd_play::TraceOption { pi_ui_render::system::cmd_play::TraceOption::Play }
@@ -104,7 +102,7 @@ impl Example for ExampleCommonPlay {
 		Some(option)
 	}
 
-    // fn render(&mut self, cmd: &mut UserCommands, _cmd1: &mut Commands) {
+    // fn render(&mut self, cmd: &mut UserCommands) {
     // 	cmd.
     // 	swap(&mut self.cmd, cmd);
     // }

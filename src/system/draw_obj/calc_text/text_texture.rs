@@ -1,7 +1,7 @@
-use bevy_ecs::query::{Or, With};
-use bevy_ecs::system::{Local, Query, Res};
+use pi_world::query::{Or, With};
+use pi_world::system::{Local, Query, SingleRes};
 use pi_bevy_asset::ShareAssetMgr;
-use pi_bevy_ecs_extend::system_param::res::{OrInitRes, OrInitResMut};
+use pi_bevy_ecs_extend::system_param::res::{OrInitSingleRes, OrInitSingleResMut};
 use pi_bevy_render_plugin::PiRenderDevice;
 use pi_hal::font::font::FontType;
 use pi_render::renderer::draw_obj::DrawBindGroup;
@@ -26,14 +26,14 @@ use super::IsRun;
 /// 如果纹理大小发生改变， 为文字纹理创建bind_group， 并重新设置每个文字DrawObject的纹理bind_group
 pub fn calc_text_texture(
     mut texture_state: Local<TextureState>,
-    mut query: Query<&mut DrawState, Or<(With<TextMark>, With<TextShadowMark>)>>,
-    mut text_texture_group: OrInitResMut<TextTextureGroup>,
-    font_sheet: Res<ShareFontSheet>,
-    shader_static: OrInitRes<ProgramMetaRes<ProgramMeta>>,
-    bind_group_assets: Res<ShareAssetMgr<RenderRes<BindGroup>>>,
-    device: Res<PiRenderDevice>,
-    common_sampler: Res<CommonSampler>,
-	r: OrInitRes<IsRun>
+    mut query: Query<&mut DrawState, (With<TextMark>, With<TextShadowMark>)>,
+    mut text_texture_group: OrInitSingleResMut<TextTextureGroup>,
+    font_sheet: SingleRes<ShareFontSheet>,
+    shader_static: OrInitSingleRes<ProgramMetaRes<ProgramMeta>>,
+    bind_group_assets: SingleRes<ShareAssetMgr<RenderRes<BindGroup>>>,
+    device: SingleRes<PiRenderDevice>,
+    common_sampler: SingleRes<CommonSampler>,
+	r: OrInitSingleRes<IsRun>
 ) {
 	if r.0 {
 		return;

@@ -1,10 +1,8 @@
 use std::marker::PhantomData;
 
-use bevy_ecs::{
-    prelude::{Component, Entity, EventWriter, RemovedComponents},
-    query::Changed,
-    system::{Query, Res, Resource},
-};
+use pi_world::prelude::{Changed, Removed, SingleRes, ParamSet, Query, Entity, Has};
+use pi_bevy_ecs_extend::prelude::OrInitSingleRes;
+
 use crossbeam::queue::SegQueue;
 use pi_assets::{
     asset::Handle,
@@ -13,8 +11,6 @@ use pi_assets::{
 use pi_async_rt::prelude::AsyncRuntime;
 use pi_atom::Atom;
 use pi_bevy_asset::ShareAssetMgr;
-use pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent;
-use pi_bevy_ecs_extend::system_param::res::OrInitRes;
 use pi_bevy_render_plugin::{PiRenderDevice, PiRenderQueue, TextureKeyAlloter};
 use pi_hal::{loader::AsyncLoader, runtime::RENDER_RUNTIME};
 use pi_null::Null;
@@ -25,7 +21,7 @@ use crate::components::user::RenderDirty;
 
 use super::calc_text::IsRun;
 
-#[derive(Clone, Resource)]
+#[derive(Clone)]
 pub struct ImageAwait<Key: 'static + Send + Sync, T>(pub Share<SegQueue<(Key, Atom, Handle<AssetWithId<TextureRes>>)>>, PhantomData<T>);
 
 impl<Key: 'static + Send + Sync, T> Default for ImageAwait<Key, T> {
@@ -39,32 +35,32 @@ pub struct CalcImageLoad<S: std::ops::Deref<Target = Atom>, D: From<Handle<Asset
 /// 因为BorderImageTexture未加锁，其他线程可能正在使用
 /// 这里是将一个加载成功的Texture放入一个加锁的列表中，在system执行时，再放入到BorderImageTexture中
 pub fn image_load<
-    S: Component + std::ops::Deref<Target = Atom> + From<Atom> + std::cmp::PartialEq,
-    D: Component + From<Handle<AssetWithId<TextureRes>>> + Null + Eq + PartialEq,
+    S: std::ops::Deref<Target = Atom> + From<Atom> + std::cmp::PartialEq + Send + Sync,
+    D: From<Handle<AssetWithId<TextureRes>>> + Null + Eq + PartialEq,
 >(
     query: Query<(Entity, &S), Changed<S>>,
     query_src: Query<(Entity, &S)>,
-    mut del: RemovedComponents<S>,
-    texture_assets_mgr: Res<ShareAssetMgr<AssetWithId<TextureRes>>>,
-    image_await: OrInitRes<ImageAwait<Entity, S>>,
-    queue: Res<PiRenderQueue>,
-    device: Res<PiRenderDevice>,
-	key_alloter: OrInitRes<TextureKeyAlloter>,
+    // mut del: RemovedComponents<S>,
+    texture_assets_mgr: SingleRes<ShareAssetMgr<AssetWithId<TextureRes>>>,
+    image_await: OrInitSingleRes<ImageAwait<Entity, S>>,
+    queue: SingleRes<PiRenderQueue>,
+    device: SingleRes<PiRenderDevice>,
+	key_alloter: OrInitSingleRes<TextureKeyAlloter>,
 
     // mut commands: Commands,
-    mut query_dst: Query<&mut D>,
-    mut event_writer: EventWriter<ComponentEvent<Changed<D>>>,
-	r: OrInitRes<IsRun>,
+    mut query_set: ParamSet< (Query<(&mut D, Has<S>), Removed<S>>, Query<&mut D>)>,
+	r: OrInitSingleRes<IsRun>,
 	mut dirty: Query<&mut RenderDirty>
 ) {
 	if r.0 {
 		return;
 	}
+    let del = &mut query_set.p0();
     // 图片删除，则删除对应的Texture
-    for del in del.iter() {
-        if let Ok(mut r) = query_dst.get_mut(del) {
+    for (mut r, has_s) in del.iter_mut() {
+        if !has_s {
             *r = D::null();
-        };
+        }
     }
 
     let f = |d: &mut D, s, _entity| {
@@ -81,15 +77,14 @@ pub fn image_load<
             &image_await,
             &device,
             &queue,
-            Some(&mut event_writer),
-            &mut query_dst,
+            query_set.p1(),
             &texture_assets_mgr,
 			&key_alloter,
             f,
         );
     }
 
-    let is_change = set_texture(&image_await, Some(&mut event_writer), &query_src, &mut query_dst, f);
+    let is_change = set_texture(&image_await, &query_src, query_set.p1(), f);
 	if is_change {
 		for mut r in dirty.iter_mut() {
 			**r = true;
@@ -98,13 +93,12 @@ pub fn image_load<
 }
 
 #[inline]
-pub fn load_image<'w, S: Component, D: Component + Eq + PartialEq + From<Handle<AssetWithId<TextureRes>>> + Null, F: FnMut(&mut D, D, Entity) -> bool>(
+pub fn load_image<'w, S: 'static + Send + Sync, D: Eq + PartialEq + From<Handle<AssetWithId<TextureRes>>> + Null, F: FnMut(&mut D, D, Entity) -> bool>(
     entity: Entity,
     key: &Atom,
     image_await: &ImageAwait<Entity, S>,
     device: &PiRenderDevice,
     queue: &PiRenderQueue,
-    event_writer: Option<&mut EventWriter<ComponentEvent<Changed<D>>>>,
     query_dst: &mut Query<&'w mut D>,
     texture_assets_mgr: &ShareAssetMgr<AssetWithId<TextureRes>>,
 	key_alloter: &TextureKeyAlloter,
@@ -117,9 +111,6 @@ pub fn load_image<'w, S: Component, D: Component + Eq + PartialEq + From<Handle<
 				let r = D::from(r);
 				if *dst != r {
 					f(&mut dst, r, entity);
-					if let Some(event_writer) = event_writer {
-						event_writer.send(ComponentEvent::new(entity));
-					}
 				}
                 
             }
@@ -155,9 +146,8 @@ pub fn load_image<'w, S: Component, D: Component + Eq + PartialEq + From<Handle<
 
 // 设置纹理， 返回是否修改问题（同一节点，修改图片路径， 且新旧图片尺寸不一致，新图片异步加载会导致脏区域计算问题，此时此时直接设置全局脏）
 #[inline]
-pub fn set_texture<'w, S: Component + From<Atom> + std::cmp::PartialEq, D: Component + Eq + PartialEq + From<Handle<AssetWithId<TextureRes>>> + Null, F: FnMut(&mut D, D, Entity) -> bool>(
+pub fn set_texture<'w, S: From<Atom> + std::cmp::PartialEq, D: Eq + PartialEq + From<Handle<AssetWithId<TextureRes>>> + Null, F: FnMut(&mut D, D, Entity) -> bool>(
     image_await: &ImageAwait<Entity, S>,
-    mut event_writer: Option<&mut EventWriter<ComponentEvent<Changed<D>>>>,
     query_src: &Query<(Entity, &S)>,
     query_dst: &mut Query<&'w mut D>,
     mut f: F,
@@ -173,9 +163,6 @@ pub fn set_texture<'w, S: Component + From<Atom> + std::cmp::PartialEq, D: Compo
                 }
                 if let Ok(mut dst) = query_dst.get_mut(id) {
                     is_change =  f(&mut dst, D::from(texture), id) || is_change;
-                    if let Some(event_writer) = &mut event_writer {
-                        event_writer.send(ComponentEvent::new(id));
-                    }
                 }
             }
             // 节点已经销毁，或image已经被删除，不需要设置texture

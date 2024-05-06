@@ -6,10 +6,7 @@ pub mod pass_2d;
 pub mod root;
 pub mod user;
 
-use bevy_ecs::{
-   	bundle::Bundle,
-	prelude::{FromWorld, Entity},
-};
+use pi_world::prelude::{FromWorld, Entity, Bundle};
 use pi_bevy_ecs_extend::prelude::{Down, Layer, Up};
 
 use self::{
@@ -42,7 +39,7 @@ pub struct NodeBundle {
 
 /// 绘制对象Bundle
 #[derive(Bundle)]
-pub struct DrawBundle<T: FromWorld + Bundle> {
+pub struct DrawBundle<T: FromWorld + Bundle + 'static> {
     pub node_id: calc::NodeId,
     pub draw_state: draw_obj::DrawState,
     pub box_type: BoxType,
@@ -55,7 +52,7 @@ pub struct DrawBundle<T: FromWorld + Bundle> {
 
 /// 绘制对象Bundle（新）
 #[derive(Bundle)]
-pub struct DrawBundleNew<T: FromWorld + Bundle> {
+pub struct DrawBundleNew<T: FromWorld + Bundle + 'static> {
     pub node_id: calc::NodeId,
 	pub instance_index: InstanceIndex,
     // pub draw_state: draw_obj::DrawState,
@@ -68,15 +65,15 @@ pub struct DrawBundleNew<T: FromWorld + Bundle> {
 }
 
 // impl<T: FromWorld + Bundle> FromWorld for DrawBundle<T> {
-//     fn from_world(world: &mut bevy_ecs::prelude::World) -> Self {
-// 		world.init_resource::<ProgramMetaRes<crate::shader::color::ProgramMeta>>();
-// 		world.init_resource::<ShaderInfoCache>();
-// 		world.init_resource::<PosVertexLayout>();
+//     fn from_world(world: &mut pi_world::prelude::World) -> Self {
+// 		world.init_single_res::<ProgramMetaRes<crate::shader::color::ProgramMeta>>();
+// 		world.init_single_res::<ShaderInfoCache>();
+// 		world.init_single_res::<PosVertexLayout>();
 
 
-// 		let program_meta = world.get_resource::<ProgramMetaRes<crate::shader::color::ProgramMeta>>().unwrap();
-// 		let cache = world.get_resource::<ShaderInfoCache>().unwrap();
-// 		let vert_layout = world.get_resource::<PosVertexLayout>().unwrap();
+// 		let program_meta = world.get_single_res::<ProgramMetaRes<crate::shader::color::ProgramMeta>>().unwrap();
+// 		let cache = world.get_single_res::<ShaderInfoCache>().unwrap();
+// 		let vert_layout = world.get_single_res::<PosVertexLayout>().unwrap();
 //         DrawBundle {
 // 			node_id: calc::NodeId(EntityKey::null()),
 //             draw_state: Default::default(),
@@ -110,6 +107,7 @@ pub struct DrawBundleNew<T: FromWorld + Bundle> {
 #[derive(Bundle, Default)]
 pub struct PassBundle {
     // pub node_id: calc::NodeId,
+    // pub mark: Pass2DMark,
     pub parent_id: ParentPassId,
     pub camera: pass_2d::Camera,
     pub overflow_aabb: View,
@@ -131,19 +129,7 @@ impl PassBundle {
         Self {
             // node_id: NodeId(EntityKey(node_id)),
             parent_id: ParentPassId(EntityKey(parent_id)),
-            overflow_aabb: Default::default(),
-            camera: Default::default(),
-            draw_list: Default::default(),
-            dirty_rect: Default::default(),
-            dirty_mark: Default::default(),
-            post_list: Default::default(),
-            post_list_info: Default::default(),
-            children: Default::default(),
-            will_change_matrix: Default::default(),
-            graph_id: Default::default(),
-            render_target: Default::default(),
-			instance_index: InstanceIndex::default(),
-			fbo_info: FboInfo::default(),
+            ..Default::default()
         }
     }
 }

@@ -5,13 +5,9 @@
 //! 4. 为pass2D创建对应的图节点，并添加依赖关系
 //! 5. 为删除的pass2D删除图节点，并建立正确的依赖关系
 
-use bevy_ecs::{
-    prelude::{DetectChanges, Entity, Ref}, query::{Changed, Or}, system::{ParamSet, Query, Res}, world::Mut
-};
-use pi_bevy_ecs_extend::{
-    prelude::Layer,
-    system_param::res::OrInitResMut,
-};
+use pi_world::prelude::{Changed, ParamSet, SingleRes, Mut, Query, Entity, Ticker};
+use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, Layer};
+
 use pi_render::renderer::draw_obj::DrawBindGroup;
 use pi_share::{Share, ShareWeak};
 
@@ -65,13 +61,13 @@ pub fn calc_camera_depth_and_renderlist(
             &Quad,
             &IsShow,
         ),
-        Or<(Changed<View>, Changed<AsImage>, Changed<IsShow>)>
+        (Changed<View>, Changed<AsImage>, Changed<IsShow>)
     >)>,
     // mut query_root: ParamSet<(Query<(&RootDirtyRect, OrDefault<RenderDirty>, Ref<Viewport>)>, Query<&mut RenderDirty>)>,
-    query_root: Query<Ref<Viewport>>,
-    font_sheet: Res<ShareFontSheet>,
-	instance_context: Res<InstanceContext>,
-	r: OrInitResMut<IsRun>
+    query_root: Query<Ticker<&Viewport>>,
+    font_sheet: SingleRes<ShareFontSheet>,
+	instance_context: SingleRes<InstanceContext>,
+	r: OrInitSingleResMut<IsRun>
 ) {
 	if r.0 {
 		return;

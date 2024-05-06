@@ -1,10 +1,10 @@
-use bevy_ecs::{
+use pi_world::{
 	query::{Changed, Or},
 	system::Query,
     prelude::{DetectChangesMut, With, Entity},
 };
 use pi_assets::{asset::Handle, mgr::AssetMgr};
-use pi_bevy_ecs_extend::{prelude::{OrDefault, Up}, system_param::res::{OrInitRes, OrInitResMut}};
+use pi_bevy_ecs_extend::{prelude::{OrDefault, Up}, system_param::res::{OrInitSingleRes, OrInitSingleResMut}};
 use pi_render::rhi::bind_group_layout::BindGroupLayout;
 use pi_render::rhi::{asset::RenderRes, bind_group::BindGroup, buffer::Buffer, device::RenderDevice, RenderQueue};
 use pi_share::Share;
@@ -28,7 +28,7 @@ pub struct CalcWorldMatrixGroup;
 /// 必须保证，创建DrawObject的system运行在此system之前，并且已经执行了apply_buffer
 /// 因为此system检测DrawList的变化，当DrawList改变时，如果对应的DrawObject还未插入World，system会忽略此节点，后面可能无机会再设置此节点的matrix
 pub fn set_matrix_group(
-	mut instances: OrInitResMut<InstanceContext>,
+	mut instances: OrInitSingleResMut<InstanceContext>,
     query: Query<
         (&WorldMatrix, &LayoutResult, &DrawList, Entity, &NodeState),
         (
@@ -56,9 +56,9 @@ pub fn set_matrix_group(
     query_parent: Query<&Up>,
     query_matrix: Query<(&WorldMatrix, &NodeState, &LayoutResult)>,
     mut query_draw: Query<(&InstanceIndex, OrDefault<BoxType>)>,
-	r: OrInitRes<IsRun>,
+	r: OrInitSingleRes<IsRun>,
 	#[cfg(debug_assertions)]
-	debug_entity: OrInitRes<crate::resource::DebugEntity>
+	debug_entity: OrInitSingleRes<crate::resource::DebugEntity>
 ) {
 	if r.0 {
 		return;

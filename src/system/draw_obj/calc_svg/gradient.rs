@@ -1,6 +1,6 @@
 use crate::components::user::{SvgGradient, SvgInnerContent, SvgStop, Vector2};
-use bevy_ecs::{prelude::Entity, query::Changed, system::Query};
-use pi_bevy_ecs_extend::system_param::{res::OrInitRes, tree::Up};
+use pi_world::prelude::{Entity, Changed, Query};
+use pi_bevy_ecs_extend::system_param::{res::OrInitSingleRes, tree::Up};
 
 
 use pi_style::style::{Color, ColorAndPosition, LinearGradientColor};
@@ -10,7 +10,7 @@ use crate::system::draw_obj::calc_text::IsRun;
 
 pub fn gradient_offset(
     query: Query<(Entity, &'static SvgGradient), Changed<SvgGradient>>,
-    r: OrInitRes<IsRun>,
+    r: OrInitSingleRes<IsRun>,
     mut query_svg: Query<&mut SvgInnerContent>,
 ) {
     if r.0 {
@@ -47,7 +47,7 @@ pub fn gradient_offset(
 /// 文字字形计算
 pub fn gradient_stop(
     query: Query<(Entity, &'static SvgStop), Changed<SvgStop>>,
-    r: OrInitRes<IsRun>,
+    r: OrInitSingleRes<IsRun>,
     query_parent: Query<&Up>,
     query_gradient: Query<&SvgGradient>,
     mut query_svg: Query<&mut SvgInnerContent>,

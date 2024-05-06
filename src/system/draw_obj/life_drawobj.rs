@@ -1,17 +1,11 @@
 
-use bevy_ecs::change_detection::{DetectChangesMut, DetectChanges};
-use bevy_ecs::entity::Entity;
-use bevy_ecs::event::EventWriter;
-use bevy_ecs::prelude::RemovedComponents;
-use bevy_ecs::query::{Changed, With};
-use bevy_ecs::system::{ParamSet, Query, Res, SystemParam, SystemState};
-use bevy_ecs::prelude::{Bundle, Commands, Component, EventReader, FromWorld, Resource, World};
-use bevy_ecs::world::Ref;
+use pi_world::alter::Alter;
+use pi_world::insert::Bundle;
+use pi_world::param_set::ParamSet;
+use pi_world::prelude::{SystemParam, SingleRes, Removed, FromWorld, Insert, With, Query, Entity, OrDefault, Has, Ticker};
+use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, OrInitSingleRes, Layer, Root};
+
 use pi_assets::asset::Handle;
-use pi_bevy_ecs_extend::query::or_default::OrDefault;
-use pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent;
-use pi_bevy_ecs_extend::system_param::res::{OrInitRes, OrInitResMut};
-use pi_bevy_ecs_extend::system_param::tree::{Root, Layer};
 use pi_bevy_render_plugin::render_cross::DepthRange;
 use pi_bevy_render_plugin::PiRenderDevice;
 use pi_null::Null;
@@ -19,8 +13,9 @@ use pi_render::components::view::target_alloc::ShareTargetView;
 use pi_render::rhi::asset::{AssetWithId, TextureRes};
 use pi_share::Share;
 use pi_style::style::CgColor;
+use pi_key_alloter::Key;
 
-use crate::components::calc::{DrawInfo, EntityKey, NodeId, InPassId, IsShow, ZRange, RenderContextMark};
+use crate::components::calc::{DrawInfo, EntityKey, NodeId, InPassId, IsShow, ZRange};
 use crate::components::draw_obj::{ FboInfo, GetInstanceSplit, InstanceIndex, InstanceSplit, Pipeline, RenderCount};
 // use crate::components::root::RootInstance;
 use crate::components::user::RenderTargetType;
@@ -31,9 +26,8 @@ use crate::components::user::RenderTargetType;
 
 use crate::components::DrawBundleNew;
 use crate::components::pass_2d::{Draw2DList, DrawElement, DrawIndex, InstanceDrawState, ParentPassId, PostProcessInfo};
-use crate::events::{ NodeZindexChange, NodeDisplayChange, EntityChange};
 use crate::resource::draw_obj::{InstanceContext, CommonSampler};
-use crate::resource::RenderObjType;
+use crate::resource::{NodeChanged, RenderObjType};
 
 use crate::components::calc::DrawList;
 use crate::shader1::GpuBuffer;
@@ -44,28 +38,36 @@ use super::calc_text::IsRun;
 /// 新版本的draw_object生命周期管理
 /// 用于创建和销毁drawobj
 pub fn draw_object_life_new<
-    Src: Component + GetInstanceSplit,
-    RenderType: Resource + std::ops::Deref<Target = RenderObjType> + FromWorld,
-    With: Bundle + Default, // 初始化时额外需要插入的组件
+    Src: GetInstanceSplit + Send + Sync,
+    RenderType: std::ops::Deref<Target = RenderObjType> + FromWorld + Send + Sync,
+    Other: Bundle + Default, // 初始化时额外需要插入的组件
     const ORDER: u8,
 >(
-    world: &mut World,
+	mut node_change: OrInitSingleResMut<NodeChanged>,
+	render_type: OrInitSingleRes<RenderType>,
+	mut query_meterial: ParamSet<(
+		Query<(Option<&'static Src>, &'static mut DrawList, Entity)>,
+		Query<(Has<Src>, &'static mut DrawList), Removed<Src>>,
+	)>,
+	mut alter_drawobj: Alter<(), With<DrawInfo>, (InstanceSplit, )>,
+	insert: Insert<(DrawBundleNew<Other>, )>,
+	insert1: Insert<(DrawBundleNew<Other>, InstanceSplit)>,
+	r: OrInitSingleRes<IsRun>,
+    // world: &mut World,
 
-    state: &mut SystemState<(
-		EventWriter<EntityChange>, // 有节点创建
-        OrInitRes<RenderType>,
-        EventReader<ComponentEvent<Changed<Src>>>,
-        RemovedComponents<Src>,
-        Query<(Option<&'static Src>, &'static mut DrawList)>,
-        Commands,
-		OrInitRes<IsRun>,
-    )>,
+    // state: &mut SystemState<(
+	// 	OrInitSingleResMut<NodeChanged>,
+    //     OrInitSingleRes<RenderType>,
+    //     EventReader<ComponentEvent<Changed<Src>>>,
+    //     RemovedComponents<Src>,
+    //     Query<(Option<&'static Src>, &'static mut DrawList)>,
+    //     Commands,
+	// 	OrInitSingleRes<IsRun>,	
+    // )>,
 	// #[allow(dead_code)]
     // query_draw_list: &mut SystemState<Query<&'static mut DrawList>>, 
 ) {
 	// let time1 = pi_time::Instant::now();
-    let (mut node_change, render_type, mut changed, mut del, mut query_meterial, mut commands, r) =
-        state.get_mut(world);
 	if r.0 {
 		return;
 	}
@@ -76,78 +78,65 @@ pub fn draw_object_life_new<
 	// let mut count2 = 0;
 
     // 收集需要删除DrawObject的实体
-    for del in del.iter() {
-		// count1 += 1;
-        if let Ok((texture, mut draw_list)) = query_meterial.get_mut(del) {
-            if texture.is_some() {
-                continue;
-            }
-            // 删除对应的DrawObject
-            draw_list.remove(render_type, |draw_obj| {
-				if let Some(mut r) = commands.get_entity(draw_obj.id) {
-					r.despawn();
-					node_is_changed = true;
-					log::trace!("despawn drawobj====={:?}", draw_obj.id);
-					log::debug!(target: format!("entity_{:?}", del).as_str(), "remove RenderObj {:?} for {} destroy, ", &draw_obj.id, std::any::type_name::<Src>());
-				}
-			});
-        }
-    }
+	for (has_texture, mut draw_list) in query_meterial.p1().iter_mut() {
+		if has_texture {
+			continue;
+		}
+		// 删除对应的DrawObject
+		draw_list.remove(render_type, |draw_obj| {
+			if let Ok(true) = alter_drawobj.destroy(draw_obj.id) {
+				node_is_changed = true;
+				log::debug!(target: format!("entity_{:?}", draw_obj.id).as_str(), "remove RenderObj {:?} for {} destroy, ", &draw_obj.id, std::any::type_name::<Src>());
+			}
+		});
+	}
 	// let time2 = pi_time::Instant::now();
 
 	// let mut spawn_list = Vec::new();
     // 收集需要创建DrawObject的实体
-    for changed in changed.iter() {
-		// count2 += 1;
-        if let Ok((src, mut draw_list)) = query_meterial.get_mut(changed.id) {
-            let texture = match src {
-                Some(r) => r,
-                None => continue,
-            };
-            // 不存在，才需要创建DrawObject
-			match draw_list.get_one(render_type) {
-				None => {
-					let bundle = DrawBundleNew {
-						node_id: NodeId(EntityKey(changed.id)),
-						instance_index: InstanceIndex::default(),
-						draw_info: DrawInfo::new(ORDER, false), //TODO
-						other: With::default(),
-					};
-					let id = if let Some(r) = texture.get_split()  {
-						commands
-							.spawn((bundle, r))
-							.id()
-					} else {
-						commands
-							.spawn(bundle)
-							.id()
-					};
-					node_is_changed = true;
-					
-					// spawn_list.push(id);
-					log::debug!(target: format!("entity_{:?}", changed.id).as_str(), "create RenderObj {:?} for {} changed, ", &id, std::any::type_name::<Src>());
-					draw_list.push(render_type, id);
-					log::debug!("create drawobj=================draw={:?}, node={:?}, ty={:?}", id, changed.id, std::any::type_name::<Src>());
-				},
+    // count2 += 1;
+	for (src, mut draw_list, node) in query_meterial.p0().iter_mut() {
+		let texture = match src {
+			Some(r) => r,
+			None => continue,
+		};
+		// 不存在，才需要创建DrawObject
+		match draw_list.get_one(render_type) {
+			None => {
+				let bundle = DrawBundleNew {
+					node_id: NodeId(EntityKey(node)),
+					instance_index: InstanceIndex::default(),
+					draw_info: DrawInfo::new(ORDER, false), //TODO
+					other: Other::default(),
+				};
+				let id = if let Some(r) = texture.get_split()  {
+					insert1.insert((bundle, r))
+				} else {
+					insert.insert((bundle, ))
+				};
+				node_is_changed = true;
 				
-				Some(r) => if let Some(InstanceSplit::ByTexture(t)) = texture.get_split() {
-					// 图片修改， 也需要重新组织实例数据
-					node_is_changed = true;
-					commands.entity(r.id).insert(InstanceSplit::ByTexture(t));
-				},
-			};
-        }
-    }
-	if node_is_changed {
-		node_change.send(EntityChange);
+				// spawn_list.push(id);
+				log::debug!(target: format!("entity_{:?}", node).as_str(), "create RenderObj {:?} for {} changed, ", &id, std::any::type_name::<Src>());
+				draw_list.push(render_type, id);
+				log::debug!("create drawobj=================draw={:?}, node={:?}, ty={:?}", id, node, std::any::type_name::<Src>());
+			},
+			
+			Some(r) => if let Some(InstanceSplit::ByTexture(t)) = texture.get_split() {
+				// 图片修改， 也需要重新组织实例数据
+				node_is_changed = true;
+				let _ = alter_drawobj.alter(r.id, (InstanceSplit::ByTexture(t), ));
+			},
+		};
 	}
 
-    state.apply(world);
-	// let time3 = pi_time::Instant::now();
+	if node_is_changed {
+		node_change.0 = node_is_changed;
+	}
 }
 
 // 渲染实例数据
-#[derive(Clone, Debug, Resource)]
+#[derive(Clone, Debug)]
 pub struct RenderInstances1(pub GpuBuffer);
 
 impl Default for RenderInstances1 {
@@ -160,12 +149,13 @@ impl Default for RenderInstances1 {
 /// 注意， 这里没考虑节点上纹理修改的问题（TODO）
 #[allow(suspicious_double_ref_op)]
 pub fn update_render_instance_data(
-	mut events: (
-		EventReader<EntityChange>,// 有节点创建
-		EventReader<NodeZindexChange>, // 有节点zIndex修改
-		EventReader<NodeDisplayChange>, // 有display发生改变
-		EventReader<ComponentEvent<Changed<RenderContextMark>>>, // 有pass2d修改（子pass2d或父pass2d修改）
-	), 
+	mut node_change: OrInitSingleResMut<NodeChanged>,
+	// mut events: (
+	// 	EventReader<EntityChange>,// 有节点创建
+	// 	EventReader<NodeZindexChange>, // 有节点zIndex修改
+	// 	EventReader<NodeDisplayChange>, // 有display发生改变
+	// 	EventReader<ComponentEvent<Changed<RenderContextMark>>>, // 有pass2d修改（子pass2d或父pass2d修改）
+	// ), 
 	
 
 	mut pass_query: ParamSet<(
@@ -173,32 +163,26 @@ pub fn update_render_instance_data(
 		Query<&mut Draw2DList>,
 	)>,
 	post_info_query: Query<(&PostProcessInfo, Option<&Root>)>,
-	mut instances : OrInitResMut<InstanceContext>,
+	mut instances : OrInitSingleResMut<InstanceContext>,
 	node_query: Query<(Option<&ParentPassId>, &InPassId, &DrawList, &ZRange, &IsShow, Entity, &Layer)>,
 
 	mut instance_index: Query<(&'static mut InstanceIndex, OrDefault<RenderCount>)>,
 
-	draw_info: Query<(&DrawInfo, Option<Ref<RenderCount>>)>,
+	draw_info: Query<(&DrawInfo, Option<Ticker<&RenderCount>>)>,
 
 	query_root1: Query<(Entity, OrDefault<RenderTargetType>, &PostProcessInfo, &IsShow, &Layer), With<Root>>, // 只有gui的Root才会有Size
-	mut catche_buffer: OrInitResMut<RenderInstances1>,
+	mut catche_buffer: OrInitSingleResMut<RenderInstances1>,
 ) {
-	log::trace!("life========================node_change={:?}, node_zindex_change={:?}, pass2d_change={:?}, node_display_change={:?}", events.0.len(), events.1.len(), events.2.len(), events.3.len());
+	// log::trace!("life========================node_change={:?}, node_zindex_change={:?}, pass2d_change={:?}, node_display_change={:?}", events.0.len(), events.1.len(), events.2.len(), events.3.len());
 	// 如果没有实体创建， 也没有实体删除， zindex也没改变，山下文结构也没改变， 则不需要更新实例数据
-	if events.0.len() == 0 &&
-	events.1.len() == 0 && 
-	events.2.len() == 0 &&
-	events.3.len() == 0
-	{
+	if node_change.0 {
 		return;
 	}
-	events.0.clear();
-	events.1.clear();
-	events.2.clear();
-	events.3.clear();
+	node_change.0 = false;
+	
 	let catche_buffer = &mut *catche_buffer;
 
-	let mut p1 = pass_query.p1();
+	let p1 = pass_query.p1();
 	// 否则，先迭代所有的drawObj,如果drawobj可见,
 	for (parent_pass_id, in_pass_id, draw_list, z_range, is_show, id, layer) in node_query.iter() {
 		// log::debug!("draw info========id={:?}, is_display={:?}, has_draw2d_list={:?}, in_pass_id={:?}, draw_list={:?}", id, is_show.get_display(), in_pass_id, p1.get_mut(***in_pass_id).is_ok(),draw_list);
@@ -320,7 +304,7 @@ pub fn update_render_instance_data(
 			// log::trace!("life1========================insatnce_index={:?}, instance_data_start={:?}, draw_index={:?}, split={:?}, cur_index={:?}, render_count: {:?}", new_index, instance_data_start, draw_index, draw_query.get(entity), new_instances.cur_index(), render_count);
 		}
 	};
-	let mut p0 = pass_query.p0();	
+	let p0 = pass_query.p0();	
 		
 	let pass_toop_list = std::mem::take(&mut instances.pass_toop_list);
 	log::trace!("pass_toop_list1=============={:?}", &pass_toop_list);
@@ -707,14 +691,14 @@ fn batch_pass(
 }
 
 #[derive(SystemParam)]
-pub struct BatchQuery<'s, 'w> {
-	pass_query: Query<'w, 's, &'static mut Draw2DList>,
-	post_info_query: Query<'w, 's, &'static PostProcessInfo>,
-	render_cross_query: Query<'w, 's, (&'static mut DepthRange, &'static pi_bevy_render_plugin::render_cross::DrawList)>,
-	draw_query: Query<'w, 's, (Option<&'static InstanceSplit>, Option<&'static Pipeline>, OrDefault<FboInfo>)>,
-	instance_index: Query<'w, 's, &'static InstanceIndex>,
-	common_sampler: OrInitRes<'w,CommonSampler>,
-	device: Res<'w,PiRenderDevice>,
+pub struct BatchQuery<'w> {
+	pass_query: Query<'w, &'static mut Draw2DList>,
+	post_info_query: Query<'w, &'static PostProcessInfo>,
+	render_cross_query: Query<'w, (&'static mut DepthRange, &'static pi_bevy_render_plugin::render_cross::DrawList)>,
+	draw_query: Query<'w, (Option<&'static InstanceSplit>, Option<&'static Pipeline>, OrDefault<FboInfo>)>,
+	instance_index: Query<'w, &'static InstanceIndex>,
+	common_sampler: OrInitSingleRes<'w,CommonSampler>,
+	device: SingleRes<'w,PiRenderDevice>,
 
 	// #[cfg(debug_assertions)]
 	// debug_node_query: Query<'w, 's, (
@@ -762,7 +746,7 @@ struct BatchGlobalState{
 pub fn batch_instance_data(
 	mut query: BatchQuery,
 	mut query_root: Query<(Entity, &InstanceIndex), With<Root>>, // 只有gui的Root才会有Size
-	mut instances : OrInitResMut<InstanceContext>,
+	mut instances : OrInitSingleResMut<InstanceContext>,
 ) {
 
 	let instances = &mut *instances;

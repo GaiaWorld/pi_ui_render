@@ -1,9 +1,6 @@
-use bevy_ecs::{
-    prelude::RemovedComponents, query::Changed, system::Query,
-    prelude::{Added, IntoSystemConfigs, Or, Without},
-};
-use bevy_app::{Plugin, App};
-use pi_bevy_ecs_extend::{prelude::OrDefault, system_param::res::OrInitRes};
+use pi_world::prelude::{Changed, App, Removed, Query, Plugin, OrDefault, IntoSystemConfigs, Has};
+use pi_bevy_ecs_extend::prelude::OrInitSingleRes;
+
 use pi_bevy_render_plugin::FrameDataPrepare;
 use pi_flex_layout::prelude::Rect;
 use pi_style::style::{Aabb2, BaseShape, LengthUnit};
@@ -15,8 +12,8 @@ use crate::{
         user::{ClipPath, Overflow, Point2},
     },
     system::{
-        node::user_setting::user_setting,
-        pass::{last_update_wgpu::last_update_wgpu, pass_camera::calc_camera_depth_and_renderlist},
+        // node::user_setting::user_setting,
+        // pass::{last_update_wgpu::last_update_wgpu, pass_camera::calc_camera_depth_and_renderlist},
         draw_obj::calc_text::IsRun,
     },
     utils::tools::cal_border_radius,
@@ -24,41 +21,44 @@ use crate::{
 use pi_postprocess::prelude::ClipSdf;
 
 use crate::{components::pass_2d::PostProcess, system::pass::pass_life};
-use crate::prelude::UiSchedule;
+use crate::prelude::UiStage;
 
 pub struct UiClipPathPlugin;
 
 impl Plugin for UiClipPathPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(UiSchedule, 
+        app.add_system(UiStage, 
             pass_life::pass_mark::<ClipPath>
-                .after(user_setting)
-                .before(pass_life::cal_context)
+                // .after(user_setting)
+                // .before(pass_life::cal_context)
                 .in_set(FrameDataPrepare),
         )
-        .add_systems(UiSchedule, clip_path_del.after(user_setting).in_set(FrameDataPrepare))
-        .add_systems(UiSchedule, 
+        .add_system(UiStage, 
+            clip_path_del
+                // .after(user_setting)
+                .in_set(FrameDataPrepare))
+        .add_system(UiStage, 
             clip_path_post_process
-                .before(last_update_wgpu)
-                .after(calc_camera_depth_and_renderlist)
+                // .before(last_update_wgpu)
+                // .after(calc_camera_depth_and_renderlist)
                 .in_set(FrameDataPrepare),
         );
     }
 }
 
 // 处理ClipPath的删除
-pub fn clip_path_del(
-	mut del: RemovedComponents<ClipPath>, 
-	mut query: Query<&mut PostProcess, Without<ClipPath>>,
-	r: OrInitRes<IsRun>
+pub fn clip_path_del( 
+	mut query: Query<(&mut PostProcess, Has<ClipPath>), Removed<ClipPath>>,
+	r: OrInitSingleRes<IsRun>
 ) {
 	if r.0 {
 		return;
 	}
-    for del in del.iter() {
-        if let Ok(mut post_list) = query.get_mut(del) {
-            post_list.clip_sdf = None;
+    for (mut post_list, has_clip ) in query.iter_mut() {
+        if has_clip {
+            continue
         }
+        post_list.clip_sdf = None;
     }
 }
 
@@ -74,15 +74,14 @@ pub fn clip_path_post_process(
             &Camera,
             &mut PostProcess,
         ),
-        Or<(
+        (
             Changed<ClipPath>,
-            Added<PostProcess>,
             Changed<LayoutResult>,
             Changed<ContentBox>,
             Changed<Camera>,
-        )>,
+        ),
     >,
-	r: OrInitRes<IsRun>
+	r: OrInitSingleRes<IsRun>
 ) {
 	if r.0 {
 		return;

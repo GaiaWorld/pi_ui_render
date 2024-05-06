@@ -1,9 +1,9 @@
-use bevy_ecs::{
+use pi_world::{
     prelude::RemovedComponents,
     query::Changed,
     system::Query,
 };
-use pi_bevy_ecs_extend::system_param::res::{OrInitRes, OrInitResMut};
+use pi_bevy_ecs_extend::system_param::res::{OrInitSingleRes, OrInitSingleResMut};
 use pi_render::renderer::draw_obj::DrawBindGroup;
 
 use crate::{
@@ -22,11 +22,11 @@ use super::calc_text::IsRun;
 // pub fn clear_change(
 //     mut query: Query<(&ClearColor, &mut ClearColorBindGroup), Changed<ClearColor>>,
 //     mut dels: RemovedComponents<ClearColor>,
-//     ui_meterial_alloter: OrInitRes<ShareGroupAlloter<UiMaterialGroup>>,
-//     // color_material_bind_group: Res<DynBindGroupIndex<ColorMaterialGroup>>,
-//     mut depth_cache: OrInitResMut<DepthCache>,
-//     depth_alloter: OrInitRes<ShareGroupAlloter<DepthGroup>>,
-// 	r: OrInitRes<IsRun>
+//     ui_meterial_alloter: OrInitSingleRes<ShareGroupAlloter<UiMaterialGroup>>,
+//     // color_material_bind_group: SingleRes<DynBindGroupIndex<ColorMaterialGroup>>,
+//     mut depth_cache: OrInitSingleResMut<DepthCache>,
+//     depth_alloter: OrInitSingleRes<ShareGroupAlloter<DepthGroup>>,
+// 	r: OrInitSingleRes<IsRun>
 // ) {
 // 	if r.0 {
 // 		return;

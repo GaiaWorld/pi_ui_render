@@ -1,16 +1,17 @@
 //! 为sdf2的纹理创建bindgroup
-use bevy_ecs::system::{Res, ResMut};
-use pi_bevy_ecs_extend::system_param::res::OrInitResMut;
+use pi_world::prelude::{SingleRes, SingleResMut};
+use pi_bevy_ecs_extend::prelude::OrInitSingleResMut;
+
 use pi_bevy_render_plugin::PiRenderDevice;
 use pi_share::Share;
 use crate:: resource::{draw_obj::InstanceContext, ShareFontSheet};
 
 /// 更新sdf2的纹理
 pub fn update_sdf2_texture(
-    mut instances: OrInitResMut<InstanceContext>,
-    font_sheet: ResMut<ShareFontSheet>,
-    device: Res<PiRenderDevice>,
-    common_sampler: Res<crate::resource::draw_obj::CommonSampler>,
+    mut instances: OrInitSingleResMut<InstanceContext>,
+    font_sheet: SingleResMut<ShareFontSheet>,
+    device: SingleRes<PiRenderDevice>,
+    common_sampler: SingleRes<crate::resource::draw_obj::CommonSampler>,
 ) {
     let font_sheet = font_sheet.0.borrow();
     if let (Some(sdf2_index_texture_view), Some(sdf2_data_texture_view), Some(sdf2_shadow_texture_view)) = (

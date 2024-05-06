@@ -5,8 +5,7 @@ mod framework;
 
 use std::mem::swap;
 
-use bevy_ecs::prelude::{Commands, World};
-use framework::Example;
+use framework::{Example, Param};
 /// 渲染四边形 demo
 use pi_flex_layout::style::{Dimension, PositionType};
 use pi_null::Null;
@@ -20,7 +19,7 @@ use pi_ui_render::{
     components::{
         calc::EntityKey,
         user::{CgColor, ClearColor, Color, Point2, RenderDirty, Viewport},
-        NodeBundle,
+
     },
     resource::{NodeCmd, UserCommands},
 };
@@ -37,12 +36,12 @@ pub struct TransitionExample {
 }
 
 impl Example for TransitionExample {
-    fn init(&mut self, world: &mut World, size: (usize, usize)) {
+    fn init(&mut self, mut world: Param, size: (usize, usize)) {
         // 设置清屏颜色为绿色
-        // self.cmd.world_mut().insert_resource(ClearColor(CgColor::new(0.0, 1.0, 1.0, 1.0)));
+        // self.cmd.world_mut().insert_single_res(ClearColor(CgColor::new(0.0, 1.0, 1.0, 1.0)));
 
         // 添加根节点
-        let root = world.spawn(NodeBundle::default()).id();
+        let root = world.spawn();
         self.cmd.push_cmd(NodeCmd(ClearColor(CgColor::new(1.0, 1.0, 1.0, 1.0), true), root));
         self.cmd.push_cmd(NodeCmd(
             Viewport(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(size.0 as f32, size.1 as f32))),
@@ -61,7 +60,7 @@ impl Example for TransitionExample {
 		self.cmd.set_style(root, AsImageType(pi_style::style::AsImage::Force));
         self.cmd.append(root, EntityKey::null().0);
 
-        let div1 = world.spawn(NodeBundle::default()).id();
+        let div1 = world.spawn();
 		self.transition_node1 = EntityKey(div1);
 		self.cmd.set_style(div1, PositionTypeType(PositionType::Absolute));
         self.cmd.set_style(div1, WidthType(Dimension::Points(100.0)));
@@ -82,7 +81,7 @@ impl Example for TransitionExample {
         self.cmd.append(div1, root);
 
         // 添加一个红色div2到根节点
-        let div2 = world.spawn(NodeBundle::default()).id();
+        let div2 = world.spawn();
 		self.transition_node2 = EntityKey(div2);
 		self.cmd.set_style(div2, PositionTypeType(PositionType::Absolute));
         self.cmd.set_style(div2, WidthType(Dimension::Points(100.0)));
@@ -105,7 +104,7 @@ impl Example for TransitionExample {
 
     }
 
-    fn render(&mut self, cmd: &mut UserCommands, _cmd1: &mut Commands) {
+    fn render(&mut self, cmd: &mut UserCommands) {
 		self.frame += 1;
 		if self.frame == 60 * 3 {
 			self.cmd.set_style(*self.transition_node1, PositionLeftType(Dimension::Points(300.0)));

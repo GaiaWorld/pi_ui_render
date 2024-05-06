@@ -27,19 +27,19 @@
 //         utils::{create_project, set_index_buffer, set_vert_buffer},
 //     },
 // };
-// use bevy_ecs::{
+// use pi_world::{
 //     system::{SystemParam, SystemState},
-//     prelude::{Changed, Commands, DetectChanges, Entity, Or, Query, Ref, RemovedComponents, Res, ResMut,
+//     prelude::{Changed, Commands, DetectChanges, Entity, Or, Query, Ref, RemovedComponents, SingleRes, SingleResMut,
 //         Resource, World, IntoSystemConfigs, apply_deferred
 //     },
 // };
-// use bevy_app::{Plugin, UiSchedule, App, Startup};
+// use pi_world::{Plugin, UiStage, App, Startup};
 // use guillotiere::Rectangle;
 // use ordered_float::NotNan;
 // use pi_bevy_asset::ShareAssetMgr;
 // use pi_bevy_ecs_extend::{
 //     prelude::{Layer, OrDefault},
-//     system_param::res::{OrInitRes, OrInitResMut},
+//     system_param::res::{OrInitSingleRes, OrInitSingleResMut},
 // };
 // use pi_bevy_render_plugin::{
 //     component::GraphId,
@@ -71,22 +71,22 @@
 //     fn build(&self, app: &mut App) {
 //         app
 //             // 初始化渲染渐变色的图节点
-//             .add_systems(Startup, init)
+//             .add_system(Startup, init)
 //             // 标记MaskImage所在节点为一个Pass
-//             .add_systems(UiSchedule, 
+//             .add_system(UiStage, 
 //                 pass_life::pass_mark::<MaskImage>
 //                     .in_set(UiSystemSet::PassMark)
 //                     .before(pass_life::cal_context)
 //                     .in_set(FrameDataPrepare),
 //             )
 //             // 设置mask_image的后处理效果
-//             .add_systems(UiSchedule, 
+//             .add_system(UiStage, 
 //                 mask_image_post_process
 //                     .after(cal_matrix)
 //                     .after(update_graph::update_graph)
 //                     .in_set(FrameDataPrepare),
 //             )
-//             .add_systems(UiSchedule, 
+//             .add_system(UiStage, 
 //                 apply_deferred
 //                     .after(mask_image_post_process)
 //                     .before(calc_node_pipeline)
@@ -117,30 +117,30 @@
 
 //     mut del: RemovedComponents<MaskImage>,
 
-//     mut mask_draw_list: OrInitResMut<LinearMaskDrawList>,
-//     image_await: OrInitRes<ImageAwait<Entity, MaskImage>>,
-//     texture_assets_mgr: Res<ShareAssetMgr<TextureRes>>,
-//     queue: Res<PiRenderQueue>,
-//     device: Res<PiRenderDevice>,
-//     program_meta: OrInitRes<ProgramMetaRes<crate::shader::color::ProgramMeta>>,
-//     vert_layout: OrInitRes<PosColorVertexLayout>,
-//     shader_catch: OrInitRes<ShaderInfoCache>,
-//     vertex_buffer_alloter: OrInitRes<PiVertexBufferAlloter>,
-//     index_buffer_alloter: OrInitRes<PiIndexBufferAlloter>,
-//     atlas_allocator: Res<PiSafeAtlasAllocator>,
-//     group_alloter: OrInitRes<ShareGroupAlloter<UiMaterialGroup>>,
-//     camera_material_alloter: OrInitRes<ShareGroupAlloter<CameraGroup>>,
+//     mut mask_draw_list: OrInitSingleResMut<LinearMaskDrawList>,
+//     image_await: OrInitSingleRes<ImageAwait<Entity, MaskImage>>,
+//     texture_assets_mgr: SingleRes<ShareAssetMgr<TextureRes>>,
+//     queue: SingleRes<PiRenderQueue>,
+//     device: SingleRes<PiRenderDevice>,
+//     program_meta: OrInitSingleRes<ProgramMetaRes<crate::shader::color::ProgramMeta>>,
+//     vert_layout: OrInitSingleRes<PosColorVertexLayout>,
+//     shader_catch: OrInitSingleRes<ShaderInfoCache>,
+//     vertex_buffer_alloter: OrInitSingleRes<PiVertexBufferAlloter>,
+//     index_buffer_alloter: OrInitSingleRes<PiIndexBufferAlloter>,
+//     atlas_allocator: SingleRes<PiSafeAtlasAllocator>,
+//     group_alloter: OrInitSingleRes<ShareGroupAlloter<UiMaterialGroup>>,
+//     camera_material_alloter: OrInitSingleRes<ShareGroupAlloter<CameraGroup>>,
 //     other: (
-//         OrInitRes<BackgroundColorRenderObjType>,
-//         OrInitRes<LinearMaskNodeId>,
+//         OrInitSingleRes<BackgroundColorRenderObjType>,
+//         OrInitSingleRes<LinearMaskNodeId>,
 //         Commands,
-//         ResMut<PiRenderGraph>,
-//         OrInitResMut<DepthCache>,
-//         OrInitRes<ShareGroupAlloter<DepthGroup>>,
-// 		OrInitRes<IsRun>,
+//         SingleResMut<PiRenderGraph>,
+//         OrInitSingleResMut<DepthCache>,
+//         OrInitSingleRes<ShareGroupAlloter<DepthGroup>>,
+// 		OrInitSingleRes<IsRun>,
 //     ),
 //     // cur_depth: usize, device: &'a RenderDevice, bind_group_assets: &'a Share<AssetMgr<RenderRes<BindGroup>>>
-// 	// r: OrInitRes<IsRun>
+// 	// r: OrInitSingleRes<IsRun>
 // ) {
 //     let (color_render_type, mask_node_id, mut commands, mut rg, mut depth_cache, depth_alloter, r) = other;
 // 	if r.0 {
@@ -313,10 +313,10 @@
 
 // /// system， 用于添加LinearMaskNode节点到渲染图中，该节点将MaskImage的渐变颜色渲染成纹理
 // pub fn init(
-// 	mut rg: ResMut<PiRenderGraph>, 
-// 	mut id: OrInitResMut<LinearMaskNodeId>,
+// 	mut rg: SingleResMut<PiRenderGraph>, 
+// 	mut id: OrInitSingleResMut<LinearMaskNodeId>,
 	
-// 	r: OrInitRes<IsRun>
+// 	r: OrInitSingleRes<IsRun>
 // ) {
 // 	if r.0 {
 // 		return;
@@ -331,12 +331,12 @@
 
 // #[derive(SystemParam)]
 // pub struct QueryParam<'w, 's> {
-//     mask_draw_list: OrInitRes<'w, LinearMaskDrawList>,
+//     mask_draw_list: OrInitSingleRes<'w, LinearMaskDrawList>,
 //     query: Query<'w, 's, &'static DrawState>,
-//     depth_cache: OrInitRes<'w, DepthCache>,
+//     depth_cache: OrInitSingleRes<'w, DepthCache>,
 //     // // // 清屏相关参数
-//     // fbo_clear_color: Res<'w, DynFboClearColorBindGroup>,
-//     // clear_draw: Res<'w, ClearDrawObj>,
+//     // fbo_clear_color: SingleRes<'w, DynFboClearColorBindGroup>,
+//     // clear_draw: SingleRes<'w, ClearDrawObj>,
 // }
 
 // // 用于绘制MaskImage
@@ -351,8 +351,8 @@
 
 // 	fn build<'a>(
 // 		&'a mut self,
-// 		_world: &'a mut bevy_ecs::world::World,
-// 		_param: &'a mut bevy_ecs::system::SystemState<Self::BuildParam>,
+// 		_world: &'a mut pi_world::world::World,
+// 		_param: &'a mut pi_world::system::SystemState<Self::BuildParam>,
 // 		_context: pi_bevy_render_plugin::RenderContext,
 // 		_input: &'a Self::Input,
 // 		_usage: &'a pi_bevy_render_plugin::node::ParamUsage,

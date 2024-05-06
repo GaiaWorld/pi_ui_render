@@ -1,14 +1,5 @@
-use bevy_app::Plugin;
-use bevy_ecs::change_detection::DetectChangesMut;
-use bevy_ecs::query::{Changed, Or, With};
-use bevy_ecs::schedule::IntoSystemConfigs;
-use bevy_ecs::{
-    prelude::Ref,
-    system::Query,
-};
-use bevy_window::AddFrameEvent;
-use pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent;
-use pi_bevy_ecs_extend::system_param::res::{OrInitRes, OrInitResMut};
+use pi_world::prelude::{Changed, With, Query, Plugin, IntoSystemConfigs};
+use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, OrInitSingleRes};
 
 use crate::components::calc::{LayoutResult, WorldMatrix, DrawList};
 use crate::components::draw_obj::{BackgroundColorMark, InstanceIndex};
@@ -18,7 +9,7 @@ use crate::shader1::meterial::{GradientColorUniform, GradientPositionUniform, Re
 use crate::components::user::{BackgroundColor, Color, Vector2};
 use crate::system::draw_obj::set_box;
 use crate::system::system_set::UiSystemSet;
-use crate::prelude::UiSchedule;
+use crate::prelude::UiStage;
 
 use super::calc_text::IsRun;
 use super::life_drawobj;
@@ -26,25 +17,25 @@ use super::life_drawobj;
 pub struct BackgroundColorPlugin;
 
 impl Plugin for BackgroundColorPlugin {
-    fn build(&self, app: &mut bevy_app::App) {
+    fn build(&self, app: &mut pi_world::prelude::App) {
 		 // BackgroundColor功能
 		app
-		.add_frame_event::<ComponentEvent<Changed<BackgroundColor>>>()
-		.add_systems(
-			UiSchedule, 
+		// .add_frame_event::<ComponentEvent<Changed<BackgroundColor>>>()
+		.add_system(
+			UiStage, 
 			life_drawobj::draw_object_life_new::<
 				BackgroundColor,
 				BackgroundColorRenderObjType,
-				BackgroundColorMark,
+				(BackgroundColorMark, ),
 				{ BACKGROUND_COLOR_ORDER },
 			>
 				.in_set(UiSystemSet::LifeDrawObject)
-				.before(calc_background_color),
+				// .before(calc_background_color),
 		)
-		.add_systems(
-			UiSchedule, 
+		.add_system(
+			UiStage, 
 			calc_background_color
-				.after(super::super::node::world_matrix::cal_matrix)
+				// .after(super::super::node::world_matrix::cal_matrix)
 				.in_set(UiSystemSet::PrepareDrawObj)
 		);
     }
@@ -54,11 +45,11 @@ pub const BACKGROUND_COLOR_ORDER: u8 = 2;
 
 /// 设置背景颜色的顶点，和颜色Uniform
 pub fn calc_background_color(
-	mut instances: OrInitResMut<InstanceContext>,
-    query: Query<(Ref<WorldMatrix>, Ref<BackgroundColor>, Ref<LayoutResult>, &DrawList), Or<(Changed<BackgroundColor>, Changed<WorldMatrix>)>>,
+	mut instances: OrInitSingleResMut<InstanceContext>,
+    query: Query<(&WorldMatrix, &BackgroundColor, &LayoutResult, &DrawList), (Changed<BackgroundColor>, Changed<WorldMatrix>)>,
     mut query_draw: Query<&InstanceIndex, With<BackgroundColorMark>>,
-	r: OrInitRes<IsRun>,
-	render_type: OrInitRes<BackgroundColorRenderObjType>,
+	r: OrInitSingleRes<IsRun>,
+	render_type: OrInitSingleRes<BackgroundColorRenderObjType>,
 ) {
 	if r.0 {
 		return;
@@ -78,7 +69,8 @@ pub fn calc_background_color(
 				continue;
 			}
 
-			let mut instance_data = instances.bypass_change_detection().instance_data.instance_data_mut(instance_index.0.start);
+			// let mut instance_data = instances.bypass_change_detection().instance_data.instance_data_mut(instance_index.0.start);
+			let mut instance_data = instances.instance_data.instance_data_mut(instance_index.0.start);
 			let mut render_flag = instance_data.get_render_ty();
 			
 			match &background_color.0 {

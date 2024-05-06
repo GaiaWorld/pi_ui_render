@@ -1,31 +1,29 @@
 //! 计算show
 //! 该系统默认为所有已经创建的Entity创建Show组件， 并监听Show和Display的创建修改， 以及监听idtree上的创建事件， 计算已经在idtree上///! 存在的实体的Enable和Visibility
 
-use bevy_app::Plugin;
-use bevy_ecs::{prelude::Entity, query::Changed, system::Query, event::{EventWriter, EventReader}, change_detection::DetectChangesMut, schedule::IntoSystemConfigs};
-use bevy_window::AddFrameEvent;
-use pi_bevy_ecs_extend::{prelude::{Layer, LayerDirty, OrDefault, Up}, system_param::res::{OrInitRes, OrInitResMut}};
+use pi_world::prelude::{Changed, Query, Plugin, OrDefault, IntoSystemConfigs};
+use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, OrInitSingleRes, Up, Layer, LayerDirty};
+
 use pi_bevy_render_plugin::FrameDataPrepare;
 use pi_flex_layout::style::Display;
 use pi_null::Null;
 
 use crate::{components::{
-    calc::{IsShow, DrawList},
-    user::{Enable, Show}, draw_obj::InstanceIndex,
-}, system::{draw_obj::{calc_text::IsRun, life_drawobj::update_render_instance_data}, system_set::UiSystemSet}, events::{NodeDisplayChange, NodeVisibilityChange}, resource::draw_obj::InstanceContext, shader1::meterial::{TyUniform, RenderFlagType}};
+    calc::{DrawList, IsShow}, draw_obj::InstanceIndex, user::{Enable, Show}
+}, resource::{draw_obj::InstanceContext, NodeChanged}, shader1::meterial::{RenderFlagType, TyUniform}, system::{draw_obj::calc_text::IsRun, system_set::UiSystemSet}};
 
-use crate::prelude::UiSchedule;
+use crate::prelude::UiStage;
 pub struct ShowPlugin;
 
 impl Plugin for ShowPlugin {
-    fn build(&self, app: &mut bevy_app::App) {
+    fn build(&self, app: &mut pi_world::prelude::App) {
 		app
-			.add_frame_event::<NodeVisibilityChange>()
-			.add_systems(UiSchedule, calc_show.in_set(UiSystemSet::BaseCalc))
-			.add_systems(UiSchedule, 
+			// .add_frame_event::<NodeVisibilityChange>()
+			.add_system(UiStage, calc_show.in_set(UiSystemSet::BaseCalc))
+			.add_system(UiStage, 
 				set_show_data
-					.after(update_render_instance_data)
-					.after(UiSystemSet::PrepareDrawObj) // 这里是为了确保与其他设置实例数据的system不并行， 因为设置的数据冲突（TyUniform）
+					// .after(update_render_instance_data)
+					// .after(UiSystemSet::PrepareDrawObj) // 这里是为了确保与其他设置实例数据的system不并行， 因为设置的数据冲突（TyUniform）
 					.in_set(FrameDataPrepare))
 		;
 	}
@@ -33,20 +31,18 @@ impl Plugin for ShowPlugin {
 
 /// 计算节点的显示属性
 pub fn calc_show(
-    mut dirty: LayerDirty<Changed<Layer>>,
-    show_change: Query<Entity, Changed<Show>>,
+	mut node_change: OrInitSingleResMut<NodeChanged>,
+    mut dirty: LayerDirty<(Changed<Layer>, Changed<Show>)>,
     query: Query<(OrDefault<Show>, Option<&Up>)>,
     mut write: Query<&mut IsShow>,
-	r: OrInitRes<IsRun>,
-	mut events: EventWriter<NodeDisplayChange>,
-	mut visisble_events: EventWriter<NodeVisibilityChange>,
+	r: OrInitSingleRes<IsRun>,
 ) {
 	if r.0 {
 		return;
 	}
-    for entity in show_change.iter() {
-        dirty.mark(entity)
-    }
+    // for entity in show_change.iter() {
+    //     dirty.mark(entity)
+    // }
 
 	let mut display_change = false;
 	let mut visibility_change = false;
@@ -103,12 +99,8 @@ pub fn calc_show(
     }
 
 	// display改变， 则发出通知，如果是实例化渲染， 需要重新组织实例化数据（display为None的实例， 不应该在实例化数据中）
-	if display_change {
-		events.send(NodeDisplayChange);
-	}
-
-	if visibility_change {
-		visisble_events.send(NodeVisibilityChange);
+	if display_change || visibility_change {
+		node_change.0 = true;
 	}
 }
 
@@ -116,22 +108,14 @@ pub fn calc_show(
 /// visibility为true时， 设置渲染实例可见
 /// visibility为false时， 设置渲染实例不可见
 pub fn set_show_data(
-	mut visisble_events: EventReader<NodeVisibilityChange>,
-	mut display_events: EventReader<NodeDisplayChange>,
-	mut instances: OrInitResMut<InstanceContext>,
+	mut instances: OrInitSingleResMut<InstanceContext>,
 	query: Query<(&DrawList, &IsShow, Option<&InstanceIndex>), Changed<IsShow>>,
     query_draw: Query<&InstanceIndex>,
-	r: OrInitRes<IsRun>,
+	r: OrInitSingleRes<IsRun>,
 ) {
 	if r.0 {
 		return;
 	}
-	if visisble_events.len() == 0 && display_events.len() == 0{
-		return;
-	}
-	visisble_events.clear();
-	display_events.clear();
-
 	for (draw_list, is_show, instance_index) in query.iter() {
 		let visibility = is_show.get_visibility() || is_show.get_display();
 		for draw_id in draw_list.iter() {
@@ -139,7 +123,7 @@ pub fn set_show_data(
 				let alignment = instances.instance_data.alignment;
 				let count = instance_index.0.len() / alignment;
 				for index in 0..count {
-					let mut instance_data = instances.bypass_change_detection().instance_data.instance_data_mut(instance_index.0.start + index * alignment);
+					let mut instance_data = instances.instance_data.instance_data_mut(instance_index.0.start + index * alignment);
 					let mut ty = instance_data.get_render_ty();
 
 					let old_visibility = (ty | (1 << RenderFlagType::NotVisibility as usize) ) == 0;
@@ -159,7 +143,7 @@ pub fn set_show_data(
 			if instance_index.start.is_null() {
 				return;
 			}
-			let mut instance_data = instances.bypass_change_detection().instance_data.instance_data_mut(instance_index.0.start);
+			let mut instance_data = instances.instance_data.instance_data_mut(instance_index.0.start);
 			let mut ty = instance_data.get_render_ty();
 
 			let old_visibility = (ty | (1 << RenderFlagType::NotVisibility as usize) ) == 0;

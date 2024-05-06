@@ -6,13 +6,10 @@
 //! TODO: 后续，可能将不可变因素通过shader静态编译出来（尚不确定哪些通常不变），当前通过手动编写代码的方式来确定
 //!
 
-use bevy_app::{Plugin, App};
-use bevy_ecs::{
-    prelude::EventReader,
-    system::{Commands, Res, ResMut},
-};
-use bevy_ecs::prelude::{Query, With, IntoSystemConfigs};
-use bevy_window::{PrimaryWindow, Window, WindowCreated, WindowResized};
+use pi_world::prelude::{With, Query, Plugin, IntoSystemConfigs, App, SingleRes, Changed};
+use pi_bevy_ecs_extend::prelude::OrInitSingleResMut;
+
+use bevy_window::{PrimaryWindow, Window};
 use pi_assets::{
     asset::{GarbageEmpty, Handle},
     mgr::AssetMgr,
@@ -37,17 +34,16 @@ use crate::{
     resource::draw_obj::{CommonSampler, PipelineState, Program, UnitQuadBuffer},
     utils::tools::{calc_float_hash, calc_hash},
 };
-use crate::prelude::UiSchedule;
+use crate::prelude::UiStage;
 
-use super::system_set::UiSystemSet;
 
 pub struct UiShaderPlugin;
 
 impl Plugin for UiShaderPlugin {
     fn build(&self, app: &mut App) {
-        // let texture_res_mgr = app.world.get_resource::<ShareAssetMgr<RenderRes<TextureView>>>().unwrap().clone();
-        // let device = app.world.get_resource::<PiRenderDevice>().unwrap().clone();
-        // let window = app.world.get_resource::<PiRenderWindow>().unwrap().clone();
+        // let texture_res_mgr = app.world.get_single_res::<ShareAssetMgr<RenderRes<TextureView>>>().unwrap().clone();
+        // let device = app.world.get_single_res::<PiRenderDevice>().unwrap().clone();
+        // let window = app.world.get_single_res::<PiRenderWindow>().unwrap().clone();
 
         // let width = window.width;
         // let height = window.height;
@@ -56,43 +52,52 @@ impl Plugin for UiShaderPlugin {
 
         // window宽高变化时，需要重新创建，TODO
         // let depth_buffer = create_depth_buffer(&texture_res_mgr, &device, width, height);
-        // app.world.insert_resource(ScreenTarget {
+        // app.world.insert_single_res(ScreenTarget {
         // 	aabb: Aabb2::new(Point2::new(0.0, 0.0), Point2::new(width as f32, height as f32)),
         // 	depth: Some(depth_buffer), // 深度缓冲区
         // 								// depth: None,
         // });
-
+        
+        app.world.init_single_res::<CommonSampler>();
+        app.world.insert_single_res(ShareAssetMgr(AssetMgr::<RenderRes<Program>>::new(
+            GarbageEmpty(),
+            false,
+            60 * 1024 * 1024,
+            3 * 60 * 1000,
+        )));
+        app.world.init_single_res::<UnitQuadBuffer>();
         app
-			// .init_resource::<Shaders>()
-			// .init_resource::<ShaderCatch>()
-			// .init_resource::<ShaderMap>()
-			// .init_resource::<StateMap>()
-			// .init_resource::<DynBindGroups>()
-			// .init_resource::<VertexBufferLayoutMap>()
-			// .init_resource::<post::PostBindGroupLayout>()
-			// .init_resource::<DynBindGroupLayout<ColorMaterialGroup>>()
-			// .init_resource::<DynBindGroupLayout<CameraMatrixGroup>>()
-			// .init_resource::<DynBindGroupLayout<UiMaterialGroup>>()
-			// .init_resource::<DynBindGroupLayout<TextMaterialGroup>>()
-			// .init_resource::<CommonPipelineState>()
-			// .init_resource::<DynUniformBuffer>()
+			// .init_single_res::<Shaders>()
+			// .init_single_res::<ShaderCatch>()
+			// .init_single_res::<ShaderMap>()
+			// .init_single_res::<StateMap>()
+			// .init_single_res::<DynBindGroups>()
+			// .init_single_res::<VertexBufferLayoutMap>()
+			// .init_single_res::<post::PostBindGroupLayout>()
+			// .init_single_res::<DynBindGroupLayout<ColorMaterialGroup>>()
+			// .init_single_res::<DynBindGroupLayout<CameraMatrixGroup>>()
+			// .init_single_res::<DynBindGroupLayout<UiMaterialGroup>>()
+			// .init_single_res::<DynBindGroupLayout<TextMaterialGroup>>()
+			// .init_single_res::<CommonPipelineState>()
+			// .init_single_res::<DynUniformBuffer>()
 
-			// .init_resource::<DynBindGroupIndex<ColorMaterialGroup>>()
-			// .init_resource::<DynBindGroupIndex<CameraMatrixGroup>>()
-			// .init_resource::<DynBindGroupIndex<UiMaterialGroup>>()
-			// .init_resource::<DynBindGroupIndex<TextMaterialGroup>>()
+			// .init_single_res::<DynBindGroupIndex<ColorMaterialGroup>>()
+			// .init_single_res::<DynBindGroupIndex<CameraMatrixGroup>>()
+			// .init_single_res::<DynBindGroupIndex<UiMaterialGroup>>()
+			// .init_single_res::<DynBindGroupIndex<TextMaterialGroup>>()
 
-			.init_resource::<CommonSampler>()
-			.insert_resource(ShareAssetMgr(AssetMgr::<RenderRes<Program>>::new(
-				GarbageEmpty(),
-				false,
-				60 * 1024 * 1024,
-				3 * 60 * 1000,
-			)))
-			// .init_resource::<ShareLayout>()
-			.init_resource::<UnitQuadBuffer>()
+			// .init_single_res::<CommonSampler>()
+			// .insert_single_res(ShareAssetMgr(AssetMgr::<RenderRes<Program>>::new(
+			// 	GarbageEmpty(),
+			// 	false,
+			// 	60 * 1024 * 1024,
+			// 	3 * 60 * 1000,
+			// )))
+			// .init_single_res::<UnitQuadBuffer>()
 
-			.add_systems(UiSchedule, screen_target_resize.in_set(FrameDataPrepare).before(UiSystemSet::Setting))
+			.add_system(UiStage, screen_target_resize.in_set(FrameDataPrepare)
+                // .before(UiSystemSet::Setting)
+            )
 			// .add_startup_system(color::init)
 			// .add_startup_system(image::init)
 			// .add_startup_system(text::init)
@@ -101,51 +106,31 @@ impl Plugin for UiShaderPlugin {
 }
 
 pub fn screen_target_resize(
-    mut command: Commands,
-    // events1: Res<Events<WindowCreated>>,
-    events: EventReader<WindowCreated>,
-    resize_events: EventReader<WindowResized>,
-    windows: Query<&Window, With<PrimaryWindow>>,
-    screen_target: Option<ResMut<ScreenTarget>>,
-    texture_res_mgr: Res<ShareAssetMgr<RenderRes<TextureView>>>,
-    device: Res<PiRenderDevice>,
+    // events1: SingleRes<Events<WindowCreated>>,
+    windows: Query<&Window,( With<PrimaryWindow>, Changed<Window>)>,
+    mut screen_target: OrInitSingleResMut<ScreenTarget>,
+    texture_res_mgr: SingleRes<ShareAssetMgr<RenderRes<TextureView>>>,
+    device: SingleRes<PiRenderDevice>,
 ) {
-    if events.len() > 0 || resize_events.len() > 0 {
-        let window = match windows.get_single() {
-            Ok(r) => r,
-            _ => return,
-        };
-        if window.physical_width() == 0 || window.physical_height() == 0 {
-            return;
-        }
+    let mut window = windows.iter();
+    let window = match window.next() {
+        Some(r) => r,
+        _ => return,
+    };
+    if window.physical_width() == 0 || window.physical_height() == 0 {
+        return;
+    }
 
-        match screen_target {
-            Some(mut r) => {
-                if r.aabb.maxs.x - r.aabb.mins.x != window.physical_width() as f32 || r.aabb.maxs.y - r.aabb.mins.y != window.physical_height() as f32
-                {
-                    let depth_buffer = create_depth_buffer(&texture_res_mgr, &device, window.physical_width(), window.physical_height());
-                    *r = ScreenTarget {
-                        aabb: Aabb2::new(
-                            Point2::new(0.0, 0.0),
-                            Point2::new(window.physical_width() as f32, window.physical_height() as f32),
-                        ),
-                        depth: Some(depth_buffer), // 深度缓冲区
-                                                   // depth: None,
-                    }
-                }
-            }
-            None => {
-                let depth_buffer = create_depth_buffer(&texture_res_mgr, &device, window.physical_width(), window.physical_height());
-                let r = ScreenTarget {
-                    aabb: Aabb2::new(
-                        Point2::new(0.0, 0.0),
-                        Point2::new(window.physical_width() as f32, window.physical_height() as f32),
-                    ),
-                    depth: Some(depth_buffer), // 深度缓冲区
-                                               // depth: None,
-                };
-                command.insert_resource(r);
-            }
+    let r = &mut **screen_target;
+    if r.aabb.maxs.x - r.aabb.mins.x != window.physical_width() as f32 || r.aabb.maxs.y - r.aabb.mins.y != window.physical_height() as f32
+    {
+        let depth_buffer = create_depth_buffer(&texture_res_mgr, &device, window.physical_width(), window.physical_height());
+        *r = ScreenTarget {
+            aabb: Aabb2::new(
+                Point2::new(0.0, 0.0),
+                Point2::new(window.physical_width() as f32, window.physical_height() as f32),
+            ),
+            depth: Some(depth_buffer), // 深度缓冲区                         // depth: None,
         }
     }
 }

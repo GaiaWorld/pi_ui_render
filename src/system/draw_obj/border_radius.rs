@@ -1,7 +1,7 @@
 
 use pi_ecs_macros::setup;
 use pi_ecs::prelude::{Changed, Query, Write};
-use pi_ecs::prelude::{Deleted, Or, OrDefault, ResMut};
+use pi_ecs::prelude::{Deleted, Or, OrDefault, SingleResMut};
 use pi_render::rhi::dyn_uniform_buffer::{Group, Bind};
 use pi_style::style::BorderRadius;
 
@@ -11,12 +11,10 @@ use crate::resource::draw_obj::DynUniformBuffer;
 
 use crate::shaders::image::{UiMaterialBind, UiMaterialGroup, ClipSdfUniform};
 use crate::utils::tools::{cal_content_border_radius, cal_border_radius};
-use crate::{
-    components::{
-        calc::DrawList,
-        draw_obj::{DrawObject, DrawState},
-        user::Node,
-    },
+use crate::components::{
+	calc::DrawList,
+	draw_obj::{DrawObject, DrawState},
+	user::Node,
 };
 lazy_static! {
 	static ref BORDER_RADIUS: String = "BORDER_RADIUS".to_string();
@@ -48,15 +46,15 @@ impl CalcBorderRadius {
 				&'static LayoutResult,
 				&'static DrawList,
 			),
-			Or<(
+			(
 				Changed<BorderRadius>,
 				Changed<LayoutResult>,
-			)>,
+			),
 		>,
 		
 		mut query_draw: Query<'static, 'static, DrawObject, (Write<DrawState>, OrDefault<BoxType>, Write<VSDefines>, Write<FSDefines>)>,
 
-		mut dyn_uniform_buffer: ResMut<'static, DynUniformBuffer>,
+		mut dyn_uniform_buffer: SingleResMut<'static, DynUniformBuffer>,
     ) {
         for (border_radius, render_list) in query_delete.iter() {
             // border_radius不存在时，删除对应DrawObject的uniform

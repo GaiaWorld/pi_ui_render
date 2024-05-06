@@ -37,9 +37,9 @@ impl CalcFlush {
 		local: Local<CmdCache>,
     ) {
         world.archetypes_mut()[local.node_archetype_id].flush();
-        let commands = replace(world.get_resource_mut::<UserCommandsCache>().unwrap(), UserCommandsCache::default());
-		let old = replace(world.get_resource_mut::<UserCommands>().unwrap(), commands.0);
-		*world.get_resource_mut::<UserCommandsCache>().unwrap() = UserCommandsCache(old);
+        let commands = replace(world.get_single_res_mut::<UserCommandsCache>().unwrap(), UserCommandsCache::default());
+		let old = replace(world.get_single_res_mut::<UserCommands>().unwrap(), commands.0);
+		*world.get_single_res_mut::<UserCommandsCache>().unwrap() = UserCommandsCache(old);
     }
 }
 

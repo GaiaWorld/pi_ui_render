@@ -1,12 +1,9 @@
 use std::sync::atomic::AtomicUsize;
 
-use bevy_ecs::{
-    prelude::RemovedComponents, query::Changed, system::Query,
-    prelude::{Or, ParamSet, IntoSystemConfigs},
-};
-use bevy_app::{Plugin, App};
+use pi_world::prelude::{Changed, App, Query, Removed, ParamSet, Plugin, IntoSystemConfigs, Has};
+use pi_bevy_ecs_extend::prelude::OrInitSingleRes;
+
 use pi_bevy_asset::{AssetConfig, AssetDesc, ShareAssetMgr};
-use pi_bevy_ecs_extend::system_param::res::OrInitRes;
 use pi_bevy_render_plugin::FrameDataPrepare;
 use pi_null::Null;
 
@@ -17,23 +14,23 @@ use crate::{
     },
     resource::{RenderContextMarkType, draw_obj::TargetCacheMgr},
     system::{
-        node::user_setting::user_setting,
-        pass::{last_update_wgpu::last_update_wgpu, pass_camera::calc_camera_depth_and_renderlist},
+        // node::user_setting::user_setting,
+        // pass::{last_update_wgpu::last_update_wgpu, pass_camera::calc_camera_depth_and_renderlist},
         draw_obj::calc_text::IsRun,
     },
 };
 use pi_postprocess::prelude::CopyIntensity;
 
 use crate::{components::pass_2d::PostProcess, system::pass::pass_life};
-use crate::prelude::UiSchedule;
+use crate::prelude::UiStage;
 
 pub struct UiAsImagePlugin;
 
 impl Plugin for UiAsImagePlugin {
     fn build(&self, app: &mut App) {
         let assets_mgr = {
-            let w = app.world.cell();
-            let asset_config = w.get_resource::<AssetConfig>().unwrap();
+            let w = app.world.unsafe_world();
+            let asset_config = w.get_single_res::<AssetConfig>().unwrap();
             let default_cfg = AssetDesc {
                 ref_garbage: false,
                 min: 0,
@@ -44,18 +41,19 @@ impl Plugin for UiAsImagePlugin {
             ShareAssetMgr::<CacheTarget>::new(pi_assets::asset::GarbageEmpty(), false, desc.max, desc.timeout)
         };
 
-        app.insert_resource(TargetCacheMgr { key: AtomicUsize::new(0), assets: assets_mgr })
+        app.world.insert_single_res(TargetCacheMgr { key: AtomicUsize::new(0), assets: assets_mgr });
             // 标记有AsImage组件的节点为渲染上下文
-            .add_systems(UiSchedule, 
+        app
+            .add_system(UiStage, 
                 pass_life::pass_mark::<AsImage>
-                    .after(user_setting)
-                    .before(pass_life::cal_context)
+                    // .after(user_setting)
+                    // .before(pass_life::cal_context)
                     .in_set(FrameDataPrepare),
             )
-            .add_systems(UiSchedule, 
+            .add_system(UiStage, 
                 as_image_post_process
-                    .before(last_update_wgpu)
-                    .after(calc_camera_depth_and_renderlist)
+                    // .before(last_update_wgpu)
+                    // .after(calc_camera_depth_and_renderlist)
                     .in_set(FrameDataPrepare),
             );
     }
@@ -65,29 +63,29 @@ impl Plugin for UiAsImagePlugin {
 /// 如果AsImage删除， 设置PostProcessList的copy属性为None
 /// 如果AsImage修改， 设置PostProcessList的copy属性为对应值
 pub fn as_image_post_process(
-    mut del: RemovedComponents<AsImage>,
-    mark_type: OrInitRes<RenderContextMarkType<AsImage>>,
-    overflow_mark_type: OrInitRes<RenderContextMarkType<Overflow>>,
+    mark_type: OrInitSingleRes<RenderContextMarkType<AsImage>>,
+    overflow_mark_type: OrInitSingleRes<RenderContextMarkType<Overflow>>,
     mut query: ParamSet<(
-        Query<(&AsImage, &mut PostProcess, &mut PostProcessInfo), Or<(Changed<AsImage>, Changed<PostProcess>)>>,
-        Query<(&mut PostProcess, &mut PostProcessInfo)>,
+        Query<(&AsImage, &mut PostProcess, &mut PostProcessInfo), (Changed<AsImage>, Changed<PostProcess>)>,
+        Query<(&mut PostProcess, &mut PostProcessInfo, Has<AsImage>), Removed<AsImage>>,
     )>,
-	r: OrInitRes<IsRun>
+	r: OrInitSingleRes<IsRun>
 ) {
 	if r.0 {
 		return;
 	}
     // AsImage 如果删除， 取消AsImage的后处理
-    let mut p1 = query.p1();
-    for del in del.iter() {
-        if let Ok((mut post_list, mut post_info)) = p1.get_mut(del) {
-            post_info.effect_mark.set(***mark_type, false);
+    let p1 = query.p1();
+    for (mut post_list, mut post_info, has_as_image) in p1.iter_mut() {
+        if has_as_image {
+            continue;
+        }
+        post_info.effect_mark.set(***mark_type, false);
 
-            let mut effect_mark = post_info.effect_mark.clone();
-            effect_mark.set(***overflow_mark_type, false);
-            if post_info.effect_mark.get(***overflow_mark_type).as_deref() != Some(&true) {
-                post_list.copy = None;
-            }
+        let mut effect_mark = post_info.effect_mark.clone();
+        effect_mark.set(***overflow_mark_type, false);
+        if post_info.effect_mark.get(***overflow_mark_type).as_deref() != Some(&true) {
+            post_list.copy = None;
         }
     }
 

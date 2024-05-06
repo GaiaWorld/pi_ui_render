@@ -32,21 +32,20 @@ pub mod events;
 
 
 pub mod prelude {
-    use bevy_ecs::{prelude::{apply_deferred, IntoSystemConfigs, IntoSystemSetConfigs}, schedule::IntoSystemSetConfig};
-	use bevy_app::{App, Plugin, PostUpdate};
-    use bevy_window::AddFrameEvent;
+    use pi_world::prelude::{App, IntoSystemConfigs, Plugin, IntoSystemSetConfigs, WorldPluginExtent};
+
     use pi_bevy_render_plugin::FrameDataPrepare;
     use pi_hal::font::font::FontType;
 
     pub use crate::resource::UserCommands;
-    use crate::{events::{EntityChange, NodeDisplayChange, NodeZindexChange}, system::{
-        /*shader_utils::UiShaderPlugin, */ draw_obj::UiReadyDrawPlugin, layout_run, matrix_run, node::UiNodePlugin, pass::UiPassPlugin, pass_effect::UiEffectPlugin, setting_run, shader_utils::UiShaderPlugin, system_set::UiSystemSet, RunState
-    }};
+    use crate::system::{
+        /*shader_utils::UiShaderPlugin, */ draw_obj::UiReadyDrawPlugin, node::UiNodePlugin, pass::UiPassPlugin, pass_effect::UiEffectPlugin, shader_utils::UiShaderPlugin, system_set::UiSystemSet, RunState
+    };
 
     // #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
-    // pub struct UiSchedule;
+    // pub struct UiStage;
 
-    pub use bevy_app::prelude::PreUpdate as UiSchedule;
+    pub use pi_world::prelude::PreUpdate as UiStage;
 
     #[derive(Default)]
     pub struct UiPlugin {
@@ -59,62 +58,88 @@ pub mod prelude {
             // let mut ui_schedule = Schedule::new();
             // ui_schedule.set_executor_kind(ExecutorKind::SingleThreaded);
 
-            // let mut order = app.world.get_resource_mut::<MainScheduleOrder>().unwrap();
-            // app.world.get_resource_mut::<MainScheduleOrder>().unwrap().ui_schedule = UiSchedule;
+            // let mut order = app.world.get_single_res_mut::<MainScheduleOrder>().unwrap();
+            // app.world.get_single_res_mut::<MainScheduleOrder>().unwrap().ui_schedule = UiStage;
             // MainScheduleOrder
 
-            app.init_resource::<RunState>();
+            app.world.init_single_res::<RunState>();
+            // app.init_single_res::<RunState>();
             app
             
             // NextSetting在Setting之后运行， Setting用于作用用户指令， NextSetting用于设置加载、动画等派发过程中产生的指令
-            .configure_set(UiSchedule, UiSystemSet::NextSetting.in_set(FrameDataPrepare).after(UiSystemSet::Setting))
+            .configure_set(UiStage, UiSystemSet::NextSetting.in_set(FrameDataPrepare)
+                // .after(UiSystemSet::Setting)
+            )
             // 所有其他逻辑SystemSet应该在所有指令完成后运行
-            .configure_set(UiSchedule, UiSystemSet::Setting.run_if(setting_run))
-            .configure_set(UiSchedule, UiSystemSet::Layout.run_if(layout_run).after(UiSystemSet::NextSetting))
-            .configure_set(UiSchedule, UiSystemSet::Matrix.run_if(matrix_run).after(UiSystemSet::NextSetting))
-            .configure_set(UiSchedule, UiSystemSet::PrepareDrawObj.in_set(FrameDataPrepare).after(UiSystemSet::NextSetting))
-            .configure_set(UiSchedule, UiSystemSet::BaseCalc.in_set(FrameDataPrepare).after(UiSystemSet::NextSetting))
-            .configure_set(UiSchedule, UiSystemSet::LifeDrawObject.in_set(FrameDataPrepare).after(UiSystemSet::NextSetting))
-            .configure_set(UiSchedule, UiSystemSet::PassMark.in_set(FrameDataPrepare).after(UiSystemSet::NextSetting))
-            .configure_set(UiSchedule, UiSystemSet::PassFlush.in_set(FrameDataPrepare).after(UiSystemSet::NextSetting))
-            .configure_set(UiSchedule, UiSystemSet::PassSetting.in_set(FrameDataPrepare).after(UiSystemSet::NextSetting))
-            .configure_set(UiSchedule, UiSystemSet::PassLife.in_set(FrameDataPrepare).after(UiSystemSet::NextSetting))
-            .configure_set(UiSchedule, UiSystemSet::PassSettingWithParent.in_set(FrameDataPrepare).after(UiSystemSet::NextSetting))
-            .configure_set(UiSchedule, UiSystemSet::PassCalc.in_set(FrameDataPrepare).after(UiSystemSet::NextSetting))
+            // .configure_set(UiStage, UiSystemSet::Setting.run_if(setting_run))
+            // .configure_set(UiStage, UiSystemSet::Layout.run_if(layout_run).after(UiSystemSet::NextSetting))
+            // .configure_set(UiStage, UiSystemSet::Matrix.run_if(matrix_run).after(UiSystemSet::NextSetting))
+
+            // .configure_set(UiStage, UiSystemSet::Setting.run_if(setting_run))
+            // .configure_set(UiStage, UiSystemSet::Layout.run_if(layout_run).after(UiSystemSet::NextSetting))
+            // .configure_set(UiStage, UiSystemSet::Matrix.run_if(matrix_run).after(UiSystemSet::NextSetting))
+            
+            .configure_set(UiStage, UiSystemSet::PrepareDrawObj.in_set(FrameDataPrepare)
+                // .after(UiSystemSet::NextSetting)
+            )
+            .configure_set(UiStage, UiSystemSet::BaseCalc.in_set(FrameDataPrepare)
+                // .after(UiSystemSet::NextSetting)
+            )
+            .configure_set(UiStage, UiSystemSet::LifeDrawObject.in_set(FrameDataPrepare)
+                // .after(UiSystemSet::NextSetting)
+            )
+            .configure_set(UiStage, UiSystemSet::PassMark.in_set(FrameDataPrepare)
+                // .after(UiSystemSet::NextSetting)
+            )
+            .configure_set(UiStage, UiSystemSet::PassFlush.in_set(FrameDataPrepare)
+                // .after(UiSystemSet::NextSetting)
+            )
+            .configure_set(UiStage, UiSystemSet::PassSetting.in_set(FrameDataPrepare)
+                // .after(UiSystemSet::NextSetting)
+            )
+            .configure_set(UiStage, UiSystemSet::PassLife.in_set(FrameDataPrepare)
+                // .after(UiSystemSet::NextSetting)
+            )
+            .configure_set(UiStage, UiSystemSet::PassSettingWithParent.in_set(FrameDataPrepare)
+                // .after(UiSystemSet::NextSetting)
+            )
+            .configure_set(UiStage, UiSystemSet::PassCalc.in_set(FrameDataPrepare)
+                // .after(UiSystemSet::NextSetting)
+            )
 			
-            .configure_sets(
-				UiSchedule, 
-                (
-                    UiSystemSet::Layout,
-                    UiSystemSet::Matrix,
-                )
-                    .chain(),
-            )
-            .configure_sets(UiSchedule, (UiSystemSet::BaseCalc, UiSystemSet::BaseCalcFlush).chain())
+            // .configure_sets(
+			// 	UiStage, 
+            //     (
+            //         UiSystemSet::Layout,
+            //         UiSystemSet::Matrix,
+            //     )
+            //         .chain(),
+            // )
+            // .configure_sets(UiStage, (UiSystemSet::BaseCalc, UiSystemSet::BaseCalcFlush).chain())
 
-            .configure_sets(UiSchedule, (
-                UiSystemSet::PassMark, 
-                UiSystemSet::PassLife, 
-                UiSystemSet::PassFlush, 
-                UiSystemSet::PassSetting, 
-                UiSystemSet::PassCalc
-            ).chain())	
+            // .configure_sets(UiStage, (
+            //     UiSystemSet::PassMark, 
+            //     UiSystemSet::PassLife, 
+            //     UiSystemSet::PassFlush, 
+            //     UiSystemSet::PassSetting, 
+            //     UiSystemSet::PassCalc
+            // ).chain())	
 
-            .configure_sets(
-				UiSchedule, 
-                (
-                    UiSystemSet::LifeDrawObject,
-                    UiSystemSet::LifeDrawObjectFlush,
-                    UiSystemSet::PrepareDrawObj,
-                    UiSystemSet::PassCalc,
-                )
-                    .chain(),
-            )
+            // .configure_sets(
+			// 	UiStage, 
+            //     (
+            //         UiSystemSet::LifeDrawObject,
+            //         UiSystemSet::LifeDrawObjectFlush,
+            //         UiSystemSet::PrepareDrawObj,
+            //         UiSystemSet::PassCalc,
+            //     )
+            //         .chain(),
+            // )
 
-			.add_frame_event::<EntityChange>()
-			.add_frame_event::<NodeZindexChange>()
-			.add_frame_event::<NodeDisplayChange>()
-			.add_systems(UiSchedule, crate::system::res_load::load_res.in_set(UiSystemSet::NextSetting))
+			// .add_frame_event::<EntityChange>()
+			// .add_frame_event::<NodeZindexChange>()
+			// .add_frame_event::<NodeDisplayChange>()
+			.add_system(UiStage, crate::system::res_load::load_res.in_set(UiSystemSet::NextSetting))
             .add_plugins(UiShaderPlugin)
             .add_plugins(UiNodePlugin)
             .add_plugins(UiEffectPlugin)
@@ -122,19 +147,19 @@ pub mod prelude {
 				font_type: self.font_type
 			})
             .add_plugins(UiPassPlugin)
-            .add_systems(UiSchedule, apply_deferred.in_set(UiSystemSet::LifeDrawObjectFlush))
+            // .add_system(UiStage, apply_deferred.in_set(UiSystemSet::LifeDrawObjectFlush))
 
-			.add_systems(PostUpdate, crate::clear_remove_component.in_set(FrameDataPrepare).after(bevy_window::FrameSet)); // 在每帧结束时清理删除组件的列表
-
+			// .add_system(Last, crate::clear_remove_component.in_set(FrameDataPrepare).after(bevy_window::FrameSet)); // 在每帧结束时清理删除组件的列表
+            ;
             #[cfg(feature = "debug")]
             app.add_plugins(crate::system::cmd_play::UiCmdTracePlugin { option: self.cmd_trace });
         }
     }
 }
 
-pub fn clear_remove_component(world: &mut bevy_ecs::prelude::World) {
-	world.removed_components_update();
-}
+// pub fn clear_remove_component(world: &mut pi_world::prelude::World) {
+// 	world.removed_components_update();
+// }
 
 
 

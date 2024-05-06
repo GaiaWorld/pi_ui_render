@@ -1,6 +1,4 @@
-use bevy_ecs::prelude::Resource;
-use bevy_window::FrameState;
-use pi_bevy_ecs_extend::system_param::res::OrInitRes;
+
 
 #[cfg(feature = "debug")]
 pub mod cmd_play;
@@ -16,7 +14,7 @@ pub mod res_load; //外部进行资源加载
 // 运行状态
 bitflags::bitflags! {
     #[repr(transparent)]
-    #[derive(Resource, Default, Serialize, Deserialize)]
+    #[derive(Default, Serialize, Deserialize)]
     pub struct RunState: u32 {
         const NONE                       = 0;
         const SETTING            = (1 << 0); // 设置
@@ -27,33 +25,33 @@ bitflags::bitflags! {
 }
 
 
-pub fn setting_run(state: OrInitRes<RunState>, frame_state: OrInitRes<FrameState>) -> bool {
-    if **state >= RunState::SETTING{
-        true
-    } else if let FrameState::Active = **frame_state {
-        true
-    } else {
-        false
-    }
-}
+// pub fn setting_run(state: OrInitSingleRes<RunState>, frame_state: OrInitSingleRes<FrameState>) -> bool {
+//     if **state >= RunState::SETTING{
+//         true
+//     } else if let FrameState::Active = **frame_state {
+//         true
+//     } else {
+//         false
+//     }
+// }
 
-pub fn layout_run(state: OrInitRes<RunState>, frame_state: OrInitRes<FrameState>) -> bool {
-    if **state >= RunState::LAYOUT {
-        true
-    } else if let FrameState::Active = **frame_state {
-        true
-    } else {
-        false
-    }
-}
+// pub fn layout_run(state: OrInitSingleRes<RunState>, frame_state: OrInitSingleRes<FrameState>) -> bool {
+//     if **state >= RunState::LAYOUT {
+//         true
+//     } else if let FrameState::Active = **frame_state {
+//         true
+//     } else {
+//         false
+//     }
+// }
 
-pub fn matrix_run(state: OrInitRes<RunState>, frame_state: OrInitRes<FrameState>) -> bool {
-    if **state >= RunState::MATRIX {
-        true
-    } else if let FrameState::Active = **frame_state {
-        true
-    }  else {
-        false
-    }
-}
+// pub fn matrix_run(state: OrInitSingleRes<RunState>, frame_state: OrInitSingleRes<FrameState>) -> bool {
+//     if **state >= RunState::MATRIX {
+//         true
+//     } else if let FrameState::Active = **frame_state {
+//         true
+//     }  else {
+//         false
+//     }
+// }
 

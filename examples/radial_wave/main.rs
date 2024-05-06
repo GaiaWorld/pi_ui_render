@@ -6,8 +6,7 @@ mod framework;
 use std::mem::swap;
 
 use async_trait::async_trait;
-use bevy_ecs::prelude::{Commands, World};
-use framework::Example;
+use framework::{Param, Example};
 use pi_atom::Atom;
 /// 渲染四边形 demo
 use pi_flex_layout::style::{Dimension, PositionType};
@@ -22,7 +21,6 @@ use pi_ui_render::{
     components::{
         calc::EntityKey,
         user::{CgColor, ClearColor, Point2, RenderDirty, Viewport, RadialWave},
-        NodeBundle,
     },
     resource::{NodeCmd, UserCommands},
 };
@@ -36,9 +34,9 @@ pub struct QuadExample {
 
 #[async_trait]
 impl Example for QuadExample {
-    fn init(&mut self, world: &mut World, size: (usize, usize)) {
+    fn init(&mut self, mut world: Param, size: (usize, usize)) {
         // 添加根节点
-        let root = world.spawn(NodeBundle::default()).id();
+        let root = world.spawn();
         self.cmd.push_cmd(NodeCmd(ClearColor(CgColor::new(1.0, 1.0, 1.0, 1.0), true), root));
         self.cmd.push_cmd(NodeCmd(
             Viewport(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(size.0 as f32, size.1 as f32))),
@@ -59,7 +57,7 @@ impl Example for QuadExample {
         self.cmd.append(root, EntityKey::null().0);
 
         // 添加一个div
-        let div1 = world.spawn(NodeBundle::default()).id();
+        let div1 = world.spawn();
         self.cmd.set_style(div1, WidthType(Dimension::Points(300.0)));
         self.cmd.set_style(div1, HeightType(Dimension::Points(600.0)));
         self.cmd
@@ -77,5 +75,5 @@ impl Example for QuadExample {
         self.cmd.append(div1, root);
     }
 
-    fn render(&mut self, cmd: &mut UserCommands, _cmd1: &mut Commands) { swap(&mut self.cmd, cmd); }
+    fn render(&mut self, cmd: &mut UserCommands) { swap(&mut self.cmd, cmd); }
 }

@@ -21,22 +21,23 @@ tracing-chrome = [
 	"trace",
 	"pi_bevy_render_plugin/trace", 
 	"pi_bevy_log/tracing-chrome", 
-	"bevy_app/trace", 
-	"bevy_ecs/trace",
+	# "bevy_app/trace", 
+	# "bevy_ecs/trace",
 ]
 
 tracing-tracy = [
 	"trace",
 	"pi_bevy_render_plugin/trace", 
 	"pi_bevy_log/tracing-tracy", 
-	"bevy_app/trace", 
-	"bevy_ecs/trace",
+	# "bevy_app/trace", 
+	# "bevy_ecs/trace",
 ]
 
 single_thread = [
 	"pi_bevy_render_plugin/single_thread",
 	"pi_hal/single_thread",
-	"wgpu/single_thread"
+	"wgpu/single_thread",
+	"pi_world/single_thread"
 ] # 本地平台，设置该feature有效，运行时为单线程运行时
 
 [dependencies]
@@ -101,9 +102,9 @@ pi_bevy_post_process = { version = "0.1", registry = "yn" }
 pi_bevy_ecs_extend = { version = "0.1", registry = "yn" }
 pi_bevy_render_plugin = { version = "0.1", registry = "yn" }
 pi_bevy_asset = { version = "0.1", registry = "yn" }
-bevy_ecs = "0.11"
-bevy_utils = "0.11"
-bevy_app = { version = "0.11", default_features = false }
+pi_world = "0.1.20"
+# bevy_utils = "0.11"
+# bevy_app = { version = "0.11", default_features = false }
 bevy_window = { version = "0.1", registry = "yn", package = "pi_bevy_window" }
 # bevy_window = "0.11"
 # zerovec = "0.9"
@@ -119,8 +120,10 @@ pi_share = { version = "0.4" }
 pi_render = { version = "0.1", registry = "yn" }
 # derive_deref = "1.1"
 tracing-subscriber = "0.3"
-ahash = "=0.8.6"
+ahash = "0.8.6"
 pi_key_alloter = "0.4"
+
+pi_ui_render_macros = {path = "./macros"}
 
 # flume = "0.10"
 
@@ -137,8 +140,8 @@ float-ord = "0.3"
 async-trait = "0.1"
 spin_sleep = "1.1"
 num_cpus = "1.13"
-bevy_log = { version = "0.11", default-features = false }
-bevy_a11y = "0.11"
+# bevy_log = { version = "0.11", default-features = false }
+# bevy_a11y = "0.11"
 pi_bevy_log = { version = "0.1", registry = "yn" }
 criterion = { version = "0.3", features = ["html_reports"] }
 pi_winit = { version = "0.27", registry = "yn", package = "winit" }
@@ -248,15 +251,18 @@ probabilistic-collections = { git = "https://github.com/GaiaWorld/pi_probabilist
 # pi_share = { path = "../pi_share" }
 # wgpu= {path = "../wgpu/wgpu"}
 
-bevy_app = { path = "../bevy/crates/bevy_app" }
-bevy_ecs = { path = "../bevy/crates/bevy_ecs" }
-bevy_tasks = { path = "../bevy/crates/bevy_tasks" }
-bevy_window = { path = "../bevy/crates/bevy_window" }
-bevy_utils = { path = "../bevy/crates/bevy_utils" }
-bevy_a11y = { path = "../bevy/crates/bevy_a11y" }
-bevy_input = { path = "../bevy/crates/bevy_input" }
-bevy_reflect = { path = "../bevy/crates/bevy_reflect" }
-bevy_math = { path = "../bevy/crates/bevy_math" }
+pi_world = { path = "../pi_world" }
+pi_world_macros = { path = "../pi_world/macros" }
+
+# bevy_app = { path = "../bevy/crates/bevy_app" }
+# bevy_ecs = { path = "../bevy/crates/bevy_ecs" }
+# bevy_tasks = { path = "../bevy/crates/bevy_tasks" }
+# bevy_window = { path = "../bevy/crates/bevy_window" }
+# bevy_utils = { path = "../bevy/crates/bevy_utils" }
+# bevy_a11y = { path = "../bevy/crates/bevy_a11y" }
+# bevy_input = { path = "../bevy/crates/bevy_input" }
+# bevy_reflect = { path = "../bevy/crates/bevy_reflect" }
+# bevy_math = { path = "../bevy/crates/bevy_math" }
 
 # pi_key_alloter = {path = "../pi_key_alloter"}
 
@@ -290,14 +296,14 @@ bevy_math = { path = "../bevy/crates/bevy_math" }
 # pi_bevy_post_process = { path = "../pi_bevy_new_graphic/crates/post_process" }
 # pi_bevy_window = { path = "../pi_bevy_new_graphic/crates/window" }
 
-# pi_bevy_ecs_extend = { path = "../pi_bevy/crates/ecs_extend" }
-# pi_bevy_render_plugin = { path = "../pi_bevy/crates/render" }
-# pi_bevy_asset = { path = "../pi_bevy/crates/asset" }
-# pi_bevy_winit_window = { path = "../pi_bevy/crates/winit_window" }
-# pi_bevy_log = { path = "../pi_bevy/crates/log" }
-# pi_bevy_ecs_macro = { path = "../pi_bevy/crates/ecs_extend/macro" }
-# pi_bevy_post_process = { path = "../pi_bevy/crates/post_process" }
-# pi_bevy_window = { path = "../pi_bevy/crates/window" }
+pi_bevy_ecs_extend = { path = "../pi_bevy/crates/ecs_extend" }
+pi_bevy_render_plugin = { path = "../pi_bevy/crates/render" }
+pi_bevy_asset = { path = "../pi_bevy/crates/asset" }
+pi_bevy_winit_window = { path = "../pi_bevy/crates/winit_window" }
+pi_bevy_log = { path = "../pi_bevy/crates/log" }
+pi_bevy_ecs_macro = { path = "../pi_bevy/crates/ecs_extend/macro" }
+pi_bevy_post_process = { path = "../pi_bevy/crates/post_process" }
+pi_bevy_window = { path = "../pi_bevy/crates/window" }
 
 # pi_render
 # pi_render = { path = "../pi_render" }

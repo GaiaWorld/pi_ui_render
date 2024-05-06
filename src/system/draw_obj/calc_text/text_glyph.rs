@@ -1,15 +1,11 @@
 //! 文字字形系统
 //! 为字符分配纹理位置，得到字符的位置索引关联到CharNode中的ch_id_or_count字段上
 //! 在fontsheet中，文字最多缓存一张纹理。为字符分配纹理，可能存在空间不足的情况。此时，本系统将清空fontsheet中所有缓存的字符，并重新为当前所有显示节点上的文字重新绘制纹理。
-use bevy_ecs::{
-    prelude::{Entity, EventWriter},
-    query::{Changed, Or, With},
-    system::{ParamSet, Query, ResMut, Local}, change_detection::DetectChangesMut,
-};
+use pi_world::prelude::{Entity, OrDefault, Changed, With, ParamSet, Query, SingleResMut, Local, Mut};
 use ordered_float::NotNan;
 use pi_bevy_ecs_extend::{
-    prelude::{Layer, OrDefault},
-    system_param::{layer_dirty::ComponentEvent, res::OrInitRes},
+    prelude::Layer,
+    system_param::res::OrInitSingleRes,
 };
 use pi_hal::{runtime::MULTI_MEDIA_RUNTIME, font::sdf2_table::TexInfo};
 use pi_key_alloter::DefaultKey;
@@ -49,7 +45,7 @@ pub fn text_glyph(
 				Option<&'static mut TextOverflowData>,
             ),
             (
-                Or<(Changed<TextContent>, Changed<TextStyle>, Changed<WorldMatrix>, Changed<TextOverflowData>)>,
+                (Changed<TextContent>, Changed<TextStyle>, Changed<WorldMatrix>, Changed<TextOverflowData>),
                 With<TextContent>,
             ),
         >,
@@ -67,9 +63,9 @@ pub fn text_glyph(
         >,
 		Query<&mut NodeState, With<TextContent>>,
     )>,
-    font_sheet: ResMut<ShareFontSheet>,
-    mut event_writer: EventWriter<ComponentEvent<Changed<NodeState>>>,
-	r: OrInitRes<IsRun>,
+    font_sheet: SingleResMut<ShareFontSheet>,
+    // mut event_writer: EventWriter<ComponentEvent<Changed<NodeState>>>,
+	r: OrInitSingleRes<IsRun>,
 	await_list: Local<Sdf2GlpyhAwaitList>,
 ) {
 	if r.0 {
@@ -84,12 +80,12 @@ pub fn text_glyph(
         // world_matrix,
         text_style,
         // text_content,
-        mut node_state,
+        node_state,
 		layer,
 		text_overflow_data,
     ) in query.p0().iter_mut()
     {
-		let r = set_gylph(entity, layer, text_style, &mut node_state, &mut font_sheet, &mut event_writer, text_overflow_data);
+		let r = set_gylph(entity, layer, text_style, node_state, &mut font_sheet, text_overflow_data);
         if let Err(_) = r {
             // 清空文字纹理TODO（清屏为玫红色）
 
@@ -110,12 +106,12 @@ pub fn text_glyph(
             // world_matrix,
             text_style,
             // text_content,
-            mut node_state,
+            node_state,
 			layer,
 			text_overflow_data,
         ) in query.p1().iter_mut()
         {
-            let r = set_gylph(entity, layer, text_style, &mut node_state, &mut font_sheet, &mut event_writer, text_overflow_data).unwrap();
+            let r = set_gylph(entity, layer, text_style, node_state, &mut font_sheet, text_overflow_data).unwrap();
 			if r == false {
 				await_set_gylph.push(entity);
 			}
@@ -135,7 +131,7 @@ pub fn text_glyph(
 			}).unwrap();
 		}
 
-		let mut p2 = query.p2();
+		let p2 = query.p2();
 		for (await_set_gylph, result) in await_list.0.lock().unwrap().drain(..) {
 			font_sheet.update_sdf2(result); // 更新纹理
 			for entity in await_set_gylph.iter() {
@@ -157,10 +153,9 @@ fn set_gylph(
     // world_matrix: &WorldMatrix,
     text_style: &TextStyle,
     // text_content: &TextContent,
-    node_state: &mut NodeState,
+    mut node_state: Mut<NodeState>,
     font_sheet: &mut FontSheet,
-    event_writer: &mut EventWriter<ComponentEvent<Changed<NodeState>>>,
-	text_overflow_data: Option<bevy_ecs::change_detection::Mut<'_, TextOverflowData>>
+	text_overflow_data: Option<Mut<'_, TextOverflowData>>
 ) -> Result<bool, ()> { // 返回字形是否已经准备就绪
 	if layer.layer() == 0 {
 		return Ok(true);
@@ -254,6 +249,5 @@ fn set_gylph(
 			}
 		}
 	}
-    event_writer.send(ComponentEvent::new(entity));
     Ok(is_ready)
 }

@@ -5,8 +5,8 @@ mod framework;
 
 use std::mem::swap;
 
-use bevy_ecs::prelude::{Commands, World};
-use framework::Example;
+
+use framework::{Param, Example};
 /// 渲染四边形 demo
 use pi_flex_layout::style::{Dimension, PositionType};
 use pi_null::Null;
@@ -14,7 +14,7 @@ use pi_ui_render::{
     components::{
         calc::EntityKey,
         user::{CgColor, ClearColor, RenderDirty, Viewport},
-        NodeBundle,
+
     },
     resource::{NodeCmd, UserCommands},
 };
@@ -35,9 +35,9 @@ pub struct QuadExample {
 }
 
 impl Example for QuadExample {
-    fn init(&mut self, world: &mut World, size: (usize, usize)) {
+    fn init(&mut self, mut world: Param, size: (usize, usize)) {
         // 添加根节点
-        let root = world.spawn(NodeBundle::default()).id();
+        let root = world.spawn();
         self.cmd.push_cmd(NodeCmd(ClearColor(CgColor::new(1.0, 1.0, 1.0, 1.0), true), root));
         self.cmd.push_cmd(NodeCmd(
             Viewport(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(size.0 as f32, size.1 as f32))),
@@ -58,7 +58,7 @@ impl Example for QuadExample {
         self.cmd.append(root, EntityKey::null().0);
 
         // 添加一个黄色div
-        let div1 = world.spawn(NodeBundle::default()).id();
+        let div1 = world.spawn();
         self.cmd.set_style(div1, WidthType(Dimension::Points(110.0)));
         self.cmd.set_style(div1, HeightType(Dimension::Points(144.0)));
         self.cmd.set_style(div1, BorderColorType(CgColor::new(1.0, 1.0, 0.0, 1.0)));
@@ -69,7 +69,7 @@ impl Example for QuadExample {
         self.cmd.append(div1, root);
 
         // 添加一个红色div
-        let div2 = world.spawn(NodeBundle::default()).id();
+        let div2 = world.spawn();
         self.cmd.set_style(div2, WidthType(Dimension::Points(110.0)));
         self.cmd.set_style(div2, HeightType(Dimension::Points(144.0)));
         self.cmd.set_style(div2, BorderColorType(CgColor::new(1.0, 0.0, 0.0, 1.0)));
@@ -97,5 +97,5 @@ impl Example for QuadExample {
         self.cmd.append(div2, root);
     }
 
-    fn render(&mut self, cmd: &mut UserCommands, _cmd1: &mut Commands) { swap(&mut self.cmd, cmd); }
+    fn render(&mut self, cmd: &mut UserCommands) { swap(&mut self.cmd, cmd); }
 }

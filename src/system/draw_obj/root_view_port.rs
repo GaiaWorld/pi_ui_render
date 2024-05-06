@@ -1,9 +1,6 @@
-use bevy_ecs::{
-    prelude::Entity,
-    query::Changed,
-    system::{Commands, Query, Res, ResMut},
-};
-use pi_bevy_ecs_extend::system_param::res::OrInitRes;
+use pi_world::prelude::{Changed, SingleRes, Alter, SingleResMut};
+use pi_bevy_ecs_extend::prelude::OrInitSingleRes;
+
 use pi_bevy_render_plugin::PiSafeAtlasAllocator;
 use pi_render::{
     components::view::target_alloc::{SafeAtlasAllocator, TargetDescriptor, TextureDescriptor},
@@ -21,26 +18,26 @@ use super::calc_text::IsRun;
 /// 创建图节点所需要的数据
 /// 如： DynTargetType (需要根据视口变化及时调整)
 pub fn calc_dyn_target_type(
-    mut query: Query<(&Viewport, Option<&mut DynTargetType>, Entity), Changed<Viewport>>,
+    mut query: Alter<(&Viewport, Option<&mut DynTargetType>), Changed<Viewport>, (DynTargetType, )>,
 
-    atlas_allocator: Res<PiSafeAtlasAllocator>,
-    mut max_view_size: ResMut<MaxViewSize>,
+    atlas_allocator: SingleRes<PiSafeAtlasAllocator>,
+    mut max_view_size: SingleResMut<MaxViewSize>,
 
-    mut commands: Commands,
-	r: OrInitRes<IsRun>
+    // mut commands: Commands,
+	r: OrInitSingleRes<IsRun>
 ) {
 	if r.0 {
 		return;
 	}
-    for (view_port, dyn_target_type, entity) in query.iter_mut() {
+
+    let mut iter = query.iter_mut();
+    while let Some((view_port, dyn_target_type)) = iter.next() {
         max_view_size.width = max_view_size.width.max((view_port.maxs.x - view_port.mins.x).ceil() as u32);
         max_view_size.height = max_view_size.height.max((view_port.maxs.y - view_port.mins.y).ceil() as u32);
         let ty = create_dyn_target_type(&atlas_allocator, max_view_size.width, max_view_size.height);
         match dyn_target_type {
             Some(mut r) => *r = ty,
-            None => {
-                commands.entity(entity).insert(ty);
-            }
+            None => {let _ = iter.alter((ty, ));}
         };
     }
 }

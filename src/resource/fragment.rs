@@ -1,4 +1,4 @@
-use bevy_ecs::prelude::Resource;
+
 use pi_hash::XHashMap;
 use pi_null::Null;
 use pi_style::{
@@ -12,7 +12,7 @@ use thiserror::Error;
 use crate::components::user::ClassName;
 
 /// 模板map
-#[derive(Debug, Clone, Resource, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct FragmentMap {
     pub style_buffer: Vec<u8>,
     pub fragments: Vec<NodeFragmentCmd>,

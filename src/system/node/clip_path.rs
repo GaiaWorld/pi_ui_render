@@ -1,6 +1,6 @@
 // //! 处理opacity属性，对opacity设置小于1.0的节点，标记为渲染上下文（设置RenderContextMark中的位标记）
 
-// use pi_ecs::{monitor::Event, prelude::{Query, Write, Or, Changed, Deleted, FromWorld, Res}};
+// use pi_ecs::{monitor::Event, prelude::{Query, Write, Or, Changed, Deleted, FromWorld, SingleRes}};
 // use pi_ecs_macros::{listen, setup};
 // use pi_postprocess::effect::alpha::Alpha;
 
@@ -24,7 +24,7 @@
 // 		e: Event,
 // 		opacity: Query<Node, &Opacity>,
 // 		render_mark: Query<Node, Write<RenderContextMark>>,
-// 		mark_type: Res<OpacityRenderContextMarkType>,
+// 		mark_type: SingleRes<OpacityRenderContextMarkType>,
 // 	) {
 // 		let opacity_item = opacity.get_by_entity(e.id);
 
@@ -57,10 +57,10 @@
 // 	#[system]
 // 	pub fn opacity_change(
 // 		opacity_dirty: Query<Node, (Option<&Opacity>, Option<&Pass2DId>), Or<(Changed<Opacity>, Deleted<Opacity>)>>,
-// 		// mark_type: Res<OpacityRenderContextMarkType>,
+// 		// mark_type: SingleRes<OpacityRenderContextMarkType>,
 // 		mut pass_query: Query<Pass2D, Write<PostProcessList>>,
-// 		static_index: Res<ImageStaticIndex>,
-// 		common_state: Res<CommonPipelineState>,
+// 		static_index: SingleRes<ImageStaticIndex>,
+// 		common_state: SingleRes<CommonPipelineState>,
 // 	) {
 // 		let mut static_index = (*static_index).clone();
 // 		static_index.pipeline_state = common_state.premultiply.clone();

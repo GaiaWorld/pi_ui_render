@@ -1,17 +1,13 @@
 pub mod filter;
 pub mod gradient;
 
-use bevy_app::Plugin;
-use bevy_window::AddFrameEvent;
-use pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent;
-
 use crate::{
     components::{
         draw_obj::SvgMark,
-        user::SvgInnerContent,
-    }, resource::SvgRenderObjType, shader1::meterial::TextShadowColorUniform, system::{draw_obj::sdf2_texture_update::update_sdf2_texture, system_set::UiSystemSet}
+        user::{Shape, SvgInnerContent},
+    }, resource::SvgRenderObjType, shader1::meterial::TextShadowColorUniform, system::system_set::UiSystemSet
 };
-use crate::prelude::UiSchedule;
+use crate::prelude::UiStage;
 
 // use self::svg_main::{calc_sdf2_svg, svg_glyph};
 use self::filter::{flter_blur, flter_offset};
@@ -35,18 +31,9 @@ use crate::{
     },
     system::draw_obj::set_box,
 };
-use bevy_ecs::change_detection::DetectChanges;
-use bevy_ecs::{
-    change_detection::DetectChangesMut,
-    prelude::{Entity, EventWriter},
-    query::{Changed, With},
-    system::{Local, ParamSet, Query, ResMut},
-    world::Ref,
-};
-use pi_bevy_ecs_extend::{
-    prelude::Layer,
-    system_param::res::{OrInitRes, OrInitResMut},
-};
+// use pi_world::change_detection::DetectChanges;
+use pi_world::{prelude::{App, Changed, Entity, Local, ParamSet, Plugin, Query, SingleResMut, With}, schedule_config::IntoSystemConfigs};
+use pi_bevy_ecs_extend::prelude::{Layer, OrInitSingleRes, OrInitSingleResMut};
 use pi_hal::{
     font::sdf2_table::TexInfo,
     pi_sdf::{self, glyphy::geometry::aabb::AabbEXT},
@@ -57,7 +44,6 @@ use pi_render::font::FontType;
 use pi_share::{Share, ShareMutex};
 use pi_style::style::{Aabb2, Color, FontStyle, Point2};
 
-use crate::resource::Shape;
 use crate::{
     components::{
         calc::LayoutResult,
@@ -68,29 +54,29 @@ use crate::{
 };
 use pi_async_rt::prelude::AsyncRuntime;
 
-
-use bevy_ecs::schedule::IntoSystemConfigs;
-
 pub const SVG_ORDER: u8 = 8;
 pub struct SvgPlugin;
 
 impl Plugin for SvgPlugin {
-    fn build(&self, app: &mut bevy_app::App) {
+    fn build(&self, app: &mut App) {
         println!("add SvgPlugin");
         app
-            .add_frame_event::<ComponentEvent<Changed<SvgInnerContent>>>()
-            .add_systems(UiSchedule, svg_glyph.in_set(UiSystemSet::Layout).before(update_sdf2_texture))
+            // .add_frame_event::<ComponentEvent<Changed<SvgInnerContent>>>()
+            .add_system(UiStage, svg_glyph.in_set(UiSystemSet::Layout)
+                // .before(update_sdf2_texture)
+            )
             // 创建drawobj
-            .add_systems(
-                UiSchedule,
-                draw_object_life_new::<SvgInnerContent, SvgRenderObjType, SvgMark, { SVG_ORDER }>.in_set(UiSystemSet::LifeDrawObject).after(svg_glyph),
+            .add_system(
+                UiStage,
+                draw_object_life_new::<SvgInnerContent, SvgRenderObjType, (SvgMark, ), { SVG_ORDER }>.in_set(UiSystemSet::LifeDrawObject)
+                // .after(svg_glyph),
             )
             // 更新实例数据
-            .add_systems(UiSchedule, calc_svg.in_set(UiSystemSet::PrepareDrawObj))
-            .add_systems(UiSchedule, flter_blur.in_set(UiSystemSet::PrepareDrawObj))
-            .add_systems(UiSchedule, flter_offset.in_set(UiSystemSet::PrepareDrawObj))
-            .add_systems(UiSchedule, gradient_offset.in_set(UiSystemSet::PrepareDrawObj))
-            .add_systems(UiSchedule, gradient_stop.in_set(UiSystemSet::PrepareDrawObj))
+            .add_system(UiStage, calc_svg.in_set(UiSystemSet::PrepareDrawObj))
+            .add_system(UiStage, flter_blur.in_set(UiSystemSet::PrepareDrawObj))
+            .add_system(UiStage, flter_offset.in_set(UiSystemSet::PrepareDrawObj))
+            .add_system(UiStage, gradient_offset.in_set(UiSystemSet::PrepareDrawObj))
+            .add_system(UiStage, gradient_stop.in_set(UiSystemSet::PrepareDrawObj))
             ;
     }
 }
@@ -118,9 +104,9 @@ pub fn svg_glyph(
         Query<(Entity, &'static mut SvgInnerContent), Changed<SvgInnerContent>>,
         Query<&mut SvgInnerContent>,
     )>,
-    font_sheet: ResMut<ShareFontSheet>,
-    mut event_writer: EventWriter<ComponentEvent<Changed<SvgInnerContent>>>,
-    r: OrInitRes<IsRun>,
+    font_sheet: SingleResMut<ShareFontSheet>,
+    // mut event_writer: EventWriter<ComponentEvent<Changed<SvgInnerContent>>>,
+    r: OrInitSingleRes<IsRun>,
     await_list: Local<SvgShapeAwaitList>,
     // query_view_box: Query<&SvgContent>,
 ) {
@@ -181,7 +167,7 @@ pub fn svg_glyph(
             .unwrap();
     }
 
-    let mut p2 = query.p1();
+    let p2 = &mut query.p1();
     for (await_set_gylph, result) in await_list.0.lock().unwrap().drain(..) {
         println!("update_svg_sdf2, await_set_gylph: {:?}", await_set_gylph);
         font_sheet.update_svg_sdf2(result); // 更新纹理
@@ -189,7 +175,7 @@ pub fn svg_glyph(
             if let Ok(mut node_state) = p2.get_mut(*entity) {
                 node_state.set_changed();
             }
-            event_writer.send(ComponentEvent::<Changed<SvgInnerContent>>::new(*entity));
+            // event_writer.send(ComponentEvent::<Changed<SvgInnerContent>>::new(*entity));
         }
         log::debug!("await_set_gylph================{:?}", await_set_gylph);
     }
@@ -199,12 +185,16 @@ pub fn svg_glyph(
 
 /// 设置svg的渲染数据
 pub fn calc_svg(
-    mut instances: OrInitResMut<InstanceContext>,
-    query: Query<(Entity, Ref<WorldMatrix>, Ref<SvgInnerContent>, Ref<LayoutResult>, &DrawList, &Layer), Changed<SvgInnerContent>>,
+    mut instances: OrInitSingleResMut<InstanceContext>,
+    query: Query<(Entity, &WorldMatrix, &SvgInnerContent, &LayoutResult, &DrawList, &Layer), 
+        (
+            Changed<SvgInnerContent>, 
+            Changed<WorldMatrix>
+        )>,
     mut query_draw: Query<&InstanceIndex, With<SvgMark>>,
-    r: OrInitRes<IsRun>,
-    render_type: OrInitRes<SvgRenderObjType>,
-    font_sheet: ResMut<ShareFontSheet>,
+    r: OrInitSingleRes<IsRun>,
+    render_type: OrInitSingleRes<SvgRenderObjType>,
+    font_sheet: SingleResMut<ShareFontSheet>,
 ) {
     if r.0 {
         return;
@@ -237,9 +227,10 @@ pub fn calc_svg(
             let mut _state = &*node_state;
             let matrix = &*world_matrix;
 
-            let is_added = node_state.is_changed();
+            // let is_added = node_state.is_changed();
 
-            let (text_style_change, text_style) = (is_added, &node_state.style); // TextStyle组件在设计上不会被删除， 当TextStyle为None时， TextStyle一定没有改变过
+            // let (text_style_change, text_style) = (is_added, &node_state.style); // TextStyle组件在设计上不会被删除， 当TextStyle为None时， TextStyle一定没有改变过
+            let text_style = &node_state.style;
 
             let font_type = font_sheet.font_mgr().font_type;
             let tex_info = match font_type {
@@ -249,9 +240,6 @@ pub fn calc_svg(
             };
 
             let instance_data = instance_data(
-                text_style_change,
-                is_added,
-                world_matrix.is_changed(),
                 text_style,
                 tex_info,
                 matrix.clone(),
@@ -274,9 +262,6 @@ pub fn calc_svg(
 
 #[inline]
 fn instance_data(
-    is_style_change: bool,
-    is_content_change: bool,
-    is_matrix_change: bool,
     svg_style: &SvgStyle,
     tex_info: &TexInfo,
     world_matrix: WorldMatrix,
@@ -312,9 +297,6 @@ fn instance_data(
         Color::RGBA(color) => UniformData {
             stroke,
             stroke_dasharray,
-            is_style_change,
-            is_content_change,
-            is_matrix_change,
             font_style: FontStyle::Normal,
             color: ColorData::Rgba([color.x, color.y, color.z, color.w]),
             world_matrix,
@@ -382,9 +364,6 @@ fn instance_data(
             UniformData {
                 stroke,
                 stroke_dasharray,
-                is_style_change,
-                is_content_change,
-                is_matrix_change,
                 font_style: FontStyle::Normal,
                 color: ColorData::LinearGradient { colors, positions, end },
                 world_matrix,
@@ -446,9 +425,6 @@ struct UniformData {
     shadow_offset: [f32; 2],
     outer_glow_color_and_dist: [f32; 4],
     shadow_blur_level: f32,
-    is_style_change: bool,
-    is_content_change: bool,
-    is_matrix_change: bool,
     font_style: FontStyle,
     color: ColorData,
     world_matrix: WorldMatrix,
@@ -473,7 +449,7 @@ impl UniformData {
         // let width = extents.width();
         // let height = extents.height();
         let mut extents = extents.clone();
-        if self.is_style_change {
+        // if self.is_style_change {
             log::debug!("stroke: {:?}", self.stroke);
             instance_data.set_data(&TextOutlineUniform(&self.stroke));
             instance_data.set_data(&TextWeightUniform(&[0.0]));
@@ -538,10 +514,10 @@ impl UniformData {
                     instance_data.set_data(&GradientEndUniform(end));
                 }
             }
-        }
+        // }
 
 
-        if self.is_style_change || self.is_content_change || self.is_matrix_change {
+        // if self.is_style_change || self.is_content_change || self.is_matrix_change {
             let (mut scope_factor, mut scope_y) = (0.0, 0.0);
             if self.font_style == FontStyle::Oblique {
                 scope_y = -extents.mins.y * font_size; // 基线位置的y
@@ -575,7 +551,7 @@ impl UniformData {
             set_box(&self.world_matrix, &rect, &mut instance_data);
             // 设置渲染类型
             instance_data.set_data(&TyUniform(&[render_flag as f32]));
-        }
+        // }
     }
 }
 

@@ -3,11 +3,11 @@ use std::{
     sync::atomic::{AtomicUsize, Ordering},
 };
 
-use bevy_ecs::{
+use pi_world::{
     ecs::{
         prelude::{Entity, Ref},
         query::{Changed, Or, With},
-        system::{Commands, ParamSet, Query, Res, ResMut},
+        system::{Commands, ParamSet, Query, SingleRes, SingleResMut},
     },
     prelude::DetectChanges,
 };
@@ -19,7 +19,7 @@ use pi_async_rt::{
 use pi_bevy_asset::ShareAssetMgr;
 use pi_bevy_ecs_extend::{
     prelude::OrDefault,
-    system_param::res::{OrInitRes, OrInitResMut},
+    system_param::res::{OrInitSingleRes, OrInitSingleResMut},
 };
 use pi_bevy_render_plugin::{PiRenderDevice, PiSafeAtlasAllocator};
 use pi_hal::runtime::RENDER_RUNTIME;
@@ -59,26 +59,26 @@ use crate::{
 // /// 处理视口改变
 // pub fn view_port_change(
 //     res: (
-//         Res<ShareAssetMgr<RenderRes<RenderPipeline>>>,
-//         Res<ShareAssetMgr<RenderRes<Program>>>,
-//         Res<UnitQuadBuffer>,
-//         OrInitRes<ProgramMetaRes<ProgramMeta>>,
-//         OrInitRes<PosUv1VertexLayout>,
-//         OrInitResMut<DepthCache>,
-//         Res<PiRenderDevice>,
-//         // Res<ShaderCatch>,
+//         SingleRes<ShareAssetMgr<RenderRes<RenderPipeline>>>,
+//         SingleRes<ShareAssetMgr<RenderRes<Program>>>,
+//         SingleRes<UnitQuadBuffer>,
+//         OrInitSingleRes<ProgramMetaRes<ProgramMeta>>,
+//         OrInitSingleRes<PosUv1VertexLayout>,
+//         OrInitSingleResMut<DepthCache>,
+//         SingleRes<PiRenderDevice>,
+//         // SingleRes<ShaderCatch>,
 //     ),
-//     // state_map: Res< StateMap>,
-//     bind_group_assets: Res<ShareAssetMgr<RenderRes<BindGroup>>>,
+//     // state_map: SingleRes< StateMap>,
+//     bind_group_assets: SingleRes<ShareAssetMgr<RenderRes<BindGroup>>>,
 
-//     post_bind_group_layout: OrInitRes<PostBindGroupLayout>,
-//     shader_info_cache: OrInitRes<ShaderInfoCache>,
-//     common_sampler: Res<CommonSampler>,
-//     // common_state: Res<CommonPipelineState>,
-//     camera_group_alloter: OrInitRes<ShareGroupAlloter<CameraGroup>>,
-//     ui_meterial_group_alloter: OrInitRes<ShareGroupAlloter<UiMaterialGroup>>,
-//     allocator: Res<PiSafeAtlasAllocator>,
-// 	image_render_type: OrInitRes<BackgroundImageRenderObjType>,
+//     post_bind_group_layout: OrInitSingleRes<PostBindGroupLayout>,
+//     shader_info_cache: OrInitSingleRes<ShaderInfoCache>,
+//     common_sampler: SingleRes<CommonSampler>,
+//     // common_state: SingleRes<CommonPipelineState>,
+//     camera_group_alloter: OrInitSingleRes<ShareGroupAlloter<CameraGroup>>,
+//     ui_meterial_group_alloter: OrInitSingleRes<ShareGroupAlloter<UiMaterialGroup>>,
+//     allocator: SingleRes<PiSafeAtlasAllocator>,
+// 	image_render_type: OrInitSingleRes<BackgroundImageRenderObjType>,
 
 //     mut query: ParamSet<(
 //         Query<
@@ -96,33 +96,33 @@ use crate::{
 //         Query<&'static mut CopyFboToScreen>,
 //     )>,
 // ) {
-//     let pipeline_map: Res<'static, ShareAssetMgr<RenderRes<RenderPipeline>>> = unsafe { transmute(res.0) };
-//     let shader_map: Res<'static, ShareAssetMgr<RenderRes<Program>>> = unsafe { transmute(res.1) };
+//     let pipeline_map: SingleRes<'static, ShareAssetMgr<RenderRes<RenderPipeline>>> = unsafe { transmute(res.0) };
+//     let shader_map: SingleRes<'static, ShareAssetMgr<RenderRes<Program>>> = unsafe { transmute(res.1) };
 
-//     let unit_quad_buffer: Res<'static, UnitQuadBuffer> = unsafe { transmute(res.2) };
-//     let image_shader_meta: OrInitRes<'static, ProgramMetaRes<ProgramMeta>> = unsafe { transmute(res.3) };
-//     let vert_layout: OrInitRes<'static, PosUv1VertexLayout> = unsafe { transmute(res.4) };
-//     let depth_cache: OrInitResMut<'static, DepthCache> = unsafe { transmute(res.5) };
-//     let device: Res<'static, PiRenderDevice> = unsafe { transmute(res.6) };
-//     let bind_group_assets: Res<'static, ShareAssetMgr<RenderRes<BindGroup>>> = unsafe { transmute(bind_group_assets) };
+//     let unit_quad_buffer: SingleRes<'static, UnitQuadBuffer> = unsafe { transmute(res.2) };
+//     let image_shader_meta: OrInitSingleRes<'static, ProgramMetaRes<ProgramMeta>> = unsafe { transmute(res.3) };
+//     let vert_layout: OrInitSingleRes<'static, PosUv1VertexLayout> = unsafe { transmute(res.4) };
+//     let depth_cache: OrInitSingleResMut<'static, DepthCache> = unsafe { transmute(res.5) };
+//     let device: SingleRes<'static, PiRenderDevice> = unsafe { transmute(res.6) };
+//     let bind_group_assets: SingleRes<'static, ShareAssetMgr<RenderRes<BindGroup>>> = unsafe { transmute(bind_group_assets) };
 
 //     // mut copy_draw_obj: WriteRes<'static, CopyFboToScreen>,
-//     let post_bind_group_layout: OrInitRes<'static, PostBindGroupLayout> = unsafe { transmute(post_bind_group_layout) };
-//     let common_sampler: Res<'static, CommonSampler> = unsafe { transmute(common_sampler) };
-//     let shader_info_cache: OrInitRes<'static, ShaderInfoCache> = unsafe { transmute(shader_info_cache) };
+//     let post_bind_group_layout: OrInitSingleRes<'static, PostBindGroupLayout> = unsafe { transmute(post_bind_group_layout) };
+//     let common_sampler: SingleRes<'static, CommonSampler> = unsafe { transmute(common_sampler) };
+//     let shader_info_cache: OrInitSingleRes<'static, ShaderInfoCache> = unsafe { transmute(shader_info_cache) };
 
-//     // render_target: Res<'static, RenderTarget>,
-//     // let camera_bind_group: Res<'static, DynBindGroupIndex<CameraMatrixGroup>> = unsafe { transmute(camera_bind_group)};
-//     // let post_bind_group: Res<'static, DynBindGroupIndex<UiMaterialGroup>> = unsafe { transmute(post_bind_group)};
-//     // let common_state: Res<'static, CommonPipelineState> = unsafe { transmute(common_state)};
+//     // render_target: SingleRes<'static, RenderTarget>,
+//     // let camera_bind_group: SingleRes<'static, DynBindGroupIndex<CameraMatrixGroup>> = unsafe { transmute(camera_bind_group)};
+//     // let post_bind_group: SingleRes<'static, DynBindGroupIndex<UiMaterialGroup>> = unsafe { transmute(post_bind_group)};
+//     // let common_state: SingleRes<'static, CommonPipelineState> = unsafe { transmute(common_state)};
 
-//     let camera_group_alloter: OrInitRes<'static, ShareGroupAlloter<CameraGroup>> = unsafe { transmute(camera_group_alloter) };
-//     let ui_meterial_group_alloter: OrInitRes<'static, ShareGroupAlloter<UiMaterialGroup>> = unsafe { transmute(ui_meterial_group_alloter) };
-//     let allocator: Res<'static, PiSafeAtlasAllocator> = unsafe { transmute(allocator) };
+//     let camera_group_alloter: OrInitSingleRes<'static, ShareGroupAlloter<CameraGroup>> = unsafe { transmute(camera_group_alloter) };
+//     let ui_meterial_group_alloter: OrInitSingleRes<'static, ShareGroupAlloter<UiMaterialGroup>> = unsafe { transmute(ui_meterial_group_alloter) };
+//     let allocator: SingleRes<'static, PiSafeAtlasAllocator> = unsafe { transmute(allocator) };
 
-//     let pipeline_map: &'static Res<'static, ShareAssetMgr<RenderRes<RenderPipeline>>> = unsafe { transmute(&pipeline_map) };
-//     let shader_map: &'static Res<'static, ShareAssetMgr<RenderRes<Program>>> = unsafe { transmute(&shader_map) };
-//     let device: &'static Res<'static, PiRenderDevice> = unsafe { transmute(&device) };
+//     let pipeline_map: &'static SingleRes<'static, ShareAssetMgr<RenderRes<RenderPipeline>>> = unsafe { transmute(&pipeline_map) };
+//     let shader_map: &'static SingleRes<'static, ShareAssetMgr<RenderRes<Program>>> = unsafe { transmute(&shader_map) };
+//     let device: &'static SingleRes<'static, PiRenderDevice> = unsafe { transmute(&device) };
 
 //     let query0: Query<
 //         'static,
@@ -179,32 +179,32 @@ use crate::{
 
 // #[allow(unused_must_use)]
 // fn render_change_async(
-//     mut depth_cache: OrInitResMut<'static, DepthCache>,
+//     mut depth_cache: OrInitSingleResMut<'static, DepthCache>,
 //     value: AsyncVariableNonBlocking<Vec<(Entity, Handle<RenderRes<RenderPipeline>>)>>,
 //     count: Share<AtomicUsize>,
 //     task_count: &mut usize,
-//     pipeline_map: &'static Res<'static, ShareAssetMgr<RenderRes<RenderPipeline>>>,
-//     shader_map: &'static Res<'static, ShareAssetMgr<RenderRes<Program>>>,
+//     pipeline_map: &'static SingleRes<'static, ShareAssetMgr<RenderRes<RenderPipeline>>>,
+//     shader_map: &'static SingleRes<'static, ShareAssetMgr<RenderRes<Program>>>,
 
-//     unit_quad_buffer: Res<'static, UnitQuadBuffer>,
-//     image_program_meta: OrInitRes<'static, ProgramMetaRes<ProgramMeta>>,
-//     vert_layout: OrInitRes<'static, PosUv1VertexLayout>,
-//     shader_info_catch: OrInitRes<'static, ShaderInfoCache>,
-//     device: &'static Res<'static, PiRenderDevice>,
-//     bind_group_assets: Res<'static, ShareAssetMgr<RenderRes<BindGroup>>>,
+//     unit_quad_buffer: SingleRes<'static, UnitQuadBuffer>,
+//     image_program_meta: OrInitSingleRes<'static, ProgramMetaRes<ProgramMeta>>,
+//     vert_layout: OrInitSingleRes<'static, PosUv1VertexLayout>,
+//     shader_info_catch: OrInitSingleRes<'static, ShaderInfoCache>,
+//     device: &'static SingleRes<'static, PiRenderDevice>,
+//     bind_group_assets: SingleRes<'static, ShareAssetMgr<RenderRes<BindGroup>>>,
 
 //     // mut copy_draw_obj: WriteRes<'static, CopyFboToScreen>,
-//     post_bind_group_layout: OrInitRes<'static, PostBindGroupLayout>,
-//     common_sampler: Res<'static, CommonSampler>,
+//     post_bind_group_layout: OrInitSingleRes<'static, PostBindGroupLayout>,
+//     common_sampler: SingleRes<'static, CommonSampler>,
 
-//     // render_target: Res<'static, RenderTarget>,
-//     // camera_bind_group: Res<'static, DynBindGroupIndex<CameraMatrixGroup>>,
-//     // post_bind_group: Res<'static, DynBindGroupIndex<UiMaterialGroup>>,
-//     // common_state: Res<'static, CommonPipelineState>,
-//     camera_group_alloter: OrInitRes<ShareGroupAlloter<CameraGroup>>,
-//     ui_meterial_group_alloter: OrInitRes<ShareGroupAlloter<UiMaterialGroup>>,
+//     // render_target: SingleRes<'static, RenderTarget>,
+//     // camera_bind_group: SingleRes<'static, DynBindGroupIndex<CameraMatrixGroup>>,
+//     // post_bind_group: SingleRes<'static, DynBindGroupIndex<UiMaterialGroup>>,
+//     // common_state: SingleRes<'static, CommonPipelineState>,
+//     camera_group_alloter: OrInitSingleRes<ShareGroupAlloter<CameraGroup>>,
+//     ui_meterial_group_alloter: OrInitSingleRes<ShareGroupAlloter<UiMaterialGroup>>,
 // 	image_render_type: RenderObjType,
-//     allocator: Res<'static, PiSafeAtlasAllocator>,
+//     allocator: SingleRes<'static, PiSafeAtlasAllocator>,
 
 //     mut query: Query<
 //         'static,
@@ -385,8 +385,8 @@ use crate::{
 pub fn calc_dyn_target_type(
     mut query: Query<(&Viewport, Option<&mut DynTargetType>, Entity), Changed<Viewport>>,
 
-    atlas_allocator: Res<PiSafeAtlasAllocator>,
-    mut max_view_size: ResMut<MaxViewSize>,
+    atlas_allocator: SingleRes<PiSafeAtlasAllocator>,
+    mut max_view_size: SingleResMut<MaxViewSize>,
 
     mut commands: Commands,
 ) {

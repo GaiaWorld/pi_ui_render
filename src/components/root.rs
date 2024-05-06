@@ -1,8 +1,8 @@
 //! 定义根节点相关的组件
 
-use bevy_ecs::prelude::Component;
 use pi_render::components::view::target_alloc::TargetType;
 use pi_style::style::{Aabb2, CgColor, Point2};
+use pi_world::prelude::Component;
 
 use super::{draw_obj::DrawState, pass_2d::DirtyRect};
 
@@ -22,11 +22,11 @@ impl Default for ClearColor {
     fn default() -> Self { Self(CgColor::new(0.0, 0.0, 0.0, 0.0), false) }
 }
 
-#[derive(Clone, Debug, Deref, Default, Component, Serialize, Deserialize)]
+#[derive(Clone, Debug, Deref, Default, Serialize, Deserialize, Component)]
 pub struct RenderDirty(pub bool);
 
 // /// 清屏颜色的bindgroup（用户设置）
-// #[derive(Component, Default)]
+// #[derive(Default)]
 // pub struct ClearColorBindGroup(pub Option<DrawBindGroup>); // meterial
 
 /// 渲染目标类型（有深度缓冲区和无深度缓冲区两种，rgba格式）
@@ -38,21 +38,21 @@ pub struct DynTargetType {
     pub no_depth: TargetType,
 }
 
-#[derive(Debug, Clone, Copy, EnumDefault, Component, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, EnumDefault, Serialize, Deserialize, PartialEq, Eq, Component)]
 pub enum RenderTargetType {
     Screen,
     OffScreen,
 }
 
 // 将需要渲染到屏幕的fbo渲染到屏幕
-#[derive(Component, Default)]
+#[derive(Default, Component)]
 pub struct CopyFboToScreen(pub Option<DrawState>);
 
-#[derive(Component, Default, Deref, Debug)]
+#[derive(Default, Deref, Debug, Component)]
 pub struct RootDirtyRect(pub DirtyRect);
 
 // /// 该根节点下需要渲染的元素
-// #[derive(Component, Default, Debug)]
+// #[derive(Default, Debug)]
 // pub struct RootInstance {
 //     // pub draw_list: Vec<DrawElement>, // 渲染元素
 //     /// 批处理是否需要调整

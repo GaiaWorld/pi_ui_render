@@ -5,8 +5,7 @@ mod text_split;
 // mod text_texture;
 mod text_sdf2;
 
-use bevy_ecs::prelude::Resource;
-use bevy_app::{Plugin, App};
+use pi_world::prelude::{Plugin, App, WorldPluginExtent};
 use pi_hal::font::font::FontType;
 use pi_render::font::{Size, FontSheet};
 
@@ -15,7 +14,7 @@ use self::text_sdf2::Sdf2TextPlugin;
 // use self::{text::calc_text, text_texture::calc_text_texture, text_sdf2::Sdf2TextPlugin};
 
 
-#[derive(Debug, Resource, Default)]
+#[derive(Debug, Default)]
 pub struct IsRun(pub bool);
 
 pub struct UiTextPlugin {
@@ -25,17 +24,17 @@ pub struct UiTextPlugin {
 impl Plugin for UiTextPlugin {
     fn build(&self, app: &mut App) {
 		// let font_sheet = ShareFontSheet::new(&mut app.world, self.font_type);
-        // app.insert_resource(font_sheet)
+        // app.insert_single_res(font_sheet)
         //     .add_frame_event::<ComponentEvent<Changed<NodeState>>>()
         //     .add_frame_event::<ComponentEvent<Changed<TextContent>>>()
         //     // 文字劈分
-        //     .add_systems(UiSchedule, text_split::text_split.before(calc_layout).in_set(UiSystemSet::Layout))
+        //     .add_system(UiStage, text_split::text_split.before(calc_layout).in_set(UiSystemSet::Layout))
         //     // 字形计算
-        //     .add_systems(UiSchedule, text_glyph::text_glyph.after(cal_matrix).before(calc_text).in_set(UiSystemSet::Matrix))
+        //     .add_system(UiStage, text_glyph::text_glyph.after(cal_matrix).before(calc_text).in_set(UiSystemSet::Matrix))
             // // 更新文字纹理
-            // .add_systems(UiSchedule, calc_text_texture.in_set(UiSystemSet::PrepareDrawObj))
+            // .add_system(UiStage, calc_text_texture.in_set(UiSystemSet::PrepareDrawObj))
 			// // 文字drawobj创建
-			// .add_systems(UiSchedule, 
+			// .add_system(UiStage, 
 			// 	draw_object_life::<
 			// 		TextContent,
 			// 		TextRenderObjType,
@@ -48,12 +47,12 @@ impl Plugin for UiTextPlugin {
             // 文字阴影
             // .add_plugins(UiTextShadowPlugin);
 		// match self.font_type {
-		// 	// FontType::Bitmap => app.add_systems(UiSchedule, 
+		// 	// FontType::Bitmap => app.add_system(UiStage, 
         //     //     calc_text
         //     //         .in_set(UiSystemSet::PrepareDrawObj)
         //     //         .after(calc_text_texture)
         //     // ),
-		// 	// FontType::Sdf1 => app.add_systems(UiSchedule, 
+		// 	// FontType::Sdf1 => app.add_system(UiStage, 
         //     //     calc_text
         //     //         .in_set(UiSystemSet::PrepareDrawObj)
         //     //         .after(calc_text_texture)

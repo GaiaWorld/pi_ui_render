@@ -1,18 +1,16 @@
 
+use std::ops::{Deref, DerefMut};
 use std::{sync::Arc, time::Instant};
 
-use bevy_ecs::prelude::{IntoSystemConfigs, Entity, SystemSet, Local};
-use bevy_app::prelude::{ App, Startup };
-// #[cfg(feature = "debug")]
-use bevy_ecs::prelude::{Commands, ResMut, World};
-use bevy_ecs::system::SystemState;
-
-use bevy_ecs::system::Resource;
+use pi_bevy_ecs_extend::system_param::res::OrInitSingleResMut;
+use pi_ui_render::resource::fragment::NodeTag;
+use pi_ui_render::resource::ShareFontSheet;
+use pi_world::prelude::{Entity, SystemSet, Local, App, SingleResMut, World, WorldPluginExtent, IntoSystemConfigs, First, Insert};
 use bevy_window::{Window, WindowResolution};
 
 use pi_async_rt::prelude::AsyncRuntime;
 use pi_bevy_asset::{AssetConfig, PiAssetPlugin};
-// use pi_bevy_ecs_extend::prelude::Root;
+// use pi_pi_world_extend::prelude::Root;
 use pi_bevy_post_process::PiPostProcessPlugin;
 use pi_bevy_render_plugin::{PiRenderPlugin, PiRenderOptions};
 use pi_flex_layout::prelude::Size;
@@ -23,7 +21,7 @@ use pi_ui_render::system::RunState;
 // use pi_ui_render::components::user::AsImage;
 // use pi_ui_render::system::draw_obj::calc_text::IsRun;
 use pi_ui_render::system::system_set::UiSystemSet;
-use pi_ui_render::{prelude::{UiPlugin, UiSchedule}, resource::UserCommands};
+use pi_ui_render::{prelude::{UiPlugin, UiStage}, resource::UserCommands};
 
 #[cfg(feature = "debug")]
 use pi_ui_render::system::cmd_play::{CmdNodeCreate, PlayState, Records};
@@ -31,13 +29,15 @@ use pi_winit::event::{Event, WindowEvent};
 use pi_winit::event_loop::{EventLoop, ControlFlow};
 #[cfg(target_arch = "wasm32")]
 use pi_async_rt::rt::serial_local_compatible_wasm_runtime::{LocalTaskRunner, LocalTaskRuntime};
+use pi_world::single_res::SingleRes;
+use pi_world::system_params::SystemParam;
 
 wasm_bindgen_test::wasm_bindgen_test_configure!(run_in_browser);
 
 pub trait Example: 'static + Sized {
     fn setting(&mut self, _app: &mut App) {}
-    fn init(&mut self, world: &mut World, size: (usize, usize));
-    fn render(&mut self, commands: &mut UserCommands, cmd1: &mut Commands);
+    fn init(&mut self, param: Param, size: (usize, usize));
+    fn render(&mut self, commands: &mut UserCommands);
 
     fn get_init_size(&self) -> Option<Size<u32>> {
         // None表示使用默认值
@@ -114,11 +114,9 @@ pub fn start<T: Example + Sync + Send + 'static>(example: T) {
     let exmple = Share::new(ShareMutex::new(example));
     let exmple1 = exmple.clone();
 
-    let exmple_run = move |world: &mut World, commands: &mut SystemState<(ResMut<UserCommands>, Commands)>| {
+    let exmple_run = move |mut commands: SingleResMut<UserCommands>| {
         // log::warn!("zzzzzzzzzzzzzzzzzzzzzzzzbbbbbb");
-        let mut commands = commands.get_mut(world);
-        exmple.lock().unwrap().render(&mut commands.0, &mut commands.1);
-		bevy_ecs::system::CommandQueue::default().apply(world);
+        exmple.lock().unwrap().render(&mut commands);
     };
 
 	let event_loop = EventLoop::new();
@@ -191,10 +189,10 @@ pub fn start<T: Example + Sync + Send + 'static>(example: T) {
 	// 	}));
 	// }
 
-    app.world.insert_resource(RunState::MATRIX);
+    app.world.insert_single_res(RunState::MATRIX);
 	#[cfg(feature = "debug")]
 	if let Some(play_option) = play_option {
-		app.world.insert_resource(play_option);
+		app.world.insert_single_res(play_option);
 	}
 
     #[cfg(feature = "debug")]
@@ -207,16 +205,16 @@ pub fn start<T: Example + Sync + Send + 'static>(example: T) {
     match record_option {
         pi_ui_render::system::cmd_play::TraceOption::None => (),
         pi_ui_render::system::cmd_play::TraceOption::Record => {
-            app.add_systems(UiSchedule, record_cmd_to_file.after(UiSystemSet::Setting));
+            app.add_system(UiStage, record_cmd_to_file.in_set(UiSystemSet::NextSetting));
         }
         pi_ui_render::system::cmd_play::TraceOption::Play => {
-            app.add_systems(UiSchedule, setting_next_record.before(UiSystemSet::Setting));
+            app.add_system(First, setting_next_record);
         }
     }
 
-    app.add_systems(UiSchedule, exmple_run.before(UiSystemSet::Setting).in_set(ExampleSet))
-        .add_systems(Startup, move |world: &mut World| {
-            exmple1.lock().unwrap().init(world, (width as usize, height as usize));
+    app.add_system(First, exmple_run)
+        .add_startup_system(First, move |param: Param| {
+            exmple1.lock().unwrap().init(param, (width as usize, height as usize));
         });
 
 	event_loop.run(move |event, _, control_flow| {
@@ -227,7 +225,7 @@ pub fn start<T: Example + Sync + Send + 'static>(example: T) {
             }
 			Event::RedrawRequested(_) => {
 				#[cfg(not(target_arch = "wasm32"))]
-                app.update();
+                app.run();
 
 				#[cfg(target_arch = "wasm32")] 
 				{
@@ -237,7 +235,7 @@ pub fn start<T: Example + Sync + Send + 'static>(example: T) {
 						rt.poll();
 						rt.run_once();
 					}
-					app.update();
+					app.run();
 				}
 				
             }
@@ -337,7 +335,7 @@ impl Default for PreFrameTime {
 fn main() {}
 
 pub fn init(width: u32, height: u32, _event_loop: &EventLoop<()>, w: Arc<pi_winit::window::Window>) -> App {
-    let mut app = App::default();
+    let mut app = App::new();
 
     // let event_loop =  EventLoopBuilder::new().with_any_thread(true).build();
     // let window = winit::window::Window::new(&event_loop).unwrap();
@@ -367,9 +365,9 @@ pub fn init(width: u32, height: u32, _event_loop: &EventLoop<()>, w: Arc<pi_wini
 	// o.present_mode = wgpu::PresentMode::Mailbox;
 	// o.backends = wgpu::Backends::VULKAN;
 
-	app.world.insert_resource(o);
+	app.world.insert_single_res(o);
 
-	// app.world.insert_resource(IsRun(true));
+	// app.world.insert_single_res(IsRun(true));
 
 	let filter = match std::env::var("RUST_LOG") {
 		Ok(r) => r,
@@ -392,7 +390,7 @@ pub fn init(width: u32, height: u32, _event_loop: &EventLoop<()>, w: Arc<pi_wini
         level: LOG_LEVEL.clone(),
 		chrome_write: None,
     })
-    .add_plugins(bevy_a11y::AccessibilityPlugin)
+    // .add_plugins(bevy_a11y::AccessibilityPlugin)
     // .add_plugins(bevy_input::InputPlugin::default())
     .add_plugins(window_plugin)
     // .add_plugins(WinitPlugin::default())
@@ -408,7 +406,7 @@ pub fn init(width: u32, height: u32, _event_loop: &EventLoop<()>, w: Arc<pi_wini
 	
 
 
-    // let h = app.world.get_resource_mut::<pi_bevy_log::LogFilterHandle>().unwrap();
+    // let h = app.world.get_single_res_mut::<pi_bevy_log::LogFilterHandle>().unwrap();
     // let default_filter = { format!("{},my_target=info", bevy_log::Level::WARN) };
     // let filter_layer = tracing_subscriber::EnvFilter::try_from_default_env()
     // 	.or_else(|_| tracing_subscriber::EnvFilter::try_new(&default_filter))
@@ -451,7 +449,7 @@ impl Default for NextState {
 
 // 将record写入文件
 #[cfg(feature = "debug")]
-pub fn record_cmd_to_file(mut records: ResMut<Records>) {
+pub fn record_cmd_to_file(mut records: SingleResMut<Records>) {
     use std::path::Path;
     if records.list.len() == 0 && records.run_state.len() == 0 {
         return;
@@ -474,7 +472,7 @@ pub fn setting_next_record(world: &mut World, mut local_state: Local<NextState>)
     if local_state.is_end {
         return;
     }
-	let play_option  = world.get_resource::<PlayOption>().unwrap().clone();
+	let play_option  = world.get_single_res::<PlayOption>().unwrap().clone();
     let local_state = &mut *local_state;
     setting(&mut local_state.file_index, world, &mut local_state.is_end, &play_option)
 }
@@ -485,7 +483,7 @@ fn setting(file_index1: &mut usize, world: &mut World, is_end: &mut bool, play_o
     use std::path::Path;
 
     let mut file_index = *file_index1;
-    let play_state = world.get_resource::<PlayState>();
+    let play_state = world.get_single_res::<PlayState>();
     if let Some(r) = play_state {
         if r.is_running {
             return;
@@ -494,7 +492,7 @@ fn setting(file_index1: &mut usize, world: &mut World, is_end: &mut bool, play_o
             if file_index > play_option.max_index {
                 if !*is_end {
                     log::warn!("play end, {:?}", path);
-                    // world.insert_resource(IsRun(true)); // 屏蔽所有节点运行
+                    // world.insert_single_res(IsRun(true)); // 屏蔽所有节点运行
                 }
                 *is_end = true;
                 return;
@@ -505,9 +503,9 @@ fn setting(file_index1: &mut usize, world: &mut World, is_end: &mut bool, play_o
                     match postcard::from_bytes::<Records>(&bin) {
                         Ok(r) => {
                             // log::warn!("r================{:?}", r);
-                            world.insert_resource(r);
+                            world.insert_single_res(r);
                             // 重设播放状态
-                            let mut play_state = world.get_resource_mut::<PlayState>().unwrap();
+                            let play_state = world.get_single_res_mut::<PlayState>().unwrap();
                             play_state.is_running = true;
                             play_state.next_reord_index = 0;
                             play_state.next_state_index = 0;
@@ -525,7 +523,7 @@ fn setting(file_index1: &mut usize, world: &mut World, is_end: &mut bool, play_o
                 Err(_) => {
                     if !*is_end {
                         log::warn!("play end, {:?}", path);
-						// world.insert_resource(IsRun(true)); // 屏蔽所有节点运行
+						// world.insert_single_res(IsRun(true)); // 屏蔽所有节点运行
                     }
                     *is_end = true;
                     return;
@@ -536,23 +534,43 @@ fn setting(file_index1: &mut usize, world: &mut World, is_end: &mut bool, play_o
     return;
 }
 
-#[allow(dead_code)]
-pub fn spawn(world: &mut World) -> Entity {
-    let r = world.spawn_empty().id();
-    #[cfg(feature = "debug")]
-    {
-        let creates = world.get_resource_mut::<CmdNodeCreate>();
-        if let Some(mut creates) = creates {
-            creates.0.push(r)
-        } else {
-            world.insert_resource(CmdNodeCreate(vec![r]));
-        }
-        // gui.node_cmd.0.push(entity);
-    }
-    r
+#[derive(SystemParam)]
+pub struct Param<'w> {
+    pub insert: Insert<'w, ()>,
+    pub creates: OrInitSingleResMut<'w, CmdNodeCreate>,
+    pub user_cmd: OrInitSingleResMut<'w, UserCommands>,
+    pub font_sheet: Option<SingleRes<'w, ShareFontSheet>>,
+    pub play_option: Option<SingleRes<'w, PlayOption>>,
 }
 
-#[derive(Resource, Clone, Debug)]
+impl Deref for Param<'_> {
+    type Target = UserCommands;
+
+    fn deref(&self) -> &Self::Target {
+        &**self.user_cmd
+    }
+}
+
+impl DerefMut for Param<'_> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut **self.user_cmd
+    }
+}
+
+impl Param<'_> {
+    pub fn spawn(&mut self) -> Entity {
+        let r = self.insert.insert(());
+        self.user_cmd.init_node(r, NodeTag::Div);
+        #[cfg(feature = "debug")]
+        {
+            self.creates.0.push(r);
+        }
+
+        r
+    }
+}
+
+#[derive(Clone, Debug)]
 pub struct PlayOption {
 	pub play_path: Option<String>,
 	pub play_version: String,
@@ -577,8 +595,8 @@ pub struct PlayOption {
 // pub const FILTER: &'static str = "wgpu=warn,pi_ui_render::system::pass::pass_graph_node=trace,pi_ui_render::system::pass_effect::radial_wave=trace,pi_ui_render::system::pass::pass_life=trace";
 // pub const FILTER: &'static str = "wgpu=warn,pi_ui_render::system::pass_effect::radial_wave=trace,pi_ui_render::system::pass::pass_life=trace,pi_ui_render::system::pass::update_graph=trace";
 // pi_bevy_render_plugin=error
-// pub const FILTER: &'static str = "wgpu=error,naga=warn,bevy_app=warn,bevy_ecs::schedule::executor::single_threaded=warn,bevy_ecs::system::commands=warn,pi_bevy_render_plugin=error";
+// pub const FILTER: &'static str = "wgpu=error,naga=warn,bevy_app=warn,pi_world::schedule::executor::single_threaded=warn,pi_world::system::commands=warn,pi_bevy_render_plugin=error";
 // pub const FILTER: &'static str = "wgpu=warn,naga=warn,pi_wgpu=warn,pi_ui_render::system::draw_obj::life_drawobj=trace,pi_ui_render::system::pass::pass_graph_node=trace";
 // pub const FILTER: &'static str = "";
 // pub const LOG_LEVEL: bevy_log::Level = bevy_log::Level::INFO;
-pub const LOG_LEVEL: bevy_log::Level = bevy_log::Level::INFO;
+pub const LOG_LEVEL: tracing::Level = tracing::Level::INFO;

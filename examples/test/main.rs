@@ -5,9 +5,8 @@ mod framework;
 
 use std::mem::swap;
 
-use bevy_ecs::system::Commands;
-use bevy_ecs::prelude::World;
-use framework::Example;
+
+use framework::{Param, Example};
 /// 渲染四边形 demo
 use pi_flex_layout::style::{Dimension, PositionType};
 use pi_null::Null;
@@ -18,8 +17,8 @@ use pi_style::{
 use pi_ui_render::{
     components::{
         calc::EntityKey,
-        user::{CgColor, ClearColor, Color, RenderDirty, Viewport},
-        NodeBundle,
+        user::{CgColor, ClearColor, Color, Viewport},
+
     },
     resource::{NodeCmd, UserCommands},
 };
@@ -32,12 +31,12 @@ pub struct QuadExample {
 }
 
 impl Example for QuadExample {
-    fn init(&mut self, world: &mut World, size: (usize, usize)) {
+    fn init(&mut self, mut world: Param, size: (usize, usize)) {
         // 设置清屏颜色为绿色
-        // gui.gui.world_mut().insert_resource(ClearColor(CgColor::new(0.0, 1.0, 1.0, 1.0)));
+        // gui.gui.world_mut().insert_single_res(ClearColor(CgColor::new(0.0, 1.0, 1.0, 1.0)));
 
         // 添加根节点
-        let root = world.spawn(NodeBundle::default()).id();
+        let root = world.spawn();
         self.cmd.push_cmd(NodeCmd(ClearColor(CgColor::new(1.0, 1.0, 1.0, 1.0), true), root));
         self.cmd.push_cmd(NodeCmd(
             Viewport(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(size.0 as f32, size.1 as f32))),
@@ -57,7 +56,7 @@ impl Example for QuadExample {
         self.cmd.append(root, EntityKey::null().0);
 
         // 添加一个玫红色div到根节点， 并添加overflow属性
-        let div1 = world.spawn(NodeBundle::default()).id();
+        let div1 = world.spawn();
         self.cmd.set_style(div1, WidthType(Dimension::Points(300.0)));
         self.cmd.set_style(div1, HeightType(Dimension::Points(300.0)));
         self.cmd
@@ -67,5 +66,5 @@ impl Example for QuadExample {
 
     }
 
-    fn render(&mut self, cmd: &mut UserCommands, _cmd1: &mut Commands) { swap(&mut self.cmd, cmd); }
+    fn render(&mut self, cmd: &mut UserCommands) { swap(&mut self.cmd, cmd); }
 }

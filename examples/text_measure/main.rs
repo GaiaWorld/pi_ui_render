@@ -6,13 +6,10 @@ mod framework;
 use std::time::Duration;
 
 use async_trait::async_trait;
-use bevy_ecs::prelude::{Commands, World};
+
 use font_kit::font::{new_face_by_path, new_face};
-use framework::Example;
-use ordered_float::NotNan;
+use framework::{Param, Example};
 use pi_atom::Atom;
-/// 渲染四边形 demo
-use pi_render::font::Font;
 use pi_ui_render::resource::{ShareFontSheet, UserCommands};
 use pi_async_rt::prelude::AsyncRuntime;
 
@@ -23,7 +20,7 @@ pub struct QuadExample;
 
 #[async_trait]
 impl Example for QuadExample {
-    fn init(&mut self, world: &mut World, _size: (usize, usize)) {
+    fn init(&mut self, mut world: Param, _size: (usize, usize)) {
         let mut dir = std::env::current_dir().unwrap();
         log::info!("dir: {:?}", dir);
         dir.push("examples\\text_measure\\source\\hwxw.ttf");
@@ -31,7 +28,7 @@ impl Example for QuadExample {
 		let buffer = std::fs::read(dir).unwrap();
 
 		let name = Atom::from("hwxw");
-		// let font_sheet = world.get_resource::<ShareFontSheet>().unwrap();
+		// let font_sheet = world.get_single_res::<ShareFontSheet>().unwrap();
 		// let mut font_sheet = font_sheet.borrow_mut();
 		// let font_id = font_sheet.font_id(Font::new(name.clone(), 30, 500, unsafe { NotNan::new_unchecked(0.0) }));
 			
@@ -115,7 +112,7 @@ impl Example for QuadExample {
         
     }
 
-    fn render(&mut self, _cmd: &mut UserCommands, _cmd1: &mut Commands) {
+    fn render(&mut self, _cmd: &mut UserCommands) {
         //swap(&mut self.cmd, cmd);
     }
 }

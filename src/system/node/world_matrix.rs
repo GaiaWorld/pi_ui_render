@@ -38,33 +38,27 @@
 //!
 //! 可以考虑： 当父矩阵计算完成后，父节点所有子节点所形成的子树，可以并行计算（他们依赖的父矩阵已经计算完毕）
 
-use bevy_ecs::prelude::{Entity, EventWriter};
-use bevy_ecs::query::{Changed, Or};
-use bevy_ecs::system::{ParamSet, Query, ResMut};
-use pi_bevy_ecs_extend::prelude::{Layer, LayerDirty, Up};
-use pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent;
-use pi_bevy_ecs_extend::system_param::res::OrInitRes;
+use pi_world::prelude::{Changed, ParamSet, Query, SingleResMut, Entity, With};
+use pi_bevy_ecs_extend::prelude::{OrInitSingleRes, Up, Layer, LayerDirty};
+
 use pi_map::Map;
 use pi_null::Null;
 use pi_style::style::Aabb2;
-use bevy_ecs::event::Event;
 
 use crate::components::calc::{EntityKey, LayoutResult, Quad, WorldMatrix};
-use crate::components::user::{Point2, Transform};
+use crate::components::user::{Point2, Size, Transform};
 use crate::resource::QuadTree;
 use crate::system::draw_obj::calc_text::IsRun;
 use crate::utils::tools::calc_bound_box;
 
 pub struct CalcMatrix;
 
-#[derive(Debug)]
-pub struct OldQuad {
-    pub entity: Entity,
-    pub root: Entity,
-    pub quad: Quad,
-}
-
-impl Event for OldQuad {}
+// #[derive(Debug)]
+// pub struct OldQuad {
+//     pub entity: Entity,
+//     pub root: Entity,
+//     pub quad: Quad,
+// }
 
 // fn print_parent(idtree: &EntityTree<Node>, id: Id<Node>) {
 //     let parent_id = idtree.get_up(id).map_or(Id::<Node>::null(), |up| up.parent());
@@ -77,16 +71,13 @@ impl Event for OldQuad {}
 /// 计算世界矩阵
 /// 世界矩阵以自身左上角为原点
 pub fn cal_matrix(
-    query: Query<(Option<&Transform>, &LayoutResult, &Up, &Layer)>,
+    query: Query<(Option<&Transform>, &LayoutResult, &Up)>,
     mut matrix_calc: ParamSet<(Query<(&LayoutResult, &WorldMatrix)>, Query<(&mut WorldMatrix, &mut Quad)>)>,
-    mut dirtys: LayerDirty<Or<(Changed<LayoutResult>, Changed<Layer>)>>,
-    transform_change: Query<Entity, Changed<Transform>>,
-    mut quad_tree: ResMut<QuadTree>,
-    mut event_writer: EventWriter<ComponentEvent<Changed<Quad>>>,
-    mut event_writer1: EventWriter<OldQuad>,
-	r: OrInitRes<IsRun>,
+    mut dirtys: LayerDirty<((Changed<LayoutResult>, Changed<Layer>, Changed<Transform>), With<Size>)>,
+    mut quad_tree: SingleResMut<QuadTree>,
+	r: OrInitSingleRes<IsRun>,
 	#[cfg(debug_assertions)]
-	debug_entity: OrInitRes<crate::resource::DebugEntity>
+	debug_entity: OrInitSingleRes<crate::resource::DebugEntity>
 ) {
 	if r.0 {
 		return;
@@ -94,9 +85,6 @@ pub fn cal_matrix(
 	// let count = dirtys.count();
 	// let time1 = pi_time::Instant::now();
     // transform修改，标记层脏(这里transform_change不直接在层脏中声明，是因为transform改变不会发送对应的事件)
-    for e in transform_change.iter() {
-        dirtys.mark(e);
-    }
 	// let time2 = pi_time::Instant::now();
 
     // let layer_dirty_count = dirtys.count();
@@ -109,7 +97,7 @@ pub fn cal_matrix(
 		// 	log::warn!("matrix time0========{:?}", pi_time::Instant::now() - time1);
 		// }
 		// let time1 = pi_time::Instant::now();
-        if let Ok((transform, layout, up, layer)) = query.get(id) {
+        if let Ok((transform, layout, up)) = query.get(id) {
             let parent_id = up.parent();
 
             let width = layout.rect.right - layout.rect.left;
@@ -129,7 +117,7 @@ pub fn cal_matrix(
                 }
                 r
             } else {
-                let p0 = matrix_calc.p0();
+                let p0 = &matrix_calc.p0();
                 // 否则
                 let (parent_layout, parent_world_matrix) = match p0.get(parent_id) {
                     Ok(r) => (&*r.0, &*r.1),
@@ -178,9 +166,6 @@ pub fn cal_matrix(
 						&matrix,
 						&mut quad,
 						&mut quad_tree,
-						&mut event_writer,
-						&mut event_writer1,
-						layer,
 					);
                    
 					#[cfg(debug_assertions)]
@@ -211,24 +196,21 @@ pub fn calc_quad(
     world_matrix: &WorldMatrix,
     quad: &mut Quad,
     quad_tree: &mut QuadTree,
-    event_writer: &mut EventWriter<ComponentEvent<Changed<Quad>>>,
-    event_writer1: &mut EventWriter<OldQuad>,
-    layer: &Layer,
 ) {
     let width = layout.rect.right - layout.rect.left;
     let height = layout.rect.bottom - layout.rect.top;
     let aabb = calc_bound_box(&Aabb2::new(Point2::new(0.0, 0.0), Point2::new(width, height)), world_matrix);
 
     let item = Quad::new(aabb);
-    // 在修改oct前，先发出一个删除事件，一些sys能够通过监听该事件知道在删除前，quad的值（如脏区域系统，需要了解oct在修改之前的值，来更新脏区域）
-    if let Some(r) = quad_tree.get(&EntityKey(id)) {
-        event_writer1.send(OldQuad {
-            entity: id,
-            quad: r.clone(),
-            root: layer.root(),
-        });
-    }
-    event_writer.send(ComponentEvent::new(id));
+    // // 在修改oct前，先发出一个删除事件，一些sys能够通过监听该事件知道在删除前，quad的值（如脏区域系统，需要了解oct在修改之前的值，来更新脏区域）
+    // if let Some(r) = quad_tree.get(&EntityKey(id)) {
+    //     event_writer1.send(OldQuad {
+    //         entity: id,
+    //         quad: r.clone(),
+    //         root: layer.root(),
+    //     });
+    // }
+    // event_writer.send(ComponentEvent::new(id));
 
     quad_tree.insert(EntityKey(id), item.clone());
     log::trace!(target: format!("entity_{:?}", id).as_str(), "calc_quad={:?}", item);
@@ -241,10 +223,10 @@ pub fn calc_quad(
 // #[cfg(test)]
 // pub mod test {
 
-//     use bevy_ecs::app::{App, CoreStage};
-//     use bevy_ecs::prelude::{Component, Entity, EventReader, EventWriter};
-//     use bevy_ecs::query::Changed;
-//     use bevy_ecs::system::{Commands, Query, Res, ResMut, Resource};
+//     use pi_world::app::{App, CoreStage};
+//     use pi_world::prelude::{Component, Entity, EventReader, EventWriter};
+//     use pi_world::query::Changed;
+//     use pi_world::system::{Commands, Query, SingleRes, SingleResMut, Resource};
 //     use pi_bevy_ecs_extend::prelude::{Down, EntityTreeMut, Layer, Up};
 //     use pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent;
 //     use pi_flex_layout::prelude::Rect;
@@ -270,11 +252,11 @@ pub fn calc_quad(
 //             .add_event::<ComponentEvent<Changed<Layer>>>()
 //             .add_event::<ComponentEvent<Changed<Quad>>>()
 //             .add_event::<Vec<Entity>>()
-//             .insert_resource(QuadTree::with_capacity(0))
-//             .insert_resource(AllEntitys(Vec::new()))
-//             .insert_resource(RootNode(root))
+//             .insert_single_res(QuadTree::with_capacity(0))
+//             .insert_single_res(AllEntitys(Vec::new()))
+//             .insert_single_res(RootNode(root))
 //             .add_startup_system(setup1)
-//             .add_systems(UiSchedule, init_tree)
+//             .add_system(UiStage, init_tree)
 //             .add_system_to_stage(CoreStage::PostUpdate, cal_matrix)
 //             .add_system_to_stage(CoreStage::Last, asset_matrix)
 //             .add_system_to_stage(CoreStage::Last, asset_quad)
@@ -289,7 +271,7 @@ pub fn calc_quad(
 //     #[derive(Resource, Deref)]
 //     pub struct AllEntitys(Vec<Entity>);
 
-//     fn setup1(mut command: Commands, mut events: EventWriter<Vec<Entity>>, root: Res<RootNode>) {
+//     fn setup1(mut command: Commands, mut events: EventWriter<Vec<Entity>>, root: SingleRes<RootNode>) {
 //         let mut entitys = Vec::new();
 //         let root = command
 //             .entity(root.0)
@@ -382,7 +364,7 @@ pub fn calc_quad(
 //     }
 
 //     /// 最后一个实体，添加一个缩放为0.5的Transform
-//     fn setup2(mut command: Commands, all_entitys: Res<AllEntitys>, mut event_writer: EventWriter<ComponentEvent<Changed<Transform>>>) {
+//     fn setup2(mut command: Commands, all_entitys: SingleRes<AllEntitys>, mut event_writer: EventWriter<ComponentEvent<Changed<Transform>>>) {
 //         let last_entity = all_entitys.0[all_entitys.0.len() - 1];
 //         let mut t = Transform::default();
 //         t.funcs.push(TransformFunc::Scale(0.5, 0.5));
@@ -404,7 +386,7 @@ pub fn calc_quad(
 //     pub struct AbsolutePosition(Rect<f32>);
 
 //     // 初始化，将所有节点以根节点作为父节点组织为树
-//     fn init_tree(root: Res<RootNode>, mut tree: EntityTreeMut, mut entitys: EventReader<Vec<Entity>>, mut all_entitys: ResMut<AllEntitys>) {
+//     fn init_tree(root: SingleRes<RootNode>, mut tree: EntityTreeMut, mut entitys: EventReader<Vec<Entity>>, mut all_entitys: SingleResMut<AllEntitys>) {
 //         let r = root.0;
 //         for list in entitys.iter() {
 //             all_entitys.0.extend_from_slice(list.as_slice());

@@ -2,15 +2,14 @@
 //! 1. 对overflow设置为true的节点，标记为渲染上下文（设置RenderContextMark中的位标记）
 //! 2.
 
-use bevy_ecs::prelude::{Entity, Query};
-use pi_bevy_ecs_extend::system_param::res::OrInitRes;
+use pi_world::prelude::{With, Query, Entity, Ticker};
+use pi_bevy_ecs_extend::prelude::{OrInitSingleRes, Layer, Root};
 
 use crate::system::draw_obj::calc_text::IsRun;
 use crate::{components::calc::OverflowDesc, resource::RenderContextMarkType};
 
 use crate::components::user::{AsImage, Overflow};
 
-use bevy_ecs::prelude::{DetectChanges, Ref, With};
 
 use crate::{
     components::{
@@ -22,7 +21,6 @@ use crate::{
     utils::tools::intersect_or_zero,
 };
 
-use pi_bevy_ecs_extend::prelude::{Layer, OrDefault, Root};
 use pi_postprocess::effect::CopyIntensity;
 
 
@@ -36,21 +34,18 @@ pub fn overflow_post_process(
     roots: Query<Entity, With<Root>>,
     mut pass_mut: Query<(&mut PostProcess, &mut PostProcessInfo, &mut View)>,
     pass_read: Query<(
-        &'static WorldMatrix,
-        &'static TransformWillChangeMatrix,
+        Ticker<&WorldMatrix>,
+        Ticker<&TransformWillChangeMatrix>,
         &'static LayoutResult,
         &'static Quad,
         &'static ContentBox,
         &'static ChildrenPass,
-        OrDefault<Overflow>,
-        Ref<WorldMatrix>,
-        Ref<TransformWillChangeMatrix>,
-        Option<Ref<Overflow>>,
-        Ref<Layer>,
+        Option<Ticker<&Overflow>>,
+        Ticker<&'static Layer>,
     )>,
-    mark_type: OrInitRes<RenderContextMarkType<Overflow>>,
-    as_image_mark_type: OrInitRes<RenderContextMarkType<AsImage>>,
-	r: OrInitRes<IsRun>
+    mark_type: OrInitSingleRes<RenderContextMarkType<Overflow>>,
+    as_image_mark_type: OrInitSingleRes<RenderContextMarkType<AsImage>>,
+	r: OrInitSingleRes<IsRun>
 ) {
 	if r.0 {
 		return;
@@ -93,17 +88,14 @@ fn recursive_cal_overflow(
     context_desc: &OverflowDesc,
     pass_mut: &mut Query<(&mut PostProcess, &mut PostProcessInfo, &mut View)>,
     pass_read: &Query<(
-        &'static WorldMatrix,
-        &'static TransformWillChangeMatrix,
+        Ticker<&WorldMatrix>,
+        Ticker<&TransformWillChangeMatrix>,
         &'static LayoutResult,
         &'static Quad,
         &'static ContentBox,
         &'static ChildrenPass,
-        OrDefault<Overflow>,
-        Ref<WorldMatrix>,
-        Ref<TransformWillChangeMatrix>,
-        Option<Ref<Overflow>>,
-        Ref<Layer>,
+        Option<Ticker<&Overflow>>,
+        Ticker<&'static Layer>,
     )>,
     mark_type: &RenderContextMarkType<Overflow>,
     as_image_mark_type: &RenderContextMarkType<AsImage>,
@@ -118,20 +110,18 @@ fn recursive_cal_overflow(
             content_box,
             children,
             overflow,
-            tracker_matrix,
-            tracker_willchange,
-            tracker_overflow,
-            tracker_layer,
+            layer,
         )),
     ) = (pass_mut.get_mut(id), pass_read.get(id))
     {
-        let overflow_is_change = match tracker_overflow {
-            Some(r) => r.is_changed(),
-            None => false,
+        let (overflow_is_change, overflow) = match overflow {
+            Some(r) => (r.is_changed(), **r),
+            None => (false, false),
         };
         let is_change =
-            parent_is_change || tracker_matrix.is_changed() || tracker_willchange.is_changed() || overflow_is_change || tracker_layer.is_changed();
+            parent_is_change || world_matrix.is_changed() || will_change.is_changed() || overflow_is_change || layer.is_changed();
 
+        let world_matrix = &*world_matrix;
         // log::warn!("is_change======{:?}, overflow: {:?}, entity: {:?}, \nparent_aabb: {:?}", is_change, overflow, entity, parent_aabb);
         if is_change {
             let matrix_temp;
@@ -144,7 +134,7 @@ fn recursive_cal_overflow(
             };
 
             //
-            if **overflow && matrix.1 {
+            if overflow && matrix.1 {
                 match &mut post_list.copy {
                     Some(_r) => {}
                     None => {
@@ -163,7 +153,7 @@ fn recursive_cal_overflow(
             // if **overflow { // || post_info.has_effect()
             if matrix.1 {
                 // 如果矩阵含有旋转变换
-                let (left, top, right, bottom) = if **overflow {
+                let (left, top, right, bottom) = if overflow {
                     // oveflow需要裁剪子节点到内容区域（注意，同时也将自身裁剪到内容区域，这与浏览器标准不符）
                     (
                         layout.border.left + layout.padding.left,
@@ -222,7 +212,7 @@ fn recursive_cal_overflow(
             } else {
                 let quad_temp;
 
-                let quad = if **overflow {
+                let quad = if overflow {
                     // 自身overflow为true，并且非旋转，overflow_aabb为父的aabb与本节点裁剪包围盒的交
                     // 裁剪包围盒为内容部分，而非oct部分
                     let (left, top) = (layout.border.left + layout.padding.left, layout.border.top + layout.padding.top);

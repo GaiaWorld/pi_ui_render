@@ -1,11 +1,9 @@
 //! 计算内容包围盒
 //! 内容包围盒是指： **自身+递归子节点**的包围盒
 
-use bevy_ecs::{prelude::EventWriter, query::Changed, system::Query};
-use pi_bevy_ecs_extend::{
-    prelude::{Down, Layer, LayerDirty, Up},
-    system_param::{layer_dirty::ComponentEvent, res::OrInitRes},
-};
+use pi_world::prelude::{Changed, Query};
+use pi_bevy_ecs_extend::prelude::{OrInitSingleRes, Up, Layer, LayerDirty, Down};
+
 use pi_null::Null;
 
 use crate::{
@@ -26,8 +24,7 @@ pub fn calc_content_box(
     up: Query<&Up>,
     layer: Query<&Layer>,
     mut content_box: Query<&mut ContentBox>,
-    mut event_writer: EventWriter<ComponentEvent<Changed<ContentBox>>>,
-	r: OrInitRes<IsRun>
+	r: OrInitSingleRes<IsRun>
 ) {
 	if r.0 {
 		return;
@@ -133,7 +130,6 @@ pub fn calc_content_box(
             if chilren_change {
                 old.oct = oct;
                 old.layout = layout;
-                event_writer.send(ComponentEvent::new(id));
                 if let Ok(up) = up.get(id) {
                     if !EntityKey(up.parent()).is_null() {
                         let layer = layer.get(id).unwrap();

@@ -6,10 +6,8 @@ mod framework;
 
 use std::mem::swap;
 
-use bevy_ecs::system::Commands;
-use bevy_ecs::prelude::World;
 use font_kit::font::new_face_by_path;
-use framework::Example;
+use framework::{Param, Example};
 use pi_atom::Atom;
 use pi_flex_layout::style::{Dimension, PositionType, OverflowWrap};
 use pi_null::Null;
@@ -17,7 +15,7 @@ use pi_ui_render::{
     components::{
         calc::EntityKey,
         user::{CgColor, ClearColor, Color, FontSize, RenderDirty, Viewport},
-        NodeBundle,
+
     },
     resource::{NodeCmd, UserCommands},
 };
@@ -38,7 +36,7 @@ pub struct QuadExample {
 }
 
 impl Example for QuadExample {
-    fn init(&mut self, world: &mut World, size: (usize, usize)) {
+    fn init(&mut self, mut world: Param, size: (usize, usize)) {
         let mut dir = std::env::current_dir().unwrap();
         log::info!("dir: {:?}", dir);
         dir.push("examples/text/source/hwkt.ttf");
@@ -46,7 +44,7 @@ impl Example for QuadExample {
         new_face_by_path("hwkt".to_string(), "examples/text/source/SOURCEHANSANSK-MEDIUM.TTF");
 
         // 添加根节点
-        let root = world.spawn(NodeBundle::default()).id();
+        let root = world.spawn();
         self.root = EntityKey(root);
         self.cmd.push_cmd(NodeCmd(ClearColor(CgColor::new(1.0, 1.0, 1.0, 1.0), true), root));
         self.cmd.push_cmd(NodeCmd(
@@ -70,7 +68,7 @@ impl Example for QuadExample {
         self.cmd.append(root, EntityKey::null().0);
 
         // 添加一个红色div
-        let div1 = world.spawn(NodeBundle::default()).id();
+        let div1 = world.spawn();
         self.cmd.set_style(div1, WidthType(Dimension::Points(50.0)));
         self.cmd.set_style(div1, HeightType(Dimension::Points(100.0)));
         self.cmd.set_style(div1, PositionTopType(Dimension::Points(20.0)));
@@ -87,7 +85,7 @@ impl Example for QuadExample {
         // 	color: CgColor::new(1.0, 0.0, 0.0, 1.0)}));
         self.cmd.append(div1, root);
 
-        let div2 = world.spawn(NodeBundle::default()).id();
+        let div2 = world.spawn();
         self.cmd.set_style(div2, WidthType(Dimension::Points(50.0)));
         self.cmd.set_style(div2, HeightType(Dimension::Points(100.0)));
         self.cmd
@@ -100,7 +98,7 @@ impl Example for QuadExample {
         // 	color: CgColor::new(1.0, 0.0, 0.0, 1.0)}));
         self.cmd.append(div2, root);
 
-		let div3 = world.spawn(NodeBundle::default()).id();
+		let div3 = world.spawn();
         self.cmd.set_style(div3, WidthType(Dimension::Points(150.0)));
         self.cmd.set_style(div3, HeightType(Dimension::Points(100.0)));
 		self.cmd.set_style(div3, PositionTopType(Dimension::Points(200.0)));
@@ -113,7 +111,7 @@ impl Example for QuadExample {
         self.cmd.set_style(div3, FontSizeType(FontSize::Length(17)));
         self.cmd.append(div3, root);
 
-		let div4 = world.spawn(NodeBundle::default()).id();
+		let div4 = world.spawn();
         self.cmd.set_style(div4, WidthType(Dimension::Points(250.0)));
         self.cmd.set_style(div4, HeightType(Dimension::Points(100.0)));
 		self.cmd.set_style(div4, PositionTopType(Dimension::Points(250.0)));
@@ -127,7 +125,7 @@ impl Example for QuadExample {
         self.cmd.append(div4, root);
 
 
-		let div4 = world.spawn(NodeBundle::default()).id();
+		let div4 = world.spawn();
         self.cmd.set_style(div4, WidthType(Dimension::Points(250.0)));
         self.cmd.set_style(div4, HeightType(Dimension::Points(100.0)));
 		self.cmd.set_style(div4, PositionTopType(Dimension::Points(250.0)));
@@ -140,7 +138,7 @@ impl Example for QuadExample {
         self.cmd.append(div4, root);
     }
 
-    fn render(&mut self, cmd: &mut UserCommands, _cmd1: &mut Commands) {
+    fn render(&mut self, cmd: &mut UserCommands) {
         self.cmd.push_cmd(NodeCmd(RenderDirty(true), self.root.0));
         swap(&mut self.cmd, cmd);
     }

@@ -3,7 +3,7 @@
 use std::io::Result;
 
 use pi_assets::asset::Asset;
-use pi_ecs::prelude::{Changed, Commands, EntityCommands, Id, Query, Res, Write, ResMut};
+use pi_ecs::prelude::{Changed, Commands, EntityCommands, Id, Query, SingleRes, Write, SingleResMut};
 use pi_ecs::prelude::{Deleted, ParamSet, With};
 use pi_ecs_macros::setup;
 use pi_render::graph::NodeId as GraphId;
@@ -69,10 +69,10 @@ impl CalcCanvas {
         mut is_unit_quad_commands: Commands<DrawObject, BoxType>,
 		mut graph_id_commands: Commands<DrawObject, GraphId>,
 
-        static_index: Res<'static, ImageStaticIndex>,
-        unit_quad_buffer: Res<'static, UnitQuadBuffer>,
-		mut dyn_uniform_buffer: ResMut<'static, DynUniformBuffer>,
-        image_material_bind_group: Res<'static, DynBindGroupIndex<UiMaterialGroup>>,
+        static_index: SingleRes<'static, ImageStaticIndex>,
+        unit_quad_buffer: SingleRes<'static, UnitQuadBuffer>,
+		mut dyn_uniform_buffer: SingleResMut<'static, DynUniformBuffer>,
+        image_material_bind_group: SingleRes<'static, DynBindGroupIndex<UiMaterialGroup>>,
     ) -> Result<()> {
         for (canvas, mut draw_index, mut render_list) in query.p1_mut().iter_mut() {
             // BackgroundColor不存在时，删除对应DrawObject

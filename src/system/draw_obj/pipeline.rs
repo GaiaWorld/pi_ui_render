@@ -3,18 +3,15 @@ use std::{
     sync::atomic::{AtomicUsize, Ordering},
 };
 
-use bevy_ecs::{
-    prelude::Entity,
-    query::Changed,
-    system::{Query, Res},
-};
+use pi_world::prelude::{Changed, SingleRes, Query, Entity};
+use pi_bevy_ecs_extend::prelude::OrInitSingleRes;
+
 use pi_assets::{
     asset::{GarbageEmpty, Handle},
     mgr::{AssetMgr, LoadResult, Receiver},
 };
 use pi_async_rt::prelude::{AsyncRuntime, AsyncRuntimeExt, AsyncVariableNonBlocking};
 use pi_bevy_asset::ShareAssetMgr;
-use pi_bevy_ecs_extend::system_param::res::OrInitRes;
 use pi_bevy_render_plugin::PiRenderDevice;
 use pi_hal::runtime::RENDER_RUNTIME;
 use pi_render::rhi::{asset::RenderRes, device::RenderDevice, pipeline::RenderPipeline};
@@ -32,28 +29,28 @@ use super::calc_text::IsRun;
 pub fn calc_node_pipeline(
     query_draw: Query<(Entity, &'static PipelineMeta), Changed<PipelineMeta>>,
     draw_state: Query<&'static mut DrawState>,
-    device: Res<PiRenderDevice>,
-    // state_map: Res<StateMap>,
+    device: SingleRes<PiRenderDevice>,
+    // state_map: SingleRes<StateMap>,
 
-    // shader_catch: Res<ShaderCatch>,
-    pipeline_map: Res<ShareAssetMgr<RenderRes<RenderPipeline>>>,
-    shader_map: Res<ShareAssetMgr<RenderRes<Program>>>,
-    // mut pipeline_map: ResMut<PipelineMap>,
-    // mut shader_map: ResMut<ShaderInfoMap>,
-	r: OrInitRes<IsRun>
+    // shader_catch: SingleRes<ShaderCatch>,
+    pipeline_map: SingleRes<ShareAssetMgr<RenderRes<RenderPipeline>>>,
+    shader_map: SingleRes<ShareAssetMgr<RenderRes<Program>>>,
+    // mut pipeline_map: SingleResMut<PipelineMap>,
+    // mut shader_map: SingleResMut<ShaderInfoMap>,
+	r: OrInitSingleRes<IsRun>
 ) {
 	if r.0 {
 		return;
 	}
-    let query_draw: Query<'static, 'static, (Entity, &'static PipelineMeta), Changed<PipelineMeta>> = unsafe { transmute(query_draw) };
-    let draw_state: Query<'static, 'static, &'static mut DrawState> = unsafe { transmute(draw_state) };
-    let device: Res<'static, PiRenderDevice> = unsafe { transmute(device) };
-    // let shader_statics: Res<'static,Shaders> = unsafe { transmute(shader_statics)};
-    // let state_map: Res<'static,StateMap> = unsafe { transmute(state_map)};
-    // let shader_catch: Res<'static,ShaderCatch> = unsafe { transmute(shader_catch)};
+    let query_draw: Query<'static, (Entity, &'static PipelineMeta), Changed<PipelineMeta>> = unsafe { transmute(query_draw) };
+    let draw_state: Query<'static, &'static mut DrawState> = unsafe { transmute(draw_state) };
+    let device: SingleRes<'static, PiRenderDevice> = unsafe { transmute(device) };
+    // let shader_statics: SingleRes<'static,Shaders> = unsafe { transmute(shader_statics)};
+    // let state_map: SingleRes<'static,StateMap> = unsafe { transmute(state_map)};
+    // let shader_catch: SingleRes<'static,ShaderCatch> = unsafe { transmute(shader_catch)};
 
-    let pipeline_map: Res<'static, ShareAssetMgr<RenderRes<RenderPipeline>>> = unsafe { transmute(pipeline_map) };
-    let shader_map: Res<'static, ShareAssetMgr<RenderRes<Program>>> = unsafe { transmute(shader_map) };
+    let pipeline_map: SingleRes<'static, ShareAssetMgr<RenderRes<RenderPipeline>>> = unsafe { transmute(pipeline_map) };
+    let shader_map: SingleRes<'static, ShareAssetMgr<RenderRes<Program>>> = unsafe { transmute(shader_map) };
 
     RENDER_RUNTIME
         .block_on(async move {
@@ -64,11 +61,11 @@ pub fn calc_node_pipeline(
 
 /// 计算DrawObj的pipeline
 pub async fn calc_node_pipeline1(
-    query_draw: Query<'static, 'static, (Entity, &'static PipelineMeta), Changed<PipelineMeta>>,
-    mut draw_state_query: Query<'static, 'static, &'static mut DrawState>,
-    device: Res<'static, PiRenderDevice>,
-    pipeline_map: Res<'static, ShareAssetMgr<RenderRes<RenderPipeline>>>,
-    shader_map: Res<'static, ShareAssetMgr<RenderRes<Program>>>,
+    query_draw: Query<'static, (Entity, &'static PipelineMeta), Changed<PipelineMeta>>,
+    mut draw_state_query: Query<'static, &'static mut DrawState>,
+    device: SingleRes<'static, PiRenderDevice>,
+    pipeline_map: SingleRes<'static, ShareAssetMgr<RenderRes<RenderPipeline>>>,
+    shader_map: SingleRes<'static, ShareAssetMgr<RenderRes<Program>>>,
 ) {
     let value = AsyncVariableNonBlocking::<(
         Vec<(Entity, Handle<RenderRes<RenderPipeline>>)>,

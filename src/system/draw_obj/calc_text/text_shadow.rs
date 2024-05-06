@@ -1,15 +1,15 @@
 use std::borrow::BorrowMut;
 
-use bevy_ecs::prelude::{DetectChanges, Ref};
-use bevy_ecs::query::{Changed, Or, With};
-use bevy_ecs::system::{Query, Res, SystemParam, SystemState, SystemChangeTick};
-use bevy_app::{Plugin, UiSchedule, App};
-use bevy_ecs::prelude::{Commands, Component, IntoSystemConfigs};
-use bevy_ecs::prelude::{Entity, EventReader, EventWriter, ParamSet, RemovedComponents, ResMut, Without, World};
+use pi_world::prelude::{DetectChanges, Ref};
+use pi_world::query::{Changed, Or, With};
+use pi_world::system::{Query, SingleRes, SystemParam, SystemState, SystemChangeTick};
+use pi_world::{Plugin, UiStage, App};
+use pi_world::prelude::{Commands, Component, IntoSystemConfigs};
+use pi_world::prelude::{Entity, EventReader, EventWriter, ParamSet, RemovedComponents, SingleResMut, Without, World};
 use pi_bevy_asset::ShareAssetMgr;
 use pi_bevy_ecs_extend::prelude::Layer;
 use pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent;
-use pi_bevy_ecs_extend::system_param::res::OrInitRes;
+use pi_bevy_ecs_extend::system_param::res::OrInitSingleRes;
 use pi_bevy_post_process::PostprocessResource;
 use pi_bevy_render_plugin::render_cross::GraphId;
 use pi_bevy_render_plugin::node::NodeId as GraphNodeId;
@@ -61,20 +61,21 @@ pub struct UiTextShadowPlugin;
 
 impl Plugin for UiTextShadowPlugin {
     fn build(&self, app: &mut App) {
-        app.add_frame_event::<ComponentEvent<Changed<TextShadow>>>()
-            .add_systems(UiSchedule, 
+        app
+            // .add_frame_event::<ComponentEvent<Changed<TextShadow>>>()
+            .add_system(UiStage, 
                 text_shadow_life
                     .in_set(UiSystemSet::LifeDrawObject)
                     .in_set(UiSystemSet::PassMark)
                     .before(cal_context),
             )
-            .add_systems(UiSchedule, 
+            .add_system(UiStage, 
                 calc_text_shadow
                     .in_set(UiSystemSet::PrepareDrawObj)
                     .in_set(UiSystemSet::PassSetting)
                     .after(calc_text)
             )
-            .add_systems(UiSchedule, calc_graph_depend.in_set(UiSystemSet::PassCalc).after(update_graph));
+            .add_system(UiStage, calc_graph_depend.in_set(UiSystemSet::PassCalc).after(update_graph));
     }
 }
 
@@ -92,7 +93,7 @@ pub fn text_shadow_life(
     // mut will_create_draws: Local<Vec<Entity>>, // drawObj的id
     // mut will_delete: Local<Vec<Entity>>,
     state: &mut SystemState<(
-        OrInitRes<TextShadowRenderObjType>,
+        OrInitSingleRes<TextShadowRenderObjType>,
         EventReader<ComponentEvent<Changed<TextShadow>>>,
         RemovedComponents<TextShadow>,
         ParamSet<(
@@ -101,21 +102,21 @@ pub fn text_shadow_life(
         )>,
         Query<&'static TextShadowMark>,
         (
-			OrInitRes<ProgramMetaRes<crate::shader::text::ProgramMeta>>,
-			OrInitRes<ProgramMetaRes<crate::shader::text_sdf::ProgramMeta>>,
-			Res<ShareFontSheet>,
+			OrInitSingleRes<ProgramMetaRes<crate::shader::text::ProgramMeta>>,
+			OrInitSingleRes<ProgramMetaRes<crate::shader::text_sdf::ProgramMeta>>,
+			SingleRes<ShareFontSheet>,
 			RemovedComponents<TextShadowMark>,
 		),
-        OrInitRes<PosUvColorVertexLayout>,
-        OrInitRes<ShaderInfoCache>,
-        (OrInitRes<ShareGroupAlloter<UiMaterialGroup>>, OrInitRes<ShareGroupAlloter<UiMaterialGroup, DynMark>>),
+        OrInitSingleRes<PosUvColorVertexLayout>,
+        OrInitSingleRes<ShaderInfoCache>,
+        (OrInitSingleRes<ShareGroupAlloter<UiMaterialGroup>>, OrInitSingleRes<ShareGroupAlloter<UiMaterialGroup, DynMark>>),
 		
-        ResMut<PiRenderGraph>,
+        SingleResMut<PiRenderGraph>,
         Query<&'static GraphId>,
-        OrInitRes<RenderContextMarkType<TextShadow>>,
+        OrInitSingleRes<RenderContextMarkType<TextShadow>>,
         EventWriter<ComponentEvent<Changed<RenderContextMark>>>,
         Commands,
-		OrInitRes<IsRun>,
+		OrInitSingleRes<IsRun>,
 		SystemChangeTick,
     )>,
 ) {
@@ -268,11 +269,11 @@ pub fn text_shadow_life(
 
 /// 设置文字阴影的顶点、索引、uv，和颜色的Uniform
 pub fn calc_text_shadow(
-    render_type: Res<TextRenderObjType>,
+    render_type: SingleRes<TextRenderObjType>,
     query: Query<
         (&NodeState, Ref<NodeState>, Ref<TextShadow>, Ref<WorldMatrix>, &DrawList, &TextStyle),
         // TextContent改变，NodeState必然改变; 存在NodeState， 也必然存在TextContent
-        (With<TextShadow>, Or<(Changed<NodeState>, Changed<TextShadow>)>),
+        (With<TextShadow>, (Changed<NodeState>, Changed<TextShadow>)),
     >,
 
     mut query_draw: Query<
@@ -289,11 +290,11 @@ pub fn calc_text_shadow(
     >,
     query_text_draw: Query<&DrawState, (With<TextMark>, Without<TextShadowMark>)>,
 
-    text_texture_group: OrInitRes<TextTextureGroup>,
+    text_texture_group: OrInitSingleRes<TextTextureGroup>,
 
-    font_sheet: ResMut<ShareFontSheet>,
-    empty_vert_buffer: Res<EmptyVertexBuffer>,
-	r: OrInitRes<IsRun>,
+    font_sheet: SingleResMut<ShareFontSheet>,
+    empty_vert_buffer: SingleRes<EmptyVertexBuffer>,
+	r: OrInitSingleRes<IsRun>,
 ) {
 	if r.0 {
 		return;
@@ -403,12 +404,12 @@ pub fn calc_text_shadow(
 
 // 建立图依赖
 pub fn calc_graph_depend(
-    render_type: Res<TextShadowRenderObjType>,
+    render_type: SingleRes<TextShadowRenderObjType>,
     pass_query: Query<(&ParentPassId, &GraphId), Without<TextShadowMark>>,
-    shadow_query: Query<(Entity, &DrawList), (With<TextShadow>, Or<(Changed<ParentPassId>, Changed<TextShadow>)>)>,
+    shadow_query: Query<(Entity, &DrawList), (With<TextShadow>, (Changed<ParentPassId>, Changed<TextShadow>))>,
     mut shadow_draw_query: Query<&mut GraphId, With<TextShadowMark>>,
-    mut rg: ResMut<PiRenderGraph>,
-	r: OrInitRes<IsRun>
+    mut rg: SingleResMut<PiRenderGraph>,
+	r: OrInitSingleRes<IsRun>
 ) {
 	if r.0 {
 		return;
@@ -442,14 +443,14 @@ pub fn calc_graph_depend(
 
 #[derive(SystemParam)]
 pub struct BuildParam<'w, 's> {
-	atlas_allocator: Res<'w, PiSafeAtlasAllocator>,
-	device: Res<'w, PiRenderDevice>,
-	queue: Res<'w, PiRenderQueue>,
+	atlas_allocator: SingleRes<'w, PiSafeAtlasAllocator>,
+	device: SingleRes<'w, PiRenderDevice>,
+	queue: SingleRes<'w, PiRenderQueue>,
 	post_process_query:  Query<'w, 's,( &'static mut PostProcess, &'static NodeId,)>,
 	camera_query: Query<'w, 's, (&'static Camera, &'static Layer)>,
 	query_root: Query<'w, 's, &'static DynTargetType>,
-	post_resource: Res<'w, PostprocessResource>,
-    pipline_assets: Res<'w, ShareAssetMgr<RenderRes<RenderPipeline>>>,
+	post_resource: SingleRes<'w, PostprocessResource>,
+    pipline_assets: SingleRes<'w, ShareAssetMgr<RenderRes<RenderPipeline>>>,
 }
 
 #[derive(SystemParam)]
@@ -465,8 +466,8 @@ pub struct QueryParam<'w, 's> {
 			&'static PostProcess,
 		)
     >,
-    clear_draw: Res<'w, ClearDrawObj>,
-    depth_cache: OrInitRes<'w, DepthCache>,
+    clear_draw: SingleRes<'w, ClearDrawObj>,
+    depth_cache: OrInitSingleRes<'w, DepthCache>,
 }
 
 /// 渲染图节点， 用于将文字做模糊处理（draw_front）
@@ -484,8 +485,8 @@ impl Node for TextShadowNode {
 	type BuildParam = BuildParam<'static, 'static>;
 	fn build<'a>(
 		&'a mut self,
-		world: &'a mut bevy_ecs::world::World,
-		query_param_state: &'a mut bevy_ecs::system::SystemState<Self::BuildParam>,
+		world: &'a mut pi_world::world::World,
+		query_param_state: &'a mut pi_world::system::SystemState<Self::BuildParam>,
 		_context: pi_bevy_render_plugin::RenderContext,
 		_input: &'a Self::Input,
 		_usage: &'a pi_bevy_render_plugin::node::ParamUsage,

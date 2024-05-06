@@ -2,13 +2,7 @@
 use pi_ecs::prelude::Query;
 use pi_ecs_macros::setup;
 
-use crate::{
-    components::{
-        pass_2d::{
-            Camera, Pass2D
-        },
-    },
-};
+use crate::components::pass_2d::{Camera, Pass2D};
 
 pub struct CalcRenderClear;
 
@@ -19,7 +13,7 @@ impl CalcRenderClear {
     pub fn calc_render<'a>(
         mut query_pass: Query<Pass2D, &mut Camera>,
         // render_dirty: Query<'a, 'a, Node, (&mut DirtyRect, &RenderDirty), With<DirtyRect>>,
-		// render_dirty_mark: Res<'a, RenderDirty>,
+		// render_dirty_mark: SingleRes<'a, RenderDirty>,
     ) {
         // 不脏，不需要组织渲染图， 也不需要渲染
 		// for (global_dirty_rect, render_dirty_mark) in render_dirty.iter_mut() {

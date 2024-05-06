@@ -7,7 +7,6 @@ use crate::resource::{
     draw_obj::{PipelineStateWithHash, ProgramMetaInner, VertexBufferLayoutWithHash},
     RenderObjType,
 };
-use bevy_ecs::prelude::Component;
 use pi_assets::asset::Handle;
 use pi_atom::Atom;
 use pi_hash::XHashSet;
@@ -20,11 +19,11 @@ pub use super::root::{CopyFboToScreen, DynTargetType};
 
 pub struct DrawObject;
 
-#[derive(Debug, Default, Component, Deref)]
+#[derive(Debug, Default, Deref)]
 pub struct DrawState(DrawState1);
 
 /// 是否使用单位四边形渲染
-#[derive(EnumDefault, PartialEq, Eq, Component, Debug)]
+#[derive(EnumDefault, PartialEq, Eq, Debug)]
 pub enum BoxType {
     /// 渲染为content区，顶点不是单位四边形，世界矩阵需要变换到原点为内容区左上角
     ContentRect,
@@ -48,7 +47,7 @@ pub enum BoxType {
 }
 
 // /// vs shader的宏开关
-// #[derive(Deref, Default, Debug, Clone, Component)]
+// #[derive(Deref, Default, Debug, Clone)]
 // pub struct VSDefines(pub XHashSet<Atom>);
 
 // impl Hash for VSDefines {
@@ -60,7 +59,7 @@ pub enum BoxType {
 // }
 
 // /// fs shader的宏开关
-// #[derive(Deref, Default, Debug, Clone, Component)]
+// #[derive(Deref, Default, Debug, Clone)]
 // pub struct FSDefines(pub XHashSet<Atom>);
 
 // impl Hash for FSDefines {
@@ -72,7 +71,7 @@ pub enum BoxType {
 // }
 
 
-// #[derive(Clone, Debug, PartialEq, Eq, Component, Default)]
+// #[derive(Clone, Debug, PartialEq, Eq, Default)]
 // pub struct StaticIndex {
 // 	pub shader: usize,
 // 	pub pipeline_state: DefaultKey,
@@ -80,10 +79,10 @@ pub enum BoxType {
 // 	pub name: &'static str,
 // }
 
-// #[derive(Clone, Component, Deref, Hash)]
+// #[derive(Clone, Deref, Hash)]
 // pub struct PipelineMeta(pub Share<ProgramMetaInner>);
 
-#[derive(Clone, Component)]
+#[derive(Clone)]
 pub struct PipelineMeta {
     // 类型标记（如文字、图片、颜色等，它们属于不同的类型，用一个数字代表每个不同的类型）
     // 可以通过该类型标记动态地映射到该类型特有的属性值
@@ -107,44 +106,44 @@ impl Hash for PipelineMeta {
 }
 
 // 标记背景颜色 放在DrawObject原型中，可以区分不同类型的DarwObject， 使得系统能够更好的并行
-#[derive(Debug, Component, Default)]
+#[derive(Debug, Default)]
 pub struct BackgroundColorMark;
 
 // 标记BorderShadow 放在DrawObject原型中，可以区分不同类型的DarwObject， 使得系统能够更好的并行
-#[derive(Debug, Component, Default)]
+#[derive(Debug, Default)]
 pub struct BoxShadowMark;
 
 // 标记背景图片 放在DrawObject原型中，可以区分不同类型的DarwObject， 使得系统能够更好的并行
-#[derive(Debug, Component, Default)]
+#[derive(Debug, Default)]
 pub struct BackgroundImageMark;
 
 // 标记文字 放在DrawObject原型中，可以区分不同类型的DarwObject， 使得系统能够更好的并行
-#[derive(Debug, Component, Default)]
+#[derive(Debug, Default)]
 pub struct TextMark;
 
 // 标记文字 放在DrawObject原型中，可以区分不同类型的DarwObject， 使得系统能够更好的并行
-#[derive(Debug, Component, Default)]
+#[derive(Debug, Default)]
 pub struct SvgMark;
 
 // 标记文字阴影 放在DrawObject原型中，可以区分不同类型的DarwObject， 使得系统能够更好的并行
 // TextShadowMark.0表示是第几个Shadow创建的DrawObj
-#[derive(Debug, Component, Default, Deref)]
+#[derive(Debug, Default, Deref)]
 pub struct TextShadowMark(pub usize);
 
 // 标记BorderColor 放在DrawObject原型中，可以区分不同类型的DarwObject， 使得系统能够更好的并行
-#[derive(Debug, Component, Default)]
+#[derive(Debug, Default)]
 pub struct BorderColorMark;
 
 // 标记BorderImage 放在DrawObject原型中，可以区分不同类型的DarwObject， 使得系统能够更好的并行
-#[derive(Debug, Component, Default)]
+#[derive(Debug, Default)]
 pub struct BorderImageMark;
 
 // 标记Canvas 放在DrawObject原型中，可以区分不同类型的DarwObject， 使得系统能够更好的并行
-#[derive(Debug, Component, Default)]
+#[derive(Debug, Default)]
 pub struct CanvasMark;
 
 // 实例索引(当只有一个实例时， InstanceIndex.0.start为该实例的属性， 当存在多个时，在从InstanceIndex.0范围内， 从InstanceIndex.0.start起， 每间隔一个实例长度，就是一个实例数据)
-#[derive(Debug, Component, Clone, Deref)]
+#[derive(Debug, Clone, Deref)]
 pub struct InstanceIndex(pub Range<usize>);
 
 impl Default for InstanceIndex {
@@ -154,7 +153,7 @@ impl Default for InstanceIndex {
 }
 
 // 渲染属性（像文字这类特殊的渲染， 每个字符都是一个实例渲染， 因此一个span可能存在多个渲染实例， 如果不存在该组件， 表示一个渲染实例， 否则用该组件描述渲染实例的数量）
-#[derive(Debug, Component, Clone)]
+#[derive(Debug, Clone)]
 pub struct RenderCount(pub u32);
 
 impl Default for RenderCount {
@@ -163,7 +162,7 @@ impl Default for RenderCount {
 	}
 }
 
-#[derive(Component, Default)]
+#[derive(Default)]
 pub struct FboInfo {
 	pub fbo: Option<ShareTargetView>, // canvas,后处理杰斯安都会分配fbo， 该fbo在渲染图build阶段产生
 	pub out: Option<ShareTargetView>, // canvas,后处理杰斯安都会分配fbo， 该fbo在渲染图build阶段产生
@@ -172,20 +171,20 @@ pub struct FboInfo {
 }
 
 // // 渲染标记(是什么类型的渲染， 如文字类型， 图片类型， 是否存在裁剪等等)
-// #[derive(Debug, Component, Default, Clone)]
+// #[derive(Debug, Default, Clone)]
 // pub struct RenderFlag(pub u32);
 
 /// 实例劈分方式
 /// DrawObj的组件：
 /// 1. 可能是因为存在纹理而劈分
 /// 2. 可能是因为pipeline不同而需要劈分
-#[derive(Debug, Component)]
+#[derive(Debug)]
 pub enum InstanceSplit {
 	ByTexture(Handle<AssetWithId<TextureRes>>),
 	ByCross(bool), // 交叉渲染， 表示该节点的渲染为一个外部系统的渲染， bool表示是否用运行图的方式渲染（如果是false，则为外部渲染为一个fbo，gui内部需要将其作为渲染对象渲染）
 }
 
-#[derive(Debug, Component, Deref)]
+#[derive(Debug, Deref)]
 pub struct Pipeline(pub Share<wgpu::RenderPipeline>);
 
 // DepthUniform

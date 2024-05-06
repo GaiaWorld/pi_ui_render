@@ -1,11 +1,12 @@
 use std::{any::Any, sync::Arc};
 
-use bevy_ecs::system::{Resource, Res};
+use pi_world::prelude::SingleRes;
+use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, OrInitSingleRes};
+
 use crossbeam::queue::SegQueue;
 use pi_assets::mgr::{AssetMgr, LoadResult};
 use pi_atom::Atom;
 use pi_bevy_asset::ShareAssetMgr;
-use pi_bevy_ecs_extend::system_param::res::{OrInitResMut, OrInitRes};
 use pi_bevy_render_plugin::{PiRenderDevice, PiRenderQueue, TextureKeyAlloter};
 use pi_hal::{runtime::RENDER_RUNTIME, loader::AsyncLoader};
 use pi_render::rhi::asset::{TextureRes, AssetWithId, TextureAssetDesc};
@@ -13,7 +14,7 @@ use pi_share::Share;
 use pi_async_rt::prelude::AsyncRuntime;
 
 
-#[derive(Clone, Resource)]
+#[derive(Clone)]
 pub struct ResSuccess {
 	pub async_list: Share<SegQueue<(Atom, Arc<dyn Any + Send + Sync + 'static>)>>,
 	pub sync_list: Vec<(Atom, Arc<dyn Any + Send + Sync + 'static>)>,
@@ -28,7 +29,7 @@ impl Default for ResSuccess {
 
 
 /// 资源列表（await_list为等待加载的列表）
-#[derive(Debug, Resource, Default)]
+#[derive(Debug, Default)]
 pub struct ResList {
 	pub await_list: Vec<Atom>,
 }
@@ -36,12 +37,12 @@ pub struct ResList {
 
 /// 加载资源， 加载成功后会发出成功事件
 pub fn load_res(
-	mut res_list: OrInitResMut<ResList>,
-	mut success_list: OrInitResMut<ResSuccess>,
-	queue: Res<PiRenderQueue>,
-    device: Res<PiRenderDevice>,
-	texture_assets_mgr: Res<ShareAssetMgr<AssetWithId<TextureRes>>>,
-	key_alloter: OrInitRes<TextureKeyAlloter>,
+	mut res_list: OrInitSingleResMut<ResList>,
+	mut success_list: OrInitSingleResMut<ResSuccess>,
+	queue: SingleRes<PiRenderQueue>,
+    device: SingleRes<PiRenderDevice>,
+	texture_assets_mgr: SingleRes<ShareAssetMgr<AssetWithId<TextureRes>>>,
+	key_alloter: OrInitSingleRes<TextureKeyAlloter>,
 ) {
 	
 	let ResList{await_list} = &mut **res_list;

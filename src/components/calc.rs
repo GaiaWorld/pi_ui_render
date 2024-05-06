@@ -1,6 +1,6 @@
 //! 定义计算组件（非用户设置的组件）
 
-use bevy_ecs::prelude::{Component, Entity};
+use pi_world::prelude::Entity;
 use pi_style::style::AllTransform;
 use smallvec::SmallVec;
 use std::hash::Hash;
@@ -27,7 +27,7 @@ pub use super::root::RootDirtyRect;
 pub use super::user::{NodeState, StyleType};
 
 /// 布局结果
-#[derive(Clone, Debug, PartialEq, Deserialize, Serialize, Component)]
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub struct LayoutResult {
     pub rect: Rect<f32>,
     pub border: Rect<f32>,
@@ -128,7 +128,7 @@ impl LayoutResult {
 }
 
 /// 内容最大包围盒范围(所有递归子节点的包围盒的最大范围，不包含自身)
-#[derive(Clone, Debug, Serialize, Deserialize, Component)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ContentBox {
     // 内容包围盒（自身+递归子节点的并）(不包含阴影的扩展)
     pub oct: Aabb2,
@@ -146,11 +146,11 @@ impl Default for ContentBox {
 }
 
 // ZIndex计算结果， 按照节点的ZIndex分配的一个全局唯一的深度表示
-#[derive(Default, Deref, Clone, PartialEq, Eq, Hash, Debug, Component, Serialize, Deserialize)]
+#[derive(Default, Deref, Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
 pub struct ZRange(pub std::ops::Range<usize>);
 
 /// 渲染顺序
-#[derive(Default, Deref, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Copy, Component)]
+#[derive(Default, Deref, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Copy)]
 pub struct DrawInfo(pub u32);
 
 impl DrawInfo {
@@ -187,7 +187,7 @@ impl DrawInfo {
 }
 
 // 世界矩阵，  WorldMatrix(矩阵, 矩阵描述的变换是存在旋转变换)， 如果不存在旋转变换， 可以简化矩阵的乘法
-#[derive(Debug, Clone, Serialize, Deserialize, Component)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorldMatrix(pub Matrix4<f32>, pub bool);
 
 impl Hash for WorldMatrix {
@@ -431,7 +431,7 @@ impl WorldMatrix {
 }
 
 // #[storage = ]
-#[derive(Clone, Debug, Component, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 // #[storage(QuadTree)]
 pub struct Quad(pub Aabb2);
 
@@ -453,7 +453,7 @@ impl DerefMut for Quad {
     fn deref_mut(&mut self) -> &mut Self::Target { &mut self.0 }
 }
 
-#[derive(Debug, Component, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct IsShow(usize);
 
 // impl Default for IsShow {
@@ -499,7 +499,7 @@ impl IsShow {
 }
 
 // 样式标记
-#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, Component)]
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
 pub struct StyleMark {
     pub local_style: StyleMarkType, // 本地样式， 表示节点样式中，哪些样式是由style设置的（而非class设置）
     pub class_style: StyleMarkType, // class样式， 表示节点样式中，哪些样式是由class设置的
@@ -510,7 +510,7 @@ pub type StyleMarkType = BitArray<[u32; 4]>;
 
 /// 标记渲染context中需要的效果， 如Blur、Opacity、Hsi、MasImage等
 /// 此数据结构仅记录位标记，具体哪些属性用哪一位来标记，这里并不关心，由逻辑保证
-#[derive(Clone, Debug, Default, Deref, Serialize, Deserialize, Component)]
+#[derive(Clone, Debug, Default, Deref, Serialize, Deserialize)]
 pub struct RenderContextMark(bitvec::prelude::BitArray<[u32; 1]>);
 
 pub trait NeedMark {
@@ -556,7 +556,7 @@ pub trait NeedMark {
 // pub struct TextChars(Vec<CharNode>);
 
 // TransformWillChange的矩阵计算结果， 用于优化Transform的频繁改变
-#[derive(Debug, Clone, Default, Deref, Component)]
+#[derive(Debug, Clone, Default, Deref)]
 pub struct TransformWillChangeMatrix(pub Option<Share<TransformWillChangeMatrixInner>>);
 
 impl TransformWillChangeMatrix {
@@ -576,7 +576,7 @@ pub struct TransformWillChangeMatrixInner {
     pub primitive: WorldMatrix,   // = Parent1.WillChangeTransform * Parent2.WillChangeTransform * ... * this.WillChangeTransform
 }
 
-#[derive(Debug, Clone, Default, Component)]
+#[derive(Debug, Clone, Default)]
 pub struct MaskTexture (pub Option<Handle<AssetWithId<TextureRes>>>);
 
 impl Null for MaskTexture {
@@ -619,37 +619,46 @@ pub struct EntityKey(pub Entity);
 impl Key for EntityKey {
     fn data(&self) -> pi_slotmap::KeyData {
         // (u64::from(self.version.get()) << 32) | u64::from(self.idx)
-
-        pi_slotmap::KeyData::from_ffi((u64::from(self.0.generation()) << 32) | u64::from(self.0.index()))
+        self.0.data()
+        // pi_slotmap::KeyData::from_ffi((u64::from(self.0.generation()) << 32) | u64::from(self.0.index()))
     }
 
 	fn index(&self) -> usize {
 		self.0.index() as usize
 	}
 
-    fn with(idx: usize) -> Self { Self(Entity::from_raw(idx as u32)) }
+    fn with(idx: usize) -> Self {
+        Self(Entity::with(idx))
+        // Self(Entity::from_raw(idx as u32))
+    }
 }
 
 impl From<pi_slotmap::KeyData> for EntityKey {
-    fn from(value: pi_slotmap::KeyData) -> Self { Self(Entity::from_bits(value.as_ffi())) }
+    fn from(value: pi_slotmap::KeyData) -> Self { 
+        Self(Entity::from(value))
+    }
 }
 
 impl Default for EntityKey {
-    fn default() -> Self { Self(Entity::from_bits(u64::null())) }
+    fn default() -> Self { 
+        Self(Entity::null())
+    }
 }
 
 impl Null for EntityKey {
-    fn null() -> Self { Self(Entity::from_bits(u64::null())) }
+    fn null() -> Self { 
+        Self(Entity::null())
+    }
 
-    fn is_null(&self) -> bool { self.0.to_bits().is_null() }
+    fn is_null(&self) -> bool { self.0.is_null() }
 }
 
 // /// 上下文的实体ID，作为Node的组件，关联由其创建的渲染上下文
-// #[derive(Deref, Default, Debug, Hash, Clone, Copy, Component)]
+// #[derive(Deref, Default, Debug, Hash, Clone, Copy)]
 // pub struct Pass2DId(pub EntityKey);
 
 /// 作为Node的组件，表示节点所在的渲染上下文的实体
-#[derive(Clone, Copy, Deref, Default, PartialEq, Eq, Debug, Hash, Component, Serialize, Deserialize)]
+#[derive(Clone, Copy, Deref, Default, PartialEq, Eq, Debug, Hash, Serialize, Deserialize)]
 pub struct InPassId(pub EntityKey);
 
 
@@ -699,11 +708,11 @@ pub enum FlexStyleType {
 }
 
 /// 节点的实体id，作为RenderContext的组件，引用创建该渲染上下文的节点
-#[derive(Deref, Debug, Clone, Copy, Hash, Default, Component)]
+#[derive(Deref, Debug, Clone, Copy, Hash, Default)]
 pub struct NodeId(pub EntityKey);
 
 /// 每节点的渲染列表
-#[derive(Deref, Default, Debug, Component, Clone, Serialize, Deserialize)]
+#[derive(Deref, Default, Debug, Clone, Serialize, Deserialize)]
 pub struct DrawList(pub SmallVec<[DrawObjId; 1]>); // 通常只会有一个DrawObject
 
 impl DrawList {
@@ -734,7 +743,7 @@ impl DrawList {
 }
 
 /// 节点上握住DrawObj的id
-#[derive(Debug, Component, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DrawObjId {
     pub ty: RenderObjType,
     pub id: Entity,
@@ -742,7 +751,7 @@ pub struct DrawObjId {
 
 /// 视图
 /// 每个Pass2d都必须存在一个视图
-#[derive(Clone, Default, Debug, Component)]
+#[derive(Clone, Default, Debug)]
 pub struct View {
     /// 为some时，节点山下文渲染需要新的视口，否则应该继承父节点的视口
     pub view_box: ViewBox,
@@ -799,7 +808,7 @@ impl Default for OverflowDesc {
 
 /// BorderImageTexture.0只有在设置了图片路径，但纹理还未加载成功的情况下，才会为none
 /// 如果删除了图片路径，会删除该组件
-#[derive(Deref, Component, Default)]
+#[derive(Deref, Default)]
 pub struct BorderImageTexture(pub Option<Handle<AssetWithId<TextureRes>>>);
 
 impl PartialEq for BorderImageTexture {
@@ -829,7 +838,7 @@ impl Null for BorderImageTexture {
 
 /// BackgroundImageTexture.0只有在设置了图片路径，但纹理还未加载成功的情况下，才会为none
 /// 如果删除了图片路径，会删除该组件
-#[derive(Deref, Component, Default)]
+#[derive(Deref, Default)]
 pub struct BackgroundImageTexture(pub Option<Handle<AssetWithId<TextureRes>>>);
 
 impl PartialEq for BackgroundImageTexture {

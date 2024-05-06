@@ -28,33 +28,32 @@ use pi_time::Instant;
 use pi_hal::font::sdf_table::FontCfg;
 
 // use pi_ecs::prelude::{FromWorld, Id, World};
-use bevy_ecs::prelude::{Entity, FromWorld, Resource, World};
-use bevy_ecs::system::{Command, CommandQueue};
+use pi_world::prelude::{Entity, FromWorld, World, Command, CommandQueue};
 
 use crate::components::calc::{EntityKey, Quad, StyleMarkType};
 use crate::components::user::serialize::StyleAttr;
 use crate::components::user::{AsImage, ClipPath, MaskImage, Point2, RenderDirty, RenderTargetType, Vector2, Viewport};
 use pi_spatial::quad_helper::QuadTree as QuadTree1;
 // use crate::utils::cmd::{CommandQueue, Command, DataQuery};
-// use bevy_ecs::prelude::{CommandQueue, Commands, World};
+// use pi_world::prelude::{CommandQueue, Commands, World};
 use crate::components::user::ClassName;
 
 use self::draw_obj::{CommonBlendState, DrawObjDefault};
 use self::fragment::NodeTag;
 
-#[derive(Default, Deref, Resource, Serialize, Deserialize)]
+#[derive(Default, Deref, Serialize, Deserialize)]
 pub struct GlobalDirtyType(pub StyleMarkType);
 
-#[derive(Default, Deref, Resource, Serialize, Deserialize)]
+#[derive(Default, Deref, Serialize, Deserialize)]
 pub struct ClassSheet(pi_style::style_type::ClassSheet);
 
 /// 用户指令缓冲区
-#[derive(Default, Resource)]
+#[derive(Default)]
 pub struct UserCommandsCache(pub UserCommands);
 
 /// 用户指令
 
-#[derive(Default, Resource)]
+#[derive(Default)]
 pub struct UserCommands {
     /// 节点指令
     pub node_commands: Vec<NodeCommand>,
@@ -78,6 +77,10 @@ pub struct UserCommands {
 
 	pub version: usize,
 }
+
+/// 节点变动标记（不一定是节点变动，主要用于判断实例数据是否应该重新组织）
+#[derive(Default, Debug, Deref)]
+pub struct NodeChanged(pub bool);
 
 impl UserCommands {
 	// 初始化节点
@@ -116,7 +119,7 @@ impl UserCommands {
     /// 设置节点样式
     pub fn set_style<T: Attr>(&mut self, entity: Entity, value: T) -> &mut Self {
         // out_any!(log::debug, "set_style, entity: {:?}, value: {:?}", entity, &value);
-        pi_print_any::out_any!(log::trace, "set_style, entity: {:?}, {:?}, value: {:?}", entity, unsafe {transmute::<_, f64>(entity.to_bits())}, &value);
+        pi_print_any::out_any!(log::trace, "set_style, entity: {:?}, {:?}, value: {:?}", entity, unsafe {transmute::<_, f64>(entity)}, &value);
         let start = self.style_commands.style_buffer.len();
         unsafe { StyleAttr::write(value, &mut self.style_commands.style_buffer) };
         if let Some(r) = self.style_commands.commands.last_mut() {
@@ -328,7 +331,7 @@ pub struct StyleCommands {
 pub struct DefaultStyle;
 
 // 需要进行后处理的上下文标记
-#[derive(Clone, Debug, Default, Deref, Serialize, Deserialize, Resource)]
+#[derive(Clone, Debug, Default, Deref, Serialize, Deserialize)]
 pub struct EffectRenderContextMark(bitvec::prelude::BitArray<[u32; 1]>);
 
 pub trait Effect {}
@@ -337,11 +340,11 @@ impl Effect for ClipPath {}
 impl Effect for AsImage {}
 
 /// 渲染上下文标记分配器，每一种可以使节点成为渲染上下文的属性，都可以让全局单例RenderContextMarkAlloc分配一个id
-#[derive(Debug, Default, Deref, Resource)]
+#[derive(Debug, Default, Deref)]
 pub struct RenderContextMarkAlloc(usize);
 
 /// 渲染上下文类型，每一种可以使节点成为渲染上下文的属性，都对应一个RenderContextMarkType，类型值是在初始化时，找RenderContextMarkAlloc分配的。
-#[derive(Debug, Deref, Clone, Resource)]
+#[derive(Debug, Deref, Clone)]
 pub struct RenderContextMarkType<T> {
     #[deref]
     value: usize,
@@ -350,11 +353,11 @@ pub struct RenderContextMarkType<T> {
 
 impl<T> FromWorld for RenderContextMarkType<T> {
     default fn from_world(world: &mut World) -> Self {
-        let mut cur_mark_index = match world.get_resource_mut::<RenderContextMarkAlloc>() {
+        let cur_mark_index = match world.get_single_res_mut::<RenderContextMarkAlloc>() {
             Some(r) => r,
             None => {
-                world.insert_resource(RenderContextMarkAlloc::default());
-                world.get_resource_mut::<RenderContextMarkAlloc>().unwrap()
+                world.insert_single_res(RenderContextMarkAlloc::default());
+                world.get_single_res_mut::<RenderContextMarkAlloc>().unwrap()
             }
         };
         **cur_mark_index += 1;
@@ -367,19 +370,19 @@ impl<T> FromWorld for RenderContextMarkType<T> {
 
 impl<T: Effect> FromWorld for RenderContextMarkType<T> {
     fn from_world(world: &mut World) -> Self {
-        world.init_resource::<EffectRenderContextMark>();
-        let mut cur_mark_index = match world.get_resource_mut::<RenderContextMarkAlloc>() {
+        world.init_single_res::<EffectRenderContextMark>();
+        let cur_mark_index = match world.get_single_res_mut::<RenderContextMarkAlloc>() {
             Some(r) => r,
             None => {
-                world.insert_resource(RenderContextMarkAlloc::default());
-                world.get_resource_mut::<RenderContextMarkAlloc>().unwrap()
+                world.insert_single_res(RenderContextMarkAlloc::default());
+                world.get_single_res_mut::<RenderContextMarkAlloc>().unwrap()
             }
         };
 
         **cur_mark_index += 1;
         let index = **cur_mark_index;
         // 标记效果类型
-        let mut effect_mark = world.get_resource_mut::<EffectRenderContextMark>().unwrap();
+        let effect_mark = world.get_single_res_mut::<EffectRenderContextMark>().unwrap();
         effect_mark.set(index, true);
 
         Self {
@@ -389,7 +392,7 @@ impl<T: Effect> FromWorld for RenderContextMarkType<T> {
     }
 }
 
-#[derive(Debug, Default, Deref, Resource)]
+#[derive(Debug, Default, Deref)]
 pub struct RenderObjTypeAlloc(usize);
 
 /// 渲染类型分配器
@@ -398,11 +401,11 @@ pub struct RenderObjType(usize);
 
 impl FromWorld for RenderObjType {
     fn from_world(world: &mut World) -> Self {
-        let mut cur_mark_index = match world.get_resource_mut::<RenderObjTypeAlloc>() {
+        let cur_mark_index = match world.get_single_res_mut::<RenderObjTypeAlloc>() {
             Some(r) => r,
             None => {
-                world.insert_resource(RenderObjTypeAlloc::default());
-                world.get_resource_mut::<RenderObjTypeAlloc>().unwrap()
+                world.insert_single_res(RenderObjTypeAlloc::default());
+                world.get_single_res_mut::<RenderObjTypeAlloc>().unwrap()
             }
         };
         **cur_mark_index += 1;
@@ -412,11 +415,11 @@ impl FromWorld for RenderObjType {
 
 
 // /// 是否不向下收集DrawList(一些PassBundle是由于DrawObj的需要，比如TextShadow)
-// #[derive(Clone, Debug, Default, Deref, Serialize, Deserialize, Resource)]
+// #[derive(Clone, Debug, Default, Deref, Serialize, Deserialize)]
 // pub struct NotDrawListMark(bitvec::prelude::BitArray);
 
 // 文字渲染类型（在DrawList中分配槽位）
-#[derive(Debug, Deref, Clone, Copy, Resource)]
+#[derive(Debug, Deref, Clone, Copy)]
 pub struct TextRenderObjType(RenderObjType);
 impl FromWorld for TextRenderObjType {
     fn from_world(world: &mut World) -> Self {
@@ -433,7 +436,7 @@ impl FromWorld for TextRenderObjType {
 }
 
 // 文字渲染类型（在DrawList中分配槽位）
-#[derive(Debug, Deref, Clone, Copy, Resource)]
+#[derive(Debug, Deref, Clone, Copy)]
 pub struct SvgRenderObjType(RenderObjType);
 impl FromWorld for SvgRenderObjType {
     fn from_world(world: &mut World) -> Self {
@@ -450,7 +453,7 @@ impl FromWorld for SvgRenderObjType {
 }
 
 // 文字阴影渲染类型（在DrawList中分配槽位）
-#[derive(Debug, Deref, Clone, Copy, Resource)]
+#[derive(Debug, Deref, Clone, Copy)]
 pub struct TextShadowRenderObjType(RenderObjType);
 impl FromWorld for TextShadowRenderObjType {
     fn from_world(world: &mut World) -> Self {
@@ -468,7 +471,7 @@ impl FromWorld for TextShadowRenderObjType {
 
 
 // 背景颜色渲染类型（在DrawList中分配槽位）
-#[derive(Debug, Deref, Clone, Copy, Resource)]
+#[derive(Debug, Deref, Clone, Copy)]
 pub struct BackgroundColorRenderObjType(RenderObjType);
 impl FromWorld for BackgroundColorRenderObjType {
     fn from_world(world: &mut World) -> Self {
@@ -485,7 +488,7 @@ impl FromWorld for BackgroundColorRenderObjType {
 }
 
 // 边框颜色渲染类型（在DrawList中分配槽位）
-#[derive(Debug, Deref, Clone, Copy, Resource)]
+#[derive(Debug, Deref, Clone, Copy)]
 pub struct BorderColorRenderObjType(RenderObjType);
 impl FromWorld for BorderColorRenderObjType {
     fn from_world(world: &mut World) -> Self {
@@ -503,7 +506,7 @@ impl FromWorld for BorderColorRenderObjType {
 
 
 // 背景图片渲染类型（在DrawList中分配槽位）
-#[derive(Debug, Deref, Clone, Copy, Resource)]
+#[derive(Debug, Deref, Clone, Copy)]
 pub struct BackgroundImageRenderObjType(RenderObjType);
 impl FromWorld for BackgroundImageRenderObjType {
     fn from_world(world: &mut World) -> Self {
@@ -520,7 +523,7 @@ impl FromWorld for BackgroundImageRenderObjType {
 }
 
 // 边框图片渲染类型（在DrawList中分配槽位）
-#[derive(Debug, Deref, Clone, Copy, Resource)]
+#[derive(Debug, Deref, Clone, Copy)]
 pub struct BorderImageRenderObjType(RenderObjType);
 impl FromWorld for BorderImageRenderObjType {
     fn from_world(world: &mut World) -> Self {
@@ -537,7 +540,7 @@ impl FromWorld for BorderImageRenderObjType {
 }
 
 // 阴影渲染类型（在DrawList中分配槽位）
-#[derive(Debug, Deref, Clone, Copy, Resource)]
+#[derive(Debug, Deref, Clone, Copy)]
 pub struct BoxShadowRenderObjType(RenderObjType);
 impl FromWorld for BoxShadowRenderObjType {
     fn from_world(world: &mut World) -> Self {
@@ -554,7 +557,7 @@ impl FromWorld for BoxShadowRenderObjType {
 }
 
 // canvas渲染类型（在DrawList中分配槽位）
-#[derive(Debug, Deref, Clone, Copy, Resource)]
+#[derive(Debug, Deref, Clone, Copy)]
 pub struct CanvasRenderObjType(RenderObjType);
 impl FromWorld for CanvasRenderObjType {
     fn from_world(world: &mut World) -> Self {
@@ -571,7 +574,7 @@ impl FromWorld for CanvasRenderObjType {
 }
 
 // 当前时间
-#[derive(Clone, Debug, Resource)]
+#[derive(Clone, Debug)]
 pub struct TimeInfo {
     pub cur_time: Instant,
     pub delta: u64,
@@ -587,7 +590,7 @@ impl Default for TimeInfo {
 }
 
 
-#[derive(Deref, Resource)]
+#[derive(Deref)]
 pub struct QuadTree(QuadTree1<EntityKey, ()>);
 
 impl Default for QuadTree {
@@ -633,7 +636,7 @@ impl Map for QuadTree {
 
 // 用于debug的节点， 如果不为空， 则运行过程中会打印该节点的各种信息
 #[cfg(debug_assertions)]
-#[derive(Deref, Clone, Debug, Resource)]
+#[derive(Deref, Clone, Debug)]
 pub struct DebugEntity(pub EntityKey);
 
 #[cfg(debug_assertions)]
@@ -653,7 +656,7 @@ impl IndexMut<EntityKey> for QuadTree {
     fn index_mut(&mut self, index: EntityKey) -> &mut Self::Output { unsafe { self.get_unchecked_mut(&index) } }
 }
 
-#[derive(Deref, Resource)]
+#[derive(Deref)]
 pub struct ShareFontSheet(pub Share<ShareCell<FontSheet>>);
 
 #[cfg(target_arch = "wasm32")]
@@ -663,9 +666,9 @@ unsafe impl Sync for ShareFontSheet {}
 
 // impl FromWorld for ShareFontSheet {
 //     fn from_world(world: &mut World) -> Self {
-//         let texture_res_mgr = world.get_resource::<ShareAssetMgr<TextureRes>>().unwrap();
-//         let device = world.get_resource::<PiRenderDevice>().unwrap();
-// 		let queue = world.get_resource::<PiRenderQueue>().unwrap();
+//         let texture_res_mgr = world.get_single_res::<ShareAssetMgr<TextureRes>>().unwrap();
+//         let device = world.get_single_res::<PiRenderDevice>().unwrap();
+// 		let queue = world.get_single_res::<PiRenderQueue>().unwrap();
 // 		let limits = device.limits();
 //         ShareFontSheet(Share::new(ShareCell::new(FontSheet::new(&device.0, &texture_res_mgr.0, &queue.0, limits.max_texture_dimension_2d, false))))
 //     }
@@ -673,17 +676,17 @@ unsafe impl Sync for ShareFontSheet {}
 
 impl ShareFontSheet {
     pub fn new(world: &mut World, font_type: FontType) -> Self {
-		world.init_resource::<TextureKeyAlloter>();
-        let texture_res_mgr = world.get_resource::<ShareAssetMgr<AssetWithId<TextureRes>>>().unwrap();
-		let alloter = world.get_resource::<TextureKeyAlloter>().unwrap();
+		world.init_single_res::<TextureKeyAlloter>();
+        let texture_res_mgr = world.get_single_res::<ShareAssetMgr<AssetWithId<TextureRes>>>().unwrap();
+		let alloter = world.get_single_res::<TextureKeyAlloter>().unwrap();
 		
-        let device = world.get_resource::<PiRenderDevice>().unwrap();
-		let queue = world.get_resource::<PiRenderQueue>().unwrap();
+        let device = world.get_single_res::<PiRenderDevice>().unwrap();
+		let queue = world.get_single_res::<PiRenderQueue>().unwrap();
 		let limits = device.limits();
         ShareFontSheet(Share::new(ShareCell::new(FontSheet::new(&device.0, &texture_res_mgr.0, alloter.0.clone(),&queue.0, limits.max_texture_dimension_2d, font_type))))
     }
 }
 
 /// 建立PassId和GraphNodeId的映射
-#[derive(Deref, Resource, Default)]
+#[derive(Deref, Default)]
 pub struct PassGraphMap(pub SecondaryMap<GraphNodeId, Entity>);

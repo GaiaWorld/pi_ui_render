@@ -2,85 +2,84 @@
 //! 而用户设置的style， 既可以影响start， 也可以影响end，
 //! transation分为两步处理， 在usersetting之后和动画插值前的处理阶段(阶段1)、和动画插值后的阶段（阶段2）
 //! 阶段1： 
-//! 	* 属性脏，需要记录属性为start或end（如果属性是被删除了， 则需要删除对应的插值曲线， 并重置start和wnd）
+//! 	* 属性脏，需要将属性记录为start或end（如果属性是被删除了， 则需要删除对应的插值曲线， 并重置start和wnd）
 //! 	* transition_is_change脏， 或属性脏, 如果记录后，既存在start， 也存在end， 则需要重新绑定插值曲线
 //! 阶段2：
-//! 	* 属性脏，则记录属性在start上
+//! 	* 属性脏，则将属性记录在start上
 //! 
 //! 
 //! 优化？（TODO）： 动画正在运行的节点，设置RuningForTransition组件， 在节点2中只遍历有RuningForTransition组件的节点
 
 use std::mem::transmute;
 
-use bevy_app::{Plugin, App};
-use bevy_ecs::{
-    prelude::{Entity, World},
-    system::{Local, Query, ResMut, SystemState}, event::EventReader, change_detection::{DetectChanges, DetectChangesMut}, schedule::IntoSystemConfigs,
-};
-use pi_bevy_ecs_extend::system_param::res::OrInitRes;
+use pi_world::prelude::{App, ParamSet, Query, SingleResMut, Entity, Plugin, IntoSystemConfigs, Ticker};
+use pi_bevy_ecs_extend::prelude::OrInitSingleRes;
+
 use pi_null::Null;
 use pi_style::style::StyleType;
 use smallvec::SmallVec;
 
 use crate::{
     components::{calc::{style_bit, StyleBit, StyleMark, StyleMarkType}, user::{
-        serialize::{Setting, StyleAttr, StyleQuery}, Transition,
+        serialize::{DefaultStyle, Setting, StyleAttr, StyleQuery}, Transition,
     }},
-    resource::animation_sheet::{KeyFramesSheet, ObjKey, TransitionData}, system::{draw_obj::calc_text::IsRun, system_set::UiSystemSet},
+    resource::animation_sheet::{KeyFramesSheet, TransitionData}, system::{draw_obj::calc_text::IsRun, system_set::UiSystemSet},
 };
 
-use crate::system::node::user_setting::StyleChange;
-use crate::prelude::UiSchedule;
-
-use super::animation::calc_animation;
+use crate::prelude::UiStage;
 
 pub struct TransitionPlugin;
 
 impl Plugin for TransitionPlugin {
     fn build(&self, app: &mut App) {
 		app
-			.add_systems(UiSchedule, transition_1.in_set(UiSystemSet::NextSetting).before(calc_animation))
-			.add_systems(UiSchedule, transition_2.in_set(UiSystemSet::NextSetting).after(calc_animation))
+			.add_system(UiStage, transition_1.in_set(UiSystemSet::NextSetting)
+				// .before(calc_animation)
+			)
+			.add_system(UiStage, transition_2.in_set(UiSystemSet::NextSetting)
+				// .after(calc_animation)
+			)
 		;
 	}
 }
 
-// // 一个标记
-// // 节点存在Transition时，该节点如果有正在运行的动画
-// pub struct RuningForTransition;
-
-/// 处理transition(阶段1)
+/// 处理transition(阶段1, 在usersetting之后运行， 在animation之前运行)
 pub fn transition_1(
+	mut query: ParamSet<(
+        StyleQuery,
+        Query<(&mut Transition, &StyleMark, Entity)>,
+        // Query<(Has<&'static Animation>, Entity), Removed<Animation>>,
+    )>,
+	mut keyframes_sheet: SingleResMut<KeyFramesSheet>,
+	is_run: OrInitSingleRes<IsRun>,
+	mut default_style: DefaultStyle,
+	// world: &mut World,
+    // param: &mut SystemState<(EventReader<StyleChange>, Query<(&mut Transition, &StyleMark, Entity)>, SingleResMut<KeyFramesSheet>, OrInitSingleRes<IsRun>)>,
 
-	world: &mut World,
-    param: &mut SystemState<(EventReader<StyleChange>, Query<(&mut Transition, &StyleMark, Entity)>, ResMut<KeyFramesSheet>, OrInitRes<IsRun>)>,
-
-    style_query: Local<StyleQuery>,
+    // style_query: Local<StyleQuery>,
 ) {
-	let (dirty_list, query, mut keyframes_sheet, is_run) = param.get_mut(world);
-
 	if is_run.0 {
 		return
 	}
-	// 如果当前帧什么也不脏， 则不需要处理
-	if dirty_list.len() == 0 {
-		return
-	}
+	// // 如果当前帧什么也不脏， 则不需要处理 TODO()
+	// if dirty_list.len() == 0 {
+	// 	return
+	// }
 	log::debug!("transition_1======");
 
 	// 取style的StyleQuery会和此查询冲突， 因此用非安全方法绕过借用问题
 	// 但逻辑保证了安全性
 	let keyframes_sheet: &'static mut KeyFramesSheet = unsafe{transmute(&mut *keyframes_sheet)};
-	let mut query: Query<'static, 'static, (&mut Transition, &StyleMark, Entity)> = unsafe{transmute(query)};
+	let query1:  &'static mut Query<'static, (Ticker<&mut Transition>, &StyleMark, Entity)> = unsafe{transmute(&mut query.p1())};
 
-	let mut setting = Setting { style: &style_query, world };
+	let mut setting = Setting { style: &mut query.p0(), default_value: &mut default_style};
 	
-	for (mut transition, style_mark, entity) in query.iter_mut() {
+	for (mut transition, style_mark, entity) in query1.iter_mut() {
 		let transition_is_change = transition.is_changed();
 		let transition = transition.bypass_change_detection();
 		// transition如果改变， 则删除原有binding， 重新计算需绑定的属性
 		if transition_is_change {
-			keyframes_sheet.unbind_transition_all(ObjKey(entity));
+			keyframes_sheet.unbind_transition_all(entity);
 
 			transition.mark.fill(false);
 			transition.is_all = std::usize::MAX;
@@ -140,7 +139,7 @@ pub fn transition_1(
 							None => {
 								data.start = None;
 								data.end = None;
-								keyframes_sheet.unbind_transition_single(property, ObjKey(entity));
+								keyframes_sheet.unbind_transition_single(property, entity);
 								continue;
 							},
 						};
@@ -154,7 +153,7 @@ pub fn transition_1(
 						// 由于修改了end，需要重新binding transition
 						// transition将从当前start重新过度到end
 						let _ = keyframes_sheet.bind_trasition(
-							ObjKey(entity), 
+							entity, 
 							property, 
 							Transition::get_attr(i, &transition.duration), 
 							Transition::get_attr(i, &transition.delay), 
@@ -202,7 +201,7 @@ pub fn transition_1(
 							None => {
 								data.start = None;
 								data.end = None;
-								keyframes_sheet.unbind_transition_single(property, ObjKey(entity));
+								keyframes_sheet.unbind_transition_single(property, entity);
 								continue;
 							},
 						};
@@ -216,7 +215,7 @@ pub fn transition_1(
 						// 由于修改了end，需要重新binding transition
 						// transition将从当前start重新过度到end
 						let _ = keyframes_sheet.bind_trasition(
-							ObjKey(entity), 
+							entity, 
 							property, 
 							Transition::get_attr(transition.is_all, &transition.duration), 
 							Transition::get_attr(transition.is_all, &transition.delay), 
@@ -234,30 +233,39 @@ pub fn transition_1(
 
 /// 处理transition(阶段2)
 pub fn transition_2(
+	mut query: ParamSet<(
+        StyleQuery,
+        Query<(&mut Transition, &StyleMark, Entity)>,
+        // Query<(Has<&'static Animation>, Entity), Removed<Animation>>,
+    )>,
+	is_run: OrInitSingleRes<IsRun>,
+	mut default_style: DefaultStyle,
 
-	world: &mut World,
-    param: &mut SystemState<(EventReader<StyleChange>, Query<(&mut Transition, &StyleMark, Entity)>, OrInitRes<IsRun>)>,
+	// world: &mut World,
+    // param: &mut SystemState<(EventReader<StyleChange>, Query<(&mut Transition, &StyleMark, Entity)>, OrInitSingleRes<IsRun>)>,
 
-    style_query: Local<StyleQuery>,
+    // style_query: Local<StyleQuery>,
 ) {
-	let (dirty_list, query, is_run) = param.get_mut(world);
+	// let (dirty_list, query, is_run) = param.get_mut(world);
 
 	if is_run.0 {
 		return
 	}
-	// 如果当前帧什么也不脏， 则不需要处理
-	if dirty_list.len() == 0 {
-		return
-	}
+	// 如果当前帧什么也不脏， 则不需要处理（TODO）
+	// if dirty_list.len() == 0 {
+	// 	return
+	// }
 
 	log::debug!("transition_2======");
 	// 取style的StyleQuery会和此查询冲突， 因此用非安全方法绕过借用问题
 	// 但逻辑保证了安全性
-	let mut query: Query<'static, 'static, (&mut Transition, &StyleMark, Entity)> = unsafe{transmute(query)};
-
-	let mut setting = Setting { style: &style_query, world };
+	let query1: &'static mut Query<'static, (&mut Transition, &StyleMark, Entity)> = unsafe{transmute(query.p1())};
 	
-	for (mut transition, style_mark, entity) in query.iter_mut() {
+	// 安全： 不能真正的把Setting看做静态， 这里仅仅是因为下面的逻辑只会对Setting进行读， 且不会操作Setting中的transition组件
+	//        而接下来的迭代同时需要transition的写，和setting的读（setting中含有transition的写），因此使用非安全方法绕过生命周期问题，由逻辑保证安全
+	let mut setting: Setting<'static, 'static, 'static> =  unsafe { transmute(Setting { style: query.p0(), default_value: &mut default_style })};
+	
+	for (mut transition, style_mark, entity) in query1.iter_mut() {
 		let transition = transition.bypass_change_detection();
 		
 		// 属性脏，需要记录属性为start或end（如果属性是被删除了， 则需要删除对应的插值曲线， 并重置start和wnd）

@@ -1,9 +1,5 @@
-use bevy_ecs::{
-	prelude::RemovedComponents, query::Changed, system::Query,
-    prelude::{Added, Or, ParamSet, IntoSystemConfigs},
-};
-use bevy_app::{Plugin, App};
-use pi_bevy_ecs_extend::system_param::res::OrInitRes;
+use pi_world::prelude::{Changed, Query, Plugin, IntoSystemConfigs, Has, Removed, ParamSet, App};
+use pi_bevy_ecs_extend::prelude::OrInitSingleRes;
 
 use crate::{
     components::{
@@ -17,7 +13,7 @@ use crate::{
 };
 
 use crate::{components::pass_2d::PostProcess, system::pass::pass_life};
-use crate::prelude::UiSchedule;
+use crate::prelude::UiStage;
 
 /// 水波纹效果插件
 pub struct RadialWavePlugin;
@@ -26,11 +22,11 @@ impl Plugin for RadialWavePlugin {
     fn build(&self, app: &mut App) {
         app
             // 标记有RadialWave组件的节点为渲染上下文
-            .add_systems(UiSchedule, 
+            .add_system(UiStage, 
                 pass_life::pass_mark::<RadialWave>
-                    .before(pass_life::cal_context).in_set(UiSystemSet::PassMark)
+                    // .before(pass_life::cal_context).in_set(UiSystemSet::PassMark)
             )
-            .add_systems(UiSchedule, 
+            .add_system(UiStage, 
                 radial_wave_post_process
                     .in_set(UiSystemSet::PassSetting)
             );
@@ -41,24 +37,24 @@ impl Plugin for RadialWavePlugin {
 /// 如果RadialWave删除， 设置PostProcessList的radial_wave属性为None
 /// 如果RadialWave修改， 设置PostProcessList的radial_wave属性为对应值
 pub fn radial_wave_post_process(
-    mut del: RemovedComponents<RadialWave>,
-    mark_type: OrInitRes<RenderContextMarkType<RadialWave>>,
+    mark_type: OrInitSingleRes<RenderContextMarkType<RadialWave>>,
     mut query: ParamSet<(
-        Query<(&RadialWave, &mut PostProcess, &mut PostProcessInfo), Or<(Changed<RadialWave>, Added<PostProcess>)>>,
-        Query<(&mut PostProcess, &mut PostProcessInfo)>,
+        Query<(&RadialWave, &mut PostProcess, &mut PostProcessInfo), Changed<RadialWave>>,
+        Query<(&mut PostProcess, &mut PostProcessInfo, Has<RadialWave>), Removed<RadialWave>>,
     )>,
-	r: OrInitRes<IsRun>
+	r: OrInitSingleRes<IsRun>
 ) {
 	if r.0 {
 		return;
 	}
     // RadialWave 如果删除， 取消RadialWave的后处理
-    let mut p1 = query.p1();
-    for del in del.iter() {
-        if let Ok((mut post_list, mut post_info)) = p1.get_mut(del) {
-            post_info.effect_mark.set(***mark_type, false);
-			post_list.radial_wave = None;
+    let p1 = query.p1();
+    for (mut post_list, mut post_info, has_radial_wave) in p1.iter_mut() {
+        if has_radial_wave {
+            continue;
         }
+        post_info.effect_mark.set(***mark_type, false);
+        post_list.radial_wave = None;
     }
 
 	// RadialWave 如果修改，添加上下文标记， 并设置后处理

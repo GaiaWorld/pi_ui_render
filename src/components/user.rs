@@ -1,16 +1,15 @@
 //！ 定义用户设置的组件
 
-use std::marker::PhantomData;
 use std::mem::{transmute, forget};
 use std::ptr::read_unaligned;
 use std::{collections::VecDeque, fmt::Debug};
 
-use bevy_ecs::event::Event;
-use bevy_ecs::prelude::{Changed, Component, DetectChangesMut, Entity};
+// use pi_world::event::Event;
+use pi_world::prelude::{Entity, Alter, Query, SystemParam, ParamSetElement, Component};
 use bitvec::prelude::BitArray;
+use pi_ui_render_macros::enum_type;
 use ordered_float::NotNan;
 use pi_atom::Atom;
-use pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent;
 use pi_flex_layout::prelude::INode;
 pub use pi_flex_layout::prelude::{Dimension, Number, Rect, Size as FlexSize};
 use pi_flex_layout::style::{AlignContent, AlignItems, AlignSelf, Direction, Display, FlexDirection, FlexWrap, JustifyContent, PositionType, OverflowWrap};
@@ -32,7 +31,6 @@ use pi_style::{
     style_type::ClassMeta,
 };
 
-use crate::resource::Shape;
 use crate::resource::animation_sheet::TransitionData;
 
 use super::calc::{NeedMark, EntityKey, StyleMarkType};
@@ -65,12 +63,12 @@ pub type Vector4 = nalgebra::Vector4<f32>;
 //     pub weight: f32,
 // }
 
-#[derive(Deref, Clone, Debug, Event)]
-pub struct ComponentRemove<T: Component> {
-	#[deref]
-	pub id: Entity,
-	mark: PhantomData<T>,
-}
+// #[derive(Deref, Clone, Debug, Event)]
+// pub struct ComponentRemove<T: Component> {
+// 	#[deref]
+// 	pub id: Entity,
+// 	mark: PhantomData<T>,
+// }
 
 #[derive(Deref, Clone, Debug, Component)]
 pub struct RadialWave(pub pi_postprocess::prelude::RadialWave);
@@ -86,12 +84,12 @@ impl NeedMark for RadialWave {
     }
 }
 
-#[derive(Deref, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize, Debug, Component)]
-#[component(storage = "SparseSet")]
+#[derive(Deref, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize, Debug)]
+// #[component(storage = "SparseSet")]
 pub struct ZIndex(pub isize);
 
 /// 当post_process不为null时， 节点需要通过post_process对应的图节点进行处理，输出结果再渲染到gui上(注意，当前节点问根节点时，设置post_process，将不能把结果再渲染回gui)
-#[derive(Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize, Debug, Component)]
+#[derive(Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize, Debug)]
 pub struct AsImage {
 	pub level: AsImage1, 
 	pub post_process: EntityKey, // 通过post_process， 需要能查询到一个GraphId组件，此GraphId对应的图节点负责后处理效果
@@ -108,13 +106,13 @@ impl NeedMark for AsImage {
     }
 }
 
-#[derive(Clone, Default, Deref, Debug, Serialize, Deserialize, Component)]
+#[derive(Clone, Default, Deref, Debug, Serialize, Deserialize)]
 pub struct NodeState(pub INode);
 
-#[derive(Clone, Default, Deref, Debug, Serialize, Deserialize, Component)]
+#[derive(Clone, Default, Deref, Debug, Serialize, Deserialize)]
 pub struct BoxShadow(pub BoxShadow1);
 
-#[derive(Clone, Default, Deref, Debug, Serialize, Deserialize, Component)]
+#[derive(Clone, Default, Deref, Debug, Serialize, Deserialize)]
 pub struct Hsi(pub Hsi1);
 
 impl NeedMark for Hsi {
@@ -128,7 +126,7 @@ impl NeedMark for Hsi {
     }
 }
 
-#[derive(Clone, Default, Deref, Debug, Serialize, Deserialize, Component)]
+#[derive(Clone, Default, Deref, Debug, Serialize, Deserialize)]
 pub struct MaskImage(pub MaskImage1);
 
 impl NeedMark for MaskImage {
@@ -153,16 +151,16 @@ impl PartialEq for MaskImage {
     }
 }
 
-#[derive(Clone, Default, Deref, Debug, Serialize, Deserialize, Component)]
+#[derive(Clone, Default, Deref, Debug, Serialize, Deserialize)]
 pub struct ClipPath(pub BaseShape);
 impl NeedMark for ClipPath {
     fn need_mark(&self) -> bool { true }
 }
 
-#[derive(Clone, Default, Deref, Debug, Serialize, Deserialize, Component)]
+#[derive(Clone, Default, Deref, Debug, Serialize, Deserialize)]
 pub struct BlendMode(pub BlendMode1);
 
-#[derive(Default, Debug, Clone, Serialize, Deserialize, Component)]
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub struct Animation {
     pub name: AnimationName,                                     // 指定要绑定到选择器的关键帧的名称
     pub duration: SmallVec<[Time; 1]>,                           // 动画指定需要多少毫秒完成
@@ -185,7 +183,7 @@ impl Animation {
     }
 }
 
-#[derive(Default, Debug, Clone, Serialize, Deserialize, Component)]
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub struct Transition {
     pub property: SmallVec<[usize; 1]>, // 指定过度影响的属性
 	pub duration: SmallVec<[Time; 1]>,                           // 指定需要多少毫秒完成过度
@@ -206,13 +204,13 @@ impl Transition {
 
 
 //ObjectFit
-#[derive(Debug, Clone, Default, Serialize, Deserialize, Hash, Component)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, Hash)]
 pub struct BackgroundImageMod {
     pub object_fit: FitType,
     pub repeat: ImageRepeat,
 }
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize, Deref, Component)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, Deref)]
 pub struct Blur(pub f32);
 
 impl NeedMark for Blur {
@@ -226,18 +224,18 @@ impl NeedMark for Blur {
     }
 }
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize, Deref, Component)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, Deref)]
 pub struct BorderRadius(pub BorderRadius1);
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize, Deref, Component, Hash)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, Deref, Hash)]
 pub struct BorderImageSlice(pi_style::style::BorderImageSlice);
 
 /// 布局大小
-#[derive(Default, Deref, Clone, Serialize, Deserialize, Debug, Component)]
+#[derive(Default, Deref, Clone, Serialize, Deserialize, Debug)]
 pub struct Size(pub FlexSize<Dimension>);
 
 //超出部分的裁剪方式
-#[derive(Deref, Clone, Default, Serialize, Deserialize, Debug, Component)]
+#[derive(Deref, Clone, Default, Serialize, Deserialize, Debug)]
 pub struct Overflow(pub bool);
 
 impl NeedMark for Overflow {
@@ -252,7 +250,7 @@ impl NeedMark for Overflow {
 }
 
 //不透明度
-#[derive(Deref, Clone, Debug, Serialize, Deserialize, Component)]
+#[derive(Deref, Clone, Debug, Serialize, Deserialize)]
 pub struct Opacity(pub f32);
 
 impl NeedMark for Opacity {
@@ -266,18 +264,18 @@ impl NeedMark for Opacity {
     }
 }
 
-#[derive(Deref, Clone, Debug, Serialize, Deserialize, Component, Default)]
+#[derive(Deref, Clone, Debug, Serialize, Deserialize, Default)]
 pub struct TextContent(pub TextContent1);
 
 
-#[derive(Component, Default)]
+#[derive(Default)]
 pub struct SvgInnerContent {
     pub shape: Shape,
     pub style: SvgStyle,
     pub hash: u64,
 }
 
-#[derive(Component, Default)]
+#[derive(Default)]
 pub struct SvgContent {
     pub width: f32,
     pub height: f32,
@@ -287,7 +285,7 @@ pub struct SvgContent {
     pub max_y: f32,
 }
 
-#[derive(Component,Debug, Default)]
+#[derive(Debug, Default)]
 pub struct SvgGradient {
     pub x1: f32,
     pub y1: f32,
@@ -296,25 +294,25 @@ pub struct SvgGradient {
     pub id: Vec<Entity>
 }
 
-#[derive(Component,Debug, Default)]
+#[derive(Debug, Default)]
 pub struct SvgStop {
     pub offset: f32,
     pub color: CgColor,
 }
 
-#[derive(Component, Debug, Default)]
+#[derive(Debug, Default)]
 pub struct SvgFilterBlurLevel {
     pub level: f32,
 }
 
-#[derive(Component, Debug, Default)]
+#[derive(Debug, Default)]
 pub struct SvgFilterOffset {
     pub offset_x: f32,
     pub offset_y: f32,
     pub color: f32,
 }
 
-#[derive(Component, Debug, Default)]
+#[derive(Debug, Default)]
 pub struct SvgFilter(pub Vec<Entity>);
 
 
@@ -326,12 +324,12 @@ pub struct SvgFilter(pub Vec<Entity>);
 
 
 // 将display、visibility、enable合并为show组件
-#[derive(Deref, Clone, Debug, PartialEq, Serialize, Deserialize, Component)]
+#[derive(Deref, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Show(pub usize);
 
 // 变换
-#[derive(Debug, Clone, Default, Serialize, Deserialize, Component)]
-#[component(storage = "SparseSet")]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+// #[component(storage = "SparseSet")]
 pub struct Transform {
     pub all_transform: AllTransform,
     pub origin: TransformOrigin,
@@ -342,19 +340,19 @@ impl Transform {
     pub fn set_origin(&mut self, o: TransformOrigin) { self.origin = o; }
 }
 // 背景色和class
-#[derive(Debug, Clone, Default, Serialize, Deserialize, Deref, Component)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, Deref)]
 pub struct BackgroundColor(pub Color);
 
 // class名称， 支持多个class， 当只有一个或两个class时， 有优化
-#[derive(Debug, Clone, Default, Serialize, Deserialize, Deref, Component)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, Deref)]
 pub struct ClassName(pub SmallVec<[usize; 1]>);
 
 // 边框颜色
-#[derive(Debug, Clone, Default, Serialize, Deserialize, Deref, Component)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, Deref)]
 pub struct BorderColor(pub CgColor);
 
 // 图片路劲及纹理
-#[derive(Debug, Deref, Clone, Serialize, Deserialize, Default, Hash, Component, PartialEq, Eq)]
+#[derive(Debug, Deref, Clone, Serialize, Deserialize, Default, Hash, PartialEq, Eq)]
 pub struct BackgroundImage(pub Atom);
 
 impl From<Atom> for BackgroundImage {
@@ -365,7 +363,7 @@ impl BackgroundImage {
     pub fn set_url() {}
 }
 
-#[derive(Debug, Deref, Clone, Serialize, Deserialize, Component)]
+#[derive(Debug, Deref, Clone, Serialize, Deserialize)]
 pub struct MaskImageClip(pub NotNanRect);
 
 impl Default for MaskImageClip {
@@ -382,7 +380,7 @@ impl Default for MaskImageClip {
 }
 
 // image图像的uv（仅支持百分比， 不支持像素值）
-#[derive(Debug, Deref, Clone, Serialize, Deserialize, Component)]
+#[derive(Debug, Deref, Clone, Serialize, Deserialize)]
 pub struct BackgroundImageClip(pub NotNanRect);
 
 impl Default for BackgroundImageClip {
@@ -399,7 +397,7 @@ impl Default for BackgroundImageClip {
 }
 
 // 边框图片
-#[derive(Debug, Deref, Clone, Serialize, Deserialize, Default, Hash, Component, PartialEq, Eq)]
+#[derive(Debug, Deref, Clone, Serialize, Deserialize, Default, Hash, PartialEq, Eq)]
 pub struct BorderImage(pub Atom);
 
 impl From<Atom> for BorderImage {
@@ -407,7 +405,7 @@ impl From<Atom> for BorderImage {
 }
 
 // borderImage图像的uv（仅支持百分比， 不支持像素值）
-#[derive(Debug, Deref, Clone, Serialize, Deserialize, Component, Hash)]
+#[derive(Debug, Deref, Clone, Serialize, Deserialize, Hash)]
 pub struct BorderImageClip(pub NotNanRect);
 
 impl Default for BorderImageClip {
@@ -423,10 +421,10 @@ impl Default for BorderImageClip {
     }
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize, Hash, Deref, Component)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, Hash, Deref)]
 pub struct BorderImageRepeat(pub ImageRepeat);
 
-#[derive(Debug, Clone, Serialize, Deserialize, Component)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TextStyle {
 	pub font_style: FontStyle, //	规定字体样式。参阅：font-style 中可能的值。
     pub font_weight: usize,    //	规定字体粗细。参阅：font-weight 中可能的值。
@@ -461,7 +459,7 @@ pub struct TextStyle {
     // pub font_family: Atom,     //	规定字体系列。参阅：font-family 中可能的值。
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Component)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SvgStyle {
     pub stroke: Stroke,
     pub fill_color: Color, //颜色
@@ -479,29 +477,29 @@ impl Default for SvgStyle {
             stroke_dasharray: Default::default(),
             shadow: Shadow::default(),
             outer_glow_color_and_dist: [0.0,0.0,0.0,f32::INFINITY],
-            filter: Entity::PLACEHOLDER
+            filter: Entity::null()
         }
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Component, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct TextOverflowData {
 	pub text_overflow: TextOverflow,
 	pub text_overflow_char: SmallVec<[TextOverflowChar;1]>, // 通常是...
 }
 
 
-#[derive(Debug, Clone, Serialize, Deserialize, Component)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TextOverflowChar {
 	pub width: f32,
 	pub ch: char,
 	pub ch_id: DefaultKey,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Component, Default, Deref)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, Deref)]
 pub struct TextShadow(pub TextShadowList);
 
-#[derive(Debug, Clone, Serialize, Deserialize, Component, Default, Deref)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, Deref)]
 pub struct TextOuterGlow(pub OuterGlow);
 
 impl Default for TextStyle {
@@ -528,8 +526,8 @@ impl Default for TextStyle {
 pub type TextShadowList = SmallVec<[TextShadow1; 1]>;
 
 // TransformWillChange， 用于优化频繁变化的Transform
-#[derive(Default, Debug, Clone, Serialize, Deserialize, Component)]
-#[component(storage = "SparseSet")]
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
+// #[component(storage = "SparseSet")]
 pub struct TransformWillChange(pub Option<AllTransform>); //
 
 impl NeedMark for TransformWillChange {
@@ -580,28 +578,28 @@ impl Default for Show {
 }
 
 /// 布局外边距
-#[derive(Default, Deref, Clone, Serialize, Deserialize, Debug, Component)]
+#[derive(Default, Deref, Clone, Serialize, Deserialize, Debug)]
 pub struct Margin(pub Rect<Dimension>);
 
 /// 布局内边距
-#[derive(Default, Deref, Clone, Serialize, Deserialize, Debug, Component)]
+#[derive(Default, Deref, Clone, Serialize, Deserialize, Debug)]
 pub struct Padding(pub Rect<Dimension>);
 
 /// 布局边框尺寸
-#[derive(Default, Deref, Clone, Serialize, Deserialize, Debug, Component)]
+#[derive(Default, Deref, Clone, Serialize, Deserialize, Debug)]
 pub struct Border(pub Rect<Dimension>);
 
-#[derive(Deref, Clone, Serialize, Deserialize, Debug, Component)]
+#[derive(Deref, Clone, Serialize, Deserialize, Debug)]
 pub struct Position(pub Rect<Dimension>);
 
-#[derive(Default, Clone, Serialize, Deserialize, Debug, Component)]
+#[derive(Default, Clone, Serialize, Deserialize, Debug)]
 pub struct MinMax {
     pub min: FlexSize<Dimension>,
     pub max: FlexSize<Dimension>,
 }
 
 // 描述子节点行为的flex布局属性
-#[derive(Clone, Serialize, Deserialize, Debug, Component)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct FlexContainer {
     pub flex_direction: FlexDirection,
     pub flex_wrap: FlexWrap,
@@ -613,7 +611,7 @@ pub struct FlexContainer {
 }
 
 // 描述节点自身行为的flex布局属性
-#[derive(Clone, Serialize, Deserialize, Debug, Component)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct FlexNormal {
     pub order: isize,
     pub flex_basis: Dimension,
@@ -664,14 +662,14 @@ impl Default for FlexNormal {
 }
 
 /// 绘制canvas的图节点
-#[derive(Debug, Clone, Serialize, Deserialize, Component)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Canvas {
 	pub id: Entity,
 	pub by_draw_list: bool,
 }
 
 /// 显示改变（一般是指canvas，gui不能感知除了style属性以外的属性改变，如果canvas内容发生改变，应该通过style设置，以便gui能感知，从而设置脏区域）
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, Component)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct ShowChange;
 
 pub fn get_size(s: &FontSize) -> usize {
@@ -692,19 +690,19 @@ pub mod serialize {
     use std::mem::forget;
 
     use crate::components::{
-        calc::{BackgroundImageTexture, BorderImageTexture, StyleMark},
+        calc::{BackgroundImageTexture, BorderImageTexture},
         user::*,
     };
     use pi_atom::Atom;
+    use pi_bevy_ecs_extend::system_param::res::OrInitSingleResMut;
     // use pi_ecs::{
-    //     prelude::{Query, ResMut},
+    //     prelude::{Query, SingleResMut},
     //     query::{DefaultComponent, Write},
     // };
-    use bevy_ecs::{
-        component::ComponentId,
-        prelude::{Entity, FromWorld, World, Events}
+    use pi_world::{
+        // component::ColumnIndex,
+        prelude::Entity
     };
-    use pi_bevy_ecs_extend::prelude::DefaultComponent;
     use pi_flex_layout::{
         prelude::Number,
         style::{
@@ -730,6 +728,18 @@ pub mod serialize {
             Self: Sized;
     }
 
+    // svg属性
+    pub trait SvgAttr {
+        /// 将样式属性设置到组件上
+        /// ptr为样式属性的指针
+        /// 安全： entity必须存在
+        fn set<'w, 's>(ptr: *const u8, query: &mut Setting, entity: Entity)
+        where
+            Self: Sized;
+        
+        fn get_index() -> u8 where Self: Sized;
+    }
+
 	pub trait ConvertToComponent: AttrSet {
 		/// 获取属性
 		fn get(
@@ -738,7 +748,7 @@ pub mod serialize {
 		) -> Option<Attribute>;
 
         /// 为样式设置默认值
-        fn set_default(buffer: &Vec<u8>, offset: usize, query: &DefaultStyle, world: &mut World)
+        fn set_default(buffer: &Vec<u8>, offset: usize, query: &mut DefaultStyle)
         where
             Self: Sized;
 
@@ -759,12 +769,13 @@ pub mod serialize {
         Cancel,
     }
 
-    fn set_style_attr<V: Debug, C: Component + Clone, F: FnMut(&mut C, V)>(
-        world: &mut World,
+    fn set_style_attr<V: Debug, C: Clone, F: FnMut(&mut C, V)>(
         entity: Entity,
-        component_id: ComponentId,
-        default_component_id: ComponentId,
-		// dirty_list: ComponentId,
+        alter: &mut Alter<&'static mut C, (), (C, )>,
+        default_value: &C,
+        // component_id: ColumnIndex,
+        // default_component_id: ColumnIndex,
+		// dirty_list: ColumnIndex,
         v: V,
         mut f: F,
     ) {
@@ -776,16 +787,24 @@ pub mod serialize {
             entity
         );
         // pi_print_any::out_any!(println, "set_default_style_attr==={:?}", (entity, std::any::type_name::<C>(), &v));
-        match world.get_mut_by_id(entity, component_id) {
-            Some(mut component) => {
-                component.set_changed();
-                f(unsafe { component.into_inner().deref_mut::<C>() }, v);
+        match alter.get_mut(entity) {
+            Ok(mut component) => {
+                f(&mut *component, v);
             }
-            None => {
-                let default_value = world.get_resource_by_id(default_component_id).unwrap();
-                let mut r = unsafe { default_value.deref::<DefaultComponent<C>>() }.0.clone();
-                f(&mut r, v);
-                world.entity_mut(entity).insert(r);
+            _ => {
+                // let default_value = world.get_resource_by_id(default_component_id).unwrap();
+                // let mut r = unsafe { default_value.deref::<DefaultComponent<C>>() }.0.clone();
+                // let default_value = if let Some(default_value) = world.get_single_res::<C>() {
+                //     default_value.clone()  
+                // } else {
+                //     // C::default()
+                //     panic!()
+                // };
+                let mut default_value = default_value.clone();
+                f(&mut default_value, v);
+                let _ = alter.alter(entity, (default_value, ));
+                // f(&mut r, v);
+                // world.entity_mut(entity).insert(r);
             }
         };
 		// unsafe { world.get_resource_mut_by_id(dirty_list).unwrap().into_inner().deref_mut::<DirtyList>() }.push(entity);
@@ -794,77 +813,66 @@ pub mod serialize {
     }
 
 	// 在设置Class、styleMark时调用， 不需要进脏列表
-    pub fn set_style_attr_or_default<V, C: Component + Clone + Default, F: FnMut(&mut C, V)>(
-        world: &mut World,
+    pub fn set_style_attr_or_default<V, C: Clone + Default, F: FnMut(&mut C, V)>(
         entity: Entity,
-        component_id: ComponentId,
+        alter: &mut Alter<&'static mut C, (), (C, )>,
+        default_value: &C,
+        
         v: V,
         mut f: F,
     ) {
-        match world.get_mut_by_id(entity, component_id) {
-            Some(mut component) => {
-                component.set_changed();
+        match alter.get_mut(entity) {
+            Ok(mut component) => {
                 // SAFETY: `test_component` has unique access of the `EntityMut` and is not used afterwards
-                f(unsafe { component.into_inner().deref_mut::<C>() }, v);
+                f(&mut component, v);
             }
-            None => {
-                let mut default_value = C::default();
+            _ => {
+                let mut default_value = default_value.clone();
                 f(&mut default_value, v);
-                world.entity_mut(entity).insert(default_value);
+                let _ = alter.alter(entity, (default_value, ));
             }
         };
     }
 
-    pub unsafe fn get_component_mut<C: Component + Clone + Default>(world: &mut World, entity: Entity, component_id: ComponentId) -> &mut C {
-        match world.get_mut_by_id(entity, component_id) {
-            Some(component) => unsafe { component.into_inner().deref_mut::<C>() },
-            None => panic!("get_component fail, get_component is not exist: {:?}, entity: {:?}", component_id, entity),
-        }
-    }
+    // pub unsafe fn get_component_mut<C: Clone + Default>(world: &mut World, entity: Entity, component_id: ColumnIndex) -> &mut C {
+    //     match world.get_mut_by_id(entity, component_id) {
+    //         Some(component) => unsafe { component.into_inner().deref_mut::<C>() },
+    //         None => panic!("get_component fail, get_component is not exist: {:?}, entity: {:?}", component_id, entity),
+    //     }
+    // }
 
 
-    fn set_default_style_attr<V, C: Component + Clone, F: FnMut(&mut C, V)>(world: &mut World, default_component_id: ComponentId, v: V, mut f: F) {
-		pi_print_any::out_any!(log::trace, "set_default_style_attr==={:?}", &v);
-        match world.get_resource_mut_by_id(default_component_id) {
-            Some(mut component) => {
-                component.set_changed();
-                // SAFETY: `test_component` has unique access of the `EntityMut` and is not used afterwards
-                f(&mut *unsafe { component.into_inner().deref_mut::<DefaultComponent<C>>() }, v);
-            }
-            None => {
-                log::error!(
-                    "set_default_style_attr fail, default value is not exist, {:?}",
-                    std::any::type_name::<C>()
-                );
-            }
-        };
-    }
+    // fn set_default_style_attr<V, C: Clone, F: FnMut(&mut C, V)>(default_value: , v: V, mut f: F) {
+	// 	pi_print_any::out_any!(log::trace, "set_default_style_attr==={:?}", &v);
+    //     match world.get_single_res_mut::<C>() {
+    //         Some(mut component) => {
+    //             component.set_changed();
+    //             // SAFETY: `test_component` has unique access of the `EntityMut` and is not used afterwards
+    //             // f(&mut *unsafe { component.into_inner().deref_mut::<DefaultComponent<C>>() }, v);
+    //             f(component, v);
+    //         }
+    //         None => {
+    //             log::error!(
+    //                 "set_default_style_attr fail, default value is not exist, {:?}",
+    //                 std::any::type_name::<C>()
+    //             );
+    //         }
+    //     };
+    // }
 
-    fn reset_style_attr<C: Component + Clone, F: FnMut(&mut C, &C)>(
-        world: &mut World,
+    #[inline]
+    fn reset_style_attr<C: Clone, F: FnMut(&mut C, &C)>(
         entity: Entity,
-        component_id: ComponentId,
-        default_component_id: ComponentId,
-		// dirty_list: ComponentId,
+        alter: &mut Alter<&'static mut C, (), (C, )>,
+        default_value: &C,
+        // component_id: ColumnIndex,
+        // default_component_id: ColumnIndex,
+		// dirty_list: ColumnIndex,
         mut f: F,
     ) {
-        match world.get_resource_by_id(default_component_id) {
-            Some(component) => {
-                // SAFETY: 这里取组件的默认值单例，和修改组件不冲突，transmute只是为了绕开借用检查，实际上是安全的
-                let default_value = unsafe { transmute(&**component.deref::<DefaultComponent<C>>()) };
-                if let Some(mut component) = world.get_mut_by_id(entity, component_id) {
-                    component.set_changed();
-                    f(unsafe { component.into_inner().deref_mut::<C>() }, default_value);
-                };
-            }
-            None => {
-                log::error!(
-                    "set_default_style_attr fail, default value is not exist, {:?}",
-                    std::any::type_name::<C>()
-                );
-            }
+        if let Ok(mut component) = alter.get_mut(entity) {
+            f(&mut component, default_value);
         };
-		// unsafe { world.get_resource_mut_by_id(dirty_list).unwrap().into_inner().deref_mut::<DirtyList>() }.push(entity);
     }
 
     impl<'a> StyleTypeReader<'a> {
@@ -894,10 +902,10 @@ pub mod serialize {
         }
 
         // 将当前style写入默认组件
-        pub fn write_to_default(&mut self, query: &DefaultStyle, world: &mut World) -> Option<StyleType> {
+        pub fn write_to_default(&mut self, query: &mut DefaultStyle) -> Option<StyleType> {
             let next_type = self.next_type();
             if let Some(style_type) = next_type {
-                StyleAttr::set_default(style_type, &self.buffer, self.cursor, query, world);
+                StyleAttr::set_default(style_type, &self.buffer, self.cursor, query);
                 let size = StyleAttr::size(style_type);
                 self.cursor += size;
                 return Some(StyleAttr::get_type(style_type));
@@ -980,8 +988,8 @@ pub mod serialize {
                 set_style_attr(
                     &mut query.world,
                     entity,
-                    query.style.$name,
-                    query.style.default.$name,
+                    &mut query.style.$name,
+                    &query.style.default.$name,
 					// query.style.dirty_list,
                     v,
                     |item: &mut $value_ty, v: $value_ty| *item = v,
@@ -998,7 +1006,7 @@ pub mod serialize {
                     unsafe { v.read_unaligned() }
                 };
                 cur_style_mark.set(Self::get_type() as usize, true);
-                set_style_attr(&mut query.world, entity, query.style.$name, query.style.default.$name, v, $f);
+                set_style_attr(entity, &mut query.style.$name, &query.default_value.$name, v, $f);
             }
         };
 
@@ -1011,11 +1019,11 @@ pub mod serialize {
                     unsafe { v.read_unaligned() }
                 };
                 cur_style_mark.set(Self::get_type() as usize, true);
-                set_style_attr(&mut query.world, entity, query.style.$name, query.style.default.$name, v, $f);
-                if let Some(component) = query.world.get_resource_mut_by_id(query.style.event.$name) {
-                    unsafe { component.into_inner().deref_mut::<Events<ComponentEvent<Changed<$c_ty>>>>() }
-                        .send(ComponentEvent::<Changed<$c_ty>>::new(entity));
-                };
+                set_style_attr(entity, &mut query.style.$name, &query.default_value.$name, v, $f);
+                // if let Some(component) = query.world.get_resource_mut_by_id(query.style.event.$name) {
+                //     unsafe { component.into_inner().deref_mut::<Events<ComponentEvent<Changed<$c_ty>>>>() }
+                //         .send(ComponentEvent::<Changed<$c_ty>>::new(entity));
+                // };
             }
         };
         // 属性修改
@@ -1030,14 +1038,7 @@ pub mod serialize {
                 cur_style_mark.set(Self::get_type() as usize, true);
 
                 // 取不到说明实体已经销毁
-                set_style_attr(
-                    &mut query.world,
-                    entity,
-                    query.style.$name,
-                    query.style.default.$name,
-                    v,
-                    |item: &mut $pack_ty, v: $value_ty| *item = $pack_ty(v),
-                );
+                set_style_attr(entity, &mut query.style.$name, &query.default_value.$name, v, |item: &mut $pack_ty, v: $value_ty| *item = $pack_ty(v));
             }
         };
         // 属性修改
@@ -1051,17 +1052,9 @@ pub mod serialize {
                 };
                 cur_style_mark.set(Self::get_type() as usize, true);
 
-                set_style_attr(
-                    &mut query.world,
-                    entity,
-                    query.style.$name,
-                    query.style.default.$name,
-					
-                    v,
-                    |item: &mut $c_ty, v: $value_ty| {
-                        item.$feild = v;
-                    },
-                );
+                set_style_attr(entity, &mut query.style.$name, &query.default_value.$name, v, |item: &mut $c_ty, v: $value_ty| {
+                    item.$feild = v;
+                });
             }
         };
         // 属性修改
@@ -1074,17 +1067,9 @@ pub mod serialize {
                     unsafe { v.read_unaligned() }
                 };
                 cur_style_mark.set(Self::get_type() as usize, true);
-                set_style_attr(
-                    &mut query.world,
-                    entity,
-                    query.style.$name,
-                    query.style.default.$name,
-					
-                    v,
-                    |item: &mut $c_ty, v: $value_ty| {
-                        item.$set_func(v);
-                    },
-                );
+                set_style_attr(entity, &mut query.style.$name, &mut query.default_value.$name, v, |item: &mut $c_ty, v: $value_ty| {
+                    item.$set_func(v);
+                });
             }
         };
 
@@ -1099,17 +1084,9 @@ pub mod serialize {
                 };
                 cur_style_mark.set(Self::get_type() as usize, true);
 
-                set_style_attr(
-                    &mut query.world,
-                    entity,
-                    query.style.$name,
-                    query.style.default.$name,
-					
-                    v,
-                    |item: &mut $c_ty, v: $value_ty| {
-                        item.$feild1.$feild2 = v;
-                    },
-                );
+                set_style_attr(entity, &mut query.style.$name, &mut query.default_value.$name, v, |item: &mut $c_ty, v: $value_ty| {
+                    item.$feild1.$feild2 = v;
+                },);
             }
         };
 
@@ -1123,17 +1100,9 @@ pub mod serialize {
                     unsafe { v.read_unaligned() }
                 };
 
-                set_style_attr(
-                    &mut query.world,
-                    entity,
-                    query.style.$name,
-                    query.style.default.$name,
-					
-                    v,
-                    |item: &mut $value_ty, v: $value_ty| {
-                        *item = v;
-                    },
-                );
+                set_style_attr(entity, &mut query.style.$name, &mut query.default_value.$name, v, |item: &mut $value_ty, v: $value_ty| {
+                    *item = v;
+                });
 
                 cur_style_mark.set(Self::get_type() as usize, true);
             }
@@ -1149,7 +1118,7 @@ pub mod serialize {
         // 整体插入
         ($name: ident, $ty: ident, $struct_name: ident, $value_ty: ty) => {
             fn get(query: &mut Setting, entity: Entity) -> Option<Attribute> {
-				match query.world.get_mut_by_id(entity, query.style.$name) {
+				match query.world.get_mut_by_id(entity) {
 					Some(mut component) => Some(Attribute::$ty($struct_name(unsafe { component.into_inner().deref_mut::<$value_ty>().clone() })))
 					None => None
 				}
@@ -1159,9 +1128,9 @@ pub mod serialize {
 		// 属性修改
         (@pack $name: ident, $ty: ident, $struct_name: ident, $component_ty: ty) => {
 			fn get(query: &mut Setting, entity: Entity) -> Option<Attribute> {
-                match query.world.get_mut_by_id(entity, query.style.$name) {
-					Some(component) => Some(Attribute::$ty($struct_name(unsafe { component.into_inner().deref_mut::<$component_ty>().0.clone() }))),
-					None => None
+                match query.style.$name.get_mut(entity) {
+					Ok(component) => Some(Attribute::$ty($struct_name(component.0.clone()))),
+					_ => None
 				}
             }
         };
@@ -1169,9 +1138,9 @@ pub mod serialize {
 		// 属性修改
         (@feild $name: ident, $ty: ident, $struct_name: ident, $component_ty: ty, $field: ident) => {
             fn get(query: &mut Setting, entity: Entity) -> Option<Attribute> {
-                match query.world.get_mut_by_id(entity, query.style.$name) {
-					Some(component) => Some(Attribute::$ty($struct_name(unsafe { component.into_inner().deref_mut::<$component_ty>().$field.clone() }))),
-					None => None
+                match query.style.$name.get_mut(entity) {
+					Ok(component) => Some(Attribute::$ty($struct_name(component.$field.clone()))),
+					_ => None
 				}
             }
         };
@@ -1179,9 +1148,9 @@ pub mod serialize {
         // 属性修改
         (@feild2 $name: ident, $ty: ident, $struct_name: ident, $component_ty: ty, $field1: ident, $field2: ident) => {
 			fn get(query: &mut Setting, entity: Entity) -> Option<Attribute> {
-                match query.world.get_mut_by_id(entity, query.style.$name) {
-					Some(component) => Some(Attribute::$ty($struct_name(unsafe { component.into_inner().deref_mut::<$component_ty>().$field1.$field2.clone() }))),
-					None => None
+                match query.style.$name.get_mut(entity) {
+					Ok(component) => Some(Attribute::$ty($struct_name(component.$field1.$field2.clone()))),
+					_ => None
 				}
             }
         };
@@ -1189,9 +1158,9 @@ pub mod serialize {
 		// 属性修改
 		(@feild3 $name: ident, $ty: ident, $struct_name: ident, $component_ty: ty, $field1: ident, $field2: ident, $field3: ident) => {
 			fn get(query: &mut Setting, entity: Entity) -> Option<Attribute> {
-                match query.world.get_mut_by_id(entity, query.style.$name) {
-					Some(component) => Some(Attribute::$ty($struct_name(unsafe { component.into_inner().deref_mut::<$component_ty>().$field1.$field2.$field3.clone() }))),
-					None => None
+                match query.style.$name.get_mut(entity) {
+					Ok(component) => Some(Attribute::$ty($struct_name(component.$field1.$field2.$field3.clone()))),
+					_ => None
 				}
             }
         };
@@ -1199,9 +1168,9 @@ pub mod serialize {
         // 表达式
         (@fun $name: ident, $ty: ident, $struct_name: ident, $component_ty: ty, $f: ident) => {
             fn get(query: &mut Setting, entity: Entity) -> Option<Attribute> {
-                match query.world.get_mut_by_id(entity, query.style.$name) {
-					Some(component) => Some(Attribute::$ty($struct_name(unsafe { component.into_inner().deref_mut::<$component_ty>().$f() }))),
-					None => None
+                match query.style.$name.get_mut(entity) {
+					Ok(component) => Some(Attribute::$ty($struct_name(component.$f()))),
+					_ => None
 				}
             }
         };
@@ -1210,76 +1179,42 @@ pub mod serialize {
     // 设置默认值
     macro_rules! set_default {
         (@empty) => {
-            fn set_default<'a>(_buffer: &Vec<u8>, _offset: usize, _query: &DefaultStyle, _world: &mut World) {}
+            fn set_default<'a>(_buffer: &Vec<u8>, _offset: usize, _query: &mut DefaultStyle) {}
         };
         // 整体插入
         ($name: ident, $value_ty: ty) => {
-            fn set_default<'a>(buffer: &Vec<u8>, offset: usize, query: &DefaultStyle, world: &mut World) {
-                set_default_style_attr(
-                    world,
-                    query.$name,
-                    unsafe { buffer.as_ptr().add(offset).cast::<$value_ty>().read_unaligned() },
-                    |item: &mut $value_ty, v: $value_ty| {
-                        *item = v;
-                    },
-                );
+            fn set_default<'a>(buffer: &Vec<u8>, offset: usize, query: &mut DefaultStyle) {
+                **query.$name = unsafe { buffer.as_ptr().add(offset).cast::<$value_ty>().read_unaligned() };
             }
         };
         // 属性修改
         ($name: ident, $c_ty: ty, $feild: ident, $value_ty: ty) => {
-            fn set_default<'a>(buffer: &Vec<u8>, offset: usize, query: &DefaultStyle, world: &mut World) {
-                set_default_style_attr(
-                    world,
-                    query.$name,
-                    unsafe { buffer.as_ptr().add(offset).cast::<$value_ty>().read_unaligned() },
-                    |item: &mut $c_ty, v: $value_ty| {
-                        item.$feild = v;
-                    },
-                );
+            fn set_default<'a>(buffer: &Vec<u8>, offset: usize, query: &mut DefaultStyle) {
+                query.$name.$feild = unsafe { buffer.as_ptr().add(offset).cast::<$value_ty>().read_unaligned() };
             }
         };
         // 属性修改
         (@func $name: ident, $c_ty: ty, $set_func: ident, $value_ty: ty) => {
-            fn set_default<'a>(buffer: &Vec<u8>, offset: usize, query: &DefaultStyle, world: &mut World) {
-                set_default_style_attr(
-                    world,
-                    query.$name,
-                    unsafe { buffer.as_ptr().add(offset).cast::<$value_ty>().read_unaligned() },
-                    |item: &mut $c_ty, v: $value_ty| {
-                        item.$set_func(v);
-                    },
-                );
+            fn set_default<'a>(buffer: &Vec<u8>, offset: usize, query: &mut DefaultStyle) {
+                query.$name.$set_func(unsafe { buffer.as_ptr().add(offset).cast::<$value_ty>().read_unaligned() });
             }
         };
 
         // 属性修改
         ($name: ident, $c_ty: ty, $feild1: ident, $feild2: ident, $value_ty: ty) => {
-            fn set_default<'a>(buffer: &Vec<u8>, offset: usize, query: &DefaultStyle, world: &mut World) {
-                set_default_style_attr(
-                    world,
-                    query.$name,
-                    unsafe { buffer.as_ptr().add(offset).cast::<$value_ty>().read_unaligned() },
-                    |item: &mut $c_ty, v: $value_ty| {
-                        item.$feild1.$feild2 = v;
-                    },
-                );
+            fn set_default<'a>(buffer: &Vec<u8>, offset: usize, query: &mut DefaultStyle) {
+                query.$name.$feild1.$feild2 = unsafe { buffer.as_ptr().add(offset).cast::<$value_ty>().read_unaligned() };
             }
         };
 
         // 盒模属性（上右下左）
         (@box_model $name: ident, $c_ty: ty, $value_ty: ty) => {
-            fn set_default<'a>(buffer: &Vec<u8>, offset: usize, query: &DefaultStyle, world: &mut World) {
-                set_default_style_attr(
-                    world,
-                    query.$name,
-                    unsafe { buffer.as_ptr().add(offset).cast::<$value_ty>().read_unaligned() },
-                    |item: &mut $c_ty, v: $value_ty| {
-                        c.top = v.top;
-                        c.right = v.right;
-                        c.bottom = v.bottom;
-                        c.left = v.left;
-                    },
-                );
+            fn set_default<'a>(buffer: &Vec<u8>, offset: usize, query: &mut DefaultStyle) {
+                let v = unsafe { buffer.as_ptr().add(offset).cast::<$value_ty>().read_unaligned() };
+                query.$name.top = v.top;
+                query.$name.right = v.right;
+                query.$name.bottom = v.bottom;
+                query.$name.left = v.left;
             }
         };
     }
@@ -1292,10 +1227,9 @@ pub mod serialize {
         ($name: ident, $value_ty: ident) => {
             fn set(_cur_style_mark: &mut StyleMarkType, _ptr: *const u8, query: &mut Setting, entity: Entity, _is_clone: bool) {
                 reset_style_attr(
-                    &mut query.world,
                     entity,
-                    query.style.$name,
-                    query.style.default.$name,
+                    &mut query.style.$name,
+                    &**query.default_value.$name,
 					
                     |item: &mut $value_ty, v: &$value_ty| {
                         *item = v.clone();
@@ -1307,29 +1241,27 @@ pub mod serialize {
         (@func_send $name: ident, $value_ty: ident) => {
             fn set(_cur_style_mark: &mut StyleMarkType, _ptr: *const u8, query: &mut Setting, entity: Entity, _is_clone: bool) {
                 reset_style_attr(
-                    &mut query.world,
                     entity,
-                    query.style.$name,
-                    query.style.default.$name,
+                    &mut query.style.$name,
+                    &**query.default_value.$name,
 					
                     |item: &mut $value_ty, v: &$value_ty| {
                         *item = v.clone();
                     },
                 );
-				if let Some(component) = query.world.get_resource_mut_by_id(query.style.event.$name) {
-					unsafe { component.into_inner().deref_mut::<Events<ComponentEvent<Changed<$value_ty>>>>() }
-						.send(ComponentEvent::<Changed<$value_ty>>::new(entity));
-				};
+				// if let Some(component) = query.world.get_resource_mut_by_id(query.style.event.$name) {
+				// 	unsafe { component.into_inner().deref_mut::<Events<ComponentEvent<Changed<$value_ty>>>>() }
+				// 		.send(ComponentEvent::<Changed<$value_ty>>::new(entity));
+				// };
             }
         };
         // 属性修改
         ($name: ident, $c_ty: ty, $feild: ident) => {
             fn set(_cur_style_mark: &mut StyleMarkType, _ptr: *const u8, query: &mut Setting, entity: Entity, _is_clone: bool) {
                 reset_style_attr(
-                    &mut query.world,
                     entity,
-                    query.style.$name,
-                    query.style.default.$name,
+                    &mut query.style.$name,
+                    &**query.default_value.$name,
 					
                     |item: &mut $c_ty, v: &$c_ty| {
                         item.$feild = v.$feild.clone();
@@ -1342,10 +1274,9 @@ pub mod serialize {
         (@func $name: ident, $c_ty: ty, $set_func: ident, $get_func: ident) => {
             fn set(_cur_style_mark: &mut StyleMarkType, _ptr: *const u8, query: &mut Setting, entity: Entity, _is_clone: bool) {
                 reset_style_attr(
-                    &mut query.world,
                     entity,
-                    query.style.$name,
-                    query.style.default.$name,
+                    &mut query.style.$name,
+                    &**query.default_value.$name,
 					
                     |item: &mut $c_ty, v: &$c_ty| {
                         item.$set_func(v.$get_func());
@@ -1357,10 +1288,9 @@ pub mod serialize {
         ($name: ident, $c_ty: ty, $feild1: ident, $feild2: ident) => {
             fn set(_cur_style_mark: &mut StyleMarkType, _ptr: *const u8, query: &mut Setting, entity: Entity, _is_clone: bool) {
                 reset_style_attr(
-                    &mut query.world,
                     entity,
-                    query.style.$name,
-                    query.style.default.$name,
+                    &mut query.style.$name,
+                    &**query.default_value.$name,
 					
                     |item: &mut $c_ty, v: &$c_ty| {
                         item.$feild1.$feild2 = v.$feild1.$feild2.clone();
@@ -1372,10 +1302,9 @@ pub mod serialize {
         (@box_model_single $name: ident, $c_ty: ty, $feild: ident) => {
             fn set(_cur_style_mark: &mut StyleMarkType, _ptr: *const u8, query: &mut Setting, entity: Entity, _is_clone: bool) {
                 reset_style_attr(
-                    &mut query.world,
                     entity,
-                    query.style.$name,
-                    query.style.default.$name,
+                    &mut query.style.$name,
+                    &**query.default_value.$name,
 					
                     |item: &mut $c_ty, v: &$c_ty| {
                         item.$feild = v.$feild;
@@ -1387,10 +1316,9 @@ pub mod serialize {
         (@box_model $name: ident, $ty: ident) => {
             fn set(cur_style_mark: &mut StyleMarkType, _ptr: *const u8, query: &mut Setting, entity: Entity, _is_clone: bool) {
                 reset_style_attr(
-                    &mut query.world,
                     entity,
-                    query.style.$name,
-                    query.style.default.$name,
+                    &mut query.style.$name,
+                    &**query.style.default.$name,
 					
                     |item: &mut $value_ty, v: &$value_ty| {
                         let mut is_changed = false;
@@ -1433,7 +1361,7 @@ pub mod serialize {
 			
 			// reset!($name, $ty);
 			#[allow(unused_variables)]
-			fn set_default<'a>(_buffer: &Vec<u8>, _offset: usize, _query: &DefaultStyle, world: &mut World) {
+			fn set_default<'a>(_buffer: &Vec<u8>, _offset: usize, _query: &mut DefaultStyle) {
 
 			}
 			fn to_attr(_ptr: *const u8) -> Attribute
@@ -1800,10 +1728,9 @@ pub mod serialize {
             };
             cur_style_mark.set(Self::get_type() as usize, true);
             set_style_attr(
-                &mut query.world,
                 entity,
-                query.style.text_content,
-                query.style.default.text_content,
+                &mut query.style.text_content,
+                &**query.default_value.text_content,
 				// query.style.dirty_list,
                 v,
                 |item: &mut TextContent, v| {
@@ -1811,17 +1738,22 @@ pub mod serialize {
                 },
             );
             // 发送事件
-            if let Some(component) = query.world.get_resource_mut_by_id(query.style.event.text_content) {
-                unsafe { component.into_inner().deref_mut::<Events<ComponentEvent<Changed<TextContent>>>>() }
-                    .send(ComponentEvent::<Changed<TextContent>>::new(entity));
-            };
+            // if let Some(component) = query.world.get_resource_mut_by_id(query.style.event.text_content) {
+            //     unsafe { component.into_inner().deref_mut::<Events<ComponentEvent<Changed<TextContent>>>>() }
+            //         .send(ComponentEvent::<Changed<TextContent>>::new(entity));
+            // };
 
 
             // 插入默认的FlexContainer组件
-            if let None = query.world.get_mut_by_id(entity, query.style.flex_container) {
-                let default_value = query.world.get_resource_by_id(query.style.default.flex_container).unwrap();
-                let r = unsafe { default_value.deref::<DefaultComponent<FlexContainer>>() }.0.clone();
-                query.world.entity_mut(entity).insert(r);
+            if !query.style.flex_container.contains(entity) {
+                // let default_value = query.world.get_resource_by_id(query.style.default.flex_container).unwrap();
+                // let r = unsafe { default_value.deref::<DefaultComponent<FlexContainer>>() }.0.clone();
+                // let query.style.flex_container
+                // if let Some(default_value) = query.style.flex_container.get_single_res::<FlexContainer>() {
+                    // query.world.entity_mut(entity).insert(default_value.clone());
+                    let _ = query.style.flex_container.alter(entity, (query.default_value.flex_container.clone(),));
+                // }
+                
             };
         }
 	}
@@ -1987,24 +1919,22 @@ pub mod serialize {
             };
             cur_style_mark.set(Self::get_type() as usize, true);
 
-            let world = &mut query.world;
             log::debug!(
                 "set_style_attr, type: {:?}, value: {:?}, entity: {:?}",
                 std::any::type_name::<BackgroundImage>(),
                 v,
                 entity
             );
-            match world.get_mut_by_id(entity, query.style.background_image) {
-                Some(mut component) => {
-                    component.set_changed();
-                    unsafe { component.into_inner().deref_mut::<BackgroundImage>() }.0 = v;
+            match query.style.background_image.get_mut(entity) {
+                Ok(mut component) => {
+                    component.0 = v;
                     // f(unsafe { component.into_inner().deref_mut::<Atom>() }, v);
                 }
-                None => {
+                _ => {
+                    let _ = query.style.background_image.alter(entity, (BackgroundImage(v), ));
                     // 顺便插入默认的BackgroundImageTexture， 以免后续修改原型
-                    match world.get_mut_by_id(entity, query.style.background_image_texture) {
-                        Some(_) => world.entity_mut(entity).insert(BackgroundImage(v)),
-                        None => world.entity_mut(entity).insert((BackgroundImage(v), BackgroundImageTexture::default())),
+                    if query.style.background_image_texture.contains(entity) {
+                        let _ = query.style.background_image_texture.alter(entity, (BackgroundImageTexture::default(), ));
                     };
                 }
             };
@@ -2012,18 +1942,11 @@ pub mod serialize {
 	}
     impl ConvertToComponent for BackgroundImageType {
         /// 为样式设置默认值
-        fn set_default(buffer: &Vec<u8>, offset: usize, query: &DefaultStyle, world: &mut World)
+        fn set_default(buffer: &Vec<u8>, offset: usize, query: &mut DefaultStyle)
         where
             Self: Sized,
         {
-            set_default_style_attr(
-                world,
-                query.background_image,
-                unsafe { buffer.as_ptr().add(offset).cast::<Atom>().read_unaligned() },
-                |item: &mut BackgroundImage, v: Atom| {
-                    **item = v;
-                },
-            );
+            ***query.background_image = unsafe { buffer.as_ptr().add(offset).cast::<Atom>().read_unaligned() };
         }
 
         fn to_attr(ptr: *const u8) -> Attribute
@@ -2045,10 +1968,9 @@ pub mod serialize {
             Self: Sized,
         {
             reset_style_attr(
-                &mut query.world,
                 entity,
-                query.style.background_image,
-                query.style.default.background_image,
+                &mut query.style.background_image,
+                &**query.default_value.background_image,
 				// query.style.dirty_list,
                 |item: &mut BackgroundImage, v: &BackgroundImage| {
                     *item = v.clone();
@@ -2085,25 +2007,23 @@ pub mod serialize {
             };
             cur_style_mark.set(Self::get_type() as usize, true);
 
-            let world = &mut query.world;
             log::debug!(
                 "set_style_attr, type: {:?}, value: {:?}, entity: {:?}",
                 std::any::type_name::<BorderImage>(),
                 v,
                 entity
             );
-            match world.get_mut_by_id(entity, query.style.border_image) {
-                Some(mut component) => {
-                    component.set_changed();
-                    unsafe { component.into_inner().deref_mut::<BorderImage>() }.0 = v;
+            match query.style.border_image.get_mut(entity) {
+                Ok(mut component) => {
+                    component.0 = v;
                     // f(unsafe { component.into_inner().deref_mut::<Atom>() }, v);
                 }
-                None => {
+                _ => {
+                    let _ = query.style.border_image.alter(entity, (BorderImage(v), ));
                     // 顺便插入默认的BorderImageTexture， 以免后续修改原型
-                    match world.get_mut_by_id(entity, query.style.border_image_texture) {
-                        Some(_) => world.entity_mut(entity).insert(BorderImage(v)),
-                        None => world.entity_mut(entity).insert((BorderImage(v), BorderImageTexture::default())),
-                    };
+                    if !query.style.border_image_texture.contains(entity) {
+                        let _ = query.style.border_image_texture.alter(entity, (BorderImageTexture::default(), ));
+                    }
                 }
             };
         }
@@ -2112,18 +2032,11 @@ pub mod serialize {
     impl ConvertToComponent for BorderImageType {
         
         /// 为样式设置默认值
-        fn set_default(buffer: &Vec<u8>, offset: usize, query: &DefaultStyle, world: &mut World)
+        fn set_default(buffer: &Vec<u8>, offset: usize, query: &mut DefaultStyle)
         where
             Self: Sized,
         {
-            set_default_style_attr(
-                world,
-                query.border_image,
-                unsafe { buffer.as_ptr().add(offset).cast::<Atom>().read_unaligned() },
-                |item: &mut BorderImage, v: Atom| {
-                    **item = v;
-                },
-            );
+            ***query.border_image = unsafe { buffer.as_ptr().add(offset).cast::<Atom>().read_unaligned() };
         }
 
         fn to_attr(ptr: *const u8) -> Attribute
@@ -2145,10 +2058,9 @@ pub mod serialize {
             Self: Sized,
         {
             reset_style_attr(
-                &mut query.world,
                 entity,
-                query.style.border_image,
-                query.style.default.border_image,
+                &mut query.style.border_image,
+                &**query.default_value.border_image,
 				// query.style.dirty_list,
                 |item: &mut BorderImage, v: &BorderImage| {
                     *item = v.clone();
@@ -2175,7 +2087,6 @@ pub mod serialize {
             };
             cur_style_mark.set(Self::get_type() as usize, true);
 
-            let world = &mut query.world;
             log::debug!(
                 "set_style_attr, type: {:?}, value: {:?}, entity: {:?}",
                 std::any::type_name::<Transform>(),
@@ -2183,34 +2094,30 @@ pub mod serialize {
                 entity
             );
 
-			if let Some(mut component) = world.get_mut_by_id(entity, query.style.transform_will_change) {
-				let r = unsafe { component.as_ref().deref::<TransformWillChange>() };
-				if r.0.is_some() {
+			if let Ok(mut component) = query.style.transform_will_change.get_mut(entity) {
+				if component.0.is_some() {
 					// 如果存在transform_willChange,则将Transform设置在TransformWillChange上
-					component.set_changed();
-				}
-				let r = unsafe { component.into_inner().deref_mut::<TransformWillChange>() };
-				if let Some(r) = &mut r.0 {
-					r.transform = v;
-					return
+                    if let Some(r) = &mut component.0 {
+                        r.transform = v;
+                        return
+                    }
 				}
             };
 			
             // 不存在transform_willChange， 则设置在Transfrom上
-			match world.get_mut_by_id(entity, query.style.transform) {
-				Some(mut component) => {
+			match query.style.transform.get_mut(entity) {
+				Ok(mut component) => {
 					// 如果存在transform_willChange,则将Transform设置在TransformWillChange上
-					component.set_changed();
-					unsafe { component.into_inner().deref_mut::<Transform>() }.all_transform.transform = v;
+                    component.all_transform.transform = v;
 				}
-				None => {
-					world.entity_mut(entity).insert(Transform {
+				_ => {
+					let _ = query.style.transform.alter(entity, (Transform {
 						all_transform: AllTransform {
 							transform: v,
 							..Default::default()
 						},
 						..Default::default()
-					});
+					},));
 				}
 			}
         }
@@ -2219,7 +2126,7 @@ pub mod serialize {
     impl ConvertToComponent for TransformType {
         
         /// 为样式设置默认值
-        fn set_default(_buffer: &Vec<u8>, _offset: usize, _query: &DefaultStyle, _world: &mut World)
+        fn set_default(_buffer: &Vec<u8>, _offset: usize, _query: &mut DefaultStyle)
         where
             Self: Sized,
         {
@@ -2243,25 +2150,21 @@ pub mod serialize {
         where
             Self: Sized,
         {
-			if let Some(mut component) = query.world.get_mut_by_id(entity, query.style.transform_will_change) {
-				let r = unsafe { component.as_ref().deref::<TransformWillChange>() };
-				if r.0.is_some() {
+			if let Ok(mut component) = query.style.transform_will_change.get_mut(entity) {
+				if component.0.is_some() {
 					// 如果存在transform_willChange,则将Transform设置在TransformWillChange上
-					component.set_changed();
-				}
-				let r = unsafe { component.into_inner().deref_mut::<TransformWillChange>() };
-				if let Some(r) = &mut r.0 {
-					r.transform = Default::default();
-					return
+                    if let Some(r) = &mut component.0 {
+                        r.transform = Default::default();
+                        return
+                    }
 				}
             };
 
-            match query.world.get_mut_by_id(entity, query.style.transform) {
-				Some(mut component) => {
-					component.set_changed();
-					unsafe { component.into_inner().deref_mut::<Transform>() }.all_transform.transform = Default::default();
+            match query.style.transform.get_mut(entity) {
+				Ok(mut component) => {
+                    component.all_transform.transform = Default::default();
 				}
-				None => (),
+				_ => (),
 			}
         }
 
@@ -2284,41 +2187,36 @@ pub mod serialize {
             };
             cur_style_mark.set(Self::get_type() as usize, true);
 
-            let world = &mut query.world;
             log::debug!(
                 "set_style_attr, type: {:?}, value: {:?}, entity: {:?}",
                 std::any::type_name::<Transform>(),
                 v,
                 entity
             );
-			if let Some(mut component) = world.get_mut_by_id(entity, query.style.transform_will_change) {
-				let r = unsafe { component.as_ref().deref::<TransformWillChange>() };
-				if r.0.is_some() {
+            if let Ok(mut component) = query.style.transform_will_change.get_mut(entity) {
+				if component.0.is_some() {
 					// 如果存在transform_willChange,则将Transform设置在TransformWillChange上
-					component.set_changed();
-				}
-				let r = unsafe { component.into_inner().deref_mut::<TransformWillChange>() };
-				if let Some(r) = &mut r.0 {
-					r.translate = Some(v);
-					return
+                    if let Some(r) = &mut component.0 {
+                        r.translate = Some(v);
+                        return
+                    }
 				}
             };
 
-           // 不存在transform_willChange， 则设置在Transfrom上
-		   match world.get_mut_by_id(entity, query.style.transform) {
-				Some(mut component) => {
+            // 不存在transform_willChange， 则设置在Transfrom上
+			match query.style.transform.get_mut(entity) {
+				Ok(mut component) => {
 					// 如果存在transform_willChange,则将Transform设置在TransformWillChange上
-					component.set_changed();
-					unsafe { component.into_inner().deref_mut::<Transform>() }.all_transform.translate = Some(v);
+                    component.all_transform.translate = Some(v);
 				}
-				None => {
-					world.entity_mut(entity).insert(Transform {
+				_ => {
+					let _ = query.style.transform.alter(entity, (Transform {
 						all_transform: AllTransform {
 							translate: Some(v),
 							..Default::default()
 						},
 						..Default::default()
-					});
+					},));
 				}
 			}
         }
@@ -2327,7 +2225,7 @@ pub mod serialize {
         
 
         /// 为样式设置默认值
-        fn set_default(_buffer: &Vec<u8>, _offset: usize, _query: &DefaultStyle, _world: &mut World)
+        fn set_default(_buffer: &Vec<u8>, _offset: usize, _query: &mut DefaultStyle)
         where
             Self: Sized,
         {
@@ -2339,14 +2237,13 @@ pub mod serialize {
         {
             Attribute::Translate(TranslateType(clone_unaligned(ptr.cast::<[LengthUnit; 2]>())))
         }
-
 		fn get(query: &mut Setting, entity: Entity) -> Option<Attribute> {
-			match query.world.get_mut_by_id(entity, query.style.transform) {
-				Some(component) => match unsafe { component.into_inner().deref_mut::<Transform>().all_transform.translate } {
+			match query.style.transform.get(entity) {
+				Ok(component) => match component.all_transform.translate {
 					Some(r) => Some(Attribute::Translate(TranslateType(r))),
 					None => None,
 				},
-				None => None
+				_ => None
 			}
 		}
     }
@@ -2359,25 +2256,21 @@ pub mod serialize {
         where
             Self: Sized,
         {
-			if let Some(mut component) = query.world.get_mut_by_id(entity, query.style.transform_will_change) {
-				let r = unsafe { component.as_ref().deref::<TransformWillChange>() };
-				if r.0.is_some() {
+			if let Ok(mut component) = query.style.transform_will_change.get_mut(entity) {
+				if component.0.is_some() {
 					// 如果存在transform_willChange,则将Transform设置在TransformWillChange上
-					component.set_changed();
-				}
-				let r = unsafe { component.into_inner().deref_mut::<TransformWillChange>() };
-				if let Some(r) = &mut r.0 {
-					r.translate = None;
-					return
+					if let Some(r) = &mut component.0 {
+                        r.translate = None;
+                        return
+                    }
 				}
             };
 
-            match query.world.get_mut_by_id(entity, query.style.transform) {
-				Some(mut component) => {
-					component.set_changed();
-					unsafe { component.into_inner().deref_mut::<Transform>() }.all_transform.translate = None;
+            match query.style.transform.get_mut(entity) {
+				Ok(mut component) => {
+					component.all_transform.translate = None;
 				}
-				None => (),
+				_ => (),
 			}
         }
 
@@ -2399,40 +2292,38 @@ pub mod serialize {
             };
             cur_style_mark.set(Self::get_type() as usize, true);
 
-            let world = &mut query.world;
+            
             log::debug!(
                 "set_style_attr, type: {:?}, value: {:?}, entity: {:?}",
                 std::any::type_name::<Transform>(),
                 v,
                 entity
             );
-			if let Some(mut component) = world.get_mut_by_id(entity, query.style.transform_will_change) {
-				let r = unsafe { component.as_ref().deref::<TransformWillChange>() };
-				if r.0.is_some() {
+
+            if let Ok(mut component) = query.style.transform_will_change.get_mut(entity) {
+				if component.0.is_some() {
 					// 如果存在transform_willChange,则将Transform设置在TransformWillChange上
-					component.set_changed();
-				}
-				let r = unsafe { component.into_inner().deref_mut::<TransformWillChange>() };
-				if let Some(r) = &mut r.0 {
-					r.scale = Some(v);
-					return;
+                    if let Some(r) = &mut component.0 {
+                        r.scale = Some(v);
+                        return
+                    }
 				}
             };
+
             // 不存在transform_willChange， 则设置在Transfrom上
-			match world.get_mut_by_id(entity, query.style.transform) {
-				Some(mut component) => {
+			match query.style.transform.get_mut(entity) {
+				Ok(mut component) => {
 					// 如果存在transform_willChange,则将Transform设置在TransformWillChange上
-					component.set_changed();
-					unsafe { component.into_inner().deref_mut::<Transform>() }.all_transform.scale = Some(v);
+                    component.all_transform.scale = Some(v);
 				}
-				None => {
-					world.entity_mut(entity).insert(Transform {
+				_ => {
+					let _ = query.style.transform.alter(entity, (Transform {
 						all_transform: AllTransform {
 							scale: Some(v),
 							..Default::default()
 						},
 						..Default::default()
-					});
+					},));
 				}
 			}
         }
@@ -2441,7 +2332,7 @@ pub mod serialize {
        
 
         /// 为样式设置默认值
-        fn set_default(_buffer: &Vec<u8>, _offset: usize, _query: &DefaultStyle, _world: &mut World)
+        fn set_default(_buffer: &Vec<u8>, _offset: usize, _query: &mut DefaultStyle)
         where
             Self: Sized,
         {
@@ -2455,12 +2346,12 @@ pub mod serialize {
         }
 
 		fn get(query: &mut Setting, entity: Entity) -> Option<Attribute> {
-			match query.world.get_mut_by_id(entity, query.style.transform) {
-				Some(component) => match unsafe { component.into_inner().deref_mut::<Transform>().all_transform.scale } {
+			match query.style.transform.get(entity) {
+				Ok(component) => match component.all_transform.scale {
 					Some(r) => Some(Attribute::Scale(ScaleType(r))),
 					None => None,
 				},
-				None => None
+				_ => None
 			}
 		}
     }
@@ -2473,24 +2364,21 @@ pub mod serialize {
         where
             Self: Sized,
         {
-			if let Some(mut component) = query.world.get_mut_by_id(entity, query.style.transform_will_change) {
-				let r = unsafe { component.as_ref().deref::<TransformWillChange>() };
-				if r.0.is_some() {
+			if let Ok(mut component) = query.style.transform_will_change.get_mut(entity) {
+				if component.0.is_some() {
 					// 如果存在transform_willChange,则将Transform设置在TransformWillChange上
-					component.set_changed();
-				}
-				let r = unsafe { component.into_inner().deref_mut::<TransformWillChange>() };
-				if let Some(r) = &mut r.0 {
-					r.scale = None;
-					return
+					if let Some(r) = &mut component.0 {
+                        r.scale = None;
+                        return
+                    }
 				}
             };
-			match query.world.get_mut_by_id(entity, query.style.transform) {
-				Some(mut component) => {
-					component.set_changed();
-					unsafe { component.into_inner().deref_mut::<Transform>() }.all_transform.scale = None;
+
+            match query.style.transform.get_mut(entity) {
+				Ok(mut component) => {
+					component.all_transform.scale = None;
 				}
-				None => (),
+				_ => (),
 			}
         }
 	}
@@ -2511,40 +2399,36 @@ pub mod serialize {
             };
             cur_style_mark.set(Self::get_type() as usize, true);
 
-            let world = &mut query.world;
             log::debug!(
                 "set_style_attr, type: {:?}, value: {:?}, entity: {:?}",
                 std::any::type_name::<Transform>(),
                 v,
                 entity
             );
-			if let Some(mut component) = world.get_mut_by_id(entity, query.style.transform_will_change) {
-				let r = unsafe { component.as_ref().deref::<TransformWillChange>() };
-				if r.0.is_some() {
+            if let Ok(mut component) = query.style.transform_will_change.get_mut(entity) {
+				if component.0.is_some() {
 					// 如果存在transform_willChange,则将Transform设置在TransformWillChange上
-					component.set_changed();
-				}
-				let r = unsafe { component.into_inner().deref_mut::<TransformWillChange>() };
-				if let Some(r) = &mut r.0 {
-					r.rotate = Some(v);
-					return;
+                    if let Some(r) = &mut component.0 {
+                        r.rotate = Some(v);
+                        return
+                    }
 				}
             };
+
             // 不存在transform_willChange， 则设置在Transfrom上
-			match world.get_mut_by_id(entity, query.style.transform) {
-				Some(mut component) => {
+			match query.style.transform.get_mut(entity) {
+				Ok(mut component) => {
 					// 如果存在transform_willChange,则将Transform设置在TransformWillChange上
-					component.set_changed();
-					unsafe { component.into_inner().deref_mut::<Transform>() }.all_transform.rotate = Some(v);
+                    component.all_transform.rotate = Some(v);
 				}
-				None => {
-					world.entity_mut(entity).insert(Transform {
+				_ => {
+					let _ = query.style.transform.alter(entity, (Transform {
 						all_transform: AllTransform {
 							rotate: Some(v),
 							..Default::default()
 						},
 						..Default::default()
-					});
+					},));
 				}
 			}
         }
@@ -2553,7 +2437,7 @@ pub mod serialize {
     impl ConvertToComponent for RotateType {
         
         /// 为样式设置默认值
-        fn set_default(_buffer: &Vec<u8>, _offset: usize, _query: &DefaultStyle, _world: &mut World)
+        fn set_default(_buffer: &Vec<u8>, _offset: usize, _query: &mut DefaultStyle)
         where
             Self: Sized,
         {
@@ -2567,12 +2451,12 @@ pub mod serialize {
         }
 
 		fn get(query: &mut Setting, entity: Entity) -> Option<Attribute> {
-			match query.world.get_mut_by_id(entity, query.style.transform) {
-				Some(component) => match unsafe { component.into_inner().deref_mut::<Transform>().all_transform.rotate } {
+			match query.style.transform.get(entity) {
+				Ok(component) => match component.all_transform.rotate {
 					Some(r) => Some(Attribute::Rotate(RotateType(r))),
 					None => None,
 				},
-				None => None
+				_ => None
 			}
 		}
     }
@@ -2585,25 +2469,21 @@ pub mod serialize {
         where
             Self: Sized,
         {
-			if let Some(mut component) = query.world.get_mut_by_id(entity, query.style.transform_will_change) {
-				let r = unsafe { component.as_ref().deref::<TransformWillChange>() };
-				if r.0.is_some() {
+			if let Ok(mut component) = query.style.transform_will_change.get_mut(entity) {
+				if component.0.is_some() {
 					// 如果存在transform_willChange,则将Transform设置在TransformWillChange上
-					component.set_changed();
-				}
-				let r = unsafe { component.into_inner().deref_mut::<TransformWillChange>() };
-				if let Some(r) = &mut r.0 {
-					r.rotate = None;
-					return;
+					if let Some(r) = &mut component.0 {
+                        r.rotate = None;
+                        return
+                    }
 				}
             };
 
-            match query.world.get_mut_by_id(entity, query.style.transform) {
-				Some(mut component) => {
-					component.set_changed();
-					unsafe { component.into_inner().deref_mut::<Transform>() }.all_transform.rotate = None;
+            match query.style.transform.get_mut(entity) {
+				Ok(mut component) => {
+					component.all_transform.rotate = None;
 				}
-				None => (),
+				_ => (),
 			}
         }
 
@@ -2625,7 +2505,6 @@ pub mod serialize {
             };
             cur_style_mark.set(Self::get_type() as usize, true);
 
-            let world = &mut query.world;
             log::debug!(
                 "set_style_attr, type: {:?}, value: {:?}, entity: {:?}",
                 std::any::type_name::<TransformWillChange>(),
@@ -2634,50 +2513,34 @@ pub mod serialize {
             );
 
 			if !v {
-				if let Some(mut component) = world.get_mut_by_id(entity, query.style.transform_will_change) {
-					let r = unsafe { component.as_ref().deref::<TransformWillChange>() }.clone();
-					if r.0.is_some() {
-						// 如果存在transform_willChange,则将Transform设置在TransformWillChange上
-						component.set_changed();
-						let r = unsafe { component.into_inner().deref_mut::<TransformWillChange>() };
-						r.0 = None;
-					}
-					if let Some(c) = &r.0 {
-						// 删除TransformWillChange, 设置Transform
-					
-							// 设置transform
-						match world.get_mut_by_id(entity, query.style.transform) {
-							Some(mut component) => {
+				if let Ok(mut component) = query.style.transform_will_change.get_mut(entity) {
+					if let Some(c) = &component.0 {
+                        match query.style.transform.get_mut(entity) {
+							Ok(mut component) => {
 								// 如果存在transform_willChange,则将Transform设置在TransformWillChange上
-								component.set_changed();
-								unsafe { component.into_inner().deref_mut::<Transform>() }.all_transform = c.clone();
+								component.all_transform = c.clone();
 							}
-							None => {
-								world.entity_mut(entity).insert(Transform {
+							_ => {
+								let _ = query.style.transform.alter(entity, (Transform {
 									all_transform: c.clone(),
 									..Default::default()
-								});
+								},));
 							}
 						}
-				
+                        component.0 = None;
 						return;
-						// world.entity_mut(entity).remove::<TransformWillChange>();
-						// if let Some(component) = query.world.get_resource_mut_by_id(query.style.event.transform_will_change) {
-						// 	unsafe { component.into_inner().deref_mut::<Events<ComponentRemove<TransformWillChange>>>() }
-						// 		.send(ComponentRemove::<TransformWillChange>{id: entity, mark: PhantomData});
-						// };
 					}
+				
 					
 				}
 			} else {
 				// 不存在transform_willChange， 则设置在Transfrom上
-				match world.get_mut_by_id(entity, query.style.transform) {
-					Some(component) => {
-						let c = unsafe { component.into_inner().deref_mut::<Transform>() }.clone();
-						world.entity_mut(entity).insert(TransformWillChange(Some(c.all_transform)));
+				match query.style.transform.get_mut(entity) {
+					Ok(component) => {
+						let _ = query.style.transform_will_change.alter(entity, (TransformWillChange(Some(component.all_transform.clone())), ));
 					}
-					None => {
-						world.entity_mut(entity).insert(TransformWillChange::default());
+					_ => {
+						let _ = query.style.transform_will_change.alter(entity, (TransformWillChange::default(), ));
 					}
 				}
 			}
@@ -2687,7 +2550,7 @@ pub mod serialize {
     impl ConvertToComponent for TransformWillChangeType {
         
         /// 为样式设置默认值
-        fn set_default(_buffer: &Vec<u8>, _offset: usize, _query: &DefaultStyle, _world: &mut World)
+        fn set_default(_buffer: &Vec<u8>, _offset: usize, _query: &mut DefaultStyle)
         where
             Self: Sized,
         {
@@ -2701,13 +2564,13 @@ pub mod serialize {
         }
 
 		fn get(query: &mut Setting, entity: Entity) -> Option<Attribute> {
-			match query.world.get_mut_by_id(entity, query.style.transform_will_change) {
-				Some(component) => if unsafe { component.into_inner().deref_mut::<TransformWillChange>().0.is_some()} {
+			match query.style.transform_will_change.get_mut(entity) {
+				Ok(component) => if component.0.is_some() {
 					Some(Attribute::TransformWillChange(TransformWillChangeType(true)))
 				} else {
 					None
 				},
-				None => None
+				_ => None
 			}
 		}
     }
@@ -2717,37 +2580,27 @@ pub mod serialize {
         where
             Self: Sized,
         {
-            let world = &mut query.world;
             log::debug!("reset_style_attr, type: TransformWillChange, entity: {:?}", entity);
-            if let Some(mut component) = world.get_mut_by_id(entity, query.style.transform_will_change) {
+            if let Ok(mut component) = query.style.transform_will_change.get_mut(entity) {
                 // 删除TransformWillChange, 设置Transform
-                let r = unsafe { component.as_ref().deref::<TransformWillChange>() }.0.clone();
-				if let Some(c) = r {
-					component.set_changed();
-					unsafe { component.into_inner().deref_mut::<TransformWillChange>() }.0 = None;
+				if let Some(c) = &component.0 {
 
 					// 设置transform
-					match world.get_mut_by_id(entity, query.style.transform) {
-						Some(mut component) => {
+					match query.style.transform.get_mut(entity) {
+						Ok(mut component) => {
 							// 如果存在transform_willChange,则将Transform设置在TransformWillChange上
-							component.set_changed();
-							unsafe { component.into_inner().deref_mut::<Transform>() }.all_transform = c;
+							component.all_transform = c.clone();
 						}
-						None => {
-							world.entity_mut(entity).insert(Transform {
-								all_transform: c,
+						_ => {
+							let _ = query.style.transform.alter(entity, (Transform {
+								all_transform: c.clone(),
 								..Default::default()
-							});
+							}, ));
 						}
 					}
+
+                    component.0 = None;
 				}
-               
-				
-                // world.entity_mut(entity).remove::<TransformWillChange>();
-				// if let Some(component) = query.world.get_resource_mut_by_id(query.style.event.transform_will_change) {
-				// 	unsafe { component.into_inner().deref_mut::<Events<ComponentRemove<TransformWillChange>>>() }
-				// 		.send(ComponentRemove::<TransformWillChange>{id: entity, mark: PhantomData});
-				// };
 				
             }
         }
@@ -2931,7 +2784,7 @@ pub mod serialize {
         set: fn(cur_style_mark: &mut StyleMarkType, ptr: *const u8, query: &mut Setting, entity: Entity, is_clone: bool),
 
         /// 设置默认值
-        set_default: fn(buffer: &Vec<u8>, offset: usize, query: &DefaultStyle, world: &mut World),
+        set_default: fn(buffer: &Vec<u8>, offset: usize, query: &mut DefaultStyle),
         to_attr: fn(ptr: *const u8) -> Attribute,
     }
 
@@ -3212,12 +3065,13 @@ pub mod serialize {
         ];
     }
 
-    pub struct Setting<'w> {
-        pub style: &'w StyleQuery,
-        pub world: &'w mut World,
+    pub struct Setting<'w, 's, 's1> {
+        pub style: &'s mut StyleQuery<'w>,
+        pub default_value: &'s mut DefaultStyle<'s1>,
+        // pub world: &'w mut World,
     }
 
-    impl<'w> Setting<'w> {
+    impl<'w, 's, 's1> Setting<'w, 's, 's1> {
         // #[inline]
         // pub fn style_mut(&mut self) -> &mut StyleQuery<'w, 's> {
         // 	&mut self.style
@@ -3228,550 +3082,714 @@ pub mod serialize {
         // 	&mut self.world
         // }
 
-        pub fn new(style: &'w StyleQuery, world: &'w mut World) -> Self { Self { style, world } }
+        pub fn new<'ww, 'ss, 'ss1>(style: &'ss mut StyleQuery<'ww>, default_value: &'ss mut DefaultStyle<'ss1>) -> Setting<'ww, 'ss, 'ss1> { Setting { style, default_value } }
     }
 
-    impl FromWorld for StyleQuery {
-        fn from_world(world: &mut World) -> Self {
-            Self {
-                size: world.init_component::<Size>(),
-                margin: world.init_component::<Margin>(),
-                padding: world.init_component::<Padding>(),
-                border: world.init_component::<Border>(),
-                position: world.init_component::<Position>(),
-                min_max: world.init_component::<MinMax>(),
-                flex_container: world.init_component::<FlexContainer>(),
-                flex_normal: world.init_component::<FlexNormal>(),
-                z_index: world.init_component::<ZIndex>(),
-                overflow: world.init_component::<Overflow>(),
-                opacity: world.init_component::<Opacity>(),
-                blend_mode: world.init_component::<BlendMode>(),
-                show: world.init_component::<Show>(),
-                transform: world.init_component::<Transform>(),
-                background_color: world.init_component::<BackgroundColor>(),
-                border_color: world.init_component::<BorderColor>(),
-                background_image: world.init_component::<BackgroundImage>(),
-                background_image_texture: world.init_component::<BackgroundImageTexture>(),
-                background_image_clip: world.init_component::<BackgroundImageClip>(),
-                mask_image: world.init_component::<MaskImage>(),
-                mask_image_clip: world.init_component::<MaskImageClip>(),
-                hsi: world.init_component::<Hsi>(),
-                blur: world.init_component::<Blur>(),
-                clip_path: world.init_component::<ClipPath>(),
-                background_image_mod: world.init_component::<BackgroundImageMod>(),
-                border_image: world.init_component::<BorderImage>(),
-                border_image_texture: world.init_component::<BorderImageTexture>(),
-                border_image_clip: world.init_component::<BorderImageClip>(),
-                border_image_slice: world.init_component::<BorderImageSlice>(),
-                border_image_repeat: world.init_component::<BorderImageRepeat>(),
-                border_radius: world.init_component::<BorderRadius>(),
-                box_shadow: world.init_component::<BoxShadow>(),
-                text_style: world.init_component::<TextStyle>(),
-                text_shadow: world.init_component::<TextShadow>(),
-                transform_will_change: world.init_component::<TransformWillChange>(),
-                text_content: world.init_component::<TextContent>(),
-                node_state: world.init_component::<NodeState>(),
-                animation: world.init_component::<Animation>(),
-				transition: world.init_component::<Transition>(),
-                style_mark: world.init_component::<StyleMark>(),
-                class_name: world.init_component::<ClassName>(),
-                as_image: world.init_component::<AsImage>(),
-                default: DefaultStyle::from_world(world),
-                event: ChangeEvent::from_world(world),
+    // impl FromWorld for StyleQuery {
+    //     fn from_world(world: &mut World) -> Self {
+    //         Self {
+    //             size: world.init_component::<Size>(),
+    //             margin: world.init_component::<Margin>(),
+    //             padding: world.init_component::<Padding>(),
+    //             border: world.init_component::<Border>(),
+    //             position: world.init_component::<Position>(),
+    //             min_max: world.init_component::<MinMax>(),
+    //             flex_container: world.init_component::<FlexContainer>(),
+    //             flex_normal: world.init_component::<FlexNormal>(),
+    //             z_index: world.init_component::<ZIndex>(),
+    //             overflow: world.init_component::<Overflow>(),
+    //             opacity: world.init_component::<Opacity>(),
+    //             blend_mode: world.init_component::<BlendMode>(),
+    //             show: world.init_component::<Show>(),
+    //             transform: world.init_component::<Transform>(),
+    //             background_color: world.init_component::<BackgroundColor>(),
+    //             border_color: world.init_component::<BorderColor>(),
+    //             background_image: world.init_component::<BackgroundImage>(),
+    //             background_image_texture: world.init_component::<BackgroundImageTexture>(),
+    //             background_image_clip: world.init_component::<BackgroundImageClip>(),
+    //             mask_image: world.init_component::<MaskImage>(),
+    //             mask_image_clip: world.init_component::<MaskImageClip>(),
+    //             hsi: world.init_component::<Hsi>(),
+    //             blur: world.init_component::<Blur>(),
+    //             clip_path: world.init_component::<ClipPath>(),
+    //             background_image_mod: world.init_component::<BackgroundImageMod>(),
+    //             border_image: world.init_component::<BorderImage>(),
+    //             border_image_texture: world.init_component::<BorderImageTexture>(),
+    //             border_image_clip: world.init_component::<BorderImageClip>(),
+    //             border_image_slice: world.init_component::<BorderImageSlice>(),
+    //             border_image_repeat: world.init_component::<BorderImageRepeat>(),
+    //             border_radius: world.init_component::<BorderRadius>(),
+    //             box_shadow: world.init_component::<BoxShadow>(),
+    //             text_style: world.init_component::<TextStyle>(),
+    //             text_shadow: world.init_component::<TextShadow>(),
+    //             transform_will_change: world.init_component::<TransformWillChange>(),
+    //             text_content: world.init_component::<TextContent>(),
+    //             node_state: world.init_component::<NodeState>(),
+    //             animation: world.init_component::<Animation>(),
+	// 			transition: world.init_component::<Transition>(),
+    //             style_mark: world.init_component::<StyleMark>(),
+    //             class_name: world.init_component::<ClassName>(),
+    //             as_image: world.init_component::<AsImage>(),
+    //             // default: DefaultStyle::from_world(world),
+    //             // event: ChangeEvent::from_world(world),
 
-				// dirty_list: world.components().get_resource_id(std::any::TypeId::of::<DirtyList>()).unwrap(),
+	// 			// dirty_list: world.components().get_resource_id(std::any::TypeId::of::<DirtyList>()).unwrap(),
 
-				text_overflow: world.init_component::<TextOverflowData>(),
-                text_outer_glow: world.init_component::<TextOuterGlow>(),
-            }
-        }
+	// 			text_overflow: world.init_component::<TextOverflowData>(),
+    //             text_outer_glow: world.init_component::<TextOuterGlow>(),
+    //         }
+    //     }
+    // }
+
+
+    #[derive(SystemParam, ParamSetElement)]
+    pub struct StyleQuery<'w> {
+        pub entitys: Query<'w, Entity>,
+
+        pub size: Alter<'w, &'static mut Size, (), (Size, )>,
+        pub margin: Alter<'w, &'static mut Margin, (), (Margin, )>,
+        pub padding: Alter<'w, &'static mut Padding, (), (Padding, )>,
+        pub border: Alter<'w, &'static mut Border, (), (Border, )>,
+        pub position: Alter<'w, &'static mut Position, (), (Position, )>,
+        pub min_max: Alter<'w, &'static mut MinMax, (), (MinMax, )>,
+        pub flex_container: Alter<'w, &'static mut FlexContainer, (), (FlexContainer, )>,
+        pub flex_normal: Alter<'w, &'static mut FlexNormal, (), (FlexNormal, )>,
+        pub z_index: Alter<'w, &'static mut ZIndex, (), (ZIndex, )>,
+        pub overflow: Alter<'w, &'static mut Overflow, (), (Overflow, )>,
+        pub opacity: Alter<'w, &'static mut Opacity, (), (Opacity, )>,
+        pub blend_mode: Alter<'w, &'static mut BlendMode, (), (BlendMode, )>,
+        pub show: Alter<'w, &'static mut Show, (), (Show, )>,
+        pub transform: Alter<'w, &'static mut Transform, (), (Transform, )>,
+        pub background_color: Alter<'w, &'static mut BackgroundColor, (), (BackgroundColor, )>,
+        pub border_color: Alter<'w, &'static mut BorderColor, (), (BorderColor, )>,
+        pub background_image: Alter<'w, &'static mut BackgroundImage, (), (BackgroundImage, )>,
+        pub background_image_texture: Alter<'w, &'static mut BackgroundImageTexture, (), (BackgroundImageTexture, )>,
+        pub background_image_clip: Alter<'w, &'static mut BackgroundImageClip, (), (BackgroundImageClip, )>,
+        pub mask_image: Alter<'w, &'static mut MaskImage, (), (MaskImage, )>,
+        pub mask_image_clip: Alter<'w, &'static mut MaskImageClip, (), (MaskImageClip, )>,
+        pub hsi: Alter<'w, &'static mut Hsi, (), (Hsi, )>,
+        pub blur: Alter<'w, &'static mut Blur, (), (Blur, )>,
+        pub clip_path: Alter<'w, &'static mut ClipPath, (), (ClipPath, )>,
+        pub background_image_mod: Alter<'w, &'static mut BackgroundImageMod, (), (BackgroundImageMod, )>,
+        pub border_image: Alter<'w, &'static mut BorderImage, (), (BorderImage, )>,
+        pub border_image_texture: Alter<'w, &'static mut BorderImageTexture, (), (BorderImageTexture, )>,
+        pub border_image_clip: Alter<'w, &'static mut BorderImageClip, (), (BorderImageClip, )>,
+        pub border_image_slice: Alter<'w, &'static mut BorderImageSlice, (), (BorderImageSlice, )>,
+        pub border_image_repeat: Alter<'w, &'static mut BorderImageRepeat, (), (BorderImageRepeat, )>,
+        pub border_radius: Alter<'w, &'static mut BorderRadius, (), (BorderRadius, )>,
+        pub box_shadow: Alter<'w, &'static mut BoxShadow, (), (BoxShadow, )>,
+        pub text_style: Alter<'w, &'static mut TextStyle, (), (TextStyle, )>,
+        pub text_shadow: Alter<'w, &'static mut TextShadow, (), (TextShadow, )>,
+        pub text_outer_glow: Alter<'w, &'static mut TextOuterGlow, (), (TextOuterGlow, )>,
+        pub transform_will_change: Alter<'w, &'static mut TransformWillChange, (), (TransformWillChange, )>,
+        pub text_content: Alter<'w, &'static mut TextContent, (), (TextContent, )>,
+        pub node_state: Alter<'w, &'static mut NodeState, (), (NodeState, )>,
+        pub animation: Alter<'w, &'static mut Animation, (), (Animation, )>,
+		pub transition: Alter<'w, &'static mut Transition, (), (Transition, )>,
+        pub class_name: Alter<'w, &'static mut ClassName, (), (ClassName, )>,
+        pub as_image: Alter<'w, &'static mut AsImage, (), (AsImage, )>,
+
+        // pub default: DefaultStyle,
+
+        // pub event: ChangeEvent,
+
+		// pub dirty_list: Alter<'w, &'static Size, (), (Size, )>,
+
+		pub text_overflow: Alter<'w, &'static mut TextOverflowData, (), (TextOverflowData, )>,
     }
 
-    pub struct StyleQuery {
-        pub size: ComponentId,
-        pub margin: ComponentId,
-        pub padding: ComponentId,
-        pub border: ComponentId,
-        pub position: ComponentId,
-        pub min_max: ComponentId,
-        pub flex_container: ComponentId,
-        pub flex_normal: ComponentId,
-        pub z_index: ComponentId,
-        pub overflow: ComponentId,
-        pub opacity: ComponentId,
-        pub blend_mode: ComponentId,
-        pub show: ComponentId,
-        pub transform: ComponentId,
-        pub background_color: ComponentId,
-        pub border_color: ComponentId,
-        pub background_image: ComponentId,
-        pub background_image_texture: ComponentId,
-        pub background_image_clip: ComponentId,
-        pub mask_image: ComponentId,
-        pub mask_image_clip: ComponentId,
-        pub hsi: ComponentId,
-        pub blur: ComponentId,
-        pub clip_path: ComponentId,
-        pub background_image_mod: ComponentId,
-        pub border_image: ComponentId,
-        pub border_image_texture: ComponentId,
-        pub border_image_clip: ComponentId,
-        pub border_image_slice: ComponentId,
-        pub border_image_repeat: ComponentId,
-        pub border_radius: ComponentId,
-        pub box_shadow: ComponentId,
-        pub text_style: ComponentId,
-        pub text_shadow: ComponentId,
-        pub text_outer_glow: ComponentId,
-        pub transform_will_change: ComponentId,
-        pub text_content: ComponentId,
-        pub node_state: ComponentId,
-        pub animation: ComponentId,
-		pub transition: ComponentId,
-        pub style_mark: ComponentId,
-        pub class_name: ComponentId,
-        pub as_image: ComponentId,
+    // 默认值
+    #[derive(SystemParam)]
+    pub struct DefaultStyle<'w> {
+        pub size: OrInitSingleResMut<'w, Size>,
+        pub margin: OrInitSingleResMut<'w, Margin>,
+        pub padding: OrInitSingleResMut<'w, Padding>,
+        pub border: OrInitSingleResMut<'w, Border>,
+        pub position: OrInitSingleResMut<'w, Position>,
+        pub min_max: OrInitSingleResMut<'w, MinMax>,
+        pub flex_container: OrInitSingleResMut<'w, FlexContainer>,
+        pub flex_normal: OrInitSingleResMut<'w, FlexNormal>,
+        pub z_index: OrInitSingleResMut<'w, ZIndex>,
+        pub overflow: OrInitSingleResMut<'w, Overflow>,
+        pub opacity: OrInitSingleResMut<'w, Opacity>,
+        pub blend_mode: OrInitSingleResMut<'w, BlendMode>,
+        pub show: OrInitSingleResMut<'w, Show>,
+        pub transform: OrInitSingleResMut<'w, Transform>,
+        pub background_color: OrInitSingleResMut<'w, BackgroundColor>,
+        pub border_color: OrInitSingleResMut<'w, BorderColor>,
+        pub background_image: OrInitSingleResMut<'w, BackgroundImage>,
+        pub background_image_texture: OrInitSingleResMut<'w, BackgroundImageTexture>,
+        pub background_image_clip: OrInitSingleResMut<'w, BackgroundImageClip>,
+        pub mask_image: OrInitSingleResMut<'w, MaskImage>,
+        pub mask_image_clip: OrInitSingleResMut<'w, MaskImageClip>,
+        pub hsi: OrInitSingleResMut<'w, Hsi>,
+        pub blur: OrInitSingleResMut<'w, Blur>,
+        pub clip_path: OrInitSingleResMut<'w, ClipPath>,
+        pub background_image_mod: OrInitSingleResMut<'w, BackgroundImageMod>,
+        pub border_image: OrInitSingleResMut<'w, BorderImage>,
+        pub border_image_texture: OrInitSingleResMut<'w, BorderImageTexture>,
+        pub border_image_clip: OrInitSingleResMut<'w, BorderImageClip>,
+        pub border_image_slice: OrInitSingleResMut<'w, BorderImageSlice>,
+        pub border_image_repeat: OrInitSingleResMut<'w, BorderImageRepeat>,
+        pub border_radius: OrInitSingleResMut<'w, BorderRadius>,
+        pub box_shadow: OrInitSingleResMut<'w, BoxShadow>,
+        pub text_style: OrInitSingleResMut<'w, TextStyle>,
+        pub text_shadow: OrInitSingleResMut<'w, TextShadow>,
+        pub text_outer_glow: OrInitSingleResMut<'w, TextOuterGlow>,
+        pub transform_will_change: OrInitSingleResMut<'w, TransformWillChange>,
+        pub text_content: OrInitSingleResMut<'w, TextContent>,
+        pub node_state: OrInitSingleResMut<'w, NodeState>,
+        pub animation: OrInitSingleResMut<'w, Animation>,
+		pub transition: OrInitSingleResMut<'w, Transition>,
+        pub class_name: OrInitSingleResMut<'w, ClassName>,
+        pub as_image: OrInitSingleResMut<'w, AsImage>,
 
-        pub default: DefaultStyle,
+        // pub default: DefaultStyle,
 
-        pub event: ChangeEvent,
+        // pub event: ChangeEvent,
 
-		// pub dirty_list: ComponentId,
+		// pub dirty_list: Alter<'w, &'static Size, (), (Size, )>,
 
-		pub text_overflow: ComponentId,
+		pub text_overflow: OrInitSingleResMut<'w, TextOverflowData>,
     }
 
-    pub struct DefaultStyle {
-        pub size: ComponentId,
-        pub margin: ComponentId,
-        pub padding: ComponentId,
-        pub border: ComponentId,
-        pub position: ComponentId,
-        pub min_max: ComponentId,
-        pub flex_container: ComponentId,
-        pub flex_normal: ComponentId,
-        pub z_index: ComponentId,
-        pub overflow: ComponentId,
-        pub opacity: ComponentId,
-        pub blend_mode: ComponentId,
-        pub show: ComponentId,
-        pub transform: ComponentId,
-        pub background_color: ComponentId,
-        pub border_color: ComponentId,
-        pub background_image: ComponentId,
-        pub background_image_clip: ComponentId,
-        pub mask_image: ComponentId,
-        pub mask_image_clip: ComponentId,
-        pub hsi: ComponentId,
-        pub blur: ComponentId,
-        pub clip_path: ComponentId,
-        pub background_image_mod: ComponentId,
-        pub border_image: ComponentId,
-        pub border_image_clip: ComponentId,
-        pub border_image_slice: ComponentId,
-        pub border_image_repeat: ComponentId,
-        pub border_radius: ComponentId,
-        pub box_shadow: ComponentId,
-        pub text_style: ComponentId,
-        pub text_shadow: ComponentId,
-        pub text_outer_glow: ComponentId,
-        pub transform_will_change: ComponentId,
-        pub text_content: ComponentId,
-        pub animation: ComponentId,
-		pub transition: ComponentId,
-        pub node_state: ComponentId,
-        pub as_image: ComponentId,
-		pub text_overflow: ComponentId,
-    }
+    // impl StyleQuery {
+    //     const fn get_alert<T: 'static>(&mut self) -> &mut Alter<'static, &'static mut T, (), (T, )> {
+    //         match std::any::TypeId::of::<T>() {
+    //             std::any::TypeId::of::<Size> => &self.size,
+    //             std::any::TypeId::of::<Margin> => &self.margin,
+    //             std::any::TypeId::of::<Padding> => &self.padding,
+    //             std::any::TypeId::of::<Border> => &self.border,
+    //             std::any::TypeId::of::<Position> => &self.position,
+    //             std::any::TypeId::of::<MinMax> => &self.min_max,
+    //             std::any::TypeId::of::<FlexContainer> => &self.flex_container,
+    //             std::any::TypeId::of::<FlexNormal> => &self.flex_normal,
+    //             std::any::TypeId::of::<ZIndex> => &self.z_index,
+    //             std::any::TypeId::of::<Overflow> => &self.overflow,
+    //             std::any::TypeId::of::<Opacity> => &self.opacity,
+    //             std::any::TypeId::of::<BlendMode> => &self.blend_mode,
+    //             std::any::TypeId::of::<Show> => &self.show,
+    //             std::any::TypeId::of::<Transform> => &self.transform,
+    //             std::any::TypeId::of::<BackgroundColor> => &self.background_color,
+    //             std::any::TypeId::of::<BorderColor> => &self.border_color,
+    //             std::any::TypeId::of::<BackgroundImage> => &self.background_image,
+    //             std::any::TypeId::of::<BackgroundImageTexture> => &self.background_image_texture,
+    //             std::any::TypeId::of::<BackgroundImageClip> => &self.background_image_clip,
+    //             std::any::TypeId::of::<MaskImage> => &self.mask_image,
+    //             std::any::TypeId::of::<MaskImageClip> => &self.mask_image_clip,
+    //             std::any::TypeId::of::<Hsi> => &self.hsi,
+    //             std::any::TypeId::of::<Blur> => &self.blur,
+    //             std::any::TypeId::of::<ClipPath> => &self.clip_path,
+    //             std::any::TypeId::of::<BackgroundImageMod> => &self.background_image_mod,
+    //             std::any::TypeId::of::<BorderImage> => &self.border_image,
+    //             std::any::TypeId::of::<BorderImageTexture> => &self.border_image_texture,
+    //             std::any::TypeId::of::<BorderImageClip> => &self.border_image_clip,
+    //             std::any::TypeId::of::<BorderImageSlice> => &self.border_image_slice,
+    //             std::any::TypeId::of::<BorderImageRepeat> => &self.border_image_repeat,
+    //             std::any::TypeId::of::<BorderRadius> => &self.border_radius,
+    //             std::any::TypeId::of::<BoxShadow> => &self.box_shadow,
+    //             std::any::TypeId::of::<TextStyle> => &self.text_style,
+    //             std::any::TypeId::of::<TextShadow> => &self.text_shadow,
+    //             std::any::TypeId::of::<TextOuterGlow> => &self.text_outer_glow,
+    //             std::any::TypeId::of::<TransformWillChange> => &self.transform_will_change,
+    //             std::any::TypeId::of::<TextContent> => &self.text_content,
+    //             std::any::TypeId::of::<NodeState> => &self.node_state,
+    //             std::any::TypeId::of::<Animation> => &self.animation,
+    //             std::any::TypeId::of::<Transition> => &self.transition,
+    //             std::any::TypeId::of::<StyleMark> => &self.style_mark,
+    //             std::any::TypeId::of::<ClassName> => &self.class_name,
+    //             std::any::TypeId::of::<AsImage> => &self.as_image,
 
-    impl FromWorld for DefaultStyle {
-        fn from_world(world: &mut World) -> Self {
-            Self {
-                size: {
-                    world.init_resource::<DefaultComponent<Size>>();
-                    world
-                        .components()
-                        .get_resource_id(std::any::TypeId::of::<DefaultComponent<Size>>())
-                        .unwrap()
-                },
-                margin: {
-                    world.init_resource::<DefaultComponent<Margin>>();
-                    world
-                        .components()
-                        .get_resource_id(std::any::TypeId::of::<DefaultComponent<Margin>>())
-                        .unwrap()
-                },
-                padding: {
-                    world.init_resource::<DefaultComponent<Padding>>();
-                    world
-                        .components()
-                        .get_resource_id(std::any::TypeId::of::<DefaultComponent<Padding>>())
-                        .unwrap()
-                },
-                border: {
-                    world.init_resource::<DefaultComponent<Border>>();
-                    world
-                        .components()
-                        .get_resource_id(std::any::TypeId::of::<DefaultComponent<Border>>())
-                        .unwrap()
-                },
-                position: {
-                    world.init_resource::<DefaultComponent<Position>>();
-                    world
-                        .components()
-                        .get_resource_id(std::any::TypeId::of::<DefaultComponent<Position>>())
-                        .unwrap()
-                },
-                min_max: {
-                    world.init_resource::<DefaultComponent<MinMax>>();
-                    world
-                        .components()
-                        .get_resource_id(std::any::TypeId::of::<DefaultComponent<MinMax>>())
-                        .unwrap()
-                },
-                flex_container: {
-                    world.init_resource::<DefaultComponent<FlexContainer>>();
-                    world
-                        .components()
-                        .get_resource_id(std::any::TypeId::of::<DefaultComponent<FlexContainer>>())
-                        .unwrap()
-                },
-                flex_normal: {
-                    world.init_resource::<DefaultComponent<FlexNormal>>();
-                    world
-                        .components()
-                        .get_resource_id(std::any::TypeId::of::<DefaultComponent<FlexNormal>>())
-                        .unwrap()
-                },
-                z_index: {
-                    world.init_resource::<DefaultComponent<ZIndex>>();
-                    world
-                        .components()
-                        .get_resource_id(std::any::TypeId::of::<DefaultComponent<ZIndex>>())
-                        .unwrap()
-                },
-                overflow: {
-                    world.init_resource::<DefaultComponent<Overflow>>();
-                    world
-                        .components()
-                        .get_resource_id(std::any::TypeId::of::<DefaultComponent<Overflow>>())
-                        .unwrap()
-                },
-                opacity: {
-                    world.init_resource::<DefaultComponent<Opacity>>();
-                    world
-                        .components()
-                        .get_resource_id(std::any::TypeId::of::<DefaultComponent<Opacity>>())
-                        .unwrap()
-                },
-                blend_mode: {
-                    world.init_resource::<DefaultComponent<BlendMode>>();
-                    world
-                        .components()
-                        .get_resource_id(std::any::TypeId::of::<DefaultComponent<BlendMode>>())
-                        .unwrap()
-                },
-                show: {
-                    world.init_resource::<DefaultComponent<Show>>();
-                    world
-                        .components()
-                        .get_resource_id(std::any::TypeId::of::<DefaultComponent<Show>>())
-                        .unwrap()
-                },
-                transform: {
-                    world.init_resource::<DefaultComponent<Transform>>();
-                    world
-                        .components()
-                        .get_resource_id(std::any::TypeId::of::<DefaultComponent<Transform>>())
-                        .unwrap()
-                },
-                background_color: {
-                    world.init_resource::<DefaultComponent<BackgroundColor>>();
-                    world
-                        .components()
-                        .get_resource_id(std::any::TypeId::of::<DefaultComponent<BackgroundColor>>())
-                        .unwrap()
-                },
-                border_color: {
-                    world.init_resource::<DefaultComponent<BorderColor>>();
-                    world
-                        .components()
-                        .get_resource_id(std::any::TypeId::of::<DefaultComponent<BorderColor>>())
-                        .unwrap()
-                },
-                background_image: {
-                    world.init_resource::<DefaultComponent<BackgroundImage>>();
-                    world
-                        .components()
-                        .get_resource_id(std::any::TypeId::of::<DefaultComponent<BackgroundImage>>())
-                        .unwrap()
-                },
-                background_image_clip: {
-                    world.init_resource::<DefaultComponent<BackgroundImageClip>>();
-                    world
-                        .components()
-                        .get_resource_id(std::any::TypeId::of::<DefaultComponent<BackgroundImageClip>>())
-                        .unwrap()
-                },
-                mask_image: {
-                    world.init_resource::<DefaultComponent<MaskImage>>();
-                    world
-                        .components()
-                        .get_resource_id(std::any::TypeId::of::<DefaultComponent<MaskImage>>())
-                        .unwrap()
-                },
-                mask_image_clip: {
-                    world.init_resource::<DefaultComponent<MaskImageClip>>();
-                    world
-                        .components()
-                        .get_resource_id(std::any::TypeId::of::<DefaultComponent<MaskImageClip>>())
-                        .unwrap()
-                },
-                hsi: {
-                    world.init_resource::<DefaultComponent<Hsi>>();
-                    world
-                        .components()
-                        .get_resource_id(std::any::TypeId::of::<DefaultComponent<Hsi>>())
-                        .unwrap()
-                },
-                blur: {
-                    world.init_resource::<DefaultComponent<Blur>>();
-                    world
-                        .components()
-                        .get_resource_id(std::any::TypeId::of::<DefaultComponent<Blur>>())
-                        .unwrap()
-                },
-                clip_path: {
-                    world.init_resource::<DefaultComponent<ClipPath>>();
-                    world
-                        .components()
-                        .get_resource_id(std::any::TypeId::of::<DefaultComponent<ClipPath>>())
-                        .unwrap()
-                },
-                background_image_mod: {
-                    world.init_resource::<DefaultComponent<BackgroundImageMod>>();
-                    world
-                        .components()
-                        .get_resource_id(std::any::TypeId::of::<DefaultComponent<BackgroundImageMod>>())
-                        .unwrap()
-                },
-                border_image: {
-                    world.init_resource::<DefaultComponent<BorderImage>>();
-                    world
-                        .components()
-                        .get_resource_id(std::any::TypeId::of::<DefaultComponent<BorderImage>>())
-                        .unwrap()
-                },
-                border_image_clip: {
-                    world.init_resource::<DefaultComponent<BorderImageClip>>();
-                    world
-                        .components()
-                        .get_resource_id(std::any::TypeId::of::<DefaultComponent<BorderImageClip>>())
-                        .unwrap()
-                },
-                border_image_slice: {
-                    world.init_resource::<DefaultComponent<BorderImageSlice>>();
-                    world
-                        .components()
-                        .get_resource_id(std::any::TypeId::of::<DefaultComponent<BorderImageSlice>>())
-                        .unwrap()
-                },
-                border_image_repeat: {
-                    world.init_resource::<DefaultComponent<BorderImageRepeat>>();
-                    world
-                        .components()
-                        .get_resource_id(std::any::TypeId::of::<DefaultComponent<BorderImageRepeat>>())
-                        .unwrap()
-                },
-                border_radius: {
-                    world.init_resource::<DefaultComponent<BorderRadius>>();
-                    world
-                        .components()
-                        .get_resource_id(std::any::TypeId::of::<DefaultComponent<BorderRadius>>())
-                        .unwrap()
-                },
-                box_shadow: {
-                    world.init_resource::<DefaultComponent<BoxShadow>>();
-                    world
-                        .components()
-                        .get_resource_id(std::any::TypeId::of::<DefaultComponent<BoxShadow>>())
-                        .unwrap()
-                },
-                text_style: {
-                    world.init_resource::<DefaultComponent<TextStyle>>();
-                    world
-                        .components()
-                        .get_resource_id(std::any::TypeId::of::<DefaultComponent<TextStyle>>())
-                        .unwrap()
-                },
-                text_shadow: {
-                    world.init_resource::<DefaultComponent<TextShadow>>();
-                    world
-                        .components()
-                        .get_resource_id(std::any::TypeId::of::<DefaultComponent<TextShadow>>())
-                        .unwrap()
-                },
-                text_outer_glow: {
-                    world.init_resource::<DefaultComponent<TextOuterGlow>>();
-                    world
-                        .components()
-                        .get_resource_id(std::any::TypeId::of::<DefaultComponent<TextOuterGlow>>())
-                        .unwrap()
-                },
-                transform_will_change: {
-                    world.init_resource::<DefaultComponent<TransformWillChange>>();
-                    world
-                        .components()
-                        .get_resource_id(std::any::TypeId::of::<DefaultComponent<TransformWillChange>>())
-                        .unwrap()
-                },
-                text_content: {
-                    world.init_resource::<DefaultComponent<TextContent>>();
-                    world
-                        .components()
-                        .get_resource_id(std::any::TypeId::of::<DefaultComponent<TextContent>>())
-                        .unwrap()
-                },
-                animation: {
-                    world.init_resource::<DefaultComponent<Animation>>();
-                    world
-                        .components()
-                        .get_resource_id(std::any::TypeId::of::<DefaultComponent<Animation>>())
-                        .unwrap()
-                },
-				transition: {
-                    world.init_resource::<DefaultComponent<Transition>>();
-                    world
-                        .components()
-                        .get_resource_id(std::any::TypeId::of::<DefaultComponent<Transition>>())
-                        .unwrap()
-                },
-                node_state: {
-                    world.init_resource::<DefaultComponent<NodeState>>();
-                    world
-                        .components()
-                        .get_resource_id(std::any::TypeId::of::<DefaultComponent<NodeState>>())
-                        .unwrap()
-                },
-                as_image: {
-                    world.init_resource::<DefaultComponent<AsImage>>();
-                    world
-                        .components()
-                        .get_resource_id(std::any::TypeId::of::<DefaultComponent<AsImage>>())
-                        .unwrap()
-                },
-				text_overflow: {
-                    world.init_resource::<DefaultComponent<TextOverflowData>>();
-                    world
-                        .components()
-                        .get_resource_id(std::any::TypeId::of::<DefaultComponent<TextOverflowData>>())
-                        .unwrap()
-                },
-            }
-        }
-    }
+    //             _ => panic!("get_alert fail")
+    //         }
+    //     }
+    // }
 
-    pub struct ChangeEvent {
-        pub text_content: ComponentId,
-        pub text_shadow: ComponentId,
-        pub box_shadow: ComponentId,
-        pub background_color: ComponentId,
-        pub border_color: ComponentId,
-        pub canvas: ComponentId,
-		pub transform_will_change: ComponentId,
-    }
+    // pub struct StyleQuery {
+    //     pub size: ColumnIndex,
+    //     pub margin: ColumnIndex,
+    //     pub padding: ColumnIndex,
+    //     pub border: ColumnIndex,
+    //     pub position: ColumnIndex,
+    //     pub min_max: ColumnIndex,
+    //     pub flex_container: ColumnIndex,
+    //     pub flex_normal: ColumnIndex,
+    //     pub z_index: ColumnIndex,
+    //     pub overflow: ColumnIndex,
+    //     pub opacity: ColumnIndex,
+    //     pub blend_mode: ColumnIndex,
+    //     pub show: ColumnIndex,
+    //     pub transform: ColumnIndex,
+    //     pub background_color: ColumnIndex,
+    //     pub border_color: ColumnIndex,
+    //     pub background_image: ColumnIndex,
+    //     pub background_image_texture: ColumnIndex,
+    //     pub background_image_clip: ColumnIndex,
+    //     pub mask_image: ColumnIndex,
+    //     pub mask_image_clip: ColumnIndex,
+    //     pub hsi: ColumnIndex,
+    //     pub blur: ColumnIndex,
+    //     pub clip_path: ColumnIndex,
+    //     pub background_image_mod: ColumnIndex,
+    //     pub border_image: ColumnIndex,
+    //     pub border_image_texture: ColumnIndex,
+    //     pub border_image_clip: ColumnIndex,
+    //     pub border_image_slice: ColumnIndex,
+    //     pub border_image_repeat: ColumnIndex,
+    //     pub border_radius: ColumnIndex,
+    //     pub box_shadow: ColumnIndex,
+    //     pub text_style: ColumnIndex,
+    //     pub text_shadow: ColumnIndex,
+    //     pub text_outer_glow: ColumnIndex,
+    //     pub transform_will_change: ColumnIndex,
+    //     pub text_content: ColumnIndex,
+    //     pub node_state: ColumnIndex,
+    //     pub animation: ColumnIndex,
+	// 	pub transition: ColumnIndex,
+    //     pub style_mark: ColumnIndex,
+    //     pub class_name: ColumnIndex,
+    //     pub as_image: ColumnIndex,
 
-    impl FromWorld for ChangeEvent {
-        fn from_world(world: &mut World) -> Self {
-            Self {
-                text_content: {
-                    world.init_resource::<Events<ComponentEvent<Changed<TextContent>>>>();
-                    world
-                        .components()
-                        .get_resource_id(std::any::TypeId::of::<Events<ComponentEvent<Changed<TextContent>>>>())
-                        .unwrap()
-                },
-                text_shadow: {
-                    world.init_resource::<Events<ComponentEvent<Changed<TextShadow>>>>();
-                    world
-                        .components()
-                        .get_resource_id(std::any::TypeId::of::<Events<ComponentEvent<Changed<TextShadow>>>>())
-                        .unwrap()
-                },
-                box_shadow: {
-                    world.init_resource::<Events<ComponentEvent<Changed<BoxShadow>>>>();
-                    world
-                        .components()
-                        .get_resource_id(std::any::TypeId::of::<Events<ComponentEvent<Changed<BoxShadow>>>>())
-                        .unwrap()
-                },
-                background_color: {
-                    world.init_resource::<Events<ComponentEvent<Changed<BackgroundColor>>>>();
-                    world
-                        .components()
-                        .get_resource_id(std::any::TypeId::of::<Events<ComponentEvent<Changed<BackgroundColor>>>>())
-                        .unwrap()
-                },
-                border_color: {
-                    world.init_resource::<Events<ComponentEvent<Changed<BorderColor>>>>();
-                    world
-                        .components()
-                        .get_resource_id(std::any::TypeId::of::<Events<ComponentEvent<Changed<BorderColor>>>>())
-                        .unwrap()
-                },
-                canvas: {
-                    world.init_resource::<Events<ComponentEvent<Changed<Canvas>>>>();
-                    world
-                        .components()
-                        .get_resource_id(std::any::TypeId::of::<Events<ComponentEvent<Changed<Canvas>>>>())
-                        .unwrap()
-                },
-				transform_will_change: {
-                    world.init_resource::<Events<ComponentRemove<TransformWillChange>>>();
-                    world
-                        .components()
-                        .get_resource_id(std::any::TypeId::of::<Events<ComponentRemove<TransformWillChange>>>())
-                        .unwrap()
-                },
-            }
-        }
-    }
+    //     // pub default: DefaultStyle,
+
+    //     // pub event: ChangeEvent,
+
+	// 	// pub dirty_list: ColumnIndex,
+
+	// 	pub text_overflow: ColumnIndex,
+    // }
 
     // pub struct DefaultStyle {
-    //     pub size: ResMut<'a, DefaultComponent<Size>>,
-    //     pub margin: ResMut<'a, DefaultComponent<Margin>>,
-    //     pub padding: ResMut<'a, DefaultComponent<Padding>>,
-    //     pub border: ResMut<'a, DefaultComponent<Border>>,
-    //     pub position: ResMut<'a, DefaultComponent<Position>>,
-    //     pub min_max: ResMut<'a, DefaultComponent<MinMax>>,
-    //     pub flex_container: ResMut<'a, DefaultComponent<FlexContainer>>,
-    //     pub flex_normal: ResMut<'a, DefaultComponent<FlexNormal>>,
-    //     pub z_index: ResMut<'a, DefaultComponent<ZIndex>>,
-    //     pub overflow: ResMut<'a, DefaultComponent<Overflow>>,
-    //     pub opacity: ResMut<'a, DefaultComponent<Opacity>>,
-    //     pub blend_mode: ResMut<'a, DefaultComponent<BlendMode>>,
-    //     pub show: ResMut<'a, DefaultComponent<Show>>,
-    //     pub transform: ResMut<'a, DefaultComponent<Transform>>,
-    //     pub background_color: ResMut<'a, DefaultComponent<BackgroundColor>>,
-    //     pub border_color: ResMut<'a, DefaultComponent<BorderColor>>,
-    //     pub background_image: ResMut<'a, DefaultComponent<BackgroundImage>>,
-    //     pub background_image_clip: ResMut<'a, DefaultComponent<BackgroundImageClip>>,
-    //     pub mask_image: ResMut<'a, DefaultComponent<MaskImage>>,
-    //     pub mask_image_clip: ResMut<'a, DefaultComponent<MaskImageClip>>,
-    //     pub hsi: ResMut<'a, DefaultComponent<Hsi>>,
-    //     pub blur: ResMut<'a, DefaultComponent<Blur>>,
-    //     pub background_image_mod: ResMut<'a, DefaultComponent<BackgroundImageMod>>,
-    //     pub border_image: ResMut<'a, DefaultComponent<BorderImage>>,
-    //     pub border_image_clip: ResMut<'a, DefaultComponent<BorderImageClip>>,
-    //     pub border_image_slice: ResMut<'a, DefaultComponent<BorderImageSlice>>,
-    //     pub border_image_repeat: ResMut<'a, DefaultComponent<BorderImageRepeat>>,
-    //     pub border_radius: ResMut<'a, DefaultComponent<BorderRadius>>,
-    //     pub box_shadow: ResMut<'a, DefaultComponent<BoxShadow>>,
-    //     pub text_style: ResMut<'a, DefaultComponent<TextStyle>>,
-    //     pub transform_will_change: ResMut<'a, DefaultComponent<TransformWillChange>>,
-    //     pub text_content: ResMut<'a, DefaultComponent<TextContent>>,
-    //     pub animation: ResMut<'a, DefaultComponent<Animation>>,
-    // 	pub node_state: ResMut<'a, DefaultComponent<NodeState>>,
+    //     pub size: ColumnIndex,
+    //     pub margin: ColumnIndex,
+    //     pub padding: ColumnIndex,
+    //     pub border: ColumnIndex,
+    //     pub position: ColumnIndex,
+    //     pub min_max: ColumnIndex,
+    //     pub flex_container: ColumnIndex,
+    //     pub flex_normal: ColumnIndex,
+    //     pub z_index: ColumnIndex,
+    //     pub overflow: ColumnIndex,
+    //     pub opacity: ColumnIndex,
+    //     pub blend_mode: ColumnIndex,
+    //     pub show: ColumnIndex,
+    //     pub transform: ColumnIndex,
+    //     pub background_color: ColumnIndex,
+    //     pub border_color: ColumnIndex,
+    //     pub background_image: ColumnIndex,
+    //     pub background_image_clip: ColumnIndex,
+    //     pub mask_image: ColumnIndex,
+    //     pub mask_image_clip: ColumnIndex,
+    //     pub hsi: ColumnIndex,
+    //     pub blur: ColumnIndex,
+    //     pub clip_path: ColumnIndex,
+    //     pub background_image_mod: ColumnIndex,
+    //     pub border_image: ColumnIndex,
+    //     pub border_image_clip: ColumnIndex,
+    //     pub border_image_slice: ColumnIndex,
+    //     pub border_image_repeat: ColumnIndex,
+    //     pub border_radius: ColumnIndex,
+    //     pub box_shadow: ColumnIndex,
+    //     pub text_style: ColumnIndex,
+    //     pub text_shadow: ColumnIndex,
+    //     pub text_outer_glow: ColumnIndex,
+    //     pub transform_will_change: ColumnIndex,
+    //     pub text_content: ColumnIndex,
+    //     pub animation: ColumnIndex,
+	// 	pub transition: ColumnIndex,
+    //     pub node_state: ColumnIndex,
+    //     pub as_image: ColumnIndex,
+	// 	pub text_overflow: ColumnIndex,
+    // }
+
+    // impl FromWorld for DefaultStyle {
+    //     fn from_world(world: &mut World) -> Self {
+    //         Self {
+    //             size: {
+    //                 world.init_single_res::<DefaultComponent<Size>>();
+    //                 world
+    //                     .components()
+    //                     .get_resource_id(std::any::TypeId::of::<DefaultComponent<Size>>())
+    //                     .unwrap()
+    //             },
+    //             margin: {
+    //                 world.init_single_res::<DefaultComponent<Margin>>();
+    //                 world
+    //                     .components()
+    //                     .get_resource_id(std::any::TypeId::of::<DefaultComponent<Margin>>())
+    //                     .unwrap()
+    //             },
+    //             padding: {
+    //                 world.init_single_res::<DefaultComponent<Padding>>();
+    //                 world
+    //                     .components()
+    //                     .get_resource_id(std::any::TypeId::of::<DefaultComponent<Padding>>())
+    //                     .unwrap()
+    //             },
+    //             border: {
+    //                 world.init_single_res::<DefaultComponent<Border>>();
+    //                 world
+    //                     .components()
+    //                     .get_resource_id(std::any::TypeId::of::<DefaultComponent<Border>>())
+    //                     .unwrap()
+    //             },
+    //             position: {
+    //                 world.init_single_res::<DefaultComponent<Position>>();
+    //                 world
+    //                     .components()
+    //                     .get_resource_id(std::any::TypeId::of::<DefaultComponent<Position>>())
+    //                     .unwrap()
+    //             },
+    //             min_max: {
+    //                 world.init_single_res::<DefaultComponent<MinMax>>();
+    //                 world
+    //                     .components()
+    //                     .get_resource_id(std::any::TypeId::of::<DefaultComponent<MinMax>>())
+    //                     .unwrap()
+    //             },
+    //             flex_container: {
+    //                 world.init_single_res::<DefaultComponent<FlexContainer>>();
+    //                 world
+    //                     .components()
+    //                     .get_resource_id(std::any::TypeId::of::<DefaultComponent<FlexContainer>>())
+    //                     .unwrap()
+    //             },
+    //             flex_normal: {
+    //                 world.init_single_res::<DefaultComponent<FlexNormal>>();
+    //                 world
+    //                     .components()
+    //                     .get_resource_id(std::any::TypeId::of::<DefaultComponent<FlexNormal>>())
+    //                     .unwrap()
+    //             },
+    //             z_index: {
+    //                 world.init_single_res::<DefaultComponent<ZIndex>>();
+    //                 world
+    //                     .components()
+    //                     .get_resource_id(std::any::TypeId::of::<DefaultComponent<ZIndex>>())
+    //                     .unwrap()
+    //             },
+    //             overflow: {
+    //                 world.init_single_res::<DefaultComponent<Overflow>>();
+    //                 world
+    //                     .components()
+    //                     .get_resource_id(std::any::TypeId::of::<DefaultComponent<Overflow>>())
+    //                     .unwrap()
+    //             },
+    //             opacity: {
+    //                 world.init_single_res::<DefaultComponent<Opacity>>();
+    //                 world
+    //                     .components()
+    //                     .get_resource_id(std::any::TypeId::of::<DefaultComponent<Opacity>>())
+    //                     .unwrap()
+    //             },
+    //             blend_mode: {
+    //                 world.init_single_res::<DefaultComponent<BlendMode>>();
+    //                 world
+    //                     .components()
+    //                     .get_resource_id(std::any::TypeId::of::<DefaultComponent<BlendMode>>())
+    //                     .unwrap()
+    //             },
+    //             show: {
+    //                 world.init_single_res::<DefaultComponent<Show>>();
+    //                 world
+    //                     .components()
+    //                     .get_resource_id(std::any::TypeId::of::<DefaultComponent<Show>>())
+    //                     .unwrap()
+    //             },
+    //             transform: {
+    //                 world.init_single_res::<DefaultComponent<Transform>>();
+    //                 world
+    //                     .components()
+    //                     .get_resource_id(std::any::TypeId::of::<DefaultComponent<Transform>>())
+    //                     .unwrap()
+    //             },
+    //             background_color: {
+    //                 world.init_single_res::<DefaultComponent<BackgroundColor>>();
+    //                 world
+    //                     .components()
+    //                     .get_resource_id(std::any::TypeId::of::<DefaultComponent<BackgroundColor>>())
+    //                     .unwrap()
+    //             },
+    //             border_color: {
+    //                 world.init_single_res::<DefaultComponent<BorderColor>>();
+    //                 world
+    //                     .components()
+    //                     .get_resource_id(std::any::TypeId::of::<DefaultComponent<BorderColor>>())
+    //                     .unwrap()
+    //             },
+    //             background_image: {
+    //                 world.init_single_res::<DefaultComponent<BackgroundImage>>();
+    //                 world
+    //                     .components()
+    //                     .get_resource_id(std::any::TypeId::of::<DefaultComponent<BackgroundImage>>())
+    //                     .unwrap()
+    //             },
+    //             background_image_clip: {
+    //                 world.init_single_res::<DefaultComponent<BackgroundImageClip>>();
+    //                 world
+    //                     .components()
+    //                     .get_resource_id(std::any::TypeId::of::<DefaultComponent<BackgroundImageClip>>())
+    //                     .unwrap()
+    //             },
+    //             mask_image: {
+    //                 world.init_single_res::<DefaultComponent<MaskImage>>();
+    //                 world
+    //                     .components()
+    //                     .get_resource_id(std::any::TypeId::of::<DefaultComponent<MaskImage>>())
+    //                     .unwrap()
+    //             },
+    //             mask_image_clip: {
+    //                 world.init_single_res::<DefaultComponent<MaskImageClip>>();
+    //                 world
+    //                     .components()
+    //                     .get_resource_id(std::any::TypeId::of::<DefaultComponent<MaskImageClip>>())
+    //                     .unwrap()
+    //             },
+    //             hsi: {
+    //                 world.init_single_res::<DefaultComponent<Hsi>>();
+    //                 world
+    //                     .components()
+    //                     .get_resource_id(std::any::TypeId::of::<DefaultComponent<Hsi>>())
+    //                     .unwrap()
+    //             },
+    //             blur: {
+    //                 world.init_single_res::<DefaultComponent<Blur>>();
+    //                 world
+    //                     .components()
+    //                     .get_resource_id(std::any::TypeId::of::<DefaultComponent<Blur>>())
+    //                     .unwrap()
+    //             },
+    //             clip_path: {
+    //                 world.init_single_res::<DefaultComponent<ClipPath>>();
+    //                 world
+    //                     .components()
+    //                     .get_resource_id(std::any::TypeId::of::<DefaultComponent<ClipPath>>())
+    //                     .unwrap()
+    //             },
+    //             background_image_mod: {
+    //                 world.init_single_res::<DefaultComponent<BackgroundImageMod>>();
+    //                 world
+    //                     .components()
+    //                     .get_resource_id(std::any::TypeId::of::<DefaultComponent<BackgroundImageMod>>())
+    //                     .unwrap()
+    //             },
+    //             border_image: {
+    //                 world.init_single_res::<DefaultComponent<BorderImage>>();
+    //                 world
+    //                     .components()
+    //                     .get_resource_id(std::any::TypeId::of::<DefaultComponent<BorderImage>>())
+    //                     .unwrap()
+    //             },
+    //             border_image_clip: {
+    //                 world.init_single_res::<DefaultComponent<BorderImageClip>>();
+    //                 world
+    //                     .components()
+    //                     .get_resource_id(std::any::TypeId::of::<DefaultComponent<BorderImageClip>>())
+    //                     .unwrap()
+    //             },
+    //             border_image_slice: {
+    //                 world.init_single_res::<DefaultComponent<BorderImageSlice>>();
+    //                 world
+    //                     .components()
+    //                     .get_resource_id(std::any::TypeId::of::<DefaultComponent<BorderImageSlice>>())
+    //                     .unwrap()
+    //             },
+    //             border_image_repeat: {
+    //                 world.init_single_res::<DefaultComponent<BorderImageRepeat>>();
+    //                 world
+    //                     .components()
+    //                     .get_resource_id(std::any::TypeId::of::<DefaultComponent<BorderImageRepeat>>())
+    //                     .unwrap()
+    //             },
+    //             border_radius: {
+    //                 world.init_single_res::<DefaultComponent<BorderRadius>>();
+    //                 world
+    //                     .components()
+    //                     .get_resource_id(std::any::TypeId::of::<DefaultComponent<BorderRadius>>())
+    //                     .unwrap()
+    //             },
+    //             box_shadow: {
+    //                 world.init_single_res::<DefaultComponent<BoxShadow>>();
+    //                 world
+    //                     .components()
+    //                     .get_resource_id(std::any::TypeId::of::<DefaultComponent<BoxShadow>>())
+    //                     .unwrap()
+    //             },
+    //             text_style: {
+    //                 world.init_single_res::<DefaultComponent<TextStyle>>();
+    //                 world
+    //                     .components()
+    //                     .get_resource_id(std::any::TypeId::of::<DefaultComponent<TextStyle>>())
+    //                     .unwrap()
+    //             },
+    //             text_shadow: {
+    //                 world.init_single_res::<DefaultComponent<TextShadow>>();
+    //                 world
+    //                     .components()
+    //                     .get_resource_id(std::any::TypeId::of::<DefaultComponent<TextShadow>>())
+    //                     .unwrap()
+    //             },
+    //             text_outer_glow: {
+    //                 world.init_single_res::<DefaultComponent<TextOuterGlow>>();
+    //                 world
+    //                     .components()
+    //                     .get_resource_id(std::any::TypeId::of::<DefaultComponent<TextOuterGlow>>())
+    //                     .unwrap()
+    //             },
+    //             transform_will_change: {
+    //                 world.init_single_res::<DefaultComponent<TransformWillChange>>();
+    //                 world
+    //                     .components()
+    //                     .get_resource_id(std::any::TypeId::of::<DefaultComponent<TransformWillChange>>())
+    //                     .unwrap()
+    //             },
+    //             text_content: {
+    //                 world.init_single_res::<DefaultComponent<TextContent>>();
+    //                 world
+    //                     .components()
+    //                     .get_resource_id(std::any::TypeId::of::<DefaultComponent<TextContent>>())
+    //                     .unwrap()
+    //             },
+    //             animation: {
+    //                 world.init_single_res::<DefaultComponent<Animation>>();
+    //                 world
+    //                     .components()
+    //                     .get_resource_id(std::any::TypeId::of::<DefaultComponent<Animation>>())
+    //                     .unwrap()
+    //             },
+	// 			transition: {
+    //                 world.init_single_res::<DefaultComponent<Transition>>();
+    //                 world
+    //                     .components()
+    //                     .get_resource_id(std::any::TypeId::of::<DefaultComponent<Transition>>())
+    //                     .unwrap()
+    //             },
+    //             node_state: {
+    //                 world.init_single_res::<DefaultComponent<NodeState>>();
+    //                 world
+    //                     .components()
+    //                     .get_resource_id(std::any::TypeId::of::<DefaultComponent<NodeState>>())
+    //                     .unwrap()
+    //             },
+    //             as_image: {
+    //                 world.init_single_res::<DefaultComponent<AsImage>>();
+    //                 world
+    //                     .components()
+    //                     .get_resource_id(std::any::TypeId::of::<DefaultComponent<AsImage>>())
+    //                     .unwrap()
+    //             },
+	// 			text_overflow: {
+    //                 world.init_single_res::<DefaultComponent<TextOverflowData>>();
+    //                 world
+    //                     .components()
+    //                     .get_resource_id(std::any::TypeId::of::<DefaultComponent<TextOverflowData>>())
+    //                     .unwrap()
+    //             },
+    //         }
+    //     }
+    // }
+
+    // pub struct ChangeEvent {
+    //     pub text_content: ColumnIndex,
+    //     pub text_shadow: ColumnIndex,
+    //     pub box_shadow: ColumnIndex,
+    //     pub background_color: ColumnIndex,
+    //     pub border_color: ColumnIndex,
+    //     pub canvas: ColumnIndex,
+	// 	pub transform_will_change: ColumnIndex,
+    // }
+
+    // impl FromWorld for ChangeEvent {
+    //     fn from_world(world: &mut World) -> Self {
+    //         Self {
+    //             text_content: {
+    //                 world.init_single_res::<Events<ComponentEvent<Changed<TextContent>>>>();
+    //                 world
+    //                     .components()
+    //                     .get_resource_id(std::any::TypeId::of::<Events<ComponentEvent<Changed<TextContent>>>>())
+    //                     .unwrap()
+    //             },
+    //             text_shadow: {
+    //                 world.init_single_res::<Events<ComponentEvent<Changed<TextShadow>>>>();
+    //                 world
+    //                     .components()
+    //                     .get_resource_id(std::any::TypeId::of::<Events<ComponentEvent<Changed<TextShadow>>>>())
+    //                     .unwrap()
+    //             },
+    //             box_shadow: {
+    //                 world.init_single_res::<Events<ComponentEvent<Changed<BoxShadow>>>>();
+    //                 world
+    //                     .components()
+    //                     .get_resource_id(std::any::TypeId::of::<Events<ComponentEvent<Changed<BoxShadow>>>>())
+    //                     .unwrap()
+    //             },
+    //             background_color: {
+    //                 world.init_single_res::<Events<ComponentEvent<Changed<BackgroundColor>>>>();
+    //                 world
+    //                     .components()
+    //                     .get_resource_id(std::any::TypeId::of::<Events<ComponentEvent<Changed<BackgroundColor>>>>())
+    //                     .unwrap()
+    //             },
+    //             border_color: {
+    //                 world.init_single_res::<Events<ComponentEvent<Changed<BorderColor>>>>();
+    //                 world
+    //                     .components()
+    //                     .get_resource_id(std::any::TypeId::of::<Events<ComponentEvent<Changed<BorderColor>>>>())
+    //                     .unwrap()
+    //             },
+    //             canvas: {
+    //                 world.init_single_res::<Events<ComponentEvent<Changed<Canvas>>>>();
+    //                 world
+    //                     .components()
+    //                     .get_resource_id(std::any::TypeId::of::<Events<ComponentEvent<Changed<Canvas>>>>())
+    //                     .unwrap()
+    //             },
+	// 			transform_will_change: {
+    //                 world.init_single_res::<Events<ComponentRemove<TransformWillChange>>>();
+    //                 world
+    //                     .components()
+    //                     .get_resource_id(std::any::TypeId::of::<Events<ComponentRemove<TransformWillChange>>>())
+    //                     .unwrap()
+    //             },
+    //         }
+    //     }
+    // }
+
+    // pub struct DefaultStyle {
+    //     pub size: SingleResMut<'a, DefaultComponent<Size>>,
+    //     pub margin: SingleResMut<'a, DefaultComponent<Margin>>,
+    //     pub padding: SingleResMut<'a, DefaultComponent<Padding>>,
+    //     pub border: SingleResMut<'a, DefaultComponent<Border>>,
+    //     pub position: SingleResMut<'a, DefaultComponent<Position>>,
+    //     pub min_max: SingleResMut<'a, DefaultComponent<MinMax>>,
+    //     pub flex_container: SingleResMut<'a, DefaultComponent<FlexContainer>>,
+    //     pub flex_normal: SingleResMut<'a, DefaultComponent<FlexNormal>>,
+    //     pub z_index: SingleResMut<'a, DefaultComponent<ZIndex>>,
+    //     pub overflow: SingleResMut<'a, DefaultComponent<Overflow>>,
+    //     pub opacity: SingleResMut<'a, DefaultComponent<Opacity>>,
+    //     pub blend_mode: SingleResMut<'a, DefaultComponent<BlendMode>>,
+    //     pub show: SingleResMut<'a, DefaultComponent<Show>>,
+    //     pub transform: SingleResMut<'a, DefaultComponent<Transform>>,
+    //     pub background_color: SingleResMut<'a, DefaultComponent<BackgroundColor>>,
+    //     pub border_color: SingleResMut<'a, DefaultComponent<BorderColor>>,
+    //     pub background_image: SingleResMut<'a, DefaultComponent<BackgroundImage>>,
+    //     pub background_image_clip: SingleResMut<'a, DefaultComponent<BackgroundImageClip>>,
+    //     pub mask_image: SingleResMut<'a, DefaultComponent<MaskImage>>,
+    //     pub mask_image_clip: SingleResMut<'a, DefaultComponent<MaskImageClip>>,
+    //     pub hsi: SingleResMut<'a, DefaultComponent<Hsi>>,
+    //     pub blur: SingleResMut<'a, DefaultComponent<Blur>>,
+    //     pub background_image_mod: SingleResMut<'a, DefaultComponent<BackgroundImageMod>>,
+    //     pub border_image: SingleResMut<'a, DefaultComponent<BorderImage>>,
+    //     pub border_image_clip: SingleResMut<'a, DefaultComponent<BorderImageClip>>,
+    //     pub border_image_slice: SingleResMut<'a, DefaultComponent<BorderImageSlice>>,
+    //     pub border_image_repeat: SingleResMut<'a, DefaultComponent<BorderImageRepeat>>,
+    //     pub border_radius: SingleResMut<'a, DefaultComponent<BorderRadius>>,
+    //     pub box_shadow: SingleResMut<'a, DefaultComponent<BoxShadow>>,
+    //     pub text_style: SingleResMut<'a, DefaultComponent<TextStyle>>,
+    //     pub transform_will_change: SingleResMut<'a, DefaultComponent<TransformWillChange>>,
+    //     pub text_content: SingleResMut<'a, DefaultComponent<TextContent>>,
+    //     pub animation: SingleResMut<'a, DefaultComponent<Animation>>,
+    // 	pub node_state: SingleResMut<'a, DefaultComponent<NodeState>>,
     // }
 
     pub struct StyleAttr;
@@ -3832,8 +3850,8 @@ pub mod serialize {
         }
 
         #[inline]
-        pub fn set_default(style_index: u8, buffer: &Vec<u8>, offset: usize, query: &DefaultStyle, world: &mut World) {
-            (STYLE_ATTR[style_index as usize].set_default)(buffer, offset, query, world);
+        pub fn set_default(style_index: u8, buffer: &Vec<u8>, offset: usize, query: &mut DefaultStyle) {
+            (STYLE_ATTR[style_index as usize].set_default)(buffer, offset, query);
         }
     }
 }
@@ -3879,3 +3897,998 @@ fn clone_unaligned<T: Clone>(src: *const T) -> T {
 	forget(r); // 这里忘记r， 是因为read_unaligned对src进行逐位读取，如果不忘记r， src指向的对象会被释放、而此函数仅仅是想拷贝src
 	ret
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/******************************************************************svg属性*********************************************************************/
+
+
+// #[derive(Clone, Debug, Serialize, Deserialize)]
+// pub struct SvgWidthCmd(pub Entity, pub f32);
+
+// impl Command for SvgWidthCmd {
+//     fn apply(self, world: &mut World) {
+//         let component_id = world.init_component::<SvgContent>();
+//         println!("component_id3: {:?}", component_id);
+//         if let Some(mut component) = world.get_mut_by_id(self.0, component_id) {
+//             component.set_changed();
+//             let v = unsafe { component.into_inner().deref_mut::<SvgContent>() };
+//             v.width = self.1;
+//         } else {
+//             let mut svg = SvgContent::default();
+//             svg.width = self.1;
+//             world.entity_mut(self.0).insert(svg);
+//         }
+//     }
+// }
+
+// #[derive(Clone, Debug, Serialize, Deserialize)]
+// pub struct SvgHeightCmd(pub Entity, pub f32);
+
+// impl Command for SvgHeightCmd {
+//     fn apply(self, world: &mut World) {
+//         let component_id = world.init_component::<SvgContent>();
+//         if let Some(mut component) = world.get_mut_by_id(self.0, component_id) {
+//             component.set_changed();
+//             let v = unsafe { component.into_inner().deref_mut::<SvgContent>() };
+//             v.height = self.1;
+//         } else {
+//             let mut svg = SvgContent::default();
+//             svg.height = self.1;
+//             world.entity_mut(self.0).insert(svg);
+//         }
+
+//         // event_writer.send(ComponentEvent::<Changed<SvgContent>>::new(*entity));
+//     }
+// }
+
+// #[derive(Clone, Debug, Serialize, Deserialize)]
+// pub struct SvgColorCmd(pub Entity, pub Color);
+
+// impl Command for SvgColorCmd {
+//     fn apply(self, world: &mut World) {
+//         let component_id = world.init_component::<SvgInnerContent>();
+//         println!("component_id3: {:?}", component_id);
+//         if let Some(mut component) = world.get_mut_by_id(self.0, component_id) {
+//             component.set_changed();
+//             let v = unsafe { component.into_inner().deref_mut::<SvgInnerContent>() };
+//             v.style.fill_color = self.1;
+//         } else {
+//             let mut svg = SvgInnerContent::default();
+//             svg.style.fill_color = self.1;
+//             world.entity_mut(self.0).insert(svg);
+//         }
+//     }
+// }
+
+// #[derive(Clone, Debug, Serialize, Deserialize)]
+// pub struct SvgStrokeColorCmd(pub Entity, pub CgColor);
+
+// impl Command for SvgStrokeColorCmd {
+//     fn apply(self, world: &mut World) {
+//         let component_id = world.init_component::<SvgInnerContent>();
+//         if let Some(mut component) = world.get_mut_by_id(self.0, component_id) {
+//             component.set_changed();
+//             let v = unsafe { component.into_inner().deref_mut::<SvgInnerContent>() };
+//             v.style.stroke.color = self.1;
+//         } else {
+//             let mut svg = SvgInnerContent::default();
+//             svg.style.stroke.color = self.1;
+//             world.entity_mut(self.0).insert(svg);
+//         }
+
+//         // event_writer.send(ComponentEvent::<Changed<SvgContent>>::new(*entity));
+//     }
+// }
+
+// #[derive(Clone, Debug, Serialize, Deserialize)]
+// pub struct SvgStrokeWidthCmd(pub Entity, pub NotNan<f32>);
+
+// impl Command for SvgStrokeWidthCmd {
+//     fn apply(self, world: &mut World) {
+//         let component_id = world.init_component::<SvgInnerContent>();
+//         if let Some(mut component) = world.get_mut_by_id(self.0, component_id) {
+//             component.set_changed();
+//             let v = unsafe { component.into_inner().deref_mut::<SvgInnerContent>() };
+//             v.style.stroke.width = self.1;
+//         } else {
+//             let mut svg = SvgInnerContent::default();
+//             svg.style.stroke.width = self.1;
+//             world.entity_mut(self.0).insert(svg);
+//         }
+
+//         // event_writer.send(ComponentEvent::<Changed<SvgContent>>::new(*entity));
+//     }
+// }
+
+// #[derive(Clone, Debug, Serialize, Deserialize)]
+// pub struct StrokeDasharrayCmd(pub Entity, pub StrokeDasharray);
+
+// impl Command for StrokeDasharrayCmd {
+//     fn apply(self, world: &mut World) {
+//         let component_id = world.init_component::<SvgInnerContent>();
+//         if let Some(mut component) = world.get_mut_by_id(self.0, component_id) {
+//             component.set_changed();
+//             let v = unsafe { component.into_inner().deref_mut::<SvgInnerContent>() };
+//             v.style.stroke_dasharray = self.1;
+//         } else {
+//             let mut svg = SvgInnerContent::default();
+//             svg.style.stroke_dasharray = self.1;
+//             world.entity_mut(self.0).insert(svg);
+//         }
+//     }
+// }
+
+pub trait SerdEnum {
+    // 枚举类型
+	fn get_type() -> u8;
+
+    /// 样式属性的牛内存大小
+    fn size() -> usize where Self: Sized;
+        
+    /// 序列化自身到buffer中
+    unsafe fn write(&self, buffer: &mut Vec<u8>);
+}
+
+pub enum SvgShapeEnum {
+	Rect,
+    Circle,
+    Ellipse,
+    Segment,
+    Polygon,
+    Polyline,
+    Path,
+}
+
+/// svg属性类型
+#[enum_type]
+#[index_start(193)]
+pub enum SvgType {
+    #[v(f32)]
+    SvgWidth, // 0,
+    #[v(f32)]
+    SvgHeight, // 1,
+    #[v(Color)]
+    SvgColor, // 2,
+    #[v(CgColor)]
+    SvgStrokeColor, // 3,
+    #[v(NotNan<f32>)]
+    SvgStrokeWidth, // 4,
+    #[v(StrokeDasharray)]
+    StrokeDasharray, // 5,
+    #[v(SvgShapeEnum)]
+    SvgShape, // 6,
+    #[v(f32)]
+    SvgShapeWidth, // 7,
+    #[v(f32)]
+    SvgShapeHeight, // 8,
+    #[v(f32)]
+    SvgShapeX, // 9,
+    #[v(f32)]
+    SvgShapeY, // 10,
+    #[v(f32)]
+    SvgShapeCX, // 11,
+    #[v(f32)]
+    SvgShapeCY, // 12,
+    #[v(f32)]
+    SvgShaperRadius, // 13,
+    #[v(f32)]
+    SvgShapeRadiusX, // 14,
+    #[v(f32)]
+    SvgShapeRadiusY, // 15,
+    #[v(f32)]
+    SvgShapeAX, // 16,
+    #[v(f32)]
+    SvgShapeAY, // 17,
+    #[v(f32)]
+    SvgShapeBX, // 18,
+    #[v(f32)]
+    SvgShapeBY, // 19,
+    #[v(Vec<f32>)]
+    SvgShapePoints, // 20,
+    #[v((Vec<f32>, Vec<f32>))]
+    SvgShapePath, // 21,
+    #[v(CgColor)]
+    SvgShadowColor, // 22,
+    #[v(f32)]
+    SvgShadowOffsetX, // 23,
+    #[v(f32)]
+    SvgShadowOffsetY, // 24,
+    #[v(f32)]
+    SvgShadowBlurLevel, // 25,
+    #[v(f32)]
+    SvgFilterOffsetX, // 26,
+    #[v(f32)]
+    SvgFilterOffsetY, // 27,
+    #[v(f32)]
+    SvgFilterColor, // 28,
+    #[v(f32)]
+    SvgFilterBlurLevel, // 29,
+    #[v(f32)]
+    SvgGradientX1, // 30,
+    #[v(f32)]
+    SvgGradientY1, // 31,
+    #[v(f32)]
+    SvgGradientX2, // 32,
+    #[v(f32)]
+    SvgGradientY2, // 33,
+    #[v(f32)]
+    SvgStopOffset, // 34,
+    #[v(f32)]
+    SvgStopColor, // 35,
+    #[v(Entity)]
+    SvgGradient, // 36,
+    #[v(Entity)]
+    SvgFilter, // 37,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum Shape {
+    Rect { x: f32, y: f32, width: f32, height: f32 },
+    Circle { cx: f32, cy: f32, radius: f32 },
+    Ellipse { cx: f32, cy: f32, rx: f32, ry: f32 },
+    Segment { ax: f32, ay: f32, bx: f32, by: f32},
+    Polygon { points: Vec<[f32; 2]> },
+    Polyline { points: Vec<[f32; 2]> },
+    Path { points: Vec<[f32; 2]>, verb: Vec<pi_hal::pi_sdf::shape::PathVerb>}
+}
+
+impl Shape {
+    pub fn is_ready(&self) -> bool {
+        match self {
+            Shape::Rect { x, y, width, height } => !(x.is_infinite() || y.is_infinite() || width.is_infinite() || height.is_infinite()),
+            Shape::Circle { cx, cy, radius } => !(cx.is_infinite() || cy.is_infinite() || radius.is_infinite()),
+            Shape::Ellipse { cx, cy, rx, ry } => !(cx.is_infinite() || cy.is_infinite() || rx.is_infinite() || ry.is_infinite()),
+            Shape::Segment { ax, ay, bx, by } => !(ax.is_infinite() || ay.is_infinite() || bx.is_infinite() || by.is_infinite()),
+            Shape::Polygon { points } => !points.is_empty(),
+            Shape::Polyline { points } => !points.is_empty(),
+            Shape::Path { points, verb } => !(points.is_empty() || verb.is_empty()),
+        }
+    }
+
+    pub fn hash(&self) -> u64 {
+        use std::hash::Hasher;
+
+        let mut hasher = pi_hash::DefaultHasher::default();
+        let data = match self {
+            Shape::Rect { x, y, width, height } => vec![*x, *y, *width, *height, 1.0],
+            Shape::Circle { cx, cy, radius } => vec![*cx, *cy, *radius, 2.0],
+            Shape::Ellipse { cx, cy, rx, ry } => vec![*cx, *cy, *rx, *ry, 3.0],
+            Shape::Segment { ax, ay, bx, by } => vec![*ax, *ay, *bx, *by, 4.0],
+            Shape::Polygon { points } => {
+                let mut p = points.iter().flat_map(|[x, y]| vec![*x, *y]).collect::<Vec<f32>>();
+                p.push(5.0);
+                p
+            }
+            Shape::Polyline { points } => {
+                let mut p = points.iter().flat_map(|[x, y]| vec![*x, *y]).collect::<Vec<f32>>();
+                p.push(6.0);
+                p
+            }
+            Shape::Path { points, verb } => {
+                let mut p = points.iter().flat_map(|[x, y]| vec![*x, *y]).collect::<Vec<f32>>();
+                let mut v = verb.iter().map(|v| (*v).into()).collect::<Vec<f32>>();
+                p.append(&mut v);
+                p.push(7.0);
+                p
+            }
+        };
+        println!("hash data: {:?}", bytemuck::cast_slice::<_, u8>(data.as_slice()));
+        hasher.write(bytemuck::cast_slice::<_, u8>(data.as_slice()));
+        let hash = hasher.finish() as u64;
+        println!("hash: {}", hash);
+        hash
+    }
+}
+
+#[rustfmt::skip]
+impl From<(f64, &[f32], &[f32])> for Shape {
+    fn from(value: (f64, &[f32], &[f32])) -> Self {
+        match value.0 as u8 {
+            1 => Self::Rect { x: value.2[0], y: value.2[1], width: value.2[2], height: value.2[3]},
+            2 => Self::Circle { cx: value.2[0], cy: value.2[1], radius: value.2[2]},
+            3 => Self::Ellipse { cx: value.2[0], cy: value.2[1], rx: value.2[2], ry: value.2[3]},
+            4 => Self::Segment { ax: value.2[0], ay: value.2[1], bx: value.2[2], by: value.2[3]},
+            5 => Self::Polygon { points: value.2.chunks(2).map(|v|{[v[0],v[1]]}).collect::<Vec<[f32; 2]>>()},
+            6 => Self::Polyline { points: value.2.chunks(2).map(|v|{[v[0],v[1]]}).collect::<Vec<[f32; 2]>>()},
+            7 => Self::Path { 
+                points: value.2.chunks(2).map(|v|{[v[0],v[1]]}).collect::<Vec<[f32; 2]>>(), 
+                verb: value.1.iter().map(|v|unsafe { transmute(*v as u8) }).collect::<Vec<pi_hal::pi_sdf::shape::PathVerb>>()
+            },
+            _ => panic!("svg not surpport shape; ty = {}", value.0 )
+        }
+    }
+}
+
+#[rustfmt::skip]
+impl From<f32> for Shape {
+    fn from(value: f32) -> Self {
+        match value as u8 {
+            0 => Self::Rect { x: f32::INFINITY, y: f32::INFINITY, width: f32::INFINITY, height: f32::INFINITY},
+            1 => Self::Circle { cx: f32::INFINITY, cy:  f32::INFINITY, radius:  f32::INFINITY},
+            2 => Self::Ellipse { cx: f32::INFINITY, cy:  f32::INFINITY, rx:  f32::INFINITY, ry:  f32::INFINITY},
+            3 => Self::Segment { ax: f32::INFINITY, ay:  f32::INFINITY, bx: f32::INFINITY, by:  f32::INFINITY},
+            4 => Self::Polygon { points: vec![]},
+            5 => Self::Polyline { points: vec![]},
+            6 => Self::Path { points: vec![], verb: vec![]},
+            _ => panic!("svg not surpport shape; ty = {}", value )
+        }
+    }
+}
+
+impl Default for Shape {
+    fn default() -> Self { Self::from(0.0) }
+}
+
+
+// #[derive(Debug, Clone, Serialize, Deserialize)]
+// pub struct SvgShapeCmd(pub Entity, pub Shape);
+
+// impl Command for SvgShapeCmd {
+//     fn apply(self, world: &mut World) {
+//         let component_id = world.init_component::<SvgInnerContent>();
+//         if let Some(mut component) = world.get_mut_by_id(self.0, component_id) {
+//             component.set_changed();
+//             let v = unsafe { component.into_inner().deref_mut::<SvgInnerContent>() };
+//             v.shape = self.1;
+//         } else {
+//             let mut svg = SvgInnerContent::default();
+//             svg.shape = self.1;
+//             world.entity_mut(self.0).insert(svg);
+//         }
+//     }
+// }
+
+
+
+
+// #[derive(Debug, Clone, Serialize, Deserialize)]
+// pub struct SvgShapeWidthCmd(pub Entity, pub f32);
+
+// impl Command for SvgShapeWidthCmd {
+//     fn apply(self, world: &mut World) {
+//         let component_id = world.init_component::<SvgInnerContent>();
+//         if let Some(mut component) = world.get_mut_by_id(self.0, component_id) {
+//             component.set_changed();
+//             let v = unsafe { component.into_inner().deref_mut::<SvgInnerContent>() };
+
+//             match &mut v.shape {
+//                 Shape::Rect {
+//                     x: _,
+//                     y: _,
+//                     width,
+//                     height: _,
+//                 } => {
+//                     *width = self.1;
+//                 }
+//                 _ => {}
+//             }
+//         }
+//     }
+// }
+
+
+// #[derive(Debug, Clone, Serialize, Deserialize)]
+// pub struct SvgShapeHeightCmd(pub Entity, pub f32);
+
+// impl Command for SvgShapeHeightCmd {
+//     fn apply(self, world: &mut World) {
+//         let component_id = world.init_component::<SvgInnerContent>();
+//         if let Some(mut component) = world.get_mut_by_id(self.0, component_id) {
+//             component.set_changed();
+//             let v = unsafe { component.into_inner().deref_mut::<SvgInnerContent>() };
+
+//             match &mut v.shape {
+//                 Shape::Rect {
+//                     x: _,
+//                     y: _,
+//                     width: _,
+//                     height,
+//                 } => {
+//                     *height = self.1;
+//                 }
+//                 _ => {}
+//             }
+//         }
+//     }
+// }
+
+
+// #[derive(Debug, Clone, Serialize, Deserialize)]
+// pub struct SvgShapeXCmd(pub Entity, pub f32);
+
+// impl Command for SvgShapeXCmd {
+//     fn apply(self, world: &mut World) {
+//         let component_id = world.init_component::<SvgInnerContent>();
+//         if let Some(mut component) = world.get_mut_by_id(self.0, component_id) {
+//             component.set_changed();
+//             let v = unsafe { component.into_inner().deref_mut::<SvgInnerContent>() };
+
+//             match &mut v.shape {
+//                 Shape::Rect {
+//                     x,
+//                     y: _,
+//                     width: _,
+//                     height: _,
+//                 } => {
+//                     *x = self.1;
+//                 }
+//                 _ => {}
+//             }
+//         }
+//     }
+// }
+
+
+
+
+// #[derive(Debug, Clone, Serialize, Deserialize)]
+// pub struct SvgShapeYCmd(pub Entity, pub f32);
+
+// impl Command for SvgShapeYCmd {
+//     fn apply(self, world: &mut World) {
+//         let component_id = world.init_component::<SvgInnerContent>();
+//         if let Some(mut component) = world.get_mut_by_id(self.0, component_id) {
+//             component.set_changed();
+//             let v = unsafe { component.into_inner().deref_mut::<SvgInnerContent>() };
+
+//             match &mut v.shape {
+//                 Shape::Rect {
+//                     x: _,
+//                     y,
+//                     width: _,
+//                     height: _,
+//                 } => {
+//                     *y = self.1;
+//                 }
+//                 _ => {}
+//             }
+//         }
+//     }
+// }
+
+// #[derive(Debug, Clone, Serialize, Deserialize)]
+// pub struct SvgShapeCXCmd(pub Entity, pub f32);
+
+// impl Command for SvgShapeCXCmd {
+//     fn apply(self, world: &mut World) {
+//         let component_id = world.init_component::<SvgInnerContent>();
+//         if let Some(mut component) = world.get_mut_by_id(self.0, component_id) {
+//             component.set_changed();
+//             let v = unsafe { component.into_inner().deref_mut::<SvgInnerContent>() };
+
+//             match &mut v.shape {
+//                 Shape::Circle { cx, cy: _, radius: _ } => {
+//                     *cx = self.1;
+//                 }
+//                 Shape::Ellipse { cx, cy: _, rx, ry } => {
+//                     *cx = self.1;
+//                 }
+//                 _ => {}
+//             }
+//         }
+//     }
+// }
+
+
+// #[derive(Debug, Clone, Serialize, Deserialize)]
+// pub struct SvgShapeCYCmd(pub Entity, pub f32);
+
+// impl Command for SvgShapeCYCmd {
+//     fn apply(self, world: &mut World) {
+//         let component_id = world.init_component::<SvgInnerContent>();
+//         if let Some(mut component) = world.get_mut_by_id(self.0, component_id) {
+//             component.set_changed();
+//             let v = unsafe { component.into_inner().deref_mut::<SvgInnerContent>() };
+
+//             match &mut v.shape {
+//                 Shape::Ellipse { cx: _, cy, rx, ry } => {
+//                     *cy = self.1;
+//                 }
+//                 Shape::Circle { cx: _, cy, radius: _ } => {
+//                     *cy = self.1;
+//                 }
+//                 _ => {}
+//             }
+//         }
+//     }
+// }
+
+// #[derive(Debug, Clone, Serialize, Deserialize)]
+// pub struct SvgShaperRadiusCmd(pub Entity, pub f32);
+
+// impl Command for SvgShaperRadiusCmd {
+//     fn apply(self, world: &mut World) {
+//         let component_id = world.init_component::<SvgInnerContent>();
+//         if let Some(mut component) = world.get_mut_by_id(self.0, component_id) {
+//             component.set_changed();
+//             let v = unsafe { component.into_inner().deref_mut::<SvgInnerContent>() };
+
+//             match &mut v.shape {
+//                 Shape::Circle { cx: _, cy: _, radius } => {
+//                     *radius = self.1;
+//                 }
+//                 _ => {}
+//             }
+//         }
+//     }
+// }
+
+
+
+
+// #[derive(Debug, Clone, Serialize, Deserialize)]
+// pub struct SvgShapeRadiusXCmd(pub Entity, pub f32);
+
+// impl Command for SvgShapeRadiusXCmd {
+//     fn apply(self, world: &mut World) {
+//         let component_id = world.init_component::<SvgInnerContent>();
+//         if let Some(mut component) = world.get_mut_by_id(self.0, component_id) {
+//             component.set_changed();
+//             let v = unsafe { component.into_inner().deref_mut::<SvgInnerContent>() };
+
+//             match &mut v.shape {
+//                 Shape::Ellipse { cx: _, cy: _, rx, ry: _ } => {
+//                     *rx = self.1;
+//                 }
+//                 _ => {}
+//             }
+//         }
+//     }
+// }
+
+// #[derive(Debug, Clone, Serialize, Deserialize)]
+// pub struct SvgShapeRadiusYCmd(pub Entity, pub f32);
+
+// impl Command for SvgShapeRadiusYCmd {
+//     fn apply(self, world: &mut World) {
+//         let component_id = world.init_component::<SvgInnerContent>();
+//         if let Some(mut component) = world.get_mut_by_id(self.0, component_id) {
+//             component.set_changed();
+//             let v = unsafe { component.into_inner().deref_mut::<SvgInnerContent>() };
+
+//             match &mut v.shape {
+//                 Shape::Ellipse { cx: _, cy: _, rx: _, ry } => {
+//                     *ry = self.1;
+//                 }
+//                 _ => {}
+//             }
+//         }
+//     }
+// }
+
+// #[derive(Debug, Clone, Serialize, Deserialize)]
+// pub struct SvgShapeAXCmd(pub Entity, pub f32);
+
+// impl Command for SvgShapeAXCmd {
+//     fn apply(self, world: &mut World) {
+//         let component_id = world.init_component::<SvgInnerContent>();
+//         if let Some(mut component) = world.get_mut_by_id(self.0, component_id) {
+//             component.set_changed();
+//             let v = unsafe { component.into_inner().deref_mut::<SvgInnerContent>() };
+
+//             match &mut v.shape {
+//                 Shape::Segment { ax, ay, bx, by } => {
+//                     *ax = self.1;
+//                 }
+//                 _ => {}
+//             }
+//         }
+//     }
+// }
+
+// #[derive(Debug, Clone, Serialize, Deserialize)]
+// pub struct SvgShapeAYCmd(pub Entity, pub f32);
+
+// impl Command for SvgShapeAYCmd {
+//     fn apply(self, world: &mut World) {
+//         let component_id = world.init_component::<SvgInnerContent>();
+//         if let Some(mut component) = world.get_mut_by_id(self.0, component_id) {
+//             component.set_changed();
+//             let v = unsafe { component.into_inner().deref_mut::<SvgInnerContent>() };
+
+//             match &mut v.shape {
+//                 Shape::Segment { ax, ay, bx, by } => {
+//                     *ay = self.1;
+//                 }
+//                 _ => {}
+//             }
+//         }
+//     }
+// }
+
+
+// #[derive(Debug, Clone, Serialize, Deserialize)]
+// pub struct SvgShapeBXCmd(pub Entity, pub f32);
+
+// impl Command for SvgShapeBXCmd {
+//     fn apply(self, world: &mut World) {
+//         let component_id = world.init_component::<SvgInnerContent>();
+//         if let Some(mut component) = world.get_mut_by_id(self.0, component_id) {
+//             component.set_changed();
+//             let v = unsafe { component.into_inner().deref_mut::<SvgInnerContent>() };
+
+//             match &mut v.shape {
+//                 Shape::Segment { ax, ay, bx, by } => {
+//                     *bx = self.1;
+//                 }
+//                 _ => {}
+//             }
+//         }
+//     }
+// }
+
+
+// #[derive(Debug, Clone, Serialize, Deserialize)]
+// pub struct SvgShapeBYCmd(pub Entity, pub f32);
+
+// impl Command for SvgShapeBYCmd {
+//     fn apply(self, world: &mut World) {
+//         let component_id = world.init_component::<SvgInnerContent>();
+//         if let Some(mut component) = world.get_mut_by_id(self.0, component_id) {
+//             component.set_changed();
+//             let v = unsafe { component.into_inner().deref_mut::<SvgInnerContent>() };
+
+//             match &mut v.shape {
+//                 Shape::Segment { ax, ay, bx, by } => {
+//                     *by = self.1;
+//                 }
+//                 _ => {}
+//             }
+//         }
+//     }
+// }
+
+
+
+
+// #[derive(Debug, Clone, Serialize, Deserialize)]
+// pub struct SvgShapePointsCmd(pub Entity, pub Vec<f32>);
+
+// impl Command for SvgShapePointsCmd {
+//     fn apply(self, world: &mut World) {
+//         let component_id = world.init_component::<SvgInnerContent>();
+//         if let Some(mut component) = world.get_mut_by_id(self.0, component_id) {
+//             component.set_changed();
+//             let v = unsafe { component.into_inner().deref_mut::<SvgInnerContent>() };
+
+//             match &mut v.shape {
+//                 Shape::Polygon { points } | Shape::Polyline { points } => *points = self.1.chunks(2).map(|v| [v[0], v[1]]).collect::<Vec<[f32; 2]>>(),
+//                 _ => {}
+//             }
+//         }
+//     }
+// }
+
+
+// #[derive(Debug, Clone, Serialize, Deserialize)]
+// pub struct SvgShapePathCmd(pub Entity, pub Vec<f32>, pub Vec<f32>);
+
+// impl Command for SvgShapePathCmd {
+//     fn apply(self, world: &mut World) {
+//         let component_id = world.init_component::<SvgInnerContent>();
+//         if let Some(mut component) = world.get_mut_by_id(self.0, component_id) {
+//             component.set_changed();
+//             let v = unsafe { component.into_inner().deref_mut::<SvgInnerContent>() };
+
+//             match &mut v.shape {
+//                 Shape::Path { points, verb } => {
+//                     *points = self.2.chunks(2).map(|v| [v[0], v[1]]).collect::<Vec<[f32; 2]>>();
+//                     *verb = self
+//                         .1
+//                         .iter()
+//                         .map(|v| unsafe { transmute(*v as u8) })
+//                         .collect::<Vec<pi_hal::pi_sdf::shape::PathVerb>>();
+//                 }
+//                 _ => {}
+//             }
+//         }
+//     }
+// }
+
+
+// #[derive(Debug, Clone, Serialize, Deserialize)]
+// pub struct SvgShadowColorCmd(pub Entity, pub CgColor);
+
+// impl Command for SvgShadowColorCmd {
+//     fn apply(self, world: &mut World) {
+//         let component_id = world.init_component::<SvgInnerContent>();
+//         if let Some(mut component) = world.get_mut_by_id(self.0, component_id) {
+//             component.set_changed();
+//             let v = unsafe { component.into_inner().deref_mut::<SvgInnerContent>() };
+//             v.style.shadow.color = self.1;
+//         }
+//     }
+// }
+
+
+// #[derive(Debug, Clone, Serialize, Deserialize)]
+// pub struct SvgShadowOffsetXCmd(pub Entity, pub f32);
+
+// impl Command for SvgShadowOffsetXCmd {
+//     fn apply(self, world: &mut World) {
+//         let component_id = world.init_component::<SvgInnerContent>();
+//         if let Some(mut component) = world.get_mut_by_id(self.0, component_id) {
+//             component.set_changed();
+//             let v = unsafe { component.into_inner().deref_mut::<SvgInnerContent>() };
+//             v.style.shadow.offset_x = self.1;
+//         }
+//     }
+// }
+
+// #[derive(Debug, Clone, Serialize, Deserialize)]
+// pub struct SvgShadowOffsetYCmd(pub Entity, pub f32);
+
+// impl Command for SvgShadowOffsetYCmd {
+//     fn apply(self, world: &mut World) {
+//         let component_id = world.init_component::<SvgInnerContent>();
+//         if let Some(mut component) = world.get_mut_by_id(self.0, component_id) {
+//             component.set_changed();
+//             let v = unsafe { component.into_inner().deref_mut::<SvgInnerContent>() };
+//             v.style.shadow.offset_y = self.1;
+//         }
+//     }
+// }
+
+// #[derive(Debug, Clone, Serialize, Deserialize)]
+// pub struct SvgShadowBlurLevelCmd(pub Entity, pub f32);
+
+// impl Command for SvgShadowBlurLevelCmd {
+//     fn apply(self, world: &mut World) {
+//         let component_id = world.init_component::<SvgInnerContent>();
+//         if let Some(mut component) = world.get_mut_by_id(self.0, component_id) {
+//             component.set_changed();
+//             let v = unsafe { component.into_inner().deref_mut::<SvgInnerContent>() };
+//             v.style.shadow.blur_level = self.1;
+//         }
+//     }
+// }
+
+
+// #[derive(Debug, Clone, Serialize, Deserialize)]
+// pub struct SvgFilterOffsetXCmd(pub Entity, pub f32);
+
+// impl Command for SvgFilterOffsetXCmd {
+//     fn apply(self, world: &mut World) {
+//         let component_id = world.init_component::<SvgFilterOffset>();
+//         if let Some(mut component) = world.get_mut_by_id(self.0, component_id) {
+//             component.set_changed();
+//             let v = unsafe { component.into_inner().deref_mut::<SvgFilterOffset>() };
+//             v.offset_x = self.1;
+//         } else {
+//             let mut svg = SvgFilterOffset::default();
+//             svg.offset_x = self.1;
+//             world.entity_mut(self.0).insert(svg);
+//         }
+//     }
+// }
+
+// #[derive(Debug, Clone, Serialize, Deserialize)]
+// pub struct SvgFilterOffsetYCmd(pub Entity, pub f32);
+
+// impl Command for SvgFilterOffsetYCmd {
+//     fn apply(self, world: &mut World) {
+//         let component_id = world.init_component::<SvgFilterOffset>();
+//         if let Some(mut component) = world.get_mut_by_id(self.0, component_id) {
+//             component.set_changed();
+//             let v = unsafe { component.into_inner().deref_mut::<SvgFilterOffset>() };
+//             v.offset_y = self.1;
+//         } else {
+//             let mut svg = SvgFilterOffset::default();
+//             svg.offset_y = self.1;
+//             world.entity_mut(self.0).insert(svg);
+//         }
+//     }
+// }
+
+
+
+
+// #[derive(Debug, Clone, Serialize, Deserialize)]
+// pub struct SvgFilterColorCmd(pub Entity, pub f32);
+
+// impl Command for SvgFilterColorCmd {
+//     fn apply(self, world: &mut World) {
+//         let component_id = world.init_component::<SvgFilterOffset>();
+//         if let Some(mut component) = world.get_mut_by_id(self.0, component_id) {
+//             component.set_changed();
+//             let v = unsafe { component.into_inner().deref_mut::<SvgFilterOffset>() };
+//             v.color = self.1;
+//         } else {
+//             let mut svg = SvgFilterOffset::default();
+//             svg.color = self.1;
+//             world.entity_mut(self.0).insert(svg);
+//         }
+//     }
+// }
+
+// #[derive(Debug, Clone, Serialize, Deserialize)]
+// pub struct SvgFilterBlurLevelCmd(pub Entity, pub f32);
+
+// impl Command for SvgFilterBlurLevelCmd {
+//     fn apply(self, world: &mut World) {
+//         let component_id = world.init_component::<SvgFilterBlurLevel>();
+//         if let Some(mut component) = world.get_mut_by_id(self.0, component_id) {
+//             component.set_changed();
+//             let v = unsafe { component.into_inner().deref_mut::<SvgFilterBlurLevel>() };
+//             v.level = self.1;
+//         } else {
+//             let mut svg = SvgFilterBlurLevel::default();
+//             svg.level = self.1;
+//             world.entity_mut(self.0).insert(svg);
+//         }
+//     }
+// }
+
+// #[derive(Debug, Clone, Serialize, Deserialize)]
+// pub struct SvgGradientX1Cmd(pub Entity, pub f32);
+
+// impl Command for SvgGradientX1Cmd {
+//     fn apply(self, world: &mut World) {
+//         let component_id = world.init_component::<SvgGradient>();
+//         if let Some(mut component) = world.get_mut_by_id(self.0, component_id) {
+//             component.set_changed();
+//             let v = unsafe { component.into_inner().deref_mut::<SvgGradient>() };
+//             v.x1 = self.1;
+//         } else {
+//             let mut svg = SvgGradient::default();
+//             svg.x1 = self.1;
+//             world.entity_mut(self.0).insert(svg);
+//         }
+//     }
+// }
+
+// #[derive(Debug, Clone, Serialize, Deserialize)]
+// pub struct SvgGradientY1Cmd(pub Entity, pub f32);
+
+// impl Command for SvgGradientY1Cmd {
+//     fn apply(self, world: &mut World) {
+//         let component_id = world.init_component::<SvgGradient>();
+//         if let Some(mut component) = world.get_mut_by_id(self.0, component_id) {
+//             component.set_changed();
+//             let v = unsafe { component.into_inner().deref_mut::<SvgGradient>() };
+//             v.y1 = self.1;
+//         } else {
+//             let mut svg = SvgGradient::default();
+//             svg.y1 = self.1;
+//             world.entity_mut(self.0).insert(svg);
+//         }
+//     }
+// }
+
+// #[derive(Debug, Clone, Serialize, Deserialize)]
+// pub struct SvgGradientX2Cmd(pub Entity, pub f32);
+
+// impl Command for SvgGradientX2Cmd {
+//     fn apply(self, world: &mut World) {
+//         let component_id = world.init_component::<SvgGradient>();
+//         if let Some(mut component) = world.get_mut_by_id(self.0, component_id) {
+//             component.set_changed();
+//             let v = unsafe { component.into_inner().deref_mut::<SvgGradient>() };
+//             v.x2 = self.1;
+//         } else {
+//             let mut svg = SvgGradient::default();
+//             svg.x2 = self.1;
+//             world.entity_mut(self.0).insert(svg);
+//         }
+//     }
+// }
+
+// #[derive(Debug, Clone, Serialize, Deserialize)]
+// pub struct SvgGradientY2Cmd(pub Entity, pub f32);
+
+// impl Command for SvgGradientY2Cmd {
+//     fn apply(self, world: &mut World) {
+//         log::debug!("SvgGradientY2Cmd: {:?}, {}", self.0, self.1);
+//         let component_id = world.init_component::<SvgGradient>();
+//         if let Some(mut component) = world.get_mut_by_id(self.0, component_id) {
+//             component.set_changed();
+//             let v = unsafe { component.into_inner().deref_mut::<SvgGradient>() };
+//             v.y2 = self.1;
+//         } else {
+//             let mut svg = SvgGradient::default();
+//             svg.y2 = self.1;
+//             world.entity_mut(self.0).insert(svg);
+//         }
+//     }
+// }
+
+// #[derive(Debug, Clone, Serialize, Deserialize)]
+// pub struct SvgStopOffsetCmd(pub Entity, pub f32);
+
+// impl Command for SvgStopOffsetCmd {
+//     fn apply(self, world: &mut World) {
+       
+//         let component_id = world.init_component::<SvgStop>();
+//         if let Some(mut component) = world.get_mut_by_id(self.0, component_id) {
+//             component.set_changed();
+//             let v = unsafe { component.into_inner().deref_mut::<SvgStop>() };
+//             v.offset = self.1;
+//         } else {
+//             let mut svg = SvgStop::default();
+//             svg.offset = self.1;
+//             world.entity_mut(self.0).insert(svg);
+//         }
+//     }
+// }
+
+
+// #[derive(Debug, Clone, Serialize, Deserialize)]
+// pub struct SvgStopColorCmd(pub Entity, pub CgColor);
+
+// impl Command for SvgStopColorCmd {
+//     fn apply(self, world: &mut World) {
+//         let component_id = world.init_component::<SvgStop>();
+//         if let Some(mut component) = world.get_mut_by_id(self.0, component_id) {
+//             component.set_changed();
+//             let v = unsafe { component.into_inner().deref_mut::<SvgStop>() };
+//             v.color = self.1;
+//         } else {
+//             let mut svg = SvgStop::default();
+//             svg.color = self.1;
+//             world.entity_mut(self.0).insert(svg);
+//         }
+//     }
+// }
+
+// #[derive(Debug, Clone, Serialize, Deserialize)]
+// pub struct SvgGradientCmd(pub Entity, pub Entity);
+
+// impl Command for SvgGradientCmd {
+//     fn apply(self, world: &mut World) {
+//         let component_id = world.init_component::<SvgGradient>();
+//         log::debug!("SvgGradientCmd: {:?}, {:?}", self.0,self.1);
+//         if let Some(mut component) = world.get_mut_by_id(self.0, component_id) {
+//             component.set_changed();
+//             let v = unsafe { component.into_inner().deref_mut::<SvgGradient>() };
+//             v.id.push(self.1);
+//         } else {
+//             let mut svg = SvgGradient::default();
+//             svg.id.push(self.1);
+//             world.entity_mut(self.0).insert(svg);
+//         }
+//     }
+// }
+
+
+// #[derive(Debug, Clone, Serialize, Deserialize)]
+// pub struct SvgFilterCmd(pub Entity, pub Entity);
+
+// impl Command for SvgFilterCmd {
+//     fn apply(self, world: &mut World) {
+//         let component_id = world.init_component::<SvgFilter>();
+//         log::debug!("SvgFilterCmd: {:?}, {:?}", self.0, self.1);
+//         if let Some(mut component) = world.get_mut_by_id(self.0, component_id) {
+//             component.set_changed();
+//             let v = unsafe { component.into_inner().deref_mut::<SvgFilter>() };
+//             v.0.push(self.1);
+//         } else {
+//             let mut svg = SvgFilter::default();
+//             svg.0.push(self.1);
+//             world.entity_mut(self.0).insert(svg);
+//         }
+//     }
+// }
+// // // svg属性
+// // pub trait SvgAttr {
+// //     /// 将样式属性设置到组件上
+// //     /// ptr为样式属性的指针
+// //     /// 安全： entity必须存在
+// //     fn set<'w, 's>(ptr: *const u8, query: &mut Setting, entity: Entity)
+// //     where
+// //         Self: Sized;
+    
+// //     fn get_index() -> u8 where Self: Sized;
+// // }

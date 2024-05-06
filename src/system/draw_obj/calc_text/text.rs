@@ -1,15 +1,15 @@
 
-use bevy_ecs::entity::Entity;
-use bevy_ecs::prelude::{DetectChanges, Ref};
-use bevy_ecs::query::{Changed, Or, With};
-use bevy_ecs::system::{Local, Query, Res, ResMut};
-use bevy_ecs::prelude::DetectChangesMut;
+use pi_world::entity::Entity;
+use pi_world::prelude::{DetectChanges, Ref};
+use pi_world::query::{Changed, Or, With};
+use pi_world::system::{Local, Query, SingleRes, SingleResMut};
+use pi_world::prelude::DetectChangesMut;
 use pi_assets::asset::Handle;
 use pi_assets::mgr::AssetMgr;
 use pi_atom::Atom;
 use pi_bevy_asset::ShareAssetMgr;
 use pi_bevy_ecs_extend::prelude::OrDefault;
-use pi_bevy_ecs_extend::system_param::res::OrInitRes;
+use pi_bevy_ecs_extend::system_param::res::OrInitSingleRes;
 use pi_bevy_ecs_extend::system_param::tree::{Up, Layer};
 use pi_bevy_render_plugin::{PiRenderDevice, PiVertexBufferAlloter};
 use pi_hal::font::font::FontType;
@@ -48,25 +48,25 @@ pub fn calc_text(
     query: Query<
         (&NodeState, &LayoutResult, OrDefault<TextStyle>, Ref<NodeState>, Option<&TextOverflowData>, Entity, &Layer),
 		// TextContent改变，NodeState必然改, TextOverflowData改变，NodeState也必然改变 ;存在NodeState， 也必然存在TextContent
-        Or<(Changed<TextStyle>, Changed<NodeState>)>, 
+        (Changed<TextStyle>, Changed<NodeState>), 
     >,
 	query_layout: Query<(&'static LayoutResult, &'static Up, &'static NodeState)>,
 
     mut query_draw: Query<(&mut DrawState, &mut BoxType, &mut PipelineMeta, &NodeId), With<TextMark>>,
 
-    text_texture_group: OrInitRes<TextTextureGroup>,
+    text_texture_group: OrInitSingleRes<TextTextureGroup>,
 
     res: (
-        Res<PiRenderDevice>,
-        Res<ShareAssetMgr<RenderRes<Buffer>>>,
-        ResMut<ShareFontSheet>,
+        SingleRes<PiRenderDevice>,
+        SingleRes<ShareAssetMgr<RenderRes<Buffer>>>,
+        SingleResMut<ShareFontSheet>,
     ),
     mut buffer: Local<(Vec<f32>, Vec<f32>)>,
-    vertex_buffer_alloter: OrInitRes<PiVertexBufferAlloter>,
-	vert_layout1: OrInitRes<PosUv1VertexLayout>,
-    vert_layout2: OrInitRes<PosUvColorVertexLayout>,
+    vertex_buffer_alloter: OrInitSingleRes<PiVertexBufferAlloter>,
+	vert_layout1: OrInitSingleRes<PosUv1VertexLayout>,
+    vert_layout2: OrInitSingleRes<PosUvColorVertexLayout>,
 
-	r: OrInitRes<IsRun>
+	r: OrInitSingleRes<IsRun>
 ) {
 	if r.0 {
 		return;

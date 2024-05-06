@@ -1,20 +1,11 @@
-use crate::{
-    components::{
-        calc::{ContentBox, LayoutResult, Quad},
-        user::Transform,
-    },
-    resource::{animation_sheet::KeyFramesSheet, ClassSheet, QuadTree, TimeInfo, UserCommands},
-};
-use bevy_ecs::prelude::{IntoSystemConfigs, Changed};
-use bevy_app::{App, Plugin, PostUpdate};
-use pi_bevy_ecs_extend::{prelude::Layer, system_param::layer_dirty::ComponentEvent};
+use crate::resource::{animation_sheet::KeyFramesSheet, ClassSheet, QuadTree, TimeInfo, UserCommands};
+use pi_world::prelude::{IntoSystemConfigs, Plugin, App, PostUpdate, WorldPluginExtent};
 use pi_bevy_render_plugin::FrameDataPrepare;
 
-use self::{world_matrix::OldQuad, user_setting::{StyleChange, clear_dirty_mark}, transition::TransitionPlugin, show::ShowPlugin};
+use self::{user_setting::clear_dirty_mark, transition::TransitionPlugin, show::ShowPlugin};
 
 use super::system_set::UiSystemSet;
-use crate::prelude::UiSchedule;
-use bevy_window::AddFrameEvent;
+use crate::prelude::UiStage;
 
 // pub mod flush;
 pub mod layout;
@@ -28,7 +19,7 @@ pub mod z_index;
 pub mod animation;
 pub mod transition;
 
-// pub fn clear_dirty_list(mut dirty_list: ResMut<DirtyList>, system_tick: SystemChangeTick) {
+// pub fn clear_dirty_list(mut dirty_list: SingleResMut<DirtyList>, system_tick: SystemChangeTick) {
 // 	dirty_list.clear(system_tick.this_run());
 // }
 
@@ -36,38 +27,50 @@ pub struct UiNodePlugin;
 
 impl Plugin for UiNodePlugin {
     fn build(&self, app: &mut App) {
-        app.add_frame_event::<ComponentEvent<Changed<Layer>>>()
-			.add_frame_event::<StyleChange>()
-            .init_resource::<UserCommands>()
-            .init_resource::<ClassSheet>()
-            .init_resource::<TimeInfo>()
-            .init_resource::<KeyFramesSheet>()
+        app.world.init_single_res::<UserCommands>();
+        app.world.init_single_res::<ClassSheet>();
+        app.world.init_single_res::<TimeInfo>();
+        app.world.init_single_res::<KeyFramesSheet>();
+
+        app
+            // .add_frame_event::<ComponentEvent<Changed<Layer>>>()
+			// .add_frame_event::<StyleChange>()
+            // .init_single_res::<UserCommands>()
+            // .init_single_res::<ClassSheet>()
+            // .init_single_res::<TimeInfo>()
+            // .init_single_res::<KeyFramesSheet>()
 
 			// 维护脏列表
-			.add_systems(PostUpdate, clear_dirty_mark.in_set(FrameDataPrepare).after(bevy_window::FrameSet))
+			.add_system(PostUpdate, clear_dirty_mark.in_set(FrameDataPrepare)
+                // .after(bevy_window::FrameSet)
+            )
 			
             // 设置用户指令
-            .add_systems(UiSchedule, user_setting::user_setting.in_set(UiSystemSet::Setting))
+            .add_system(UiStage, user_setting::user_setting1.in_set(UiSystemSet::Setting))
+            .add_system(UiStage, user_setting::user_setting2.in_set(UiSystemSet::Setting))
 
             // 运行动画
-            .add_systems(UiSchedule, animation::calc_animation.in_set(UiSystemSet::NextSetting))
+            .add_system(UiStage, animation::calc_animation.in_set(UiSystemSet::NextSetting))
              // 计算Transition
 			.add_plugins(TransitionPlugin)
 
             // 布局相关
-            .add_frame_event::<ComponentEvent<Changed<LayoutResult>>>()
-            .add_systems(UiSchedule,   layout::calc_layout.in_set(UiSystemSet::Layout))
+            // .add_frame_event::<ComponentEvent<Changed<LayoutResult>>>()
+            .add_system(UiStage,   layout::calc_layout.in_set(UiSystemSet::Layout));
 
             // 世界矩阵、包围盒、内容包围盒
-            .add_frame_event::<ComponentEvent<Changed<Transform>>>()
-            .add_frame_event::<ComponentEvent<Changed<Quad>>>()
-            .add_frame_event::<ComponentEvent<Changed<ContentBox>>>()
-            .add_frame_event::<OldQuad>()
-            .init_resource::<QuadTree>()
-            .add_systems(UiSchedule, world_matrix::cal_matrix.in_set(UiSystemSet::Matrix))
-            .add_systems(UiSchedule, content_box::calc_content_box.after(world_matrix::cal_matrix).in_set(UiSystemSet::BaseCalc))
+            // .add_frame_event::<ComponentEvent<Changed<Transform>>>()
+            // .add_frame_event::<ComponentEvent<Changed<Quad>>>()
+            // .add_frame_event::<ComponentEvent<Changed<ContentBox>>>()
+            // .add_frame_event::<OldQuad>()
+        app.world.init_single_res::<QuadTree>();
+        app
+            .add_system(UiStage, world_matrix::cal_matrix.in_set(UiSystemSet::Matrix))
+            .add_system(UiStage, content_box::calc_content_box
+                // .after(world_matrix::cal_matrix)
+                .in_set(UiSystemSet::BaseCalc))
             // zindex
-            .add_systems(UiSchedule, z_index::calc_zindex.in_set(UiSystemSet::BaseCalc))
+            .add_system(UiStage, z_index::calc_zindex.in_set(UiSystemSet::BaseCalc))
 			// 计算是否可见
             .add_plugins(ShowPlugin)
 		;

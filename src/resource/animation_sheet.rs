@@ -1,7 +1,7 @@
 //！ 动画表资源
 use std::{any::Any, collections::VecDeque, mem::replace};
 
-use bevy_ecs::prelude::{Entity, Resource};
+use pi_world::prelude::Entity;
 use bitvec::array::BitArray;
 use log::debug;
 use ordered_float::NotNan;
@@ -24,10 +24,9 @@ use pi_curves::{
 };
 use pi_hash::XHashMap;
 use pi_map::vecmap::VecMap;
-use pi_null::Null;
 use pi_print_any::out_any;
 use pi_share::Share;
-use pi_slotmap::{DefaultKey, Key, SecondaryMap};
+use pi_slotmap::{DefaultKey, SecondaryMap};
 use pi_style::style::{AnimationDirection, AnimationTimingFunction};
 use pi_style::{style_parse::Attribute, style_type::*};
 use smallvec::SmallVec;
@@ -50,7 +49,6 @@ impl AnimationContextMgr for CurveMgr {
 }
 
 /// 帧动画表，css帧动画配置被存储在动画表中
-#[derive(Resource)]
 pub struct KeyFramesSheet {
     animation_attr_types: CurveMgr, // Vec<TypeAnimationContext<T>>,
 
@@ -816,36 +814,36 @@ impl KeyFramesSheet {
     }
 }
 
-#[derive(Debug, Clone, Deref, PartialEq, Eq, Copy, Hash, PartialOrd, Ord)]
-pub struct ObjKey(pub Entity);
+// #[derive(Debug, Clone, Deref, PartialEq, Eq, Copy, Hash, PartialOrd, Ord)]
+pub type ObjKey = Entity;
 
-impl Key for ObjKey {
-    fn data(&self) -> pi_slotmap::KeyData {
-        // (u64::from(self.version.get()) << 32) | u64::from(self.idx)
+// impl Key for ObjKey {
+//     fn data(&self) -> pi_slotmap::KeyData {
+//         // (u64::from(self.version.get()) << 32) | u64::from(self.idx)
 
-        pi_slotmap::KeyData::from_ffi((u64::from(self.0.generation()) << 32) | u64::from(self.0.index()))
-    }
+//         pi_slotmap::KeyData::from_ffi((u64::from(self.0.generation()) << 32) | u64::from(self.0.index()))
+//     }
 
-	fn index(&self) -> usize {
-		self.0.index() as usize
-	}
+// 	fn index(&self) -> usize {
+// 		self.0.index() as usize
+// 	}
 
-    fn with(idx: usize) -> Self { Self(Entity::from_raw(idx as u32)) }
-}
+//     fn with(idx: usize) -> Self { Self(Entity::from_raw(idx as u32)) }
+// }
 
-impl Null for ObjKey {
-	fn null() -> Self { Self(Entity::from_bits(u64::null())) }
+// impl Null for ObjKey {
+// 	fn null() -> Self { Self(Entity::from_bits(u64::null())) }
 
-    fn is_null(&self) -> bool { self.0.to_bits().is_null() }
-}
+//     fn is_null(&self) -> bool { self.0.to_bits().is_null() }
+// }
 
-impl From<pi_slotmap::KeyData> for ObjKey {
-    fn from(value: pi_slotmap::KeyData) -> Self { Self(Entity::from_bits(value.as_ffi())) }
-}
+// impl From<pi_slotmap::KeyData> for ObjKey {
+//     fn from(value: pi_slotmap::KeyData) -> Self { Self(Entity::from_bits(value.as_ffi())) }
+// }
 
-impl Default for ObjKey {
-    fn default() -> Self { Self(Entity::from_bits(u64::null())) }
-}
+// impl Default for ObjKey {
+//     fn default() -> Self { Self(Entity::from_bits(u64::null())) }
+// }
 
 type KeyFrames = Vec<(Share<dyn Any + Send + Sync>, usize)>; // Vec<(动画曲线， 曲线类型)>
 
@@ -964,12 +962,12 @@ impl<F: Attr + FrameDataValue> TypeAnimationResultPool<F, ObjKey> for StyleComma
         let start = self.style_buffer.len();
         unsafe { StyleAttr::write(result.value, &mut self.style_buffer) };
         if let Some(r) = self.commands.last_mut() {
-            if r.0 == entity.0 {
+            if r.0 == entity {
                 r.2 = self.style_buffer.len();
                 return Ok(());
             }
         }
-        self.commands.push((entity.0, start, self.style_buffer.len()));
+        self.commands.push((entity, start, self.style_buffer.len()));
         Ok(())
     }
 }

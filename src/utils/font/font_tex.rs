@@ -53,7 +53,7 @@ impl<T: FontTexture> FontTex<T> {
         }
     }
 
-    // fn update(&self, tex: Res<TextureRes>, u: f32, v: f32, w: f32, h: f32, data: &Object) {
+    // fn update(&self, tex: SingleRes<TextureRes>, u: f32, v: f32, w: f32, h: f32, data: &Object) {
     //     if v + h > self.last_v {
     //         // 纹理高度扩展1倍
     //     }

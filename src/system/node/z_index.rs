@@ -28,16 +28,14 @@
 
 use std::ops::Range;
 
-use bevy_ecs::event::EventWriter;
-use bevy_ecs::prelude::{Changed, Component, Entity, Query};
-use pi_bevy_ecs_extend::prelude::{EntityTree, Layer, LayerDirty};
-use pi_bevy_ecs_extend::system_param::layer_dirty::DirtyMark;
-use pi_bevy_ecs_extend::system_param::res::OrInitRes;
+use pi_world::prelude::{Changed, With, Query, Entity};
+use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, OrInitSingleRes, Layer, EntityTree, LayerDirty, DirtyMark};
+
 use pi_null::Null;
 
 use crate::components::calc::{EntityKey, ZRange};
-use crate::components::user::ZIndex;
-use crate::events::NodeZindexChange;
+use crate::components::user::{Size, ZIndex};
+use crate::resource::NodeChanged;
 use crate::system::draw_obj::calc_text::IsRun;
 
 /// 如果节点设置zindex为auto，则自身zindex为-1
@@ -54,23 +52,19 @@ pub struct CalcZindex;
 
 /// 根据层脏，从上到下，计算并设置节点的ZRange
 pub fn calc_zindex(
+    mut node_changed: OrInitSingleResMut<NodeChanged>,
     query: Query<&ZIndex>,
     tree: EntityTree,
-    mut dirtys: LayerDirty<Changed<Layer>>,
-    zindex_change: Query<Entity, Changed<ZIndex>>,
+    mut dirtys: LayerDirty<((Changed<Layer>, Changed<ZIndex>), With<Size>)>,
     mut ranges: Query<&mut ZRange>,
-	r: OrInitRes<IsRun>,
-	mut events: EventWriter<NodeZindexChange>,
+	r: OrInitSingleRes<IsRun>,
 ) {
 	if r.0 {
 		return;
 	}
-    for entity in zindex_change.iter() {
-        dirtys.mark(entity);
-    }
 
 	if dirtys.count() > 0 {
-		events.send(NodeZindexChange);
+        node_changed.0 = true;
 	}
 
     // println!();
@@ -187,7 +181,7 @@ fn collect(query: &Query<&ZIndex>, tree: &EntityTree, vec: &mut Vec<ZSort>, pare
 }
 
 #[inline]
-fn get_or_default<T: Clone + Default + Component>(query: &Query<&mut T>, id: Entity) -> T {
+fn get_or_default<T: Clone + Default>(query: &Query<&mut T>, id: Entity) -> T {
     match query.get(id) {
         Ok(r) => r.clone(),
         _ => T::default(),
@@ -408,11 +402,11 @@ fn set(
 
 // #[cfg(test)]
 // mod test {
-//     use bevy_ecs::app::{App, CoreStage};
-//     use bevy_ecs::{
+//     use pi_world::app::{App, CoreStage};
+//     use pi_world::{
 //         prelude::{Entity, EventWriter, World},
 //         query::{Changed, QueryState},
-//         system::{Local, Res, ResMut, Resource, SystemState},
+//         system::{Local, SingleRes, SingleResMut, Resource, SystemState},
 //     };
 //     use pi_bevy_ecs_extend::{
 //         prelude::{Down, EntityTreeMut, Layer, Up},
@@ -440,7 +434,7 @@ fn set(
 //         world: &mut World,
 //         entity_tree: &mut SystemState<EntityTreeMut>,
 //         event_writer: &mut SystemState<EventWriter<ComponentEvent<Changed<ZIndex>>>>,
-//         root: &mut SystemState<ResMut<RootNode>>,
+//         root: &mut SystemState<SingleResMut<RootNode>>,
 //     ) {
 //         let root = **root.get_mut(world);
 //         entity_tree.get_mut(world).insert_child(root, *EntityKey::null(), 0);
@@ -463,7 +457,7 @@ fn set(
 //     fn init_2(
 //         world: &mut World,
 //         entity_tree: &mut SystemState<EntityTreeMut>,
-//         root: &mut SystemState<Res<RootNode>>,
+//         root: &mut SystemState<SingleRes<RootNode>>,
 //         event_writer: &mut SystemState<EventWriter<ComponentEvent<Changed<ZIndex>>>>,
 //         mut local: Local<usize>,
 //     ) {
@@ -485,7 +479,7 @@ fn set(
 //     fn init_3(
 //         world: &mut World,
 //         entity_tree: &mut SystemState<EntityTreeMut>,
-//         root: &mut SystemState<Res<RootNode>>,
+//         root: &mut SystemState<SingleRes<RootNode>>,
 //         event_writer: &mut SystemState<EventWriter<ComponentEvent<Changed<ZIndex>>>>,
 //         mut local: Local<usize>,
 //     ) {
@@ -515,11 +509,11 @@ fn set(
 
 //         let root = app.world.spawn((ZRange(0..16), Up::default(), Down::default(), Layer::default())).id();
 
-//         app.insert_resource(RootNode(root))
+//         app.insert_single_res(RootNode(root))
 //             .add_startup_system(init_1) // 插入根节点；插入前两个实体，以根节点作为父节点
 //             .add_system_to_stage(CoreStage::PreUpdate, init_2) // 插入第3个实体，以根节点作为父节点
 //             .add_system_to_stage(CoreStage::PreUpdate, init_3) // 插入第4个实体，以根节点作为父节点
-//             .add_systems(UiSchedule, calc_zindex)
+//             .add_system(UiStage, calc_zindex)
 //             .update();
 //         asset(&mut app.world, &mut query, vec![(0, (0, 16)), (1, (4, 8)), (2, (9, 13))]);
 //         println!("------------------------");

@@ -1,12 +1,8 @@
-use bevy_app::Plugin;
-use bevy_ecs::entity::Entity;
-use bevy_ecs::query::{Changed, With};
-use bevy_ecs::schedule::IntoSystemConfigs;
-use bevy_ecs::system::{Query, Res, ResMut};
-use bevy_ecs::prelude::{DetectChangesMut, DetectChanges, Ref};
-use bevy_window::AddFrameEvent;
-use pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent;
-use pi_bevy_ecs_extend::system_param::res::{OrInitRes, OrInitResMut};
+use pi_world::fetch::Ticker;
+use pi_world::filter::Changed;
+use pi_world::prelude::{With, Query, SingleResMut, Entity, Plugin, IntoSystemConfigs, SingleRes};
+use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, OrInitSingleRes};
+
 use pi_bevy_render_plugin::{PiRenderGraph, FrameDataPrepare};
 use pi_bevy_render_plugin::render_cross::GraphId;
 use pi_null::Null;
@@ -19,21 +15,21 @@ use crate::resource::CanvasRenderObjType;
 use crate::resource::draw_obj::InstanceContext;
 use crate::shader1::meterial::{RenderFlagType, TyUniform};
 use crate::system::draw_obj::set_box;
-use crate::system::pass::update_graph::{update_graph, type_to_post_process};
+use crate::system::pass::update_graph::type_to_post_process;
 use crate::system::system_set::UiSystemSet;
-use crate::prelude::UiSchedule;
+use crate::prelude::UiStage;
 
 use super::calc_text::IsRun;
-use super::life_drawobj::{self, update_render_instance_data};
+use super::life_drawobj;
 
 
 pub struct CanvasPlugin;
 
 impl Plugin for CanvasPlugin {
-    fn build(&self, app: &mut bevy_app::App) {
+    fn build(&self, app: &mut pi_world::prelude::App) {
 		app
-		.add_frame_event::<ComponentEvent<Changed<Canvas>>>()
-		.add_systems(UiSchedule, 
+		// .add_frame_event::<ComponentEvent<Changed<Canvas>>>()
+		.add_system(UiStage, 
 			life_drawobj::draw_object_life_new::<
 				Canvas,
 				CanvasRenderObjType,
@@ -42,16 +38,16 @@ impl Plugin for CanvasPlugin {
 			>
 				.in_set(UiSystemSet::LifeDrawObject),
 		)
-		.add_systems(
-			UiSchedule, 
+		.add_system(
+			UiStage, 
 			calc_canvas
 				.in_set(UiSystemSet::PrepareDrawObj)
 		)
-		.add_systems(
-			UiSchedule, 
+		.add_system(
+			UiStage, 
 			calc_canvas_graph
-				.after(update_graph)
-				.before(update_render_instance_data)
+				// .after(update_graph)
+				// .before(update_render_instance_data)
 				.in_set(FrameDataPrepare)
 		)
 		;
@@ -62,20 +58,20 @@ pub const CANVAS_ORDER: u8 = 6;
 
 /// 设置canvas的实例数据
 pub fn calc_canvas(
-	mut canvas_query: Query<(Ref<Canvas>, &DrawList, Ref<WorldMatrix>, Ref<LayoutResult>)>,
-	mut instances: OrInitResMut<InstanceContext>,
+	mut canvas_query: Query<(&DrawList, &WorldMatrix, &LayoutResult), ((Changed<Canvas>, Changed<WorldMatrix>), With<Canvas>)>,
+	mut instances: OrInitSingleResMut<InstanceContext>,
 	mut instance_index_query: Query<&InstanceIndex, With<CanvasMark>>,
-	render_type: OrInitRes<CanvasRenderObjType>,
-	r: OrInitRes<IsRun>
+	render_type: OrInitSingleRes<CanvasRenderObjType>,
+	r: OrInitSingleRes<IsRun>
 ) {
 	if r.0 {
 		return;
 	}
-    for (canvas, draw_list, world_matrix, layout) in canvas_query.iter_mut() {
+    for (draw_list, world_matrix, layout) in canvas_query.iter_mut() {
 		
-		let (canvas_changed, world_matrix_changed, layout_result_changed) = (canvas.is_changed(),  world_matrix.is_changed(), layout.is_changed());
-		log::trace!("set canvas data1==========={:?}, {:?} {:?} {:?}, {:?}, {:?}, {:?}",  world_matrix, canvas_changed, world_matrix_changed, layout_result_changed, draw_list.get_one(***render_type), render_type, draw_list);
-		if canvas_changed || world_matrix_changed || layout_result_changed {
+		// let (canvas_changed, world_matrix_changed, layout_result_changed) = (canvas.is_changed(),  world_matrix.is_changed(), layout.is_changed());
+		// log::trace!("set canvas data1==========={:?}, {:?} {:?} {:?}, {:?}, {:?}, {:?}",  world_matrix, canvas_changed, world_matrix_changed, layout_result_changed, draw_list.get_one(***render_type), render_type, draw_list);
+		// if canvas_changed || world_matrix_changed || layout_result_changed {
 			// 设置世界矩阵、布局uniform
 			if let Some(draw_entity) = draw_list.get_one(***render_type) {
 				if let Ok(instance_index) = instance_index_query.get_mut(draw_entity.id) {
@@ -83,7 +79,7 @@ pub fn calc_canvas(
 					if pi_null::Null::is_null(&instance_index.0.start) {
 						continue;
 					}
-					let mut instance_data = instances.bypass_change_detection().instance_data.instance_data_mut(instance_index.0.start);
+					let mut instance_data = instances.instance_data.instance_data_mut(instance_index.0.start);
 					let mut render_flag = instance_data.get_render_ty();
 					render_flag |= 1 << RenderFlagType::Uv as usize;
 					// instance_data.set_data(&WorldUniform(world_matrix.as_slice()));
@@ -95,21 +91,21 @@ pub fn calc_canvas(
 				}
 			}
 
-		}
+		// }
     }
 }
 
 /// 为canvas节点添加图依赖结构
 pub fn calc_canvas_graph(
-	mut canvas_query: Query<(&mut Canvas, Ref<InPassId>, Entity)>,
+	mut canvas_query: Query<(&mut Canvas, &InPassId, Entity)>,
 	canvas_other_query: Query<Option<&AsImage>>,
-	graph_id_query: Query<Ref<GraphId>>,
+	graph_id_query: Query<(Ticker<&GraphId>, Ticker<&InPassId>)>,
 	graph_id_query1: Query<&GraphId>,
 	inpass_query: Query<&ParentPassId>,
 
-	mut rg: ResMut<PiRenderGraph>,
-	instances: Res<InstanceContext>,
-	r: OrInitRes<IsRun>
+	mut rg: SingleResMut<PiRenderGraph>,
+	instances: SingleRes<InstanceContext>,
+	r: OrInitSingleRes<IsRun>
 ) {
 	if r.0 {
 		return;
@@ -117,17 +113,20 @@ pub fn calc_canvas_graph(
 
 	// canvas的图节点id由外部系统设置
     for (mut canvas, in_pass_id, entity) in canvas_query.iter_mut() {
-        if let Ok(from_graph_id) = graph_id_query.get(canvas.id) {
-			let (from_graph_id_changed, in_pass_id_changed) = (from_graph_id.is_changed(), in_pass_id.is_changed());
-			log::trace!("calc_canvas_graph, graph_id={:?}, from_graph_id_changed={:?}, in_pass_id_changed={:?}", canvas.id, from_graph_id_changed, in_pass_id_changed);
-			if !from_graph_id_changed && !in_pass_id_changed {
+        if let Ok((from_graph_id, in_pass)) = graph_id_query.get(canvas.id) {
+			if !from_graph_id.is_changed() && !in_pass.is_changed() {
 				continue; // 未改变， 什么也不做
 			}
+			// let (from_graph_id_changed, in_pass_id_changed) = (from_graph_id.is_changed(), in_pass_id.is_changed());
+			// log::trace!("calc_canvas_graph, graph_id={:?}, from_graph_id_changed={:?}, in_pass_id_changed={:?}", canvas.id, from_graph_id_changed, in_pass_id_changed);
+			// if !from_graph_id_changed && !in_pass_id_changed {
+			// 	continue; // 未改变， 什么也不做
+			// }
 
 			// 如果canvas关联的内容发生改变， 则设置Canvas改变
-			if from_graph_id_changed {
+			// if from_graph_id_changed {
 				canvas.set_changed();
-			}
+			// }
 
 			let as_image = match canvas_other_query.get(entity) {
 				Ok(r) => r,

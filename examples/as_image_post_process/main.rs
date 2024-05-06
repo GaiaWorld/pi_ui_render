@@ -5,10 +5,8 @@ mod framework;
 
 use std::mem::swap;
 
-use bevy_ecs::system::SystemState;
-use bevy_app::prelude::App;
-use bevy_ecs::prelude::{World, Query, ResMut, IntoSystemConfigs, Commands};
-use framework::Example;
+use pi_world::prelude::{Query, App, SingleResMut, IntoSystemConfigs};
+use framework::{Param, Example};
 use pi_bevy_render_plugin::{PiRenderGraph, SimpleInOut, RenderContext};
 use pi_bevy_render_plugin::render_cross::GraphId;
 use pi_bevy_render_plugin::node::{Node, ParamUsage};
@@ -26,16 +24,14 @@ use pi_style::{
 };
 use pi_ui_render::components::user::AsImage;
 use pi_ui_render::resource::PostProcessCmd;
-use pi_ui_render::system::node::user_setting;
 use pi_ui_render::system::system_set::UiSystemSet;
 use pi_ui_render::{
     components::{
         calc::EntityKey,
         user::{CgColor, ClearColor, Color, Viewport},
-        NodeBundle,
     },
     resource::{NodeCmd, UserCommands},
-    prelude::UiSchedule,
+    prelude::UiStage,
 };
 use wgpu::CommandEncoder;
 
@@ -49,15 +45,15 @@ pub struct CustomPostExample {
 
 impl Example for CustomPostExample {
 	fn setting(&mut self, app: &mut App) {
-		app.add_systems(UiSchedule, create_post_graph.in_set(UiSystemSet::Setting).after(user_setting::user_setting));
+		app.add_system(UiStage, create_post_graph.in_set(UiSystemSet::NextSetting));
 	}
 
-    fn init(&mut self, world: &mut World, size: (usize, usize)) {
+    fn init(&mut self, mut world: Param, size: (usize, usize)) {
         // 设置清屏颜色为绿色
-        // gui.gui.world_mut().insert_resource(ClearColor(CgColor::new(0.0, 1.0, 1.0, 1.0)));
+        // gui.gui.world_mut().insert_single_res(ClearColor(CgColor::new(0.0, 1.0, 1.0, 1.0)));
 
         // 添加根节点
-        let root = world.spawn(NodeBundle::default()).id();
+        let root = world.spawn();
         self.cmd.push_cmd(NodeCmd(ClearColor(CgColor::new(1.0, 1.0, 1.0, 1.0), true), root));
         self.cmd.push_cmd(NodeCmd(
             Viewport(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(size.0 as f32, size.1 as f32))),
@@ -75,21 +71,21 @@ impl Example for CustomPostExample {
 		self.cmd.set_style(root, AsImageType(pi_style::style::AsImage::Force));
         self.cmd.append(root, <EntityKey as pi_null::Null>::null().0);
 
-		let post_entity = world.spawn(GraphId::default()).id();
-
         // 添加一个红色div到根节点， 并设置AsImage的post_process
-        let div1 = world.spawn(NodeBundle::default()).id();
+        let div1 = world.spawn();
         self.cmd.set_style(div1, WidthType(Dimension::Points(200.0)));
         self.cmd.set_style(div1, HeightType(Dimension::Points(200.0)));
         self.cmd.set_style(div1, AsImageType(pi_style::style::AsImage::Force));
         self.cmd
             .set_style(div1, BackgroundColorType(Color::RGBA(CgColor::new(1.0, 0.0, 0.0, 1.0))));
         self.cmd.set_style(div1, RotateType(30.0));
-		self.cmd.push_cmd(PostProcessCmd(EntityKey(post_entity), div1));
         self.cmd.append(div1, root);
+
+        let post_entity = world.spawn();
+        self.cmd.push_cmd(PostProcessCmd(EntityKey(post_entity), div1));
     }
 
-    fn render(&mut self, cmd: &mut UserCommands, _cmd1: &mut Commands) {
+    fn render(&mut self, cmd: &mut UserCommands) {
         swap(&mut self.cmd, cmd);
     }
 }
@@ -99,7 +95,7 @@ impl Example for CustomPostExample {
 pub fn create_post_graph(
 	query: Query<&AsImage>, 
 	mut query1: Query<&mut GraphId>, 
-	mut rg: ResMut<PiRenderGraph>,
+	mut rg: SingleResMut<PiRenderGraph>,
 ) {
 	for as_image in query.iter() {
 		if let Ok(mut graph_id) = query1.get_mut(*as_image.post_process) {
@@ -134,8 +130,7 @@ impl Node for CustomPostNode {
 
 	fn build<'a>(
 		&'a mut self,
-		_world: &'a mut bevy_ecs::world::World,
-		_param: &'a mut bevy_ecs::system::SystemState<Self::BuildParam>,
+		_param: &'a mut Self::BuildParam,
 		_context: pi_bevy_render_plugin::RenderContext,
 		input: &'a Self::Input,
 		_usage: &'a pi_bevy_render_plugin::node::ParamUsage,
@@ -148,8 +143,7 @@ impl Node for CustomPostNode {
 
     fn run<'a>(
         &'a mut self,
-        _world: &'a World,
-        _query_param_state: &'a mut SystemState<Self::RunParam>,
+        _query_param_state: &'a Self::RunParam,
         _context: RenderContext,
         _commands: ShareRefCell<CommandEncoder>,
         _input: &'a Self::Input,

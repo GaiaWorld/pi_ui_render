@@ -1,6 +1,7 @@
 
-use bevy_ecs::system::Res;
-use pi_bevy_ecs_extend::system_param::res::{OrInitRes, OrInitResMut};
+use pi_world::prelude::SingleRes;
+use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, OrInitSingleRes};
+
 use pi_bevy_render_plugin::{PiRenderDevice, PiRenderQueue, PiVertexBufferAlloter};
 
 use crate::{resource::draw_obj::{GroupAlloterCenter, InstanceContext}, system::draw_obj::calc_text::IsRun};
@@ -11,16 +12,16 @@ use crate::{resource::draw_obj::{GroupAlloterCenter, InstanceContext}, system::d
 //     mut draw_list_query: Query<&mut Draw2DList>,
 //     mut postprocess_query: Query<&mut PostProcess>,
 //     mut draw_state: Query<&mut DrawState>,
-//     device: Res<PiRenderDevice>,
-//     queue: Res<PiRenderQueue>,
-//     vertbuffer_alloter: OrInitRes<PiVertexBufferAlloter>,
-//     index_alloter: OrInitRes<PiIndexBufferAlloter>,
-//     group_alloc_center: Res<GroupAlloterCenter>,
-//     mut depth_cache: OrInitResMut<DepthCache>,
-//     mut post_resource: ResMut<PostprocessResource>,
-//     depth_group_alloter: OrInitRes<ShareGroupAlloter<DepthGroup>>,
-// 	mut instances: OrInitResMut<InstanceDrawState>,
-// 	r: OrInitRes<IsRun>
+//     device: SingleRes<PiRenderDevice>,
+//     queue: SingleRes<PiRenderQueue>,
+//     vertbuffer_alloter: OrInitSingleRes<PiVertexBufferAlloter>,
+//     index_alloter: OrInitSingleRes<PiIndexBufferAlloter>,
+//     group_alloc_center: SingleRes<GroupAlloterCenter>,
+//     mut depth_cache: OrInitSingleResMut<DepthCache>,
+//     mut post_resource: SingleResMut<PostprocessResource>,
+//     depth_group_alloter: OrInitSingleRes<ShareGroupAlloter<DepthGroup>>,
+// 	mut instances: OrInitSingleResMut<InstanceDrawState>,
+// 	r: OrInitSingleRes<IsRun>
 // ) {
 // 	if r.0 {
 // 		return;
@@ -57,16 +58,16 @@ pub fn last_update_wgpu(
     // mut draw_list_query: Query<&mut Draw2DList>,
     // mut postprocess_query: Query<&mut PostProcess>,
     // mut draw_state: Query<&mut DrawState>,
-    device: Res<PiRenderDevice>,
-    queue: Res<PiRenderQueue>,
-    vertbuffer_alloter: OrInitRes<PiVertexBufferAlloter>,
-    // index_alloter: OrInitRes<PiIndexBufferAlloter>,
-    group_alloc_center: Res<GroupAlloterCenter>,
-    // mut depth_cache: OrInitResMut<DepthCache>,
-    // mut post_resource: ResMut<PostprocessResource>,
-    // depth_group_alloter: OrInitRes<ShareGroupAlloter<DepthGroup>>,
-	mut instances: OrInitResMut<InstanceContext>,
-	r: OrInitRes<IsRun>
+    device: SingleRes<PiRenderDevice>,
+    queue: SingleRes<PiRenderQueue>,
+    vertbuffer_alloter: OrInitSingleRes<PiVertexBufferAlloter>,
+    // index_alloter: OrInitSingleRes<PiIndexBufferAlloter>,
+    group_alloc_center: SingleRes<GroupAlloterCenter>,
+    // mut depth_cache: OrInitSingleResMut<DepthCache>,
+    // mut post_resource: SingleResMut<PostprocessResource>,
+    // depth_group_alloter: OrInitSingleRes<ShareGroupAlloter<DepthGroup>>,
+	mut instances: OrInitSingleResMut<InstanceContext>,
+	r: OrInitSingleRes<IsRun>
 ) {
 	if r.0 {
 		return;

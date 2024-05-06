@@ -1,9 +1,7 @@
 //! 与DrawObject相关的资源
 use std::{collections::hash_map::Entry, hash::Hash, marker::PhantomData, num::NonZeroU32, sync::atomic::{Ordering, AtomicUsize}, borrow::Cow};
 
-use bevy_ecs::{
-    entity::Entity, prelude::{FromWorld, World}, system::Resource
-};
+use pi_world::prelude::{FromWorld, World, Entity};
 use ordered_float::NotNan;
 use pi_assets::{asset::Handle, mgr::AssetMgr};
 use pi_atom::Atom;
@@ -276,7 +274,6 @@ impl BatchTexture {
 	}
 }
 
-#[derive(Resource)]
 pub struct InstanceContext {
 	pub vert: RenderVertices,
 
@@ -381,11 +378,12 @@ pub struct RenderState {
 impl FromWorld for InstanceContext {
 	
     fn from_world(world: &mut World) -> Self {
-		world.init_resource::<UnitQuadBuffer>();
-        world.init_resource::<GroupAlloterCenter>();
-		let world = world.cell();
-        let device = world.get_resource::<PiRenderDevice>().unwrap();
-        let mut group_center = world.get_resource_mut::<GroupAlloterCenter>().unwrap();
+		world.init_single_res::<UnitQuadBuffer>();
+        world.init_single_res::<GroupAlloterCenter>();
+		let world1 = world.unsafe_world();
+        let device = world1.get_single_res::<PiRenderDevice>().unwrap();
+        let mut world2 = world.unsafe_world();
+        let group_center = world2.get_single_res_mut::<GroupAlloterCenter>().unwrap();
 
         let vertex_data: [f32; 12] = [0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0];
         let vertex_buf = device.create_buffer_with_data(&wgpu::util::BufferInitDescriptor {
@@ -649,7 +647,7 @@ impl Hash for VertexBufferLayoutWithHash {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) { self.hash.hash(state); }
 }
 
-#[derive(Debug, Deref, Resource, Default)]
+#[derive(Debug, Deref, Default)]
 pub struct DrawObjDefaults(pub VecMap<DrawObjDefault>);
 
 #[derive(Debug)]
@@ -659,11 +657,11 @@ pub struct DrawObjDefault {
 
 impl DrawObjDefault {
     pub fn add(world: &mut World, ty: RenderObjType, state: DrawObjDefault) {
-        let mut drawobj_defaults = match world.get_resource_mut::<DrawObjDefaults>() {
+        let drawobj_defaults = match world.get_single_res_mut::<DrawObjDefaults>() {
             Some(r) => r,
             None => {
-                world.insert_resource(DrawObjDefaults::default());
-                world.get_resource_mut::<DrawObjDefaults>().unwrap()
+                world.insert_single_res(DrawObjDefaults::default());
+                world.get_single_res_mut::<DrawObjDefaults>().unwrap()
             }
         };
         drawobj_defaults.insert(*ty, state);
@@ -792,7 +790,6 @@ pub struct VertexBufferLayout {
     pub attributes: Vec<wgpu::VertexAttribute>,
 }
 
-#[derive(Resource)]
 pub struct ResMap<T> {
     pub map: XHashMap<u64, DefaultKey>,
     pub slot: SlotMap<DefaultKey, T>,
@@ -854,7 +851,7 @@ impl Hash for PipelineState {
 }
 
 /// 单位四边形对应的定点buffer和索引buffer
-#[derive(Debug, Resource)]
+#[derive(Debug)]
 pub struct UnitQuadBuffer {
     pub vertex: Handle<RenderRes<Buffer>>,
     pub uv: Handle<RenderRes<Buffer>>,
@@ -862,9 +859,9 @@ pub struct UnitQuadBuffer {
 }
 impl FromWorld for UnitQuadBuffer {
     fn from_world(world: &mut World) -> Self {
-        let device = world.get_resource::<PiRenderDevice>().expect("create UnitQuadBuffer need RenderDevice");
+        let device = world.get_single_res::<PiRenderDevice>().expect("create UnitQuadBuffer need RenderDevice");
         let buffer_asset_mgr = world
-            .get_resource::<ShareAssetMgr<RenderRes<Buffer>>>()
+            .get_single_res::<ShareAssetMgr<RenderRes<Buffer>>>()
             .expect("create UnitQuadBuffer need buffer AssetMgr");
         let vertex_data: [f32; 8] = [0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 0.0];
         let uv_data: [f32; 8] = [0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0];
@@ -903,7 +900,6 @@ impl FromWorld for UnitQuadBuffer {
 }
 
 /// 动态分配的纹理，清屏颜色的bindgroup（透明色）
-#[derive(Resource)]
 pub struct DynFboClearColorBindGroup(pub DrawBindGroup);
 
 pub fn list_share_as_ref<'a, T, I: Iterator<Item = &'a Option<Share<T>>>>(list: I) -> Vec<&'a T> {
@@ -916,12 +912,11 @@ pub fn list_share_as_ref<'a, T, I: Iterator<Item = &'a Option<Share<T>>>>(list: 
     v
 }
 
-#[derive(Resource)]
 pub struct GroupAlloterCenter<>(Vec<Share<GroupAlloter>>, wgpu::Limits);
 
 impl FromWorld for GroupAlloterCenter {
     fn from_world(world: &mut World) -> Self {
-        let limits = world.get_resource::<PiRenderDevice>().unwrap().limits();
+        let limits = world.get_single_res::<PiRenderDevice>().unwrap().limits();
         GroupAlloterCenter(Vec::new(), limits)
     }
 }
@@ -951,7 +946,6 @@ pub struct UiMaterialGroup;
 pub struct DynMark;
 
 /// buffer累的的binding组的分配器
-#[derive(Resource)]
 pub struct ShareGroupAlloter<T, M = ()> {
     pub group_index: u32,
     alloter: Share<GroupAlloter>,
@@ -973,12 +967,13 @@ pub fn bind_group_layout(entrys: &[wgpu::BindGroupLayoutEntry], device: &PiRende
 
 impl<M> FromWorld for ShareGroupAlloter<CameraGroup, M> {
     fn from_world(world: &mut World) -> Self {
-        // world.init_resource::<ShaderInfoCache>();
-        world.init_resource::<GroupAlloterCenter>();
-        let world = world.cell();
-        // let mut cache = world.get_resource_mut::<ShaderInfoCache>().unwrap();
-        let device = world.get_resource::<PiRenderDevice>().unwrap();
-        let mut group_center = world.get_resource_mut::<GroupAlloterCenter>().unwrap();
+        // world.init_single_res::<ShaderInfoCache>();
+        world.init_single_res::<GroupAlloterCenter>();
+        let world1 = world.unsafe_world();
+        // let mut cache = world.get_single_res_mut::<ShaderInfoCache>().unwrap();
+        let device = world1.get_single_res::<PiRenderDevice>().unwrap();
+        let mut world2 = world.unsafe_world();
+        let group_center = world2.get_single_res_mut::<GroupAlloterCenter>().unwrap();
 
         let limits = group_center.limits();
         let min_alignment = limits.min_uniform_buffer_offset_alignment;
@@ -1009,7 +1004,6 @@ impl<M> FromWorld for ShareGroupAlloter<CameraGroup, M> {
     }
 }
 
-#[derive(Resource)]
 pub struct CommonSampler {
     pub default: Share<Sampler>,
     pub pointer: Share<Sampler>,
@@ -1044,7 +1038,7 @@ impl CommonSampler {
 
 impl FromWorld for CommonSampler {
     fn from_world(world: &mut World) -> Self {
-        let device = world.get_resource::<PiRenderDevice>().unwrap();
+        let device = world.get_single_res::<PiRenderDevice>().unwrap();
         Self::new(device)
     }
 }
@@ -1054,7 +1048,7 @@ impl FromWorld for CommonSampler {
 // pub struct LayerPass2D (LayerDirty<Entity>);
 
 // 如果是sdf2方案，会有第二张纹理
-#[derive(Resource, Default)]
+#[derive(Default)]
 pub struct TextTextureGroup(pub Option<Handle<RenderRes<BindGroup>>>, pub Option<Handle<RenderRes<BindGroup>>>);
 
 pub fn create_common_pipeline_state() -> PipelineState {
@@ -1120,7 +1114,7 @@ pub fn create_premultiply_pipeline_state() -> PipelineState {
 }
 
 // 最大视口尺寸（gui中，各渲染共用同一个深度缓冲区， 统计各视口的最大尺寸，用该尺寸作为深度缓冲区的大小）
-#[derive(Debug, Default, Clone, Resource)]
+#[derive(Debug, Default, Clone)]
 pub struct MaxViewSize {
     pub width: u32,
     pub height: u32,
@@ -1319,19 +1313,19 @@ pub fn create_vertex_buffer_layout_sdf2() -> VertexBufferLayouts {
 
 
 // /// depth BindGroup缓存
-// #[derive(Resource, Default)]
+// #[derive(Default)]
 // pub struct DepthCache {
 //     pub list: Vec<DrawBindGroup>,
 //     // pub layout: Share<BindGroupLayout>,
 // }
 
 // impl FromWorld for DepthCache {
-//     fn from_world(world: &mut bevy_ecs::world::World) -> Self {
-//         world.init_resource::<ShaderInfoCache>();
+//     fn from_world(world: &mut pi_world::world::World) -> Self {
+//         world.init_single_res::<ShaderInfoCache>();
 //         let world = world.cell();
-//         // let mut cache = world.get_resource_mut::<ShaderInfoCache>().unwrap();
+//         // let mut cache = world.get_single_res_mut::<ShaderInfoCache>().unwrap();
 //         // bind_group_layout
-//         // let device = world.get_resource::<PiRenderDevice>().unwrap();
+//         // let device = world.get_single_res::<PiRenderDevice>().unwrap();
 //         // let mut entry = DepthBind::as_layout_entry(wgpu::ShaderStages::VERTEX);
 //         // if let BindingType::Buffer { has_dynamic_offset, .. } = &mut entry.ty {
 //         //     *has_dynamic_offset = false;
@@ -1391,7 +1385,6 @@ impl CommonBlendState {
 }
 
 // 渲染目标管理
-#[derive(Resource)]
 pub struct TargetCacheMgr {
 	pub key: AtomicUsize,
 	pub assets: ShareAssetMgr<CacheTarget>,
@@ -1670,7 +1663,7 @@ pub fn create_render_pipeline(
 // }
 
 // /// An index into a [`GpuArrayBuffer`] for a given element.
-// #[derive(Component, Clone)]
+// #[derive(Clone)]
 // pub struct GpuArrayBufferIndex<T: > {
 //     /// The index to use in a shader into the array.
 //     pub index: NonMaxU32,

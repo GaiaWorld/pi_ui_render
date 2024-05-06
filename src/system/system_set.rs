@@ -1,4 +1,4 @@
-use bevy_ecs::prelude::SystemSet;
+use pi_world::prelude::SystemSet;
 
 
 #[derive(Debug, Clone, Hash, SystemSet, PartialEq, Eq)]

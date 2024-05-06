@@ -1,11 +1,8 @@
 
 
-use bevy_ecs::{
-    prelude::{Entity, RemovedComponents, With},
-    query::{Added, Changed, Or, ReadOnlyWorldQuery},
-    system::{ParamSet, Query, Res, ResMut},
-};
-use pi_bevy_ecs_extend::system_param::res::{OrInitRes, OrInitResMut};
+use pi_world::prelude::{Changed, With, Query, SingleResMut, Entity, ParamSet, SingleRes, Removed, FilterComponents, Has};
+use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, OrInitSingleRes};
+
 use pi_bevy_render_plugin::{NodeId, PiRenderGraph, NodeLabel};
 use pi_null::Null;
 
@@ -19,9 +16,9 @@ use crate::{
 
 // 初始化渲染图的根节点
 pub fn init_root_graph(
-    mut instances: OrInitResMut<InstanceContext>,
-    mut rg: ResMut<PiRenderGraph>,
-	r: OrInitRes<IsRun>
+    mut instances: OrInitSingleResMut<InstanceContext>,
+    mut rg: SingleResMut<PiRenderGraph>,
+	r: OrInitSingleRes<IsRun>
 ) {
     if r.0 {
 		return;
@@ -38,19 +35,19 @@ pub fn init_root_graph(
 /// 根据声明创建图节点，删除图节点， 建立图节点的依赖关系
 pub fn update_graph(
     mut pass_query: ParamSet<(
-        Query<(&mut GraphId, Entity, &ParentPassId, &PostProcessInfo), Or<(Added<Camera>, Changed<RenderContextMark>)>>,
+        Query<(&mut GraphId, Entity, &ParentPassId, &PostProcessInfo), Changed<RenderContextMark>>,
         (
-			Query<(&ParentPassId, &GraphId, Option<&AsImage>), (Or<(Changed<ParentPassId>, Changed<AsImage>, Changed<GraphId>)>, With<Camera>)>, 
+			Query<(&ParentPassId, &GraphId, Option<&AsImage>), ((Changed<ParentPassId>, Changed<AsImage>, Changed<GraphId>), With<Camera>)>, 
 			Query<(&ParentPassId, &GraphId), With<Camera>>,
 			Query<&GraphId>,
 			Query<&ChildrenPass>,
 		),
     )>,
-    instances: Res<InstanceContext>,
-    mut del: RemovedComponents<Camera>,
-    mut rg: ResMut<PiRenderGraph>,
-	mut pass_graph_map: OrInitResMut<PassGraphMap>,
-	r: OrInitRes<IsRun>
+    instances: SingleRes<InstanceContext>,
+    del: Query<(Entity, Has<Camera>), Removed<Camera>>,
+    mut rg: SingleResMut<PiRenderGraph>,
+	mut pass_graph_map: OrInitSingleResMut<PassGraphMap>,
+	r: OrInitSingleRes<IsRun>
 ) {
 	if r.0 {
 		return;
@@ -94,7 +91,10 @@ pub fn update_graph(
     }
 
     // 移除渲染图节点
-    for id in del.iter() {
+    for (id, has_camera) in del.iter() {
+        if has_camera {
+            continue;
+        }
 		log::debug!(entity=format!("entity_{:?}", id).as_str(); "remove graph node, entity={id:?}");
 		remove_node(format!("Pass2D_{:?}", id), &mut rg, &mut pass_graph_map);
     }
@@ -144,7 +144,7 @@ pub fn type_to_post_process(id: NodeId, as_image: Option<&AsImage>, graph_id_que
 	return id;
 }
 
-pub fn get_to<'w, 's, F: ReadOnlyWorldQuery>(parent_id: Entity, query: &Query<(&'w ParentPassId, &'s GraphId), F>) -> NodeId {
+pub fn get_to<'w, 's, F: FilterComponents>(parent_id: Entity, query: &Query<(&'w ParentPassId, &'s GraphId), F>) -> NodeId {
     if let Ok((mut parent_id, mut parent_graph_id)) = query.get(parent_id) {
         // 父的pass2d不存在图节点， 继续找父
         while parent_graph_id.0.is_null() {

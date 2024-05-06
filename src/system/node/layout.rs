@@ -12,30 +12,21 @@ use std::{
     ops::{Index, IndexMut},
 };
 
-use bevy_ecs::{
-	query::Changed,
-	system::{Local, Query},
-	world::Mut,
-    prelude::{DetectChanges, With, Entity, EventWriter, Ref}, event::EventReader,
-};
-use pi_bevy_ecs_extend::{
-    prelude::{EntityTree, Layer, OrDefault},
-    system_param::{layer_dirty::ComponentEvent, res::OrInitResMut},
-};
+use pi_world::prelude::{Changed, Query, Entity, OrDefault, Local, Mut};
+use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, Layer, EntityTree};
+
 use pi_flex_layout::{prelude::{
     AlignContent, AlignItems, AlignSelf, CharNode, Dimension, Direction, Display, FlexDirection, FlexLayoutStyle, FlexWrap, Get, GetMut, INode,
     INodeStateType, JustifyContent, Layout, LayoutContext, LayoutR, Number, Overflow, PositionType, Rect, TreeStorage,
 }, style::OverflowWrap};
 
 use crate::{components::{
-    calc::{EntityKey, LayoutResult, NodeState},
+    calc::{EntityKey, LayoutResult, NodeState, StyleMark},
     user::{Border, FlexContainer, FlexNormal, Margin, MinMax, Padding, Position, Show, Size, TextContent, TextStyle},
 }, system::draw_obj::calc_text::IsRun};
 use pi_dirty::LayerDirty;
 use pi_null::Null;
 use pi_slotmap_tree::{Down, Up};
-
-use super::user_setting::StyleChange;
 
 // =LayoutKey { entity: Id(LocalVersion(4607182418800017408)), text_index: 18446744073709551615 }
 #[test]
@@ -118,46 +109,47 @@ pub fn calc_layout(
     dirtys: Query<
         (
             Entity,
-            (
-                OrDefault<Size>,
-                OrDefault<Margin>,
-                OrDefault<Padding>,
-                OrDefault<Border>,
-                OrDefault<Position>,
-                OrDefault<MinMax>,
-                OrDefault<FlexContainer>,
-                OrDefault<FlexNormal>,
-                OrDefault<Show>,
-            ),
-            Option<Ref<Size>>,
-            Option<Ref<Margin>>,
-            Option<Ref<Padding>>,
-            Option<Ref<Border>>,
-            Option<Ref<Position>>,
-            Option<Ref<MinMax>>,
-            Option<Ref<FlexContainer>>,
-            Option<Ref<FlexNormal>>,
-            Option<Ref<Show>>,
-            Option<Ref<Layer>>,
-            Option<Ref<TextContent>>,
-            Option<Ref<TextStyle>>,
+            &StyleMark,
+            &Size,
+            OrDefault<Margin>,
+            OrDefault<Padding>,
+            OrDefault<Border>,
+            OrDefault<Position>,
+            OrDefault<MinMax>,
+            OrDefault<FlexContainer>,
+            OrDefault<FlexNormal>,
+            OrDefault<Show>,
+            &Layer,
         ),
-        With<Size>,
+        (
+            Changed<Size>,
+            Changed<Margin>,
+            Changed<Padding>,
+            Changed<Border>,
+            Changed<Position>,
+            Changed<MinMax>,
+            Changed<FlexContainer>,
+            Changed<FlexNormal>,
+            Changed<Show>,
+            Changed<Layer>,
+            Changed<TextContent>,
+            Changed<TextStyle>,
+        ),
     >,
     mut layout_r: Query<&'static mut LayoutResult>,
     mut layer_dirty: Local<LayerDirty<LayoutKey>>,
     default_style: Local<(Size, Margin, Padding, Border, Position, MinMax, FlexContainer, FlexNormal, Show)>,
-    mut event_write: EventWriter<ComponentEvent<Changed<LayoutResult>>>,
-	mut r: OrInitResMut<IsRun>,
-	mut dirty_list: EventReader<StyleChange>,
-	// dirty_list: Res<DirtyList>,
+    // mut event_write: EventWriter<ComponentEvent<Changed<LayoutResult>>>,
+	mut r: OrInitSingleResMut<IsRun>,
+	// mut dirty_list: EventReader<StyleChange>,
+	// dirty_list: SingleRes<DirtyList>,
 ) {
 	if r.0 {
 		return;
 	}
-	if dirty_list.len() == 0 {
-		return;
-	}
+	// if dirty_list.len() == 0 {
+	// 	return;
+	// }
 
 	// let time = pi_time::Instant::now();
 
@@ -182,7 +174,7 @@ pub fn calc_layout(
         mark: PhantomData,
         i_nodes: &mut node_state,
         layout_map: &mut layout_map,
-        notify_arg: &mut event_write,
+        notify_arg: &mut (),
         notify: notify,
         tree: &tree,
         style: &layout_styles,
@@ -192,188 +184,96 @@ pub fn calc_layout(
 	// let mut count1 = 0;
 
     // 遍历布局脏节点，重新设置脏为层次脏
-    // {
-		for e in dirty_list.iter() {
-			if let Ok((
-				e,
-				(size, margin, padding, border, position, min_max, flex_container, flex_normal, show),
-				size_dirty,
-				margin_dirty,
-				padding_dirty,
-				border_dirty,
-				position_dirty,
-				min_max_dirty,
-				flex_container_dirty,
-				flex_normal_dirty,
-				show_dirty,
-				layer,
-				text_context,
-				text_style,
-			)) = dirtys.get(e.0) {
+    for (
+        e,
+        style_mark, 
+        size, 
+        margin, 
+        padding, 
+        border, 
+        position, 
+        min_max, 
+        flex_container, 
+        flex_normal,
+        show, 
+        layer
+    ) in dirtys.iter() {
 
-				// 不在idtree上，跳过
-				if layer.is_null() {
-					continue;
-				}
+        // 不在idtree上，跳过
+        if layer.layer().is_null() {
+            continue;
+        }
 
-				let (rect_dirty, children_dirty, normal_style_dirty, self_style_dirty, display_dirty) = (
-					size_dirty.map_or(false, |size| size.is_changed())
-						|| position_dirty.map_or(false, |position| position.is_changed())
-						|| margin_dirty.map_or(false, |margin| margin.is_changed())
-						|| layer.as_ref().map_or(false, |layer| layer.is_changed())
-						|| min_max_dirty.map_or(false, |min_max| min_max.is_changed()),
-					text_context.map_or(false, |text_context| text_context.is_changed())
-						|| text_style.map_or(false, |text_style| text_style.is_changed())
-						|| flex_container_dirty.map_or(false, |flex_container| flex_container.is_changed())
-						|| layer.map_or(false, |layer| layer.is_changed()),
-					flex_normal_dirty.map_or(false, |flex_normal| flex_normal.is_changed()),
-					padding_dirty.map_or(false, |padding| padding.is_changed()) || border_dirty.map_or(false, |border| border.is_changed()),
-					show_dirty.map_or(false, |show| show.is_changed()),
-				);
+        let (rect_dirty, children_dirty, normal_style_dirty, self_style_dirty, display_dirty) = (
+            false, false, false, false, false
+            // style_mark.dirty_style
+            // size_dirty.map_or(false, |size| size.is_changed())
+            //     || position_dirty.map_or(false, |position| position.is_changed())
+            //     || margin_dirty.map_or(false, |margin| margin.is_changed())
+            //     || layer.as_ref().map_or(false, |layer| layer.is_changed())
+            //     || min_max_dirty.map_or(false, |min_max| min_max.is_changed()),
+            // text_context.map_or(false, |text_context| text_context.is_changed())
+            //     || text_style.map_or(false, |text_style| text_style.is_changed())
+            //     || flex_container_dirty.map_or(false, |flex_container| flex_container.is_changed())
+            //     || layer.map_or(false, |layer| layer.is_changed()),
+            // flex_normal_dirty.map_or(false, |flex_normal| flex_normal.is_changed()),
+            // padding_dirty.map_or(false, |padding| padding.is_changed()) || border_dirty.map_or(false, |border| border.is_changed()),
+            // show_dirty.map_or(false, |show| show.is_changed()),
+        );
 
-				if !(rect_dirty || children_dirty || normal_style_dirty || self_style_dirty || display_dirty) {
-					continue;
-				}
+        if !(rect_dirty || children_dirty || normal_style_dirty || self_style_dirty || display_dirty) {
+            continue;
+        }
 
-				
+        
 
-				let k = LayoutKey {
-					entity: e,
-					text_index: usize::null(),
-				};
+        let k = LayoutKey {
+            entity: e,
+            text_index: usize::null(),
+        };
 
-				if let Some(up) = layout.0.tree.get_up(k) {
-					if !up.parent().is_null() && inodes.get(up.parent().entity).is_err() {
-						log::error!("layout error======{:?}, {:?}", k, up.parent() );
-						r.0 = true;
-						return;
-					}
-				}
+        if let Some(up) = layout.0.tree.get_up(k) {
+            if !up.parent().is_null() && inodes.get(up.parent().entity).is_err() {
+                log::error!("layout error======{:?}, {:?}", k, up.parent() );
+                r.0 = true;
+                return;
+            }
+        }
 
-				let style = LayoutStyle((size, margin, padding, border, position, min_max, flex_container, flex_normal, show));
+        let style = LayoutStyle((size, margin, padding, border, position, min_max, flex_container, flex_normal, show));
 
-				if rect_dirty {
-					// let __ss = inodes.get_mut(e).map(|mut s| s.state.self_dirty_true());
-					// layer_dirty.
-					// log::warn!("set rect ===================={:?}", e);
+        if rect_dirty {
+            // let __ss = inodes.get_mut(e).map(|mut s| s.state.self_dirty_true());
+            // layer_dirty.
+            // log::warn!("set rect ===================={:?}", e);
 
-					layout.set_rect(&mut layer_dirty, k, true, true, &style);
-				}
+            layout.set_rect(&mut layer_dirty, k, true, true, &style);
+        }
 
-				// 文字修改，容器属性修改、层脏，则需要标记子脏
-				if children_dirty {
-					// log::info!("mark_children_dirty ===================={:?}", e);
-					layout.mark_children_dirty(&mut layer_dirty, k);
-				}
+        // 文字修改，容器属性修改、层脏，则需要标记子脏
+        if children_dirty {
+            // log::info!("mark_children_dirty ===================={:?}", e);
+            layout.mark_children_dirty(&mut layer_dirty, k);
+        }
 
 
-				if normal_style_dirty {
-					// log::info!("calc layout2===================={:?}", e);
-					layout.set_normal_style(&mut layer_dirty, k, &style);
-				}
+        if normal_style_dirty {
+            // log::info!("calc layout2===================={:?}", e);
+            layout.set_normal_style(&mut layer_dirty, k, &style);
+        }
 
-				if self_style_dirty {
-					// log::info!("calc layout3===================={:?}", e);
-					layout.set_self_style(k, &mut layer_dirty, &style);
-				}
+        if self_style_dirty {
+            // log::info!("calc layout3===================={:?}", e);
+            layout.set_self_style(k, &mut layer_dirty, &style);
+        }
 
-				if display_dirty {
-					// log::info!("calc layout5===================={:?}", e);
-					layout.set_display(k, &mut layer_dirty, &style);
-				}
-
-				// count1 += 1;
-			}
-		}
-		// let time1 = pi_time::Instant::now();
-        // #[cfg(feature = "trace")]
-        // let _ss = tracing::info_span!("layout set dirty").entered();
-        // for (
-        //     e,
-        //     (size, margin, padding, border, position, min_max, flex_container, flex_normal, show),
-        //     size_dirty,
-        //     margin_dirty,
-        //     padding_dirty,
-        //     border_dirty,
-        //     position_dirty,
-        //     min_max_dirty,
-        //     flex_container_dirty,
-        //     flex_normal_dirty,
-        //     show_dirty,
-        //     layer,
-        //     text_context,
-        //     text_style,
-        //     // char_node
-        // ) in dirtys.iter()
-        // {
-		// 	// // 不在idtree上，跳过
-		// 	// if layer.is_null() {
-		// 	// 	continue;
-		// 	// }
-
-        //     // let (rect_dirty, children_dirty, normal_style_dirty, self_style_dirty, display_dirty) = (
-        //     //     size_dirty.map_or(false, |size| size.is_changed())
-        //     //         || position_dirty.map_or(false, |position| position.is_changed())
-        //     //         || margin_dirty.map_or(false, |margin| margin.is_changed())
-        //     //         || layer.as_ref().map_or(false, |layer| layer.is_changed())
-        //     //         || min_max_dirty.map_or(false, |min_max| min_max.is_changed()),
-        //     //     text_context.map_or(false, |text_context| text_context.is_changed())
-        //     //         || text_style.map_or(false, |text_style| text_style.is_changed())
-        //     //         || flex_container_dirty.map_or(false, |flex_container| flex_container.is_changed())
-        //     //         || layer.map_or(false, |layer| layer.is_changed()),
-        //     //     flex_normal_dirty.map_or(false, |flex_normal| flex_normal.is_changed()),
-        //     //     padding_dirty.map_or(false, |padding| padding.is_changed()) || border_dirty.map_or(false, |border| border.is_changed()),
-        //     //     show_dirty.map_or(false, |show| show.is_changed()),
-        //     // );
-
-        //     // if !(rect_dirty || children_dirty || normal_style_dirty || self_style_dirty || display_dirty) {
-        //     //     continue;
-        //     // }
-
-        //     // let k = LayoutKey {
-        //     //     entity: e,
-        //     //     text_index: usize::null(),
-        //     // };
-        //     // let style = LayoutStyle((size, margin, padding, border, position, min_max, flex_container, flex_normal, show));
-
-        //     // if rect_dirty {
-        //     //     // let __ss = inodes.get_mut(e).map(|mut s| s.state.self_dirty_true());
-        //     //     // layer_dirty.
-        //     //     // log::warn!("set rect ===================={:?}, {:?}, {:?}, {:?}", e, layout.0.style.get(LayoutKey {
-        //     //     // 	entity: e,
-        //     //     // 	text_index: usize::null(),
-        //     //     // }), size.map_or(false, |size| size.is_changed() ), s);
-
-        //     //     layout.set_rect(&mut layer_dirty, k, true, true, &style);
-        //     // }
-
-        //     // // 文字修改，容器属性修改、层脏，则需要标记子脏
-        //     // if children_dirty {
-        //     //     // log::info!("mark_children_dirty ===================={:?}", e);
-        //     //     layout.mark_children_dirty(&mut layer_dirty, k);
-        //     // }
-
-
-        //     // if normal_style_dirty {
-        //     //     // log::info!("calc layout2===================={:?}", e);
-        //     //     layout.set_normal_style(&mut layer_dirty, k, &style);
-        //     // }
-
-        //     // if self_style_dirty {
-        //     //     // log::info!("calc layout3===================={:?}", e);
-        //     //     layout.set_self_style(k, &mut layer_dirty, &style);
-        //     // }
-
-        //     // if display_dirty {
-        //     //     // log::info!("calc layout5===================={:?}", e);
-        //     //     layout.set_display(k, &mut layer_dirty, &style);
-        //     // }
-
-        //     count += 1;
-        //     // println!("set layout end==============={:?}", e);
-        // }
-    // }
-
+        if display_dirty {
+            // log::info!("calc layout5===================={:?}", e);
+            layout.set_display(k, &mut layer_dirty, &style);
+        }
+    }
+        
+		
 	// let time2 = pi_time::Instant::now();
     // #[cfg(feature = "trace")]
     // let layer_dirty_count = layer_dirty.count();
@@ -386,8 +286,8 @@ pub fn calc_layout(
 }
 
 
-fn notify(event_writer: &mut EventWriter<ComponentEvent<Changed<LayoutResult>>>, entity: LayoutKey, _layout: &LayoutRItem) {
-    event_writer.send(ComponentEvent::new(entity.entity));
+fn notify(_event_writer: &mut (), _entity: LayoutKey, _layout: &LayoutRItem) {
+    // event_writer.send(ComponentEvent::new(entity.entity));
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -411,7 +311,6 @@ impl Null for LayoutKey {
 pub struct LayoutStyles<'a, 'b> {
     query: &'a Query<
         'b,
-        'b,
         (
             OrDefault<Size>,
             OrDefault<Margin>,
@@ -424,7 +323,7 @@ pub struct LayoutStyles<'a, 'b> {
             OrDefault<Show>,
         ),
     >,
-    char_nodes: &'a mut Query<'b, 'b, &'static mut NodeState>,
+    char_nodes: &'a mut Query<'b, &'static mut NodeState>,
     default: &'a (Size, Margin, Padding, Border, Position, MinMax, FlexContainer, FlexNormal, Show),
 }
 
@@ -451,7 +350,7 @@ impl<'a, 'b> Get<LayoutKey> for LayoutStyles<'a, 'b> {
     }
 }
 
-struct INodes<'a>(&'a mut Query<'a, 'a, &'static mut NodeState>, NodeState);
+struct INodes<'a>(&'a mut Query<'a, &'static mut NodeState>, NodeState);
 
 impl<'a> Index<LayoutKey> for INodes<'a> {
     type Output = INode;
@@ -474,14 +373,14 @@ impl<'a> IndexMut<LayoutKey> for INodes<'a> {
     }
 }
 
-pub struct LayoutRs<'a, 'w: 'a, 's: 'w> {
-    style: &'a mut Query<'w, 's, &'static mut LayoutResult>,
+pub struct LayoutRs<'a, 'w: 'a> {
+    style: &'a mut Query<'w, &'static mut LayoutResult>,
     default: LayoutResult,
-    char_nodes: &'a mut Query<'w, 's, &'static mut NodeState>,
+    char_nodes: &'a mut Query<'w, &'static mut NodeState>,
 }
 
-impl<'a, 'w, 's> GetMut<LayoutKey> for LayoutRs<'a, 'w, 's> {
-    type Target = LayoutRItem<'a, 'w, 's>;
+impl<'a, 'w> GetMut<LayoutKey> for LayoutRs<'a, 'w> {
+    type Target = LayoutRItem<'a, 'w>;
     fn get_mut(&mut self, index: LayoutKey) -> Self::Target {
         if index.text_index.is_null() {
             let item = self.style.get_mut(index.entity).unwrap();
@@ -496,14 +395,14 @@ impl<'a, 'w, 's> GetMut<LayoutKey> for LayoutRs<'a, 'w, 's> {
     }
 }
 
-pub enum LayoutRItem<'a, 'w, 's> {
-    Node(Mut<'a, LayoutResult>, &'a mut Query<'w, 's, &'static mut NodeState>, Entity),
+pub enum LayoutRItem<'a, 'w> {
+    Node(Mut<'a, LayoutResult>, &'a mut Query<'w, &'static mut NodeState>, Entity),
     Text(&'a mut CharNode, &'a Rect<f32>),
 }
 
 // pub struct LayoutRItem<'s>(WriteItem<LayoutResult>, &'s mut LayoutResult);
 
-impl<'a, 'w, 's> LayoutR for LayoutRItem<'a, 'w, 's> {
+impl<'a, 'w> LayoutR for LayoutRItem<'a, 'w> {
     fn rect(&self) -> &Rect<f32> {
         match self {
             LayoutRItem::Node(r, _, _) => &r.rect,
@@ -648,8 +547,8 @@ impl<'a> FlexLayoutStyle for LayoutStyle<'a> {
 }
 
 pub struct Tree<'a, 'b> {
-    tree: &'a EntityTree<'b, 'b>,
-    char_nodes: &'a Query<'b, 'b, &'static mut NodeState>,
+    tree: &'a EntityTree<'b>,
+    char_nodes: &'a Query<'b, &'static mut NodeState>,
 }
 
 impl<'a, 'b> TreeStorage<LayoutKey> for Tree<'a, 'b> {

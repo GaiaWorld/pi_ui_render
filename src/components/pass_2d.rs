@@ -2,7 +2,7 @@
 
 use std::ops::Range;
 
-use bevy_ecs::{entity::Entity, prelude::Component, system::Resource};
+use pi_world::prelude::Entity;
 use pi_assets::asset::{Handle, Size, Asset, Droper};
 pub use pi_bevy_render_plugin::render_cross::GraphId;
 use pi_postprocess::postprocess::PostProcess as PostProcess1;
@@ -24,8 +24,12 @@ use super::{
 /// 一个渲染Pass
 pub struct Pass2D;
 
+// /// 一个Pass2D必需含有该组件
+// #[derive(Debug, Default)]
+// pub struct Pass2DMark;
+
 /// 相机
-#[derive(Debug, Component)]
+#[derive(Debug)]
 pub struct Camera {
     // pub view: Matrix4,
     // pub project: Matrix4,
@@ -48,16 +52,16 @@ impl Default for Camera {
     }
 }
 
-// #[derive(Debug, Default, Component)]
+// #[derive(Debug, Default)]
 // pub struct ViewMatrix {
 //     pub bind_group: Option<Handle<RenderRes<BindGroup>>>,
 //     // pub value: WorldMatrix,
 // }
 
-#[derive(Debug, Default, Deref, Component, Copy, Clone)]
+#[derive(Debug, Default, Deref, Copy, Clone)]
 pub struct ParentPassId(pub EntityKey);
 
-#[derive(Debug, Default, Deref, Component, Clone)]
+#[derive(Debug, Default, Deref, Clone)]
 pub struct ChildrenPass {
 	#[deref]
 	pub list: Vec<EntityKey>, 
@@ -106,7 +110,7 @@ pub struct InstanceDrawState {
 
 
 // 渲染 物件 列表
-#[derive(Debug, Component)]
+#[derive(Debug)]
 pub struct Draw2DList {
 	pub clear_instance: usize, // 清屏实例数据（清屏需要一次draw）
 	// 渲染列表的长度
@@ -193,7 +197,7 @@ impl Draw2DList {
 }
 
 /// 渲染对象的索引
-#[derive(Debug, Clone, Copy, Hash, Component, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub enum DrawIndex {
 	// // 清理屏幕
 	// ClearScreen,
@@ -219,7 +223,7 @@ pub enum DirtyType {
 }
 
 /// 脏区域, 设置在每个渲染上下文上
-#[derive(Clone, Debug, Component)]
+#[derive(Clone, Debug)]
 pub struct DirtyRect {
     pub value: Aabb2, // 在世界坐标上表示的脏区域
     pub state: DirtyRectState,
@@ -236,7 +240,7 @@ impl Default for DirtyRect {
 
 // 标记Pass2D是否脏（子Pass2D脏， 该标记也为true）
 // 用于判断缓存的fbo是否需要渲染
-#[derive(Clone, Debug, Component, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct DirtyMark(pub bool);
 
 #[derive(PartialEq, Eq, Debug, Clone)]
@@ -288,14 +292,14 @@ pub struct PostTemp {
 // /// 后处理列表
 
 // // pub struct PostProcessList(pub SecondaryMap<DefaultKey, PostProcess>, pub DefaultKey/*最后一个后处理的key */);
-// #[derive(Component, Debug)]
+// #[derive(Debug)]
 // pub struct PostProcessList {
 //     post: PostProcess1,
 //     pub info: PostProcessInfo,
 //     // pub src: Option<ShareTargetView>,
 // }
 
-#[derive(Component, Debug)]
+#[derive(Debug)]
 pub struct PostProcessInfo {
     pub effect_mark: bitvec::prelude::BitArray<[u32; 1]>,
     // pub view_port: Aabb2,
@@ -312,7 +316,7 @@ impl Default for PostProcessInfo {
     }
 }
 
-#[derive(Component, Deref, Default)]
+#[derive(Deref, Default)]
 pub struct PostProcess {
     #[deref]
     pub post: PostProcess1,
@@ -350,15 +354,21 @@ impl PostProcessInfo {
     }
 }
 
-#[derive(Resource)]
+
 pub struct ScreenTarget {
     pub aabb: Aabb2,
     pub depth: Option<Handle<RenderRes<wgpu::TextureView>>>,
 }
 
+impl Default for ScreenTarget {
+    fn default() -> Self {
+        Self { aabb: Aabb2::new(Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)), depth: None }
+    }
+}
+
 
 // ///
-// #[derive(Component, Default)]
+// #[derive(Default)]
 // pub struct RenderTarget(pub Option<ShareTargetView>);
 
 
@@ -378,7 +388,6 @@ impl Asset for CacheTarget {
 
 /// 渲染目标
 // 缓冲ShareTargetView，当RenderTargetCache为Strong时， 强制缓冲， 当ShareTargetView为Weak时，此处并不强行缓冲ShareTargetView， 可能会被资产管理器回收
-#[derive(Component)]
 pub struct RenderTarget {
     // 渲染目标
     pub target: StrongTarget,

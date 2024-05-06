@@ -1,15 +1,6 @@
 //! sdf2文字功能
-use bevy_app::Plugin;
-use bevy_ecs::entity::Entity;
-use bevy_ecs::event::EventWriter;
-use bevy_ecs::prelude::{DetectChanges, Ref};
-use bevy_ecs::query::{Changed, Or, With};
-use bevy_ecs::system::{Query, ResMut};
-use bevy_ecs::prelude::DetectChangesMut;
-
-use pi_bevy_ecs_extend::query::or_default::OrDefault;
-use pi_bevy_ecs_extend::system_param::res::OrInitRes;
-use pi_bevy_ecs_extend::system_param::tree::{Up, Layer};
+use pi_world::prelude::{Changed, With, Query, SingleResMut, Entity, Plugin, OrDefault, IntoSystemConfigs};
+use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, OrInitSingleRes, Up, Layer};
 use pi_bevy_render_plugin::FrameDataPrepare;
 use pi_hal::font::font::FontType;
 use pi_hal::font::sdf2_table::TexInfo;
@@ -21,24 +12,15 @@ use crate::components::calc::{LayoutResult, NodeState};
 use crate::components::draw_obj::{TextMark, RenderCount};
 use crate::components::user::{get_size, Point2, TextContent, TextOuterGlow, TextOverflowData, TextShadow, TextStyle};
 use crate::components::user::Color;
-use crate::events::EntityChange;
-use crate::resource::{ShareFontSheet, TextRenderObjType};
+use crate::resource::{NodeChanged, ShareFontSheet, TextRenderObjType};
 use crate::shader1::{InstanceData, GpuBuffer};
-use crate::system::draw_obj::life_drawobj::{draw_object_life_new, update_render_instance_data};
-use crate::system::draw_obj::sdf2_texture_update::update_sdf2_texture;
+use crate::system::draw_obj::life_drawobj::draw_object_life_new;
 use crate::system::draw_obj::set_box;
-use crate::system::node::layout::calc_layout;
-use crate::prelude::UiSchedule;
+use crate::prelude::UiStage;
 
 use super::text_glyph::text_glyph;
 use super::{IsRun, TEXT_ORDER};
 use super::text_split::{get_line_height, text_split};
-
-use bevy_ecs::schedule::IntoSystemConfigs;
-
-use bevy_window::AddFrameEvent;
-use pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent;
-use pi_bevy_ecs_extend::system_param::res::OrInitResMut;
 
 use crate::components::calc::{WorldMatrix, DrawList};
 use crate::components::draw_obj::InstanceIndex;
@@ -51,40 +33,47 @@ use crate::system::system_set::UiSystemSet;
 pub struct Sdf2TextPlugin;
 
 impl Plugin for Sdf2TextPlugin {
-    fn build(&self, app: &mut bevy_app::App) {
+    fn build(&self, app: &mut pi_world::prelude::App) {
 		let font_sheet = ShareFontSheet::new(&mut app.world, FontType::Sdf2);
+		app.world.insert_single_res(font_sheet);
         app
-			.insert_resource(font_sheet)
-            .add_frame_event::<ComponentEvent<Changed<NodeState>>>()
-            .add_frame_event::<ComponentEvent<Changed<TextContent>>>()
+			// .insert_single_res(font_sheet)
+            // .add_frame_event::<ComponentEvent<Changed<NodeState>>>()
+            // .add_frame_event::<ComponentEvent<Changed<TextContent>>>()
             // 文字劈分为字符
-            .add_systems(UiSchedule, text_split.before(calc_layout).in_set(UiSystemSet::Layout))
+            .add_system(UiStage, text_split
+				// .before(calc_layout)
+				.in_set(UiSystemSet::Layout))
             // 字形计算
-            .add_systems(UiSchedule, text_glyph.after(text_split).in_set(UiSystemSet::Layout).before(update_sdf2_texture))
+            .add_system(UiStage, text_glyph
+				// .after(text_split)
+				.in_set(UiSystemSet::Layout)
+				// .before(update_sdf2_texture)
+			)
 			// 创建drawobj 
-			.add_systems(
-				UiSchedule, 
+			.add_system(
+				UiStage, 
 				draw_object_life_new::<
 						TextContent,
 						TextRenderObjType,
 						(TextMark, RenderCount),
 						{ TEXT_ORDER }>
 						.in_set(UiSystemSet::LifeDrawObject)
-						.before(calc_sdf2_text_len),
+						// .before(calc_sdf2_text_len),
 			)
 			// 统计drawobj的实例长度（文字包含多个字符，每个字符一个实例， 并且可能包含多层阴影， 每阴影每字符也需要一个实例）
 			// 由于当前一个文字实例可附带渲染一个阴影，因此最终的实例个数为`text.len() * (shadow.len() > 1? shadow.len() - 1: 1)`个实例
-			.add_systems(
-				UiSchedule, 
+			.add_system(
+				UiStage, 
 				calc_sdf2_text_len
 					.in_set(FrameDataPrepare)
-					.after(UiSystemSet::LifeDrawObjectFlush)
-					.before(update_render_instance_data)
-					.after(calc_layout)
+					// .after(UiSystemSet::LifeDrawObjectFlush)
+					// .before(update_render_instance_data)
+					// .after(calc_layout)
 			)
 			// 更新实例数据
-			.add_systems(
-				UiSchedule, 
+			.add_system(
+				UiStage, 
 				calc_sdf2_text
 					.in_set(UiSystemSet::PrepareDrawObj)
 			)
@@ -96,25 +85,25 @@ impl Plugin for Sdf2TextPlugin {
 pub fn calc_sdf2_text_len(
     query: Query<(
 		Entity, 
-		Ref<NodeState>, 
+		&NodeState, 
 		Option<&TextOverflowData>, 
 		&DrawList, 
 		&LayoutResult,
 		Option<&TextShadow>, 
 		OrDefault<TextStyle>,
 	), (
-		Or<(Changed<NodeState>, 
+		(Changed<NodeState>, 
 		Changed<TextOverflowData>, 
 		Changed<LayoutResult>, 
 		Changed<TextStyle>,
-		Changed<TextShadow>)>, 
+		Changed<TextShadow>), 
 		With<TextContent>,
 	)>,
     mut query_draw: Query<&mut RenderCount, With<TextMark>>,
 	query_up: Query<(&'static LayoutResult, &'static Up, &'static NodeState)>,
-	r: OrInitRes<IsRun>,
-	render_type: OrInitRes<TextRenderObjType>,
-	mut events: EventWriter<EntityChange>, // 有节点创建
+	r: OrInitSingleRes<IsRun>,
+	mut node_changed: OrInitSingleResMut<NodeChanged>,
+	render_type: OrInitSingleRes<TextRenderObjType>,
 ) {
 	if r.0 {
 		return;
@@ -216,7 +205,7 @@ pub fn calc_sdf2_text_len(
 			if c.0 != new_count as u32 {
 				c.0 = new_count as u32;
 				render_count.set_changed();
-				events.send(EntityChange);
+				node_changed.0 = true;
 			}
 			
 		}
@@ -228,13 +217,25 @@ pub fn calc_sdf2_text_len(
 /// 设置背景颜色的顶点，和颜色Uniform
 pub fn calc_sdf2_text(
 	// sdf2_texture_version
-	mut instances: OrInitResMut<InstanceContext>,
-    query: Query<(Entity, Ref<WorldMatrix>, Ref<NodeState>, Option<&TextOverflowData>, Option<Ref<TextStyle>>, Ref<LayoutResult>, &DrawList, &Layer, Option<&TextShadow>, Option<&TextOuterGlow>, ), (Or<(Changed<TextStyle>, Changed<NodeState>, Changed<WorldMatrix>)>, With<TextContent>)>,
+	mut instances: OrInitSingleResMut<InstanceContext>,
+    query: Query<(
+		Entity, 
+		&WorldMatrix, 
+		&NodeState, 
+		Option<&TextOverflowData>, 
+		Option<&TextStyle>, 
+		&LayoutResult, 
+		&DrawList, 
+		&Layer, 
+		Option<&TextShadow>, 
+		Option<&TextOuterGlow>, 
+	), (
+		(Changed<TextStyle>, Changed<NodeState>, Changed<WorldMatrix>), With<TextContent>)>,
     mut query_draw: Query<(&InstanceIndex, &RenderCount), With<TextMark>>,
 	query_up: Query<(&'static LayoutResult, &'static Up, &'static NodeState)>,
-	r: OrInitRes<IsRun>,
-	render_type: OrInitRes<TextRenderObjType>,
-	font_sheet: ResMut<ShareFontSheet>,
+	r: OrInitSingleRes<IsRun>,
+	render_type: OrInitSingleRes<TextRenderObjType>,
+	font_sheet: SingleResMut<ShareFontSheet>,
 	query_parent: Query<&Up>,
 	query_matrix: Query<(&WorldMatrix, &NodeState, &LayoutResult)>,
 ) {
@@ -300,11 +301,11 @@ pub fn calc_sdf2_text(
 				}
 			}
 
-			let is_added = node_state.is_changed();
+			// let is_added = node_state.is_changed();
 
-			let (text_style_change, text_style) = match text_style {
-				Some(r) => (is_added || r.is_changed(), r.into_inner()),
-				None => (is_added, &default_text_style), // TextStyle组件在设计上不会被删除， 当TextStyle为None时， TextStyle一定没有改变过
+			let text_style = match text_style {
+				Some(r) => r,
+				None => &default_text_style, // TextStyle组件在设计上不会被删除， 当TextStyle为None时， TextStyle一定没有改变过
 			};
 
 			let font_size = get_size(&text_style.font_size) as f32;
@@ -318,9 +319,9 @@ pub fn calc_sdf2_text(
 			// 修改vert buffer
 			// let set_color = set_color_fn(text_style_change, &mut render_flag, text_style, &layout);
 			let instance_data = instance_data(
-				text_style_change, 
-				is_added,
-				world_matrix.is_changed(),
+				// text_style_change, 
+				// is_added,
+				// world_matrix.is_changed(),
 				text_style,
 				&layout,
 				&matrix,
@@ -361,9 +362,9 @@ pub fn calc_sdf2_text(
 
 #[inline]
 fn instance_data<'a>(
-	is_style_change: bool, 
-	is_content_change: bool, 
-	is_matrix_change: bool, 
+	// is_style_change: bool, 
+	// is_content_change: bool, 
+	// is_matrix_change: bool, 
 	text_style: &'a TextStyle, 
 	layout: &'a LayoutResult,
 	world_matrix: &'a WorldMatrix,
@@ -389,9 +390,9 @@ fn instance_data<'a>(
 			UniformData {
 				stroke,
 				weight,
-				is_style_change,
-				is_content_change,
-				is_matrix_change,
+				// is_style_change,
+				// is_content_change,
+				// is_matrix_change,
 				font_style: text_style.font_style,
 				color: ColorData::Rgba([color.x, color.y, color.z, color.w]),
 				world_matrix,
@@ -450,9 +451,9 @@ fn instance_data<'a>(
 			UniformData {
 				stroke,
 				weight,
-				is_style_change,
-				is_content_change,
-				is_matrix_change,
+				// is_style_change,
+				// is_content_change,
+				// is_matrix_change,
 				font_style: text_style.font_style,
 				color: ColorData::LinearGradient {
 					colors,
@@ -610,9 +611,9 @@ fn set_chars_data(
 struct UniformData<'a> {
 	stroke: [f32; 4],
 	weight: [f32; 1],
-	is_style_change: bool,
-	is_content_change: bool,
-	is_matrix_change: bool,
+	// is_style_change: bool,
+	// is_content_change: bool,
+	// is_matrix_change: bool,
 	font_style: FontStyle,
 	color: ColorData,
 	world_matrix: &'a WorldMatrix,
@@ -688,7 +689,7 @@ impl<'a> UniformData<'a> {
 		}
 
 		// 设置位置、大小、是否为斜体
-		if self.is_style_change || self.is_content_change || self.is_matrix_change {
+		// if self.is_style_change || self.is_content_change || self.is_matrix_change {
 			let (mut scope_factor, mut scope_y ) = (0.0, 0.0);
 			if self.font_style == FontStyle::Oblique {
 				scope_y = -render_range.mins.y * font_size; // 基线位置的y
@@ -709,11 +710,11 @@ impl<'a> UniformData<'a> {
 			// instance_data.set_data(&BoxUniform(&[offset.0, offset.1, (render_range.maxs.x - render_range.mins.x) * font_size, (render_range.maxs.y - render_range.mins.y) * font_size]));
 			// println!("self.world_matrix: {:?}", self.world_matrix);
 			set_box(&self.world_matrix, &Aabb2::new(Point2::new(offset.0, offset.1), Point2::new(width + offset.0, height + offset.1)), &mut instance_data);
-		}
+		// }
 
 		if shadow_index == 0 {
 
-			if self.is_style_change {
+			// if self.is_style_change {
 				let scale = self.world_matrix.0[0];
 				let weight = self.weight[0] * scale;
 				let stroke = [self.stroke[0], self.stroke[1], self.stroke[2], self.stroke[3] * scale];
@@ -733,7 +734,7 @@ impl<'a> UniformData<'a> {
 						instance_data.set_data(&GradientEndUniform(end));
 					},
 				}
-			}
+			// }
 		} else {
 			let scale = self.world_matrix.0[0];
 			let weight = self.weight[0] * scale;

@@ -1,13 +1,6 @@
-use bevy_app::Plugin;
-use bevy_ecs::change_detection::DetectChanges;
-use bevy_ecs::query::{Changed, Or, With};
-use bevy_ecs::schedule::IntoSystemConfigs;
-use bevy_ecs::system::Query;
-use bevy_ecs::prelude::DetectChangesMut;
-use bevy_ecs::world::Ref;
-use bevy_window::AddFrameEvent;
-use pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent;
-use pi_bevy_ecs_extend::system_param::res::{OrInitRes, OrInitResMut};
+use pi_world::prelude::{Changed, With, Query, Plugin, IntoSystemConfigs};
+use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, OrInitSingleRes};
+
 use pi_flex_layout::prelude::{Rect, Size};
 use pi_style::style::Aabb2;
 
@@ -16,7 +9,7 @@ use crate::components::draw_obj::{BorderImageMark, InstanceIndex};
 use crate::components::user::{BorderImageClip, Point2, BorderImageRepeat, BorderImageSlice};
 use crate::resource::draw_obj::InstanceContext;
 use crate::resource::BorderImageRenderObjType;
-use crate::prelude::UiSchedule;
+use crate::prelude::UiStage;
 
 use crate::shader1::meterial::{RenderFlagType, TyUniform, UvUniform, BorderImageInfoUniform};
 use crate::system::draw_obj::calc_background_image::calc_step;
@@ -30,23 +23,23 @@ use super::{life_drawobj, image_texture_load};
 pub struct BorderImagePlugin;
 
 impl Plugin for BorderImagePlugin {
-    fn build(&self, app: &mut bevy_app::App) {
+    fn build(&self, app: &mut pi_world::prelude::App) {
 		app
-			.add_frame_event::<ComponentEvent<Changed<BorderImageTexture>>>()
-			.add_systems(UiSchedule, image_texture_load::image_load::<BorderImage, BorderImageTexture>.in_set(UiSystemSet::NextSetting))
-			.add_systems(UiSchedule, 
+			// .add_frame_event::<ComponentEvent<Changed<BorderImageTexture>>>()
+			.add_system(UiStage, image_texture_load::image_load::<BorderImage, BorderImageTexture>.in_set(UiSystemSet::NextSetting))
+			.add_system(UiStage, 
 				life_drawobj::draw_object_life_new::<
 					BorderImageTexture,
 					BorderImageRenderObjType,
-					BorderImageMark,
+					(BorderImageMark, ),
 					{ BORDER_IMAGE_ORDER },
 				>
 					.in_set(UiSystemSet::LifeDrawObject)
-					.after(image_texture_load::image_load::<BorderImage, BorderImageTexture>),
+					// .after(image_texture_load::image_load::<BorderImage, BorderImageTexture>),
 			)
-			.add_systems(UiSchedule, 
+			.add_system(UiStage, 
 				calc_border_image
-					.after(super::super::node::world_matrix::cal_matrix)
+					// .after(super::super::node::world_matrix::cal_matrix)
 					.in_set(UiSystemSet::PrepareDrawObj)
 			);
     }
@@ -56,23 +49,23 @@ pub const BORDER_IMAGE_ORDER: u8 = 5;
 
 /// 设置背景颜色的顶点，和颜色Uniform
 pub fn calc_border_image(
-	mut instances: OrInitResMut<InstanceContext>,
+	mut instances: OrInitSingleResMut<InstanceContext>,
 	query: Query<
 		(
-			Ref<WorldMatrix>,
-			Ref<LayoutResult>,
+			&WorldMatrix,
+			&LayoutResult,
 			&DrawList,
-			Ref<BorderImageTexture>,
-			Option<Ref<BorderImageClip>>,
-			Option<Ref<BorderImageRepeat>>,
-			Option<Ref<BorderImageSlice>>,
+			&BorderImageTexture,
+			Option<&BorderImageClip>,
+			Option<&BorderImageRepeat>,
+			Option<&BorderImageSlice>,
 			&BorderImage,
 		),
-		Or<(Changed<BorderImageTexture>, Changed<BorderImageClip>, Changed<BorderImageRepeat>, Changed<BorderImageSlice>,  Changed<WorldMatrix>)>,
+		(Changed<BorderImageTexture>, Changed<BorderImageClip>, Changed<BorderImageRepeat>, Changed<BorderImageSlice>,  Changed<WorldMatrix>),
 	>,
     mut query_draw: Query<&InstanceIndex, With<BorderImageMark>>,
-	r: OrInitRes<IsRun>,
-	render_type: OrInitRes<BorderImageRenderObjType>,
+	r: OrInitSingleRes<IsRun>,
+	render_type: OrInitSingleRes<BorderImageRenderObjType>,
 ) {
 	if r.0 {
 		return;
@@ -104,13 +97,13 @@ pub fn calc_border_image(
 				continue;
 			}
 			
-			let mut instance_data = instances.bypass_change_detection().instance_data.instance_data_mut(instance_index.0.start);
+			let mut instance_data = instances.instance_data.instance_data_mut(instance_index.0.start);
 			let mut render_flag = instance_data.get_render_ty();
-			let layout_is_changed = layout.is_changed();
-			if border_image_texture_ref.is_changed() || 
-				border_image_clip.as_ref().map(|r| {r.is_changed()}).unwrap_or(false) || 
-				border_image_repeat.as_ref().map(|r| {r.is_changed()}).unwrap_or(false) || 
-				layout_is_changed || world_matrix.is_changed(){
+			// let layout_is_changed = layout.is_changed();
+			// if border_image_texture_ref.is_changed() || 
+			// 	border_image_clip.as_ref().map(|r| {r.is_changed()}).unwrap_or(false) || 
+			// 	border_image_repeat.as_ref().map(|r| {r.is_changed()}).unwrap_or(false) || 
+			// 	layout_is_changed || world_matrix.is_changed(){
 
 				render_flag |= 1 << RenderFlagType::Uv as usize;
 				
@@ -211,7 +204,7 @@ pub fn calc_border_image(
 					&[offset_top, offset_right, offset_bottom, offset_left,]); // data10 (偏移，空白长度， 这里表示上右下左的中间部分，开始的第一个纹理， 需要偏移多少布局空间) 0.0000	0.0000	0.0000	0.0000
 				instance_data.set_data(&TyUniform(&[render_flag as f32]));
 				
-			}
+			// }
 
 			// 这里世界矩阵和layout的设置，不单独抽取到一个system中， 有由当前设计的数据结构决定的
 			// 当前的实例数据，将每个drawobj所有数据放在一个连续的内存中，当修改材质数据和修改世界矩阵、布局是连续的操作是，缓冲命中率高

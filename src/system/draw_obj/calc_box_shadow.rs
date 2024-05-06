@@ -1,15 +1,5 @@
-use bevy_app::Plugin;
-use bevy_ecs::change_detection::DetectChangesMut;
-use bevy_ecs::query::{Changed, Or, With};
-use bevy_ecs::schedule::IntoSystemConfigs;
-use bevy_ecs::{
-    prelude::Ref,
-    system::Query,
-};
-use bevy_ecs::prelude::DetectChanges;
-use bevy_window::AddFrameEvent;
-use pi_bevy_ecs_extend::system_param::layer_dirty::ComponentEvent;
-use pi_bevy_ecs_extend::system_param::res::{OrInitRes, OrInitResMut};
+use pi_world::prelude::{Changed, With, Query, Plugin, IntoSystemConfigs};
+use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, OrInitSingleRes};
 
 use crate::components::calc::{LayoutResult, WorldMatrix, DrawList};
 use crate::components::draw_obj::{InstanceIndex, BoxShadowMark};
@@ -19,7 +9,7 @@ use crate::shader1::meterial::{RenderFlagType, ColorUniform, TyUniform, BoxShado
 use crate::components::user::BoxShadow;
 use crate::system::draw_obj::set_box;
 use crate::system::system_set::UiSystemSet;
-use crate::prelude::UiSchedule;
+use crate::prelude::UiStage;
 
 use super::calc_text::IsRun;
 use super::life_drawobj;
@@ -27,25 +17,25 @@ use super::life_drawobj;
 pub struct BoxShadowPlugin;
 
 impl Plugin for BoxShadowPlugin {
-    fn build(&self, app: &mut bevy_app::App) {
+    fn build(&self, app: &mut pi_world::prelude::App) {
 		 // BoxShadow功能
 		app
-		.add_frame_event::<ComponentEvent<Changed<BoxShadow>>>()
-		.add_systems(
-			UiSchedule, 
+		// .add_frame_event::<ComponentEvent<Changed<BoxShadow>>>()
+		.add_system(
+			UiStage, 
 			life_drawobj::draw_object_life_new::<
 				BoxShadow,
 				BoxShadowRenderObjType,
-				BoxShadowMark,
+				(BoxShadowMark, ),
 				{ BOX_SHADOW_ORDER },
 			>
 				.in_set(UiSystemSet::LifeDrawObject)
-				.before(calc_box_shadow),
+				// .before(calc_box_shadow),
 		)
-		.add_systems(
-			UiSchedule, 
+		.add_system(
+			UiStage, 
 			calc_box_shadow
-				.after(super::super::node::layout::calc_layout)
+				// .after(super::super::node::layout::calc_layout)
 				.in_set(UiSystemSet::PrepareDrawObj)
 		);
     }
@@ -55,11 +45,11 @@ pub const BOX_SHADOW_ORDER: u8 = 1;
 
 /// 设置背景颜色的顶点，和颜色Uniform
 pub fn calc_box_shadow(
-	mut instances: OrInitResMut<InstanceContext>,
-    query: Query<(Ref<WorldMatrix>, Ref<BoxShadow>, Ref<LayoutResult>, &DrawList), Or<(Changed<BoxShadow>, Changed<WorldMatrix>)>>,
+	mut instances: OrInitSingleResMut<InstanceContext>,
+    query: Query<(&WorldMatrix, &BoxShadow, &LayoutResult, &DrawList), (Changed<BoxShadow>, Changed<WorldMatrix>)>,
     mut query_draw: Query<&InstanceIndex, With<BoxShadowMark>>,
-	r: OrInitRes<IsRun>,
-	render_type: OrInitRes<BoxShadowRenderObjType>,
+	r: OrInitSingleRes<IsRun>,
+	render_type: OrInitSingleRes<BoxShadowRenderObjType>,
 ) {
 	if r.0 {
 		return;
@@ -77,21 +67,21 @@ pub fn calc_box_shadow(
 				continue;
 			}
 			
-			let mut instance_data = instances.bypass_change_detection().instance_data.instance_data_mut(instance_index.0.start);
+			let mut instance_data = instances.instance_data.instance_data_mut(instance_index.0.start);
 			let mut render_flag = instance_data.get_render_ty();
 
-			if box_shadow.is_changed(){
+			// if box_shadow.is_changed(){
 				render_flag |= 1 << RenderFlagType::BoxShadow as usize;
 
 				instance_data.set_data(&ColorUniform(&[box_shadow.color.x, box_shadow.color.y, box_shadow.color.z, box_shadow.color.w].as_slice()));
 				instance_data.set_data(&BoxShadowUniform([box_shadow.h, box_shadow.v, box_shadow.spread, box_shadow.blur].as_slice()));
 				instance_data.set_data(&TyUniform(&[render_flag as f32]));
-			}
+			// }
 
 			// 这里世界矩阵和layout的设置，不单独抽取到一个system中， 有由当前设计的数据结构决定的
 			// 当前的实例数据，将每个drawobj所有数据放在一个连续的内存中，当修改材质数据和修改世界矩阵、布局是连续的操作是，缓冲命中率高
 			// 而像clip这类不是每个draw_obj都具有的属性，可以单独在一个system设置，不怎么会影响性能
-			let is_add = box_shadow.is_added();
+			// let is_add = box_shadow.is_added();
 			// if is_add || world_matrix.is_changed() {
 			// 	instance_data.set_data(&WorldUniform(world_matrix.as_slice()));
 				
@@ -100,9 +90,9 @@ pub fn calc_box_shadow(
 			// 	instance_data.set_data(&BoxUniform(layout.border_box().as_slice()));
 			// }
 
-			if is_add || layout.is_changed() || world_matrix.is_changed() {
+			// if is_add || layout.is_changed() || world_matrix.is_changed() {
 				set_box(&world_matrix, &layout.border_aabb(), &mut instance_data);
-			}
+			// }
 		}
 	}
 }
@@ -112,10 +102,10 @@ pub fn calc_box_shadow(
 
 // use std::slice;
 
-// use bevy_ecs::query::{Changed, Or, With};
-// use bevy_ecs::system::{Query, Res};
+// use pi_world::query::{Changed, Or, With};
+// use pi_world::system::{Query, SingleRes};
 // use pi_assets::mgr::AssetMgr;
-// use pi_bevy_ecs_extend::system_param::res::OrInitRes;
+// use pi_bevy_ecs_extend::system_param::res::OrInitSingleRes;
 // use pi_cg2d::Polygon;
 
 // use pi_bevy_asset::ShareAssetMgr;
@@ -148,10 +138,10 @@ pub fn calc_box_shadow(
 //     query: Query<(&BoxShadow, &LayoutResult), Or<(Changed<BoxShadow>, Changed<LayoutResult>)>>,
 //     mut query_draw: Query<(&mut DrawState, &mut PipelineMeta, &NodeId), With<BoxShadowMark>>,
 
-//     device: Res<PiRenderDevice>,
+//     device: SingleRes<PiRenderDevice>,
 
-//     buffer_assets: Res<ShareAssetMgr<RenderRes<Buffer>>>,
-// 	r: OrInitRes<IsRun>
+//     buffer_assets: SingleRes<ShareAssetMgr<RenderRes<Buffer>>>,
+// 	r: OrInitSingleRes<IsRun>
 // ) {
 // 	if r.0 {
 // 		return;
