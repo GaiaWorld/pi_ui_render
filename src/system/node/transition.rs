@@ -47,7 +47,7 @@ impl Plugin for TransitionPlugin {
 pub fn transition_1(
 	mut query: ParamSet<(
         StyleQuery,
-        Query<(&mut Transition, &StyleMark, Entity)>,
+        Query<(Ticker<&mut Transition>, &StyleMark, Entity)>,
         // Query<(Has<&'static Animation>, Entity), Removed<Animation>>,
     )>,
 	mut keyframes_sheet: SingleResMut<KeyFramesSheet>,
@@ -70,7 +70,7 @@ pub fn transition_1(
 	// 取style的StyleQuery会和此查询冲突， 因此用非安全方法绕过借用问题
 	// 但逻辑保证了安全性
 	let keyframes_sheet: &'static mut KeyFramesSheet = unsafe{transmute(&mut *keyframes_sheet)};
-	let query1:  &'static mut Query<'static, (Ticker<&mut Transition>, &StyleMark, Entity)> = unsafe{transmute(&mut query.p1())};
+	let query1:  &'static mut Query<'static, (Ticker<&mut Transition>, &StyleMark, Entity)> = unsafe{transmute(query.p1())};
 
 	let mut setting = Setting { style: &mut query.p0(), default_value: &mut default_style};
 	

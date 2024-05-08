@@ -6,7 +6,7 @@
 //! 5. 为删除的pass2D删除图节点，并建立正确的依赖关系
 
 use pi_world::prelude::{Changed, ParamSet, SingleRes, Mut, Query, Entity, Ticker};
-use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, Layer};
+use pi_bevy_ecs_extend::prelude::{OrInitSingleRes, Layer};
 
 use pi_render::renderer::draw_obj::DrawBindGroup;
 use pi_share::{Share, ShareWeak};
@@ -67,7 +67,7 @@ pub fn calc_camera_depth_and_renderlist(
     query_root: Query<Ticker<&Viewport>>,
     font_sheet: SingleRes<ShareFontSheet>,
 	instance_context: SingleRes<InstanceContext>,
-	r: OrInitSingleResMut<IsRun>
+	r: OrInitSingleRes<IsRun>
 ) {
 	if r.0 {
 		return;

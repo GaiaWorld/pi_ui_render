@@ -618,14 +618,12 @@ impl Node for Pass2DNode {
 			// log::warn!("run0======{:?}", pass2d_id);
             // let query_param = query_param_state.get(world);
             // log::trace!(pass = format!("{:?}", pass2d_id).as_str(); "run graph node, ", param.surface.is_some());
-            
 			let surface = match &**param.surface {
                 Some(r) => r,
                 _ => {
                     return Ok(())
                 }
             };
-			log::trace!("run1======{:?}", pass2d_id);
 			// 如果是根节点
 			if !EntityKey(pass2d_id).is_null() {
 				return Ok(());
@@ -653,6 +651,7 @@ impl Node for Pass2DNode {
 			// 		Err(_) => None,
 			// 	}
 			// };
+			log::trace!("draw_elements======{:?}", &param.instance_draw.draw_list);
 			if param.instance_draw.draw_list.len() == 0 {
 				return Ok(());
 			}

@@ -13,7 +13,7 @@ use std::{
 };
 
 use pi_world::prelude::{Changed, Query, Entity, OrDefault, Local, Mut};
-use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, Layer, EntityTree};
+use pi_bevy_ecs_extend::prelude::{OrInitSingleRes, Layer, EntityTree};
 
 use pi_flex_layout::{prelude::{
     AlignContent, AlignItems, AlignSelf, CharNode, Dimension, Direction, Display, FlexDirection, FlexLayoutStyle, FlexWrap, Get, GetMut, INode,
@@ -140,7 +140,7 @@ pub fn calc_layout(
     mut layer_dirty: Local<LayerDirty<LayoutKey>>,
     default_style: Local<(Size, Margin, Padding, Border, Position, MinMax, FlexContainer, FlexNormal, Show)>,
     // mut event_write: EventWriter<ComponentEvent<Changed<LayoutResult>>>,
-	mut r: OrInitSingleResMut<IsRun>,
+	mut r: OrInitSingleRes<IsRun>,
 	// mut dirty_list: EventReader<StyleChange>,
 	// dirty_list: SingleRes<DirtyList>,
 ) {
@@ -232,13 +232,13 @@ pub fn calc_layout(
             text_index: usize::null(),
         };
 
-        if let Some(up) = layout.0.tree.get_up(k) {
-            if !up.parent().is_null() && inodes.get(up.parent().entity).is_err() {
-                log::error!("layout error======{:?}, {:?}", k, up.parent() );
-                r.0 = true;
-                return;
-            }
-        }
+        // if let Some(up) = layout.0.tree.get_up(k) {
+        //     if !up.parent().is_null() && inodes.get(up.parent().entity).is_err() {
+        //         log::error!("layout error======{:?}, {:?}", k, up.parent() );
+        //         r.0 = true;
+        //         return;
+        //     }
+        // }
 
         let style = LayoutStyle((size, margin, padding, border, position, min_max, flex_container, flex_normal, show));
 

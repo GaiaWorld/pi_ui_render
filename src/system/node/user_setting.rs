@@ -32,7 +32,6 @@ pub fn user_setting1(
     world: &mut World,
     mut id: Local<usize>,
 ) {
-    println!("user_setting1=====");
     if *id == 0 {
         *id = world.or_register_single_res::<UserCommands>();
     }
@@ -42,6 +41,7 @@ pub fn user_setting1(
 
     let user_commands = world.index_single_res_mut::<UserCommands>(*id).unwrap().0;
     user_commands.other_commands = other_commands;
+
 }
 
 /// 处理用户设置的指令，将其作用到组件上（包含添加子节点、设置样式、设置class、设置视口等）
@@ -100,7 +100,6 @@ pub fn user_setting2(
     r: OrInitSingleRes<IsRun>,
 
 ) {
-    println!("user_setting2=====");
     // let (mut user_commands, _class_sheet, _fragments, r, events) = commands.get_mut(world);
 	if r.0 {
 		return;

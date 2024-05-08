@@ -53,6 +53,8 @@ impl Example for QuadExample {
         self.cmd.push_cmd(NodeCmd(RenderDirty(true), root));
 		self.root = EntityKey(root);
 
+        println!("root======={:?}", root);
+
         self.cmd.set_style(root, WidthType(Dimension::Points(size.0 as f32)));
         self.cmd.set_style(root, HeightType(Dimension::Points(size.1 as f32)));
 
@@ -89,6 +91,8 @@ impl Example for QuadExample {
             })));
 
         self.cmd.append(div2, root);
+
+        println!("div2======{:?}", (root, div1, div2));
 
         // // 添加一个红色div到红节点
         // let div2 = world.spawn();

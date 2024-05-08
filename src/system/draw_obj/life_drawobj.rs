@@ -1,5 +1,6 @@
 
 use pi_world::alter::Alter;
+use pi_world::filter::Changed;
 use pi_world::insert::Bundle;
 use pi_world::param_set::ParamSet;
 use pi_world::prelude::{SystemParam, SingleRes, Removed, FromWorld, Insert, With, Query, Entity, OrDefault, Has, Ticker};
@@ -46,7 +47,7 @@ pub fn draw_object_life_new<
 	mut node_change: OrInitSingleResMut<NodeChanged>,
 	render_type: OrInitSingleRes<RenderType>,
 	mut query_meterial: ParamSet<(
-		Query<(Option<&'static Src>, &'static mut DrawList, Entity)>,
+		Query<(&'static Src, &'static mut DrawList, Entity), Changed<Src>>,
 		Query<(Has<Src>, &'static mut DrawList), Removed<Src>>,
 	)>,
 	mut alter_drawobj: Alter<(), With<DrawInfo>, (InstanceSplit, )>,
@@ -96,10 +97,6 @@ pub fn draw_object_life_new<
     // 收集需要创建DrawObject的实体
     // count2 += 1;
 	for (src, mut draw_list, node) in query_meterial.p0().iter_mut() {
-		let texture = match src {
-			Some(r) => r,
-			None => continue,
-		};
 		// 不存在，才需要创建DrawObject
 		match draw_list.get_one(render_type) {
 			None => {
@@ -109,7 +106,7 @@ pub fn draw_object_life_new<
 					draw_info: DrawInfo::new(ORDER, false), //TODO
 					other: Other::default(),
 				};
-				let id = if let Some(r) = texture.get_split()  {
+				let id = if let Some(r) = src.get_split()  {
 					insert1.insert((bundle, r))
 				} else {
 					insert.insert((bundle, ))
@@ -122,7 +119,7 @@ pub fn draw_object_life_new<
 				log::debug!("create drawobj=================draw={:?}, node={:?}, ty={:?}", id, node, std::any::type_name::<Src>());
 			},
 			
-			Some(r) => if let Some(InstanceSplit::ByTexture(t)) = texture.get_split() {
+			Some(r) => if let Some(InstanceSplit::ByTexture(t)) = src.get_split() {
 				// 图片修改， 也需要重新组织实例数据
 				node_is_changed = true;
 				let _ = alter_drawobj.alter(r.id, (InstanceSplit::ByTexture(t), ));
