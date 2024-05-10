@@ -31,7 +31,7 @@ use pi_style::style::{AnimationDirection, AnimationTimingFunction};
 use pi_style::{style_parse::Attribute, style_type::*};
 use smallvec::SmallVec;
 
-use crate::components::{calc::StyleMarkType, user::{serialize::StyleAttr, Animation}};
+use crate::components::{calc::StyleMarkType, user::{serialize::AttrSet, Animation}};
 use pi_style::style::Time;
 
 use super::StyleCommands;
@@ -901,7 +901,7 @@ trait AnimationTypeInterface {
     ) -> Result<(), pi_animation::error::EAnimationError>;
 }
 
-impl<T: Attr + FrameDataValue> AnimationTypeInterface for T {
+impl<T: AttrSet + FrameDataValue> AnimationTypeInterface for T {
     fn run(context: &Box<dyn Any>, runtime_infos: &RuntimeInfoMap<ObjKey>, style_commands: &mut StyleCommands) {
         if let Err(e) = context
             .downcast_ref::<TypeAnimationMgr<Self>>()
@@ -947,7 +947,7 @@ impl<T: Attr + FrameDataValue> AnimationTypeInterface for T {
     }
 }
 
-impl<F: Attr + FrameDataValue> TypeAnimationResultPool<F, ObjKey> for StyleCommands {
+impl<F: AttrSet + FrameDataValue> TypeAnimationResultPool<F, ObjKey> for StyleCommands {
     fn record_target(&mut self, _id_target: ObjKey) {
         // todo!()
     }
@@ -959,15 +959,7 @@ impl<F: Attr + FrameDataValue> TypeAnimationResultPool<F, ObjKey> for StyleComma
         result: pi_animation::animation_result_pool::AnimeResult<F>,
     ) -> Result<(), pi_animation::error::EAnimationError> {
         out_any!(log::trace, "record animation result===={:?}, {:?}", &result.value, entity);
-        let start = self.style_buffer.len();
-        unsafe { StyleAttr::write(result.value, &mut self.style_buffer) };
-        if let Some(r) = self.commands.last_mut() {
-            if r.0 == entity {
-                r.2 = self.style_buffer.len();
-                return Ok(());
-            }
-        }
-        self.commands.push((entity, start, self.style_buffer.len()));
+        self.set_style(entity, result.value);
         Ok(())
     }
 }

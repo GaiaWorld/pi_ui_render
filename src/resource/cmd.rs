@@ -6,7 +6,7 @@ use std::{
     mem::replace,
 };
 
-use pi_world::{prelude::{Bundle, Command, Entity, World, SystemParam}, system::SystemMeta};
+use pi_world::{prelude::{Bundle, Command, Entity, World}, world::FromWorld};
 use ordered_float::NotNan;
 use pi_atom::Atom;
 use pi_bevy_render_plugin::PiClearOptions;
@@ -41,10 +41,10 @@ pub struct DefaultStyleCmd(pub VecDeque<Attribute>);
 
 impl Command for DefaultStyleCmd {
     fn apply(self, world: &mut World) {
-        let mut syetem_meta = SystemMeta::new::<()>();
-        let mut state = DefaultStyle::init_state(world, &mut syetem_meta);
-        let tick = world.tick();
-        let mut default_style_query = DefaultStyle::get_self(world, &syetem_meta, &mut state, tick);
+        // let mut syetem_meta = SystemMeta::new::<()>();
+        // let mut state = DefaultStyle::init_state(world, &mut syetem_meta);
+        // let tick = world.tick();
+        let mut default_style_query = DefaultStyle::from_world(world);
 
         let len = self.0.len();
         let class_map = ClassMap {
@@ -57,7 +57,7 @@ impl Command for DefaultStyleCmd {
 
         if let Some(class) = class_sheet.class_map.get(&0) {
             let mut style_reader = StyleTypeReader::new(&class_sheet.style_buffer, class.start, class.end);
-            while style_reader.write_to_default(&mut default_style_query).is_some() {}
+            while style_reader.write_to_default(world, &default_style_query).is_some() {}
         }
     }
 }
@@ -100,15 +100,16 @@ impl Command for ExtendFragmentCmd {
 pub struct NodeCmd<T: 'static + Send + Sync>(pub T, pub Entity);
 impl<T: Bundle + 'static + Send + Sync> Command for NodeCmd<T> {
     fn apply(self, world: &mut World) {
-        let mut alter = world.make_alterer::<(), (), (T, ), ()>();
-        let _ = alter.alter(self.1, (self.0, ));
-        // TODO
-        // if let Some(mut r) = world.get_entity_mut(self.1) {
-        //     out_any!(log::debug, "NodeCmd====================node：{:?}, anchor： {:?}", self.1, &self.0);
-        //     r.insert(self.0);
-        // } else {
-        //     out_any!(log::debug, "node_cmd fail======================={:?}, {:?}", &self.1, &self.0);
-        // }
+        if world.contains_entity(self.1) {
+            pi_print_any::out_any!(log::debug, "NodeCmd====================node：{:?}, anchor： {:?}", self.1, &self.0);
+            let id = world.init_component::<T>();
+            world.alter_components(self.1,&[(id, true)]);
+            if let Ok(r) = world.get_component_by_index_mut(self.1, id) {
+                *r = self.0;
+            }
+        } else {
+            pi_print_any::out_any!(log::debug, "node_cmd fail======================={:?}, {:?}", &self.1, &self.0);
+        }
     }
 }
 
@@ -116,30 +117,16 @@ impl<T: Bundle + 'static + Send + Sync> Command for NodeCmd<T> {
 pub struct PostProcessCmd(pub EntityKey, pub Entity);
 impl Command for PostProcessCmd {
     fn apply(self, world: &mut World) {
-        let mut alter = world.make_alterer::<&mut AsImage, (), (AsImage, ), ()>();
-        if let Ok(mut r) = alter.get_mut(self.1) {
-            r.post_process = self.0;
+        if world.contains_entity(self.1) {
+            pi_print_any::out_any!(log::debug, "NodeCmd====================node：{:?}, anchor： {:?}", self.1, &self.0);
+            let id = world.init_component::<AsImage>();
+            world.alter_components(self.1,&[(id, true)]);
+            if let Ok(r) = world.get_component_by_index_mut::<AsImage>(self.1, id) {
+                r.post_process = self.0;
+            }
         } else {
-            let _ = alter.alter(self.1, (AsImage {
-                level: pi_style::style::AsImage::None,
-                post_process: self.0,
-            }, ));
+            pi_print_any::out_any!(log::debug, "node_cmd fail======================={:?}, {:?}", &self.1, &self.0);
         }
-        
-        // TODO
-        // if let Some(mut r) = world.get_entity_mut(self.1) {
-        //     if let Some(mut r) = r.get_mut::<AsImage>() {
-        //         out_any!(log::debug, "PostProcessCmd====================node：{:?}, post {:?}", self.1, &self.0);
-        //         r.post_process = self.0;
-        //     } else {
-        //         r.insert(AsImage {
-        //             level: pi_style::style::AsImage::None,
-        //             post_process: self.0,
-        //         });
-        //     }
-        // } else {
-        //     out_any!(log::debug, "PostProcess fail======================={:?}, {:?}", &self.1, &self.0);
-        // }
     }
 }
 
@@ -147,18 +134,16 @@ impl Command for PostProcessCmd {
 pub struct ComponentCmd<T>(pub T, pub Entity);
 impl<T: 'static + Send + Sync> Command for ComponentCmd<T> {
     fn apply(self, world: &mut World) {
-        let mut alter = world.make_alterer::<(), (), (T, ), ()>();
-        let _ = alter.alter(self.1, (self.0, ));
-        // TODO
-        // if let Some(mut r) = world.get_entity_mut(self.1) {
-        //     out_any!(log::debug, "NodeCmd====================node：{:?}, anchor： {:?}", self.1, &self.0);
-        //     r.insert(self.0);
-        //     // if let Some(mut r) = world.get_single_res_mut::<Events<ComponentEvent<Changed<T>>>>() {
-        //     //     r.send(ComponentEvent::new(self.1));
-        //     // }
-        // } else {
-        //     out_any!(log::debug, "node_cmd fail======================={:?}, {:?}", &self.1, &self.0);
-        // }
+        if world.contains_entity(self.1) {
+            pi_print_any::out_any!(log::debug, "NodeCmd====================node：{:?}, anchor： {:?}", self.1, &self.0);
+            let id = world.init_component::<T>();
+            world.alter_components(self.1,&[(id, true)]);
+            if let Ok(r) = world.get_component_by_index_mut::<T>(self.1, id) {
+                *r = self.0;
+            }
+        } else {
+            pi_print_any::out_any!(log::debug, "node_cmd fail======================={:?}, {:?}", &self.1, &self.0);
+        }
     }
 }
 
@@ -167,16 +152,16 @@ impl<T: 'static + Send + Sync> Command for ComponentCmd<T> {
 pub struct RuntimeAnimationBindCmd(pub XHashMap<Atom, XHashMap<NotNan<f32>, VecDeque<Attribute>>>, pub Animation, pub Entity);
 impl Command for RuntimeAnimationBindCmd {
     fn apply(mut self, world: &mut World) {
-        let mut alter = world.make_alterer::<(), (), (Animation, ), ()>();
-        if alter.contains(self.2) {
+        if world.contains_entity(self.2) {
             self.1.name.scope_hash = self.2.index() as usize; // 因为每个运行时动画是节点独有的，以节点的index作为scope_hash(不能同时有两个index相等的实体)
-            let _ = alter.alter(self.2, (self.1.clone(), ));
-            {let _a = alter;} // 释放alter
+            let id = world.init_component::<Animation>();
+            world.alter_components(self.2,&[(id, true)]);
+            if let Ok(r) = world.get_component_by_index_mut::<Animation>(self.2, id) {
+                *r = self.1.clone();
+            }
             let sheet = world.get_single_res_mut::<KeyFramesSheet>().unwrap();
             let _ = sheet.add_runtime_keyframes(self.2, &self.1, self.0);
         }
-
-        // TODO
     }
 }
 

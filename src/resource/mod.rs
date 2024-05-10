@@ -23,7 +23,7 @@ use std::mem::transmute;
 use std::ops::{Index, IndexMut};
 
 use pi_style::style_parse::{parse_animation, parse_class_map_from_string, parse_style_list_from_string};
-use pi_style::style_type::Attr;
+use pi_style::style_type::{ VNodeType, ZIndexType};
 use pi_time::Instant;
 use pi_hal::font::sdf_table::FontCfg;
 
@@ -31,8 +31,9 @@ use pi_hal::font::sdf_table::FontCfg;
 use pi_world::prelude::{Entity, FromWorld, World, Command, CommandQueue};
 
 use crate::components::calc::{EntityKey, Quad, StyleMarkType};
-use crate::components::user::serialize::StyleAttr;
+use crate::components::user::serialize::{AttrSet, StyleAttr};
 use crate::components::user::{AsImage, ClipPath, MaskImage, Point2, RenderDirty, RenderTargetType, Vector2, Viewport};
+use crate::components::SettingComponentIds;
 use pi_spatial::quad_helper::QuadTree as QuadTree1;
 // use crate::utils::cmd::{CommandQueue, Command, DataQuery};
 // use pi_world::prelude::{CommandQueue, Commands, World};
@@ -48,17 +49,31 @@ pub struct GlobalDirtyType(pub StyleMarkType);
 pub struct ClassSheet(pi_style::style_type::ClassSheet);
 
 /// 用户指令缓冲区
-#[derive(Default)]
 pub struct UserCommandsCache(pub UserCommands);
 
-/// 用户指令
+// pub struct ShareSetting{
+//     pub compoents: Option<Share<SettingComponentIds>>,
+//     pub default_style: Option<Share<DefaultStyle>>,
+// }
 
+// impl FromWorld for ShareSetting {
+//     fn from_world(world: &mut World) -> Self {
+//         Self {
+//             compoents: Some(Share::new(SettingComponentIds::from_world(world))),
+//             default_style: Some(Share::new(DefaultStyle::from_world(world))),
+//         }
+//     }
+// }
+
+
+/// 用户指令
 #[derive(Default)]
 pub struct UserCommands {
+    pub is_node_change: bool,
     /// 节点指令
     pub node_commands: Vec<NodeCommand>,
-	/// 节点初始化
-	pub node_init_commands: Vec<(Entity, NodeTag)>,
+	// /// 节点初始化
+	// pub node_init_commands: Vec<(Entity, NodeTag)>,
     pub fragment_commands: Vec<FragmentCommand>,
     /// 样式指令
     pub style_commands: StyleCommands,
@@ -86,8 +101,38 @@ impl UserCommands {
 	// 初始化节点
 	#[inline]
 	pub fn init_node(&mut self, entity: Entity, tag: NodeTag) {
-		self.node_init_commands.push((entity, tag));
+        self.is_node_change = true;
+        let start = self.style_commands.style_buffer.len();
+        if tag == NodeTag::VNode {
+            self.style_commands.set_style(entity, ZIndexType(-1));
+            self.style_commands.set_style(entity, VNodeType(true));
+        }
+        self.style_commands.commands.push((entity, start, start, Some(tag)));    
 	}
+
+    pub fn init_component_ids(&self, tag: NodeTag, ids: &SettingComponentIds) -> Vec<(u32, bool)> {
+        let mut type_arr = Vec::with_capacity(16);
+        type_arr.extend_from_slice(&[
+            (ids.down, true),
+            (ids.up, true),
+            (ids.layer, true),
+            (ids.class_name, true),
+            (ids.node_state, true),
+            (ids.size, true),
+
+            (ids.style_mark, true),
+            (ids.matrix, true),
+            (ids.z_range, true),
+            (ids.content_box, true),
+            (ids.layout, true),
+            (ids.quad, true),
+            (ids.in_pass_id, true),
+            (ids.render_context_mark, true),
+            (ids.draw_list, true),
+            (ids.is_show, true),
+        ]);
+        type_arr
+    }
     /// 将节点作为子节点挂在父上
     pub fn append(&mut self, entity: Entity, parent: Entity) -> &mut Self {
         // log::debug!("append====={:?}, {:?}", entity, parent);
@@ -117,18 +162,10 @@ impl UserCommands {
     }
 
     /// 设置节点样式
-    pub fn set_style<T: Attr>(&mut self, entity: Entity, value: T) -> &mut Self {
+    #[inline]
+    pub fn set_style<T: AttrSet>(&mut self, entity: Entity, value: T) -> &mut Self {
         // out_any!(log::debug, "set_style, entity: {:?}, value: {:?}", entity, &value);
-        pi_print_any::out_any!(log::trace, "set_style, entity: {:?}, {:?}, value: {:?}", entity, unsafe {transmute::<_, f64>(entity)}, &value);
-        let start = self.style_commands.style_buffer.len();
-        unsafe { StyleAttr::write(value, &mut self.style_commands.style_buffer) };
-        if let Some(r) = self.style_commands.commands.last_mut() {
-            if r.0 == entity {
-                r.2 = self.style_commands.style_buffer.len();
-                return self;
-            }
-        }
-        self.style_commands.commands.push((entity, start, self.style_commands.style_buffer.len()));
+        self.style_commands.set_style(entity, value);
 		self
     }
 
@@ -318,13 +355,32 @@ impl UserCommands {
 }
 
 /// style设置指令
-#[derive(Default, Clone)]
+#[derive(Clone, Default)]
 pub struct StyleCommands {
     /// 样式列表
     // pub style_list: Vec<Attribute>,
     pub style_buffer: Vec<u8>,
-    /// 设置样式（节点，开始索引，结束索引），其中开始索引和结束索引是指在style_list中的索引
-    pub commands: Vec<(Entity, usize, usize)>,
+    /// 设置样式（节点，需要操作的组件Id列表，开始索引，结束索引），其中开始索引和结束索引是指在style_list中的索引， 组件Id列表是需要对该实体的哪些组件进行操作
+    pub commands: Vec<(Entity, usize, usize, Option<NodeTag>)>,
+}
+
+impl StyleCommands {
+    /// 设置节点样式
+    pub fn set_style<T: AttrSet>(&mut self, entity: Entity, value: T) {
+        // out_any!(log::debug, "set_style, entity: {:?}, value: {:?}", entity, &value);
+        pi_print_any::out_any!(log::trace, "set_style, entity: {:?}, {:?}, value: {:?}", entity, unsafe {transmute::<_, f64>(entity)}, &value);
+        
+        let start = self.style_buffer.len();
+        unsafe { StyleAttr::write(value, &mut self.style_buffer) };
+        if let Some(r) = self.commands.last_mut() {
+            if r.0 == entity {
+                r.2 = self.style_buffer.len(); 
+                return;
+            }
+        } 
+
+        self.commands.push((entity, start, self.style_buffer.len(), None));
+    }
 }
 
 #[derive(Default)]

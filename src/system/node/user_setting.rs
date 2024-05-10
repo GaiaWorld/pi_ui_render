@@ -1,8 +1,7 @@
 //! 每个实体必须写入StyleMark组件
-use std::intrinsics::transmute;
 
-use pi_world::prelude::{Changed, World, Alter, With, Query, SingleResMut, Entity, ParamSet, Local, Or};
-use pi_bevy_ecs_extend::{prelude::{EntityTreeMut, OrInitSingleRes, OrInitSingleResMut}, system_param::tree::TreeKey};
+use pi_world::{filter::Or, prelude::{Alter, Changed, Entity, Local, Query, SingleResMut, With, World}, single_res::SingleRes, world::FromWorld};
+use pi_bevy_ecs_extend::prelude::{EntityTreeMut, OrInitSingleResMut};
 
 use bitvec::array::BitArray;
 use pi_map::Map;
@@ -11,143 +10,76 @@ use pi_slotmap_tree::InsertType;
 
 use crate::{
     components::{
-        calc::{EntityKey, StyleMarkType}, draw_obj::DrawState, user::{serialize::DefaultStyle, RenderDirty, Size, Viewport, ZIndex}, NodeBundle
+        calc::{DrawInfo, EntityKey, StyleMarkType}, user::{serialize::DefaultStyle, Size, STYLE_COUNT}, SettingComponentIds
     }, resource::{
         fragment::{FragmentMap, NodeTag}, ClassSheet, NodeChanged, QuadTree
-    }, system::draw_obj::calc_text::IsRun,
+    }
 };
 use crate::{
     components::{
         calc::{DrawList, StyleMark, StyleType},
         user::{
-            serialize::{Setting, StyleAttr, StyleQuery, StyleTypeReader},
+            serialize::{Setting, StyleAttr, StyleTypeReader},
             ClassName,
         },
     },
     resource::{NodeCommand, StyleCommands, UserCommands},
 };
 
-/// 处理用户设置的指令，将其作用到组件上（包含添加子节点、设置样式、设置class、设置视口等）
-pub fn user_setting1(
-    world: &mut World,
-    mut id: Local<usize>,
-) {
-    if *id == 0 {
-        *id = world.or_register_single_res::<UserCommands>();
-    }
-    let user_commands = world.index_single_res_mut::<UserCommands>(*id).unwrap().0;
-    let mut other_commands = std::mem::replace(&mut user_commands.other_commands, pi_world::prelude::CommandQueue::default());
-    other_commands.apply(world);
-
-    let user_commands = world.index_single_res_mut::<UserCommands>(*id).unwrap().0;
-    user_commands.other_commands = other_commands;
-
+pub struct SingleId {
+    pub user_commands: usize,
+    pub class_sheet: usize,
+    pub fragments: usize,
+    // pub quad_tree: usize,
+    // pub node_changed: usize,
 }
 
-/// 处理用户设置的指令，将其作用到组件上（包含添加子节点、设置样式、设置class、设置视口等）
-pub fn user_setting2(
-    // world: &mut World,
+impl FromWorld for SingleId {
+    fn from_world(world: &mut World) -> Self {
+        Self {
+            user_commands: world.init_single_res::<UserCommands>(),
+            class_sheet: world.init_single_res::<ClassSheet>(),
+            fragments: world.init_single_res::<FragmentMap>(),
+            // quad_tree: world.or_register_single_res::<QuadTree>(),
+            // node_changed: world.or_register_single_res::<NodeChanged>(),
+        }
+    }
+}
 
-    // mut query: ParamSet<(
-    //     &mut World,
-    //     (
-    //         StyleQuery,
-    //         SingleResMut<UserCommands>,
-    //         SingleResMut<ClassSheet>,
-    //         OrInitSingleResMut<FragmentMap>,
-    //         Query<Entity, With<Size>>,
-    //         EntityTreeMut,
-    //         SingleResMut<QuadTree>,
-    //         Query<Entity, With<Viewport>>,
-    //         OrInitSingleResMut<NodeChanged>,
-    //         OrInitSingleRes<IsRun>,
-    //     )
-    // )>,
-
-    mut query: ParamSet<(
-        (
-            StyleQuery,
-            EntityTreeMut,
-            Query<&mut RenderDirty, With<Viewport>>,
-            Query<Entity, With<Size>>,
-
-            Query<&DrawList>,
-
-            Alter<(), Or<(With<Size>, With<DrawState>)>>,
-            Query<&mut StyleMark>,
-        ),
-        // Query<(), With<Size>>, // TODO, 应该提供一个Entitys参数， 用于判断实体是否存在， 而不需要捕获原型
-        Alter<(), (), NodeBundle>,
-        Alter<(), (), (NodeBundle, ZIndex,)>,
-    )>,
-    mut default_style: DefaultStyle,
-
-    // entitys: Query<(), With<Size>>,
-    // insert_bundle: Insert<NodeBundle>,
-    // insert_bundle1: Insert<(NodeBundle, ZIndex,)>,
-
-    // tree: EntityTreeMut,
-    // roots: Query<Entity, With<Viewport>>,
-    // entitys: Query<Entity, With<Size>>,
-    // all: Query<(), With<Size>>,
-
-    mut user_commands: SingleResMut<UserCommands>,
-    class_sheet: SingleResMut<ClassSheet>,
-    fragments: OrInitSingleResMut<FragmentMap>, 
-    mut quad_tree: SingleResMut<QuadTree>,
-    mut node_changed: OrInitSingleResMut<NodeChanged>,
-    mut destroy_entity_list: Local<Vec<Entity>>, // 需要销毁的实体列表作为本地变量，避免每次重新分配内存
-    r: OrInitSingleRes<IsRun>,
-
+/// 处理用户设置的指令
+pub fn user_setting1(
+    world: &mut World,
+    id: Local<SingleId>,
+    setting_components: Local<SettingComponentIds>,
+    default_style: Local<DefaultStyle>,
 ) {
-    // let (mut user_commands, _class_sheet, _fragments, r, events) = commands.get_mut(world);
-	if r.0 {
-		return;
-	}
+    // let mut fragments_default = FragmentMap::default();
+    // let mut class_sheet_default = ClassSheet::default();
 
-	// 此处强制转换是安全的， 本system逻辑保证， events访问不会读写冲突， 且生命周期足够
-	// let events: EventWriter<'static, StyleChange> = unsafe { transmute(events) };
-	// let mut dirty_list = StyleDirtyList {
-	// 	list: events,
-	// 	mark: &mut *dirty_mark,
-	// };
+    let mut w1 = world.unsafe_world();
+    let mut w2 = world.unsafe_world();
+    let mut w3 = world.unsafe_world();
 
-    // let (class_commands_len, style_commands_len, node_len) = (user_commands.class_commands.len(), user_commands.style_commands.commands.len(), user_commands.node_commands.len());
-    // let mut user_commands = std::mem::replace(&mut *user_commands, UserCommands::default());
-    // let class_sheet = std::mem::replace(&mut *class_sheet, ClassSheet::default());
+    let user_commands = w1.index_single_res_mut::<UserCommands>(id.user_commands).unwrap().0;
+    
+    let fragments = w2.index_single_res_mut::<FragmentMap>(id.fragments).unwrap().0;
 
-    // 先作用other_commands（通常是修改单例， 如动画表，css表）
-    // user_commands.other_commands.apply(world);
+    let class_sheet = w3.index_single_res_mut::<ClassSheet>(id.class_sheet).unwrap().0;
 
-    // let (_user_commands, mut class_sheet, mut fragments, _,  _) = commands.get_mut(world);
-    // let fragments = std::mem::replace(&mut **fragments, FragmentMap::default());
-    // let class_sheet = std::mem::replace(&mut *class_sheet, ClassSheet::default());
+    // 应用other_commands指令
+    user_commands.other_commands.apply(world);
 
-	// if user_commands.node_init_commands.len() > 0 || user_commands.fragment_commands.len() > 0 || user_commands.node_commands.len() > 0{
-	// 	log::warn!("insert entity====================node_list: {:?}, \n{:?}, \n{:?}, \n: {:?}", user_commands.version, &user_commands.node_init_commands, &user_commands.fragment_commands, &mut user_commands.node_commands);
-	// }
+    user_commands.version += 1;
 
-	user_commands.version += 1;
+	let is_node_change = user_commands.is_node_change || user_commands.fragment_commands.len() > 0 || user_commands.node_commands.len() > 0;
+    user_commands.is_node_change = is_node_change;
 
-	let mut is_node_change = user_commands.node_init_commands.len() > 0 || user_commands.fragment_commands.len() > 0 || user_commands.node_commands.len() > 0;
-
-	// 初始化节点, 插入bundle
-	for (node, tag) in user_commands.node_init_commands.drain(..) {
-		if query.p0().0.entitys.contains(node) {
-			let mut bundle = NodeBundle::default();
-			if tag == NodeTag::VNode {
-				bundle.node_state.set_vnode(true);
-				log::debug!("insert NodeBundle, {:?}", node);
-				let _ = query.p2().alter(node, (bundle, ZIndex(-1))); // vnode节点，Zindex应该为auto
-				continue;
-			}
-			log::debug!("insert NodeBundle, {:?}", node);
-			let _ = query.p1().alter(node, bundle);
-		} else {
-			log::error!("insert NodeBundle fail, entity is not exist, {:?}, {:?}", node, tag);
-		}
-	}
-
+    // 添加基础组件id
+    let mut base_component_ids = user_commands.init_component_ids(NodeTag::Div, &setting_components);
+    // 添加基础组件id
+    let mut v_node_base_component_ids = user_commands.init_component_ids(NodeTag::VNode, &setting_components);
+    let mut component_ids1 = Vec::new();
+    let mut component_ids;
     // 插入bundle
     for c in user_commands.fragment_commands.iter() {
         // 组织模板的节点关系
@@ -164,28 +96,97 @@ pub fn user_setting2(
 			panic!("fragment_commands === {}, {}, {}", c.key, t.end - t.start, c.entitys.len());
 		}
 
+
         for i in t.clone() {
             let n = &fragments.fragments[i];
             let node = &c.entitys[i - t.start];
-            if query.p1().contains(*node) {
-                let mut bundle = NodeBundle::default();
+            if world.contains_entity(*node) {
                 if n.tag == NodeTag::VNode {
-                    bundle.node_state.set_vnode(true);
-					log::debug!("insert NodeBundle for fragment , {:?}", node);
-					let _ = query.p2().alter(*node, (bundle, ZIndex(-1))); // vnode节点，Zindex应该为auto
-					continue;
+                    component_ids = &mut v_node_base_component_ids;
+                } else {
+                    component_ids = &mut base_component_ids;
                 }
+                let old_len = component_ids.len();
+                // 添加style所组件id
+                if n.style_meta.end > n.style_meta.start {
+                    add_component_ops(n.style_meta.start, n.style_meta.end, &fragments.style_buffer, &setting_components, &mut component_ids);
+                }
+                // 添加class所组件id
+                if n.class.len() > 0 {           
+                    for i in n.class.iter() {
+                        if let Some(class) = class_sheet.class_map.get(i) {
+                            add_component_ops(class.start, class.end, &class_sheet.style_buffer, &setting_components, component_ids)
+                        }
+                    }
+                }
+
+                // 初始化组件
+                world.alter_components(*node, &component_ids);
+                unsafe { component_ids.set_len(old_len); }
+
                 log::debug!("insert NodeBundle for fragment , {:?}", node);
-                let _ = query.p1().alter(*node, bundle);
             } else {
 				log::error!("insert NodeBundle fail, fragment entity is not exist, {:?}, {:?}", node, n.tag);
 			}
         }
     }
 
-    // let (draw_list, entitys, mut tree, mut r) = state.get_mut(world);
+	
+    let mut setting = Setting {world,  style: &setting_components, default_value: &default_style };
 
+    // 设置模板节点的style
     for c in user_commands.fragment_commands.iter() {
+        let t = match fragments.map.get(&c.key) {
+            Some(r) => r,
+            _ => {
+                continue;
+            }
+        };
+        debug_assert_eq!(t.end - t.start, c.entitys.len());
+        for i in t.clone() {
+            let n = &fragments.fragments[i];
+            let node = c.entitys[i - t.start];
+            if n.style_meta.end > n.style_meta.start {
+                set_style(node, n.style_meta.start, n.style_meta.end, &fragments.style_buffer, &mut setting,  true);
+            }
+            if n.class.len() > 0 {
+                set_class(node, &mut setting, n.class.clone(), &class_sheet, &mut component_ids1);
+            }
+        }
+    }
+
+    // 设置style只要节点存在,样式一定能设置成功
+    set_styles(&mut user_commands.style_commands, &mut setting, base_component_ids, v_node_base_component_ids);
+    // 设置class样式
+    for (node, class) in user_commands.class_commands.drain(..) {
+        // 添加组件
+        for i in class.iter() {
+            if let Some(class) = class_sheet.class_map.get(i) {
+                add_component_ops(class.start, class.end, &class_sheet.style_buffer, &setting_components, &mut component_ids1)
+            }
+        }
+        setting.world.alter_components(node, &mut component_ids1);
+        component_ids1.clear();
+
+        set_class(node, &mut setting,  class, &class_sheet, &mut component_ids1);
+
+    }
+}
+
+// 为节点添加依赖父子依赖关系 和 销毁节点
+pub fn user_setting2(
+    mut entitys: Alter<(), Or<(With<Size>, With<DrawInfo>)>, (), ()>,
+    dirty_list: Query<&DrawList>,
+
+    mut user_commands: SingleResMut<UserCommands>,
+    mut quad_tree: OrInitSingleResMut<QuadTree>,
+    mut tree: EntityTreeMut,
+    fragments: SingleRes<FragmentMap>,
+    mut node_changed: OrInitSingleResMut<NodeChanged>,
+) {
+    let mut is_node_change = user_commands.is_node_change;
+    // 添加父子关系
+    for c in user_commands.fragment_commands.drain(..) {
         // 组织模板的节点关系
         let t = match fragments.map.get(&c.key) {
             Some(r) => r,
@@ -204,14 +205,14 @@ pub fn user_setting2(
                 node,
                 n.parent
             );
-            if let (false, true) = (n.parent.is_null(), query.p1().get(*node).is_ok()) {
+            if let (false, true) = (n.parent.is_null(), entitys.contains(*node)) {
                 log::debug!(
                     "fragment_commands insertChild====================node：{:?}, parent {:?}",
                     node,
                     c.entitys[n.parent]
                 );
                 // log::warn!("fragment_commands insertChild====================node：{:?}, parent {:?}", node, c.entitys[n.parent]);
-                query.p0().1.insert_child(*node, c.entitys[n.parent], std::usize::MAX);
+                tree.insert_child(*node, c.entitys[n.parent], std::usize::MAX);
             }
         }
     }
@@ -220,7 +221,7 @@ pub fn user_setting2(
     for c in user_commands.node_commands.drain(..) {
         match c {
             NodeCommand::AppendNode(node, parent) => {
-                if query.p1().contains(node) {
+                if entitys.contains(node) {
 					// if !EntityKey( parent ).is_null() && draw_list.get(node).is_err() {
 					// 	log::warn!("AppendNode parent error============={:?}, {:?}", parent, unsafe{transmute::<_, f64>(parent.to_bits())});
 					// 	r.0 = true;
@@ -234,7 +235,7 @@ pub fn user_setting2(
 					
                     log::debug!("AppendNode node====================node： {:?}, parent： {:?}", node, parent);
                     // log::warn!("AppendNode node====================node： {:?}, parent： {:?}", node, parent);
-                    query.p0().1.insert_child(node, parent, std::usize::MAX);
+                    tree.insert_child(node, parent, std::usize::MAX);
                 }
             }
             NodeCommand::InsertBefore(node, anchor) => {
@@ -249,10 +250,10 @@ pub fn user_setting2(
 				// 	return;
 				// }
 
-                if query.p1().contains(node) {
+                if entitys.contains(node) {
                     log::debug!("InsertBefore node====================node：{:?}, anchor： {:?}", node, anchor);
                     // log::warn!("InsertBefore node====================node：{:?}, anchor： {:?}", node, anchor);
-                    query.p0().1.insert_brother(node, anchor, InsertType::Front);
+                    tree.insert_brother(node, anchor, InsertType::Front);
                 }
             }
             NodeCommand::RemoveNode(node) => {
@@ -264,7 +265,7 @@ pub fn user_setting2(
 
 
 				log::debug!("RemoveNode node====================node={node:?}");
-                query.p0().1.remove(node);
+                tree.remove(node);
             }
             NodeCommand::DestroyNode(node) => {
 				// if !EntityKey( node ).is_null() && draw_list.get(node).is_err() {
@@ -273,97 +274,34 @@ pub fn user_setting2(
 				// 		return;
 				// }
 				log::debug!("DestroyNode node====================node={node:?}");
+                is_node_change = true;
                 // 删除所有子节点对应的实体
-                if let Some(down) = query.p0().1.get_down(node) {
+                if let Some(down) = tree.get_down(node) {
                     let head = down.head();
-                    if !TreeKey(head).is_null() {
-                        let p0 = query.p0();
-                        for node in p0.1.recursive_iter(head) {
-                            delete_draw_list(node, &p0.4, &mut destroy_entity_list);
+                    if !head.is_null() {
+                        for node in tree.recursive_iter(head) {
+                            quad_tree.remove(&EntityKey(node));
+                            delete_draw_list(node, &dirty_list, &mut entitys);
                         }
                     }
                 }
-                query.p0().1.remove(node);
-                delete_draw_list(node, &query.p0().4, &mut destroy_entity_list);
+                quad_tree.remove(&EntityKey(node));
+                delete_draw_list(node, &dirty_list, &mut entitys);
             }
         };
     }
 
-	
-	is_node_change = is_node_change || destroy_entity_list.len() > 0;
 	if is_node_change {
         node_changed.0 = true;
+        user_commands.is_node_change = false;
 	}
-    // 删除需要销毁的实体
-    if destroy_entity_list.len() > 0 {
-        // let mut quad_tree = quad_tree.0.get_mut(world);
-        // for entity in destroy_entity_list.iter() {
-        // 	if let Some(r) = quad_tree.remove(EntityKey(*entity)) {
-        // 		// 删除时需要发送该事件， 以便后续计算脏区域
-        // 		// event_writer.send(OldQuad { entity: *entity, quad: Quad(r.0) });
-        // 		// 设置全局脏
-        // 	}
-        // }
-        // Query<(&RootDirtyRect, OrDefault<RenderDirty>, &Viewport)>,
-
-		// log::warn!("DestroyNode entity====================node_list: {:?}", destroy_entity_list);
-        // 删除实体
-        for entity in destroy_entity_list.iter() {
-            let _ = query.p1().destroy(*entity);
-        }
-
-        // 删除包围盒
-        for entity in destroy_entity_list.iter() {
-            quad_tree.remove(&EntityKey(*entity));
-        }
-
-        destroy_entity_list.clear();
-        // 设置所有的root渲染脏（节点删除后， 组件被删除，很多状态丢失， 除非立即处理脏区域）
-        for mut render_dirty in query.p0().2.iter_mut() {
-            render_dirty.0 = true;
-        }
-    }
-
-    let p0 = query.p0();
-    let mut setting = Setting { style: &mut p0.0, default_value: &mut default_style };
-
-    // 设置模板节点的style
-    for c in user_commands.fragment_commands.drain(..) {
-        let t = match fragments.map.get(&c.key) {
-            Some(r) => r,
-            _ => {
-                continue;
-            }
-        };
-        debug_assert_eq!(t.end - t.start, c.entitys.len());
-
-        for i in t.clone() {
-            let n = &fragments.fragments[i];
-            let node = c.entitys[i - t.start];
-            if n.style_meta.end > n.style_meta.start {
-                set_style(node, n.style_meta.start, n.style_meta.end, &fragments.style_buffer, &mut setting, &mut p0.6,  true);
-            }
-            if n.class.len() > 0 {
-                set_class(node, &mut setting, &mut p0.6, n.class.clone(), &class_sheet);
-            }
-        }
-    }
-
-
-    // 设置style只要节点存在,样式一定能设置成功
-    set_styles(&mut user_commands.style_commands, &mut setting, &mut p0.6);
-    // 设置class样式
-    for (node, class) in user_commands.class_commands.drain(..) {
-        set_class(node, &mut setting, &mut p0.6, class, &class_sheet);
-    }
-	// // 清理标记（该标记用于将本次修改样式的操作合并成一个事件）
-	// dirty_list.clear_mark();
-
-    // 指令需要手动apply
-    // state.apply(world);
-
-    // log::warn!("new time=============={:?}, {}, {}, {}", std::time::Instant::now() - tt, class_commands_len, style_commands_len, node_len);
+    
+    // // 设置所有的root渲染脏（节点删除后， 组件被删除，很多状态丢失， 除非立即处理脏区域）
+    // for mut render_dirty in query.p0().2.iter_mut() {
+    //     render_dirty.0 = true;
+    // }
 }
+
 
 /// 清理StyleMark上的脏标记
 pub fn clear_dirty_mark(mut style_mark: Query<&mut StyleMark, Changed<StyleMark>>) {
@@ -402,17 +340,46 @@ pub fn clear_dirty_mark(mut style_mark: Query<&mut StyleMark, Changed<StyleMark>
 // #[derive(Debug, Copy, Clone, Deref)]
 // pub struct StyleChange(pub Entity);
 
-pub fn set_styles<'w, 's>(style_commands: &mut StyleCommands, style_query: &mut Setting, style_mark: &mut Query<'w, &'static mut StyleMark>,) {
+pub fn set_styles<'w, 's>(
+    style_commands: &mut StyleCommands, 
+    style_query: &mut Setting,
+    mut base_component_ids: Vec<(u32, bool)>,
+    mut v_node_base_component_ids: Vec<(u32, bool)>,
+) -> (Vec<(u32, bool)>, Vec<(u32, bool)>) {
+    let mut component_ids1 = Vec::new();
+    let mut component_ids;
+    let mut old_len;
     let (style_buffer, commands) = (&mut style_commands.style_buffer, &mut style_commands.commands);
-    for (node, start, end) in commands.drain(..) {
-        set_style(node, start, end, style_buffer, style_query, style_mark, false);
+    for (node, start, end, need_init) in commands.drain(..) {
+        
+        println!("style========{:?}",( node, start, end, need_init));
+        if end - start == 0 {
+            continue;
+        }
+        if let Some(tag) = need_init {
+            if tag == NodeTag::VNode {
+                component_ids = &mut v_node_base_component_ids;
+            } else {
+                component_ids = &mut base_component_ids;
+            }
+        } else {
+            component_ids = &mut component_ids1;
+        }
+
+        old_len = component_ids.len();
+        add_component_ops(start, end, style_buffer, &style_query.style, component_ids);
+        unsafe { component_ids.set_len(old_len); }
+
+        set_style(node, start, end, style_buffer, style_query, false);
     }
     unsafe { style_buffer.set_len(0) };
+
+    (base_component_ids, v_node_base_component_ids)
 }
 
-pub fn set_style<'w, 's>(node: Entity, start: usize, end: usize, style_buffer: &Vec<u8>, style_query: &mut Setting, style_mark: &mut Query<'w, &'static mut StyleMark>, is_clone: bool) {
+pub fn set_style<'w, 's>(node: Entity, start: usize, end: usize, style_buffer: &Vec<u8>, style_query: &mut Setting, is_clone: bool) {
     // 不存在实体，不处理
-    if !style_query.style.entitys.contains(node) {
+    if !style_query.world.contains(node) {
         log::debug!("node is not exist: {:?}", node);
         return;
     }
@@ -422,16 +389,21 @@ pub fn set_style<'w, 's>(node: Entity, start: usize, end: usize, style_buffer: &
     let mut local_mark = BitArray::new([0, 0, 0, 0]);
     while style_reader.write_to_component(&mut local_mark, node, style_query, is_clone) {}
 
-    if let Ok(mut style_mark) = style_mark.get_mut(node) {
+    if let Ok(style_mark) = style_query.world.get_component_by_index_mut::<StyleMark>(node, style_query.style.style_mark) {
         style_mark.local_style |= local_mark;
 		style_mark.dirty_style |= local_mark;
     };
     // 取消样式， TODO，注意，宽高取消时，还要考虑图片宽高的重置问题
 }
 
+pub fn add_component_ops<'w, 's>(start: usize, end: usize, style_buffer: &Vec<u8>, component_ids: &SettingComponentIds, ops: &mut Vec<(u32, bool)>) {
+    let mut style_reader = StyleTypeReader::new(style_buffer, start, end);
+    while style_reader.push_component_ops(component_ids, ops) {}
+}
 
-fn set_class<'w, 's>(node: Entity, style_query: &mut Setting, style_marks: &mut Query<'w, &'static mut StyleMark>, class: ClassName, class_sheet: &ClassSheet) {
-    let style_mark = match style_marks.get(node) {
+
+fn set_class<'w, 's>(node: Entity, style_query: &mut Setting, class: ClassName, class_sheet: &ClassSheet, component_ids1: &mut Vec<(u32, bool)>) {
+    let style_mark = match style_query.world.get_component_by_index::<StyleMark>(node, style_query.style.style_mark) {
         Ok(r) => r,
         Err(_) => {
             log::debug!("node is not exist: {:?}", node);
@@ -471,26 +443,32 @@ fn set_class<'w, 's>(node: Entity, style_query: &mut Setting, style_marks: &mut 
     let buffer = Vec::new();
     for i in invalid_style.iter_ones() {
         // count.fetch_add(1, Ordering::Relaxed);
-        StyleAttr::reset(&mut cur_style_mark, unsafe { transmute(i as u8) }, &buffer, 0, style_query, node);
+        StyleAttr::reset(&mut cur_style_mark, i as u8, &buffer, 0, style_query, node);
+        StyleAttr::push_component_ops(i as u8 + STYLE_COUNT, &style_query.style,  component_ids1)
+    }
+
+    if component_ids1.len() > 0 {
+        style_query.world.alter_components(node, &component_ids1);
+        component_ids1.clear();
     }
 
 
-    if let Ok(mut style_mark) = style_marks.get_mut(node) {
+    if let Ok(style_mark) = style_query.world.get_component_by_index_mut::<StyleMark>(node, style_query.style.style_mark) {
         style_mark.class_style |= new_class_style_mark;
 		style_mark.dirty_style |= new_class_style_mark;
     };
 
-    if let Ok(mut class_name) = style_query.style.class_name.get_mut(node) {
+    if let Ok(class_name) = style_query.world.get_component_by_index_mut::<ClassName>(node, style_query.style.class_name) {
         *class_name = class;
     };
 }
 
-fn delete_draw_list(id: Entity, draw_list: &Query<&DrawList>, draw_objects: &mut Vec<Entity>) {
-    draw_objects.push(id);
+fn delete_draw_list(id: Entity, draw_list: &Query<&DrawList>, entitys: &mut Alter<(), Or<(With<Size>, With<DrawInfo>)>, (), ()>) {
+    entitys.destroy(id);
     log::debug!("deleteNode node====================node：{:?}", id);
     if let Ok(list) = draw_list.get(id) {
         for i in list.iter() {
-            draw_objects.push(i.id);
+            entitys.destroy(i.id);
         }
     }
 }

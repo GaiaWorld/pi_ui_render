@@ -8,7 +8,7 @@ use crate::{
         user::{serialize::StyleTypeReader, style_attr_list_to_buffer, ClassName, StyleAttribute},
     },
     prelude::UserCommands,
-    resource::{CmdType, FragmentCommand, NodeCommand, fragment::NodeTag},
+    resource::{fragment::NodeTag, CmdType, FragmentCommand, NodeCommand},
 };
 
 use pi_world::{insert::Insert, prelude::{App, Entity, IntoSystemConfigs, Plugin}};
@@ -93,7 +93,7 @@ pub fn cmd_record(
             frame_index,
             state: **run_state,
             node_commands: user_commands.node_commands.clone(),
-			node_init_commands: user_commands.node_init_commands.clone(),
+			// node_init_commands: user_commands.node_init_commands.clone(),
             fragment_commands: user_commands.fragment_commands.clone(),
             style_commands: ss,
             class_commands: user_commands.class_commands.clone(),
@@ -201,13 +201,6 @@ pub fn cmd_play(
         cmds.node_commands.push(cmd);
     }
 
-	for (n, node_tag) in r.node_init_commands.iter() {
-        let node = match play_state.get_node(n) {
-            Some(r) => r,
-            None => continue,
-        };
-        cmds.node_init_commands.push((node, *node_tag));
-    }
 
     for (n, class_name) in r.class_commands.iter() {
         let node = match play_state.get_node(n) {
@@ -401,11 +394,16 @@ pub fn cmd_play(
         });
     }
 
+    let mut is_init = None;
     for s in r.style_commands.iter() {
+        if s.is_init.is_some() {
+            is_init = s.is_init.clone();
+        }
         let class_mate = style_attr_list_to_buffer(&mut cmds.style_commands.style_buffer, &mut s.values.clone(), s.values.len());
         cmds.style_commands
             .commands
-            .push((play_state.get_node(&s.entity).unwrap(), class_mate.start, class_mate.end));
+            .push((play_state.get_node(&s.entity).unwrap(), class_mate.start, class_mate.end, is_init));
+        is_init = None;
     }
     // log::info!("style_commands============{:?}", &cmds.style_commands.commands);
     // log::info!("node_commands============{:?}", &cmds.node_commands);
@@ -419,6 +417,7 @@ pub fn cmd_play(
 pub struct StyleCmd {
     pub entity: Entity,
     pub values: VecDeque<StyleAttribute>,
+    pub is_init: Option<NodeTag>,
 }
 
 
@@ -430,7 +429,7 @@ pub fn to_attr(node: Entity, start: usize, end: usize, style_buffer: &Vec<u8>, l
     }
 
     if v.len() > 0 {
-        list.push(StyleCmd { entity: node, values: v });
+        list.push(StyleCmd { entity: node, values: v, is_init: None});
     }
 }
 
@@ -443,7 +442,7 @@ pub struct Record {
     pub frame_index: usize, // 所在帧位置
     pub state: RunState,
     pub node_commands: Vec<NodeCommand>,
-	pub node_init_commands: Vec<(Entity, NodeTag)>,
+	// pub node_init_commands: Vec<(Entity, NodeTag)>,
     pub fragment_commands: Vec<FragmentCommand>,
     pub style_commands: Vec<StyleCmd>,
     pub class_commands: Vec<(Entity, ClassName)>,

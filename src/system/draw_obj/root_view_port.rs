@@ -19,7 +19,7 @@ use super::calc_text::IsRun;
 /// 创建图节点所需要的数据
 /// 如： DynTargetType (需要根据视口变化及时调整)
 pub fn calc_dyn_target_type(
-    mut query: Alter<(&Viewport, Option<&mut DynTargetType>, Option<&crate::components::user::ClearColor>, Option<&crate::components::user::RenderDirty>, pi_world::world::Entity), Changed<Viewport>, (DynTargetType, )>,
+    mut query: Alter<(&Viewport, Option<&mut DynTargetType>), Changed<Viewport>, (DynTargetType, )>,
 
     atlas_allocator: SingleRes<PiSafeAtlasAllocator>,
     mut max_view_size: SingleResMut<MaxViewSize>,
@@ -32,7 +32,7 @@ pub fn calc_dyn_target_type(
 	}
 
     let mut iter = query.iter_mut();
-    while let Some((view_port, dyn_target_type, color, render_dirty, entity)) = iter.next() {
+    while let Some((view_port, dyn_target_type)) = iter.next() {
         max_view_size.width = max_view_size.width.max((view_port.maxs.x - view_port.mins.x).ceil() as u32);
         max_view_size.height = max_view_size.height.max((view_port.maxs.y - view_port.mins.y).ceil() as u32);
         let ty = create_dyn_target_type(&atlas_allocator, max_view_size.width, max_view_size.height);
@@ -40,7 +40,6 @@ pub fn calc_dyn_target_type(
             Some(mut r) => *r = ty,
             None => {
                 let _ = iter.alter((ty, ));
-                println!("create_dyn_target_type===={:?}", (color, render_dirty, entity));
             }
         };
     }

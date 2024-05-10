@@ -53,8 +53,6 @@ impl Example for QuadExample {
         self.cmd.push_cmd(NodeCmd(RenderDirty(true), root));
 		self.root = EntityKey(root);
 
-        println!("root======={:?}", root);
-
         self.cmd.set_style(root, WidthType(Dimension::Points(size.0 as f32)));
         self.cmd.set_style(root, HeightType(Dimension::Points(size.1 as f32)));
 

@@ -6,7 +6,7 @@ pub mod pass_2d;
 pub mod root;
 pub mod user;
 
-use pi_world::prelude::{FromWorld, Entity, Bundle};
+use pi_world::{prelude::{Bundle, Entity, FromWorld}, world::World};
 use pi_bevy_ecs_extend::prelude::{Down, Layer, Up};
 
 use self::{
@@ -14,8 +14,135 @@ use self::{
     draw_obj::{BoxType, CopyFboToScreen, FboInfo, InstanceIndex, PipelineMeta},
     pass_2d::{ChildrenPass, GraphId, ParentPassId, PostProcess, PostProcessInfo, RenderTarget},
     root::RootDirtyRect,
-    user::Overflow,
+    user::{ClassName, Overflow},
 };
+
+
+#[derive(Clone)]
+pub struct SettingComponentIds {
+    pub down: u32,
+    pub up: u32,
+    pub layer: u32,
+    pub node_state: u32,
+    pub size: u32,
+    pub margin: u32,
+    pub padding: u32,
+    pub border: u32,
+    pub position: u32,
+    pub min_max: u32,
+    pub flex_container: u32,
+    pub flex_normal: u32,
+    pub z_index: u32,
+    pub overflow: u32,
+    pub opacity: u32,
+    pub blend_mode: u32,
+    pub show: u32,
+    pub transform: u32,
+    pub background_color: u32,
+    pub border_color: u32,
+    pub background_image: u32,
+    pub background_image_texture: u32,
+    pub background_image_clip: u32,
+    pub mask_image: u32,
+    pub mask_image_clip: u32,
+    pub hsi: u32,
+    pub blur: u32,
+    pub clip_path: u32,
+    pub background_image_mod: u32,
+    pub border_image: u32,
+    pub border_image_texture: u32,
+    pub border_image_clip: u32,
+    pub border_image_slice: u32,
+    pub border_image_repeat: u32,
+    pub border_radius: u32,
+    pub box_shadow: u32,
+    pub text_style: u32,
+    pub text_shadow: u32,
+    pub text_outer_glow: u32,
+    pub transform_will_change: u32,
+    pub text_content: u32,
+    pub animation: u32,
+    pub transition: u32,
+    pub class_name: u32,
+    pub as_image: u32,
+    pub text_overflow: u32,
+
+    pub style_mark: u32,
+    pub matrix: u32,
+    pub z_range: u32,
+    pub content_box: u32,
+    pub layout: u32,
+    pub quad: u32,
+    pub in_pass_id: u32,
+    pub render_context_mark: u32,
+    pub draw_list: u32,
+    pub is_show: u32,
+}
+
+impl FromWorld for SettingComponentIds {
+    fn from_world(world: &mut World) -> Self {
+        Self {
+            down: world.init_component::<Down>(),
+            up: world.init_component::<Up>(),
+            layer: world.init_component::<Layer>(),
+            node_state: world.init_component::<NodeState>(),
+            size: world.init_component::<self::user::Size>(),
+            margin: world.init_component::<self::user::Margin>(),
+            padding: world.init_component::<self::user::Padding>(),
+            border: world.init_component::<self::user::Border>(),
+            position: world.init_component::<self::user::Position>(),
+            min_max: world.init_component::<self::user::MinMax>(),
+            flex_container: world.init_component::<self::user::FlexContainer>(),
+            flex_normal: world.init_component::<self::user::FlexNormal>(),
+            z_index: world.init_component::<self::user::ZIndex>(),
+            overflow: world.init_component::<self::user::Overflow>(),
+            opacity: world.init_component::<self::user::Opacity>(),
+            blend_mode: world.init_component::<self::user::BlendMode>(),
+            show: world.init_component::<self::user::Show>(),
+            transform: world.init_component::<self::user::Transform>(),
+            background_color: world.init_component::<self::user::BackgroundColor>(),
+            border_color: world.init_component::<self::user::BorderColor>(),
+            background_image: world.init_component::<self::user::BackgroundImage>(),
+            background_image_clip: world.init_component::<self::user::BackgroundImageClip>(),
+            mask_image: world.init_component::<self::user::MaskImage>(),
+            mask_image_clip: world.init_component::<self::user::MaskImageClip>(),
+            hsi: world.init_component::<self::user::Hsi>(),
+            blur: world.init_component::<self::user::Blur>(),
+            clip_path: world.init_component::<self::user::ClipPath>(),
+            background_image_mod: world.init_component::<self::user::BackgroundImageMod>(),
+            border_image: world.init_component::<self::user::BorderImage>(),
+            border_image_clip: world.init_component::<self::user::BorderImageClip>(),
+            border_image_slice: world.init_component::<self::user::BorderImageSlice>(),
+            border_image_repeat: world.init_component::<self::user::BorderImageRepeat>(),
+            border_radius: world.init_component::<self::user::BorderRadius>(),
+            box_shadow: world.init_component::<self::user::BoxShadow>(),
+            text_style: world.init_component::<self::user::TextStyle>(),
+            text_shadow: world.init_component::<self::user::TextShadow>(),
+            text_outer_glow: world.init_component::<self::user::TextOuterGlow>(),
+            transform_will_change: world.init_component::<self::user::TransformWillChange>(),
+            text_content: world.init_component::<self::user::TextContent>(),
+            animation: world.init_component::<self::user::Animation>(),
+            transition: world.init_component::<self::user::Transition>(),
+            class_name: world.init_component::<self::user::ClassName>(),
+            as_image: world.init_component::<self::user::AsImage>(),
+            text_overflow: world.init_component::<self::user::TextOverflowData>(),
+
+            background_image_texture: world.init_component::<self::calc::BackgroundImageTexture>(),
+            border_image_texture: world.init_component::<self::calc::BorderImageTexture>(),
+
+            style_mark: world.init_component::<self::calc::StyleMark>(),
+            matrix: world.init_component::<self::calc::WorldMatrix>(),
+            z_range: world.init_component::<self::calc::ZRange>(),
+            content_box: world.init_component::<self::calc::ContentBox>(),
+            layout: world.init_component::<self::calc::LayoutResult>(),
+            quad: world.init_component::<self::calc::Quad>(),
+            in_pass_id: world.init_component::<self::calc::InPassId>(),
+            render_context_mark: world.init_component::<self::calc::RenderContextMark>(),
+            draw_list: world.init_component::<self::calc::DrawList>(),
+            is_show: world.init_component::<self::calc::IsShow>(),
+        }
+    }
+}
 
 /// 节点Bundle
 #[derive(Debug, Bundle, Default, Clone, Serialize, Deserialize)]
@@ -35,6 +162,7 @@ pub struct NodeBundle {
     pub draw_list: DrawList,
     pub node_state: NodeState,
     pub is_show: IsShow,
+    pub class_name: ClassName,
 }
 
 /// 绘制对象Bundle

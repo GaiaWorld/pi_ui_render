@@ -47,7 +47,7 @@ pub fn draw_object_life_new<
 	mut node_change: OrInitSingleResMut<NodeChanged>,
 	render_type: OrInitSingleRes<RenderType>,
 	mut query_meterial: ParamSet<(
-		Query<(&'static Src, &'static mut DrawList, Entity), Changed<Src>>,
+		Query<(&'static Src, Entity)>,
 		Query<(Has<Src>, &'static mut DrawList), Removed<Src>>,
 	)>,
 	mut alter_drawobj: Alter<(), With<DrawInfo>, (InstanceSplit, )>,
@@ -96,35 +96,37 @@ pub fn draw_object_life_new<
 	// let mut spawn_list = Vec::new();
     // 收集需要创建DrawObject的实体
     // count2 += 1;
-	for (src, mut draw_list, node) in query_meterial.p0().iter_mut() {
-		// 不存在，才需要创建DrawObject
-		match draw_list.get_one(render_type) {
-			None => {
-				let bundle = DrawBundleNew {
-					node_id: NodeId(EntityKey(node)),
-					instance_index: InstanceIndex::default(),
-					draw_info: DrawInfo::new(ORDER, false), //TODO
-					other: Other::default(),
-				};
-				let id = if let Some(r) = src.get_split()  {
-					insert1.insert((bundle, r))
-				} else {
-					insert.insert((bundle, ))
-				};
-				node_is_changed = true;
+	// println!("aaaa============{:?}", std::any::type_name::<Src>());
+	for (src, node) in query_meterial.p0().iter_mut() {
+		println!("bbbb============{:?}", std::any::type_name::<Src>());
+		// // 不存在，才需要创建DrawObject
+		// match draw_list.get_one(render_type) {
+		// 	None => {
+		// 		let bundle = DrawBundleNew {
+		// 			node_id: NodeId(EntityKey(node)),
+		// 			instance_index: InstanceIndex::default(),
+		// 			draw_info: DrawInfo::new(ORDER, false), //TODO
+		// 			other: Other::default(),
+		// 		};
+		// 		let id = if let Some(r) = src.get_split()  {
+		// 			insert1.insert((bundle, r))
+		// 		} else {
+		// 			insert.insert((bundle, ))
+		// 		};
+		// 		node_is_changed = true;
 				
-				// spawn_list.push(id);
-				log::debug!(target: format!("entity_{:?}", node).as_str(), "create RenderObj {:?} for {} changed, ", &id, std::any::type_name::<Src>());
-				draw_list.push(render_type, id);
-				log::debug!("create drawobj=================draw={:?}, node={:?}, ty={:?}", id, node, std::any::type_name::<Src>());
-			},
+		// 		// spawn_list.push(id);
+		// 		log::debug!(target: format!("entity_{:?}", node).as_str(), "create RenderObj {:?} for {} changed, ", &id, std::any::type_name::<Src>());
+		// 		draw_list.push(render_type, id);
+		// 		log::debug!("create drawobj=================draw={:?}, node={:?}, ty={:?}", id, node, std::any::type_name::<Src>());
+		// 	},
 			
-			Some(r) => if let Some(InstanceSplit::ByTexture(t)) = src.get_split() {
-				// 图片修改， 也需要重新组织实例数据
-				node_is_changed = true;
-				let _ = alter_drawobj.alter(r.id, (InstanceSplit::ByTexture(t), ));
-			},
-		};
+		// 	Some(r) => if let Some(InstanceSplit::ByTexture(t)) = src.get_split() {
+		// 		// 图片修改， 也需要重新组织实例数据
+		// 		node_is_changed = true;
+		// 		let _ = alter_drawobj.alter(r.id, (InstanceSplit::ByTexture(t), ));
+		// 	},
+		// };
 	}
 
 	if node_is_changed {
