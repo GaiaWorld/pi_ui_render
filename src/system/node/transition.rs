@@ -117,7 +117,6 @@ struct TransitionAttrChange {
 	index: usize,
 	property: u8,
 	attr: Option<Attribute>,
-	transition_is_change: bool,
 	style_change: bool,
 	unbind: bool,
 }
@@ -149,7 +148,6 @@ pub fn transition_1_2(
 						index: i,
 						property: property as u8,
 						attr: None,
-						transition_is_change,
 						style_change,
 						unbind: false,
 					};
@@ -180,7 +178,6 @@ pub fn transition_1_2(
 						index: i,
 						property: property as u8,
 						attr: None,
-						transition_is_change,
 						style_change,
 						unbind: false,
 					};

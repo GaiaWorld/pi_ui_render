@@ -110,7 +110,7 @@ impl UserCommands {
         self.style_commands.commands.push((entity, start, start, Some(tag)));    
 	}
 
-    pub fn init_component_ids(&self, tag: NodeTag, ids: &SettingComponentIds) -> Vec<(u32, bool)> {
+    pub fn init_component_ids(tag: NodeTag, ids: &SettingComponentIds) -> Vec<(u32, bool)> {
         let mut type_arr = Vec::with_capacity(16);
         type_arr.extend_from_slice(&[
             (ids.down, true),
@@ -131,6 +131,9 @@ impl UserCommands {
             (ids.draw_list, true),
             (ids.is_show, true),
         ]);
+        if tag == NodeTag::VNode {
+            type_arr.push((ids.z_index, true));
+        }
         type_arr
     }
     /// 将节点作为子节点挂在父上

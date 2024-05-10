@@ -75,9 +75,9 @@ pub fn user_setting1(
     user_commands.is_node_change = is_node_change;
 
     // 添加基础组件id
-    let mut base_component_ids = user_commands.init_component_ids(NodeTag::Div, &setting_components);
+    let mut base_component_ids = UserCommands::init_component_ids(NodeTag::Div, &setting_components);
     // 添加基础组件id
-    let mut v_node_base_component_ids = user_commands.init_component_ids(NodeTag::VNode, &setting_components);
+    let mut v_node_base_component_ids = UserCommands::init_component_ids(NodeTag::VNode, &setting_components);
     let mut component_ids1 = Vec::new();
     let mut component_ids;
     // 插入bundle
@@ -121,7 +121,7 @@ pub fn user_setting1(
                 }
 
                 // 初始化组件
-                world.alter_components(*node, &component_ids);
+                let _ = world.alter_components(*node, &component_ids);
                 unsafe { component_ids.set_len(old_len); }
 
                 log::debug!("insert NodeBundle for fragment , {:?}", node);
@@ -165,7 +165,7 @@ pub fn user_setting1(
                 add_component_ops(class.start, class.end, &class_sheet.style_buffer, &setting_components, &mut component_ids1)
             }
         }
-        setting.world.alter_components(node, &mut component_ids1);
+        let _ = setting.world.alter_components(node, &mut component_ids1);
         component_ids1.clear();
 
         set_class(node, &mut setting,  class, &class_sheet, &mut component_ids1);
@@ -448,7 +448,7 @@ fn set_class<'w, 's>(node: Entity, style_query: &mut Setting, class: ClassName, 
     }
 
     if component_ids1.len() > 0 {
-        style_query.world.alter_components(node, &component_ids1);
+        let _ = style_query.world.alter_components(node, &component_ids1);
         component_ids1.clear();
     }
 
@@ -464,11 +464,11 @@ fn set_class<'w, 's>(node: Entity, style_query: &mut Setting, class: ClassName, 
 }
 
 fn delete_draw_list(id: Entity, draw_list: &Query<&DrawList>, entitys: &mut Alter<(), Or<(With<Size>, With<DrawInfo>)>, (), ()>) {
-    entitys.destroy(id);
+    let _ = entitys.destroy(id);
     log::debug!("deleteNode node====================node：{:?}", id);
     if let Ok(list) = draw_list.get(id) {
         for i in list.iter() {
-            entitys.destroy(i.id);
+            let _ = entitys.destroy(i.id);
         }
     }
 }

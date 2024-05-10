@@ -140,7 +140,7 @@ pub fn calc_layout(
     mut layer_dirty: Local<LayerDirty<LayoutKey>>,
     default_style: Local<(Size, Margin, Padding, Border, Position, MinMax, FlexContainer, FlexNormal, Show)>,
     // mut event_write: EventWriter<ComponentEvent<Changed<LayoutResult>>>,
-	mut r: OrInitSingleRes<IsRun>,
+	r: OrInitSingleRes<IsRun>,
 	// mut dirty_list: EventReader<StyleChange>,
 	// dirty_list: SingleRes<DirtyList>,
 ) {

@@ -44,7 +44,7 @@ impl Command for DefaultStyleCmd {
         // let mut syetem_meta = SystemMeta::new::<()>();
         // let mut state = DefaultStyle::init_state(world, &mut syetem_meta);
         // let tick = world.tick();
-        let mut default_style_query = DefaultStyle::from_world(world);
+        let default_style_query = DefaultStyle::from_world(world);
 
         let len = self.0.len();
         let class_map = ClassMap {
@@ -103,7 +103,7 @@ impl<T: Bundle + 'static + Send + Sync> Command for NodeCmd<T> {
         if world.contains_entity(self.1) {
             pi_print_any::out_any!(log::debug, "NodeCmd====================node：{:?}, anchor： {:?}", self.1, &self.0);
             let id = world.init_component::<T>();
-            world.alter_components(self.1,&[(id, true)]);
+            let _ = world.alter_components(self.1,&[(id, true)]);
             if let Ok(r) = world.get_component_by_index_mut(self.1, id) {
                 *r = self.0;
             }
@@ -120,7 +120,7 @@ impl Command for PostProcessCmd {
         if world.contains_entity(self.1) {
             pi_print_any::out_any!(log::debug, "NodeCmd====================node：{:?}, anchor： {:?}", self.1, &self.0);
             let id = world.init_component::<AsImage>();
-            world.alter_components(self.1,&[(id, true)]);
+            let _ = world.alter_components(self.1,&[(id, true)]);
             if let Ok(r) = world.get_component_by_index_mut::<AsImage>(self.1, id) {
                 r.post_process = self.0;
             }
@@ -137,7 +137,7 @@ impl<T: 'static + Send + Sync> Command for ComponentCmd<T> {
         if world.contains_entity(self.1) {
             pi_print_any::out_any!(log::debug, "NodeCmd====================node：{:?}, anchor： {:?}", self.1, &self.0);
             let id = world.init_component::<T>();
-            world.alter_components(self.1,&[(id, true)]);
+            let _ = world.alter_components(self.1,&[(id, true)]);
             if let Ok(r) = world.get_component_by_index_mut::<T>(self.1, id) {
                 *r = self.0;
             }
@@ -155,7 +155,7 @@ impl Command for RuntimeAnimationBindCmd {
         if world.contains_entity(self.2) {
             self.1.name.scope_hash = self.2.index() as usize; // 因为每个运行时动画是节点独有的，以节点的index作为scope_hash(不能同时有两个index相等的实体)
             let id = world.init_component::<Animation>();
-            world.alter_components(self.2,&[(id, true)]);
+            let _ = world.alter_components(self.2,&[(id, true)]);
             if let Ok(r) = world.get_component_by_index_mut::<Animation>(self.2, id) {
                 *r = self.1.clone();
             }
