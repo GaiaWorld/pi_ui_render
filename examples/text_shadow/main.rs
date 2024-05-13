@@ -18,6 +18,7 @@ use pi_ui_render::{
     },
     resource::{NodeCmd, UserCommands},
 };
+use pi_ui_render::resource::fragment::NodeTag;
 use smallvec::smallvec;
 
 fn main() { framework::start(QuadExample::default()) }
@@ -44,7 +45,7 @@ impl Example for QuadExample {
         new_face_by_path("hwkt".to_string(), "examples/z_source/SOURCEHANSANSK-MEDIUM.TTF");
 
         // 添加根节点
-        let root = world.spawn();
+        let root = world.spawn(NodeTag::Div);
         self.root = EntityKey(root);
         self.cmd.push_cmd(NodeCmd(ClearColor(CgColor::new(1.0, 1.0, 1.0, 1.0), true), root));
         self.cmd.push_cmd(NodeCmd(
@@ -68,7 +69,7 @@ impl Example for QuadExample {
         self.cmd.append(root, EntityKey::null().0);
 
         // 添加一个红色div
-        let div1 = world.spawn();
+        let div1 = world.spawn(NodeTag::Div);
         self.cmd.set_style(div1, WidthType(Dimension::Points(50.0)));
         self.cmd.set_style(div1, HeightType(Dimension::Points(100.0)));
         self.cmd.set_style(div1, PositionTopType(Dimension::Points(20.0)));
@@ -118,7 +119,7 @@ impl Example for QuadExample {
         // 	color: CgColor::new(1.0, 0.0, 0.0, 1.0)}));
         self.cmd.append(div1, root);
 
-        let div2 = world.spawn();
+        let div2 = world.spawn(NodeTag::Div);
         self.cmd.set_style(div2, WidthType(Dimension::Points(50.0)));
         self.cmd.set_style(div2, HeightType(Dimension::Points(100.0)));
         self.cmd

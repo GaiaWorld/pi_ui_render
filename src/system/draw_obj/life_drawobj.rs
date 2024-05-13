@@ -1,4 +1,6 @@
 
+use core::panic;
+
 use pi_world::alter::Alter;
 use pi_world::filter::Changed;
 use pi_world::insert::Bundle;
@@ -19,7 +21,7 @@ use pi_key_alloter::Key;
 use crate::components::calc::{DrawInfo, EntityKey, NodeId, InPassId, IsShow, ZRange};
 use crate::components::draw_obj::{ FboInfo, GetInstanceSplit, InstanceIndex, InstanceSplit, Pipeline, RenderCount};
 // use crate::components::root::RootInstance;
-use crate::components::user::RenderTargetType;
+use crate::components::user::{BackgroundColor, RenderTargetType};
 // #[cfg(debug_assertions)]
 // use crate::components::user::{BackgroundColor, BackgroundImage, BlendMode, BorderImage, Canvas, TextContent};
 // #[cfg(debug_assertions)]
@@ -49,6 +51,7 @@ pub fn draw_object_life_new<
 	mut query_meterial: ParamSet<(
 		Query<(&'static Src, &'static mut DrawList, Entity), Changed<Src>>,
 		Query<(Has<Src>, &'static mut DrawList), Removed<Src>>,
+		Query<(&'static Src, Entity)>,
 	)>,
 	mut alter_drawobj: Alter<(), With<DrawInfo>, (InstanceSplit, )>,
 	insert: Insert<(DrawBundleNew<Other>, )>,
@@ -83,7 +86,14 @@ pub fn draw_object_life_new<
 	// let mut spawn_list = Vec::new();
     // 收集需要创建DrawObject的实体
     // count2 += 1;
-	// println!("aaaa============{:?}", std::any::type_name::<Src>());
+	println!("aaaa============{:?}", std::any::type_name::<Src>());
+	for (src, node) in query_meterial.p2().iter_mut() {
+		println!("cccc============{:?}", std::any::type_name::<Src>());
+	}
+
+	// if std::any::type_name::<Src>() == std::any::type_name::<BackgroundColor>() {
+	// 	panic!("aaaaaaa=======");
+	// }
 	for (src, mut draw_list, node) in query_meterial.p0().iter_mut() {
 		println!("bbbb============{:?}", std::any::type_name::<Src>());
 		// 不存在，才需要创建DrawObject

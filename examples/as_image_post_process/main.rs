@@ -33,6 +33,7 @@ use pi_ui_render::{
     resource::{NodeCmd, UserCommands},
     prelude::UiStage,
 };
+use pi_ui_render::resource::fragment::NodeTag;
 use wgpu::CommandEncoder;
 
 fn main() { framework::start(CustomPostExample::default()) }
@@ -53,7 +54,7 @@ impl Example for CustomPostExample {
         // gui.gui.world_mut().insert_single_res(ClearColor(CgColor::new(0.0, 1.0, 1.0, 1.0)));
 
         // 添加根节点
-        let root = world.spawn();
+        let root = world.spawn(NodeTag::Div);
         self.cmd.push_cmd(NodeCmd(ClearColor(CgColor::new(1.0, 1.0, 1.0, 1.0), true), root));
         self.cmd.push_cmd(NodeCmd(
             Viewport(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(size.0 as f32, size.1 as f32))),
@@ -72,7 +73,7 @@ impl Example for CustomPostExample {
         self.cmd.append(root, <EntityKey as pi_null::Null>::null().0);
 
         // 添加一个红色div到根节点， 并设置AsImage的post_process
-        let div1 = world.spawn();
+        let div1 = world.spawn(NodeTag::Div);
         self.cmd.set_style(div1, WidthType(Dimension::Points(200.0)));
         self.cmd.set_style(div1, HeightType(Dimension::Points(200.0)));
         self.cmd.set_style(div1, AsImageType(pi_style::style::AsImage::Force));
@@ -81,7 +82,7 @@ impl Example for CustomPostExample {
         self.cmd.set_style(div1, RotateType(30.0));
         self.cmd.append(div1, root);
 
-        let post_entity = world.spawn();
+        let post_entity = world.spawn(NodeTag::Div);
         self.cmd.push_cmd(PostProcessCmd(EntityKey(post_entity), div1));
     }
 

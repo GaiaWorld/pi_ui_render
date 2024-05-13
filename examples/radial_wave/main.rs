@@ -24,6 +24,7 @@ use pi_ui_render::{
     },
     resource::{NodeCmd, UserCommands},
 };
+use pi_ui_render::resource::fragment::NodeTag;
 
 fn main() { framework::start(QuadExample::default()) }
 
@@ -36,7 +37,7 @@ pub struct QuadExample {
 impl Example for QuadExample {
     fn init(&mut self, mut world: Param, size: (usize, usize)) {
         // 添加根节点
-        let root = world.spawn();
+        let root = world.spawn(NodeTag::Div);
         self.cmd.push_cmd(NodeCmd(ClearColor(CgColor::new(1.0, 1.0, 1.0, 1.0), true), root));
         self.cmd.push_cmd(NodeCmd(
             Viewport(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(size.0 as f32, size.1 as f32))),
@@ -57,7 +58,7 @@ impl Example for QuadExample {
         self.cmd.append(root, EntityKey::null().0);
 
         // 添加一个div
-        let div1 = world.spawn();
+        let div1 = world.spawn(NodeTag::Div);
         self.cmd.set_style(div1, WidthType(Dimension::Points(300.0)));
         self.cmd.set_style(div1, HeightType(Dimension::Points(600.0)));
         self.cmd

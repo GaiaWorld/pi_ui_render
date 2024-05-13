@@ -25,6 +25,7 @@ use pi_ui_render::{
     },
     resource::{NodeCmd, UserCommands},
 };
+use pi_ui_render::resource::fragment::NodeTag;
 
 fn main() { framework::start(QuadExample::default()) }
 
@@ -38,7 +39,7 @@ pub struct QuadExample {
 impl Example for QuadExample {
     fn init(&mut self, mut world: Param, size: (usize, usize)) {
         // 添加根节点
-        let root = world.spawn();
+        let root = world.spawn(NodeTag::Div);
         self.cmd.push_cmd(NodeCmd(ClearColor(CgColor::new(1.0, 1.0, 1.0, 1.0), true), root));
         self.cmd.push_cmd(NodeCmd(
             Viewport(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(size.0 as f32, size.1 as f32))),
@@ -58,7 +59,7 @@ impl Example for QuadExample {
         self.cmd.append(root, EntityKey::null().0);
 
         // 添加一个玫红色div到根节点， 并添加overflow属性
-        let div1 = world.spawn();
+        let div1 = world.spawn(NodeTag::Div);
         self.cmd.set_style(div1, WidthType(Dimension::Points(300.0)));
         self.cmd.set_style(div1, HeightType(Dimension::Points(300.0)));
         self.cmd
@@ -71,7 +72,7 @@ impl Example for QuadExample {
         self.cmd.append(div1, root);
 
         // 添加一个红色div到红节点
-        let div2 = world.spawn();
+        let div2 = world.spawn(NodeTag::Div);
         self.cmd.set_style(div2, WidthType(Dimension::Points(50.0)));
         self.cmd.set_style(div2, HeightType(Dimension::Points(100.0)));
         self.cmd
@@ -79,7 +80,7 @@ impl Example for QuadExample {
         self.cmd.append(div2, div1);
 
         // 添加一个容器节点，设置overflow
-        let div3 = world.spawn();
+        let div3 = world.spawn(NodeTag::Div);
         self.cmd.set_style(div3, PositionTopType(Dimension::Points(100.0)));
         self.cmd.set_style(div3, WidthType(Dimension::Points(250.0)));
         self.cmd.set_style(div3, HeightType(Dimension::Points(150.0)));
@@ -89,7 +90,7 @@ impl Example for QuadExample {
         self.cmd.append(div3, div1);
 
         // 添加一个绿色div
-        let div4 = world.spawn();
+        let div4 = world.spawn(NodeTag::Div);
         self.cmd.set_style(div4, WidthType(Dimension::Points(50.0)));
         self.cmd.set_style(div4, HeightType(Dimension::Points(100.0)));
         self.cmd
@@ -97,7 +98,7 @@ impl Example for QuadExample {
         self.cmd.append(div4, div3);
 
         // 添加一个黄色
-        let div5 = world.spawn();
+        let div5 = world.spawn(NodeTag::Div);
         self.cmd.set_style(div5, PositionTypeType(PositionType::Absolute));
         self.cmd.set_style(div5, PositionLeftType(Dimension::Points(50.0)));
         self.cmd.set_style(div5, PositionTopType(Dimension::Points(100.0)));
@@ -110,7 +111,7 @@ impl Example for QuadExample {
         self.cmd.append(div5, div3);
 
         // 添加一个灰色四边形，并设置半透明、旋转， 测试一个渲染上下文在父上下文旋转、自身也旋转的情况下，渲染是否正确
-        let div6 = world.spawn();
+        let div6 = world.spawn(NodeTag::Div);
         self.cmd.set_style(div6, PositionTypeType(PositionType::Absolute));
         self.cmd.set_style(div6, PositionLeftType(Dimension::Points(100.0)));
         self.cmd.set_style(div6, PositionTopType(Dimension::Points(100.0)));
@@ -126,7 +127,7 @@ impl Example for QuadExample {
         self.cmd.append(div6, div3);
 
         // 添加一个绿色四边形，设置oveflow为true，
-        let div7 = world.spawn();
+        let div7 = world.spawn(NodeTag::Div);
         self.cmd.set_style(div7, PositionTypeType(PositionType::Absolute));
         self.cmd.set_style(div7, PositionLeftType(Dimension::Points(150.0)));
         self.cmd.set_style(div7, PositionTopType(Dimension::Points(100.0)));
@@ -141,7 +142,7 @@ impl Example for QuadExample {
         self.cmd.append(div7, div3);
 
         // 添加一个黄色四边形，设置旋转，
-        let div8 = world.spawn();
+        let div8 = world.spawn(NodeTag::Div);
         self.cmd.set_style(div8, PositionTypeType(PositionType::Absolute));
         self.cmd.set_style(div8, PositionLeftType(Dimension::Points(15.0)));
         self.cmd.set_style(div8, WidthType(Dimension::Points(50.0)));

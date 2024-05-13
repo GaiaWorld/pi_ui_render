@@ -55,20 +55,97 @@ pub trait Example: 'static + Sized {
 pub static mut RUNNER: std::cell::OnceCell<LocalTaskRunner<()>> = std::cell::OnceCell::new();
 
 pub fn start<T: Example + Sync + Send + 'static>(example: T) {
-	// let aa = pi_async_rt::rt::startup_global_time_loop(10);
-	// let current_dir = std::env::current_dir().unwrap();
-	#[cfg(not(target_arch = "wasm32"))]
-	init_load_cb(Arc::new(|path: String| {
-        MULTI_MEDIA_RUNTIME
-            .spawn(async move {
-                if let Ok(dynamic_image) = std::fs::read(path.clone()) {
-                    on_load(path.as_str(), dynamic_image);
-                } else {
-                    log::warn!("not find image,path: {:?}", path);
-                }
-            })
-            .unwrap();
-    }));
+	let play_option = example.play_option();
+    let play_option1 = play_option.clone().unwrap_or_default();
+   
+    
+    match (play_option1.play_path, play_option1.play_url, play_option1.play_way.as_str()) {
+        (_, Some(url), "url") => {
+             //构建客户端
+            let httpc = pi_async_httpc::AsyncHttpcBuilder::new()
+                .bind_address("127.0.0.1") // 访问外网用明确的本地ip
+                .build().unwrap();
+            init_load_cb(Arc::new(move |path: String| {
+                let httpc = httpc.clone();
+                let url = url.clone();
+                MULTI_MEDIA_RUNTIME
+                    .spawn(async move {
+                        let mut result = Vec::new();
+                        let pp: String = url + "/" + path.as_str();
+                        match httpc
+                            .build_request(pp.as_str(), pi_async_httpc::AsyncHttpRequestMethod::Get)
+                            // .set_pairs(&[("login_type", "2"), ("user", "1694151132349ldxNJ")]) // 设置参数
+                            .send().await 
+                        {
+                            Err(e) => {
+                                log::warn!("not find file, url: {:?}, {:?}", path, e);
+                            },
+                            Ok(mut resp) => {
+                                // println!("!!!!!!request time: {:?}", now.elapsed());
+
+                                loop {
+                                    match resp.get_body().await 
+                                    {
+                                        Err(e) => {
+                                            log::warn!("not find file, url: {:?}, {:?}", path, e);
+                                            break;
+                                        },
+                                        Ok(Some(_body)) => {
+                                            result.extend_from_slice(_body.as_ref());
+                                            continue;
+                                        },
+                                        Ok(None) => {
+                                            if resp.get_status() == 200 {
+                                                on_load(path.as_str(), result);
+                                            } else {
+                                                log::warn!("not find file, url: {:?}, {:?}", path, resp.get_status());
+                                            }
+                                            
+                                            // println!("!!!!!!response time: {:?}", now.elapsed());
+                                            // println!("!!!!!!peer address: {:?}", resp.get_peer_addr());
+                                            // println!("!!!!!!url: {}", resp.get_url());
+                                            // println!("!!!!!!status: {}", resp.get_status());
+                                            // println!("!!!!!!version: {}", resp.get_version());
+                                            // println!("!!!!!!headers: {:#?}", resp.to_headers());
+                                            // println!("!!!!!!body len: {:?}", resp.get_headers("content-length"));
+                                            break;
+                                        },
+                                    }
+                                }
+                            },
+                        }
+                    })
+                    .unwrap();
+            }));
+        },
+        _ => {
+            init_load_cb(Arc::new(|path: String| {
+                MULTI_MEDIA_RUNTIME
+                    .spawn(async move {
+                        if let Ok(file) = std::fs::read(path.clone()) {
+                            on_load(path.as_str(), file);
+                        } else {
+                            log::warn!("not find file,path: {:?}", path);
+                        }
+                    })
+                    .unwrap();
+            }));
+        }
+    }
+	// // let aa = pi_async_rt::rt::startup_global_time_loop(10);
+	// // let current_dir = std::env::current_dir().unwrap();
+	// #[cfg(not(target_arch = "wasm32"))]
+	// init_load_cb(Arc::new(|path: String| {
+    //     MULTI_MEDIA_RUNTIME
+    //         .spawn(async move {
+    //             if let Ok(dynamic_image) = std::fs::read(path.clone()) {
+    //                 on_load(path.as_str(), dynamic_image);
+    //             } else {
+    //                 log::warn!("not find image,path: {:?}", path);
+    //             }
+    //         })
+    //         .unwrap();
+    // }));
 
 	#[cfg(target_arch = "wasm32")]
     init_load_cb(Arc::new(|path: String| {
@@ -108,8 +185,6 @@ pub fn start<T: Example + Sync + Send + 'static>(example: T) {
 
     #[cfg(feature = "debug")]
     let record_option = example.record_option();
-	#[cfg(feature = "debug")]
-	let play_option = example.play_option();
 	let font_type = example.font_type();
     let exmple = Share::new(ShareMutex::new(example));
     let exmple1 = exmple.clone();
@@ -480,7 +555,7 @@ pub fn setting_next_record(world: &mut World, mut local_state: Local<NextState>)
 
 #[cfg(feature = "debug")]
 fn setting(file_index1: &mut usize, world: &mut World, is_end: &mut bool, play_option: &PlayOption) {
-    use std::path::Path;
+    use std::mem::transmute;
 
     let mut file_index = *file_index1;
     let play_state = world.get_single_res::<PlayState>();
@@ -488,7 +563,8 @@ fn setting(file_index1: &mut usize, world: &mut World, is_end: &mut bool, play_o
         if r.is_running {
             return;
         } else {
-            let path = Path::new(play_option.cmd_path.as_str()).join(("cmd_".to_string() + play_option.play_version.as_str() + "_" + file_index.to_string().as_str() + ".gui_cmd").as_str());
+            let path = play_option.cmd_path.clone() + "/cmd_" + play_option.play_version.as_str() + "_" + file_index.to_string().as_str() + ".gui_cmd";
+            // let path = Path::new(play_option.cmd_path.as_str()).join(("cmd_".to_string() + play_option.play_version.as_str() + "_" + file_index.to_string().as_str() + ".gui_cmd").as_str());
             if file_index > play_option.max_index {
                 if !*is_end {
                     log::warn!("play end, {:?}", path);
@@ -497,38 +573,47 @@ fn setting(file_index1: &mut usize, world: &mut World, is_end: &mut bool, play_o
                 *is_end = true;
                 return;
             }
-            // let _span = tracing::warn_span!("gui_cmd").entered();
-            match std::fs::read(path.clone()) {
-                Ok(bin) => {
-                    match postcard::from_bytes::<Records>(&bin) {
-                        Ok(r) => {
-                            // log::warn!("r================{:?}", r);
-                            world.insert_single_res(r);
-                            // 重设播放状态
-                            let play_state = world.get_single_res_mut::<PlayState>().unwrap();
-                            play_state.is_running = true;
-                            play_state.next_reord_index = 0;
-                            play_state.next_state_index = 0;
-                            play_state.cur_frame_count = 0;
-                            play_state.speed = play_option.speed;
+            let world: &'static mut World = unsafe {transmute(world)};
+            let file_index1: &'static mut usize = unsafe {transmute(file_index1)}; 
+            let is_end: &'static mut bool = unsafe {transmute(is_end)}; 
+            let speed = play_option.speed;
+            let path1 = path.clone();
+
+            use pi_async_rt::prelude::AsyncRuntimeExt;
+            let _ = pi_hal::runtime::MULTI_MEDIA_RUNTIME.block_on(async move {
+                match pi_hal::file::load_from_url(&pi_atom::Atom::from(path)).await {
+                    Ok(bin) => {
+                        match postcard::from_bytes::<Records>(&bin) {
+                            Ok(r) => {
+                                // log::debug!("cmd!!!!!!!!!================{:?}", r.len());
+                                world.insert_single_res(r);
+                                // 重设播放状态
+                                let play_state = world.get_single_res_mut::<PlayState>().unwrap();
+                                play_state.is_running = true;
+                                play_state.next_reord_index = 0;
+                                play_state.next_state_index = 0;
+                                play_state.cur_frame_count = 0;
+                                play_state.speed = speed;
+                            }
+                            Err(e) => {
+                                *is_end = true;
+                                log::warn!("parse fail================{:?}, {:?}", e, bin.len());
+                            }
                         }
-                        Err(e) => {
-                            *is_end = true;
-                            log::warn!("parse fail================{:?}, {:?}", e, bin.len());
+                        file_index += 1;
+                        *file_index1 = file_index;
+                    }
+                    Err(_e) => {
+                        if !*is_end {
+                            log::warn!("play end, {:?}", path1);
+                            // world.insert_single_res(IsRun(true)); // 屏蔽所有节点运行
                         }
+                        *is_end = true;
+                        return;
                     }
-                    file_index += 1;
-                    *file_index1 = file_index;
                 }
-                Err(_) => {
-                    if !*is_end {
-                        log::warn!("play end, {:?}", path);
-						// world.insert_single_res(IsRun(true)); // 屏蔽所有节点运行
-                    }
-                    *is_end = true;
-                    return;
-                }
-            };
+            });
+            
         }
     }
     return;
@@ -558,9 +643,9 @@ impl DerefMut for Param<'_> {
 }
 
 impl Param<'_> {
-    pub fn spawn(&mut self) -> Entity {
+    pub fn spawn(&mut self, tag: NodeTag) -> Entity {
         let r = self.insert.insert(());
-        self.user_cmd.init_node(r, NodeTag::Div);
+        self.user_cmd.init_node(r, tag);
         #[cfg(feature = "debug")]
         {
             self.creates.0.push(r);
@@ -570,9 +655,11 @@ impl Param<'_> {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct PlayOption {
 	pub play_path: Option<String>,
+    pub play_url: Option<String>,
+    pub play_way: String, // "path" or "url"
 	pub play_version: String,
 	pub cmd_path: String,
     pub max_index: usize,

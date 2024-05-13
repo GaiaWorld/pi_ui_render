@@ -5,7 +5,7 @@ use std::ptr::read_unaligned;
 use std::{collections::VecDeque, fmt::Debug};
 
 // use pi_world::event::Event;
-use pi_world::prelude::{Entity, Alter, Query, SystemParam, ParamSetElement, Component};
+use pi_world::prelude::{Entity, Component};
 use bitvec::prelude::BitArray;
 use pi_ui_render_macros::enum_type;
 use ordered_float::NotNan;
@@ -823,7 +823,7 @@ pub mod serialize {
                 f(&mut *component, v);
             }
             _ => {
-                log::error!("set style fail, component is not exist: {:?}", (v, std::any::type_name::<C>()));
+                log::error!("set style fail, component is not exist: {:?}", (entity, v, component_id, std::any::type_name::<C>()));
                 // let default_value = world.get_resource_by_id(default_component_id).unwrap();
                 // let mut r = unsafe { default_value.deref::<DefaultComponent<C>>() }.0.clone();
                 // let default_value = if let Some(default_value) = world.get_single_res::<C>() {

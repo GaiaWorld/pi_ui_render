@@ -19,6 +19,7 @@ use pi_ui_render::{
     },
     resource::{NodeCmd, UserCommands},
 };
+use pi_ui_render::resource::fragment::NodeTag;
 
 fn main() { framework::start(QuadExample::default()) }
 use pi_style::{
@@ -44,7 +45,7 @@ impl Example for QuadExample {
         new_face_by_path("hwkt".to_string(), "examples/text/source/SOURCEHANSANSK-MEDIUM.TTF");
 
         // 添加根节点
-        let root = world.spawn();
+        let root = world.spawn(NodeTag::Div);
         self.root = EntityKey(root);
         self.cmd.push_cmd(NodeCmd(ClearColor(CgColor::new(1.0, 1.0, 1.0, 1.0), true), root));
         self.cmd.push_cmd(NodeCmd(
@@ -68,7 +69,7 @@ impl Example for QuadExample {
         self.cmd.append(root, EntityKey::null().0);
 
         // 添加一个红色div
-        let div1 = world.spawn();
+        let div1 = world.spawn(NodeTag::Div);
         self.cmd.set_style(div1, WidthType(Dimension::Points(50.0)));
         self.cmd.set_style(div1, HeightType(Dimension::Points(100.0)));
         self.cmd.set_style(div1, PositionTopType(Dimension::Points(20.0)));
@@ -85,7 +86,7 @@ impl Example for QuadExample {
         // 	color: CgColor::new(1.0, 0.0, 0.0, 1.0)}));
         self.cmd.append(div1, root);
 
-        let div2 = world.spawn();
+        let div2 = world.spawn(NodeTag::Div);
         self.cmd.set_style(div2, WidthType(Dimension::Points(50.0)));
         self.cmd.set_style(div2, HeightType(Dimension::Points(100.0)));
         self.cmd
@@ -98,7 +99,7 @@ impl Example for QuadExample {
         // 	color: CgColor::new(1.0, 0.0, 0.0, 1.0)}));
         self.cmd.append(div2, root);
 
-		let div3 = world.spawn();
+		let div3 = world.spawn(NodeTag::Div);
         self.cmd.set_style(div3, WidthType(Dimension::Points(150.0)));
         self.cmd.set_style(div3, HeightType(Dimension::Points(100.0)));
 		self.cmd.set_style(div3, PositionTopType(Dimension::Points(200.0)));
@@ -111,7 +112,7 @@ impl Example for QuadExample {
         self.cmd.set_style(div3, FontSizeType(FontSize::Length(17)));
         self.cmd.append(div3, root);
 
-		let div4 = world.spawn();
+		let div4 = world.spawn(NodeTag::Div);
         self.cmd.set_style(div4, WidthType(Dimension::Points(250.0)));
         self.cmd.set_style(div4, HeightType(Dimension::Points(100.0)));
 		self.cmd.set_style(div4, PositionTopType(Dimension::Points(250.0)));
@@ -125,7 +126,7 @@ impl Example for QuadExample {
         self.cmd.append(div4, root);
 
 
-		let div4 = world.spawn();
+		let div4 = world.spawn(NodeTag::Div);
         self.cmd.set_style(div4, WidthType(Dimension::Points(250.0)));
         self.cmd.set_style(div4, HeightType(Dimension::Points(100.0)));
 		self.cmd.set_style(div4, PositionTopType(Dimension::Points(250.0)));

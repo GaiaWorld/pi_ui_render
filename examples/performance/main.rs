@@ -47,7 +47,7 @@
 //         // gui.gui.world_mut().insert_single_res(ClearColor(CgColor::new(0.0, 1.0, 1.0, 1.0)));
 // 		self.entitys = Some(unsafe { transmute( world.entities_mut() ) });
 //         // 添加根节点
-//         let root = world.spawn();
+//         let root = world.spawn(NodeTag::Div);
 // 		self.cmd.init_node(root, NodeTag::Div);
 //         self.cmd.push_cmd(NodeCmd(ClearColor(CgColor::new(1.0, 1.0, 1.0, 1.0), true), root));
 //         self.cmd.push_cmd(NodeCmd(
@@ -72,7 +72,7 @@
 // 		let mut index = 0;
 // 		let mut offset = 0.0;
 // 		for _ in 0..48 {
-// 			let div1 = world.spawn();
+// 			let div1 = world.spawn(NodeTag::Div);
 // 			self.cmd.set_style(div1, WidthType(Dimension::Points(size.0 as f32)));
 // 			self.cmd.set_style(div1, HeightType(Dimension::Points(size.1 as f32)));
 // 			self.cmd.set_style(div1, PositionTypeType(PositionType::Absolute));
@@ -91,7 +91,7 @@
 // 			offset += 3.0;
 
 // 			for i in 0..2500 {
-// 				let div2 = world.spawn();
+// 				let div2 = world.spawn(NodeTag::Div);
 // 				self.cmd.set_style(div2, WidthType(Dimension::Points(9.0)));
 // 				self.cmd.set_style(div2, HeightType(Dimension::Points(9.0)));
 // 				self.cmd.set_style(div2, MarginLeftType(Dimension::Points(1.0)));

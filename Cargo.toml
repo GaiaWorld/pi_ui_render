@@ -128,7 +128,7 @@ pi_ui_render_macros = {path = "./macros"}
 # flume = "0.10"
 
 [dev-dependencies]
-
+pi_async_httpc = "0.5"
 # tracy-client-sys = "=0.22.0"
 # tracy-client = "=0.16.4"
 tracing-tracy = {version = "0.11", features = ["flush-on-exit"]}
@@ -266,7 +266,7 @@ pi_world_macros = { path = "../pi_world/macros" }
 
 # pi_key_alloter = {path = "../pi_key_alloter"}
 
-# pi_slotmap_tree = { path = "../pi_slotmap_tree" }
+pi_slotmap_tree = { path = "../pi_slotmap_tree" }
 # pi_map = { path = "../pi_map" }
 # pi_flex_layout = { path = "../pi_flex_layout" }
 # pi_dirty={path = "../pi_dirty" }

@@ -73,10 +73,17 @@ pub fn cmd_record(
 		}
     }
 
+    let mut node_init_commands = Vec::new();
     let mut ss = Vec::with_capacity(user_commands.style_commands.commands.len());
     for s in user_commands.style_commands.commands.iter() {
         to_attr(s.0, s.1, s.2, &user_commands.style_commands.style_buffer, &mut ss);
+        if let Some(tag) = s.3 {
+            node_init_commands.push((s.0, tag));
+        }
     }
+
+    
+    
 
     let frame_index = records.cur_frame_count;
     if ss.len() == 0
@@ -93,7 +100,7 @@ pub fn cmd_record(
             frame_index,
             state: **run_state,
             node_commands: user_commands.node_commands.clone(),
-			// node_init_commands: user_commands.node_init_commands.clone(),
+			node_init_commands: node_init_commands,
             fragment_commands: user_commands.fragment_commands.clone(),
             style_commands: ss,
             class_commands: user_commands.class_commands.clone(),
@@ -394,16 +401,18 @@ pub fn cmd_play(
         });
     }
 
-    let mut is_init = None;
+    for (entity, tag) in r.node_init_commands.iter() {
+        let start = cmds.style_commands.style_buffer.len();
+        cmds.style_commands
+        .commands
+        .push((play_state.get_node(&entity).unwrap(), start, start, Some(*tag)));
+    }
+
     for s in r.style_commands.iter() {
-        if s.is_init.is_some() {
-            is_init = s.is_init.clone();
-        }
         let class_mate = style_attr_list_to_buffer(&mut cmds.style_commands.style_buffer, &mut s.values.clone(), s.values.len());
         cmds.style_commands
             .commands
-            .push((play_state.get_node(&s.entity).unwrap(), class_mate.start, class_mate.end, is_init));
-        is_init = None;
+            .push((play_state.get_node(&s.entity).unwrap(), class_mate.start, class_mate.end, None));
     }
     // log::info!("style_commands============{:?}", &cmds.style_commands.commands);
     // log::info!("node_commands============{:?}", &cmds.node_commands);
@@ -417,7 +426,6 @@ pub fn cmd_play(
 pub struct StyleCmd {
     pub entity: Entity,
     pub values: VecDeque<StyleAttribute>,
-    pub is_init: Option<NodeTag>,
 }
 
 
@@ -429,7 +437,7 @@ pub fn to_attr(node: Entity, start: usize, end: usize, style_buffer: &Vec<u8>, l
     }
 
     if v.len() > 0 {
-        list.push(StyleCmd { entity: node, values: v, is_init: None});
+        list.push(StyleCmd { entity: node, values: v});
     }
 }
 
@@ -442,7 +450,7 @@ pub struct Record {
     pub frame_index: usize, // 所在帧位置
     pub state: RunState,
     pub node_commands: Vec<NodeCommand>,
-	// pub node_init_commands: Vec<(Entity, NodeTag)>,
+	pub node_init_commands: Vec<(Entity, NodeTag)>,
     pub fragment_commands: Vec<FragmentCommand>,
     pub style_commands: Vec<StyleCmd>,
     pub class_commands: Vec<(Entity, ClassName)>,

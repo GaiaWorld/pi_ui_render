@@ -17,6 +17,7 @@ use pi_ui_render::{
     },
     resource::{NodeCmd, UserCommands},
 };
+use pi_ui_render::resource::fragment::NodeTag;
 
 fn main() { framework::start(QuadExample::default()) }
 use pi_style::{
@@ -41,7 +42,7 @@ impl Example for QuadExample {
         new_face_by_path("hwkt".to_string(), "examples/text/source/SOURCEHANSANSK-MEDIUM.TTF");
 
         // 添加根节点
-        let root = world.spawn();
+        let root = world.spawn(NodeTag::Div);
         self.root = EntityKey(root);
         self.cmd.push_cmd(NodeCmd(ClearColor(CgColor::new(1.0, 1.0, 1.0, 1.0), true), root));
         self.cmd.push_cmd(NodeCmd(
@@ -64,7 +65,7 @@ impl Example for QuadExample {
 
 
         // 添加div, 设置圆形裁剪
-        let div1 = world.spawn();
+        let div1 = world.spawn(NodeTag::Div);
         self.cmd.set_style(div1, WidthType(Dimension::Points(50.0)));
         self.cmd.set_style(div1, HeightType(Dimension::Points(100.0)));
         self.cmd
@@ -83,7 +84,7 @@ impl Example for QuadExample {
 
 
         // 添加div, 设置圆角裁剪
-        let div2 = world.spawn();
+        let div2 = world.spawn(NodeTag::Div);
         self.cmd.set_style(div2, WidthType(Dimension::Points(50.0)));
         self.cmd.set_style(div2, HeightType(Dimension::Points(100.0)));
         self.cmd
@@ -116,7 +117,7 @@ impl Example for QuadExample {
         self.cmd.append(div2, root);
 
         // 添加div, 设置矩形裁剪
-        let div3 = world.spawn();
+        let div3 = world.spawn(NodeTag::Div);
         self.cmd.set_style(div3, WidthType(Dimension::Points(50.0)));
         self.cmd.set_style(div3, HeightType(Dimension::Points(100.0)));
         self.cmd
@@ -149,7 +150,7 @@ impl Example for QuadExample {
         self.cmd.append(div3, root);
 
         // 添加div, 设置椭圆裁剪
-        let div3 = world.spawn();
+        let div3 = world.spawn(NodeTag::Div);
         self.cmd.set_style(div3, WidthType(Dimension::Points(50.0)));
         self.cmd.set_style(div3, HeightType(Dimension::Points(100.0)));
         self.cmd
@@ -168,7 +169,7 @@ impl Example for QuadExample {
         self.cmd.append(div3, root);
 
         // 添加div, 设置椭圆裁剪
-        let div3 = world.spawn();
+        let div3 = world.spawn(NodeTag::Div);
         self.cmd.set_style(div3, WidthType(Dimension::Points(100.0)));
         self.cmd.set_style(div3, HeightType(Dimension::Points(100.0)));
         self.cmd
@@ -187,7 +188,7 @@ impl Example for QuadExample {
         self.cmd.append(div3, root);
 
         // 添加div, 设置扇形裁剪
-        let div3 = world.spawn();
+        let div3 = world.spawn(NodeTag::Div);
         self.cmd.set_style(div3, WidthType(Dimension::Points(50.0)));
         self.cmd.set_style(div3, HeightType(Dimension::Points(100.0)));
         self.cmd

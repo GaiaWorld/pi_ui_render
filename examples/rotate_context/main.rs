@@ -25,6 +25,7 @@ use pi_ui_render::{
     },
     resource::{NodeCmd, UserCommands},
 };
+use pi_ui_render::resource::fragment::NodeTag;
 
 fn main() { framework::start(QuadExample::default()) }
 
@@ -48,7 +49,7 @@ impl Example for QuadExample {
         // 设置清屏颜色为绿色
         // gui.gui.world_mut().insert_single_res(ClearColor(CgColor::new(0.0, 1.0, 1.0, 1.0)));
         // 添加根节点
-        let root = world.spawn();
+        let root = world.spawn(NodeTag::Div);
         self.cmd.push_cmd(NodeCmd(ClearColor(CgColor::new(1.0, 0.0, 0.0, 1.0), true), root));
         self.cmd.push_cmd(NodeCmd(
             Viewport(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(size.0 as f32, size.1 as f32))),
@@ -67,7 +68,7 @@ impl Example for QuadExample {
         self.cmd.append(root, EntityKey::null().0);
 
 
-        let div2 = world.spawn();
+        let div2 = world.spawn(NodeTag::Div);
         self.cmd.set_style(div2, WidthType(Dimension::Points(100.0)));
         self.cmd.set_style(div2, HeightType(Dimension::Points(200.0)));
         self.cmd.set_style(div2, PositionTypeType(PositionType::Absolute));
@@ -75,7 +76,7 @@ impl Example for QuadExample {
         self.cmd.set_style(div2, PositionTopType(Dimension::Points(50.0)));
         self.cmd.append(div2, root);
 
-        let div3 = world.spawn();
+        let div3 = world.spawn(NodeTag::Div);
         self.cmd.set_style(div3, WidthType(Dimension::Points(61.0)));
         self.cmd.set_style(div3, HeightType(Dimension::Points(116.0)));
         self.cmd.set_style(div3, PositionTypeType(PositionType::Absolute));
@@ -92,7 +93,7 @@ impl Example for QuadExample {
         self.cmd.set_style(div3, OpacityType(0.99));
         self.cmd.append(div3, div2);
 
-        let div3 = world.spawn();
+        let div3 = world.spawn(NodeTag::Div);
         self.cmd.set_style(div3, WidthType(Dimension::Points(61.0)));
         self.cmd.set_style(div3, HeightType(Dimension::Points(116.0)));
         self.cmd.set_style(div3, PositionTypeType(PositionType::Absolute));

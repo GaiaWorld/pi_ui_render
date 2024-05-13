@@ -24,6 +24,7 @@ use pi_ui_render::{
     },
     resource::{ComponentCmd, NodeCmd, UserCommands},
 };
+use pi_ui_render::resource::fragment::NodeTag;
 
 fn main() { framework::start(QuadExample::default()) }
 
@@ -65,7 +66,7 @@ impl Example for QuadExample {
         // self.cmd.world_mut().insert_single_res(ClearColor(CgColor::new(0.0, 1.0, 1.0, 1.0)));
 
         // 添加根节点
-        let root_one = world.spawn();
+        let root_one = world.spawn(NodeTag::Div);
         self.cmd.push_cmd(NodeCmd(ClearColor(CgColor::new(0.0, 0.0, 0.0, 0.0), false), root_one));
         self.cmd.push_cmd(NodeCmd(
             Viewport(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(size.0 as f32, size.1 as f32))),
@@ -84,7 +85,7 @@ impl Example for QuadExample {
         self.cmd.append(root_one, EntityKey::null().0);
 
         // 添加一个红色div到根节点
-        let div1 = world.spawn();
+        let div1 = world.spawn(NodeTag::Div);
         self.cmd.set_style(div1, WidthType(Dimension::Points(100.0)));
         self.cmd.set_style(div1, HeightType(Dimension::Points(100.0)));
         self.cmd
@@ -94,7 +95,7 @@ impl Example for QuadExample {
         self.root_one = EntityKey(root_one);
 
         // 添加根节点
-        let root_tow = world.spawn();
+        let root_tow = world.spawn(NodeTag::Div);
         self.cmd.push_cmd(NodeCmd(ClearColor(CgColor::new(0.0, 0.0, 0.0, 0.0), true), root_tow));
         self.cmd
             .push_cmd(NodeCmd(Viewport(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(200.0, 200.0))), root_tow));
@@ -112,7 +113,7 @@ impl Example for QuadExample {
         self.cmd.append(root_tow, EntityKey::null().0);
 
         // 添加一个绿色div到根节点
-        let div1 = world.spawn();
+        let div1 = world.spawn(NodeTag::Div);
         self.cmd.set_style(div1, WidthType(Dimension::Points(200.0)));
         self.cmd.set_style(div1, HeightType(Dimension::Points(200.0)));
         self.cmd
@@ -124,7 +125,7 @@ impl Example for QuadExample {
 
         // 创建一个canvas节点
         // 将200 * 200的gui渲染到300*300的canvas上
-        let canvas = world.spawn();
+        let canvas = world.spawn(NodeTag::Div);
         self.cmd.set_style(canvas, PositionTypeType(PositionType::Absolute));
         self.cmd.set_style(canvas, WidthType(Dimension::Points(300.0)));
         self.cmd.set_style(canvas, HeightType(Dimension::Points(300.0)));

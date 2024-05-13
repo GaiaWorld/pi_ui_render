@@ -5,7 +5,7 @@
 //! 4. 为pass2D创建对应的图节点，并添加依赖关系
 //! 5. 为删除的pass2D删除图节点，并建立正确的依赖关系
 
-use pi_world::prelude::{Changed, ParamSet, SingleRes, Mut, Query, Entity, Ticker};
+use pi_world::{prelude::{Changed, Entity, Mut, ParamSet, Query, SingleRes, Ticker}, single_res::SingleResMut};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleRes, Layer};
 
 use pi_render::renderer::draw_obj::DrawBindGroup;
@@ -66,7 +66,7 @@ pub fn calc_camera_depth_and_renderlist(
     // mut query_root: ParamSet<(Query<(&RootDirtyRect, OrDefault<RenderDirty>, Ref<Viewport>)>, Query<&mut RenderDirty>)>,
     query_root: Query<Ticker<&Viewport>>,
     font_sheet: SingleRes<ShareFontSheet>,
-	instance_context: SingleRes<InstanceContext>,
+	instance_context: SingleResMut<InstanceContext>,
 	r: OrInitSingleRes<IsRun>
 ) {
 	if r.0 {

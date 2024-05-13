@@ -52,11 +52,24 @@ impl Example for ExampleCommonPlay {
         // ttf.push("examples/a_cmd_play/source/SOURCEHANSANSK-MEDIUM.TTF");
         // log::warn!("font========ttf={:?}， PLAY_PATH={:?}", ttf, &r.play_path);
         // // 设置默认字体
-        // new_face_by_path("default".to_string(), ttf.to_str().unwrap());
+        // new_facer_by_path("default".to_string(), ttf.to_str().unwrap());
 
-        if let Some(r) = &r.play_path {
-            std::env::set_current_dir(r).unwrap();
-        }
+        // match (&r.play_path, &r.play_url, r.play_way.as_str()) {
+        //     (Some(r), _, "play") => {
+        //         std::env::set_current_dir(r).unwrap();
+        //     },
+        //     _ => {
+
+        //     }
+        // }
+        // if r.play_way.as_str() == "path" {
+        //     if let Some(r) = &r.play_path {
+        //         std::env::set_current_dir(r).unwrap();
+        //     }
+        // } else if r.play_way.as_str() == "url" {
+
+        // }
+        
 
         // let _dir = std::env::current_dir().unwrap();
         
@@ -73,9 +86,11 @@ impl Example for ExampleCommonPlay {
 		let mut option = framework::PlayOption {
 			play_path: None,
 			play_version: "".to_string(),
-    		cmd_path: self.current_dir.join("examples/a_cmd_play/source/cmds").to_string_lossy().to_string(),
+    		cmd_path: "".to_string(),
             max_index: std::usize::MAX,
             speed: 1.0,
+            play_url: None,
+            play_way: "path".to_string(),
 		};
 
 		if let Ok(config) = std::fs::read_to_string(self.current_dir.join("examples/a_cmd_play/source/run_config.txt")) {
@@ -86,6 +101,10 @@ impl Example for ExampleCommonPlay {
 					let key = key.trim();
 					if key == "play_path" {
 						option.play_path = Some(value.trim().to_string());
+					} else if key == "play_url" {
+						option.play_url = Some(value.trim().to_string());
+					} else if key == "play_way" {
+						option.play_way = value.trim().to_string();
 					} else if key == "play_version" {
 						option.play_version = value.trim().to_string();
 					} else if key == "cmd_path" {
@@ -98,6 +117,14 @@ impl Example for ExampleCommonPlay {
 				}
 			}
 		};
+
+        if option.play_way.as_str() == "url" {
+            option.cmd_path = "gui_cmd".to_string();
+        } else if option.play_way.as_str() == "path" {
+            option.cmd_path = self.current_dir.join("examples/a_cmd_play/source/cmds").to_string_lossy().to_string(); 
+        }
+
+        
 		println!("play_option==={:?}", option);
 		Some(option)
 	}
