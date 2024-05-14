@@ -32,12 +32,12 @@ impl Plugin for BorderColorPlugin {
 				{ BORDER_COLOR_ORDER },
 			>
 				.in_set(UiSystemSet::LifeDrawObject)
-				// .before(calc_border_color),
+				.before(calc_border_color),
 		)
 		.add_system(
 			UiStage, 
 			calc_border_color
-				// .after(super::super::node::world_matrix::cal_matrix)
+				.after(super::super::node::world_matrix::cal_matrix)
 				.in_set(UiSystemSet::PrepareDrawObj)
 		);
     }

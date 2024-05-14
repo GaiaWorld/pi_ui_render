@@ -30,12 +30,12 @@ impl Plugin for BoxShadowPlugin {
 				{ BOX_SHADOW_ORDER },
 			>
 				.in_set(UiSystemSet::LifeDrawObject)
-				// .before(calc_box_shadow),
+				.before(calc_box_shadow),
 		)
 		.add_system(
 			UiStage, 
 			calc_box_shadow
-				// .after(super::super::node::layout::calc_layout)
+				.after(super::super::node::layout::calc_layout)
 				.in_set(UiSystemSet::PrepareDrawObj)
 		);
     }

@@ -86,16 +86,15 @@ pub fn draw_object_life_new<
 	// let mut spawn_list = Vec::new();
     // 收集需要创建DrawObject的实体
     // count2 += 1;
-	println!("aaaa============{:?}", std::any::type_name::<Src>());
-	for (src, node) in query_meterial.p2().iter_mut() {
-		println!("cccc============{:?}", std::any::type_name::<Src>());
-	}
+	// println!("aaaa============{:?}", std::any::type_name::<Src>());
+	// for (src, node) in query_meterial.p2().iter_mut() {
+	// 	println!("cccc============{:?}", std::any::type_name::<Src>());
+	// }
 
 	// if std::any::type_name::<Src>() == std::any::type_name::<BackgroundColor>() {
 	// 	panic!("aaaaaaa=======");
 	// }
 	for (src, mut draw_list, node) in query_meterial.p0().iter_mut() {
-		println!("bbbb============{:?}", std::any::type_name::<Src>());
 		// 不存在，才需要创建DrawObject
 		match draw_list.get_one(render_type) {
 			None => {
@@ -110,12 +109,13 @@ pub fn draw_object_life_new<
 				} else {
 					insert.insert((bundle, ))
 				};
+
 				node_is_changed = true;
 				
 				// spawn_list.push(id);
 				log::debug!(target: format!("entity_{:?}", node).as_str(), "create RenderObj {:?} for {} changed, ", &id, std::any::type_name::<Src>());
 				draw_list.push(render_type, id);
-				log::debug!("create drawobj=================draw={:?}, node={:?}, ty={:?}", id, node, std::any::type_name::<Src>());
+				log::error!("create drawobj=================draw={:?}, node={:?}, ty={:?}", id, node, std::any::type_name::<Src>());
 			},
 			
 			Some(r) => if let Some(InstanceSplit::ByTexture(t)) = src.get_split() {
@@ -169,11 +169,12 @@ pub fn update_render_instance_data(
 	query_root1: Query<(Entity, OrDefault<RenderTargetType>, &PostProcessInfo, &IsShow, &Layer), With<Root>>, // 只有gui的Root才会有Size
 	mut catche_buffer: OrInitSingleResMut<RenderInstances1>,
 ) {
-	// log::trace!("life========================node_change={:?}, node_zindex_change={:?}, pass2d_change={:?}, node_display_change={:?}", events.0.len(), events.1.len(), events.2.len(), events.3.len());
+	
 	// 如果没有实体创建， 也没有实体删除， zindex也没改变，山下文结构也没改变， 则不需要更新实例数据
-	if node_change.0 {
+	if !node_change.0 {
 		return;
 	}
+	log::trace!("life========================node_change={:?}", *node_change);
 	node_change.0 = false;
 	
 	let catche_buffer = &mut *catche_buffer;
@@ -181,7 +182,7 @@ pub fn update_render_instance_data(
 	let p1 = pass_query.p1();
 	// 否则，先迭代所有的drawObj,如果drawobj可见,
 	for (parent_pass_id, in_pass_id, draw_list, z_range, is_show, id, layer) in node_query.iter() {
-		// log::debug!("draw info========id={:?}, is_display={:?}, has_draw2d_list={:?}, in_pass_id={:?}, draw_list={:?}", id, is_show.get_display(), in_pass_id, p1.get_mut(***in_pass_id).is_ok(),draw_list);
+		log::debug!("draw info========id={:?}, is_display={:?}, has_draw2d_list={:?}, in_pass_id={:?}, draw_list={:?}", id, is_show.get_display(), in_pass_id, p1.get_mut(***in_pass_id).is_ok(),draw_list);
 		// // 如果display为false， 则不需要放入渲染列表 TODO
 		// if !is_show.get_display() {
 		// 	continue;

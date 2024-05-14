@@ -15,6 +15,7 @@ use crate::prelude::UiStage;
 
 use crate::shader1::meterial::{RenderFlagType, TyUniform, ImageRepeatUniform, UvUniform};
 use crate::system::draw_obj::set_box;
+use crate::system::node::layout::calc_layout;
 use crate::system::system_set::UiSystemSet;
 use crate::utils::tools::eq_f32;
 use crate::components::user::BackgroundImage;
@@ -30,7 +31,7 @@ impl Plugin for BackgroundImagePlugin {
 			// .add_frame_event::<ComponentEvent<Changed<BackgroundImageTexture>>>()
 			.add_system(UiStage, image_texture_load::image_load::<BackgroundImage, BackgroundImageTexture>.in_set(UiSystemSet::NextSetting))
 			.add_system(UiStage, set_image_default_size.in_set(UiSystemSet::BaseCalc)
-				// .before(calc_layout)
+				.before(calc_layout)
 			)
 			.add_system(UiStage, 
 				life_drawobj::draw_object_life_new::<
@@ -40,11 +41,11 @@ impl Plugin for BackgroundImagePlugin {
 					{ BACKGROUND_IMAGE_ORDER },
 				>
 					.in_set(UiSystemSet::LifeDrawObject)
-					// .after(image_texture_load::image_load::<BackgroundImage, BackgroundImageTexture>),
+					.after(image_texture_load::image_load::<BackgroundImage, BackgroundImageTexture>),
 			)
 			.add_system(UiStage, 
 				calc_background_image
-					// .after(super::super::node::world_matrix::cal_matrix)
+					.after(super::super::node::world_matrix::cal_matrix)
 					.in_set(UiSystemSet::PrepareDrawObj)
 			);
     }

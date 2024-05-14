@@ -35,11 +35,11 @@ impl Plugin for BorderImagePlugin {
 					{ BORDER_IMAGE_ORDER },
 				>
 					.in_set(UiSystemSet::LifeDrawObject)
-					// .after(image_texture_load::image_load::<BorderImage, BorderImageTexture>),
+					.after(image_texture_load::image_load::<BorderImage, BorderImageTexture>),
 			)
 			.add_system(UiStage, 
 				calc_border_image
-					// .after(super::super::node::world_matrix::cal_matrix)
+					.after(super::super::node::world_matrix::cal_matrix)
 					.in_set(UiSystemSet::PrepareDrawObj)
 			);
     }

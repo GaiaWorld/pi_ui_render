@@ -10,7 +10,7 @@ use pi_null::Null;
 
 use crate::{components::{
     calc::{DrawList, IsShow}, draw_obj::InstanceIndex, user::{Enable, Show}
-}, resource::{draw_obj::InstanceContext, NodeChanged}, shader1::meterial::{RenderFlagType, TyUniform}, system::{draw_obj::calc_text::IsRun, system_set::UiSystemSet}};
+}, resource::{draw_obj::InstanceContext, NodeChanged}, shader1::meterial::{RenderFlagType, TyUniform}, system::{draw_obj::{calc_text::IsRun, life_drawobj::update_render_instance_data}, system_set::UiSystemSet}};
 
 use crate::prelude::UiStage;
 pub struct ShowPlugin;
@@ -22,8 +22,8 @@ impl Plugin for ShowPlugin {
 			.add_system(UiStage, calc_show.in_set(UiSystemSet::BaseCalc))
 			.add_system(UiStage, 
 				set_show_data
-					// .after(update_render_instance_data)
-					// .after(UiSystemSet::PrepareDrawObj) // 这里是为了确保与其他设置实例数据的system不并行， 因为设置的数据冲突（TyUniform）
+					.after(update_render_instance_data)
+					.after(UiSystemSet::PrepareDrawObj) // 这里是为了确保与其他设置实例数据的system不并行， 因为设置的数据冲突（TyUniform）
 					.in_set(FrameDataPrepare))
 		;
 	}

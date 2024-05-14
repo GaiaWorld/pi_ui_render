@@ -35,11 +35,13 @@ impl Plugin for TransitionPlugin {
 				// .before(calc_animation)
 			)
 			.add_system(UiStage, transition_1_2.in_set(UiSystemSet::NextSetting)
-				// .after(calc_animation)
+				.after(transition_1_1)
 			)
 			.add_system(UiStage, transition_1_3.in_set(UiSystemSet::NextSetting)
+				.after(transition_1_2)
+				// .after(calc_animation)
 			)
-			.add_system(UiStage, transition_2.in_set(UiSystemSet::NextSetting)
+			.add_system(UiStage, transition_2.in_set(UiSystemSet::NextSetting).after(transition_1_3)
 			)
 			
 		;

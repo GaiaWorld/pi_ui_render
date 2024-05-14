@@ -59,7 +59,7 @@ pub fn cal_context(
 	if r.0 {
 		return;
 	}
-	log::trace!("pass_life========================");
+	// log::trace!("pass_life========================");
     // layer_dirty.clear();
     // let mut pass_2d_init = Vec::new();
     // let mut pass_2d_id_insert = Vec::new();
@@ -67,6 +67,7 @@ pub fn cal_context(
 
     // 如果mark修改，加入层脏
     for (entity, mark, camera) in context_mark1.p0().iter() {
+        log::trace!("pass_life========================{:?}", entity);
         if camera.is_some() && mark.not_any() {
             // 删除pass
             layer_dirty.mark(entity);
@@ -196,6 +197,7 @@ pub fn calc_pass_children_and_clear(
 
     // 找到叶子节点
     for (mut children, entity) in query.p1().iter_mut() {
+        log::warn!("children.len()====={:?}", children.len());
         // if let Ok(mut root_instance) = query_root.get_mut(layer.root()) {
             if children.len() == 0 {
                 instances.temp.0.push(entity);
@@ -221,11 +223,13 @@ pub fn calc_pass_toop_sort(
     if query_mark.len() == 0 {
         return;
     }
+    
 
     let InstanceContext {pass_toop_list,  next_node_with_depend, temp, ..} = &mut *instances;
     // 从叶子节点开始排序
     pass_toop_list.clear();
     next_node_with_depend.clear();
+    log::warn!("calc_pass_toop_sort====={:?}", temp.0.len());
     // for mut root_instance in query_root.iter_mut() {
         // root_instance.pass_toop_list.clear();
         // root_instance.next_node_with_depend.clear();

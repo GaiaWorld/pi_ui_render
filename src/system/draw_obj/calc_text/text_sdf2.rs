@@ -14,9 +14,11 @@ use crate::components::user::{get_size, Point2, TextContent, TextOuterGlow, Text
 use crate::components::user::Color;
 use crate::resource::{NodeChanged, ShareFontSheet, TextRenderObjType};
 use crate::shader1::{InstanceData, GpuBuffer};
-use crate::system::draw_obj::life_drawobj::draw_object_life_new;
+use crate::system::draw_obj::life_drawobj::{draw_object_life_new, update_render_instance_data};
+use crate::system::draw_obj::sdf2_texture_update::update_sdf2_texture;
 use crate::system::draw_obj::set_box;
 use crate::prelude::UiStage;
+use crate::system::node::layout::calc_layout;
 
 use super::text_glyph::text_glyph;
 use super::{IsRun, TEXT_ORDER};
@@ -42,13 +44,13 @@ impl Plugin for Sdf2TextPlugin {
             // .add_frame_event::<ComponentEvent<Changed<TextContent>>>()
             // 文字劈分为字符
             .add_system(UiStage, text_split
-				// .before(calc_layout)
+				.before(calc_layout)
 				.in_set(UiSystemSet::Layout))
             // 字形计算
             .add_system(UiStage, text_glyph
-				// .after(text_split)
+				.after(text_split)
 				.in_set(UiSystemSet::Layout)
-				// .before(update_sdf2_texture)
+				.before(update_sdf2_texture)
 			)
 			// 创建drawobj 
 			.add_system(
@@ -59,7 +61,7 @@ impl Plugin for Sdf2TextPlugin {
 						(TextMark, RenderCount),
 						{ TEXT_ORDER }>
 						.in_set(UiSystemSet::LifeDrawObject)
-						// .before(calc_sdf2_text_len),
+						.before(calc_sdf2_text_len),
 			)
 			// 统计drawobj的实例长度（文字包含多个字符，每个字符一个实例， 并且可能包含多层阴影， 每阴影每字符也需要一个实例）
 			// 由于当前一个文字实例可附带渲染一个阴影，因此最终的实例个数为`text.len() * (shadow.len() > 1? shadow.len() - 1: 1)`个实例
@@ -67,9 +69,9 @@ impl Plugin for Sdf2TextPlugin {
 				UiStage, 
 				calc_sdf2_text_len
 					.in_set(FrameDataPrepare)
-					// .after(UiSystemSet::LifeDrawObjectFlush)
-					// .before(update_render_instance_data)
-					// .after(calc_layout)
+					.after(UiSystemSet::LifeDrawObjectFlush)
+					.before(update_render_instance_data)
+					.after(calc_layout)
 			)
 			// 更新实例数据
 			.add_system(

@@ -448,6 +448,7 @@ pub fn init(width: u32, height: u32, _event_loop: &EventLoop<()>, w: Arc<pi_wini
 		Ok(r) => r,
 		Err(_) => "info,wgpu=warn,naga_warn".to_string(),
 	};
+    println!("filter========={:?}", filter);
 
 	// let level = match std::env::var("RUST_LOG") {
 	// 	Ok(r) => match r.as_str() {

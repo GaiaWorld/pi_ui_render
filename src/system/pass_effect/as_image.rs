@@ -12,11 +12,11 @@ use crate::{
         pass_2d::{CacheTarget, PostProcessInfo},
         user::{AsImage, Overflow},
     },
-    resource::{RenderContextMarkType, draw_obj::TargetCacheMgr},
+    resource::{draw_obj::TargetCacheMgr, RenderContextMarkType},
     system::{
         // node::user_setting::user_setting,
         // pass::{last_update_wgpu::last_update_wgpu, pass_camera::calc_camera_depth_and_renderlist},
-        draw_obj::calc_text::IsRun,
+        draw_obj::calc_text::IsRun, node::user_setting::user_setting2, pass::{last_update_wgpu::last_update_wgpu, pass_camera::calc_camera_depth_and_renderlist},
     },
 };
 use pi_postprocess::prelude::CopyIntensity;
@@ -46,15 +46,15 @@ impl Plugin for UiAsImagePlugin {
         app
             .add_system(UiStage, 
                 pass_life::pass_mark::<AsImage>
-                    // .after(user_setting)
-                    // .before(pass_life::cal_context)
-                    .in_set(FrameDataPrepare),
+                    .after(user_setting2)
+                    .before(pass_life::cal_context)
+                    // .in_set(FrameDataPrepare),
             )
             .add_system(UiStage, 
                 as_image_post_process
-                    // .before(last_update_wgpu)
-                    // .after(calc_camera_depth_and_renderlist)
-                    .in_set(FrameDataPrepare),
+                    .before(last_update_wgpu)
+                    .after(calc_camera_depth_and_renderlist)
+                    // .in_set(FrameDataPrepare),
             );
     }
 }

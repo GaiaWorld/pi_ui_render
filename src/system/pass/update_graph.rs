@@ -11,12 +11,12 @@ use crate::{
         calc::{EntityKey, RenderContextMark},
         pass_2d::{Camera, ChildrenPass, GraphId, ParentPassId, PostProcessInfo},
         user::AsImage,
-    }, resource::{draw_obj::InstanceContext, PassGraphMap}, system::{draw_obj::calc_text::IsRun, pass::pass_graph_node::Pass2DNode}
+    }, resource::{draw_obj::LastGraphNode, PassGraphMap}, system::{draw_obj::calc_text::IsRun, pass::pass_graph_node::Pass2DNode}
 };
 
 // 初始化渲染图的根节点
 pub fn init_root_graph(
-    mut instances: OrInitSingleResMut<InstanceContext>,
+    mut last_graph_id: OrInitSingleResMut<LastGraphNode>,
     mut rg: SingleResMut<PiRenderGraph>,
 	r: OrInitSingleRes<IsRun>
 ) {
@@ -24,9 +24,9 @@ pub fn init_root_graph(
 		return;
 	}
 
-    if instances.last_graph_id.is_null() {
-        instances.last_graph_id = rg.add_node("Pass2DLast".to_string(), Pass2DNode::new(EntityKey::null().0), NodeId::default()).unwrap();
-        if let Err(e) = rg.set_finish(instances.last_graph_id, true) {
+    if last_graph_id.0.is_null() {
+        last_graph_id.0 = rg.add_node("Pass2DLast".to_string(), Pass2DNode::new(EntityKey::null().0), NodeId::default()).unwrap();
+        if let Err(e) = rg.set_finish(last_graph_id.0, true) {
             log::error!("{:?}", e);
         }
     }
@@ -43,7 +43,7 @@ pub fn update_graph(
 			Query<&ChildrenPass>,
 		),
     )>,
-    instances: SingleRes<InstanceContext>,
+    last_graph_id: SingleRes<LastGraphNode>,
     del: Query<(Entity, Has<Camera>), Removed<Camera>>,
     mut rg: SingleResMut<PiRenderGraph>,
 	mut pass_graph_map: OrInitSingleResMut<PassGraphMap>,
@@ -73,7 +73,7 @@ pub fn update_graph(
             };
 
 			if is_root {
-				 rg.add_depend(graph_node_id, instances.last_graph_id).unwrap();
+				 rg.add_depend(graph_node_id, last_graph_id.0).unwrap();
                 
 			}
 			pass_graph_map.insert(graph_node_id, entity);

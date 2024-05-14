@@ -1,6 +1,6 @@
 use pi_world::prelude::IntoSystemConfigs;
 use pi_world::prelude::{App, Plugin, Last, WorldPluginExtent};
-use pi_bevy_render_plugin::FrameDataPrepare;
+use pi_bevy_render_plugin::{FrameDataPrepare, GraphBuild, GraphRun};
 use pi_hal::font::font::FontType;
 use pi_style::style::Aabb2;
 
@@ -9,6 +9,10 @@ use crate::resource::draw_obj::MaxViewSize;
 use crate::shader1::InstanceData;
 use crate::shader1::meterial::{BoxUniform, QuadUniform};
 
+use super::node::{show, z_index};
+use super::pass::last_update_wgpu::last_update_wgpu;
+use super::pass::pass_life;
+use super::pass::update_graph::update_graph;
 use super::system_set::UiSystemSet;
 
 use crate::components::user::Vector4;
@@ -58,18 +62,18 @@ impl Plugin for UiReadyDrawPlugin {
 			// .add_system(Startup, clear_draw_obj::init)// PostStartup, 
             // .init_single_res::<MaxViewSize>()
 			.add_system(UiStage, update_render_instance_data
-				// .after(UiSystemSet::LifeDrawObjectFlush)
-				// .after( UiSystemSet::PassFlush)
-				// .after(z_index::calc_zindex)
-            	// .after(show::calc_show)
-				// .after(update_graph)
-				// .after(pass_life::calc_pass_toop_sort)
-				// .before(UiSystemSet::PrepareDrawObj)
+				.after(UiSystemSet::LifeDrawObjectFlush)
+				.after( UiSystemSet::PassFlush)
+				.after(z_index::calc_zindex)
+            	.after(show::calc_show)
+				.after(update_graph)
+				.after(pass_life::calc_pass_toop_sort)
+				.before(UiSystemSet::PrepareDrawObj)
 				.in_set(FrameDataPrepare))
 			.add_system(Last, batch_instance_data
-				// .before(last_update_wgpu)
-				// .after(GraphBuild)
-				// .before(GraphRun)
+				.before(last_update_wgpu)
+				.after(GraphBuild)
+				.before(GraphRun)
 				.in_set(FrameDataPrepare))
             .add_system(UiStage, root_view_port::calc_dyn_target_type.in_set(UiSystemSet::BaseCalc))
             .add_system(UiStage, pipeline::calc_node_pipeline.in_set(UiSystemSet::PrepareDrawObj))
@@ -77,15 +81,15 @@ impl Plugin for UiReadyDrawPlugin {
 			.add_system(UiStage, 
                 blend_mode::calc_drawobj_blendstate
                     .in_set(FrameDataPrepare)
-                    // .before(UiSystemSet::LifeDrawObjectFlush)
-                    // .after(UiSystemSet::LifeDrawObject),
+                    .before(UiSystemSet::LifeDrawObjectFlush)
+                    .after(UiSystemSet::LifeDrawObject),
             )
 
 			// 圆角
 			.add_system(UiStage, 
                 calc_border_radius::calc_border_radius
                     .in_set(UiSystemSet::PrepareDrawObj)
-                    // .after(UiSystemSet::LifeDrawObject),
+                    .after(UiSystemSet::LifeDrawObject),
             )
 			// 背景图片功能
 			.add_plugins(BackgroundImagePlugin)

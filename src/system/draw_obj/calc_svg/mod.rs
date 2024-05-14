@@ -5,7 +5,7 @@ use crate::{
     components::{
         draw_obj::SvgMark,
         user::{Shape, SvgInnerContent},
-    }, resource::SvgRenderObjType, shader1::meterial::TextShadowColorUniform, system::system_set::UiSystemSet
+    }, resource::SvgRenderObjType, shader1::meterial::TextShadowColorUniform, system::{draw_obj::sdf2_texture_update::update_sdf2_texture, system_set::UiSystemSet}
 };
 use crate::prelude::UiStage;
 
@@ -63,13 +63,13 @@ impl Plugin for SvgPlugin {
         app
             // .add_frame_event::<ComponentEvent<Changed<SvgInnerContent>>>()
             .add_system(UiStage, svg_glyph.in_set(UiSystemSet::Layout)
-                // .before(update_sdf2_texture)
+                .before(update_sdf2_texture)
             )
             // 创建drawobj
             .add_system(
                 UiStage,
                 draw_object_life_new::<SvgInnerContent, SvgRenderObjType, (SvgMark, ), { SVG_ORDER }>.in_set(UiSystemSet::LifeDrawObject)
-                // .after(svg_glyph),
+                .after(svg_glyph),
             )
             // 更新实例数据
             .add_system(UiStage, calc_svg.in_set(UiSystemSet::PrepareDrawObj))

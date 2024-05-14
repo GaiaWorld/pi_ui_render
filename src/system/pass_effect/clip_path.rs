@@ -14,7 +14,7 @@ use crate::{
     system::{
         // node::user_setting::user_setting,
         // pass::{last_update_wgpu::last_update_wgpu, pass_camera::calc_camera_depth_and_renderlist},
-        draw_obj::calc_text::IsRun,
+        draw_obj::calc_text::IsRun, node::user_setting::user_setting2, pass::{last_update_wgpu::last_update_wgpu, pass_camera::calc_camera_depth_and_renderlist},
     },
     utils::tools::cal_border_radius,
 };
@@ -29,19 +29,20 @@ impl Plugin for UiClipPathPlugin {
     fn build(&self, app: &mut App) {
         app.add_system(UiStage, 
             pass_life::pass_mark::<ClipPath>
-                // .after(user_setting)
-                // .before(pass_life::cal_context)
-                .in_set(FrameDataPrepare),
+                .after(user_setting2)
+                .before(pass_life::cal_context)
+                // .in_set(FrameDataPrepare),
         )
         .add_system(UiStage, 
             clip_path_del
-                // .after(user_setting)
-                .in_set(FrameDataPrepare))
+                .after(user_setting2)
+                // .in_set(FrameDataPrepare)
+            )
         .add_system(UiStage, 
             clip_path_post_process
-                // .before(last_update_wgpu)
-                // .after(calc_camera_depth_and_renderlist)
-                .in_set(FrameDataPrepare),
+                .before(last_update_wgpu)
+                .after(calc_camera_depth_and_renderlist)
+                // .in_set(FrameDataPrepare),
         );
     }
 }

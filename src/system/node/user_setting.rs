@@ -175,7 +175,7 @@ pub fn user_setting1(
 
 // 为节点添加依赖父子依赖关系 和 销毁节点
 pub fn user_setting2(
-    mut entitys: Alter<(), Or<(With<Size>, With<DrawInfo>)>, (), ()>,
+    mut entitys: Alter<(Option<&Size>, Option<&DrawInfo>), Or<(With<Size>, With<DrawInfo>)>, (), ()>,
     dirty_list: Query<&DrawList>,
 
     mut user_commands: SingleResMut<UserCommands>,
@@ -184,7 +184,7 @@ pub fn user_setting2(
     fragments: SingleRes<FragmentMap>,
     mut node_changed: OrInitSingleResMut<NodeChanged>,
 ) {
-    println!("user_setting2===");
+    // println!("user_setting2===");
     let mut is_node_change = user_commands.is_node_change;
     // 添加父子关系
     for c in user_commands.fragment_commands.drain(..) {
@@ -222,6 +222,7 @@ pub fn user_setting2(
     for c in user_commands.node_commands.drain(..) {
         match c {
             NodeCommand::AppendNode(node, parent) => {
+                println!("AppendNode====================node： {:?}, parent： {:?}, {:?}", node, parent, entitys.contains(node));
                 if entitys.contains(node) {
 					// if !EntityKey( parent ).is_null() && draw_list.get(node).is_err() {
 					// 	log::warn!("AppendNode parent error============={:?}, {:?}", parent, unsafe{transmute::<_, f64>(parent.to_bits())});
@@ -469,7 +470,7 @@ fn set_class<'w, 's>(node: Entity, style_query: &mut Setting, class: ClassName, 
     };
 }
 
-fn delete_draw_list(id: Entity, draw_list: &Query<&DrawList>, entitys: &mut Alter<(), Or<(With<Size>, With<DrawInfo>)>, (), ()>) {
+fn delete_draw_list(id: Entity, draw_list: &Query<&DrawList>, entitys: &mut Alter<(Option<&Size>, Option<&DrawInfo>), Or<(With<Size>, With<DrawInfo>)>, (), ()>) {
     let _ = entitys.destroy(id);
     log::debug!("deleteNode node====================node：{:?}", id);
     if let Ok(list) = draw_list.get(id) {

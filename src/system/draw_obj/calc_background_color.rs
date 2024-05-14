@@ -30,12 +30,12 @@ impl Plugin for BackgroundColorPlugin {
 				{ BACKGROUND_COLOR_ORDER },
 			>
 				.in_set(UiSystemSet::LifeDrawObject)
-				// .before(calc_background_color),
+				.before(calc_background_color),
 		)
 		.add_system(
 			UiStage, 
 			calc_background_color
-				// .after(super::super::node::world_matrix::cal_matrix)
+				.after(super::super::node::world_matrix::cal_matrix)
 				.in_set(UiSystemSet::PrepareDrawObj)
 		);
     }
@@ -57,12 +57,13 @@ pub fn calc_background_color(
 
 	let render_type = ***render_type;
 	for (world_matrix, background_color, layout, draw_list) in query.iter() {
+		
 		let draw_id = match draw_list.get_one(render_type) {
 			Some(r) => r.id,
 			None => continue,
 		};
 		// log::warn!("color1==========={:?}", (id, &background_color, query_draw.get_mut(Entity::from_raw(24))));
-		
+		log::warn!("color==========={:?}", (&background_color, query_draw.get(draw_id)));
 		if let Ok(instance_index) = query_draw.get_mut(draw_id) {
 			// 节点可能设置为dispaly none， 此时instance_index可能为Null
 			if pi_null::Null::is_null(&instance_index.0.start) {
@@ -76,7 +77,6 @@ pub fn calc_background_color(
 			match &background_color.0 {
 				Color::RGBA(color) => {
 					// let r1 = query2.get(Entity::from_raw(13));
-					// log::warn!("color==========={:?}", (id, &background_color, query_draw.get_mut(Entity::from_raw(24))));
 					// 颜色改变，重新设置color_group
 					instance_data.set_data(&ColorUniform(&[color.x, color.y, color.z, color.w]));
 	

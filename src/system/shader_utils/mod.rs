@@ -36,6 +36,8 @@ use crate::{
 };
 use crate::prelude::UiStage;
 
+use super::system_set::UiSystemSet;
+
 
 pub struct UiShaderPlugin;
 
@@ -95,8 +97,9 @@ impl Plugin for UiShaderPlugin {
 			// )))
 			// .init_single_res::<UnitQuadBuffer>()
 
-			.add_system(UiStage, screen_target_resize.in_set(FrameDataPrepare)
-                // .before(UiSystemSet::Setting)
+			.add_system(UiStage, screen_target_resize
+                // .in_set(FrameDataPrepare)
+                .before(UiSystemSet::Setting)
             )
 			// .add_startup_system(color::init)
 			// .add_startup_system(image::init)

@@ -24,7 +24,8 @@ impl Plugin for RadialWavePlugin {
             // 标记有RadialWave组件的节点为渲染上下文
             .add_system(UiStage, 
                 pass_life::pass_mark::<RadialWave>
-                    // .before(pass_life::cal_context).in_set(UiSystemSet::PassMark)
+                    .before(pass_life::cal_context)
+                    .in_set(UiSystemSet::PassMark)
             )
             .add_system(UiStage, 
                 radial_wave_post_process

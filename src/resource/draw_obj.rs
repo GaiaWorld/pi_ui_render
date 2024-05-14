@@ -274,6 +274,10 @@ impl BatchTexture {
 	}
 }
 
+// 用于将根节点渲染到屏幕的图节点
+#[derive(Default, Debug)]
+pub struct LastGraphNode(pub NodeId);
+
 pub struct InstanceContext {
 	pub vert: RenderVertices,
 
@@ -312,8 +316,7 @@ pub struct InstanceContext {
     pub rebatch: bool, 
     pub posts: Vec<Entity>, // 渲染元素
 
-    // 用于将根节点渲染到屏幕的图节点
-    pub last_graph_id: NodeId,
+
 
     pub pass_toop_list: Vec<Entity>, //该根下 从叶子开始的广度遍历排序
     pub next_node_with_depend: Vec<usize>,
@@ -571,7 +574,6 @@ impl FromWorld for InstanceContext {
             rebatch: false,
             posts: Vec::new(),
 
-            last_graph_id: NodeId::null(),
             pass_toop_list: Default::default(),
             next_node_with_depend: Default::default(),
             temp: Default::default(),

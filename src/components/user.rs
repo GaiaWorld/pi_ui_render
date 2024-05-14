@@ -110,7 +110,7 @@ impl NeedMark for AsImage {
     }
 }
 
-#[derive(Clone, Default, Deref, Debug, Serialize, Deserialize)]
+#[derive(Clone, Default, Deref, Debug, Serialize, Deserialize, Component)]
 pub struct NodeState(pub INode);
 
 #[derive(Clone, Default, Deref, Debug, Serialize, Deserialize)]
@@ -235,11 +235,11 @@ pub struct BorderRadius(pub BorderRadius1);
 pub struct BorderImageSlice(pi_style::style::BorderImageSlice);
 
 /// 布局大小
-#[derive(Default, Deref, Clone, Serialize, Deserialize, Debug)]
+#[derive(Default, Deref, Clone, Serialize, Deserialize, Debug, Component)]
 pub struct Size(pub FlexSize<Dimension>);
 
 //超出部分的裁剪方式
-#[derive(Deref, Clone, Default, Serialize, Deserialize, Debug)]
+#[derive(Deref, Clone, Default, Serialize, Deserialize, Debug, Component)]
 pub struct Overflow(pub bool);
 
 impl NeedMark for Overflow {
@@ -254,7 +254,7 @@ impl NeedMark for Overflow {
 }
 
 //不透明度
-#[derive(Deref, Clone, Debug, Serialize, Deserialize)]
+#[derive(Deref, Clone, Debug, Serialize, Deserialize, Component)]
 pub struct Opacity(pub f32);
 
 impl NeedMark for Opacity {
@@ -268,18 +268,18 @@ impl NeedMark for Opacity {
     }
 }
 
-#[derive(Deref, Clone, Debug, Serialize, Deserialize, Default)]
+#[derive(Deref, Clone, Debug, Serialize, Deserialize, Default, Component)]
 pub struct TextContent(pub TextContent1);
 
 
-#[derive(Default)]
+#[derive(Default, Component)]
 pub struct SvgInnerContent {
     pub shape: Shape,
     pub style: SvgStyle,
     pub hash: u64,
 }
 
-#[derive(Default)]
+#[derive(Default, Component)]
 pub struct SvgContent {
     pub width: f32,
     pub height: f32,
@@ -289,7 +289,7 @@ pub struct SvgContent {
     pub max_y: f32,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Component)]
 pub struct SvgGradient {
     pub x1: f32,
     pub y1: f32,
@@ -298,7 +298,7 @@ pub struct SvgGradient {
     pub id: Vec<Entity>
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Component)]
 pub struct SvgStop {
     pub offset: f32,
     pub color: CgColor,
@@ -348,7 +348,7 @@ impl Transform {
 pub struct BackgroundColor(pub Color);
 
 // class名称， 支持多个class， 当只有一个或两个class时， 有优化
-#[derive(Debug, Clone, Default, Serialize, Deserialize, Deref)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, Deref, Component)]
 pub struct ClassName(pub SmallVec<[usize; 1]>);
 
 // 边框颜色

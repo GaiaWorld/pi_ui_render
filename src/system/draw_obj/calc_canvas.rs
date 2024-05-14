@@ -12,15 +12,15 @@ use crate::components::draw_obj::{CanvasMark, InstanceIndex, FboInfo};
 use crate::components::pass_2d::ParentPassId;
 use crate::components::user::{Canvas, AsImage};
 use crate::resource::CanvasRenderObjType;
-use crate::resource::draw_obj::InstanceContext;
+use crate::resource::draw_obj::{InstanceContext, LastGraphNode};
 use crate::shader1::meterial::{RenderFlagType, TyUniform};
 use crate::system::draw_obj::set_box;
-use crate::system::pass::update_graph::type_to_post_process;
+use crate::system::pass::update_graph::{type_to_post_process, update_graph};
 use crate::system::system_set::UiSystemSet;
 use crate::prelude::UiStage;
 
 use super::calc_text::IsRun;
-use super::life_drawobj;
+use super::life_drawobj::{self, update_render_instance_data};
 
 
 pub struct CanvasPlugin;
@@ -46,8 +46,8 @@ impl Plugin for CanvasPlugin {
 		.add_system(
 			UiStage, 
 			calc_canvas_graph
-				// .after(update_graph)
-				// .before(update_render_instance_data)
+				.after(update_graph)
+				.before(update_render_instance_data)
 				.in_set(FrameDataPrepare)
 		)
 		;
@@ -104,7 +104,7 @@ pub fn calc_canvas_graph(
 	inpass_query: Query<&ParentPassId>,
 
 	mut rg: SingleResMut<PiRenderGraph>,
-	instances: SingleRes<InstanceContext>,
+	last_graph_id: SingleRes<LastGraphNode>,
 	r: OrInitSingleRes<IsRun>
 ) {
 	if r.0 {
@@ -147,7 +147,7 @@ pub fn calc_canvas_graph(
                             log::error!("add_depend fail, {:?}", e);
                         }
 						// 把canvas节点与根节点相连，在根节点处处理canvas bingroup
-						if let Err(e) = rg.add_depend(id, instances.last_graph_id) {
+						if let Err(e) = rg.add_depend(id, last_graph_id.0) {
                             log::error!("add_depend fail, {:?}", e);
                         }
 

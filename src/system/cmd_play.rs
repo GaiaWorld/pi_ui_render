@@ -8,7 +8,7 @@ use crate::{
         user::{serialize::StyleTypeReader, style_attr_list_to_buffer, ClassName, StyleAttribute},
     },
     prelude::UserCommands,
-    resource::{fragment::NodeTag, CmdType, FragmentCommand, NodeCommand},
+    resource::{fragment::NodeTag, CmdType, FragmentCommand, NodeCommand}, system::node::user_setting,
 };
 
 use pi_world::{insert::Insert, prelude::{App, Entity, IntoSystemConfigs, Plugin}};
@@ -40,13 +40,13 @@ impl Plugin for UiCmdTracePlugin {
             TraceOption::Record => {
                 app.add_system(UiStage, cmd_record
                     .in_set(UiSystemSet::Setting)
-                    // .before(user_setting::user_setting)
+                    .before(user_setting::user_setting2)
                 );
             }
             TraceOption::Play => {
                 app.add_system(UiStage, cmd_play
                     .in_set(UiSystemSet::Setting)
-                    // .before(user_setting::user_setting)
+                    .before(user_setting::user_setting2)
                 );
             }
             TraceOption::None => return,

@@ -13,17 +13,18 @@ use pi_hash::XHashSet;
 use pi_postprocess::image_effect::PostProcessDraw;
 use pi_render::{renderer::draw_obj::DrawObj as DrawState1, rhi::asset::{TextureRes, AssetWithId}, components::view::target_alloc::ShareTargetView};
 use pi_share::Share;
+use pi_world::insert::Component;
 
 use super::{calc::{BorderImageTexture, BackgroundImageTexture}, user::{Canvas, BackgroundColor, BorderColor, BoxShadow, TextContent, SvgContent, SvgInnerContent}};
 pub use super::root::{CopyFboToScreen, DynTargetType};
 
 pub struct DrawObject;
 
-#[derive(Debug, Default, Deref)]
+#[derive(Debug, Default, Deref, Component)]
 pub struct DrawState(DrawState1);
 
 /// 是否使用单位四边形渲染
-#[derive(EnumDefault, PartialEq, Eq, Debug)]
+#[derive(EnumDefault, PartialEq, Eq, Debug, Component)]
 pub enum BoxType {
     /// 渲染为content区，顶点不是单位四边形，世界矩阵需要变换到原点为内容区左上角
     ContentRect,
@@ -82,7 +83,7 @@ pub enum BoxType {
 // #[derive(Clone, Deref, Hash)]
 // pub struct PipelineMeta(pub Share<ProgramMetaInner>);
 
-#[derive(Clone)]
+#[derive(Clone, Component)]
 pub struct PipelineMeta {
     // 类型标记（如文字、图片、颜色等，它们属于不同的类型，用一个数字代表每个不同的类型）
     // 可以通过该类型标记动态地映射到该类型特有的属性值
@@ -106,44 +107,44 @@ impl Hash for PipelineMeta {
 }
 
 // 标记背景颜色 放在DrawObject原型中，可以区分不同类型的DarwObject， 使得系统能够更好的并行
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Component)]
 pub struct BackgroundColorMark;
 
 // 标记BorderShadow 放在DrawObject原型中，可以区分不同类型的DarwObject， 使得系统能够更好的并行
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Component)]
 pub struct BoxShadowMark;
 
 // 标记背景图片 放在DrawObject原型中，可以区分不同类型的DarwObject， 使得系统能够更好的并行
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Component)]
 pub struct BackgroundImageMark;
 
 // 标记文字 放在DrawObject原型中，可以区分不同类型的DarwObject， 使得系统能够更好的并行
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Component)]
 pub struct TextMark;
 
 // 标记文字 放在DrawObject原型中，可以区分不同类型的DarwObject， 使得系统能够更好的并行
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Component)]
 pub struct SvgMark;
 
 // 标记文字阴影 放在DrawObject原型中，可以区分不同类型的DarwObject， 使得系统能够更好的并行
 // TextShadowMark.0表示是第几个Shadow创建的DrawObj
-#[derive(Debug, Default, Deref)]
+#[derive(Debug, Default, Deref, Component)]
 pub struct TextShadowMark(pub usize);
 
 // 标记BorderColor 放在DrawObject原型中，可以区分不同类型的DarwObject， 使得系统能够更好的并行
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Component)]
 pub struct BorderColorMark;
 
 // 标记BorderImage 放在DrawObject原型中，可以区分不同类型的DarwObject， 使得系统能够更好的并行
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Component)]
 pub struct BorderImageMark;
 
 // 标记Canvas 放在DrawObject原型中，可以区分不同类型的DarwObject， 使得系统能够更好的并行
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Component)]
 pub struct CanvasMark;
 
 // 实例索引(当只有一个实例时， InstanceIndex.0.start为该实例的属性， 当存在多个时，在从InstanceIndex.0范围内， 从InstanceIndex.0.start起， 每间隔一个实例长度，就是一个实例数据)
-#[derive(Debug, Clone, Deref)]
+#[derive(Debug, Clone, Deref, Component)]
 pub struct InstanceIndex(pub Range<usize>);
 
 impl Default for InstanceIndex {
@@ -153,7 +154,7 @@ impl Default for InstanceIndex {
 }
 
 // 渲染属性（像文字这类特殊的渲染， 每个字符都是一个实例渲染， 因此一个span可能存在多个渲染实例， 如果不存在该组件， 表示一个渲染实例， 否则用该组件描述渲染实例的数量）
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Component)]
 pub struct RenderCount(pub u32);
 
 impl Default for RenderCount {
@@ -162,7 +163,7 @@ impl Default for RenderCount {
 	}
 }
 
-#[derive(Default)]
+#[derive(Default, Component)]
 pub struct FboInfo {
 	pub fbo: Option<ShareTargetView>, // canvas,后处理杰斯安都会分配fbo， 该fbo在渲染图build阶段产生
 	pub out: Option<ShareTargetView>, // canvas,后处理杰斯安都会分配fbo， 该fbo在渲染图build阶段产生
@@ -178,13 +179,13 @@ pub struct FboInfo {
 /// DrawObj的组件：
 /// 1. 可能是因为存在纹理而劈分
 /// 2. 可能是因为pipeline不同而需要劈分
-#[derive(Debug)]
+#[derive(Debug, Component)]
 pub enum InstanceSplit {
 	ByTexture(Handle<AssetWithId<TextureRes>>),
 	ByCross(bool), // 交叉渲染， 表示该节点的渲染为一个外部系统的渲染， bool表示是否用运行图的方式渲染（如果是false，则为外部渲染为一个fbo，gui内部需要将其作为渲染对象渲染）
 }
 
-#[derive(Debug, Deref)]
+#[derive(Debug, Deref, Component)]
 pub struct Pipeline(pub Share<wgpu::RenderPipeline>);
 
 // DepthUniform

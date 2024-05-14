@@ -67,8 +67,9 @@ pub mod prelude {
             app
             
             // NextSetting在Setting之后运行， Setting用于作用用户指令， NextSetting用于设置加载、动画等派发过程中产生的指令
-            .configure_set(UiStage, UiSystemSet::NextSetting.in_set(FrameDataPrepare)
-                // .after(UiSystemSet::Setting)
+            .configure_set(UiStage, UiSystemSet::NextSetting
+                // .in_set(FrameDataPrepare)
+                .after(UiSystemSet::Setting)
             )
             // 所有其他逻辑SystemSet应该在所有指令完成后运行
             // .configure_set(UiStage, UiSystemSet::Setting.run_if(setting_run))
@@ -79,34 +80,52 @@ pub mod prelude {
             // .configure_set(UiStage, UiSystemSet::Layout.run_if(layout_run).after(UiSystemSet::NextSetting))
             // .configure_set(UiStage, UiSystemSet::Matrix.run_if(matrix_run).after(UiSystemSet::NextSetting))
             
-            .configure_set(UiStage, UiSystemSet::PrepareDrawObj.in_set(FrameDataPrepare)
-                // .after(UiSystemSet::NextSetting)
+            .configure_set(UiStage, UiSystemSet::PrepareDrawObj
+                // .in_set(FrameDataPrepare)
+                .after(UiSystemSet::LifeDrawObjectFlush)
+                .before(UiSystemSet::PassCalc)
             )
-            .configure_set(UiStage, UiSystemSet::BaseCalc.in_set(FrameDataPrepare)
-                // .after(UiSystemSet::NextSetting)
+            .configure_set(UiStage, UiSystemSet::BaseCalc
+                // .in_set(FrameDataPrepare)
+                .after(UiSystemSet::NextSetting)
+                .before(UiSystemSet::BaseCalcFlush)
             )
-            .configure_set(UiStage, UiSystemSet::LifeDrawObject.in_set(FrameDataPrepare)
-                // .after(UiSystemSet::NextSetting)
+            .configure_set(UiStage, UiSystemSet::LifeDrawObject
+                // .in_set(FrameDataPrepare)
+                .after(UiSystemSet::NextSetting)
+                .before(UiSystemSet::LifeDrawObjectFlush)
             )
-            .configure_set(UiStage, UiSystemSet::PassMark.in_set(FrameDataPrepare)
-                // .after(UiSystemSet::NextSetting)
+            .configure_set(UiStage, UiSystemSet::PassMark
+                // .in_set(FrameDataPrepare)
+                .after(UiSystemSet::NextSetting)
+                .before(UiSystemSet::PassLife)
             )
-            .configure_set(UiStage, UiSystemSet::PassFlush.in_set(FrameDataPrepare)
-                // .after(UiSystemSet::NextSetting)
+            .configure_set(UiStage, UiSystemSet::PassFlush
+                // .in_set(FrameDataPrepare)
+                .after(UiSystemSet::NextSetting)
+                .before(UiSystemSet::PassSetting)
             )
-            .configure_set(UiStage, UiSystemSet::PassSetting.in_set(FrameDataPrepare)
-                // .after(UiSystemSet::NextSetting)
+            .configure_set(UiStage, UiSystemSet::PassSetting
+                // .in_set(FrameDataPrepare)
+                .after(UiSystemSet::NextSetting)
+                .before(UiSystemSet::PassCalc)
             )
-            .configure_set(UiStage, UiSystemSet::PassLife.in_set(FrameDataPrepare)
-                // .after(UiSystemSet::NextSetting)
+            .configure_set(UiStage, UiSystemSet::PassLife
+                // .in_set(FrameDataPrepare)
+                .after(UiSystemSet::NextSetting)
+                .before(UiSystemSet::PassFlush)
             )
-            .configure_set(UiStage, UiSystemSet::PassSettingWithParent.in_set(FrameDataPrepare)
-                // .after(UiSystemSet::NextSetting)
+            .configure_set(UiStage, UiSystemSet::PassSettingWithParent
+                // .in_set(FrameDataPrepare)
+                .after(UiSystemSet::NextSetting)
             )
-            .configure_set(UiStage, UiSystemSet::PassCalc.in_set(FrameDataPrepare)
-                // .after(UiSystemSet::NextSetting)
+            .configure_set(UiStage, UiSystemSet::PassCalc
+                // .in_set(FrameDataPrepare)
+                .after(UiSystemSet::NextSetting)
             )
 			
+            .configure_set(UiStage, UiSystemSet::Layout.before(UiSystemSet::Matrix))
+
             // .configure_sets(
 			// 	UiStage, 
             //     (

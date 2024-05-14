@@ -42,17 +42,17 @@ impl Plugin for UiNodePlugin {
 
 			// 维护脏列表
 			.add_system(PostUpdate, clear_dirty_mark.in_set(FrameDataPrepare)
-                // .after(bevy_window::FrameSet)
+                .after(bevy_window::FrameSet)
             )
 			
             // 设置用户指令
             .add_system(UiStage, user_setting::user_setting1.in_set(UiSystemSet::Setting))
-            .add_system(UiStage, user_setting::user_setting2.in_set(UiSystemSet::Setting))
+            .add_system(UiStage, user_setting::user_setting2.in_set(UiSystemSet::Setting).after(user_setting::user_setting1))
 
             // 运行动画
             .add_system(UiStage, animation::calc_animation_1.in_set(UiSystemSet::NextSetting))
-            .add_system(UiStage, animation::calc_animation_2.in_set(UiSystemSet::NextSetting))
-            
+            .add_system(UiStage, animation::calc_animation_2.in_set(UiSystemSet::NextSetting).after(animation::calc_animation_1))
+
              // 计算Transition
 			.add_plugins(TransitionPlugin)
 
@@ -69,7 +69,7 @@ impl Plugin for UiNodePlugin {
         app
             .add_system(UiStage, world_matrix::cal_matrix.in_set(UiSystemSet::Matrix))
             .add_system(UiStage, content_box::calc_content_box
-                // .after(world_matrix::cal_matrix)
+                .after(world_matrix::cal_matrix)
                 .in_set(UiSystemSet::BaseCalc))
             // zindex
             .add_system(UiStage, z_index::calc_zindex.in_set(UiSystemSet::BaseCalc))
