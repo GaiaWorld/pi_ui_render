@@ -17,6 +17,7 @@ use pi_render::rhi::asset::{TextureRes, AssetWithId};
 use pi_share::{Share, ShareCell};
 use pi_slotmap::SecondaryMap;
 use pi_style::style::{Aabb2, CgColor};
+use pi_world::world::ComponentIndex;
 
 use std::marker::PhantomData;
 use std::mem::transmute;
@@ -110,7 +111,7 @@ impl UserCommands {
         self.style_commands.commands.push((entity, start, start, Some(tag)));    
 	}
 
-    pub fn init_component_ids(tag: NodeTag, ids: &SettingComponentIds) -> Vec<(u32, bool)> {
+    pub fn init_component_ids(tag: NodeTag, ids: &SettingComponentIds) -> Vec<(ComponentIndex, bool)> {
         let mut type_arr = Vec::with_capacity(16);
         type_arr.extend_from_slice(&[
             (ids.down, true),

@@ -162,7 +162,7 @@ pub fn cal_context(
 /// Pass2D设置children
 pub fn calc_pass_children_and_clear(
     // mut event_reader: EventReader<ComponentEvent<Changed<RenderContextMark>>>,
-    query_mark: Query<(), Changed<RenderContextMark>>,
+    query_mark: Query<&RenderContextMark, Changed<RenderContextMark>>,
     mut query: ParamSet<(
 		Query<&mut ChildrenPass>,
         Query<(&mut ChildrenPass, Entity)>,
@@ -197,7 +197,7 @@ pub fn calc_pass_children_and_clear(
 
     // 找到叶子节点
     for (mut children, entity) in query.p1().iter_mut() {
-        log::warn!("children.len()====={:?}", children.len());
+        // log::warn!("children.len()====={:?}", children.len());
         // if let Ok(mut root_instance) = query_root.get_mut(layer.root()) {
             if children.len() == 0 {
                 instances.temp.0.push(entity);
@@ -210,13 +210,14 @@ pub fn calc_pass_children_and_clear(
 
 // 
 pub fn calc_pass_toop_sort(
-    query_mark: Query<(), Changed<RenderContextMark>>,
+    query_mark: Query<&RenderContextMark, Changed<RenderContextMark>>,
     mut query_children: Query<&mut ChildrenPass>,
     query_pass: Query<(Entity, &ParentPassId, &PostProcessInfo)>,
     // mut query_root: Query<&mut RootInstance>,
     mut instances: SingleResMut<InstanceContext>,
 	r: OrInitSingleRes<IsRun>
 ) {
+    // log::warn!("calc_pass_toop_sort=====");
     if r.0 {
 		return;
 	}
@@ -229,7 +230,7 @@ pub fn calc_pass_toop_sort(
     // 从叶子节点开始排序
     pass_toop_list.clear();
     next_node_with_depend.clear();
-    log::warn!("calc_pass_toop_sort====={:?}", temp.0.len());
+    // log::warn!("calc_pass_toop_sort====={:?}", temp.0.len());
     // for mut root_instance in query_root.iter_mut() {
         // root_instance.pass_toop_list.clear();
         // root_instance.next_node_with_depend.clear();

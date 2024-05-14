@@ -1,6 +1,7 @@
 //! 每个实体必须写入StyleMark组件
 
 use pi_world::{filter::Or, prelude::{Alter, Changed, Entity, Local, Query, SingleResMut, With, World}, single_res::SingleRes, world::FromWorld};
+use pi_world::world::ComponentIndex;
 use pi_bevy_ecs_extend::prelude::{EntityTreeMut, OrInitSingleResMut};
 
 use bitvec::array::BitArray;
@@ -348,9 +349,9 @@ pub fn clear_dirty_mark(mut style_mark: Query<&mut StyleMark, Changed<StyleMark>
 pub fn set_styles<'w, 's>(
     style_commands: &mut StyleCommands, 
     style_query: &mut Setting,
-    mut base_component_ids: Vec<(u32, bool)>,
-    mut v_node_base_component_ids: Vec<(u32, bool)>,
-) -> (Vec<(u32, bool)>, Vec<(u32, bool)>) {
+    mut base_component_ids: Vec<(ComponentIndex, bool)>,
+    mut v_node_base_component_ids: Vec<(ComponentIndex, bool)>,
+) -> (Vec<(ComponentIndex, bool)>, Vec<(ComponentIndex, bool)>) {
     let mut component_ids1 = Vec::new();
     let mut component_ids;
     let mut old_len;
@@ -403,13 +404,13 @@ pub fn set_style<'w, 's>(node: Entity, start: usize, end: usize, style_buffer: &
     // 取消样式， TODO，注意，宽高取消时，还要考虑图片宽高的重置问题
 }
 
-pub fn add_component_ops<'w, 's>(start: usize, end: usize, style_buffer: &Vec<u8>, component_ids: &SettingComponentIds, ops: &mut Vec<(u32, bool)>) {
+pub fn add_component_ops<'w, 's>(start: usize, end: usize, style_buffer: &Vec<u8>, component_ids: &SettingComponentIds, ops: &mut Vec<(ComponentIndex, bool)>) {
     let mut style_reader = StyleTypeReader::new(style_buffer, start, end);
     while style_reader.push_component_ops(component_ids, ops) {}
 }
 
 
-fn set_class<'w, 's>(node: Entity, style_query: &mut Setting, class: ClassName, class_sheet: &ClassSheet, component_ids1: &mut Vec<(u32, bool)>) {
+fn set_class<'w, 's>(node: Entity, style_query: &mut Setting, class: ClassName, class_sheet: &ClassSheet, component_ids1: &mut Vec<(ComponentIndex, bool)>) {
     let style_mark = match style_query.world.get_component_by_index::<StyleMark>(node, style_query.style.style_mark) {
         Ok(r) => r,
         Err(_) => {

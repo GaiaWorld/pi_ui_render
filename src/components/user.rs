@@ -704,7 +704,7 @@ pub mod serialize {
     // };
     use pi_world::{
         // component::ColumnIndex,
-        prelude::Entity, world::FromWorld
+        prelude::Entity, world::{ComponentIndex, FromWorld}
     };
     use pi_flex_layout::{
         prelude::Number,
@@ -731,7 +731,7 @@ pub mod serialize {
             Self: Sized;
 
         // push取组件操作
-        fn push_component_ops(ids: &SettingComponentIds, arr: &mut Vec<(u32, bool)>);
+        fn push_component_ops(ids: &SettingComponentIds, arr: &mut Vec<(ComponentIndex, bool)>);
     }
 
     // svg属性
@@ -802,7 +802,7 @@ pub mod serialize {
 
     fn set_style_attr<V: Debug, C: Clone + 'static, F: FnMut(&mut C, V)>(
         world: &mut World,
-        component_id: u32,
+        component_id: ComponentIndex,
         entity: Entity,
         // component_id: ColumnIndex,
         // default_component_id: ColumnIndex,
@@ -849,7 +849,7 @@ pub mod serialize {
 	// 在设置Class、styleMark时调用， 不需要进脏列表
     pub fn set_style_attr_or_default<V, C: Clone + Default + 'static, F: FnMut(&mut C, V)>(
         world: &mut World,
-        component_id: u32,
+        component_id: ComponentIndex,
         entity: Entity,
         
         v: V,
@@ -897,7 +897,7 @@ pub mod serialize {
     #[inline]
     fn reset_style_attr<C: Clone + 'static, F: FnMut(&mut C, &C)>(
         world: &mut World,
-        component_id: u32,
+        component_id: ComponentIndex,
         entity: Entity,
         default_id: u32,
         // component_id: ColumnIndex,
@@ -1000,7 +1000,7 @@ pub mod serialize {
         pub fn push_component_ops(
             &mut self,
             query: &SettingComponentIds,
-            arr: &mut Vec<(u32, bool)>,
+            arr: &mut Vec<(ComponentIndex, bool)>,
         ) -> bool {
             let next_type = self.next_type();
             if let Some(style_type) = next_type {
@@ -1049,7 +1049,7 @@ pub mod serialize {
                     |item: &mut $value_ty, v: $value_ty| *item = v,
                 );
             }
-            fn push_component_ops(ids: &SettingComponentIds, arr: &mut Vec<(u32, bool)>) {
+            fn push_component_ops(ids: &SettingComponentIds, arr: &mut Vec<(ComponentIndex, bool)>) {
                 arr.push((ids.$name, true))
             }
         };
@@ -1065,7 +1065,7 @@ pub mod serialize {
                 cur_style_mark.set(Self::get_type() as usize, true);
                 set_style_attr(&mut query.world, query.style.$name, entity, v, $f);
             }
-            fn push_component_ops(ids: &SettingComponentIds, arr: &mut Vec<(u32, bool)>) {
+            fn push_component_ops(ids: &SettingComponentIds, arr: &mut Vec<(ComponentIndex, bool)>) {
                 arr.push((ids.$name, true))
             }
         };
@@ -1085,7 +1085,7 @@ pub mod serialize {
                 //         .send(ComponentEvent::<Changed<$c_ty>>::new(entity));
                 // };
             }
-            fn push_component_ops(ids: &SettingComponentIds, arr: &mut Vec<(u32, bool)>) {
+            fn push_component_ops(ids: &SettingComponentIds, arr: &mut Vec<(ComponentIndex, bool)>) {
                 arr.push((ids.$name, true))
             }
         };
@@ -1103,7 +1103,7 @@ pub mod serialize {
                 // 取不到说明实体已经销毁
                 set_style_attr(&mut query.world, query.style.$name, entity, v, |item: &mut $pack_ty, v: $value_ty| *item = $pack_ty(v));
             }
-            fn push_component_ops(ids: &SettingComponentIds, arr: &mut Vec<(u32, bool)>) {
+            fn push_component_ops(ids: &SettingComponentIds, arr: &mut Vec<(ComponentIndex, bool)>) {
                 arr.push((ids.$name, true))
             }
         };
@@ -1122,7 +1122,7 @@ pub mod serialize {
                     item.$feild = v;
                 });
             }
-            fn push_component_ops(ids: &SettingComponentIds, arr: &mut Vec<(u32, bool)>) {
+            fn push_component_ops(ids: &SettingComponentIds, arr: &mut Vec<(ComponentIndex, bool)>) {
                 arr.push((ids.$name, true))
             }
         };
@@ -1140,7 +1140,7 @@ pub mod serialize {
                     item.$set_func(v);
                 });
             }
-            fn push_component_ops(ids: &SettingComponentIds, arr: &mut Vec<(u32, bool)>) {
+            fn push_component_ops(ids: &SettingComponentIds, arr: &mut Vec<(ComponentIndex, bool)>) {
                 arr.push((ids.$name, true))
             }
         };
@@ -1160,7 +1160,7 @@ pub mod serialize {
                     item.$feild1.$feild2 = v;
                 },);
             }
-            fn push_component_ops(ids: &SettingComponentIds, arr: &mut Vec<(u32, bool)>) {
+            fn push_component_ops(ids: &SettingComponentIds, arr: &mut Vec<(ComponentIndex, bool)>) {
                 arr.push((ids.$name, true))
             }
         };
@@ -1181,7 +1181,7 @@ pub mod serialize {
 
                 cur_style_mark.set(Self::get_type() as usize, true);
             }
-            fn push_component_ops(ids: &SettingComponentIds, arr: &mut Vec<(u32, bool)>) {
+            fn push_component_ops(ids: &SettingComponentIds, arr: &mut Vec<(ComponentIndex, bool)>) {
                 arr.push((ids.$name, true))
             }
         };
@@ -1311,7 +1311,7 @@ pub mod serialize {
         // 空实现
         (@empty) => {
             fn set(_cur_style_mark: &mut StyleMarkType, _ptr: *const u8, _query: &mut Setting, _entity: Entity, _is_clone: bool) {}
-            fn push_component_ops(_ids: &SettingComponentIds, _arr: &mut Vec<(u32, bool)>) {
+            fn push_component_ops(_ids: &SettingComponentIds, _arr: &mut Vec<(ComponentIndex, bool)>) {
                 
             }
         };
@@ -1329,7 +1329,7 @@ pub mod serialize {
                     },
                 );
             }
-            fn push_component_ops(_ids: &SettingComponentIds, _arr: &mut Vec<(u32, bool)>) {
+            fn push_component_ops(_ids: &SettingComponentIds, _arr: &mut Vec<(ComponentIndex, bool)>) {
                 
             }
         };
@@ -1351,7 +1351,7 @@ pub mod serialize {
 				// 		.send(ComponentEvent::<Changed<$value_ty>>::new(entity));
 				// };
             }
-            fn push_component_ops(_ids: &SettingComponentIds, _arr: &mut Vec<(u32, bool)>) {
+            fn push_component_ops(_ids: &SettingComponentIds, _arr: &mut Vec<(ComponentIndex, bool)>) {
                 
             }
         };
@@ -1369,7 +1369,7 @@ pub mod serialize {
                     },
                 );
             }
-            fn push_component_ops(_ids: &SettingComponentIds, _arr: &mut Vec<(u32, bool)>) {
+            fn push_component_ops(_ids: &SettingComponentIds, _arr: &mut Vec<(ComponentIndex, bool)>) {
                 
             }
         };
@@ -1388,7 +1388,7 @@ pub mod serialize {
                     },
                 );
             }
-            fn push_component_ops(_ids: &SettingComponentIds, _arr: &mut Vec<(u32, bool)>) {
+            fn push_component_ops(_ids: &SettingComponentIds, _arr: &mut Vec<(ComponentIndex, bool)>) {
                 
             }
         };
@@ -1406,7 +1406,7 @@ pub mod serialize {
                     },
                 );
             }
-            fn push_component_ops(_ids: &SettingComponentIds, _arr: &mut Vec<(u32, bool)>) {
+            fn push_component_ops(_ids: &SettingComponentIds, _arr: &mut Vec<(ComponentIndex, bool)>) {
                 
             }
         };
@@ -1424,7 +1424,7 @@ pub mod serialize {
                     },
                 );
             }
-            fn push_component_ops(_ids: &SettingComponentIds, _arr: &mut Vec<(u32, bool)>) {
+            fn push_component_ops(_ids: &SettingComponentIds, _arr: &mut Vec<(ComponentIndex, bool)>) {
                 
             }
         };
@@ -1465,7 +1465,7 @@ pub mod serialize {
                     },
                 );
             }
-            fn push_component_ops(ids: &SettingComponentIds, arr: &mut Vec<(u32, bool)>) {
+            fn push_component_ops(ids: &SettingComponentIds, arr: &mut Vec<(ComponentIndex, bool)>) {
                 
             }
         };
@@ -1876,7 +1876,7 @@ pub mod serialize {
             // };
         }
 
-        fn push_component_ops(ids: &SettingComponentIds, arr: &mut Vec<(u32, bool)>) {
+        fn push_component_ops(ids: &SettingComponentIds, arr: &mut Vec<(ComponentIndex, bool)>) {
             arr.extend_from_slice(&[
                 (ids.text_content, true),
                 (ids.flex_container, true)
@@ -2065,7 +2065,7 @@ pub mod serialize {
                 }
             };
         }
-        fn push_component_ops(ids: &SettingComponentIds, arr: &mut Vec<(u32, bool)>) {
+        fn push_component_ops(ids: &SettingComponentIds, arr: &mut Vec<(ComponentIndex, bool)>) {
             arr.extend_from_slice(&[
                 (ids.background_image, true),
                 (ids.background_image_texture, true)
@@ -2113,7 +2113,7 @@ pub mod serialize {
             );
             // 设置纹理， TODO
         }
-        fn push_component_ops(ids: &SettingComponentIds, arr: &mut Vec<(u32, bool)>) {
+        fn push_component_ops(ids: &SettingComponentIds, arr: &mut Vec<(ComponentIndex, bool)>) {
             arr.extend_from_slice(&[
                 (ids.background_image, false),
                 (ids.background_image_texture, false)
@@ -2168,7 +2168,7 @@ pub mod serialize {
                 }
             };
         }
-        fn push_component_ops(ids: &SettingComponentIds, arr: &mut Vec<(u32, bool)>) {
+        fn push_component_ops(ids: &SettingComponentIds, arr: &mut Vec<(ComponentIndex, bool)>) {
             arr.extend_from_slice(&[
                 (ids.border_image, true),
                 (ids.border_image_texture, true)
@@ -2218,7 +2218,7 @@ pub mod serialize {
             );
             // 设置纹理， TODO
         }
-        fn push_component_ops(ids: &SettingComponentIds, arr: &mut Vec<(u32, bool)>) {
+        fn push_component_ops(ids: &SettingComponentIds, arr: &mut Vec<(ComponentIndex, bool)>) {
             arr.extend_from_slice(&[
                 (ids.border_image, false),
                 (ids.border_image_texture, false)
@@ -2278,7 +2278,7 @@ pub mod serialize {
 			}
         }
 
-        fn push_component_ops(ids: &SettingComponentIds, arr: &mut Vec<(u32, bool)>) {
+        fn push_component_ops(ids: &SettingComponentIds, arr: &mut Vec<(ComponentIndex, bool)>) {
             arr.push((ids.transform, true));
         }
 
@@ -2329,7 +2329,7 @@ pub mod serialize {
         }
 
 
-        fn push_component_ops(_ids: &SettingComponentIds, _arr: &mut Vec<(u32, bool)>) {
+        fn push_component_ops(_ids: &SettingComponentIds, _arr: &mut Vec<(ComponentIndex, bool)>) {
             
         }
 	}
@@ -2385,7 +2385,7 @@ pub mod serialize {
 			}
         }
 
-        fn push_component_ops(ids: &SettingComponentIds, arr: &mut Vec<(u32, bool)>) {
+        fn push_component_ops(ids: &SettingComponentIds, arr: &mut Vec<(ComponentIndex, bool)>) {
             arr.push((ids.transform, true));
         }
 	}
@@ -2441,7 +2441,7 @@ pub mod serialize {
 				_ => (),
 			}
         }
-        fn push_component_ops(_ids: &SettingComponentIds, _arr: &mut Vec<(u32, bool)>) {
+        fn push_component_ops(_ids: &SettingComponentIds, _arr: &mut Vec<(ComponentIndex, bool)>) {
             
         }
 	}
@@ -2498,7 +2498,7 @@ pub mod serialize {
 			}
         }
 
-        fn push_component_ops(ids: &SettingComponentIds, arr: &mut Vec<(u32, bool)>) {
+        fn push_component_ops(ids: &SettingComponentIds, arr: &mut Vec<(ComponentIndex, bool)>) {
             arr.push((ids.transform, true));
         }
 	}
@@ -2556,7 +2556,7 @@ pub mod serialize {
 			}
         }
 
-        fn push_component_ops(_ids: &SettingComponentIds, _arr: &mut Vec<(u32, bool)>) {
+        fn push_component_ops(_ids: &SettingComponentIds, _arr: &mut Vec<(ComponentIndex, bool)>) {
             
         }
 	}
@@ -2611,7 +2611,7 @@ pub mod serialize {
 			}
         }
 
-        fn push_component_ops(ids: &SettingComponentIds, arr: &mut Vec<(u32, bool)>) {
+        fn push_component_ops(ids: &SettingComponentIds, arr: &mut Vec<(ComponentIndex, bool)>) {
             arr.push((ids.transform, true));
         }
 	}
@@ -2668,7 +2668,7 @@ pub mod serialize {
 			}
         }
 
-        fn push_component_ops(_ids: &SettingComponentIds, _arr: &mut Vec<(u32, bool)>) {
+        fn push_component_ops(_ids: &SettingComponentIds, _arr: &mut Vec<(ComponentIndex, bool)>) {
             
         }
 
@@ -2736,7 +2736,7 @@ pub mod serialize {
 			}
         }
 
-        fn push_component_ops(ids: &SettingComponentIds, arr: &mut Vec<(u32, bool)>) {
+        fn push_component_ops(ids: &SettingComponentIds, arr: &mut Vec<(ComponentIndex, bool)>) {
             arr.push((ids.transform_will_change, true))
         }
 	}
@@ -2797,7 +2797,7 @@ pub mod serialize {
             }
         }
 
-        fn push_component_ops(ids: &SettingComponentIds, arr: &mut Vec<(u32, bool)>) {
+        fn push_component_ops(ids: &SettingComponentIds, arr: &mut Vec<(ComponentIndex, bool)>) {
             arr.push((ids.transform, true));
         }
 	}
@@ -2982,7 +2982,7 @@ pub mod serialize {
         /// 设置默认值
         set_default: fn(buffer: &Vec<u8>, offset: usize, world: &mut World, query: &DefaultStyle),
         to_attr: fn(ptr: *const u8) -> Attribute,
-        push_component_ops: fn (ids: &SettingComponentIds, arr: &mut Vec<(u32, bool)>),
+        push_component_ops: fn (ids: &SettingComponentIds, arr: &mut Vec<(ComponentIndex, bool)>),
     }
 
     impl StyleFunc {
@@ -3004,7 +3004,7 @@ pub mod serialize {
 
 	pub struct ResetStyleFunc {
 		set: fn(cur_style_mark: &mut StyleMarkType, ptr: *const u8, query: &mut Setting, entity: Entity, is_clone: bool),
-        push_component_ops: fn (ids: &SettingComponentIds, arr: &mut Vec<(u32, bool)>),
+        push_component_ops: fn (ids: &SettingComponentIds, arr: &mut Vec<(ComponentIndex, bool)>),
 	}
 
 	impl ResetStyleFunc {
@@ -4122,7 +4122,7 @@ pub mod serialize {
         pub fn push_component_ops(
             style_index: u8,
             components: &SettingComponentIds,
-            arr: &mut Vec<(u32, bool)>,){
+            arr: &mut Vec<(ComponentIndex, bool)>,){
             
             if style_index > STYLE_COUNT {
                 (RESET_STYLE_ATTR[style_index as usize - STYLE_COUNT as usize].push_component_ops)(components, arr)
