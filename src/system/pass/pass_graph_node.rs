@@ -198,6 +198,7 @@ impl Node for Pass2DNode {
 			target: None,
 			valid_rect: None,
 		};
+		log::trace!("build======{:?}", pass2d_id);
 		// let t1 = std::time::Instant::now();
 		// let mut param = query_param_state.get_mut(world);
 		// pass2d_id为null， 表示一个空节点， 空节点在全局只会有一个， 用于将所有根节点渲染到屏幕
@@ -584,7 +585,7 @@ impl Node for Pass2DNode {
 		// if instance_index.start == 125 * 240 {
 		// 	println!("visibility=============== {:?}", (pass2d_id, instance_index.start, visibility,  out.target.is_none(), list0.instance_range.len() > 0));
 		// }
-
+		log::trace!("out.target======{:?}", self.target.is_some());
 		fbo_info.out = out.target.clone(); // 设置到组件上， 后续批处理需要用到
 		fbo_info.fbo = self.target.as_ref().map(|r| {Share::new(r.downgrade())});
 		// if content_box.layout.width() >= 700.0 && content_box.layout.height() >= 910.0 {
@@ -939,6 +940,7 @@ pub fn create_screen_rp<'a>(
     // surface: &'a ScreenTexture,
     ops: Option<wgpu::Operations<wgpu::Color>>,
 ) -> RenderPass<'a> {
+	log::trace!("create_screen_rp===={:?}", depth.is_some());
 	// 渲染到屏幕上
 	let ops = match ops {
 		Some(r) => r,
@@ -1018,6 +1020,8 @@ pub fn create_rp_for_fbo1<'a>(
 			store: wgpu::StoreOp::Store,
 		},
 	};
+
+	log::trace!("create_rp_for_fbo1===={:?}", r.target().depth.is_some());
 	commands.begin_render_pass(&wgpu::RenderPassDescriptor {
 		label: None,
 		color_attachments: r

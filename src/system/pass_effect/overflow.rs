@@ -122,7 +122,7 @@ fn recursive_cal_overflow(
             parent_is_change || world_matrix.is_changed() || will_change.is_changed() || overflow_is_change || layer.is_changed();
 
         let world_matrix = &*world_matrix;
-        // log::warn!("is_change======{:?}, overflow: {:?}, entity: {:?}, \nparent_aabb: {:?}", is_change, overflow, entity, parent_aabb);
+        log::trace!("is_change======{:?}, overflow: {:?}, \nparent_aabb: {:?}", is_change, overflow, parent_aabb);
         if is_change {
             let matrix_temp;
             let matrix = match &will_change.0 {

@@ -41,7 +41,7 @@ impl Plugin for UiNodePlugin {
             // .init_single_res::<KeyFramesSheet>()
 
 			// 维护脏列表
-			.add_system(PostUpdate, clear_dirty_mark.in_set(FrameDataPrepare)
+			.add_system(PostUpdate, clear_dirty_mark
                 .after(bevy_window::FrameSet)
             )
 			

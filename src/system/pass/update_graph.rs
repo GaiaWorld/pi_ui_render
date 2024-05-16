@@ -1,6 +1,6 @@
 
 
-use pi_world::prelude::{Changed, With, Query, SingleResMut, Entity, ParamSet, SingleRes, Removed, FilterComponents, Has};
+use pi_world::prelude::{Changed, Entity, FilterComponents, Has, ParamSet, Query, Removed, SingleRes, SingleResMut, With};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, OrInitSingleRes};
 
 use pi_bevy_render_plugin::{NodeId, PiRenderGraph, NodeLabel};
@@ -35,6 +35,7 @@ pub fn init_root_graph(
 /// 根据声明创建图节点，删除图节点， 建立图节点的依赖关系
 pub fn update_graph(
     mut pass_query: ParamSet<(
+        
         Query<(&mut GraphId, Entity, &ParentPassId, &PostProcessInfo), Changed<RenderContextMark>>,
         (
 			Query<(&ParentPassId, &GraphId, Option<&AsImage>), ((Changed<ParentPassId>, Changed<AsImage>, Changed<GraphId>), With<Camera>)>, 
@@ -42,6 +43,7 @@ pub fn update_graph(
 			Query<&GraphId>,
 			Query<&ChildrenPass>,
 		),
+
     )>,
     last_graph_id: SingleRes<LastGraphNode>,
     del: Query<(Entity, Has<Camera>), Removed<Camera>>,
@@ -56,7 +58,8 @@ pub fn update_graph(
     // 插入Draw2DList
     for (mut graph_id, entity, parent_passs_id, post_info) in pass_query.p0().iter_mut() {
 		log::debug!(entity=format!("entity_{:?}", entity).as_str();  "add graph node1, entity={entity:?}, has_effect={:?}, parent_passs_id={:?}", post_info.has_effect(), parent_passs_id);
-		let is_root = pi_null::Null::is_null(&parent_passs_id.0);
+		log::debug!("add graph node1, entity={entity:?}, has_effect={:?}, parent_passs_id={:?}", post_info.has_effect(), parent_passs_id);
+        let is_root = pi_null::Null::is_null(&parent_passs_id.0);
         if post_info.has_effect() || is_root {
             // 存在后处理效果，或者节点本身是根节点， 才能成为一个渲染节点
             if !graph_id.0.is_null() {

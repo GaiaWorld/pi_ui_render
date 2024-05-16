@@ -12,7 +12,8 @@ use std::{
     ops::{Index, IndexMut},
 };
 
-use pi_world::prelude::{Changed, Query, Entity, OrDefault, Local, Mut};
+use pi_style::style::StyleType;
+use pi_world::{fetch::Ticker, prelude::{Changed, Entity, Local, Mut, OrDefault, Query}};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleRes, Layer, EntityTree};
 
 use pi_flex_layout::{prelude::{
@@ -21,7 +22,7 @@ use pi_flex_layout::{prelude::{
 }, style::OverflowWrap};
 
 use crate::{components::{
-    calc::{EntityKey, LayoutResult, NodeState, StyleMark},
+    calc::{style_bit, EntityKey, LayoutResult, NodeState, StyleBit, StyleMark, StyleMarkType},
     user::{Border, FlexContainer, FlexNormal, Margin, MinMax, Padding, Position, Show, Size, TextContent, TextStyle},
 }, system::draw_obj::calc_text::IsRun};
 use pi_dirty::LayerDirty;
@@ -34,58 +35,71 @@ fn test() {
     println!("id: {:?}", LayoutKey::null());
 }
 
-// lazy_static! {
-// 	// margin标记
-// 	pub static ref LAYOUT_MARGIN_MARK: StyleMarkType =
-// 	style_bit().set_bit(StyleType::MarginTop as usize).set_bit(StyleType::MarginRight as usize).set_bit(StyleType::MarginBottom as usize).set_bit(StyleType::MarginLeft as usize);
-// 	// pading标记
-// 	pub static ref LAYOUT_PADDING_MARK: StyleMarkType =
-// 	style_bit().set_bit(StyleType::PaddingTop as usize).set_bit(StyleType::PaddingRight as usize).set_bit(StyleType::PaddingBottom as usize).set_bit(StyleType::PaddingLeft as usize);
-// 	// border标记
-// 	pub static ref LAYOUT_BORDER_MARK: StyleMarkType =
-// 	style_bit().set_bit(StyleType::BorderTop as usize).set_bit(StyleType::BorderRight as usize).set_bit(StyleType::BorderBottom as usize).set_bit(StyleType::BorderLeft as usize);
-// 	// border标记
-// 	pub static ref LAYOUT_POSITION_MARK: StyleMarkType =
-// 	style_bit().set_bit(StyleType::PositionTop as usize).set_bit(StyleType::PositionRight as usize).set_bit(StyleType::PositionBottom as usize).set_bit(StyleType::PositionLeft as usize);
-// 	// 矩形属性标记
-// 	pub static ref LAYOUT_RECT_MARK: StyleMarkType = style_bit().set_bit(StyleType::Width as usize).set_bit(StyleType::Height as usize) | &*LAYOUT_MARGIN_MARK;
+lazy_static! {
+	// margin标记
+	pub static ref LAYOUT_MARGIN_MARK: StyleMarkType =
+	style_bit().set_bit(StyleType::MarginTop as usize).set_bit(StyleType::MarginRight as usize).set_bit(StyleType::MarginBottom as usize).set_bit(StyleType::MarginLeft as usize);
+	// pading标记
+	pub static ref LAYOUT_PADDING_MARK: StyleMarkType =
+	style_bit().set_bit(StyleType::PaddingTop as usize).set_bit(StyleType::PaddingRight as usize).set_bit(StyleType::PaddingBottom as usize).set_bit(StyleType::PaddingLeft as usize);
+	// border标记
+	pub static ref LAYOUT_BORDER_MARK: StyleMarkType =
+	style_bit().set_bit(StyleType::BorderTop as usize).set_bit(StyleType::BorderRight as usize).set_bit(StyleType::BorderBottom as usize).set_bit(StyleType::BorderLeft as usize);
+	// border标记
+	pub static ref LAYOUT_POSITION_MARK: StyleMarkType =
+	style_bit().set_bit(StyleType::PositionTop as usize).set_bit(StyleType::PositionRight as usize).set_bit(StyleType::PositionBottom as usize).set_bit(StyleType::PositionLeft as usize);
+	// 矩形属性标记
+	pub static ref LAYOUT_RECT_MARK: StyleMarkType = style_bit().set_bit(StyleType::Width as usize).set_bit(StyleType::Height as usize) | &*LAYOUT_MARGIN_MARK;
 
 
-// 	// 矩形区域脏，绝对定位下，设自身self_dirty，相对定位下，设自身self_dirty后，还要设父child_dirty
-// 	pub static ref RECT_DIRTY: StyleMarkType = style_bit().set_bit(StyleType::Width as usize)
-// 	.set_bit(StyleType::Height as usize)
-// 		| &*LAYOUT_POSITION_MARK
-// 		| &*LAYOUT_MARGIN_MARK;
+	// 矩形区域脏，绝对定位下，设自身self_dirty，相对定位下，设自身self_dirty后，还要设父child_dirty
+	pub static ref RECT_DIRTY: StyleMarkType = style_bit().set_bit(StyleType::Width as usize)
+	.set_bit(StyleType::Height as usize)
+    .set_bit(StyleType::MinWidth as usize)
+    .set_bit(StyleType::MinHeight as usize)
+		| &*LAYOUT_POSITION_MARK
+		| &*LAYOUT_MARGIN_MARK;
 
-// 	// 普通脏及子节点添加或移除， 设父child_dirty
-// 	pub static ref NORMAL_DIRTY: StyleMarkType = //StyleType::FlexBasis as usize 
-// 		//.set_bit(StyleType::Order as usize)
-// 		style_bit().set_bit(StyleType::FlexShrink as usize)
-// 		.set_bit(StyleType::FlexGrow as usize)
-// 		.set_bit(StyleType::AlignSelf as usize)
-// 		.set_bit(StyleType::PositionType as usize);
+	// 普通脏及子节点添加或移除， 设父child_dirty
+	pub static ref NORMAL_DIRTY: StyleMarkType = //StyleType::FlexBasis as usize 
+		//.set_bit(StyleType::Order as usize)
+		style_bit().set_bit(StyleType::FlexShrink as usize)
+		.set_bit(StyleType::FlexGrow as usize)
+		.set_bit(StyleType::AlignSelf as usize)
+		.set_bit(StyleType::PositionType as usize);
 
-// 	// 自身脏， 仅设自身self_dirty
-// 	pub static ref SELF_DIRTY: StyleMarkType = LAYOUT_PADDING_MARK.clone() 
-// 		| &*LAYOUT_BORDER_MARK;
+	// 自身脏， 仅设自身self_dirty
+	pub static ref SELF_DIRTY: StyleMarkType = LAYOUT_PADDING_MARK.clone() 
+		| &*LAYOUT_BORDER_MARK;
 
-// 	// 子节点脏， 仅设自身child_dirty
-// 	pub static ref CHILD_DIRTY: StyleMarkType = style_bit().set_bit(StyleType::FlexDirection as usize)
-// 		.set_bit(StyleType::FlexWrap as usize)
-// 		.set_bit(StyleType::AlignItems as usize)
-// 		.set_bit(StyleType::JustifyContent as usize)
-// 		.set_bit(StyleType::AlignContent as usize);
+	// 子节点脏， 仅设自身child_dirty
+	pub static ref CHILD_DIRTY: StyleMarkType = style_bit().set_bit(StyleType::FlexDirection as usize)
+		.set_bit(StyleType::FlexWrap as usize)
+		.set_bit(StyleType::AlignItems as usize)
+		.set_bit(StyleType::JustifyContent as usize)
+		.set_bit(StyleType::AlignContent as usize)
+        .set_bit(StyleType::TextContent as usize)
+        .set_bit(StyleType::FontStyle as usize)
+        .set_bit(StyleType::FontSize as usize)
+        .set_bit(StyleType::FontFamily as usize)
+        .set_bit(StyleType::LetterSpacing as usize)
+        .set_bit(StyleType::WordSpacing as usize)
+        .set_bit(StyleType::LineHeight as usize)
+        .set_bit(StyleType::TextIndent as usize)
+        .set_bit(StyleType::WhiteSpace as usize)
+        .set_bit(StyleType::TextAlign as usize)
+        .set_bit(StyleType::VerticalAlign as usize);
 
 
-// 	pub static ref DIRTY2: StyleMarkType = style_bit()
-// 		.set_bit(StyleType::Display as usize)
-// 		.set_bit(StyleType::FlexBasis as usize)
-// 		.set_bit(StyleType::FlexDirection as usize)
-// 		.set_bit(StyleType::FlexWrap as usize)
-// 		.set_bit(StyleType::AlignItems as usize)
-// 		.set_bit(StyleType::JustifyContent as usize)
-// 		.set_bit(StyleType::AlignContent as usize) | &*RECT_DIRTY | &*NORMAL_DIRTY | &*SELF_DIRTY;
-// }
+	pub static ref DIRTY2: StyleMarkType = style_bit()
+		.set_bit(StyleType::Display as usize)
+		.set_bit(StyleType::FlexBasis as usize)
+		.set_bit(StyleType::FlexDirection as usize)
+		.set_bit(StyleType::FlexWrap as usize)
+		.set_bit(StyleType::AlignItems as usize)
+		.set_bit(StyleType::JustifyContent as usize)
+		.set_bit(StyleType::AlignContent as usize) | &*RECT_DIRTY | &*NORMAL_DIRTY | &*SELF_DIRTY;
+}
 
 pub struct CalcLayout;
 
@@ -119,7 +133,7 @@ pub fn calc_layout(
             OrDefault<FlexContainer>,
             OrDefault<FlexNormal>,
             OrDefault<Show>,
-            &Layer,
+            Ticker<&Layer>,
         ),
         (
             Changed<Size>,
@@ -205,9 +219,14 @@ pub fn calc_layout(
         }
 
         let (rect_dirty, children_dirty, normal_style_dirty, self_style_dirty, display_dirty) = (
-            false, false, false, false, false
+            // false, false, false, false, false
             // style_mark.dirty_style
-            // size_dirty.map_or(false, |size| size.is_changed())
+            layer.is_changed() || (style_mark.dirty_style | *RECT_DIRTY).any(),
+            layer.is_changed() || (style_mark.dirty_style | *CHILD_DIRTY).any(),
+            (style_mark.dirty_style | *NORMAL_DIRTY).any(),
+            (style_mark.dirty_style | *SELF_DIRTY).any(),
+            style_mark.dirty_style.get(StyleType::Display as usize).map_or(false, |display| {*display == true}),
+            // size.is_changed()
             //     || position_dirty.map_or(false, |position| position.is_changed())
             //     || margin_dirty.map_or(false, |margin| margin.is_changed())
             //     || layer.as_ref().map_or(false, |layer| layer.is_changed())
@@ -223,6 +242,8 @@ pub fn calc_layout(
 
         if !(rect_dirty || children_dirty || normal_style_dirty || self_style_dirty || display_dirty) {
             continue;
+        } else {
+            log::debug!("style dirty======={:?}", (e, rect_dirty, children_dirty, normal_style_dirty, self_style_dirty, display_dirty));
         }
 
         
@@ -245,7 +266,6 @@ pub fn calc_layout(
         if rect_dirty {
             // let __ss = inodes.get_mut(e).map(|mut s| s.state.self_dirty_true());
             // layer_dirty.
-            // log::warn!("set rect ===================={:?}", e);
 
             layout.set_rect(&mut layer_dirty, k, true, true, &style);
         }

@@ -223,7 +223,7 @@ pub fn user_setting2(
     for c in user_commands.node_commands.drain(..) {
         match c {
             NodeCommand::AppendNode(node, parent) => {
-                println!("AppendNode====================node： {:?}, parent： {:?}, {:?}", node, parent, entitys.contains(node));
+                log::debug!("AppendNode====================node： {:?}, parent： {:?}, node_is_exist：{:?}", node, parent, entitys.contains(node));
                 if entitys.contains(node) {
 					// if !EntityKey( parent ).is_null() && draw_list.get(node).is_err() {
 					// 	log::warn!("AppendNode parent error============={:?}, {:?}", parent, unsafe{transmute::<_, f64>(parent.to_bits())});
@@ -236,10 +236,6 @@ pub fn user_setting2(
 					// 	return;
 					// }
 					
-                    log::error!("AppendNode node====================node： {:?}, parent： {:?}, {:?}", node, parent, tree.get_up(node));
-                    if !parent.is_null() {
-                        log::error!("AppendNode node====================node： {:?}, parent： {:?}, {:?}", node, parent, tree.get_up(parent));
-                    }
                     // log::warn!("AppendNode node====================node： {:?}, parent： {:?}", node, parent);
                     tree.insert_child(node, parent, std::usize::MAX);
                 }
@@ -255,9 +251,10 @@ pub fn user_setting2(
 				// 	r.0 = true;
 				// 	return;
 				// }
-
+                
+                log::debug!("InsertBefore node====================node：{:?}, anchor： {:?}, node_is_exist：{:?}", node, anchor, entitys.contains(node));
                 if entitys.contains(node) {
-                    log::debug!("InsertBefore node====================node：{:?}, anchor： {:?}", node, anchor);
+                   
                     // log::warn!("InsertBefore node====================node：{:?}, anchor： {:?}", node, anchor);
                     tree.insert_brother(node, anchor, InsertType::Front);
                 }
@@ -301,6 +298,8 @@ pub fn user_setting2(
         node_changed.0 = true;
         user_commands.is_node_change = false;
 	}
+
+    panic!("============");
     
     // // 设置所有的root渲染脏（节点删除后， 组件被删除，很多状态丢失， 除非立即处理脏区域）
     // for mut render_dirty in query.p0().2.iter_mut() {
@@ -358,7 +357,6 @@ pub fn set_styles<'w, 's>(
     let (style_buffer, commands) = (&mut style_commands.style_buffer, &mut style_commands.commands);
     for (node, start, end, need_init) in commands.drain(..) {
         
-        println!("style========{:?}",( node, start, end, need_init));
         if end - start == 0 {
             continue;
         }
@@ -375,7 +373,7 @@ pub fn set_styles<'w, 's>(
         old_len = component_ids.len();
         add_component_ops(start, end, style_buffer, &style_query.style, component_ids);
         let _ = style_query.world.alter_components(node, component_ids);
-        log::error!("add_component_ops===={:?}", (node, &component_ids, need_init));
+        log::debug!("add_component_ops===={:?}", (node, &component_ids, need_init));
         unsafe { component_ids.set_len(old_len); }
 
         set_style(node, start, end, style_buffer, style_query, false);

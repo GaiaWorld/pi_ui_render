@@ -162,7 +162,6 @@ impl Default for Draw2DList {
 impl Draw2DList {
 	// push一个元素
 	pub fn push_element(&mut self, draw_index: DrawIndex, z_range: ZRange, draw_info: DrawInfo) {
-		log::trace!("push_element============{:?}, {:?}", self.all_list_len, self.all_list.len());
 		if self.all_list_len == self.all_list.len() {
 			self.all_list.push((draw_index, z_range, draw_info));
 			self.list_is_change = true;

@@ -31,18 +31,18 @@ impl Plugin for UiClipPathPlugin {
             pass_life::pass_mark::<ClipPath>
                 .after(user_setting2)
                 .before(pass_life::cal_context)
-                // .in_set(FrameDataPrepare),
+                // ,
         )
         .add_system(UiStage, 
             clip_path_del
                 .after(user_setting2)
-                // .in_set(FrameDataPrepare)
+                // 
             )
         .add_system(UiStage, 
             clip_path_post_process
                 .before(last_update_wgpu)
                 .after(calc_camera_depth_and_renderlist)
-                // .in_set(FrameDataPrepare),
+                // ,
         );
     }
 }

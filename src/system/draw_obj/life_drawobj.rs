@@ -18,7 +18,7 @@ use pi_share::Share;
 use pi_style::style::CgColor;
 use pi_key_alloter::Key;
 
-use crate::components::calc::{DrawInfo, EntityKey, NodeId, InPassId, IsShow, ZRange};
+use crate::components::calc::{DrawInfo, EntityKey, InPassId, IsShow, NodeId, RenderContextMark, ZRange};
 use crate::components::draw_obj::{ FboInfo, GetInstanceSplit, InstanceIndex, InstanceSplit, Pipeline, RenderCount};
 // use crate::components::root::RootInstance;
 use crate::components::user::{BackgroundColor, RenderTargetType};
@@ -53,7 +53,7 @@ pub fn draw_object_life_new<
 		Query<(Has<Src>, &'static mut DrawList), Removed<Src>>,
 		Query<(&'static Src, Entity)>,
 	)>,
-	mut alter_drawobj: Alter<(), With<DrawInfo>, (InstanceSplit, )>,
+	mut alter_drawobj: Alter<&DrawInfo, (), (InstanceSplit, )>,
 	insert: Insert<(DrawBundleNew<Other>, )>,
 	insert1: Insert<(DrawBundleNew<Other>, InstanceSplit)>,
 	r: OrInitSingleRes<IsRun>, 
@@ -115,7 +115,7 @@ pub fn draw_object_life_new<
 				// spawn_list.push(id);
 				log::debug!(target: format!("entity_{:?}", node).as_str(), "create RenderObj {:?} for {} changed, ", &id, std::any::type_name::<Src>());
 				draw_list.push(render_type, id);
-				log::error!("create drawobj=================draw={:?}, node={:?}, ty={:?}", id, node, std::any::type_name::<Src>());
+				log::debug!("create drawobj=================draw={:?}, node={:?}, ty={:?}", id, node, std::any::type_name::<Src>());
 			},
 			
 			Some(r) => if let Some(InstanceSplit::ByTexture(t)) = src.get_split() {
@@ -146,6 +146,7 @@ impl Default for RenderInstances1 {
 #[allow(suspicious_double_ref_op)]
 pub fn update_render_instance_data(
 	mut node_change: OrInitSingleResMut<NodeChanged>,
+	query_mark: Query<&RenderContextMark, Changed<RenderContextMark>>,
 	// mut events: (
 	// 	EventReader<EntityChange>,// 有节点创建
 	// 	EventReader<NodeZindexChange>, // 有节点zIndex修改
@@ -171,10 +172,10 @@ pub fn update_render_instance_data(
 ) {
 	
 	// 如果没有实体创建， 也没有实体删除， zindex也没改变，山下文结构也没改变， 则不需要更新实例数据
-	if !node_change.0 {
+	// log::trace!("life========================node_change={:?}, {:?}", *node_change, query_mark.iter().next().is_some());
+	if !node_change.0 && !query_mark.iter().next().is_some(){
 		return;
 	}
-	log::trace!("life========================node_change={:?}", *node_change);
 	node_change.0 = false;
 	
 	let catche_buffer = &mut *catche_buffer;
@@ -368,7 +369,7 @@ pub fn update_render_instance_data(
 		// draw_2d_list.instance_range.clear();
 		// draw_2d_list.need_dyn_fbo_index.clear();
 
-		log::trace!("life2========================{:?}, {:?}, {:?}", entity, draw_2d_list.all_list_sort.len(), &draw_2d_list.all_list_sort); 
+		log::trace!("life2========================{:?}, {:?}, {:?}, all_list_len: {}", entity, draw_2d_list.all_list_sort.len(), &draw_2d_list.all_list_sort, draw_2d_list.all_list.len()); 
 
 		let instance_data_start = new_instances.cur_index();
 		// let mut pipeline;
@@ -464,13 +465,12 @@ fn batch_pass(
 		let mut split_by_texture:  Option<(InstanceIndex, &Handle<AssetWithId<TextureRes>>, &wgpu::Sampler)> = None;
 		let mut instance_data_end1 = instance_data_end;
 		let mut cross_list: Option<EntityKey> = None;
-
 		let cur_pipeline = match draw_index.clone() {
 			DrawIndex::DrawObj{ 
 				draw_entity, 
 				#[cfg(debug_assertions)]
 				node_entity,
-			 } => if let Ok((instance_split, pipeline, fbo_info)) = query.draw_query.get(*draw_entity) {
+			 } => if let Ok((instance_split, pipeline, fbo_info, _)) = query.draw_query.get(*draw_entity) {
 				// 为每一个drawObj分配新索引
 				let index = query.instance_index.get_mut(draw_entity.0).unwrap();
 				instance_data_end1 = instance_data_end;
@@ -524,15 +524,13 @@ fn batch_pass(
 					
 				}
 
-				
-
 				cur_pipeline
 			} else {
 				&instances.common_pipeline
 			},
 			DrawIndex::Pass2D(r) => match query.post_info_query.get(r.0) {
 				Ok(post_info) if  post_info.has_effect() => {
-					let (_, _, fbo_info) = query.draw_query.get(r.0).unwrap();
+					let (_, _, fbo_info, _) = query.draw_query.get(r.0).unwrap();
 					let index = query.instance_index.get_mut(r.0).unwrap();
 					instance_data_end1 = instance_data_end;
 					instance_data_end = index.end;
@@ -692,7 +690,7 @@ pub struct BatchQuery<'w> {
 	pass_query: Query<'w, &'static mut Draw2DList>,
 	post_info_query: Query<'w, &'static PostProcessInfo>,
 	render_cross_query: Query<'w, (&'static mut DepthRange, &'static pi_bevy_render_plugin::render_cross::DrawList)>,
-	draw_query: Query<'w, (Option<&'static InstanceSplit>, Option<&'static Pipeline>, OrDefault<FboInfo>)>,
+	draw_query: Query<'w, (Option<&'static InstanceSplit>, Option<&'static Pipeline>, OrDefault<FboInfo>, &'static InstanceIndex)>,
 	instance_index: Query<'w, &'static InstanceIndex>,
 	common_sampler: OrInitSingleRes<'w,CommonSampler>,
 	device: SingleRes<'w,PiRenderDevice>,
@@ -792,7 +790,7 @@ pub fn batch_instance_data(
 				_ => continue
 			};
 
-			let (_, _, fbo_info) = query.draw_query.get(*pass_id).unwrap();
+			let (_, _, fbo_info, _) = query.draw_query.get(*pass_id).unwrap();
 			
 
 			let mut fbo_changed = false;
@@ -944,7 +942,7 @@ pub fn batch_instance_data(
 				pass: root,
 			}, EntityKey::null().0));
 
-			let (_, _, fbo_info) = query.draw_query.get(root).unwrap();
+			let (_, _, fbo_info, _) = query.draw_query.get(root).unwrap();
 			if let Some(target) = &fbo_info.out {
 				let texture = &target.target().colors[0].0;
 				let (texture_index, group) = instances.batch_texture.push(texture, &query.common_sampler.default, &query.device);

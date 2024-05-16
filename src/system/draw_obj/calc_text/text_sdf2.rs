@@ -68,7 +68,7 @@ impl Plugin for Sdf2TextPlugin {
 			.add_system(
 				UiStage, 
 				calc_sdf2_text_len
-					.in_set(FrameDataPrepare)
+					
 					.after(UiSystemSet::LifeDrawObjectFlush)
 					.before(update_render_instance_data)
 					.after(calc_layout)

@@ -62,9 +62,9 @@ pub fn calc_background_color(
 			Some(r) => r.id,
 			None => continue,
 		};
-		// log::warn!("color1==========={:?}", (id, &background_color, query_draw.get_mut(Entity::from_raw(24))));
-		log::warn!("color==========={:?}", (&background_color, query_draw.get(draw_id)));
 		if let Ok(instance_index) = query_draw.get_mut(draw_id) {
+			log::debug!("calc_background_color, draw_id={:?}, instance_index={:?}, background_color={:?}", draw_id, instance_index, &background_color);
+
 			// 节点可能设置为dispaly none， 此时instance_index可能为Null
 			if pi_null::Null::is_null(&instance_index.0.start) {
 				continue;

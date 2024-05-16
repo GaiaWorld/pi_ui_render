@@ -172,7 +172,7 @@ pub fn cal_matrix(
 					if id == debug_entity.0.0 {
 						log::warn!("matrix=============id={:?}, \nlayout={:?}, \nmatrix={:?}, \nquad={:?}", id, layout, &matrix, &quad);
 					}
-                    // log::warn!("matrix============={:?}, {:?}, {:?}", id, layout, matrix);
+                    log::debug!("matrix============={:?}, {:?}, {:?}", id, layout, matrix);
                     *world_matrix = matrix;
 
 					

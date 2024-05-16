@@ -26,7 +26,7 @@ impl Plugin for UiPassPlugin {
 				calc_pass
 					.after(calc_camera_depth_and_renderlist)
                     .after(UiSystemSet::PassFlush)
-					.in_set(FrameDataPrepare)
+					
 			)
             .add_system(UiStage, pass_life::cal_context.in_set(UiSystemSet::PassLife))
             // .add_system(UiStage, apply_deferred.in_set(UiSystemSet::PassFlush))
@@ -36,7 +36,7 @@ impl Plugin for UiPassPlugin {
 					.before(UiSystemSet::PassSettingWithParent) // 在所有依赖父子关系的system之前执行
                     .after(UiSystemSet::PassFlush), // 在上下文创建之后执行
             )
-            .add_system(UiStage, pass_life::calc_pass_toop_sort.in_set(FrameDataPrepare)
+            .add_system(UiStage, pass_life::calc_pass_toop_sort
                 .after(UiSystemSet::PassSetting)
             )
             .add_startup_system(UiStage, init_root_graph)
@@ -59,7 +59,7 @@ impl Plugin for UiPassPlugin {
                 last_update_wgpu::last_update_wgpu
                     .after(GraphBuild)
 					.before(GraphRun)
-                    .in_set(FrameDataPrepare),
+                    ,
             );
     }
 }

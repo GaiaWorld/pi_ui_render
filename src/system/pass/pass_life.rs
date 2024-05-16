@@ -40,7 +40,6 @@ pub fn cal_context(
             Option<&mut PostProcessInfo>,
         ), (), PassBundle, ()>,
         Query<&mut InPassId>,
-        Alter<(), (), (), PassBundle>,
     )>,
     // idtree: EntityTree,
     // down: Query<&Down>,
@@ -59,7 +58,6 @@ pub fn cal_context(
 	if r.0 {
 		return;
 	}
-	// log::trace!("pass_life========================");
     // layer_dirty.clear();
     // let mut pass_2d_init = Vec::new();
     // let mut pass_2d_id_insert = Vec::new();
@@ -108,7 +106,7 @@ pub fn cal_context(
                 // 修改in_pass_id为当前Pass2D
                 *in_pass_id = InPassId(EntityKey(node));
                 //  post_info
-                log::trace!("pass======node: {:?}, parent_context_id: {:?}, effect_mark{:?} {:?}, {:?}", node, parent_context_id, **effect_mark & **mark, mark, **effect_mark);
+                log::trace!("pass======node: {:?}, parent_pass_id: {:?}, parent_context_id: {:?}, effect_mark{:?} {:?}, {:?}", node, parent_pass_id,  parent_context_id, **effect_mark & **mark, mark, **effect_mark);
                 match parent_pass_id {
                     None => {
                         let mut bundle = PassBundle::new(*parent_context_id);
@@ -177,8 +175,12 @@ pub fn calc_pass_children_and_clear(
 	if r.0 {
 		return;
 	}
-    if query_mark.len() == 0 {
+    
+    if !query_mark.iter().next().is_some() {
+        return;
     }
+    log::trace!("calc_pass_children_and_clear===================");
+    
     // 先清理旧的子节点
     let query_children = query.p0();
     for mut children in query_children.iter_mut() {
@@ -197,7 +199,6 @@ pub fn calc_pass_children_and_clear(
 
     // 找到叶子节点
     for (mut children, entity) in query.p1().iter_mut() {
-        // log::warn!("children.len()====={:?}", children.len());
         // if let Ok(mut root_instance) = query_root.get_mut(layer.root()) {
             if children.len() == 0 {
                 instances.temp.0.push(entity);
@@ -217,20 +218,19 @@ pub fn calc_pass_toop_sort(
     mut instances: SingleResMut<InstanceContext>,
 	r: OrInitSingleRes<IsRun>
 ) {
-    // log::warn!("calc_pass_toop_sort=====");
     if r.0 {
 		return;
 	}
-    if query_mark.len() == 0 {
+    if !query_mark.iter().next().is_some() {
         return;
     }
     
-
+    
     let InstanceContext {pass_toop_list,  next_node_with_depend, temp, ..} = &mut *instances;
     // 从叶子节点开始排序
     pass_toop_list.clear();
     next_node_with_depend.clear();
-    // log::warn!("calc_pass_toop_sort====={:?}", temp.0.len());
+    log::trace!("calc_pass_toop_sort, temp_len:{:?}", temp.0.len());
     // for mut root_instance in query_root.iter_mut() {
         // root_instance.pass_toop_list.clear();
         // root_instance.next_node_with_depend.clear();
@@ -289,6 +289,7 @@ pub fn pass_mark<T: NeedMark + Send + Sync>(
     // let mut render_context = query_set.p1();
     // 组件删除，取消渲染上下文标记
     context_attr_del(query_set.p1(), ***mark_type);
+    // println!("pass_mark!!!!!!, {:?}", std::any::type_name::<T>());
 
     for (entity, value, mut render_mark_value) in query_set.p0().iter_mut() {
         if value.need_mark() {

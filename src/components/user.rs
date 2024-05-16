@@ -811,7 +811,7 @@ pub mod serialize {
         mut f: F,
     ) {
 		// log::debug!("type: {:?}, entity: {:?}", std::any::type_name::<C>(), entity);
-        log::error!(
+        log::debug!(
             "set_style_attr, type: {:?}, value: {:?}, entity: {:?}",
             std::any::type_name::<C>(),
             v,

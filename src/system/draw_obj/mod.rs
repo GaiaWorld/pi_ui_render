@@ -69,18 +69,18 @@ impl Plugin for UiReadyDrawPlugin {
 				.after(update_graph)
 				.after(pass_life::calc_pass_toop_sort)
 				.before(UiSystemSet::PrepareDrawObj)
-				.in_set(FrameDataPrepare))
+				)
 			.add_system(Last, batch_instance_data
 				.before(last_update_wgpu)
 				.after(GraphBuild)
 				.before(GraphRun)
-				.in_set(FrameDataPrepare))
+				)
             .add_system(UiStage, root_view_port::calc_dyn_target_type.in_set(UiSystemSet::BaseCalc))
             .add_system(UiStage, pipeline::calc_node_pipeline.in_set(UiSystemSet::PrepareDrawObj))
             // 混合模式
 			.add_system(UiStage, 
                 blend_mode::calc_drawobj_blendstate
-                    .in_set(FrameDataPrepare)
+                    
                     .before(UiSystemSet::LifeDrawObjectFlush)
                     .after(UiSystemSet::LifeDrawObject),
             )

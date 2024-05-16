@@ -24,7 +24,7 @@ impl Plugin for ShowPlugin {
 				set_show_data
 					.after(update_render_instance_data)
 					.after(UiSystemSet::PrepareDrawObj) // 这里是为了确保与其他设置实例数据的system不并行， 因为设置的数据冲突（TyUniform）
-					.in_set(FrameDataPrepare))
+					)
 		;
 	}
 }
@@ -94,7 +94,7 @@ pub fn calc_show(
 		}
 		// log::debug!("c_enable: {}", c_enable);
 		// log::warn!("show=============entity: {:?}, c_enable: {:?}, parent: {:?}, enable_value: {:?}", node, c_enable, parent_c_enable, enable_value);
-        log::trace!("show=============entity: {:?}, c_display: {:?}, c_visibility: {:?}, c_enable: {:?}, {:?}", node, c_display, c_visibility, c_enable, visibility_change);
+        log::debug!("show=============entity: {:?}, c_display: {:?}, c_visibility: {:?}, c_enable: {:?}, {:?}", node, c_display, c_visibility, c_enable, visibility_change);
 		write_item.set_enable(c_enable);
     }
 

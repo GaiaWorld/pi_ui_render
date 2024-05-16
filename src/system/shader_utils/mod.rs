@@ -6,7 +6,7 @@
 //! TODO: 后续，可能将不可变因素通过shader静态编译出来（尚不确定哪些通常不变），当前通过手动编写代码的方式来确定
 //!
 
-use pi_world::prelude::{With, Query, Plugin, IntoSystemConfigs, App, SingleRes, Changed};
+use pi_world::{fetch::Ticker, prelude::{App, Changed, IntoSystemConfigs, Plugin, Query, SingleRes, With}};
 use pi_bevy_ecs_extend::prelude::OrInitSingleResMut;
 
 use bevy_window::{PrimaryWindow, Window};
@@ -98,7 +98,7 @@ impl Plugin for UiShaderPlugin {
 			// .init_single_res::<UnitQuadBuffer>()
 
 			.add_system(UiStage, screen_target_resize
-                // .in_set(FrameDataPrepare)
+                // 
                 .before(UiSystemSet::Setting)
             )
 			// .add_startup_system(color::init)
@@ -110,7 +110,7 @@ impl Plugin for UiShaderPlugin {
 
 pub fn screen_target_resize(
     // events1: SingleRes<Events<WindowCreated>>,
-    windows: Query<&Window,( With<PrimaryWindow>, Changed<Window>)>,
+    windows: Query<&Window, With<PrimaryWindow>>,
     mut screen_target: OrInitSingleResMut<ScreenTarget>,
     texture_res_mgr: SingleRes<ShareAssetMgr<RenderRes<TextureView>>>,
     device: SingleRes<PiRenderDevice>,
@@ -120,9 +120,7 @@ pub fn screen_target_resize(
         Some(r) => r,
         _ => return,
     };
-    if window.physical_width() == 0 || window.physical_height() == 0 {
-        return;
-    }
+
 
     let r = &mut **screen_target;
     if r.aabb.maxs.x - r.aabb.mins.x != window.physical_width() as f32 || r.aabb.maxs.y - r.aabb.mins.y != window.physical_height() as f32

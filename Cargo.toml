@@ -306,15 +306,10 @@ pi_bevy_post_process = { path = "../pi_bevy/crates/post_process" }
 pi_bevy_window = { path = "../pi_bevy/crates/window" }
 
 # pi_render
-# pi_render = { path = "../pi_render" }
-# render_core = {path = "../pi_render/crates/render_core"}
-# render_derive = {path = "../pi_render/crates/render_derive"}
-# render_compile = {path = "../pi_render/crates/render_compile"}
-
-# pi_render = { path = "../pi_render" }
-# render_core = {path = "../pi_render/crates/render_core"}
-# render_derive = {path = "../pi_render/crates/render_derive"}
-# render_compile = {path = "../pi_render/crates/render_compile"}
+pi_render = { path = "../pi_render" }
+render_core = {path = "../pi_render/crates/render_core"}
+render_derive = {path = "../pi_render/crates/render_derive"}
+render_compile = {path = "../pi_render/crates/render_compile"}
 
 # pi_postprocess = { path = "../pi_post_process"}
 
