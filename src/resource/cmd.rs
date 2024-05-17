@@ -104,7 +104,7 @@ impl<T: Bundle + 'static + Send + Sync> Command for NodeCmd<T> {
             pi_print_any::out_any!(log::debug, "NodeCmd====================node：{:?}, anchor： {:?}", self.1, &self.0);
             let id = world.init_component::<T>();
             let _ = world.alter_components(self.1,&[(id, true)]);
-            if let Ok(r) = world.get_component_by_index_mut(self.1, id) {
+            if let Ok(mut r) = world.get_component_by_index_mut(self.1, id) {
                 *r = self.0;
             }
         } else {
@@ -121,7 +121,7 @@ impl Command for PostProcessCmd {
             pi_print_any::out_any!(log::debug, "NodeCmd====================node：{:?}, anchor： {:?}", self.1, &self.0);
             let id = world.init_component::<AsImage>();
             let _ = world.alter_components(self.1,&[(id, true)]);
-            if let Ok(r) = world.get_component_by_index_mut::<AsImage>(self.1, id) {
+            if let Ok(mut r) = world.get_component_by_index_mut::<AsImage>(self.1, id) {
                 r.post_process = self.0;
             }
         } else {
@@ -138,7 +138,7 @@ impl<T: 'static + Send + Sync> Command for ComponentCmd<T> {
             pi_print_any::out_any!(log::debug, "NodeCmd====================node：{:?}, anchor： {:?}", self.1, &self.0);
             let id = world.init_component::<T>();
             let _ = world.alter_components(self.1,&[(id, true)]);
-            if let Ok(r) = world.get_component_by_index_mut::<T>(self.1, id) {
+            if let Ok(mut r) = world.get_component_by_index_mut::<T>(self.1, id) {
                 *r = self.0;
             }
         } else {
@@ -156,7 +156,7 @@ impl Command for RuntimeAnimationBindCmd {
             self.1.name.scope_hash = self.2.index() as usize; // 因为每个运行时动画是节点独有的，以节点的index作为scope_hash(不能同时有两个index相等的实体)
             let id = world.init_component::<Animation>();
             let _ = world.alter_components(self.2,&[(id, true)]);
-            if let Ok(r) = world.get_component_by_index_mut::<Animation>(self.2, id) {
+            if let Ok(mut r) = world.get_component_by_index_mut::<Animation>(self.2, id) {
                 *r = self.1.clone();
             }
             let sheet = world.get_single_res_mut::<KeyFramesSheet>().unwrap();

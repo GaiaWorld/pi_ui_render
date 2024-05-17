@@ -298,8 +298,6 @@ pub fn user_setting2(
         node_changed.0 = true;
         user_commands.is_node_change = false;
 	}
-
-    panic!("============");
     
     // // 设置所有的root渲染脏（节点删除后， 组件被删除，很多状态丢失， 除非立即处理脏区域）
     // for mut render_dirty in query.p0().2.iter_mut() {
@@ -357,7 +355,7 @@ pub fn set_styles<'w, 's>(
     let (style_buffer, commands) = (&mut style_commands.style_buffer, &mut style_commands.commands);
     for (node, start, end, need_init) in commands.drain(..) {
         
-        if end - start == 0 {
+        if end - start == 0 && need_init.is_none() {
             continue;
         }
         if let Some(tag) = need_init {
@@ -395,7 +393,7 @@ pub fn set_style<'w, 's>(node: Entity, start: usize, end: usize, style_buffer: &
     let mut local_mark = BitArray::new([0, 0, 0, 0]);
     while style_reader.write_to_component(&mut local_mark, node, style_query, is_clone) {}
 
-    if let Ok(style_mark) = style_query.world.get_component_by_index_mut::<StyleMark>(node, style_query.style.style_mark) {
+    if let Ok(mut style_mark) = style_query.world.get_component_by_index_mut::<StyleMark>(node, style_query.style.style_mark) {
         style_mark.local_style |= local_mark;
 		style_mark.dirty_style |= local_mark;
     };
@@ -459,12 +457,12 @@ fn set_class<'w, 's>(node: Entity, style_query: &mut Setting, class: ClassName, 
     }
 
 
-    if let Ok(style_mark) = style_query.world.get_component_by_index_mut::<StyleMark>(node, style_query.style.style_mark) {
+    if let Ok(mut style_mark) = style_query.world.get_component_by_index_mut::<StyleMark>(node, style_query.style.style_mark) {
         style_mark.class_style |= new_class_style_mark;
 		style_mark.dirty_style |= new_class_style_mark;
     };
 
-    if let Ok(class_name) = style_query.world.get_component_by_index_mut::<ClassName>(node, style_query.style.class_name) {
+    if let Ok(mut class_name) = style_query.world.get_component_by_index_mut::<ClassName>(node, style_query.style.class_name) {
         *class_name = class;
     };
 }

@@ -113,6 +113,6 @@ impl Example for QuadExample {
     }
 
     fn render(&mut self, _cmd: &mut UserCommands) {
-        //swap(&mut self.cmd, cmd);
+        //
     }
 }

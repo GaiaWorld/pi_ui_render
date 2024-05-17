@@ -77,7 +77,7 @@ impl Example for ExampleCommonPlay {
         println!("view_port:{:?}", size);
     }
 
-    fn render(&mut self, cmd: &mut UserCommands) { swap(&mut self.cmd, cmd); }
+    fn render(&mut self, cmd: &mut UserCommands) {  }
 
     #[cfg(feature = "debug")]
     fn record_option(&self) -> pi_ui_render::system::cmd_play::TraceOption { pi_ui_render::system::cmd_play::TraceOption::Play }
@@ -131,7 +131,7 @@ impl Example for ExampleCommonPlay {
 
     // fn render(&mut self, cmd: &mut UserCommands) {
     // 	cmd.
-    // 	swap(&mut self.cmd, cmd);
+    // 	
     // }
 
     // fn fram_call(&mut self, gui: &mut Gui, engine: &mut Engine){
@@ -139,21 +139,21 @@ impl Example for ExampleCommonPlay {
     // 	if self.end {
     // 		return;
     // 	}
-    //     // let s = replace(&mut self.cmd, UserCommands::default());
+    //     // let s = replace(&mut world.user_cmd, UserCommands::default());
     //     // let r: &'static mut Commands1 = unsafe { transmute(cmd1) };
     //     // let mut gui = Gui {
     //     // 	entitys: r.entities,
     //     // 	commands: s,
     //     // };
     //     // let (list_index, file_index, json_arr) = (&mut self.list_index, &mut self.file_index, &mut self.json_arr);
-    //     // while setting(list_index, json_arr, self.cmd_path, self.play_path, self.play_version, file_index, gui, &mut self.play_context) {}
-    //     // swap(&mut self.cmd, gui.commands);
+    //     // while setting(list_index, json_arr, world.user_cmd_path, self.play_path, self.play_version, file_index, gui, &mut self.play_context) {}
+    //     // swap(&mut world.user_cmd, gui.commands);
 
     // 	let (list_index, file_index, json_arr) = (&mut self.list_index, &mut self.file_index, &mut self.json_arr);
     //     if !setting(
     //         list_index,
     //         json_arr,
-    //         self.cmd_path,
+    //         world.user_cmd_path,
     //         self.play_path,
     //         self.play_version,
     //         file_index,
@@ -164,9 +164,9 @@ impl Example for ExampleCommonPlay {
     // 		self.end = true;
     // 	}
 
-    //     // self.cmd = replace(&mut gui.commands, UserCommands::default()) ;
+    //     // world.user_cmd = replace(&mut gui.commands, UserCommands::default()) ;
 
-    //     // swap(&mut self.cmd, cmd);
+    //     // 
     // }
 
     // fn get_init_size(&self) -> Option<Size<u32>> {

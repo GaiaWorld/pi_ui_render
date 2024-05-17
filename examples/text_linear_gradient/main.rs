@@ -46,38 +46,38 @@ impl Example for QuadExample {
         // 添加根节点
         let root = world.spawn(NodeTag::Div);
         self.root = EntityKey(root);
-        self.cmd.push_cmd(NodeCmd(ClearColor(CgColor::new(1.0, 1.0, 1.0, 1.0), true), root));
-        self.cmd.push_cmd(NodeCmd(
+        world.user_cmd.push_cmd(NodeCmd(ClearColor(CgColor::new(1.0, 1.0, 1.0, 1.0), true), root));
+        world.user_cmd.push_cmd(NodeCmd(
             Viewport(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(size.0 as f32, size.1 as f32))),
             root,
         ));
-        self.cmd.push_cmd(NodeCmd(RenderDirty(true), root));
+        world.user_cmd.push_cmd(NodeCmd(RenderDirty(true), root));
 
-        self.cmd.set_style(root, WidthType(Dimension::Points(size.0 as f32)));
-        self.cmd.set_style(root, HeightType(Dimension::Points(size.1 as f32)));
+        world.user_cmd.set_style(root, WidthType(Dimension::Points(size.0 as f32)));
+        world.user_cmd.set_style(root, HeightType(Dimension::Points(size.1 as f32)));
 
-        self.cmd.set_style(root, PositionTypeType(PositionType::Absolute));
-        self.cmd.set_style(root, PositionLeftType(Dimension::Points(0.0)));
-        self.cmd.set_style(root, PositionTopType(Dimension::Points(0.0)));
-        self.cmd.set_style(root, MarginLeftType(Dimension::Points(0.0)));
-        self.cmd.set_style(root, MarginTopType(Dimension::Points(0.0)));
-		self.cmd.set_style(root, AsImageType(pi_style::style::AsImage::Force));
-        self.cmd
+        world.user_cmd.set_style(root, PositionTypeType(PositionType::Absolute));
+        world.user_cmd.set_style(root, PositionLeftType(Dimension::Points(0.0)));
+        world.user_cmd.set_style(root, PositionTopType(Dimension::Points(0.0)));
+        world.user_cmd.set_style(root, MarginLeftType(Dimension::Points(0.0)));
+        world.user_cmd.set_style(root, MarginTopType(Dimension::Points(0.0)));
+		world.user_cmd.set_style(root, AsImageType(pi_style::style::AsImage::Force));
+        world.user_cmd
             .set_style(root, BackgroundColorType(Color::RGBA(CgColor::new(1.0, 1.0, 1.0, 1.0))));
 
-        self.cmd.append(root, EntityKey::null().0);
+        world.user_cmd.append(root, EntityKey::null().0);
 
         // 添加一个渐变颜色的文字
         let div1 = world.spawn(NodeTag::Div);
-        self.cmd.set_style(div1, WidthType(Dimension::Points(50.0)));
-        self.cmd.set_style(div1, HeightType(Dimension::Points(100.0)));
-        self.cmd.set_style(div1, PositionTopType(Dimension::Points(20.0)));
-        self.cmd.set_style(div1, PositionLeftType(Dimension::Points(20.0)));
-        self.cmd
+        world.user_cmd.set_style(div1, WidthType(Dimension::Points(50.0)));
+        world.user_cmd.set_style(div1, HeightType(Dimension::Points(100.0)));
+        world.user_cmd.set_style(div1, PositionTopType(Dimension::Points(20.0)));
+        world.user_cmd.set_style(div1, PositionLeftType(Dimension::Points(20.0)));
+        world.user_cmd
             .set_style(div1, TextContentType(TextContent("base02".to_string(), Atom::from("base02"))));
         // rgb(255,0,0) 0px 0px 5px, rgb(255,0,0) 0px 0px 3px, rgb(255,255,255) 0px 0px 1px;
-        self.cmd.set_style(div1, FontFamilyType(Atom::from("hwkt")));
-        self.cmd.set_style(div1, ColorType(Color::LinearGradient(LinearGradientColor {
+        world.user_cmd.set_style(div1, FontFamilyType(Atom::from("hwkt")));
+        world.user_cmd.set_style(div1, ColorType(Color::LinearGradient(LinearGradientColor {
 			direction: 0.0,
 			list: vec![
 				ColorAndPosition {
@@ -90,15 +90,14 @@ impl Example for QuadExample {
 				},
 			],
 		})));
-        self.cmd.set_style(div1, FontSizeType(FontSize::Length(17)));
-        // self.cmd.set_style(div1, TextStrokeType(Stroke {
+        world.user_cmd.set_style(div1, FontSizeType(FontSize::Length(17)));
+        // world.user_cmd.set_style(div1, TextStrokeType(Stroke {
         // 	width: unsafe {NotNan::new_unchecked(2.0)},
         // 	color: CgColor::new(1.0, 0.0, 0.0, 1.0)}));
-        self.cmd.append(div1, root);
+        world.user_cmd.append(div1, root);
     }
 
     fn render(&mut self, cmd: &mut UserCommands) {
-        self.cmd.push_cmd(NodeCmd(RenderDirty(true), self.root.0));
-        swap(&mut self.cmd, cmd);
+        // world.user_cmd.push_cmd(NodeCmd(RenderDirty(true), self.root.0));
     }
 }

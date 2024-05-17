@@ -3,7 +3,7 @@ use std::sync::atomic::AtomicUsize;
 use pi_world::prelude::{Changed, App, Query, Removed, ParamSet, Plugin, IntoSystemConfigs, Has};
 use pi_bevy_ecs_extend::prelude::OrInitSingleRes;
 
-use pi_bevy_asset::{AssetConfig, AssetDesc, ShareAssetMgr};
+use pi_bevy_asset::{Allocator, AssetConfig, AssetDesc, ShareAssetMgr};
 use pi_bevy_render_plugin::FrameDataPrepare;
 use pi_null::Null;
 
@@ -28,6 +28,8 @@ pub struct UiAsImagePlugin;
 
 impl Plugin for UiAsImagePlugin {
     fn build(&self, app: &mut App) {
+        let mut w1 =  app.world.unsafe_world();
+        let allocator = w1.get_single_res_mut::<Allocator>().unwrap();
         let assets_mgr = {
             let w = app.world.unsafe_world();
             let asset_config = w.get_single_res::<AssetConfig>().unwrap();
@@ -37,8 +39,8 @@ impl Plugin for UiAsImagePlugin {
                 max: 32 * 1024 * 1024, // 默认32M的fbo缓存
                 timeout: 0,            // 并不会启用超时整理， 这里的数值无所谓（记得该资源管理器中的资源需要手动删除）
             };
-            let desc = asset_config.get::<CacheTarget>().unwrap_or(&default_cfg);
-            ShareAssetMgr::<CacheTarget>::new(pi_assets::asset::GarbageEmpty(), false, desc.max, desc.timeout)
+            // let desc = asset_config.get::<CacheTarget>().unwrap_or(&default_cfg);
+            ShareAssetMgr::<CacheTarget>::new_with_config(pi_assets::asset::GarbageEmpty(), &default_cfg, asset_config, allocator)
         };
 
         app.world.insert_single_res(TargetCacheMgr { key: AtomicUsize::new(0), assets: assets_mgr });

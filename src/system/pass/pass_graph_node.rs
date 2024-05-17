@@ -511,6 +511,7 @@ impl Node for Pass2DNode {
 		// let t6 = std::time::Instant::now();
 		if let Some(as_image) = as_image {
 			if as_image.level != pi_style::style::AsImage::Force {
+				println!("as_image=============== {:?}", (pass2d_id, as_image.level));
 				// 每帧都清理掉render_target.target， 避免握住无法释放
 				render_target.target = StrongTarget::None;
 			}
@@ -1169,7 +1170,9 @@ impl RenderTarget {
     ) -> Option<Share<SafeTargetView>> {
         if is_force_alloc || post_info.has_effect() {
             match &self.target {
-                StrongTarget::Asset(r) => return Some(r.0.clone()),
+                StrongTarget::Asset(r) => {
+					return Some(r.0.clone())
+				},
 				StrongTarget::Raw(r) => return Some(r.0.clone()),
                 StrongTarget::None => {
                     let width = (self.bound_box.maxs.x - self.bound_box.mins.x).ceil() as u32;
@@ -1183,6 +1186,8 @@ impl RenderTarget {
                         Some(r) => r.level.clone(),
                         None => pi_style::style::AsImage::None,
                     };
+
+					// println!("get_width======: {:?}",( width, height, assets.assets.size(), max_cache));
 
 					let capacity_overflow = assets.assets.size() as u32 + width * height * 4 > max_cache as u32;
                     // 如果设置节点为建议缓存，在显存已经超出max_cache的情况下， 不为其分配target， 该相机下的物体直接渲染到父target上

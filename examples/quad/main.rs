@@ -128,6 +128,6 @@ impl Example for QuadExample {
 
     fn render(&mut self, _cmd: &mut UserCommands) { 
 		// world.user_cmd.push_cmd(NodeCmd(RenderDirty(true), self.root.0));
-		// swap(&mut world.user_cmd, cmd); 
+		//  
 	}
 }

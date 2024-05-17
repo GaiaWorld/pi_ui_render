@@ -1,6 +1,6 @@
 //! 处理root节点，将root节点标记为渲染上下文（设置RenderContextMark中的位标记）
 
-use pi_world::prelude::{Alter, Has, Removed, ParamSet, Changed};
+use pi_world::{prelude::{Alter, Changed, Has, ParamSet, Removed}, system_params::Local};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleRes, Root};
 
 use crate::{
@@ -19,12 +19,18 @@ pub fn root_calc(
     )>,
 
     mark_type: OrInitSingleRes<RenderContextMarkType<Root>>,
+    // mut l: Local<usize>,
 
 	r: OrInitSingleRes<IsRun>
 ) {
 	if r.0 {
 		return;
 	}
+    // *l += 1;
+    // if *l {
+    //     return;
+    // }
+    // *l = true;
     // Root组件删除，取消渲染上下文标记， 并删除RootBundle
     let render_context = query_set.p1();
     let mut iter = render_context.iter_mut();
@@ -40,7 +46,7 @@ pub fn root_calc(
 
     // Root组件添加，为其添加RootBundle
     let mut iter = query_set.p0().iter_mut();
-    while let Some(mut render_mark_value) = iter.next() {
+    while let Some(mut render_mark_value) = iter.next() { 
         render_mark_true(***mark_type, &mut render_mark_value);
         let _ = iter.alter(RootBundle::default());
     }

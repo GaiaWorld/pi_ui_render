@@ -44,30 +44,30 @@ impl Example for QuadExample {
         // 添加根节点
         let root = world.spawn(NodeTag::Div);
         self.root = EntityKey(root);
-        self.cmd.push_cmd(NodeCmd(ClearColor(CgColor::new(1.0, 1.0, 1.0, 1.0), true), root));
-        self.cmd.push_cmd(NodeCmd(
+        world.user_cmd.push_cmd(NodeCmd(ClearColor(CgColor::new(1.0, 1.0, 1.0, 1.0), true), root));
+        world.user_cmd.push_cmd(NodeCmd(
             Viewport(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(size.0 as f32, size.1 as f32))),
             root,
         ));
-        self.cmd.push_cmd(NodeCmd(RenderDirty(true), root));
+        world.user_cmd.push_cmd(NodeCmd(RenderDirty(true), root));
 
-        self.cmd.set_style(root, WidthType(Dimension::Points(size.0 as f32)));
-        self.cmd.set_style(root, HeightType(Dimension::Points(size.1 as f32)));
+        world.user_cmd.set_style(root, WidthType(Dimension::Points(size.0 as f32)));
+        world.user_cmd.set_style(root, HeightType(Dimension::Points(size.1 as f32)));
 
-        self.cmd.set_style(root, PositionTypeType(PositionType::Absolute));
-        self.cmd.set_style(root, PositionLeftType(Dimension::Points(0.0)));
-        self.cmd.set_style(root, PositionTopType(Dimension::Points(0.0)));
-        self.cmd.set_style(root, MarginLeftType(Dimension::Points(0.0)));
-        self.cmd.set_style(root, MarginTopType(Dimension::Points(0.0)));
-		self.cmd.set_style(root, AsImageType(pi_style::style::AsImage::Force));
+        world.user_cmd.set_style(root, PositionTypeType(PositionType::Absolute));
+        world.user_cmd.set_style(root, PositionLeftType(Dimension::Points(0.0)));
+        world.user_cmd.set_style(root, PositionTopType(Dimension::Points(0.0)));
+        world.user_cmd.set_style(root, MarginLeftType(Dimension::Points(0.0)));
+        world.user_cmd.set_style(root, MarginTopType(Dimension::Points(0.0)));
+		world.user_cmd.set_style(root, AsImageType(pi_style::style::AsImage::Force));
 
-        self.cmd.append(root, EntityKey::null().0);
+        world.user_cmd.append(root, EntityKey::null().0);
 
         // 添加div, 设置渐变遮罩
         let div1 = world.spawn(NodeTag::Div);
-        self.cmd.set_style(div1, WidthType(Dimension::Points(50.0)));
-        self.cmd.set_style(div1, HeightType(Dimension::Points(100.0)));
-        self.cmd.set_style(
+        world.user_cmd.set_style(div1, WidthType(Dimension::Points(50.0)));
+        world.user_cmd.set_style(div1, HeightType(Dimension::Points(100.0)));
+        world.user_cmd.set_style(
             div1,
             MaskImageType(MaskImage::LinearGradient(LinearGradientColor {
                 direction: 0.0,
@@ -83,23 +83,23 @@ impl Example for QuadExample {
                 ],
             })),
         );
-        self.cmd.append(div1, root);
+        world.user_cmd.append(div1, root);
 
         // 为遮罩节点添加子节点，并设置颜色
         let div2 = world.spawn(NodeTag::Div);
-        self.cmd.set_style(div2, WidthType(Dimension::Points(50.0)));
-        self.cmd.set_style(div2, HeightType(Dimension::Points(100.0)));
-        self.cmd
+        world.user_cmd.set_style(div2, WidthType(Dimension::Points(50.0)));
+        world.user_cmd.set_style(div2, HeightType(Dimension::Points(100.0)));
+        world.user_cmd
             .set_style(div2, BackgroundColorType(Color::RGBA(CgColor::new(0.0, 0.0, 1.0, 1.0))));
-        self.cmd.append(div2, div1);
+        world.user_cmd.append(div2, div1);
 
         // 为遮罩节点添加子节点，并设置颜色
         let div3 = world.spawn(NodeTag::Div);
-        self.cmd.set_style(div3, WidthType(Dimension::Points(100.0)));
-        self.cmd.set_style(div3, HeightType(Dimension::Points(100.0)));
-        self.cmd
+        world.user_cmd.set_style(div3, WidthType(Dimension::Points(100.0)));
+        world.user_cmd.set_style(div3, HeightType(Dimension::Points(100.0)));
+        world.user_cmd
             .set_style(div3, BackgroundColorType(Color::RGBA(CgColor::new(0.0, 0.0, 1.0, 1.0))));
-        self.cmd.set_style(
+        world.user_cmd.set_style(
             div3,
             MaskImageType(MaskImage::LinearGradient(LinearGradientColor {
                 direction: 0.5 * 3.14,
@@ -119,7 +119,7 @@ impl Example for QuadExample {
                 ],
             })),
         );
-        self.cmd.set_style(
+        world.user_cmd.set_style(
             div3,
             BackgroundColorType(Color::LinearGradient(LinearGradientColor {
                 direction: 0.0,
@@ -135,13 +135,13 @@ impl Example for QuadExample {
                 ],
             })),
         );
-        self.cmd.append(div3, root);
+        world.user_cmd.append(div3, root);
 
         // background:linear-gradient(0deg,#ff0000,#00ff00);mask-image-source:linear-gradient(90deg, #000000, #777777 50%, #ffffff);
     }
 
     fn render(&mut self, cmd: &mut UserCommands) {
-        self.cmd.push_cmd(NodeCmd(RenderDirty(true), self.root.0));
-        swap(&mut self.cmd, cmd);
+        // world.user_cmd.push_cmd(NodeCmd(RenderDirty(true), self.root.0));
+        
     }
 }

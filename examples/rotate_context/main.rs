@@ -50,65 +50,65 @@ impl Example for QuadExample {
         // gui.gui.world_mut().insert_single_res(ClearColor(CgColor::new(0.0, 1.0, 1.0, 1.0)));
         // 添加根节点
         let root = world.spawn(NodeTag::Div);
-        self.cmd.push_cmd(NodeCmd(ClearColor(CgColor::new(1.0, 0.0, 0.0, 1.0), true), root));
-        self.cmd.push_cmd(NodeCmd(
+        world.user_cmd.push_cmd(NodeCmd(ClearColor(CgColor::new(1.0, 0.0, 0.0, 1.0), true), root));
+        world.user_cmd.push_cmd(NodeCmd(
             Viewport(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(size.0 as f32, size.1 as f32))),
             root,
         ));
-        self.cmd.push_cmd(NodeCmd(RenderDirty(true), root));
-        self.cmd.set_style(root, WidthType(Dimension::Points(size.0 as f32)));
-        self.cmd.set_style(root, HeightType(Dimension::Points(size.1 as f32)));
+        world.user_cmd.push_cmd(NodeCmd(RenderDirty(true), root));
+        world.user_cmd.set_style(root, WidthType(Dimension::Points(size.0 as f32)));
+        world.user_cmd.set_style(root, HeightType(Dimension::Points(size.1 as f32)));
 
-        self.cmd.set_style(root, PositionTypeType(PositionType::Absolute));
-        self.cmd.set_style(root, PositionLeftType(Dimension::Points(0.0)));
-        self.cmd.set_style(root, PositionTopType(Dimension::Points(0.0)));
-        self.cmd.set_style(root, MarginLeftType(Dimension::Points(0.0)));
-        self.cmd.set_style(root, MarginTopType(Dimension::Points(0.0)));
-		self.cmd.set_style(root, AsImageType(pi_style::style::AsImage::Force));
-        self.cmd.append(root, EntityKey::null().0);
+        world.user_cmd.set_style(root, PositionTypeType(PositionType::Absolute));
+        world.user_cmd.set_style(root, PositionLeftType(Dimension::Points(0.0)));
+        world.user_cmd.set_style(root, PositionTopType(Dimension::Points(0.0)));
+        world.user_cmd.set_style(root, MarginLeftType(Dimension::Points(0.0)));
+        world.user_cmd.set_style(root, MarginTopType(Dimension::Points(0.0)));
+		world.user_cmd.set_style(root, AsImageType(pi_style::style::AsImage::Force));
+        world.user_cmd.append(root, EntityKey::null().0);
 
 
         let div2 = world.spawn(NodeTag::Div);
-        self.cmd.set_style(div2, WidthType(Dimension::Points(100.0)));
-        self.cmd.set_style(div2, HeightType(Dimension::Points(200.0)));
-        self.cmd.set_style(div2, PositionTypeType(PositionType::Absolute));
-        self.cmd.set_style(div2, PositionLeftType(Dimension::Points(100.0)));
-        self.cmd.set_style(div2, PositionTopType(Dimension::Points(50.0)));
-        self.cmd.append(div2, root);
+        world.user_cmd.set_style(div2, WidthType(Dimension::Points(100.0)));
+        world.user_cmd.set_style(div2, HeightType(Dimension::Points(200.0)));
+        world.user_cmd.set_style(div2, PositionTypeType(PositionType::Absolute));
+        world.user_cmd.set_style(div2, PositionLeftType(Dimension::Points(100.0)));
+        world.user_cmd.set_style(div2, PositionTopType(Dimension::Points(50.0)));
+        world.user_cmd.append(div2, root);
 
         let div3 = world.spawn(NodeTag::Div);
-        self.cmd.set_style(div3, WidthType(Dimension::Points(61.0)));
-        self.cmd.set_style(div3, HeightType(Dimension::Points(116.0)));
-        self.cmd.set_style(div3, PositionTypeType(PositionType::Absolute));
-        self.cmd
+        world.user_cmd.set_style(div3, WidthType(Dimension::Points(61.0)));
+        world.user_cmd.set_style(div3, HeightType(Dimension::Points(116.0)));
+        world.user_cmd.set_style(div3, PositionTypeType(PositionType::Absolute));
+        world.user_cmd
             .set_style(div3, BackgroundImageType(Atom::from("examples/test/source/icon_qieye.png")));
-        // self.cmd
+        // world.user_cmd
         // .set_style(div3, BackgroundColorType(Color::RGBA(CgColor::new(1.0, 255.0, 0.0, 1.0))));
-        // self.cmd
+        // world.user_cmd
         // .set_style(div2, BackgroundColorType(Color::RGBA(CgColor::new(255.0, 255.0, 255.0, 0.1))));
         let mut transform = Vec::default();
         transform.push(TransformFunc::RotateZ(180.0));
         transform.push(TransformFunc::Scale(0.5, 0.5));
-        self.cmd.set_style(div3, TransformType(transform));
-        self.cmd.set_style(div3, OpacityType(0.99));
-        self.cmd.append(div3, div2);
+        world.user_cmd.set_style(div3, TransformType(transform));
+        world.user_cmd.set_style(div3, OpacityType(0.99));
+        world.user_cmd.append(div3, div2);
 
         let div3 = world.spawn(NodeTag::Div);
-        self.cmd.set_style(div3, WidthType(Dimension::Points(61.0)));
-        self.cmd.set_style(div3, HeightType(Dimension::Points(116.0)));
-        self.cmd.set_style(div3, PositionTypeType(PositionType::Absolute));
-        self.cmd.set_style(div3, PositionTopType(Dimension::Points(-50.0)));
-        self.cmd
+        world.user_cmd.set_style(div3, WidthType(Dimension::Points(61.0)));
+        world.user_cmd.set_style(div3, HeightType(Dimension::Points(116.0)));
+        world.user_cmd.set_style(div3, PositionTypeType(PositionType::Absolute));
+        world.user_cmd.set_style(div3, PositionTopType(Dimension::Points(-50.0)));
+        world.user_cmd
             .set_style(div3, BackgroundImageType(Atom::from("examples/test/source/icon_qieye.png")));
-        // self.cmd
+        // world.user_cmd
         // .set_style(div3, BackgroundColorType(Color::RGBA(CgColor::new(1.0, 255.0, 0.0, 1.0))));
-        // self.cmd
+        // world.user_cmd
         // .set_style(div2, BackgroundColorType(Color::RGBA(CgColor::new(255.0, 255.0, 255.0, 0.1))));
         let mut transform = Vec::default();
         transform.push(TransformFunc::RotateZ(180.0));
         transform.push(TransformFunc::Scale(0.5, 0.5));
-        self.cmd.set_style(div3, TransformType(transform));
-        self.cmd.append(div3, div2);
+        world.user_cmd.set_style(div3, TransformType(transform));
+        world.user_cmd.append(div3, div2);
 
         log::warn!("end=====");
     }
@@ -119,7 +119,7 @@ impl Example for QuadExample {
         // 		self.time = Some(std::time::Instant::now());
         // 		log::warn!("zzzz=====");
         // 		if !self.flag {
-        // 			self.cmd.set_style(
+        // 			world.user_cmd.set_style(
         // 				self.div1.0,
         // 				HsiType(Hsi {
         // 					hue_rotate: 0.0,
@@ -128,7 +128,7 @@ impl Example for QuadExample {
         // 				}),
         // 			);
         // 		} else {
-        // 			self.cmd.set_style(
+        // 			world.user_cmd.set_style(
         // 				self.div1.0,
         // 				HsiType(Hsi {
         // 					hue_rotate: 0.0,
@@ -142,6 +142,6 @@ impl Example for QuadExample {
         // 	}
         // }
 
-        swap(&mut self.cmd, cmd);
+        
     }
 }

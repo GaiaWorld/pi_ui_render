@@ -269,6 +269,7 @@ pub fn calc_camera_depth_and_renderlist(
 				// 	log::warn!("aaaa2================={:?}, {:?}, {:?}, {}", entity, render_target.bound_box, &camera.view_port, render_target.bound_box.maxs.x - render_target.bound_box.mins.x);
 				// }
                 // 从资源管理器中删除原有的渲染目标（TODO， 另外还需要在RenderTarget销毁时， 从资源管理器中删除）
+                println!("camera======: {:p}", &render_target.target);
                 render_target.target = StrongTarget::None; // 设置为None， 等待渲染时重新分配
                 render_target.cache = RenderTargetCache::None;
             }

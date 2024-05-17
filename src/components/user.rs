@@ -666,7 +666,7 @@ impl Default for FlexNormal {
 }
 
 /// 绘制canvas的图节点
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Canvas {
 	pub id: Entity,
 	pub by_draw_list: bool,
@@ -819,7 +819,7 @@ pub mod serialize {
         );
         // pi_print_any::out_any!(println, "set_default_style_attr==={:?}", (entity, std::any::type_name::<C>(), &v));
         match world.get_component_by_index_mut::<C>(entity, component_id) {
-            Ok(component) => {
+            Ok(mut component) => {
                 f(&mut *component, v);
             }
             _ => {
@@ -2052,7 +2052,7 @@ pub mod serialize {
                 entity
             );
             match query.world.get_component_by_index_mut::<BackgroundImage>(entity, query.style.background_image) {
-                Ok(component) => {
+                Ok(mut component) => {
                     component.0 = v;
                     // f(unsafe { component.into_inner().deref_mut::<Atom>() }, v);
                 }
@@ -2155,7 +2155,7 @@ pub mod serialize {
                 entity
             );
             match query.world.get_component_by_index_mut::<BorderImage>(entity, query.style.border_image){
-                Ok(component) => {
+                Ok(mut component) => {
                     component.0 = v;
                     // f(unsafe { component.into_inner().deref_mut::<Atom>() }, v);
                 }
@@ -2250,7 +2250,7 @@ pub mod serialize {
                 entity
             );
 
-			if let Ok(component) = query.world.get_component_by_index_mut::<TransformWillChange>(entity, query.style.transform_will_change) {
+			if let Ok(mut component) = query.world.get_component_by_index_mut::<TransformWillChange>(entity, query.style.transform_will_change) {
                 if component.0.is_some() {
                     // 如果存在transform_willChange,则将Transform设置在TransformWillChange上
                     if let Some(r) = &mut component.0 {
@@ -2262,7 +2262,7 @@ pub mod serialize {
 			
             // 不存在transform_willChange， 则设置在Transfrom上
 			match query.world.get_component_by_index_mut::<Transform>(entity, query.style.transform) {
-				Ok(component)  => {
+				Ok(mut component)  => {
 					// 如果存在transform_willChange,则将Transform设置在TransformWillChange上
                     component.all_transform.transform = v;
 				}
@@ -2310,7 +2310,7 @@ pub mod serialize {
         where
             Self: Sized,
         {
-			if let Ok(component) = query.world.get_component_by_index_mut::<TransformWillChange>(entity, query.style.transform_will_change) {
+			if let Ok(mut component) = query.world.get_component_by_index_mut::<TransformWillChange>(entity, query.style.transform_will_change) {
                 if component.0.is_some() {
                     // 如果存在transform_willChange,则将Transform设置在TransformWillChange上
                     if let Some(r) = &mut component.0 {
@@ -2321,7 +2321,7 @@ pub mod serialize {
             };
 
             match query.world.get_component_by_index_mut::<Transform>(entity, query.style.transform) {
-				Ok(component)  => {
+				Ok(mut component)  => {
                     component.all_transform.transform = Default::default();
 				}
 				_ => (),
@@ -2357,7 +2357,7 @@ pub mod serialize {
                 v,
                 entity
             );
-            if let Ok(component) = query.world.get_component_by_index_mut::<TransformWillChange>(entity, query.style.transform_will_change) {
+            if let Ok(mut component) = query.world.get_component_by_index_mut::<TransformWillChange>(entity, query.style.transform_will_change) {
 				if component.0.is_some() {
                     // 如果存在transform_willChange,则将Transform设置在TransformWillChange上
                     if let Some(r) = &mut component.0 {
@@ -2369,7 +2369,7 @@ pub mod serialize {
 
             // 不存在transform_willChange， 则设置在Transfrom上
 			match query.world.get_component_by_index_mut::<Transform>(entity, query.style.transform){
-				Ok(component)  => {
+				Ok(mut component)  => {
 					// 如果存在transform_willChange,则将Transform设置在TransformWillChange上
                     component.all_transform.translate = Some(v);
 				}
@@ -2424,7 +2424,7 @@ pub mod serialize {
         where
             Self: Sized,
         {
-			if let Ok(component) = query.world.get_component_by_index_mut::<TransformWillChange>(entity, query.style.transform_will_change) {
+			if let Ok(mut component) = query.world.get_component_by_index_mut::<TransformWillChange>(entity, query.style.transform_will_change) {
 				if component.0.is_some() {
                     // 如果存在transform_willChange,则将Transform设置在TransformWillChange上
                     if let Some(r) = &mut component.0 {
@@ -2435,7 +2435,7 @@ pub mod serialize {
             };
 
             match query.world.get_component_by_index_mut::<Transform>(entity, query.style.transform) {
-				Ok(component)  => {
+				Ok(mut component)  => {
 					component.all_transform.translate = None;
 				}
 				_ => (),
@@ -2470,7 +2470,7 @@ pub mod serialize {
                 entity
             );
 
-            if let Ok(component) = query.world.get_component_by_index_mut::<TransformWillChange>(entity, query.style.transform_will_change) {
+            if let Ok(mut component) = query.world.get_component_by_index_mut::<TransformWillChange>(entity, query.style.transform_will_change) {
 				if component.0.is_some() {
                     // 如果存在transform_willChange,则将Transform设置在TransformWillChange上
                     if let Some(r) = &mut component.0 {
@@ -2482,7 +2482,7 @@ pub mod serialize {
 
             // 不存在transform_willChange， 则设置在Transfrom上
 			match query.world.get_component_by_index_mut::<Transform>(entity, query.style.transform) {
-				Ok(component)  => {
+				Ok(mut component)  => {
 					// 如果存在transform_willChange,则将Transform设置在TransformWillChange上
                     component.all_transform.scale = Some(v);
 				}
@@ -2538,7 +2538,7 @@ pub mod serialize {
         where
             Self: Sized,
         {
-			if let Ok(component) = query.world.get_component_by_index_mut::<TransformWillChange>(entity, query.style.transform_will_change) {
+			if let Ok(mut component) = query.world.get_component_by_index_mut::<TransformWillChange>(entity, query.style.transform_will_change) {
 				if component.0.is_some() {
                     // 如果存在transform_willChange,则将Transform设置在TransformWillChange上
                     if let Some(r) = &mut component.0 {
@@ -2549,7 +2549,7 @@ pub mod serialize {
             };
 
             match query.world.get_component_by_index_mut::<Transform>(entity, query.style.transform) {
-				Ok(component)  => {
+				Ok(mut component)  => {
 					component.all_transform.scale = None;
 				}
 				_ => (),
@@ -2583,7 +2583,7 @@ pub mod serialize {
                 v,
                 entity
             );
-            if let Ok(component) = query.world.get_component_by_index_mut::<TransformWillChange>(entity, query.style.transform_will_change) {
+            if let Ok(mut component) = query.world.get_component_by_index_mut::<TransformWillChange>(entity, query.style.transform_will_change) {
 				if component.0.is_some() {
                     // 如果存在transform_willChange,则将Transform设置在TransformWillChange上
                     if let Some(r) = &mut component.0 {
@@ -2595,7 +2595,7 @@ pub mod serialize {
 
             // 不存在transform_willChange， 则设置在Transfrom上
 			match query.world.get_component_by_index_mut::<Transform>(entity, query.style.transform) {
-				Ok(component)  => {
+				Ok(mut component)  => {
 					// 如果存在transform_willChange,则将Transform设置在TransformWillChange上
                     component.all_transform.rotate = Some(v);
 				}
@@ -2650,7 +2650,7 @@ pub mod serialize {
         where
             Self: Sized,
         {
-			if let Ok(component) = query.world.get_component_by_index_mut::<TransformWillChange>(entity, query.style.transform_will_change) {
+			if let Ok(mut component) = query.world.get_component_by_index_mut::<TransformWillChange>(entity, query.style.transform_will_change) {
 				if component.0.is_some() {
                     // 如果存在transform_willChange,则将Transform设置在TransformWillChange上
                     if let Some(r) = &mut component.0 {
@@ -2661,7 +2661,7 @@ pub mod serialize {
             };
 
             match query.world.get_component_by_index_mut::<Transform>(entity, query.style.transform) {
-				Ok(component)  => {
+				Ok(mut component)  => {
 					component.all_transform.rotate = None;
 				}
 				_ => (),
@@ -2698,12 +2698,12 @@ pub mod serialize {
             );
 
 			if !v {
-				if let Ok(component) = query.world.get_component_by_index_mut::<TransformWillChange>(entity, query.style.transform_will_change) {
+				if let Ok(mut component) = query.world.get_component_by_index_mut::<TransformWillChange>(entity, query.style.transform_will_change) {
 					if let Some(c) = &component.0 {
                         let c1 = c.clone();
                         component.0 = None;
                         match query.world.get_component_by_index_mut::<Transform>(entity, query.style.transform) {
-                            Ok(component)  => {
+                            Ok(mut component)  => {
                                 // 如果存在transform_willChange,则将Transform设置在TransformWillChange上
                                 component.all_transform = c1;
                             }
@@ -2723,9 +2723,9 @@ pub mod serialize {
 			} else {
 				// 不存在transform_willChange， 则设置在Transfrom上
 				match query.world.get_component_by_index_mut::<Transform>(entity, query.style.transform) {
-					Ok(component)  => {
+					Ok(mut component)  => {
                         let c = component.all_transform.clone();
-                        if let Ok(component_will_change) = query.world.get_component_by_index_mut::<TransformWillChange>(entity, query.style.transform_will_change) {
+                        if let Ok(mut component_will_change) = query.world.get_component_by_index_mut::<TransformWillChange>(entity, query.style.transform_will_change) {
                             *component_will_change = TransformWillChange(Some(c));
                         }
 					}
@@ -2774,14 +2774,14 @@ pub mod serialize {
             Self: Sized,
         {
             log::debug!("reset_style_attr, type: TransformWillChange, entity: {:?}", entity);
-            if let Ok(component) = query.world.get_component_by_index_mut::<TransformWillChange>(entity, query.style.transform_will_change) {
+            if let Ok(mut component) = query.world.get_component_by_index_mut::<TransformWillChange>(entity, query.style.transform_will_change) {
                 // 删除TransformWillChange, 设置Transform
                 if let Some(c) = &component.0 {
                     let c = c.clone();
                     component.0 = None;
                     // 设置transform
                     match query.world.get_component_by_index_mut::<Transform>(entity, query.style.transform) {
-                        Ok(component)  => {
+                        Ok(mut component)  => {
                             // 如果存在transform_willChange,则将Transform设置在TransformWillChange上
                             component.all_transform = c;
                         }

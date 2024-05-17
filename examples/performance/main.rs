@@ -48,37 +48,37 @@
 // 		self.entitys = Some(unsafe { transmute( world.entities_mut() ) });
 //         // 添加根节点
 //         let root = world.spawn(NodeTag::Div);
-// 		self.cmd.init_node(root, NodeTag::Div);
-//         self.cmd.push_cmd(NodeCmd(ClearColor(CgColor::new(1.0, 1.0, 1.0, 1.0), true), root));
-//         self.cmd.push_cmd(NodeCmd(
+// 		world.user_cmd.init_node(root, NodeTag::Div);
+//         world.user_cmd.push_cmd(NodeCmd(ClearColor(CgColor::new(1.0, 1.0, 1.0, 1.0), true), root));
+//         world.user_cmd.push_cmd(NodeCmd(
 //             Viewport(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(size.0 as f32, size.1 as f32))),
 //             root,
 //         ));
-//         self.cmd.push_cmd(NodeCmd(RenderDirty(true), root));
+//         world.user_cmd.push_cmd(NodeCmd(RenderDirty(true), root));
 // 		self.root = EntityKey(root);
 
-//         self.cmd.set_style(root, WidthType(Dimension::Points(size.0 as f32)));
-//         self.cmd.set_style(root, HeightType(Dimension::Points(size.1 as f32)));
+//         world.user_cmd.set_style(root, WidthType(Dimension::Points(size.0 as f32)));
+//         world.user_cmd.set_style(root, HeightType(Dimension::Points(size.1 as f32)));
 
-//         self.cmd.set_style(root, PositionTypeType(PositionType::Absolute));
-//         self.cmd.set_style(root, PositionLeftType(Dimension::Points(0.0)));
-//         self.cmd.set_style(root, PositionTopType(Dimension::Points(0.0)));
-//         self.cmd.set_style(root, MarginLeftType(Dimension::Points(0.0)));
-//         self.cmd.set_style(root, MarginTopType(Dimension::Points(0.0)));
-// 		self.cmd.set_style(root, AsImageType(pi_style::style::AsImage::Force));
-//         self.cmd.append(root, EntityKey::null().0);
+//         world.user_cmd.set_style(root, PositionTypeType(PositionType::Absolute));
+//         world.user_cmd.set_style(root, PositionLeftType(Dimension::Points(0.0)));
+//         world.user_cmd.set_style(root, PositionTopType(Dimension::Points(0.0)));
+//         world.user_cmd.set_style(root, MarginLeftType(Dimension::Points(0.0)));
+//         world.user_cmd.set_style(root, MarginTopType(Dimension::Points(0.0)));
+// 		world.user_cmd.set_style(root, AsImageType(pi_style::style::AsImage::Force));
+//         world.user_cmd.append(root, EntityKey::null().0);
 
 //         // 添加一个玫红色div到根节点， 并添加overflow属性
 // 		let mut index = 0;
 // 		let mut offset = 0.0;
 // 		for _ in 0..48 {
 // 			let div1 = world.spawn(NodeTag::Div);
-// 			self.cmd.set_style(div1, WidthType(Dimension::Points(size.0 as f32)));
-// 			self.cmd.set_style(div1, HeightType(Dimension::Points(size.1 as f32)));
-// 			self.cmd.set_style(div1, PositionTypeType(PositionType::Absolute));
-// 			self.cmd.set_style(div1, PositionLeftType(Dimension::Points(offset)));
-// 			self.cmd.set_style(div1, PositionTopType(Dimension::Points(offset)));
-// 			self.cmd.append(div1, root);
+// 			world.user_cmd.set_style(div1, WidthType(Dimension::Points(size.0 as f32)));
+// 			world.user_cmd.set_style(div1, HeightType(Dimension::Points(size.1 as f32)));
+// 			world.user_cmd.set_style(div1, PositionTypeType(PositionType::Absolute));
+// 			world.user_cmd.set_style(div1, PositionLeftType(Dimension::Points(offset)));
+// 			world.user_cmd.set_style(div1, PositionTopType(Dimension::Points(offset)));
+// 			world.user_cmd.append(div1, root);
 
 // 			let c = if index % 3 == 0 {
 // 				CgColor::new(1.0, 0.0, 0.0, 1.0)
@@ -92,33 +92,33 @@
 
 // 			for i in 0..2500 {
 // 				let div2 = world.spawn(NodeTag::Div);
-// 				self.cmd.set_style(div2, WidthType(Dimension::Points(9.0)));
-// 				self.cmd.set_style(div2, HeightType(Dimension::Points(9.0)));
-// 				self.cmd.set_style(div2, MarginLeftType(Dimension::Points(1.0)));
-// 				self.cmd.set_style(div2, MarginTopType(Dimension::Points(1.0)));
-// 				self.cmd
+// 				world.user_cmd.set_style(div2, WidthType(Dimension::Points(9.0)));
+// 				world.user_cmd.set_style(div2, HeightType(Dimension::Points(9.0)));
+// 				world.user_cmd.set_style(div2, MarginLeftType(Dimension::Points(1.0)));
+// 				world.user_cmd.set_style(div2, MarginTopType(Dimension::Points(1.0)));
+// 				world.user_cmd
 // 					.set_style(div2, BackgroundColorType(Color::RGBA(c.clone())));
-// 				self.cmd.append(div2, div1);
+// 				world.user_cmd.append(div2, div1);
 // 			} 
 // 		}
 		
 //     }
 
 //     fn render(&mut self, cmd: &mut UserCommands) { 
-// 		self.cmd.push_cmd(NodeCmd(RenderDirty(true), self.root.0));
+// 		world.user_cmd.push_cmd(NodeCmd(RenderDirty(true), self.root.0));
 // 		self.index += 1;
 
 // 		if self.index == 500 {
 // 			let div1 = self.entitys.as_mut().unwrap().reserve_entity();
-// 			self.cmd.init_node(div1, NodeTag::Div);
-// 			self.cmd.set_style(div1, WidthType(Dimension::Points(400.0 as f32)));
-// 			self.cmd.set_style(div1, HeightType(Dimension::Points(400.0 as f32)));
-// 			self.cmd.set_style(div1, PositionTypeType(PositionType::Absolute));
-// 			self.cmd
+// 			world.user_cmd.init_node(div1, NodeTag::Div);
+// 			world.user_cmd.set_style(div1, WidthType(Dimension::Points(400.0 as f32)));
+// 			world.user_cmd.set_style(div1, HeightType(Dimension::Points(400.0 as f32)));
+// 			world.user_cmd.set_style(div1, PositionTypeType(PositionType::Absolute));
+// 			world.user_cmd
 // 					.set_style(div1, BackgroundColorType(Color::RGBA(CgColor::new(1.0, 0.0, 1.0, 1.0))));
-// 			self.cmd.append(div1, self.root.0);
+// 			world.user_cmd.append(div1, self.root.0);
 // 		}
-// 		swap(&mut self.cmd, cmd); 
+// 		 
 // 	}
 // }
 
