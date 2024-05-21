@@ -58,13 +58,13 @@ impl Example for QuadExample {
         world.user_cmd.append(root, EntityKey::null().0);
 
         // 添加一个红色div
-        let div1 = world.spawn(NodeTag::Div);
-        world.user_cmd.set_style(div1, WidthType(Dimension::Points(50.0)));
-        world.user_cmd.set_style(div1, HeightType(Dimension::Points(100.0)));
+        let div0 = world.spawn(NodeTag::Div);
+        world.user_cmd.set_style(div0, WidthType(Dimension::Points(50.0)));
+        world.user_cmd.set_style(div0, HeightType(Dimension::Points(100.0)));
         world.user_cmd
-            .set_style(div1, BackgroundColorType(Color::RGBA(CgColor::new(1.0, 0.0, 0.0, 1.0))));
-        world.user_cmd.set_style(div1, OpacityType(0.5));
-        world.user_cmd.append(div1, root);
+            .set_style(div0, BackgroundColorType(Color::RGBA(CgColor::new(1.0, 0.0, 0.0, 1.0))));
+        world.user_cmd.set_style(div0, OpacityType(0.5));
+        world.user_cmd.append(div0, root);
 
 
         let div1 = world.spawn(NodeTag::Div);

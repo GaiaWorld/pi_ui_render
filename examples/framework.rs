@@ -558,6 +558,8 @@ pub fn setting_next_record(world: &mut World, mut local_state: Local<NextState>)
 fn setting(file_index1: &mut usize, world: &mut World, is_end: &mut bool, play_option: &PlayOption) {
     use std::mem::transmute;
 
+    use pi_world::system::TypeInfo;
+
     let mut file_index = *file_index1;
     let play_state = world.get_single_res::<PlayState>();
     if let Some(r) = play_state {
@@ -586,8 +588,9 @@ fn setting(file_index1: &mut usize, world: &mut World, is_end: &mut bool, play_o
                     Ok(bin) => {
                         match postcard::from_bytes::<Records>(&bin) {
                             Ok(r) => {
-                                // log::debug!("cmd!!!!!!!!!================{:?}", r.len());
-                                world.insert_single_res(r);
+                                log::debug!("cmd!!!!!!!!!================{:?}", r.len());
+                                world.or_register_single_res(TypeInfo::of::<Records>());
+                                *world.get_single_res_mut::<Records>().unwrap() = r;
                                 // 重设播放状态
                                 let play_state = world.get_single_res_mut::<PlayState>().unwrap();
                                 play_state.is_running = true;

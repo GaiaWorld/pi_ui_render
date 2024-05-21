@@ -2,6 +2,7 @@
 use core::panic;
 
 use pi_world::alter::Alter;
+use pi_world::fetch::ArchetypeName;
 use pi_world::filter::Changed;
 use pi_world::insert::Bundle;
 use pi_world::param_set::ParamSet;
@@ -161,7 +162,7 @@ pub fn update_render_instance_data(
 	)>,
 	post_info_query: Query<(&PostProcessInfo, Option<&Root>)>,
 	mut instances : OrInitSingleResMut<InstanceContext>,
-	node_query: Query<(Option<&ParentPassId>, &InPassId, &DrawList, &ZRange, &IsShow, Entity, &Layer)>,
+	node_query: Query<(Option<&ParentPassId>, &InPassId, &DrawList, &ZRange, &IsShow, Entity, &Layer, ArchetypeName)>,
 
 	mut instance_index: Query<(&'static mut InstanceIndex, OrDefault<RenderCount>)>,
 
@@ -172,17 +173,18 @@ pub fn update_render_instance_data(
 ) {
 	
 	// 如果没有实体创建， 也没有实体删除， zindex也没改变，山下文结构也没改变， 则不需要更新实例数据
-	// log::trace!("life========================node_change={:?}, {:?}", *node_change, query_mark.iter().next().is_some());
+	
 	if !node_change.0 && !query_mark.iter().next().is_some(){
 		return;
 	}
+	log::trace!("life========================node_change={:?}", *node_change);
 	node_change.0 = false;
 	
 	let catche_buffer = &mut *catche_buffer;
 
 	let p1 = pass_query.p1();
 	// 否则，先迭代所有的drawObj,如果drawobj可见,
-	for (parent_pass_id, in_pass_id, draw_list, z_range, is_show, id, layer) in node_query.iter() {
+	for (parent_pass_id, in_pass_id, draw_list, z_range, is_show, id, layer, a) in node_query.iter() {
 		log::debug!("draw info========id={:?}, is_display={:?}, has_draw2d_list={:?}, in_pass_id={:?}, draw_list={:?}", id, is_show.get_display(), in_pass_id, p1.get_mut(***in_pass_id).is_ok(),draw_list);
 		// // 如果display为false， 则不需要放入渲染列表 TODO
 		// if !is_show.get_display() {
@@ -196,6 +198,7 @@ pub fn update_render_instance_data(
         if draw_list.len() > 0 {
 			let list = &mut *draw_2d_list;
 			for draw_id in draw_list.iter() {
+				println!("draw_id=============={:?}", (id, draw_id.id, &a));
 				let (info, render_count) = draw_info.get(draw_id.id).unwrap();
 				// 渲染数量修改， 则list一定会修改
 				if let Some(render_count) = render_count {

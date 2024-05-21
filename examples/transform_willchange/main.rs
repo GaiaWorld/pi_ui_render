@@ -11,8 +11,7 @@ use pi_null::Null;
 use pi_style::{
     style::{Aabb2, Point2},
     style_type::{
-        BackgroundColorType, HeightType, MarginLeftType, MarginTopType, OpacityType, PositionLeftType, PositionTopType, PositionTypeType,
-        TransformType, TransformWillChangeType, WidthType,
+        AsImageType, BackgroundColorType, HeightType, MarginLeftType, MarginTopType, OpacityType, PositionLeftType, PositionTopType, PositionTypeType, TransformType, TransformWillChangeType, WidthType
     },
 };
 use pi_ui_render::{
@@ -53,6 +52,7 @@ impl Example for QuadExample {
         world.user_cmd.set_style(root, PositionTopType(Dimension::Points(0.0)));
         world.user_cmd.set_style(root, MarginLeftType(Dimension::Points(0.0)));
         world.user_cmd.set_style(root, MarginTopType(Dimension::Points(0.0)));
+        world.user_cmd.set_style(root, AsImageType(pi_style::style::AsImage::Force));
         world.user_cmd.append(root, EntityKey::null().0);
 
         // 添加一个玫红色div到根节点， 并添加TransformWillChange属性
@@ -61,10 +61,10 @@ impl Example for QuadExample {
         world.user_cmd.set_style(div1, HeightType(Dimension::Points(300.0)));
         world.user_cmd
             .set_style(div1, BackgroundColorType(Color::RGBA(CgColor::new(1.0, 0.0, 1.0, 1.0))));
-        let mut transform_willchange = Vec::default();
-        transform_willchange.push(TransformFunc::TranslateX(pi_style::style::LengthUnit::Pixel(50.0)));
-        world.user_cmd.set_style(div1, TransformWillChangeType(true));
-        world.user_cmd.set_style(div1, TransformType(transform_willchange));
+        // let mut transform_willchange = Vec::default();
+        // transform_willchange.push(TransformFunc::TranslateX(pi_style::style::LengthUnit::Pixel(50.0)));
+        // world.user_cmd.set_style(div1, TransformWillChangeType(true));
+        // world.user_cmd.set_style(div1, TransformType(transform_willchange));
 
         world.user_cmd.append(div1, root);
 
@@ -107,6 +107,8 @@ impl Example for QuadExample {
         world.user_cmd.append(div5, div3);
 
         world.user_cmd.append(div3, div1);
+
+        println!("div1: {:?}", (div3, div5));
     }
 
     fn render(&mut self, cmd: &mut UserCommands) {

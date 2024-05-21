@@ -128,7 +128,13 @@ void main() {
 			+ quad2.zw * step(1.9, p_index) * step(p_index, 2.1) // 1.9 < p_index <= 2.1， 只可能是2.0
 			+ quad2.xy * step(2.9, p_index); // > 2.9, 只肯可能是3.0
 	vData12 = p;
-	gl_Position = project * view * vec4(p, 1.0, 1.0);
+
+	if ((ty1 & 16777216) == 0) {
+		gl_Position = project * view * vec4(p, 1.0, 1.0);
+	} else {
+		gl_Position = project * vec4(p, 1.0, 1.0);
+	}
+	
 	// gl_Position = project * view * vec4(vVertexPosition, 1.0, 1.0);
 	// gl_Position.z = depth_offset +  depth;
 	gl_Position.z = data11.z;

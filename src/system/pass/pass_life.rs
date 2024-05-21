@@ -15,6 +15,8 @@
 //! 4. 在节点上创建其所在的Pass2D实体的索引（InPass2DId），表明节点上的渲染对象应该渲染到那个Psss2D上。
 //!
 //!
+use nalgebra::Point2;
+use pi_style::style::Aabb2;
 use pi_world::{prelude::{Alter, Changed, Entity, Has, Mut, ParamSet, Query, Removed, SingleRes, SingleResMut}, system_params::Local};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, OrInitSingleRes, Up, Layer, LayerDirty};
 
@@ -109,6 +111,7 @@ pub fn cal_context(
                 log::trace!("pass======node: {:?}, parent_pass_id: {:?}, parent_context_id: {:?}, effect_mark{:?} {:?}, {:?}", node, parent_pass_id,  parent_context_id, **effect_mark & **mark, mark, **effect_mark);
                 match parent_pass_id {
                     None => {
+                        println!("PassBundle======={:?}", (node));
                         let mut bundle = PassBundle::new(*parent_context_id);
                         bundle.post_list_info.effect_mark = bundle.post_list_info.effect_mark | (**effect_mark & **mark);
                         let _ = p1.alter(node, bundle);
@@ -314,18 +317,27 @@ pub fn calc_pass(
 		),
 		(Changed<PostProcessInfo>, Changed<WorldMatrix>, Changed<ContentBox>),
 	>,
+    query1: Query<
+		(
+            &ParentPassId,
+            &Camera,
+            &PostProcessInfo,
+		),
+	>,
 	r: OrInitSingleRes<IsRun>,
 ) {
     if r.0 {
 		return;
 	}
 
-    for (instance_index, parent_pass_id, camera, overflow_aabb) in query.iter() {
+    for (instance_index, mut parent_pass_id, camera, overflow_aabb) in query.iter() {
 		// 节点可能设置为dispaly none， 此时instance_index可能为Null
         // 节点可能没有后处理效果， 此时instance_index为Null
         if pi_null::Null::is_null(&instance_index.0.start) {
             continue;
         }
+
+        log::debug!("set pass instance data, parent_pass_id={:?},  instance_index={:?}", parent_pass_id, instance_index);
         
         let mut instance_data = instances.instance_data.instance_data_mut(instance_index.0.start);
         let mut render_flag = instance_data.get_render_ty();
@@ -342,25 +354,57 @@ pub fn calc_pass(
                 1.0, 1.0,
             ]));
         } else {
+            render_flag |= 1 << RenderFlagType::Fbo as usize;
             // if content_box.layout.width() >= 700.0 && content_box.layout.height() >= 910.0 {
                 // println!("right_bottom.x >= 788, {:?}, \n{:?}", (entity, post_info.has_effect(), content_box.layout.width(), content_box.layout.height()), world_matrix);
             // }
             
             // let aabb = &camera.view_port;
             if let OverflowDesc::Rotate(matrix) = &overflow_aabb.desc {
-                // 注意， 此处设置的BoxUniform并不正确， 当此渲染也不需要改数据
+                // 注意， 此处设置的BoxUniform并不正确， TODO
                 set_box(&matrix.from_context_rotate, &camera.view_port, &mut instance_data);
             } else {
                 // if bg.is_some() {
                 	// log::warn!("aaaa================={:?}, {:?}", entity, &camera.view_port);
                 // }
                 // post_info.matrix = WorldMatrix(world_matrix, false);
+                
+                let mut view_port = &camera.view_port;
+                let t;
+                while let Ok((p, p_camera, post, )) = query1.get(***parent_pass_id) {
+                    if post.has_effect() {
+                        let min = Point2::new(
+                            p_camera.view_port.mins.x + (camera.view_port.mins.x - p_camera.view_port.mins.x),
+                            p_camera.view_port.mins.y + (camera.view_port.mins.y - p_camera.view_port.mins.y)
+                        );
+                        let max = Point2::new(
+                            min.x + camera.view_port.maxs.x - camera.view_port.mins.x,
+                            min.y + camera.view_port.maxs.y - camera.view_port.mins.y,
+                        );
+                        t = Aabb2::new(min, max) ;
+                        view_port = &t;
+                        break;
+                    }
+                    parent_pass_id = p;
+                }
+
+                // println!("calc_pass!!!!!!==={:?}", (instance_index,  parent_pass_id, view_port));
+
                 instance_data.set_data(&QuadUniform(&[
-                    camera.view_port.mins.x, camera.view_port.mins.y,
-                    camera.view_port.mins.x, camera.view_port.maxs.y,
-                    camera.view_port.maxs.x, camera.view_port.maxs.y,
-                    camera.view_port.maxs.x, camera.view_port.mins.y,
+                    view_port.mins.x, view_port.mins.y,
+                    view_port.mins.x, view_port.maxs.y,
+                    view_port.maxs.x, view_port.maxs.y,
+                    view_port.maxs.x, view_port.mins.y,
                 ]));
+                // if instance_index.start == 480 {
+                //     instance_data.set_data(&QuadUniform(&[
+                //         100.0, 200.0,
+                //         100.0, 300.0,
+                //         150.0, 300.0,
+                //         150.0, 200.0,
+                //     ]));
+                // } 
+                
             }
 
             // // 存在旋转，需要旋转回父上下文

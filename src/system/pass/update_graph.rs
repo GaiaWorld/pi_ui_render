@@ -57,9 +57,8 @@ pub fn update_graph(
     // 创建渲染图节点
     // 插入Draw2DList
     for (mut graph_id, entity, parent_passs_id, post_info) in pass_query.p0().iter_mut() {
-		log::debug!(entity=format!("entity_{:?}", entity).as_str();  "add graph node1, entity={entity:?}, has_effect={:?}, parent_passs_id={:?}", post_info.has_effect(), parent_passs_id);
-		log::debug!("add graph node1, entity={entity:?}, has_effect={:?}, parent_passs_id={:?}", post_info.has_effect(), parent_passs_id);
         let is_root = pi_null::Null::is_null(&parent_passs_id.0);
+        log::debug!(entity=format!("entity_{:?}", entity).as_str();  "add graph node, entity={entity:?}, has_effect={:?}, is_root: {:?}, parent_passs_id={:?}", post_info.has_effect(),  is_root, parent_passs_id);
         if post_info.has_effect() || is_root {
             // 存在后处理效果，或者节点本身是根节点， 才能成为一个渲染节点
             if !graph_id.0.is_null() {
@@ -76,11 +75,12 @@ pub fn update_graph(
             };
 
 			if is_root {
-				 rg.add_depend(graph_node_id, last_graph_id.0).unwrap();
+                log::debug!("add_depend======{:?}, {:?}", graph_node_id, last_graph_id.0);
+				rg.add_depend(graph_node_id, last_graph_id.0).unwrap();
                 
 			}
 			pass_graph_map.insert(graph_node_id, entity);
-            log::debug!(entity=format!("entity_{:?}", entity).as_str();  "add graph node, entity: {entity:?}: {graph_node_id:?}");
+            log::debug!(entity=format!("entity_{:?}", entity).as_str();  "add graph node, entity: {entity:?} graph_node_id: {graph_node_id:?}");
 
             *graph_id = GraphId(graph_node_id);
         } else {
@@ -102,9 +102,10 @@ pub fn update_graph(
 		remove_node(format!("Pass2D_{:?}", id), &mut rg, &mut pass_graph_map);
     }
 
-    let p2 = pass_query.p1();
+    let p1 = pass_query.p1();
     // 父修改设置图节点依赖
-    for (parent_id, graph_id, as_image) in p2.0.iter() {
+    for (parent_id, graph_id, as_image) in p1.0.iter() {
+        log::debug!("parent_id====={:?}", (parent_id, graph_id, as_image));
         if graph_id.0.is_null() {
             continue;
         }
@@ -115,8 +116,8 @@ pub fn update_graph(
         //     }
 		// 	// 根节点忽略post_process
         // } else {
-            let parent_graph_id = get_to(***parent_id, &p2.1);
-			let id = type_to_post_process(**graph_id, as_image, &p2.2, &mut rg);
+            let parent_graph_id = get_to(***parent_id, &p1.1);
+			let id = type_to_post_process(**graph_id, as_image, &p1.2, &mut rg);
 
             // 建立父子依赖关系，使得子pass先渲染
             log::debug!("add_depend======{:?}, {:?}, {:?}", id, graph_id, parent_graph_id);

@@ -198,7 +198,7 @@ impl Node for Pass2DNode {
 			target: None,
 			valid_rect: None,
 		};
-		log::trace!("build======{:?}", pass2d_id);
+		log::trace!("build======{:?}", (pass2d_id, _id));
 		// let t1 = std::time::Instant::now();
 		// let mut param = query_param_state.get_mut(world);
 		// pass2d_id为null， 表示一个空节点， 空节点在全局只会有一个， 用于将所有根节点渲染到屏幕
@@ -287,6 +287,7 @@ impl Node for Pass2DNode {
 			Ok(r) if r.0.layer() > 0 => r,
 			_ => return Ok(out),
 		};
+		log::trace!(pass = format!("{:?}", pass2d_id).as_str(); "build graph node, instance_index: {:?}, has_effect: {:?},pass2d_id: {:?}", instance_index, post_process_info.has_effect(), pass2d_id);
 
 		// log::trace!("build2======{:?}", pass2d_id);
 
@@ -491,6 +492,8 @@ impl Node for Pass2DNode {
 
 							out.target = Some(Share::new(final_target.downgrade()));
 							self.out_put_target = Some(final_target.clone());
+
+							log::trace!("post1111============={:?}, {:?}", pass2d_id, final_draw.is_some());
 							match final_draw {
 								Some(r) => {
 									fbo_info.post_draw = Some((post_draw.0, r));
@@ -500,6 +503,7 @@ impl Node for Pass2DNode {
 						}
 					};
 				} else {
+					log::trace!("post222============={:?}", pass2d_id);
 					out.target = self.target.as_ref().map(|r| {Share::new(r.downgrade())});
 				}
 				// let t5 = std::time::Instant::now();
@@ -511,7 +515,7 @@ impl Node for Pass2DNode {
 		// let t6 = std::time::Instant::now();
 		if let Some(as_image) = as_image {
 			if as_image.level != pi_style::style::AsImage::Force {
-				println!("as_image=============== {:?}", (pass2d_id, as_image.level));
+				log::trace!("as_image=============== {:?}", (pass2d_id, as_image.level));
 				// 每帧都清理掉render_target.target， 避免握住无法释放
 				render_target.target = StrongTarget::None;
 			}
@@ -547,48 +551,52 @@ impl Node for Pass2DNode {
 			}
 		}
 
-		if let Some(target) = &out.target {
-			let mut is_set_uv = false;
-			if let Some(fbo) = &fbo_info.out {
-				if !Share::ptr_eq(&fbo.target().colors[0].0 , &target.target().colors[0].0) {
+		// 设置fbo_info
+		if !instance_index.start.is_null() {
+			if let Some(target) = &out.target {
+				let mut is_set_uv = false;
+				if let Some(fbo) = &fbo_info.out {
+					if !Share::ptr_eq(&fbo.target().colors[0].0 , &target.target().colors[0].0) {
+						param.instance_draw.rebatch = true; // 设置rebatch为true， 使得后续重新进行批处理
+					}
+					let rect1 = fbo.rect();
+					let rect2 = target.rect();
+					if rect1 != rect2 {
+						is_set_uv = true;
+					}
+				} else {
 					param.instance_draw.rebatch = true; // 设置rebatch为true， 使得后续重新进行批处理
-				}
-				let rect1 = fbo.rect();
-				let rect2 = target.rect();
-				if rect1 != rect2 {
 					is_set_uv = true;
 				}
-			} else {
+				if is_set_uv {
+					// uv变化，设置uv
+					let uv_box = target.uv_box();
+					param.instance_draw.instance_data.instance_data_mut(instance_index.start).set_data(&UvUniform(uv_box.as_slice()));
+				}
+			} else if fbo_info.out.is_some() {
 				param.instance_draw.rebatch = true; // 设置rebatch为true， 使得后续重新进行批处理
-				is_set_uv = true;
 			}
-			if is_set_uv {
-				// uv变化，设置uv
-				let uv_box = target.uv_box();
-				param.instance_draw.instance_data.instance_data_mut(instance_index.start).set_data(&UvUniform(uv_box.as_slice()));
+	
+			// 设置实例是否需要还原预乘
+			let mut ty = param.instance_draw.instance_data.instance_data_mut(instance_index.start).get_render_ty();
+			let mut visibility = is_show.get_visibility() && is_show.get_display() && layer.layer() > 0;
+			if out.target.is_none() {
+				visibility = false;
 			}
-		} else if fbo_info.out.is_some() {
-			param.instance_draw.rebatch = true; // 设置rebatch为true， 使得后续重新进行批处理
+			if (ty & (1 << RenderFlagType::NotVisibility as usize) == 0) != visibility {
+				ty = ty & !(1 << RenderFlagType::NotVisibility as usize) | ((unsafe {transmute::<_, u8>(!visibility)} as usize) << (RenderFlagType::NotVisibility as usize));
+				// 根据canvas是否有对应的fbo，决定该节点是否显示
+				
+				param.instance_draw.instance_data.instance_data_mut(instance_index.start).set_data(&TyUniform(&[ty as f32]));
+			}
+			// if instance_index.start == 125 * 240 {
+			// 	println!("visibility=============== {:?}", (pass2d_id, instance_index.start, visibility,  out.target.is_none(), list0.instance_range.len() > 0));
+			// }
+			log::trace!("out.target======{:?}", (pass2d_id, self.target.is_some(), out.target.is_some()));
+			fbo_info.out = out.target.clone(); // 设置到组件上， 后续批处理需要用到
+			fbo_info.fbo = self.target.as_ref().map(|r| {Share::new(r.downgrade())});
 		}
-
-		// 设置实例是否需要还原预乘
-		let mut ty = param.instance_draw.instance_data.instance_data_mut(instance_index.start).get_render_ty();
-		let mut visibility = is_show.get_visibility() && is_show.get_display() && layer.layer() > 0;
-		if out.target.is_none() {
-			visibility = false;
-		}
-		if (ty & (1 << RenderFlagType::NotVisibility as usize) == 0) != visibility {
-			ty = ty & !(1 << RenderFlagType::NotVisibility as usize) | ((unsafe {transmute::<_, u8>(!visibility)} as usize) << (RenderFlagType::NotVisibility as usize));
-			// 根据canvas是否有对应的fbo，决定该节点是否显示
-			
-			param.instance_draw.instance_data.instance_data_mut(instance_index.start).set_data(&TyUniform(&[ty as f32]));
-		}
-		// if instance_index.start == 125 * 240 {
-		// 	println!("visibility=============== {:?}", (pass2d_id, instance_index.start, visibility,  out.target.is_none(), list0.instance_range.len() > 0));
-		// }
-		log::trace!("out.target======{:?}", self.target.is_some());
-		fbo_info.out = out.target.clone(); // 设置到组件上， 后续批处理需要用到
-		fbo_info.fbo = self.target.as_ref().map(|r| {Share::new(r.downgrade())});
+		
 		// if content_box.layout.width() >= 700.0 && content_box.layout.height() >= 910.0 {
 		// 	println!("pass2, {:?}", (pass2d_id, fbo_info.out.is_some()));
 		// }
@@ -615,7 +623,7 @@ impl Node for Pass2DNode {
         let pass2d_id = self.pass2d_id;
 		// let rt = self.rt.take();
 		// let post_draw = self.post_draw.take();
-		log::trace!("draw1==={:?}", pass2d_id);
+		log::trace!("draw1==={:?}", (pass2d_id, _id));
         Box::pin(async move {
 			// log::warn!("run0======{:?}", pass2d_id);
             // let query_param = query_param_state.get(world);
@@ -833,15 +841,18 @@ impl Node for Pass2DNode {
 						
 					},
 					DrawElement::DrawPost(post_range) => {
-						// log::warn!("post1============={:?}", pre_pass);
+						log::trace!("post1============={:?}", pre_pass);
 						// log::warn!("DrawPost======{:?}", element.1);
 						// 处理后处理
 						for post_pass_id in param.instance_draw.posts[post_range.clone()].iter() {
 							let fbo = param.fbo_query.get(*post_pass_id).unwrap(); 
+							log::trace!("post============={:?}", (fbo.post_draw.is_some(), fbo.out.is_some()));
 							if let (Some((front_draw, final_draw)), Some(final_target)) = (&fbo.post_draw, &fbo.out) {
+								log::trace!("post0============={:?}", post_pass_id);
 								let post_process = if let Ok(post_process) = param.post_query.get(*post_pass_id) {
 									post_process
 								} else {
+									log::trace!("post1============={:?}", post_pass_id);
 									continue;
 								};
 

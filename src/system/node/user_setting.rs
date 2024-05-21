@@ -224,7 +224,7 @@ pub fn user_setting2(
         match c {
             NodeCommand::AppendNode(node, parent) => {
                 log::debug!("AppendNode====================node： {:?}, parent： {:?}, node_is_exist：{:?}", node, parent, entitys.contains(node));
-                if entitys.contains(node) {
+                if entitys.contains(node) && (parent.is_null() || entitys.contains(parent)) {
 					// if !EntityKey( parent ).is_null() && draw_list.get(node).is_err() {
 					// 	log::warn!("AppendNode parent error============={:?}, {:?}", parent, unsafe{transmute::<_, f64>(parent.to_bits())});
 					// 	r.0 = true;
@@ -253,7 +253,7 @@ pub fn user_setting2(
 				// }
                 
                 log::debug!("InsertBefore node====================node：{:?}, anchor： {:?}, node_is_exist：{:?}", node, anchor, entitys.contains(node));
-                if entitys.contains(node) {
+                if entitys.contains(node) && (anchor.is_null() || entitys.contains(anchor)) {
                    
                     // log::warn!("InsertBefore node====================node：{:?}, anchor： {:?}", node, anchor);
                     tree.insert_brother(node, anchor, InsertType::Front);
@@ -276,7 +276,7 @@ pub fn user_setting2(
 				// 	r.0 = true;
 				// 		return;
 				// }
-				log::debug!("DestroyNode node====================node={node:?}");
+				
                 is_node_change = true;
                 // 删除所有子节点对应的实体
                 if let Some(down) = tree.get_down(node) {
@@ -285,10 +285,12 @@ pub fn user_setting2(
                         for node in tree.recursive_iter(head) {
                             quad_tree.remove(&EntityKey(node));
                             delete_draw_list(node, &dirty_list, &mut entitys);
+
                         }
                     }
                 }
                 quad_tree.remove(&EntityKey(node));
+                tree.remove(node);
                 delete_draw_list(node, &dirty_list, &mut entitys);
             }
         };
@@ -468,11 +470,12 @@ fn set_class<'w, 's>(node: Entity, style_query: &mut Setting, class: ClassName, 
 }
 
 fn delete_draw_list(id: Entity, draw_list: &Query<&DrawList>, entitys: &mut Alter<(Option<&Size>, Option<&DrawInfo>), Or<(With<Size>, With<DrawInfo>)>, (), ()>) {
-    let _ = entitys.destroy(id);
-    log::debug!("deleteNode node====================node：{:?}", id);
+    let r = entitys.destroy(id);
+    log::debug!("deleteNode node====================id: {:?}", (id, r));
     if let Ok(list) = draw_list.get(id) {
         for i in list.iter() {
-            let _ = entitys.destroy(i.id);
+            let r = entitys.destroy(i.id);
+            log::debug!("delete draw obj====================id: {:?}", (i, r));
         }
     }
 }

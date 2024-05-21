@@ -34,6 +34,7 @@ pub fn opacity_post_process(
     }
 
     for (opacity, mut post_list, mut post_info) in query.p0().iter_mut() {
+        log::debug!("opacity: {:?}", *opacity);
         if **opacity >= 1.0 {
             post_list.alpha = None;
             post_info.effect_mark.set(***mark_type, false);

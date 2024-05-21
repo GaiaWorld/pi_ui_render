@@ -133,6 +133,7 @@ impl Example for QuadExample {
         world.user_cmd.set_style(canvas, PositionTopType(Dimension::Points(100.0)));
         world.user_cmd.push_cmd(ComponentCmd(Canvas{id: root_tow, by_draw_list: false}, canvas));
         world.user_cmd.append(canvas, self.root_one.0);
+
     }
 
     fn render(&mut self, cmd: &mut UserCommands) {  }

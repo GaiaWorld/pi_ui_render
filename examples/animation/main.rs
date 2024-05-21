@@ -49,7 +49,7 @@ impl Example for AnimationExample {
 		// }";
 		let css = "@keyframes test-animation {
 			0% {opacity: 0; }
-			100% {opacity: 1.0; }
+			100% {opacity: 0.9; }
 		}";
         let class_map = parse_class_map_from_string(css, 0).unwrap();
         world.user_cmd.push_cmd(ExtendCssCmd(vec![class_map]));
@@ -87,14 +87,14 @@ impl Example for AnimationExample {
                 value: smallvec![Atom::from("test-animation")],
             }),
         );
-        world.user_cmd.set_style(div1, AnimationIterationCountType(smallvec![IterationCount(1.0)]));
+        world.user_cmd.set_style(div1, AnimationIterationCountType(smallvec![IterationCount(90.0)]));
+        world.user_cmd.set_style(div1, AnimationDurationType(smallvec![Time(3000)]));
+        world.user_cmd.set_style(div1, AnimationFillModeType(smallvec![AnimationFillMode::Forwards]));
         // world.user_cmd.set_style(
         //     div1,
         //     AnimationTimingFunctionType(smallvec![AnimationTimingFunction::Step(1, EStepMode::JumpEnd)]),
         // );
         // world.user_cmd.set_style(div1, AnimationDirectionType(smallvec![AnimationDirection::Reverse]));
-        world.user_cmd.set_style(div1, AnimationDurationType(smallvec![Time(3000)]));
-        world.user_cmd.set_style(div1, AnimationFillModeType(smallvec![AnimationFillMode::Forwards]));
         world.user_cmd.append(div1, root);
 
         // 添加一个玫红色div到根节点， 并添加overflow属性
