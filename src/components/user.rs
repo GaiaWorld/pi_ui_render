@@ -5,7 +5,7 @@ use std::ptr::read_unaligned;
 use std::{collections::VecDeque, fmt::Debug};
 
 // use pi_world::event::Event;
-use pi_world::prelude::{Entity, Component};
+use pi_world::prelude::{Entity, Component, Mut};
 use bitvec::prelude::BitArray;
 use pi_ui_render_macros::enum_type;
 use ordered_float::NotNan;
@@ -800,7 +800,7 @@ pub mod serialize {
         Cancel,
     }
 
-    fn set_style_attr<V: Debug, C: Clone + 'static, F: FnMut(&mut C, V)>(
+    pub fn set_style_attr<V: Debug, C: Clone + 'static, F: FnMut(Mut<C>, V)>(
         world: &mut World,
         component_id: ComponentIndex,
         entity: Entity,
@@ -810,6 +810,7 @@ pub mod serialize {
         v: V,
         mut f: F,
     ) {
+        use pi_key_alloter::Key;
 		// log::debug!("type: {:?}, entity: {:?}", std::any::type_name::<C>(), entity);
         log::debug!(
             "set_style_attr, type: {:?}, value: {:?}, entity: {:?}",
@@ -817,10 +818,11 @@ pub mod serialize {
             v,
             entity
         );
+        
         // pi_print_any::out_any!(println, "set_default_style_attr==={:?}", (entity, std::any::type_name::<C>(), &v));
         match world.get_component_by_index_mut::<C>(entity, component_id) {
             Ok(mut component) => {
-                f(&mut *component, v);
+                f(component, v);
             }
             _ => {
                 log::error!("set style fail, component is not exist: {:?}", (entity, v, component_id, std::any::type_name::<C>()));
@@ -1118,7 +1120,7 @@ pub mod serialize {
                 };
                 cur_style_mark.set(Self::get_type() as usize, true);
 
-                set_style_attr(&mut query.world, query.style.$name, entity, v, |item: &mut $c_ty, v: $value_ty| {
+                set_style_attr(&mut query.world, query.style.$name, entity, v, |mut item: Mut<$c_ty>, v: $value_ty| {
                     item.$feild = v;
                 });
             }
@@ -1136,7 +1138,7 @@ pub mod serialize {
                     unsafe { v.read_unaligned() }
                 };
                 cur_style_mark.set(Self::get_type() as usize, true);
-                set_style_attr(&mut query.world, query.style.$name, entity, v, |item: &mut $c_ty, v: $value_ty| {
+                set_style_attr(&mut query.world, query.style.$name, entity, v, |mut item: Mut<$c_ty>, v: $value_ty| {
                     item.$set_func(v);
                 });
             }
@@ -1156,7 +1158,7 @@ pub mod serialize {
                 };
                 cur_style_mark.set(Self::get_type() as usize, true);
 
-                set_style_attr(&mut query.world, query.style.$name, entity, v, |item: &mut $c_ty, v: $value_ty| {
+                set_style_attr(&mut query.world, query.style.$name, entity, v, |mut item: Mut<$c_ty>, v: $value_ty| {
                     item.$feild1.$feild2 = v;
                 },);
             }
@@ -1518,7 +1520,34 @@ pub mod serialize {
         (@pack $struct_name: ident, $name: ident, $pack_ty: ident, $value_ty: ident) => {
 
             impl AttrSet for $struct_name {
-                set!(@fun $name, $value_ty, |item: &mut $pack_ty, v: $value_ty| *item = $pack_ty(v));
+                set!(@fun $name, $value_ty, |mut item: Mut<$pack_ty>, v: $value_ty| *item = $pack_ty(v));
+            }
+
+            impl ConvertToComponent for $struct_name {
+                // set!(@pack $name, $pack_ty, $value_ty);
+                // reset!($name, $ty);
+                set_default!($name, $pack_ty);
+                fn to_attr(ptr: *const u8) -> Attribute
+                {
+                    Attribute::$pack_ty($struct_name(clone_unaligned(ptr.cast::<$value_ty>())))
+                }
+                get!(@pack $name, $pack_ty, $struct_name, $pack_ty);
+            }
+
+            $crate::paste::item! {
+                impl AttrSet for [<Reset $struct_name>] {
+                    reset!($name, $pack_ty);
+                }
+            }
+        };
+        (@pack_compare $struct_name: ident, $name: ident, $pack_ty: ident, $value_ty: ident) => {
+
+            impl AttrSet for $struct_name {
+                set!(@fun $name, $value_ty, |mut item: Mut<$pack_ty>, v: $value_ty| {
+                    if **item != v {
+                        *item = $pack_ty(v)
+                    }
+                });
             }
 
             impl ConvertToComponent for $struct_name {
@@ -1541,7 +1570,7 @@ pub mod serialize {
         (@pack_send $struct_name: ident, $name: ident, $pack_ty: ident, $value_ty: ident) => {
 
             impl AttrSet for $struct_name {
-                set!(@fun_send $name, $value_ty, $pack_ty, |item: &mut $pack_ty, v: $value_ty| *item = $pack_ty(v));
+                set!(@fun_send $name, $value_ty, $pack_ty, |mut item: Mut<$pack_ty>, v: $value_ty| *item = $pack_ty(v));
             }
 
             impl ConvertToComponent for $struct_name {
@@ -1852,7 +1881,7 @@ pub mod serialize {
                 entity,
 				// query.style.dirty_list,
                 v,
-                |item: &mut TextContent, v| {
+                |mut item: Mut<TextContent>, v| {
                     item.0 = v;
                 },
             );
@@ -2815,10 +2844,10 @@ pub mod serialize {
 
     impl_style!(@pack_send BoxShadowType, box_shadow, BoxShadow, BoxShadow1);
 
-    impl_style!(@pack OpacityType, opacity, Opacity, f32);
+    impl_style!(@pack_compare OpacityType, opacity, Opacity, f32);
     impl_style!(@pack BorderRadiusType, border_radius, BorderRadius, BorderRadius1);
     impl_style!(@pack HsiType, hsi, Hsi, Hsi1);
-    impl_style!(@pack BlurType, blur, Blur, f32);
+    impl_style!(@pack_compare BlurType, blur, Blur, f32);
     impl_style!(TransformOriginType, transform, Transform, origin, TransformOrigin, TransformOrigin);
     impl_style!(DirectionType, flex_container, FlexContainer, direction, Direction, Direction);
     impl_style!(AspectRatioType, flex_normal, FlexNormal, aspect_ratio, AspectRatio, Number);
@@ -2833,8 +2862,8 @@ pub mod serialize {
     impl_style!(@func1 VNodeType, node_state, NodeState, set_vnode, NodeState, VNode, bool);
     // impl_style!(@func VNodeType, node_state, set_vnode, NodeState, bool);
 
-    impl_style!(@pack ZIndexType, z_index, ZIndex, isize);
-    impl_style!(@pack OverflowType, overflow, Overflow, bool);
+    impl_style!(@pack_compare ZIndexType, z_index, ZIndex, isize);
+    impl_style!(@pack_compare OverflowType, overflow, Overflow, bool);
 
     impl_style!(@pack MaskImageType, mask_image, MaskImage, MaskImage1);
     impl_style!(@pack MaskImageClipType, mask_image_clip, MaskImageClip, NotNanRect);

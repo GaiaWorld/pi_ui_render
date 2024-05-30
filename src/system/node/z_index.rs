@@ -28,15 +28,21 @@
 
 use std::ops::Range;
 
+use pi_style::style::StyleType;
+use pi_world::event::Event;
+use pi_world::fetch::Ticker;
 use pi_world::prelude::{Changed, With, Query, Entity};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, OrInitSingleRes, Layer, EntityTree, LayerDirty, DirtyMark};
 
 use pi_null::Null;
 
-use crate::components::calc::{EntityKey, ZRange};
+use crate::components::calc::{EntityKey, StyleMark, ZRange};
 use crate::components::user::{Size, ZIndex};
 use crate::resource::NodeChanged;
 use crate::system::draw_obj::calc_text::IsRun;
+
+use super::user_setting::StyleChange;
+use super::world_matrix::Empty;
 
 /// 如果节点设置zindex为auto，则自身zindex为-1
 const Z_AUTO: isize = -1;
@@ -52,10 +58,14 @@ pub struct CalcZindex;
 
 /// 根据层脏，从上到下，计算并设置节点的ZRange
 pub fn calc_zindex(
+    dirty_list: Event<StyleChange>,
+    mut layer_dirty: LayerDirty<With<Empty>>,
+    query_dirty: Query<(Ticker<&Layer>, Option<Ticker<&ZIndex>>)>,
+    
     mut node_changed: OrInitSingleResMut<NodeChanged>,
     query: Query<&ZIndex>,
     tree: EntityTree,
-    mut dirtys: LayerDirty<((Changed<Layer>, Changed<ZIndex>), With<Size>)>,
+    // mut dirtys: LayerDirty<((Changed<Layer>, Changed<ZIndex>), With<Size>)>,
     mut ranges: Query<&mut ZRange>,
 	r: OrInitSingleRes<IsRun>,
 ) {
@@ -63,16 +73,30 @@ pub fn calc_zindex(
 		return;
 	}
 
-	if dirtys.count() > 0 {
-        node_changed.0 = true;
+    
+    for i in dirty_list.iter() {
+        
+        if let Ok((layer, zindex)) = query_dirty.get(i.0) {
+            // println!("calc_zindex1============{:?}, {:?}", i.0, (layer.layer() > 0, layer.is_changed(), zindex.is_changed()));
+            if layer.layer() > 0 && (layer.is_changed() || zindex.map_or(false, |zindex| {zindex.is_changed()}) ) {
+                
+                layer_dirty.mark(i.0);
+            }
+        }
+    }
+
+    
+	if layer_dirty.count() > 0 {
+        node_changed.node_changed = true;
+        log::debug!("node_changed5============{:p}", &*node_changed);
 	}
 
     // println!();
 
     let mut vec: Vec<ZSort> = vec![];
-    for (id, mark, _) in dirtys.iter_manual() {
+    for (id, mark, _) in layer_dirty.iter_manual() {
         match tree.get_up(id) {
-            Some(up) if !EntityKey(up.parent()).is_null() => {
+            Some(up) if !up.parent().is_null() => {
                 // log::warn!("calc_zindex======node: {:?}, parent: {:?}, layer: {:?} ", id, up.parent(), tree.get_layer(id));
                 let parent = up.parent();
                 // 找到能容纳所有子节点的父节点
@@ -109,6 +133,7 @@ fn get_parent(query: &Query<&ZIndex>, tree: &EntityTree, ranges: &Query<&mut ZRa
     // println!("node:{:?}, ", &node);
     loop {
         if let Ok(z) = query.get(node) {
+            // println!("z===={:?}", (node, z));
             if z.0 == Z_AUTO {
                 // 如果该节点设置为Z_AUTO，则没有自己的排序环境，继续向父节点寻找
                 node = tree.up(node).parent();
@@ -129,7 +154,7 @@ fn get_parent(query: &Query<&ZIndex>, tree: &EntityTree, ranges: &Query<&mut ZRa
         if range.end - range.start >= children_count + 1 {
             return (node, children_count, range, local);
         }
-        // println!("node range:{:?}, children_count:{}", range, children_count);
+        // println!("node range:{:?}, children_count:{}", (node, range, ranges.get(node)), children_count);
         // 节点的范围应该包含自身和递归子节点的z范围
 
         node = tree.up(node).parent();

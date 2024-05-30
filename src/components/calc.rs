@@ -280,7 +280,6 @@ impl WorldMatrix {
 
         // 计算tranform
         for func in all_transform.transform.iter() {
-            println!("{:p}", all_transform);
             m = m * Self::get_matrix(func, width, height);
         }
 
@@ -882,4 +881,84 @@ impl StyleBit for StyleMarkType {
         self.set(index, true);
 		self
     }
+}
+
+lazy_static! {
+	// margin标记
+	pub static ref LAYOUT_MARGIN_MARK: StyleMarkType =
+	style_bit().set_bit(StyleType::MarginTop as usize).set_bit(StyleType::MarginRight as usize).set_bit(StyleType::MarginBottom as usize).set_bit(StyleType::MarginLeft as usize);
+	// pading标记
+	pub static ref LAYOUT_PADDING_MARK: StyleMarkType =
+	style_bit().set_bit(StyleType::PaddingTop as usize).set_bit(StyleType::PaddingRight as usize).set_bit(StyleType::PaddingBottom as usize).set_bit(StyleType::PaddingLeft as usize);
+	// border标记
+	pub static ref LAYOUT_BORDER_MARK: StyleMarkType =
+	style_bit().set_bit(StyleType::BorderTop as usize).set_bit(StyleType::BorderRight as usize).set_bit(StyleType::BorderBottom as usize).set_bit(StyleType::BorderLeft as usize);
+	// border标记
+	pub static ref LAYOUT_POSITION_MARK: StyleMarkType =
+	style_bit().set_bit(StyleType::PositionTop as usize).set_bit(StyleType::PositionRight as usize).set_bit(StyleType::PositionBottom as usize).set_bit(StyleType::PositionLeft as usize);
+	// 矩形属性标记
+	pub static ref LAYOUT_RECT_MARK: StyleMarkType = style_bit().set_bit(StyleType::Width as usize).set_bit(StyleType::Height as usize) | &*LAYOUT_MARGIN_MARK;
+
+
+	// 矩形区域脏，绝对定位下，设自身self_dirty，相对定位下，设自身self_dirty后，还要设父child_dirty
+	pub static ref RECT_DIRTY: StyleMarkType = style_bit().set_bit(StyleType::Width as usize)
+	.set_bit(StyleType::Height as usize)
+    .set_bit(StyleType::MinWidth as usize)
+    .set_bit(StyleType::MinHeight as usize)
+		| &*LAYOUT_POSITION_MARK
+		| &*LAYOUT_MARGIN_MARK;
+
+	// 普通脏及子节点添加或移除， 设父child_dirty
+	pub static ref NORMAL_DIRTY: StyleMarkType = //StyleType::FlexBasis as usize 
+		//.set_bit(StyleType::Order as usize)
+		style_bit().set_bit(StyleType::FlexShrink as usize)
+		.set_bit(StyleType::FlexGrow as usize)
+		.set_bit(StyleType::AlignSelf as usize)
+		.set_bit(StyleType::PositionType as usize);
+
+	// 自身脏， 仅设自身self_dirty
+	pub static ref SELF_DIRTY: StyleMarkType = LAYOUT_PADDING_MARK.clone() 
+		| &*LAYOUT_BORDER_MARK;
+
+	// 子节点脏， 仅设自身child_dirty
+	pub static ref CHILD_DIRTY: StyleMarkType = style_bit().set_bit(StyleType::FlexDirection as usize)
+		.set_bit(StyleType::FlexWrap as usize)
+		.set_bit(StyleType::AlignItems as usize)
+		.set_bit(StyleType::JustifyContent as usize)
+		.set_bit(StyleType::AlignContent as usize)
+        .set_bit(StyleType::TextContent as usize)
+        .set_bit(StyleType::FontStyle as usize)
+        .set_bit(StyleType::FontSize as usize)
+        .set_bit(StyleType::FontFamily as usize)
+        .set_bit(StyleType::LetterSpacing as usize)
+        .set_bit(StyleType::WordSpacing as usize)
+        .set_bit(StyleType::LineHeight as usize)
+        .set_bit(StyleType::TextIndent as usize)
+        .set_bit(StyleType::WhiteSpace as usize)
+        .set_bit(StyleType::TextAlign as usize)
+        .set_bit(StyleType::VerticalAlign as usize);
+
+
+	pub static ref DIRTY2: StyleMarkType = style_bit()
+		.set_bit(StyleType::Display as usize)
+		.set_bit(StyleType::FlexBasis as usize)
+		.set_bit(StyleType::FlexDirection as usize)
+		.set_bit(StyleType::FlexWrap as usize)
+		.set_bit(StyleType::AlignItems as usize)
+		.set_bit(StyleType::JustifyContent as usize)
+		.set_bit(StyleType::AlignContent as usize) | &*RECT_DIRTY | &*NORMAL_DIRTY | &*SELF_DIRTY;
+
+    // 布局脏
+	pub static ref LAYOUT_DIRTY: StyleMarkType = RECT_DIRTY.clone() | &*NORMAL_DIRTY | &*SELF_DIRTY | &*CHILD_DIRTY | &*DIRTY2;
+
+    // 内容区域脏
+	pub static ref CONTENT_BOX_DIRTY: StyleMarkType = LAYOUT_DIRTY.clone()
+        .set_bit(StyleType::TextShadow as usize)
+        .set_bit(StyleType::BoxShadow as usize);
+
+    // 内容区域脏
+	pub static ref SHOW_DIRTY: StyleMarkType = style_bit()
+        .set_bit(StyleType::Display as usize)
+        .set_bit(StyleType::Visibility as usize)
+        .set_bit(StyleType::Enable as usize);
 }

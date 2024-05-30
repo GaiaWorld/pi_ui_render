@@ -95,8 +95,11 @@ pub struct UserCommands {
 }
 
 /// 节点变动标记（不一定是节点变动，主要用于判断实例数据是否应该重新组织）
-#[derive(Default, Debug, Deref)]
-pub struct NodeChanged(pub bool);
+#[derive(Default, Debug)]
+pub struct NodeChanged {
+    pub node_changed: bool,
+    pub rebatch: bool,
+}
 
 impl UserCommands {
 	// 初始化节点

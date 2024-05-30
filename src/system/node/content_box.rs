@@ -1,7 +1,7 @@
 //! 计算内容包围盒
 //! 内容包围盒是指： **自身+递归子节点**的包围盒
 
-use pi_world::prelude::{Changed, Query};
+use pi_world::{filter::With, prelude::{Changed, Query}};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleRes, Up, Layer, LayerDirty, Down};
 
 use pi_null::Null;
@@ -11,24 +11,26 @@ use crate::{
         calc::{ContentBox, EntityKey, LayoutResult, Quad, WorldMatrix},
         user::{Aabb2, BoxShadow, Point2, TextShadow},
     },
-    utils::tools::calc_bound_box, system::draw_obj::calc_text::IsRun,
+    utils::tools::calc_bound_box,
 };
+
+use super::world_matrix::Empty;
 
 pub struct CalcContentBox;
 
 /// 计算内容包围盒（包含布局的包围盒，和世界坐标系的包围盒）
 pub fn calc_content_box(
-    mut dirty: LayerDirty<Changed<Quad>>,
-    node_box: Query<(&Quad, &LayoutResult, Option<&TextShadow>, Option<&BoxShadow>, &WorldMatrix)>,
+    mut dirty: &mut LayerDirty<With<Empty>>,
+    node_box: &Query<(&Quad, &LayoutResult, Option<&TextShadow>, Option<&BoxShadow>, &WorldMatrix)>,
     down: Query<&Down>,
     up: Query<&Up>,
     layer: Query<&Layer>,
     mut content_box: Query<&mut ContentBox>,
-	r: OrInitSingleRes<IsRun>
+	// r: OrInitSingleRes<IsRun>
 ) {
-	if r.0 {
-		return;
-	}
+	// if r.0 {
+	// 	return;
+	// }
     if dirty.count() == 0 {
         return;
     }

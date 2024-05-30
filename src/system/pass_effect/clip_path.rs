@@ -1,4 +1,4 @@
-use pi_world::prelude::{Changed, App, Removed, Query, Plugin, OrDefault, IntoSystemConfigs, Has};
+use pi_world::prelude::{Changed, App, Query, Plugin, OrDefault, IntoSystemConfigs, Has, ComponentRemoved};
 use pi_bevy_ecs_extend::prelude::OrInitSingleRes;
 
 use pi_bevy_render_plugin::FrameDataPrepare;
@@ -49,18 +49,22 @@ impl Plugin for UiClipPathPlugin {
 
 // 处理ClipPath的删除
 pub fn clip_path_del( 
-	mut query: Query<(&mut PostProcess, Has<ClipPath>), Removed<ClipPath>>,
+	mut query: Query<(&mut PostProcess, Has<ClipPath>)>,
+    remove: ComponentRemoved<ClipPath>,
 	r: OrInitSingleRes<IsRun>
 ) {
 	if r.0 {
 		return;
 	}
-    for (mut post_list, has_clip ) in query.iter_mut() {
-        if has_clip {
-            continue
+    for i in remove.iter() {
+        if let Ok((mut post_list, has_clip )) = query.get_mut(*i) {
+            if has_clip {
+                continue
+            }
+            post_list.clip_sdf = None;
         }
-        post_list.clip_sdf = None;
     }
+    
 }
 
 /// 处理ClipPath属性

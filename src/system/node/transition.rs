@@ -295,7 +295,7 @@ pub fn transition_2(
 	// 	return
 	// }
 
-	log::debug!("transition_2======");
+	log::trace!("transition_2======");
 	
 	let cmds = &mut *cmds;
 	for (transition, style_mark, entity) in query.iter() {

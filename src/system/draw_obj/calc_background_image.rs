@@ -1,6 +1,7 @@
-use pi_world::filter::Removed;
+
+use pi_world::event::Event;
 use pi_world::param_set::ParamSet;
-use pi_world::prelude::{Changed, With, Query, Plugin, OrDefault, IntoSystemConfigs, Has};
+use pi_world::prelude::{Changed, With, Query, Plugin, OrDefault, IntoSystemConfigs, Has, ComponentRemoved};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, OrInitSingleRes};
 
 use pi_flex_layout::style::Dimension;
@@ -16,6 +17,7 @@ use crate::prelude::UiStage;
 use crate::shader1::meterial::{RenderFlagType, TyUniform, ImageRepeatUniform, UvUniform};
 use crate::system::draw_obj::set_box;
 use crate::system::node::layout::calc_layout;
+use crate::system::node::user_setting::StyleChange;
 use crate::system::system_set::UiSystemSet;
 use crate::utils::tools::eq_f32;
 use crate::components::user::BackgroundImage;
@@ -56,6 +58,7 @@ pub const BACKGROUND_IMAGE_ORDER: u8 = 5;
 /// 设置背景颜色的顶点，和颜色Uniform
 pub fn calc_background_image(
 	mut instances: OrInitSingleResMut<InstanceContext>,
+	// dirty_list: Event<StyleChange>,
 	query: Query<
 		(
 			&WorldMatrix,
@@ -81,24 +84,35 @@ pub fn calc_background_image(
 	let image_clip = BackgroundImageClip::default();
 	let image_mod = BackgroundImageMod::default();
 
-	for (world_matrix, layout, draw_list, background_image_texture_ref, background_image_clip, background_image_mod, background_image) in query.iter() {
-		let background_image_texture = match &background_image_texture_ref.0 {
-			Some(r) => {
-				// 图片不一致， 返回
-				if *r.key() != background_image.0.str_hash() as u64 {
-					continue;
-				}
-				r
-			},
-			None => continue, 
-		};
+	// for i in dirty_list.iter() {
+		
+	// }
+	let t1 = pi_time::Instant::now();
 
+	for (world_matrix, layout, draw_list, background_image_texture_ref, background_image_clip, background_image_mod, background_image) in query.iter() {
 		let draw_id = match draw_list.get_one(render_type) {
 			Some(r) => r.id,
 			None => continue,
 		};
+		let background_image_texture = match &background_image_texture_ref.0 {
+			Some(r) => {
+				// 图片不一致， 返回
+				if *r.key() != background_image.0.str_hash() as u64 {
+					log::debug!("calc_background_image1, draw_id={:?}, {:?}", draw_id, (r.key(), background_image.0.str_hash()));
+					continue;
+				}
+				r
+			},
+			None => {
+				log::debug!("calc_background_image2, draw_id={:?}", draw_id);
+				continue
+			}, 
+		};
+
+		
 
 		if let Ok(instance_index) = query_draw.get_mut(draw_id) {
+			log::debug!("calc_background_image, draw_id={:?}, instance_index={:?}, background_image={:?}", draw_id, instance_index, &background_image);
 			// 节点可能设置为dispaly none， 此时instance_index可能为Null
 			if pi_null::Null::is_null(&instance_index.0.start) {
 				continue;
@@ -232,6 +246,7 @@ pub fn calc_background_image(
 			// }
 		}
 	}
+	// println!("bg image end========================{:?}", pi_time::Instant::now() - t1);
 
 	log::trace!("bg image end========================");
 }
@@ -239,28 +254,32 @@ pub fn calc_background_image(
 /// 处理图片纹理加载成功，为没设置Size的节点设置默认的Size组件（与图片宽高相同）
 /// 处理图片纹理删除， 如果实体依然存在，并且用户未设置Size组件， 则设置实体的Size为Undefined
 pub fn set_image_default_size(
+	removed: ComponentRemoved<BackgroundImageTexture>,
 	mut param: ParamSet<(
-		Query<(&mut Size, Has<BackgroundImageTexture>, &StyleMark), Removed<BackgroundImageTexture>>,
+		Query<(&mut Size, Has<BackgroundImageTexture>, &StyleMark)>,
 		Query<(&mut Size, &BackgroundImageTexture, OrDefault<BackgroundImageClip>, &StyleMark), Changed<BackgroundImageTexture>>,
 		 
 	)>,
 ) {
     // 处理删除的图片纹理
-    for (mut size, has_bg, style_mark) in param.p0().iter_mut() {
-		if has_bg {
-			continue;
-		}
-		// 本地样式和class样式都未设置宽度，设置默认图片宽度
-		if style_mark.local_style[StyleType::Width as usize] == false && style_mark.class_style[StyleType::Width as usize] == false {
-			size.width = Dimension::Undefined;
-		}
-
-		// 本地样式和class样式都未设置高度，设置默认图片高度
-		if style_mark.local_style[StyleType::Height as usize] == false && style_mark.class_style[StyleType::Height as usize] == false {
-			size.height = Dimension::Undefined;
+	let p0 = param.p0();
+	for removed_id in removed.iter() {
+		if let Ok((mut size, has_bg, style_mark)) = p0.get_mut(*removed_id) {
+			if has_bg {
+				continue;
+			}
+			// 本地样式和class样式都未设置宽度，设置默认图片宽度
+			if style_mark.local_style[StyleType::Width as usize] == false && style_mark.class_style[StyleType::Width as usize] == false {
+				size.width = Dimension::Undefined;
+			}
+	
+			// 本地样式和class样式都未设置高度，设置默认图片高度
+			if style_mark.local_style[StyleType::Height as usize] == false && style_mark.class_style[StyleType::Height as usize] == false {
+				size.height = Dimension::Undefined;
+			}
 		}
 	}
-
+    
     // 处理增加的图片问题
     for (mut size, texture, clip, style_mark) in param.p1().iter_mut() {
 		if let Some(texture) = &texture.0 {

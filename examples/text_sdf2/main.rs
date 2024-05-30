@@ -4,8 +4,6 @@
 #[path = "../framework.rs"]
 mod framework;
 
-use std::mem::swap;
-
 use smallvec::smallvec;
 
 

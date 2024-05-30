@@ -7,7 +7,7 @@ use crate::components::user::{Blur, Hsi, Opacity, Overflow, TransformWillChange}
 use self::{as_image::UiAsImagePlugin, clip_path::UiClipPathPlugin, radial_wave::RadialWavePlugin};
 
 use super::{
-    node::{content_box, world_matrix}, pass::pass_life, system_set::UiSystemSet
+    node::world_matrix::{self, cal_matrix}, pass::pass_life, system_set::UiSystemSet
 };
 use crate::prelude::UiStage;
 
@@ -50,7 +50,8 @@ impl Plugin for UiEffectPlugin {
             .add_system(UiStage, 
                 overflow::overflow_post_process
                     .after(pass_life::calc_pass_children_and_clear)
-                    .after(content_box::calc_content_box)
+                    // .after(content_box::calc_content_box)
+                    .after(cal_matrix)
                     .after(transform_will_change::transform_will_change_post_process)
                     .in_set(UiSystemSet::PassSetting),
             )

@@ -1,7 +1,7 @@
-use pi_world::filter::Removed;
+
 /// 为圆角设置渲染数据
 
-use pi_world::prelude::{Changed, Query, Has};
+use pi_world::prelude::{Changed, Query, Has, ComponentRemoved};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, OrInitSingleRes};
 
 use crate::components::calc::LayoutResult;
@@ -17,7 +17,8 @@ use super::calc_text::IsRun;
 /// 设置圆角Unifrom
 pub fn calc_border_radius( 
 	mut instances: OrInitSingleResMut<InstanceContext>,
-    query_delete: Query<(Has<BorderRadius>, &'static DrawList), Removed<BorderRadius>>,
+    removed: ComponentRemoved<BorderRadius>,
+    query_delete: Query<(Has<BorderRadius>, &'static DrawList)>,
     query: Query<
         (&'static BorderRadius, &'static LayoutResult, &'static DrawList),
         (Changed<BorderRadius>, Changed<LayoutResult>, Changed<DrawList>),
@@ -30,21 +31,24 @@ pub fn calc_border_radius(
 		return;
 	}
 	// let instances = instances.bypass_change_detection();
-    for (has_border_radius, render_list) in query_delete.iter() {
-        // border_radius不存在时，删除对应DrawObject的uniform
-        if has_border_radius {
-            continue;
-        };
-
-        for i in render_list.iter() {
-            if let Ok(instance_index) = query_draw.get_mut(i.id) {
-                let mut instance_data = instances.instance_data.instance_data_mut(instance_index.0.start);
-                let mut render_flag = instance_data.get_render_ty();
-                render_flag &= !(1 << RenderFlagType::ClipRectRadius as usize);
-                instance_data.set_data(&TyUniform(&[render_flag as f32]));
+    for i in removed.iter() {
+        if let Ok((has_border_radius, render_list)) = query_delete.get(*i) {
+            // border_radius不存在时，删除对应DrawObject的uniform
+            if has_border_radius {
+                continue;
+            };
+    
+            for i in render_list.iter() {
+                if let Ok(instance_index) = query_draw.get_mut(i.id) {
+                    let mut instance_data = instances.instance_data.instance_data_mut(instance_index.0.start);
+                    let mut render_flag = instance_data.get_render_ty();
+                    render_flag &= !(1 << RenderFlagType::ClipRectRadius as usize);
+                    instance_data.set_data(&TyUniform(&[render_flag as f32]));
+                }
             }
         }
     }
+    
 
 	
     for (border_radius, layout, render_list) in query.iter() {

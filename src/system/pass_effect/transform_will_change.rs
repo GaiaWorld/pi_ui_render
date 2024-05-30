@@ -1,4 +1,4 @@
-use pi_world::prelude::{Changed, Query, Local, Entity, OrDefault, Has, Removed, ParamSet, Ticker};
+use pi_world::prelude::{Changed, Query, Local, Entity, OrDefault, Has, ParamSet, Ticker, ComponentRemoved};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleRes, Up, Layer, DirtyMark};
 
 use crate::{
@@ -36,8 +36,9 @@ pub fn transform_will_change_post_process(
     query_node1: Query<(&TransformWillChange, OrDefault<Transform>, &'static Up, &'static LayoutResult)>,
     mut query_will_change_matrix: ParamSet<(
         Query<&'static mut TransformWillChangeMatrix>,
-        Query<(&'static mut TransformWillChangeMatrix, &'static Layer, Has<ParentPassId>, Entity, Has<TransformWillChange>), Removed<TransformWillChange>>,
+        Query<(&'static mut TransformWillChangeMatrix, &'static Layer, Has<ParentPassId>, Entity, Has<TransformWillChange>)>,
     )> ,
+    remove: ComponentRemoved<TransformWillChange>,
     query_children: Query<&'static ChildrenPass>,
     query_parent_pass: Query<&ParentPassId>,
     query_parent_pass_changed: Query<(&Layer, Entity), Changed<ParentPassId>>,
@@ -68,18 +69,20 @@ pub fn transform_will_change_post_process(
 		return;
 	}
     // 处理移除TransformWillChange的节点
-    for (mut m, layer, has_parent_pass_id, entity, has_willchange) in query_will_change_matrix.p1().iter_mut() {
-        if has_willchange {
-            continue;
-        }
-        matrix_invert.remove(&entity);
-        
-        if has_parent_pass_id {
-            // 如果该节点仍然是渲染上下文， 则标记层脏， 后续重新计算TransformWillChangeMatrix
-            layer_dirty.marked_with_layer(entity, entity, layer.layer());
-        } else {
-            // 否则清理TransformWillChangeMatrix
-            m.0 = None;
+    for i in remove.iter() {
+        if let Ok((mut m, layer, has_parent_pass_id, entity, has_willchange)) = query_will_change_matrix.p1().get_mut(*i) {
+            if has_willchange {
+                continue;
+            }
+            matrix_invert.remove(&entity);
+            
+            if has_parent_pass_id {
+                // 如果该节点仍然是渲染上下文， 则标记层脏， 后续重新计算TransformWillChangeMatrix
+                layer_dirty.marked_with_layer(entity, entity, layer.layer());
+            } else {
+                // 否则清理TransformWillChangeMatrix
+                m.0 = None;
+            }
         }
     }
 

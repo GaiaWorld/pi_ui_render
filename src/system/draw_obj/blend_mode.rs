@@ -3,9 +3,8 @@
 //! BlendMode组件删除时， 设置恢复pipeline的状态到默认值
 
 
-use pi_world::filter::Removed;
 use pi_world::param_set::ParamSet;
-use pi_world::prelude::{Changed, SingleRes, Alter, Query, Has};
+use pi_world::prelude::{Changed, SingleRes, Alter, Query, Has, ComponentRemoved};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, OrInitSingleRes};
 
 use pi_bevy_render_plugin::PiRenderDevice;
@@ -22,7 +21,9 @@ use super::calc_text::IsRun;
 /// 计算DrawObj的BlendState
 pub fn calc_drawobj_blendstate(
     query_node: Query<(&BlendMode, &DrawList), (Changed<BlendMode>, Changed<DrawList>)>,
-    blend_mod_removes: Query<(&DrawList, Has<BlendMode>), Removed<BlendMode>>,
+    blend_mod_removes: Query<(&DrawList, Has<BlendMode>)>,
+    removed: ComponentRemoved<BlendMode>,
+
 	mut instances: OrInitSingleResMut<InstanceContext>,
 	device: SingleRes<PiRenderDevice> ,
 	mut cmds: ParamSet<(
@@ -35,13 +36,16 @@ pub fn calc_drawobj_blendstate(
 		return;
 	}
     // 删除BlendMode时， 将BlendState恢复到默认值
-    for (draw_list, has_blend_mode) in blend_mod_removes.iter() {
-        if !has_blend_mode {
-            for draw_id in draw_list.iter() {
-                let _ = cmds.p0().alter(draw_id.id, ());
+    for removed_id in removed.iter() {
+        if let Ok((draw_list, has_blend_mode)) = blend_mod_removes.get(*removed_id) {
+            if !has_blend_mode {
+                for draw_id in draw_list.iter() {
+                    let _ = cmds.p0().alter(draw_id.id, ());
+                }
             }
         }
     }
+    
 
     // 根据blend_mode设置blend_state
     for (blend_mode, draw_list) in query_node.iter() {

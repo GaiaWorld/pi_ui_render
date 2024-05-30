@@ -1,7 +1,7 @@
 //! 文字字形系统
 //! 为字符分配纹理位置，得到字符的位置索引关联到CharNode中的ch_id_or_count字段上
 //! 在fontsheet中，文字最多缓存一张纹理。为字符分配纹理，可能存在空间不足的情况。此时，本系统将清空fontsheet中所有缓存的字符，并重新为当前所有显示节点上的文字重新绘制纹理。
-use pi_world::prelude::{Entity, OrDefault, Changed, With, ParamSet, Query, SingleResMut, Local, Mut};
+use pi_world::{fetch::Ticker, prelude::{Changed, Entity, Local, Mut, OrDefault, ParamSet, Query, SingleResMut, With}};
 use ordered_float::NotNan;
 use pi_bevy_ecs_extend::{
     prelude::Layer,
@@ -43,6 +43,11 @@ pub fn text_glyph(
                 &'static mut NodeState,
 				&'static Layer,
 				Option<&'static mut TextOverflowData>,
+
+                // Option<Ticker<&TextStyle>>,
+                // Ticker<&TextContent>,
+                // Ticker<&WorldMatrix>,
+                // Option<Ticker<&TextOverflowData>>,
             ),
             (
                 (Changed<TextContent>, Changed<TextStyle>, Changed<WorldMatrix>, Changed<TextOverflowData>),
@@ -75,6 +80,7 @@ pub fn text_glyph(
     let mut is_reset = false;
 
 	let mut await_set_gylph = Vec::new();
+    // let mut ii1 = Vec::new();
     for (
         entity,
         // world_matrix,
@@ -83,8 +89,12 @@ pub fn text_glyph(
         node_state,
 		layer,
 		text_overflow_data,
+
+        // t1, t2, t3, t4
     ) in query.p0().iter_mut()
     {
+        // ii1.push(entity);
+        // println!("text_glyph======{:?}", (t1.map(|t| {t.is_changed()}), t2.is_changed(), t3.is_changed(), t4.map(|t| {t.is_changed()})));
 		let r = set_gylph(entity, layer, text_style, node_state, &mut font_sheet, text_overflow_data);
         if let Err(_) = r {
             // 清空文字纹理TODO（清屏为玫红色）
@@ -97,6 +107,8 @@ pub fn text_glyph(
 			await_set_gylph.push(entity);
 		}
     }
+
+    // println!("t2======================={:?}", (ii1.len(), ii1));
 
     if is_reset {
 		await_set_gylph.clear();

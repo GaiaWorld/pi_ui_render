@@ -36,6 +36,7 @@ pub fn calc_dyn_target_type(
         max_view_size.width = max_view_size.width.max((view_port.maxs.x - view_port.mins.x).ceil() as u32);
         max_view_size.height = max_view_size.height.max((view_port.maxs.y - view_port.mins.y).ceil() as u32);
         let ty = create_dyn_target_type(&atlas_allocator, max_view_size.width, max_view_size.height);
+        // println!("calc_dyn_target_type==========={:?}, {:?}, {:?} ", view_port, dyn_target_type, ty);
         match dyn_target_type {
             Some(mut r) => *r = ty,
             None => {

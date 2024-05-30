@@ -1,6 +1,6 @@
 use std::sync::atomic::AtomicUsize;
 
-use pi_world::prelude::{Changed, App, Query, Removed, ParamSet, Plugin, IntoSystemConfigs, Has};
+use pi_world::prelude::{Changed, App, Query, ParamSet, Plugin, IntoSystemConfigs, Has, ComponentRemoved};
 use pi_bevy_ecs_extend::prelude::OrInitSingleRes;
 
 use pi_bevy_asset::{Allocator, AssetConfig, AssetDesc, ShareAssetMgr};
@@ -69,8 +69,9 @@ pub fn as_image_post_process(
     overflow_mark_type: OrInitSingleRes<RenderContextMarkType<Overflow>>,
     mut query: ParamSet<(
         Query<(&AsImage, &mut PostProcess, &mut PostProcessInfo), (Changed<AsImage>, Changed<PostProcess>)>,
-        Query<(&mut PostProcess, &mut PostProcessInfo, Has<AsImage>), Removed<AsImage>>,
+        Query<(&mut PostProcess, &mut PostProcessInfo, Has<AsImage>)>,
     )>,
+    removed: ComponentRemoved<AsImage>,
 	r: OrInitSingleRes<IsRun>
 ) {
 	if r.0 {
@@ -78,18 +79,21 @@ pub fn as_image_post_process(
 	}
     // AsImage 如果删除， 取消AsImage的后处理
     let p1 = query.p1();
-    for (mut post_list, mut post_info, has_as_image) in p1.iter_mut() {
-        if has_as_image {
-            continue;
-        }
-        post_info.effect_mark.set(***mark_type, false);
-
-        let mut effect_mark = post_info.effect_mark.clone();
-        effect_mark.set(***overflow_mark_type, false);
-        if post_info.effect_mark.get(***overflow_mark_type).as_deref() != Some(&true) {
-            post_list.copy = None;
+    for i in removed.iter() {
+        if let Ok((mut post_list, mut post_info, has_as_image)) = p1.get_mut(*i) {
+            if has_as_image {
+                continue;
+            }
+            post_info.effect_mark.set(***mark_type, false);
+    
+            let mut effect_mark = post_info.effect_mark.clone();
+            effect_mark.set(***overflow_mark_type, false);
+            if post_info.effect_mark.get(***overflow_mark_type).as_deref() != Some(&true) {
+                post_list.copy = None;
+            }
         }
     }
+    
 
     for (as_image, mut post_list, mut post_info) in query.p0().iter_mut() {
         match (as_image.level, as_image.post_process.is_null()) {

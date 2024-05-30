@@ -1,4 +1,4 @@
-use pi_world::prelude::{Changed, ParamSet, Query, Removed, Has};
+use pi_world::prelude::{Changed, ParamSet, Query, Has, ComponentRemoved};
 use pi_bevy_ecs_extend::prelude::OrInitSingleRes;
 
 use crate::{components::user::Blur, resource::RenderContextMarkType, system::draw_obj::calc_text::IsRun};
@@ -13,21 +13,25 @@ pub fn blur_post_process(
     mark_type: OrInitSingleRes<RenderContextMarkType<Blur>>,
     mut query: ParamSet<(
         Query<(&Blur, &mut PostProcess, &mut PostProcessInfo), Changed<Blur>>,
-        Query<(&mut PostProcess, &mut PostProcessInfo, Has<Blur>), Removed<Blur>>,
+        Query<(&mut PostProcess, &mut PostProcessInfo, Has<Blur>)>,
     )>,
+    remove: ComponentRemoved<Blur>,
 	r: OrInitSingleRes<IsRun>
 ) {
 	if r.0 {
 		return;
 	}
     let p1 = query.p1();
-    for (mut post_list, mut post_info, has_blur) in p1.iter_mut() {
-        if has_blur {
-            continue;
+    for i in remove.iter() {
+        if let Ok((mut post_list, mut post_info, has_blur)) = p1.get_mut(*i) {
+            if has_blur {
+                continue;
+            }
+            post_list.blur_dual = None;
+            post_info.effect_mark.set(***mark_type, false);
         }
-        post_list.blur_dual = None;
-        post_info.effect_mark.set(***mark_type, false);
     }
+    
 
     for (blur, mut post_list, mut post_info) in query.p0().iter_mut() {
         if **blur > 0.0 {

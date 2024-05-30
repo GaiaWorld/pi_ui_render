@@ -3,6 +3,7 @@ use pi_world::prelude::{App, Plugin, Last, WorldPluginExtent};
 use pi_bevy_render_plugin::{FrameDataPrepare, GraphBuild, GraphRun};
 use pi_hal::font::font::FontType;
 use pi_style::style::Aabb2;
+use pi_world::schedule::PostUpdate;
 
 use crate::components::calc::WorldMatrix;
 use crate::resource::draw_obj::MaxViewSize;
@@ -70,7 +71,7 @@ impl Plugin for UiReadyDrawPlugin {
 				.after(pass_life::calc_pass_toop_sort)
 				.before(UiSystemSet::PrepareDrawObj)
 				)
-			.add_system(Last, batch_instance_data
+			.add_system(PostUpdate, batch_instance_data
 				.before(last_update_wgpu)
 				.after(GraphBuild)
 				.before(GraphRun)

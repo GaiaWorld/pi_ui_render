@@ -37,19 +37,25 @@
 //! 暂时无并行。
 //!
 //! 可以考虑： 当父矩阵计算完成后，父节点所有子节点所形成的子树，可以并行计算（他们依赖的父矩阵已经计算完毕）
-
-use pi_world::prelude::{Changed, ParamSet, Query, SingleResMut, Entity, With};
+use pi_bevy_ecs_extend::system_param::tree::Down;
+use pi_world::event::Event;
+use pi_world::fetch::Ticker;
+use pi_world::prelude::{ParamSet, Query, SingleResMut, Entity, With};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleRes, Up, Layer, LayerDirty};
 
 use pi_map::Map;
 use pi_null::Null;
 use pi_style::style::Aabb2;
+use pi_world::system_params::Local;
 
-use crate::components::calc::{EntityKey, LayoutResult, Quad, WorldMatrix};
-use crate::components::user::{Point2, Size, Transform};
+use crate::components::calc::{ContentBox, EntityKey, LayoutResult, Quad, StyleMark, WorldMatrix, CONTENT_BOX_DIRTY, LAYOUT_DIRTY};
+use crate::components::user::{BoxShadow, Point2, TextShadow, Transform};
 use crate::resource::QuadTree;
 use crate::system::draw_obj::calc_text::IsRun;
+use crate::system::node::content_box::calc_content_box;
 use crate::utils::tools::calc_bound_box;
+
+use super::user_setting::StyleChange;
 
 pub struct CalcMatrix;
 
@@ -67,21 +73,58 @@ pub struct CalcMatrix;
 //         print_parent(idtree, parent_id);
 //     }
 // }
-
+pub struct Empty;
 /// 计算世界矩阵
 /// 世界矩阵以自身左上角为原点
 pub fn cal_matrix(
+    // dirtys1: Query<
+    // (
+    //     Ticker<&Layer>,
+    //     Option<Ticker<&Transform>>,
+    // )>,
+    // mut dirtys1: Query<(), ((Changed<LayoutResult>, Changed<Layer>, Changed<Transform>), With<Size>)>,
+    dirty_list: Event<StyleChange>,
+    mut layer_dirty: LayerDirty<With<Empty>>,
+    query_dirty: Query<(Ticker<&Layer>, Ticker<&LayoutResult>, Option<Ticker<&Transform>>, Option<Ticker<&TextShadow>>, Option<Ticker<&BoxShadow>>)>,
+
     query: Query<(Option<&Transform>, &LayoutResult, &Up)>,
-    mut matrix_calc: ParamSet<(Query<(&LayoutResult, &WorldMatrix)>, Query<(&mut WorldMatrix, &mut Quad)>)>,
-    mut dirtys: LayerDirty<((Changed<LayoutResult>, Changed<Layer>, Changed<Transform>), With<Size>)>,
+
+    // query11: Query<(Entity,  Option<Ticker<&Transform>>, Ticker<&Layer>, Ticker<&LayoutResult>), ((Changed<LayoutResult>, Changed<Layer>, Changed<Transform>), With<Size>)>,
+    mut matrix_calc: ParamSet<(
+        Query<(&LayoutResult, &WorldMatrix)>, 
+        Query<(&mut WorldMatrix, &mut Quad)>,
+        Query<(&Quad, &LayoutResult, Option<&TextShadow>, Option<&BoxShadow>, &WorldMatrix)>,
+    )>,
+    // mut dirtys: LayerDirty<((Changed<LayoutResult>, Changed<Transform>), With<Size>)>,
     mut quad_tree: SingleResMut<QuadTree>,
 	r: OrInitSingleRes<IsRun>,
 	#[cfg(debug_assertions)]
-	debug_entity: OrInitSingleRes<crate::resource::DebugEntity>
+	debug_entity: OrInitSingleRes<crate::resource::DebugEntity>,
+
+
+    // node_box: Query<(&Quad, &LayoutResult, Option<&TextShadow>, Option<&BoxShadow>, &WorldMatrix)>,
+    down: Query<&Down>,
+    up: Query<&Up>,
+    layer: Query<&Layer>,
+    content_box: Query<&mut ContentBox>,
 ) {
 	if r.0 {
 		return;
 	}
+    let time = pi_time::Instant::now();
+    let mut i = 0;
+    let mut j = 0;
+    // let mut ii = 0;
+    // let mut i1 = false;
+    // for i in dirtys1.iter() {
+    //     ii += 1;
+    //     // i1 |= i.0.is_changed();
+    //     // if let Some(r) = &i.1 {
+    //     //     i1 |= r.is_changed(); 
+    //     // }
+    // }
+    // println!("matrix time0========{:?}", ( ii, i1, pi_time::Instant::now() - time));
+    // let time = pi_time::Instant::now();
 	// let count = dirtys.count();
 	// let time1 = pi_time::Instant::now();
     // transform修改，标记层脏(这里transform_change不直接在层脏中声明，是因为transform改变不会发送对应的事件)
@@ -90,9 +133,36 @@ pub fn cal_matrix(
     // let layer_dirty_count = dirtys.count();
     // 计算布局
     // let _sss = tracing::info_span!("matrix compute", layer_dirty_count).entered();
+    // let mut ii = Vec::new();
+    // for (i, t1, t2, t3) in query11.iter() {
+    //     ii.push((i, t1.map(|t| {t.is_changed()}), t2.is_changed(), t3.is_changed()));
+    // }
+    // println!("m1======================={:?}", (ii.len(), ii));
 
+
+    // let mut ii1 = Vec::new();
 	// let count = dirtys.count();
-    for id in dirtys.iter() {
+    // LAYOUT_DIRTY
+    for i in dirty_list.iter() {
+        j += 1;
+        if let Ok((layer, layout, transform, text_shadow, box_shadow)) = query_dirty.get(i.0) {
+            if layer.layer() > 0 && (
+                layer.is_changed() || 
+                layout.is_changed() || 
+                transform.map_or(false, |r| {r.is_changed()})|| 
+                text_shadow.map_or(false, |r| {r.is_changed()})|| 
+                box_shadow.map_or(false, |r| {r.is_changed()}) 
+            ) {
+                layer_dirty.mark(i.0);
+            }
+        }
+    }
+
+
+    let time1 = pi_time::Instant::now();
+    for (id, _, _) in layer_dirty.iter_manual() {
+        i += 1;
+        // ii1.push(id);
         // if count == 1 {
 		// 	log::warn!("matrix time0========{:?}", pi_time::Instant::now() - time1);
 		// }
@@ -181,7 +251,12 @@ pub fn cal_matrix(
             };
         }
     }
-    // let time3 = pi_time::Instant::now();
+    let time3 = pi_time::Instant::now();
+    
+
+    calc_content_box(&mut layer_dirty, matrix_calc.p2(), down, up, layer, content_box);
+    let time4 = pi_time::Instant::now();
+    // println!("matrix time========{:?}, calc_content_box: {:?}", (time3 - time1, time1 - time, i, j), time4 - time3);
     // if dirtys.count() > 0 {
 	// 	log::warn!("start parent==========={:?}", (dirtys.count(), time3 - time2, time2 - time1));
 	// }

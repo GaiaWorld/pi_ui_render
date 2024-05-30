@@ -57,7 +57,6 @@ pub fn calc_background_color(
 
 	let render_type = ***render_type;
 	for (world_matrix, background_color, layout, draw_list) in query.iter() {
-		
 		let draw_id = match draw_list.get_one(render_type) {
 			Some(r) => r.id,
 			None => continue,

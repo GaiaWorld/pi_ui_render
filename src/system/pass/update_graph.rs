@@ -1,10 +1,12 @@
 
 
-use pi_world::prelude::{Changed, Entity, FilterComponents, Has, ParamSet, Query, Removed, SingleRes, SingleResMut, With};
+use pi_world::event::ComponentRemoved;
+use pi_world::prelude::{Changed, Entity, FilterComponents, Has, ParamSet, Query, SingleRes, SingleResMut, With};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, OrInitSingleRes};
 
 use pi_bevy_render_plugin::{NodeId, PiRenderGraph, NodeLabel};
 use pi_null::Null;
+use crate::components::user::Size;
 
 use crate::{
     components::{
@@ -35,7 +37,6 @@ pub fn init_root_graph(
 /// 根据声明创建图节点，删除图节点， 建立图节点的依赖关系
 pub fn update_graph(
     mut pass_query: ParamSet<(
-        
         Query<(&mut GraphId, Entity, &ParentPassId, &PostProcessInfo), Changed<RenderContextMark>>,
         (
 			Query<(&ParentPassId, &GraphId, Option<&AsImage>), ((Changed<ParentPassId>, Changed<AsImage>, Changed<GraphId>), With<Camera>)>, 
@@ -46,7 +47,8 @@ pub fn update_graph(
 
     )>,
     last_graph_id: SingleRes<LastGraphNode>,
-    del: Query<(Entity, Has<Camera>), Removed<Camera>>,
+    del: Query<(Entity, Has<Camera>), With<Size>>,
+    removed: ComponentRemoved<Camera>,
     mut rg: SingleResMut<PiRenderGraph>,
 	mut pass_graph_map: OrInitSingleResMut<PassGraphMap>,
 	r: OrInitSingleRes<IsRun>
@@ -87,19 +89,21 @@ pub fn update_graph(
             if graph_id.0.is_null() {
                 continue;
             }
-
+            
 			remove_node(**graph_id, &mut rg, &mut pass_graph_map);
             *graph_id = GraphId(NodeId::null());
         }
     }
 
-    // 移除渲染图节点
-    for (id, has_camera) in del.iter() {
-        if has_camera {
-            continue;
+    for i in removed.iter() {
+        // 移除渲染图节点
+        for (id, has_camera) in del.get(*i) {
+            if has_camera {
+                continue;
+            }
+            log::debug!(entity=format!("entity_{:?}", id).as_str(); "remove graph node, entity={id:?}");
+            remove_node(format!("Pass2D_{:?}", id), &mut rg, &mut pass_graph_map);
         }
-		log::debug!(entity=format!("entity_{:?}", id).as_str(); "remove graph node, entity={id:?}");
-		remove_node(format!("Pass2D_{:?}", id), &mut rg, &mut pass_graph_map);
     }
 
     let p1 = pass_query.p1();

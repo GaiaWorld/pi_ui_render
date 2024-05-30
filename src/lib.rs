@@ -124,7 +124,10 @@ pub mod prelude {
                 .after(UiSystemSet::NextSetting)
             )
 			
-            .configure_set(UiStage, UiSystemSet::Layout.before(UiSystemSet::Matrix))
+            .configure_set(UiStage, 
+                UiSystemSet::Layout
+                .after(UiSystemSet::NextSetting)
+                .before(UiSystemSet::Matrix))
 
             // .configure_sets(
 			// 	UiStage, 

@@ -1,7 +1,8 @@
 //! 每个实体必须写入StyleMark组件
 
-use pi_world::{filter::Or, prelude::{Alter, Changed, Entity, Local, Query, SingleResMut, With, World}, single_res::SingleRes, world::FromWorld};
+use pi_world::{event::{Event, EventSender}, filter::Or, prelude::{Alter, Changed, Entity, Local, Mut, Query, SingleResMut, With, World}, single_res::SingleRes, system::{SystemMeta, TypeInfo}, system_params::SystemParam, world::FromWorld};
 use pi_world::world::ComponentIndex;
+use pi_key_alloter::Key;
 use pi_bevy_ecs_extend::prelude::{EntityTreeMut, OrInitSingleResMut};
 
 use bitvec::array::BitArray;
@@ -11,9 +12,9 @@ use pi_slotmap_tree::InsertType;
 
 use crate::{
     components::{
-        calc::{DrawInfo, EntityKey, StyleMarkType}, user::{serialize::DefaultStyle, Size, STYLE_COUNT}, SettingComponentIds
+        calc::{DrawInfo, EntityKey, NodeState, StyleMarkType}, user::{serialize::DefaultStyle, Size, ZIndex, STYLE_COUNT}, SettingComponentIds
     }, resource::{
-        fragment::{FragmentMap, NodeTag}, ClassSheet, NodeChanged, QuadTree
+        animation_sheet::KeyFramesSheet, fragment::{FragmentMap, NodeTag}, ClassSheet, NodeChanged, QuadTree
     }
 };
 use crate::{
@@ -29,6 +30,7 @@ use crate::{
 
 pub struct SingleId {
     pub user_commands: usize,
+    pub style_dirty_mark: usize,
     pub class_sheet: usize,
     pub fragments: usize,
     // pub quad_tree: usize,
@@ -38,6 +40,7 @@ pub struct SingleId {
 impl FromWorld for SingleId {
     fn from_world(world: &mut World) -> Self {
         Self {
+            style_dirty_mark: world.init_single_res::<StyleDirtyMark>(),
             user_commands: world.init_single_res::<UserCommands>(),
             class_sheet: world.init_single_res::<ClassSheet>(),
             fragments: world.init_single_res::<FragmentMap>(),
@@ -47,12 +50,16 @@ impl FromWorld for SingleId {
     }
 }
 
+#[derive(Debug, Default)]
+pub struct StyleDirtyMark(pub bitvec::vec::BitVec<usize>);
+
 /// 处理用户设置的指令
 pub fn user_setting1(
     world: &mut World,
     id: Local<SingleId>,
     setting_components: Local<SettingComponentIds>,
     default_style: Local<DefaultStyle>,
+    // mut dirty_mark: Local<bitvec::vec::BitVec<usize>>,
 ) {
     // let mut fragments_default = FragmentMap::default();
     // let mut class_sheet_default = ClassSheet::default();
@@ -60,12 +67,23 @@ pub fn user_setting1(
     let mut w1 = world.unsafe_world();
     let mut w2 = world.unsafe_world();
     let mut w3 = world.unsafe_world();
+    let mut w4 = world.unsafe_world();
+    let w5 = world.unsafe_world();
+    let mut w6 = world.unsafe_world();
 
     let user_commands = w1.index_single_res_mut::<UserCommands>(id.user_commands).unwrap().0;
     
     let fragments = w2.index_single_res_mut::<FragmentMap>(id.fragments).unwrap().0;
 
     let class_sheet = w3.index_single_res_mut::<ClassSheet>(id.class_sheet).unwrap().0;
+    let dirty_mark = w4.index_single_res_mut::<StyleDirtyMark>(id.style_dirty_mark).unwrap().0;
+    let mut s_meta = SystemMeta::new(TypeInfo::of::<()>());
+
+    let mut events = EventSender::<'_, StyleChange>::init_state(&mut w6, &mut s_meta);
+    let mut dirty_list = StyleDirtyList {
+		list: EventSender::<'_, StyleChange>::get_param(&w5, &mut s_meta, &mut events, world.tick()),
+		mark: &mut dirty_mark.0,
+	};
 
     // 应用other_commands指令
     user_commands.other_commands.apply(world);
@@ -122,7 +140,7 @@ pub fn user_setting1(
                 }
 
                 // 初始化组件
-                let _ = world.alter_components(*node, &component_ids);
+                let _ = world.make_entity_editor().alter_components(*node, &component_ids);
                 unsafe { component_ids.set_len(old_len); }
 
                 log::debug!("insert NodeBundle for fragment , {:?}", node);
@@ -147,17 +165,28 @@ pub fn user_setting1(
         for i in t.clone() {
             let n = &fragments.fragments[i];
             let node = c.entitys[i - t.start];
+
+            // 设置为vnode
+            if n.tag == NodeTag::VNode {
+                crate::components::user::serialize::set_style_attr(&mut setting.world, setting.style.node_state, node, true, |mut n: Mut<NodeState>, v| {
+                    n.set_vnode(v);
+                });
+                crate::components::user::serialize::set_style_attr(&mut setting.world, setting.style.z_index, node, -1, |mut n: Mut<ZIndex>, v| {
+                    n.0 = v;
+                });
+            }
+
             if n.style_meta.end > n.style_meta.start {
-                set_style(node, n.style_meta.start, n.style_meta.end, &fragments.style_buffer, &mut setting,  true);
+                set_style(node, n.style_meta.start, n.style_meta.end, &fragments.style_buffer, &mut setting,  true, &mut dirty_list);
             }
             if n.class.len() > 0 {
-                set_class(node, &mut setting, n.class.clone(), &class_sheet, &mut component_ids1);
+                set_class(node, &mut setting, n.class.clone(), &class_sheet, &mut component_ids1, &mut dirty_list);
             }
         }
     }
 
     // 设置style只要节点存在,样式一定能设置成功
-    set_styles(&mut user_commands.style_commands, &mut setting, base_component_ids, v_node_base_component_ids);
+    set_styles(&mut user_commands.style_commands, &mut setting, base_component_ids, v_node_base_component_ids, &mut dirty_list);
     // 设置class样式
     for (node, class) in user_commands.class_commands.drain(..) {
         // 添加组件
@@ -166,26 +195,38 @@ pub fn user_setting1(
                 add_component_ops(class.start, class.end, &class_sheet.style_buffer, &setting_components, &mut component_ids1)
             }
         }
-        let _ = setting.world.alter_components(node, &mut component_ids1);
+        let _ = setting.world.make_entity_editor().alter_components(node, &mut component_ids1);
         component_ids1.clear();
 
-        set_class(node, &mut setting,  class, &class_sheet, &mut component_ids1);
+        set_class(node, &mut setting,  class, &class_sheet, &mut component_ids1, &mut dirty_list);
 
     }
+
+    // 清理标记（该标记用于将本次修改样式的操作合并成一个事件）
+	dirty_list.clear_mark();
 }
 
 // 为节点添加依赖父子依赖关系 和 销毁节点
 pub fn user_setting2(
     mut entitys: Alter<(Option<&Size>, Option<&DrawInfo>), Or<(With<Size>, With<DrawInfo>)>, (), ()>,
     dirty_list: Query<&DrawList>,
-
     mut user_commands: SingleResMut<UserCommands>,
     mut quad_tree: OrInitSingleResMut<QuadTree>,
     mut tree: EntityTreeMut,
     fragments: SingleRes<FragmentMap>,
     mut node_changed: OrInitSingleResMut<NodeChanged>,
+
+    event_sender: EventSender<'_, StyleChange>,
+    mut style_dirty_mark: SingleResMut<StyleDirtyMark>,
+
+    mut keyframes_sheet: SingleResMut<KeyFramesSheet>,
 ) {
-    // println!("user_setting2===");
+
+    let mut dirty_list_mark = StyleDirtyList {
+		list: event_sender,
+		mark: &mut style_dirty_mark.0,
+	};
+
     let mut is_node_change = user_commands.is_node_change;
     // 添加父子关系
     for c in user_commands.fragment_commands.drain(..) {
@@ -219,12 +260,14 @@ pub fn user_setting2(
         }
     }
 
+    let keyframes_sheet = &mut *keyframes_sheet;
+
     // 操作节点(节点的销毁、挂载、删除)
     for c in user_commands.node_commands.drain(..) {
         match c {
             NodeCommand::AppendNode(node, parent) => {
-                log::debug!("AppendNode====================node： {:?}, parent： {:?}, node_is_exist：{:?}", node, parent, entitys.contains(node));
-                if entitys.contains(node) && (parent.is_null() || entitys.contains(parent)) {
+                log::debug!("AppendNode====================node： {:?}, parent： {:?}, node_is_exist：{:?}, parent_is_exist: {:?}", node, parent, entitys.contains(node), entitys.contains(parent));
+                // if entitys.contains(node) && (parent.is_null() || entitys.contains(parent)) {
 					// if !EntityKey( parent ).is_null() && draw_list.get(node).is_err() {
 					// 	log::warn!("AppendNode parent error============={:?}, {:?}", parent, unsafe{transmute::<_, f64>(parent.to_bits())});
 					// 	r.0 = true;
@@ -237,8 +280,9 @@ pub fn user_setting2(
 					// }
 					
                     // log::warn!("AppendNode node====================node： {:?}, parent： {:?}", node, parent);
+                    dirty_list_mark.mark_dirty(node);
                     tree.insert_child(node, parent, std::usize::MAX);
-                }
+                // }
             }
             NodeCommand::InsertBefore(node, anchor) => {
 				// if !EntityKey( anchor ).is_null() && draw_list.get(node).is_err() {
@@ -253,11 +297,12 @@ pub fn user_setting2(
 				// }
                 
                 log::debug!("InsertBefore node====================node：{:?}, anchor： {:?}, node_is_exist：{:?}", node, anchor, entitys.contains(node));
-                if entitys.contains(node) && (anchor.is_null() || entitys.contains(anchor)) {
+                // if entitys.contains(node) && (anchor.is_null() || entitys.contains(anchor)) {
                    
                     // log::warn!("InsertBefore node====================node：{:?}, anchor： {:?}", node, anchor);
+                    dirty_list_mark.mark_dirty(node);
                     tree.insert_brother(node, anchor, InsertType::Front);
-                }
+                // }
             }
             NodeCommand::RemoveNode(node) => {
 				// if !EntityKey( node ).is_null() && draw_list.get(node).is_err() {
@@ -284,21 +329,22 @@ pub fn user_setting2(
                     if !head.is_null() {
                         for node in tree.recursive_iter(head) {
                             quad_tree.remove(&EntityKey(node));
-                            delete_draw_list(node, &dirty_list, &mut entitys);
+                            delete_draw_list(node, &dirty_list, &mut entitys, keyframes_sheet);
 
                         }
                     }
                 }
                 quad_tree.remove(&EntityKey(node));
                 tree.remove(node);
-                delete_draw_list(node, &dirty_list, &mut entitys);
+                delete_draw_list(node, &dirty_list, &mut entitys, keyframes_sheet);
             }
         };
     }
 
 	if is_node_change {
-        node_changed.0 = true;
+        node_changed.node_changed = true;
         user_commands.is_node_change = false;
+        log::debug!("node_changed4============{:p}", &*node_changed);
 	}
     
     // // 设置所有的root渲染脏（节点删除后， 组件被删除，很多状态丢失， 除非立即处理脏区域）
@@ -309,47 +355,52 @@ pub fn user_setting2(
 
 
 /// 清理StyleMark上的脏标记
-pub fn clear_dirty_mark(mut style_mark: Query<&mut StyleMark, Changed<StyleMark>>) {
-	for mut r in style_mark.iter_mut() {
-		r.bypass_change_detection().dirty_style = Default::default();
+pub fn clear_dirty_mark(
+    mut style_mark: Query<&mut StyleMark>,
+    event: Event<StyleChange>,
+) {
+	for r in event.iter() {
+        if let Ok(mut r) = style_mark.get_mut(r.0) {
+            r.bypass_change_detection().dirty_style = Default::default();
+        }
 	}
 }
 
-// pub struct StyleDirtyList<'s> {
-// 	// pub list: EventWriter<'w, StyleChange>,
-// 	pub mark: &'s mut bitvec::vec::BitVec<usize>,
-// }
+pub struct StyleDirtyList<'s, 'w> {
+	pub list: EventSender<'w, StyleChange>,
+	pub mark: &'s mut bitvec::vec::BitVec<usize>,
+}
 
-// impl<'s, 'w> StyleDirtyList<'s, 'w> {
-// 	/// 标记脏
-// 	pub fn mark_dirty(&mut self, entity: Entity) {
-// 		let index = entity.index() as usize;
-// 		if self.mark.len() <= index {
-// 			let count = (index - self.mark.len()) / std::mem::size_of::<usize>()  + 1;
-// 			for _ in 0..count {
-// 				self.mark.extend(Some(0));
-// 			}
-// 		}
+impl<'s, 'w> StyleDirtyList<'s, 'w> {
+	/// 标记脏
+	pub fn mark_dirty(&mut self, entity: Entity) {
+		let index = entity.index() as usize;
+		if self.mark.len() <= index {
+			let count: usize = (index - self.mark.len()) / std::mem::size_of::<usize>()  + 1;
+			for _ in 0..count {
+				self.mark.extend(Some(0));
+			}
+		}
+		if !self.mark[index] {
+			self.list.send(StyleChange(entity));
+		}
+	}
 
-// 		if !self.mark[index] {
-// 			self.list.send(StyleChange(entity));
-// 		}
-// 	}
+	/// 清理标记
+	pub fn clear_mark(&mut self) {
+		self.mark.clear();
+	}
+}
 
-// 	/// 清理标记
-// 	pub fn clear_mark(&mut self) {
-// 		self.mark.clear();
-// 	}
-// }
-
-// #[derive(Debug, Copy, Clone, Deref)]
-// pub struct StyleChange(pub Entity);
+#[derive(Debug, Copy, Clone, Deref)]
+pub struct StyleChange(pub Entity);
 
 pub fn set_styles<'w, 's>(
     style_commands: &mut StyleCommands, 
     style_query: &mut Setting,
     mut base_component_ids: Vec<(ComponentIndex, bool)>,
     mut v_node_base_component_ids: Vec<(ComponentIndex, bool)>,
+    dirty_list: &mut StyleDirtyList<'w, 's>,
 ) -> (Vec<(ComponentIndex, bool)>, Vec<(ComponentIndex, bool)>) {
     let mut component_ids1 = Vec::new();
     let mut component_ids;
@@ -372,18 +423,18 @@ pub fn set_styles<'w, 's>(
 
         old_len = component_ids.len();
         add_component_ops(start, end, style_buffer, &style_query.style, component_ids);
-        let _ = style_query.world.alter_components(node, component_ids);
         log::debug!("add_component_ops===={:?}", (node, &component_ids, need_init));
+        let _ = style_query.world.make_entity_editor().alter_components(node, component_ids);
         unsafe { component_ids.set_len(old_len); }
 
-        set_style(node, start, end, style_buffer, style_query, false);
+        set_style(node, start, end, style_buffer, style_query, false, dirty_list);
     }
     unsafe { style_buffer.set_len(0) };
 
     (base_component_ids, v_node_base_component_ids)
 }
 
-pub fn set_style<'w, 's>(node: Entity, start: usize, end: usize, style_buffer: &Vec<u8>, style_query: &mut Setting, is_clone: bool) {
+pub fn set_style<'w, 's>(node: Entity, start: usize, end: usize, style_buffer: &Vec<u8>, style_query: &mut Setting, is_clone: bool, dirty_list: &mut StyleDirtyList<'w, 's>) {
     // 不存在实体，不处理
     if !style_query.world.contains(node) {
         log::debug!("node is not exist: {:?}", node);
@@ -399,6 +450,7 @@ pub fn set_style<'w, 's>(node: Entity, start: usize, end: usize, style_buffer: &
         style_mark.local_style |= local_mark;
 		style_mark.dirty_style |= local_mark;
     };
+    dirty_list.mark_dirty(node);
     // 取消样式， TODO，注意，宽高取消时，还要考虑图片宽高的重置问题
 }
 
@@ -408,7 +460,7 @@ pub fn add_component_ops<'w, 's>(start: usize, end: usize, style_buffer: &Vec<u8
 }
 
 
-fn set_class<'w, 's>(node: Entity, style_query: &mut Setting, class: ClassName, class_sheet: &ClassSheet, component_ids1: &mut Vec<(ComponentIndex, bool)>) {
+fn set_class<'w, 's>(node: Entity, style_query: &mut Setting, class: ClassName, class_sheet: &ClassSheet, component_ids1: &mut Vec<(ComponentIndex, bool)>, dirty_list: &mut StyleDirtyList<'w, 's>) {
     let style_mark = match style_query.world.get_component_by_index::<StyleMark>(node, style_query.style.style_mark) {
         Ok(r) => r,
         Err(_) => {
@@ -454,7 +506,7 @@ fn set_class<'w, 's>(node: Entity, style_query: &mut Setting, class: ClassName, 
     }
 
     if component_ids1.len() > 0 {
-        let _ = style_query.world.alter_components(node, &component_ids1);
+        let _ = style_query.world.make_entity_editor().alter_components(node, &component_ids1);
         component_ids1.clear();
     }
 
@@ -467,15 +519,26 @@ fn set_class<'w, 's>(node: Entity, style_query: &mut Setting, class: ClassName, 
     if let Ok(mut class_name) = style_query.world.get_component_by_index_mut::<ClassName>(node, style_query.style.class_name) {
         *class_name = class;
     };
+
+    dirty_list.mark_dirty(node);
 }
 
-fn delete_draw_list(id: Entity, draw_list: &Query<&DrawList>, entitys: &mut Alter<(Option<&Size>, Option<&DrawInfo>), Or<(With<Size>, With<DrawInfo>)>, (), ()>) {
-    let r = entitys.destroy(id);
-    log::debug!("deleteNode node====================id: {:?}", (id, r));
-    if let Ok(list) = draw_list.get(id) {
+fn delete_draw_list(
+    del: Entity, 
+    draw_list: &Query<&DrawList>, 
+    entitys: &mut Alter<(Option<&Size>, Option<&DrawInfo>), Or<(With<Size>, With<DrawInfo>)>, (), ()>,
+    keyframes_sheet: &mut KeyFramesSheet,
+) {
+    if let Ok(list) = draw_list.get(del) {
         for i in list.iter() {
             let r = entitys.destroy(i.id);
             log::debug!("delete draw obj====================id: {:?}", (i, r));
         }
     }
+    let r = entitys.destroy(del);
+    log::error!("removed===={:?}", del);
+    keyframes_sheet.unbind_animation_all(del);
+    keyframes_sheet.remove_runtime_keyframs(del);
+
+    log::debug!("deleteNode node====================id: {:?}", (del, r));
 }

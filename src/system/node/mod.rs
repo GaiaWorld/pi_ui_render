@@ -68,9 +68,9 @@ impl Plugin for UiNodePlugin {
         app.world.init_single_res::<QuadTree>();
         app
             .add_system(UiStage, world_matrix::cal_matrix.in_set(UiSystemSet::Matrix))
-            .add_system(UiStage, content_box::calc_content_box
-                .after(world_matrix::cal_matrix)
-                .in_set(UiSystemSet::BaseCalc))
+            // .add_system(UiStage, content_box::calc_content_box
+            //     .after(world_matrix::cal_matrix)
+            //     .in_set(UiSystemSet::BaseCalc))
             // zindex
             .add_system(UiStage, z_index::calc_zindex.in_set(UiSystemSet::BaseCalc))
 			// 计算是否可见

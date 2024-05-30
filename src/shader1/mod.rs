@@ -22,6 +22,14 @@ pub struct GpuBuffer {
 }
 
 impl GpuBuffer {
+	pub fn get_render_ty(&self, index: u32) -> usize {
+		let mut uniform_data = [0.0];
+		let mut uniform = TyUniformMut(uniform_data.as_mut_slice());
+		uniform.get_data(index, &self.data);
+
+		uniform_data[0] as usize
+	}
+
 	/// 创建
 	pub fn new(alignment: usize, capacity: usize) -> Self {
 		Self {
@@ -186,11 +194,7 @@ pub struct InstanceData<'a> {
 
 impl<'a> InstanceData<'a> {
 	pub fn get_render_ty(&self) -> usize {
-		let mut uniform_data = [0.0];
-		let mut uniform = TyUniformMut(uniform_data.as_mut_slice());
-		self.get_data(&mut uniform);
-
-		uniform_data[0] as usize
+		self.data.get_render_ty(self.index as u32)
 	}
 }
 
@@ -208,6 +212,7 @@ impl<'a> InstanceData<'a> {
 
 		log::trace!("byte_len========={:?}, {:?}, {:?}, {:?}, {:?}, {:?}", self.index, value.offset(), value.byte_len(), self.data.data.len(), self.data.capacity(), self.data.alignment);
 
+		#[cfg(debug_assertions)]
 		if (self.index + value.offset() as usize + value.byte_len() as usize) > self.data.data.len() {
 			panic!("byte_len========={:?}, {:?}, {:?}, {:?}, {:?}, {:?}", self.index, value.offset(), value.byte_len(), self.data.data.len(), self.data.capacity(), self.data.alignment);
 
@@ -221,7 +226,7 @@ impl<'a> InstanceData<'a> {
 		debug_assert!((self.index + value.offset() as usize + value.byte_len() as usize) <= self.data.data.len());
 
 		value.write_into(self.index as u32, &mut self.data.data);
-		log::trace!("byte_len0========={:?}", value.byte_len());
+		// log::trace!("byte_len0========={:?}", value.byte_len());
 		self.data.update_dirty_range(self.index..self.index + self.data.alignment);
 
 		// if value.offset() <= 180 && value.offset() + value.byte_len() >=184 {

@@ -1,5 +1,6 @@
 
 use std::ops::{Deref, DerefMut};
+use std::path::Path;
 use std::{sync::Arc, time::Instant};
 
 use pi_bevy_ecs_extend::system_param::res::OrInitSingleResMut;
@@ -96,8 +97,11 @@ pub fn start<T: Example + Sync + Send + 'static>(example: T) {
                                         },
                                         Ok(None) => {
                                             if resp.get_status() == 200 {
-                                                on_load(path.as_str(), result);
+                                                on_load(path.as_str(), Ok(result));
+                                                log::debug!("load file success,path: {:?}", path);
+                                                // on_load(path.as_str(), result);
                                             } else {
+                                                on_load(path.as_str(), Err(format!("not find file, url: {:?}, {:?}", path, resp.get_status())));
                                                 log::warn!("not find file, url: {:?}, {:?}", path, resp.get_status());
                                             }
                                             
@@ -118,19 +122,39 @@ pub fn start<T: Example + Sync + Send + 'static>(example: T) {
                     .unwrap();
             }));
         },
-        _ => {
-            init_load_cb(Arc::new(|path: String| {
+        (Some(dir), _, _) => {
+            init_load_cb(Arc::new(move |path: String| {
+                let dir = dir.clone();
                 MULTI_MEDIA_RUNTIME
                     .spawn(async move {
-                        if let Ok(file) = std::fs::read(path.clone()) {
-                            on_load(path.as_str(), file);
+                        if let Ok(file) = std::fs::read(Path::new(dir.as_str()).join(&path)) {
+                            on_load(path.as_str(), Ok(file));
+                            log::debug!("load file success,path: {:?}", path);
+                            // on_load(path.as_str(), file);
                         } else {
+                            on_load(path.as_str(), Err(format!("not find file,path: {:?}", path)));
                             log::warn!("not find file,path: {:?}", path);
                         }
                     })
                     .unwrap();
             }));
-        }
+        },
+        _ => {
+            init_load_cb(Arc::new(move |path: String| {
+                MULTI_MEDIA_RUNTIME
+                    .spawn(async move {
+                        if let Ok(file) = std::fs::read(path.as_str()) {
+                            on_load(path.as_str(), Ok(file));
+                            // on_load(path.as_str(), file);
+                            log::debug!("load file success,path: {:?}", path);
+                        } else {
+                            on_load(path.as_str(), Err(format!("not find file,path: {:?}", path)));
+                            log::warn!("not find file,path: {:?}", path);
+                        }
+                    })
+                    .unwrap();
+            }));
+        },
     }
 	// // let aa = pi_async_rt::rt::startup_global_time_loop(10);
 	// // let current_dir = std::env::current_dir().unwrap();

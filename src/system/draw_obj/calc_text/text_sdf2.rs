@@ -6,11 +6,11 @@ use pi_hal::font::font::FontType;
 use pi_hal::font::sdf2_table::TexInfo;
 use pi_hal::pi_sdf::glyphy::geometry::aabb::AabbEXT;
 use pi_render::font::{FontSheet, GlyphId, Font};
-use pi_style::style::{TextOverflow, Aabb2, FontStyle};
+use pi_style::style::{Aabb2, FontStyle, TextOverflow};
 
 use crate::components::calc::{LayoutResult, NodeState};
 use crate::components::draw_obj::{TextMark, RenderCount};
-use crate::components::user::{get_size, Point2, TextContent, TextOuterGlow, TextOverflowData, TextShadow, TextStyle};
+use crate::components::user::{get_size, FlexContainer, FlexNormal, Point2, Position, Size, TextContent, TextOuterGlow, TextOverflowData, TextShadow, TextStyle};
 use crate::components::user::Color;
 use crate::resource::{NodeChanged, ShareFontSheet, TextRenderObjType};
 use crate::shader1::{InstanceData, GpuBuffer};
@@ -207,7 +207,8 @@ pub fn calc_sdf2_text_len(
 			if c.0 != new_count as u32 {
 				c.0 = new_count as u32;
 				render_count.set_changed();
-				node_changed.0 = true;
+				node_changed.node_changed = true;
+				log::debug!("node_changed2============{:p}", &*node_changed);
 			}
 			
 		}
@@ -220,6 +221,7 @@ pub fn calc_sdf2_text_len(
 pub fn calc_sdf2_text(
 	// sdf2_texture_version
 	mut instances: OrInitSingleResMut<InstanceContext>,
+	query1: Query<(&LayoutResult, &Up, Option<&FlexNormal>, Option<&FlexContainer>, Option<&Size>, Option<&Position>)>,
     query: Query<(
 		Entity, 
 		&WorldMatrix, 
@@ -275,6 +277,7 @@ pub fn calc_sdf2_text(
 			if  node_state.0.text.len() == 0 {
 				continue;
 			}
+			
 			// if node_state.0.scale < 0.000001 {
             //     continue;
             // }
@@ -302,6 +305,23 @@ pub fn calc_sdf2_text(
 				
 				}
 			}
+
+			// if node_state.0.text[0].ch == '挑' {
+			// 	println!("快!!!!start================={:?}, \n{:?}, \n{:?}, \n{:?}", entity, matrix, layout1, &node_state.0.text);
+			// 	let mut e = entity;
+				// loop {
+				// 	match query1.get(e) {
+				// 		Ok(r) => {
+				// 			println!("快={:?}, {:?}", e, (&r.0, &r.2, &r.3, &r.4, &r.5));
+				// 			e = r.1.parent();
+				// 		},
+				// 		Err(_) => {
+				// 			break;
+				// 		},
+				// 	};
+				// };
+				// println!("快!!!!end================={:?}", entity);
+			// }
 
 			// let is_added = node_state.is_changed();
 
@@ -565,7 +585,7 @@ fn set_chars_data(
 						};
 											// let offset_y = (line_height - font_height) / 2.0;
 						for i in 0..shadow_factor {
-							uniform_data.set_data(instances.instance_data_mut(cur_instance_index), glyph, render_range, (left + text_style.letter_spacing, top + (line_height - (render_range.maxs.y - render_range.mins.y) * font_size) / 2.0), font_size, shadow_factor - i - 1);
+							uniform_data.set_data(instances.instance_data_mut(cur_instance_index), glyph, render_range, (left + text_style.letter_spacing, top + (line_height - (render_range.maxs.y - render_range.mins.y) * font_size) / 2.0), font_size, shadow_factor - i - 1, entity);
 							cur_instance_index = instances.next_index(cur_instance_index);
 						}
 						
@@ -596,7 +616,7 @@ fn set_chars_data(
 		// 	log::warn!("default_range============{}, {:?}, {:?}, {:?}, {:?}", font_sheet.font_mgr().table.sdf2_table.glyphs[c.ch_id].font_face_index, c.ch, fontface_ids, font_sheet.font_mgr().sheet.fonts[font_id.0].font_family_id,&font_sheet.font_mgr().sheet.font_familys[font_sheet.font_mgr().sheet.fonts[font_id.0].font_family_id.0]);
 		// }
 		for i in 0..shadow_factor {
-			uniform_data.set_data(instances.instance_data_mut(cur_instance_index), glyph, render_range, (left, top + (line_height - (render_range.maxs.y - render_range.mins.y) * font_size) / 2.0), font_size, shadow_factor - i - 1);
+			uniform_data.set_data(instances.instance_data_mut(cur_instance_index), glyph, render_range, (left + render_range.mins.x * font_size, top + (line_height - (render_range.maxs.y - render_range.mins.y) * font_size) / 2.0), font_size, shadow_factor - i - 1, entity);
 			cur_instance_index = instances.next_index(cur_instance_index);
 		}
 
@@ -634,8 +654,7 @@ enum ColorData {
 
 impl<'a> UniformData<'a> {
 	#[inline]
-	fn set_data(&self, mut instance_data: InstanceData, tex_info: &TexInfo, render_range: &Aabb2, mut offset: (f32, f32), font_size: f32, shadow_index: usize) {
-		log::trace!("set_data===================={:?}, {:?}, offset={:?}, font_size={}, shadow_index={}", instance_data, tex_info, offset, font_size, shadow_index);
+	fn set_data(&self, mut instance_data: InstanceData, tex_info: &TexInfo, render_range: &Aabb2, mut offset: (f32, f32), font_size: f32, shadow_index: usize, entity: Entity) {
 		let mut render_flag = instance_data.get_render_ty();
 		render_flag |= 1 << RenderFlagType::Sdf2 as usize;
 
@@ -707,7 +726,10 @@ impl<'a> UniformData<'a> {
 
 			];
 			instance_data.set_data(&Sdf2InfoUniform(&data));
-
+			use pi_key_alloter::Key;
+			if entity.index() == 628 {
+				println!("set_data===================={:?}, {:?}, offset={:?}, font_size={}, shadow_index={}, size: {:?}", instance_data, tex_info, offset, font_size, shadow_index, (width, height));
+			}
 			// 设置文字在布局空间的偏移和宽高
 			// instance_data.set_data(&BoxUniform(&[offset.0, offset.1, (render_range.maxs.x - render_range.mins.x) * font_size, (render_range.maxs.y - render_range.mins.y) * font_size]));
 			// println!("self.world_matrix: {:?}", self.world_matrix);

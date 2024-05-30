@@ -1,6 +1,6 @@
 //! 处理root节点，将root节点标记为渲染上下文（设置RenderContextMark中的位标记）
 
-use pi_world::{prelude::{Alter, Changed, Has, ParamSet, Removed}, system_params::Local};
+use pi_world::prelude::{Alter, Changed, Has, ParamSet, ComponentRemoved};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleRes, Root};
 
 use crate::{
@@ -15,8 +15,9 @@ use crate::{
 pub fn root_calc(
     mut query_set: ParamSet<(
         Alter<&mut RenderContextMark, Changed<Root>, RootBundle>, // 这里的过滤本应该是Added<Root>, pi_world中不支持Added，这里用Changed代替效果一样， 因为Root组件通常只会Added， 不会Changed
-        Alter<(&'static mut RenderContextMark, Has<Root>), Removed<Root>, (), RootBundle>,
+        Alter<(&'static mut RenderContextMark, Has<Root>), (), (), RootBundle>,
     )>,
+    remove: ComponentRemoved<Root>,
 
     mark_type: OrInitSingleRes<RenderContextMarkType<Root>>,
     // mut l: Local<usize>,
@@ -33,15 +34,17 @@ pub fn root_calc(
     // *l = true;
     // Root组件删除，取消渲染上下文标记， 并删除RootBundle
     let render_context = query_set.p1();
-    let mut iter = render_context.iter_mut();
-    while let Some((mut render_mark_value, has_root)) = iter.next() {
-        if has_root {
-            continue;
+    for i in remove.iter() {
+        if let Ok((mut render_mark_value, has_root)) = render_context.get_mut(*i) {
+            if has_root {
+                continue;
+            }
+            unsafe { render_mark_value.replace_unchecked(***mark_type, false) };
+            // 删除root对应的RootBundle
+            let _ = render_context.alter(*i, ());
         }
-        unsafe { render_mark_value.replace_unchecked(***mark_type, false) };
-        // 删除root对应的RootBundle
-        let _ = iter.alter(());
     }
+   
 
 
     // Root组件添加，为其添加RootBundle

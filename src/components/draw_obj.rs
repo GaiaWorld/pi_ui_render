@@ -165,8 +165,8 @@ impl Default for RenderCount {
 
 #[derive(Default, Component)]
 pub struct FboInfo {
-	pub fbo: Option<ShareTargetView>, // canvas,后处理杰斯安都会分配fbo， 该fbo在渲染图build阶段产生
-	pub out: Option<ShareTargetView>, // canvas,后处理杰斯安都会分配fbo， 该fbo在渲染图build阶段产生
+	pub fbo: Option<ShareTargetView>, // canvas,后处理都会分配fbo， 该fbo在渲染图build阶段产生
+	pub out: Option<ShareTargetView>, // canvas,后处理都会分配fbo， 该fbo在渲染图build阶段产生
 	pub in_batch: usize, // 当为null时， 表示还没有分批， 否则表示所在批的索引
 	pub post_draw: Option<(Vec<PostProcessDraw>, pi_render::renderer::draw_obj::DrawObj)>,
 }
@@ -189,6 +189,38 @@ pub enum InstanceSplit {
 pub struct Pipeline(pub Share<wgpu::RenderPipeline>);
 
 // DepthUniform
+
+pub trait HasDraw {
+	fn has_draw(&self) -> bool {true}
+}
+
+impl HasDraw for BorderImageTexture {
+	fn has_draw(&self) -> bool {
+		self.0.is_some()
+	}
+}
+
+impl HasDraw for BackgroundImageTexture {
+	fn has_draw(&self) -> bool {
+		self.0.is_some()
+	}
+}
+
+impl HasDraw for Canvas {}
+
+impl HasDraw for BackgroundColor {}
+
+impl HasDraw for BorderColor {}
+
+impl HasDraw for BoxShadow {}
+
+impl HasDraw for TextContent {}
+
+impl HasDraw for SvgContent {}
+
+impl HasDraw for SvgInnerContent {}
+
+
 
 pub trait GetInstanceSplit {
 	fn get_split(&self) -> Option<InstanceSplit>;

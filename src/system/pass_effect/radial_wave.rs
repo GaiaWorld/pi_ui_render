@@ -1,4 +1,4 @@
-use pi_world::prelude::{Changed, Query, Plugin, IntoSystemConfigs, Has, Removed, ParamSet, App};
+use pi_world::prelude::{Changed, Query, Plugin, IntoSystemConfigs, Has, ParamSet, App, ComponentRemoved};
 use pi_bevy_ecs_extend::prelude::OrInitSingleRes;
 
 use crate::{
@@ -41,8 +41,9 @@ pub fn radial_wave_post_process(
     mark_type: OrInitSingleRes<RenderContextMarkType<RadialWave>>,
     mut query: ParamSet<(
         Query<(&RadialWave, &mut PostProcess, &mut PostProcessInfo), Changed<RadialWave>>,
-        Query<(&mut PostProcess, &mut PostProcessInfo, Has<RadialWave>), Removed<RadialWave>>,
+        Query<(&mut PostProcess, &mut PostProcessInfo, Has<RadialWave>)>,
     )>,
+    remove: ComponentRemoved<RadialWave>,
 	r: OrInitSingleRes<IsRun>
 ) {
 	if r.0 {
@@ -50,12 +51,14 @@ pub fn radial_wave_post_process(
 	}
     // RadialWave 如果删除， 取消RadialWave的后处理
     let p1 = query.p1();
-    for (mut post_list, mut post_info, has_radial_wave) in p1.iter_mut() {
-        if has_radial_wave {
-            continue;
+    for i in remove.iter() {
+        if let Ok((mut post_list, mut post_info, has_radial_wave)) = p1.get_mut(*i) {
+            if has_radial_wave {
+                continue;
+            }
+            post_info.effect_mark.set(***mark_type, false);
+            post_list.radial_wave = None;
         }
-        post_info.effect_mark.set(***mark_type, false);
-        post_list.radial_wave = None;
     }
 
 	// RadialWave 如果修改，添加上下文标记， 并设置后处理

@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use pi_world::prelude::{Changed, Removed, SingleRes, ParamSet, Query, Entity, Has};
+use pi_world::prelude::{Changed, SingleRes, ParamSet, Query, Entity, Has, ComponentRemoved};
 use pi_bevy_ecs_extend::prelude::OrInitSingleRes;
 
 use crossbeam::queue::SegQueue;
@@ -48,7 +48,9 @@ pub fn image_load<
 	key_alloter: OrInitSingleRes<TextureKeyAlloter>,
 
     // mut commands: Commands,
-    mut query_set: ParamSet< (Query<(&mut D, Has<S>), Removed<S>>, Query<&mut D>)>,
+    mut query_set: ParamSet< (Query<(&mut D, Has<S>)>, Query<&mut D>)>,
+    removed: ComponentRemoved<S>,
+
 	r: OrInitSingleRes<IsRun>,
 	mut dirty: Query<&mut RenderDirty>
 ) {
@@ -56,12 +58,15 @@ pub fn image_load<
 		return;
 	}
     let del = &mut query_set.p0();
-    // 图片删除，则删除对应的Texture
-    for (mut r, has_s) in del.iter_mut() {
-        if !has_s {
-            *r = D::null();
+    for i in removed.iter() {
+        // 图片删除，则删除对应的Texture
+        if let Ok((mut r, has_s)) = del.get_mut(*i) {
+            if !has_s {
+                *r = D::null();
+            }
         }
     }
+    
 
     let f = |d: &mut D, s, _entity| {
 		let is_null = d.is_null();
@@ -158,7 +163,7 @@ pub fn set_texture<'w, S: From<Atom> + std::cmp::PartialEq, D: Eq + PartialEq + 
         match query_src.get(id) {
             Ok((_, img)) => {
                 // image已经修改，不需要设置texture
-                if img != &S::from(key) {
+                if img != &S::from(key.clone()) {
                     continue;
                 }
                 if let Ok(mut dst) = query_dst.get_mut(id) {

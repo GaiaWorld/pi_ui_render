@@ -1,4 +1,4 @@
-use pi_world::prelude::{Changed, ParamSet, Removed, Query, Has, Entity};
+use pi_world::prelude::{Changed, ParamSet, Query, Has, Entity, ComponentRemoved};
 use pi_bevy_ecs_extend::prelude::OrInitSingleRes;
 
 use crate::{components::user::Hsi, resource::RenderContextMarkType, system::draw_obj::calc_text::IsRun};
@@ -15,20 +15,23 @@ pub fn hsi_post_process(
     mark_type: OrInitSingleRes<RenderContextMarkType<Hsi>>,
     mut query: ParamSet<(
         Query<(&Hsi, &mut PostProcess, &mut PostProcessInfo, Entity), Changed<Hsi>>,
-        Query<(&mut PostProcess, &mut PostProcessInfo, Has<Hsi>), Removed<Hsi>>,
+        Query<(&mut PostProcess, &mut PostProcessInfo, Has<Hsi>)>,
     )>,
+    remove: ComponentRemoved<Hsi>,
 	r: OrInitSingleRes<IsRun>
 ) {
 	if r.0 {
 		return;
 	}
     let p1 = query.p1();
-    for (mut post_list, mut post_info, hsi) in p1.iter_mut() {
-        if hsi {
-            continue;
+    for i in remove.iter() {
+        if let Ok((mut post_list, mut post_info, hsi)) = p1.get_mut(*i) {
+            if hsi {
+                continue;
+            }
+            post_list.hsb = None;
+            post_info.effect_mark.set(***mark_type, false);
         }
-        post_list.hsb = None;
-        post_info.effect_mark.set(***mark_type, false);
     }
 
     for (hsi, mut post_list, mut post_info, _entity) in query.p0().iter_mut() {

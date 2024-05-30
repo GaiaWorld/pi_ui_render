@@ -1,5 +1,5 @@
 
-use pi_world::prelude::{Changed, Query, Has, Removed, ParamSet};
+use pi_world::prelude::{Changed, Query, Has, ParamSet, ComponentRemoved};
 use pi_bevy_ecs_extend::prelude::OrInitSingleRes;
 
 use crate::{components::user::Opacity, resource::RenderContextMarkType, system::draw_obj::calc_text::IsRun};
@@ -16,8 +16,9 @@ pub fn opacity_post_process(
     mark_type: OrInitSingleRes<RenderContextMarkType<Opacity>>,
     mut query: ParamSet<(
         Query<(&Opacity, &mut PostProcess, &mut PostProcessInfo), Changed<Opacity>>,
-        Query<(&mut PostProcess, &mut PostProcessInfo, Has<Opacity>), Removed<Opacity>>,
+        Query<(&mut PostProcess, &mut PostProcessInfo, Has<Opacity>)>,
     )>,
+    remove: ComponentRemoved<Opacity>,
 	r: OrInitSingleRes<IsRun>
 ) {
 	if r.0 {
@@ -25,13 +26,16 @@ pub fn opacity_post_process(
 	}
     // opacity 如果删除， 取消opacity的后处理
     let p1 = query.p1();
-    for (mut post_list, mut post_info, has_opacity) in p1.iter_mut() {
-        if has_opacity {
-            continue;
+    for i in remove.iter() {
+        if let Ok((mut post_list, mut post_info, has_opacity)) = p1.get_mut(*i) {
+            if has_opacity {
+                continue;
+            }
+            post_list.alpha = None;
+            post_info.effect_mark.set(***mark_type, false);
         }
-        post_list.alpha = None;
-        post_info.effect_mark.set(***mark_type, false);
     }
+   
 
     for (opacity, mut post_list, mut post_info) in query.p0().iter_mut() {
         log::debug!("opacity: {:?}", *opacity);

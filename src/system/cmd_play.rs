@@ -40,13 +40,13 @@ impl Plugin for UiCmdTracePlugin {
             TraceOption::Record => {
                 app.add_system(UiStage, cmd_record
                     .in_set(UiSystemSet::Setting)
-                    .before(user_setting::user_setting2)
+                    .before(user_setting::user_setting1)
                 );
             }
             TraceOption::Play => {
                 app.add_system(UiStage, cmd_play
                     .in_set(UiSystemSet::Setting)
-                    .before(user_setting::user_setting2)
+                    .before(user_setting::user_setting1)
                 );
             }
             TraceOption::None => return,
@@ -402,10 +402,7 @@ pub fn cmd_play(
     }
 
     for (entity, tag) in r.node_init_commands.iter() {
-        let start = cmds.style_commands.style_buffer.len();
-        cmds.style_commands
-        .commands
-        .push((play_state.get_node(&entity).unwrap(), start, start, Some(*tag)));
+        cmds.init_node(play_state.get_node(&entity).unwrap(), *tag);
     }
 
     for s in r.style_commands.iter() {
