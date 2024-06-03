@@ -43,7 +43,7 @@ single_thread = [
 ] # 本地平台，设置该feature有效，运行时为单线程运行时
 
 [dependencies]
-glow = "0.12"
+# glow = "0.13"
 bitflags = "1.2"
 serde_json = "1.0"
 pi_print_any = "0.1"
@@ -268,11 +268,11 @@ pi_world_macros = { path = "../pi_world/macros" }
 # bevy_reflect = { path = "../bevy/crates/bevy_reflect" }
 # bevy_math = { path = "../bevy/crates/bevy_math" }
 
-pi_key_alloter = {path = "../pi_key_alloter"}
+# pi_key_alloter = {path = "../pi_key_alloter"}
 
-pi_slotmap_tree = { path = "../pi_slotmap_tree" }
+# pi_slotmap_tree = { path = "../pi_slotmap_tree" }
 # pi_map = { path = "../pi_map" }
-pi_flex_layout = { path = "../pi_flex_layout" }
+# pi_flex_layout = { path = "../pi_flex_layout" }
 # pi_dirty={path = "../pi_dirty" }
 # pi_spatial = { path="../pi_spatial" }
 
