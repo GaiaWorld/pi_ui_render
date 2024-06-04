@@ -170,7 +170,12 @@ pub fn cmd_play(
                     Some(r) => r,
                     None => continue,
                 };
-                let b = if EntityKey(*b).is_null() || unsafe { transmute::<_, f64>(b) } == 0.0 {
+                #[cfg(not(target_arch="wasm32"))]
+                let v = unsafe { transmute::<_, f64>(b) };
+                #[cfg(target_arch="wasm32")]
+                let v = unsafe { transmute::<_, f32>(b) };
+
+                let b = if EntityKey(*b).is_null() || v == 0.0 {
                     EntityKey::null().0
                 } else {
                     match play_state.get_node(b) {
@@ -186,7 +191,12 @@ pub fn cmd_play(
                     Some(r) => r,
                     None => continue,
                 };
-                let b = if EntityKey(*b).is_null() || unsafe { transmute::<_, f64>(b) } == 0.0 {
+                #[cfg(not(target_arch="wasm32"))]
+                let v = unsafe { transmute::<_, f64>(b) };
+                #[cfg(target_arch="wasm32")]
+                let v = unsafe { transmute::<_, f32>(b) };
+
+                let b = if EntityKey(*b).is_null() || v == 0.0 {
                     EntityKey::null().0
                 } else {
                     match play_state.get_node(b) {
