@@ -146,7 +146,7 @@ pub fn user_setting1(
                 }
 
                 // 初始化组件
-                let _ = world.make_entity_editor().alter_components(*node, &component_ids);
+                let _ = world.make_entity_editor().alter_components_by_index(*node, &component_ids);
                 unsafe { component_ids.set_len(old_len); }
 
                 log::debug!("insert NodeBundle for fragment , {:?}", node);
@@ -202,7 +202,7 @@ pub fn user_setting1(
                 add_component_ops(class.start, class.end, &class_sheet.style_buffer, &setting_components, &mut component_ids1)
             }
         }
-        let _ = setting.world.make_entity_editor().alter_components(node, &mut component_ids1);
+        let _ = setting.world.make_entity_editor().alter_components_by_index(node, &mut component_ids1);
         component_ids1.clear();
 
         set_class(node, &mut setting,  class, &class_sheet, &mut component_ids1, &mut dirty_list);
@@ -432,7 +432,7 @@ pub fn set_styles<'w, 's>(
         old_len = component_ids.len();
         add_component_ops(start, end, style_buffer, &style_query.style, component_ids);
         log::debug!("add_component_ops===={:?}", (node, &component_ids, need_init));
-        let _ = style_query.world.make_entity_editor().alter_components(node, component_ids);
+        let _ = style_query.world.make_entity_editor().alter_components_by_index(node, component_ids);
         unsafe { component_ids.set_len(old_len); }
 
         set_style(node, start, end, style_buffer, style_query, false, dirty_list);
@@ -514,7 +514,7 @@ fn set_class<'w, 's>(node: Entity, style_query: &mut Setting, class: ClassName, 
     }
 
     if component_ids1.len() > 0 {
-        let _ = style_query.world.make_entity_editor().alter_components(node, &component_ids1);
+        let _ = style_query.world.make_entity_editor().alter_components_by_index(node, &component_ids1);
         component_ids1.clear();
     }
 
