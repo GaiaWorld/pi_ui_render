@@ -39,7 +39,7 @@ pub mod prelude {
 
     pub use crate::resource::UserCommands;
     use crate::system::{
-        /*shader_utils::UiShaderPlugin, */ draw_obj::UiReadyDrawPlugin, node::UiNodePlugin, pass::UiPassPlugin, pass_effect::UiEffectPlugin, shader_utils::UiShaderPlugin, system_set::UiSystemSet, RunState
+        /*shader_utils::UiShaderPlugin, */ draw_obj::UiReadyDrawPlugin, node::UiNodePlugin, pass::UiPassPlugin, pass_effect::UiEffectPlugin, shader_utils::UiShaderPlugin, system_set::{UiSchedule, UiSystemSet}, RunState
     };
 
     // #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
@@ -66,6 +66,7 @@ pub mod prelude {
             // app.init_single_res::<RunState>();
             app
             
+            .configure_set(UiStage, UiSystemSet::Setting.in_schedule(UiSchedule::Layout).in_schedule(UiSchedule::Calc).in_schedule(UiSchedule::Geo))
             // NextSetting在Setting之后运行， Setting用于作用用户指令， NextSetting用于设置加载、动画等派发过程中产生的指令
             .configure_set(UiStage, UiSystemSet::NextSetting
                 // 

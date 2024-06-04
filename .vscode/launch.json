@@ -12,7 +12,7 @@
         "rust"
         ],
         "env": {
-        "RUST_LOG": "wgpu=warn,wgpu_hal=warn,naga=warn,pi_ui_render=debug",
+        "RUST_LOG": "wgpu=warn,wgpu_hal=warn,naga=warn,pi_ui_render=warn",
         "GL": "opengl",
         "RUST_BACKTRACE": "short",
         "ALLUSERSPROFILE": "C:\\ProgramData",

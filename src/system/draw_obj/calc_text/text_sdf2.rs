@@ -29,7 +29,7 @@ use crate::components::draw_obj::InstanceIndex;
 use crate::resource::draw_obj::InstanceContext;
 use crate::shader1::meterial::{ColorUniform, GradientEndUniform, GradientPositionUniform, RenderFlagType, Sdf2InfoUniform, ShadowUniform, TextGradientColorUniform, TextOuterGlowUniform, TextOutlineUniform, TextShadowColorUniform, TextWeightUniform, TyUniform};
 use crate::components::user::Vector2;
-use crate::system::system_set::UiSystemSet;
+use crate::system::system_set::{UiSchedule, UiSystemSet};
 
 /// 使用sdf2的方式渲染文字
 pub struct Sdf2TextPlugin;
@@ -45,12 +45,16 @@ impl Plugin for Sdf2TextPlugin {
             // 文字劈分为字符
             .add_system(UiStage, text_split
 				.before(calc_layout)
-				.in_set(UiSystemSet::Layout))
+				.in_set(UiSystemSet::Layout)
+				.in_schedule(UiSchedule::Layout)
+				.in_schedule(UiSchedule::Calc)
+				.in_schedule(UiSchedule::Geo))
             // 字形计算
             .add_system(UiStage, text_glyph
 				.after(text_split)
 				.in_set(UiSystemSet::Layout)
 				.before(update_sdf2_texture)
+				.in_schedule(UiSchedule::Calc)
 			)
 			// 创建drawobj 
 			.add_system(
@@ -306,21 +310,23 @@ pub fn calc_sdf2_text(
 				}
 			}
 
-			// if node_state.0.text[0].ch == '挑' {
+			// if node_state.0.text[0].ch == '《' {
 			// 	println!("快!!!!start================={:?}, \n{:?}, \n{:?}, \n{:?}", entity, matrix, layout1, &node_state.0.text);
 			// 	let mut e = entity;
-				// loop {
-				// 	match query1.get(e) {
-				// 		Ok(r) => {
-				// 			println!("快={:?}, {:?}", e, (&r.0, &r.2, &r.3, &r.4, &r.5));
-				// 			e = r.1.parent();
-				// 		},
-				// 		Err(_) => {
-				// 			break;
-				// 		},
-				// 	};
-				// };
-				// println!("快!!!!end================={:?}", entity);
+			// 	loop {
+			// 		match query1.get(e) {
+			// 			Ok(r) => {
+			// 				println!("快={:?}, {:?}", e, (&r.0, &r.2, &r.3, &r.4, &r.5));
+			// 				println!("快1={:?}, {:?}", e, &query_matrix.get(e).unwrap().0);
+							
+			// 				e = r.1.parent();
+			// 			},
+			// 			Err(_) => {
+			// 				break;
+			// 			},
+			// 		};
+			// 	};
+			// 	println!("快!!!!end================={:?}", entity);
 			// }
 
 			// let is_added = node_state.is_changed();
@@ -726,10 +732,6 @@ impl<'a> UniformData<'a> {
 
 			];
 			instance_data.set_data(&Sdf2InfoUniform(&data));
-			use pi_key_alloter::Key;
-			if entity.index() == 628 {
-				println!("set_data===================={:?}, {:?}, offset={:?}, font_size={}, shadow_index={}, size: {:?}", instance_data, tex_info, offset, font_size, shadow_index, (width, height));
-			}
 			// 设置文字在布局空间的偏移和宽高
 			// instance_data.set_data(&BoxUniform(&[offset.0, offset.1, (render_range.maxs.x - render_range.mins.x) * font_size, (render_range.maxs.y - render_range.mins.y) * font_size]));
 			// println!("self.world_matrix: {:?}", self.world_matrix);

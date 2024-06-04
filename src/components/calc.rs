@@ -503,9 +503,9 @@ impl IsShow {
 // 样式标记
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, Component)]
 pub struct StyleMark {
+    pub dirty_style: StyleMarkType, // 样式脏（标记有哪些样式在本帧中脏了）
     pub local_style: StyleMarkType, // 本地样式， 表示节点样式中，哪些样式是由style设置的（而非class设置）
     pub class_style: StyleMarkType, // class样式， 表示节点样式中，哪些样式是由class设置的
-	pub dirty_style: StyleMarkType, // 样式脏（标记有哪些样式在本帧中脏了）
 }
 
 pub type StyleMarkType = BitArray<[u32; 4]>;
@@ -874,12 +874,20 @@ pub const fn style_bit() -> StyleMarkType {
 
 pub trait StyleBit {
 	fn set_bit(self, index: usize) -> Self;
+    fn has_any(&self, other: &Self) -> bool;
 }
 
 impl StyleBit for StyleMarkType {
     fn set_bit(mut self, index: usize) -> Self {
         self.set(index, true);
 		self
+    }
+
+    fn has_any(&self, other: &Self) -> bool {
+        (self.data[0] & other.data[0]).trailing_zeros() != 32 || 
+        (self.data[1] & other.data[1]).trailing_zeros() != 32 || 
+        (self.data[2] & other.data[2]).trailing_zeros() != 32 || 
+        (self.data[3] & other.data[3]).trailing_zeros() != 32
     }
 }
 
@@ -951,8 +959,13 @@ lazy_static! {
     // 布局脏
 	pub static ref LAYOUT_DIRTY: StyleMarkType = RECT_DIRTY.clone() | &*NORMAL_DIRTY | &*SELF_DIRTY | &*CHILD_DIRTY | &*DIRTY2;
 
+    // 世界矩阵脏
+	pub static ref MATRIX_DIRTY: StyleMarkType = LAYOUT_DIRTY.clone()
+        .set_bit(StyleType::Transform as usize)
+        .set_bit(StyleType::TransformOrigin as usize);
+
     // 内容区域脏
-	pub static ref CONTENT_BOX_DIRTY: StyleMarkType = LAYOUT_DIRTY.clone()
+	pub static ref CONTENT_BOX_DIRTY: StyleMarkType = MATRIX_DIRTY.clone()
         .set_bit(StyleType::TextShadow as usize)
         .set_bit(StyleType::BoxShadow as usize);
 

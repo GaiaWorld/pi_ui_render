@@ -1,4 +1,4 @@
-use pi_world::prelude::SystemSet;
+use pi_world::prelude::{SystemSet, ScheduleLabel};
 
 
 #[derive(Debug, Clone, Hash, SystemSet, PartialEq, Eq)]
@@ -21,4 +21,12 @@ pub enum UiSystemSet {
     PassSetting, // 上下文计算(此时设置Pass， 与Pass的父子关系无关)
 	PassSettingWithParent, // 上下文计算(此时设置Pass，依赖于Pass的父子关系)
     PassCalc,    // 计算Pass数据
+}
+
+#[derive(Debug, Clone, Hash, ScheduleLabel, PartialEq, Eq)]
+pub enum UiSchedule {
+    Layout,
+    Calc,
+    Geo,
+
 }

@@ -132,6 +132,8 @@ pub fn calc_layout(
 
     // 遍历布局脏节点，重新设置脏为层次脏
     // {
+        let t1 = pi_time::Instant::now();
+        let mut i = 0;
 		for e in dirty_list.iter() {
 			if let Ok((
 				e,
@@ -150,11 +152,12 @@ pub fn calc_layout(
 				text_context,
 				text_style,
 			)) = dirtys.get(e.0) {
-
+                i +=1;
 				// 不在idtree上，跳过
 				if layer.layer().is_null() {
 					continue;
 				}
+                
 
 				// let (rect_dirty, children_dirty, normal_style_dirty, self_style_dirty, display_dirty) = (
                 //     // false, false, false, false, false
@@ -342,7 +345,10 @@ pub fn calc_layout(
     // // 计算布局
     // #[cfg(feature = "trace")]
     // let _sss = tracing::info_span!("layout compute", count, layer_dirty_count).entered();
+    let t2 = pi_time::Instant::now();
     layout.compute(&mut layer_dirty);
+    let t3 = pi_time::Instant::now();
+    // println!("compute layout end==============={:?}", (i, t3 - t2, t2- t1));
 	// let time3 = pi_time::Instant::now();
 	// log::warn!("layout======{:?}, {:?}, {:?}, {}, {}", time1 - time, time2 - time1, time3 - time2, count, count1);
 }

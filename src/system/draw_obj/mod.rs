@@ -77,7 +77,7 @@ impl Plugin for UiReadyDrawPlugin {
 				.before(GraphRun)
 				)
             .add_system(UiStage, root_view_port::calc_dyn_target_type.in_set(UiSystemSet::BaseCalc))
-            .add_system(UiStage, pipeline::calc_node_pipeline.in_set(UiSystemSet::PrepareDrawObj))
+            // .add_system(UiStage, pipeline::calc_node_pipeline.in_set(UiSystemSet::PrepareDrawObj))
             // 混合模式
 			.add_system(UiStage, 
                 blend_mode::calc_drawobj_blendstate

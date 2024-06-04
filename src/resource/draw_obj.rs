@@ -29,8 +29,7 @@ use pi_render::rhi::shader::BindLayout;
 use pi_share::Share;
 use pi_slotmap::{DefaultKey, SlotMap, SecondaryMap};
 use wgpu::{
-    BlendState, CompareFunction, DepthBiasState, DepthStencilState, Limits, MultisampleState, PipelineLayout, Sampler, ShaderModule, StencilState,
-    TextureFormat, util::{BufferInitDescriptor, DeviceExt}, ShaderStages, BindingType, TextureSampleType, TextureViewDimension, SamplerBindingType, BindGroupEntry, TextureDescriptor, Extent3d, TextureViewDescriptor, RenderPass,
+    util::{BufferInitDescriptor, DeviceExt}, BindGroupEntry, BindingType, BlendState, BufferDescriptor, CompareFunction, DepthBiasState, DepthStencilState, Extent3d, Limits, MultisampleState, PipelineLayout, RenderPass, Sampler, SamplerBindingType, ShaderModule, ShaderStages, StencilState, TextureDescriptor, TextureFormat, TextureSampleType, TextureViewDescriptor, TextureViewDimension
 };
 use pi_render::rhi::shader::Input;
 
@@ -362,18 +361,18 @@ impl InstanceContext {
         // log::warn!("instance_data_range====={:?}", (&instance_draw.instance_data_range, instance_draw.instance_data_range.start as u32/self.instance_data.alignment as u32..instance_draw.instance_data_range.end as u32/self.instance_data.alignment as u32));
 		// #[cfg(debug_assertions)]
         // {
-        //     for i in instance_draw.instance_data_range.start as u32/self.instance_data.alignment as u32..instance_draw.instance_data_range.end as u32/self.instance_data.alignment as u32 {
-        //         // let debug_info = self.debug_info.get(i as usize/MeterialBind::SIZE);
-        //         // let index = i as usize * self.instance_data.alignment;
-        //         // let render_flag = self.instance_data.get_render_ty(index as u32);
-        //         // if render_flag == 0 {
-        //         //     panic!("!!!!!!!!!!!!!!, {}", index);
-        //         // }
-        //         rp.draw(0..6, i..i+1);
-        //     } 
+            for i in instance_draw.instance_data_range.start as u32/self.instance_data.alignment as u32..instance_draw.instance_data_range.end as u32/self.instance_data.alignment as u32 {
+                // let debug_info = self.debug_info.get(i as usize/MeterialBind::SIZE);
+                // let index = i as usize * self.instance_data.alignment;
+                // let render_flag = self.instance_data.get_render_ty(index as u32);
+                // if render_flag == 0 {
+                //     panic!("!!!!!!!!!!!!!!, {}", index);
+                // }
+                rp.draw(0..6, i..i+1);
+            } 
         // }
         // #[cfg(not(debug_assertions))]
-        rp.draw(0..6, instance_draw.instance_data_range.start as u32/self.instance_data.alignment as u32..instance_draw.instance_data_range.end as u32/self.instance_data.alignment as u32);
+        // rp.draw(0..6, instance_draw.instance_data_range.start as u32/self.instance_data.alignment as u32..instance_draw.instance_data_range.end as u32/self.instance_data.alignment as u32);
 
 	}
 }
@@ -611,7 +610,7 @@ impl InstanceContext {
 
 	pub fn update1(device: &RenderDevice, queue: &RenderQueue, instance_data: &mut GpuBuffer, instance_buffer: &mut Option<(wgpu::Buffer, usize)>) {
         log::trace!("update instance_buffer1==============={:?}, {:?}", &instance_data.dirty_range, instance_data.data().len());
-		if instance_data.dirty_range.len() != 0 {
+		if instance_data.dirty_range.len() != 0 { 
 			if let Some((buffer, size)) = &instance_buffer {
 				if *size >= instance_data.dirty_range.end {
 					queue.write_buffer(
@@ -624,11 +623,21 @@ impl InstanceContext {
 				}
 
 			}
-			*instance_buffer = Some(((***device).create_buffer_init(&BufferInitDescriptor {
-				label: Some("instance_buffer"),
-				usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-				contents: instance_data.data(),
-			}), instance_data.data().len()));
+            let len = instance_data.dirty_range.end.max(MeterialBind::SIZE * 2000) ;
+
+            let buffer: wgpu::Buffer = (***device).create_buffer(&BufferDescriptor {
+                label: Some("instance_buffer"),
+                size: len as u64,
+                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                mapped_at_creation: false,
+            });
+            queue.write_buffer(
+                &buffer,
+                instance_data.dirty_range.start as u64,
+                &instance_data.data()[instance_data.dirty_range.clone()],
+            );
+
+            *instance_buffer = Some((buffer, len));
 			
 			// log::trace!("create instance_buffer={:?}", instance_data.data());
 			instance_data.dirty_range = std::usize::MAX..std::usize::MAX;

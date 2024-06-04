@@ -69,7 +69,7 @@ pub fn calc_animation_1(
 
     let time2 = pi_time::Instant::now();
     // 推动动画执行
-    keyframes_sheet.run(&mut user_commands.style_commands, time_info.delta);
+    // keyframes_sheet.run(&mut user_commands.style_commands, time_info.delta);
     let time3 = pi_time::Instant::now();
     // println!("animation1====={:?}", (time1 - time0, time2 - time1, time3 - time2, user_commands.style_commands.style_buffer.len()));
 }

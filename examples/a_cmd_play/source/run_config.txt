@@ -3,4 +3,4 @@ play_url=http://127.0.0.1:8086;
 play_way=path;
 play_version=1713170693523;
 max_index=5;
-speed=0.5;
+speed=1;

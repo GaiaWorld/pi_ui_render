@@ -87,7 +87,7 @@ pub fn calc_background_image(
 	// for i in dirty_list.iter() {
 		
 	// }
-	let t1 = pi_time::Instant::now();
+	// let t1 = pi_time::Instant::now();
 
 	for (world_matrix, layout, draw_list, background_image_texture_ref, background_image_clip, background_image_mod, background_image) in query.iter() {
 		let draw_id = match draw_list.get_one(render_type) {

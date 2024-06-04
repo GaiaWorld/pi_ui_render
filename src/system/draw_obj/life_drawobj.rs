@@ -131,7 +131,7 @@ pub fn draw_object_life_new<
 			
 			Some(r) => if let Some(InstanceSplit::ByTexture(t)) = src.get_split() {
 				// if node.index() == 159 {
-				// 	println!("rebatch=======node: {:?}, draw: {:?}, texture: {:?}", node, r.id, t.id);
+					// println!("rebatch=======node: {:?}, draw: {:?}, texture: {:?}", node, r.id, t.id);
 				// }
 				// 图片修改， 也需要重新组织实例数据
 				rebatch = true;
@@ -207,17 +207,20 @@ pub fn update_render_instance_data(
 			}
 		}
 	}
-	if !node_change.node_changed {
-		return;
-	}
+	
 	log::debug!("node_changed0============");
 
 	let mut instance_index = instance_index.p1(); 
 
 	instances.rebatch = instances.rebatch || node_change.rebatch || node_change.node_changed; // 重新批处理
 
+	if !node_change.node_changed {
+		return;
+	}
+
 	log::debug!("life========================node_change={:?}, pass_toop_list: {:?}", *node_change, &instances.pass_toop_list);
 	node_change.node_changed = false;
+	node_change.rebatch = false;
 	
 	let catche_buffer = &mut *catche_buffer;
 
@@ -491,8 +494,10 @@ pub fn batch_instance_data(
 	mut query_root: Query<(Entity, &InstanceIndex), With<Root>>, // 只有gui的Root才会有Size
 	mut instances : OrInitSingleResMut<InstanceContext>,
 ) {
+	
 
 	let instances = &mut *instances;
+	// println!("batch_instance_data=========={:?}", instances.rebatch);
 	log::trace!("batch_instance_data, rebatch={:?}", instances.rebatch);
 	if !instances.rebatch {
 		return;
@@ -826,7 +831,7 @@ fn batch_pass(
 								instances.debug_info.insert(index.start / MeterialBind::SIZE, format!("image: {:?}", draw_entity));
 							}
 							// if node_entity.index() == 159 {
-							// 	println!("split_by_texture=======node_entity:{:?}, draw_entity:{:?}, {:?}, {:?}", node_entity, draw_entity,  ui_texture.id, a.1);
+								// println!("split_by_texture=======node_entity:{:?}, draw_entity:{:?}, {:?}, {:?}", node_entity, draw_entity,  ui_texture.id, a.1);
 							// }
 							
 							split_by_texture = Some(((*index).clone(), ui_texture, &query.common_sampler.default));

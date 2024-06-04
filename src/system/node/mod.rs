@@ -4,7 +4,7 @@ use pi_bevy_render_plugin::FrameDataPrepare;
 
 use self::{user_setting::clear_dirty_mark, transition::TransitionPlugin, show::ShowPlugin};
 
-use super::system_set::UiSystemSet;
+use super::system_set::{UiSchedule, UiSystemSet};
 use crate::prelude::UiStage;
 
 // pub mod flush;
@@ -55,10 +55,9 @@ impl Plugin for UiNodePlugin {
 
              // 计算Transition
 			.add_plugins(TransitionPlugin)
-
             // 布局相关
             // .add_frame_event::<ComponentEvent<Changed<LayoutResult>>>()
-            .add_system(UiStage,   layout::calc_layout.in_set(UiSystemSet::Layout));
+            .add_system(UiStage,   layout::calc_layout.in_set(UiSystemSet::Layout).in_schedule(UiSchedule::Layout).in_schedule(UiSchedule::Calc).in_schedule(UiSchedule::Geo));
 
             // 世界矩阵、包围盒、内容包围盒
             // .add_frame_event::<ComponentEvent<Changed<Transform>>>()
@@ -67,7 +66,7 @@ impl Plugin for UiNodePlugin {
             // .add_frame_event::<OldQuad>()
         app.world.init_single_res::<QuadTree>();
         app
-            .add_system(UiStage, world_matrix::cal_matrix.in_set(UiSystemSet::Matrix))
+            .add_system(UiStage, world_matrix::cal_matrix.in_set(UiSystemSet::Matrix).in_schedule(UiSchedule::Calc).in_schedule(UiSchedule::Geo))
             // .add_system(UiStage, content_box::calc_content_box
             //     .after(world_matrix::cal_matrix)
             //     .in_set(UiSystemSet::BaseCalc))

@@ -65,13 +65,24 @@ pub fn user_setting1(
     // let mut class_sheet_default = ClassSheet::default();
 
     let mut w1 = world.unsafe_world();
+
+    let user_commands = w1.index_single_res_mut::<UserCommands>(id.user_commands).unwrap().0;
+    // 应用other_commands指令
+    user_commands.other_commands.apply(world);
+    user_commands.version += 1;
+
+    if user_commands.node_commands.is_empty() && 
+        user_commands.fragment_commands.is_empty() && 
+        user_commands.style_commands.commands.is_empty() &&
+        user_commands.class_commands.is_empty() {
+        return;
+    }
+
     let mut w2 = world.unsafe_world();
     let mut w3 = world.unsafe_world();
     let mut w4 = world.unsafe_world();
     let w5 = world.unsafe_world();
     let mut w6 = world.unsafe_world();
-
-    let user_commands = w1.index_single_res_mut::<UserCommands>(id.user_commands).unwrap().0;
     
     let fragments = w2.index_single_res_mut::<FragmentMap>(id.fragments).unwrap().0;
 
@@ -84,11 +95,6 @@ pub fn user_setting1(
 		list: EventSender::<'_, StyleChange>::get_param(&w5, &mut s_meta, &mut events, world.tick()),
 		mark: &mut dirty_mark.0,
 	};
-
-    // 应用other_commands指令
-    user_commands.other_commands.apply(world);
-
-    user_commands.version += 1;
 
 	let is_node_change = user_commands.is_node_change || user_commands.fragment_commands.len() > 0 || user_commands.node_commands.len() > 0;
     user_commands.is_node_change = is_node_change;
@@ -144,6 +150,7 @@ pub fn user_setting1(
                 unsafe { component_ids.set_len(old_len); }
 
                 log::debug!("insert NodeBundle for fragment , {:?}", node);
+                dirty_list.mark_dirty(*node);
             } else {
 				log::error!("insert NodeBundle fail, fragment entity is not exist, {:?}, {:?}", node, n.tag);
 			}
@@ -201,9 +208,6 @@ pub fn user_setting1(
         set_class(node, &mut setting,  class, &class_sheet, &mut component_ids1, &mut dirty_list);
 
     }
-
-    // 清理标记（该标记用于将本次修改样式的操作合并成一个事件）
-	dirty_list.clear_mark();
 }
 
 // 为节点添加依赖父子依赖关系 和 销毁节点
@@ -358,12 +362,15 @@ pub fn user_setting2(
 pub fn clear_dirty_mark(
     mut style_mark: Query<&mut StyleMark>,
     event: Event<StyleChange>,
+    mut dirty_mark: OrInitSingleResMut<StyleDirtyMark>,
 ) {
 	for r in event.iter() {
         if let Ok(mut r) = style_mark.get_mut(r.0) {
             r.bypass_change_detection().dirty_style = Default::default();
         }
 	}
+    // 清理标记（该标记用于将本次修改样式的操作合并成一个事件）
+	dirty_mark.0.clear();
 }
 
 pub struct StyleDirtyList<'s, 'w> {
@@ -384,6 +391,7 @@ impl<'s, 'w> StyleDirtyList<'s, 'w> {
 		if !self.mark[index] {
 			self.list.send(StyleChange(entity));
 		}
+        self.mark.set(index, true);
 	}
 
 	/// 清理标记
@@ -450,8 +458,8 @@ pub fn set_style<'w, 's>(node: Entity, start: usize, end: usize, style_buffer: &
         style_mark.local_style |= local_mark;
 		style_mark.dirty_style |= local_mark;
     };
-    dirty_list.mark_dirty(node);
     // 取消样式， TODO，注意，宽高取消时，还要考虑图片宽高的重置问题
+    dirty_list.mark_dirty(node);
 }
 
 pub fn add_component_ops<'w, 's>(start: usize, end: usize, style_buffer: &Vec<u8>, component_ids: &SettingComponentIds, ops: &mut Vec<(ComponentIndex, bool)>) {
@@ -536,7 +544,7 @@ fn delete_draw_list(
         }
     }
     let r = entitys.destroy(del);
-    log::error!("removed===={:?}", del);
+    log::debug!("removed===={:?}", del);
     keyframes_sheet.unbind_animation_all(del);
     keyframes_sheet.remove_runtime_keyframs(del);
 

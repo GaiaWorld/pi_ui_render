@@ -40,16 +40,17 @@
 use pi_bevy_ecs_extend::system_param::tree::Down;
 use pi_world::event::Event;
 use pi_world::fetch::Ticker;
+use pi_world::filter::Changed;
 use pi_world::prelude::{ParamSet, Query, SingleResMut, Entity, With};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleRes, Up, Layer, LayerDirty};
 
 use pi_map::Map;
 use pi_null::Null;
-use pi_style::style::Aabb2;
+use pi_style::style::{Aabb2, TextContent};
 use pi_world::system_params::Local;
 
-use crate::components::calc::{ContentBox, EntityKey, LayoutResult, Quad, StyleMark, WorldMatrix, CONTENT_BOX_DIRTY, LAYOUT_DIRTY};
-use crate::components::user::{BoxShadow, Point2, TextShadow, Transform};
+use crate::components::calc::{ContentBox, DrawInfo, EntityKey, LayoutResult, Quad, StyleBit, StyleMark, WorldMatrix, CONTENT_BOX_DIRTY, LAYOUT_DIRTY};
+use crate::components::user::{BoxShadow, Point2, Size, TextShadow, TextStyle, Transform};
 use crate::resource::QuadTree;
 use crate::system::draw_obj::calc_text::IsRun;
 use crate::system::node::content_box::calc_content_box;
@@ -82,7 +83,6 @@ pub fn cal_matrix(
     //     Ticker<&Layer>,
     //     Option<Ticker<&Transform>>,
     // )>,
-    // mut dirtys1: Query<(), ((Changed<LayoutResult>, Changed<Layer>, Changed<Transform>), With<Size>)>,
     dirty_list: Event<StyleChange>,
     mut layer_dirty: LayerDirty<With<Empty>>,
     query_dirty: Query<(Ticker<&Layer>, Ticker<&LayoutResult>, Option<Ticker<&Transform>>, Option<Ticker<&TextShadow>>, Option<Ticker<&BoxShadow>>)>,
@@ -107,26 +107,20 @@ pub fn cal_matrix(
     up: Query<&Up>,
     layer: Query<&Layer>,
     content_box: Query<&mut ContentBox>,
+    mut layer_dirty1: LayerDirty<With<Empty>>,
+
+
+    dirty_list2: Event<StyleChange>,
+    mut layer_dirty2: LayerDirty<With<Empty>>,
+    query_dirty2: Query<(Ticker<&Layer>, &StyleMark)>,
 ) {
 	if r.0 {
 		return;
 	}
-    let time = pi_time::Instant::now();
-    let mut i = 0;
-    let mut j = 0;
-    // let mut ii = 0;
-    // let mut i1 = false;
-    // for i in dirtys1.iter() {
-    //     ii += 1;
-    //     // i1 |= i.0.is_changed();
-    //     // if let Some(r) = &i.1 {
-    //     //     i1 |= r.is_changed(); 
-    //     // }
-    // }
+    
     // println!("matrix time0========{:?}", ( ii, i1, pi_time::Instant::now() - time));
     // let time = pi_time::Instant::now();
 	// let count = dirtys.count();
-	// let time1 = pi_time::Instant::now();
     // transform修改，标记层脏(这里transform_change不直接在层脏中声明，是因为transform改变不会发送对应的事件)
 	// let time2 = pi_time::Instant::now();
 
@@ -137,37 +131,48 @@ pub fn cal_matrix(
     // for (i, t1, t2, t3) in query11.iter() {
     //     ii.push((i, t1.map(|t| {t.is_changed()}), t2.is_changed(), t3.is_changed()));
     // }
-    // println!("m1======================={:?}", (ii.len(), ii));
-
+    // let mut ii = 0;
+    // for i in dirty_list2.iter() {
+    //     if let Ok((layer, style_mark)) = query_dirty2.get(i.0) {
+    //         if layer.layer() > 0 && (
+    //             layer.is_changed() || 
+    //             style_mark.dirty_style.has_any(&CONTENT_BOX_DIRTY)
+    //         ) {
+    //             ii +=1;
+    //             layer_dirty1.mark(i.0);
+    //         }
+    //     }
+    // }
 
     // let mut ii1 = Vec::new();
 	// let count = dirtys.count();
     // LAYOUT_DIRTY
+    // let mut jj = 0;
+    // let time1 = pi_time::Instant::now();
     for i in dirty_list.iter() {
-        j += 1;
         if let Ok((layer, layout, transform, text_shadow, box_shadow)) = query_dirty.get(i.0) {
             if layer.layer() > 0 && (
                 layer.is_changed() || 
                 layout.is_changed() || 
-                transform.map_or(false, |r| {r.is_changed()})|| 
-                text_shadow.map_or(false, |r| {r.is_changed()})|| 
-                box_shadow.map_or(false, |r| {r.is_changed()}) 
+                transform.map_or(false, |r| {r.is_changed()}) || 
+                text_shadow.map_or(false, |r| {r.is_changed()}) || 
+                box_shadow.map_or(false, |r| {r.is_changed()})
             ) {
+                // jj +=1;
                 layer_dirty.mark(i.0);
             }
         }
     }
-
-
-    let time1 = pi_time::Instant::now();
+    // let time2 = pi_time::Instant::now();
+    // println!("matrix time1========{:?}", ( time2 - time1));
     for (id, _, _) in layer_dirty.iter_manual() {
-        i += 1;
         // ii1.push(id);
         // if count == 1 {
 		// 	log::warn!("matrix time0========{:?}", pi_time::Instant::now() - time1);
 		// }
 		// let time1 = pi_time::Instant::now();
         if let Ok((transform, layout, up)) = query.get(id) {
+            layer_dirty1.mark(id);
             let parent_id = up.parent();
 
             let width = layout.rect.right - layout.rect.left;
@@ -251,11 +256,11 @@ pub fn cal_matrix(
             };
         }
     }
-    let time3 = pi_time::Instant::now();
+    // let time3 = pi_time::Instant::now();
     
 
-    calc_content_box(&mut layer_dirty, matrix_calc.p2(), down, up, layer, content_box);
-    let time4 = pi_time::Instant::now();
+    calc_content_box(&mut layer_dirty1, matrix_calc.p2(), down, up, layer, content_box);
+    // let time4 = pi_time::Instant::now();
     // println!("matrix time========{:?}, calc_content_box: {:?}", (time3 - time1, time1 - time, i, j), time4 - time3);
     // if dirtys.count() > 0 {
 	// 	log::warn!("start parent==========={:?}", (dirtys.count(), time3 - time2, time2 - time1));

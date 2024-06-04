@@ -81,6 +81,8 @@ pub fn text_glyph(
 
 	let mut await_set_gylph = Vec::new();
     // let mut ii1 = Vec::new();
+    let t0 = pi_time::Instant::now();
+    let mut is_change = false;
     for (
         entity,
         // world_matrix,
@@ -93,6 +95,7 @@ pub fn text_glyph(
         // t1, t2, t3, t4
     ) in query.p0().iter_mut()
     {
+        is_change = true;
         // ii1.push(entity);
         // println!("text_glyph======{:?}", (t1.map(|t| {t.is_changed()}), t2.is_changed(), t3.is_changed(), t4.map(|t| {t.is_changed()})));
 		let r = set_gylph(entity, layer, text_style, node_state, &mut font_sheet, text_overflow_data);
@@ -107,7 +110,7 @@ pub fn text_glyph(
 			await_set_gylph.push(entity);
 		}
     }
-
+    let t1 = pi_time::Instant::now();
     // println!("t2======================={:?}", (ii1.len(), ii1));
 
     if is_reset {
@@ -129,7 +132,8 @@ pub fn text_glyph(
 			}
         }
     }
-
+    let t2 = pi_time::Instant::now();
+    let l: usize = await_set_gylph.len();
 	let font_type = font_sheet.font_mgr().font_type;
 
 	// 如果是sdf2， 则设置就绪字形对应节点的NodeState的修改版本
@@ -156,6 +160,10 @@ pub fn text_glyph(
 	} else {
 		font_sheet.update()
 	}
+    let t3 = pi_time::Instant::now();
+    // if is_change || l > 0 {
+    //     println!("set_gylph======================={:?}", ( t1.duration_since(t0) , t2.duration_since(t1), t3.duration_since(t2),));
+    // }
 }
 
 

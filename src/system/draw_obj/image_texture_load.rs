@@ -115,6 +115,7 @@ pub fn load_image<'w, S: 'static + Send + Sync, D: Eq + PartialEq + From<Handle<
             if let Ok(mut dst) = query_dst.get_mut(entity) {
 				let r = D::from(r);
 				if *dst != r {
+                    log::debug!("texture_load success 1: {:?}, {:?}", entity, key);
 					f(&mut dst, r, entity);
 				}
                 
@@ -167,6 +168,7 @@ pub fn set_texture<'w, S: From<Atom> + std::cmp::PartialEq, D: Eq + PartialEq + 
                     continue;
                 }
                 if let Ok(mut dst) = query_dst.get_mut(id) {
+                    log::debug!("texture_load success 2: {:?}, {:?}, {:?}", id, key, texture.id);
                     is_change =  f(&mut dst, D::from(texture), id) || is_change;
                 }
             }

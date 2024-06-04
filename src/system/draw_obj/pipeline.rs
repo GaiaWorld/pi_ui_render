@@ -51,7 +51,6 @@ pub fn calc_node_pipeline(
 
     let pipeline_map: SingleRes<'static, ShareAssetMgr<RenderRes<RenderPipeline>>> = unsafe { transmute(pipeline_map) };
     let shader_map: SingleRes<'static, ShareAssetMgr<RenderRes<Program>>> = unsafe { transmute(shader_map) };
-
     RENDER_RUNTIME
         .block_on(async move {
             calc_node_pipeline1(query_draw, draw_state, device, pipeline_map, shader_map).await;
