@@ -1,3 +1,4 @@
+use pi_world::filter::Or;
 use pi_world::prelude::{Changed, With, Query, Plugin, IntoSystemConfigs};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, OrInitSingleRes};
 
@@ -46,7 +47,7 @@ pub const BACKGROUND_COLOR_ORDER: u8 = 2;
 /// 设置背景颜色的顶点，和颜色Uniform
 pub fn calc_background_color(
 	mut instances: OrInitSingleResMut<InstanceContext>,
-    query: Query<(&WorldMatrix, &BackgroundColor, &LayoutResult, &DrawList), (Changed<BackgroundColor>, Changed<WorldMatrix>)>,
+    query: Query<(&WorldMatrix, &BackgroundColor, &LayoutResult, &DrawList), Or<(Changed<BackgroundColor>, Changed<WorldMatrix>)>>,
     mut query_draw: Query<&InstanceIndex, With<BackgroundColorMark>>,
 	r: OrInitSingleRes<IsRun>,
 	render_type: OrInitSingleRes<BackgroundColorRenderObjType>,

@@ -1,4 +1,5 @@
 
+use pi_world::filter::Or;
 /// 为圆角设置渲染数据
 
 use pi_world::prelude::{Changed, Query, Has, ComponentRemoved};
@@ -21,7 +22,7 @@ pub fn calc_border_radius(
     query_delete: Query<(Has<BorderRadius>, &'static DrawList)>,
     query: Query<
         (&'static BorderRadius, &'static LayoutResult, &'static DrawList),
-        (Changed<BorderRadius>, Changed<LayoutResult>, Changed<DrawList>),
+        Or<(Changed<BorderRadius>, Changed<LayoutResult>, Changed<DrawList>)>,
     >,
 
     mut query_draw: Query<&InstanceIndex>,

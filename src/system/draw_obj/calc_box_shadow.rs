@@ -1,3 +1,4 @@
+use pi_world::filter::Or;
 use pi_world::prelude::{Changed, With, Query, Plugin, IntoSystemConfigs};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, OrInitSingleRes};
 
@@ -46,7 +47,7 @@ pub const BOX_SHADOW_ORDER: u8 = 1;
 /// 设置背景颜色的顶点，和颜色Uniform
 pub fn calc_box_shadow(
 	mut instances: OrInitSingleResMut<InstanceContext>,
-    query: Query<(&WorldMatrix, &BoxShadow, &LayoutResult, &DrawList), (Changed<BoxShadow>, Changed<WorldMatrix>)>,
+    query: Query<(&WorldMatrix, &BoxShadow, &LayoutResult, &DrawList), Or<(Changed<BoxShadow>, Changed<WorldMatrix>)>>,
     mut query_draw: Query<&InstanceIndex, With<BoxShadowMark>>,
 	r: OrInitSingleRes<IsRun>,
 	render_type: OrInitSingleRes<BoxShadowRenderObjType>,

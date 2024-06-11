@@ -1,6 +1,5 @@
 use crate::resource::{animation_sheet::KeyFramesSheet, ClassSheet, QuadTree, TimeInfo, UserCommands};
 use pi_world::prelude::{IntoSystemConfigs, Plugin, App, PostUpdate, WorldPluginExtent};
-use pi_bevy_render_plugin::FrameDataPrepare;
 
 use self::{user_setting::clear_dirty_mark, transition::TransitionPlugin, show::ShowPlugin};
 

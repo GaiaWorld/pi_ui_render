@@ -40,17 +40,15 @@
 use pi_bevy_ecs_extend::system_param::tree::Down;
 use pi_world::event::Event;
 use pi_world::fetch::Ticker;
-use pi_world::filter::Changed;
 use pi_world::prelude::{ParamSet, Query, SingleResMut, Entity, With};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleRes, Up, Layer, LayerDirty};
 
 use pi_map::Map;
 use pi_null::Null;
-use pi_style::style::{Aabb2, TextContent};
-use pi_world::system_params::Local;
+use pi_style::style::Aabb2;
 
-use crate::components::calc::{ContentBox, DrawInfo, EntityKey, LayoutResult, Quad, StyleBit, StyleMark, WorldMatrix, CONTENT_BOX_DIRTY, LAYOUT_DIRTY};
-use crate::components::user::{BoxShadow, Point2, Size, TextShadow, TextStyle, Transform};
+use crate::components::calc::{ContentBox, EntityKey, LayoutResult, Quad, WorldMatrix};
+use crate::components::user::{BoxShadow, Point2, TextShadow, Transform};
 use crate::resource::QuadTree;
 use crate::system::draw_obj::calc_text::IsRun;
 use crate::system::node::content_box::calc_content_box;
@@ -108,11 +106,6 @@ pub fn cal_matrix(
     layer: Query<&Layer>,
     content_box: Query<&mut ContentBox>,
     mut layer_dirty1: LayerDirty<With<Empty>>,
-
-
-    dirty_list2: Event<StyleChange>,
-    mut layer_dirty2: LayerDirty<With<Empty>>,
-    query_dirty2: Query<(Ticker<&Layer>, &StyleMark)>,
 ) {
 	if r.0 {
 		return;

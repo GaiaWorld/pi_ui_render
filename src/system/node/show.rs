@@ -8,7 +8,7 @@ use pi_flex_layout::style::Display;
 use pi_null::Null;
 
 use crate::{components::{
-    calc::{DrawList, IsShow, StyleMark, SHOW_DIRTY}, draw_obj::InstanceIndex, user::{Enable, Show}
+    calc::{DrawList, IsShow}, draw_obj::InstanceIndex, user::{Enable, Show}
 }, resource::{draw_obj::InstanceContext, NodeChanged}, shader1::meterial::{RenderFlagType, TyUniform}, system::{draw_obj::{calc_text::IsRun, life_drawobj::update_render_instance_data}, system_set::UiSystemSet}};
 
 use crate::prelude::UiStage;

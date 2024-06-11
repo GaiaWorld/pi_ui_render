@@ -3,6 +3,7 @@
 //! BlendMode组件删除时， 设置恢复pipeline的状态到默认值
 
 
+use pi_world::filter::Or;
 use pi_world::param_set::ParamSet;
 use pi_world::prelude::{Changed, SingleRes, Alter, Query, Has, ComponentRemoved};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, OrInitSingleRes};
@@ -20,7 +21,7 @@ use super::calc_text::IsRun;
 
 /// 计算DrawObj的BlendState
 pub fn calc_drawobj_blendstate(
-    query_node: Query<(&BlendMode, &DrawList), (Changed<BlendMode>, Changed<DrawList>)>,
+    query_node: Query<(&BlendMode, &DrawList), Or<(Changed<BlendMode>, Changed<DrawList>)>>,
     blend_mod_removes: Query<(&DrawList, Has<BlendMode>)>,
     removed: ComponentRemoved<BlendMode>,
 

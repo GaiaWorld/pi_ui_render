@@ -1,7 +1,9 @@
 //! 文字字形系统
 //! 为字符分配纹理位置，得到字符的位置索引关联到CharNode中的ch_id_or_count字段上
 //! 在fontsheet中，文字最多缓存一张纹理。为字符分配纹理，可能存在空间不足的情况。此时，本系统将清空fontsheet中所有缓存的字符，并重新为当前所有显示节点上的文字重新绘制纹理。
-use pi_world::{fetch::Ticker, prelude::{Changed, Entity, Local, Mut, OrDefault, ParamSet, Query, SingleResMut, With}};
+use std::{collections::VecDeque, sync::atomic::AtomicBool};
+
+use pi_world::{filter::Or, prelude::{Changed, Entity, Local, Mut, OrDefault, ParamSet, Query, SingleResMut, With}};
 use ordered_float::NotNan;
 use pi_bevy_ecs_extend::{
     prelude::Layer,
@@ -23,13 +25,16 @@ use pi_async_rt::prelude::AsyncRuntime;
 
 use super::IsRun;
 
-pub struct Sdf2GlpyhAwaitList(pub Share<ShareMutex<Vec<(Vec<Entity>, Share<ShareMutex<(usize, Vec<(DefaultKey, TexInfo, Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>)>)>>)>>>);
+// pub struct Sdf2GlpyhAwaitList(pub Share<ShareMutex<Vec<(Vec<Entity>, Share<ShareMutex<(usize, Vec<(DefaultKey, TexInfo, Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>)>)>>)>>>);
 
-impl Default for Sdf2GlpyhAwaitList {
-    fn default() -> Self {
-        Self(Share::new(ShareMutex::new(Vec::new())))
-    }
-}
+#[derive(Default)]
+pub struct Sdf2GlpyhAwaitList(pub VecDeque<(Vec<Entity>, Share<AtomicBool>, Share<ShareMutex<(usize, Vec<(DefaultKey, TexInfo, Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>)>)>>)>);
+// Share<ShareMutex<(usize, Vec<(DefaultKey, TexInfo, Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>)>)>>
+// impl Default for Sdf2GlpyhAwaitList {
+//     fn default() -> Self {
+//         Self(Share::new(ShareMutex::new(Vec::new())))
+//     }
+// }
 
 /// 文字字形计算
 pub fn text_glyph(
@@ -50,7 +55,7 @@ pub fn text_glyph(
                 // Option<Ticker<&TextOverflowData>>,
             ),
             (
-                (Changed<TextContent>, Changed<TextStyle>, Changed<WorldMatrix>, Changed<TextOverflowData>),
+                Or<(Changed<TextContent>, Changed<TextStyle>, Changed<WorldMatrix>, Changed<TextOverflowData>)>,
                 With<TextContent>,
             ),
         >,
@@ -71,7 +76,8 @@ pub fn text_glyph(
     font_sheet: SingleResMut<ShareFontSheet>,
     // mut event_writer: EventWriter<ComponentEvent<Changed<NodeState>>>,
 	r: OrInitSingleRes<IsRun>,
-	await_list: Local<Sdf2GlpyhAwaitList>,
+    mut await_index: Local<usize>,
+	mut await_list: Local<Sdf2GlpyhAwaitList>,
 ) {
 	if r.0 {
 		return;
@@ -81,8 +87,7 @@ pub fn text_glyph(
 
 	let mut await_set_gylph = Vec::new();
     // let mut ii1 = Vec::new();
-    let t0 = pi_time::Instant::now();
-    let mut is_change = false;
+    // let t0 = pi_time::Instant::now();
     for (
         entity,
         // world_matrix,
@@ -95,7 +100,6 @@ pub fn text_glyph(
         // t1, t2, t3, t4
     ) in query.p0().iter_mut()
     {
-        is_change = true;
         // ii1.push(entity);
         // println!("text_glyph======{:?}", (t1.map(|t| {t.is_changed()}), t2.is_changed(), t3.is_changed(), t4.map(|t| {t.is_changed()})));
 		let r = set_gylph(entity, layer, text_style, node_state, &mut font_sheet, text_overflow_data);
@@ -110,10 +114,11 @@ pub fn text_glyph(
 			await_set_gylph.push(entity);
 		}
     }
-    let t1 = pi_time::Instant::now();
+    // let t1 = pi_time::Instant::now();
     // println!("t2======================={:?}", (ii1.len(), ii1));
 
     if is_reset {
+        println!("reset=======================");
 		await_set_gylph.clear();
         // 为当前所有需要显示的字符，重新分配字形信息
         for (
@@ -132,35 +137,66 @@ pub fn text_glyph(
 			}
         }
     }
-    let t2 = pi_time::Instant::now();
-    let l: usize = await_set_gylph.len();
+    // let t2 = pi_time::Instant::now();
+    // let l: usize = await_set_gylph.len();
 	let font_type = font_sheet.font_mgr().font_type;
 
 	// 如果是sdf2， 则设置就绪字形对应节点的NodeState的修改版本
 	if let FontType::Sdf2 = font_type {
 		if await_set_gylph.len() > 0 {
-			let list = (*await_list).0.clone();
-			let cur_await = font_sheet.draw_await();
+            
+            let index = *await_index;
+            let result = Share::new(ShareMutex::new((0, Vec::new())));
+            let load_mark = Share::new(AtomicBool::new(false));
+            // println!("await_set_gylph1================{:?}", (index, &await_set_gylph, r));
+            await_list.0.push_back((await_set_gylph, load_mark.clone(), result.clone()));
+			let cur_await = font_sheet.draw_await( result, index);
+            // let i = list.len();
+            // let await_count1 = (*await_count).clone();
 			MULTI_MEDIA_RUNTIME.spawn(async move {
-			    let r = cur_await.await;
-				list.lock().unwrap().push((await_set_gylph, r));
+                // println!("await_set_gylph start================{:?}", index);
+			    cur_await.await;
+                load_mark.store(true, std::sync::atomic::Ordering::Relaxed);
+                // await_count1.fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
+                // println!("await_set_gylph end================{:?}", index);
 			}).unwrap();
+            *await_index += 1;
 		}
 
 		let p2 = query.p2();
-		for (await_set_gylph, result) in await_list.0.lock().unwrap().drain(..) {
-			font_sheet.update_sdf2(result); // 更新纹理
-			for entity in await_set_gylph.iter() {
-				if let Ok(mut node_state) = p2.get_mut(*entity) {
-					node_state.set_changed();
-				}
-			}
-			log::debug!("await_set_gylph================{:?}", await_set_gylph);
-		}
+
+        let mut next = await_list.0.front();
+        loop {
+            if let Some((_, is_load, _result)) = next {
+                if is_load.load(std::sync::atomic::Ordering::Relaxed) == true {
+                    let (await_set_gylph, _, result) = await_list.0.pop_front().unwrap();
+                    font_sheet.update_sdf2(result); // 更新纹理
+                    for entity in await_set_gylph.iter() {
+                        if let Ok(mut node_state) = p2.get_mut(*entity) {
+                            node_state.set_changed();
+                            // println!("set_changed================{:?}", entity);
+                        }
+                    }
+                    next = await_list.0.front();
+                    continue;
+                }
+            }
+            break;
+        }
+        // for (await_set_gylph, _, result) in await_list.0.drain(..) {
+        //     font_sheet.update_sdf2(result); // 更新纹理
+        //     for entity in await_set_gylph.iter() {
+        //         if let Ok(mut node_state) = p2.get_mut(*entity) {
+        //             node_state.set_changed();
+        //             // println!("set_changed================{:?}", entity);
+        //         }
+        //     }
+        //     // println!("await_set_gylph1================{:?}", await_set_gylph);
+        // }
 	} else {
 		font_sheet.update()
 	}
-    let t3 = pi_time::Instant::now();
+    // let t3 = pi_time::Instant::now();
     // if is_change || l > 0 {
     //     println!("set_gylph======================={:?}", ( t1.duration_since(t0) , t2.duration_since(t1), t3.duration_since(t2),));
     // }

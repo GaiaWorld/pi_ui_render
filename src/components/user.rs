@@ -810,7 +810,6 @@ pub mod serialize {
         v: V,
         mut f: F,
     ) {
-        use pi_key_alloter::Key;
 		// log::debug!("type: {:?}, entity: {:?}", std::any::type_name::<C>(), entity);
         log::debug!(
             "set_style_attr, type: {:?}, value: {:?}, entity: {:?}",
@@ -820,8 +819,8 @@ pub mod serialize {
         );
         
         // pi_print_any::out_any!(println, "set_default_style_attr==={:?}", (entity, std::any::type_name::<C>(), &v));
-        match world.get_component_by_index_mut::<C>(entity, component_id) {
-            Ok(mut component) => {
+        match world.get_component_mut_by_index::<C>(entity, component_id) {
+            Ok(component) => {
                 f(component, v);
             }
             _ => {
@@ -857,7 +856,7 @@ pub mod serialize {
         v: V,
         mut f: F,
     ) {
-        match world.get_component_by_index_mut::<C>(entity, component_id) {
+        match world.get_component_mut_by_index::<C>(entity, component_id) {
             Ok(mut component) => {
                 // SAFETY: `test_component` has unique access of the `EntityMut` and is not used afterwards
                 f(&mut component, v);
@@ -870,7 +869,7 @@ pub mod serialize {
         };
     }
 
-    // pub unsafe fn get_component_by_index_mut<C: Clone + Default>(world: &mut World, entity: Entity, component_id: ColumnIndex) -> &mut C {
+    // pub unsafe fn get_component_mut_by_index<C: Clone + Default>(world: &mut World, entity: Entity, component_id: ColumnIndex) -> &mut C {
     //     match world.get_mut_by_id(entity, component_id) {
     //         Some(component) => unsafe { component.into_inner().deref_mut::<C>() },
     //         None => panic!("get_component fail, get_component is not exist: {:?}, entity: {:?}", component_id, entity),
@@ -908,10 +907,10 @@ pub mod serialize {
         mut f: F,
     ) {
         let default_value = match world.index_single_res::<C>(default_id as usize) {
-            Some(r) => unsafe {transmute(r.0)},
+            Some(r) => unsafe {transmute(&*r)},
             None => return,
         };
-        if let Ok(mut component) = world.get_component_by_index_mut::<C>(entity, component_id) {
+        if let Ok(mut component) = world.get_component_mut_by_index::<C>(entity, component_id) {
             f(&mut component, default_value);
         };
     }
@@ -1264,15 +1263,15 @@ pub mod serialize {
         // 整体插入
         ($name: ident, $value_ty: ty) => {
             fn set_default<'a>(buffer: &Vec<u8>, offset: usize, world: &mut World, query: &DefaultStyle) {
-                if let Some((component, _)) = world.index_single_res_mut::<$value_ty>(query.$name as usize) {
-                    *component = unsafe { buffer.as_ptr().add(offset).cast::<$value_ty>().read_unaligned() };
+                if let Some(component) = world.index_single_res_mut::<$value_ty>(query.$name as usize) {
+                    **component = unsafe { buffer.as_ptr().add(offset).cast::<$value_ty>().read_unaligned() };
                 }
             }
         };
         // 属性修改
         ($name: ident, $c_ty: ty, $feild: ident, $value_ty: ty) => {
             fn set_default<'a>(buffer: &Vec<u8>, offset: usize, world: &mut World, query: &DefaultStyle) {
-                if let Some((component, _)) = world.index_single_res_mut::<$c_ty>(query.$name as usize) {
+                if let Some(component) = world.index_single_res_mut::<$c_ty>(query.$name as usize) {
                     component.$feild = unsafe { buffer.as_ptr().add(offset).cast::<$value_ty>().read_unaligned() };
                 }
             }
@@ -1280,7 +1279,7 @@ pub mod serialize {
         // 属性修改
         (@func $name: ident, $c_ty: ty, $set_func: ident, $value_ty: ty) => {
             fn set_default<'a>(buffer: &Vec<u8>, offset: usize, world: &mut World, query: &DefaultStyle) {
-                if let Some((component, _)) = world.index_single_res_mut::<$c_ty>(query.$name as usize) {
+                if let Some(component) = world.index_single_res_mut::<$c_ty>(query.$name as usize) {
                     component.$set_func(unsafe { buffer.as_ptr().add(offset).cast::<$value_ty>().read_unaligned() });
                 }
             }
@@ -1289,7 +1288,7 @@ pub mod serialize {
         // 属性修改
         ($name: ident, $c_ty: ty, $feild1: ident, $feild2: ident, $value_ty: ty) => {
             fn set_default<'a>(buffer: &Vec<u8>, offset: usize, world: &mut World, query: &DefaultStyle) {
-                if let Some((component, _)) = world.index_single_res_mut::<$c_ty>(query.$name as usize) {
+                if let Some(component) = world.index_single_res_mut::<$c_ty>(query.$name as usize) {
                     component.$feild1.$feild2 = unsafe { buffer.as_ptr().add(offset).cast::<$value_ty>().read_unaligned() };
                 }
             }
@@ -1298,7 +1297,7 @@ pub mod serialize {
         // 盒模属性（上右下左）
         (@box_model $name: ident, $c_ty: ty, $value_ty: ty) => {
             fn set_default<'a>(buffer: &Vec<u8>, offset: usize, world: &mut World, query: &DefaultStyle) {
-                if let Some((component, _)) = world.index_single_res_mut::<$c_ty>(query.$name as usize) {
+                if let Some(component) = world.index_single_res_mut::<$c_ty>(query.$name as usize) {
                     let v = unsafe { buffer.as_ptr().add(offset).cast::<$value_ty>().read_unaligned() };
                     component.top = v.top;
                     component.right = v.right;
@@ -1893,7 +1892,7 @@ pub mod serialize {
 
 
             // 插入默认的FlexContainer组件 TODO
-            // if query.world.get_component_by_index_mut(entity, query.style.flex_container).is_err() {
+            // if query.world.get_component_mut_by_index(entity, query.style.flex_container).is_err() {
             //     // let default_value = query.world.get_resource_by_id(query.style.default.flex_container).unwrap();
             //     // let r = unsafe { default_value.deref::<DefaultComponent<FlexContainer>>() }.0.clone();
             //     // let query.style.flex_container
@@ -2080,7 +2079,7 @@ pub mod serialize {
                 v,
                 entity
             );
-            match query.world.get_component_by_index_mut::<BackgroundImage>(entity, query.style.background_image) {
+            match query.world.get_component_mut_by_index::<BackgroundImage>(entity, query.style.background_image) {
                 Ok(mut component) => {
                     component.0 = v;
                     // f(unsafe { component.into_inner().deref_mut::<Atom>() }, v);
@@ -2107,8 +2106,8 @@ pub mod serialize {
         where
             Self: Sized,
         {
-            if let Some((r, _)) = world.index_single_res_mut::<BackgroundImage>(query.background_image as usize) {
-                **r = unsafe { buffer.as_ptr().add(offset).cast::<Atom>().read_unaligned() };
+            if let Some(r) = world.index_single_res_mut::<BackgroundImage>(query.background_image as usize) {
+                ***r = unsafe { buffer.as_ptr().add(offset).cast::<Atom>().read_unaligned() };
             }
         }
 
@@ -2183,7 +2182,7 @@ pub mod serialize {
                 v,
                 entity
             );
-            match query.world.get_component_by_index_mut::<BorderImage>(entity, query.style.border_image){
+            match query.world.get_component_mut_by_index::<BorderImage>(entity, query.style.border_image){
                 Ok(mut component) => {
                     component.0 = v;
                     // f(unsafe { component.into_inner().deref_mut::<Atom>() }, v);
@@ -2212,8 +2211,8 @@ pub mod serialize {
         where
             Self: Sized,
         {
-            if let Some((r, _)) = world.index_single_res_mut::<BorderImage>(query.border_image as usize) {
-                **r = unsafe { buffer.as_ptr().add(offset).cast::<Atom>().read_unaligned() };
+            if let Some(r) = world.index_single_res_mut::<BorderImage>(query.border_image as usize) {
+                ***r = unsafe { buffer.as_ptr().add(offset).cast::<Atom>().read_unaligned() };
             }
         }
 
@@ -2279,7 +2278,7 @@ pub mod serialize {
                 entity
             );
 
-			if let Ok(mut component) = query.world.get_component_by_index_mut::<TransformWillChange>(entity, query.style.transform_will_change) {
+			if let Ok(mut component) = query.world.get_component_mut_by_index::<TransformWillChange>(entity, query.style.transform_will_change) {
                 if component.0.is_some() {
                     // 如果存在transform_willChange,则将Transform设置在TransformWillChange上
                     if let Some(r) = &mut component.0 {
@@ -2290,7 +2289,7 @@ pub mod serialize {
             };
 			
             // 不存在transform_willChange， 则设置在Transfrom上
-			match query.world.get_component_by_index_mut::<Transform>(entity, query.style.transform) {
+			match query.world.get_component_mut_by_index::<Transform>(entity, query.style.transform) {
 				Ok(mut component)  => {
 					// 如果存在transform_willChange,则将Transform设置在TransformWillChange上
                     component.all_transform.transform = v;
@@ -2339,7 +2338,7 @@ pub mod serialize {
         where
             Self: Sized,
         {
-			if let Ok(mut component) = query.world.get_component_by_index_mut::<TransformWillChange>(entity, query.style.transform_will_change) {
+			if let Ok(mut component) = query.world.get_component_mut_by_index::<TransformWillChange>(entity, query.style.transform_will_change) {
                 if component.0.is_some() {
                     // 如果存在transform_willChange,则将Transform设置在TransformWillChange上
                     if let Some(r) = &mut component.0 {
@@ -2349,7 +2348,7 @@ pub mod serialize {
                 }
             };
 
-            match query.world.get_component_by_index_mut::<Transform>(entity, query.style.transform) {
+            match query.world.get_component_mut_by_index::<Transform>(entity, query.style.transform) {
 				Ok(mut component)  => {
                     component.all_transform.transform = Default::default();
 				}
@@ -2386,7 +2385,7 @@ pub mod serialize {
                 v,
                 entity
             );
-            if let Ok(mut component) = query.world.get_component_by_index_mut::<TransformWillChange>(entity, query.style.transform_will_change) {
+            if let Ok(mut component) = query.world.get_component_mut_by_index::<TransformWillChange>(entity, query.style.transform_will_change) {
 				if component.0.is_some() {
                     // 如果存在transform_willChange,则将Transform设置在TransformWillChange上
                     if let Some(r) = &mut component.0 {
@@ -2397,7 +2396,7 @@ pub mod serialize {
             };
 
             // 不存在transform_willChange， 则设置在Transfrom上
-			match query.world.get_component_by_index_mut::<Transform>(entity, query.style.transform){
+			match query.world.get_component_mut_by_index::<Transform>(entity, query.style.transform){
 				Ok(mut component)  => {
 					// 如果存在transform_willChange,则将Transform设置在TransformWillChange上
                     component.all_transform.translate = Some(v);
@@ -2453,7 +2452,7 @@ pub mod serialize {
         where
             Self: Sized,
         {
-			if let Ok(mut component) = query.world.get_component_by_index_mut::<TransformWillChange>(entity, query.style.transform_will_change) {
+			if let Ok(mut component) = query.world.get_component_mut_by_index::<TransformWillChange>(entity, query.style.transform_will_change) {
 				if component.0.is_some() {
                     // 如果存在transform_willChange,则将Transform设置在TransformWillChange上
                     if let Some(r) = &mut component.0 {
@@ -2463,7 +2462,7 @@ pub mod serialize {
                 }
             };
 
-            match query.world.get_component_by_index_mut::<Transform>(entity, query.style.transform) {
+            match query.world.get_component_mut_by_index::<Transform>(entity, query.style.transform) {
 				Ok(mut component)  => {
 					component.all_transform.translate = None;
 				}
@@ -2499,7 +2498,7 @@ pub mod serialize {
                 entity
             );
 
-            if let Ok(mut component) = query.world.get_component_by_index_mut::<TransformWillChange>(entity, query.style.transform_will_change) {
+            if let Ok(mut component) = query.world.get_component_mut_by_index::<TransformWillChange>(entity, query.style.transform_will_change) {
 				if component.0.is_some() {
                     // 如果存在transform_willChange,则将Transform设置在TransformWillChange上
                     if let Some(r) = &mut component.0 {
@@ -2510,7 +2509,7 @@ pub mod serialize {
             };
 
             // 不存在transform_willChange， 则设置在Transfrom上
-			match query.world.get_component_by_index_mut::<Transform>(entity, query.style.transform) {
+			match query.world.get_component_mut_by_index::<Transform>(entity, query.style.transform) {
 				Ok(mut component)  => {
 					// 如果存在transform_willChange,则将Transform设置在TransformWillChange上
                     component.all_transform.scale = Some(v);
@@ -2567,7 +2566,7 @@ pub mod serialize {
         where
             Self: Sized,
         {
-			if let Ok(mut component) = query.world.get_component_by_index_mut::<TransformWillChange>(entity, query.style.transform_will_change) {
+			if let Ok(mut component) = query.world.get_component_mut_by_index::<TransformWillChange>(entity, query.style.transform_will_change) {
 				if component.0.is_some() {
                     // 如果存在transform_willChange,则将Transform设置在TransformWillChange上
                     if let Some(r) = &mut component.0 {
@@ -2577,7 +2576,7 @@ pub mod serialize {
                 }
             };
 
-            match query.world.get_component_by_index_mut::<Transform>(entity, query.style.transform) {
+            match query.world.get_component_mut_by_index::<Transform>(entity, query.style.transform) {
 				Ok(mut component)  => {
 					component.all_transform.scale = None;
 				}
@@ -2612,7 +2611,7 @@ pub mod serialize {
                 v,
                 entity
             );
-            if let Ok(mut component) = query.world.get_component_by_index_mut::<TransformWillChange>(entity, query.style.transform_will_change) {
+            if let Ok(mut component) = query.world.get_component_mut_by_index::<TransformWillChange>(entity, query.style.transform_will_change) {
 				if component.0.is_some() {
                     // 如果存在transform_willChange,则将Transform设置在TransformWillChange上
                     if let Some(r) = &mut component.0 {
@@ -2623,7 +2622,7 @@ pub mod serialize {
             };
 
             // 不存在transform_willChange， 则设置在Transfrom上
-			match query.world.get_component_by_index_mut::<Transform>(entity, query.style.transform) {
+			match query.world.get_component_mut_by_index::<Transform>(entity, query.style.transform) {
 				Ok(mut component)  => {
 					// 如果存在transform_willChange,则将Transform设置在TransformWillChange上
                     component.all_transform.rotate = Some(v);
@@ -2679,7 +2678,7 @@ pub mod serialize {
         where
             Self: Sized,
         {
-			if let Ok(mut component) = query.world.get_component_by_index_mut::<TransformWillChange>(entity, query.style.transform_will_change) {
+			if let Ok(mut component) = query.world.get_component_mut_by_index::<TransformWillChange>(entity, query.style.transform_will_change) {
 				if component.0.is_some() {
                     // 如果存在transform_willChange,则将Transform设置在TransformWillChange上
                     if let Some(r) = &mut component.0 {
@@ -2689,7 +2688,7 @@ pub mod serialize {
                 }
             };
 
-            match query.world.get_component_by_index_mut::<Transform>(entity, query.style.transform) {
+            match query.world.get_component_mut_by_index::<Transform>(entity, query.style.transform) {
 				Ok(mut component)  => {
 					component.all_transform.rotate = None;
 				}
@@ -2727,11 +2726,11 @@ pub mod serialize {
             );
 
 			if !v {
-				if let Ok(mut component) = query.world.get_component_by_index_mut::<TransformWillChange>(entity, query.style.transform_will_change) {
+				if let Ok(mut component) = query.world.get_component_mut_by_index::<TransformWillChange>(entity, query.style.transform_will_change) {
 					if let Some(c) = &component.0 {
                         let c1 = c.clone();
                         component.0 = None;
-                        match query.world.get_component_by_index_mut::<Transform>(entity, query.style.transform) {
+                        match query.world.get_component_mut_by_index::<Transform>(entity, query.style.transform) {
                             Ok(mut component)  => {
                                 // 如果存在transform_willChange,则将Transform设置在TransformWillChange上
                                 component.all_transform = c1;
@@ -2751,10 +2750,10 @@ pub mod serialize {
 				}
 			} else {
 				// 不存在transform_willChange， 则设置在Transfrom上
-				match query.world.get_component_by_index_mut::<Transform>(entity, query.style.transform) {
-					Ok(mut component)  => {
+				match query.world.get_component_mut_by_index::<Transform>(entity, query.style.transform) {
+					Ok(component)  => {
                         let c = component.all_transform.clone();
-                        if let Ok(mut component_will_change) = query.world.get_component_by_index_mut::<TransformWillChange>(entity, query.style.transform_will_change) {
+                        if let Ok(mut component_will_change) = query.world.get_component_mut_by_index::<TransformWillChange>(entity, query.style.transform_will_change) {
                             *component_will_change = TransformWillChange(Some(c));
                         }
 					}
@@ -2803,13 +2802,13 @@ pub mod serialize {
             Self: Sized,
         {
             log::debug!("reset_style_attr, type: TransformWillChange, entity: {:?}", entity);
-            if let Ok(mut component) = query.world.get_component_by_index_mut::<TransformWillChange>(entity, query.style.transform_will_change) {
+            if let Ok(mut component) = query.world.get_component_mut_by_index::<TransformWillChange>(entity, query.style.transform_will_change) {
                 // 删除TransformWillChange, 设置Transform
                 if let Some(c) = &component.0 {
                     let c = c.clone();
                     component.0 = None;
                     // 设置transform
-                    match query.world.get_component_by_index_mut::<Transform>(entity, query.style.transform) {
+                    match query.world.get_component_mut_by_index::<Transform>(entity, query.style.transform) {
                         Ok(mut component)  => {
                             // 如果存在transform_willChange,则将Transform设置在TransformWillChange上
                             component.all_transform = c;

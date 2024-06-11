@@ -6,7 +6,7 @@
 //! TODO: 后续，可能将不可变因素通过shader静态编译出来（尚不确定哪些通常不变），当前通过手动编写代码的方式来确定
 //!
 
-use pi_world::{fetch::Ticker, prelude::{App, Changed, IntoSystemConfigs, Plugin, Query, SingleRes, With}};
+use pi_world::prelude::{App, IntoSystemConfigs, Plugin, Query, SingleRes, With};
 use pi_bevy_ecs_extend::prelude::OrInitSingleResMut;
 
 use bevy_window::{PrimaryWindow, Window};
@@ -15,7 +15,7 @@ use pi_assets::{
     mgr::AssetMgr,
 };
 use pi_bevy_asset::ShareAssetMgr;
-use pi_bevy_render_plugin::{PiRenderDevice, FrameDataPrepare};
+use pi_bevy_render_plugin::PiRenderDevice;
 use pi_render::{
     components::view::target_alloc::DEPTH_TEXTURE,
     rhi::{

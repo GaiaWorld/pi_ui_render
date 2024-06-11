@@ -1,5 +1,5 @@
 use pi_world::prelude::{App, Plugin, PostUpdate, IntoSystemConfigs};
-use pi_bevy_render_plugin::{FrameDataPrepare, GraphBuild, GraphRun};
+use pi_bevy_render_plugin::{GraphBuild, GraphRun};
 
 use self::pass_camera::calc_camera_depth_and_renderlist;
 use self::pass_life::calc_pass;

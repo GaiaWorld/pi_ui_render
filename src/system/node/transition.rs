@@ -130,7 +130,7 @@ pub fn transition_1_2(
 ) {
 	let world1: &mut World = unsafe { &mut *(world as *const World as usize as *mut World)};
 	let id = world1.init_single_res::<TransitionTempAttr>();
-	let cmds = world1.index_single_res_mut::<TransitionTempAttr>(id).unwrap().0;
+	let cmds = world1.index_single_res_mut::<TransitionTempAttr>(id).unwrap();
 
 	for (transition, style_mark, entity) in query.iter() {
 		// 属性脏，需要记录style属性到start或end（如果属性是被删除了， 则需要删除对应的插值曲线， 并重置start和wnd）

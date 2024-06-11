@@ -423,9 +423,9 @@ impl<T> FromWorld for RenderContextMarkType<T> {
                 world.get_single_res_mut::<RenderContextMarkAlloc>().unwrap()
             }
         };
-        **cur_mark_index += 1;
+        ***cur_mark_index += 1;
         Self {
-            value: **cur_mark_index,
+            value: ***cur_mark_index,
             mark: PhantomData,
         }
     }
@@ -442,8 +442,8 @@ impl<T: Effect> FromWorld for RenderContextMarkType<T> {
             }
         };
 
-        **cur_mark_index += 1;
-        let index = **cur_mark_index;
+        ***cur_mark_index += 1;
+        let index = ***cur_mark_index;
         // 标记效果类型
         let effect_mark = world.get_single_res_mut::<EffectRenderContextMark>().unwrap();
         effect_mark.set(index, true);
@@ -471,8 +471,8 @@ impl FromWorld for RenderObjType {
                 world.get_single_res_mut::<RenderObjTypeAlloc>().unwrap()
             }
         };
-        **cur_mark_index += 1;
-        Self(**cur_mark_index)
+        ***cur_mark_index += 1;
+        Self(***cur_mark_index)
     }
 }
 

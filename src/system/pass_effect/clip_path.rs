@@ -1,7 +1,6 @@
-use pi_world::prelude::{Changed, App, Query, Plugin, OrDefault, IntoSystemConfigs, Has, ComponentRemoved};
+use pi_world::{filter::Or, prelude::{App, Changed, ComponentRemoved, Has, IntoSystemConfigs, OrDefault, Plugin, Query}};
 use pi_bevy_ecs_extend::prelude::OrInitSingleRes;
 
-use pi_bevy_render_plugin::FrameDataPrepare;
 use pi_flex_layout::prelude::Rect;
 use pi_style::style::{Aabb2, BaseShape, LengthUnit};
 
@@ -79,12 +78,12 @@ pub fn clip_path_post_process(
             &Camera,
             &mut PostProcess,
         ),
-        (
+        Or<(
             Changed<ClipPath>,
             Changed<LayoutResult>,
             Changed<ContentBox>,
             Changed<Camera>,
-        ),
+        )>,
     >,
 	r: OrInitSingleRes<IsRun>
 ) {

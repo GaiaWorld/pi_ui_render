@@ -2,7 +2,7 @@
 //! 将文字劈分为字符，放入NodeState中，并设置好每个字符的布局宽高。等待布局系统布局
 use std::intrinsics::transmute;
 
-use pi_world::prelude::{Changed, Query, SingleResMut, Entity, OrDefault, Mut};
+use pi_world::{filter::Or, prelude::{Changed, Entity, Mut, OrDefault, Query, SingleResMut}};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleRes, Up, Layer};
 
 use ordered_float::NotNan;
@@ -43,7 +43,7 @@ pub fn text_split(
             &Layer,
 			Option<&'static mut TextOverflowData>,
         ),
-        (Changed<TextContent>, Changed<TextStyle>, Changed<Layer>, Changed<TextOverflowData>),
+        Or<(Changed<TextContent>, Changed<TextStyle>, Changed<Layer>, Changed<TextOverflowData>)>,
     >,
     font_sheet: SingleResMut<ShareFontSheet>,
 	r: OrInitSingleRes<IsRun>

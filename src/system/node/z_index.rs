@@ -28,16 +28,15 @@
 
 use std::ops::Range;
 
-use pi_style::style::StyleType;
 use pi_world::event::Event;
 use pi_world::fetch::Ticker;
-use pi_world::prelude::{Changed, With, Query, Entity};
+use pi_world::prelude::{With, Query, Entity};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, OrInitSingleRes, Layer, EntityTree, LayerDirty, DirtyMark};
 
 use pi_null::Null;
 
-use crate::components::calc::{EntityKey, StyleMark, ZRange};
-use crate::components::user::{Size, ZIndex};
+use crate::components::calc::{EntityKey, ZRange};
+use crate::components::user::ZIndex;
 use crate::resource::NodeChanged;
 use crate::system::draw_obj::calc_text::IsRun;
 

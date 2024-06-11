@@ -32,7 +32,7 @@ use crate::{
     system::draw_obj::set_box,
 };
 // use pi_world::change_detection::DetectChanges;
-use pi_world::{prelude::{App, Changed, Entity, Local, ParamSet, Plugin, Query, SingleResMut, With}, schedule_config::IntoSystemConfigs};
+use pi_world::{filter::Or, prelude::{App, Changed, Entity, Local, ParamSet, Plugin, Query, SingleResMut, With}, schedule_config::IntoSystemConfigs};
 use pi_bevy_ecs_extend::prelude::{Layer, OrInitSingleRes, OrInitSingleResMut};
 use pi_hal::{
     font::sdf2_table::TexInfo,
@@ -187,10 +187,10 @@ pub fn svg_glyph(
 pub fn calc_svg(
     mut instances: OrInitSingleResMut<InstanceContext>,
     query: Query<(Entity, &WorldMatrix, &SvgInnerContent, &LayoutResult, &DrawList, &Layer), 
-        (
+        Or<(
             Changed<SvgInnerContent>, 
             Changed<WorldMatrix>
-        )>,
+        )>>,
     mut query_draw: Query<&InstanceIndex, With<SvgMark>>,
     r: OrInitSingleRes<IsRun>,
     render_type: OrInitSingleRes<SvgRenderObjType>,

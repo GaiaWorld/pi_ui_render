@@ -1,10 +1,9 @@
 use std::sync::atomic::AtomicUsize;
 
-use pi_world::prelude::{Changed, App, Query, ParamSet, Plugin, IntoSystemConfigs, Has, ComponentRemoved};
+use pi_world::{filter::Or, prelude::{App, Changed, ComponentRemoved, Has, IntoSystemConfigs, ParamSet, Plugin, Query}};
 use pi_bevy_ecs_extend::prelude::OrInitSingleRes;
 
 use pi_bevy_asset::{Allocator, AssetConfig, AssetDesc, ShareAssetMgr};
-use pi_bevy_render_plugin::FrameDataPrepare;
 use pi_null::Null;
 
 use crate::{
@@ -68,7 +67,7 @@ pub fn as_image_post_process(
     mark_type: OrInitSingleRes<RenderContextMarkType<AsImage>>,
     overflow_mark_type: OrInitSingleRes<RenderContextMarkType<Overflow>>,
     mut query: ParamSet<(
-        Query<(&AsImage, &mut PostProcess, &mut PostProcessInfo), (Changed<AsImage>, Changed<PostProcess>)>,
+        Query<(&AsImage, &mut PostProcess, &mut PostProcessInfo), Or<(Changed<AsImage>, Changed<PostProcess>)>>,
         Query<(&mut PostProcess, &mut PostProcessInfo, Has<AsImage>)>,
     )>,
     removed: ComponentRemoved<AsImage>,

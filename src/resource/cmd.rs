@@ -103,8 +103,8 @@ impl<T: Bundle + 'static + Send + Sync> Command for NodeCmd<T> {
         if world.contains_entity(self.1) {
             pi_print_any::out_any!(log::debug, "NodeCmd====================node：{:?}, anchor： {:?}", self.1, &self.0);
             let id = world.init_component::<T>();
-            let _ = world.make_entity_editor().alter_components(self.1,&[(id, true)]);
-            if let Ok(mut r) = world.get_component_by_index_mut(self.1, id) {
+            let _ = world.make_entity_editor().alter_components_by_index(self.1,&[(id, true)]);
+            if let Ok(mut r) = world.get_component_mut_by_index(self.1, id) {
                 *r = self.0;
             }
         } else {
@@ -120,8 +120,8 @@ impl Command for PostProcessCmd {
         if world.contains_entity(self.1) {
             pi_print_any::out_any!(log::debug, "NodeCmd====================node：{:?}, anchor： {:?}", self.1, &self.0);
             let id = world.init_component::<AsImage>();
-            let _ = world.make_entity_editor().alter_components(self.1,&[(id, true)]);
-            if let Ok(mut r) = world.get_component_by_index_mut::<AsImage>(self.1, id) {
+            let _ = world.make_entity_editor().alter_components_by_index(self.1,&[(id, true)]);
+            if let Ok(mut r) = world.get_component_mut_by_index::<AsImage>(self.1, id) {
                 r.post_process = self.0;
             }
         } else {
@@ -137,8 +137,8 @@ impl<T: 'static + Send + Sync> Command for ComponentCmd<T> {
         if world.contains_entity(self.1) {
             pi_print_any::out_any!(log::debug, "NodeCmd====================node：{:?}, anchor： {:?}", self.1, &self.0);
             let id = world.init_component::<T>();
-            let _ = world.make_entity_editor().alter_components(self.1,&[(id, true)]);
-            if let Ok(mut r) = world.get_component_by_index_mut::<T>(self.1, id) {
+            let _ = world.make_entity_editor().alter_components_by_index(self.1,&[(id, true)]);
+            if let Ok(mut r) = world.get_component_mut_by_index::<T>(self.1, id) {
                 *r = self.0;
             }
         } else {
@@ -155,8 +155,8 @@ impl Command for RuntimeAnimationBindCmd {
         if world.contains_entity(self.2) {
             self.1.name.scope_hash = self.2.index() as usize; // 因为每个运行时动画是节点独有的，以节点的index作为scope_hash(不能同时有两个index相等的实体)
             let id = world.init_component::<Animation>();
-            let _ = world.make_entity_editor().alter_components(self.2,&[(id, true)]);
-            if let Ok(mut r) = world.get_component_by_index_mut::<Animation>(self.2, id) {
+            let _ = world.make_entity_editor().alter_components_by_index(self.2,&[(id, true)]);
+            if let Ok(mut r) = world.get_component_mut_by_index::<Animation>(self.2, id) {
                 *r = self.1.clone();
             }
             let sheet = world.get_single_res_mut::<KeyFramesSheet>().unwrap();
@@ -170,7 +170,7 @@ impl Command for RuntimeAnimationBindCmd {
 pub struct FontCfgCmd(pub FontCfg);
 impl Command for FontCfgCmd {
     fn apply(self, world: &mut World) {
-        let sheet = &***world.get_single_res_mut::<ShareFontSheet>().unwrap();
+        let sheet = &****world.get_single_res_mut::<ShareFontSheet>().unwrap();
         let mut sheet = (*sheet).borrow_mut();
         sheet.font_mgr_mut().add_sdf_cfg(self.0);
     }
@@ -181,7 +181,7 @@ impl Command for FontCfgCmd {
 pub struct FontSdf2Cmd(pub Atom, pub Vec<u8>);
 impl Command for FontSdf2Cmd {
     fn apply(self, world: &mut World) {
-        let sheet = &***world.get_single_res_mut::<ShareFontSheet>().unwrap();
+        let sheet = &****world.get_single_res_mut::<ShareFontSheet>().unwrap();
         let mut sheet = (*sheet).borrow_mut();
         let face_id = sheet.font_mgr_mut().create_font_face(&self.0);
         sheet.font_mgr_mut().table.sdf2_table.add_font(face_id, self.1);
@@ -196,7 +196,7 @@ pub struct SdfDefaultCharCmd {
 }
 impl Command for SdfDefaultCharCmd {
     fn apply(self, world: &mut World) {
-        let sheet = &***world.get_single_res::<ShareFontSheet>().unwrap();
+        let sheet = &****world.get_single_res::<ShareFontSheet>().unwrap();
         let mut sheet = (*sheet).borrow_mut();
         sheet.borrow_mut().font_mgr_mut().add_sdf_default_char(self.font_face, self.char);
     }

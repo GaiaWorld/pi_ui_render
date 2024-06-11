@@ -273,7 +273,7 @@ pub fn calc_text_shadow(
     query: Query<
         (&NodeState, Ref<NodeState>, Ref<TextShadow>, Ref<WorldMatrix>, &DrawList, &TextStyle),
         // TextContent改变，NodeState必然改变; 存在NodeState， 也必然存在TextContent
-        (With<TextShadow>, (Changed<NodeState>, Changed<TextShadow>)),
+        (With<TextShadow>, Or<(Changed<NodeState>, Changed<TextShadow>)>),
     >,
 
     mut query_draw: Query<
@@ -406,7 +406,7 @@ pub fn calc_text_shadow(
 pub fn calc_graph_depend(
     render_type: SingleRes<TextShadowRenderObjType>,
     pass_query: Query<(&ParentPassId, &GraphId), Without<TextShadowMark>>,
-    shadow_query: Query<(Entity, &DrawList), (With<TextShadow>, (Changed<ParentPassId>, Changed<TextShadow>))>,
+    shadow_query: Query<(Entity, &DrawList), (With<TextShadow>, Or<(Changed<ParentPassId>, Changed<TextShadow>)>)>,
     mut shadow_draw_query: Query<&mut GraphId, With<TextShadowMark>>,
     mut rg: SingleResMut<PiRenderGraph>,
 	r: OrInitSingleRes<IsRun>

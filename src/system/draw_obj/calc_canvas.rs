@@ -1,9 +1,9 @@
 use pi_world::fetch::Ticker;
-use pi_world::filter::Changed;
+use pi_world::filter::{Changed, Or};
 use pi_world::prelude::{With, Query, SingleResMut, Entity, Plugin, IntoSystemConfigs, SingleRes};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, OrInitSingleRes};
 
-use pi_bevy_render_plugin::{PiRenderGraph, FrameDataPrepare};
+use pi_bevy_render_plugin::PiRenderGraph;
 use pi_bevy_render_plugin::render_cross::GraphId;
 use pi_null::Null;
 
@@ -58,7 +58,7 @@ pub const CANVAS_ORDER: u8 = 6;
 
 /// 设置canvas的实例数据
 pub fn calc_canvas(
-	mut canvas_query: Query<(&DrawList, &WorldMatrix, &LayoutResult), ((Changed<Canvas>, Changed<WorldMatrix>), With<Canvas>)>,
+	mut canvas_query: Query<(&DrawList, &WorldMatrix, &LayoutResult), (Or<(Changed<Canvas>, Changed<WorldMatrix>)>, With<Canvas>)>,
 	mut instances: OrInitSingleResMut<InstanceContext>,
 	mut instance_index_query: Query<&InstanceIndex, With<CanvasMark>>,
 	render_type: OrInitSingleRes<CanvasRenderObjType>,

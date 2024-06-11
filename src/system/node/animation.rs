@@ -2,7 +2,7 @@
 //! 2. 推动动画运行
 
 
-use pi_world::{event::EventSender, filter::With, prelude::{Changed, ComponentRemoved, Entity, Has, ParamSet, Query, SingleResMut}, system::{SystemMeta, TypeInfo}, system_params::{Local, SystemParam}, world::World};
+use pi_world::{event::EventSender, prelude::{Changed, ComponentRemoved, Entity, Has, ParamSet, Query, SingleResMut}, system::{SystemMeta, TypeInfo}, system_params::{Local, SystemParam}, world::World};
 use pi_bevy_ecs_extend::prelude::OrInitSingleRes;
 
 use pi_time::Instant;
@@ -13,7 +13,7 @@ use crate::{
         Animation,
     }, SettingComponentIds},
     resource::{
-        animation_sheet::KeyFramesSheet, fragment::NodeTag, TimeInfo, UserCommands
+        animation_sheet::KeyFramesSheet, TimeInfo, UserCommands
     }, system::draw_obj::calc_text::IsRun,
 };
 
@@ -46,7 +46,7 @@ pub fn calc_animation_1(
         cur_time: time,
         delta: (time - time_info.cur_time).as_millis() as u64,
     };
-    let time0 = pi_time::Instant::now();
+    // let time0 = pi_time::Instant::now();
     // 解绑定动画
     let p1 = style_query.p1();
     for del in removed.iter() {
@@ -59,7 +59,7 @@ pub fn calc_animation_1(
         }
     }
     
-    let time1 = pi_time::Instant::now();
+    // let time1 = pi_time::Instant::now();
     // 绑定动画
     for (node, animation) in style_query.p0().iter() {
         if let Err(e) = keyframes_sheet.bind_static_animation(node, animation) {
@@ -67,10 +67,10 @@ pub fn calc_animation_1(
         }
     }
 
-    let time2 = pi_time::Instant::now();
+    // let time2 = pi_time::Instant::now();
     // 推动动画执行
-    // keyframes_sheet.run(&mut user_commands.style_commands, time_info.delta);
-    let time3 = pi_time::Instant::now();
+    keyframes_sheet.run(&mut user_commands.style_commands, time_info.delta);
+    // let time3 = pi_time::Instant::now();
     // println!("animation1====={:?}", (time1 - time0, time2 - time1, time3 - time2, user_commands.style_commands.style_buffer.len()));
 }
 
@@ -82,14 +82,14 @@ pub fn calc_animation_2(
     setting_components: Local<SettingComponentIds>,
     default_style: Local<DefaultStyle>,
 ) {
-    let time1 = pi_time::Instant::now();
+    // let time1 = pi_time::Instant::now();
     let mut w1 = world.unsafe_world();
     let mut w2 = world.unsafe_world();
     let mut w3 = world.unsafe_world();
     let w4 = world.unsafe_world();
 
-    let user_commands = w1.index_single_res_mut::<UserCommands>(id.user_commands).unwrap().0;
-    let dirty_mark = w2.index_single_res_mut::<StyleDirtyMark>(id.style_dirty_mark).unwrap().0;
+    let user_commands = w1.index_single_res_mut::<UserCommands>(id.user_commands).unwrap();
+    let dirty_mark = w2.index_single_res_mut::<StyleDirtyMark>(id.style_dirty_mark).unwrap();
     let mut s_meta = SystemMeta::new(TypeInfo::of::<()>());
     let mut events = EventSender::<'_, StyleChange>::init_state(&mut w3, &mut s_meta);
 
@@ -103,9 +103,9 @@ pub fn calc_animation_2(
 
     let base_component_ids = Vec::with_capacity(1);
     let v_node_base_component_ids = Vec::with_capacity(1);
-    let time2 = pi_time::Instant::now();
+    // let time2 = pi_time::Instant::now();
     // 设置style只要节点存在,样式一定能设置成功
     set_styles(&mut user_commands.style_commands, &mut setting, base_component_ids, v_node_base_component_ids, &mut dirty_list);
-    let time3 = pi_time::Instant::now();
+    // let time3 = pi_time::Instant::now();
     // println!("animation2====={:?}", (time2 - time1, time3 - time2));
 }

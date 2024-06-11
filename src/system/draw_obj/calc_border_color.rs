@@ -1,5 +1,6 @@
 //! 圆角从有到删除，没有正确处理顶点（TODO）
 
+use pi_world::filter::Or;
 use pi_world::prelude::{Changed, With, Query, Plugin, IntoSystemConfigs};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, OrInitSingleRes};
 
@@ -55,7 +56,7 @@ pub fn calc_border_color(
             &WorldMatrix,
 			&DrawList
         ),
-        (Changed<BorderColor>, Changed<BorderRadius>, Changed<LayoutResult>, Changed<WorldMatrix>),
+        Or<(Changed<BorderColor>, Changed<BorderRadius>, Changed<LayoutResult>, Changed<WorldMatrix>)>,
     >,
 	mut query_draw: Query<&InstanceIndex, With<BorderColorMark>>,
 	render_type: OrInitSingleRes<BorderColorRenderObjType>,

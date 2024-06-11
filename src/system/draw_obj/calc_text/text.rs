@@ -48,7 +48,7 @@ pub fn calc_text(
     query: Query<
         (&NodeState, &LayoutResult, OrDefault<TextStyle>, Ref<NodeState>, Option<&TextOverflowData>, Entity, &Layer),
 		// TextContent改变，NodeState必然改, TextOverflowData改变，NodeState也必然改变 ;存在NodeState， 也必然存在TextContent
-        (Changed<TextStyle>, Changed<NodeState>), 
+        Or<(Changed<TextStyle>, Changed<NodeState>)>, 
     >,
 	query_layout: Query<(&'static LayoutResult, &'static Up, &'static NodeState)>,
 

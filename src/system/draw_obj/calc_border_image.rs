@@ -1,3 +1,4 @@
+use pi_world::filter::Or;
 use pi_world::prelude::{Changed, With, Query, Plugin, IntoSystemConfigs};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, OrInitSingleRes};
 
@@ -61,7 +62,7 @@ pub fn calc_border_image(
 			Option<&BorderImageSlice>,
 			&BorderImage,
 		),
-		(Changed<BorderImageTexture>, Changed<BorderImageClip>, Changed<BorderImageRepeat>, Changed<BorderImageSlice>,  Changed<WorldMatrix>),
+		Or<(Changed<BorderImageTexture>, Changed<BorderImageClip>, Changed<BorderImageRepeat>, Changed<BorderImageSlice>,  Changed<WorldMatrix>)>,
 	>,
     mut query_draw: Query<&InstanceIndex, With<BorderImageMark>>,
 	r: OrInitSingleRes<IsRun>,

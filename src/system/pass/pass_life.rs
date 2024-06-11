@@ -15,17 +15,15 @@
 //! 4. 在节点上创建其所在的Pass2D实体的索引（InPass2DId），表明节点上的渲染对象应该渲染到那个Psss2D上。
 //!
 //!
-use nalgebra::Point2;
-use pi_style::style::Aabb2;
-use pi_world::{event::{Event, EventSender}, fetch::{ArchetypeName, Ticker}, filter::With, prelude::{Alter, Changed, ComponentRemoved, Entity, Has, Mut, ParamSet, Query, SingleRes, SingleResMut}, system_params::Local};
+use pi_world::{event::{Event, EventSender}, fetch::Ticker, filter::{Or, With}, prelude::{Alter, Changed, ComponentRemoved, Entity, Has, Mut, ParamSet, Query, SingleRes, SingleResMut}};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, OrInitSingleRes, Up, Layer, LayerDirty};
 
 use pi_null::Null;
 
 use crate::{
     components::{
-        calc::{ContentBox, EntityKey, InPassId, NeedMark, OverflowDesc, RenderContextMark, View, WorldMatrix}, draw_obj::{FboInfo, InstanceIndex}, pass_2d::{Camera, ChildrenPass, ParentPassId, PostProcessInfo}, user::Vector4, PassBundle
-    }, resource::{draw_obj::InstanceContext, EffectRenderContextMark, NodeChanged, RenderContextMarkType}, shader1::meterial::{BoxUniform, QuadUniform, RenderFlagType, TyUniform}, system::{draw_obj::{calc_text::IsRun, set_box}, node::{user_setting::StyleChange, world_matrix::Empty}}
+        calc::{ContentBox, EntityKey, InPassId, NeedMark, RenderContextMark, WorldMatrix}, draw_obj::InstanceIndex, pass_2d::{Camera, ChildrenPass, ParentPassId, PostProcessInfo}, PassBundle
+    }, resource::{draw_obj::InstanceContext, EffectRenderContextMark, NodeChanged, RenderContextMarkType}, shader1::meterial::{BoxUniform, QuadUniform, RenderFlagType, TyUniform}, system::{draw_obj::calc_text::IsRun, node::{user_setting::StyleChange, world_matrix::Empty}}
 };
 
 /// 记录RenderContext添加和删除的脏，同时记录节点添加到树上的脏
@@ -177,7 +175,7 @@ pub fn cal_context(
     }
 
     if layer_dirty.count() > 0 {
-        event_writer.send(ContextMarkChanged(0));
+        event_writer.send(ContextMarkChanged);
     }
     
 
@@ -187,7 +185,7 @@ pub fn cal_context(
     // }
 }
 
-pub struct ContextMarkChanged(usize);
+pub struct ContextMarkChanged;
 /// Pass2D设置children
 pub fn calc_pass_children_and_clear(
     event_reader: Event<ContextMarkChanged>,
@@ -340,24 +338,24 @@ pub fn calc_pass(
             &InstanceIndex,
             &ParentPassId,
             &Camera,
-            &View,
+            // &View,
 		),
-		(Changed<PostProcessInfo>, Changed<WorldMatrix>, Changed<ContentBox>),
+		Or<(Changed<PostProcessInfo>, Changed<WorldMatrix>, Changed<ContentBox>)>,
 	>,
-    query1: Query<
-		(
-            &ParentPassId,
-            &Camera,
-            &PostProcessInfo,
-		),
-	>,
+    // query1: Query<
+	// 	(
+    //         &ParentPassId,
+    //         &Camera,
+    //         &PostProcessInfo,
+	// 	),
+	// >,
 	r: OrInitSingleRes<IsRun>,
 ) {
     if r.0 {
 		return;
 	}
 
-    for (instance_index, mut parent_pass_id, camera, overflow_aabb) in query.iter() {
+    for (instance_index, parent_pass_id, camera) in query.iter() {
 		// 节点可能设置为dispaly none， 此时instance_index可能为Null
         // 节点可能没有后处理效果， 此时instance_index为Null
         if pi_null::Null::is_null(&instance_index.0.start) {
@@ -525,7 +523,7 @@ pub fn render_mark_true(
     mark_type: usize,
     render_mark_value: &mut Mut<RenderContextMark>,
 ) {
-    let r = unsafe { render_mark_value.replace_unchecked(mark_type, true) };
+    unsafe { render_mark_value.replace_unchecked(mark_type, true) };
 }
 
 #[inline]

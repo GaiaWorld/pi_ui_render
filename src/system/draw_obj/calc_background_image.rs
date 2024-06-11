@@ -1,5 +1,5 @@
 
-use pi_world::event::Event;
+use pi_world::filter::Or;
 use pi_world::param_set::ParamSet;
 use pi_world::prelude::{Changed, With, Query, Plugin, OrDefault, IntoSystemConfigs, Has, ComponentRemoved};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, OrInitSingleRes};
@@ -17,7 +17,6 @@ use crate::prelude::UiStage;
 use crate::shader1::meterial::{RenderFlagType, TyUniform, ImageRepeatUniform, UvUniform};
 use crate::system::draw_obj::set_box;
 use crate::system::node::layout::calc_layout;
-use crate::system::node::user_setting::StyleChange;
 use crate::system::system_set::UiSystemSet;
 use crate::utils::tools::eq_f32;
 use crate::components::user::BackgroundImage;
@@ -70,7 +69,7 @@ pub fn calc_background_image(
 			Option<&BackgroundImageMod>,
 			&BackgroundImage,
 		),
-		(Changed<BackgroundImageTexture>, Changed<BackgroundImageClip>,  Changed<WorldMatrix>),
+		Or<(Changed<BackgroundImageTexture>, Changed<BackgroundImageClip>,  Changed<WorldMatrix>)>,
 	>,
     mut query_draw: Query<&InstanceIndex, With<BackgroundImageMark>>,
 	r: OrInitSingleRes<IsRun>,
@@ -90,6 +89,7 @@ pub fn calc_background_image(
 	// let t1 = pi_time::Instant::now();
 
 	for (world_matrix, layout, draw_list, background_image_texture_ref, background_image_clip, background_image_mod, background_image) in query.iter() {
+		
 		let draw_id = match draw_list.get_one(render_type) {
 			Some(r) => r.id,
 			None => continue,
@@ -247,7 +247,6 @@ pub fn calc_background_image(
 		}
 	}
 	// println!("bg image end========================{:?}", pi_time::Instant::now() - t1);
-
 	log::trace!("bg image end========================");
 }
 

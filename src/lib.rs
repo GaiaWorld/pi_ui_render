@@ -34,7 +34,6 @@ pub mod events;
 pub mod prelude {
     use pi_world::prelude::{App, IntoSystemConfigs, Plugin, IntoSystemSetConfigs, WorldPluginExtent};
 
-    use pi_bevy_render_plugin::FrameDataPrepare;
     use pi_hal::font::font::FontType;
 
     pub use crate::resource::UserCommands;

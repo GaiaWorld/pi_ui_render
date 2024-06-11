@@ -9,7 +9,6 @@ use pi_bevy_asset::ShareAssetMgr;
 use pi_bevy_render_plugin::{NodeId, PiRenderDevice, PiRenderQueue};
 use pi_hash::{XHashMap, XHashSet};
 use pi_map::vecmap::VecMap;
-use pi_null::Null;
 use pi_render::{
     renderer::{draw_obj::DrawBindGroup, vertices::{EVerticesBufferUsage, RenderVertices}}, 
     rhi::{
@@ -29,7 +28,7 @@ use pi_render::rhi::shader::BindLayout;
 use pi_share::Share;
 use pi_slotmap::{DefaultKey, SlotMap, SecondaryMap};
 use wgpu::{
-    util::{BufferInitDescriptor, DeviceExt}, BindGroupEntry, BindingType, BlendState, BufferDescriptor, CompareFunction, DepthBiasState, DepthStencilState, Extent3d, Limits, MultisampleState, PipelineLayout, RenderPass, Sampler, SamplerBindingType, ShaderModule, ShaderStages, StencilState, TextureDescriptor, TextureFormat, TextureSampleType, TextureViewDescriptor, TextureViewDimension
+    BindGroupEntry, BindingType, BlendState, BufferDescriptor, CompareFunction, DepthBiasState, DepthStencilState, Extent3d, Limits, MultisampleState, PipelineLayout, RenderPass, Sampler, SamplerBindingType, ShaderModule, ShaderStages, StencilState, TextureDescriptor, TextureFormat, TextureSampleType, TextureViewDescriptor, TextureViewDimension
 };
 use pi_render::rhi::shader::Input;
 
@@ -361,18 +360,18 @@ impl InstanceContext {
         // log::warn!("instance_data_range====={:?}", (&instance_draw.instance_data_range, instance_draw.instance_data_range.start as u32/self.instance_data.alignment as u32..instance_draw.instance_data_range.end as u32/self.instance_data.alignment as u32));
 		// #[cfg(debug_assertions)]
         // {
-            for i in instance_draw.instance_data_range.start as u32/self.instance_data.alignment as u32..instance_draw.instance_data_range.end as u32/self.instance_data.alignment as u32 {
-                // let debug_info = self.debug_info.get(i as usize/MeterialBind::SIZE);
-                // let index = i as usize * self.instance_data.alignment;
-                // let render_flag = self.instance_data.get_render_ty(index as u32);
-                // if render_flag == 0 {
-                //     panic!("!!!!!!!!!!!!!!, {}", index);
-                // }
-                rp.draw(0..6, i..i+1);
-            } 
+            // for i in instance_draw.instance_data_range.start as u32/self.instance_data.alignment as u32..instance_draw.instance_data_range.end as u32/self.instance_data.alignment as u32 {
+            //     // let debug_info = self.debug_info.get(i as usize/MeterialBind::SIZE);
+            //     // let index = i as usize * self.instance_data.alignment;
+            //     // let render_flag = self.instance_data.get_render_ty(index as u32);
+            //     // if render_flag == 0 {
+            //     //     panic!("!!!!!!!!!!!!!!, {}", index);
+            //     // }
+            //     rp.draw(0..6, i..i+1);
+            // } 
         // }
         // #[cfg(not(debug_assertions))]
-        // rp.draw(0..6, instance_draw.instance_data_range.start as u32/self.instance_data.alignment as u32..instance_draw.instance_data_range.end as u32/self.instance_data.alignment as u32);
+        rp.draw(0..6, instance_draw.instance_data_range.start as u32/self.instance_data.alignment as u32..instance_draw.instance_data_range.end as u32/self.instance_data.alignment as u32);
 
 	}
 }
@@ -430,7 +429,7 @@ impl FromWorld for InstanceContext {
         };
 		
 
-		let text_texture_layout =(***device).create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+		let text_texture_layout =(****device).create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
 			label: None,
 			entries: &[wgpu::BindGroupLayoutEntry {
 				binding: 0,

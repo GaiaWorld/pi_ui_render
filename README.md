@@ -17,6 +17,10 @@
 
 ## 运行quad demo： `cargo run --example quad`
 + 设置日志过滤， 如： $env:RUST_LOG="warn,pi_ui_render::system::node::user_setting=debug,pi_ui_render::components::user=debug,pi_ui_render=warn,pi_ui_render::system::pass_effect::opacity=trace,pi_ui_render::system::pass::pass_graph_node=trace,pi_ui_render::system::draw_obj::calc_background_color=debug,pi_ui_render::system::pass::pass_life=trace,pi_ui_render::system::draw_obj::life_drawobj=trace,pi_ui_render::system::pass::update_graph=trace"
++ tracing warn
+$env:RUST_LOG="warn"
++ tracing info
++ $env:RUST_LOG="warn,pi_world=info,pi_bevy_ecs_extend=info"
 
 	
 ## 测试gui性能 

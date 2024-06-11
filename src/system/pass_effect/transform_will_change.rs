@@ -1,4 +1,4 @@
-use pi_world::prelude::{Changed, Query, Local, Entity, OrDefault, Has, ParamSet, Ticker, ComponentRemoved};
+use pi_world::{filter::Or, prelude::{Changed, ComponentRemoved, Entity, Has, Local, OrDefault, ParamSet, Query, Ticker}};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleRes, Up, Layer, DirtyMark};
 
 use crate::{
@@ -52,11 +52,11 @@ pub fn transform_will_change_post_process(
             Ticker<&TransformWillChange>,
             Ticker<&Layer>,
         ),
-        (
+        Or<(
             Changed<WorldMatrix>,
             Changed<Layer>,
             Changed<TransformWillChange>,
-        ),
+        )>,
     >,
 
     // mut event_reader: EventReader<ComponentEvent<Changed<ParentPassId>>>,

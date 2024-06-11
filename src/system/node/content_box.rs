@@ -1,8 +1,8 @@
 //! 计算内容包围盒
 //! 内容包围盒是指： **自身+递归子节点**的包围盒
 
-use pi_world::{filter::With, prelude::{Changed, Query}};
-use pi_bevy_ecs_extend::prelude::{OrInitSingleRes, Up, Layer, LayerDirty, Down};
+use pi_world::{filter::With, prelude::Query};
+use pi_bevy_ecs_extend::prelude::{Up, Layer, LayerDirty, Down};
 
 use pi_null::Null;
 
@@ -20,7 +20,7 @@ pub struct CalcContentBox;
 
 /// 计算内容包围盒（包含布局的包围盒，和世界坐标系的包围盒）
 pub fn calc_content_box(
-    mut dirty: &mut LayerDirty<With<Empty>>,
+    dirty: &mut LayerDirty<With<Empty>>,
     node_box: &Query<(&Quad, &LayoutResult, Option<&TextShadow>, Option<&BoxShadow>, &WorldMatrix)>,
     down: Query<&Down>,
     up: Query<&Up>,

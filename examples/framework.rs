@@ -572,7 +572,7 @@ pub fn setting_next_record(world: &mut World, mut local_state: Local<NextState>)
     if local_state.is_end {
         return;
     }
-	let play_option  = world.get_single_res::<PlayOption>().unwrap().clone();
+	let play_option  = (*world.get_single_res::<PlayOption>().unwrap()).clone();
     let local_state = &mut *local_state;
     setting(&mut local_state.file_index, world, &mut local_state.is_end, &play_option)
 }
@@ -614,7 +614,7 @@ fn setting(file_index1: &mut usize, world: &mut World, is_end: &mut bool, play_o
                             Ok(r) => {
                                 log::debug!("cmd!!!!!!!!!================{:?}", r.len());
                                 world.or_register_single_res(TypeInfo::of::<Records>());
-                                *world.get_single_res_mut::<Records>().unwrap() = r;
+                                **world.get_single_res_mut::<Records>().unwrap() = r;
                                 // 重设播放状态
                                 let play_state = world.get_single_res_mut::<PlayState>().unwrap();
                                 play_state.is_running = true;

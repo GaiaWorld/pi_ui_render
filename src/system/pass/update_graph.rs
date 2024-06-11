@@ -1,6 +1,7 @@
 
 
 use pi_world::event::ComponentRemoved;
+use pi_world::filter::Or;
 use pi_world::prelude::{Changed, Entity, FilterComponents, Has, ParamSet, Query, SingleRes, SingleResMut, With};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, OrInitSingleRes};
 
@@ -39,7 +40,7 @@ pub fn update_graph(
     mut pass_query: ParamSet<(
         Query<(&mut GraphId, Entity, &ParentPassId, &PostProcessInfo), Changed<RenderContextMark>>,
         (
-			Query<(&ParentPassId, &GraphId, Option<&AsImage>), ((Changed<ParentPassId>, Changed<AsImage>, Changed<GraphId>), With<Camera>)>, 
+			Query<(&ParentPassId, &GraphId, Option<&AsImage>), (Or<(Changed<ParentPassId>, Changed<AsImage>, Changed<GraphId>)>, With<Camera>)>, 
 			Query<(&ParentPassId, &GraphId), With<Camera>>,
 			Query<&GraphId>,
 			Query<&ChildrenPass>,
@@ -97,7 +98,7 @@ pub fn update_graph(
 
     for i in removed.iter() {
         // 移除渲染图节点
-        for (id, has_camera) in del.get(*i) {
+        if let Ok((id, has_camera)) = del.get(*i) {
             if has_camera {
                 continue;
             }

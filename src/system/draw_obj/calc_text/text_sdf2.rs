@@ -1,7 +1,7 @@
 //! sdf2文字功能
+use pi_world::filter::Or;
 use pi_world::prelude::{Changed, With, Query, SingleResMut, Entity, Plugin, OrDefault, IntoSystemConfigs};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, OrInitSingleRes, Up, Layer};
-use pi_bevy_render_plugin::FrameDataPrepare;
 use pi_hal::font::font::FontType;
 use pi_hal::font::sdf2_table::TexInfo;
 use pi_hal::pi_sdf::glyphy::geometry::aabb::AabbEXT;
@@ -10,7 +10,7 @@ use pi_style::style::{Aabb2, FontStyle, TextOverflow};
 
 use crate::components::calc::{LayoutResult, NodeState};
 use crate::components::draw_obj::{TextMark, RenderCount};
-use crate::components::user::{get_size, FlexContainer, FlexNormal, Point2, Position, Size, TextContent, TextOuterGlow, TextOverflowData, TextShadow, TextStyle};
+use crate::components::user::{get_size, Point2, TextContent, TextOuterGlow, TextOverflowData, TextShadow, TextStyle};
 use crate::components::user::Color;
 use crate::resource::{NodeChanged, ShareFontSheet, TextRenderObjType};
 use crate::shader1::{InstanceData, GpuBuffer};
@@ -98,11 +98,11 @@ pub fn calc_sdf2_text_len(
 		Option<&TextShadow>, 
 		OrDefault<TextStyle>,
 	), (
-		(Changed<NodeState>, 
+		Or<(Changed<NodeState>, 
 		Changed<TextOverflowData>, 
 		Changed<LayoutResult>, 
 		Changed<TextStyle>,
-		Changed<TextShadow>), 
+		Changed<TextShadow>)>, 
 		With<TextContent>,
 	)>,
     mut query_draw: Query<&mut RenderCount, With<TextMark>>,
@@ -225,7 +225,6 @@ pub fn calc_sdf2_text_len(
 pub fn calc_sdf2_text(
 	// sdf2_texture_version
 	mut instances: OrInitSingleResMut<InstanceContext>,
-	query1: Query<(&LayoutResult, &Up, Option<&FlexNormal>, Option<&FlexContainer>, Option<&Size>, Option<&Position>)>,
     query: Query<(
 		Entity, 
 		&WorldMatrix, 
@@ -238,7 +237,7 @@ pub fn calc_sdf2_text(
 		Option<&TextShadow>, 
 		Option<&TextOuterGlow>, 
 	), (
-		(Changed<TextStyle>, Changed<NodeState>, Changed<WorldMatrix>), With<TextContent>)>,
+		Or<(Changed<TextStyle>, Changed<NodeState>, Changed<WorldMatrix>)>, With<TextContent>)>,
     mut query_draw: Query<(&InstanceIndex, &RenderCount), With<TextMark>>,
 	query_up: Query<(&'static LayoutResult, &'static Up, &'static NodeState)>,
 	r: OrInitSingleRes<IsRun>,
@@ -310,8 +309,8 @@ pub fn calc_sdf2_text(
 				}
 			}
 
-			// if node_state.0.text[0].ch == '《' {
-			// 	println!("快!!!!start================={:?}, \n{:?}, \n{:?}, \n{:?}", entity, matrix, layout1, &node_state.0.text);
+			// if node_state.0.text[0].ch == '虚' {
+			// 	println!("快!!!!start================={:?}, \n{:?}, \n{:?}, \n{:?}", entity, matrix, layout, &node_state.0.text);
 			// 	let mut e = entity;
 			// 	loop {
 			// 		match query1.get(e) {
@@ -591,7 +590,7 @@ fn set_chars_data(
 						};
 											// let offset_y = (line_height - font_height) / 2.0;
 						for i in 0..shadow_factor {
-							uniform_data.set_data(instances.instance_data_mut(cur_instance_index), glyph, render_range, (left + text_style.letter_spacing, top + (line_height - (render_range.maxs.y - render_range.mins.y) * font_size) / 2.0), font_size, shadow_factor - i - 1, entity);
+							uniform_data.set_data(instances.instance_data_mut(cur_instance_index), glyph, render_range, (left + text_style.letter_spacing, top + (line_height - (render_range.maxs.y - render_range.mins.y) * font_size) / 2.0), font_size, shadow_factor - i - 1);
 							cur_instance_index = instances.next_index(cur_instance_index);
 						}
 						
@@ -622,7 +621,7 @@ fn set_chars_data(
 		// 	log::warn!("default_range============{}, {:?}, {:?}, {:?}, {:?}", font_sheet.font_mgr().table.sdf2_table.glyphs[c.ch_id].font_face_index, c.ch, fontface_ids, font_sheet.font_mgr().sheet.fonts[font_id.0].font_family_id,&font_sheet.font_mgr().sheet.font_familys[font_sheet.font_mgr().sheet.fonts[font_id.0].font_family_id.0]);
 		// }
 		for i in 0..shadow_factor {
-			uniform_data.set_data(instances.instance_data_mut(cur_instance_index), glyph, render_range, (left + render_range.mins.x * font_size, top + (line_height - (render_range.maxs.y - render_range.mins.y) * font_size) / 2.0), font_size, shadow_factor - i - 1, entity);
+			uniform_data.set_data(instances.instance_data_mut(cur_instance_index), glyph, render_range, (left + render_range.mins.x * font_size, top + (line_height - (render_range.maxs.y - render_range.mins.y) * font_size) / 2.0), font_size, shadow_factor - i - 1);
 			cur_instance_index = instances.next_index(cur_instance_index);
 		}
 
@@ -660,7 +659,7 @@ enum ColorData {
 
 impl<'a> UniformData<'a> {
 	#[inline]
-	fn set_data(&self, mut instance_data: InstanceData, tex_info: &TexInfo, render_range: &Aabb2, mut offset: (f32, f32), font_size: f32, shadow_index: usize, entity: Entity) {
+	fn set_data(&self, mut instance_data: InstanceData, tex_info: &TexInfo, render_range: &Aabb2, mut offset: (f32, f32), font_size: f32, shadow_index: usize) {
 		let mut render_flag = instance_data.get_render_ty();
 		render_flag |= 1 << RenderFlagType::Sdf2 as usize;
 
@@ -734,7 +733,11 @@ impl<'a> UniformData<'a> {
 			instance_data.set_data(&Sdf2InfoUniform(&data));
 			// 设置文字在布局空间的偏移和宽高
 			// instance_data.set_data(&BoxUniform(&[offset.0, offset.1, (render_range.maxs.x - render_range.mins.x) * font_size, (render_range.maxs.y - render_range.mins.y) * font_size]));
-			// println!("self.world_matrix: {:?}", self.world_matrix);
+			// use pi_key_alloter::Key;
+			// if c == '虚' {
+			// 	println!("set_box: {:?}", (&self.world_matrix, offset, width, height));
+			// }
+			
 			set_box(&self.world_matrix, &Aabb2::new(Point2::new(offset.0, offset.1), Point2::new(width + offset.0, height + offset.1)), &mut instance_data);
 		// }
 

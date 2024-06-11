@@ -1,6 +1,6 @@
 //! 每个实体必须写入StyleMark组件
 
-use pi_world::{event::{Event, EventSender}, filter::Or, prelude::{Alter, Changed, Entity, Local, Mut, Query, SingleResMut, With, World}, single_res::SingleRes, system::{SystemMeta, TypeInfo}, system_params::SystemParam, world::FromWorld};
+use pi_world::{event::{Event, EventSender}, filter::Or, prelude::{Alter, Entity, Local, Mut, Query, SingleResMut, With, World}, single_res::SingleRes, system::{SystemMeta, TypeInfo}, system_params::SystemParam, world::FromWorld};
 use pi_world::world::ComponentIndex;
 use pi_key_alloter::Key;
 use pi_bevy_ecs_extend::prelude::{EntityTreeMut, OrInitSingleResMut};
@@ -66,7 +66,7 @@ pub fn user_setting1(
 
     let mut w1 = world.unsafe_world();
 
-    let user_commands = w1.index_single_res_mut::<UserCommands>(id.user_commands).unwrap().0;
+    let user_commands = w1.index_single_res_mut::<UserCommands>(id.user_commands).unwrap();
     // 应用other_commands指令
     user_commands.other_commands.apply(world);
     user_commands.version += 1;
@@ -84,10 +84,10 @@ pub fn user_setting1(
     let w5 = world.unsafe_world();
     let mut w6 = world.unsafe_world();
     
-    let fragments = w2.index_single_res_mut::<FragmentMap>(id.fragments).unwrap().0;
+    let fragments = w2.index_single_res_mut::<FragmentMap>(id.fragments).unwrap();
 
-    let class_sheet = w3.index_single_res_mut::<ClassSheet>(id.class_sheet).unwrap().0;
-    let dirty_mark = w4.index_single_res_mut::<StyleDirtyMark>(id.style_dirty_mark).unwrap().0;
+    let class_sheet = w3.index_single_res_mut::<ClassSheet>(id.class_sheet).unwrap();
+    let dirty_mark = w4.index_single_res_mut::<StyleDirtyMark>(id.style_dirty_mark).unwrap();
     let mut s_meta = SystemMeta::new(TypeInfo::of::<()>());
 
     let mut events = EventSender::<'_, StyleChange>::init_state(&mut w6, &mut s_meta);
@@ -146,7 +146,7 @@ pub fn user_setting1(
                 }
 
                 // 初始化组件
-                let _ = world.make_entity_editor().alter_components(*node, &component_ids);
+                let _ = world.make_entity_editor().alter_components_by_index(*node, &component_ids);
                 unsafe { component_ids.set_len(old_len); }
 
                 log::debug!("insert NodeBundle for fragment , {:?}", node);
@@ -202,7 +202,7 @@ pub fn user_setting1(
                 add_component_ops(class.start, class.end, &class_sheet.style_buffer, &setting_components, &mut component_ids1)
             }
         }
-        let _ = setting.world.make_entity_editor().alter_components(node, &mut component_ids1);
+        let _ = setting.world.make_entity_editor().alter_components_by_index(node, &mut component_ids1);
         component_ids1.clear();
 
         set_class(node, &mut setting,  class, &class_sheet, &mut component_ids1, &mut dirty_list);
@@ -430,9 +430,10 @@ pub fn set_styles<'w, 's>(
         }
 
         old_len = component_ids.len();
+       
         add_component_ops(start, end, style_buffer, &style_query.style, component_ids);
         log::debug!("add_component_ops===={:?}", (node, &component_ids, need_init));
-        let _ = style_query.world.make_entity_editor().alter_components(node, component_ids);
+        let _ = style_query.world.make_entity_editor().alter_components_by_index(node, component_ids);
         unsafe { component_ids.set_len(old_len); }
 
         set_style(node, start, end, style_buffer, style_query, false, dirty_list);
@@ -454,7 +455,7 @@ pub fn set_style<'w, 's>(node: Entity, start: usize, end: usize, style_buffer: &
     let mut local_mark = BitArray::new([0, 0, 0, 0]);
     while style_reader.write_to_component(&mut local_mark, node, style_query, is_clone) {}
 
-    if let Ok(mut style_mark) = style_query.world.get_component_by_index_mut::<StyleMark>(node, style_query.style.style_mark) {
+    if let Ok(mut style_mark) = style_query.world.get_component_mut_by_index::<StyleMark>(node, style_query.style.style_mark) {
         style_mark.local_style |= local_mark;
 		style_mark.dirty_style |= local_mark;
     };
@@ -514,17 +515,17 @@ fn set_class<'w, 's>(node: Entity, style_query: &mut Setting, class: ClassName, 
     }
 
     if component_ids1.len() > 0 {
-        let _ = style_query.world.make_entity_editor().alter_components(node, &component_ids1);
+        let _ = style_query.world.make_entity_editor().alter_components_by_index(node, &component_ids1);
         component_ids1.clear();
     }
 
 
-    if let Ok(mut style_mark) = style_query.world.get_component_by_index_mut::<StyleMark>(node, style_query.style.style_mark) {
+    if let Ok(mut style_mark) = style_query.world.get_component_mut_by_index::<StyleMark>(node, style_query.style.style_mark) {
         style_mark.class_style |= new_class_style_mark;
 		style_mark.dirty_style |= new_class_style_mark;
     };
 
-    if let Ok(mut class_name) = style_query.world.get_component_by_index_mut::<ClassName>(node, style_query.style.class_name) {
+    if let Ok(mut class_name) = style_query.world.get_component_mut_by_index::<ClassName>(node, style_query.style.class_name) {
         *class_name = class;
     };
 
