@@ -8,6 +8,7 @@ pub mod user;
 
 use pi_world::{prelude::{Bundle, Entity, FromWorld}, world::{ComponentIndex, World}};
 use pi_bevy_ecs_extend::prelude::{Down, Layer, Up};
+use user::SvgInnerContent;
 
 use self::{
     calc::{DrawInfo, DrawList, EntityKey, IsShow, NodeState, RenderContextMark, TransformWillChangeMatrix, View},
@@ -77,6 +78,8 @@ pub struct SettingComponentIds {
     pub render_context_mark: ComponentIndex,
     pub draw_list: ComponentIndex,
     pub is_show: ComponentIndex,
+
+    pub svg: ComponentIndex,
 }
 
 impl FromWorld for SettingComponentIds {
@@ -140,6 +143,8 @@ impl FromWorld for SettingComponentIds {
             render_context_mark: world.init_component::<self::calc::RenderContextMark>(),
             draw_list: world.init_component::<self::calc::DrawList>(),
             is_show: world.init_component::<self::calc::IsShow>(),
+
+            svg: world.init_component::<SvgInnerContent>(),
         }
     }
 }

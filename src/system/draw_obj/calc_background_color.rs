@@ -1,3 +1,5 @@
+
+use pi_style::style::{Aabb2, LinearGradientColor, Point2};
 use pi_world::filter::Or;
 use pi_world::prelude::{Changed, With, Query, Plugin, IntoSystemConfigs};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, OrInitSingleRes};
@@ -8,6 +10,7 @@ use crate::resource::BackgroundColorRenderObjType;
 use crate::resource::draw_obj::InstanceContext;
 use crate::shader1::meterial::{GradientColorUniform, GradientPositionUniform, RenderFlagType, ColorUniform, TyUniform, GradientEndUniform};
 use crate::components::user::{BackgroundColor, Color, Vector2};
+use crate::shader1::InstanceData;
 use crate::system::draw_obj::set_box;
 use crate::system::system_set::UiSystemSet;
 use crate::prelude::UiStage;
@@ -83,54 +86,15 @@ pub fn calc_background_color(
 					render_flag |= 1 << RenderFlagType::Color as usize;
 					render_flag &= !(1 << RenderFlagType::LinearGradient as usize);
 				}
-				Color::LinearGradient(color) => {
-					let mut colors: [f32; 16] = [0.0; 16];
-					let mut positions: [f32; 4] = [1.0; 4];
-					if color.list.len() > 0 {
-						for i in 0..4 {
-							match color.list.get(i) {
-								Some(r) => {
-									positions[i] = r.position;
-									let j = i * 4;
-									colors[j] = r.rgba.x;
-									colors[j + 1] = r.rgba.y;
-									colors[j + 2] = r.rgba.z;
-									colors[j + 3] = r.rgba.w;
-								},
-								None => {
-									positions[i] = 1.0;
-									let j = i * 4;
-									colors[j] = colors[j - 4];
-									colors[j + 1] = colors[j - 3];
-									colors[j + 2] = colors[j - 2];
-									colors[j + 3] = colors[j - 1];
-								},
-							}
-						}
-					}
-					let normalize_direction = Vector2::new(color.direction.cos(), color.direction.sin());
-					let r = [
-						Vector2::new(layout.border.left, layout.border.top).dot(&normalize_direction), 
-						Vector2::new(layout.rect.right - layout.border.right - layout.rect.left, layout.border.top).dot(&normalize_direction),
-						Vector2::new(layout.rect.right - layout.border.right - layout.rect.left, layout.rect.bottom - layout.border.bottom - layout.rect.top).dot(&normalize_direction),
-						Vector2::new(layout.border.left, layout.rect.bottom - layout.border.bottom - layout.rect.top).dot(&normalize_direction),
-					];
-					let (min, max) = (r[0].min(r[1]).min(r[2]).min(r[3]), r[0].max(r[1]).max(r[2]).max(r[3]));
-					let end = (normalize_direction * min, normalize_direction * max);
-					instance_data.set_data(&GradientColorUniform(&colors));
-					instance_data.set_data(&GradientPositionUniform(&positions));
-					instance_data.set_data(&GradientEndUniform([end.0.x, end.0.y, end.1.x, end.1.y].as_slice()));
-
-					log::trace!("normalize_direction======normalize_direction={:?}, \nr={:?}, \nmin={:?}, \nmax={:?}, \nend={:?}, \ndata={:?}", normalize_direction, r, min, max, end, [
-						Vector2::new(layout.border.left, layout.border.top), 
-						Vector2::new(layout.rect.right - layout.border.right - layout.rect.left, layout.border.top),
-						Vector2::new(layout.rect.right - layout.border.right - layout.rect.left, layout.rect.bottom - layout.border.bottom - layout.rect.top),
-						Vector2::new(layout.border.left, layout.rect.bottom - layout.border.bottom - layout.rect.top),
-					]);
-	
-					render_flag |= 1 << RenderFlagType::LinearGradient as usize;
-					render_flag &= !(1 << RenderFlagType::Color as usize);
-				},
+				Color::LinearGradient(color) => set_linear_gradient_instance_data(
+					color, 
+					&Aabb2::new(
+						Point2::new( layout.border.left, layout.border.top), 
+						Point2::new( layout.rect.right - layout.border.right - layout.rect.left, layout.rect.bottom - layout.border.bottom - layout.rect.top)
+					), 
+					&mut instance_data, 
+					&mut render_flag
+				),
 			};
 			instance_data.set_data(&TyUniform(&[render_flag as f32]));
 
@@ -152,4 +116,48 @@ pub fn calc_background_color(
 			set_box(&world_matrix, &layout.padding_aabb(), &mut instance_data);
 		}
 	}
+}
+
+// 渐变颜色实例数据
+pub fn set_linear_gradient_instance_data(color: &LinearGradientColor, aabb: &Aabb2, instance_data: &mut InstanceData, render_flag: &mut usize) {
+	let mut colors: [f32; 16] = [0.0; 16];
+	let mut positions: [f32; 4] = [1.0; 4];
+	if color.list.len() > 0 {
+		for i in 0..4 {
+			match color.list.get(i) {
+				Some(r) => {
+					positions[i] = r.position;
+					let j = i * 4;
+					colors[j] = r.rgba.x;
+					colors[j + 1] = r.rgba.y;
+					colors[j + 2] = r.rgba.z;
+					colors[j + 3] = r.rgba.w;
+				},
+				None => {
+					positions[i] = 1.0;
+					let j = i * 4;
+					colors[j] = colors[j - 4];
+					colors[j + 1] = colors[j - 3];
+					colors[j + 2] = colors[j - 2];
+					colors[j + 3] = colors[j - 1];
+				},
+			}
+		}
+	}
+	let normalize_direction = Vector2::new(color.direction.cos(), color.direction.sin());
+	let r = [
+		Vector2::new(aabb.mins.x, aabb.mins.y).dot(&normalize_direction), 
+		Vector2::new(aabb.maxs.x, aabb.mins.y).dot(&normalize_direction),
+		Vector2::new(aabb.maxs.x, aabb.maxs.y).dot(&normalize_direction),
+		Vector2::new(aabb.mins.x, aabb.maxs.y).dot(&normalize_direction),
+	];
+	let (min, max) = (r[0].min(r[1]).min(r[2]).min(r[3]), r[0].max(r[1]).max(r[2]).max(r[3]));
+	let end = (normalize_direction * min, normalize_direction * max);
+
+	instance_data.set_data(&GradientColorUniform(&colors));
+	instance_data.set_data(&GradientPositionUniform(&positions));
+	instance_data.set_data(&GradientEndUniform([end.0.x, end.0.y, end.1.x, end.1.y].as_slice()));
+	
+	*render_flag |= 1 << RenderFlagType::LinearGradient as usize;
+	*render_flag &= !(1 << RenderFlagType::Color as usize);
 }

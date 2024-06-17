@@ -1,69 +1,44 @@
-// use crate::{
-//     components::{
-//         calc::Quad,
-//         draw_obj::{DrawState, DynTargetType, PipelineMeta},
-//         pass_2d::PostProcess,
-//         user::{MaskImage, MaskImageClip, Point2},
-//     },
-//     resource::{
-//         draw_obj::{CameraGroup, DepthCache, DepthGroup, PosColorVertexLayout, ProgramMetaRes, ShaderInfoCache, ShareGroupAlloter, UiMaterialGroup},
-//         BackgroundColorRenderObjType,
-//     },
-//     shader::{
-//         camera::{CameraBind, ProjectUniform, ViewUniform},
-//         color::{PositionVert, VertColorVert, VERT_COLOR_DEFINE},
-//         depth::DepthBind,
-//         ui_meterial::{UiMaterialBind, WorldUniform},
-//     },
-//     system::{
-//         draw_obj::{
-//             calc_background_color::linear_gradient_split,
-//             image_texture_load::{load_image, set_texture, ImageAwait},
-//             pipeline::calc_node_pipeline, calc_text::IsRun,
-//         },
-//         node::world_matrix::cal_matrix,
-//         pass::{pass_graph_node::create_rp_for_fbo, pass_life, update_graph},
-//         system_set::UiSystemSet,
-//         utils::{create_project, set_index_buffer, set_vert_buffer},
-//     },
-// };
-// use pi_world::{
-//     system::{SystemParam, SystemState},
-//     prelude::{Changed, Commands, DetectChanges, Entity, Or, Query, Ref, RemovedComponents, SingleRes, SingleResMut,
-//         Resource, World, IntoSystemConfigs, apply_deferred
-//     },
-// };
-// use pi_world::{Plugin, UiStage, App, Startup};
-// use guillotiere::Rectangle;
-// use ordered_float::NotNan;
-// use pi_bevy_asset::ShareAssetMgr;
-// use pi_bevy_ecs_extend::{
-//     prelude::{Layer, OrDefault},
-//     system_param::res::{OrInitSingleRes, OrInitSingleResMut},
-// };
-// use pi_bevy_render_plugin::{
-//     component::GraphId,
-//     node::{Node, NodeId as GraphNodeId, ParamUsage},
-//     PiIndexBufferAlloter, PiRenderDevice, PiRenderGraph, PiRenderQueue, PiSafeAtlasAllocator, PiVertexBufferAlloter, RenderContext,
-// };
-// use pi_flex_layout::prelude::Size;
-// use pi_futures::BoxFuture;
-// use pi_hash::XHashSet;
-// use pi_null::Null;
-// use pi_postprocess::prelude::{ImageMask, PostprocessTexture};
-// use pi_render::{
-//     components::view::target_alloc::ShareTargetView,
-//     renderer::texture::ETextureViewUsage,
-//     rhi::{
-//         asset::TextureRes,
-//         shader::{BindLayout, Input},
-//         texture::PiRenderDefault,
-//     },
-// };
-// use pi_share::ShareRefCell;
-// use pi_style::style::{Aabb2, LinearGradientColor, MaskImage as MaskImage1};
-// use std::borrow::BorrowMut;
-// use wgpu::CommandEncoder;
+use crate::{
+    components::{
+        calc::{MaskTexture, Quad, WorldMatrix},
+        pass_2d::{InstanceDrawState, PostProcess, PostProcessInfo},
+        user::{MaskImage, MaskImageClip, Opacity, Point2},
+    }, 
+    resource::{
+        draw_obj::{InstanceContext, LastGraphNode, RenderState},
+        RenderContextMarkType,
+    }, 
+    shader::camera::{ProjectUniform, ViewUniform}, 
+    shader1::meterial::{BoxUniform, QuadUniform, RenderFlagType, TyUniform}, 
+    system::{
+        draw_obj::{
+            calc_background_color::set_linear_gradient_instance_data, calc_text::IsRun, image_texture_load::{load_image, set_texture, ImageAwait}
+        },
+        pass::pass_graph_node::create_rp_for_fbo,
+    }
+};
+use pi_world::{event::{ComponentChanged, ComponentRemoved}, fetch::{Has, OrDefault}, param_set::ParamSet, prelude::{Entity, Query, SingleRes, SingleResMut, World}, system_params::Local, world::FromWorld};
+use pi_bevy_asset::ShareAssetMgr;
+use pi_bevy_ecs_extend::system_param::res::{OrInitSingleRes, OrInitSingleResMut};
+use pi_bevy_render_plugin::{
+    node::{Node, NodeId as GraphNodeId, ParamUsage},
+    PiRenderDevice, PiRenderGraph, PiRenderQueue, PiSafeAtlasAllocator, RenderContext, TextureKeyAlloter,
+};
+use pi_futures::BoxFuture;
+use pi_null::Null;
+use pi_postprocess::prelude::{ImageMask, PostprocessTexture};
+use pi_render::{
+    components::view::target_alloc::{ShareTargetView, TargetDescriptor, TargetType, TextureDescriptor},
+    renderer::texture::ETextureViewUsage,
+    rhi::{
+        asset::{AssetWithId, TextureRes}, dyn_uniform_buffer::BufferGroup, texture::PiRenderDefault
+    },
+};
+use pi_share::ShareRefCell;
+use pi_style::style::{Aabb2, LinearGradientColor, MaskImage as MaskImage1};
+use smallvec::SmallVec;
+use std::ops::Range;
+use wgpu::CommandEncoder;
 
 // pub struct UiMaskImagePlugin;
 
@@ -95,239 +70,235 @@
 //     }
 // }
 
-// /// 绘制渐变颜色的 DrawObject
-// /// 每帧清空，并重新收集
-// #[derive(Debug, Default, Resource)]
-// pub struct LinearMaskDrawList(Vec<(Entity, ShareTargetView)>);
 
-// /// 设置遮罩的后处理效果
-// /// 如果MaskImage为url, 则加载该纹理，并设置在后处理上
-// /// 如果MaskImage为渐变色，则创建fbo，将该fbo作为MaskImage设置在后处理效果上；同时创建渲染节点，用于在fbo上渲染该渐变颜色
-// pub fn mask_image_post_process(
-//     q: (
-//         Query<
-//             (Entity, Ref<MaskImage>, OrDefault<MaskImageClip>, &Quad, &Layer, &GraphId),
-//             Or<(Changed<MaskImage>, Changed<Layer>, Changed<MaskImageClip>, Changed<Quad>)>,
-//         >,
-//         Query<(Entity, &MaskImage)>,
-//         Query<OrDefault<MaskImageClip>>,
-//         Query<&mut PostProcess>,
-//         Query<&DynTargetType>,
-//     ),
 
-//     mut del: RemovedComponents<MaskImage>,
+/// 1. 标记后处理
+/// 2. 加载MaskImage纹理
+pub fn mask_image_post_process1(
+    mark_type: OrInitSingleRes<RenderContextMarkType<MaskImage>>,
+    mask_image_changed: ComponentChanged<MaskImage>,
+    mut query: ParamSet<(
+        (
+            Query<(&MaskImage, &mut PostProcessInfo)>,
+            Query<(&mut PostProcess, OrDefault<MaskImageClip>)>,
+        ),
+        Query<(&mut PostProcess, &mut PostProcessInfo, Has<MaskImage>)>,
+    )>,
 
-//     mut mask_draw_list: OrInitSingleResMut<LinearMaskDrawList>,
-//     image_await: OrInitSingleRes<ImageAwait<Entity, MaskImage>>,
-//     texture_assets_mgr: SingleRes<ShareAssetMgr<TextureRes>>,
-//     queue: SingleRes<PiRenderQueue>,
-//     device: SingleRes<PiRenderDevice>,
-//     program_meta: OrInitSingleRes<ProgramMetaRes<crate::shader::color::ProgramMeta>>,
-//     vert_layout: OrInitSingleRes<PosColorVertexLayout>,
-//     shader_catch: OrInitSingleRes<ShaderInfoCache>,
-//     vertex_buffer_alloter: OrInitSingleRes<PiVertexBufferAlloter>,
-//     index_buffer_alloter: OrInitSingleRes<PiIndexBufferAlloter>,
-//     atlas_allocator: SingleRes<PiSafeAtlasAllocator>,
-//     group_alloter: OrInitSingleRes<ShareGroupAlloter<UiMaterialGroup>>,
-//     camera_material_alloter: OrInitSingleRes<ShareGroupAlloter<CameraGroup>>,
-//     other: (
-//         OrInitSingleRes<BackgroundColorRenderObjType>,
-//         OrInitSingleRes<LinearMaskNodeId>,
-//         Commands,
-//         SingleResMut<PiRenderGraph>,
-//         OrInitSingleResMut<DepthCache>,
-//         OrInitSingleRes<ShareGroupAlloter<DepthGroup>>,
-// 		OrInitSingleRes<IsRun>,
-//     ),
-//     // cur_depth: usize, device: &'a RenderDevice, bind_group_assets: &'a Share<AssetMgr<RenderRes<BindGroup>>>
-// 	// r: OrInitSingleRes<IsRun>
-// ) {
-//     let (color_render_type, mask_node_id, mut commands, mut rg, mut depth_cache, depth_alloter, r) = other;
-// 	if r.0 {
-// 		return;
-// 	}
-//     let (mut query, query_src, query_clip, mut query_dst, query_target_ty) = q;
-//     // 图片删除，则删除对应的遮罩效果
-//     for del in del.iter() {
-//         if let Ok(mut r) = query_dst.get_mut(del) {
-//             r.image_mask = None;
-//         };
-//     }
+    mask1: Query<(Entity, &MaskImage)>,
+    mut mask_texture: Query<&mut MaskTexture>,
 
-//     // 清理
-//     // 渐变色fbo在MaskImage、MaskImageClip、 Quad不变的情况下，永远不会重新绘制，因此总是每帧检查，并删除
-//     // 如果这些属性发生改变， 后续或重新创建新的DrawObj（这种情况应该很少发生）
-//     for (entity, _) in mask_draw_list.0.drain(..) {
-// 		log::warn!("despawn mask====={:?}", entity);
-//         // 删除对应的RenderObj（由于绘制渐变色的RenderObj没有放入DrawList中， 常规处理无法销毁该Obj， 因此在此处对其销毁）
-//         commands.entity(entity).despawn();
-//     }
+    remove: ComponentRemoved<Opacity>,
 
-//     // 处理图片路径修改，尝试加载图片（异步加载，加载完成后，放入image_await中）
-//     // 如果MaskImage是一个渐变颜色，则创建绘制该渐变颜色的DrawObj
-//     for (entity, mask_image, mask_image_clip, quad, layer, graph_id) in query.iter_mut() {
-//         if mask_image.is_added() && !mask_node_id.is_null() {
-//             rg.add_depend(****mask_node_id, **graph_id).unwrap();
-//         }
-//         match &mask_image.0 {
-//             MaskImage1::Path(key) => {
-//                 load_image(
-//                     entity,
-//                     key,
-//                     &image_await,
-//                     &device,
-//                     &queue,
-//                     None,
-//                     &mut query_dst,
-//                     &texture_assets_mgr,
-//                     |d, s, _| {
-// 						let is_null = d.image_mask.is_null();
-//                         d.image_mask = Some(ImageMask::new(PostprocessTexture {
-//                             use_x: (mask_image_clip.left * s.width as f32).round() as u32,
-//                             use_y: (mask_image_clip.top * s.height as f32).round() as u32,
-//                             use_w: ((mask_image_clip.right - mask_image_clip.left) * s.width as f32).round() as u32,
-//                             use_h: ((mask_image_clip.bottom - mask_image_clip.top) * s.height as f32).round() as u32,
-//                             width: s.width,
-//                             height: s.height,
-//                             format: s.format,
-//                             view: ETextureViewUsage::Tex(s),
-//                         }));
-// 						is_null
-//                     },
-//                 );
-//             }
-//             MaskImage1::LinearGradient(color) => {
-//                 let mut post_process = query_dst.get_mut(entity).unwrap();
+    image_await: OrInitSingleRes<ImageAwait<Entity, MaskImage>>,
+    texture_assets_mgr: SingleRes<ShareAssetMgr<AssetWithId<TextureRes>>>,
+    queue: SingleRes<PiRenderQueue>,
+    device: SingleRes<PiRenderDevice>,
+    key_alloter: OrInitSingleRes<TextureKeyAlloter>,
+) {
+    // 图片删除，则删除对应的遮罩效果
+    for i in remove.iter() {
+        if let Ok((mut post_list, mut post_info, has_mask_image)) = query.p1().get_mut(*i) {
+            if has_mask_image {
+                continue;
+            }
+            post_list.image_mask = None;
+            post_info.effect_mark.set(***mark_type, false);
+        }
+    }
+
+    // 加载遮罩纹理
+    // 设置后处理效果标记
+    let p0 = query.p0();
+    let mut f = |d: &mut MaskTexture, s: MaskTexture, entity| {
+		let is_null = d.is_null();
+        
+        if let Ok((mut post_list, mask_image_clip)) = p0.1.get_mut(entity){
+            let s = s.clone().0.unwrap();
+            post_list.image_mask = Some(ImageMask::new(PostprocessTexture {
+                use_x: (mask_image_clip.left * s.width as f32).round() as u32,
+                use_y: (mask_image_clip.top * s.height as f32).round() as u32,
+                use_w: ((mask_image_clip.right - mask_image_clip.left) * s.width as f32).round() as u32,
+                use_h: ((mask_image_clip.bottom - mask_image_clip.top) * s.height as f32).round() as u32,
+                width: s.width,
+                height: s.height,
+                format: s.format,
+                view: ETextureViewUsage::TexWithId(s),
+            }));  
+        }
+        *d = s;
+        is_null
+    };
+    for entity in mask_image_changed.iter() {
+       if let Ok((mask_image, mut post_info)) = p0.0.get_mut(*entity) {
+            match &mask_image.0 {
+                MaskImage1::Path(key) => {
+                    load_image(
+                        *entity,
+                        key,
+                        &image_await,
+                        &device,
+                        &queue,
+                        &mut mask_texture,
+                        &texture_assets_mgr,
+                        &key_alloter,
+                        &mut f,
+                    );
+                }
+                MaskImage1::LinearGradient(_) => (),
+            };
+            post_info.effect_mark.set(***mark_type, true);
+       }
+    }
+    set_texture(&image_await, &mask1, &mut mask_texture, f);
+}
+
+pub struct UnitCamera (pub BufferGroup);
+
+#[derive(Debug, Default)]
+pub struct MaskRenderRange {
+    pub render_list: Vec<(Range<usize>, ShareTargetView)>,
+}
+
+impl FromWorld for UnitCamera {
+    fn from_world(world: &mut World) -> Self {
+        let matrix = WorldMatrix::default();
+        let instances = world.get_single_res_mut::<InstanceContext>().unwrap();
+        let mut camera_group = instances.camera_alloter.alloc();
+        let _ = camera_group.set_uniform(&ProjectUniform(matrix.as_slice()));
+        let _ = camera_group.set_uniform(&ViewUniform(matrix.as_slice()));
+        Self(camera_group)
+    }
+}
+
+/// 为LinearGradient类型的maskimage 准备渲染数据
+pub fn mask_image_post_process2(
+    mask_image_changed: ComponentChanged<MaskImage>,
+    mut query: Query<(&MaskImage, &Quad, &mut PostProcess)>,
+
+    mut instances: OrInitSingleResMut<InstanceContext>,
+    atlas_allocator: SingleRes<PiSafeAtlasAllocator>,
+
+    mut target_ty: Local<Option<TargetType>>, 
+    mut mask_range: OrInitSingleResMut<MaskRenderRange>,
+) {
+    mask_range.render_list.clear();
+     
+
+    // 绘制MaskImage渐变效果的渲染目标类型（与普通的fbo不共用）
+    let target_ty = match &*target_ty {
+        Some(r) => *r,
+        None => {
+            let r = atlas_allocator.get_or_create_type(TargetDescriptor {
+                colors_descriptor: SmallVec::from_slice(&[TextureDescriptor {
+                    mip_level_count: 1,
+                    sample_count: 1,
+                    dimension: wgpu::TextureDimension::D2,
+                    format: wgpu::TextureFormat::pi_render_default(),
+                    usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST | wgpu::TextureUsages::RENDER_ATTACHMENT,
+                    base_mip_level: 0,
+                    base_array_layer: 0,
+                    array_layer_count: None,
+                    view_dimension: None,
+                }]),
+                depth_descriptor: None,
+                need_depth: false,
+                default_width: 200,
+                default_height: 200,
+            });
+            *target_ty = Some(r);
+            r
+        }
+    };
+
+    for entity in mask_image_changed.iter() {
+        if let Ok((mask_image, quad, mut post_process)) = query.get_mut(*entity) {
+            if let MaskImage1::LinearGradient(color) = &mask_image.0 {
+                let mut render_range = instances.instance_data.cur_index()..instances.instance_data.cur_index();
 //                 // 创建fbo
-//                 let size = calc_size(&quad, color) as u32;
+                let size = calc_size(&quad, color) as u32;
 
-//                 let mut render_target = None;
-//                 if let Some(mask) = &post_process.image_mask {
-//                     if let ETextureViewUsage::SRT(r) = &mask.image.view {
-//                         let rect = r.rect();
-//                         if rect.width() < size as i32 && rect.height() < size as i32 {
-//                             if mask_image.is_changed() {
-//                                 // mask_image改变，绘制渐变色到原有纹理上
-//                                 render_target = Some(r.clone());
-//                             } else {
-//                                 // mask_image未改变， 不需要重新绘制渐变纹理
-//                                 continue;
-//                             }
-//                         }
-//                     }
-//                 }
+                let mut render_target = None;
+                if let Some(mask) = &post_process.image_mask {
+                    if let ETextureViewUsage::SRT(r) = &mask.image.view {
+                        let rect = r.rect();
+                        if rect.width() >= size as i32 && rect.height() >= size as i32 {
+                            // mask_image改变，绘制渐变色到原有纹理上
+                            render_target = Some(r.clone());
+                        }
+                    }
+                }
 
-//                 // 以下用于创建绘制用渐变颜色描述的MaskImage的RenderObj
-//                 let render_target = match render_target {
-//                     Some(r) => r,
-//                     None => {
-//                         let ty = query_target_ty.get(layer.root()).unwrap(); // 必须存在target_ty
-//                         let e: [ShareTargetView; 0] = [];
-//                         atlas_allocator.allocate(size, size, ty.no_depth, e.iter())
-//                     }
-//                 };
+                // 以下用于创建绘制用渐变颜色描述的MaskImage的RenderObj
+                let render_target = match render_target {
+                    Some(r) => r,
+                    None => {
+                        let e: [ShareTargetView; 0] = [];
+                        atlas_allocator.allocate(size, size, target_ty, e.iter())
+                    }
+                };
+
+                // 设置后处理纹理
+                let mut t = PostprocessTexture::from_share_target(render_target.clone(), wgpu::TextureFormat::pi_render_default());
+                t.use_x += 1;
+                t.use_y += 1;
+                t.use_w -= 2;
+                t.use_h -= 2;
+                post_process.image_mask = Some(ImageMask::new(t));  
+
+                // 填充实例数据  
+                let instance_id: usize = instances.instance_data.alloc_instance_data();
+                render_range.end = instances.instance_data.cur_index(); 
+                mask_range.render_list.push((render_range, render_target));
+
+                let mut instance_data = instances.instance_data.instance_data_mut(instance_id);
+                let mut render_flag = instance_data.get_render_ty();
+                set_linear_gradient_instance_data(
+					color, 
+					&Aabb2::new(
+						Point2::new( 0.0, 0.0), 
+						Point2::new( 1.0, 1.0)
+					), 
+					&mut instance_data, 
+					&mut render_flag
+				);
+                instance_data.set_data(&BoxUniform([0.0, 0.0, 1.0, 1.0].as_slice()));
+                instance_data.set_data(&QuadUniform(&[
+                    -1.0, 1.0,
+                    -1.0, -1.0,
+                    1.0, -1.0,
+                    1.0, 1.0,
+                ]));
+
+                render_flag &= !(1 << RenderFlagType::NotVisibility as usize);
+                render_flag &= !(1 << RenderFlagType::Fbo as usize);  //（不需要乘视图矩阵、世界矩阵）
+                instance_data.set_data(&TyUniform([render_flag as f32].as_slice()));         
+            }
+        }
+    }
+  
+}
 
 
-//                 let rect = render_target.rect();
 
-//                 let mut t = PostprocessTexture::from_share_target(render_target.clone(), wgpu::TextureFormat::pi_render_default());
-//                 t.use_x += 1;
-//                 t.use_y += 1;
-//                 t.use_w -= 2;
-//                 t.use_h -= 2;
-//                 post_process.image_mask = Some(ImageMask::new(t));
-//                 let mut draw_state = DrawState::default();
-//                 let ui_material_group = group_alloter.alloc();
-//                 draw_state.bindgroups.insert_group(UiMaterialBind::set(), ui_material_group);
-//                 let camera_group = camera_material_alloter.alloc();
-//                 draw_state.bindgroups.insert_group(CameraBind::set(), camera_group);
-//                 depth_cache.or_create_depth(0, &depth_alloter); // 其深度将为0， 在图节点渲染时会使用
-//                                                                          // draw_state.bindgroups.insert_group(DepthBind::set(), depth_cache.list[0].clone());
-
-//                 // 设置顶点
-//                 let (positions, colors, indices) = create_linear_gradient_verts(rect, color);
-//                 set_vert_buffer(
-//                     PositionVert::location(),
-//                     8,
-//                     bytemuck::cast_slice(&positions),
-//                     &vertex_buffer_alloter,
-//                     &mut draw_state,
-//                 );
-//                 set_vert_buffer(
-//                     VertColorVert::location(),
-//                     16,
-//                     bytemuck::cast_slice(&colors),
-//                     &vertex_buffer_alloter,
-//                     &mut draw_state,
-//                 );
-//                 set_index_buffer(bytemuck::cast_slice(&indices), &index_buffer_alloter, &mut draw_state);
-
-//                 // 设置uniform
-//                 let matrix = vec![1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0];
-//                 let project_matrix = create_project(rect.min.x as f32, rect.max.x as f32, rect.min.y as f32, rect.max.y as f32);
-//                 draw_state.bindgroups.set_uniform(&ViewUniform(&matrix));
-//                 draw_state.bindgroups.set_uniform(&WorldUniform(&matrix));
-//                 draw_state.bindgroups.set_uniform(&ProjectUniform(project_matrix.as_slice()));
-
-//                 let mut defines = XHashSet::default();
-//                 defines.insert(VERT_COLOR_DEFINE.clone());
-//                 mask_draw_list.0.push((
-//                     commands
-//                         .spawn((
-//                             draw_state,
-//                             PipelineMeta {
-//                                 type_mark: ***color_render_type,
-//                                 program: program_meta.clone(),
-//                                 state: shader_catch.common_no_depth.clone(),
-//                                 vert_layout: vert_layout.clone(),
-//                                 defines,
-//                             },
-//                         ))
-//                         .id(),
-//                     render_target,
-//                 ));
-//             }
-//         }
-//     }
-
-//     set_texture(&image_await, None, &query_src, &mut query_dst, |d, s, entity| {
-//         let mask_image_clip = query_clip.get(entity).unwrap();
-// 		let is_null = d.image_mask.is_null();
-//         d.image_mask = Some(ImageMask::new(PostprocessTexture {
-//             use_x: (mask_image_clip.left * s.width as f32).round() as u32,
-//             use_y: (mask_image_clip.top * s.height as f32).round() as u32,
-//             use_w: ((mask_image_clip.right - mask_image_clip.left) * s.width as f32).round() as u32,
-//             use_h: ((mask_image_clip.bottom - mask_image_clip.top) * s.height as f32).round() as u32,
-//             width: s.width,
-//             height: s.height,
-//             format: s.format,
-//             view: ETextureViewUsage::Tex(s),
-//         }));
-		
-// 		is_null
-//     });
-// }
-
-// #[derive(Debug, Deref, Resource, Default)]
-// pub struct LinearMaskNodeId(GraphId);
-
-// /// system， 用于添加LinearMaskNode节点到渲染图中，该节点将MaskImage的渐变颜色渲染成纹理
-// pub fn init(
-// 	mut rg: SingleResMut<PiRenderGraph>, 
-// 	mut id: OrInitSingleResMut<LinearMaskNodeId>,
+/// system， 用于添加LinearMaskNode节点到渲染图中，该节点将MaskImage的渐变颜色渲染成纹理
+/// LinearMaskNode图节点在LastGraphNode节点之前运行
+pub fn init(
+	mut rg: SingleResMut<PiRenderGraph>, 
+	last_graph_id: SingleRes<LastGraphNode>,
 	
-// 	r: OrInitSingleRes<IsRun>
-// ) {
-// 	if r.0 {
-// 		return;
-// 	}
-//     match rg.add_node("MaskImageLinear".to_string(), LinearMaskNode, GraphNodeId::default()) {
-//         Ok(r) => {
-//             ****id = r;
-//         }
-//         Err(e) => log::error!("node: {:?}, {:?}", "MaskImageLinear".to_string(), e),
-//     };
-// }
+	r: OrInitSingleRes<IsRun>
+) {
+	if r.0 {
+		return;
+	}
+    match rg.add_node("MaskImageLinear".to_string(), LinearMaskNode, GraphNodeId::default()) {
+        Ok(r) => {
+            rg.add_depend(r, last_graph_id.0).unwrap();
+        },
+        Err(e) => log::error!("node: {:?}, {:?}", "MaskImageLinear".to_string(), e),
+    };
+}
 
 // #[derive(SystemParam)]
 // pub struct QueryParam<'w, 's> {
@@ -339,101 +310,103 @@
 //     // clear_draw: SingleRes<'w, ClearDrawObj>,
 // }
 
-// // 用于绘制MaskImage
-// pub struct LinearMaskNode;
+// 用于绘制渐变颜色声明的MaskImage
+pub struct LinearMaskNode;
+impl Node for LinearMaskNode {
+    type Input = ();
+    type Output = ();
 
-// impl Node for LinearMaskNode {
-//     type Input = ();
-//     type Output = ();
+	type BuildParam = ();
+    type RunParam = (
+        SingleRes<'static, InstanceContext>,
+        OrInitSingleResMut<'static, MaskRenderRange>,
+    );
 
-// 	type BuildParam = QueryParam<'static, 'static>;
-//     type RunParam = QueryParam<'static, 'static>;
+	fn build<'a>(
+		&'a mut self,
+		// world: &'a mut pi_world::world::World,
+		_param: &'a mut Self::BuildParam,
+		_context: pi_bevy_render_plugin::RenderContext,
+		_input: &'a Self::Input,
+		_usage: &'a pi_bevy_render_plugin::node::ParamUsage,
+		_id: GraphNodeId,
+		_from: &'a [GraphNodeId],
+		_to: &'a [GraphNodeId],
+	) -> Result<Self::Output, String> {
+		Ok(())
+	}
 
-// 	fn build<'a>(
-// 		&'a mut self,
-// 		_world: &'a mut pi_world::world::World,
-// 		_param: &'a mut pi_world::system::SystemState<Self::BuildParam>,
-// 		_context: pi_bevy_render_plugin::RenderContext,
-// 		_input: &'a Self::Input,
-// 		_usage: &'a pi_bevy_render_plugin::node::ParamUsage,
-// 		_id: GraphNodeId,
-// 		_from: &'a [GraphNodeId],
-// 		_to: &'a [GraphNodeId],
-// 	) -> Result<Self::Output, String> {
-// 		Ok(())
-// 	}
+    fn run<'a>(
+        &'a mut self,
+        // world: &'a World,
+        param: &'a Self::RunParam,
+        _context: RenderContext,
+        commands: ShareRefCell<CommandEncoder>,
+        _input: &'a Self::Input,
+        _usage: &'a ParamUsage,
+        _id: GraphNodeId,
+        _from: &'a [GraphNodeId],
+        _to: &'a [GraphNodeId],
+    ) -> BoxFuture<'a, Result<(), String>> {
+        Box::pin(async move {
+            if param.1.render_list.len() == 0 {
+                return Ok(());
+            }
 
-//     fn run<'a>(
-//         &'a mut self,
-//         world: &'a World,
-//         query_param_state: &'a mut SystemState<Self::RunParam>,
-//         _context: RenderContext,
-//         mut commands: ShareRefCell<CommandEncoder>,
-//         _input: &'a Self::Input,
-//         _usage: &'a ParamUsage,
-//         _id: GraphNodeId,
-//         _from: &'a [GraphNodeId],
-//         _to: &'a [GraphNodeId],
-//         // context: RenderContext,
-//         // mut commands: ShareRefCell<CommandEncoder>,
-//         // inputs: &'a [Self::Output],
-//     ) -> BoxFuture<'a, Result<Self::Output, String>> {
-//         Box::pin(async move {
-//             let param = query_param_state.get(world);
-//             for (entity, rt) in param.mask_draw_list.0.iter() {
-//                 if let Ok(draw_state) = param.query.get(*entity) {
-//                     let view_port = rt.rect();
-//                     // 创建一个渲染Pass
-//                     let view_port = Aabb2::new(
-//                         Point2::new(0.0, 0.0),
-//                         Point2::new((view_port.max.x - view_port.min.x) as f32, (view_port.max.y - view_port.min.y) as f32),
-//                     );
-//                     let (mut rp, view_port, _clear_port, _) = create_rp_for_fbo(&rt, commands.borrow_mut(), &view_port, &view_port, None);
+            let mut render_state = RenderState {
+				reset: true,
+				pipeline: param.0.clear_pipeline.clone(),
+				texture: param.0.batch_texture.default_texture_group.clone(),
+			};
+            let mut draw_state: InstanceDrawState = InstanceDrawState {
+                instance_data_range: 0..0,
+                pipeline: Some(param.0.clear_pipeline.clone()),
+                texture_bind_group: Some(param.0.batch_texture.default_texture_group.clone()),
+            };
+            let mut commands = commands.borrow_mut();
+            for (range, target_view) in param.1.render_list.iter() {
+                draw_state.instance_data_range = range.clone();
+                let view_port = target_view.rect();
+                // 创建一个渲染Pass
+                let view_port = Aabb2::new(
+                    Point2::new(0.0, 0.0),
+                    Point2::new((view_port.max.x - view_port.min.x) as f32, (view_port.max.y - view_port.min.y) as f32),
+                );
+                
+                let (mut rp, view_port, _clear_port, _) = create_rp_for_fbo(target_view, &mut commands, &view_port, &view_port, None);
+                rp.set_viewport(view_port.0, view_port.1, view_port.2, view_port.3, 0.0, 1.0);
+                param.0.draw(&mut rp, &draw_state, &mut render_state);
+            }
+            Ok(())
+        })
+    }
+}
 
-//                     // // 清屏
-//                     // let clear_color = &param.fbo_clear_color.0;
-//                     // rp.set_viewport(clear_port.0, clear_port.1, clear_port.2, clear_port.3, 0.0, 1.0);
-//                     // clear_color.0.set(&mut rp, UiMaterialBind::set());
-//                     // clear_color.1.set(&mut rp, DepthBind::set());
-//                     // param.clear_draw.0.draw(&mut rp);
+fn calc_size(quad: &Aabb2, linear: &LinearGradientColor) -> u32 {
+    let width = quad.maxs.x - quad.mins.x;
+    let height = quad.maxs.y - quad.mins.y;
 
-//                     // 设置视口
-//                     rp.set_viewport(view_port.0, view_port.1, view_port.2, view_port.3, 0.0, 1.0);
+    let l = (width * width + height * height).sqrt();
+    let mut min: f32 = 1.0;
+    let mut pre_pos: f32 = 0.0;
+    for item in linear.list.iter() {
+        let diff = item.position - pre_pos;
+        if diff != 0.0 {
+            min = min.min(diff);
+            pre_pos = item.position;
+        }
+    }
 
-//                     param.depth_cache.list[0].set(&mut rp, DepthBind::set());
-//                     draw_state.draw(&mut rp);
-//                 }
-//             }
-//             Ok(())
-//         })
-//     }
-// }
+    if min == 1.0 {
+        return 10;
+    }
 
-// fn calc_size(quad: &Aabb2, linear: &LinearGradientColor) -> u32 {
-//     let width = quad.maxs.x - quad.mins.x;
-//     let height = quad.maxs.y - quad.mins.y;
-
-//     let l = (width * width + height * height).sqrt();
-//     let mut min: f32 = 1.0;
-//     let mut pre_pos: f32 = 0.0;
-//     for item in linear.list.iter() {
-//         let diff = item.position - pre_pos;
-//         if diff != 0.0 {
-//             min = min.min(diff);
-//             pre_pos = item.position;
-//         }
-//     }
-
-//     if min == 1.0 {
-//         return 10;
-//     }
-
-//     // 保证渐变百分比中，渐变端点之间的距离至少两个像素
-//     let at_least = (2.0_f32.min((min * l).ceil() + 1.0) / min).min(width.max(height) / 4.0);
-//     // 渐变颜色渲染尺寸为20的整数倍，使得不同大小的渐变色，可以共用同一张纹理
-//     // 加2，使得分配的纹理四周可以扩充一个像素，避免采样问题导致边界模糊 TODO
-//     return ((at_least / 10.0).ceil() * 10.0) as u32;
-// }
+    // 保证渐变百分比中，渐变端点之间的距离至少两个像素
+    let at_least = (2.0_f32.min((min * l).ceil() + 1.0) / min).min(width.max(height) / 4.0);
+    // 渐变颜色渲染尺寸为20的整数倍，使得不同大小的渐变色，可以共用同一张纹理
+    // 加2，使得分配的纹理四周可以扩充一个像素，避免采样问题导致边界模糊 TODO
+    return ((at_least / 10.0).ceil() * 10.0) as u32;
+}
 
 
 // fn create_linear_gradient_verts(rect: &Rectangle, color: &LinearGradientColor) -> (Vec<f32>, Vec<f32>, Vec<u16>) {

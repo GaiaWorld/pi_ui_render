@@ -101,7 +101,7 @@ pub enum DrawElement {
 	// }, // 由另一个图节点渲染，需要调用图节点的run, EntityKey为DrawObj节点id
 }
 
-#[derive(Debug, Component)]
+#[derive(Debug, Component, Default)]
 pub struct InstanceDrawState {
 	pub instance_data_range: Range<usize>, // 在单列RenderInstances中的范围
 	pub pipeline: Option<Share<RenderPipeline>>, // 为None时， 默认使用全局默认的pipeline
