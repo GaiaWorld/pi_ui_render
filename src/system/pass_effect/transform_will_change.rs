@@ -184,7 +184,7 @@ pub fn recursive_set_matrix(
             let offset = (layout.rect.left + parent_layout.padding.left, layout.rect.top + parent_layout.padding.top);
             // TransformWillChange跟Transform是替换的关系， 而不是补充的关系（一旦设置了TransformWillChange， Transform不再有效）
             let mut will_change_matrix =
-                WorldMatrix::form_transform_layout(will_change, &transform.origin, width, height, &Point2::new(offset.0, offset.1));
+                WorldMatrix::form_transform_layout(&will_change.all_transform, &transform.origin, width, height, &Point2::new(offset.0, offset.1));
 
             // 如果父上没有TransformWillChange， 此处m为TransformWillChange作用后， 节点真实的世界矩阵
             let mut m = p_matrix * &will_change_matrix * invert;

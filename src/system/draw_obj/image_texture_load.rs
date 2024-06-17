@@ -17,7 +17,6 @@ use pi_null::Null;
 use pi_render::rhi::asset::{TextureRes, AssetWithId, TextureAssetDesc};
 use pi_share::Share;
 
-use crate::components::user::RenderDirty;
 
 use super::calc_text::IsRun;
 
@@ -52,7 +51,7 @@ pub fn image_load<
     removed: ComponentRemoved<S>,
 
 	r: OrInitSingleRes<IsRun>,
-	mut dirty: Query<&mut RenderDirty>
+	// mut dirty: Query<&mut RenderDirty>
 ) {
 	if r.0 {
 		return;
@@ -68,7 +67,7 @@ pub fn image_load<
     }
     
 
-    let f = |d: &mut D, s, _entity| {
+    let mut f = |d: &mut D, s, _entity| {
 		let is_null = d.is_null();
 		*d = s;
 		is_null
@@ -85,16 +84,16 @@ pub fn image_load<
             query_set.p1(),
             &texture_assets_mgr,
 			&key_alloter,
-            f,
+            &mut f,
         );
     }
 
-    let is_change = set_texture(&image_await, &query_src, query_set.p1(), f);
-	if is_change {
-		for mut r in dirty.iter_mut() {
-			**r = true;
-		}
-	}
+    set_texture(&image_await, &query_src, query_set.p1(), f);
+	// if is_change {
+	// 	for mut r in dirty.iter_mut() {
+	// 		**r = true;
+	// 	}
+	// }
 }
 
 #[inline]
@@ -107,7 +106,7 @@ pub fn load_image<'w, S: 'static + Send + Sync, D: Eq + PartialEq + From<Handle<
     query_dst: &mut Query<&'w mut D>,
     texture_assets_mgr: &ShareAssetMgr<AssetWithId<TextureRes>>,
 	key_alloter: &TextureKeyAlloter,
-    mut f: F,
+    f: &mut F,
 ) {
     let result = AssetMgr::load(&texture_assets_mgr, &(key.str_hash() as u64));
     match result {
@@ -116,7 +115,7 @@ pub fn load_image<'w, S: 'static + Send + Sync, D: Eq + PartialEq + From<Handle<
 				let r = D::from(r);
 				if *dst != r {
                     log::debug!("texture_load success 1: {:?}, {:?}", entity, key);
-					f(&mut dst, r, entity);
+					(*f)(&mut dst, r, entity);
 				}
                 
             }

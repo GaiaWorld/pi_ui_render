@@ -29,11 +29,17 @@ pub fn enum_type(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let mut attr = Vec::new();
     let mut attr_types = Vec::new();
     let mut v_types = Vec::new();
+    let mut reset_types = Vec::new();
     
     let name = &ast.ident;
     let attr_name = format_ident!("{}Attr", name);
+    let list_name = format_ident!("{}_ATTR", name.to_string().to_uppercase());
+    let reset_list_name = format_ident!("RESET_{}_ATTR", name.to_string().to_uppercase());
     // 枚举类型上的注解
     let mut index_start = None;
+    let mut func = None;
+    let mut reset_func = None;
+    
     for a in ast.attrs.iter() {
         if let Meta::List(MetaList { path, tokens, .. }) = &a.meta {
             if path.is_ident("index_start") {
@@ -42,6 +48,18 @@ pub fn enum_type(_attr: TokenStream, item: TokenStream) -> TokenStream {
                     Err(_) => panic!("type error, {:?}", tokens.to_string()),
                 };
                 index_start = Some(v);
+            } else if path.is_ident("func") {
+                let v = match syn::parse::<syn::Path>(tokens.clone().into()) {
+                    Ok(r) => r,
+                    Err(_) => panic!("type error, {:?}", tokens.to_string()),
+                };
+                func = Some(v);
+            } else if path.is_ident("reset_func") {
+                let v = match syn::parse::<syn::Path>(tokens.clone().into()) {
+                    Ok(r) => r,
+                    Err(_) => panic!("type error, {:?}", tokens.to_string()),
+                };
+                reset_func = Some(v);
             }
         }
     }
@@ -49,6 +67,15 @@ pub fn enum_type(_attr: TokenStream, item: TokenStream) -> TokenStream {
         Some(r) => r,
         None => panic!("'enum_type must has value as index_start"),
     };
+    let func = match func {
+        Some(r) => r,
+        None => panic!("'enum_type must has value as func"),
+    };
+    let reset_func = match reset_func {
+        Some(r) => r,
+        None => panic!("'enum_type must has value as reset_func"),
+    };
+    let len = variants.len();
 
 
     for syn::Variant {
@@ -59,6 +86,7 @@ pub fn enum_type(_attr: TokenStream, item: TokenStream) -> TokenStream {
         
         attr.push(ident);
         attr_types.push(format_ident!("{}Type", ident));
+        reset_types.push(format_ident!("Reset{}Type", ident));
 
         let mut has_v = false;
         for a in attrs.iter() {
@@ -80,19 +108,6 @@ pub fn enum_type(_attr: TokenStream, item: TokenStream) -> TokenStream {
         }
     }
 
-    // (#(
-    //     pub struct #attr_types Type(pub #v_types);
-    //     impl GetType for #attr_types Type {
-    //         fn get_type() -> u8 {
-    //             #name::#v_types as u8
-    //         }
-    //     }
-    // )*)
-
-    // pub struct #name Attr {
-    //     #(#attr_types(#attr_types Type),)*
-    // }
-
     TokenStream::from(quote! {
              
             pub enum #name {
@@ -104,16 +119,17 @@ pub fn enum_type(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
             #(
                 pub struct #attr_types(pub #v_types);
-                impl SerdEnum for #attr_types {
+                impl Attr for #attr_types {
                     fn get_type() -> u8 {
                         #name::#attr as u8
                     }
+                    fn get_style_index() -> u8 {#name::#attr as u8}
                     #[inline]
                     fn size() -> usize { std::mem::size_of::<#attr_types>() }
 
                     unsafe fn write(&self, buffer: &mut Vec<u8>) {
                         let ty_size = std::mem::size_of::<#name>();
-                        let value_size = <Self as SerdEnum>::size();
+                        let value_size = <Self as Attr>::size();
                         let len = buffer.len();
                         buffer.reserve(ty_size + value_size);
                         buffer.set_len(len + ty_size + value_size);
@@ -133,10 +149,40 @@ pub fn enum_type(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 }
             )*
 
+            #(
+                pub struct #reset_types;
+                impl Attr for #reset_types {
+                    fn get_type() -> u8 {
+                        #name::#attr as u8
+                    }
+                    fn get_style_index() -> u8 {#name::#attr as u8 + #len as u8}
+                    #[inline]
+                    fn size() -> usize { 0 }
+
+                    unsafe fn write(&self, buffer: &mut Vec<u8>) {
+                        let ty_size = std::mem::size_of::<#name>();
+                        let len = buffer.len();
+                        buffer.reserve(ty_size);
+                        buffer.set_len(len + ty_size);   
+                        let ty = Self::get_type() + #index_start;
+                        // 写类型索引
+                        std::ptr::copy_nonoverlapping(&ty as *const u8, buffer.as_mut_ptr().add(len), ty_size);
+                    
+                    }
+                }
+            )* 
+
             pub enum #attr_name {
                 #(#attr(#attr_types),)*
             }
 
+            static #list_name: [#func; #len] = [
+                #(#func::new::<#attr_types>(),)*   
+            ];
+
+            static #reset_list_name: [#reset_func; #len] = [
+                #(#reset_func::new::<#reset_types>(),)*   
+            ];
             
         //     // We define the FetchState struct in an anonymous scope to avoid polluting the user namespace.
         //     // The struct can still be accessed via SystemParam::State, e.g. EventReaderState can be accessed via

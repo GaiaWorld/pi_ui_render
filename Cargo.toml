@@ -88,7 +88,7 @@ pi_dirty = "0.1"
 
 pi_flex_layout = "0.2"
 pi_spatial = "0.5"
-pi_hal = { version = "=0.1.26", registry = "yn" }
+pi_hal = { version = "0.1.29", registry = "yn" }
 pi_postprocess = { version = "0.1", registry = "yn" }
 pi_curves = { version = "0.1", registry = "yn" }
 pi_animation = { version = "0.1", registry = "yn" }
@@ -152,7 +152,7 @@ tracing = "0.1"
 postcard = { version = "1.0", features = ["use-std"] }
 
 # wgpu = { version = "0.1", registry = "yn", package = "pi_wgpu" }
-wgpu = { version = "0.1", registry = "yn", package = "pi_wgpu"}#, features=["use_wgpu"]
+wgpu = { version = "0.1", registry = "yn", package = "pi_wgpu", features=["use_wgpu"]}#
 # pi_ui_render = { path = "./", features = ["trace", "single_thread"] }
 # pi_ui_render = { path = "./", features = ["trace"] }
 pi_ui_render = { path = "./", features = ["debug", "single_thread"] }
@@ -203,7 +203,7 @@ pi-async-rt = { version = "0.1", features = ["serial"] }
 pi_render = { version = "0.1", registry = "yn", features = ["webgl"] }
 web-sys = { version = "0.3", features = ["HtmlCanvasElement"] }
 wasm-bindgen = "0.2"
-pi_hal = { version = "=0.1.26", registry = "yn", features = ["web_local_load"] }
+pi_hal = { version = "0.1", registry = "yn", features = ["web_local_load"] }
 getrandom = { version = "0.2.7", features = ["js"] }
 
 [build-dependencies]
@@ -257,7 +257,6 @@ probabilistic-collections = { git = "https://github.com/GaiaWorld/pi_probabilist
 
 pi_world = { path = "../pi_world" }
 pi_world_macros = { path = "../pi_world/macros" }
-pi_arr = { path = "../pi_arr" }
 
 # bevy_app = { path = "../bevy/crates/bevy_app" }
 # bevy_ecs = { path = "../bevy/crates/bevy_ecs" }
@@ -283,12 +282,12 @@ pi_arr = { path = "../pi_arr" }
 [patch.yn]
 # pi_curves  = {path="../pi_curves"}
 # pi_animation = { path="../pi_animation"}
-# pi_style = {path = "../pi_style"}
-# pi_wgpu = {path = "../pi_wgpu"}
+pi_style = {path = "../pi_style"}
+pi_wgpu = {path = "../pi_wgpu"}
 # pi_egl = {path = "../pi_egl"}
 # winit = {path = "../winit"}
 # font_kit = { path = "../font_kit" }
-# pi_hal = { path = "../pi_hal" }
+pi_hal = { path = "../pi_hal" }
 # pi_sdf = { path = "../pi_sdf" }
 
 # bevy
@@ -315,8 +314,6 @@ pi_render = { path = "../pi_render" }
 render_core = {path = "../pi_render/crates/render_core"}
 render_derive = {path = "../pi_render/crates/render_derive"}
 render_compile = {path = "../pi_render/crates/render_compile"}
-
-# pi_postprocess = { path = "../pi_post_process"}
 
 # pi_postprocess = { path = "../pi_post_process"}
 
