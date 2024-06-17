@@ -283,7 +283,7 @@ pi_world_macros = { path = "../pi_world/macros" }
 # pi_curves  = {path="../pi_curves"}
 # pi_animation = { path="../pi_animation"}
 pi_style = {path = "../pi_style"}
-# pi_wgpu = {path = "../pi_wgpu"}
+pi_wgpu = {path = "../pi_wgpu"}
 # pi_egl = {path = "../pi_egl"}
 # winit = {path = "../winit"}
 # font_kit = { path = "../font_kit" }
@@ -314,8 +314,6 @@ pi_render = { path = "../pi_render" }
 render_core = {path = "../pi_render/crates/render_core"}
 render_derive = {path = "../pi_render/crates/render_derive"}
 render_compile = {path = "../pi_render/crates/render_compile"}
-
-# pi_postprocess = { path = "../pi_post_process"}
 
 # pi_postprocess = { path = "../pi_post_process"}
 

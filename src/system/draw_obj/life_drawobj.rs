@@ -690,7 +690,7 @@ pub fn batch_instance_data(
 			let (_, _, fbo_info) = query.draw_query.get(root).unwrap();
 			if let Some(target) = &fbo_info.out {
 				let texture = &target.target().colors[0].0;
-				let (texture_index, group) = instances.batch_texture.push(texture, &query.common_sampler.default, &query.device);
+				let (texture_index, group) = instances.batch_texture.push(texture, &query.common_sampler.pointer, &query.device);
 				instances.instance_data.instance_data_mut(instance_index.start).set_data(&TextureIndexUniform(&[texture_index as f32])); // 设置drawobj的纹理索引
 				
 				if let Some(group) = group {
@@ -794,7 +794,7 @@ fn batch_pass(
 	// log::warn!("batch_pass======={:?}", (pass_id, parent_pass_id));
 	for (draw_index, _, _draw_info) in draw_list.all_list_sort.iter() {
 		let mut last_pipeline = None;
-		let mut split_by_texture:  Option<(InstanceIndex, &Handle<AssetWithId<TextureRes>>, &wgpu::Sampler)> = None;
+		let mut split_by_texture:  Option<(InstanceIndex, &Handle<AssetWithId<TextureRes>>, &Share<wgpu::Sampler>)> = None;
 		let mut instance_data_end1 = instance_data_end;
 		let mut cross_list: Option<EntityKey> = None;
 		let cur_pipeline = match draw_index.clone() {
@@ -842,7 +842,7 @@ fn batch_pass(
 								let mut instance_data = instances.instance_data.instance_data_mut(index.start);
 								instance_data.set_data(&TyUniform(&[ty as f32]));
 								if let Some(r) = &fbo_info.out {
-									split_by_texture = Some((index.clone(), &r.target().colors[0].0, &query.common_sampler.default)); // TODO， 根据纹理尺寸目标尺寸选择混合模式
+									split_by_texture = Some((index.clone(), &r.target().colors[0].0, &query.common_sampler.pointer)); // TODO， 根据纹理尺寸目标尺寸选择混合模式
 								}
 
 								#[cfg(debug_assertions)]
@@ -871,7 +871,7 @@ fn batch_pass(
 					instance_data_end1 = instance_data_end;
 					instance_data_end = index.end;
 					if let Some(r) = &fbo_info.out {
-						split_by_texture = Some((index.clone(), &r.target().colors[0].0, &query.common_sampler.default));
+						split_by_texture = Some((index.clone(), &r.target().colors[0].0, &query.common_sampler.pointer)); // fbo拷贝使用点采样
 
 						#[cfg(debug_assertions)]
 						if !index.start.is_null() {
@@ -961,8 +961,8 @@ fn batch_pass(
 		}
 
 		// 添加渲染所需纹理， 如果纹理溢出， 需要结束批处理
-		if let Some((index, texture, _)) = split_by_texture {
-			let (texture_index, group) = instances.batch_texture.push(texture, &query.common_sampler.default, &query.device);
+		if let Some((index, texture, sampler)) = split_by_texture {
+			let (texture_index, group) = instances.batch_texture.push(texture, sampler, &query.device);
 			instances.instance_data.instance_data_mut(index.start/*TODO,这里默认只有一个实例*/).set_data(&TextureIndexUniform(&[texture_index as f32])); // 设置drawobj的纹理索引
 			if let Some(group) = group {
 				let group = Share::new(group);
