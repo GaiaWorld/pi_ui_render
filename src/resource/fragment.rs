@@ -97,3 +97,11 @@ pub struct NodeFragment {
     pub style: VecDeque<Attribute>,
     pub class: SmallVec<[u32; 1]>,
 }
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default, PartialEq, Eq)]
+pub struct DebugInfo {
+    pub font_size: usize,
+    pub draw_obj_count: usize,
+    pub fbo_count: usize,
+    pub tex_size: usize,
+}
