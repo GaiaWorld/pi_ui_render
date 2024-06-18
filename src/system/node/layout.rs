@@ -188,7 +188,7 @@ pub fn calc_layout(
 					continue;
 				}
 
-				
+				// println!("set rect===================={:?}", (e, rect_dirty, children_dirty, normal_style_dirty, self_style_dirty, display_dirty));
 
 				let k = LayoutKey {
 					entity: e,

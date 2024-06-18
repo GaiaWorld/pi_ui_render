@@ -822,7 +822,12 @@ pub mod serialize {
             v,
             entity
         );
-        
+        // pi_print_any::out_any!(println,
+        //     "set_style_attr, type: {:?}, value: {:?}, entity: {:?}",
+        //     std::any::type_name::<C>(),
+        //     &v,
+        //     &entity
+        // );
         // pi_print_any::out_any!(println, "set_default_style_attr==={:?}", (entity, std::any::type_name::<C>(), &v));
         match world.get_component_mut_by_index::<C>(entity, component_id) {
             Ok(component) => {
@@ -1067,6 +1072,20 @@ pub mod serialize {
                 } else {
                     unsafe { v.read_unaligned() }
                 };
+
+                pi_print_any::out_any!(log::debug,
+                    "set_style_attr, type: {:?}, value: {:?}, entity: {:?}",
+                    std::any::type_name::<$component_ty>(),
+                    &$value_name,
+                    &entity
+                );
+                // pi_print_any::out_any!(println,
+                //     "set_style_attr, type: {:?}, value_type: {:?}, value: {:?}, entity: {:?}",
+                //     std::any::type_name::<$component_ty>(),
+                //     std::any::type_name::<$value_ty>(),
+                //     &$value_name,
+                //     &entity
+                // );
 
                 if let Ok(mut component) = query.world.get_component_mut_by_index::<$component_ty2>(entity, query.style.$component_name2) {
                     if component.0.is_some() {
