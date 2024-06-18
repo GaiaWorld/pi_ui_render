@@ -10,6 +10,7 @@ use crate::resource::draw_obj::MaxViewSize;
 use crate::shader1::InstanceData;
 use crate::shader1::meterial::{BoxUniform, QuadUniform};
 
+use super::debug::DebugPlugin;
 use super::node::{show, z_index};
 use super::pass::last_update_wgpu::last_update_wgpu;
 use super::pass::pass_life;
@@ -108,6 +109,7 @@ impl Plugin for UiReadyDrawPlugin {
 			.add_plugins(UiTextPlugin {font_type: self.font_type})
             // svg功能
 		    .add_plugins(SvgPlugin)
+			.add_plugins(DebugPlugin)
 			;
 		
 		if self.font_type == FontType::Sdf2 {
