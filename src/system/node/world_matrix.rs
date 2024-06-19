@@ -158,13 +158,14 @@ pub fn cal_matrix(
     }
     // let time2 = pi_time::Instant::now();
     // println!("matrix time1========{:?}", ( time2 - time1));
-    for (id, _, _) in layer_dirty.iter_manual() {
+    for id in layer_dirty.iter() {
         // ii1.push(id);
         // if count == 1 {
 		// 	log::warn!("matrix time0========{:?}", pi_time::Instant::now() - time1);
 		// }
 		// let time1 = pi_time::Instant::now();
         if let Ok((transform, layout, up)) = query.get(id) {
+
             layer_dirty1.mark(id);
             let parent_id = up.parent();
 
@@ -200,7 +201,7 @@ pub fn cal_matrix(
                 };
 
                 let offset = (layout.rect.left + parent_layout.padding.left, layout.rect.top + parent_layout.padding.top);
-
+                println!("matrix1============={:?}, {:?}", id, parent_world_matrix);
                 match transform {
                     // transform存在时，根据transform和布局计算得到变换矩阵，再乘以父矩阵
                     Some(transform) => {
@@ -222,6 +223,7 @@ pub fn cal_matrix(
                     }
                 }
             };
+            // println!("matrix============={:?}, {:?} {:?}, {:?}, {:?}", id, down.head, layout, transform, matrix);
 			// if count == 1 {
 			// 	log::warn!("matrix time1========{:?}", pi_time::Instant::now() - time1);
 			// }

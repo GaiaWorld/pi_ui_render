@@ -60,6 +60,8 @@ pub fn calc_background_image(
 	// dirty_list: Event<StyleChange>,
 	query: Query<
 		(
+			pi_world::world::Entity,
+			&Size,
 			&WorldMatrix,
 			&LayoutResult,
 			&DrawList,
@@ -68,9 +70,11 @@ pub fn calc_background_image(
 			
 			Option<&BackgroundImageMod>,
 			&BackgroundImage,
+			&pi_bevy_ecs_extend::prelude::Up,
 		),
 		Or<(Changed<BackgroundImageTexture>, Changed<BackgroundImageClip>,  Changed<WorldMatrix>)>,
 	>,
+	query_up: Query<(&pi_bevy_ecs_extend::prelude::Up, &LayoutResult, &WorldMatrix)>,
     mut query_draw: Query<&InstanceIndex, With<BackgroundImageMark>>,
 	r: OrInitSingleRes<IsRun>,
 	render_type: OrInitSingleRes<BackgroundImageRenderObjType>,
@@ -88,7 +92,7 @@ pub fn calc_background_image(
 	// }
 	// let t1 = pi_time::Instant::now();
 
-	for (world_matrix, layout, draw_list, background_image_texture_ref, background_image_clip, background_image_mod, background_image) in query.iter() {
+	for (entity, size, world_matrix, layout, draw_list, background_image_texture_ref, background_image_clip, background_image_mod, background_image, up) in query.iter() {
 		
 		let draw_id = match draw_list.get_one(render_type) {
 			Some(r) => r.id,
@@ -229,7 +233,20 @@ pub fn calc_background_image(
 					instance_data.set_data(&UvUniform(&[uv1.x, uv1.y, uv2.x, uv2.y]));
 				}
 				// instance_data.set_data(&BoxUniform(&[p1.x, p1.y, p2.x - p1.x, p2.y - p1.y]));
-				// println!("bg========================{:?}, {:?}, {:?}, {:?}, {:?}", entity, draw_id, instance_index, background_image, layout);
+				if background_image.0.as_str() == "psd/res/1051958681.jpg" {
+					println!("bg========================{:?}, {:?}, {:?}, {:?}, {:?}, {:?}", entity, draw_id, instance_index, background_image, layout, (&p1, &p2, world_matrix));
+					let p1 = query_up.get(up.parent()).unwrap();
+					let p2 = query_up.get(p1.0.parent()).unwrap();
+					let p3 = query_up.get(p2.0.parent()).unwrap();
+					let p4 = query_up.get(p3.0.parent()).unwrap();
+					let p5 = query_up.get(p4.0.parent()).unwrap();
+					println!("p1========================{:?}", (up.parent(), p1.1, p1.2));
+					println!("p2========================{:?}", (p1.0.parent(), p2.1, p2.2));
+					println!("p3========================{:?}", (p2.0.parent(), p3.1, p3.2));
+					println!("p4========================{:?}", (p3.0.parent(), p4.1, p4.2));
+					println!("p5========================{:?}", (p4.0.parent(), p5.1, p5.2));
+				}
+				
 				set_box(&world_matrix, &Aabb2::new(p1, p2), &mut instance_data);
 				instance_data.set_data(&UvUniform(&[uv1.x, uv1.y, uv2.x, uv2.y]));
 				instance_data.set_data(&TyUniform(&[render_flag as f32]));

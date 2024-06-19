@@ -64,7 +64,7 @@ pub fn start<T: Example + Sync + Send + 'static>(example: T) {
         (_, Some(url), "url") => {
              //构建客户端
             let httpc = pi_async_httpc::AsyncHttpcBuilder::new()
-                .bind_address("127.0.0.1") // 访问外网用明确的本地ip
+                .bind_address("192.168.35.74") // 访问(localhost之外)外网用明确的本地ip（自身ip）
                 .build().unwrap();
             init_load_cb(Arc::new(move |path: String| {
                 let httpc = httpc.clone();
