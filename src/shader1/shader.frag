@@ -976,8 +976,7 @@ void calc_sdf_color(int ty1) {
 	float distancePerPixel = 1.;
 
 	float weight = vData11.w;
-	// 64 号字体时distancePerPixel正好等于1
-	sdist = sdist - weight * distancePerPixel * (vData1.z / 64.0);
+	sdist = sdist - weight * scale * 0.1;
 
 	float alpha = antialias_sdf2(sdist);
 	if (vData10.w > 0.0 && ((ty1 & 1048576) != 0)){
@@ -1018,7 +1017,7 @@ void calc_sdf_color(int ty1) {
 
 	vec4 u_outline = vData10;
 	float outlineSofeness 	= 0.8;
-	float outlineWidth 		= u_outline.w * distancePerPixel;
+	float outlineWidth 		= u_outline.w * distancePerPixel * 0.5;
 	vec4 outlineColor 		= vec4(u_outline.xyz, 1.0);
 	// outlineColor.rgb *=0.0;
 	float outline 			= (1.0 - smoothstep(0., outlineWidth, abs(sdist)));// * step(-0.1, sdist);
@@ -1026,6 +1025,9 @@ void calc_sdf_color(int ty1) {
 	float outlineFactor 	= smoothstep(0.0, outlineSofeness, alphaOutline);
 	// outlineColor.a 			= outlineFactor;
 	// vec4 finalColor 		= mix(faceColor, outlineColor, outlineFactor);
+	if (faceColor.a < 0.001) {
+		faceColor.rgb = vec3(0.0,0.0,0.0);
+	}
 	vec4 finalColor = mix(faceColor, outlineColor, abs(clamp(sdist - outlineWidth * 0.5, -0.5, 0.5) - clamp(sdist, -0.5, 0.5)));
 
 	if ((ty1 & 262144) != 0) {// 外发光
