@@ -46,7 +46,6 @@ impl CalcCanvas {
                     Write<DrawList>,
                 ),
                 (
-                    With<Canvas>,
 					With<LayoutResult>,
                     Changed<Canvas>,
                 ),
