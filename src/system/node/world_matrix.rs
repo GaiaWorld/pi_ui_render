@@ -201,7 +201,6 @@ pub fn cal_matrix(
                 };
 
                 let offset = (layout.rect.left + parent_layout.padding.left, layout.rect.top + parent_layout.padding.top);
-                println!("matrix1============={:?}, {:?}", id, parent_world_matrix);
                 match transform {
                     // transform存在时，根据transform和布局计算得到变换矩阵，再乘以父矩阵
                     Some(transform) => {

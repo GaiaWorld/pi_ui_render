@@ -17,6 +17,7 @@ use crate::prelude::UiStage;
 use crate::shader1::meterial::{RenderFlagType, TyUniform, ImageRepeatUniform, UvUniform};
 use crate::system::draw_obj::set_box;
 use crate::system::node::layout::calc_layout;
+use crate::system::node::transition::transition_2;
 use crate::system::system_set::UiSystemSet;
 use crate::utils::tools::eq_f32;
 use crate::components::user::BackgroundImage;
@@ -30,7 +31,7 @@ impl Plugin for BackgroundImagePlugin {
     fn build(&self, app: &mut pi_world::prelude::App) {
 		app
 			// .add_frame_event::<ComponentEvent<Changed<BackgroundImageTexture>>>()
-			.add_system(UiStage, image_texture_load::image_load::<BackgroundImage, BackgroundImageTexture>.in_set(UiSystemSet::NextSetting))
+			.add_system(UiStage, image_texture_load::image_load::<BackgroundImage, BackgroundImageTexture>.in_set(UiSystemSet::NextSetting).after(transition_2))
 			.add_system(UiStage, set_image_default_size.in_set(UiSystemSet::BaseCalc)
 				.before(calc_layout)
 			)
@@ -116,7 +117,7 @@ pub fn calc_background_image(
 		
 
 		if let Ok(instance_index) = query_draw.get_mut(draw_id) {
-			log::debug!("calc_background_image, draw_id={:?}, instance_index={:?}, background_image={:?}", draw_id, instance_index, &background_image);
+			log::debug!("calc_background_image, entity={:?},draw_id={:?}, instance_index={:?}, background_image={:?}, background_image_clip={:?}", entity, draw_id, instance_index, &background_image, &background_image_clip);
 			// 节点可能设置为dispaly none， 此时instance_index可能为Null
 			if pi_null::Null::is_null(&instance_index.0.start) {
 				continue;
@@ -233,19 +234,19 @@ pub fn calc_background_image(
 					instance_data.set_data(&UvUniform(&[uv1.x, uv1.y, uv2.x, uv2.y]));
 				}
 				// instance_data.set_data(&BoxUniform(&[p1.x, p1.y, p2.x - p1.x, p2.y - p1.y]));
-				if background_image.0.as_str() == "psd/res/1051958681.jpg" {
-					println!("bg========================{:?}, {:?}, {:?}, {:?}, {:?}, {:?}", entity, draw_id, instance_index, background_image, layout, (&p1, &p2, world_matrix));
-					let p1 = query_up.get(up.parent()).unwrap();
-					let p2 = query_up.get(p1.0.parent()).unwrap();
-					let p3 = query_up.get(p2.0.parent()).unwrap();
-					let p4 = query_up.get(p3.0.parent()).unwrap();
-					let p5 = query_up.get(p4.0.parent()).unwrap();
-					println!("p1========================{:?}", (up.parent(), p1.1, p1.2));
-					println!("p2========================{:?}", (p1.0.parent(), p2.1, p2.2));
-					println!("p3========================{:?}", (p2.0.parent(), p3.1, p3.2));
-					println!("p4========================{:?}", (p3.0.parent(), p4.1, p4.2));
-					println!("p5========================{:?}", (p4.0.parent(), p5.1, p5.2));
-				}
+				// if background_image.0.as_str() == "psd/res/1051958681.jpg" {
+				// 	println!("bg========================{:?}, {:?}, {:?}, {:?}, {:?}, {:?}", entity, draw_id, instance_index, background_image, layout, (&p1, &p2, world_matrix));
+				// 	let p1 = query_up.get(up.parent()).unwrap();
+				// 	let p2 = query_up.get(p1.0.parent()).unwrap();
+				// 	let p3 = query_up.get(p2.0.parent()).unwrap();
+				// 	let p4 = query_up.get(p3.0.parent()).unwrap();
+				// 	let p5 = query_up.get(p4.0.parent()).unwrap();
+				// 	println!("p1========================{:?}", (up.parent(), p1.1, p1.2));
+				// 	println!("p2========================{:?}", (p1.0.parent(), p2.1, p2.2));
+				// 	println!("p3========================{:?}", (p2.0.parent(), p3.1, p3.2));
+				// 	println!("p4========================{:?}", (p3.0.parent(), p4.1, p4.2));
+				// 	println!("p5========================{:?}", (p4.0.parent(), p5.1, p5.2));
+				// }
 				
 				set_box(&world_matrix, &Aabb2::new(p1, p2), &mut instance_data);
 				instance_data.set_data(&UvUniform(&[uv1.x, uv1.y, uv2.x, uv2.y]));
