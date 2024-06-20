@@ -745,7 +745,7 @@ impl<'a> UniformData<'a> {
 
 			// if self.is_style_change {
 				let scale = self.world_matrix.0[0];
-				log::error!("============ {:?}", (self.weight[0], scale));
+				// log::error!("============ {:?}", (self.weight[0], scale));
 				let weight = self.weight[0];
 				let stroke = [self.stroke[0], self.stroke[1], self.stroke[2], self.stroke[3] * scale];
 				instance_data.set_data(&TextOutlineUniform(&stroke));

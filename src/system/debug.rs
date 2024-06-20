@@ -15,7 +15,7 @@ use pi_world::{
 pub fn sys_debug_info(
     mut debug_info: SingleResMut<DebugInfo>,
     font_sheet: SingleRes<ShareFontSheet>,
-    query: Query<(&DrawList,), (Changed<DrawList>,)>,
+    query: Query<(&DrawList,)>,
 ) {
     let mut size = 0;
     for i in font_sheet.0.borrow().font_mgr().table.sdf2_table.fonts.values() {
