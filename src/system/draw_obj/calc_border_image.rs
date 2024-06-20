@@ -15,6 +15,7 @@ use crate::prelude::UiStage;
 use crate::shader1::meterial::{RenderFlagType, TyUniform, UvUniform, BorderImageInfoUniform};
 use crate::system::draw_obj::calc_background_image::calc_step;
 use crate::system::draw_obj::set_box;
+use crate::system::node::transition::transition_2;
 use crate::system::system_set::UiSystemSet;
 use crate::components::user::BorderImage;
 
@@ -27,7 +28,7 @@ impl Plugin for BorderImagePlugin {
     fn build(&self, app: &mut pi_world::prelude::App) {
 		app
 			// .add_frame_event::<ComponentEvent<Changed<BorderImageTexture>>>()
-			.add_system(UiStage, image_texture_load::image_load::<BorderImage, BorderImageTexture>.in_set(UiSystemSet::NextSetting))
+			.add_system(UiStage, image_texture_load::image_load::<BorderImage, BorderImageTexture>.in_set(UiSystemSet::NextSetting).after(transition_2))
 			.add_system(UiStage, 
 				life_drawobj::draw_object_life_new::<
 					BorderImageTexture,

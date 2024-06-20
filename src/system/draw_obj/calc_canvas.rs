@@ -97,9 +97,9 @@ pub fn calc_canvas(
 
 /// 为canvas节点添加图依赖结构
 pub fn calc_canvas_graph(
-	mut canvas_query: Query<(&mut Canvas, &InPassId, Entity)>,
+	mut canvas_query: Query<(&mut Canvas, Ticker<&InPassId>, Entity)>,
 	canvas_other_query: Query<Option<&AsImage>>,
-	graph_id_query: Query<(Ticker<&GraphId>, Ticker<&InPassId>)>,
+	graph_id_query: Query<Ticker<&GraphId>>,
 	graph_id_query1: Query<&GraphId>,
 	inpass_query: Query<&ParentPassId>,
 
@@ -113,8 +113,8 @@ pub fn calc_canvas_graph(
 
 	// canvas的图节点id由外部系统设置
     for (mut canvas, in_pass_id, entity) in canvas_query.iter_mut() {
-        if let Ok((from_graph_id, in_pass)) = graph_id_query.get(canvas.id) {
-			if !from_graph_id.is_changed() && !in_pass.is_changed() {
+        if let Ok(from_graph_id) = graph_id_query.get(canvas.id) {
+			if !from_graph_id.is_changed() && !in_pass_id.is_changed() {
 				continue; // 未改变， 什么也不做
 			}
 			// let (from_graph_id_changed, in_pass_id_changed) = (from_graph_id.is_changed(), in_pass_id.is_changed());

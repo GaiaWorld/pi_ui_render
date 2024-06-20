@@ -79,6 +79,22 @@ pub const SVG_COUNT: u8 = 50;
 #[derive(Deref, Clone, Debug, Component)]
 pub struct RadialWave(pub pi_postprocess::prelude::RadialWave);
 
+impl Default for RadialWave {
+    fn default() -> Self { 
+        Self(
+            pi_postprocess::prelude::RadialWave {
+                aspect_ratio: false,
+                start: 0.0,
+                end: 0.0,
+                center_x: 0.0,
+                center_y: 0.0,
+                cycle: 0,
+                weight: 0.0,
+            }
+        )
+    }
+}
+
 impl NeedMark for RadialWave {
     #[inline]
     fn need_mark(&self) -> bool {
