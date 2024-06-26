@@ -33,7 +33,7 @@ use pi_style::{
 
 use pi_world::world::World;
 use crate::resource::animation_sheet::TransitionData;
-use pi_hal::pi_sdf::shape::PathVerb;
+// use pi_hal::pi_sdf::shape::PathVerb;
 
 use super::calc::{NeedMark, EntityKey, StyleMarkType};
 pub use super::root::{ClearColor, RenderDirty, RenderTargetType, Viewport};
@@ -2236,9 +2236,9 @@ pub mod serialize {
         SvgShapeBX, // 18,
         #[v(f32)]
         SvgShapeBY, // 19,
-        #[v(Vec<[f32; 2]>)]
+        #[v(Vec<f32>)]
         SvgShapePoints, // 20,
-        #[v((Vec<[f32; 2]>, Vec<PathVerb>))]
+        #[v((Vec<f32>, Vec<u8>))]
         SvgShapePath, // 21,
         #[v(CgColor)]
         SvgShadowColor, // 22,
@@ -2372,12 +2372,12 @@ pub mod serialize {
         if let Shape::Segment { by, .. } = &svg.shape{ *by } else { Default::default() },
         if let (Shape::Segment { by, .. }, Shape::Segment { by: v, .. }) = (&mut svg.shape, &v.shape){ *by = *v; }
     );
-    impl_style!(@svg SvgShapePointsType, SvgShapePoints, svg, SvgInnerContent, v, Vec<[f32; 2]>,
+    impl_style!(@svg SvgShapePointsType, SvgShapePoints, svg, SvgInnerContent, v, Vec<f32>,
         if let Shape::Polygon { points } = &mut svg.shape{ *points = v; },
         if let Shape::Polygon { points } = &svg.shape{ points.clone() } else { Default::default() },
         if let (Shape::Polygon { points }, Shape::Polygon { points: v }) = (&mut svg.shape, &v.shape){ *points = v.clone(); }
     );
-    impl_style!(@svg SvgShapePathType, SvgShapePath, svg, SvgInnerContent, v, (Vec<[f32; 2]>, Vec<PathVerb>),
+    impl_style!(@svg SvgShapePathType, SvgShapePath, svg, SvgInnerContent, v, (Vec<f32>, Vec<u8>),
         if let Shape::Path { points, verb } = &mut svg.shape{ *points = v.0; *verb = v.1; },
         if let Shape::Path { points, verb } = &svg.shape{ (points.clone(), verb.clone()) } else { Default::default() },
         if let (Shape::Path { points, verb }, Shape::Path { points: v, verb: v1 }) = (&mut svg.shape, &v.shape){ *points = v.clone(); *verb = v1.clone(); }
@@ -2563,9 +2563,9 @@ pub enum Shape {
     Circle { cx: f32, cy: f32, radius: f32 },
     Ellipse { cx: f32, cy: f32, rx: f32, ry: f32 },
     Segment { ax: f32, ay: f32, bx: f32, by: f32},
-    Polygon { points: Vec<[f32; 2]> },
-    Polyline { points: Vec<[f32; 2]> },
-    Path { points: Vec<[f32; 2]>, verb: Vec<pi_hal::pi_sdf::shape::PathVerb>}
+    Polygon { points: Vec<f32> },
+    Polyline { points: Vec<f32> },
+    Path { points: Vec<f32>, verb: Vec<u8>}
 }
 
 impl Shape {
@@ -2591,17 +2591,17 @@ impl Shape {
             Shape::Ellipse { cx, cy, rx, ry } => vec![*cx, *cy, *rx, *ry, 3.0],
             Shape::Segment { ax, ay, bx, by } => vec![*ax, *ay, *bx, *by, 4.0],
             Shape::Polygon { points } => {
-                let mut p = points.iter().flat_map(|[x, y]| vec![*x, *y]).collect::<Vec<f32>>();
+                let mut p = points.clone();
                 p.push(5.0);
                 p
             }
             Shape::Polyline { points } => {
-                let mut p = points.iter().flat_map(|[x, y]| vec![*x, *y]).collect::<Vec<f32>>();
+                let mut p = points.clone();
                 p.push(6.0);
                 p
             }
             Shape::Path { points, verb } => {
-                let mut p = points.iter().flat_map(|[x, y]| vec![*x, *y]).collect::<Vec<f32>>();
+                let mut p = points.clone();
                 let mut v = verb.iter().map(|v| (*v).into()).collect::<Vec<f32>>();
                 p.append(&mut v);
                 p.push(7.0);
@@ -2624,11 +2624,11 @@ impl From<(f64, &[f32], &[f32])> for Shape {
             2 => Self::Circle { cx: value.2[0], cy: value.2[1], radius: value.2[2]},
             3 => Self::Ellipse { cx: value.2[0], cy: value.2[1], rx: value.2[2], ry: value.2[3]},
             4 => Self::Segment { ax: value.2[0], ay: value.2[1], bx: value.2[2], by: value.2[3]},
-            5 => Self::Polygon { points: value.2.chunks(2).map(|v|{[v[0],v[1]]}).collect::<Vec<[f32; 2]>>()},
-            6 => Self::Polyline { points: value.2.chunks(2).map(|v|{[v[0],v[1]]}).collect::<Vec<[f32; 2]>>()},
+            5 => Self::Polygon { points: value.2.to_vec()},
+            6 => Self::Polyline { points: value.2.to_vec()},
             7 => Self::Path { 
-                points: value.2.chunks(2).map(|v|{[v[0],v[1]]}).collect::<Vec<[f32; 2]>>(), 
-                verb: value.1.iter().map(|v|unsafe { transmute(*v as u8) }).collect::<Vec<pi_hal::pi_sdf::shape::PathVerb>>()
+                points: value.2.to_vec(), 
+                verb: value.1.iter().map(|v|*v as u8 ).collect::<Vec<u8>>()
             },
             _ => panic!("svg not surpport shape; ty = {}", value.0 )
         }

@@ -1,6 +1,6 @@
 [package]
 name = "pi_ui_render"
-version = "0.1.42"
+version = "0.1.41"
 authors = ["suncy <suncy@gmail.com>"]
 edition = "2021"
 description = "Renderer 2D UI with Bevy Ecs"
@@ -288,7 +288,7 @@ pi_wgpu = {path = "../pi_wgpu"}
 # winit = {path = "../winit"}
 # font_kit = { path = "../font_kit" }
 pi_hal = { path = "../pi_hal" }
-# pi_sdf = { path = "../pi_sdf" }
+pi_sdf = { path = "../pi_sdf" }
 
 # bevy
 # pi_bevy_ecs_extend = { path = "../pi_bevy_new_graphic/crates/ecs_extend" }

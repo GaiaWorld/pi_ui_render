@@ -1,7 +1,7 @@
 //! 文字字形系统
 //! 为字符分配纹理位置，得到字符的位置索引关联到CharNode中的ch_id_or_count字段上
 //! 在fontsheet中，文字最多缓存一张纹理。为字符分配纹理，可能存在空间不足的情况。此时，本系统将清空fontsheet中所有缓存的字符，并重新为当前所有显示节点上的文字重新绘制纹理。
-use std::{collections::VecDeque, sync::atomic::AtomicBool};
+use std::{collections::VecDeque, sync::atomic::{AtomicBool, Ordering}};
 
 use pi_world::{filter::Or, prelude::{Changed, Entity, Local, Mut, OrDefault, ParamSet, Query, SingleResMut, With}};
 use ordered_float::NotNan;
@@ -143,7 +143,7 @@ pub fn text_glyph(
 
 	// 如果是sdf2， 则设置就绪字形对应节点的NodeState的修改版本
 	if let FontType::Sdf2 = font_type {
-		if await_set_gylph.len() > 0 {
+		if await_set_gylph.len() > 0 && font_sheet.font_mgr().table.sdf2_table.init_load.load(Ordering::Relaxed){
             
             let index = *await_index;
             let result = Share::new(ShareMutex::new((0, Vec::new())));
