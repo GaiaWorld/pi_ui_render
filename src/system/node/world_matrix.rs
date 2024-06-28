@@ -38,7 +38,7 @@
 //!
 //! 可以考虑： 当父矩阵计算完成后，父节点所有子节点所形成的子树，可以并行计算（他们依赖的父矩阵已经计算完毕）
 use pi_bevy_ecs_extend::system_param::tree::Down;
-use pi_world::event::Event;
+use pi_world::event::{ComponentChanged, Event};
 use pi_world::fetch::Ticker;
 use pi_world::prelude::{ParamSet, Query, SingleResMut, Entity, With};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleRes, Up, Layer, LayerDirty};
@@ -81,9 +81,13 @@ pub fn cal_matrix(
     //     Ticker<&Layer>,
     //     Option<Ticker<&Transform>>,
     // )>,
-    dirty_list: Event<StyleChange>,
+    // dirty_list: Event<StyleChange>,
     mut layer_dirty: LayerDirty<With<Empty>>,
-    query_dirty: Query<(Ticker<&Layer>, Ticker<&LayoutResult>, Option<Ticker<&Transform>>, Option<Ticker<&TextShadow>>, Option<Ticker<&BoxShadow>>)>,
+    // query_dirty: Query<(Ticker<&Layer>, Ticker<&LayoutResult>, Option<Ticker<&Transform>>, Option<Ticker<&TextShadow>>, Option<Ticker<&BoxShadow>>)>,
+    layout_dirty: ComponentChanged<LayoutResult>,
+    transform_dirty: ComponentChanged<Transform>,
+    text_shadow_dirty: ComponentChanged<TextShadow>,
+    box_shadow_dirty: ComponentChanged<BoxShadow>,
 
     query: Query<(Option<&Transform>, &LayoutResult, &Up)>,
 
@@ -142,20 +146,32 @@ pub fn cal_matrix(
     // LAYOUT_DIRTY
     // let mut jj = 0;
     // let time1 = pi_time::Instant::now();
-    for i in dirty_list.iter() {
-        if let Ok((layer, layout, transform, text_shadow, box_shadow)) = query_dirty.get(i.0) {
-            if layer.layer() > 0 && (
-                layer.is_changed() || 
-                layout.is_changed() || 
-                transform.map_or(false, |r| {r.is_changed()}) || 
-                text_shadow.map_or(false, |r| {r.is_changed()}) || 
-                box_shadow.map_or(false, |r| {r.is_changed()})
-            ) {
-                // jj +=1;
-                layer_dirty.mark(i.0);
-            }
-        }
+    
+    // for i in dirty_list.iter() {
+
+    //     if let Ok((layer, layout, transform, text_shadow, box_shadow)) = query_dirty.get(i.0) {
+            
+    //         if layer.layer() > 0 && (
+    //             layer.is_changed() || 
+    //             layout.is_changed() || 
+    //             transform.map_or(false, |r| {r.is_changed()}) || 
+    //             text_shadow.map_or(false, |r| {r.is_changed()}) || 
+    //             box_shadow.map_or(false, |r| {r.is_changed()})
+    //         ) {
+    //             // jj +=1;
+    //             layer_dirty.mark(i.0);
+    //         }
+    //     }
+    // }
+
+    for i in layout_dirty.iter().chain(transform_dirty.iter()) {
+        layer_dirty.mark(*i);
+        layer_dirty1.mark(*i);
     }
+    for i in text_shadow_dirty.iter().chain(box_shadow_dirty.iter()) {
+        layer_dirty1.mark(*i);
+    }
+
     // let time2 = pi_time::Instant::now();
     // println!("matrix time1========{:?}", ( time2 - time1));
     for id in layer_dirty.iter() {
@@ -166,7 +182,6 @@ pub fn cal_matrix(
 		// let time1 = pi_time::Instant::now();
         if let Ok((transform, layout, up)) = query.get(id) {
 
-            layer_dirty1.mark(id);
             let parent_id = up.parent();
 
             let width = layout.rect.right - layout.rect.left;

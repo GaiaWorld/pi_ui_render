@@ -2,7 +2,6 @@
 use std::ops::{Deref, DerefMut};
 use std::path::Path;
 use std::{sync::Arc, time::Instant};
-use std::net::{IpAddr, UdpSocket};
 
 use pi_bevy_ecs_extend::system_param::res::OrInitSingleResMut;
 use pi_ui_render::resource::fragment::NodeTag;
@@ -63,23 +62,11 @@ pub fn start<T: Example + Sync + Send + 'static>(example: T) {
     
     match (play_option1.play_path, play_option1.play_url, play_option1.play_way.as_str()) {
         (_, Some(url), "url") => {
-            // 创建UDP套接字
-            let socket = UdpSocket::bind("0.0.0.0:0").unwrap();
-        
-            // 获取本地地址
-            let local_addr = socket.local_addr().unwrap();
-        
-            // 获取IP地址部分
-            let ip = match local_addr.ip() {
-                IpAddr::V4(ip) => ip.to_string(),
-                IpAddr::V6(ip) => ip.to_string(),
-            };
-        
             // println!("本机IP地址: {}", ip);
 
              //构建客户端
             let httpc = pi_async_httpc::AsyncHttpcBuilder::new()
-                .bind_address(ip.as_str()) // 访问(localhost之外)外网用明确的本地ip（自身ip）
+                .bind_address("0.0.0.0") // 访问(localhost之外)外网用明确的本地ip（自身ip）
                 .build().unwrap();
             init_load_cb(Arc::new(move |path: String| {
                 let httpc = httpc.clone();

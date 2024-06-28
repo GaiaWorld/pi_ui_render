@@ -289,6 +289,7 @@ pub struct InstanceContext {
 	pub common_pipeline: Share<wgpu::RenderPipeline>,
 	pub premultiply_pipeline: Share<wgpu::RenderPipeline>,
 	pub clear_pipeline: Share<wgpu::RenderPipeline>,
+    pub mask_image_pipeline: Share<wgpu::RenderPipeline>,
 
 	pub instance_data: GpuBuffer,
 	pub instance_buffer: Option<(wgpu::Buffer, usize)>,
@@ -359,19 +360,19 @@ impl InstanceContext {
         // log::warn!("darw================={:?}", instance_draw.instance_data_range.start as u32/self.instance_data.alignment as u32..instance_draw.instance_data_range.end as u32/self.instance_data.alignment as u32 );
         // log::warn!("instance_data_range====={:?}", (&instance_draw.instance_data_range, instance_draw.instance_data_range.start as u32/self.instance_data.alignment as u32..instance_draw.instance_data_range.end as u32/self.instance_data.alignment as u32));
 		// #[cfg(debug_assertions)]
-        // {
-            // for i in instance_draw.instance_data_range.start as u32/self.instance_data.alignment as u32..instance_draw.instance_data_range.end as u32/self.instance_data.alignment as u32 {
-            //     // let debug_info = self.debug_info.get(i as usize/MeterialBind::SIZE);
-            //     // let index = i as usize * self.instance_data.alignment;
-            //     // let render_flag = self.instance_data.get_render_ty(index as u32);
-            //     // if render_flag == 0 {
-            //     //     panic!("!!!!!!!!!!!!!!, {}", index);
-            //     // }
-            //     rp.draw(0..6, i..i+1);
-            // } 
-        // }
+        {
+            for i in instance_draw.instance_data_range.start as u32/self.instance_data.alignment as u32..instance_draw.instance_data_range.end as u32/self.instance_data.alignment as u32 {
+                // let debug_info = self.debug_info.get(i as usize/MeterialBind::SIZE);
+                // let index = i as usize * self.instance_data.alignment;
+                // let render_flag = self.instance_data.get_render_ty(index as u32);
+                // if render_flag == 0 {
+                //     panic!("!!!!!!!!!!!!!!, {}", index);
+                // }
+                rp.draw(0..6, i..i+1);
+            } 
+        }
         // #[cfg(not(debug_assertions))]
-        rp.draw(0..6, instance_draw.instance_data_range.start as u32/self.instance_data.alignment as u32..instance_draw.instance_data_range.end as u32/self.instance_data.alignment as u32);
+        // rp.draw(0..6, instance_draw.instance_data_range.start as u32/self.instance_data.alignment as u32..instance_draw.instance_data_range.end as u32/self.instance_data.alignment as u32);
 
 	}
 }
@@ -515,10 +516,10 @@ impl FromWorld for InstanceContext {
         });
 
 		let common_blend_state_hash = calc_hash(&CommonBlendState::NORMAL, 0);
-		let common_pipeline = Share::new(create_render_pipeline(&device, &pipeline_layout, &vs, &fs, Some(CommonBlendState::NORMAL), CompareFunction::GreaterEqual));
+		let common_pipeline = Share::new(create_render_pipeline(&device, &pipeline_layout, &vs, &fs, Some(CommonBlendState::NORMAL), CompareFunction::GreaterEqual, true));
 
 		let premultiply_blend_state_hash = calc_hash(&CommonBlendState::PREMULTIPLY, 0);
-		let premultiply_pipeline = Share::new(create_render_pipeline(&device, &pipeline_layout, &vs, &fs, Some(CommonBlendState::PREMULTIPLY), CompareFunction::GreaterEqual));
+		let premultiply_pipeline = Share::new(create_render_pipeline(&device, &pipeline_layout, &vs, &fs, Some(CommonBlendState::PREMULTIPLY), CompareFunction::GreaterEqual, true));
 
 		let clear_blend_state_hash = calc_hash(&CompareFunction::Always, calc_hash(&CommonBlendState::NORMAL, 0));
 		let clear_pipeline = Share::new(create_render_pipeline(&device, &pipeline_layout, &vs, &fs, Some(BlendState {
@@ -532,7 +533,19 @@ impl FromWorld for InstanceContext {
 				dst_factor: wgpu::BlendFactor::Zero,
 				operation: wgpu::BlendOperation::Add,
 			},
-		}), CompareFunction::Always));
+		}), CompareFunction::Always, true));
+        let mask_image_pipeline = Share::new(create_render_pipeline(&device, &pipeline_layout, &vs, &fs, Some(BlendState {
+			color: wgpu::BlendComponent {
+				src_factor: wgpu::BlendFactor::One,
+				dst_factor: wgpu::BlendFactor::Zero,
+				operation: wgpu::BlendOperation::Add,
+			},
+			alpha: wgpu::BlendComponent {
+				src_factor: wgpu::BlendFactor::One,
+				dst_factor: wgpu::BlendFactor::Zero,
+				operation: wgpu::BlendOperation::Add,
+			},
+		}), CompareFunction::Always, false));
 
 		let mut pipeline_cache = XHashMap::default();
 		pipeline_cache.insert(common_blend_state_hash, common_pipeline.clone());
@@ -560,6 +573,7 @@ impl FromWorld for InstanceContext {
 			common_pipeline,
 			premultiply_pipeline,
 			clear_pipeline,
+            mask_image_pipeline,
 			instance_data: GpuBuffer::new(MeterialBind::SIZE, 200 * MeterialBind::SIZE),
 			instance_buffer: None,
 
@@ -588,12 +602,12 @@ impl FromWorld for InstanceContext {
 }
 
 impl InstanceContext {
-	pub fn get_or_create_pipeline(&mut self, device: &RenderDevice, blend_state: wgpu::BlendState) -> Share<wgpu::RenderPipeline> {
+	pub fn get_or_create_pipeline(&mut self, device: &RenderDevice, blend_state: wgpu::BlendState, has_depth: bool) -> Share<wgpu::RenderPipeline> {
 		let blend_state_hash = calc_hash(&blend_state, 0);
 		match self.pipeline_cache.entry(blend_state_hash) {
 			Entry::Occupied(r) => r.get().clone(),
 			Entry::Vacant(r) => {
-				let pipeline = Share::new(create_render_pipeline(&device, &self.pipeline_layout, &self.vs, &self.fs, Some(blend_state), CompareFunction::GreaterEqual));
+				let pipeline = Share::new(create_render_pipeline(&device, &self.pipeline_layout, &self.vs, &self.fs, Some(blend_state), CompareFunction::GreaterEqual, has_depth));
 				r.insert(pipeline.clone());
 				pipeline
 			},
@@ -1419,6 +1433,7 @@ pub fn create_render_pipeline(
 	fs: &wgpu::ShaderModule,
 	blend: Option<BlendState>,
 	depth_compare: CompareFunction,
+    has_depth: bool,
 ) -> wgpu::RenderPipeline {
 	let state = PipelineState {
         targets: vec![Some(wgpu::ColorTargetState {
@@ -1432,14 +1447,17 @@ pub fn create_render_pipeline(
             polygon_mode: wgpu::PolygonMode::Fill,
             ..Default::default()
         },
-        depth_stencil: Some(DepthStencilState {
-            format: TextureFormat::Depth32Float,
-            depth_write_enabled: true,
-            depth_compare,
-            // depth_compare: CompareFunction::Always,
-            stencil: StencilState::default(),
-            bias: DepthBiasState::default(),
-        }),
+        depth_stencil: match has_depth {
+            true => Some(DepthStencilState {
+                format: TextureFormat::Depth32Float,
+                depth_write_enabled: true,
+                depth_compare,
+                // depth_compare: CompareFunction::Always,
+                stencil: StencilState::default(),
+                bias: DepthBiasState::default(),
+            }),
+            false => None,
+        },
         multisample: MultisampleState::default(),
         multiview: None,
     };

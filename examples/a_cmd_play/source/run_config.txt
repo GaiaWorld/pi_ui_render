@@ -1,6 +1,6 @@
 play_path=D://0_js/cdqxz_new_mult_gui_exe/dst_release;
 play_url=http://192.168.35.74:8086;
 play_way=url;
-play_version=1718616912704;
+play_version=1719279763680;
 max_index=5;
 speed=1;

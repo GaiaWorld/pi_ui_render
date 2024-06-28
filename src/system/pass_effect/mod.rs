@@ -1,5 +1,6 @@
 //! 与Pass相关的system
 
+use mask_image::UiMaskImagePlugin;
 use pi_world::prelude::{App, Plugin, IntoSystemConfigs, WorldPluginExtent};
 
 use crate::components::user::{Blur, Hsi, Opacity, Overflow, TransformWillChange};
@@ -72,10 +73,10 @@ impl Plugin for UiEffectPlugin {
                     .in_set(UiSystemSet::PassSetting)
                     .after(UiSystemSet::PassFlush),
             )
-            // .add_plugins(UiMaskImagePlugin)
             .add_plugins(UiClipPathPlugin)
             .add_plugins(UiAsImagePlugin)
 			.add_plugins(RadialWavePlugin)
+            .add_plugins(UiMaskImagePlugin)
 		;
     }
 }

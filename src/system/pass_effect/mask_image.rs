@@ -5,19 +5,19 @@ use crate::{
         user::{MaskImage, MaskImageClip, Opacity, Point2},
     }, 
     resource::{
-        draw_obj::{InstanceContext, LastGraphNode, RenderState},
+        draw_obj::{create_render_pipeline, InstanceContext, LastGraphNode, RenderState},
         RenderContextMarkType,
     }, 
     shader::camera::{ProjectUniform, ViewUniform}, 
-    shader1::meterial::{BoxUniform, QuadUniform, RenderFlagType, TyUniform}, 
+    shader1::meterial::{BoxUniform, CameraBind, QuadUniform, RenderFlagType, TyUniform}, 
     system::{
         draw_obj::{
             calc_background_color::set_linear_gradient_instance_data, calc_text::IsRun, image_texture_load::{load_image, set_texture, ImageAwait}
         },
-        pass::pass_graph_node::create_rp_for_fbo,
+        pass::{pass_graph_node::create_rp_for_fbo, pass_life, update_graph::init_root_graph},
     }
 };
-use pi_world::{event::{ComponentChanged, ComponentRemoved}, fetch::{Has, OrDefault}, param_set::ParamSet, prelude::{Entity, Query, SingleRes, SingleResMut, World}, system_params::Local, world::FromWorld};
+use pi_world::{app::App, event::{ComponentAdded, ComponentChanged, ComponentRemoved}, fetch::{Has, OrDefault}, param_set::ParamSet, prelude::{Entity, Query, SingleRes, SingleResMut, World}, schedule::PreUpdate, system_params::Local, world::FromWorld};
 use pi_bevy_asset::ShareAssetMgr;
 use pi_bevy_ecs_extend::system_param::res::{OrInitSingleRes, OrInitSingleResMut};
 use pi_bevy_render_plugin::{
@@ -31,46 +31,64 @@ use pi_render::{
     components::view::target_alloc::{ShareTargetView, TargetDescriptor, TargetType, TextureDescriptor},
     renderer::texture::ETextureViewUsage,
     rhi::{
-        asset::{AssetWithId, TextureRes}, dyn_uniform_buffer::BufferGroup, texture::PiRenderDefault
+        asset::{AssetWithId, TextureRes}, dyn_uniform_buffer::BufferGroup, shader::BindLayout, texture::PiRenderDefault
     },
 };
-use pi_share::ShareRefCell;
+use pi_share::{Share, ShareRefCell};
 use pi_style::style::{Aabb2, LinearGradientColor, MaskImage as MaskImage1};
 use smallvec::SmallVec;
 use std::ops::Range;
-use wgpu::CommandEncoder;
+use wgpu::{CommandEncoder, CompareFunction};
+use crate::system::system_set::UiSystemSet;
+use crate::prelude::UiStage;
+use pi_world::schedule::Startup;
+use pi_world::prelude::Plugin;
+use pi_world::prelude::IntoSystemConfigs;
 
-// pub struct UiMaskImagePlugin;
+pub struct UiMaskImagePlugin;
 
-// impl Plugin for UiMaskImagePlugin {
-//     fn build(&self, app: &mut App) {
-//         app
-//             // 初始化渲染渐变色的图节点
-//             .add_system(Startup, init)
-//             // 标记MaskImage所在节点为一个Pass
-//             .add_system(UiStage, 
-//                 pass_life::pass_mark::<MaskImage>
-//                     .in_set(UiSystemSet::PassMark)
-//                     .before(pass_life::cal_context)
-//                     ,
-//             )
-//             // 设置mask_image的后处理效果
-//             .add_system(UiStage, 
-//                 mask_image_post_process
-//                     .after(cal_matrix)
-//                     .after(update_graph::update_graph)
-//                     ,
-//             )
-//             .add_system(UiStage, 
-//                 apply_deferred
-//                     .after(mask_image_post_process)
-//                     .before(calc_node_pipeline)
-//                     ,
-//             );
-//     }
-// }
+impl Plugin for UiMaskImagePlugin {
+    fn build(&self, app: &mut App) {
+        app
+            // 初始化渲染渐变色的图节点
+            .add_startup_system(UiStage, init.after(init_root_graph))
+            // 标记MaskImage所在节点为一个Pass
+            .add_system(UiStage, 
+                pass_life::pass_mark::<MaskImage>
+                    .in_set(UiSystemSet::PassMark)
+                    .before(pass_life::cal_context)
+                    ,
+            )
+            // 设置mask_image的后处理效果
+            .add_system(UiStage, 
+                mask_image_post_process1
+                .in_set(UiSystemSet::PassSetting),
+            )
+            .add_system(UiStage, 
+                mask_image_post_process2
+                .after(crate::system::draw_obj::life_drawobj::update_render_instance_data)
+            );
+    }
+}
 
-
+/// system， 用于添加LinearMaskNode节点到渲染图中，该节点将MaskImage的渐变颜色渲染成纹理
+/// LinearMaskNode图节点在LastGraphNode节点之前运行
+pub fn init(
+	mut rg: SingleResMut<PiRenderGraph>, 
+	last_graph_id: SingleRes<LastGraphNode>,
+	
+	r: OrInitSingleRes<IsRun>
+) {
+	if r.0 {
+		return;
+	}
+    match rg.add_node("MaskImageLinear".to_string(), LinearMaskNode, GraphNodeId::default()) {
+        Ok(r) => {
+            rg.add_depend(r, last_graph_id.0).unwrap();
+        },
+        Err(e) => log::error!("node: {:?}, {:?}", "MaskImageLinear".to_string(), e),
+    };
+}
 
 /// 1. 标记后处理
 /// 2. 加载MaskImage纹理
@@ -88,7 +106,7 @@ pub fn mask_image_post_process1(
     mask1: Query<(Entity, &MaskImage)>,
     mut mask_texture: Query<&mut MaskTexture>,
 
-    remove: ComponentRemoved<Opacity>,
+    remove: ComponentRemoved<MaskImage>,
 
     image_await: OrInitSingleRes<ImageAwait<Entity, MaskImage>>,
     texture_assets_mgr: SingleRes<ShareAssetMgr<AssetWithId<TextureRes>>>,
@@ -96,7 +114,7 @@ pub fn mask_image_post_process1(
     device: SingleRes<PiRenderDevice>,
     key_alloter: OrInitSingleRes<TextureKeyAlloter>,
 ) {
-    // 图片删除，则删除对应的遮罩效果
+    // MaskImage删除，则删除对应的遮罩效果
     for i in remove.iter() {
         if let Ok((mut post_list, mut post_info, has_mask_image)) = query.p1().get_mut(*i) {
             if has_mask_image {
@@ -172,8 +190,11 @@ impl FromWorld for UnitCamera {
 }
 
 /// 为LinearGradient类型的maskimage 准备渲染数据
+/// 由于渲染LinearGradient对应的渐变颜色， 采用实例化渲染， 需要修改InstanceContext，
+/// 因此此system在实例数据分配后运行
 pub fn mask_image_post_process2(
     mask_image_changed: ComponentChanged<MaskImage>,
+    mask_image_changed1: ComponentAdded<MaskImage>,
     mut query: Query<(&MaskImage, &Quad, &mut PostProcess)>,
 
     mut instances: OrInitSingleResMut<InstanceContext>,
@@ -211,7 +232,7 @@ pub fn mask_image_post_process2(
         }
     };
 
-    for entity in mask_image_changed.iter() {
+    for entity in mask_image_changed.iter().chain(mask_image_changed1.iter()) {
         if let Ok((mask_image, quad, mut post_process)) = query.get_mut(*entity) {
             if let MaskImage1::LinearGradient(color) = &mask_image.0 {
                 let mut render_range = instances.instance_data.cur_index()..instances.instance_data.cur_index();
@@ -280,26 +301,6 @@ pub fn mask_image_post_process2(
 }
 
 
-
-/// system， 用于添加LinearMaskNode节点到渲染图中，该节点将MaskImage的渐变颜色渲染成纹理
-/// LinearMaskNode图节点在LastGraphNode节点之前运行
-pub fn init(
-	mut rg: SingleResMut<PiRenderGraph>, 
-	last_graph_id: SingleRes<LastGraphNode>,
-	
-	r: OrInitSingleRes<IsRun>
-) {
-	if r.0 {
-		return;
-	}
-    match rg.add_node("MaskImageLinear".to_string(), LinearMaskNode, GraphNodeId::default()) {
-        Ok(r) => {
-            rg.add_depend(r, last_graph_id.0).unwrap();
-        },
-        Err(e) => log::error!("node: {:?}, {:?}", "MaskImageLinear".to_string(), e),
-    };
-}
-
 // #[derive(SystemParam)]
 // pub struct QueryParam<'w, 's> {
 //     mask_draw_list: OrInitSingleRes<'w, LinearMaskDrawList>,
@@ -355,12 +356,12 @@ impl Node for LinearMaskNode {
 
             let mut render_state = RenderState {
 				reset: true,
-				pipeline: param.0.clear_pipeline.clone(),
+				pipeline: param.0.mask_image_pipeline.clone(),
 				texture: param.0.batch_texture.default_texture_group.clone(),
 			};
             let mut draw_state: InstanceDrawState = InstanceDrawState {
                 instance_data_range: 0..0,
-                pipeline: Some(param.0.clear_pipeline.clone()),
+                pipeline: Some(param.0.mask_image_pipeline.clone()),
                 texture_bind_group: Some(param.0.batch_texture.default_texture_group.clone()),
             };
             let mut commands = commands.borrow_mut();
@@ -373,9 +374,14 @@ impl Node for LinearMaskNode {
                     Point2::new((view_port.max.x - view_port.min.x) as f32, (view_port.max.y - view_port.min.y) as f32),
                 );
                 
-                let (mut rp, view_port, _clear_port, _) = create_rp_for_fbo(target_view, &mut commands, &view_port, &view_port, None);
+                let (mut rp, view_port, _clear_port, _) = create_rp_for_fbo(target_view, &mut commands, &view_port, &view_port, None); 
                 rp.set_viewport(view_port.0, view_port.1, view_port.2, view_port.3, 0.0, 1.0);
+                param.0.set_pipeline(&mut rp, &draw_state, &mut render_state);
+                let group = param.0.default_camera.get_group();
+				rp.set_bind_group(CameraBind::set(), group.bind_group, group.offsets);
                 param.0.draw(&mut rp, &draw_state, &mut render_state);
+
+                render_state.reset = true;
             }
             Ok(())
         })
