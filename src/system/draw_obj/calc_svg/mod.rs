@@ -36,7 +36,7 @@ use pi_world::{filter::Or, prelude::{App, Changed, Entity, Local, ParamSet, Plug
 use pi_bevy_ecs_extend::prelude::{Layer, OrInitSingleRes, OrInitSingleResMut};
 use pi_hal::{
     font::sdf2_table::TexInfo,
-    pi_sdf::{self, glyphy::geometry::aabb::AabbEXT},
+    // pi_sdf::{self, glyphy::geometry::aabb::AabbEXT},
     runtime::MULTI_MEDIA_RUNTIME,
 };
 
@@ -129,23 +129,20 @@ pub fn svg_glyph(
                 await_set_gylph.push(entity);
                 log::debug!("add_shape!! hash: {}", hash);
                 match node_state.shape.clone() {
-                    Shape::Rect { x, y, width, height } => sdf2_table.add_shape(hash, Box::new(pi_sdf::shape::Rect::new(x, y, width, height))),
-                    Shape::Circle { cx, cy, radius } => sdf2_table.add_shape(hash, Box::new(pi_sdf::shape::Circle::new(cx, cy, radius).unwrap())),
-                    Shape::Ellipse { cx, cy, rx, ry } => sdf2_table.add_shape(hash, Box::new(pi_sdf::shape::Ellipse::new(cx, cy, rx, ry))),
+                    Shape::Rect { x, y, width, height } => sdf2_table.add_shape(hash, pi_hal::svg::Rect::new(x, y, width, height).get_svg_info()),
+                    Shape::Circle { cx, cy, radius } => sdf2_table.add_shape(hash, pi_hal::svg::Circle::new(cx, cy, radius).unwrap().get_svg_info()),
+                    Shape::Ellipse { cx, cy, rx, ry } => sdf2_table.add_shape(hash, pi_hal::svg::Ellipse::new(cx, cy, rx, ry).get_svg_info()),
                     Shape::Segment { ax, ay, bx, by } => {
-                        sdf2_table.add_shape(hash, Box::new(pi_sdf::shape::Segment::new(Point2::new(ax, ay), Point2::new(bx, by))))
+                        sdf2_table.add_shape(hash, pi_hal::svg::Segment::new(ax, ay, bx, by).get_svg_info())
                     }
                     Shape::Polygon { points } => {
-                        let points = points.into_iter().map(|v| Point2::new(v[0], v[1])).collect::<Vec<Point2>>();
-                        sdf2_table.add_shape(hash, Box::new(pi_sdf::shape::Polygon::new(points)))
+                        sdf2_table.add_shape(hash, pi_hal::svg::Polygon::new(points).get_svg_info())
                     }
                     Shape::Polyline { points } => {
-                        let points = points.into_iter().map(|v| Point2::new(v[0], v[1])).collect::<Vec<Point2>>();
-                        sdf2_table.add_shape(hash, Box::new(pi_sdf::shape::Polyline::new(points)))
+                        sdf2_table.add_shape(hash, pi_hal::svg::Polyline::new(points).get_svg_info())
                     }
                     Shape::Path { points, verb } => {
-                        let points = points.into_iter().map(|v| Point2::new(v[0], v[1])).collect::<Vec<Point2>>();
-                        sdf2_table.add_shape(hash, Box::new(pi_sdf::shape::Path::new(verb, points)))
+                        sdf2_table.add_shape(hash, pi_hal::svg::Path::new(verb, points).get_svg_info())
                     }
                 };
             }
@@ -332,19 +329,21 @@ fn instance_data(
                     }
                 }
             }
-            let binding_box = tex_info.binding_box;
+            // let binding_box = Aabb2::new(
+            //     Point2::new(tex_info.binding_box_min_x, tex_info.binding_box_min_y),
+            //     Point2::new(tex_info.binding_box_max_x, tex_info.binding_box_max_y),
+            // );
             log::trace!(
-                "sdf2 LinearGradient======; color: {:?}, positions: {:?}, binding_box: {:?}",
+                "sdf2 LinearGradient======; color: {:?}, positions: {:?}",
                 color,
                 positions,
-                binding_box
             );
             let normalize_direction = Vector2::new(color.direction.cos(), color.direction.sin());
             let r = [
-                Vector2::new(binding_box.mins.x, binding_box.mins.y).dot(&normalize_direction),
-                Vector2::new(binding_box.mins.x, binding_box.maxs.y).dot(&normalize_direction),
-                Vector2::new(binding_box.maxs.x, binding_box.mins.y).dot(&normalize_direction),
-                Vector2::new(binding_box.maxs.x, binding_box.maxs.y).dot(&normalize_direction),
+                Vector2::new(tex_info.binding_box_min_x, tex_info.binding_box_min_y).dot(&normalize_direction),
+                Vector2::new(tex_info.binding_box_min_x, tex_info.binding_box_max_y).dot(&normalize_direction),
+                Vector2::new(tex_info.binding_box_max_x, tex_info.binding_box_min_y).dot(&normalize_direction),
+                Vector2::new(tex_info.binding_box_max_x, tex_info.binding_box_max_y).dot(&normalize_direction),
             ];
             let (min, max) = (r[0].min(r[1]).min(r[2]).min(r[3]), r[0].max(r[1]).max(r[2]).max(r[3]));
             let end = (normalize_direction * min, normalize_direction * max);
@@ -402,9 +401,9 @@ fn text_vert(
 
 
     // let face_id = fontface_ids[font_sheet.font_mgr().table.sdf2_table.glyphs[c1.ch_id].font_face_index];
-    let extents = &tex_info.extents;
+    // let extents = &tex_info.extents;
     // let offset_y = (line_height - font_height) / 2.0;
-    uniform_data.set_data(instances.instance_data_mut(cur_instance_index), tex_info, extents, font_size);
+    uniform_data.set_data(instances.instance_data_mut(cur_instance_index), tex_info, &Aabb2{ mins: Point2::new(tex_info.extents_min_x, tex_info.extents_max_x), maxs: Point2::new(tex_info.extents_max_x, tex_info.extents_max_y) }, font_size);
     // left += c1.width + text_style.letter_spacing;
     cur_instance_index = instances.next_index(cur_instance_index);
 
@@ -481,8 +480,11 @@ impl UniformData {
                 }else{
                     extents.mins.y = extents.mins.y + self.shadow_offset[1];
                 }
-                log::debug!("set shadow_offset_and_blur_level: {}, {}", self.shadow_offset[0] - extents.mins.x,  extents.width());
-                let shadow_offset_and_blur_level = [(self.shadow_offset[0])  / extents.width(), (self.shadow_offset[1] ) / extents.height(), self.shadow_blur_level];
+                let extents_width =  extents.maxs.x - extents.mins.x;
+                let extents_height =  extents.maxs.y - extents.mins.y;
+
+                log::debug!("set shadow_offset_and_blur_level: {}, {}", self.shadow_offset[0] - extents.mins.x,  extents_width);
+                let shadow_offset_and_blur_level = [(self.shadow_offset[0])  / extents_width, (self.shadow_offset[1] ) / extents_height, self.shadow_blur_level];
                 log::debug!("set shadow_offset_and_blur_level: {:?}", shadow_offset_and_blur_level);
                 instance_data.set_data(&ShadowUniform(&shadow_offset_and_blur_level));
                 render_flag |= 1 << RenderFlagType::Sdf2Shadow as usize;
@@ -530,12 +532,12 @@ impl UniformData {
                 tex_info.min_sdf as f32,
                 tex_info.sdf_step as f32,
                 tex_info.cell_size * 0.5 * 2.0f32.sqrt(),
-                tex_info.index_offset.0 as f32,
-                tex_info.index_offset.1 as f32,
+                tex_info.index_offset_x as f32,
+                tex_info.index_offset_y as f32,
                 tex_info.grid_w,
                 tex_info.grid_w,
-                tex_info.data_offset.0 as f32,
-                tex_info.data_offset.1 as f32,
+                tex_info.data_offset_x as f32,
+                tex_info.data_offset_y as f32,
                 scope_factor,
                 scope_y,
             ];

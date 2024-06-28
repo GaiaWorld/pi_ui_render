@@ -4,7 +4,7 @@ use pi_world::prelude::{Changed, With, Query, SingleResMut, Entity, Plugin, OrDe
 use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, OrInitSingleRes, Up, Layer};
 use pi_hal::font::font::FontType;
 use pi_hal::font::sdf2_table::TexInfo;
-use pi_hal::pi_sdf::glyphy::geometry::aabb::AabbEXT;
+// use pi_hal::pi_sdf::glyphy::geometry::aabb::AabbEXT;
 use pi_render::font::{FontSheet, GlyphId, Font};
 use pi_style::style::{Aabb2, FontStyle, TextOverflow};
 
@@ -586,11 +586,11 @@ fn set_chars_data(
 						let face_id = fontface_ids[font_sheet.font_mgr().table.sdf2_table.glyphs[c1.ch_id].font_face_index];
 						let render_range = match (font_sheet.font_mgr().table.sdf2_table.fonts.get(face_id.0), glyph.grid_w > 0.0 ) {
 							(Some(r), true) => r.max_box_normaliz(),
-							_ => &default_range,
+							_ => default_range,
 						};
 											// let offset_y = (line_height - font_height) / 2.0;
 						for i in 0..shadow_factor {
-							uniform_data.set_data(instances.instance_data_mut(cur_instance_index), glyph, render_range, (left + text_style.letter_spacing, top + (line_height - (render_range.maxs.y - render_range.mins.y) * font_size) / 2.0), font_size, shadow_factor - i - 1);
+							uniform_data.set_data(instances.instance_data_mut(cur_instance_index), glyph, &render_range, (left + text_style.letter_spacing, top + (line_height - (render_range.maxs.y - render_range.mins.y) * font_size) / 2.0), font_size, shadow_factor - i - 1);
 							cur_instance_index = instances.next_index(cur_instance_index);
 						}
 						
@@ -614,14 +614,14 @@ fn set_chars_data(
 		let face_id = fontface_ids[font_sheet.font_mgr().table.sdf2_table.glyphs[c.ch_id].font_face_index];
 		let render_range = match (font_sheet.font_mgr().table.sdf2_table.fonts.get(face_id.0), glyph.grid_w > 0.0 ){
 			(Some(r), true) => r.max_box_normaliz(),
-			_ => &default_range,
+			_ => default_range,
 		};
 
 		// if font_sheet.font_mgr().table.sdf2_table.fonts.get(face_id.0).is_none() {
 		// 	log::warn!("default_range============{}, {:?}, {:?}, {:?}, {:?}", font_sheet.font_mgr().table.sdf2_table.glyphs[c.ch_id].font_face_index, c.ch, fontface_ids, font_sheet.font_mgr().sheet.fonts[font_id.0].font_family_id,&font_sheet.font_mgr().sheet.font_familys[font_sheet.font_mgr().sheet.fonts[font_id.0].font_family_id.0]);
 		// }
 		for i in 0..shadow_factor {
-			uniform_data.set_data(instances.instance_data_mut(cur_instance_index), glyph, render_range, (left + render_range.mins.x * font_size, top + (line_height - (render_range.maxs.y - render_range.mins.y) * font_size) / 2.0), font_size, shadow_factor - i - 1);
+			uniform_data.set_data(instances.instance_data_mut(cur_instance_index), glyph, &render_range, (left + render_range.mins.x * font_size, top + (line_height - (render_range.maxs.y - render_range.mins.y) * font_size) / 2.0), font_size, shadow_factor - i - 1);
 			cur_instance_index = instances.next_index(cur_instance_index);
 		}
 
@@ -663,8 +663,11 @@ impl<'a> UniformData<'a> {
 		let mut render_flag = instance_data.get_render_ty();
 		render_flag |= 1 << RenderFlagType::Sdf2 as usize;
 
-		let mut width = render_range.width() * font_size;
-		let mut height = render_range.height() * font_size;
+		let width =  render_range.maxs.x - render_range.mins.x;
+        let height =  render_range.maxs.y - render_range.mins.y;
+
+		let mut width = width * font_size;
+		let mut height = height * font_size;
 
 		// 设置阴影
 		if let Some(shadows) = self.text_shadow {
@@ -725,8 +728,8 @@ impl<'a> UniformData<'a> {
 			// sdf信息[max_offset, min_sdf, sdf_step, check, index_offset_x, index_offset_y, index_w, index_h, data_offset_x, data_offset_y, scope_factor, scope_y]
 			let data = [
 				tex_info.max_offset as f32, tex_info.min_sdf as f32, tex_info.sdf_step as f32, tex_info.cell_size * 0.5 * 2.0f32.sqrt(),
-				tex_info.index_offset.0 as f32, tex_info.index_offset.1 as f32, tex_info.grid_w, tex_info.grid_w,
-				tex_info.data_offset.0 as f32, tex_info.data_offset.1 as f32,
+				tex_info.index_offset_x as f32, tex_info.index_offset_y as f32, tex_info.grid_w, tex_info.grid_w,
+				tex_info.data_offset_x as f32, tex_info.data_offset_y as f32,
 				scope_factor, scope_y,
 
 			];
