@@ -150,23 +150,29 @@ pub fn start<T: Example + Sync + Send + 'static>(example: T) {
             }));
         },
         _ => {
-            init_load_cb(Arc::new(move |_: String, _:String, hash:String, path:Vec<Arg>| {
-                let path = match &path[0] {
-                    Arg::String(r) => r.clone(),
-                    _ => return,
-                };
-                MULTI_MEDIA_RUNTIME
-                    .spawn(async move {
-                        if let Ok(file) = std::fs::read(path.as_str()) {
-                            on_load(hash.parse::<u64>().unwrap(), Ok(file));
-                            // on_load(path.as_str(), file);
-                            log::debug!("load file success,path: {:?}", path);
-                        } else {
-                            on_load(hash.parse::<u64>().unwrap(), Err(format!("not find file,path: {:?}", path)));
-                            log::warn!("not find file,path: {:?}", path);
-                        }
-                    })
-                    .unwrap();
+            init_load_cb(Arc::new(move |module: String, _:String, hash:String, path:Vec<Arg>| {
+                // println!("=========== module: {}, {}", module, hash);
+                if module.ends_with("file"){
+                    let path = match &path[0] {
+                        Arg::String(r) => r.clone(),
+                        _ => panic!(""),
+                    };
+                    MULTI_MEDIA_RUNTIME
+                        .spawn(async move {
+                            if let Ok(file) = std::fs::read(path.as_str()) {
+                                on_load(hash.parse::<u64>().unwrap(), Ok(file));
+                                // on_load(path.as_str(), file);
+                                log::debug!("load file success,path: {:?}", path);
+                            } else {
+                                on_load(hash.parse::<u64>().unwrap(), Err(format!("not find file,path: {:?}", path)));
+                                log::warn!("not find file,path: {:?}", path);
+                            }
+                        })
+                        .unwrap();
+                }else{
+                    on_load(hash.parse::<u64>().unwrap(), Ok(vec![]));
+                }
+                
             }));
         },
     }
