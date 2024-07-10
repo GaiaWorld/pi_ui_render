@@ -15,7 +15,7 @@ use pi_bevy_asset::{AssetConfig, PiAssetPlugin};
 use pi_bevy_post_process::PiPostProcessPlugin;
 use pi_bevy_render_plugin::{PiRenderPlugin, PiRenderOptions};
 use pi_flex_layout::prelude::Size;
-use pi_hal::{init_load_cb, on_load, runtime::MULTI_MEDIA_RUNTIME};
+use pi_hal::{init_load_cb, on_load, runtime::MULTI_MEDIA_RUNTIME, Arg};
 use pi_share::{Share, ShareMutex};
 use pi_hal::font::font::FontType;
 use pi_ui_render::system::RunState;
@@ -68,9 +68,13 @@ pub fn start<T: Example + Sync + Send + 'static>(example: T) {
             let httpc = pi_async_httpc::AsyncHttpcBuilder::new()
                 .bind_address("0.0.0.0") // 访问(localhost之外)外网用明确的本地ip（自身ip）
                 .build().unwrap();
-            init_load_cb(Arc::new(move |path: String| {
+            init_load_cb(Arc::new(move |_: String, _:String,  hash:String, path:Vec<Arg>| {
                 let httpc = httpc.clone();
                 let url = url.clone();
+                let path = match &path[0] {
+                    Arg::String(r) => r.clone(),
+                    _ => return,
+                };
                 MULTI_MEDIA_RUNTIME
                     .spawn(async move {
                         let mut result = Vec::new();
@@ -99,11 +103,11 @@ pub fn start<T: Example + Sync + Send + 'static>(example: T) {
                                         },
                                         Ok(None) => {
                                             if resp.get_status() == 200 {
-                                                on_load(path.as_str(), Ok(result));
+                                                on_load(hash.parse::<u64>().unwrap(), Ok(result));
                                                 log::debug!("load file success,path: {:?}", path);
                                                 // on_load(path.as_str(), result);
                                             } else {
-                                                on_load(path.as_str(), Err(format!("not find file, url: {:?}, {:?}", path, resp.get_status())));
+                                                on_load(hash.parse::<u64>().unwrap(), Err(format!("not find file, url: {:?}, {:?}", path, resp.get_status())));
                                                 log::warn!("not find file, url: {:?}, {:?}", path, resp.get_status());
                                             }
                                             
@@ -125,16 +129,20 @@ pub fn start<T: Example + Sync + Send + 'static>(example: T) {
             }));
         },
         (Some(dir), _, _) => {
-            init_load_cb(Arc::new(move |path: String| {
+            init_load_cb(Arc::new(move |_: String, _:String,  hash:String, path:Vec<Arg>| {
                 let dir = dir.clone();
+                let path = match &path[0] {
+                    Arg::String(r) => r.clone(),
+                    _ => return,
+                };
                 MULTI_MEDIA_RUNTIME
                     .spawn(async move {
                         if let Ok(file) = std::fs::read(Path::new(dir.as_str()).join(&path)) {
-                            on_load(path.as_str(), Ok(file));
+                            on_load(hash.parse::<u64>().unwrap(), Ok(file));
                             log::debug!("load file success,path: {:?}", path);
                             // on_load(path.as_str(), file);
                         } else {
-                            on_load(path.as_str(), Err(format!("not find file,path: {:?}", path)));
+                            on_load(hash.parse::<u64>().unwrap(), Err(format!("not find file,path: {:?}", path)));
                             log::warn!("not find file,path: {:?}", path);
                         }
                     })
@@ -142,15 +150,19 @@ pub fn start<T: Example + Sync + Send + 'static>(example: T) {
             }));
         },
         _ => {
-            init_load_cb(Arc::new(move |path: String| {
+            init_load_cb(Arc::new(move |_: String, _:String, hash:String, path:Vec<Arg>| {
+                let path = match &path[0] {
+                    Arg::String(r) => r.clone(),
+                    _ => return,
+                };
                 MULTI_MEDIA_RUNTIME
                     .spawn(async move {
                         if let Ok(file) = std::fs::read(path.as_str()) {
-                            on_load(path.as_str(), Ok(file));
+                            on_load(hash.parse::<u64>().unwrap(), Ok(file));
                             // on_load(path.as_str(), file);
                             log::debug!("load file success,path: {:?}", path);
                         } else {
-                            on_load(path.as_str(), Err(format!("not find file,path: {:?}", path)));
+                            on_load(hash.parse::<u64>().unwrap(), Err(format!("not find file,path: {:?}", path)));
                             log::warn!("not find file,path: {:?}", path);
                         }
                     })
