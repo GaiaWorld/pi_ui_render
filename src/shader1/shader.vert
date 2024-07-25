@@ -129,10 +129,10 @@ void main() {
 			+ quad2.xy * step(2.9, p_index); // > 2.9, 只肯可能是3.0
 	vData12 = p;
 
-	if ((ty1 & 16777216) == 0) {
+	if ((ty1 & 33554432) == 0) {
 		gl_Position = project * view * vec4(p, 1.0, 1.0);
 	} else {
-		gl_Position = project * vec4(p, 1.0, 1.0);
+		gl_Position = vec4(p, 1.0, 1.0);
 	}
 	
 	// gl_Position = project * view * vec4(vVertexPosition, 1.0, 1.0);

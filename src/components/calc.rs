@@ -792,7 +792,7 @@ pub struct OveflowRotate {
     // 相对于父上下文的旋转
     pub from_context_rotate: WorldMatrix,
     // 节点相对于世界坐标的渲染
-    pub world_rotate: Matrix4<f32>,
+    pub world_rotate: WorldMatrix,
     // 节点相对于世界坐标的旋转的逆
     pub world_rotate_invert: Matrix4<f32>,
 }

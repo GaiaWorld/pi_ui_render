@@ -34,7 +34,7 @@ pub struct Camera {
     // pub view: Matrix4,
     // pub project: Matrix4,
     pub bind_group: Option<DrawBindGroup>,
-    pub view_port: Aabb2,      // 视口区域（相对于全局的0,0点）
+    pub view_port: Aabb2,      // 非渲染视口区域（相对于全局的0,0点）
     pub is_active: bool,       // 是否激活相机（如果未激活，该相机不会渲染任何物体），通常相机不在脏区域内， 或相机内无任何drawobj，则该值为false
     pub is_change: bool, // 表示相机内的渲染内容是否改变， is_active为false时，该值为任何值都无所谓，is_active为true时，仅仅当内容相对于上一帧发生改变时，该值为true
 }

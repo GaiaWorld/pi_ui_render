@@ -56,7 +56,7 @@ pub fn calc_show(
 
 	for i in dirty_list.iter() {
         if let Ok((layer, show)) = query_dirty.get(i.0) {
-            if layer.layer() > 0 && (layer.is_changed() || show.map_or(false, |r| {r.is_changed()})) {
+            if layer.layer() > 0 && (layer.is_changed() || show.as_ref().map_or(false, |r| {r.is_changed()})) {
                 layer_dirty.mark(i.0);
             }
         }
@@ -69,6 +69,7 @@ pub fn calc_show(
         let mut parent_c_visibility = true;
 		let mut parent_c_display = true;
         let mut parent_c_enable = true;
+
         let item = match query.get(node) {
             Ok(r) => r,
             _ => continue,
@@ -117,7 +118,7 @@ pub fn calc_show(
 		
 		// log::debug!("c_enable: {}", c_enable);
 		// log::warn!("show=============entity: {:?}, c_enable: {:?}, parent: {:?}, enable_value: {:?}", node, c_enable, parent_c_enable, enable_value);
-        log::debug!("show=============entity: {:?}, c_display: {:?}, c_visibility: {:?}, c_enable: {:?}, {:?}", node, c_display, c_visibility, c_enable, visibility_change);
+        // println!("show=============entity: {:?}, c_display: {:?}, c_visibility: {:?}, c_enable: {:?}, {:?}", node, c_display, c_visibility, c_enable, visibility_change);
 		write_item.set_enable(c_enable);
     }
 
@@ -143,7 +144,7 @@ pub fn set_show_data(
 	}
 	for node in show_changed.0.drain(..) {
 		if let Ok((draw_list, is_show, instance_index)) = query.get(node) {
-			let visibility = is_show.get_visibility() || is_show.get_display();
+			let visibility = is_show.get_visibility() && is_show.get_display();
 			for draw_id in draw_list.iter() {
 				if let Ok(instance_index) = query_draw.get(draw_id.id) {
 					let alignment = instances.instance_data.alignment;
@@ -152,13 +153,14 @@ pub fn set_show_data(
 						let mut instance_data = instances.instance_data.instance_data_mut(instance_index.0.start + index * alignment);
 						let mut ty = instance_data.get_render_ty();
 	
-						let old_visibility = (ty | (1 << RenderFlagType::NotVisibility as usize) ) == 0;
+						let old_visibility = (ty & (1 << RenderFlagType::NotVisibility as usize) ) == 0;
 						if old_visibility != visibility {
 							if visibility {
 								ty &= !(1 << RenderFlagType::NotVisibility as usize);
 							} else {
 								ty |= 1 << RenderFlagType::NotVisibility as usize;
 							}
+
 							instance_data.set_data(&TyUniform(&[ty as f32]));
 						}
 					}
@@ -166,21 +168,20 @@ pub fn set_show_data(
 			}
 	
 			if let Some(instance_index) = instance_index {
-				if instance_index.start.is_null() {
-					return;
-				}
-				let mut instance_data = instances.instance_data.instance_data_mut(instance_index.0.start);
-				let mut ty = instance_data.get_render_ty();
-	
-				let old_visibility = (ty | (1 << RenderFlagType::NotVisibility as usize) ) == 0;
-				if old_visibility != visibility {
-					if visibility {
-						ty &= !(1 << RenderFlagType::NotVisibility as usize);
-					} else {
-						ty |= 1 << RenderFlagType::NotVisibility as usize;
+				if !instance_index.start.is_null() {
+					let mut instance_data = instances.instance_data.instance_data_mut(instance_index.0.start);
+					let mut ty = instance_data.get_render_ty();
+		
+					let old_visibility = (ty & (1 << RenderFlagType::NotVisibility as usize) ) == 0;
+					if old_visibility != visibility {
+						if visibility {
+							ty &= !(1 << RenderFlagType::NotVisibility as usize);
+						} else {
+							ty |= 1 << RenderFlagType::NotVisibility as usize;
+						}
+						// log::trace!("set show=============entity: {:?}, visibility: {:?}", entity, (visibility, ty));
+						instance_data.set_data(&TyUniform(&[ty as f32]));
 					}
-					// log::trace!("set show=============entity: {:?}, visibility: {:?}", entity, (visibility, ty));
-					instance_data.set_data(&TyUniform(&[ty as f32]));
 				}
 			}
 		}

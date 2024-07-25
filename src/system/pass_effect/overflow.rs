@@ -206,7 +206,7 @@ fn recursive_cal_overflow(
                             OverflowDesc::Rotate(r) => WorldMatrix(r.world_rotate_invert * world_rotate, true),
                             OverflowDesc::NoRotate(_) => WorldMatrix(world_rotate, false),
                         },
-                        world_rotate, // TODO
+                        world_rotate: WorldMatrix(world_rotate, true), // TODO
                     }),
                 };
             } else {

@@ -165,14 +165,14 @@ pub fn calc_camera_depth_and_renderlist(
         }
 
         // 计算视图区域（世界坐标系）
-        let aabb_temp;
-        let view_world_aabb = match &overflow_aabb.desc {
-            OverflowDesc::Rotate(r) => {
-                aabb_temp = calc_bound_box(&no_rotate_view_aabb, &r.world_rotate);
-                &aabb_temp
-            }
-            _ => &no_rotate_view_aabb,
-        };
+        // let aabb_temp;
+        // let view_world_aabb = match &overflow_aabb.desc {
+        //     OverflowDesc::Rotate(r) => {
+        //         aabb_temp = calc_bound_box(&no_rotate_view_aabb, &r.world_rotate);
+        //         &aabb_temp
+        //     }
+        //     _ => &no_rotate_view_aabb,
+        // };
 
 		// log::warn!("last_dirty======{:?}, {:?}", entity, cull_aabb);
         let aabb = Aabb2::new(

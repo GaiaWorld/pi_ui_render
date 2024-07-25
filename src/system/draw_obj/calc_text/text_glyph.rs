@@ -48,14 +48,14 @@ pub fn text_glyph(
                 &'static mut NodeState,
 				&'static Layer,
 				Option<&'static mut TextOverflowData>,
+                // &TextContent,
 
-                // Option<Ticker<&TextStyle>>,
-                // Ticker<&TextContent>,
-                // Ticker<&WorldMatrix>,
-                // Option<Ticker<&TextOverflowData>>,
+                // Option<pi_world::fetch::Ticker<&TextStyle>>,
+                // pi_world::fetch::Ticker<&TextContent>,
+                // Option<pi_world::fetch::Ticker<&TextOverflowData>>,
             ),
             (
-                Or<(Changed<TextContent>, Changed<TextStyle>, Changed<WorldMatrix>, Changed<TextOverflowData>)>,
+                Or<(Changed<TextContent>, Changed<TextStyle>, Changed<TextOverflowData>)>,
                 With<TextContent>,
             ),
         >,
@@ -96,12 +96,14 @@ pub fn text_glyph(
         node_state,
 		layer,
 		text_overflow_data,
+        // text_content,
 
-        // t1, t2, t3, t4
+        // t1, t2, t3
+        // t2
     ) in query.p0().iter_mut()
     {
         // ii1.push(entity);
-        // println!("text_glyph======{:?}", (t1.map(|t| {t.is_changed()}), t2.is_changed(), t3.is_changed(), t4.map(|t| {t.is_changed()})));
+        // println!("text_glyph======{:?}", (t1.map(|t| {t.is_changed()}), t2.is_changed(), t3.map(|t| {t.is_changed()})));
 		let r = set_gylph(entity, layer, text_style, node_state, &mut font_sheet, text_overflow_data);
         if let Err(_) = r {
             // 清空文字纹理TODO（清屏为玫红色）
@@ -143,7 +145,7 @@ pub fn text_glyph(
 
 	// 如果是sdf2， 则设置就绪字形对应节点的NodeState的修改版本
 	if let FontType::Sdf2 = font_type {
-		if await_set_gylph.len() > 0 && font_sheet.font_mgr().table.sdf2_table.init_load.load(Ordering::Relaxed){
+		if await_set_gylph.len() > 0 {
             
             let index = *await_index;
             let result = Share::new(ShareMutex::new((0, Vec::new())));
@@ -167,11 +169,13 @@ pub fn text_glyph(
 
         let mut next = await_list.0.front();
         loop {
-            if let Some((_, is_load, _result)) = next {
+            if let Some((await_set_gylph, is_load, _result)) = next {
+                // println!("await================{:?}", &await_set_gylph);
                 if is_load.load(std::sync::atomic::Ordering::Relaxed) == true {
                     let (await_set_gylph, _, result) = await_list.0.pop_front().unwrap();
                     font_sheet.update_sdf2(result); // 更新纹理
                     for entity in await_set_gylph.iter() {
+                        // println!("set_changed================{:?}", entity);
                         if let Ok(mut node_state) = p2.get_mut(*entity) {
                             node_state.set_changed();
                             // println!("set_changed================{:?}", entity);

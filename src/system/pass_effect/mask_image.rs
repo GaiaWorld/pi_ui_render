@@ -292,7 +292,7 @@ pub fn mask_image_post_process2(
                 ]));
 
                 render_flag &= !(1 << RenderFlagType::NotVisibility as usize);
-                render_flag &= !(1 << RenderFlagType::Fbo as usize);  //（不需要乘视图矩阵、世界矩阵）
+                render_flag &= !(1 << RenderFlagType::IgnoreCamera as usize);  //（不需要乘视图矩， 投影矩阵）
                 instance_data.set_data(&TyUniform([render_flag as f32].as_slice()));         
             }
         }

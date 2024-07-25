@@ -15,15 +15,15 @@
 //! 4. 在节点上创建其所在的Pass2D实体的索引（InPass2DId），表明节点上的渲染对象应该渲染到那个Psss2D上。
 //!
 //!
-use pi_world::{event::{Event, EventSender}, fetch::Ticker, filter::{Or, With}, prelude::{Alter, Changed, ComponentRemoved, Entity, Has, Mut, ParamSet, Query, SingleRes, SingleResMut}};
+use pi_world::{event::{Event, EventSender}, fetch::{OrDefault, Ticker}, filter::{Or, With}, prelude::{Alter, Changed, ComponentRemoved, Entity, Has, Mut, ParamSet, Query, SingleRes, SingleResMut}};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, OrInitSingleRes, Up, Layer, LayerDirty};
 
 use pi_null::Null;
 
 use crate::{
     components::{
-        calc::{ContentBox, EntityKey, InPassId, NeedMark, RenderContextMark, WorldMatrix}, draw_obj::InstanceIndex, pass_2d::{Camera, ChildrenPass, ParentPassId, PostProcessInfo}, PassBundle
-    }, resource::{draw_obj::InstanceContext, EffectRenderContextMark, NodeChanged, RenderContextMarkType}, shader1::meterial::{BoxUniform, QuadUniform, RenderFlagType, TyUniform}, system::{draw_obj::calc_text::IsRun, node::{user_setting::StyleChange, world_matrix::Empty}}
+        calc::{ContentBox, EntityKey, InPassId, LayoutResult, NeedMark, OverflowDesc, RenderContextMark, View, WorldMatrix}, draw_obj::InstanceIndex, pass_2d::{Camera, ChildrenPass, ParentPassId, PostProcessInfo}, user::{Overflow, Vector4}, PassBundle
+    }, resource::{draw_obj::InstanceContext, EffectRenderContextMark, NodeChanged, RenderContextMarkType}, shader1::meterial::{BoxUniform, QuadUniform, RenderFlagType, TyUniform}, system::{draw_obj::{calc_text::IsRun, set_box}, node::{content_box, user_setting::StyleChange, world_matrix::Empty}}
 };
 
 /// 记录RenderContext添加和删除的脏，同时记录节点添加到树上的脏
@@ -338,7 +338,10 @@ pub fn calc_pass(
             &InstanceIndex,
             &ParentPassId,
             &Camera,
-            // &View,
+            &View,
+            OrDefault<Overflow>,
+            &LayoutResult,
+            &ContentBox,
 		),
 		Or<(Changed<PostProcessInfo>, Changed<WorldMatrix>, Changed<ContentBox>)>,
 	>,
@@ -355,7 +358,7 @@ pub fn calc_pass(
 		return;
 	}
 
-    for (instance_index, parent_pass_id, camera) in query.iter() {
+    for (instance_index, parent_pass_id, camera, view, overflow, layout, content_box) in query.iter() {
 		// 节点可能设置为dispaly none， 此时instance_index可能为Null
         // 节点可能没有后处理效果， 此时instance_index为Null
         if pi_null::Null::is_null(&instance_index.0.start) {
@@ -369,7 +372,7 @@ pub fn calc_pass(
         render_flag |= 1 << RenderFlagType::Uv as usize;
         render_flag |= 1 << RenderFlagType::Premulti as usize;
         render_flag |= 1 << RenderFlagType::Fbo as usize;
-        // instance_data.set_data(&BoxUniform(&[p1.x, p1.y, p2.x - p1.x, p2.y - p1.y]));
+
         if parent_pass_id.0.is_null() {
             // 如果是根节点， 渲染时设置的投影矩阵和视图矩阵都是单位阵
             instance_data.set_data(&BoxUniform(&[0.0, 0.0, 1.0, 1.0]));
@@ -379,114 +382,173 @@ pub fn calc_pass(
                 1.0, -1.0,
                 1.0, 1.0,
             ]));
+            render_flag |= 1 << RenderFlagType::IgnoreCamera as usize;
         } else {
-            // if content_box.layout.width() >= 700.0 && content_box.layout.height() >= 910.0 {
-                // println!("right_bottom.x >= 788, {:?}, \n{:?}", (entity, post_info.has_effect(), content_box.layout.width(), content_box.layout.height()), world_matrix);
-            // }
+            let (left, top, width, height) = if **overflow {
+                // oveflow需要裁剪子节点到内容区域（注意，同时也将自身裁剪到内容区域，这与浏览器标准不符）
+                (
+                    layout.border.left + layout.padding.left,
+                    layout.border.top + layout.padding.top,
+                    layout.rect.right - (layout.border.right + layout.padding.right) - layout.rect.left,
+                    layout.rect.bottom - (layout.border.top + layout.padding.top) - layout.rect.top,
+                )
+            } else {
+                // 如果子节点设有transform， 并且使得超出了本节点的布局范围会有问题（如何解决？TODO）
+                (
+                    0.0,
+                    0.0,
+                    content_box.layout.maxs.x - content_box.layout.mins.x,
+                    content_box.layout.maxs.y - content_box.layout.mins.y,
+                )
+            };
+            instance_data.set_data(&BoxUniform(&[left, top, width, height]));
+    
             // let aabb = &camera.view_port;
-            // let scale_x = (aabb.maxs.x - aabb.mins.x) / 2.0;
-            // let scale_y = (aabb.maxs.y - aabb.mins.y) / 2.0;
-            // // 后处理效果与gui坐标系使用不一致，所以缩放为-scale_y
-            // // 这里的aabb是指当前非旋转坐标系
-            // let quad = [
-            //     Vector4::new(aabb.mins.x - scale_x, scale_y, 0.0, 0.0),
-            //     Vector4::new(aabb.mins.x - scale_x, scale_y, 0.0, 0.0),
-            // ];
-            // Matrix4::new(
-            //     scale_x,
-            //     0.0,
-            //     0.0,
-            //     aabb.mins.x + scale_x,
-            //     0.0,
-            //     -scale_y,
-            //     0.0,
-            //     aabb.mins.y + scale_y,
-            //     0.0,
-            //     0.0,
-            //     1.0,
-            //     0.0,
-            //     0.0,
-            //     0.0,
-            //     0.0,
-            //     1.0,
-            // );
-            let view_port = &camera.view_port;
-            instance_data.set_data(&BoxUniform(&[0.0, 0.0, 1.0, 1.0]));
-            instance_data.set_data(&QuadUniform(&[
-                view_port.mins.x, view_port.mins.y,
-                view_port.mins.x, view_port.maxs.y,
-                view_port.maxs.x, view_port.maxs.y,
-                view_port.maxs.x, view_port.mins.y,
-            ]));
-            
-            // // let aabb = &camera.view_port;
-            // if let OverflowDesc::Rotate(matrix) = &overflow_aabb.desc {
-            //     // 注意， 此处设置的BoxUniform并不正确， TODO
-            //     set_box(&matrix.from_context_rotate, &camera.view_port, &mut instance_data);
-            // } else {
-            //     // if bg.is_some() {
-            //     	// log::warn!("aaaa================={:?}, {:?}", entity, &camera.view_port);
-            //     // }
-            //     // post_info.matrix = WorldMatrix(world_matrix, false);
-                
-            //     let mut view_port = &camera.view_port;
-            //     let t;
-            //     while let Ok((p, p_camera, post, )) = query1.get(***parent_pass_id) {
-            //         if post.has_effect() {
-            //             let min = Point2::new(
-            //                 p_camera.view_port.mins.x + (camera.view_port.mins.x - p_camera.view_port.mins.x),
-            //                 p_camera.view_port.mins.y + (camera.view_port.mins.y - p_camera.view_port.mins.y)
-            //             );
-            //             let max = Point2::new(
-            //                 min.x + camera.view_port.maxs.x - camera.view_port.mins.x,
-            //                 min.y + camera.view_port.maxs.y - camera.view_port.mins.y,
-            //             );
-            //             t = Aabb2::new(min, max) ;
-            //             view_port = &t;
-            //             break;
-            //         }
-            //         parent_pass_id = p;
-            //     }
-
-            //     // println!("calc_pass!!!!!!==={:?}", (instance_index,  parent_pass_id, view_port));
-
-            //     instance_data.set_data(&QuadUniform(&[
-            //         view_port.mins.x, view_port.mins.y,
-            //         view_port.mins.x, view_port.maxs.y,
-            //         view_port.maxs.x, view_port.maxs.y,
-            //         view_port.maxs.x, view_port.mins.y,
-            //     ]));
-            //     // if instance_index.start == 480 {
-            //     //     instance_data.set_data(&QuadUniform(&[
-            //     //         100.0, 200.0,
-            //     //         100.0, 300.0,
-            //     //         150.0, 300.0,
-            //     //         150.0, 200.0,
-            //     //     ]));
-            //     // } 
-                
-            // }
-
-            // // 存在旋转，需要旋转回父上下文
-            // if let OverflowDesc::Rotate(matrix) = &overflow_aabb.desc {
-            //     post_info.matrix = WorldMatrix(&matrix.from_context_rotate * world_matrix, true);
-            // } else {
-            //     // if bg.is_some() {
-            //     // 	log::warn!("aaaa================={:?}, {:?}, {:?}", entity, aabb, world_matrix);
-            //     // }
-            //     post_info.matrix = WorldMatrix(world_matrix, false);
-            // }
-
-            // let layout_rect = Aabb2::new(Point2::new(0.0, 0.0), Point2::new(content_box.layout.width(), content_box.layout.height()));
-            // instance_data.set_data(&BoxUniform(&[layout_rect.mins.x, layout_rect.mins.y, layout_rect.maxs.x - layout_rect.mins.x, layout_rect.maxs.y - layout_rect.mins.y]));
-            // instance_data.set_data(&QuadUniform(&[
-            //     left_top.x, left_top.y,
-            //     left_bottom.x, left_bottom.y,
-            //     right_bottom.x, right_bottom.y,
-            //     right_top.x, right_top.y,
-            // ]));
-            // set_box(&world_matrix, &Aabb2::new(Point2::new(0.0, 0.0), Point2::new(content_box.layout.width(), content_box.layout.height())), &mut instance_data);
+            // 设置quad到世界为止
+            if let OverflowDesc::Rotate(matrix) = &view.desc {
+                set_box(&matrix.world_rotate, &camera.view_port, &mut instance_data);
+            } else {
+                let view_port = &camera.view_port;
+                instance_data.set_data(&QuadUniform(&[
+                    view_port.mins.x, view_port.mins.y,
+                    view_port.mins.x, view_port.maxs.y,
+                    view_port.maxs.x, view_port.maxs.y,
+                    view_port.maxs.x, view_port.mins.y,
+                ]));
+            }
         }
+
+        // let aabb_temp;
+        // let view_world_aabb = match &overflow_aabb.desc {
+        //     OverflowDesc::Rotate(r) => {
+        //         aabb_temp = calc_bound_box(&no_rotate_view_aabb, &r.world_rotate);
+        //         &aabb_temp
+        //     }
+        //     _ => &no_rotate_view_aabb,
+        // };
+
+       
+
+        // // instance_data.set_data(&BoxUniform(&[p1.x, p1.y, p2.x - p1.x, p2.y - p1.y]));
+        // if parent_pass_id.0.is_null() {
+        //     // 如果是根节点， 渲染时设置的投影矩阵和视图矩阵都是单位阵
+        //     instance_data.set_data(&BoxUniform(&[0.0, 0.0, 1.0, 1.0]));
+        //     instance_data.set_data(&QuadUniform(&[
+        //         -1.0, 1.0,
+        //         -1.0, -1.0,
+        //         1.0, -1.0,
+        //         1.0, 1.0,
+        //     ]));
+        // } else {
+        //     // let view_port = &camera.view_port;
+        //     // instance_data.set_data(&BoxUniform(&[0.0, 0.0, 1.0, 1.0]));
+        //     // instance_data.set_data(&QuadUniform(&[
+        //     //     view_port.mins.x, view_port.mins.y,
+        //     //     view_port.mins.x, view_port.maxs.y,
+        //     //     view_port.maxs.x, view_port.maxs.y,
+        //     //     view_port.maxs.x, view_port.mins.y,
+        //     // ]));
+
+
+        //     // if content_box.layout.width() >= 700.0 && content_box.layout.height() >= 910.0 {
+        //         // println!("right_bottom.x >= 788, {:?}, \n{:?}", (entity, post_info.has_effect(), content_box.layout.width(), content_box.layout.height()), world_matrix);
+        //     // }
+        //     let aabb = &camera.view_port;
+        //     let scale_x = (aabb.maxs.x - aabb.mins.x) / 2.0;
+        //     let scale_y = (aabb.maxs.y - aabb.mins.y) / 2.0;
+        //     // 后处理效果与gui坐标系使用不一致，所以缩放为-scale_y
+        //     // 这里的aabb是指当前非旋转坐标系
+        //     let quad = [
+        //         Vector4::new(aabb.mins.x - scale_x, scale_y, 0.0, 0.0),
+        //         Vector4::new(aabb.mins.x - scale_x, scale_y, 0.0, 0.0),
+        //     ];
+        //     Matrix4::new(
+        //         scale_x,
+        //         0.0,
+        //         0.0,
+        //         aabb.mins.x + scale_x,
+        //         0.0,
+        //         -scale_y,
+        //         0.0,
+        //         aabb.mins.y + scale_y,
+        //         0.0,
+        //         0.0,
+        //         1.0,
+        //         0.0,
+        //         0.0,
+        //         0.0,
+        //         0.0,
+        //         1.0,
+        //     );
+
+        //     // let aabb = &camera.view_port;
+        //     if let OverflowDesc::Rotate(matrix) = &overflow_aabb.desc {
+        //         // 注意， 此处设置的BoxUniform并不正确， TODO
+        //         set_box(&matrix.from_context_rotate, &camera.view_port, &mut instance_data);
+        //     } else {
+        //         // if bg.is_some() {
+        //         	// log::warn!("aaaa================={:?}, {:?}", entity, &camera.view_port);
+        //         // }
+        //         // post_info.matrix = WorldMatrix(world_matrix, false);
+                
+        //         let mut view_port = &camera.view_port;
+        //         let t;
+        //         while let Ok((p, p_camera, post, )) = query1.get(***parent_pass_id) {
+        //             if post.has_effect() {
+        //                 let min = Point2::new(
+        //                     p_camera.view_port.mins.x + (camera.view_port.mins.x - p_camera.view_port.mins.x),
+        //                     p_camera.view_port.mins.y + (camera.view_port.mins.y - p_camera.view_port.mins.y)
+        //                 );
+        //                 let max = Point2::new(
+        //                     min.x + camera.view_port.maxs.x - camera.view_port.mins.x,
+        //                     min.y + camera.view_port.maxs.y - camera.view_port.mins.y,
+        //                 );
+        //                 t = Aabb2::new(min, max) ;
+        //                 view_port = &t;
+        //                 break;
+        //             }
+        //             parent_pass_id = p;
+        //         }
+
+        //         // println!("calc_pass!!!!!!==={:?}", (instance_index,  parent_pass_id, view_port));
+
+        //         instance_data.set_data(&QuadUniform(&[
+        //             view_port.mins.x, view_port.mins.y,
+        //             view_port.mins.x, view_port.maxs.y,
+        //             view_port.maxs.x, view_port.maxs.y,
+        //             view_port.maxs.x, view_port.mins.y,
+        //         ]));
+        //         // if instance_index.start == 480 {
+        //         //     instance_data.set_data(&QuadUniform(&[
+        //         //         100.0, 200.0,
+        //         //         100.0, 300.0,
+        //         //         150.0, 300.0,
+        //         //         150.0, 200.0,
+        //         //     ]));
+        //         // } 
+                
+        //     }
+
+        //     // 存在旋转，需要旋转回父上下文
+        //     if let OverflowDesc::Rotate(matrix) = &overflow_aabb.desc {
+        //         post_info.matrix = WorldMatrix(&matrix.from_context_rotate * world_matrix, true);
+        //     } else {
+        //         // if bg.is_some() {
+        //         // 	log::warn!("aaaa================={:?}, {:?}, {:?}", entity, aabb, world_matrix);
+        //         // }
+        //         post_info.matrix = WorldMatrix(world_matrix, false);
+        //     }
+
+        //     let layout_rect = Aabb2::new(Point2::new(0.0, 0.0), Point2::new(content_box.layout.width(), content_box.layout.height()));
+        //     instance_data.set_data(&BoxUniform(&[layout_rect.mins.x, layout_rect.mins.y, layout_rect.maxs.x - layout_rect.mins.x, layout_rect.maxs.y - layout_rect.mins.y]));
+        //     instance_data.set_data(&QuadUniform(&[
+        //         left_top.x, left_top.y,
+        //         left_bottom.x, left_bottom.y,
+        //         right_bottom.x, right_bottom.y,
+        //         right_top.x, right_top.y,
+        //     ]));
+        //     set_box(&world_matrix, &Aabb2::new(Point2::new(0.0, 0.0), Point2::new(content_box.layout.width(), content_box.layout.height())), &mut instance_data);
+        // }
         instance_data.set_data(&TyUniform(&[render_flag as f32]));
 	}
 }

@@ -103,6 +103,11 @@ impl Example for TransitionExample {
 		world.user_cmd.set_style(div2, TransitionDelayType(smallvec![Time(0)]));
         world.user_cmd.append(div2, root);
 
+
+       
+
+
+
     }
 
     fn render(&mut self, cmd: &mut UserCommands) {

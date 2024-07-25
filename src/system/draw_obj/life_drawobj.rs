@@ -275,9 +275,13 @@ pub fn update_render_instance_data(
 
 	let alloc = |draw_index: &DrawIndex, draw_info: &DrawInfo, new_instances: &mut GpuBuffer, instances: &InstanceContext, instance_index: &mut Query<(&'static mut InstanceIndex, OrDefault<RenderCount>)>| {
 		let mut alloc:  Option<Entity> = None;
+		#[cfg(debug_assertions)]
+		let mut node = EntityKey::null();
 		match draw_index {
-			DrawIndex::DrawObj{draw_entity, ..} => {
+			DrawIndex::DrawObj{draw_entity, node_entity } => {
 				alloc = Some(draw_entity.0);
+				#[cfg(debug_assertions)]
+				node = *node_entity;
 			},
 			DrawIndex::Pass2D(entity) => {
 				if let Ok((post_info, _)) = post_info_query.get(entity.0) {
@@ -293,6 +297,8 @@ pub fn update_render_instance_data(
 						}
 					}
 				}
+				#[cfg(debug_assertions)]
+				node = *entity;
 			},
 
 			_ => {},
@@ -318,7 +324,7 @@ pub fn update_render_instance_data(
 
 					// 用于debug
 					#[cfg(debug_assertions)]
-					new_instances.instance_data_mut(new_index.start + i as usize * new_instances.alignment).set_data(&DebugInfo(&[entity.index() as f32]));
+					new_instances.instance_data_mut(new_index.start + i as usize * new_instances.alignment).set_data(&DebugInfo(&[node.index() as f32]));
 				}
 
 				log::debug!("alloc instance_index============{:?}, {:?}", entity, new_index);
