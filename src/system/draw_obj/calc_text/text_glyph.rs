@@ -143,7 +143,7 @@ pub fn text_glyph(
 
 	// 如果是sdf2， 则设置就绪字形对应节点的NodeState的修改版本
 	if let FontType::Sdf2 = font_type {
-		if await_set_gylph.len() > 0 && font_sheet.font_mgr().table.sdf2_table.init_load.load(Ordering::Relaxed){
+		if await_set_gylph.len() > 0 {
             
             let index = *await_index;
             let result = Share::new(ShareMutex::new((0, Vec::new())));
