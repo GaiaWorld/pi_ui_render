@@ -125,7 +125,7 @@ tracing-subscriber = "0.3"
 ahash = "0.8"
 pi_key_alloter = {version = "0.5", features = ["serde"]}
 
-pi_ui_render_macros = {version="0.1.1", path = "./macros"}
+pi_ui_render_macros = {version="0.1.1", path = "./macros", registry = "yn"}
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 
 # flume = "0.10"
