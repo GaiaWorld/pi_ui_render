@@ -80,7 +80,7 @@ crossbeam = "0.8"
 fixedbitset = { version = "0.4", features = ["serde"] }
 bytemuck = { version = "1.4", features = ["derive"] }
 naga = { version = "0.19" }
-pi_assets = "0.13"
+pi_assets = "0.14"
 image = "0.24"
 polygon2 = "0.3"
 pi_slotmap_tree = "0.3"
@@ -254,7 +254,7 @@ probabilistic-collections = { git = "https://github.com/GaiaWorld/pi_probabilist
 # pi_assets = { path = "../pi_assets" }
 # pi_share = { path = "../pi_share" }
 # wgpu= {path = "../wgpu/wgpu"}
-
+once_cell = { path = "../once_cell" }
 pi_world = { path = "../pi_world" }
 pi_world_macros = { path = "../pi_world/macros" }
 
@@ -289,6 +289,7 @@ pi_wgpu = {path = "../pi_wgpu"}
 # font_kit = { path = "../font_kit" }
 pi_hal = { path = "../pi_hal" }
 pi_sdf = { path = "../pi_sdf" }
+pi_postprocess = { path = "../pi_post_process" }
 
 # bevy
 # pi_bevy_ecs_extend = { path = "../pi_bevy_new_graphic/crates/ecs_extend" }

@@ -35,7 +35,7 @@ impl Plugin for UiAsImagePlugin {
             let default_cfg = AssetDesc {
                 ref_garbage: false,
                 min: 0,
-                max: 32 * 1024 * 1024, // 默认32M的fbo缓存
+                weight: 32 * 1024 * 1024, // 默认32M的fbo缓存
                 timeout: 0,            // 并不会启用超时整理， 这里的数值无所谓（记得该资源管理器中的资源需要手动删除）
             };
             // let desc = asset_config.get::<CacheTarget>().unwrap_or(&default_cfg);
