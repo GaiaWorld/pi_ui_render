@@ -278,7 +278,10 @@ pub fn update_render_instance_data(
 		#[cfg(debug_assertions)]
 		let mut node = EntityKey::null();
 		match draw_index {
-			DrawIndex::DrawObj{draw_entity, node_entity } => {
+			DrawIndex::DrawObj{draw_entity, 
+				#[cfg(debug_assertions)]
+				node_entity 
+			} => {
 				alloc = Some(draw_entity.0);
 				#[cfg(debug_assertions)]
 				node = *node_entity;
