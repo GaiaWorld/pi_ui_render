@@ -203,7 +203,7 @@ pub enum DrawIndex {
     // 一个渲染对象
     DrawObj{
         draw_entity: EntityKey,
-        #[cfg(debug_assertions)]
+        // #[cfg(debug_assertions)]
         node_entity: EntityKey,
     },
     // 一个Pass2D的内容
