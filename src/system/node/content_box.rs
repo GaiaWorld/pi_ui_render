@@ -43,7 +43,6 @@ pub fn calc_content_box(
         let (mut remain, mut cur) = dirty.split(end - 1);
         for id in cur.iter() {
             let mut chilren_change = false;
-
             // 当前节点的oct
             let (mut oct, mut layout, x, y, text_shadow, box_shadow, world_matrix) = match node_box.get(id) {
                 Ok(r) => (
@@ -108,7 +107,7 @@ pub fn calc_content_box(
                         // log::warn!("content_box_item====={:?}, {:?}, {:?}, {:?}", id, child, oct, content_box_item.oct);
                         box_and(&mut oct, &content_box_item.oct);
                         box_and(&mut layout, &content_box_item.layout);
-                        // log::warn!("content_box_item1====={:?}, {:?}", child, oct);
+                        
                         let up = up.get(child).unwrap();
                         child = up.next();
                     } else {
@@ -134,7 +133,7 @@ pub fn calc_content_box(
                 old.layout = layout;
                 if let Ok(up) = up.get(id) {
                     if !EntityKey(up.parent()).is_null() {
-                        let layer = layer.get(id).unwrap();
+                        let layer = layer.get(up.parent()).unwrap();
                         remain.mark(up.parent(), layer.layer());
                     }
                 }

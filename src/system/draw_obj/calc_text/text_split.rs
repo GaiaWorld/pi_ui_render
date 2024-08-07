@@ -88,7 +88,7 @@ pub fn text_split(
             font_size,
             line_height: get_line_height(font_height as usize, &text_style.line_height),
             sw: sw,
-            char_margin: text_style.letter_spacing - *sw,
+            char_margin: text_style.letter_spacing,
             node_state: node_state,
         };
 

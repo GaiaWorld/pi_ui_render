@@ -254,7 +254,6 @@ probabilistic-collections = { git = "https://github.com/GaiaWorld/pi_probabilist
 # pi_assets = { path = "../pi_assets" }
 # pi_share = { path = "../pi_share" }
 # wgpu= {path = "../wgpu/wgpu"}
-once_cell = { path = "../once_cell" }
 pi_world = { path = "../pi_world" }
 pi_world_macros = { path = "../pi_world/macros" }
 
@@ -283,13 +282,13 @@ pi_world_macros = { path = "../pi_world/macros" }
 # pi_curves  = {path="../pi_curves"}
 # pi_animation = { path="../pi_animation"}
 pi_style = {path = "../pi_style"}
-pi_wgpu = {path = "../pi_wgpu"}
+# pi_wgpu = {path = "../pi_wgpu"}
 # pi_egl = {path = "../pi_egl"}
 # winit = {path = "../winit"}
 # font_kit = { path = "../font_kit" }
 pi_hal = { path = "../pi_hal" }
-pi_sdf = { path = "../pi_sdf" }
-pi_postprocess = { path = "../pi_post_process" }
+# pi_sdf = { path = "../pi_sdf" }
+pi_postprocess = { path = "../pi_postprocess" }
 
 # bevy
 # pi_bevy_ecs_extend = { path = "../pi_bevy_new_graphic/crates/ecs_extend" }

@@ -234,7 +234,7 @@ impl Example for QuadExample {
 		world.user_cmd.set_style(div9, PositionTopType(Dimension::Points(250.0)));
         world.user_cmd.set_style(div9, PositionLeftType(Dimension::Points(150.0)));
         world.user_cmd
-            .set_style(div9, TextContentType(TextContent("放".to_string(), Atom::from("放"))));
+            .set_style(div9, TextContentType(TextContent("爱".to_string(), Atom::from("爱"))));
 		world.user_cmd.set_style(div9, OverflowWrapType(OverflowWrap::BreakWord));
         world.user_cmd.set_style(div9, FontFamilyType(Atom::from("hwkt")));
         world.user_cmd.set_style(div9, ColorType(Color::RGBA(CgColor::new(0.0, 1.0, 0.0, 1.0))));

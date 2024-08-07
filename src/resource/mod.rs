@@ -136,7 +136,15 @@ impl UserCommands {
             (ids.is_show, true),
         ]);
         if tag == NodeTag::VNode {
+            type_arr.push((ids.down, true));
+            type_arr.push((ids.up, true));
+            type_arr.push((ids.layer, true));
+            type_arr.push((ids.node_state, true));
             type_arr.push((ids.z_index, true));
+            type_arr.push((ids.matrix, true));
+            type_arr.push((ids.z_range, true));
+            type_arr.push((ids.content_box, true));
+            type_arr.push((ids.layout, true));
         }
         type_arr
     }
