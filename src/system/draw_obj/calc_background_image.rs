@@ -248,6 +248,9 @@ pub fn calc_background_image(
 				// 	println!("p5========================{:?}", (p4.0.parent(), p5.1, p5.2));
 				// }
 				
+				// if (ba) {//yxxq_lan1.png
+				// 	log::warn!("bg============={:?}", );
+				// }
 				set_box(&world_matrix, &Aabb2::new(p1, p2), &mut instance_data);
 				instance_data.set_data(&UvUniform(&[uv1.x, uv1.y, uv2.x, uv2.y]));
 				instance_data.set_data(&TyUniform(&[render_flag as f32]));

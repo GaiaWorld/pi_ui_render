@@ -1,4 +1,8 @@
 
+#version 450
+
+precision highp float;
+
 // 输入
 layout(location = 0) in vec2 vVertexPosition; // 顶点到裁剪中心点的距离
 layout(location = 1) in vec2 vUv; // uv
@@ -1057,8 +1061,8 @@ void calc_sdf_color(int ty1) {
 
 
 void main(void) {
-	int ty1 = int(vData11.y); // clip_max_xect = 1; clip_max_xect_radius = 4; clip_circel= 8; clip_ellipse = 16; clip_secotor = 32; uv = 64; color = 128; canvas_text = 256;text_stroke = 512;is_not_visibility = 1024;pointer_samp = 2048;
 
+	int ty1 = int(vData11.y + 0.1); // clip_max_xect = 1; clip_max_xect_radius = 4; clip_circel= 8; clip_ellipse = 16; clip_secotor = 32; uv = 64; color = 128; canvas_text = 256;text_stroke = 512;is_not_visibility = 1024;pointer_samp = 2048;
 	if ((ty1 & 131072) != 0) {// 圆弧方案的sdf
 		calc_sdf_color(ty1);
 		// o_Target = vec4(texture(sampler2D(u_data_tex, data_samp), vUv/128.0).rg, 0.0, 1.0);
@@ -1074,8 +1078,9 @@ void main(void) {
 
 	// color = texture(sampler2D(tex2d0, samp0),vUv);
 	float texture_layer = vData5.x;
-	bool is_uv = (ty1 & 64) != 0; 
+	bool is_uv = (ty1 & 64) != 0;
 	if (is_uv) {
+		color = vec4(1.0, 1.0, 0.0, 1.0);
 		vec2 uv = vUv;
 		if ((ty1 & 32768) != 0) { // BackgroundImageRepeat
 			// vData5: float texture_layer; float empty; vec2 offset
@@ -1115,7 +1120,9 @@ void main(void) {
 			float rangle_fill_factor = max(max((is_side - is_center), (1.0 - is_side) * vData5.y), 0.0);
 
 			if (rangle_fill_factor + is_side <= 0) { // 空白处， 透明处理
-				discard;
+				o_Target = vec4(0.5, 1.0, 1.0, 1.0);
+				return;
+				// discard;
 			}
 	
 			float uv_min_x = top_right_bottom_left.w * uv_max_box.x   + fill.x * border_slice.w + top_right_bottom_left.y * border_slice.y; // min_x  (min左  + min中 + min右)
@@ -1164,7 +1171,9 @@ void main(void) {
 
 			uv = (vVertexPosition - vec2(p_min_x, p_min_y) + vec2(sso_x.z, sso_y.z)) % vec2(sso_x.x, sso_y.x) / vec2(sso_x.y, sso_y.y);
 			if (max(uv.x, uv.y) > 1.0) { // 空白处， 透明处理
-				discard;
+				o_Target = vec4(0.5, 0.5, 0.0, 1.0);
+				return;
+				// discard;
 			}
 			uv = (uv * size + vec2(uv_min_x, uv_min_y))/ vData5.zw;
 			// uv = (vVertexPosition - vec2(p_min_x, p_min_y) + vec2(sso_x.z, sso_y.z)) % vec2(sso_x.x, sso_y.x) / vec2(sso_x.y, sso_y.y);
@@ -1189,34 +1198,37 @@ void main(void) {
 		}
 
 		if (uv.x > vData0.z || uv.y > vData0.w) { // 空白处， 透明处理
-			discard;
-		}else if (texture_layer == 0.0) {
+			o_Target = vec4(1.0, 0.5, 0.0, 1.0);
+			return;
+			// discard;
+		}else if (texture_layer < 0.1) {
 			color = texture(sampler2D(tex2d0, samp0),uv);
-		} else if (texture_layer == 1.0) {
+		} else if (texture_layer < 1.1) {
 			color = texture(sampler2D(tex2d1, samp1),uv);
-		} else if (texture_layer == 2.0) {
+		} else if (texture_layer < 2.1) {
 			color = texture(sampler2D(tex2d2, samp2),uv);
-		} else if (texture_layer == 3.0) {
+		} else if (texture_layer < 3.1) {
 			color = texture(sampler2D(tex2d3, samp3),uv);
-		} else if (texture_layer == 4.0) {
+		} else if (texture_layer < 4.1) {
 			color = texture(sampler2D(tex2d4, samp4),uv);
-		} else if (texture_layer == 5.0) {
+		} else if (texture_layer < 5.1) {
 			color = texture(sampler2D(tex2d5, samp5),uv);
-		} else if (texture_layer == 6.0) {
+		} else if (texture_layer < 6.1) {
 			color = texture(sampler2D(tex2d6, samp6),uv);
-		} else if (texture_layer == 7.0) {
+		} else if (texture_layer < 7.1) {
 			color = texture(sampler2D(tex2d7, samp7),uv);
-		} else if (texture_layer == 8.0) {
+		} else if (texture_layer < 8.1) {
 			color = texture(sampler2D(tex2d8, samp8),uv);
-		} else if (texture_layer == 9.0) {
+		} else if (texture_layer < 9.1) {
 			color = texture(sampler2D(tex2d9, samp9),uv);
-		} else if (texture_layer == 10.0) {
+		} else if (texture_layer < 10.1) {
 			color = texture(sampler2D(tex2d10, samp10),uv);
-		} else if (texture_layer == 11.0) {
+		} else if (texture_layer < 11.1) {
 			color = texture(sampler2D(tex2d11, samp11),uv);
-		} else if (texture_layer == 12.0) {
+		} else if (texture_layer < 12.1) {
 			color = texture(sampler2D(tex2d12, samp12),uv);
 		}
+		
 		
 		//  else if (texture_layer == 13.0) {
 		// 	color = texture(sampler2D(tex2d13, samp13),uv);
@@ -1224,10 +1236,9 @@ void main(void) {
 		else {
 			color = vec4(1.0, 0.0, 1.0, 1.0);
 		}
-
 		
 
-		if ((ty1 & 4194304) != 0) { // 预乘模式
+		if ((ty1 & 8) != 0) { // 预乘模式
 			color.rgb = color.rgb / clamp(color.a, 0.001, 1.0);
 			// color.rgb = vec3(0.0, 1.0, 0.0);
 		}
@@ -1241,8 +1252,11 @@ void main(void) {
 	} else if ((ty1 & 128) != 0) { // color
 		color.xyz = vData0.xyz;
 		color.w = color.w * vData0.w;
+		// o_Target = vec4(1.0, 1.0, 0.0, 1.0);
+		// return;
 	} else if ((ty1 & 256) != 0) { // canvas text
-
+		// o_Target = vec4(1.0, 1.0, 1.0, 1.0);
+		// return;
 		// color.w = vData5.w * color.w;
 		// color.xyz = vData5.rgb;
 
@@ -1293,26 +1307,37 @@ void main(void) {
 								+ mix(gColor2, gColor3, (gradient - gPosition.y) / (gPosition.z - gPosition.y + 0.00001)) * step(gPosition.y, gradient) * step(gradient, gPosition.z)
 								+ mix(gColor3, gColor4, (gradient - gPosition.z) / (gPosition.w - gPosition.z + 0.00001)) * step(gPosition.z, gradient) * step(gradient, gPosition.w) 
 								+ gColor4 * step(gPosition.w, gradient);
+		// o_Target = vec4(1.0, 0.0, 1.0, 1.0);
+		// return;
 	} else if ((ty1 & 16384) != 0) {  // box_shadow
 		color = vData0;
 		color.a = color.a * getShadowAlpha(vVertexPosition, vData1.xy + vData5.w, vData1.xy + vData1.zw - vData5.w, vData5.w / 2.0);
+		// o_Target = vec4(0.5, 0.5.0, 1.0, 1.0);
+		// return;
+	} else {
+		color = vec4((vData11.y + 0.1) / 255.0, float(ty1) / 255, 0.0, 1.0);
 	}
 
-	if ((ty1 & 8) != 0) {
-		color.w = color.w * calc_circel_alpha();
-	} else if ((ty1 & 16) != 0) {
-		color.w = color.w * calc_ellipse_alpha();
-	} else if ((ty1 & 32) != 0) {
-		color.w = color.w * calc_sector_alpha();
-	} else if ((ty1 & 8192) != 0) {
+	if ((ty1 & 4) != 0) {
 		color.w = color.w * calc_border_alpha();
 		// color = vec4(0.0, 0.0, calc_border_alpha(), 1.0);
-	} else if ((ty1 & 4) != 0) { 
-		color.w = color.w * calc_radius_alpha();
-		// color = vec4(0.0, 0.0, calc_radius_alpha(), 1.0);
-	} else if ((ty1 & 1) != 0) {
-		color.w = color.w * calc_rect_alpha();
-	}
+	} 
+
+	// if ((ty1 & 8) != 0) {
+	// 	color.w = color.w * calc_circel_alpha();
+	// } else if ((ty1 & 16) != 0) {
+	// 	color.w = color.w * calc_ellipse_alpha();
+	// } else if ((ty1 & 32) != 0) {
+	// 	color.w = color.w * calc_sector_alpha();
+	// } else if ((ty1 & 8192) != 0) {
+	// 	color.w = color.w * calc_border_alpha();
+	// 	// color = vec4(0.0, 0.0, calc_border_alpha(), 1.0);
+	// } else if ((ty1 & 4) != 0) { 
+	// 	color.w = color.w * calc_radius_alpha();
+	// 	// color = vec4(0.0, 0.0, calc_radius_alpha(), 1.0);
+	// } else if ((ty1 & 1) != 0) {
+	// 	color.w = color.w * calc_rect_alpha();
+	// }
 
 	// color = texture(sampler2D(tex2d0, samp0),vUv);
 

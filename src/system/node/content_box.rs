@@ -96,7 +96,6 @@ pub fn calc_content_box(
             // 	Point2::new(r.1.rect.right - r.1.rect.left, r.1.rect.bottom - r.1.rect.top),
             // )
 
-            // log::warn!("oct====={:?}, {:?}", id, oct);
             // 如果存在子节点，求所有子节点的ContextBox和自身的Oct的并
             if let Ok(down_item) = down.get(id) {
                 let mut child = down_item.head();
@@ -104,7 +103,6 @@ pub fn calc_content_box(
                 while !EntityKey(child).is_null() {
                     // 如果content_box不存在，则节点不是一个真实的节点，可能是一个文字节点，不需要计算
                     if let Ok(content_box_item) = content_box.get(child) {
-                        // log::warn!("content_box_item====={:?}, {:?}, {:?}, {:?}", id, child, oct, content_box_item.oct);
                         box_and(&mut oct, &content_box_item.oct);
                         box_and(&mut layout, &content_box_item.layout);
                         

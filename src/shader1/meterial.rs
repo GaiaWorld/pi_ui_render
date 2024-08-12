@@ -5,9 +5,11 @@ use render_derive::{BindLayout, BindingType, BufferSize, Input, Uniform};
 
 /// 渲染标记， 用于设置着色器如何计算
 pub enum RenderFlagType {
-	ClipRect = 0, // 1
-	ClipRectRadius = 2, // 4
-	ClipCircel = 3, // 8
+	// ClipRect = 0, // 1
+	IgnoreCamera = 1, // 2（不需要乘视图矩阵、投影矩阵）
+	ClipRectRadius = 2, // 4 (圆角)
+	// ClipCircel = 3, // 8
+	Premulti = 3, // 8 预乘模式渲染（需要预乘模式渲染的物体用普通模式渲染， 则设置此标记， 在着色器中会将预乘结果还原）
 	ClipEllipse = 4, // 16
 	ClipSector = 5, // 32
 	Uv = 6, // 64
@@ -26,10 +28,6 @@ pub enum RenderFlagType {
 	SvgStrokeDasharray = 19, // 524288 需要占用外发光槽位
 	Svg = 20, // 1048576 svg uv 不需要y轴颠倒
 	Sdf2Shadow = 21, // 2097152 阴影 需要占用外发光槽位
-	Premulti = 22, // 4194304 预乘模式渲染（需要预乘模式渲染的物体用普通模式渲染， 则设置此标记， 在着色器中会将预乘结果还原）
-	Debug = 23, // 8388608
-	Fbo = 24, // 16777216 fbo渲染
-	IgnoreCamera = 25, // 33554432, （不需要乘视图矩阵、投影矩阵）
 }
 
 #[derive(Input)]
@@ -39,7 +37,7 @@ pub struct PositionVert;
 /*******************************************************************************相机**************************************************************/
 #[derive(BindLayout, BufferSize, BindingType)]
 #[layout(set(0), binding(0))]
-#[min_size(144)]
+#[min_size(160)]
 #[uniformbuffer]
 pub struct CameraBind; // storagebuffer: TODO
 
@@ -58,6 +56,11 @@ pub struct ViewUniform<'a>(pub &'a [f32]);
 #[derive(Uniform)]
 #[uniform(offset(128), len(16), bind(CameraBind))]
 pub struct Sdf2TextureSizeUniform<'a>(pub &'a [f32]);
+
+/// 用于调试，投影矩阵对应的Aabb
+#[derive(Uniform)]
+#[uniform(offset(144), len(16), bind(CameraBind))]
+pub struct ProjectAabbUniform<'a>(pub &'a [f32]);
 
 
 

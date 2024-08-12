@@ -31,7 +31,7 @@ use pi_style::style::{AnimationDirection, AnimationTimingFunction};
 use pi_style::{style_parse::Attribute, style_type::*};
 use smallvec::SmallVec;
 
-use crate::components::{calc::StyleMarkType, user::{serialize::AttrSet, Animation}};
+use crate::{components::{calc::StyleMarkType, user::{serialize::AttrSet, Animation}}, utils::tools::calc_hash_slice};
 use pi_style::style::Time;
 
 use super::StyleCommands;
@@ -499,6 +499,7 @@ impl KeyFramesSheet {
     pub fn remove_runtime_keyframs(&mut self, target: ObjKey) {
         // 移除运行时动画帧数据
         if let Some(runtime_frames) = self.temp_keyframnames.remove(&target) {
+            log::debug!("remove_runtime_keyframs, target:{:?}", target);
             for key in runtime_frames.into_iter() {
                 {
                     let _i = key.2;

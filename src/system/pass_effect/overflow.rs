@@ -8,7 +8,7 @@ use pi_bevy_ecs_extend::prelude::{OrInitSingleRes, Layer, Root};
 use crate::system::draw_obj::calc_text::IsRun;
 use crate::{components::calc::OverflowDesc, resource::RenderContextMarkType};
 
-use crate::components::user::{AsImage, Overflow};
+use crate::components::user::{AsImage, Overflow, Transform};
 
 
 use crate::{
@@ -110,7 +110,7 @@ fn recursive_cal_overflow(
             content_box,
             children,
             overflow,
-            layer,
+            layer
         )),
     ) = (pass_mut.get_mut(id), pass_read.get(id))
     {
@@ -220,19 +220,22 @@ fn recursive_cal_overflow(
                     if left > 0.0 || top > 0.0 || right > 0.0 || bottom > 0.0 {
                         let right = layout.rect.right - right;
                         let bottom = layout.rect.bottom - bottom;
+                        // log::warn!("overflow0=========={:?}", (id, [left, top, right, bottom]));
                         quad_temp = cal_no_rotate_box(&Aabb2::new(Point2::new(left, top), Point2::new(right, bottom)), &world_matrix.0);
                         &quad_temp
                     } else {
+                        // log::warn!("overflow1=========={:?}", (id, quad));
                         &**quad
                     }
                 } else {
+                    // log::warn!("overflow3=========={:?}", (id, &content_box.oct));
                     &content_box.oct
                 };
-                // log::warn!("overflow================{:?}, {:?}, {:?}", id, &content_box.oct, &content_box.layout);
+                
 
                 // 如果存在will_change， 则需要给包围盒乘上willchange，结果才是节点的真实裁剪框（坐标是相对世界原点）
                 let aabb_temp;
-                let quad = match &will_change.0 {
+                let quad1 = match &will_change.0 {
                     Some(r) => {
                         aabb_temp = cal_no_rotate_box(quad, &r.will_change);
                         &aabb_temp
@@ -241,11 +244,16 @@ fn recursive_cal_overflow(
                 };
 
                 // 存在父裁剪框，则与父裁剪框相交
-                let r = intersect_or_zero(&quad, &parent_aabb.aabb);
+                let r = intersect_or_zero(&quad1, &parent_aabb.aabb);
 				// log::warn!("is_change======tracker_matrix: {:?}, tracker_willchange: {:?}, overflow: {:?}, entity: {:?}, \nparent_aabb: {:?}, willchange: {:?}, \nmatrix: {:?}", tracker_matrix.is_changed(),tracker_willchange.is_changed(), overflow, entity, parent_aabb, tracker_willchange, tracker_matrix);
-
+                use pi_key_alloter::Key;
+                // if id.index() == 4 {
+                    // log::warn!("overflow================id:{:?}, \nr:{:?}, \nlayout: {:?}, \nwill_change:{:?}, \nmatrix: {:?}, \nparent_aabb: {:?}, \nquad: {:?}, \nquad1: {:?}", 
+                    // id, &r, &content_box.layout, &will_change.0, &world_matrix, &parent_aabb.aabb, quad, quad1);
+                // }
+                
                 *oveflow_aabb = View {
-                    desc: OverflowDesc::NoRotate(quad.clone()),
+                    desc: OverflowDesc::NoRotate(quad1.clone()),
                     view_box: ViewBox {
                         aabb: r,
                         world_quad: (

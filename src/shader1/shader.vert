@@ -7,6 +7,7 @@ layout(set = 0, binding = 0) uniform Camera {
 	mat4 view;
 	vec2 index_tex_size; // sdf2： 索引纹理尺寸
 	vec2 data_tex_size; // sdf2： 数据纹理尺寸
+	vec4 project_aabb; // project_aabb 调试信息
 };
 
 
@@ -56,7 +57,7 @@ layout(location = 14) out vec2 vData12; // float alpha; float ty;
 layout(location = 15) out vec3 vData13; // 阴影偏移和模糊等级
 
 void main() {
-	int ty1 = int(data11.y); // clip = 1;uv = 4;
+	int ty1 = int(data11.y + 0.1); // clip = 1;uv = 4;
 
 	if ((ty1 & 1024) != 0) { // is_not_visibility(不可见时， 返回的顶点面积为0)
 		gl_Position = vec4(0.0, 0.0, 0.0, 0.0);
@@ -129,7 +130,7 @@ void main() {
 			+ quad2.xy * step(2.9, p_index); // > 2.9, 只肯可能是3.0
 	vData12 = p;
 
-	if ((ty1 & 33554432) == 0) {
+	if ((ty1 & 2) == 0) {
 		gl_Position = project * view * vec4(p, 1.0, 1.0);
 	} else {
 		gl_Position = vec4(p, 1.0, 1.0);

@@ -88,17 +88,17 @@ pub fn transform_will_change_post_process(
 
     // 世界矩阵变化、layer变化、tansform_will_change变化，设置层脏
     for (id, tracker_matrix, tracker_willchange, tracker_layer) in query.iter() {
+        // 如果世界矩阵改变， 或不存在世界矩阵的逆矩阵， 则需要重新计算世界矩阵逆矩阵(即便已经不是渲染上下文， 也需要计算，否则可能错失计算时机)
+        if tracker_matrix.is_changed() || matrix_invert.get(&id).is_none() {
+            if let Some(invert) = tracker_matrix.invert() {
+                matrix_invert.insert(id, invert);
+            }
+        }
 		if query_parent_pass.get(id).is_ok() { // 如果是渲染上下文
 			if tracker_willchange.is_changed() || tracker_layer.is_changed() || tracker_matrix.is_changed() {
 				layer_dirty.marked_with_layer(id, id, tracker_layer.layer());
 			}
 	
-			// 如果世界矩阵改变， 或不存在世界矩阵的逆矩阵， 则需要重新计算世界矩阵逆矩阵
-			if tracker_matrix.is_changed() || matrix_invert.get(&id).is_none() {
-                if let Some(invert) = tracker_matrix.invert() {
-                    matrix_invert.insert(id, invert);
-                }
-			}
 		} else if tracker_willchange.is_changed() { // 如果不是渲染上下文， 清理willchangematrix
 			if let Ok(mut m) = query_will_change_matrix.p0().get_mut(id) {
 				if m.0.is_some() {
@@ -186,6 +186,7 @@ pub fn recursive_set_matrix(
             let mut will_change_matrix =
                 WorldMatrix::form_transform_layout(&will_change.all_transform, &transform.origin, width, height, &Point2::new(offset.0, offset.1));
 
+            
             // 如果父上没有TransformWillChange， 此处m为TransformWillChange作用后， 节点真实的世界矩阵
             let mut m = p_matrix * &will_change_matrix * invert;
 
@@ -195,6 +196,7 @@ pub fn recursive_set_matrix(
                 will_change_matrix = &parent_will_change_matrix.primitive * &will_change_matrix;
             }
 
+            // log::warn!("will_change_matrix: {:?}, \n{:?}", (id, &will_change.all_transform), transform);
 			// log::warn!("will_change: {:?}, {:?}, \nparent_will_change_matrix: {:?}, will_change: {:?}, invert: {:?}", id, will_change_matrix, parent_will_change_matrix, will_change, invert);
 
             if let Ok(mut r) = query.get_mut(id) {

@@ -18,13 +18,14 @@ use pi_share::{Share, ShareCell};
 use pi_slotmap::SecondaryMap;
 use pi_style::style::{Aabb2, CgColor};
 use pi_world::world::ComponentIndex;
+use pi_key_alloter::Key;
 
 use std::marker::PhantomData;
 use std::mem::transmute;
 use std::ops::{Index, IndexMut};
 
 use pi_style::style_parse::{parse_animation, parse_class_map_from_string, parse_style_list_from_string};
-use pi_style::style_type::{ VNodeType, ZIndexType};
+use pi_style::style_type::{ AnimationDelayType, AnimationDirectionType, AnimationDurationType, AnimationFillModeType, AnimationIterationCountType, AnimationNameType, AnimationPlayStateType, AnimationTimingFunctionType, VNodeType, ZIndexType};
 use pi_time::Instant;
 use pi_hal::font::sdf_table::FontCfg;
 
@@ -221,7 +222,7 @@ impl UserCommands {
                 return self;
             }
         };
-        animations.name.scope_hash = scope_hash as usize;
+        animations.name.scope_hash = node.index() as usize; // 因为每个运行时动画是节点独有的，以节点的index作为scope_hash(不能同时有两个index相等的实体)
 
         let css = match parse_class_map_from_string(css, scope_hash as usize) {
             Ok(r) => r,
@@ -230,6 +231,17 @@ impl UserCommands {
                 return self;
             }
         };
+
+        // 避免被其他通过style或class设置的静态动画覆盖， 这里需要将动画设置添加到style指令中
+        self.set_style(node, AnimationNameType(animations.name.clone()));
+        self.set_style(node, AnimationDurationType(animations.duration.clone()));
+        self.set_style(node, AnimationTimingFunctionType(animations.timing_function.clone()));
+        self.set_style(node, AnimationIterationCountType(animations.iteration_count.clone()));
+        self.set_style(node, AnimationDelayType(animations.delay.clone()));
+        self.set_style(node, AnimationDirectionType(animations.direction.clone()));
+        self.set_style(node, AnimationFillModeType(animations.fill_mode.clone()));
+        self.set_style(node, AnimationPlayStateType(animations.play_state.clone()));
+
         let r = RuntimeAnimationBindCmd(css.key_frames.frames, unsafe { transmute(animations) }, node);
 
         #[cfg(feature = "debug")]

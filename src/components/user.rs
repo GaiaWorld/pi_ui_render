@@ -28,7 +28,7 @@ use pi_style::{
         BoxShadow as BoxShadow1, Hsi as Hsi1, MaskImage as MaskImage1, TextContent as TextContent1,
     },
     style_parse::Attribute,
-    style_type::{ClassMeta, Attr},
+    style_type::{ClassMeta, Attr, STYLE_COUNT},
 };
 
 use pi_world::world::World;
@@ -46,7 +46,6 @@ pub type Vector2 = nalgebra::Vector2<f32>;
 pub type Vector3 = nalgebra::Vector3<f32>;
 pub type Vector4 = nalgebra::Vector4<f32>;
 
-pub const STYLE_COUNT: u8 = 127;
 pub const SVG_COUNT: u8 = 50;
 
 // type Rectf32 = NotNanRect;
@@ -716,6 +715,7 @@ pub mod serialize {
         calc::{BackgroundImageTexture, BorderImageTexture}, user::*
     };
     use pi_atom::Atom;
+    use pi_print_any::out_any;
     // use pi_ecs::{
     //     prelude::{Query, SingleResMut},
     //     query::{DefaultComponent, Write},
@@ -1107,6 +1107,7 @@ pub mod serialize {
                     if component.0.is_some() {
                         // 如果存在transform_willChange,则将Transform设置在TransformWillChange上
                         if let Some($component_name) = &mut component.0 {
+                            // log::warn!("set t========{:?}, {:?}", entity, &v);
                             $set;
                             return
                         }
@@ -1567,7 +1568,8 @@ pub mod serialize {
 
 			if !v {
 				if let Ok(mut component) = query.world.get_component_mut_by_index::<TransformWillChange>(entity, query.style.transform_will_change) {
-					if let Some(c) = &component.0 {
+                    if let Some(c) = &component.0 {
+                        // log::warn!("set2========{:?}, {:?}", entity, c);
                         let c1 = c.clone();
                         component.0 = None;
                         match query.world.get_component_mut_by_index::<Transform>(entity, query.style.transform) {
@@ -1594,7 +1596,11 @@ pub mod serialize {
 					Ok(component)  => {
                         let c = component.clone();
                         if let Ok(mut component_will_change) = query.world.get_component_mut_by_index::<TransformWillChange>(entity, query.style.transform_will_change) {
-                            *component_will_change = TransformWillChange(Some(c));
+                            if component_will_change.0.is_none() { 
+                                // log::warn!("set1========{:?}, {:?}", entity, c);
+                                // TransformWillChange不存在才初始化
+                                *component_will_change = TransformWillChange(Some(c));
+                            } 
                         }
 					}
 					_ => {
@@ -1605,6 +1611,7 @@ pub mod serialize {
         }
 
         fn push_component_ops(ids: &SettingComponentIds, arr: &mut Vec<(ComponentIndex, bool)>) {
+            // log::warn!("push_component_ops========{:?}", &ids.transform_will_change);
             arr.push((ids.transform_will_change, true))
         }
 	}
@@ -1643,6 +1650,7 @@ pub mod serialize {
             Self: Sized,
         {
             log::debug!("reset_style_attr, type: TransformWillChange, entity: {:?}", entity);
+            log::warn!("reset_style_attr, type: TransformWillChange, entity: {:?}", entity);
             if let Ok(mut component) = query.world.get_component_mut_by_index::<TransformWillChange>(entity, query.style.transform_will_change) {
                 // 删除TransformWillChange, 设置Transform
                 if let Some(c) = &component.0 {

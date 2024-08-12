@@ -87,7 +87,7 @@ impl Example for AnimationExample {
                 value: smallvec![Atom::from("test-animation")],
             }),
         );
-        world.user_cmd.set_style(div1, AnimationIterationCountType(smallvec![IterationCount(90.0)]));
+        world.user_cmd.set_style(div1, AnimationIterationCountType(smallvec![IterationCount(1.0)]));
         world.user_cmd.set_style(div1, AnimationDurationType(smallvec![Time(3000)]));
         world.user_cmd.set_style(div1, AnimationFillModeType(smallvec![AnimationFillMode::Forwards]));
         // world.user_cmd.set_style(

@@ -166,7 +166,6 @@ pub fn cal_matrix(
 
     for i in layout_dirty.iter().chain(transform_dirty.iter()) {
         layer_dirty.mark(*i);
-        layer_dirty1.mark(*i);
     }
     for i in text_shadow_dirty.iter().chain(box_shadow_dirty.iter()) {
         layer_dirty1.mark(*i);
@@ -175,6 +174,7 @@ pub fn cal_matrix(
     // let time2 = pi_time::Instant::now();
     // println!("matrix time1========{:?}", ( time2 - time1));
     for id in layer_dirty.iter() {
+        layer_dirty1.mark(id);
         // ii1.push(id);
         // if count == 1 {
 		// 	log::warn!("matrix time0========{:?}", pi_time::Instant::now() - time1);
@@ -233,10 +233,17 @@ pub fn cal_matrix(
                     None => {
                         let mut w = parent_world_matrix.clone();
                         w.translate(offset.0, offset.1, 0.0);
+                        // log::warn!("matrix time2===={:?}, {:?}, {:?}", id, up.parent(), w);
                         w
                     }
                 }
             };
+
+            // use pi_key_alloter::Key;
+            // if id.index() == 4 || id.index() == 3 {
+                // log::warn!("matrx================id:{:?}, \nr:{:?}, \n:{:?}", 
+                // id, &matrix, transform);
+            // }
             // println!("matrix============={:?}, {:?} {:?}, {:?}, {:?}", id, down.head, layout, transform, matrix);
 			// if count == 1 {
 			// 	log::warn!("matrix time1========{:?}", pi_time::Instant::now() - time1);
@@ -256,7 +263,7 @@ pub fn cal_matrix(
 					if id == debug_entity.0.0 {
 						log::warn!("matrix=============id={:?}, \nlayout={:?}, \nmatrix={:?}, \nquad={:?}", id, layout, &matrix, &quad);
 					}
-                    log::debug!("matrix============={:?}, {:?}, {:?}", id, layout, matrix);
+                    log::debug!("matrix=============id={:?}, layout={:?}, \nmatrix={:?}, \nquad={:?}, \ntransform={:?}", id, layout, &*matrix, &*quad, transform);
                     *world_matrix = matrix;
 
 					

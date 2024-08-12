@@ -151,12 +151,13 @@ impl<T: 'static + Send + Sync> Command for ComponentCmd<T> {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RuntimeAnimationBindCmd(pub XHashMap<Atom, XHashMap<NotNan<f32>, VecDeque<Attribute>>>, pub Animation, pub Entity);
 impl Command for RuntimeAnimationBindCmd {
-    fn apply(mut self, world: &mut World) {
+    fn apply(self, world: &mut World) {
         if world.contains_entity(self.2) {
-            self.1.name.scope_hash = self.2.index() as usize; // 因为每个运行时动画是节点独有的，以节点的index作为scope_hash(不能同时有两个index相等的实体)
             let id = world.init_component::<Animation>();
             let _ = world.make_entity_editor().alter_components_by_index(self.2,&[(id, true)]);
             if let Ok(mut r) = world.get_component_mut_by_index::<Animation>(self.2, id) {
+                // 这里设置animation的值， 后续在style指令中还会再设置一次
+                // 因为有可能， 在此指令执行后， style设置前， 节点被销毁了， 如果此时动画没有值， 不能销毁掉添加的动画帧
                 *r = self.1.clone();
             }
             let sheet = world.get_single_res_mut::<KeyFramesSheet>().unwrap();

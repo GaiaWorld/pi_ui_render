@@ -25,7 +25,7 @@ use crate::{
         draw_obj::InstanceContext,
         ShareFontSheet,
     },
-    shader1::meterial::{ProjectUniform, Sdf2TextureSizeUniform, ViewUniform},
+    shader1::meterial::{ProjectAabbUniform, ProjectUniform, Sdf2TextureSizeUniform, ViewUniform},
     system::{draw_obj::calc_text::IsRun, utils::{create_project, rotatequad_quad_intersection}},
     utils::tools::{box_aabb, calc_bound_box, eq_f32, intersect},
 };
@@ -199,12 +199,14 @@ pub fn calc_camera_depth_and_renderlist(
             view_temp1 = r.world_rotate_invert * view_matrix;
             view_matrix = &view_temp1;
         }
-
+        
+        // log::warn!("pass_id=========\nentity: {:?}, \nproject_matrix: {:?}, \nview_matrix: {}, \nwillchange_matrix:{:?} \naabb:{:?}, \noverflow_aabb: {:?}", entity, project_matrix, view_matrix, willchange_matrix, aabb, overflow_aabb);
         // log::warn!("pass_id2=========\nentity: {:?}, \nproject_matrix: {:?}, \nview_matrix: {}, \nwillchange_matrix:{:?} \naabb:{:?}, \noverflow_aabb: {:?}", entity, project_matrix, view_matrix, willchange_matrix, aabb, overflow_aabb);
 
         let mut camera_group = instance_context.camera_alloter.alloc();
         camera_group.set_uniform(&ProjectUniform(project_matrix.as_slice()));
         camera_group.set_uniform(&ViewUniform(view_matrix.as_slice()));
+        camera_group.set_uniform(&ProjectAabbUniform(&[aabb.mins.x, aabb.mins.y, aabb.maxs.x - aabb.mins.x, aabb.maxs.y- aabb.mins.y]));
 		let data_texture_size = if let pi_hal::font::font::FontType::Sdf2 = font_type { 
 			font_sheet.font_mgr().table.sdf2_table.data_packer_size().clone()
 		} else {

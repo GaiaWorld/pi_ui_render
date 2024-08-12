@@ -9,10 +9,11 @@ use bitvec::array::BitArray;
 use pi_map::Map;
 use pi_null::Null;
 use pi_slotmap_tree::InsertType;
+use pi_style::style_type::STYLE_COUNT;
 
 use crate::{
     components::{
-        calc::{DrawInfo, EntityKey, NodeState, StyleMarkType}, user::{serialize::DefaultStyle, Size, ZIndex, STYLE_COUNT}, SettingComponentIds
+        calc::{DrawInfo, EntityKey, NodeState, StyleMarkType}, user::{serialize::DefaultStyle, Size, ZIndex}, SettingComponentIds
     }, resource::{
         animation_sheet::KeyFramesSheet, fragment::{FragmentMap, NodeTag}, ClassSheet, NodeChanged, QuadTree
     }

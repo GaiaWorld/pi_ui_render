@@ -15,14 +15,14 @@
 //! 4. 在节点上创建其所在的Pass2D实体的索引（InPass2DId），表明节点上的渲染对象应该渲染到那个Psss2D上。
 //!
 //!
-use pi_world::{event::{Event, EventSender}, fetch::{OrDefault, Ticker}, filter::{Or, With}, prelude::{Alter, Changed, ComponentRemoved, Entity, Has, Mut, ParamSet, Query, SingleRes, SingleResMut}};
+use pi_world::{event::{Event, EventSender}, fetch::{ArchetypeName, OrDefault, Ticker}, filter::{Or, With}, prelude::{Alter, Changed, ComponentRemoved, Entity, Has, Mut, ParamSet, Query, SingleRes, SingleResMut}};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, OrInitSingleRes, Up, Layer, LayerDirty};
 
 use pi_null::Null;
 
 use crate::{
     components::{
-        calc::{ContentBox, EntityKey, InPassId, LayoutResult, NeedMark, OverflowDesc, RenderContextMark, View, WorldMatrix}, draw_obj::InstanceIndex, pass_2d::{Camera, ChildrenPass, ParentPassId, PostProcessInfo}, user::{Overflow, Vector4}, PassBundle
+        calc::{ContentBox, EntityKey, InPassId, LayoutResult, NeedMark, OverflowDesc, RenderContextMark, TransformWillChangeMatrix, View, WorldMatrix}, draw_obj::InstanceIndex, pass_2d::{Camera, ChildrenPass, ParentPassId, PostProcessInfo}, user::{Overflow, Vector4}, PassBundle
     }, resource::{draw_obj::InstanceContext, EffectRenderContextMark, NodeChanged, RenderContextMarkType}, shader1::meterial::{BoxUniform, QuadUniform, RenderFlagType, TyUniform}, system::{draw_obj::{calc_text::IsRun, set_box}, node::{content_box, user_setting::StyleChange, world_matrix::Empty}}
 };
 
@@ -333,18 +333,16 @@ pub fn pass_mark<T: NeedMark + Send + Sync>(
 /// 为Pass设置渲染实例数据（将后处理结果拷贝到gui上）
 pub fn calc_pass(
 	mut instances: OrInitSingleResMut<InstanceContext>,
-	query: Query<
-		(
-            &InstanceIndex,
-            &ParentPassId,
-            &Camera,
-            &View,
-            OrDefault<Overflow>,
-            &LayoutResult,
-            &ContentBox,
-		),
-		Or<(Changed<PostProcessInfo>, Changed<WorldMatrix>, Changed<ContentBox>)>,
-	>,
+	query: Query<( 
+        &InstanceIndex, 
+        &ParentPassId,
+        &Camera,
+        &View,
+        &TransformWillChangeMatrix,
+        OrDefault<Overflow>,
+        &LayoutResult,
+        &ContentBox,
+    ), Or<(Changed<PostProcessInfo>, Changed<WorldMatrix>, Changed<ContentBox>)>>,
     // query1: Query<
 	// 	(
     //         &ParentPassId,
@@ -357,21 +355,17 @@ pub fn calc_pass(
     if r.0 {
 		return;
 	}
-
-    for (instance_index, parent_pass_id, camera, view, overflow, layout, content_box) in query.iter() {
-		// 节点可能设置为dispaly none， 此时instance_index可能为Null
+    for (instance_index, parent_pass_id, camera, view, will_change, overflow, layout, content_box) in query.iter() {
+        // 节点可能设置为dispaly none， 此时instance_index可能为Null
         // 节点可能没有后处理效果， 此时instance_index为Null
         if pi_null::Null::is_null(&instance_index.0.start) {
             continue;
         }
-
-        log::debug!("set pass instance data, parent_pass_id={:?},  instance_index={:?}", parent_pass_id, instance_index);
         
         let mut instance_data = instances.instance_data.instance_data_mut(instance_index.0.start);
         let mut render_flag = instance_data.get_render_ty();
         render_flag |= 1 << RenderFlagType::Uv as usize;
         render_flag |= 1 << RenderFlagType::Premulti as usize;
-        render_flag |= 1 << RenderFlagType::Fbo as usize;
 
         if parent_pass_id.0.is_null() {
             // 如果是根节点， 渲染时设置的投影矩阵和视图矩阵都是单位阵
@@ -383,6 +377,7 @@ pub fn calc_pass(
                 1.0, 1.0,
             ]));
             render_flag |= 1 << RenderFlagType::IgnoreCamera as usize;
+            instance_data.set_data(&TyUniform(&[render_flag as f32]));
         } else {
             let (left, top, width, height) = if **overflow {
                 // oveflow需要裁剪子节点到内容区域（注意，同时也将自身裁剪到内容区域，这与浏览器标准不符）
@@ -402,21 +397,43 @@ pub fn calc_pass(
                 )
             };
             instance_data.set_data(&BoxUniform(&[left, top, width, height]));
+            instance_data.set_data(&TyUniform(&[render_flag as f32]));
     
-            // let aabb = &camera.view_port;
-            // 设置quad到世界为止
-            if let OverflowDesc::Rotate(matrix) = &view.desc {
-                set_box(&matrix.world_rotate, &camera.view_port, &mut instance_data);
-            } else {
-                let view_port = &camera.view_port;
-                instance_data.set_data(&QuadUniform(&[
-                    view_port.mins.x, view_port.mins.y,
-                    view_port.mins.x, view_port.maxs.y,
-                    view_port.maxs.x, view_port.maxs.y,
-                    view_port.maxs.x, view_port.mins.y,
-                ]));
+            // 设置quad到世界位置
+            match (&view.desc, &will_change.0) {
+                (OverflowDesc::NoRotate(_), None) => {
+                    let view_port = &camera.view_port;
+                    instance_data.set_data(&QuadUniform(&[
+                        view_port.mins.x, view_port.mins.y,
+                        view_port.mins.x, view_port.maxs.y,
+                        view_port.maxs.x, view_port.maxs.y,
+                        view_port.maxs.x, view_port.mins.y,
+                    ]));
+                    continue;
+                },
+                (OverflowDesc::NoRotate(_), Some(will_change)) => set_box(&will_change.will_change_invert, &camera.view_port, &mut instance_data),
+                (OverflowDesc::Rotate(matrix), Some(will_change)) => {
+                    set_box(&(&will_change.will_change_invert * &matrix.world_rotate), &camera.view_port, &mut instance_data);
+                },
+                (OverflowDesc::Rotate(matrix), None) => set_box(&matrix.world_rotate, &camera.view_port, &mut instance_data),
             }
+
+            
+
+            // if let OverflowDesc::Rotate(matrix) = &view.desc {
+            //     set_box(&matrix.world_rotate, &camera.view_port, &mut instance_data);
+            // } else {
+            //     let view_port = &camera.view_port;
+            //     instance_data.set_data(&QuadUniform(&[
+            //         view_port.mins.x, view_port.mins.y,
+            //         view_port.mins.x, view_port.maxs.y,
+            //         view_port.maxs.x, view_port.maxs.y,
+            //         view_port.maxs.x, view_port.mins.y,
+            //     ]));
+            // }
         }
+
+        
 
         // let aabb_temp;
         // let view_world_aabb = match &overflow_aabb.desc {
@@ -549,7 +566,7 @@ pub fn calc_pass(
         //     ]));
         //     set_box(&world_matrix, &Aabb2::new(Point2::new(0.0, 0.0), Point2::new(content_box.layout.width(), content_box.layout.height())), &mut instance_data);
         // }
-        instance_data.set_data(&TyUniform(&[render_flag as f32]));
+       
 	}
 }
 
