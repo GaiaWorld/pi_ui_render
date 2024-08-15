@@ -1,4 +1,5 @@
 use crate::resource::{animation_sheet::KeyFramesSheet, ClassSheet, QuadTree, TimeInfo, UserCommands};
+use layout::layout_change;
 use pi_world::prelude::{IntoSystemConfigs, Plugin, App, PostUpdate, WorldPluginExtent};
 
 use self::{user_setting::clear_dirty_mark, transition::TransitionPlugin, show::ShowPlugin};
@@ -56,7 +57,12 @@ impl Plugin for UiNodePlugin {
 			.add_plugins(TransitionPlugin)
             // 布局相关
             // .add_frame_event::<ComponentEvent<Changed<LayoutResult>>>()
-            .add_system(UiStage,   layout::calc_layout.in_set(UiSystemSet::Layout).in_schedule(UiSchedule::Layout).in_schedule(UiSchedule::Calc).in_schedule(UiSchedule::Geo));
+            .add_system(UiStage,   layout::calc_layout
+                .in_set(UiSystemSet::Layout)
+                .run_if(layout_change)
+                .in_schedule(UiSchedule::Layout)
+                .in_schedule(UiSchedule::Calc)
+                .in_schedule(UiSchedule::Geo));
 
             // 世界矩阵、包围盒、内容包围盒
             // .add_frame_event::<ComponentEvent<Changed<Transform>>>()
@@ -70,7 +76,7 @@ impl Plugin for UiNodePlugin {
             //     .after(world_matrix::cal_matrix)
             //     .in_set(UiSystemSet::BaseCalc))
             // zindex
-            .add_system(UiStage, z_index::calc_zindex.in_set(UiSystemSet::BaseCalc))
+            .add_system(UiStage, z_index::calc_zindex.in_set(UiSystemSet::BaseCalc).run_if(z_index::zindex_change) )
 			// 计算是否可见
             .add_plugins(ShowPlugin)
 		;

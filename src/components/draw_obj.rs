@@ -17,34 +17,46 @@ use pi_world::insert::Component;
 
 use super::{calc::{BorderImageTexture, BackgroundImageTexture}, user::{Canvas, BackgroundColor, BorderColor, BoxShadow, TextContent, SvgContent, SvgInnerContent}};
 pub use super::root::{CopyFboToScreen, DynTargetType};
+use std::marker::ConstParamTy;
 
 pub struct DrawObject;
 
 #[derive(Debug, Default, Deref, Component)]
 pub struct DrawState(DrawState1);
 
+// /// 是否使用单位四边形渲染
+// #[derive(EnumDefault, PartialEq, Eq, Debug, Component)]
+// pub enum BoxType {
+//     /// 渲染为content区，顶点不是单位四边形，世界矩阵需要变换到原点为内容区左上角
+//     ContentRect,
+//     /// 渲染为padding区，世界矩阵不变换
+//     PaddingNone,
+//     /// 渲染为content区，世界矩阵不变换
+//     ContentNone,
+//     /// 渲染为border区，世界矩阵不变换
+//     BorderNone,
+//     /// 渲染为content区，世界矩阵需要变换(此时顶点流是单位四边形)
+//     ContentUnitRect,
+//     /// 渲染为padding区，世界矩阵需要变换(此时顶点流是单位四边形)
+//     PaddingUnitRect,
+//     /// 渲染为border区，世界矩阵需要变换(此时顶点流是单位四边形)
+//     BorderUnitRect,
+//     /// 渲染为边框部分
+//     Border,
+//     /// 不变（由于像背景图这一类的渲染， 需要异步加载资源， 在资源未成功加载之前， 所有的渲染属性都不应该改变， 否则可能出现混乱）
+//     /// 例如， 一个动画会修改图片路径和位置两种属性， 但如果某一帧图片未加载成功， 那么渲染应该保持不变， 而不应该在此时修改位置
+//     NotChange,
+// }
+
 /// 是否使用单位四边形渲染
-#[derive(EnumDefault, PartialEq, Eq, Debug, Component)]
+#[derive(EnumDefault, PartialEq, Eq, Debug, Component, ConstParamTy)]
 pub enum BoxType {
-    /// 渲染为content区，顶点不是单位四边形，世界矩阵需要变换到原点为内容区左上角
-    ContentRect,
     /// 渲染为padding区，世界矩阵不变换
-    PaddingNone,
+    Padding,
     /// 渲染为content区，世界矩阵不变换
-    ContentNone,
+    Content,
     /// 渲染为border区，世界矩阵不变换
-    BorderNone,
-    /// 渲染为content区，世界矩阵需要变换(此时顶点流是单位四边形)
-    ContentUnitRect,
-    /// 渲染为padding区，世界矩阵需要变换(此时顶点流是单位四边形)
-    PaddingUnitRect,
-    /// 渲染为border区，世界矩阵需要变换(此时顶点流是单位四边形)
-    BorderUnitRect,
-    /// 渲染为边框部分
     Border,
-    /// 不变（由于像背景图这一类的渲染， 需要异步加载资源， 在资源未成功加载之前， 所有的渲染属性都不应该改变， 否则可能出现混乱）
-    /// 例如， 一个动画会修改图片路径和位置两种属性， 但如果某一帧图片未加载成功， 那么渲染应该保持不变， 而不应该在此时修改位置
-    NotChange,
 }
 
 // /// vs shader的宏开关

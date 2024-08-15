@@ -1,12 +1,13 @@
 
-use pi_style::style::{Aabb2, LinearGradientColor, Point2};
+use pi_style::style::{Aabb2, LinearGradientColor, Point2, StyleType};
 use pi_world::filter::Or;
 use pi_world::prelude::{Changed, With, Query, Plugin, IntoSystemConfigs};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, OrInitSingleRes};
+use pi_world::single_res::SingleRes;
 
-use crate::components::calc::{LayoutResult, WorldMatrix, DrawList};
-use crate::components::draw_obj::{BackgroundColorMark, InstanceIndex};
-use crate::resource::BackgroundColorRenderObjType;
+use crate::components::calc::{style_bit, DrawList, LayoutResult, StyleBit, StyleMarkType, WorldMatrix};
+use crate::components::draw_obj::{BackgroundColorMark, BoxType, InstanceIndex};
+use crate::resource::{BackgroundColorRenderObjType, GlobalDirtyMark, OtherDirtyType};
 use crate::resource::draw_obj::InstanceContext;
 use crate::shader1::meterial::{GradientColorUniform, GradientPositionUniform, RenderFlagType, ColorUniform, TyUniform, GradientEndUniform};
 use crate::components::user::{BackgroundColor, Color, Vector2};
@@ -32,6 +33,7 @@ impl Plugin for BackgroundColorPlugin {
 				BackgroundColorRenderObjType,
 				(BackgroundColorMark, ),
 				{ BACKGROUND_COLOR_ORDER },
+				{ BoxType::Padding },
 			>
 				.in_set(UiSystemSet::LifeDrawObject)
 				.before(calc_background_color),
@@ -41,16 +43,27 @@ impl Plugin for BackgroundColorPlugin {
 			calc_background_color
 				.after(super::super::node::world_matrix::cal_matrix)
 				.in_set(UiSystemSet::PrepareDrawObj)
+				.run_if(background_color_change)
 		);
     }
 }
 
 pub const BACKGROUND_COLOR_ORDER: u8 = 2;
 
+lazy_static! {
+	pub static ref BACKGROUND_COLOR_DATA_DIRTY: StyleMarkType = style_bit()
+		.set_bit(StyleType::BackgroundColor as usize);
+}
+
+pub fn background_color_change(mark: SingleRes<GlobalDirtyMark>) -> bool {
+	let r = mark.mark.has_any(&*BACKGROUND_COLOR_DATA_DIRTY);
+	r
+}
+
 /// 设置背景颜色的顶点，和颜色Uniform
 pub fn calc_background_color(
 	mut instances: OrInitSingleResMut<InstanceContext>,
-    query: Query<(&WorldMatrix, &BackgroundColor, &LayoutResult, &DrawList), Or<(Changed<BackgroundColor>, Changed<WorldMatrix>)>>,
+    query: Query<(&BackgroundColor, &LayoutResult, &DrawList), Changed<BackgroundColor>>,
     mut query_draw: Query<&InstanceIndex, With<BackgroundColorMark>>,
 	r: OrInitSingleRes<IsRun>,
 	render_type: OrInitSingleRes<BackgroundColorRenderObjType>,
@@ -60,7 +73,7 @@ pub fn calc_background_color(
 	}
 
 	let render_type = ***render_type;
-	for (world_matrix, background_color, layout, draw_list) in query.iter() {
+	for (background_color, layout, draw_list) in query.iter() {
 		let draw_id = match draw_list.get_one(render_type) {
 			Some(r) => r.id,
 			None => continue,
@@ -113,7 +126,7 @@ pub fn calc_background_color(
 			// 	set_box(&world_matrix, &layout.padding_aabb(), &mut instance_data);
 			// }
 
-			set_box(&world_matrix, &layout.padding_aabb(), &mut instance_data);
+			// set_box(&world_matrix, &layout.padding_aabb(), &mut instance_data);
 		}
 	}
 }

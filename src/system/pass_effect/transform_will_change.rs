@@ -1,9 +1,9 @@
-use pi_world::{filter::Or, prelude::{Changed, ComponentRemoved, Entity, Has, Local, OrDefault, ParamSet, Query, Ticker}};
+use pi_style::style::StyleType;
+use pi_world::{filter::Or, prelude::{Changed, Entity, Has, Local, OrDefault, ParamSet, Query, Ticker}, single_res::SingleRes};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleRes, Up, Layer, DirtyMark};
 
 use crate::{
-    components::user::TransformWillChange,
-    system::draw_obj::calc_text::IsRun,
+    components::{calc::{style_bit, StyleBit, StyleMarkType}, user::TransformWillChange}, resource::{GlobalDirtyMark, OtherDirtyType}, system::{draw_obj::calc_text::IsRun, node::world_matrix, pass::pass_life, system_set::UiSystemSet}
 };
 
 use pi_hash::XHashMap;
@@ -21,6 +21,26 @@ use crate::components::{
     calc::{LayoutResult, TransformWillChangeMatrix, WorldMatrix},
     pass_2d::ParentPassId,
 };
+use pi_world::prelude::{App, Plugin, PostUpdate, IntoSystemConfigs};
+use crate::prelude::UiStage;
+
+pub struct TransformWillChangePlugin;
+
+impl Plugin for TransformWillChangePlugin {
+    fn build(&self, app: &mut App) {
+        app
+            .add_system(UiStage, 
+                pass_life::pass_mark::<TransformWillChange>
+                    .run_if(transform_will_change_change1)
+                    .in_set(UiSystemSet::PassMark))
+            .add_system(UiStage, transform_will_change_post_process
+                .run_if(transform_will_change_change)
+                .after(pass_life::calc_pass_children_and_clear)
+                .after(world_matrix::cal_matrix)
+                .in_set(UiSystemSet::PassSetting))
+        ;
+    }
+}
 
 // 处理transform_will_change属性，计算出TransformWillChangeMatrix
 // TransformWillChange属性常用于，子节点数量较多，又频繁改变Transform的节点
@@ -31,6 +51,7 @@ use crate::components::{
 // B的最终变换应该为Wa * T1 * Tb = Wa * T1 * Wa逆 * Wa * Tb = Wa * T1 * Wa逆 * Wb;
 // 将Wa * T1 * Wa称为TransformWillChangeMatrix TW。
 // 渲染A下所有子节点时，将TW作为视图矩阵。
+// TransformWillChange组件不可移除， 可设置为None
 pub fn transform_will_change_post_process(
     query_matrix: Query<(&'static WorldMatrix, &'static LayoutResult)>,
     query_node1: Query<(&TransformWillChange, OrDefault<Transform>, &'static Up, &'static LayoutResult)>,
@@ -38,7 +59,6 @@ pub fn transform_will_change_post_process(
         Query<&'static mut TransformWillChangeMatrix>,
         Query<(&'static mut TransformWillChangeMatrix, &'static Layer, Has<ParentPassId>, Entity, Has<TransformWillChange>)>,
     )> ,
-    remove: ComponentRemoved<TransformWillChange>,
     query_children: Query<&'static ChildrenPass>,
     query_parent_pass: Query<&ParentPassId>,
     query_parent_pass_changed: Query<(&Layer, Entity), Changed<ParentPassId>>,
@@ -69,22 +89,22 @@ pub fn transform_will_change_post_process(
 		return;
 	}
     // 处理移除TransformWillChange的节点
-    for i in remove.iter() {
-        if let Ok((mut m, layer, has_parent_pass_id, entity, has_willchange)) = query_will_change_matrix.p1().get_mut(*i) {
-            if has_willchange {
-                continue;
-            }
-            matrix_invert.remove(&entity);
+    // for i in remove.iter() {
+    //     if let Ok((mut m, layer, has_parent_pass_id, entity, has_willchange)) = query_will_change_matrix.p1().get_mut(*i) {
+    //         if has_willchange {
+    //             continue;
+    //         }
+    //         matrix_invert.remove(&entity);
             
-            if has_parent_pass_id {
-                // 如果该节点仍然是渲染上下文， 则标记层脏， 后续重新计算TransformWillChangeMatrix
-                layer_dirty.marked_with_layer(entity, entity, layer.layer());
-            } else {
-                // 否则清理TransformWillChangeMatrix
-                m.0 = None;
-            }
-        }
-    }
+    //         if has_parent_pass_id {
+    //             // 如果该节点仍然是渲染上下文， 则标记层脏， 后续重新计算TransformWillChangeMatrix
+    //             layer_dirty.marked_with_layer(entity, entity, layer.layer());
+    //         } else {
+    //             // 否则清理TransformWillChangeMatrix
+    //             m.0 = None;
+    //         }
+    //     }
+    // }
 
     // 世界矩阵变化、layer变化、tansform_will_change变化，设置层脏
     for (id, tracker_matrix, tracker_willchange, tracker_layer) in query.iter() {
@@ -154,6 +174,22 @@ pub fn transform_will_change_post_process(
 
     layer_dirty.clear();
 }
+
+lazy_static! {
+	pub static ref TRANSFORM_WILL_CHANGE_DIRTY: StyleMarkType = style_bit()
+		.set_bit(StyleType::TransformWillChange as usize)
+		.set_bit(OtherDirtyType::WorldMatrix as usize)
+		.set_bit(OtherDirtyType::PassLife as usize);
+}
+
+pub fn transform_will_change_change(mark: SingleRes<GlobalDirtyMark>) -> bool {
+	mark.mark.has_any(&*TRANSFORM_WILL_CHANGE_DIRTY)
+}
+
+pub fn transform_will_change_change1(mark: SingleRes<GlobalDirtyMark>) -> bool {
+    mark.mark.get(StyleType::TransformWillChange as usize).map_or(false, |display| {*display == true})
+}
+
 
 pub fn recursive_set_matrix(
     id: Entity,

@@ -2,10 +2,17 @@
 //! 1. 对overflow设置为true的节点，标记为渲染上下文（设置RenderContextMark中的位标记）
 //! 2.
 
+use pi_style::style::StyleType;
 use pi_world::prelude::{With, Query, Entity, Ticker};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleRes, Layer, Root};
+use pi_world::schedule::PreUpdate;
+use pi_world::single_res::SingleRes;
 
+use crate::resource::GlobalDirtyMark;
 use crate::system::draw_obj::calc_text::IsRun;
+use crate::system::node::world_matrix::cal_matrix;
+use crate::system::pass::pass_life;
+use crate::system::system_set::UiSystemSet;
 use crate::{components::calc::OverflowDesc, resource::RenderContextMarkType};
 
 use crate::components::user::{AsImage, Overflow, Transform};
@@ -28,8 +35,33 @@ use crate::components::{
     calc::{LayoutResult, OveflowRotate, Quad, TransformWillChangeMatrix, View, WorldMatrix},
     user::{Aabb2, Matrix4, Point2, Vector4},
 };
+use pi_world::prelude::{App, Plugin, PostUpdate, IntoSystemConfigs};
+use crate::prelude::UiStage;
 
-/// 采用全遍历的方式，每帧扫描所有pass2d，如果父上下文改变或自身改变，计算overflow
+use super::transform_will_change;
+
+
+pub struct OverflowPlugin;
+
+impl Plugin for OverflowPlugin {
+    fn build(&self, app: &mut App) {
+        app
+            .add_system(UiStage, pass_life::pass_mark::<Overflow>
+                .in_set(UiSystemSet::PassMark)
+                .run_if(overflow_change)
+                .before(pass_life::cal_context))
+            .add_system(UiStage, 
+                overflow_post_process
+                    .after(pass_life::calc_pass_children_and_clear)
+                    // .after(content_box::calc_content_box)
+                    .after(cal_matrix)
+                    .after(transform_will_change::transform_will_change_post_process)
+                    .in_set(UiSystemSet::PassSetting))
+        ;
+    }
+}
+
+/// 采用全遍历的方式，每帧扫描所有pass2d，如果父上下文改变或自身改变，计算overflow(全遍历是否能优化？TODO)
 pub fn overflow_post_process(
     roots: Query<Entity, With<Root>>,
     mut pass_mut: Query<(&mut PostProcess, &mut PostProcessInfo, &mut View)>,
@@ -79,6 +111,10 @@ pub fn overflow_post_process(
             &as_image_mark_type,
         );
     }
+}
+
+pub fn overflow_change(mark: SingleRes<GlobalDirtyMark>) -> bool {
+	mark.mark.get(StyleType::Overflow as usize).map_or(false, |display| {*display == true})
 }
 
 fn recursive_cal_overflow(

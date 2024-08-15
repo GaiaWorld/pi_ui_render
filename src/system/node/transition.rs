@@ -10,8 +10,8 @@
 //! 
 //! 优化？（TODO）： 动画正在运行的节点，设置RuningForTransition组件， 在节点2中只遍历有RuningForTransition组件的节点
 
-use pi_bevy_ecs_extend::system_param::res::OrInitSingleResMut;
-use pi_world::{filter::Changed, prelude::{App, Entity, IntoSystemConfigs, Plugin, Query, SingleResMut, Ticker}, system_params::Local, world::World};
+use pi_bevy_ecs_extend::{prelude::Layer, system_param::res::OrInitSingleResMut};
+use pi_world::{filter::{Changed, Or}, prelude::{App, Entity, IntoSystemConfigs, Plugin, Query, SingleResMut, Ticker}, single_res::SingleRes, system_params::Local, world::World};
 
 use pi_null::Null;
 use pi_style::{style::StyleType, style_parse::Attribute};
@@ -21,7 +21,7 @@ use crate::{
     components::{calc::{style_bit, StyleBit, StyleMark, StyleMarkType}, user::{
         serialize::StyleAttr, Transition,
     }, SettingComponentIds},
-    resource::animation_sheet::{KeyFramesSheet, TransitionData}, system::system_set::UiSystemSet,
+    resource::{animation_sheet::{KeyFramesSheet, TransitionData}, GlobalDirtyMark, OtherDirtyType}, system::system_set::UiSystemSet,
 };
 
 use crate::prelude::UiStage;
@@ -31,7 +31,7 @@ pub struct TransitionPlugin;
 impl Plugin for TransitionPlugin {
     fn build(&self, app: &mut App) {
 		app
-			.add_system(UiStage, transition_1_1.in_set(UiSystemSet::NextSetting)
+			.add_system(UiStage, transition_1_1.in_set(UiSystemSet::NextSetting).run_if(transition_change)
 				// .before(calc_animation)
 			)
 			.add_system(UiStage, transition_1_2.in_set(UiSystemSet::NextSetting)
@@ -48,17 +48,38 @@ impl Plugin for TransitionPlugin {
 	}
 }
 
+lazy_static! {
+    // 布局脏
+    pub static ref TRANSITION_DIRTY: StyleMarkType = style_bit()
+        .set_bit(StyleType::TransitionProperty as usize)
+		.set_bit(StyleType::TransitionDuration as usize)
+		.set_bit(StyleType::TransitionTimingFunction as usize)
+		.set_bit(StyleType::TransitionDelay as usize)
+		.set_bit(OtherDirtyType::NodeTreeAdd as usize)
+		.set_bit(OtherDirtyType::NodeTreeDel as usize);
+}
+
+
+pub fn transition_change(mark: SingleRes<GlobalDirtyMark>) -> bool {
+	mark.mark.has_any(&*TRANSITION_DIRTY)
+}
+
 
 /// 处理transition(阶段1的步骤1, 在usersetting之后运行， 在animation之前运行)（阶段1分两个步骤是因为读写引用冲突的问题）
 pub fn transition_1_1(
-	mut query: Query<(&mut Transition, Entity), Changed<Transition>>,
+	mut query: Query<(&mut Transition, Entity, &Layer), Or<(Changed<Transition>, Changed<Layer>)>>,
 	mut keyframes_sheet: SingleResMut<KeyFramesSheet>,
 ) {
 	// transition如果改变， 则删除原有binding， 重新计算需绑定的属性
-	for (mut transition, entity) in query.iter_mut() {
+	for (mut transition, entity, layer) in query.iter_mut() {
 		let transition = transition.bypass_change_detection();
 
 		keyframes_sheet.unbind_transition_all(entity);
+
+		// 不在树上不处理
+		if layer.layer().is_null() {
+			continue;
+		}
 
 		transition.mark.fill(false);
 		transition.is_all = std::usize::MAX;
@@ -124,7 +145,7 @@ struct TransitionAttrChange {
 }
 
 pub fn transition_1_2(
-	query: Query<(Ticker<&Transition>, &StyleMark, Entity)>,
+	query: Query<(Ticker<&Transition>, &StyleMark, Entity, Ticker<&Layer>)>,
 	world: &World,
 	setting_components: Local<SettingComponentIds>,
 ) {
@@ -132,10 +153,14 @@ pub fn transition_1_2(
 	let id = world1.init_single_res::<TransitionTempAttr>();
 	let cmds = world1.index_single_res_mut::<TransitionTempAttr>(id).unwrap();
 
-	for (transition, style_mark, entity) in query.iter() {
+	for (transition, style_mark, entity, layer) in query.iter() {
+		// 不在树上不处理
+		if layer.layer().is_null() {
+			continue;
+		}
 		// 属性脏，需要记录style属性到start或end（如果属性是被删除了， 则需要删除对应的插值曲线， 并重置start和wnd）
 		// transition_is_change脏， 或属性脏, 如果记录后，既存在start， 也存在end， 则需要重新绑定插值曲线
-		let transition_is_change = transition.is_changed();
+		let transition_is_change = transition.is_changed() || layer.is_changed();
 		let dirty: StyleMarkType = style_mark.dirty_style & transition.mark;
 		if transition_is_change || dirty.any() {
 			if transition.is_all.is_null() {
@@ -276,7 +301,7 @@ pub fn transition_1_3(
 /// 处理transition(阶段2)
 /// 属性脏，则将属性记录在start上
 pub fn transition_2(
-	query: Query<(&Transition, &StyleMark, Entity)>,
+	query: Query<(&Transition, &StyleMark, Entity, &Layer)>,
 	world: &World,
 	setting_components: Local<SettingComponentIds>,
 	mut cmds: SingleResMut<TransitionTempAttr>,
@@ -298,7 +323,10 @@ pub fn transition_2(
 	log::trace!("transition_2======");
 	
 	let cmds = &mut *cmds;
-	for (transition, style_mark, entity) in query.iter() {
+	for (transition, style_mark, entity, layer) in query.iter() {
+		if layer.layer().is_null() {
+			continue;
+		}
 		
 		// 属性脏，需要记录属性为start或end（如果属性是被删除了， 则需要删除对应的插值曲线， 并重置start和wnd）
 		// transition_is_change脏， 或属性脏, 如果记录后，既存在start， 也存在end， 则需要重新绑定插值曲线

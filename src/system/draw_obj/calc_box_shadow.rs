@@ -1,10 +1,13 @@
+use pi_style::style::StyleType;
+use pi_world::event::ComponentRemoved;
 use pi_world::filter::Or;
 use pi_world::prelude::{Changed, With, Query, Plugin, IntoSystemConfigs};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, OrInitSingleRes};
+use pi_world::single_res::SingleRes;
 
-use crate::components::calc::{LayoutResult, WorldMatrix, DrawList};
-use crate::components::draw_obj::{InstanceIndex, BoxShadowMark};
-use crate::resource::BoxShadowRenderObjType;
+use crate::components::calc::{style_bit, DrawList, LayoutResult, StyleBit, StyleMarkType, WorldMatrix};
+use crate::components::draw_obj::{BoxShadowMark, BoxType, InstanceIndex};
+use crate::resource::{BoxShadowRenderObjType, GlobalDirtyMark, OtherDirtyType};
 use crate::resource::draw_obj::InstanceContext;
 use crate::shader1::meterial::{RenderFlagType, ColorUniform, TyUniform, BoxShadowUniform};
 use crate::components::user::BoxShadow;
@@ -29,8 +32,10 @@ impl Plugin for BoxShadowPlugin {
 				BoxShadowRenderObjType,
 				(BoxShadowMark, ),
 				{ BOX_SHADOW_ORDER },
+				{ BoxType::Border },
 			>
 				.in_set(UiSystemSet::LifeDrawObject)
+				.run_if(box_shadow_life_change)
 				.before(calc_box_shadow),
 		)
 		.add_system(
@@ -38,6 +43,7 @@ impl Plugin for BoxShadowPlugin {
 			calc_box_shadow
 				.after(super::super::node::layout::calc_layout)
 				.in_set(UiSystemSet::PrepareDrawObj)
+				.run_if(box_shadow_change)
 		);
     }
 }
@@ -47,7 +53,7 @@ pub const BOX_SHADOW_ORDER: u8 = 1;
 /// 设置背景颜色的顶点，和颜色Uniform
 pub fn calc_box_shadow(
 	mut instances: OrInitSingleResMut<InstanceContext>,
-    query: Query<(&WorldMatrix, &BoxShadow, &LayoutResult, &DrawList), Or<(Changed<BoxShadow>, Changed<WorldMatrix>)>>,
+    query: Query<(&BoxShadow, &DrawList), Changed<BoxShadow>>,
     mut query_draw: Query<&InstanceIndex, With<BoxShadowMark>>,
 	r: OrInitSingleRes<IsRun>,
 	render_type: OrInitSingleRes<BoxShadowRenderObjType>,
@@ -57,7 +63,7 @@ pub fn calc_box_shadow(
 	}
 	log::trace!("bg========================");
 	let render_type = ***render_type;
-	for (world_matrix, box_shadow, layout, draw_list) in query.iter() {
+	for (box_shadow, draw_list) in query.iter() {
 		let draw_id = match draw_list.get_one(render_type) {
 			Some(r) => r.id,
 			None => continue,
@@ -92,10 +98,27 @@ pub fn calc_box_shadow(
 			// }
 
 			// if is_add || layout.is_changed() || world_matrix.is_changed() {
-				set_box(&world_matrix, &layout.border_aabb(), &mut instance_data);
+				// set_box(&world_matrix, &layout.border_aabb(), &mut instance_data);
 			// }
 		}
 	}
+}
+
+lazy_static! {
+	// 子节点脏， 仅设自身child_dirty
+	pub static ref BOX_SHADOW_DIRTY: StyleMarkType = style_bit()
+		.set_bit(StyleType::BoxShadow as usize)
+		.set_bit(OtherDirtyType::WorldMatrix as usize);
+}
+
+pub fn box_shadow_change(mark: SingleRes<GlobalDirtyMark>) -> bool {
+	mark.mark.has_any(&*BOX_SHADOW_DIRTY)
+}
+
+pub fn box_shadow_life_change(mark: SingleRes<GlobalDirtyMark>, removed: ComponentRemoved<BoxShadow>) -> bool {
+	let r = removed.len() > 0 || mark.mark.get(StyleType::BoxShadow as usize).map_or(false, |display| {*display == true});
+	removed.mark_read();
+	r
 }
 
 

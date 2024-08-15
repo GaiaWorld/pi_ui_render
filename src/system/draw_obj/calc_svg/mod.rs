@@ -3,7 +3,7 @@ pub mod gradient;
 
 use crate::{
     components::{
-        draw_obj::SvgMark,
+        draw_obj::{BoxType, SvgMark},
         user::{Shape, SvgInnerContent},
     }, resource::SvgRenderObjType, shader1::meterial::TextShadowColorUniform, system::{draw_obj::sdf2_texture_update::update_sdf2_texture, system_set::UiSystemSet}
 };
@@ -68,7 +68,7 @@ impl Plugin for SvgPlugin {
             // 创建drawobj
             .add_system(
                 UiStage,
-                draw_object_life_new::<SvgInnerContent, SvgRenderObjType, (SvgMark, ), { SVG_ORDER }>.in_set(UiSystemSet::LifeDrawObject)
+                draw_object_life_new::<SvgInnerContent, SvgRenderObjType, (SvgMark, ), { SVG_ORDER }, { BoxType::Border }>.in_set(UiSystemSet::LifeDrawObject)
                 .after(svg_glyph),
             )
             // 更新实例数据
@@ -550,7 +550,7 @@ impl UniformData {
 
             let rect = extents;
             log::debug!("set_box: {:?}, world_matrix: {:?}", rect, self.world_matrix);
-            set_box(&self.world_matrix, &rect, &mut instance_data);
+            // set_box(&self.world_matrix, &rect, &mut instance_data);
             // 设置渲染类型
             instance_data.set_data(&TyUniform(&[render_flag as f32]));
         // }

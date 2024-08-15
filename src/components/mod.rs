@@ -170,18 +170,18 @@ pub struct NodeBundle {
     pub class_name: ClassName,
 }
 
-/// 绘制对象Bundle
-#[derive(Bundle)]
-pub struct DrawBundle<T: FromWorld + Bundle + 'static> {
-    pub node_id: calc::NodeId,
-    pub draw_state: draw_obj::DrawState,
-    pub box_type: BoxType,
-    // pub fs_defines: FSDefines,
-    // pub vs_defines: VSDefines,
-    pub pipeline_meta: PipelineMeta,
-    pub draw_info: DrawInfo,
-    pub other: T,
-}
+// /// 绘制对象Bundle
+// #[derive(Bundle)]
+// pub struct DrawBundle<T: FromWorld + Bundle + 'static> {
+//     pub node_id: calc::NodeId,
+//     pub draw_state: draw_obj::DrawState,
+//     pub box_type: BoxType,
+//     // pub fs_defines: FSDefines,
+//     // pub vs_defines: VSDefines,
+//     pub pipeline_meta: PipelineMeta,
+//     pub draw_info: DrawInfo,
+//     pub other: T,
+// }
 
 /// 绘制对象Bundle（新）
 #[derive(Bundle)]
@@ -189,7 +189,7 @@ pub struct DrawBundleNew<T: FromWorld + Bundle + 'static> {
     pub node_id: calc::NodeId,
 	pub instance_index: InstanceIndex,
     // pub draw_state: draw_obj::DrawState,
-    // pub box_type: BoxType,
+    pub box_type: BoxType,
     // pub fs_defines: FSDefines,
     // pub vs_defines: VSDefines,
     // pub pipeline_meta: PipelineMeta,

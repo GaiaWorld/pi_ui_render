@@ -13,9 +13,9 @@ use pi_style::style_type::STYLE_COUNT;
 
 use crate::{
     components::{
-        calc::{DrawInfo, EntityKey, NodeState, StyleMarkType}, user::{serialize::DefaultStyle, Size, ZIndex}, SettingComponentIds
+        calc::{DrawInfo, EntityKey, NodeState, StyleBit, StyleMarkType}, user::{serialize::DefaultStyle, Size, ZIndex}, SettingComponentIds
     }, resource::{
-        animation_sheet::KeyFramesSheet, fragment::{FragmentMap, NodeTag}, ClassSheet, NodeChanged, QuadTree
+        animation_sheet::KeyFramesSheet, fragment::{FragmentMap, NodeTag}, ClassSheet, GlobalDirtyMark, OtherDirtyType, QuadTree
     }
 };
 use crate::{
@@ -34,6 +34,7 @@ pub struct SingleId {
     pub style_dirty_mark: usize,
     pub class_sheet: usize,
     pub fragments: usize,
+    pub global_mark: usize,
     // pub quad_tree: usize,
     // pub node_changed: usize,
 }
@@ -45,6 +46,7 @@ impl FromWorld for SingleId {
             user_commands: world.init_single_res::<UserCommands>(),
             class_sheet: world.init_single_res::<ClassSheet>(),
             fragments: world.init_single_res::<FragmentMap>(),
+            global_mark: world.init_single_res::<GlobalDirtyMark>(),
             // quad_tree: world.or_register_single_res::<QuadTree>(),
             // node_changed: world.or_register_single_res::<NodeChanged>(),
         }
@@ -84,7 +86,9 @@ pub fn user_setting1(
     let mut w4 = world.unsafe_world();
     let w5 = world.unsafe_world();
     let mut w6 = world.unsafe_world();
+    let mut w7 = world.unsafe_world();
     
+    let mut global_mark = w7.index_single_res_mut::<GlobalDirtyMark>(id.global_mark).unwrap();
     let fragments = w2.index_single_res_mut::<FragmentMap>(id.fragments).unwrap();
 
     let class_sheet = w3.index_single_res_mut::<ClassSheet>(id.class_sheet).unwrap();
@@ -96,9 +100,6 @@ pub fn user_setting1(
 		list: EventSender::<'_, StyleChange>::get_param(&w5, &mut s_meta, &mut events, world.tick()),
 		mark: &mut dirty_mark.0,
 	};
-
-	let is_node_change = user_commands.is_node_change || user_commands.fragment_commands.len() > 0 || user_commands.node_commands.len() > 0;
-    user_commands.is_node_change = is_node_change;
 
     // 添加基础组件id
     let mut base_component_ids = UserCommands::init_component_ids(NodeTag::Div, &setting_components);
@@ -185,16 +186,16 @@ pub fn user_setting1(
             }
 
             if n.style_meta.end > n.style_meta.start {
-                set_style(node, n.style_meta.start, n.style_meta.end, &fragments.style_buffer, &mut setting,  true, &mut dirty_list);
+                set_style(node, n.style_meta.start, n.style_meta.end, &fragments.style_buffer, &mut setting,  true, &mut dirty_list, &mut global_mark);
             }
             if n.class.len() > 0 {
-                set_class(node, &mut setting, n.class.clone(), &class_sheet, &mut component_ids1, &mut dirty_list);
+                set_class(node, &mut setting, n.class.clone(), &class_sheet, &mut component_ids1, &mut dirty_list, &mut global_mark);
             }
         }
     }
 
     // 设置style只要节点存在,样式一定能设置成功
-    set_styles(&mut user_commands.style_commands, &mut setting, base_component_ids, v_node_base_component_ids, &mut dirty_list);
+    set_styles(&mut user_commands.style_commands, &mut setting, base_component_ids, v_node_base_component_ids, &mut dirty_list, &mut global_mark);
     // 设置class样式
     for (node, class) in user_commands.class_commands.drain(..) {
         // 添加组件
@@ -206,7 +207,7 @@ pub fn user_setting1(
         let _ = setting.world.make_entity_editor().alter_components_by_index(node, &mut component_ids1);
         component_ids1.clear();
 
-        set_class(node, &mut setting,  class, &class_sheet, &mut component_ids1, &mut dirty_list);
+        set_class(node, &mut setting,  class, &class_sheet, &mut component_ids1, &mut dirty_list, &mut global_mark);
 
     }
 }
@@ -219,20 +220,21 @@ pub fn user_setting2(
     mut quad_tree: OrInitSingleResMut<QuadTree>,
     mut tree: EntityTreeMut,
     fragments: SingleRes<FragmentMap>,
-    mut node_changed: OrInitSingleResMut<NodeChanged>,
 
     event_sender: EventSender<'_, StyleChange>,
     mut style_dirty_mark: SingleResMut<StyleDirtyMark>,
 
     mut keyframes_sheet: SingleResMut<KeyFramesSheet>,
+    mut global_mark: SingleResMut<GlobalDirtyMark>,
 ) {
 
     let mut dirty_list_mark = StyleDirtyList {
 		list: event_sender,
 		mark: &mut style_dirty_mark.0,
 	};
+    let mut is_add = false;
+    let mut is_del = false;
 
-    let mut is_node_change = user_commands.is_node_change;
     // 添加父子关系
     for c in user_commands.fragment_commands.drain(..) {
         // 组织模板的节点关系
@@ -271,6 +273,7 @@ pub fn user_setting2(
     for c in user_commands.node_commands.drain(..) {
         match c {
             NodeCommand::AppendNode(node, parent) => {
+                is_add = true;
                 log::debug!("AppendNode====================node： {:?}, parent： {:?}, node_is_exist：{:?}, parent_is_exist: {:?}", node, parent, entitys.contains(node), entitys.contains(parent));
                 // if entitys.contains(node) && (parent.is_null() || entitys.contains(parent)) {
 					// if !EntityKey( parent ).is_null() && draw_list.get(node).is_err() {
@@ -290,6 +293,7 @@ pub fn user_setting2(
                 // }
             }
             NodeCommand::InsertBefore(node, anchor) => {
+                is_add = true;
 				// if !EntityKey( anchor ).is_null() && draw_list.get(node).is_err() {
 				// 	log::warn!("InsertBefore anchor error============={:?}, {:?}", anchor, unsafe{transmute::<_, f64>(anchor.to_bits())});
 				// 	r.0 = true;
@@ -316,7 +320,7 @@ pub fn user_setting2(
 				// 		return;
 				// }
 
-
+                is_del = true;
 				log::debug!("RemoveNode node====================node={node:?}");
                 tree.remove(node);
             }
@@ -327,7 +331,7 @@ pub fn user_setting2(
 				// 		return;
 				// }
 				
-                is_node_change = true;
+                is_del = true;
                 // 删除所有子节点对应的实体
                 if let Some(down) = tree.get_down(node) {
                     let head = down.head();
@@ -345,12 +349,18 @@ pub fn user_setting2(
             }
         };
     }
+    if is_add {
+        global_mark.mark.set(OtherDirtyType::NodeTreeAdd as usize, true);
+    }
+    if is_del {
+        global_mark.mark.set(OtherDirtyType::NodeTreeDel as usize, true);
+    }
 
-	if is_node_change {
-        node_changed.node_changed = true;
-        user_commands.is_node_change = false;
-        log::debug!("node_changed4============{:p}", &*node_changed);
-	}
+	// if is_node_change {
+    //     node_changed.node_changed = true;
+    //     user_commands.is_node_change = false;
+    //     log::debug!("node_changed4============{:p}", &*node_changed);
+	// }
     
     // // 设置所有的root渲染脏（节点删除后， 组件被删除，很多状态丢失， 除非立即处理脏区域）
     // for mut render_dirty in query.p0().2.iter_mut() {
@@ -410,6 +420,7 @@ pub fn set_styles<'w, 's>(
     mut base_component_ids: Vec<(ComponentIndex, bool)>,
     mut v_node_base_component_ids: Vec<(ComponentIndex, bool)>,
     dirty_list: &mut StyleDirtyList<'w, 's>,
+    global_mark: &mut GlobalDirtyMark,
 ) -> (Vec<(ComponentIndex, bool)>, Vec<(ComponentIndex, bool)>) {
     let mut component_ids1 = Vec::new();
     let mut component_ids;
@@ -437,14 +448,14 @@ pub fn set_styles<'w, 's>(
         let _ = style_query.world.make_entity_editor().alter_components_by_index(node, component_ids);
         unsafe { component_ids.set_len(old_len); }
 
-        set_style(node, start, end, style_buffer, style_query, false, dirty_list);
+        set_style(node, start, end, style_buffer, style_query, false, dirty_list, global_mark);
     }
     unsafe { style_buffer.set_len(0) };
 
     (base_component_ids, v_node_base_component_ids)
 }
 
-pub fn set_style<'w, 's>(node: Entity, start: usize, end: usize, style_buffer: &Vec<u8>, style_query: &mut Setting, is_clone: bool, dirty_list: &mut StyleDirtyList<'w, 's>) {
+pub fn set_style<'w, 's>(node: Entity, start: usize, end: usize, style_buffer: &Vec<u8>, style_query: &mut Setting, is_clone: bool, dirty_list: &mut StyleDirtyList<'w, 's>, global_mark: &mut GlobalDirtyMark,) {
     // 不存在实体，不处理
     if !style_query.world.contains(node) {
         log::debug!("node is not exist: {:?}", node);
@@ -459,6 +470,7 @@ pub fn set_style<'w, 's>(node: Entity, start: usize, end: usize, style_buffer: &
     if let Ok(mut style_mark) = style_query.world.get_component_mut_by_index::<StyleMark>(node, style_query.style.style_mark) {
         style_mark.local_style |= local_mark;
 		style_mark.dirty_style |= local_mark;
+        global_mark.mark |= local_mark;
     };
     // 取消样式， TODO，注意，宽高取消时，还要考虑图片宽高的重置问题
     dirty_list.mark_dirty(node);
@@ -470,7 +482,7 @@ pub fn add_component_ops<'w, 's>(start: usize, end: usize, style_buffer: &Vec<u8
 }
 
 
-fn set_class<'w, 's>(node: Entity, style_query: &mut Setting, class: ClassName, class_sheet: &ClassSheet, component_ids1: &mut Vec<(ComponentIndex, bool)>, dirty_list: &mut StyleDirtyList<'w, 's>) {
+fn set_class<'w, 's>(node: Entity, style_query: &mut Setting, class: ClassName, class_sheet: &ClassSheet, component_ids1: &mut Vec<(ComponentIndex, bool)>, dirty_list: &mut StyleDirtyList<'w, 's>, global_mark: &mut GlobalDirtyMark) {
     let style_mark = match style_query.world.get_component_by_index::<StyleMark>(node, style_query.style.style_mark) {
         Ok(r) => r,
         Err(_) => {
@@ -524,6 +536,7 @@ fn set_class<'w, 's>(node: Entity, style_query: &mut Setting, class: ClassName, 
     if let Ok(mut style_mark) = style_query.world.get_component_mut_by_index::<StyleMark>(node, style_query.style.style_mark) {
         style_mark.class_style |= new_class_style_mark;
 		style_mark.dirty_style |= new_class_style_mark;
+        global_mark.mark |= new_class_style_mark;
     };
 
     if let Ok(mut class_name) = style_query.world.get_component_mut_by_index::<ClassName>(node, style_query.style.class_name) {

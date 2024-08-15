@@ -1,3 +1,4 @@
+use blend_mode::blend_mod_change;
 use pi_world::prelude::IntoSystemConfigs;
 use pi_world::prelude::{App, Plugin, WorldPluginExtent};
 use pi_bevy_render_plugin::{GraphBuild, GraphRun};
@@ -11,6 +12,7 @@ use crate::shader1::InstanceData;
 use crate::shader1::meterial::{BoxUniform, QuadUniform};
 
 use super::debug::DebugPlugin;
+use super::node::world_matrix::cal_matrix;
 use super::node::{show, z_index};
 use super::pass::last_update_wgpu::last_update_wgpu;
 use super::pass::pass_life;
@@ -50,7 +52,7 @@ pub mod blend_mode;
 pub mod pipeline;
 // pub mod root_clear_color;
 pub mod root_view_port;
-// pub mod set_world_marix;
+pub mod set_geo_uniform;
 
 pub struct UiReadyDrawPlugin {
 	pub font_type: FontType,
@@ -82,6 +84,7 @@ impl Plugin for UiReadyDrawPlugin {
             // 混合模式
 			.add_system(UiStage, 
                 blend_mode::calc_drawobj_blendstate
+					.run_if(blend_mod_change)
                     
                     .before(UiSystemSet::LifeDrawObjectFlush)
                     .after(UiSystemSet::LifeDrawObject),
@@ -93,6 +96,9 @@ impl Plugin for UiReadyDrawPlugin {
                     .in_set(UiSystemSet::PrepareDrawObj)
                     .after(UiSystemSet::LifeDrawObject),
             )
+			.add_system(UiStage, set_geo_uniform::set_matrix_uniform
+					.after(cal_matrix)
+					.in_set(UiSystemSet::PrepareDrawObj))
 			// 背景图片功能
 			.add_plugins(BackgroundImagePlugin)
 			// 背景颜色功能
@@ -107,8 +113,8 @@ impl Plugin for UiReadyDrawPlugin {
 		    .add_plugins(CanvasPlugin)
 			// 文字功能
 			.add_plugins(UiTextPlugin {font_type: self.font_type})
-            // svg功能
-		    .add_plugins(SvgPlugin)
+            // // svg功能
+		    // .add_plugins(SvgPlugin)
 			.add_plugins(DebugPlugin)
 			;
 		

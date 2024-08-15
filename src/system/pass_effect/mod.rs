@@ -1,9 +1,14 @@
 //! 与Pass相关的system
 
+use blur::BlurPlugin;
+use hsi::HsiPlugin;
 use mask_image::UiMaskImagePlugin;
+use opacity::OpacityPlugin;
+use overflow::OverflowPlugin;
 use pi_world::prelude::{App, Plugin, IntoSystemConfigs, WorldPluginExtent};
+use transform_will_change::TransformWillChangePlugin;
 
-use crate::components::user::{Blur, Hsi, Opacity, Overflow, TransformWillChange};
+use crate::components::user::{Overflow, TransformWillChange};
 
 use self::{as_image::UiAsImagePlugin, clip_path::UiClipPathPlugin, radial_wave::RadialWavePlugin};
 
@@ -31,52 +36,17 @@ impl Plugin for UiEffectPlugin {
             // .add_frame_event::<ComponentEvent<Changed<RenderContextMark>>>()
             // .add_frame_event::<ComponentEvent<Changed<ParentPassId>>>()
             // .add_frame_event::<OldTransformWillChange>()
-            .add_system(UiStage, 
-                pass_life::pass_mark::<Opacity>
-                    .in_set(UiSystemSet::PassMark)
-                    .before(pass_life::cal_context),
-            )
-            .add_system(UiStage, 
-                pass_life::pass_mark::<Overflow>
-                    .in_set(UiSystemSet::PassMark)
-                    .before(pass_life::cal_context),
-            )
-            .add_system(UiStage, pass_life::pass_mark::<Hsi>.in_set(UiSystemSet::PassMark))
-            .add_system(UiStage, pass_life::pass_mark::<Blur>.in_set(UiSystemSet::PassMark))
-            .add_system(UiStage, 
-                pass_life::pass_mark::<TransformWillChange>
-                    .in_set(UiSystemSet::PassMark)
-            )
             .add_system(UiStage, root::root_calc.in_set(UiSystemSet::PassMark))
-            .add_system(UiStage, 
-                overflow::overflow_post_process
-                    .after(pass_life::calc_pass_children_and_clear)
-                    // .after(content_box::calc_content_box)
-                    .after(cal_matrix)
-                    .after(transform_will_change::transform_will_change_post_process)
-                    .in_set(UiSystemSet::PassSetting),
-            )
-            .add_system(UiStage, 
-                transform_will_change::transform_will_change_post_process
-                    .after(pass_life::calc_pass_children_and_clear)
-                    .after(world_matrix::cal_matrix)
-                    .in_set(UiSystemSet::PassSetting),
-            )
-            .add_system(UiStage, blur::blur_post_process.in_set(UiSystemSet::PassSetting)
-                .after(UiSystemSet::PassFlush)
-            )
-            .add_system(UiStage, hsi::hsi_post_process.in_set(UiSystemSet::PassSetting)
-                .after(UiSystemSet::PassFlush)
-            )
-            .add_system(UiStage, 
-                opacity::opacity_post_process
-                    .in_set(UiSystemSet::PassSetting)
-                    .after(UiSystemSet::PassFlush),
-            )
-            .add_plugins(UiClipPathPlugin)
+
             .add_plugins(UiAsImagePlugin)
-			.add_plugins(RadialWavePlugin)
+            .add_plugins(BlurPlugin)
+            .add_plugins(UiClipPathPlugin)
             .add_plugins(UiMaskImagePlugin)
+            .add_plugins(HsiPlugin)
+            .add_plugins(OpacityPlugin)
+            .add_plugins(OverflowPlugin)
+			.add_plugins(RadialWavePlugin)
+            .add_plugins(TransformWillChangePlugin)
 		;
     }
 }

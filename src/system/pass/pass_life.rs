@@ -15,21 +15,26 @@
 //! 4. 在节点上创建其所在的Pass2D实体的索引（InPass2DId），表明节点上的渲染对象应该渲染到那个Psss2D上。
 //!
 //!
-use pi_world::{event::{Event, EventSender}, fetch::{ArchetypeName, OrDefault, Ticker}, filter::{Or, With}, prelude::{Alter, Changed, ComponentRemoved, Entity, Has, Mut, ParamSet, Query, SingleRes, SingleResMut}};
+use pi_world::{event::{ComponentAdded, ComponentChanged, Event, EventSender}, fetch::{ArchetypeName, OrDefault, Ticker}, filter::{Or, With}, prelude::{Alter, Changed, ComponentRemoved, Entity, Has, Mut, ParamSet, Query, SingleRes, SingleResMut}};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, OrInitSingleRes, Up, Layer, LayerDirty};
 
 use pi_null::Null;
 
 use crate::{
     components::{
-        calc::{ContentBox, EntityKey, InPassId, LayoutResult, NeedMark, OverflowDesc, RenderContextMark, TransformWillChangeMatrix, View, WorldMatrix}, draw_obj::InstanceIndex, pass_2d::{Camera, ChildrenPass, ParentPassId, PostProcessInfo}, user::{Overflow, Vector4}, PassBundle
-    }, resource::{draw_obj::InstanceContext, EffectRenderContextMark, NodeChanged, RenderContextMarkType}, shader1::meterial::{BoxUniform, QuadUniform, RenderFlagType, TyUniform}, system::{draw_obj::{calc_text::IsRun, set_box}, node::{content_box, user_setting::StyleChange, world_matrix::Empty}}
+        calc::{style_bit, ContentBox, EntityKey, InPassId, LayoutResult, NeedMark, OverflowDesc, RenderContextMark, StyleBit, StyleMarkType, TransformWillChangeMatrix, View, WorldMatrix}, draw_obj::InstanceIndex, pass_2d::{Camera, ChildrenPass, ParentPassId, PostProcessInfo}, user::{Overflow, Vector4}, PassBundle
+    }, resource::{draw_obj::InstanceContext, EffectRenderContextMark, GlobalDirtyMark, OtherDirtyType, RenderContextMarkType}, shader1::meterial::{BoxUniform, QuadUniform, RenderFlagType, TyUniform}, system::{draw_obj::{calc_text::IsRun, set_box}, node::{content_box, user_setting::StyleChange, world_matrix::Empty}}
 };
+
+
+
+// pub fn text_layout_change(mark: SingleRes<GlobalDirtyMark>) -> bool {
+// 	mark.mark.has_any(&*TEXT_LAYOUT_DIRTY)
+// }
 
 /// 记录RenderContext添加和删除的脏，同时记录节点添加到树上的脏
 /// 根据脏，从父向子递归，设置节点所在的渲染上下文（节点的渲染目标）
 pub fn cal_context(
-    event_writer: EventSender<ContextMarkChanged>,
     // mut command: Commands,
     // mut layer_dirty: Local<LayerDirty<Entity>>,
     mut context_mark1: ParamSet<(
@@ -50,14 +55,17 @@ pub fn cal_context(
     // mut event_reader: EventReader<ComponentEvent<Changed<RenderContextMark>>>,
     // mut event_writer: EventWriter<ComponentEvent<Changed<ParentPassId>>>,
     // mut mark_change: Query<Entity, Changed<RenderContextMark>>,
-    mut layer_dirty: LayerDirty<With<Empty>>,
-    dirty_list: Event<StyleChange>,
+    mut layer_dirty: LayerDirty<With<RenderContextMark>>,
+    // dirty_list: Event<StyleChange>,
+    mark_changed: ComponentChanged<RenderContextMark>,
+    // mark_added: ComponentAdded<RenderContextMark>,
     query_dirty: Query<(Ticker<&RenderContextMark>, Option<&PostProcessInfo>, Ticker<&Layer>)>,
     
     effect_mark: SingleRes<EffectRenderContextMark>,
+    mut global_mark: SingleResMut<GlobalDirtyMark>,
     // mut layer_change: EventReader<ComponentEvent<Changed<Layer>>>,
 	r: OrInitSingleRes<IsRun>,
-    mut node_change: OrInitSingleResMut<NodeChanged>,
+    // mut node_change: OrInitSingleResMut<NodeChanged>,
 
     // mut del: Local<Vec<Entity>>,
 ) {
@@ -68,29 +76,30 @@ pub fn cal_context(
     // let mut pass_2d_init = Vec::new();
     // let mut pass_2d_id_insert = Vec::new();
 
+    let mut pass_life_change = false;
+    log::debug!("pass calc==========={:?}", mark_changed.len());
     // let cal_context_span = tracing::info_span!("cal_context");
     // 如果mark修改，加入层脏
-    for entity in dirty_list.iter() {
-        let entity = entity.0;
+    for entity in mark_changed.iter() {
+        let entity = *entity;
         if let Ok((mark, post_info, layer)) = query_dirty.get(entity) { 
-            if layer.is_changed() {
-                log::debug!("layer del========================{:?}", entity);
-                node_change.node_changed = true;
+            if post_info.is_some() && mark.not_any() {
+                pass_life_change = true;
+                log::debug!("pass_life del========================{:?}", entity);
+                // 删除pass
                 layer_dirty.mark(entity);
-            } else {
-                if post_info.is_some() && mark.not_any() {
-                    log::debug!("pass_life del========================{:?}", entity);
-                    node_change.node_changed = true;
-                    // 删除pass
-                    layer_dirty.mark(entity);
-                } else if post_info.is_none() && mark.any() {
-                    log::debug!("pass_life add========================{:?}", entity);
-                    node_change.node_changed = true;
-                    // 不存在对应的pass2D， 则创建(放入层脏，按层创建)
-                    layer_dirty.mark(entity);
-                }
+            } else if post_info.is_none() && mark.any() {
+                pass_life_change = true;
+                log::debug!("pass_life add========================{:?}", entity);
+                // 不存在对应的pass2D， 则创建(放入层脏，按层创建)
+                layer_dirty.mark(entity);
             }
         }
+    }
+
+    if pass_life_change { 
+        global_mark.mark.set(OtherDirtyType::PassLife as usize, true);
+        log::debug!("pass_life_change==================={:?}", (OtherDirtyType::PassLife as usize, &global_mark.mark, global_mark.mark.get(OtherDirtyType::PassLife as usize)));
     }
     
 
@@ -103,7 +112,10 @@ pub fn cal_context(
     for node in layer_dirty.iter() {
         let parent_context_id = match up.get(node) {
 			Ok(r) if let Ok((in_pass_id, _, _, _)) = context_mark1.p1().get(r.parent()) => **in_pass_id, // TODO
-			_ => EntityKey::null(),
+			_ => {
+                log::warn!("null in pass=========={:?}, up = {:?}", node, up.get(node));
+                EntityKey::null()
+            },
 		};
 
         // let p1 = context_mark1.p1();
@@ -174,9 +186,9 @@ pub fn cal_context(
         }
     }
 
-    if layer_dirty.count() > 0 {
-        event_writer.send(ContextMarkChanged);
-    }
+    // if layer_dirty.count() > 0 {
+    //     event_writer.send(ContextMarkChanged);
+    // }
     
 
     // // 批量设置插入指令（PassBundle）
@@ -185,10 +197,29 @@ pub fn cal_context(
     // }
 }
 
-pub struct ContextMarkChanged;
+lazy_static! {
+	pub static ref PASS_LIFE_DIRTY: StyleMarkType = style_bit()
+		.set_bit(OtherDirtyType::NodeTreeAdd as usize);
+    pub static ref PASS_CHILDREN_DIRTY: StyleMarkType = style_bit()
+		.set_bit(OtherDirtyType::NodeTreeAdd as usize)
+        .set_bit(OtherDirtyType::NodeTreeDel as usize);
+}
+
+pub fn pass_life_change(mark: SingleRes<GlobalDirtyMark>, changed: ComponentChanged<RenderContextMark>) -> bool {
+	let r = mark.mark.has_any(&*PASS_LIFE_DIRTY) || changed.len() > 0;
+    changed.mark_read();
+    // log::warn!("pass_life_change============{:?}", r);
+    r
+}
+
+pub fn pass_life_children(mark: SingleRes<GlobalDirtyMark>, changed: ComponentChanged<RenderContextMark>) -> bool {
+	let r = mark.mark.has_any(&*PASS_CHILDREN_DIRTY) || changed.len() > 0;
+    changed.mark_read();
+    r
+}
+
 /// Pass2D设置children
 pub fn calc_pass_children_and_clear(
-    event_reader: Event<ContextMarkChanged>,
     mut query: ParamSet<(
 		Query<&mut ChildrenPass>,
         Query<(&mut ChildrenPass, Entity)>,
@@ -203,9 +234,6 @@ pub fn calc_pass_children_and_clear(
 	if r.0 {
 		return;
 	}
-    if !event_reader.iter().next().is_some() {
-        return;
-    }
     log::debug!("calc_pass_children_and_clear===================");
     
     // 先清理旧的子节点
@@ -238,7 +266,6 @@ pub fn calc_pass_children_and_clear(
 
 // 
 pub fn calc_pass_toop_sort(
-    event_reader: Event<ContextMarkChanged>,
     // query_mark: Query<&RenderContextMark, Changed<RenderContextMark>>,
     mut query_children: Query<&mut ChildrenPass>,
     query_pass: Query<(Entity, &ParentPassId, &PostProcessInfo)>,
@@ -249,10 +276,6 @@ pub fn calc_pass_toop_sort(
     if r.0 {
 		return;
 	}
-    if !event_reader.iter().next().is_some() {
-        return;
-    }
-    
     
     let InstanceContext {pass_toop_list,  next_node_with_depend, temp, ..} = &mut *instances;
     // 从叶子节点开始排序
@@ -299,13 +322,13 @@ pub fn calc_pass_toop_sort(
 /// 标记RenderContextMark
 /// Opacity、Blur、Hsi等属性，需要标记RenderContextMark
 /// RenderContextMark中的位标记不全为0时，后续阶段后将该节点设置为Pass节点（添加PassBundle）
+/// 此system不处理删除T的情况， 不允许外部删除T， 通常应该设置为默认值来代表删除行为
 pub fn pass_mark<T: NeedMark + Send + Sync>(
-    mut query_set: ParamSet<(
-        Query<(Entity, &T, &mut RenderContextMark), Changed<T>>,
-        Query<(&'static mut RenderContextMark, Has<T>)>,
-    )>,
-    mut removed: ComponentRemoved<T>,
-    // del: RemovedComponents<T>,
+    // mut query_set: ParamSet<(
+    //     Query<(Entity, &T, &mut RenderContextMark), Changed<T>>,
+    //     Query<(&'static mut RenderContextMark, Has<T>)>,
+    // )>,
+    mut query: Query<(Entity, &T, &mut RenderContextMark), Changed<T>>,
     // render_mark: Query<Write<>>,
     mark_type: OrInitSingleRes<RenderContextMarkType<T>>,
 
@@ -317,15 +340,15 @@ pub fn pass_mark<T: NeedMark + Send + Sync>(
 	}
     // let mut render_context = query_set.p1();
     // 组件删除，取消渲染上下文标记
-    context_attr_del(query_set.p1(), &mut removed, ***mark_type);
+    // context_attr_del(query_set.p1(), &mut removed, ***mark_type);
     // println!("pass_mark!!!!!!, {:?}", std::any::type_name::<T>());
-    for (entity, value, mut render_mark_value) in query_set.p0().iter_mut() {
+    for (entity, value, mut render_mark_value) in query.iter_mut() {
         if value.need_mark() {
-            log::debug!("pass_mark_true,{:?}, {:?}", entity, std::any::type_name::<T>());
             render_mark_true( ***mark_type, &mut render_mark_value);
+            log::debug!("pass_mark_true,{:?}, {:?}", entity, (std::any::type_name::<T>(), render_mark_value.any()));
         } else {
-			log::debug!("pass_mark_false,{:?}, {:?}", entity, std::any::type_name::<T>());
             render_mark_false( ***mark_type, &mut render_mark_value);
+            log::debug!("pass_mark_false,{:?}, {:?}", entity, (std::any::type_name::<T>(), render_mark_value.any()));
         }
     }
 }
@@ -602,7 +625,9 @@ pub fn render_mark_true(
     mark_type: usize,
     render_mark_value: &mut Mut<RenderContextMark>,
 ) {
-    unsafe { render_mark_value.replace_unchecked(mark_type, true) };
+    if !unsafe {render_mark_value.bypass_change_detection().replace_unchecked(mark_type, true) } {
+        render_mark_value.set_changed();
+    }
 }
 
 #[inline]
@@ -610,5 +635,7 @@ pub fn render_mark_false(
     mark_type: usize,
     render_mark_value: &mut Mut<RenderContextMark>,
 ) {
-    unsafe { render_mark_value.replace_unchecked(mark_type, false) };
+    if unsafe {render_mark_value.bypass_change_detection().replace_unchecked(mark_type, false) } {
+        render_mark_value.set_changed();
+    }
 }

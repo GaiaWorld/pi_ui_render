@@ -38,7 +38,7 @@
 //!
 //! 可以考虑： 当父矩阵计算完成后，父节点所有子节点所形成的子树，可以并行计算（他们依赖的父矩阵已经计算完毕）
 use pi_bevy_ecs_extend::system_param::tree::Down;
-use pi_world::event::{ComponentChanged, Event};
+use pi_world::event::{ComponentAdded, ComponentChanged, Event};
 use pi_world::fetch::Ticker;
 use pi_world::prelude::{ParamSet, Query, SingleResMut, Entity, With};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleRes, Up, Layer, LayerDirty};
@@ -47,9 +47,9 @@ use pi_map::Map;
 use pi_null::Null;
 use pi_style::style::Aabb2;
 
-use crate::components::calc::{ContentBox, EntityKey, LayoutResult, Quad, WorldMatrix};
+use crate::components::calc::{ContentBox, EntityKey, LayoutResult, Quad, StyleBit, WorldMatrix};
 use crate::components::user::{BoxShadow, Point2, TextShadow, Transform};
-use crate::resource::QuadTree;
+use crate::resource::{GlobalDirtyMark, OtherDirtyType, QuadTree};
 use crate::system::draw_obj::calc_text::IsRun;
 use crate::system::node::content_box::calc_content_box;
 use crate::utils::tools::calc_bound_box;
@@ -88,6 +88,9 @@ pub fn cal_matrix(
     transform_dirty: ComponentChanged<Transform>,
     text_shadow_dirty: ComponentChanged<TextShadow>,
     box_shadow_dirty: ComponentChanged<BoxShadow>,
+    transform_add: ComponentAdded<Transform>,
+    text_shadow_add: ComponentAdded<TextShadow>,
+    box_shadow_add: ComponentAdded<BoxShadow>,
 
     query: Query<(Option<&Transform>, &LayoutResult, &Up)>,
 
@@ -110,6 +113,7 @@ pub fn cal_matrix(
     layer: Query<&Layer>,
     content_box: Query<&mut ContentBox>,
     mut layer_dirty1: LayerDirty<With<Empty>>,
+    mut global_dirty: SingleResMut<GlobalDirtyMark>,
 ) {
 	if r.0 {
 		return;
@@ -164,11 +168,15 @@ pub fn cal_matrix(
     //     }
     // }
 
-    for i in layout_dirty.iter().chain(transform_dirty.iter()) {
+    for i in layout_dirty.iter().chain(transform_dirty.iter()).chain(transform_add.iter()) {
         layer_dirty.mark(*i);
     }
-    for i in text_shadow_dirty.iter().chain(box_shadow_dirty.iter()) {
+    for i in text_shadow_dirty.iter().chain(box_shadow_dirty.iter()).chain(text_shadow_add.iter()).chain(box_shadow_dirty.iter()) {
         layer_dirty1.mark(*i);
+    }
+
+    if layer_dirty.count() > 0 {
+        global_dirty.mark.set(OtherDirtyType::WorldMatrix as usize, true);
     }
 
     // let time2 = pi_time::Instant::now();

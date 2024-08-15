@@ -521,6 +521,7 @@ pub fn init(width: u32, height: u32, _event_loop: &EventLoop<()>, w: Arc<pi_wini
     .add_plugins(PiAssetPlugin {
         total_capacity: 1024 * 1024 * 1024,
         asset_config: AssetConfig::default(),
+        allocator: None,
     })
     // .add_plugins(WorldInspectorPlugin::new())
     .add_plugins(PiRenderPlugin::default())

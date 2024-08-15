@@ -20,7 +20,7 @@ use pi_style::style::{Aabb2, CgColor};
 use pi_world::world::ComponentIndex;
 use pi_key_alloter::Key;
 
-use std::marker::PhantomData;
+use std::marker::{ConstParamTy, PhantomData};
 use std::mem::transmute;
 use std::ops::{Index, IndexMut};
 
@@ -32,7 +32,7 @@ use pi_hal::font::sdf_table::FontCfg;
 // use pi_ecs::prelude::{FromWorld, Id, World};
 use pi_world::prelude::{Entity, FromWorld, World, Command, CommandQueue};
 
-use crate::components::calc::{EntityKey, Quad, StyleMarkType};
+use crate::components::calc::{EntityKey, Quad, StyleBit, StyleMarkType};
 use crate::components::user::serialize::{AttrSet, StyleAttr};
 use crate::components::user::{AsImage, ClipPath, MaskImage, Point2, RenderDirty, RenderTargetType, Vector2, Viewport};
 use crate::components::SettingComponentIds;
@@ -44,11 +44,34 @@ use crate::components::user::ClassName;
 use self::draw_obj::{CommonBlendState, DrawObjDefault};
 use self::fragment::NodeTag;
 
-#[derive(Default, Deref, Serialize, Deserialize)]
-pub struct GlobalDirtyType(pub StyleMarkType);
 
 #[derive(Default, Deref, Serialize, Deserialize)]
 pub struct ClassSheet(pi_style::style_type::ClassSheet);
+
+
+#[derive(Serialize, Deserialize, Clone, Copy, Hash, ConstParamTy, PartialEq, Eq)]
+pub enum OtherDirtyType {
+    // NodeCreate = 127, // 添加到树上也算创建
+    NodeTreeAdd = 127, // 树结构改变
+    NodeTreeDel = 126, // 树结构改变
+    DrawObjCreate = 125, // drawObj创建
+    DrawObjDelete = 124, // drawObj删除
+    Rebatch = 123, // 需要重新批处理（比如纹理变化会设置此标记）
+    WorldMatrix = 122, // 世界矩阵
+    BackgroundImageTexture = 121, // 背景纹理
+    BorderImageTexture = 120, // 背景纹理
+    MaskImageTexture = 119, // 遮罩纹理
+    // Canvas = 117, // canvas修改
+    PassLife = 116, // Pass3D生命周期（添加或移除）
+    InstanceCount = 115, // 实例数量修改
+    NodeState = 114, // NodeState修改
+}
+
+
+#[derive(Default, Deref, Serialize, Deserialize)]
+pub struct GlobalDirtyMark {
+    pub mark: StyleMarkType,
+}
 
 /// 用户指令缓冲区
 pub struct UserCommandsCache(pub UserCommands);
@@ -72,6 +95,7 @@ pub struct UserCommandsCache(pub UserCommands);
 #[derive(Default)]
 pub struct UserCommands {
     pub is_node_change: bool,
+    pub node_create: bool,
     /// 节点指令
     pub node_commands: Vec<NodeCommand>,
 	// /// 节点初始化
@@ -95,18 +119,18 @@ pub struct UserCommands {
 	pub version: usize,
 }
 
-/// 节点变动标记（不一定是节点变动，主要用于判断实例数据是否应该重新组织）
-#[derive(Default, Debug)]
-pub struct NodeChanged {
-    pub node_changed: bool,
-    pub rebatch: bool,
-}
+// /// 节点变动标记（不一定是节点变动，主要用于判断实例数据是否应该重新组织）
+// #[derive(Default, Debug)]
+// pub struct NodeChanged {
+//     pub node_changed: bool,
+//     pub rebatch: bool,
+// }
 
 impl UserCommands {
 	// 初始化节点
 	#[inline]
 	pub fn init_node(&mut self, entity: Entity, tag: NodeTag) {
-        self.is_node_change = true;
+        self.node_create = true;
         let start = self.style_commands.style_buffer.len();
         if tag == NodeTag::VNode {
             self.style_commands.set_style(entity, ZIndexType(-1));

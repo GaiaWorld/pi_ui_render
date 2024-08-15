@@ -1,21 +1,24 @@
 //! 圆角从有到删除，没有正确处理顶点（TODO）
 
+use pi_style::style::StyleType;
+use pi_world::event::ComponentRemoved;
 use pi_world::filter::Or;
 use pi_world::prelude::{Changed, With, Query, Plugin, IntoSystemConfigs};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, OrInitSingleRes};
+use pi_world::single_res::SingleRes;
 
-use crate::components::calc::{LayoutResult, WorldMatrix, DrawList};
-use crate::components::draw_obj::{BorderColorMark, InstanceIndex};
+use crate::components::calc::{style_bit, DrawList, LayoutResult, StyleBit, StyleMarkType};
+use crate::components::draw_obj::{BorderColorMark, BoxType, InstanceIndex};
 use crate::components::user::BorderRadius;
 use crate::components::user::BorderColor;
-use crate::resource::BorderColorRenderObjType;
+use crate::resource::{BorderColorRenderObjType, GlobalDirtyMark};
 use crate::resource::draw_obj::InstanceContext;
 use crate::shader1::meterial::{BorderColorUniform, RenderFlagType, TyUniform, BorderWidthUniform};
 use crate::system::system_set::UiSystemSet;
 use crate::prelude::UiStage;
 
 use super::calc_text::IsRun;
-use super::{life_drawobj, set_box};
+use super::life_drawobj;
 
 pub struct BorderColorPlugin;
 
@@ -31,8 +34,10 @@ impl Plugin for BorderColorPlugin {
 				BorderColorRenderObjType,
 				(BorderColorMark, ),
 				{ BORDER_COLOR_ORDER },
+				{ BoxType::Border },
 			>
 				.in_set(UiSystemSet::LifeDrawObject)
+				.run_if(border_color_life_change)
 				.before(calc_border_color),
 		)
 		.add_system(
@@ -40,11 +45,28 @@ impl Plugin for BorderColorPlugin {
 			calc_border_color
 				.after(super::super::node::world_matrix::cal_matrix)
 				.in_set(UiSystemSet::PrepareDrawObj)
+				.run_if(border_color_change)
 		);
     }
 }
 
 pub const BORDER_COLOR_ORDER: u8 = 4;
+
+lazy_static! {
+	pub static ref BORDER_IMAGE_DIRTY: StyleMarkType = style_bit()
+		.set_bit(StyleType::BorderColor as usize)
+		.set_bit(StyleType::BorderRadius as usize);
+}
+
+pub fn border_color_change(mark: SingleRes<GlobalDirtyMark>) -> bool {
+	mark.mark.has_any(&*BORDER_IMAGE_DIRTY)
+}
+
+pub fn border_color_life_change(mark: SingleRes<GlobalDirtyMark>, removed: ComponentRemoved<BorderColor>) -> bool {
+	let r = removed.len() > 0 || mark.mark.get(StyleType::BorderColor as usize).map_or(false, |display| {*display == true});
+	removed.mark_read();
+	r
+}
 
 /// 设置边框颜色的顶点、索引、和边框颜色uniform
 pub fn calc_border_color(
@@ -53,10 +75,9 @@ pub fn calc_border_color(
         (
 			&BorderColor,
             &LayoutResult,
-            &WorldMatrix,
 			&DrawList
         ),
-        Or<(Changed<BorderColor>, Changed<BorderRadius>, Changed<LayoutResult>, Changed<WorldMatrix>)>,
+        Or<(Changed<BorderColor>, Changed<BorderRadius>)>,
     >,
 	mut query_draw: Query<&InstanceIndex, With<BorderColorMark>>,
 	render_type: OrInitSingleRes<BorderColorRenderObjType>,
@@ -67,7 +88,7 @@ pub fn calc_border_color(
 	}
 
 	let render_type = ***render_type;
-	for (border_color, layout, world_matrix, draw_list) in query.iter() {
+	for (border_color, layout, draw_list) in query.iter() {
 		let draw_id = match draw_list.get_one(render_type) {
 			Some(r) => r.id,
 			None => continue,
@@ -106,7 +127,7 @@ pub fn calc_border_color(
 			// }
 
 			// if is_add || world_matrix.is_changed() || layout.is_changed() {
-				set_box(&world_matrix, &layout.border_aabb(), &mut instance_data);
+				// set_box(&world_matrix, &layout.border_aabb(), &mut instance_data);
 			// }
 			// if is_add || layout.is_changed() {
 				instance_data.set_data(&BorderWidthUniform([

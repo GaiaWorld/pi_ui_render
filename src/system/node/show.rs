@@ -1,15 +1,16 @@
 //! 计算show
 //! 该系统默认为所有已经创建的Entity创建Show组件， 并监听Show和Display的创建修改， 以及监听idtree上的创建事件， 计算已经在idtree上///! 存在的实体的Enable和Visibility
 
-use pi_world::{event::Event, fetch::Ticker, filter::With, prelude::{IntoSystemConfigs, OrDefault, Plugin, Query}, world::Entity};
+use pi_style::style::StyleType;
+use pi_world::{event::Event, fetch::Ticker, filter::With, prelude::{IntoSystemConfigs, OrDefault, Plugin, Query}, single_res::SingleRes, world::Entity};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, OrInitSingleRes, Up, Layer, LayerDirty};
 
 use pi_flex_layout::style::Display;
 use pi_null::Null;
 
 use crate::{components::{
-    calc::{DrawList, IsShow}, draw_obj::InstanceIndex, user::{Enable, Show}
-}, resource::{draw_obj::InstanceContext, NodeChanged}, shader1::meterial::{RenderFlagType, TyUniform}, system::{draw_obj::{calc_text::IsRun, life_drawobj::update_render_instance_data}, system_set::UiSystemSet}};
+    calc::{style_bit, DrawList, IsShow, StyleBit, StyleMarkType}, draw_obj::InstanceIndex, user::{Enable, Show}
+}, resource::{draw_obj::InstanceContext, GlobalDirtyMark, OtherDirtyType}, shader1::meterial::{RenderFlagType, TyUniform}, system::{draw_obj::{calc_text::IsRun, life_drawobj::update_render_instance_data}, system_set::UiSystemSet}};
 
 use crate::prelude::UiStage;
 
@@ -20,9 +21,10 @@ impl Plugin for ShowPlugin {
     fn build(&self, app: &mut pi_world::prelude::App) {
 		app
 			// .add_frame_event::<NodeVisibilityChange>()
-			.add_system(UiStage, calc_show.in_set(UiSystemSet::BaseCalc))
+			.add_system(UiStage, calc_show.in_set(UiSystemSet::BaseCalc).run_if(show_change))
 			.add_system(UiStage, 
 				set_show_data
+					.run_if(show_data_change)
 					.after(update_render_instance_data)
 					.after(UiSystemSet::PrepareDrawObj) // 这里是为了确保与其他设置实例数据的system不并行， 因为设置的数据冲突（TyUniform）
 					)
@@ -39,7 +41,7 @@ pub fn calc_show(
     mut layer_dirty: LayerDirty<With<Empty>>,
     query_dirty: Query<(Ticker<&Layer>, Option<Ticker<&Show>>)>,
 	
-	mut node_change: OrInitSingleResMut<NodeChanged>,
+	mut global_mark: OrInitSingleResMut<GlobalDirtyMark>,
     // mut dirty: LayerDirty<(Changed<Layer>, Changed<Show>)>,
     query: Query<(OrDefault<Show>, Option<&Up>)>,
     mut write: Query<&mut IsShow>,
@@ -124,9 +126,27 @@ pub fn calc_show(
 
 	// display改变， 则发出通知，如果是实例化渲染， 需要重新组织实例化数据（display为None的实例， 不应该在实例化数据中）
 	if display_change || visibility_change {
-		node_change.node_changed = true;
-		log::debug!("node_changed3============{:p}", &*node_change);
+		global_mark.mark.set(OtherDirtyType::InstanceCount as usize, true);
+		log::debug!("node_changed3============");
 	}
+}
+
+lazy_static! {
+    // 布局脏
+    pub static ref SHOW_DIRTY: StyleMarkType = style_bit()
+		.set_bit(StyleType::Display as usize)
+		.set_bit(StyleType::Enable as usize)
+		.set_bit(StyleType::Visibility as usize)
+        .set_bit(OtherDirtyType::NodeTreeAdd as usize);
+}
+
+
+pub fn show_change(mark: SingleRes<GlobalDirtyMark>) -> bool {
+	mark.mark.has_any(&*SHOW_DIRTY)
+}
+
+pub fn show_data_change(show_changed: OrInitSingleRes<ShowDirty>) -> bool {
+	show_changed.0.len() > 0
 }
 
 /// 设置渲染数据

@@ -1120,9 +1120,9 @@ void main(void) {
 			float rangle_fill_factor = max(max((is_side - is_center), (1.0 - is_side) * vData5.y), 0.0);
 
 			if (rangle_fill_factor + is_side <= 0) { // 空白处， 透明处理
-				o_Target = vec4(0.5, 1.0, 1.0, 1.0);
-				return;
-				// discard;
+				// o_Target = vec4(0.5, 1.0, 1.0, 1.0);
+				// return;
+				discard;
 			}
 	
 			float uv_min_x = top_right_bottom_left.w * uv_max_box.x   + fill.x * border_slice.w + top_right_bottom_left.y * border_slice.y; // min_x  (min左  + min中 + min右)
@@ -1171,9 +1171,9 @@ void main(void) {
 
 			uv = (vVertexPosition - vec2(p_min_x, p_min_y) + vec2(sso_x.z, sso_y.z)) % vec2(sso_x.x, sso_y.x) / vec2(sso_x.y, sso_y.y);
 			if (max(uv.x, uv.y) > 1.0) { // 空白处， 透明处理
-				o_Target = vec4(0.5, 0.5, 0.0, 1.0);
-				return;
-				// discard;
+				// o_Target = vec4(0.5, 0.5, 0.0, 1.0);
+				// return;
+				discard;
 			}
 			uv = (uv * size + vec2(uv_min_x, uv_min_y))/ vData5.zw;
 			// uv = (vVertexPosition - vec2(p_min_x, p_min_y) + vec2(sso_x.z, sso_y.z)) % vec2(sso_x.x, sso_y.x) / vec2(sso_x.y, sso_y.y);
@@ -1198,9 +1198,9 @@ void main(void) {
 		}
 
 		if (uv.x > vData0.z || uv.y > vData0.w) { // 空白处， 透明处理
-			o_Target = vec4(1.0, 0.5, 0.0, 1.0);
-			return;
-			// discard;
+			// o_Target = vec4(1.0, 0.5, 0.0, 1.0);
+			// return;
+			discard;
 		}else if (texture_layer < 0.1) {
 			color = texture(sampler2D(tex2d0, samp0),uv);
 		} else if (texture_layer < 1.1) {

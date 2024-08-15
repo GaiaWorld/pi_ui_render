@@ -13,7 +13,7 @@ use std::{
 };
 
 use pi_style::style::StyleType;
-use pi_world::{event::Event, fetch::Ticker, prelude::{Entity, Local, Mut, OrDefault, Query, With}};
+use pi_world::{event::Event, fetch::Ticker, prelude::{Entity, Local, Mut, OrDefault, Query, With}, single_res::SingleRes};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleRes, Layer, EntityTree};
 
 use pi_flex_layout::{prelude::{
@@ -22,9 +22,9 @@ use pi_flex_layout::{prelude::{
 }, style::OverflowWrap};
 
 use crate::{components::{
-    calc::{EntityKey, LayoutResult, NodeState, StyleBit, StyleMark, CHILD_DIRTY, NORMAL_DIRTY, RECT_DIRTY, SELF_DIRTY},
+    calc::{EntityKey, LayoutResult, NodeState, StyleBit, StyleMark, StyleMarkType, CHILD_DIRTY, LAYOUT_DIRTY, NORMAL_DIRTY, RECT_DIRTY, SELF_DIRTY},
     user::{Border, FlexContainer, FlexNormal, Margin, MinMax, Padding, Position, Show, Size},
-}, system::draw_obj::calc_text::IsRun};
+}, resource::{GlobalDirtyMark, OtherDirtyType}, system::draw_obj::calc_text::IsRun};
 use pi_dirty::LayerDirty;
 use pi_null::Null;
 use pi_slotmap_tree::{Down, Up};
@@ -232,6 +232,18 @@ pub fn calc_layout(
     layout.compute(&mut layer_dirty);
     // let t3 = pi_time::Instant::now();
     // println!("compute layout end==============={:?}", (i, t2- t1, t3 - t2));
+}
+
+lazy_static! {
+    // 布局脏
+    pub static ref LAYOUT_DIRTY1: StyleMarkType = LAYOUT_DIRTY.clone()
+        .set_bit(OtherDirtyType::NodeTreeAdd as usize)
+        .set_bit(OtherDirtyType::NodeTreeDel as usize);
+}
+
+
+pub fn layout_change(mark: SingleRes<GlobalDirtyMark>) -> bool {
+	mark.mark.has_any(&*LAYOUT_DIRTY1)
 }
 
 

@@ -5,8 +5,7 @@ use crate::{
         user::{MaskImage, MaskImageClip, Opacity, Point2},
     }, 
     resource::{
-        draw_obj::{create_render_pipeline, InstanceContext, LastGraphNode, RenderState},
-        RenderContextMarkType,
+        draw_obj::{create_render_pipeline, InstanceContext, LastGraphNode, RenderState}, GlobalDirtyMark, OtherDirtyType, RenderContextMarkType
     }, 
     shader::camera::{ProjectUniform, ViewUniform}, 
     shader1::meterial::{BoxUniform, CameraBind, QuadUniform, RenderFlagType, TyUniform}, 
@@ -35,9 +34,9 @@ use pi_render::{
     },
 };
 use pi_share::{Share, ShareRefCell};
-use pi_style::style::{Aabb2, LinearGradientColor, MaskImage as MaskImage1};
+use pi_style::style::{Aabb2, LinearGradientColor, MaskImage as MaskImage1, StyleType};
 use smallvec::SmallVec;
-use std::ops::Range;
+use std::{mem::transmute, ops::Range};
 use wgpu::{CommandEncoder, CompareFunction};
 use crate::system::system_set::UiSystemSet;
 use crate::prelude::UiStage;
@@ -56,16 +55,19 @@ impl Plugin for UiMaskImagePlugin {
             .add_system(UiStage, 
                 pass_life::pass_mark::<MaskImage>
                     .in_set(UiSystemSet::PassMark)
+                    .run_if(mask_image_changed)
                     .before(pass_life::cal_context)
                     ,
             )
             // 设置mask_image的后处理效果
             .add_system(UiStage, 
-                mask_image_post_process1
-                .in_set(UiSystemSet::PassSetting),
+                mask_image_path_post_process
+                .in_set(UiSystemSet::PassSetting)
+                .run_if(mask_image_changed)
             )
             .add_system(UiStage, 
-                mask_image_post_process2
+                mask_image_linear_post_process
+                .run_if(mask_image_changed)
                 .after(crate::system::draw_obj::life_drawobj::update_render_instance_data)
             );
     }
@@ -89,49 +91,49 @@ pub fn init(
         Err(e) => log::error!("node: {:?}, {:?}", "MaskImageLinear".to_string(), e),
     };
 }
-
-/// 1. 标记后处理
-/// 2. 加载MaskImage纹理
-pub fn mask_image_post_process1(
+/// 处理Path类型的MaskImage
+/// 1. 加载MaskImage纹理
+/// 2. 加载成功后， 设置MaskImage后处理
+/// 3. MaskImage为MaskImage::Path(Atom::from(""))时， 删除MaskImage后处理效果
+/// maskimage不可删除， 需要删除时， 设置值为MaskImage::Path(Atom::from(""))
+pub fn mask_image_path_post_process(
     mark_type: OrInitSingleRes<RenderContextMarkType<MaskImage>>,
     mask_image_changed: ComponentChanged<MaskImage>,
-    mut query: ParamSet<(
-        (
-            Query<(&MaskImage, &mut PostProcessInfo)>,
-            Query<(&mut PostProcess, OrDefault<MaskImageClip>)>,
-        ),
-        Query<(&mut PostProcess, &mut PostProcessInfo, Has<MaskImage>)>,
-    )>,
+    mask_image_added: ComponentAdded<MaskImage>,
+    mut query0: Query<(&MaskImage, &mut PostProcessInfo)>,
+    mut query1: Query<(&mut PostProcess, OrDefault<MaskImageClip>)>,
 
     mask1: Query<(Entity, &MaskImage)>,
     mut mask_texture: Query<&mut MaskTexture>,
 
-    remove: ComponentRemoved<MaskImage>,
+    // remove: ComponentRemoved<MaskImage>,
 
     image_await: OrInitSingleRes<ImageAwait<Entity, MaskImage>>,
     texture_assets_mgr: SingleRes<ShareAssetMgr<AssetWithId<TextureRes>>>,
     queue: SingleRes<PiRenderQueue>,
     device: SingleRes<PiRenderDevice>,
     key_alloter: OrInitSingleRes<TextureKeyAlloter>,
+    mut global_mark: SingleResMut<GlobalDirtyMark>,
 ) {
     // MaskImage删除，则删除对应的遮罩效果
-    for i in remove.iter() {
-        if let Ok((mut post_list, mut post_info, has_mask_image)) = query.p1().get_mut(*i) {
-            if has_mask_image {
-                continue;
-            }
-            post_list.image_mask = None;
-            post_info.effect_mark.set(***mark_type, false);
-        }
-    }
+    // for i in remove.iter() {
+    //     if let Ok((mut post_list, mut post_info, has_mask_image)) = query.p1().get_mut(*i) {
+    //         if has_mask_image {
+    //             continue;
+    //         }
+    //         post_list.image_mask = None;
+    //         render_mark_false(***mark_type, &mut render_mark_value);
+    //     }
+    // }
 
+    // 保证安全
+    let query2: &mut Query<(&mut PostProcess, OrDefault<MaskImageClip>)>= unsafe { transmute(&mut query1) };
     // 加载遮罩纹理
     // 设置后处理效果标记
-    let p0 = query.p0();
     let mut f = |d: &mut MaskTexture, s: MaskTexture, entity| {
 		let is_null = d.is_null();
         
-        if let Ok((mut post_list, mask_image_clip)) = p0.1.get_mut(entity){
+        if let Ok((mut post_list, mask_image_clip)) = query2.get_mut(entity){
             let s = s.clone().0.unwrap();
             post_list.image_mask = Some(ImageMask::new(PostprocessTexture {
                 use_x: (mask_image_clip.left * s.width as f32).round() as u32,
@@ -147,11 +149,19 @@ pub fn mask_image_post_process1(
         *d = s;
         is_null
     };
-    for entity in mask_image_changed.iter() {
-       if let Ok((mask_image, mut post_info)) = p0.0.get_mut(*entity) {
+
+    for entity in mask_image_changed.iter().chain(mask_image_added.iter()) {
+       if let Ok((mask_image, mut post_info)) = query0.get_mut(*entity) {
             match &mask_image.0 {
                 MaskImage1::Path(key) => {
-                    load_image(
+                    if key.as_str() == "" {
+                        // 如果是空路径， 表示删除MaskImage
+                        post_info.effect_mark.set(***mark_type, false);
+                        if let Ok((mut post_list, mask_image_clip)) = query1.get_mut(*entity){
+                            post_list.image_mask = None;
+                        }
+                    }
+                    load_image::<{OtherDirtyType::MaskImageTexture}, _, _, _>(
                         *entity,
                         key,
                         &image_await,
@@ -161,6 +171,7 @@ pub fn mask_image_post_process1(
                         &texture_assets_mgr,
                         &key_alloter,
                         &mut f,
+                        &mut global_mark,
                     );
                 }
                 MaskImage1::LinearGradient(_) => (),
@@ -168,33 +179,24 @@ pub fn mask_image_post_process1(
             post_info.effect_mark.set(***mark_type, true);
        }
     }
-    set_texture(&image_await, &mask1, &mut mask_texture, f);
+    set_texture::<{OtherDirtyType::MaskImageTexture}, _, _, _>(&image_await, &mask1, &mut mask_texture, f, &mut global_mark);
 }
 
-pub struct UnitCamera (pub BufferGroup);
 
-#[derive(Debug, Default)]
-pub struct MaskRenderRange {
-    pub render_list: Vec<(Range<usize>, ShareTargetView)>,
+pub fn mask_image_changed(mark: SingleRes<GlobalDirtyMark>) -> bool {
+	mark.mark.get(StyleType::MaskImage as usize | StyleType::MaskImageClip as usize).map_or(false, |display| {*display == true})
 }
 
-impl FromWorld for UnitCamera {
-    fn from_world(world: &mut World) -> Self {
-        let matrix = WorldMatrix::default();
-        let instances = world.get_single_res_mut::<InstanceContext>().unwrap();
-        let mut camera_group = instances.camera_alloter.alloc();
-        let _ = camera_group.set_uniform(&ProjectUniform(matrix.as_slice()));
-        let _ = camera_group.set_uniform(&ViewUniform(matrix.as_slice()));
-        Self(camera_group)
-    }
-}
-
-/// 为LinearGradient类型的maskimage 准备渲染数据
+/// 处理LinearGradient类型的maskimage
+/// 1. 为MaskImage的渐变色渲染分配纹理
+/// 2. 为MaskImage的渐变色渲染准备渲染数据（填充实例数据）
+/// 3. 设置后处理对象
 /// 由于渲染LinearGradient对应的渐变颜色， 采用实例化渲染， 需要修改InstanceContext，
-/// 因此此system在实例数据分配后运行
-pub fn mask_image_post_process2(
+/// 因此此system需要在实例数据分配后运行
+pub fn mask_image_linear_post_process(
     mask_image_changed: ComponentChanged<MaskImage>,
-    mask_image_changed1: ComponentAdded<MaskImage>,
+    mask_image_added: ComponentAdded<MaskImage>,
+    // mask_image_changed1: ComponentAdded<MaskImage>,
     mut query: Query<(&MaskImage, &Quad, &mut PostProcess)>,
 
     mut instances: OrInitSingleResMut<InstanceContext>,
@@ -232,7 +234,7 @@ pub fn mask_image_post_process2(
         }
     };
 
-    for entity in mask_image_changed.iter().chain(mask_image_changed1.iter()) {
+    for entity in mask_image_changed.iter().chain(mask_image_added.iter()) {
         if let Ok((mask_image, quad, mut post_process)) = query.get_mut(*entity) {
             if let MaskImage1::LinearGradient(color) = &mask_image.0 {
                 let mut render_range = instances.instance_data.cur_index()..instances.instance_data.cur_index();
@@ -298,6 +300,25 @@ pub fn mask_image_post_process2(
         }
     }
   
+}
+
+pub struct UnitCamera (pub BufferGroup);
+
+/// 用于标记哪些实例是MaskImage渐变颜色渲染
+#[derive(Debug, Default)]
+pub struct MaskRenderRange {
+    pub render_list: Vec<(Range<usize>, ShareTargetView)>,
+}
+
+impl FromWorld for UnitCamera {
+    fn from_world(world: &mut World) -> Self {
+        let matrix = WorldMatrix::default();
+        let instances = world.get_single_res_mut::<InstanceContext>().unwrap();
+        let mut camera_group = instances.camera_alloter.alloc();
+        let _ = camera_group.set_uniform(&ProjectUniform(matrix.as_slice()));
+        let _ = camera_group.set_uniform(&ViewUniform(matrix.as_slice()));
+        Self(camera_group)
+    }
 }
 
 

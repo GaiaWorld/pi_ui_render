@@ -1,4 +1,5 @@
 //! sdf2文字功能
+use pi_world::event::ComponentRemoved;
 use pi_world::filter::Or;
 use pi_world::prelude::{Changed, With, Query, SingleResMut, Entity, Plugin, OrDefault, IntoSystemConfigs};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, OrInitSingleRes, Up, Layer};
@@ -6,13 +7,14 @@ use pi_hal::font::font::FontType;
 use pi_hal::font::sdf2_table::TexInfo;
 // use pi_hal::pi_sdf::glyphy::geometry::aabb::AabbEXT;
 use pi_render::font::{FontSheet, GlyphId, Font};
-use pi_style::style::{Aabb2, FontStyle, TextOverflow};
+use pi_style::style::{Aabb2, FontStyle, StyleType, TextOverflow};
+use pi_world::single_res::SingleRes;
 
-use crate::components::calc::{LayoutResult, NodeState};
-use crate::components::draw_obj::{TextMark, RenderCount};
+use crate::components::calc::{style_bit, LayoutResult, NodeState, StyleBit, StyleMarkType, LAYOUT_DIRTY};
+use crate::components::draw_obj::{BoxType, RenderCount, TextMark};
 use crate::components::user::{get_size, Point2, TextContent, TextOuterGlow, TextOverflowData, TextShadow, TextStyle};
 use crate::components::user::Color;
-use crate::resource::{NodeChanged, ShareFontSheet, TextRenderObjType};
+use crate::resource::{GlobalDirtyMark, OtherDirtyType, ShareFontSheet, TextRenderObjType};
 use crate::shader1::{InstanceData, GpuBuffer};
 use crate::system::draw_obj::life_drawobj::{draw_object_life_new, update_render_instance_data};
 use crate::system::draw_obj::sdf2_texture_update::update_sdf2_texture;
@@ -48,7 +50,8 @@ impl Plugin for Sdf2TextPlugin {
 				.in_set(UiSystemSet::Layout)
 				.in_schedule(UiSchedule::Layout)
 				.in_schedule(UiSchedule::Calc)
-				.in_schedule(UiSchedule::Geo))
+				.in_schedule(UiSchedule::Geo)
+				.run_if(text_layout_change))
             // 字形计算
             .add_system(UiStage, text_glyph
 				.after(text_split)
@@ -63,8 +66,10 @@ impl Plugin for Sdf2TextPlugin {
 						TextContent,
 						TextRenderObjType,
 						(TextMark, RenderCount),
-						{ TEXT_ORDER }>
+						{ TEXT_ORDER },
+						{ BoxType::Border },>
 						.in_set(UiSystemSet::LifeDrawObject)
+						.run_if(text_content_change)
 						.before(calc_sdf2_text_len),
 			)
 			// 统计drawobj的实例长度（文字包含多个字符，每个字符一个实例， 并且可能包含多层阴影， 每阴影每字符也需要一个实例）
@@ -76,15 +81,59 @@ impl Plugin for Sdf2TextPlugin {
 					.after(UiSystemSet::LifeDrawObjectFlush)
 					.before(update_render_instance_data)
 					.after(calc_layout)
+					.run_if(text_len_change)
 			)
 			// 更新实例数据
 			.add_system(
 				UiStage, 
 				calc_sdf2_text
 					.in_set(UiSystemSet::PrepareDrawObj)
+					.run_if(text_change)
 			)
 		;
     }
+}
+
+lazy_static! {
+	pub static ref TEXT_DIRTY: StyleMarkType = TEXT_LEN_DIRTY.clone()
+		.set_bit(OtherDirtyType::NodeState as usize)
+		.set_bit(OtherDirtyType::WorldMatrix as usize);
+	pub static ref TEXT_LEN_DIRTY: StyleMarkType = TEXT_LAYOUT_DIRTY.clone() | LAYOUT_DIRTY
+		.set_bit(StyleType::Color as usize)
+		.set_bit(StyleType::TextStroke as usize)
+		.set_bit(StyleType::TextOuterGlow as usize)
+		.set_bit(StyleType::TextShadow as usize);
+	pub static ref TEXT_LAYOUT_DIRTY: StyleMarkType = style_bit()
+		.set_bit(StyleType::FontStyle as usize)
+		.set_bit(StyleType::FontWeight as usize)
+		.set_bit(StyleType::FontSize as usize)
+		.set_bit(StyleType::FontFamily as usize)
+		.set_bit(StyleType::LetterSpacing as usize)
+		.set_bit(StyleType::WordSpacing as usize)
+		.set_bit(StyleType::LineHeight as usize)
+		.set_bit(StyleType::TextIndent as usize)
+		.set_bit(StyleType::WhiteSpace as usize)
+		.set_bit(StyleType::TextAlign as usize)
+		.set_bit(StyleType::VerticalAlign as usize)
+		.set_bit(StyleType::TextContent as usize)
+		.set_bit(StyleType::TextOverflow as usize)
+		.set_bit(OtherDirtyType::NodeTreeAdd as usize);
+}
+
+pub fn text_layout_change(mark: SingleRes<GlobalDirtyMark>) -> bool {
+	mark.mark.has_any(&*TEXT_LAYOUT_DIRTY)
+}
+
+pub fn text_len_change(mark: SingleRes<GlobalDirtyMark>) -> bool {
+	mark.mark.has_any(&*TEXT_LEN_DIRTY)
+}
+pub fn text_change(mark: SingleRes<GlobalDirtyMark>) -> bool {
+	mark.mark.has_any(&*TEXT_DIRTY)
+}
+pub fn text_content_change(mark: SingleRes<GlobalDirtyMark>, removed: ComponentRemoved<TextContent>) -> bool {
+	let r = removed.len() > 0 || mark.mark.get(StyleType::TextContent as usize).map_or(false, |display| {*display == true});
+	removed.mark_read();
+	r
 }
 
 /// 共计sdf文字的的实例数量
@@ -108,7 +157,7 @@ pub fn calc_sdf2_text_len(
     mut query_draw: Query<&mut RenderCount, With<TextMark>>,
 	query_up: Query<(&'static LayoutResult, &'static Up, &'static NodeState)>,
 	r: OrInitSingleRes<IsRun>,
-	mut node_changed: OrInitSingleResMut<NodeChanged>,
+	mut global_mark: OrInitSingleResMut<GlobalDirtyMark>,
 	render_type: OrInitSingleRes<TextRenderObjType>,
 ) {
 	if r.0 {
@@ -211,8 +260,8 @@ pub fn calc_sdf2_text_len(
 			if c.0 != new_count as u32 {
 				c.0 = new_count as u32;
 				render_count.set_changed();
-				node_changed.node_changed = true;
-				log::debug!("node_changed2============{:p}", &*node_changed);
+				global_mark.mark.set(OtherDirtyType::InstanceCount as usize, true);
+				log::debug!("node_changed2============");
 			}
 			
 		}
@@ -355,7 +404,7 @@ pub fn calc_sdf2_text(
 				text_shadow,
 				text_outer_glow,
 			);
-
+			log::debug!("text matrix==========: {:?}, \n{:?}", (entity, draw_id, &matrix), &layout);
 			set_chars_data(&node_state,
 				layout1,
 				&mut font_sheet,
@@ -740,7 +789,6 @@ impl<'a> UniformData<'a> {
 			// if c == '虚' {
 			// 	println!("set_box: {:?}", (&self.world_matrix, offset, width, height));
 			// }
-			
 			set_box(&self.world_matrix, &Aabb2::new(Point2::new(offset.0, offset.1), Point2::new(width + offset.0, height + offset.1)), &mut instance_data);
 		// }
 

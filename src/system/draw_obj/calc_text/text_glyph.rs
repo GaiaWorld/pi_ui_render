@@ -6,7 +6,7 @@ use std::{collections::VecDeque, sync::atomic::{AtomicBool, Ordering}};
 use pi_world::{filter::Or, prelude::{Changed, Entity, Local, Mut, OrDefault, ParamSet, Query, SingleResMut, With}};
 use ordered_float::NotNan;
 use pi_bevy_ecs_extend::{
-    prelude::Layer,
+    prelude::{Layer, OrInitSingleResMut},
     system_param::res::OrInitSingleRes,
 };
 use pi_hal::{runtime::MULTI_MEDIA_RUNTIME, font::sdf2_table::TexInfo};
@@ -16,14 +16,14 @@ use pi_share::{Share, ShareMutex};
 
 use crate::{
     components::{
-        calc::{NodeState, WorldMatrix},
-        user::{get_size, TextContent, TextStyle, TextOverflowData},
+        calc::{NodeState, StyleBit},
+        user::{get_size, TextContent, TextOverflowData, TextStyle},
     },
-    resource::ShareFontSheet,
+    resource::{GlobalDirtyMark, OtherDirtyType, ShareFontSheet},
 };
 use pi_async_rt::prelude::AsyncRuntime;
 
-use super::IsRun;
+use super::{text_sdf2::TEXT_LAYOUT_DIRTY, IsRun};
 
 // pub struct Sdf2GlpyhAwaitList(pub Share<ShareMutex<Vec<(Vec<Entity>, Share<ShareMutex<(usize, Vec<(DefaultKey, TexInfo, Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>)>)>>)>>>);
 
@@ -74,6 +74,7 @@ pub fn text_glyph(
 		Query<&mut NodeState, With<TextContent>>,
     )>,
     font_sheet: SingleResMut<ShareFontSheet>,
+    mut global_mark: OrInitSingleResMut<GlobalDirtyMark>,
     // mut event_writer: EventWriter<ComponentEvent<Changed<NodeState>>>,
 	r: OrInitSingleRes<IsRun>,
     mut await_index: Local<usize>,
@@ -88,55 +89,58 @@ pub fn text_glyph(
 	let mut await_set_gylph = Vec::new();
     // let mut ii1 = Vec::new();
     // let t0 = pi_time::Instant::now();
-    for (
-        entity,
-        // world_matrix,
-        text_style,
-        // text_content,
-        node_state,
-		layer,
-		text_overflow_data,
-        // text_content,
-
-        // t1, t2, t3
-        // t2
-    ) in query.p0().iter_mut()
-    {
-        // ii1.push(entity);
-        // println!("text_glyph======{:?}", (t1.map(|t| {t.is_changed()}), t2.is_changed(), t3.map(|t| {t.is_changed()})));
-		let r = set_gylph(entity, layer, text_style, node_state, &mut font_sheet, text_overflow_data);
-        if let Err(_) = r {
-            // 清空文字纹理TODO（清屏为玫红色）
-
-            is_reset = true;
-            // 清空字形信息
-            font_sheet.clear();
-            break;
-        } else if let Ok(false) = r {
-			await_set_gylph.push(entity);
-		}
-    }
-    // let t1 = pi_time::Instant::now();
-    // println!("t2======================={:?}", (ii1.len(), ii1));
-
-    if is_reset {
-        println!("reset=======================");
-		await_set_gylph.clear();
-        // 为当前所有需要显示的字符，重新分配字形信息
+    if global_mark.mark.has_any(&*TEXT_LAYOUT_DIRTY) {
         for (
             entity,
             // world_matrix,
             text_style,
             // text_content,
             node_state,
-			layer,
-			text_overflow_data,
-        ) in query.p1().iter_mut()
+            layer,
+            text_overflow_data,
+            // text_content,
+
+            // t1, t2, t3
+            // t2
+        ) in query.p0().iter_mut()
         {
-            let r = set_gylph(entity, layer, text_style, node_state, &mut font_sheet, text_overflow_data).unwrap();
-			if r == false {
-				await_set_gylph.push(entity);
-			}
+            log::debug!("set_gylph============{:?}", entity);
+            // ii1.push(entity);
+            // println!("text_glyph======{:?}", (t1.map(|t| {t.is_changed()}), t2.is_changed(), t3.map(|t| {t.is_changed()})));
+            let r = set_gylph(entity, layer, text_style, node_state, &mut font_sheet, text_overflow_data);
+            if let Err(_) = r {
+                // 清空文字纹理TODO（清屏为玫红色）
+
+                is_reset = true;
+                // 清空字形信息
+                font_sheet.clear();
+                break;
+            } else if let Ok(false) = r {
+                await_set_gylph.push(entity);
+            }
+        }
+        // let t1 = pi_time::Instant::now();
+        // println!("t2======================={:?}", (ii1.len(), ii1));
+
+        if is_reset {
+            println!("reset=======================");
+            await_set_gylph.clear();
+            // 为当前所有需要显示的字符，重新分配字形信息
+            for (
+                entity,
+                // world_matrix,
+                text_style,
+                // text_content,
+                node_state,
+                layer,
+                text_overflow_data,
+            ) in query.p1().iter_mut()
+            {
+                let r = set_gylph(entity, layer, text_style, node_state, &mut font_sheet, text_overflow_data).unwrap();
+                if r == false {
+                    await_set_gylph.push(entity);
+                }
+            }
         }
     }
     // let t2 = pi_time::Instant::now();
@@ -174,13 +178,19 @@ pub fn text_glyph(
                 if is_load.load(std::sync::atomic::Ordering::Relaxed) == true {
                     let (await_set_gylph, _, result) = await_list.0.pop_front().unwrap();
                     font_sheet.update_sdf2(result); // 更新纹理
-                    for entity in await_set_gylph.iter() {
-                        // println!("set_changed================{:?}", entity);
-                        if let Ok(mut node_state) = p2.get_mut(*entity) {
-                            node_state.set_changed();
+                    
+                    if await_set_gylph.len() > 0 {
+                        for entity in await_set_gylph.iter() {
                             // println!("set_changed================{:?}", entity);
+                            if let Ok(mut node_state) = p2.get_mut(*entity) {
+                                node_state.set_changed();
+                                log::debug!("node_state============{:?}", entity);
+                                // println!("set_changed================{:?}", entity);
+                            }
                         }
+                        global_mark.mark.set(OtherDirtyType::NodeState as usize, true);
                     }
+                    
                     next = await_list.0.front();
                     continue;
                 }

@@ -1,3 +1,5 @@
+use pi_style::style::StyleType;
+use pi_world::event::ComponentRemoved;
 use pi_world::fetch::Ticker;
 use pi_world::filter::{Changed, Or};
 use pi_world::prelude::{With, Query, SingleResMut, Entity, Plugin, IntoSystemConfigs, SingleRes};
@@ -7,11 +9,11 @@ use pi_bevy_render_plugin::PiRenderGraph;
 use pi_bevy_render_plugin::render_cross::GraphId;
 use pi_null::Null;
 
-use crate::components::calc::{InPassId, DrawList, WorldMatrix, LayoutResult};
-use crate::components::draw_obj::{CanvasMark, InstanceIndex, FboInfo};
+use crate::components::calc::{style_bit, DrawList, InPassId, LayoutResult, StyleBit, StyleMarkType, WorldMatrix};
+use crate::components::draw_obj::{BoxType, CanvasMark, FboInfo, InstanceIndex};
 use crate::components::pass_2d::ParentPassId;
 use crate::components::user::{Canvas, AsImage};
-use crate::resource::CanvasRenderObjType;
+use crate::resource::{CanvasRenderObjType, GlobalDirtyMark, OtherDirtyType};
 use crate::resource::draw_obj::{InstanceContext, LastGraphNode};
 use crate::shader1::meterial::{RenderFlagType, TyUniform};
 use crate::system::draw_obj::set_box;
@@ -35,13 +37,16 @@ impl Plugin for CanvasPlugin {
 				CanvasRenderObjType,
 				(CanvasMark, GraphId, FboInfo),
 				{ CANVAS_ORDER },
+				{ BoxType::Padding },
 			>
-				.in_set(UiSystemSet::LifeDrawObject),
+				.in_set(UiSystemSet::LifeDrawObject)
+				// .run_if(canvas_change),
 		)
 		.add_system(
 			UiStage, 
 			calc_canvas
 				.in_set(UiSystemSet::PrepareDrawObj)
+				// .run_if(canvas_change)
 		)
 		.add_system(
 			UiStage, 
@@ -56,9 +61,24 @@ impl Plugin for CanvasPlugin {
 
 pub const CANVAS_ORDER: u8 = 6;
 
+// lazy_static! {
+// 	pub static ref CANVAS_DIRTY: StyleMarkType = style_bit()
+// 		.set_bit(OtherDirtyType::WorldMatrix as usize);
+// }
+
+// pub fn canvas_change(mark: SingleRes<GlobalDirtyMark>) -> bool {
+// 	mark.mark.has_any(&*CANVAS_DIRTY)
+// }
+
+// pub fn canvas_life_change(mark: SingleRes<GlobalDirtyMark>, removed: ComponentRemoved<Canvas>) -> bool {
+// 	let r = removed.len() > 0 || mark.mark.get(OtherDirtyType::Canvas as usize).map_or(false, |display| {*display == true});
+// 	removed.mark_read();
+// 	r
+// }
+
 /// 设置canvas的实例数据
 pub fn calc_canvas(
-	mut canvas_query: Query<(&DrawList, &WorldMatrix, &LayoutResult), (Or<(Changed<Canvas>, Changed<WorldMatrix>)>, With<Canvas>)>,
+	mut canvas_query: Query<&DrawList, (Changed<Canvas>, With<Canvas>)>,
 	mut instances: OrInitSingleResMut<InstanceContext>,
 	mut instance_index_query: Query<&InstanceIndex, With<CanvasMark>>,
 	render_type: OrInitSingleRes<CanvasRenderObjType>,
@@ -67,7 +87,7 @@ pub fn calc_canvas(
 	if r.0 {
 		return;
 	}
-    for (draw_list, world_matrix, layout) in canvas_query.iter_mut() {
+    for draw_list in canvas_query.iter_mut() {
 		
 		// let (canvas_changed, world_matrix_changed, layout_result_changed) = (canvas.is_changed(),  world_matrix.is_changed(), layout.is_changed());
 		// log::trace!("set canvas data1==========={:?}, {:?} {:?} {:?}, {:?}, {:?}, {:?}",  world_matrix, canvas_changed, world_matrix_changed, layout_result_changed, draw_list.get_one(***render_type), render_type, draw_list);
@@ -84,10 +104,10 @@ pub fn calc_canvas(
 					render_flag |= 1 << RenderFlagType::Uv as usize;
 					// instance_data.set_data(&WorldUniform(world_matrix.as_slice()));
 					// instance_data.set_data(&BoxUniform(layout.padding_box().as_slice()));
-					set_box(&world_matrix, &layout.padding_aabb(), &mut instance_data);
+					// set_box(&world_matrix, &layout.padding_aabb(), &mut instance_data);
 					instance_data.set_data(&TyUniform(&[render_flag as f32]));
 
-					log::trace!("set canvas data==========={:?}, {:?}", instance_index,  world_matrix);
+					log::trace!("set canvas data==========={:?}", instance_index);
 				}
 			}
 

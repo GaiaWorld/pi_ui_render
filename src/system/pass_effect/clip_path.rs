@@ -1,21 +1,19 @@
-use pi_world::{filter::Or, prelude::{App, Changed, ComponentRemoved, Has, IntoSystemConfigs, OrDefault, Plugin, Query}};
+use pi_world::{filter::Or, prelude::{App, Changed, ComponentRemoved, Has, IntoSystemConfigs, OrDefault, Plugin, Query}, single_res::SingleRes};
 use pi_bevy_ecs_extend::prelude::OrInitSingleRes;
 
 use pi_flex_layout::prelude::Rect;
-use pi_style::style::{Aabb2, BaseShape, LengthUnit};
+use pi_style::style::{Aabb2, BaseShape, LengthUnit, StyleType};
 
 use crate::{
     components::{
         calc::{ContentBox, LayoutResult, OverflowDesc, View},
         pass_2d::Camera,
         user::{ClipPath, Overflow, Point2},
-    },
-    system::{
+    }, resource::GlobalDirtyMark, system::{
         // node::user_setting::user_setting,
         // pass::{last_update_wgpu::last_update_wgpu, pass_camera::calc_camera_depth_and_renderlist},
-        draw_obj::calc_text::IsRun, node::user_setting::user_setting2, pass::{last_update_wgpu::last_update_wgpu, pass_camera::calc_camera_depth_and_renderlist},
-    },
-    utils::tools::cal_border_radius,
+        draw_obj::calc_text::IsRun, node::user_setting::user_setting2, pass::{last_update_wgpu::last_update_wgpu, pass_camera::calc_camera},
+    }, utils::tools::cal_border_radius
 };
 use pi_postprocess::prelude::ClipSdf;
 
@@ -30,6 +28,7 @@ impl Plugin for UiClipPathPlugin {
             pass_life::pass_mark::<ClipPath>
                 .after(user_setting2)
                 .before(pass_life::cal_context)
+                .run_if(clip_change)
                 // ,
         )
         .add_system(UiStage, 
@@ -40,7 +39,7 @@ impl Plugin for UiClipPathPlugin {
         .add_system(UiStage, 
             clip_path_post_process
                 .before(last_update_wgpu)
-                .after(calc_camera_depth_and_renderlist)
+                .after(calc_camera)
                 // ,
         );
     }
@@ -216,4 +215,8 @@ fn len_value(v: &LengthUnit, c: f32) -> f32 {
         LengthUnit::Pixel(r) => *r,
         LengthUnit::Percent(r) => r * c,
     }
+}
+
+pub fn clip_change(mark: SingleRes<GlobalDirtyMark>) -> bool {
+	mark.mark.get(StyleType::ClipPath as usize).map_or(false, |display| {*display == true})
 }

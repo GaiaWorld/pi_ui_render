@@ -3,13 +3,14 @@ use pi_world::prelude::{Changed, With, Query, Plugin, IntoSystemConfigs};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, OrInitSingleRes};
 
 use pi_flex_layout::prelude::{Rect, Size};
-use pi_style::style::Aabb2;
+use pi_style::style::{Aabb2, StyleType};
+use pi_world::single_res::SingleRes;
 
-use crate::components::calc::{BorderImageTexture, DrawList, LayoutResult, WorldMatrix};
-use crate::components::draw_obj::{BorderImageMark, InstanceIndex};
+use crate::components::calc::{style_bit, BorderImageTexture, DrawList, LayoutResult, StyleBit, StyleMarkType, WorldMatrix, LAYOUT_DIRTY};
+use crate::components::draw_obj::{BorderImageMark, BoxType, InstanceIndex};
 use crate::components::user::{BorderImageClip, Point2, BorderImageRepeat, BorderImageSlice};
 use crate::resource::draw_obj::InstanceContext;
-use crate::resource::BorderImageRenderObjType;
+use crate::resource::{BorderImageRenderObjType, GlobalDirtyMark, OtherDirtyType};
 use crate::prelude::UiStage;
 
 use crate::shader1::meterial::{RenderFlagType, TyUniform, UvUniform, BorderImageInfoUniform};
@@ -28,20 +29,25 @@ impl Plugin for BorderImagePlugin {
     fn build(&self, app: &mut pi_world::prelude::App) {
 		app
 			// .add_frame_event::<ComponentEvent<Changed<BorderImageTexture>>>()
-			.add_system(UiStage, image_texture_load::image_load::<BorderImage, BorderImageTexture>.in_set(UiSystemSet::NextSetting).after(transition_2))
+			.add_system(UiStage, image_texture_load::image_load::<BorderImage, BorderImageTexture, {OtherDirtyType::BorderImageTexture}>
+				.in_set(UiSystemSet::NextSetting)
+				.after(transition_2))
 			.add_system(UiStage, 
 				life_drawobj::draw_object_life_new::<
 					BorderImageTexture,
 					BorderImageRenderObjType,
 					(BorderImageMark, ),
 					{ BORDER_IMAGE_ORDER },
+					{ BoxType::Border },
 				>
 					.in_set(UiSystemSet::LifeDrawObject)
-					.after(image_texture_load::image_load::<BorderImage, BorderImageTexture>),
+					.run_if(border_image_life_change)
+					.after(image_texture_load::image_load::<BorderImage, BorderImageTexture, {OtherDirtyType::BorderImageTexture}>),
 			)
 			.add_system(UiStage, 
 				calc_border_image
 					.after(super::super::node::world_matrix::cal_matrix)
+					.run_if(border_texture_change)
 					.in_set(UiSystemSet::PrepareDrawObj)
 			);
     }
@@ -49,12 +55,31 @@ impl Plugin for BorderImagePlugin {
 
 pub const BORDER_IMAGE_ORDER: u8 = 5;
 
+lazy_static! {
+	pub static ref BORDER_IMAGE_DIRTY: StyleMarkType = style_bit() | &*LAYOUT_DIRTY
+		.set_bit(StyleType::BorderImageClip as usize)
+		.set_bit(StyleType::BorderImageSlice as usize)
+		.set_bit(StyleType::BorderImageRepeat as usize)
+		.set_bit(OtherDirtyType::BorderImageTexture as usize);
+}
+
+pub fn border_texture_change(mark: SingleRes<GlobalDirtyMark>) -> bool {
+	mark.mark.has_any(&*BORDER_IMAGE_DIRTY)
+}
+
+pub fn border_image_change(mark: SingleRes<GlobalDirtyMark>) -> bool {
+	mark.mark.get(StyleType::BorderImage as usize).map_or(false, |display| {*display == true})
+}
+
+pub fn border_image_life_change(mark: SingleRes<GlobalDirtyMark>) -> bool {
+	mark.mark.get(OtherDirtyType::BorderImageTexture as usize).map_or(false, |display| {*display == true})
+}
+
 /// 设置背景颜色的顶点，和颜色Uniform
 pub fn calc_border_image(
 	mut instances: OrInitSingleResMut<InstanceContext>,
 	query: Query<
 		(
-			&WorldMatrix,
 			&LayoutResult,
 			&DrawList,
 			&BorderImageTexture,
@@ -77,7 +102,7 @@ pub fn calc_border_image(
 	let image_mod = BorderImageRepeat::default();
 	let image_slice = BorderImageSlice::default();
 
-	for (world_matrix, layout, draw_list, border_image_texture_ref, border_image_clip, border_image_repeat, border_image_slice, background_image) in query.iter() {
+	for (layout, draw_list, border_image_texture_ref, border_image_clip, border_image_repeat, border_image_slice, background_image) in query.iter() {
 		let border_image_texture = match &border_image_texture_ref.0 {
 			Some(r) => {
 				// 图片不一致， 返回
@@ -179,7 +204,7 @@ pub fn calc_border_image(
 
 				instance_data.set_data(&UvUniform(&[clip.left, clip.top, clip.left + clip_size.width, clip.top + clip_size.height])); // uv 0~1
 				// instance_data.set_data(&BoxUniform(&[p1.x, p1.y, layout_width, layout_height]));
-				set_box(&world_matrix, &Aabb2::new(p1, p2), &mut instance_data);
+				// set_box(&world_matrix, &Aabb2::new(p1, p2), &mut instance_data);
 				instance_data.set_data(&BorderImageInfoUniform(&[
 					if border_slice.fill {1.0} else { 0.0 },
 					border_image_texture.width as f32, border_image_texture.height as f32,

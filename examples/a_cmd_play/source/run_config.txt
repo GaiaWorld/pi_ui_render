@@ -1,6 +1,6 @@
 play_path=D://0_js/\0_new_engine/backpack_new_engine/dst;
 play_url=http://192.168.35.74:8086;
 play_way=path;
-play_version=1723187213669;
+play_version=1723712421137;
 max_index=0;
 speed=1;

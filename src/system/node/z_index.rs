@@ -28,16 +28,18 @@
 
 use std::ops::Range;
 
+use pi_style::style::StyleType;
 use pi_world::event::Event;
 use pi_world::fetch::Ticker;
 use pi_world::prelude::{With, Query, Entity};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, OrInitSingleRes, Layer, EntityTree, LayerDirty, DirtyMark};
 
 use pi_null::Null;
+use pi_world::single_res::SingleRes;
 
-use crate::components::calc::{EntityKey, ZRange};
+use crate::components::calc::{style_bit, EntityKey, StyleBit, StyleMarkType, ZRange};
 use crate::components::user::ZIndex;
-use crate::resource::NodeChanged;
+use crate::resource::{GlobalDirtyMark, OtherDirtyType};
 use crate::system::draw_obj::calc_text::IsRun;
 
 use super::user_setting::StyleChange;
@@ -55,13 +57,23 @@ const Z_SPLIT: usize = 3;
 
 pub struct CalcZindex;
 
+lazy_static! {
+	pub static ref ZINDEX_DIRTY: StyleMarkType = style_bit()
+		.set_bit(StyleType::ZIndex as usize)
+		.set_bit(OtherDirtyType::NodeTreeAdd as usize);
+}
+
+pub fn zindex_change(mark: SingleRes<GlobalDirtyMark>) -> bool {
+	mark.mark.has_any(&*ZINDEX_DIRTY)
+}
+
 /// 根据层脏，从上到下，计算并设置节点的ZRange
 pub fn calc_zindex(
     dirty_list: Event<StyleChange>,
     mut layer_dirty: LayerDirty<With<Empty>>,
     query_dirty: Query<(Ticker<&Layer>, Option<Ticker<&ZIndex>>)>,
     
-    mut node_changed: OrInitSingleResMut<NodeChanged>,
+    mut global_mark: OrInitSingleResMut<GlobalDirtyMark>,
     query: Query<&ZIndex>,
     tree: EntityTree,
     // mut dirtys: LayerDirty<((Changed<Layer>, Changed<ZIndex>), With<Size>)>,
@@ -84,10 +96,10 @@ pub fn calc_zindex(
         }
     }
 
-    
+    // zindex发生变化， 实例需要重新排序
 	if layer_dirty.count() > 0 {
-        node_changed.node_changed = true;
-        log::debug!("node_changed5============{:p}", &*node_changed);
+        global_mark.mark.set(OtherDirtyType::InstanceCount as usize, true);
+        log::debug!("node_changed5============");
 	}
 
     // println!();

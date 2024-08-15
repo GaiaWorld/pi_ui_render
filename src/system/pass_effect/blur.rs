@@ -1,10 +1,40 @@
-use pi_world::prelude::{Changed, ParamSet, Query, Has, ComponentRemoved};
+use pi_style::style::StyleType;
+use pi_world::app::App;
+use pi_world::prelude::{Changed, ParamSet, Query, Has, ComponentRemoved, IntoSystemConfigs};
 use pi_bevy_ecs_extend::prelude::OrInitSingleRes;
+use pi_world::schedule::PreUpdate;
+use pi_world::single_res::SingleRes;
 
+use crate::components::calc::{style_bit, StyleBit, StyleMarkType};
+use crate::resource::GlobalDirtyMark;
+use crate::system::pass::pass_life;
+use crate::system::system_set::UiSystemSet;
 use crate::{components::user::Blur, resource::RenderContextMarkType, system::draw_obj::calc_text::IsRun};
 
 use crate::components::pass_2d::{PostProcess, PostProcessInfo};
 use pi_postprocess::effect::BlurDual;
+use pi_world::prelude::Plugin;
+use crate::prelude::UiStage;
+
+pub struct BlurPlugin;
+
+impl Plugin for BlurPlugin {
+    fn build(&self, app: &mut App) {
+        app
+            .add_system(UiStage, 
+                pass_life::pass_mark::<Blur>
+                .in_set(UiSystemSet::PassMark)
+                .run_if(blur_change)
+            )
+            .add_system(UiStage, 
+                blur_post_process
+                .run_if(blur_change)
+                .in_set(UiSystemSet::PassSetting)
+                .after(UiSystemSet::PassFlush)
+            )
+        ;
+    }
+}
 
 // 处理blur属性，将其设置在PostProcess上
 // 如果Blur删除，设置PostProcess的blur_dual属性为None
@@ -47,4 +77,8 @@ pub fn blur_post_process(
             post_info.effect_mark.set(***mark_type, false);
         }
     }
+}
+
+pub fn blur_change(mark: SingleRes<GlobalDirtyMark>) -> bool {
+	mark.mark.get(StyleType::Blur as usize).map_or(false, |display| {*display == true})
 }

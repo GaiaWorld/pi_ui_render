@@ -1,6 +1,7 @@
 use std::sync::atomic::AtomicUsize;
 
-use pi_world::{filter::Or, prelude::{App, Changed, ComponentRemoved, Has, IntoSystemConfigs, ParamSet, Plugin, Query}};
+use pi_style::style::StyleType;
+use pi_world::{filter::Or, prelude::{App, Changed, ComponentRemoved, Has, IntoSystemConfigs, ParamSet, Plugin, Query}, single_res::SingleRes};
 use pi_bevy_ecs_extend::prelude::OrInitSingleRes;
 
 use pi_bevy_asset::{Allocator, AssetConfig, AssetDesc, ShareAssetMgr};
@@ -8,14 +9,13 @@ use pi_null::Null;
 
 use crate::{
     components::{
-        pass_2d::{CacheTarget, PostProcessInfo},
-        user::{AsImage, Overflow},
+        calc::{style_bit, StyleBit, StyleMarkType}, pass_2d::{CacheTarget, PostProcessInfo}, user::{AsImage, Overflow}
     },
-    resource::{draw_obj::TargetCacheMgr, RenderContextMarkType},
+    resource::{draw_obj::TargetCacheMgr, GlobalDirtyMark, RenderContextMarkType},
     system::{
         // node::user_setting::user_setting,
         // pass::{last_update_wgpu::last_update_wgpu, pass_camera::calc_camera_depth_and_renderlist},
-        draw_obj::calc_text::IsRun, node::user_setting::user_setting2, pass::{last_update_wgpu::last_update_wgpu, pass_camera::calc_camera_depth_and_renderlist},
+        draw_obj::calc_text::IsRun, node::user_setting::user_setting2, pass::{last_update_wgpu::last_update_wgpu, pass_camera::calc_camera},
     },
 };
 use pi_postprocess::prelude::CopyIntensity;
@@ -49,12 +49,14 @@ impl Plugin for UiAsImagePlugin {
                 pass_life::pass_mark::<AsImage>
                     .after(user_setting2)
                     .before(pass_life::cal_context)
+                    .run_if(as_image_change)
                     // ,
             )
             .add_system(UiStage, 
                 as_image_post_process
                     .before(last_update_wgpu)
-                    .after(calc_camera_depth_and_renderlist)
+                    .after(calc_camera)
+                    .run_if(as_image_change)
                     // ,
             );
     }
@@ -66,35 +68,36 @@ impl Plugin for UiAsImagePlugin {
 pub fn as_image_post_process(
     mark_type: OrInitSingleRes<RenderContextMarkType<AsImage>>,
     overflow_mark_type: OrInitSingleRes<RenderContextMarkType<Overflow>>,
-    mut query: ParamSet<(
-        Query<(&AsImage, &mut PostProcess, &mut PostProcessInfo), Or<(Changed<AsImage>, Changed<PostProcess>)>>,
-        Query<(&mut PostProcess, &mut PostProcessInfo, Has<AsImage>)>,
-    )>,
-    removed: ComponentRemoved<AsImage>,
+    // mut query: ParamSet<(
+    //     Query<(&AsImage, &mut PostProcess, &mut PostProcessInfo), Or<(Changed<AsImage>, Changed<PostProcess>)>>,
+    //     Query<(&mut PostProcess, &mut PostProcessInfo, Has<AsImage>)>,
+    // )>,
+    mut query: Query<(&AsImage, &mut PostProcess, &mut PostProcessInfo), Changed<AsImage>>,
+    // removed: ComponentRemoved<AsImage>, // asImage不可移除， 设置为None来设置默认值
 	r: OrInitSingleRes<IsRun>
 ) {
 	if r.0 {
 		return;
 	}
     // AsImage 如果删除， 取消AsImage的后处理
-    let p1 = query.p1();
-    for i in removed.iter() {
-        if let Ok((mut post_list, mut post_info, has_as_image)) = p1.get_mut(*i) {
-            if has_as_image {
-                continue;
-            }
-            post_info.effect_mark.set(***mark_type, false);
+    // let p1 = query.p1();
+    // for i in removed.iter() {
+    //     if let Ok((mut post_list, mut post_info, has_as_image)) = p1.get_mut(*i) {
+    //         if has_as_image {
+    //             continue;
+    //         }
+    //         render_mark_false(***mark_type, &mut render_mark_value);
     
-            let mut effect_mark = post_info.effect_mark.clone();
-            effect_mark.set(***overflow_mark_type, false);
-            if post_info.effect_mark.get(***overflow_mark_type).as_deref() != Some(&true) {
-                post_list.copy = None;
-            }
-        }
-    }
+    //         let mut effect_mark = post_info.effect_mark.clone();
+    //         effect_mark.set(***overflow_mark_type, false);
+    //         if post_info.effect_mark.get(***overflow_mark_type).as_deref() != Some(&true) {
+    //             post_list.copy = None;
+    //         }
+    //     }
+    // }
     
 
-    for (as_image, mut post_list, mut post_info) in query.p0().iter_mut() {
+    for (as_image, mut post_list, mut post_info) in query.iter_mut() {
         match (as_image.level, as_image.post_process.is_null()) {
             (pi_style::style::AsImage::None, true) => {
                 post_info.effect_mark.set(***mark_type, false);
@@ -116,7 +119,7 @@ pub fn as_image_post_process(
 				}
 				
 				if post_list.copy.is_none() {
-					post_info.effect_mark.set(***mark_type, true);
+                    post_info.effect_mark.set(***mark_type, true);
 					post_list.copy = Some(CopyIntensity::default());
 				}
                 
@@ -125,3 +128,17 @@ pub fn as_image_post_process(
     }
 }
 
+
+// lazy_static! {
+// 	pub static ref AS_IMAGE_DIRTY: StyleMarkType = style_bit()
+// 		.set_bit(StyleType::AsImage as usize)
+// 		.set_bit(StyleType::Overflow as usize);
+// }
+
+// pub fn as_image_post_change(mark: SingleRes<GlobalDirtyMark>) -> bool {
+// 	mark.mark.has_any(&*AS_IMAGE_DIRTY)
+// }
+
+pub fn as_image_change(mark: SingleRes<GlobalDirtyMark>) -> bool {
+	mark.mark.get(StyleType::AsImage as usize).map_or(false, |display| {*display == true})
+}

@@ -1,6 +1,6 @@
 
 
-use pi_world::event::ComponentRemoved;
+use pi_world::event::{ComponentChanged, ComponentRemoved};
 use pi_world::filter::Or;
 use pi_world::prelude::{Changed, Entity, FilterComponents, Has, ParamSet, Query, SingleRes, SingleResMut, With};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, OrInitSingleRes};
@@ -38,7 +38,7 @@ pub fn init_root_graph(
 /// 根据声明创建图节点，删除图节点， 建立图节点的依赖关系
 pub fn update_graph(
     mut pass_query: ParamSet<(
-        Query<(&mut GraphId, Entity, &ParentPassId, &PostProcessInfo), Changed<RenderContextMark>>,
+        Query<(&mut GraphId, Entity, &ParentPassId, &PostProcessInfo)>,
         (
 			Query<(&ParentPassId, &GraphId, Option<&AsImage>), (Or<(Changed<ParentPassId>, Changed<AsImage>, Changed<GraphId>)>, With<Camera>)>, 
 			Query<(&ParentPassId, &GraphId), With<Camera>>,
@@ -47,9 +47,10 @@ pub fn update_graph(
 		),
 
     )>,
+    mark_changed: ComponentChanged<RenderContextMark>,
+    removed: ComponentRemoved<Camera>,
     last_graph_id: SingleRes<LastGraphNode>,
     del: Query<(Entity, Has<Camera>), With<Size>>,
-    removed: ComponentRemoved<Camera>,
     mut rg: SingleResMut<PiRenderGraph>,
 	mut pass_graph_map: OrInitSingleResMut<PassGraphMap>,
 	r: OrInitSingleRes<IsRun>
@@ -59,40 +60,44 @@ pub fn update_graph(
 	}
     // 创建渲染图节点
     // 插入Draw2DList
-    for (mut graph_id, entity, parent_passs_id, post_info) in pass_query.p0().iter_mut() {
-        let is_root = pi_null::Null::is_null(&parent_passs_id.0);
-        log::debug!(entity=format!("entity_{:?}", entity).as_str();  "add graph node, entity={entity:?}, has_effect={:?}, is_root: {:?}, parent_passs_id={:?}", post_info.has_effect(),  is_root, parent_passs_id);
-        if post_info.has_effect() || is_root {
-            // 存在后处理效果，或者节点本身是根节点， 才能成为一个渲染节点
-            if !graph_id.0.is_null() {
-                continue;
-            }
-
-            let add_r = rg.add_node_not_run(format!("Pass2D_{:?}", entity), Pass2DNode::new(entity), NodeId::default());
-            let graph_node_id = match add_r {
-                Ok(r) => r,
-                Err(e) => {
-                    log::error!("node: {:?}, {:?}", format!("Pass2D_{:?}", entity), e);
-                    return;
+    
+    for entity in mark_changed.iter() {
+        let mut p0 = pass_query.p0();
+        if let Ok((mut graph_id, entity, parent_passs_id, post_info)) = p0.get_mut(*entity) {
+            let is_root = pi_null::Null::is_null(&parent_passs_id.0);
+            log::debug!(entity=format!("entity_{:?}", entity).as_str();  "add graph node, entity={entity:?}, has_effect={:?}, is_root: {:?}, parent_passs_id={:?}", post_info.has_effect(),  is_root, parent_passs_id);
+            if post_info.has_effect() || is_root {
+                // 存在后处理效果，或者节点本身是根节点， 才能成为一个渲染节点
+                if !graph_id.0.is_null() {
+                    continue;
                 }
-            };
 
-			if is_root {
-                log::debug!("add_depend======{:?}, {:?}", graph_node_id, last_graph_id.0);
-				rg.add_depend(graph_node_id, last_graph_id.0).unwrap();
+                let add_r = rg.add_node_not_run(format!("Pass2D_{:?}", entity), Pass2DNode::new(entity), NodeId::default());
+                let graph_node_id = match add_r {
+                    Ok(r) => r,
+                    Err(e) => {
+                        log::error!("node: {:?}, {:?}", format!("Pass2D_{:?}", entity), e);
+                        return;
+                    }
+                };
+
+                if is_root {
+                    log::debug!("add_depend======{:?}, {:?}", graph_node_id, last_graph_id.0);
+                    rg.add_depend(graph_node_id, last_graph_id.0).unwrap();
+                    
+                }
+                pass_graph_map.insert(graph_node_id, entity);
+                log::debug!(entity=format!("entity_{:?}", entity).as_str();  "add graph node, entity: {entity:?} graph_node_id: {graph_node_id:?}");
+
+                *graph_id = GraphId(graph_node_id);
+            } else {
+                if graph_id.0.is_null() {
+                    continue;
+                }
                 
-			}
-			pass_graph_map.insert(graph_node_id, entity);
-            log::debug!(entity=format!("entity_{:?}", entity).as_str();  "add graph node, entity: {entity:?} graph_node_id: {graph_node_id:?}");
-
-            *graph_id = GraphId(graph_node_id);
-        } else {
-            if graph_id.0.is_null() {
-                continue;
+                remove_node(**graph_id, &mut rg, &mut pass_graph_map);
+                *graph_id = GraphId(NodeId::null());
             }
-            
-			remove_node(**graph_id, &mut rg, &mut pass_graph_map);
-            *graph_id = GraphId(NodeId::null());
         }
     }
 
@@ -108,7 +113,7 @@ pub fn update_graph(
     }
 
     let p1 = pass_query.p1();
-    // 父修改设置图节点依赖
+    // 父修改设置图节点依赖 TODO 遍历优化
     for (parent_id, graph_id, as_image) in p1.0.iter() {
         log::debug!("parent_id====={:?}", (parent_id, graph_id, as_image));
         if graph_id.0.is_null() {

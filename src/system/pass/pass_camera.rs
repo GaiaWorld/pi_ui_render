@@ -5,7 +5,8 @@
 //! 4. 为pass2D创建对应的图节点，并添加依赖关系
 //! 5. 为删除的pass2D删除图节点，并建立正确的依赖关系
 
-use pi_world::{filter::Or, prelude::{Changed, Entity, Mut, ParamSet, Query, SingleRes, Ticker}, single_res::SingleResMut};
+use pi_style::style::StyleType;
+use pi_world::{event::ComponentChanged, filter::Or, prelude::{Changed, Entity, Mut, ParamSet, Query, SingleRes, Ticker}, single_res::SingleResMut};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleRes, Layer};
 
 use pi_render::renderer::draw_obj::DrawBindGroup;
@@ -22,8 +23,7 @@ use crate::{
         user::{Aabb2, AsImage, Point2, Vector2, Viewport},
     },
     resource::{
-        draw_obj::InstanceContext,
-        ShareFontSheet,
+        draw_obj::InstanceContext, GlobalDirtyMark, ShareFontSheet
     },
     shader1::meterial::{ProjectAabbUniform, ProjectUniform, Sdf2TextureSizeUniform, ViewUniform},
     system::{draw_obj::calc_text::IsRun, utils::{create_project, rotatequad_quad_intersection}},
@@ -32,7 +32,7 @@ use crate::{
 
 #[allow(unused_must_use)]
 #[allow(unused_variables)]
-pub fn calc_camera_depth_and_renderlist(
+pub fn calc_camera(
     mut query_pass: ParamSet<(
         Query<
             (
@@ -286,12 +286,23 @@ pub fn calc_camera_depth_and_renderlist(
             calc_camera(r);
         }
     } else {
-        // 当视口未发生改变时， 只需要冲洗计算脏了的pass
+        // 当视口未发生改变时， 只需要重新计算脏了的pass
+        
         for r in query_pass.p1().iter_mut() {
             calc_camera(r);
         }
     }
     
+}
+
+pub fn camera_change(mark: SingleRes<GlobalDirtyMark>, view: ComponentChanged<View>, query_root: Query<(), Changed<Viewport>>) -> bool {
+	let r = view.len() > 0 
+        || mark.mark.get(StyleType::Display as usize).map_or(false, |display| {*display == true})
+        || mark.mark.get(StyleType::Visibility as usize).map_or(false, |display| {*display == true})
+        || mark.mark.get(StyleType::AsImage as usize).map_or(false, |display| {*display == true})
+        || query_root.iter().next().is_some();
+	view.mark_read();
+	r
 }
 
 pub fn check_render_target(render_target: &mut RenderTarget, as_image: Option<&AsImage>) {

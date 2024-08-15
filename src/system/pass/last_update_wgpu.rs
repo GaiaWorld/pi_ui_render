@@ -1,10 +1,10 @@
 
-use pi_world::prelude::SingleRes;
+use pi_world::{prelude::SingleRes, single_res::SingleResMut};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, OrInitSingleRes};
 
 use pi_bevy_render_plugin::{PiRenderDevice, PiRenderQueue, PiVertexBufferAlloter};
 
-use crate::{resource::draw_obj::{GroupAlloterCenter, InstanceContext}, system::draw_obj::calc_text::IsRun};
+use crate::{resource::{draw_obj::{GroupAlloterCenter, InstanceContext}, GlobalDirtyMark}, system::draw_obj::calc_text::IsRun};
 
 // pub fn last_update_wgpu(
 //     query_root: Query<Entity, (With<Root>, With<Size>)>, // 只有gui的Root才会有Size
@@ -67,11 +67,14 @@ pub fn last_update_wgpu(
     // mut post_resource: SingleResMut<PostprocessResource>,
     // depth_group_alloter: OrInitSingleRes<ShareGroupAlloter<DepthGroup>>,
 	mut instances: OrInitSingleResMut<InstanceContext>,
+    mut global_mark: SingleResMut<GlobalDirtyMark>,
 	r: OrInitSingleRes<IsRun>
 ) {
 	if r.0 {
 		return;
 	}
+
+    global_mark.mark = Default::default();
 	// let time1 = pi_time::Instant::now();
     // let depeth_group = group_alloter.alloc();
     // // 			draw_state.bindgroups.insert_group(UiMaterialBind::set(), ui_material_group);

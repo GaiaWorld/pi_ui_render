@@ -2,22 +2,39 @@
 //! 2. 推动动画运行
 
 
-use pi_world::{event::EventSender, prelude::{Changed, ComponentRemoved, Entity, Has, ParamSet, Query, SingleResMut}, system::{SystemMeta, TypeInfo}, system_params::{Local, SystemParam}, world::World};
+use pi_style::style::StyleType;
+use pi_world::{event::EventSender, prelude::{Changed, ComponentRemoved, Entity, Has, ParamSet, Query, SingleResMut}, single_res::SingleRes, system::{SystemMeta, TypeInfo}, system_params::{Local, SystemParam}, world::World};
 use pi_bevy_ecs_extend::prelude::OrInitSingleRes;
 
 use pi_time::Instant;
 
 use crate::{
-    components::{user::{
+    components::{calc::{style_bit, StyleBit, StyleMarkType}, user::{
         serialize::{DefaultStyle, Setting},
         Animation,
     }, SettingComponentIds},
     resource::{
-        animation_sheet::KeyFramesSheet, TimeInfo, UserCommands
+        animation_sheet::KeyFramesSheet, GlobalDirtyMark, TimeInfo, UserCommands
     }, system::draw_obj::calc_text::IsRun,
 };
 
 use super::user_setting::{set_styles, SingleId, StyleChange, StyleDirtyList, StyleDirtyMark};
+
+lazy_static! {
+	pub static ref ANIMATION_DIRTY: StyleMarkType = style_bit()
+		.set_bit(StyleType::AnimationDelay as usize)
+		.set_bit(StyleType::AnimationDirection as usize)
+		.set_bit(StyleType::AnimationDuration as usize)
+		.set_bit(StyleType::AnimationFillMode as usize)
+		.set_bit(StyleType::AnimationIterationCount as usize)
+		.set_bit(StyleType::AnimationName as usize)
+		.set_bit(StyleType::AnimationPlayState as usize)
+		.set_bit(StyleType::AnimationTimingFunction as usize);
+}
+
+pub fn animation_change(mark: &GlobalDirtyMark) -> bool {
+	mark.mark.has_any(&*ANIMATION_DIRTY)
+}
 
 /// * 记录帧推时间（暂时性的，时间应该是全局共享的，应该挪到pi_bevy_render,组委共享资源）
 /// * 为删除了Animation组件的节点，解绑动画
@@ -33,6 +50,7 @@ pub fn calc_animation_1(
     mut keyframes_sheet: SingleResMut<KeyFramesSheet>,
     mut time_info: SingleResMut<TimeInfo>,
     mut user_commands: SingleResMut<UserCommands>,
+    global_mark: SingleRes<GlobalDirtyMark>,
     r: OrInitSingleRes<IsRun>,
 ) {
 
@@ -49,23 +67,29 @@ pub fn calc_animation_1(
     // let time0 = pi_time::Instant::now();
     // 解绑定动画
     let p1 = style_query.p1();
-    for del in removed.iter() {
-        if let Ok(has_animation) = p1.get(*del) {
-            if has_animation {
-                continue;
+    if removed.len() > 0 {
+        for del in removed.iter() {
+            if let Ok(has_animation) = p1.get(*del) {
+                if has_animation {
+                    continue;
+                }
+                keyframes_sheet.unbind_animation_all(*del);
+                keyframes_sheet.remove_runtime_keyframs(*del);
             }
-            keyframes_sheet.unbind_animation_all(*del);
-            keyframes_sheet.remove_runtime_keyframs(*del);
         }
     }
     
+    
     // let time1 = pi_time::Instant::now();
     // 绑定动画
-    for (node, animation) in style_query.p0().iter() {
-        if let Err(e) = keyframes_sheet.bind_static_animation(node, animation) {
-            log::error!("{:?}", e);
+    if animation_change(&*global_mark) {
+        for (node, animation) in style_query.p0().iter() {
+            if let Err(e) = keyframes_sheet.bind_static_animation(node, animation) {
+                log::error!("{:?}", e);
+            }
         }
     }
+    
 
     // let time2 = pi_time::Instant::now();
     // 推动动画执行
@@ -87,7 +111,9 @@ pub fn calc_animation_2(
     let mut w2 = world.unsafe_world();
     let mut w3 = world.unsafe_world();
     let w4 = world.unsafe_world();
+    let mut w5 = world.unsafe_world();
 
+    let mut global_mark = w5.index_single_res_mut::<GlobalDirtyMark>(id.global_mark).unwrap();
     let user_commands = w1.index_single_res_mut::<UserCommands>(id.user_commands).unwrap();
     let dirty_mark = w2.index_single_res_mut::<StyleDirtyMark>(id.style_dirty_mark).unwrap();
     let mut s_meta = SystemMeta::new(TypeInfo::of::<()>());
@@ -105,7 +131,7 @@ pub fn calc_animation_2(
     let v_node_base_component_ids = Vec::with_capacity(1);
     // let time2 = pi_time::Instant::now();
     // 设置style只要节点存在,样式一定能设置成功
-    set_styles(&mut user_commands.style_commands, &mut setting, base_component_ids, v_node_base_component_ids, &mut dirty_list);
+    set_styles(&mut user_commands.style_commands, &mut setting, base_component_ids, v_node_base_component_ids, &mut dirty_list, &mut global_mark);
     // let time3 = pi_time::Instant::now();
     // println!("animation2====={:?}", (time2 - time1, time3 - time2));
 }
