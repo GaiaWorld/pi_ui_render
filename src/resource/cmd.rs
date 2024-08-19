@@ -6,6 +6,7 @@ use std::{
     mem::replace,
 };
 
+use pi_share::Share;
 use pi_world::{prelude::{Bundle, Command, Entity, World}, world::FromWorld};
 use ordered_float::NotNan;
 use pi_atom::Atom;
@@ -178,14 +179,34 @@ impl Command for FontCfgCmd {
 }
 
 // 添加sdf2字体指令
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct FontSdf2Cmd(pub Atom, pub Vec<u8>);
+#[derive(Clone, Debug)]
+pub struct FontSdf2Cmd(pub Atom, pub Arc<Vec<u8>>);
 impl Command for FontSdf2Cmd {
     fn apply(self, world: &mut World) {
         let sheet = &****world.get_single_res_mut::<ShareFontSheet>().unwrap();
         let mut sheet = (*sheet).borrow_mut();
         let face_id = sheet.font_mgr_mut().create_font_face(&self.0);
         sheet.font_mgr_mut().table.sdf2_table.add_font(face_id, self.1);
+    }
+}
+
+impl Serialize for FontSdf2Cmd {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer {
+        Atom::serialize(&self.0, serializer);
+        Vec::<u8>::serialize(&self.1, serializer)
+    }
+}
+
+impl Deserialize for FontSdf2Cmd {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de> {
+        Ok(Self(
+            Atom::deserialize(deserializer)?,
+            Share::new(Vec::<u8>::deserialize(deserializer)?)
+        ))
     }
 }
 
