@@ -88,7 +88,7 @@ pi_dirty = "0.1"
 
 pi_flex_layout = "0.2"
 pi_spatial = "0.5"
-pi_hal = { version = "0.1.29", registry = "yn" }
+pi_hal = { version = "0.1", registry = "yn" }
 pi_postprocess = { version = "0.1", registry = "yn" }
 pi_curves = { version = "0.1", registry = "yn" }
 pi_animation = { version = "0.1", registry = "yn" }
@@ -160,6 +160,9 @@ pi_ui_render = { path = "./", features = ["debug", "single_thread"] }
 
 pi_bevy_winit_window = { version = "0.1", registry = "yn" }
 wasm-bindgen-test = "0.3"
+
+pi_sdf = {version = "=0.1.19", registry="yn"}
+pi_hal = {version = "=0.1.38", registry="yn"}
 
 # "debug", "trace"
 # pi_export_gui = {path="../pi_export/crates/gui"}
@@ -247,7 +250,7 @@ test = true
 
 [patch.crates-io]
 # pi_append_vec = {path = "../pi_append_vec"}
-probabilistic-collections = { git = "https://github.com/GaiaWorld/pi_probabilistic_collections.git" }
+# probabilistic-collections = { git = "https://github.com/GaiaWorld/pi_probabilistic_collections.git" }
 # pi_graph = { path = "../pi_graph" }
 # pi_async_graph = { path = "../pi_async_graph" }
 # geo = { path = "../geo/geo" }

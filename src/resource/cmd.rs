@@ -3,7 +3,7 @@
 use std::{
     borrow::BorrowMut,
     collections::VecDeque,
-    mem::replace,
+    mem::replace, sync::Arc,
 };
 
 use pi_share::Share;
@@ -194,19 +194,89 @@ impl Serialize for FontSdf2Cmd {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer {
-        Atom::serialize(&self.0, serializer);
-        Vec::<u8>::serialize(&self.1, serializer)
+        let mut serde_state = serde::Serializer::serialize_tuple_struct(
+            serializer,
+            "FontSdf2Cmd",
+            2,
+        )?;
+        serde::ser::SerializeTupleStruct::serialize_field(
+            &mut serde_state,
+            &self.0,
+        )?;
+        serde::ser::SerializeTupleStruct::serialize_field(
+            &mut serde_state,
+            &*self.1,
+        )?;
+        serde::ser::SerializeTupleStruct::end(serde_state)
     }
 }
 
-impl Deserialize for FontSdf2Cmd {
+impl<'de> Deserialize<'de> for FontSdf2Cmd {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de> {
-        Ok(Self(
-            Atom::deserialize(deserializer)?,
-            Share::new(Vec::<u8>::deserialize(deserializer)?)
-        ))
+        #[doc(hidden)]
+        struct Visitor<'de> {
+            marker: serde::__private::PhantomData<FontSdf2Cmd>,
+            lifetime: serde::__private::PhantomData<&'de ()>,
+        }
+        impl<'de> serde::de::Visitor<'de> for Visitor<'de> {
+            type Value = FontSdf2Cmd;
+            fn expecting(
+                &self,
+                formatter: &mut serde::__private::Formatter,
+            ) -> serde::__private::fmt::Result {
+                serde::__private::Formatter::write_str(
+                    formatter,
+                    "tuple struct FontSdf2Cmd",
+                )
+            }
+            #[inline]
+            fn visit_seq<__A>(
+                self,
+                mut __seq: __A,
+            ) -> serde::__private::Result<Self::Value, __A::Error>
+            where
+                __A: serde::de::SeqAccess<'de>,
+            {
+                let field0 = match serde::de::SeqAccess::next_element::<
+                    Atom,
+                >(&mut __seq)? {
+                    serde::__private::Some(__value) => __value,
+                    serde::__private::None => {
+                        return serde::__private::Err(
+                            serde::de::Error::invalid_length(
+                                0usize,
+                                &"tuple struct FontSdf2Cmd with 2 elements",
+                            ),
+                        );
+                    }
+                };
+                let field1 = match serde::de::SeqAccess::next_element::<
+                    Vec<u8>,
+                >(&mut __seq)? {
+                    serde::__private::Some(__value) => __value,
+                    serde::__private::None => {
+                        return serde::__private::Err(
+                            serde::de::Error::invalid_length(
+                                1usize,
+                                &"tuple struct FontSdf2Cmd with 2 elements",
+                            ),
+                        );
+                    }
+                };
+                serde::__private::Ok(FontSdf2Cmd(field0, Share::new(field1)))
+            }
+        }
+        serde::Deserializer::deserialize_tuple_struct(
+            deserializer,
+            "B",
+            2usize,
+            Visitor {
+                marker: serde::__private::PhantomData::<FontSdf2Cmd>,
+                lifetime: serde::__private::PhantomData,
+            },
+        )
     }
 }
 

@@ -303,7 +303,7 @@ impl UserCommands {
     }
 
 	/// 添加sdf2字体
-    pub fn add_sdf2_font(&mut self, name: Atom, buffer: Vec<u8>) -> &mut Self {
+    pub fn add_sdf2_font(&mut self, name: Atom, buffer: Share<Vec<u8>>) -> &mut Self {
         // println_any!("push_cmd===={:?}", 1);
         let r = FontSdf2Cmd(name, buffer);
 
