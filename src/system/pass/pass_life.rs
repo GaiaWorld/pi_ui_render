@@ -113,7 +113,7 @@ pub fn cal_context(
         let parent_context_id = match up.get(node) {
 			Ok(r) if let Ok((in_pass_id, _, _, _)) = context_mark1.p1().get(r.parent()) => **in_pass_id, // TODO
 			_ => {
-                log::warn!("null in pass=========={:?}, up = {:?}", node, up.get(node));
+                // log::warn!("null in pass=========={:?}, up = {:?}", node, up.get(node));
                 EntityKey::null()
             },
 		};
