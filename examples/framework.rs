@@ -105,7 +105,7 @@ pub fn start<T: Example + Sync + Send + 'static>(example: T) {
                                             }
                                             Ok(None) => {
                                                 if resp.get_status() == 200 {
-                                                    on_load(hash.parse::<u64>().unwrap(), Ok(result));
+                                                    on_load(hash.parse::<u64>().unwrap(), Ok(Share::new(result)));
                                                     log::debug!("load file success,path: {:?}", path);
                                                     // on_load(path.as_str(), result);
                                                 } else {
@@ -132,7 +132,7 @@ pub fn start<T: Example + Sync + Send + 'static>(example: T) {
                         })
                         .unwrap();
                 } else {
-                    on_load(hash.parse::<u64>().unwrap(), Ok(vec![]));
+                    on_load(hash.parse::<u64>().unwrap(), Ok(Share::new(vec![])));
                 }
             }));
         }
@@ -147,7 +147,7 @@ pub fn start<T: Example + Sync + Send + 'static>(example: T) {
                     MULTI_MEDIA_RUNTIME
                         .spawn(async move {
                             if let Ok(file) = std::fs::read(Path::new(dir.as_str()).join(&path)) {
-                                on_load(hash.parse::<u64>().unwrap(), Ok(file));
+                                on_load(hash.parse::<u64>().unwrap(), Ok(Share::new(file)));
                                 log::debug!("load file success,path: {:?}", path);
                                 // on_load(path.as_str(), file);
                             } else {
@@ -157,7 +157,7 @@ pub fn start<T: Example + Sync + Send + 'static>(example: T) {
                         })
                         .unwrap();
                 } else {
-                    on_load(hash.parse::<u64>().unwrap(), Ok(vec![]));
+                    on_load(hash.parse::<u64>().unwrap(), Ok(Share::new(vec![])));
                 }
             }));
         }
@@ -172,7 +172,7 @@ pub fn start<T: Example + Sync + Send + 'static>(example: T) {
                     MULTI_MEDIA_RUNTIME
                         .spawn(async move {
                             if let Ok(file) = std::fs::read(path.as_str()) {
-                                on_load(hash.parse::<u64>().unwrap(), Ok(file));
+                                on_load(hash.parse::<u64>().unwrap(), Ok(Share::new(file)));
                                 // on_load(path.as_str(), file);
                                 log::debug!("load file success,path: {:?}", path);
                             } else {
@@ -182,7 +182,7 @@ pub fn start<T: Example + Sync + Send + 'static>(example: T) {
                         })
                         .unwrap();
                 } else {
-                    on_load(hash.parse::<u64>().unwrap(), Ok(vec![]));
+                    on_load(hash.parse::<u64>().unwrap(), Ok(Share::new(vec![])));
                 }
             }));
         }

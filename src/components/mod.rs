@@ -12,7 +12,7 @@ use user::SvgInnerContent;
 
 use self::{
     calc::{DrawInfo, DrawList, EntityKey, IsShow, NodeState, RenderContextMark, TransformWillChangeMatrix, View},
-    draw_obj::{BoxType, CopyFboToScreen, FboInfo, InstanceIndex, PipelineMeta},
+    draw_obj::{BoxType, CopyFboToScreen, FboInfo, InstanceIndex},
     pass_2d::{ChildrenPass, GraphId, ParentPassId, PostProcess, PostProcessInfo, RenderTarget},
     root::RootDirtyRect,
     user::{ClassName, Overflow},

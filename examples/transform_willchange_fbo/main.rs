@@ -107,22 +107,25 @@ impl Example for QuadExample {
 
     fn render(&mut self, cmd: &mut UserCommands) {
         // world.user_cmd.push_cmd(NodeCmd(RenderDirty(true), self.root.0));
-        self.i += 1;
+        
         self.move_y += 0.1;
 
-        if self.i % 101 == 0 && self.i < 500 {
-            if self.i % 2 == 1 {
+        if self.i < 1010 {
+            if self.i == 0 {
+                self.move_y = 50.0;
                 println!("xxx==========={:?}", self.move_y);
                 cmd.set_style(self.div2.0, TransformWillChangeType(true));
                 let mut transform_willchange = Vec::default();
                 transform_willchange.push(TransformFunc::TranslateY(pi_style::style::LengthUnit::Pixel(self.move_y)));
                 cmd.set_style(self.div2.0, TransformType(transform_willchange));
             } else {
-                println!("yyyy===========");
-                cmd.set_style(self.div2.0, TransformWillChangeType(false));
+                let mut transform_willchange = Vec::default();
+                transform_willchange.push(TransformFunc::TranslateY(pi_style::style::LengthUnit::Pixel(self.move_y)));
+                cmd.set_style(self.div2.0, TransformType(transform_willchange));
             }
            
         }
+        self.i += 1;
         
         // if self.i < 1000 {
             

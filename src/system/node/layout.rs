@@ -238,7 +238,8 @@ lazy_static! {
     // 布局脏
     pub static ref LAYOUT_DIRTY1: StyleMarkType = LAYOUT_DIRTY.clone()
         .set_bit(OtherDirtyType::NodeTreeAdd as usize)
-        .set_bit(OtherDirtyType::NodeTreeDel as usize);
+        .set_bit(OtherDirtyType::NodeTreeDel as usize)
+        .set_bit(OtherDirtyType::NodeTreeRemove as usize);
 }
 
 

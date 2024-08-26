@@ -120,7 +120,8 @@ pub fn load_image<'w, const DIRTY_TYPE: OtherDirtyType, S: 'static + Send + Sync
             if let Ok(mut dst) = query_dst.get_mut(entity) {
 				let r = D::from(r);
 				if *dst != r {
-                    log::debug!("texture_load success 1: {:?}, {:?}", entity, key);
+                    
+                    
 					(*f)(&mut dst, r, entity);
                     global_mark.mark.set(DIRTY_TYPE as usize, true);
 				}
@@ -130,7 +131,7 @@ pub fn load_image<'w, const DIRTY_TYPE: OtherDirtyType, S: 'static + Send + Sync
         _ => {
             let (awaits, device, queue) = (image_await.0.clone(), (*device).clone(), (*queue).clone());
             let (id, key) = (entity, (*key).clone());
-
+          
 			let key_alloter = key_alloter.0.clone();
             RENDER_RUNTIME
                 .spawn(async move {
@@ -175,6 +176,7 @@ pub fn set_texture<'w, const DirtyType: OtherDirtyType, S: From<Atom> + std::cmp
                     continue;
                 }
                 if let Ok(mut dst) = query_dst.get_mut(id) {
+                    
                     log::debug!("texture_load success 2: {:?}, {:?}, {:?}", id, key, texture.id);
                     is_change =  f(&mut dst, D::from(texture), id) || is_change;
                     global_mark.mark.set(DirtyType as usize, true);

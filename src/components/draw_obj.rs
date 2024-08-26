@@ -177,9 +177,11 @@ impl Default for RenderCount {
 
 #[derive(Default, Component)]
 pub struct FboInfo {
-	pub fbo: Option<ShareTargetView>, // canvas,后处理都会分配fbo， 该fbo在渲染图build阶段产生
-	pub out: Option<ShareTargetView>, // canvas,后处理都会分配fbo， 该fbo在渲染图build阶段产生
-	pub in_batch: usize, // 当为null时， 表示还没有分批， 否则表示所在批的索引
+	/// 当前pass中的渲染对象渲染在哪个fbo上（canvas或后处理都会分配fbo， 该fbo在渲染图build阶段产生）
+	pub fbo: Option<ShareTargetView>, 
+	/// 当前pass输出的fbo（pass的fbo经过后处理得到的最终结果，该fbo在渲染图build阶段产生）
+	pub out: Option<ShareTargetView>,
+	pub in_batch: usize, // 当为null时， 表示还没有批处理， 否则表示所在批的索引
 	pub post_draw: Option<(Vec<PostProcessDraw>, pi_render::renderer::draw_obj::DrawObj)>,
 }
 

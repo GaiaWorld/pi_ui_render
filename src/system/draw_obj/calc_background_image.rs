@@ -64,9 +64,11 @@ pub const BACKGROUND_IMAGE_ORDER: u8 = 5;
 lazy_static! {
 	pub static ref BACKGROUND_TEXTURE_DIRTY: StyleMarkType = style_bit() | &*LAYOUT_DIRTY
 		.set_bit(StyleType::BackgroundImageClip as usize)
+		.set_bit(StyleType::ObjectFit as usize)
 		.set_bit(OtherDirtyType::BackgroundImageTexture as usize);
 	pub static ref BACKGROUND_TEXTURE_DIRTY1: StyleMarkType = style_bit()
 		.set_bit(StyleType::BackgroundImageClip as usize)
+		.set_bit(StyleType::ObjectFit as usize)
 		.set_bit(OtherDirtyType::BackgroundImageTexture as usize);
 	pub static ref BACKGROUND_TEXTURE_DIRTY2: StyleMarkType = BACKGROUND_TEXTURE_DIRTY1.clone() | &*LAYOUT_DIRTY;
 }
@@ -90,6 +92,7 @@ pub fn calc_background_image(
 	query1: Query<
 		(
 			pi_world::world::Entity,
+			&pi_bevy_ecs_extend::prelude::Layer,
 			&LayoutResult,
 			&DrawList,
 			&BackgroundImageTexture,
@@ -102,14 +105,15 @@ pub fn calc_background_image(
 	query2: Query<
 		(
 			pi_world::world::Entity,
+			&pi_bevy_ecs_extend::prelude::Layer,
 			&LayoutResult,
 			&DrawList,
 			&BackgroundImageTexture,
 			OrDefault<BackgroundImageClip>,
-			&BackgroundImageMod,
+			OrDefault<BackgroundImageMod>,
 			&BackgroundImage,
 		),
-		Or<(Changed<BackgroundImageTexture>, Changed<BackgroundImageClip>, Changed<LayoutResult>)>,
+		Or<(Changed<BackgroundImageTexture>, Changed<BackgroundImageClip>, Changed<LayoutResult>, Changed<BackgroundImageMod>)>,
 	>,
 	// query_up: Query<(&pi_bevy_ecs_extend::prelude::Up, &LayoutResult, &WorldMatrix)>,
     query_draw: Query<&InstanceIndex, With<BackgroundImageMark>>,
@@ -120,7 +124,7 @@ pub fn calc_background_image(
 	if r.0 {
 		return;
 	}
-	log::trace!("bg image========================");
+	log::trace!("bg image========================{:?}", (mark.mark.has_any(&*BACKGROUND_TEXTURE_DIRTY1), mark.mark.has_any(&*BACKGROUND_TEXTURE_DIRTY2)));
 	let render_type = ***render_type;
 
 	if mark.mark.has_any(&*BACKGROUND_TEXTURE_DIRTY1) {
@@ -142,6 +146,7 @@ pub fn calc_background_image(
 pub fn calc_background_image_inner(
 	data: (
 		pi_world::world::Entity,
+		&pi_bevy_ecs_extend::prelude::Layer,
 		&LayoutResult,
 		&DrawList,
 		&BackgroundImageTexture,
@@ -155,11 +160,12 @@ pub fn calc_background_image_inner(
     query_draw: &Query<&InstanceIndex, With<BackgroundImageMark>>,
 	render_type: RenderObjType,
 ) {
-	let (entity, layout, draw_list, background_image_texture_ref, background_image_clip, background_image_mod, background_image) = data;
+	let (entity, layer, layout, draw_list, background_image_texture_ref, background_image_clip, background_image_mod, background_image) = data;
 	let draw_id = match draw_list.get_one(render_type) {
 		Some(r) => r.id,
 		None => return,
 	};
+
 	let background_image_texture = match &background_image_texture_ref.0 {
 		Some(r) => {
 			// 图片不一致， 返回

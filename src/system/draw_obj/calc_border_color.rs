@@ -77,7 +77,7 @@ pub fn calc_border_color(
             &LayoutResult,
 			&DrawList
         ),
-        Or<(Changed<BorderColor>, Changed<BorderRadius>)>,
+        Or<(Changed<BorderColor>, Changed<BorderRadius>, Changed<LayoutResult>)>, // 圆角和Border颜色， 都需要设置border宽度
     >,
 	mut query_draw: Query<&InstanceIndex, With<BorderColorMark>>,
 	render_type: OrInitSingleRes<BorderColorRenderObjType>,

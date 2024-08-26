@@ -9,8 +9,8 @@ layout(location = 1) in vec2 vUv; // uv
 layout(location = 2) in vec4 vData0; // vec4 uv | vec4 gradient_position | vec4 bg_color | vec4 border_color;
 layout(location = 3) in vec4 vData1; // vec4 offset + scale; 
 layout(location = 4) in vec4 vData2; // vec2 center; float clip_circel_radius | vec2 clip_ellipse_ab | vec2 clip_sector_rotate | vec2 clip_extent(矩形和圆角矩形都需要)
-layout(location = 5) in vec4 vData3; // vec4 clip_min_yop_max_xadius | (vec2 clip_sector_radian; float clip_sector_radius) | 
-layout(location = 6) in vec4 vData4; // vec4 clip_max_yottom_radius
+layout(location = 5) in vec4 vData3; // vec4 clip_min_ytop_max_xadius | (vec2 clip_sector_radian; float clip_sector_radius) | 
+layout(location = 6) in vec4 vData4; // vec4 clip_max_ybottom_radius
 layout(location = 7) in vec4 vData5; // vec4 gradient_color0 | vec4 border_width | vec4 text_color | float texture_layer;float 1.0表示需要填充; vec2 uv_offset | vec4 box_shadow(h, v, spread, blur) 
 layout(location = 8) in vec4 vData6; // vec4 gradient_color1 | vec4 stroke_color |  vec2 position_step; vec2 position_space
 layout(location = 9) in vec4 vData7; // vec4 gradient_color2
@@ -323,15 +323,15 @@ float calc_border_alpha() {
 	vec2 pos = vVertexPosition - ab; // 边框取geo中心点为原点
 	float d_big = radius_d(pos, ab);
 	
-	// ============ 内 圆角矩形
-	// vec4 top = vData3;
-	// vec4 bottom = vData4;
+	// ============ 内 圆角矩形, top bottom顺时针数据： 
+	// vec4 top = vData3;yxxy
+	// vec4 bottom = vData4;yxxy
 	// vec4 border_width = vData5;// 上-右-下-左
 	// vec2 extent = vData2.zw;
-	vec2 lt_small = vec2(max(0.01, vData3.y - vData5.w), max(0.01, vData3.x - vData5.x));
-	vec2 rt_small = vec2(-max(0.01, vData3.z - vData5.y), max(0.01, vData3.w - vData5.x));
-	vec2 rb_small = vec2(-max(0.01, vData4.y - vData5.y), -max(0.01, vData4.x - vData5.z));
-	vec2 lb_small = vec2(max(0.01, vData4.z - vData5.w), -max(0.01, vData4.w - vData5.z));
+	vec2 lt_small = vec2(max(0.01, vData3.y - vData5.w), max(0.01, vData3.x - vData5.x)); // 左上圆角半径
+	vec2 rt_small = vec2(-max(0.01, vData3.z - vData5.y), max(0.01, vData3.w - vData5.x)); // 右上圆角半径
+	vec2 rb_small = vec2(-max(0.01, vData4.y - vData5.y), -max(0.01, vData4.x - vData5.z)); // 右下圆角半径
+	vec2 lb_small = vec2(max(0.01, vData4.z - vData5.w), -max(0.01, vData4.w - vData5.z)); // 左下圆角半径
 
 	vec2 pos_small = pos - 0.5 * vec2(vData5.w - vData5.y, vData5.x - vData5.z);
 	vec2 extent_small = ab - 0.5 * vec2(vData5.w + vData5.y, vData5.x + vData5.z);
@@ -1318,10 +1318,14 @@ void main(void) {
 		color = vec4((vData11.y + 0.1) / 255.0, float(ty1) / 255, 0.0, 1.0);
 	}
 
-	if ((ty1 & 4) != 0) {
+	if ((ty1 & 8192) != 0) {
+		// 渲染边框
 		color.w = color.w * calc_border_alpha();
+	} else if ((ty1 & 4) != 0) {
+		// 渲染圆角
+		color.w = color.w * calc_radius_alpha();
 		// color = vec4(0.0, 0.0, calc_border_alpha(), 1.0);
-	} 
+	}
 
 	// if ((ty1 & 8) != 0) {
 	// 	color.w = color.w * calc_circel_alpha();

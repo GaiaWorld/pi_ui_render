@@ -13,7 +13,7 @@ use pi_style::style_type::STYLE_COUNT;
 
 use crate::{
     components::{
-        calc::{DrawInfo, EntityKey, NodeState, StyleBit, StyleMarkType}, user::{serialize::DefaultStyle, Size, ZIndex}, SettingComponentIds
+        calc::{DrawInfo, EntityKey, NodeState, StyleMarkType}, user::{serialize::DefaultStyle, Size, ZIndex}, SettingComponentIds
     }, resource::{
         animation_sheet::KeyFramesSheet, fragment::{FragmentMap, NodeTag}, ClassSheet, GlobalDirtyMark, OtherDirtyType, QuadTree
     }
@@ -212,6 +212,9 @@ pub fn user_setting1(
     }
 }
 
+pub struct AddEvent(pub Entity);
+pub struct RemoveEvent(pub Entity);
+
 // 为节点添加依赖父子依赖关系 和 销毁节点
 pub fn user_setting2(
     mut entitys: Alter<(Option<&Size>, Option<&DrawInfo>), Or<(With<Size>, With<DrawInfo>)>, (), ()>,
@@ -226,6 +229,8 @@ pub fn user_setting2(
 
     mut keyframes_sheet: SingleResMut<KeyFramesSheet>,
     mut global_mark: SingleResMut<GlobalDirtyMark>,
+    add_events: EventSender<AddEvent>,
+    remove_events: EventSender<RemoveEvent>,
 ) {
 
     let mut dirty_list_mark = StyleDirtyList {
@@ -234,6 +239,7 @@ pub fn user_setting2(
 	};
     let mut is_add = false;
     let mut is_del = false;
+    let mut is_remove = false;
 
     // 添加父子关系
     for c in user_commands.fragment_commands.drain(..) {
@@ -290,6 +296,9 @@ pub fn user_setting2(
                     // log::warn!("AppendNode node====================node： {:?}, parent： {:?}", node, parent);
                     dirty_list_mark.mark_dirty(node);
                     tree.insert_child(node, parent, std::usize::MAX);
+                    if !tree.layer(node).layer().is_null() {
+                        add_events.send(AddEvent(node));
+                    }
                 // }
             }
             NodeCommand::InsertBefore(node, anchor) => {
@@ -311,6 +320,9 @@ pub fn user_setting2(
                     // log::warn!("InsertBefore node====================node：{:?}, anchor： {:?}", node, anchor);
                     dirty_list_mark.mark_dirty(node);
                     tree.insert_brother(node, anchor, InsertType::Front);
+                    if !tree.layer(node).layer().is_null() {
+                        add_events.send(AddEvent(node));
+                    }
                 // }
             }
             NodeCommand::RemoveNode(node) => {
@@ -319,10 +331,12 @@ pub fn user_setting2(
 				// 	r.0 = true;
 				// 		return;
 				// }
-
-                is_del = true;
-				log::debug!("RemoveNode node====================node={node:?}");
-                tree.remove(node);
+                if !tree.layer(node).layer().is_null() {
+                    remove_events.send(RemoveEvent(node));
+                    is_remove = true;
+                    log::debug!("RemoveNode node====================node={node:?}");
+                    tree.remove(node);
+                }
             }
             NodeCommand::DestroyNode(node) => {
 				// if !EntityKey( node ).is_null() && draw_list.get(node).is_err() {
@@ -354,6 +368,10 @@ pub fn user_setting2(
     }
     if is_del {
         global_mark.mark.set(OtherDirtyType::NodeTreeDel as usize, true);
+    }
+
+    if is_remove {
+        global_mark.mark.set(OtherDirtyType::NodeTreeRemove as usize, true);
     }
 
 	// if is_node_change {

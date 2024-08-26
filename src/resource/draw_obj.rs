@@ -33,7 +33,7 @@ use wgpu::{
 use pi_render::rhi::shader::Input;
 
 use crate::{
-    components::{calc::WorldMatrix, pass_2d::{CacheTarget, DrawElement, InstanceDrawState}},
+    components::{calc::{StyleMarkType, WorldMatrix}, pass_2d::{CacheTarget, DrawElement, InstanceDrawState}},
 	shader1::{meterial::{CameraBind, MeterialBind, PositionVert, ProjectUniform, ViewUniform}, GpuBuffer},
     // shader::{
     //     depth::{DepthBind, DepthUniform},

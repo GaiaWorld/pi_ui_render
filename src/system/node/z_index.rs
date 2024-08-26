@@ -88,8 +88,8 @@ pub fn calc_zindex(
     for i in dirty_list.iter() {
         
         if let Ok((layer, zindex)) = query_dirty.get(i.0) {
-            // println!("calc_zindex1============{:?}, {:?}", i.0, (layer.layer() > 0, layer.is_changed(), zindex.is_changed()));
-            if layer.layer() > 0 && (layer.is_changed() || zindex.map_or(false, |zindex| {zindex.is_changed()}) ) {
+            // println!("calc_zindex1============{:?}, {:?}", i.0, (!layer.layer().is_null(), layer.is_changed(), zindex.is_changed()));
+            if !layer.layer().is_null() && (layer.is_changed() || zindex.map_or(false, |zindex| {zindex.is_changed()}) ) {
                 
                 layer_dirty.mark(i.0);
             }

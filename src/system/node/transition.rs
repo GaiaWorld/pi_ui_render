@@ -56,7 +56,8 @@ lazy_static! {
 		.set_bit(StyleType::TransitionTimingFunction as usize)
 		.set_bit(StyleType::TransitionDelay as usize)
 		.set_bit(OtherDirtyType::NodeTreeAdd as usize)
-		.set_bit(OtherDirtyType::NodeTreeDel as usize);
+		.set_bit(OtherDirtyType::NodeTreeDel as usize)
+		.set_bit(OtherDirtyType::NodeTreeRemove as usize);
 }
 
 

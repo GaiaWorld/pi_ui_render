@@ -2,19 +2,19 @@
 //! 该系统默认为所有已经创建的Entity创建Show组件， 并监听Show和Display的创建修改， 以及监听idtree上的创建事件， 计算已经在idtree上///! 存在的实体的Enable和Visibility
 
 use pi_style::style::StyleType;
-use pi_world::{event::Event, fetch::Ticker, filter::With, prelude::{IntoSystemConfigs, OrDefault, Plugin, Query}, single_res::SingleRes, world::Entity};
-use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, OrInitSingleRes, Up, Layer, LayerDirty};
+use pi_world::{event::{ComponentChanged, Event}, filter::With, prelude::{IntoSystemConfigs, OrDefault, Plugin, Query}, single_res::SingleRes, world::Entity};
+use pi_bevy_ecs_extend::prelude::{EntityTree, Layer, LayerDirty, OrInitSingleRes, OrInitSingleResMut, Up};
 
 use pi_flex_layout::style::Display;
 use pi_null::Null;
 
 use crate::{components::{
-    calc::{style_bit, DrawList, IsShow, StyleBit, StyleMarkType}, draw_obj::InstanceIndex, user::{Enable, Show}
+    calc::{style_bit, DrawList, IsShow, StyleBit, StyleMarkType}, draw_obj::InstanceIndex, pass_2d::Draw2DList, user::{Enable, Show}
 }, resource::{draw_obj::InstanceContext, GlobalDirtyMark, OtherDirtyType}, shader1::meterial::{RenderFlagType, TyUniform}, system::{draw_obj::{calc_text::IsRun, life_drawobj::update_render_instance_data}, system_set::UiSystemSet}};
 
 use crate::prelude::UiStage;
 
-use super::{user_setting::StyleChange, world_matrix::Empty};
+use super::{user_setting::{AddEvent, RemoveEvent}, world_matrix::Empty};
 pub struct ShowPlugin;
 
 impl Plugin for ShowPlugin {
@@ -37,32 +37,54 @@ pub struct ShowDirty(pub Vec<Entity>);
 
 /// 计算节点的显示属性
 pub fn calc_show(
-	dirty_list: Event<StyleChange>,
+	show_changed: ComponentChanged<Show>,
+	add_events: Event<AddEvent>,
+    remove_events: Event<RemoveEvent>,
     mut layer_dirty: LayerDirty<With<Empty>>,
-    query_dirty: Query<(Ticker<&Layer>, Option<Ticker<&Show>>)>,
+	tree: EntityTree,
 	
 	mut global_mark: OrInitSingleResMut<GlobalDirtyMark>,
     // mut dirty: LayerDirty<(Changed<Layer>, Changed<Show>)>,
     query: Query<(OrDefault<Show>, Option<&Up>)>,
     mut write: Query<&mut IsShow>,
 
-	mut show_changed: OrInitSingleResMut<ShowDirty>,
+	mut is_show_changed: OrInitSingleResMut<ShowDirty>,
 	r: OrInitSingleRes<IsRun>,
 ) {
 	if r.0 {
 		return;
 	}
-    // for entity in show_change.iter() {
-    //     dirty.mark(entity)
-    // }
-
-	for i in dirty_list.iter() {
-        if let Ok((layer, show)) = query_dirty.get(i.0) {
-            if layer.layer() > 0 && (layer.is_changed() || show.as_ref().map_or(false, |r| {r.is_changed()})) {
-                layer_dirty.mark(i.0);
-            }
-        }
+    for entity in show_changed.iter() {
+        layer_dirty.mark(*entity)
     }
+	for entity in add_events.iter() {
+		layer_dirty.mark(entity.0)
+	}
+
+	// 已经移除的节点， 设置display为false
+	for entity in remove_events.iter() {
+		if let Ok(mut is_show) = write.get_mut(entity.0) {
+			is_show_changed.0.push(entity.0);
+			let head = tree.get_down(entity.0).unwrap().head;
+			is_show.set_display(false);
+			for i in tree.recursive_iter(head) {
+				if let Ok(mut is_show) = write.get_mut(i) {
+					is_show_changed.0.push(i);
+					is_show.set_display(false);
+				}
+			}
+		}
+
+	}
+
+	// for (layer, show, entity) in query_dirty.iter() {
+	// 	if layer.is_changed() {
+	// 		show_changed.0.push(i.0);
+	// 	}
+	// 	if !layer.layer().is_null() && (layer.is_changed() || show.as_ref().map_or(false, |r| {r.is_changed()})) {
+	// 		layer_dirty.mark(i.0);
+	// 	}
+	// }
 
 	let mut display_change = false;
 	let mut visibility_change = false;
@@ -115,7 +137,7 @@ pub fn calc_show(
 		}
 
 		if display_change || visibility_change {
-			show_changed.0.push(node);
+			is_show_changed.0.push(node);
 		}
 		
 		// log::debug!("c_enable: {}", c_enable);
@@ -137,7 +159,8 @@ lazy_static! {
 		.set_bit(StyleType::Display as usize)
 		.set_bit(StyleType::Enable as usize)
 		.set_bit(StyleType::Visibility as usize)
-        .set_bit(OtherDirtyType::NodeTreeAdd as usize);
+        .set_bit(OtherDirtyType::NodeTreeAdd as usize)
+		.set_bit(OtherDirtyType::NodeTreeRemove as usize);
 }
 
 
@@ -154,7 +177,7 @@ pub fn show_data_change(show_changed: OrInitSingleRes<ShowDirty>) -> bool {
 /// visibility为false时， 设置渲染实例不可见
 pub fn set_show_data(
 	mut instances: OrInitSingleResMut<InstanceContext>,
-	query: Query<(&DrawList, &IsShow, Option<&InstanceIndex>)>,
+	query: Query<(&DrawList, &IsShow, &Layer, Option<&InstanceIndex>, Option<&Draw2DList>)>,
 	mut show_changed: OrInitSingleResMut<ShowDirty>,
     query_draw: Query<&InstanceIndex>,
 	r: OrInitSingleRes<IsRun>,
@@ -163,47 +186,46 @@ pub fn set_show_data(
 		return;
 	}
 	for node in show_changed.0.drain(..) {
-		if let Ok((draw_list, is_show, instance_index)) = query.get(node) {
-			let visibility = is_show.get_visibility() && is_show.get_display();
+		if let Ok((draw_list, is_show, layer, instance_index, draw_2d_list)) = query.get(node) {
+			let visibility = is_show.get_visibility() && is_show.get_display() && !layer.layer().is_null();
 			for draw_id in draw_list.iter() {
 				if let Ok(instance_index) = query_draw.get(draw_id.id) {
+
 					let alignment = instances.instance_data.alignment;
 					let count = instance_index.0.len() / alignment;
 					for index in 0..count {
-						let mut instance_data = instances.instance_data.instance_data_mut(instance_index.0.start + index * alignment);
-						let mut ty = instance_data.get_render_ty();
-	
-						let old_visibility = (ty & (1 << RenderFlagType::NotVisibility as usize) ) == 0;
-						if old_visibility != visibility {
-							if visibility {
-								ty &= !(1 << RenderFlagType::NotVisibility as usize);
-							} else {
-								ty |= 1 << RenderFlagType::NotVisibility as usize;
-							}
-
-							instance_data.set_data(&TyUniform(&[ty as f32]));
-						}
+						set_instance_visibility(visibility, instance_index.0.start + index * alignment, &mut instances);
 					}
 				}
 			}
 	
 			if let Some(instance_index) = instance_index {
 				if !instance_index.start.is_null() {
-					let mut instance_data = instances.instance_data.instance_data_mut(instance_index.0.start);
-					let mut ty = instance_data.get_render_ty();
-		
-					let old_visibility = (ty & (1 << RenderFlagType::NotVisibility as usize) ) == 0;
-					if old_visibility != visibility {
-						if visibility {
-							ty &= !(1 << RenderFlagType::NotVisibility as usize);
-						} else {
-							ty |= 1 << RenderFlagType::NotVisibility as usize;
-						}
-						// log::trace!("set show=============entity: {:?}, visibility: {:?}", entity, (visibility, ty));
-						instance_data.set_data(&TyUniform(&[ty as f32]));
-					}
+					set_instance_visibility(visibility, instance_index.0.start, &mut instances);
+				}
+			}
+
+			if let Some(draw_2d_list) = draw_2d_list {
+				if !draw_2d_list.clear_instance.is_null() {
+					set_instance_visibility(visibility, draw_2d_list.clear_instance, &mut instances);
 				}
 			}
 		}
+	}
+}
+
+fn set_instance_visibility(visibility: bool, instance_start: usize, instances: &mut InstanceContext) {
+	let mut instance_data = instances.instance_data.instance_data_mut(instance_start);
+	let mut ty = instance_data.get_render_ty();
+
+	let old_visibility = (ty & (1 << RenderFlagType::NotVisibility as usize) ) == 0;
+	if old_visibility != visibility {
+		if visibility {
+			ty &= !(1 << RenderFlagType::NotVisibility as usize);
+		} else {
+			ty |= 1 << RenderFlagType::NotVisibility as usize;
+		}
+		// log::trace!("set show=============entity: {:?}, visibility: {:?}", entity, (visibility, ty));
+		instance_data.set_data(&TyUniform(&[ty as f32]));
 	}
 }

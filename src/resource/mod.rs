@@ -65,6 +65,7 @@ pub enum OtherDirtyType {
     PassLife = 116, // Pass3D生命周期（添加或移除）
     InstanceCount = 115, // 实例数量修改
     NodeState = 114, // NodeState修改
+    NodeTreeRemove = 113, // 树结构改变
 }
 
 

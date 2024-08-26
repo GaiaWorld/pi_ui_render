@@ -839,9 +839,7 @@ pub mod serialize {
             entity
         );
 
-        if std::any::type_name::<C>().contains("BackgroundColor") {
-            log::debug!("set_style_attr, type: {:?}", std::any::type_name::<C>());
-        }
+       
         // pi_print_any::out_any!(println,
         //     "set_style_attr, type: {:?}, value: {:?}, entity: {:?}",
         //     std::any::type_name::<C>(),
@@ -1111,7 +1109,7 @@ pub mod serialize {
                     if component.0.is_some() {
                         // 如果存在transform_willChange,则将Transform设置在TransformWillChange上
                         if let Some($component_name) = &mut component.0 {
-                            // log::warn!("set t========{:?}, {:?}", entity, &v);
+                            // log::debug!("set t========{:?}, {:?}, {:?}", entity, query.style.$component_name2, &v);
                             $set;
                             return
                         }
@@ -1342,7 +1340,9 @@ pub mod serialize {
     impl_style!(TextStrokeType, TextStroke, text_style, TextStyle, text_stroke, Stroke);
     impl_style!(@pack TextShadowType, TextShadow, text_shadow, TextShadowList);
     impl_style!(@pack TextOuterGlowType, TextOuterGlow, text_outer_glow, OuterGlow);
-    impl_style!(@expr BackgroundImageType, BackgroundImage, background_image, BackgroundImage, v, Atom, background_image.0 = v, background_image.0.clone(), background_image.0 = v.0.clone(), background_image_texture);
+    impl_style!(@expr BackgroundImageType, BackgroundImage, background_image, BackgroundImage, v, Atom, {
+        background_image.0 = v;
+    }, background_image.0.clone(), background_image.0 = v.0.clone(), background_image_texture);
 
     impl_style!(@pack BackgroundImageClipType, BackgroundImageClip, background_image_clip, NotNanRect);
     impl_style!(ObjectFitType, ObjectFit, background_image_mod, BackgroundImageMod, object_fit, FitType);
@@ -1583,7 +1583,7 @@ pub mod serialize {
 			if !v {
 				if let Ok(mut component) = query.world.get_component_mut_by_index::<TransformWillChange>(entity, query.style.transform_will_change) {
                     if let Some(c) = &component.0 {
-                        // log::warn!("set2========{:?}, {:?}", entity, c);
+                        // log::debug!("set2========{:?}, {:?}", entity, c);
                         let c1 = c.clone();
                         component.0 = None;
                         match query.world.get_component_mut_by_index::<Transform>(entity, query.style.transform) {
@@ -1611,7 +1611,7 @@ pub mod serialize {
                         let c = component.clone();
                         if let Ok(mut component_will_change) = query.world.get_component_mut_by_index::<TransformWillChange>(entity, query.style.transform_will_change) {
                             if component_will_change.0.is_none() { 
-                                // log::warn!("set1========{:?}, {:?}", entity, c);
+                                // log::debug!("set1========{:?}, {:?}", entity, c);
                                 // TransformWillChange不存在才初始化
                                 *component_will_change = TransformWillChange(Some(c));
                             } 
@@ -1625,7 +1625,6 @@ pub mod serialize {
         }
 
         fn push_component_ops(ids: &SettingComponentIds, arr: &mut Vec<(ComponentIndex, bool)>) {
-            // log::warn!("push_component_ops========{:?}", &ids.transform_will_change);
             arr.push((ids.transform_will_change, true))
         }
 	}
@@ -1664,7 +1663,6 @@ pub mod serialize {
             Self: Sized,
         {
             log::debug!("reset_style_attr, type: TransformWillChange, entity: {:?}", entity);
-            log::warn!("reset_style_attr, type: TransformWillChange, entity: {:?}", entity);
             if let Ok(mut component) = query.world.get_component_mut_by_index::<TransformWillChange>(entity, query.style.transform_will_change) {
                 // 删除TransformWillChange, 设置Transform
                 if let Some(c) = &component.0 {

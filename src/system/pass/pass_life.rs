@@ -202,7 +202,8 @@ lazy_static! {
 		.set_bit(OtherDirtyType::NodeTreeAdd as usize);
     pub static ref PASS_CHILDREN_DIRTY: StyleMarkType = style_bit()
 		.set_bit(OtherDirtyType::NodeTreeAdd as usize)
-        .set_bit(OtherDirtyType::NodeTreeDel as usize);
+        .set_bit(OtherDirtyType::NodeTreeDel as usize)
+        .set_bit(OtherDirtyType::NodeTreeRemove as usize);
 }
 
 pub fn pass_life_change(mark: SingleRes<GlobalDirtyMark>, changed: ComponentChanged<RenderContextMark>) -> bool {

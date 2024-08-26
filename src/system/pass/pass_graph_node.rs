@@ -220,7 +220,7 @@ impl Node for Pass2DNode {
 
 				// 设置实例是否需要还原预乘
 				let mut ty = param.instance_draw.instance_data.instance_data_mut(instance_index.start).get_render_ty();
-				let mut visibility = is_show.get_visibility() && is_show.get_display() && layer.layer() > 0;
+				let mut visibility = is_show.get_visibility() && is_show.get_display() && !layer.layer().is_null();
 
 				if let Some(out) = input.0.get(&canvas_graph_id.0) {		
 					// match pipeline{
@@ -579,7 +579,7 @@ impl Node for Pass2DNode {
 	
 			// 设置实例是否需要还原预乘
 			let mut ty = param.instance_draw.instance_data.instance_data_mut(instance_index.start).get_render_ty();
-			let mut visibility = is_show.get_visibility() && is_show.get_display() && layer.layer() > 0;
+			let mut visibility = is_show.get_visibility() && is_show.get_display() && !layer.layer().is_null();
 			if out.target.is_none() {
 				visibility = false;
 			}
@@ -708,7 +708,9 @@ impl Node for Pass2DNode {
 			
 			// log::warn!("draw_list============={:?}", param.instance_draw.draw_list.len());
 			// log::warn!("draw_list============={:?}", (param.instance_draw.draw_list.len(), &param.instance_draw.draw_list));
+			let mut ii = 0;
 			for element in param.instance_draw.draw_list.iter() {
+				ii += 1;
 				let t = if EntityKey(element.1).is_null() {
 					RPTarget::Screen(&surface, &param.screen.depth)
 				} else {
@@ -737,19 +739,11 @@ impl Node for Pass2DNode {
 						(fbo_view_port, fbo_camera) = (calc_view_port(&rt, &camera.view_port, &render_target.bound_box), camera)
 					};
 				}
-
-				// if render_state.reset {
-				// 	set_camera = false;
-				// }
 				
 				match &element.0 {
-					DrawElement::Clear { draw_state, pass } => {
-						// log::warn!("Clear======={:?}, {:?}", pass, element.1);
-						if let Ok((camera, _render_target)) = param.pass2d_query.get(*pass) {
-							if !camera.is_active {
-								// log::warn!("is_active======={:?}, {:?}", pass, element.1);
-								continue;
-							}
+					DrawElement::Clear { draw_state, is_active } => {
+						if !*is_active {
+							continue; // 没有激活的fbo， 不清屏
 						}
 						param.instance_draw.set_pipeline(&mut rp, draw_state, &mut render_state);
 						// log::warn!("clear======={:?}, {:?}, {:?}, {:?}, {:?}", pass, element.1, draw_state.instance_data_range.start/224..draw_state.instance_data_range.end/224, draw_state.instance_data_range.start..draw_state.instance_data_range.end, param.instance_draw.instance_data.data.len());
@@ -761,35 +755,6 @@ impl Node for Pass2DNode {
 						let group = param.instance_draw.default_camera.get_group();
 						rp.set_bind_group(CameraBind::set(), group.bind_group, group.offsets);
 
-						// // 设置相机
-						// if pre_pass != EntityKey(*pass) {
-						// 	if let Ok((camera, list, parent_pass2d_id, _clear_group, render_target)) = param.pass2d_query.get(*pass) {
-						// 		if !camera.is_active {
-						// 			// log::warn!("is_active======={:?}, {:?}", pass, element.1);
-						// 			continue;
-						// 		}
-						// 		// log::warn!("clear======={:?}, {:?}, {:?}", pass, element.1, rt);
-						// 		if let RPTarget::Fbo(rt) = rt {
-						// 			let clear_port = calc_scissor(rt, &camera.view_port, &render_target.bound_box);
-						// 			// log::warn!("clear view port: {:?}", (pass, element.1, &clear_port, camera.view_port, &render_target.bound_box, rt.rect_with_border()));
-						// 			// 清屏视口
-						// 			rp.set_viewport(clear_port.0, clear_port.1, clear_port.2, clear_port.3, 0.0, 1.0);
-						// 		}
-						// 		let group = param.instance_draw.default_camera.get_group();
-						// 		rp.set_bind_group(CameraBind::set(), group.bind_group, group.offsets);
-						// 		// param.instance_draw.default_camera.set(&mut rp, CameraBind::set());
-						// 		// if let Some(c) = &camera.bind_group {
-						// 		// 	c.set(&mut rp, CameraBind::set());
-						// 		// 	// set_camera = true;
-						// 		// }
-						// 		// let view_port = calc_view_port(&rt, &camera.view_port, &render_target.bound_box);
-						// 		// log::warn!("clear view port: {:?}", (pass, &view_port));
-						// 		// rp.set_viewport(view_port.0, view_port.1, view_port.2, view_port.3, 0.0, 1.0);
-						// 	}
-						// }
-						// if !set_camera{
-						// 	log::warn!("clear!============{:?}", (pass, pre_pass, render_state.reset));
-						// }
 						param.instance_draw.draw(&mut rp, draw_state, &mut render_state);
 					},
 					DrawElement::DrawInstance { draw_state, pass, .. } => {

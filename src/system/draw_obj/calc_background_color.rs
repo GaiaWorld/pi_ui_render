@@ -1,18 +1,16 @@
 
 use pi_style::style::{Aabb2, LinearGradientColor, Point2, StyleType};
-use pi_world::filter::Or;
 use pi_world::prelude::{Changed, With, Query, Plugin, IntoSystemConfigs};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, OrInitSingleRes};
 use pi_world::single_res::SingleRes;
 
-use crate::components::calc::{style_bit, DrawList, LayoutResult, StyleBit, StyleMarkType, WorldMatrix};
+use crate::components::calc::{style_bit, DrawList, LayoutResult, StyleBit, StyleMarkType};
 use crate::components::draw_obj::{BackgroundColorMark, BoxType, InstanceIndex};
-use crate::resource::{BackgroundColorRenderObjType, GlobalDirtyMark, OtherDirtyType};
+use crate::resource::{BackgroundColorRenderObjType, GlobalDirtyMark};
 use crate::resource::draw_obj::InstanceContext;
 use crate::shader1::meterial::{GradientColorUniform, GradientPositionUniform, RenderFlagType, ColorUniform, TyUniform, GradientEndUniform};
 use crate::components::user::{BackgroundColor, Color, Vector2};
 use crate::shader1::InstanceData;
-use crate::system::draw_obj::set_box;
 use crate::system::system_set::UiSystemSet;
 use crate::prelude::UiStage;
 

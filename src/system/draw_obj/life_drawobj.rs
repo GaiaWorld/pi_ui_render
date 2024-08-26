@@ -2,7 +2,6 @@
 
 use pi_world::alter::Alter;
 use pi_world::event::{ComponentAdded, ComponentChanged};
-use pi_world::filter::Changed;
 use pi_world::insert::Bundle;
 use pi_world::param_set::ParamSet;
 use pi_world::prelude::{SystemParam, SingleRes, FromWorld, Insert, With, Query, Entity, OrDefault, Has, Ticker, ComponentRemoved};
@@ -29,7 +28,7 @@ use crate::components::user::RenderTargetType;
 // use crate::components::draw_obj::{BackgroundColorMark, BackgroundImageMark, BorderImageMark, BoxShadowMark, CanvasMark, TextMark, TextShadowMark};
 
 use crate::components::DrawBundleNew;
-use crate::components::pass_2d::{Draw2DList, DrawElement, DrawIndex, InstanceDrawState, ParentPassId, PostProcessInfo};
+use crate::components::pass_2d::{Camera, Draw2DList, DrawElement, DrawIndex, InstanceDrawState, ParentPassId, PostProcessInfo};
 use crate::resource::draw_obj::{InstanceContext, CommonSampler};
 use crate::resource::{GlobalDirtyMark, OtherDirtyType, RenderObjType};
 
@@ -198,7 +197,7 @@ pub fn rebatch_change(mark: &GlobalDirtyMark) -> bool {
 /// 注意， 这里没考虑节点上纹理修改的问题（TODO）
 #[allow(suspicious_double_ref_op)]
 pub fn update_render_instance_data(
-	mut global_mark: OrInitSingleResMut<GlobalDirtyMark>,
+	global_mark: OrInitSingleResMut<GlobalDirtyMark>,
 	// mut events: (
 	// 	EventReader<EntityChange>,// 有节点创建
 	// 	EventReader<NodeZindexChange>, // 有节点zIndex修改
@@ -286,7 +285,7 @@ pub fn update_render_instance_data(
 					}
 				}
 				let mut info = info.clone();
-				info.set_visibility(is_show.get_visibility() && is_show.get_display() && layer.layer() > 0);
+				info.set_visibility(is_show.get_visibility() && is_show.get_display() && !layer.layer().is_null());
 				list.push_element(
 					DrawIndex::DrawObj{
 						draw_entity: EntityKey(draw_id.id),
@@ -485,7 +484,7 @@ pub fn update_render_instance_data(
 		if post_process_info.has_effect() && RenderTargetType::Screen == *render_target_type {
 			// 有后处理效果， 并且最终会渲染到屏幕上， 则需要分配一个实例用于将其渲染到屏幕
 			let mut info = DrawInfo::new(10, false);
-			info.set_visibility(is_show.get_visibility() && is_show.get_display() && layer.layer() > 0);
+			info.set_visibility(is_show.get_visibility() && is_show.get_display() && !layer.layer().is_null());
 			alloc(&DrawIndex::Pass2D(EntityKey(root_entity)), &info, new_instances, &instances, &mut instance_index);
 
 			// 否则， 不需要这个实例渲染
@@ -494,20 +493,18 @@ pub fn update_render_instance_data(
 			*index = InstanceIndex::default();
 		}
 	}
-	
 	// 分配清屏所需实例（清屏需要批渲染，因此将其分配在一起）
 	for entity in pass_toop_list.iter() {
 		let (mut draw_2d_list, pass_id) = match p0.get_mut(*entity) {
 			Ok(r) => r,
 			_ => continue
 		}; 
-
 		match post_info_query.get(pass_id) {
 			Ok((post_info, layer)) if post_info.has_effect() || layer.is_some() => {
 				// 清屏数据
 				let index = if !draw_2d_list.clear_instance.is_null() {
 					let cur_index = new_instances.cur_index();
-					log::trace!("change alloc clear========================cur: {:?}, old: {:?}", draw_2d_list.clear_instance, draw_2d_list.clear_instance);
+					
 					new_instances.extend(instances.instance_data.slice(draw_2d_list.clear_instance..draw_2d_list.clear_instance + new_instances.alignment));
 					if cur_index != draw_2d_list.clear_instance {
 						let end = new_instances.cur_index();
@@ -538,9 +535,20 @@ pub fn update_render_instance_data(
 /// 批处理实例
 /// 在渲染图的build之后， 渲染之前运行
 /// 只将需要渲染的节点节点批处理
+/// 按照pass_toop_list的顺序，批处理实例数据
+/// 批处理draw列表顺序形如： [
+/// DrawClear(pass0, pass1..)
+/// PassDrawList(pass0)
+/// PassDrawList(pass1)
+/// ...
+/// DrawClear(pass2, pass3)
+/// PassDrawList(pass2)
+/// PassDrawList(pass3)
+/// ]
 pub fn batch_instance_data(
 	mut query: BatchQuery,
 	mut query_root: Query<(Entity, &InstanceIndex), With<Root>>, // 只有gui的Root才会有Size
+	query_camera: Query<&'static Camera>,
 	mut instances : OrInitSingleResMut<InstanceContext>,
 ) {
 	
@@ -565,6 +573,7 @@ pub fn batch_instance_data(
 		pre_group: 0,
 		last_group: None,
 		last_fbo: None,
+		last_is_active: false,
 	};
 
 	// log::warn!("len====={:?}", (&root, instances.batch_texture.temp_textures.len()));
@@ -582,6 +591,7 @@ pub fn batch_instance_data(
 	};
 
 	let mut pre_clear_index = 0;
+	let mut last_is_active = false;
 	
 	let pass_toop_list = std::mem::take(&mut instances.pass_toop_list);
 	log::debug!("pass_toop_list!!!!!===={:?}", pass_toop_list);
@@ -599,6 +609,7 @@ pub fn batch_instance_data(
 		let mut fbo_changed = false;
 		let draw_2d_list = draw_2d_list.bypass_change_detection();
 		if !draw_2d_list.clear_instance.is_null() {
+			// 如果pass需要清屏
 			let fbo_changed1 = match (&fbo_info.fbo, &global_state.last_fbo){
 				(Some(r), Some(r1)) => {
 					if !Share::ptr_eq(&r.target().colors[0].0, &r1.target().colors[0].0) {
@@ -618,7 +629,13 @@ pub fn batch_instance_data(
 				},
 			};	
 
-			let (split_index, end) = if fbo_changed1 {
+			let is_active = query_camera.get(*pass_id).unwrap().is_active;
+			// 上一个清屏的批处理索引在当前pass新建了清屏批次时，才返回已经批处理完成的上一个清屏批处理的索引， 否则split_index为null
+			// 有三种情况， 使得split_index不为null：
+			// 1. 与上一个pass相比， fbo发生了改变（处理第一个pass时， 不算发生了改变）
+			// 2. 当前Pass与之前处理的pass存在依赖关系
+			// 3. 迭代到最后一个pass
+			let (split_index/*上一个清屏的批处理索引：单位（批次）*/, end/*实例数据的结束偏移：单位（字节）*/) = if fbo_changed1 {
 				// 如果fbo发生了改变， 重新劈分clear
 				let c = (DrawElement::Clear {
 					draw_state: InstanceDrawState { 
@@ -626,7 +643,7 @@ pub fn batch_instance_data(
 						pipeline: Some(instances.clear_pipeline.clone()),
 						texture_bind_group: None,
 					},
-					pass: *pass_id,
+					is_active,
 				}, *pass_id);
 				let last_index = pre_clear_index;
 				pre_clear_index = instances.draw_list.len(); // 记录当前清屏所需drawcall（实例化渲染， 渲染多个清屏）的索引
@@ -638,7 +655,8 @@ pub fn batch_instance_data(
 					(Null::null(), 0)
 				}
 			} else {
-				if instances.draw_list.len() > 0 && pass_index >= batch_state.next_node_with_depend {
+				last_is_active |= is_active;
+				if instances.draw_list.len() > 0 && pass_index >= batch_state.next_node_with_depend { 
 					(pre_clear_index, draw_2d_list.clear_instance + instances.instance_data.alignment)
 				} else {
 					(Null::null(), draw_2d_list.clear_instance)
@@ -646,8 +664,10 @@ pub fn batch_instance_data(
 			};
 			if !split_index.is_null() {
 				// fbo未改变， 并且迭代结束了，则设置上一个清屏drawcall的实例范围
-				if let DrawElement::Clear {draw_state, ..} = &mut instances.draw_list[split_index].0 {
+				if let DrawElement::Clear {draw_state, is_active} = &mut instances.draw_list[split_index].0 {
 					draw_state.instance_data_range.end = end;
+					*is_active |= last_is_active;
+					last_is_active = false;
 					// log::warn!("is_split_clear========={:?}", (pass_id, split_index, pre_clear_index, draw_2d_list.clear_instance, fbo_changed1, &draw_state.instance_data_range, draw_state.instance_data_range.len() / 224));
 				}
 			}
@@ -1125,7 +1145,11 @@ struct BatchGlobalState{
 	post_start: usize,
 	pre_group: usize,
 	last_group: Option<Share<wgpu::BindGroup>>,
+	// 在按顺序进行批处理的过程中，相邻pass分配的fbo可能相同也可能不同，当不同时， 记录当前遍历到的最新的pass的fbo
+	// 这用于比较， 当前处理的pass是否切换了fbo
+	// 当前对fbo的清屏操作，是批量清理多个区域，因此，当fbo切换时，clear实例需要放入新的批次
 	last_fbo: Option<ShareTargetView>,
+	last_is_active: bool, // 前一批次是否存在激活的fbo
 }
 
 

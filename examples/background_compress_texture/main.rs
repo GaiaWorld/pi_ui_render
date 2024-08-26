@@ -70,6 +70,8 @@ impl Example for QuadExample {
             div1,
             BackgroundImageType(Atom::from("examples/z_source/bx_lanseguanbi.s3tc.ktx")),
         );
+        world.user_cmd.set_style(div1, WidthType(Dimension::Points(150.0)));
+        world.user_cmd.set_style(div1, HeightType(Dimension::Points(80.0)));
         world.user_cmd.append(div1, root);
     }
 

@@ -75,7 +75,7 @@ pub fn transform_will_change_post_process(
         Or<(
             Changed<WorldMatrix>,
             Changed<Layer>,
-            Changed<TransformWillChange>,
+            Changed<TransformWillChange>
         )>,
     >,
 
@@ -178,6 +178,10 @@ pub fn transform_will_change_post_process(
 lazy_static! {
 	pub static ref TRANSFORM_WILL_CHANGE_DIRTY: StyleMarkType = style_bit()
 		.set_bit(StyleType::TransformWillChange as usize)
+        .set_bit(StyleType::Transform as usize) // 设置Transform， 可能不会WorldMatrix修改， 但可能导致TransformWillChange修改
+        .set_bit(StyleType::Translate as usize)
+        .set_bit(StyleType::Scale as usize)
+        .set_bit(StyleType::Rotate as usize)
 		.set_bit(OtherDirtyType::WorldMatrix as usize)
 		.set_bit(OtherDirtyType::PassLife as usize);
 }
@@ -248,6 +252,7 @@ pub fn recursive_set_matrix(
                 let will_change_matrix = TransformWillChangeMatrix::new(m.invert().unwrap(), m, will_change_matrix);
                 *r = will_change_matrix.clone();
                 parent_will_change_matrix = will_change_matrix;
+                
             };
         }
         _ => {

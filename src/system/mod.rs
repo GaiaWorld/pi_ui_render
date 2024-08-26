@@ -25,34 +25,3 @@ bitflags::bitflags! {
     }
 }
 
-
-// pub fn setting_run(state: OrInitSingleRes<RunState>, frame_state: OrInitSingleRes<FrameState>) -> bool {
-//     if **state >= RunState::SETTING{
-//         true
-//     } else if let FrameState::Active = **frame_state {
-//         true
-//     } else {
-//         false
-//     }
-// }
-
-// pub fn layout_run(state: OrInitSingleRes<RunState>, frame_state: OrInitSingleRes<FrameState>) -> bool {
-//     if **state >= RunState::LAYOUT {
-//         true
-//     } else if let FrameState::Active = **frame_state {
-//         true
-//     } else {
-//         false
-//     }
-// }
-
-// pub fn matrix_run(state: OrInitSingleRes<RunState>, frame_state: OrInitSingleRes<FrameState>) -> bool {
-//     if **state >= RunState::MATRIX {
-//         true
-//     } else if let FrameState::Active = **frame_state {
-//         true
-//     }  else {
-//         false
-//     }
-// }
-

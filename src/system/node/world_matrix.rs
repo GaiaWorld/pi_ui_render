@@ -38,23 +38,21 @@
 //!
 //! 可以考虑： 当父矩阵计算完成后，父节点所有子节点所形成的子树，可以并行计算（他们依赖的父矩阵已经计算完毕）
 use pi_bevy_ecs_extend::system_param::tree::Down;
-use pi_world::event::{ComponentAdded, ComponentChanged, Event};
-use pi_world::fetch::Ticker;
+use pi_world::event::{ComponentAdded, ComponentChanged};
 use pi_world::prelude::{ParamSet, Query, SingleResMut, Entity, With};
-use pi_bevy_ecs_extend::prelude::{OrInitSingleRes, Up, Layer, LayerDirty};
+use pi_bevy_ecs_extend::prelude::{Layer, LayerDirty, OrInitSingleRes, Up};
 
 use pi_map::Map;
 use pi_null::Null;
 use pi_style::style::Aabb2;
 
-use crate::components::calc::{ContentBox, EntityKey, LayoutResult, Quad, StyleBit, WorldMatrix};
+use crate::components::calc::{ContentBox, EntityKey, LayoutResult, Quad, WorldMatrix};
 use crate::components::user::{BoxShadow, Point2, TextShadow, Transform};
 use crate::resource::{GlobalDirtyMark, OtherDirtyType, QuadTree};
 use crate::system::draw_obj::calc_text::IsRun;
 use crate::system::node::content_box::calc_content_box;
 use crate::utils::tools::calc_bound_box;
 
-use super::user_setting::StyleChange;
 
 pub struct CalcMatrix;
 
@@ -135,7 +133,7 @@ pub fn cal_matrix(
     // let mut ii = 0;
     // for i in dirty_list2.iter() {
     //     if let Ok((layer, style_mark)) = query_dirty2.get(i.0) {
-    //         if layer.layer() > 0 && (
+    //         if !layer.layer().is_null() && (
     //             layer.is_changed() || 
     //             style_mark.dirty_style.has_any(&CONTENT_BOX_DIRTY)
     //         ) {
@@ -155,7 +153,7 @@ pub fn cal_matrix(
 
     //     if let Ok((layer, layout, transform, text_shadow, box_shadow)) = query_dirty.get(i.0) {
             
-    //         if layer.layer() > 0 && (
+    //         if !layer.layer().is_null() && (
     //             layer.is_changed() || 
     //             layout.is_changed() || 
     //             transform.map_or(false, |r| {r.is_changed()}) || 
@@ -171,7 +169,7 @@ pub fn cal_matrix(
     for i in layout_dirty.iter().chain(transform_dirty.iter()).chain(transform_add.iter()) {
         layer_dirty.mark(*i);
     }
-    for i in text_shadow_dirty.iter().chain(box_shadow_dirty.iter()).chain(text_shadow_add.iter()).chain(box_shadow_dirty.iter()) {
+    for i in text_shadow_dirty.iter().chain(box_shadow_dirty.iter()).chain(text_shadow_add.iter()).chain(box_shadow_add.iter()) {
         layer_dirty1.mark(*i);
     }
 
@@ -181,7 +179,7 @@ pub fn cal_matrix(
 
     // let time2 = pi_time::Instant::now();
     // println!("matrix time1========{:?}", ( time2 - time1));
-    for id in layer_dirty.iter() {
+    for id in layer_dirty.iter() { 
         layer_dirty1.mark(id);
         // ii1.push(id);
         // if count == 1 {
@@ -280,6 +278,7 @@ pub fn cal_matrix(
             };
         }
     }
+    
     // let time3 = pi_time::Instant::now();
     
 
