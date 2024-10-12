@@ -8,14 +8,12 @@ use crate::{
         draw_obj::{create_render_pipeline, InstanceContext, LastGraphNode, RenderState}, GlobalDirtyMark, OtherDirtyType, RenderContextMarkType
     }, 
     shader::camera::{ProjectUniform, ViewUniform}, 
-    shader1::meterial::{BoxUniform, CameraBind, QuadUniform, RenderFlagType, TyUniform}, 
-    system::{
-        draw_obj::{
-            calc_background_color::set_linear_gradient_instance_data, calc_text::IsRun, image_texture_load::{load_image, set_texture, ImageAwait}
-        },
-        pass::{pass_graph_node::create_rp_for_fbo, pass_life, update_graph::init_root_graph},
-    }
+    shader1::batch_meterial::{CameraBind, RenderFlagType, TyMeterial}, 
+    system::base::pass::{pass_graph_node::create_rp_for_fbo, pass_life, update_graph::init_root_graph},
+    system::draw_obj::calc_background_color::set_linear_gradient_instance_data,
 };
+use crate::system::base::draw_obj::image_texture_load::{load_image, set_texture, ImageAwait};
+use crate::resource::IsRun;
 use pi_world::{app::App, event::{ComponentAdded, ComponentChanged, ComponentRemoved}, fetch::{Has, OrDefault}, param_set::ParamSet, prelude::{Entity, Query, SingleRes, SingleResMut, World}, schedule::PreUpdate, system_params::Local, world::FromWorld};
 use pi_bevy_asset::ShareAssetMgr;
 use pi_bevy_ecs_extend::system_param::res::{OrInitSingleRes, OrInitSingleResMut};
@@ -68,7 +66,7 @@ impl Plugin for UiMaskImagePlugin {
             .add_system(UiStage, 
                 mask_image_linear_post_process
                 .run_if(mask_image_changed)
-                .after(crate::system::draw_obj::life_drawobj::update_render_instance_data)
+                .after(crate::system::base::draw_obj::life_drawobj::update_render_instance_data)
             );
     }
 }
@@ -295,7 +293,7 @@ pub fn mask_image_linear_post_process(
 
                 render_flag &= !(1 << RenderFlagType::NotVisibility as usize);
                 render_flag &= !(1 << RenderFlagType::IgnoreCamera as usize);  //（不需要乘视图矩， 投影矩阵）
-                instance_data.set_data(&TyUniform([render_flag as f32].as_slice()));         
+                instance_data.set_data(&TyMeterial([render_flag as f32].as_slice()));         
             }
         }
     }

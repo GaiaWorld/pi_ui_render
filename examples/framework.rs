@@ -29,7 +29,7 @@ use pi_ui_render::{
 #[cfg(target_arch = "wasm32")]
 use pi_async_rt::rt::serial_local_compatible_wasm_runtime::{LocalTaskRunner, LocalTaskRuntime};
 #[cfg(feature = "debug")]
-use pi_ui_render::system::cmd_play::{CmdNodeCreate, PlayState, Records};
+use pi_ui_render::system::base::node::cmd_play::{CmdNodeCreate, PlayState, Records};
 use pi_winit::event::{Event, WindowEvent};
 use pi_winit::event_loop::{ControlFlow, EventLoop};
 use pi_world::single_res::SingleRes;
@@ -48,7 +48,7 @@ pub trait Example: 'static + Sized {
     }
     fn font_type(&self) -> FontType { FontType::Sdf2 }
     #[cfg(feature = "debug")]
-    fn record_option(&self) -> pi_ui_render::system::cmd_play::TraceOption { pi_ui_render::system::cmd_play::TraceOption::None }
+    fn record_option(&self) -> pi_ui_render::system::base::node::cmd_play::TraceOption { pi_ui_render::system::base::node::cmd_play::TraceOption::None }
     fn play_option(&self) -> Option<PlayOption> { None }
 }
 
@@ -58,7 +58,7 @@ pub static mut RUNNER: std::cell::OnceCell<LocalTaskRunner<()>> = std::cell::Onc
 pub fn start<T: Example + Sync + Send + 'static>(example: T) {
     let play_option = example.play_option();
     let play_option1 = play_option.clone().unwrap_or_default();
-
+println!("===========   ===========");
 
     match (play_option1.play_path, play_option1.play_url, play_option1.play_way.as_str()) {
         (_, Some(url), "url") => {
@@ -228,13 +228,11 @@ pub fn start<T: Example + Sync + Send + 'static>(example: T) {
 
     let size = example.get_init_size();
     // let mut window_plugin = bevy_window::WindowPlugin::default();
-    let (width, height) = if let Some(size) = size {
-        // window_plugin.window.width = size.width as f32;
-        // window_plugin.window.height = size.height as f32;
-        (size.width, size.height)
-    } else {
-        (450, 720)
-    };
+
+
+    let event_loop = EventLoop::new();
+    #[cfg(not(target_arch = "wasm32"))]
+    let window = Arc::new(pi_winit::window::Window::new(&event_loop).unwrap());
 
     #[cfg(feature = "debug")]
     let record_option = example.record_option();
@@ -242,14 +240,6 @@ pub fn start<T: Example + Sync + Send + 'static>(example: T) {
     let exmple = Share::new(ShareMutex::new(example));
     let exmple1 = exmple.clone();
 
-    let exmple_run = move |mut commands: SingleResMut<UserCommands>| {
-        // log::warn!("zzzzzzzzzzzzzzzzzzzzzzzzbbbbbb");
-        exmple.lock().unwrap().render(&mut commands);
-    };
-
-    let event_loop = EventLoop::new();
-    #[cfg(not(target_arch = "wasm32"))]
-    let window = Arc::new(pi_winit::window::Window::new(&event_loop).unwrap());
     #[cfg(target_arch = "wasm32")]
     let (window, canvas) = {
         use pi_winit::platform::web::WindowBuilderExtWebSys;
@@ -287,8 +277,6 @@ pub fn start<T: Example + Sync + Send + 'static>(example: T) {
         }
     }
 
-    let mut app = init(width, height, &event_loop, window.clone());
-
     // // 初始化sdf的加载方法
     // if use_sdf {
     // 	log::warn!("init_load_cb1===========" );
@@ -313,43 +301,17 @@ pub fn start<T: Example + Sync + Send + 'static>(example: T) {
     // 		}).unwrap();
     // 	}));
     // }
-
-    app.world.insert_single_res(RunState::MATRIX);
-    #[cfg(feature = "debug")]
-    if let Some(play_option) = play_option {
-        app.world.insert_single_res(play_option);
-    }
-
-    #[cfg(feature = "debug")]
-    app.add_plugins(UiPlugin {
-        cmd_trace: record_option,
-        font_type,
-    });
-    #[cfg(not(feature = "debug"))]
-    app.add_plugins(UiPlugin::default());
-    exmple1.lock().unwrap().setting(&mut app);
-
-    #[cfg(feature = "debug")]
-    match record_option {
-        pi_ui_render::system::cmd_play::TraceOption::None => (),
-        pi_ui_render::system::cmd_play::TraceOption::Record => {
-            app.add_system(UiStage, record_cmd_to_file.in_set(UiSystemSet::NextSetting));
-        }
-        pi_ui_render::system::cmd_play::TraceOption::Play => {
-            app.add_system(First, setting_next_record);
-        }
-    }
-
-    app.add_system(First, exmple_run).add_startup_system(First, move |param: Param| {
-        exmple1.lock().unwrap().init(param, (width as usize, height as usize));
-    });
-
+    let mut app = App::new();
+    let mut is_init = false;
     event_loop.run(move |event, _, control_flow| {
         match event {
             Event::MainEventsCleared => {
                 window.request_redraw();
             }
             Event::RedrawRequested(_) => {
+                if !is_init {
+                    return;
+                }
                 #[cfg(not(target_arch = "wasm32"))]
                 app.run();
 
@@ -363,6 +325,63 @@ pub fn start<T: Example + Sync + Send + 'static>(example: T) {
                     }
                     app.run();
                 }
+            }
+            // kjhuijh
+            Event::Resumed => {
+                if is_init {
+                    return;
+                }
+                is_init = true;
+                let (width, height) = if let Some(size) = size {
+                    // window_plugin.window.width = size.width as f32;
+                    // window_plugin.window.height = size.height as f32;
+                    (size.width, size.height)
+                } else {
+                    #[cfg(not(target_arch = "wasm32"))] {
+                    let size = window.inner_size();
+                        (size.width, size.height)
+                    }
+            
+                    #[cfg(target_arch = "wasm32")]
+                    (450, 720)
+                };
+                
+                init(width, height, &mut app, window.clone());
+                app.world.insert_single_res(RunState::MATRIX);
+                #[cfg(feature = "debug")]
+                if let Some(play_option) = &play_option {
+                    app.world.insert_single_res(play_option.clone());
+                }
+
+                #[cfg(feature = "debug")]
+                app.add_plugins(UiPlugin {
+                    cmd_trace: record_option,
+                    font_type,
+                });
+                #[cfg(not(feature = "debug"))]
+                app.add_plugins(UiPlugin::default());
+                exmple1.lock().unwrap().setting(&mut app);
+
+                #[cfg(feature = "debug")]
+                match record_option {
+                    pi_ui_render::system::base::node::cmd_play::TraceOption::None => (),
+                    pi_ui_render::system::base::node::cmd_play::TraceOption::Record => {
+                        app.add_system(UiStage, record_cmd_to_file.in_set(UiSystemSet::NextSetting));
+                    }
+                    pi_ui_render::system::base::node::cmd_play::TraceOption::Play => {
+                        app.add_system(First, setting_next_record);
+                    }
+                }
+                let exmple2 = exmple1.clone();
+                let exmple3 = exmple1.clone();
+
+                let exmple_run = move |mut commands: SingleResMut<UserCommands>| {
+                    // log::warn!("zzzzzzzzzzzzzzzzzzzzzzzzbbbbbb");
+                    exmple2.lock().unwrap().render(&mut commands);
+                };
+                app.add_system(First, exmple_run).add_startup_system(First, move |param: Param| {
+                    exmple3.lock().unwrap().init(param, (width as usize, height as usize));
+                });
             }
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,
@@ -456,9 +475,7 @@ impl Default for PreFrameTime {
 #[allow(dead_code)]
 fn main() {}
 
-pub fn init(width: u32, height: u32, _event_loop: &EventLoop<()>, w: Arc<pi_winit::window::Window>) -> App {
-    let mut app = App::new();
-
+pub fn init(width: u32, height: u32, app: &mut App, w: Arc<pi_winit::window::Window>) {
     // let event_loop =  EventLoopBuilder::new().with_any_thread(true).build();
     // let window = winit::window::Window::new(&event_loop).unwrap();
     // window.set_inner_size(PhysicalSize {width, height});
@@ -471,16 +488,24 @@ pub fn init(width: u32, height: u32, _event_loop: &EventLoop<()>, w: Arc<pi_wini
 
     let mut o = PiRenderOptions::default();
 
+    #[cfg(not(target_os = "android"))]
     match std::env::var("GL") {
         Ok(r) if r == "opengl" => {
             o.present_mode = wgpu::PresentMode::Fifo;
             o.backends = wgpu::Backends::GL;
         }
         _ => {
+            // o.present_mode = wgpu::PresentMode::Fifo;
+            // o.backends = wgpu::Backends::GL;
             o.present_mode = wgpu::PresentMode::Mailbox;
             o.backends = wgpu::Backends::VULKAN;
         }
     };
+    #[cfg(target_os = "android")]
+    {
+        o.present_mode = wgpu::PresentMode::Fifo;
+        o.backends = wgpu::Backends::GL;
+    }
     // o.present_mode = wgpu::PresentMode::Fifo;
     // o.backends = wgpu::Backends::GL;
 
@@ -537,7 +562,6 @@ pub fn init(width: u32, height: u32, _event_loop: &EventLoop<()>, w: Arc<pi_wini
     // log::info!("aaa=============");
     // log::info!(target: "my_target", "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
     // log::log!(target: "xxxx", log::Level::Info, a="bbbbbbbb====",);
-    app
 }
 
 // // 创建root时间，设置AsImage为force
@@ -672,6 +696,7 @@ fn setting(file_index1: &mut usize, world: &mut World, is_end: &mut bool, play_o
 #[derive(SystemParam)]
 pub struct Param<'w> {
     pub insert: Insert<'w, ()>,
+    pub play_state: OrInitSingleResMut<'w, PlayState>,
     pub creates: OrInitSingleResMut<'w, CmdNodeCreate>,
     pub user_cmd: OrInitSingleResMut<'w, UserCommands>,
     pub font_sheet: Option<SingleRes<'w, ShareFontSheet>>,

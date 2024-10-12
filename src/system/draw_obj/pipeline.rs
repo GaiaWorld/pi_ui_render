@@ -23,7 +23,7 @@ use crate::{
     resource::draw_obj::Program,
 };
 
-use super::calc_text::IsRun;
+use crate::resource::IsRun;
 
 /// 计算DrawObj的pipeline
 pub fn calc_node_pipeline(

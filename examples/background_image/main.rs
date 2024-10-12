@@ -3,8 +3,6 @@
 #[path = "../framework.rs"]
 mod framework;
 
-use std::mem::swap;
-
 
 use framework::{Param, Example};
 use ordered_float::NotNan;
@@ -16,16 +14,16 @@ use pi_flex_layout::{
 };
 use pi_null::Null;
 use pi_style::{
-    style::{Aabb2, BorderRadius, CgColor, ImageRepeat, ImageRepeatOption, NotNanRect, Point2, Color},
+    style::{Aabb2, CgColor, ImageRepeat, ImageRepeatOption, NotNanRect, Point2, Color},
     style_type::{
-        BackgroundImageClipType, BackgroundImageType, BackgroundRepeatType, BorderRadiusType, FlexWrapType, HeightType, MarginLeftType,
+        BackgroundImageClipType, BackgroundImageType, BackgroundRepeatType, FlexWrapType, HeightType, MarginLeftType,
         MarginTopType, PositionLeftType, PositionTopType, PositionTypeType, WidthType, AsImageType, BackgroundColorType,
     },
 };
 use pi_ui_render::{
     components::{
         calc::EntityKey,
-        user::{ClearColor, LengthUnit, RenderDirty, Viewport},
+        user::{ClearColor, RenderDirty, Viewport},
 
     },
     resource::{NodeCmd, UserCommands},
@@ -73,23 +71,6 @@ impl Example for QuadExample {
         world.user_cmd.set_style(div1, PositionTypeType(PositionType::Relative));
         world.user_cmd
             .set_style(div1, BackgroundImageType(Atom::from("examples/z_source/dialog_bg.png")));
-        world.user_cmd.set_style(
-            div1,
-            BorderRadiusType(BorderRadius {
-                x: [
-                    LengthUnit::Pixel(10.0),
-                    LengthUnit::Pixel(10.0),
-                    LengthUnit::Pixel(10.0),
-                    LengthUnit::Pixel(10.0),
-                ],
-                y: [
-                    LengthUnit::Pixel(10.0),
-                    LengthUnit::Pixel(10.0),
-                    LengthUnit::Pixel(10.0),
-                    LengthUnit::Pixel(10.0),
-                ],
-            }),
-        );
         world.user_cmd.append(div1, root);
 
         // Repeat x轴空间超过一倍但小于两倍， y轴空间不足一倍
@@ -110,44 +91,26 @@ impl Example for QuadExample {
         );
         world.user_cmd.append(div2, root);
 
-		// Repeat, x轴空间超过两倍， 但是偶数倍
-		let div5 = world.spawn(NodeTag::Div);
-        world.user_cmd.set_style(div5, WidthType(Dimension::Points(250.0)));
-        world.user_cmd.set_style(div5, HeightType(Dimension::Points(80.0)));
-        world.user_cmd.set_style(div5, PositionTypeType(PositionType::Relative));
-		world.user_cmd.set_style(div5, PositionTopType(Dimension::Points(10.0)));
+        // Repeat x轴空间超过一倍但小于两倍， y轴超过一倍但小于两倍
+        let div2 = world.spawn(NodeTag::Div);
+        world.user_cmd.set_style(div2, WidthType(Dimension::Points(150.0)));
+        world.user_cmd.set_style(div2, HeightType(Dimension::Points(190.0)));
+        world.user_cmd.set_style(div2, PositionTypeType(PositionType::Relative));
         world.user_cmd
-            .set_style(div5, BackgroundImageType(Atom::from("examples/z_source/dialog_bg.png")));
+            .set_style(div2, BackgroundImageType(Atom::from("examples/z_source/dialog_bg.png")));
 		world.user_cmd
-            .set_style(div5, BackgroundColorType(Color::RGBA(CgColor::new(1.0, 0.0, 1.0, 1.0))));
+			.set_style(div2, BackgroundColorType(Color::RGBA(CgColor::new(0.0, 1.0, 0.0, 1.0))));
         world.user_cmd.set_style(
-            div5,
+            div2,
             BackgroundRepeatType(ImageRepeat {
                 x: ImageRepeatOption::Repeat,
                 y: ImageRepeatOption::Repeat,
             }),
         );
-        world.user_cmd.append(div5, root);
+        world.user_cmd.append(div2, root);
 
-		// Repeat, x轴空间超过两倍， 但是奇数数倍
-		let div5 = world.spawn(NodeTag::Div);
-        world.user_cmd.set_style(div5, WidthType(Dimension::Points(350.0)));
-        world.user_cmd.set_style(div5, HeightType(Dimension::Points(80.0)));
-        world.user_cmd.set_style(div5, PositionTypeType(PositionType::Relative));
-        world.user_cmd
-            .set_style(div5, BackgroundImageType(Atom::from("examples/z_source/dialog_bg.png")));
-		world.user_cmd
-            .set_style(div5, BackgroundColorType(Color::RGBA(CgColor::new(1.0, 0.0, 1.0, 1.0))));
-        world.user_cmd.set_style(
-            div5,
-            BackgroundRepeatType(ImageRepeat {
-                x: ImageRepeatOption::Repeat,
-                y: ImageRepeatOption::Repeat,
-            }),
-        );
-        world.user_cmd.append(div5, root);
 
-        // Round TODO
+        // Round 
         let div3 = world.spawn(NodeTag::Div);
         world.user_cmd.set_style(div3, WidthType(Dimension::Points(190.0)));
         world.user_cmd.set_style(div3, HeightType(Dimension::Points(80.0)));
@@ -215,31 +178,6 @@ impl Example for QuadExample {
         );
         world.user_cmd.append(div6, root);
 
-        // 圆角
-        let div7 = world.spawn(NodeTag::Div);
-        world.user_cmd.set_style(div7, WidthType(Dimension::Points(100.0)));
-        world.user_cmd.set_style(div7, HeightType(Dimension::Points(100.0)));
-        world.user_cmd.set_style(div7, PositionTypeType(PositionType::Relative));
-        world.user_cmd.set_style(
-            div7,
-            BorderRadiusType(BorderRadius {
-                x: [
-                    LengthUnit::Pixel(50.0),
-                    LengthUnit::Pixel(50.0),
-                    LengthUnit::Pixel(50.0),
-                    LengthUnit::Pixel(50.0),
-                ],
-                y: [
-                    LengthUnit::Pixel(50.0),
-                    LengthUnit::Pixel(50.0),
-                    LengthUnit::Pixel(50.0),
-                    LengthUnit::Pixel(50.0),
-                ],
-            }),
-        );
-        world.user_cmd
-            .set_style(div7, BackgroundImageType(Atom::from("examples/z_source/3675173.jpg")));
-        world.user_cmd.append(div7, root);
     }
 
     fn render(&mut self, cmd: &mut UserCommands) {  }

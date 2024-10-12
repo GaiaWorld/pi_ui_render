@@ -10,12 +10,16 @@ use crate::resource::{
 use pi_assets::asset::Handle;
 use pi_atom::Atom;
 use pi_hash::XHashSet;
+use pi_null::Null;
+use pi_polygon::PolygonIndices;
 use pi_postprocess::image_effect::PostProcessDraw;
 use pi_render::{renderer::draw_obj::DrawObj as DrawState1, rhi::asset::{TextureRes, AssetWithId}, components::view::target_alloc::ShareTargetView};
 use pi_share::Share;
+use pi_style::style::{CgColor, OuterGlow};
 use pi_world::insert::Component;
+use smallvec::SmallVec;
 
-use super::{calc::{BorderImageTexture, BackgroundImageTexture}, user::{Canvas, BackgroundColor, BorderColor, BoxShadow, TextContent, SvgContent, SvgInnerContent}};
+use super::{calc::{BackgroundImageTexture, BorderImageTexture}, user::{BackgroundColor, BorderColor, BoxShadow, Canvas, SvgContent, SvgInnerContent, TextContent, TextOuterGlow, TextShadow}};
 pub use super::root::{CopyFboToScreen, DynTargetType};
 use std::marker::ConstParamTy;
 
@@ -49,7 +53,7 @@ pub struct DrawState(DrawState1);
 // }
 
 /// 是否使用单位四边形渲染
-#[derive(EnumDefault, PartialEq, Eq, Debug, Component, ConstParamTy)]
+#[derive(EnumDefault, PartialEq, Eq, Debug, Component, ConstParamTy, Copy, Clone)]
 pub enum BoxType {
     /// 渲染为padding区，世界矩阵不变换
     Padding,
@@ -57,6 +61,47 @@ pub enum BoxType {
     Content,
     /// 渲染为border区，世界矩阵不变换
     Border,
+	/// None, 自定义BoxLayout
+	None
+}
+
+// 临时的几何数据
+#[derive(Debug, Default, Clone)]
+pub struct TempGeo {
+	pub polygons: PolygonType, // 
+	pub colors: VColor,
+	pub sdf_px_range: f32,
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct TempGeoBuffer { 
+	pub positions: Vec<f32>,
+	pub sdf_uvs: Vec<f32>,
+	pub uvs: Vec<f32>,
+	pub colors: Vec<f32>,
+}
+
+impl TempGeoBuffer {
+	pub fn clear(&mut self) {
+		self.positions.clear();
+		self.sdf_uvs.clear();
+		self.uvs.clear();
+		self.colors.clear();
+	}
+}
+
+#[derive(Debug, EnumDefault, Clone)]
+pub enum VColor {
+	CgColor(CgColor),
+	Linear,	
+}
+
+#[derive(Debug, EnumDefault, Clone)]
+pub enum PolygonType {
+	Rule(usize, Range<usize>), // 规则多边形
+	NoRule(PolygonIndices), // 不规则多边形
+	Triangle(Vec<u16>), // 三角形
+	Rect(Range<usize>), // 矩形（mins、max表示一个矩形）
 }
 
 // /// vs shader的宏开关
@@ -140,8 +185,12 @@ pub struct SvgMark;
 
 // 标记文字阴影 放在DrawObject原型中，可以区分不同类型的DarwObject， 使得系统能够更好的并行
 // TextShadowMark.0表示是第几个Shadow创建的DrawObj
-#[derive(Debug, Default, Deref, Component)]
-pub struct TextShadowMark(pub usize);
+#[derive(Debug, Default, Component)]
+pub struct TextShadowMark;
+
+#[derive(Debug, Default, Component)]
+pub struct TextOuterGlowMark;
+
 
 // 标记BorderColor 放在DrawObject原型中，可以区分不同类型的DarwObject， 使得系统能够更好的并行
 #[derive(Debug, Default, Component)]
@@ -197,12 +246,46 @@ pub struct FboInfo {
 pub enum InstanceSplit {
 	ByTexture(Handle<AssetWithId<TextureRes>>),
 	ByCross(bool), // 交叉渲染， 表示该节点的渲染为一个外部系统的渲染， bool表示是否用运行图的方式渲染（如果是false，则为外部渲染为一个fbo，gui内部需要将其作为渲染对象渲染）
+	ByFbo(Option<ShareTargetView>),
 }
 
 #[derive(Debug, Deref, Component)]
 pub struct Pipeline(pub Share<wgpu::RenderPipeline>);
 
 // DepthUniform
+
+pub trait DrawCount {
+	fn draw_count(&self) -> usize {
+		Null::null()
+	}
+}
+
+impl DrawCount for Canvas {}
+
+impl DrawCount for BackgroundColor {}
+
+impl DrawCount for BorderColor {}
+
+impl DrawCount for BoxShadow {}
+
+impl DrawCount for SvgContent {}
+
+impl DrawCount for SvgInnerContent {}
+
+impl DrawCount for BorderImageTexture {}
+
+impl DrawCount for BackgroundImageTexture {}
+
+impl DrawCount for TextContent {}
+
+impl DrawCount for TextOuterGlow {}
+
+impl DrawCount for TextShadow {
+	fn draw_count(&self) -> usize {
+		self.len()
+	}
+}
+
 
 pub trait HasDraw {
 	fn has_draw(&self) -> bool {true}
@@ -234,7 +317,13 @@ impl HasDraw for SvgContent {}
 
 impl HasDraw for SvgInnerContent {}
 
+impl HasDraw for TextOuterGlow {}
 
+impl HasDraw for TextShadow {
+	fn has_draw(&self) -> bool {
+		self.len() > 0
+	}
+}
 
 pub trait GetInstanceSplit {
 	fn get_split(&self) -> Option<InstanceSplit>;
@@ -298,5 +387,17 @@ impl GetInstanceSplit for SvgContent {
 impl GetInstanceSplit for SvgInnerContent {
 	fn get_split(&self) -> Option<InstanceSplit> {
 		None
+	}
+}
+
+impl GetInstanceSplit for TextOuterGlow {
+	fn get_split(&self) -> Option<InstanceSplit> {
+		Some(InstanceSplit::ByFbo(None))
+	}
+}
+
+impl GetInstanceSplit for TextShadow {
+	fn get_split(&self) -> Option<InstanceSplit> {
+		Some(InstanceSplit::ByFbo(None))
 	}
 }

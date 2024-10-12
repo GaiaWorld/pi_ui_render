@@ -1,11 +1,10 @@
-use crate::components::user::{SvgFilter, SvgFilterBlurLevel, SvgFilterOffset, SvgInnerContent};
+use crate::{components::user::{SvgFilter, SvgFilterBlurLevel, SvgFilterOffset, SvgInnerContent}, resource::IsRun};
 
 use pi_world::prelude::{Entity, Changed, Query};
 use pi_bevy_ecs_extend::system_param::{res::OrInitSingleRes, tree::Up};
 use pi_style::style::CgColor;
 
 
-use crate::system::draw_obj::calc_text::IsRun;
 // use super::IsRun;
 
 

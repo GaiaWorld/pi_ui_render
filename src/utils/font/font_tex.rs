@@ -1,4 +1,4 @@
-use pi_share::{Share};
+use pi_share::Share;
 use pi_hash::XHashMap;
 
 use crate::components::user::Point2;

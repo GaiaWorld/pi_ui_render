@@ -1,20 +1,32 @@
-use pi_style::style::StyleType;
-use pi_world::event::{ComponentChanged, ComponentRemoved};
+use pi_flex_layout::prelude::Rect;
+use pi_style::style::{Aabb2, CgColor, Point2, StyleType};
+use pi_world::event::{ComponentAdded, ComponentChanged, ComponentRemoved};
+use pi_world::filter::Or;
 use pi_world::prelude::{Changed, With, Query, Plugin, IntoSystemConfigs};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, OrInitSingleRes};
-use pi_world::single_res::SingleRes;
+use pi_world::single_res::{SingleRes, SingleResMut};
+use std::hash::Hash;
+use std::hash::Hasher;
+use pi_world::world::Entity;
+use std::ops::Range;
 
-use crate::components::calc::{style_bit, DrawList, StyleBit, StyleMarkType};
-use crate::components::draw_obj::{BoxShadowMark, BoxType, InstanceIndex};
-use crate::resource::{BoxShadowRenderObjType, GlobalDirtyMark};
+use crate::components::calc::{style_bit, DrawList, LayoutResult, StyleBit, StyleMarkType};
+use crate::components::draw_obj::{BoxShadowMark, BoxType, InstanceIndex, RenderCount};
+use crate::resource::{BoxShadowRenderObjType, GlobalDirtyMark, OtherDirtyType, ShareFontSheet};
 use crate::resource::draw_obj::InstanceContext;
-use crate::shader1::meterial::{RenderFlagType, ColorUniform, TyUniform, BoxShadowUniform};
 use crate::components::user::BoxShadow;
+use crate::shader1::batch_meterial::{ColorUniform, SdfUniform, StrokeColorUniform};
+use crate::system::base::node::layout::calc_layout;
+use crate::system::draw_obj::geo_split::{grid_split_simple, set_grid_instance};
 use crate::system::system_set::UiSystemSet;
 use crate::prelude::UiStage;
 
-use super::calc_text::IsRun;
-use super::life_drawobj;
+use crate::system::base::draw_obj::life_drawobj::{self, update_render_instance_data};
+use crate::resource::IsRun;
+use crate::utils::tools::calc_hash;
+
+use super::calc_border_image::BorderImageTemp;
+use super::geo_split::GridBufer;
 
 pub struct BoxShadowPlugin;
 
@@ -28,9 +40,9 @@ impl Plugin for BoxShadowPlugin {
 			life_drawobj::draw_object_life_new::<
 				BoxShadow,
 				BoxShadowRenderObjType,
-				(BoxShadowMark, ),
+				(BoxShadowMark, RenderCount),
 				{ BOX_SHADOW_ORDER },
-				{ BoxType::Border },
+				{ BoxType::None },
 			>
 				.in_set(UiSystemSet::LifeDrawObject)
 				.run_if(box_shadow_life_change)
@@ -39,71 +51,173 @@ impl Plugin for BoxShadowPlugin {
 		.add_system(
 			UiStage, 
 			calc_box_shadow
-				.after(super::super::node::layout::calc_layout)
+				.after(crate::system::base::node::layout::calc_layout)
 				.in_set(UiSystemSet::PrepareDrawObj)
 				.run_if(box_shadow_change)
-		);
+		)
+		.add_system(UiStage, 
+			calc_box_shadow_instace_count
+				.after(UiSystemSet::LifeDrawObjectFlush)
+				.before(update_render_instance_data)
+				.after(calc_layout)
+				.run_if(box_shadow_change)
+		)
+		;
     }
 }
 
 pub const BOX_SHADOW_ORDER: u8 = 1;
 
+#[derive(Default)]
+pub struct BoxShadowTemp (pub GridBufer, pub Vec<(Entity, CgColor, [(Range<usize>, Range<usize>); 9])>);
+
 /// 设置设置boxShadow颜色、偏移、模糊半径
-pub fn calc_box_shadow(
-	mut instances: OrInitSingleResMut<InstanceContext>,
-    query: Query<(&BoxShadow, &DrawList), Changed<BoxShadow>>,
+pub fn calc_box_shadow_instace_count(
+	font_sheet: SingleResMut<ShareFontSheet>,
+	mut grid_buffer: OrInitSingleResMut<BoxShadowTemp>,
+    query: Query<(&BoxShadow, &DrawList, &LayoutResult), Or<(Changed<BoxShadow>, Changed<LayoutResult>)>>,
 	changed: ComponentChanged<BoxShadow>,
-    mut query_draw: Query<&InstanceIndex, With<BoxShadowMark>>,
+	added: ComponentAdded<BoxShadow>,
+    mut query_draw: Query<&mut RenderCount, With<BoxShadowMark>>,
 	r: OrInitSingleRes<IsRun>,
 	render_type: OrInitSingleRes<BoxShadowRenderObjType>,
+	mut global_mark: OrInitSingleResMut<GlobalDirtyMark>,
 ) {
 	if r.0 {
 		return;
 	}
-	log::trace!("bg========================");
+	log::debug!("calc_box_shadow_instace_count========================");
 	let render_type = ***render_type;
+	let mut font_sheet = font_sheet.borrow_mut();
+	let sdf2_table = &mut font_sheet.font_mgr_mut().table.sdf2_table;
+	let grid_buffer = &mut **grid_buffer;
 
-	for entity in changed.iter() {
-		if let Ok((box_shadow, draw_list)) = query.get(*entity) {
+	for entity in changed.iter().chain(added.iter()) {
+		log::debug!("calc_box_shadow_instace_count0========================");
+		if let Ok((box_shadow, draw_list, layout)) = query.get(*entity) {
+			log::debug!("calc_box_shadow_instace_count1========================");
 			let draw_id = match draw_list.get_one(render_type) {
 				Some(r) => r.id,
 				None => continue,
 			};
-			if let Ok(instance_index) = query_draw.get_mut(draw_id) {
-				// 节点可能设置为dispaly none， 此时instance_index可能为Null
-				if pi_null::Null::is_null(&instance_index.0.start) {
-					continue;
-				}
-				
-				let mut instance_data = instances.instance_data.instance_data_mut(instance_index.0.start);
-				let mut render_flag = instance_data.get_render_ty();
-	
-				// if box_shadow.is_changed(){
-					render_flag |= 1 << RenderFlagType::BoxShadow as usize;
-	
-					instance_data.set_data(&ColorUniform(&[box_shadow.color.x, box_shadow.color.y, box_shadow.color.z, box_shadow.color.w].as_slice()));
-					instance_data.set_data(&BoxShadowUniform([box_shadow.h, box_shadow.v, box_shadow.spread, box_shadow.blur].as_slice()));
-					instance_data.set_data(&TyUniform(&[render_flag as f32]));
-				// }
-	
-				// 这里世界矩阵和layout的设置，不单独抽取到一个system中， 有由当前设计的数据结构决定的
-				// 当前的实例数据，将每个drawobj所有数据放在一个连续的内存中，当修改材质数据和修改世界矩阵、布局是连续的操作是，缓冲命中率高
-				// 而像clip这类不是每个draw_obj都具有的属性，可以单独在一个system设置，不怎么会影响性能
-				// let is_add = box_shadow.is_added();
-				// if is_add || world_matrix.is_changed() {
-				// 	instance_data.set_data(&WorldUniform(world_matrix.as_slice()));
-					
-				// }
-				// if is_add || layout.is_changed() {
-				// 	instance_data.set_data(&BoxUniform(layout.border_box().as_slice()));
-				// }
-	
-				// if is_add || layout.is_changed() || world_matrix.is_changed() {
-					// set_box(&world_matrix, &layout.border_aabb(), &mut instance_data);
-				// }
+			log::debug!("calc_box_shadow_instace_count2========================");
+
+			let mut render_count = query_draw.get_mut(draw_id).unwrap();
+
+			let layout_width = layout.rect.width();
+			let layout_height = layout.rect.height();
+
+			let info = BoxShadowInfo::new(box_shadow.blur, box_shadow.spread, layout_width, layout_height);
+
+			let hash = calc_hash(&info, 0);
+
+			let sdf_glyph = match sdf2_table.shapes_shadow_tex_info.get(&(hash, info.blur as u32)) {
+                Some(r) => r,
+                None => {
+                    sdf2_table.add_box_shadow(
+						hash,  
+						Aabb2::new(Point2::new(0.0, 0.0), Point2::new(info.sdf_width as f32, info.sdf_height as f32)),
+						info.sdf_height.max(info.sdf_width),
+						info.blur as u32);
+                    sdf2_table.shapes_shadow_tex_info.get(&(hash, info.blur as u32)).unwrap()
+                },
+            };
+
+			let extend = info.blur as f32 + box_shadow.spread;
+			let blur2 = info.blur as f32 * 2.0;
+
+			let mut layout_rect = layout.border_rect();
+			layout_rect.left = layout_rect.left - extend + box_shadow.h;
+			layout_rect.top = layout_rect.top - extend + box_shadow.v;
+			layout_rect.right = layout_rect.right + extend + box_shadow.h;
+			layout_rect.bottom = layout_rect.bottom + extend + box_shadow.v;
+
+			let layout_slice = Rect {
+				left: layout_rect.left + blur2,
+				right: layout_rect.right - blur2,
+				top: layout_rect.top + blur2,
+				bottom: layout_rect.bottom - blur2,
+			};
+
+			let sdf_slice = Rect {
+				top: sdf_glyph.y as f32 + info.blur as f32,
+				left: sdf_glyph.x as f32 + info.blur as f32,
+				right: sdf_glyph.x as f32 + sdf_glyph.width as f32 - info.blur as f32,
+				bottom: sdf_glyph.y as f32 + sdf_glyph.height as f32 - info.blur as f32,
+			};
+
+			let sdf_uv = Rect {
+				top: sdf_slice.top - blur2,
+				left: sdf_slice.left - blur2,
+				right: sdf_slice.right  + blur2,
+				bottom: sdf_slice.bottom + blur2,
+			};
+
+			let (count, range) = grid_split_simple(
+				&mut grid_buffer.0, 
+				&layout_rect,
+				&sdf_uv,
+				&sdf_slice,
+				&layout_slice
+			);
+			log::debug!("box_shadow======{:?}", (count, &range, sdf_glyph, layout_rect, layout_slice, box_shadow, layout.border_rect()));
+			grid_buffer.1.push((draw_id, box_shadow.color.clone(), range));
+
+
+			if render_count.0 != count as u32 {
+				render_count.0 = count as u32;
+				global_mark.mark.set(OtherDirtyType::InstanceCount as usize, true);
 			}
 		}
 	}
+}
+
+/// 设置边框颜色的顶点、索引、和边框颜色uniform
+pub fn calc_box_shadow(
+	mut grid_buffer: OrInitSingleResMut<BoxShadowTemp>,
+	mut instances: OrInitSingleResMut<InstanceContext>,
+
+	query_draw: Query<&InstanceIndex, With<BoxShadowMark>>,
+	r: OrInitSingleRes<IsRun>,
+) {
+	if r.0 {
+		return;
+	}
+	log::debug!("calc_box_shadow0======");
+	let grid_buffer = &mut **grid_buffer;
+	// log::trace!("bg image========================{:?}", (mark.mark.has_any(&*BACKGROUND_TEXTURE_DIRTY1), mark.mark.has_any(&*BACKGROUND_TEXTURE_DIRTY2)));
+	for (draw_id, color, range) in grid_buffer.1.drain(..) {
+		log::debug!("calc_box_shadow======{:?}", (&color, &range));
+		if let Ok(instanceindex) = query_draw.get(draw_id) {
+			let mut start = instanceindex.start;
+			for (x_range, y_range) in range {
+				start = set_grid_instance(
+					&grid_buffer.0,
+					x_range,
+					y_range,
+					start,
+					&mut instances,
+				);
+			}
+			
+			let alignment = instances.instance_data.alignment;
+			instances.instance_data.set_data_mult(instanceindex.start, (instanceindex.end - instanceindex.start) / alignment, &StrokeColorUniform(&[
+				color.x, color.y, color.z, color.w
+			]));
+			instances.instance_data.set_data_mult(instanceindex.start, (instanceindex.end - instanceindex.start) / alignment, &ColorUniform(&[
+				color.x, color.y, color.z, color.w
+			]));
+			instances.instance_data.set_data_mult(instanceindex.start, (instanceindex.end - instanceindex.start) / alignment, &SdfUniform(&[
+				1.0, -0.5, 0.0,
+			]));
+
+			log::debug!("calc_box_shadow==={:?}", (draw_id, color));
+			
+		}
+	}
+
+	grid_buffer.0.positions.clear();
+	grid_buffer.0.sdf_uvs.clear();
 }
 
 lazy_static! {
@@ -113,6 +227,7 @@ lazy_static! {
 }
 
 pub fn box_shadow_change(mark: SingleRes<GlobalDirtyMark>) -> bool {
+	// log::warn!("box_shadow_change==========={:?}", mark.mark.has_any(&*BOX_SHADOW_DIRTY));
 	mark.mark.has_any(&*BOX_SHADOW_DIRTY)
 }
 
@@ -120,6 +235,60 @@ pub fn box_shadow_life_change(mark: SingleRes<GlobalDirtyMark>, removed: Compone
 	let r = removed.len() > 0 || mark.mark.get(StyleType::BoxShadow as usize).map_or(false, |display| {*display == true});
 	removed.mark_read();
 	r
+}
+
+#[derive(Debug)]
+struct BoxShadowInfo {
+    pub blur: usize,
+	pub ty: usize, // 阴影为什么类型（ 0： 宽度高度都不大于模糊半径，1：宽度大于， 但高度不大于， 2. 高度大于， 但宽度不大于， 3： 宽度， 高度都大于）
+	pub sdf_width: usize,
+	pub sdf_height: usize,
+}
+
+impl BoxShadowInfo {
+	fn new(blur: f32, spread: f32, mut width: f32, mut height: f32) -> BoxShadowInfo {
+		let spread_2 = spread * 2.0;
+		width = width + spread_2;
+		height = height + spread_2;
+		let blur = blur.round() as usize;
+		let mut info = BoxShadowInfo {
+			blur,
+			ty: 0,
+			sdf_width: 0,
+			sdf_height: 0,
+		};
+
+		let blur_size = blur * 3;
+		let size = (blur_size as f32 / 32.0 -0.001).ceil() as usize * 32;
+		if width > blur_size as f32 {
+			info.ty += 1;
+			// 如果是宽度更大，则渲染一个固定尺寸的sdf
+			info.sdf_width = size;
+		} else {
+			// 否则渲染width对应尺寸的sdf
+			info.sdf_width = width as usize;
+		}
+		if height > blur_size as f32 {
+			// 如果是高度更大，则渲染一个固定尺寸的sdf
+			info.ty += 2;
+			info.sdf_height = size;
+		} else {
+			// 否则渲染height对应尺寸的sdf
+			info.sdf_height = height as usize;
+		}
+
+		info
+	}
+}
+
+impl Hash for BoxShadowInfo {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+		"box_shadow".hash(state);
+		self.ty.hash(state);
+		self.sdf_width.hash(state);
+		self.sdf_height.hash(state);
+        self.blur.hash(state);
+    }
 }
 
 

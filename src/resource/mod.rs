@@ -92,6 +92,8 @@ pub struct UserCommandsCache(pub UserCommands);
 // }
 
 
+#[derive(Debug, Default)]
+pub struct IsRun(pub bool);
 /// 用户指令
 #[derive(Default)]
 pub struct UserCommands {
@@ -570,7 +572,24 @@ impl FromWorld for TextShadowRenderObjType {
             world,
             ty,
             DrawObjDefault {
-                blend_state: CommonBlendState::PREMULTIPLY,
+                blend_state: CommonBlendState::NORMAL,
+            },
+        );
+        Self(ty)
+    }
+}
+
+// 文字阴影渲染类型（在DrawList中分配槽位）
+#[derive(Debug, Deref, Clone, Copy)]
+pub struct TextOuterGlowRenderObjType(RenderObjType);
+impl FromWorld for TextOuterGlowRenderObjType {
+    fn from_world(world: &mut World) -> Self {
+        let ty = RenderObjType::from_world(world);
+        DrawObjDefault::add(
+            world,
+            ty,
+            DrawObjDefault {
+                blend_state: CommonBlendState::NORMAL,
             },
         );
         Self(ty)

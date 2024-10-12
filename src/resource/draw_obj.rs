@@ -33,15 +33,7 @@ use wgpu::{
 use pi_render::rhi::shader::Input;
 
 use crate::{
-    components::{calc::{StyleMarkType, WorldMatrix}, pass_2d::{CacheTarget, DrawElement, InstanceDrawState}},
-	shader1::{meterial::{CameraBind, MeterialBind, PositionVert, ProjectUniform, ViewUniform}, GpuBuffer},
-    // shader::{
-    //     depth::{DepthBind, DepthUniform},
-    //     ui_meterial::UiMaterialBind, 
-    //     color::PositionVert,
-    // },
-    // system::draw_obj::clear_draw_obj::create_clear_pipeline_state,
-    utils::tools::{calc_float_hash, calc_hash},
+    components::{calc::WorldMatrix, pass_2d::{CacheTarget, DrawElement, InstanceDrawState}}, resource::ShareFontSheet, shader1::{batch_gauss_blur::{self, BatchGussMeterial, GussMeterialBind}, batch_meterial::{vert_layout, CameraBind, MeterialBind, PositionVert, ProjectUniform, Sdf2TextureSizeUniform, ViewUniform}, batch_sdf_glow::{self, BatchGlowMeterial, GlowMeterialBind}, batch_sdf_gray::{self, BatchGrayMeterial, GrayMeterialBind}, GpuBuffer}, utils::tools::{calc_float_hash, calc_hash}
 };
 
 // /// 一组纹理的绑定， 用于实例化渲染
@@ -118,10 +110,11 @@ impl BatchTexture {
 			mip_level_count: 1,
 			sample_count: 1,
 			dimension: wgpu::TextureDimension::D2,
-			format: TextureFormat::R8Unorm,
+			format: TextureFormat::Rgba8Unorm,
 			usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
 			view_formats: &[],
 		});
+        
 		let texture_view = default_texture.create_view(&TextureViewDescriptor::default());
 		let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
 			label: Some("default sampler"),
@@ -276,6 +269,10 @@ impl BatchTexture {
 #[derive(Default, Debug)]
 pub struct LastGraphNode(pub NodeId);
 
+// gui子图
+#[derive(Default, Debug)]
+pub struct GuiSubGraphNode(pub NodeId);
+
 pub struct InstanceContext {
 	pub vert: RenderVertices,
 
@@ -291,8 +288,24 @@ pub struct InstanceContext {
 	pub clear_pipeline: Share<wgpu::RenderPipeline>,
     pub mask_image_pipeline: Share<wgpu::RenderPipeline>,
 
+    pub text_gray_pipeline: Share<wgpu::RenderPipeline>,
+    pub text_shadow_pipeline: Share<wgpu::RenderPipeline>,
+    pub text_glow_pipeline: Share<wgpu::RenderPipeline>,
+
 	pub instance_data: GpuBuffer,
 	pub instance_buffer: Option<(wgpu::Buffer, usize)>,
+
+    pub text_gray_instance_data: GpuBuffer,
+	pub text_gray_instance_buffer: Option<(wgpu::Buffer, usize)>,
+
+    pub text_shadow_h_instance_data: GpuBuffer,
+	pub text_shadow_h_instance_buffer: Option<(wgpu::Buffer, usize)>,
+
+    pub text_shadow_v_instance_data: GpuBuffer,
+	pub text_shadow_v_instance_buffer: Option<(wgpu::Buffer, usize)>,
+
+    pub text_glow_instance_data: GpuBuffer,
+	pub text_glow_instance_buffer: Option<(wgpu::Buffer, usize)>,
 
 	// // 深度buffer
 	pub depth_data: GpuBuffer,
@@ -306,6 +319,7 @@ pub struct InstanceContext {
 	pub camera_alloter: ShareGroupAlloter<CameraGroup>,
 
 	pub pipeline_layout: PipelineLayout,
+    pub text_effect_pipeline_layout: PipelineLayout,
 
 	pub default_camera: BufferGroup,
 
@@ -339,10 +353,10 @@ impl InstanceContext {
         // log::warn!("draw====={:?}", (render_state.reset, &instance_draw.texture_bind_group, &render_state.texture));
         if render_state.reset  {
             if let Some(texture) = &self.sdf2_texture_group {
-                rp.set_bind_group(2, texture, &[]);
+                rp.set_bind_group(1, texture, &[]);
             }
             if let Some(texture) = &instance_draw.texture_bind_group {
-                rp.set_bind_group(1, texture, &[]);
+                rp.set_bind_group(2, texture, &[]);
                 render_state.texture = texture.clone();
             }
             rp.set_vertex_buffer(0, self.vert.slice());
@@ -351,7 +365,7 @@ impl InstanceContext {
         } else {   
             if let Some(texture) = &instance_draw.texture_bind_group {
                 if !Share::ptr_eq(&texture, &render_state.texture) {
-                    rp.set_bind_group(1, texture, &[]);
+                    rp.set_bind_group(2, texture, &[]);
                     render_state.texture = texture.clone();
                 }
             };
@@ -373,6 +387,52 @@ impl InstanceContext {
         }
         #[cfg(not(debug_assertions))]
         rp.draw(0..6, instance_draw.instance_data_range.start as u32/self.instance_data.alignment as u32..instance_draw.instance_data_range.end as u32/self.instance_data.alignment as u32);
+
+	}
+
+
+    pub fn draw_effect<'a>(
+        &'a self, 
+        rp: &mut RenderPass<'a>, 
+        instance_draw: &'a InstanceDrawState, 
+        instance_buffer: &'a Option<(wgpu::Buffer, usize)>, 
+        instance_data: &'a GpuBuffer, 
+        render_state: &mut RenderState) {
+        // log::warn!("draw_effect====={:?}", (render_state.reset, &instance_draw.instance_data_range, &instance_draw.texture_bind_group, &render_state.texture));
+        if render_state.reset  {
+            if let Some(texture) = &instance_draw.texture_bind_group {
+                rp.set_bind_group(1, texture, &[]);
+                render_state.texture = texture.clone();
+            }
+            rp.set_vertex_buffer(0, self.vert.slice());
+		    rp.set_vertex_buffer(1, instance_buffer.as_ref().unwrap().0.slice(..));
+            render_state.reset = false;
+        } else {   
+            if let Some(texture) = &instance_draw.texture_bind_group {
+                if !Share::ptr_eq(&texture, &render_state.texture) {
+                    rp.set_bind_group(1, texture, &[]);
+                    render_state.texture = texture.clone();
+                }
+            };
+        }
+
+        // log::warn!("darw================={:?}", instance_draw.instance_data_range.start as u32/self.instance_data.alignment as u32..instance_draw.instance_data_range.end as u32/self.instance_data.alignment as u32 );
+        // log::warn!("instance_data_range====={:?}", (&instance_draw.instance_data_range, instance_draw.instance_data_range.start as u32/self.instance_data.alignment as u32..instance_draw.instance_data_range.end as u32/self.instance_data.alignment as u32));
+		#[cfg(debug_assertions)]
+        {
+            for i in instance_draw.instance_data_range.start as u32/instance_data.alignment as u32..instance_draw.instance_data_range.end as u32/instance_data.alignment as u32 {
+                // let debug_info = self.debug_info.get(i as usize/MeterialBind::SIZE);
+                // let index = i as usize * instance_data.alignment;
+                // let render_flag = instance_data.get_render_ty(index as u32);
+                // if render_flag == 0 {
+                //     panic!("!!!!!!!!!!!!!!, {}", index);
+                // }
+                // log::warn!("instance_data_range effect====={:?}", (i, i as u32/instance_data.alignment as u32));
+                rp.draw(0..6, i..i+1);
+            } 
+        }
+        #[cfg(not(debug_assertions))]
+        rp.draw(0..6, instance_draw.instance_data_range.start as u32/instance_data.alignment as u32..instance_draw.instance_data_range.end as u32/instance_data.alignment as u32);
 
 	}
 }
@@ -432,42 +492,43 @@ impl FromWorld for InstanceContext {
 
 		let text_texture_layout =(****device).create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
 			label: None,
-			entries: &[wgpu::BindGroupLayoutEntry {
-				binding: 0,
-				visibility: ShaderStages::FRAGMENT,
-				ty: BindingType::Texture { sample_type: TextureSampleType::Float { filterable: true }, view_dimension: TextureViewDimension::D2, multisampled: false },
-				count: None,
-			},
-            wgpu::BindGroupLayoutEntry {
-				binding: 1,
-				visibility: ShaderStages::FRAGMENT,
-				ty: BindingType::Sampler(SamplerBindingType::Filtering),
-				count: None,
-			},
-			wgpu::BindGroupLayoutEntry {
-				binding: 2,
-				visibility: ShaderStages::FRAGMENT,
-				ty: BindingType::Texture { sample_type: TextureSampleType::Float { filterable: true }, view_dimension: TextureViewDimension::D2, multisampled: false },
-				count: None,
-			},
-			wgpu::BindGroupLayoutEntry {
-				binding: 3,
-				visibility: ShaderStages::FRAGMENT,
-				ty: BindingType::Sampler(SamplerBindingType::Filtering),
-				count: None,
-			},
-            wgpu::BindGroupLayoutEntry {
-				binding: 4,
-				visibility: ShaderStages::FRAGMENT,
-				ty: BindingType::Texture { sample_type: TextureSampleType::Float { filterable: true }, view_dimension: TextureViewDimension::D2, multisampled: false },
-				count: None,
-			},
-			wgpu::BindGroupLayoutEntry {
-				binding: 5,
-				visibility: ShaderStages::FRAGMENT,
-				ty: BindingType::Sampler(SamplerBindingType::Filtering),
-				count: None,
-			}
+			entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Texture { sample_type: TextureSampleType::Float { filterable: true }, view_dimension: TextureViewDimension::D2, multisampled: false },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Sampler(SamplerBindingType::Filtering),
+                    count: None,
+                },
+                // wgpu::BindGroupLayoutEntry {
+                // 	binding: 2,
+                // 	visibility: ShaderStages::FRAGMENT,
+                // 	ty: BindingType::Texture { sample_type: TextureSampleType::Float { filterable: true }, view_dimension: TextureViewDimension::D2, multisampled: false },
+                // 	count: None,
+                // },
+                // wgpu::BindGroupLayoutEntry {
+                // 	binding: 3,
+                // 	visibility: ShaderStages::FRAGMENT,
+                // 	ty: BindingType::Sampler(SamplerBindingType::Filtering),
+                // 	count: None,
+                // },
+                // wgpu::BindGroupLayoutEntry {
+                // 	binding: 4,
+                // 	visibility: ShaderStages::FRAGMENT,
+                // 	ty: BindingType::Texture { sample_type: TextureSampleType::Float { filterable: true }, view_dimension: TextureViewDimension::D2, multisampled: false },
+                // 	count: None,
+                // },
+                // wgpu::BindGroupLayoutEntry {
+                // 	binding: 5,
+                // 	visibility: ShaderStages::FRAGMENT,
+                // 	ty: BindingType::Sampler(SamplerBindingType::Filtering),
+                // 	count: None,
+                // }
             ],
 		});
 		// let default_texture_group = Share::new((***device).create_bind_group(&wgpu::BindGroupDescriptor {
@@ -495,7 +556,7 @@ impl FromWorld for InstanceContext {
 		let vs = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some(&"ui_vs"),
             source: wgpu::ShaderSource::Glsl {
-                shader: Cow::Borrowed(include_str!("../shader1/shader.vert")),
+                shader: Cow::Borrowed(include_str!("../shader1/batch_shader.vert")),
                 stage: naga::ShaderStage::Vertex,
                 defines: naga::FastHashMap::default(),
             },
@@ -503,7 +564,7 @@ impl FromWorld for InstanceContext {
         let fs = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some(&"ui_fs"),
             source: wgpu::ShaderSource::Glsl {
-                shader: Cow::Borrowed(include_str!("../shader1/shader.frag")),
+                shader: Cow::Borrowed(include_str!("../shader1/batch_shader.frag")),
                 stage: naga::ShaderStage::Fragment,
                 defines: naga::FastHashMap::default(),
             },
@@ -511,18 +572,18 @@ impl FromWorld for InstanceContext {
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("ui_shader"),
-            bind_group_layouts: &[&*uniform_layout, &batch_texture.group_layout, &text_texture_layout],
+            bind_group_layouts: &[&*uniform_layout, &text_texture_layout, &batch_texture.group_layout],
             push_constant_ranges: &[],
         });
 
 		let common_blend_state_hash = calc_hash(&CommonBlendState::NORMAL, 0);
-		let common_pipeline = Share::new(create_render_pipeline(&device, &pipeline_layout, &vs, &fs, Some(CommonBlendState::NORMAL), CompareFunction::GreaterEqual, true));
+		let common_pipeline = Share::new(create_render_pipeline("common_pipeline ui", &device, &pipeline_layout, &vs, &fs, Some(CommonBlendState::NORMAL), CompareFunction::GreaterEqual, true, wgpu::TextureFormat::pi_render_default(), vert_layout().as_slice(), MeterialBind::SIZE));
 
 		let premultiply_blend_state_hash = calc_hash(&CommonBlendState::PREMULTIPLY, 0);
-		let premultiply_pipeline = Share::new(create_render_pipeline(&device, &pipeline_layout, &vs, &fs, Some(CommonBlendState::PREMULTIPLY), CompareFunction::GreaterEqual, true));
+		let premultiply_pipeline = Share::new(create_render_pipeline("premultiply_pipeline ui", &device, &pipeline_layout, &vs, &fs, Some(CommonBlendState::PREMULTIPLY), CompareFunction::GreaterEqual, true, wgpu::TextureFormat::pi_render_default(), vert_layout().as_slice(), MeterialBind::SIZE));
 
 		let clear_blend_state_hash = calc_hash(&CompareFunction::Always, calc_hash(&CommonBlendState::NORMAL, 0));
-		let clear_pipeline = Share::new(create_render_pipeline(&device, &pipeline_layout, &vs, &fs, Some(BlendState {
+		let clear_pipeline = Share::new(create_render_pipeline("clear ui", &device, &pipeline_layout, &vs, &fs, Some(BlendState {
 			color: wgpu::BlendComponent {
 				src_factor: wgpu::BlendFactor::One,
 				dst_factor: wgpu::BlendFactor::Zero,
@@ -533,8 +594,8 @@ impl FromWorld for InstanceContext {
 				dst_factor: wgpu::BlendFactor::Zero,
 				operation: wgpu::BlendOperation::Add,
 			},
-		}), CompareFunction::Always, true));
-        let mask_image_pipeline = Share::new(create_render_pipeline(&device, &pipeline_layout, &vs, &fs, Some(BlendState {
+		}), CompareFunction::Always, true, wgpu::TextureFormat::pi_render_default(), vert_layout().as_slice(), MeterialBind::SIZE));
+        let mask_image_pipeline = Share::new(create_render_pipeline("mask image", &device, &pipeline_layout, &vs, &fs, Some(BlendState {
 			color: wgpu::BlendComponent {
 				src_factor: wgpu::BlendFactor::One,
 				dst_factor: wgpu::BlendFactor::Zero,
@@ -545,7 +606,101 @@ impl FromWorld for InstanceContext {
 				dst_factor: wgpu::BlendFactor::Zero,
 				operation: wgpu::BlendOperation::Add,
 			},
-		}), CompareFunction::Always, false));
+		}), CompareFunction::Always, false, wgpu::TextureFormat::pi_render_default(), vert_layout().as_slice(), MeterialBind::SIZE));
+
+
+        let text_gray_vs = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some(&"ui_text_gray_vs"),
+            source: wgpu::ShaderSource::Glsl {
+                shader: Cow::Borrowed(include_str!("../shader1/batch_sdf_gray.vert")),
+                stage: naga::ShaderStage::Vertex,
+                defines: naga::FastHashMap::default(),
+            },
+        });
+        let text_gray_fs = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some(&"ui_text_gray_fs"),
+            source: wgpu::ShaderSource::Glsl {
+                shader: Cow::Borrowed(include_str!("../shader1/batch_sdf_gray.frag")),
+                stage: naga::ShaderStage::Fragment,
+                defines: naga::FastHashMap::default(),
+            },
+        });
+
+        let text_effect_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("ui_text_gray_shader"),
+            bind_group_layouts: &[&*uniform_layout, &text_texture_layout],
+            push_constant_ranges: &[],
+        });
+        let text_gray_pipeline = Share::new(create_render_pipeline("batch text gray", &device, &text_effect_pipeline_layout, &text_gray_vs, &text_gray_fs, Some(BlendState {
+			color: wgpu::BlendComponent {
+				src_factor: wgpu::BlendFactor::SrcAlpha,
+				dst_factor: wgpu::BlendFactor::Zero,
+				operation: wgpu::BlendOperation::Add,
+			},
+			alpha: wgpu::BlendComponent {
+				src_factor: wgpu::BlendFactor::One,
+				dst_factor: wgpu::BlendFactor::Zero,
+				operation: wgpu::BlendOperation::Add,
+			},
+		}), CompareFunction::Always, false, wgpu::TextureFormat::R8Unorm, batch_sdf_gray::vert_layout().as_slice(), GrayMeterialBind::SIZE));
+       
+        let text_shadow_vs = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some(&"ui_text_shadow_vs"),
+            source: wgpu::ShaderSource::Glsl {
+                shader: Cow::Borrowed(include_str!("../shader1/batch_gauss_blur.vert")),
+                stage: naga::ShaderStage::Vertex,
+                defines: naga::FastHashMap::default(),
+            },
+        });
+        let text_shadow_fs = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some(&"ui_text_shadow_fs"),
+            source: wgpu::ShaderSource::Glsl {
+                shader: Cow::Borrowed(include_str!("../shader1/batch_gauss_blur.frag")),
+                stage: naga::ShaderStage::Fragment,
+                defines: naga::FastHashMap::default(),
+            },
+        });
+        let text_shadow_pipeline = Share::new(create_render_pipeline("batch text shadow", &device, &text_effect_pipeline_layout, &text_shadow_vs, &text_shadow_fs, Some(BlendState {
+			color: wgpu::BlendComponent {
+				src_factor: wgpu::BlendFactor::SrcAlpha,
+				dst_factor: wgpu::BlendFactor::Zero,
+				operation: wgpu::BlendOperation::Add,
+			},
+			alpha: wgpu::BlendComponent {
+				src_factor: wgpu::BlendFactor::One,
+				dst_factor: wgpu::BlendFactor::Zero,
+				operation: wgpu::BlendOperation::Add,
+			},
+		}), CompareFunction::Always, false, wgpu::TextureFormat::R8Unorm, batch_gauss_blur::vert_layout().as_slice(), GussMeterialBind::SIZE));
+        
+        let text_glow_vs = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some(&"ui_text_glow_vs"),
+            source: wgpu::ShaderSource::Glsl {
+                shader: Cow::Borrowed(include_str!("../shader1/batch_sdf_glow.vert")),
+                stage: naga::ShaderStage::Vertex,
+                defines: naga::FastHashMap::default(),
+            },
+        });
+        let text_glow_fs = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some(&"ui_text_glow_fs"),
+            source: wgpu::ShaderSource::Glsl {
+                shader: Cow::Borrowed(include_str!("../shader1/batch_sdf_glow.frag")),
+                stage: naga::ShaderStage::Fragment,
+                defines: naga::FastHashMap::default(),
+            },
+        });
+        let text_glow_pipeline = Share::new(create_render_pipeline("batch text glow", &device, &text_effect_pipeline_layout, &text_glow_vs, &text_glow_fs, Some(BlendState {
+			color: wgpu::BlendComponent {
+				src_factor: wgpu::BlendFactor::One,
+				dst_factor: wgpu::BlendFactor::One,
+				operation: wgpu::BlendOperation::Max,
+			},
+			alpha: wgpu::BlendComponent {
+				src_factor: wgpu::BlendFactor::One,
+				dst_factor: wgpu::BlendFactor::One,
+				operation: wgpu::BlendOperation::Max,
+			},
+		}), CompareFunction::Always, false, wgpu::TextureFormat::R8Unorm, batch_sdf_glow::vert_layout().as_slice(), GlowMeterialBind::SIZE));
 
 		let mut pipeline_cache = XHashMap::default();
 		pipeline_cache.insert(common_blend_state_hash, common_pipeline.clone());
@@ -556,6 +711,11 @@ impl FromWorld for InstanceContext {
 		let mut default_camera = camera_alloter.alloc();
 		let _ = default_camera.set_uniform(&ProjectUniform(view_project.as_slice()));
 		let _ = default_camera.set_uniform(&ViewUniform(view_project.as_slice()));
+
+        let font_sheet = world.get_single_res::<ShareFontSheet>().unwrap();
+        let font_sheet = font_sheet.borrow();
+        let data_texture_size = font_sheet.font_mgr().table.sdf2_table.data_packer_size();
+		let _ = default_camera.set_uniform(&Sdf2TextureSizeUniform(&[data_texture_size.width as f32, data_texture_size.height as f32]));
 
 		
 		Self {
@@ -574,8 +734,25 @@ impl FromWorld for InstanceContext {
 			premultiply_pipeline,
 			clear_pipeline,
             mask_image_pipeline,
-			instance_data: GpuBuffer::new(MeterialBind::SIZE, 200 * MeterialBind::SIZE),
+
+            text_gray_pipeline,
+            text_shadow_pipeline,
+            text_glow_pipeline,
+
+			instance_data: GpuBuffer::new(MeterialBind::SIZE, 1000 * MeterialBind::SIZE),
 			instance_buffer: None,
+
+            text_gray_instance_data: GpuBuffer::new(GrayMeterialBind::SIZE, 200 * GrayMeterialBind::SIZE),
+			text_gray_instance_buffer: None,
+
+            text_shadow_h_instance_data: GpuBuffer::new(GrayMeterialBind::SIZE, 200 * GussMeterialBind::SIZE),
+			text_shadow_h_instance_buffer: None,
+
+            text_shadow_v_instance_data: GpuBuffer::new(GrayMeterialBind::SIZE, 200 * GussMeterialBind::SIZE),
+			text_shadow_v_instance_buffer: None,
+
+            text_glow_instance_data: GpuBuffer::new(GrayMeterialBind::SIZE, 200 * GlowMeterialBind::SIZE),
+			text_glow_instance_buffer: None,
 
 			batch_texture,
 
@@ -586,6 +763,7 @@ impl FromWorld for InstanceContext {
 			sdf2_texture_layout: text_texture_layout,
 			camera_alloter,
 			pipeline_layout,
+            text_effect_pipeline_layout,
 			default_camera,
             draw_list: Vec::new(),
             rebatch: false,
@@ -607,7 +785,8 @@ impl InstanceContext {
 		match self.pipeline_cache.entry(blend_state_hash) {
 			Entry::Occupied(r) => r.get().clone(),
 			Entry::Vacant(r) => {
-				let pipeline = Share::new(create_render_pipeline(&device, &self.pipeline_layout, &self.vs, &self.fs, Some(blend_state), CompareFunction::GreaterEqual, has_depth));
+				let pipeline = Share::new(create_render_pipeline(
+                    "batch ui", &device, &self.pipeline_layout, &self.vs, &self.fs, Some(blend_state), CompareFunction::GreaterEqual, has_depth, wgpu::TextureFormat::pi_render_default(), vert_layout().as_slice(), MeterialBind::SIZE));
 				r.insert(pipeline.clone());
 				pipeline
 			},
@@ -617,13 +796,19 @@ impl InstanceContext {
 	pub fn update(&mut self, device: &RenderDevice, queue: &RenderQueue) {
 		log::trace!("update instance_buffer={:?}", &self.instance_data.dirty_range);
 		Self::update1(device, queue, &mut self.instance_data, &mut self.instance_buffer);
+        Self::update1(device, queue, &mut self.text_shadow_h_instance_data, &mut self.text_shadow_h_instance_buffer);
+        Self::update1(device, queue, &mut self.text_shadow_v_instance_data, &mut self.text_shadow_v_instance_buffer);
+        Self::update1(device, queue, &mut self.text_gray_instance_data, &mut self.text_gray_instance_buffer);
+        Self::update1(device, queue, &mut self.text_glow_instance_data, &mut self.text_glow_instance_buffer);
 		// Self::update1(device, queue, &mut self.depth_data, &mut self.depth_buffer);
 		
 	}
 
 	pub fn update1(device: &RenderDevice, queue: &RenderQueue, instance_data: &mut GpuBuffer, instance_buffer: &mut Option<(wgpu::Buffer, usize)>) {
-        log::trace!("update instance_buffer1==============={:?}, {:?}", &instance_data.dirty_range, instance_data.data().len());
+        
 		if instance_data.dirty_range.len() != 0 { 
+            // log::warn!("update instance_buffer==============={:?}, {:?}", &instance_data.dirty_range, bytemuck::cast_slice::<u8, f32>(&instance_data.data[instance_data.dirty_range.clone()]));
+            
 			if let Some((buffer, size)) = &instance_buffer {
 				if *size >= instance_data.dirty_range.end {
 					queue.write_buffer(
@@ -636,7 +821,7 @@ impl InstanceContext {
 				}
 
 			}
-            let len = instance_data.dirty_range.end.max(MeterialBind::SIZE * 2000) ;
+            let len = instance_data.data.capacity();
 
             let buffer: wgpu::Buffer = (***device).create_buffer(&BufferDescriptor {
                 label: Some("instance_buffer"),
@@ -1427,6 +1612,7 @@ impl TargetCacheMgr {
 }
 
 pub fn create_render_pipeline(
+    labal: &str,
 	device: &wgpu::Device, 
 	pipeline_layout: &PipelineLayout, 
 	vs: &wgpu::ShaderModule, 
@@ -1434,10 +1620,13 @@ pub fn create_render_pipeline(
 	blend: Option<BlendState>,
 	depth_compare: CompareFunction,
     has_depth: bool,
+    format: wgpu::TextureFormat,
+    vert_layout: &[wgpu::VertexAttribute],
+    size: usize,
 ) -> wgpu::RenderPipeline {
 	let state = PipelineState {
         targets: vec![Some(wgpu::ColorTargetState {
-            format: wgpu::TextureFormat::pi_render_default(),
+            format: format,
             blend,
             write_mask: wgpu::ColorWrites::ALL,
         })],
@@ -1463,7 +1652,7 @@ pub fn create_render_pipeline(
     };
 
 	let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-		label: Some(&"ui_pipeline"),
+		label: Some(labal),
 		layout: Some(&pipeline_layout),
 		vertex: wgpu::VertexState {
 			module: vs,
@@ -1480,95 +1669,9 @@ pub fn create_render_pipeline(
 				},
 
 				wgpu::VertexBufferLayout {
-					array_stride: MeterialBind::SIZE as u64,
+					array_stride: size as u64,
 					step_mode: wgpu::VertexStepMode::Instance,
-					attributes: &[
-						wgpu::VertexAttribute {
-							format: wgpu::VertexFormat::Float32x4,
-							offset: 0,
-							shader_location: 1,
-						},
-						wgpu::VertexAttribute {
-							format: wgpu::VertexFormat::Float32x4,
-							offset: 16,
-							shader_location: 2,
-						},
-						wgpu::VertexAttribute {
-							format: wgpu::VertexFormat::Float32x4,
-							offset: 32,
-							shader_location: 3,
-						},
-						wgpu::VertexAttribute {
-							format: wgpu::VertexFormat::Float32x4,
-							offset: 48,
-							shader_location: 4,
-						},
-						wgpu::VertexAttribute {
-							format: wgpu::VertexFormat::Float32x4,
-							offset: 64,
-							shader_location: 5,
-						},
-						wgpu::VertexAttribute {
-							format: wgpu::VertexFormat::Float32x4,
-							offset: 80,
-							shader_location: 6,
-						},
-						wgpu::VertexAttribute {
-							format: wgpu::VertexFormat::Float32x4,
-							offset: 96,
-							shader_location: 7,
-						},
-						wgpu::VertexAttribute {
-							format: wgpu::VertexFormat::Float32x4,
-							offset: 112,
-							shader_location: 8,
-						},
-						wgpu::VertexAttribute {
-							format: wgpu::VertexFormat::Float32x4,
-							offset: 128,
-							shader_location: 9,
-						},
-						wgpu::VertexAttribute {
-							format: wgpu::VertexFormat::Float32x4,
-							offset: 144,
-							shader_location: 10,
-						},
-						wgpu::VertexAttribute {
-							format: wgpu::VertexFormat::Float32x4,
-							offset: 160,
-							shader_location: 11,
-						},
-						wgpu::VertexAttribute {
-							format: wgpu::VertexFormat::Float32x4,
-							offset: 176,
-							shader_location: 12,
-						},
-						wgpu::VertexAttribute {
-							format: wgpu::VertexFormat::Float32x4,
-							offset: 192,
-							shader_location: 13,
-						},
-						wgpu::VertexAttribute {
-							format: wgpu::VertexFormat::Float32x4,
-							offset: 208,
-							shader_location: 14,
-						},
-                        wgpu::VertexAttribute {
-							format: wgpu::VertexFormat::Float32x4,
-							offset: 224,
-							shader_location: 15,
-						},
-						// wgpu::VertexAttribute {
-						// 	format: wgpu::VertexFormat::Float32x4,
-						// 	offset: 224,
-						// 	shader_location: 15,
-						// },
-						// wgpu::VertexAttribute {
-						// 	format: wgpu::VertexFormat::Float32x4,
-						// 	offset: 240,
-						// 	shader_location: 16,
-						// },
-					],
+					attributes: vert_layout,
 				},
 			],
 		},
@@ -1585,8 +1688,6 @@ pub fn create_render_pipeline(
 
 	pipeline
 }
-
-
 
 
 

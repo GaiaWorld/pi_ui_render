@@ -3,7 +3,7 @@ use pi_style::style::StyleType;
 use pi_world::{app::App, event::{ComponentAdded, ComponentChanged}, prelude::{Changed, ComponentRemoved, Has, IntoSystemConfigs, ParamSet, Plugin, Query}, schedule::PreUpdate, single_res::SingleRes};
 use pi_bevy_ecs_extend::prelude::OrInitSingleRes;
 
-use crate::{components::user::Opacity, resource::{GlobalDirtyMark, RenderContextMarkType}, system::{draw_obj::calc_text::IsRun, pass::pass_life::{self, pass_mark}, system_set::UiSystemSet}};
+use crate::{components::user::Opacity, resource::{GlobalDirtyMark, IsRun, RenderContextMarkType}, system::{base::pass::pass_life::{self, pass_mark}, system_set::UiSystemSet}};
 
 use pi_postprocess::effect::Alpha;
 

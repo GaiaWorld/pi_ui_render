@@ -169,16 +169,16 @@
 
 //         // 虚线(仅支持直线)
 //         // let div8 = world.spawn();
-//         // world.user_cmd.push_cmd(SvgShapeCmd(div8, Shape::Path { 
-//         //     points: vec![
-//         //         [10., 390.],
-//         //         [215., 0.],
-//         //     ], 
-//         //     verb: vec![
-//         //         PathVerb::MoveTo, 
-//         //         PathVerb::LineToRelative
-//         //     ]
-//         // }));
+        // world.user_cmd.push_cmd(SvgShapeCmd(div8, Shape::Path { 
+        //     points: vec![
+        //         [10., 390.],
+        //         [215., 0.],
+        //     ], 
+        //     verb: vec![
+        //         PathVerb::MoveTo, 
+        //         PathVerb::LineToRelative
+        //     ]
+        // }));
 //         // world.user_cmd.push_cmd(SvgColorCmd(div8, Color::RGBA(CgColor::new(0., 0., 0., 0.)) ));
 //         // // world.user_cmd.push_cmd(SvgStrokeCmd(div6, Stroke {width: NotNan::new(2.0).unwrap(), color: CgColor::new(0., 0., 0., 1.)}));
 //         // world.user_cmd.push_cmd(SvgStrokeColorCmd(div8, CgColor::new(0., 0., 0., 1.)));

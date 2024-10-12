@@ -3,6 +3,7 @@
 use pi_world::insert::Component;
 use pi_world::prelude::Entity;
 use pi_style::style::AllTransform;
+use pi_world::world::FromWorld;
 use smallvec::SmallVec;
 use std::hash::Hash;
 /// 中间计算的组件
@@ -20,7 +21,8 @@ use pi_render::rhi::asset::{TextureRes, AssetWithId};
 use pi_share::Share;
 use pi_slotmap::Key;
 
-use crate::resource::RenderObjType;
+use crate::resource::{RenderObjType, ShareFontSheet};
+use crate::utils::tools::calc_hash;
 
 use super::user::*;
 
@@ -62,6 +64,13 @@ impl Default for LayoutResult {
 }
 
 impl LayoutResult {
+    pub fn size(&self) -> (f32, f32){
+		(
+			self.rect.right - self.rect.left,
+			self.rect.bottom - self.rect.top,
+        )
+	}
+
 	pub fn padding_box(&self) -> [f32; 4]{
 		[
 			self.border.left,
@@ -69,6 +78,15 @@ impl LayoutResult {
 			self.rect.right - self.rect.left - self.border.left - self.border.right,
 			self.rect.bottom - self.rect.top - self.border.top - self.border.bottom
 		]
+	}
+
+    pub fn padding_rect(&self) -> Rect<f32>{
+		Rect {
+            left: self.border.left,
+			top: self.border.top,
+			right: self.rect.right - self.rect.left - self.border.right,
+			bottom: self.rect.bottom - self.rect.top - self.border.bottom
+        }
 	}
 
 	pub fn padding_aabb(&self) -> Aabb2 {
@@ -127,6 +145,15 @@ impl LayoutResult {
 			)
 		)
 	}
+
+    pub fn border_rect(&self) -> Rect<f32>{
+        Rect {
+            left: 0.0,
+			top: 0.0,
+			right: self.rect.right - self.rect.left,
+			bottom: self.rect.bottom - self.rect.top
+        }
+	}
 }
 
 /// 内容最大包围盒范围(所有递归子节点的包围盒的最大范围，不包含自身)
@@ -184,6 +211,7 @@ impl DrawInfo {
 			1
 		}
 	}
+
 
     pub fn set_is_opacity(&mut self, value: bool) { self.0 = self.0 << 1 >> 1 | ((unsafe { transmute::<_, u8>(value) } as u32) << 31); }
 }
@@ -578,6 +606,80 @@ pub struct TransformWillChangeMatrixInner {
     pub primitive: WorldMatrix,   // = Parent1.WillChangeTransform * Parent2.WillChangeTransform * ... * this.WillChangeTransform
 }
 
+#[derive(Debug, Clone)]
+pub struct SdfSlice {
+    pub sdf_slice: Rect<f32>, // 0~1
+    pub layout_slice: Rect<f32>,
+}
+
+impl Default for SdfSlice {
+    fn default() -> Self {
+        Self { 
+        sdf_slice: Rect {
+            top: 0.0,
+            left: 0.0,
+            right: 1.0,
+            bottom: 1.0,
+        }, 
+        layout_slice: Rect {
+            top: 0.0,
+            left: 0.0,
+            right: 1.0,
+            bottom: 1.0,
+        },
+     }
+    }
+}
+
+// 单位： 像素
+#[derive(Debug, Clone)]
+pub struct SdfUv (pub Rect<f32>, pub f32);
+
+
+// 单位： 像素
+#[derive(Debug, Clone, Component)]
+pub struct BorderSdfUv (pub Rect<f32>, pub f32);
+
+impl Default for BorderSdfUv {
+    fn default() -> Self {
+        Self (Rect {
+            top: 0.0,
+            left: 0.0,
+            right: 1.0,
+            bottom: 1.0,
+        }, 1.0)
+    }
+}
+
+impl FromWorld for SdfUv {
+    fn from_world(world: &mut pi_world::world::World) -> Self {
+        if let Some(sdf_uv) = world.get_single_res::<SdfUv>() {
+            return (**sdf_uv).clone();
+        }
+        let font_sheet = world.get_single_res_mut::<ShareFontSheet>().unwrap();
+        
+        let mut font_sheet = font_sheet.borrow_mut();
+        let rect = pi_hal::svg::Rect::new(0.0, 0.0, 32.0, 32.0);
+        let hash = calc_hash(&"rect sdf", 0);
+        font_sheet.font_mgr_mut().table.sdf2_table.add_shape(calc_hash(&"rect sdf", 0), rect.get_svg_info(), 32, 128, 2);
+
+        let info = font_sheet.font_mgr_mut().table.sdf2_table.get_shape(hash).unwrap();
+        log::debug!("rect SdfUv========================{:?}",Rect {
+            top: info.y as f32 + 5.0,
+            left: info.x as f32 + 5.0,
+            right: info.x as f32 + info.width as f32 - 5.0,
+            bottom: info.y as f32 + info.height as f32 - 5.0,
+        });
+        // 矩形由于水平和竖直方向缩放比例不一致， 因此不能通过统一的pxrange进行抗锯齿， 这里直接将矩形范围缩小， 使得采样结果总在矩形内，使结果渲染正确， 缺点是不能抗锯齿
+        Self (Rect {
+            top: info.y as f32 + 5.0,
+            left: info.x as f32 + 5.0,
+            right: info.x as f32 + info.width as f32 - 5.0,
+            bottom: info.y as f32 + info.height as f32 - 5.0,
+        }, 128.0 * 2.0)
+    }
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct MaskTexture (pub Option<Handle<AssetWithId<TextureRes>>>);
 
@@ -742,6 +844,30 @@ impl DrawList {
             }
         }
     }
+
+    pub fn count(&self, ty: RenderObjType) -> usize {
+        let mut i: usize = 0;
+        let mut count = 0;
+        while i < self.0.len() {
+            if self.0[i].ty == ty {
+                count += 1;
+            }
+            i += 1;
+        }
+        count
+    }
+
+    pub fn get_first(&self, ty: RenderObjType) -> usize {
+        let mut i: usize = 0;
+
+        while i < self.0.len() {
+            if self.0[i].ty == ty {
+                return i;
+            }
+            i += 1;
+        }
+        Null::null()
+    }
 }
 
 /// 节点上握住DrawObj的id
@@ -865,7 +991,6 @@ impl Null for BackgroundImageTexture {
 
     fn is_null(&self) -> bool { self.0.is_none() }
 }
-
 
 #[inline]
 pub const fn style_bit() -> StyleMarkType {

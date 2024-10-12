@@ -349,7 +349,7 @@ pub struct SvgFilter(pub Vec<Entity>);
 pub struct Show(pub usize);
 
 // 变换
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, Component)]
 // #[component(storage = "SparseSet")]
 pub struct Transform {
     pub all_transform: AllTransform,
@@ -539,6 +539,18 @@ impl Default for TextStyle {
             font_weight: 500,
             font_size: Default::default(),
             font_family: Default::default(),
+        }
+    }
+}
+
+impl TextStyle {
+    pub fn font_weight(&self) -> f32 {
+        if self.font_weight == 500 {
+            0.0
+        } else if self.font_weight < 500 {
+            -1.0
+        } else {
+            1.0
         }
     }
 }
@@ -1078,7 +1090,7 @@ pub mod serialize {
             }
             fn push_component_ops(ids: &SettingComponentIds, arr: &mut Vec<(ComponentIndex, bool)>) {
                 arr.push((ids.$component_name, true));
-                $(arr.push((ids.$component_name1, true)))*
+                $(arr.push((ids.$component_name1, true));)*
             }
         };
 
@@ -1126,7 +1138,7 @@ pub mod serialize {
             }
             fn push_component_ops(ids: &SettingComponentIds, arr: &mut Vec<(ComponentIndex, bool)>) {
                 arr.push((ids.$component_name, true));
-                $(arr.push((ids.$component_name1, true)))*
+                $(arr.push((ids.$component_name1, true));)*
             }
         };
     }
@@ -1343,6 +1355,9 @@ pub mod serialize {
     impl_style!(@expr BackgroundImageType, BackgroundImage, background_image, BackgroundImage, v, Atom, {
         background_image.0 = v;
     }, background_image.0.clone(), background_image.0 = v.0.clone(), background_image_texture);
+    impl_style!(@expr BorderRadiusType, BorderRadius, border_radius, BorderRadius, v, BorderRadius1,{
+        border_radius.0 = v;
+    }, border_radius.0.clone(), border_radius.0 = v.0.clone(), sdf_slice, sdf_uv);
 
     impl_style!(@pack BackgroundImageClipType, BackgroundImageClip, background_image_clip, NotNanRect);
     impl_style!(ObjectFitType, ObjectFit, background_image_mod, BackgroundImageMod, object_fit, FitType);
@@ -1366,7 +1381,6 @@ pub mod serialize {
     impl_style!(@pack BoxShadowType, BoxShadow, box_shadow, BoxShadow1);
 
     impl_style!(@pack_compare OpacityType, Opacity, opacity, f32);
-    impl_style!(@pack BorderRadiusType, BorderRadius, border_radius, BorderRadius1);
     impl_style!(@pack HsiType, Hsi, hsi, Hsi1);
     impl_style!(@pack_compare BlurType, Blur, blur, f32);
     impl_style!(TransformOriginType, TransformOrigin, transform, Transform, origin, TransformOrigin);

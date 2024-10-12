@@ -1,28 +1,24 @@
-use pi_style::style::StyleType;
-use pi_world::event::ComponentRemoved;
+
 use pi_world::fetch::Ticker;
-use pi_world::filter::{Changed, Or};
-use pi_world::prelude::{With, Query, SingleResMut, Entity, Plugin, IntoSystemConfigs, SingleRes};
-use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, OrInitSingleRes};
+use pi_world::prelude::{Query, SingleResMut, Entity, Plugin, IntoSystemConfigs, SingleRes};
+use pi_bevy_ecs_extend::prelude::OrInitSingleRes;
 
 use pi_bevy_render_plugin::PiRenderGraph;
 use pi_bevy_render_plugin::render_cross::GraphId;
 use pi_null::Null;
 
-use crate::components::calc::{style_bit, DrawList, InPassId, LayoutResult, StyleBit, StyleMarkType, WorldMatrix};
-use crate::components::draw_obj::{BoxType, CanvasMark, FboInfo, InstanceIndex};
+use crate::components::calc::InPassId;
+use crate::components::draw_obj::{BoxType, CanvasMark, FboInfo};
 use crate::components::pass_2d::ParentPassId;
 use crate::components::user::{Canvas, AsImage};
-use crate::resource::{CanvasRenderObjType, GlobalDirtyMark, OtherDirtyType};
-use crate::resource::draw_obj::{InstanceContext, LastGraphNode};
-use crate::shader1::meterial::{RenderFlagType, TyUniform};
-use crate::system::draw_obj::set_box;
-use crate::system::pass::update_graph::{type_to_post_process, update_graph};
+use crate::resource::CanvasRenderObjType;
+use crate::resource::draw_obj::LastGraphNode;
+use crate::system::base::pass::update_graph::{type_to_post_process, update_graph};
 use crate::system::system_set::UiSystemSet;
 use crate::prelude::UiStage;
 
-use super::calc_text::IsRun;
-use super::life_drawobj::{self, update_render_instance_data};
+use crate::system::base::draw_obj::life_drawobj::{draw_object_life_new, update_render_instance_data};
+use crate::resource::IsRun;
 
 
 pub struct CanvasPlugin;
@@ -30,9 +26,8 @@ pub struct CanvasPlugin;
 impl Plugin for CanvasPlugin {
     fn build(&self, app: &mut pi_world::prelude::App) {
 		app
-		// .add_frame_event::<ComponentEvent<Changed<Canvas>>>()
 		.add_system(UiStage, 
-			life_drawobj::draw_object_life_new::<
+			draw_object_life_new::<
 				Canvas,
 				CanvasRenderObjType,
 				(CanvasMark, GraphId, FboInfo),
@@ -40,13 +35,6 @@ impl Plugin for CanvasPlugin {
 				{ BoxType::Padding },
 			>
 				.in_set(UiSystemSet::LifeDrawObject)
-				// .run_if(canvas_change),
-		)
-		.add_system(
-			UiStage, 
-			calc_canvas
-				.in_set(UiSystemSet::PrepareDrawObj)
-				// .run_if(canvas_change)
 		)
 		.add_system(
 			UiStage, 
@@ -61,59 +49,6 @@ impl Plugin for CanvasPlugin {
 
 pub const CANVAS_ORDER: u8 = 6;
 
-// lazy_static! {
-// 	pub static ref CANVAS_DIRTY: StyleMarkType = style_bit()
-// 		.set_bit(OtherDirtyType::WorldMatrix as usize);
-// }
-
-// pub fn canvas_change(mark: SingleRes<GlobalDirtyMark>) -> bool {
-// 	mark.mark.has_any(&*CANVAS_DIRTY)
-// }
-
-// pub fn canvas_life_change(mark: SingleRes<GlobalDirtyMark>, removed: ComponentRemoved<Canvas>) -> bool {
-// 	let r = removed.len() > 0 || mark.mark.get(OtherDirtyType::Canvas as usize).map_or(false, |display| {*display == true});
-// 	removed.mark_read();
-// 	r
-// }
-
-/// 设置canvas的实例数据
-pub fn calc_canvas(
-	mut canvas_query: Query<&DrawList, (Changed<Canvas>, With<Canvas>)>,
-	mut instances: OrInitSingleResMut<InstanceContext>,
-	mut instance_index_query: Query<&InstanceIndex, With<CanvasMark>>,
-	render_type: OrInitSingleRes<CanvasRenderObjType>,
-	r: OrInitSingleRes<IsRun>
-) {
-	if r.0 {
-		return;
-	}
-    for draw_list in canvas_query.iter_mut() {
-		
-		// let (canvas_changed, world_matrix_changed, layout_result_changed) = (canvas.is_changed(),  world_matrix.is_changed(), layout.is_changed());
-		// log::trace!("set canvas data1==========={:?}, {:?} {:?} {:?}, {:?}, {:?}, {:?}",  world_matrix, canvas_changed, world_matrix_changed, layout_result_changed, draw_list.get_one(***render_type), render_type, draw_list);
-		// if canvas_changed || world_matrix_changed || layout_result_changed {
-			// 设置世界矩阵、布局uniform
-			if let Some(draw_entity) = draw_list.get_one(***render_type) {
-				if let Ok(instance_index) = instance_index_query.get_mut(draw_entity.id) {
-					// 节点可能设置为dispaly none， 此时instance_index可能为Null
-					if pi_null::Null::is_null(&instance_index.0.start) {
-						continue;
-					}
-					let mut instance_data = instances.instance_data.instance_data_mut(instance_index.0.start);
-					let mut render_flag = instance_data.get_render_ty();
-					render_flag |= 1 << RenderFlagType::Uv as usize;
-					// instance_data.set_data(&WorldUniform(world_matrix.as_slice()));
-					// instance_data.set_data(&BoxUniform(layout.padding_box().as_slice()));
-					// set_box(&world_matrix, &layout.padding_aabb(), &mut instance_data);
-					instance_data.set_data(&TyUniform(&[render_flag as f32]));
-
-					log::trace!("set canvas data==========={:?}", instance_index);
-				}
-			}
-
-		// }
-    }
-}
 
 /// 为canvas节点添加图依赖结构
 pub fn calc_canvas_graph(
@@ -137,11 +72,6 @@ pub fn calc_canvas_graph(
 			if !from_graph_id.is_changed() && !in_pass_id.is_changed() {
 				continue; // 未改变， 什么也不做
 			}
-			// let (from_graph_id_changed, in_pass_id_changed) = (from_graph_id.is_changed(), in_pass_id.is_changed());
-			// log::trace!("calc_canvas_graph, graph_id={:?}, from_graph_id_changed={:?}, in_pass_id_changed={:?}", canvas.id, from_graph_id_changed, in_pass_id_changed);
-			// if !from_graph_id_changed && !in_pass_id_changed {
-			// 	continue; // 未改变， 什么也不做
-			// }
 
 			// 如果canvas关联的内容发生改变， 则设置Canvas改变
 			// if from_graph_id_changed {

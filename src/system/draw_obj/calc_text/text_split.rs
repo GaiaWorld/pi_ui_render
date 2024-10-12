@@ -18,12 +18,10 @@ use pi_style::style::{StyleType, TextAlign, VerticalAlign, TextOverflow};
 use crate::{
     components::{
         calc::{EntityKey, NodeState, StyleMark},
-        user::{get_size, FlexContainer, FlexNormal, LineHeight, Size as FlexSize, TextContent, TextStyle, TextOverflowData, TextOverflowChar},
+        user::{get_size, FlexContainer, FlexNormal, LineHeight, Size as FlexSize, TextContent, TextOverflowChar, TextOverflowData, TextStyle},
     },
-    resource::ShareFontSheet,
+    resource::{IsRun, ShareFontSheet},
 };
-
-use super::IsRun;
 
 /// 文字劈分
 /// 将可以简单布局的问文字节点转化为。。
@@ -67,7 +65,9 @@ pub fn text_split(
             text_style.font_family.clone(),
             font_size,
             text_style.font_weight,
-            text_style.text_stroke.width, // todo 或许应该设置比例
+            // text_style.text_stroke.width, // todo 或许应该设置比例
+            // None,
+            // None,
         ));
 
         let font_height = font_sheet.font_height(font_id, font_size as usize);

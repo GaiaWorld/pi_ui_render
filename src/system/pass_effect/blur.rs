@@ -6,10 +6,10 @@ use pi_world::schedule::PreUpdate;
 use pi_world::single_res::SingleRes;
 
 use crate::components::calc::{style_bit, StyleBit, StyleMarkType};
-use crate::resource::GlobalDirtyMark;
-use crate::system::pass::pass_life;
+use crate::resource::{GlobalDirtyMark, IsRun};
+use crate::system::base::pass::pass_life;
 use crate::system::system_set::UiSystemSet;
-use crate::{components::user::Blur, resource::RenderContextMarkType, system::draw_obj::calc_text::IsRun};
+use crate::{components::user::Blur, resource::RenderContextMarkType};
 
 use crate::components::pass_2d::{PostProcess, PostProcessInfo};
 use pi_postprocess::effect::BlurDual;

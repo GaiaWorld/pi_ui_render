@@ -1,6 +1,6 @@
 // mod text;
 mod text_glyph;
-// mod text_shadow;
+mod text_shadow;
 mod text_split;
 // mod text_texture;
 mod text_sdf2;
@@ -13,9 +13,6 @@ use pi_render::font::{Size, FontSheet};
 use self::text_sdf2::Sdf2TextPlugin;
 // use self::{text::calc_text, text_texture::calc_text_texture, text_sdf2::Sdf2TextPlugin};
 
-
-#[derive(Debug, Default)]
-pub struct IsRun(pub bool);
 
 pub struct UiTextPlugin {
 	pub font_type: FontType
@@ -65,7 +62,9 @@ impl Plugin for UiTextPlugin {
 }
 
 
-pub const TEXT_ORDER: u8 = 9;
+pub const TEXT_SHADOW_ORDER: u8 = 9;
+pub const TEXT_OUTER_GLOW_ORDER: u8 = 10;
+pub const TEXT_ORDER: u8 = 11;
 
 #[derive(Debug, Default)]
 pub struct TextureState {

@@ -8,10 +8,9 @@ use pi_bevy_ecs_extend::prelude::{OrInitSingleRes, Layer, Root};
 use pi_world::schedule::PreUpdate;
 use pi_world::single_res::SingleRes;
 
-use crate::resource::GlobalDirtyMark;
-use crate::system::draw_obj::calc_text::IsRun;
-use crate::system::node::world_matrix::cal_matrix;
-use crate::system::pass::pass_life;
+use crate::resource::{GlobalDirtyMark, IsRun};
+use crate::system::base::node::world_matrix::cal_matrix;
+use crate::system::base::pass::pass_life;
 use crate::system::system_set::UiSystemSet;
 use crate::{components::calc::OverflowDesc, resource::RenderContextMarkType};
 

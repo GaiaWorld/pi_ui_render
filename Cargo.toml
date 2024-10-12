@@ -128,6 +128,8 @@ pi_key_alloter = {version = "0.5", features = ["serde"]}
 pi_ui_render_macros = {version="0.1.1", path = "./macros", registry = "yn"}
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 
+pi_sdf = {version = "=0.1.20", registry="yn"}
+
 # flume = "0.10"
 
 [dev-dependencies]
@@ -152,7 +154,7 @@ tracing = "0.1"
 postcard = { version = "1.0", features = ["use-std"] }
 
 # wgpu = { version = "0.1", registry = "yn", package = "pi_wgpu" }
-wgpu = { version = "0.1", registry = "yn", package = "pi_wgpu", features=["use_wgpu"]}#
+wgpu = { version = "0.1", registry = "yn", package = "pi_wgpu", features=["use_wgpu"]}
 # pi_ui_render = { path = "./", features = ["trace", "single_thread"] }
 # pi_ui_render = { path = "./", features = ["trace"] }
 pi_ui_render = { path = "./", features = ["debug", "single_thread"] }
@@ -161,8 +163,7 @@ pi_ui_render = { path = "./", features = ["debug", "single_thread"] }
 pi_bevy_winit_window = { version = "0.1", registry = "yn" }
 wasm-bindgen-test = "0.3"
 
-pi_sdf = {version = "=0.1.19", registry="yn"}
-pi_hal = {version = "=0.1.38", registry="yn"}
+pi_hal = {version = "0.1.40", registry="yn"}
 
 # "debug", "trace"
 # pi_export_gui = {path="../pi_export/crates/gui"}
@@ -209,6 +210,9 @@ wasm-bindgen = "0.2"
 pi_hal = { version = "0.1", registry = "yn", features = ["web_local_load"] }
 getrandom = { version = "0.2.7", features = ["js"] }
 
+[target.'cfg(target_os = "android")'.dev-dependencies]
+ndk-glue = "0.7"
+
 [build-dependencies]
 render_compile = { version = "0.1", registry = "yn" }
 
@@ -246,6 +250,17 @@ test = true
 name = "background_compress_texture"
 test = true
 
+[[example]]
+name = "performance_android"
+crate-type = ["cdylib"]
+test = true
+
+# [[example]]
+# name = "a_cmd_play"
+# crate-type = ["cdylib"]
+# test = true
+
+
 
 
 [patch.crates-io]
@@ -259,6 +274,7 @@ test = true
 # wgpu= {path = "../wgpu/wgpu"}
 pi_world = { path = "../pi_world" }
 pi_world_macros = { path = "../pi_world/macros" }
+pi_polygon = { path = "../pi_polygon" }
 
 # bevy_app = { path = "../bevy/crates/bevy_app" }
 # bevy_ecs = { path = "../bevy/crates/bevy_ecs" }
@@ -274,7 +290,7 @@ pi_world_macros = { path = "../pi_world/macros" }
 
 # pi_slotmap_tree = { path = "../pi_slotmap_tree" }
 # pi_map = { path = "../pi_map" }
-# pi_flex_layout = { path = "../pi_flex_layout" }
+pi_flex_layout = { path = "../pi_flex_layout" }
 # pi_dirty={path = "../pi_dirty" }
 # pi_spatial = { path="../pi_spatial" }
 
@@ -284,13 +300,13 @@ pi_world_macros = { path = "../pi_world/macros" }
 [patch.yn]
 # pi_curves  = {path="../pi_curves"}
 # pi_animation = { path="../pi_animation"}
-pi_style = {path = "../pi_style"}
+# pi_style = {path = "../pi_style"}
 # pi_wgpu = {path = "../pi_wgpu"}
 # pi_egl = {path = "../pi_egl"}
 # winit = {path = "../winit"}
 # font_kit = { path = "../font_kit" }
 pi_hal = { path = "../pi_hal" }
-# pi_sdf = { path = "../pi_sdf" }
+pi_sdf = { path = "../pi_sdf" }
 pi_postprocess = { path = "../pi_postprocess" }
 
 # bevy

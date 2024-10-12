@@ -7,13 +7,11 @@ use crate::{
         pass_2d::PostProcessInfo,
         user::RadialWave,
     },
-    resource::{GlobalDirtyMark, RenderContextMarkType},
-    system::{
-        draw_obj::calc_text::IsRun, system_set::UiSystemSet
-    },
+    resource::{GlobalDirtyMark, IsRun, RenderContextMarkType},
+    system::system_set::UiSystemSet,
 };
 
-use crate::{components::pass_2d::PostProcess, system::pass::pass_life};
+use crate::{components::pass_2d::PostProcess, system::base::pass::pass_life};
 use crate::prelude::UiStage;
 
 /// 水波纹效果插件

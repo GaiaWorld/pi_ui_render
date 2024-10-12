@@ -115,7 +115,26 @@ pub fn cal_border_radius(border_radius: &BorderRadius, rect: &Rect<f32>) -> Bord
             trans(border_radius.y[3], height),
         ],
     };
+    // 修正圆角的，每个角的x,y半径有一个为0, 则另一个也设置为0
+    if r.x[0] == 0.0 || r.y[0] == 0.0 {
+        r.x[0] = 0.0;
+        r.y[0] = 0.0;
+    }
+    if r.x[1] == 0.0 || r.y[1] == 0.0 {
+        r.x[1] = 0.0;
+        r.y[1] = 0.0;
+    }
+    if r.x[2] == 0.0 || r.y[2] == 0.0 {
+        r.x[3] = 0.0;
+        r.y[3] = 0.0;
+    }
+    if r.x[3] == 0.0 || r.y[3] == 0.0 {
+        r.x[3] = 0.0;
+        r.y[3] = 0.0;
+    }
     let (top, bottom, left, right) = (r.x[0] + r.x[1], r.x[2] + r.x[3], r.y[0] + r.y[3], r.y[1] + r.y[2]);
+
+
     // 修正圆角的，同一条边长的圆角半径之和不能大于边长
     if top > width {
         r.x[0] = width / top * r.x[0];

@@ -136,13 +136,11 @@ pub struct Draw2DList {
 	// all_list的排序结果
 	pub all_list_sort: Vec<(DrawIndex, ZRange, DrawInfo)>,
     pub canvas_list: Vec<Entity>, // 单独一个drawObj绘制在一个fbo上（需要做后处理的drawObj）
-    // /// 不透明 列表
-    // /// 注：渲染时，假设 Vec已经 排好序 了
-    // pub opaque: Vec<(DrawIndex, usize /*DepthGroup在DepthCache中的偏移*/)>,
+    /// 不透明 列表
+    pub opaque: Vec<(DrawIndex, ZRange, DrawInfo)>,
 
-    // /// 透明 列表
-    // /// 注：渲染时，假设 Vec已经 排好序 了
-    // pub transparent: Vec<(DrawIndex, usize /*DepthGroup在DepthCache中的偏移*/)>,
+    /// 透明 列表
+    pub transparent: Vec<(DrawIndex, ZRange, DrawInfo)>,
 }
 
 impl Default for Draw2DList {
@@ -157,8 +155,8 @@ impl Default for Draw2DList {
 			all_list_sort: Vec::default(),
             all_list: Vec::default(),
             canvas_list: Vec::default(),
-            // opaque: Vec::default(),
-            // transparent: Vec::default(),
+            opaque: Vec::default(),
+            transparent: Vec::default(),
         }
     }
 }
@@ -350,7 +348,7 @@ impl PostProcessInfo {
     }
 
     // 除了as_image， 是否存在其他上下文属性
-    pub fn is_only_as_image(&self, as_image_mark_type: &RenderContextMarkType<AsImage>) -> bool {
+    pub fn is_not_only_as_image(&self, as_image_mark_type: &RenderContextMarkType<AsImage>) -> bool {
         let mut r = self.effect_mark.clone();
         r.set(**as_image_mark_type, false);
         return r.any();

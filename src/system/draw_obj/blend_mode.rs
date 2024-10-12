@@ -11,15 +11,13 @@ use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, OrInitSingleRes};
 use pi_bevy_render_plugin::PiRenderDevice;
 
 use crate::components::calc::{style_bit, StyleBit, StyleMarkType};
-use crate::resource::{GlobalDirtyMark, OtherDirtyType};
+use crate::resource::{GlobalDirtyMark, IsRun, OtherDirtyType};
 use crate::{components::draw_obj::Pipeline, resource::draw_obj::InstanceContext};
 use crate::{
     components::{calc::DrawList, user::BlendMode},
     resource::draw_obj::CommonBlendState,
 };
 use pi_style::style::{BlendMode as BlendMode1, StyleType};
-
-use super::calc_text::IsRun;
 
 /// 计算DrawObj的BlendState
 pub fn calc_drawobj_blendstate(

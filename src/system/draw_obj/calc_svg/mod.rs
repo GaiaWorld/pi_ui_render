@@ -5,14 +5,14 @@ use crate::{
     components::{
         draw_obj::{BoxType, SvgMark},
         user::{Shape, SvgInnerContent},
-    }, resource::SvgRenderObjType, shader1::meterial::TextShadowColorUniform, system::{draw_obj::sdf2_texture_update::update_sdf2_texture, system_set::UiSystemSet}
+    }, resource::{IsRun, SvgRenderObjType}, shader1::batch_meterial::TextShadowColorUniform, system::{draw_obj::sdf2_texture_update::update_sdf2_texture, system_set::UiSystemSet}
 };
 use crate::prelude::UiStage;
 
 // use self::svg_main::{calc_sdf2_svg, svg_glyph};
 use self::filter::{flter_blur, flter_offset};
 use self::gradient::{gradient_offset, gradient_stop};
-use super::life_drawobj::draw_object_life_new;
+use crate::system::base::draw_obj::life_drawobj::draw_object_life_new;
 
 use std::collections::HashMap;
 
@@ -23,9 +23,9 @@ use crate::{
         user::{Point3, Vector2},
     },
     shader1::{
-        meterial::{
+        batch_meterial::{
             ColorUniform, TextGradientColorUniform, GradientEndUniform, GradientPositionUniform, RenderFlagType, Sdf2InfoUniform, ShadowUniform,
-            TextOuterGlowUniform, TextOutlineUniform, TextWeightUniform, TyUniform,
+            TextOuterGlowUniform, TextOutlineUniform, TextWeightUniform, TyMeterial,
         },
         InstanceData, GpuBuffer,
     },
@@ -50,7 +50,6 @@ use crate::{
         user::SvgStyle,
     },
     resource::{draw_obj::InstanceContext, ShareFontSheet},
-    system::draw_obj::calc_text::IsRun,
 };
 use pi_async_rt::prelude::AsyncRuntime;
 
@@ -129,20 +128,20 @@ pub fn svg_glyph(
                 await_set_gylph.push(entity);
                 log::debug!("add_shape!! hash: {}", hash);
                 match node_state.shape.clone() {
-                    Shape::Rect { x, y, width, height } => sdf2_table.add_shape(hash, pi_hal::svg::Rect::new(x, y, width, height).get_svg_info()),
-                    Shape::Circle { cx, cy, radius } => sdf2_table.add_shape(hash, pi_hal::svg::Circle::new(cx, cy, radius).unwrap().get_svg_info()),
-                    Shape::Ellipse { cx, cy, rx, ry } => sdf2_table.add_shape(hash, pi_hal::svg::Ellipse::new(cx, cy, rx, ry).get_svg_info()),
+                    Shape::Rect { x, y, width, height } => sdf2_table.add_shape(hash, pi_sdf::shape::Rect::new(x, y, width, height).get_svg_info()),
+                    Shape::Circle { cx, cy, radius } => sdf2_table.add_shape(hash, pi_sdf::shape::Circle::new(cx, cy, radius).unwrap().get_svg_info()),
+                    Shape::Ellipse { cx, cy, rx, ry } => sdf2_table.add_shape(hash, pi_sdf::shape::Ellipse::new(cx, cy, rx, ry).get_svg_info()),
                     Shape::Segment { ax, ay, bx, by } => {
-                        sdf2_table.add_shape(hash, pi_hal::svg::Segment::new(ax, ay, bx, by).get_svg_info())
+                        sdf2_table.add_shape(hash, pi_sdf::shape::Segment::new(ax, ay, bx, by).get_svg_info())
                     }
                     Shape::Polygon { points } => {
-                        sdf2_table.add_shape(hash, pi_hal::svg::Polygon::new(points).get_svg_info())
+                        sdf2_table.add_shape(hash, pi_sdf::shape::Polygon::new(points).get_svg_info())
                     }
                     Shape::Polyline { points } => {
-                        sdf2_table.add_shape(hash, pi_hal::svg::Polyline::new(points).get_svg_info())
+                        sdf2_table.add_shape(hash, pi_sdf::shape::Polyline::new(points).get_svg_info())
                     }
                     Shape::Path { points, verb } => {
-                        sdf2_table.add_shape(hash, pi_hal::svg::Path::new(verb, points).get_svg_info())
+                        sdf2_table.add_shape(hash, pi_sdf::shape::Path::new(verb, points).get_svg_info())
                     }
                 };
             }
@@ -552,7 +551,7 @@ impl UniformData {
             log::debug!("set_box: {:?}, world_matrix: {:?}", rect, self.world_matrix);
             // set_box(&self.world_matrix, &rect, &mut instance_data);
             // 设置渲染类型
-            instance_data.set_data(&TyUniform(&[render_flag as f32]));
+            instance_data.set_data(&TyMeterial(&[render_flag as f32]));
         // }
     }
 }

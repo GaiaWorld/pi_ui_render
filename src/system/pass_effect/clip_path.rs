@@ -9,15 +9,15 @@ use crate::{
         calc::{ContentBox, LayoutResult, OverflowDesc, View},
         pass_2d::Camera,
         user::{ClipPath, Overflow, Point2},
-    }, resource::GlobalDirtyMark, system::{
+    }, resource::{GlobalDirtyMark, IsRun}, system::base::{
         // node::user_setting::user_setting,
         // pass::{last_update_wgpu::last_update_wgpu, pass_camera::calc_camera_depth_and_renderlist},
-        draw_obj::calc_text::IsRun, node::user_setting::user_setting2, pass::{last_update_wgpu::last_update_wgpu, pass_camera::calc_camera},
+        node::user_setting::user_setting2, pass::{last_update_wgpu::last_update_wgpu, pass_camera::calc_camera, pass_life},
     }, utils::tools::cal_border_radius
 };
 use pi_postprocess::prelude::ClipSdf;
 
-use crate::{components::pass_2d::PostProcess, system::pass::pass_life};
+use crate::components::pass_2d::PostProcess;
 use crate::prelude::UiStage;
 
 pub struct UiClipPathPlugin;

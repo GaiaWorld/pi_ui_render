@@ -38,7 +38,7 @@ pub mod prelude {
 
     pub use crate::resource::UserCommands;
     use crate::system::{
-        /*shader_utils::UiShaderPlugin, */ draw_obj::UiReadyDrawPlugin, node::UiNodePlugin, pass::UiPassPlugin, pass_effect::UiEffectPlugin, shader_utils::UiShaderPlugin, system_set::{UiSchedule, UiSystemSet}, RunState
+        /*shader_utils::UiShaderPlugin, */ base::{node::UiNodePlugin, pass::UiPassPlugin, BasePlugin}, draw_obj::UiReadyDrawPlugin, pass_effect::UiEffectPlugin, shader_utils::UiShaderPlugin, system_set::{UiSchedule, UiSystemSet}, RunState
     };
 
     // #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
@@ -49,7 +49,7 @@ pub mod prelude {
     #[derive(Default)]
     pub struct UiPlugin {
         #[cfg(feature = "debug")]
-        pub cmd_trace: crate::system::cmd_play::TraceOption,
+        pub cmd_trace: crate::system::base::node::cmd_play::TraceOption,
 		pub font_type: FontType,
     }
     impl Plugin for UiPlugin {
@@ -127,7 +127,7 @@ pub mod prelude {
             .configure_set(UiStage, 
                 UiSystemSet::Layout
                 .after(UiSystemSet::NextSetting)
-                .before(UiSystemSet::Matrix))
+                .before(UiSystemSet::LayoutAfter))
 
             // .configure_sets(
 			// 	UiStage, 
@@ -163,18 +163,17 @@ pub mod prelude {
 			// .add_frame_event::<NodeDisplayChange>()
 			.add_system(UiStage, crate::system::res_load::load_res.in_set(UiSystemSet::NextSetting))
             .add_plugins(UiShaderPlugin)
-            .add_plugins(UiNodePlugin)
+            .add_plugins(BasePlugin)
             .add_plugins(UiEffectPlugin)
             .add_plugins(UiReadyDrawPlugin {
 				font_type: self.font_type
 			})
-            .add_plugins(UiPassPlugin)
             // .add_system(UiStage, apply_deferred.in_set(UiSystemSet::LifeDrawObjectFlush))
 
 			// .add_system(Last, crate::clear_remove_component.after(bevy_window::FrameSet)); // 在每帧结束时清理删除组件的列表
             ;
             #[cfg(feature = "debug")]
-            app.add_plugins(crate::system::cmd_play::UiCmdTracePlugin { option: self.cmd_trace });
+            app.add_plugins(crate::system::base::node::cmd_play::UiCmdTracePlugin { option: self.cmd_trace });
         }
     }
 }

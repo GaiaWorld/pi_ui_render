@@ -11,16 +11,16 @@ use crate::{
     components::{
         calc::{style_bit, StyleBit, StyleMarkType}, pass_2d::{CacheTarget, PostProcessInfo}, user::{AsImage, Overflow}
     },
-    resource::{draw_obj::TargetCacheMgr, GlobalDirtyMark, RenderContextMarkType},
-    system::{
+    resource::{draw_obj::TargetCacheMgr, GlobalDirtyMark, RenderContextMarkType, IsRun},
+    system::base::{
         // node::user_setting::user_setting,
         // pass::{last_update_wgpu::last_update_wgpu, pass_camera::calc_camera_depth_and_renderlist},
-        draw_obj::calc_text::IsRun, node::user_setting::user_setting2, pass::{last_update_wgpu::last_update_wgpu, pass_camera::calc_camera},
+        node::user_setting::user_setting2, pass::{last_update_wgpu::last_update_wgpu, pass_camera::calc_camera, pass_life},
     },
 };
 use pi_postprocess::prelude::CopyIntensity;
 
-use crate::{components::pass_2d::PostProcess, system::pass::pass_life};
+use crate::components::pass_2d::PostProcess;
 use crate::prelude::UiStage;
 
 pub struct UiAsImagePlugin;

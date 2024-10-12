@@ -3,8 +3,6 @@
 #[path = "../framework.rs"]
 mod framework;
 
-use std::mem::swap;
-
 
 use framework::{Param, Example};
 /// 渲染四边形 demo
@@ -58,18 +56,18 @@ impl Example for QuadExample {
 
         world.user_cmd.append(root, EntityKey::null().0);
 
-        // 添加一个黄色div
+        // 添加一个红色div
         let div1 = world.spawn(NodeTag::Div);
         world.user_cmd.set_style(div1, WidthType(Dimension::Points(110.0)));
         world.user_cmd.set_style(div1, HeightType(Dimension::Points(144.0)));
-        world.user_cmd.set_style(div1, BorderColorType(CgColor::new(1.0, 1.0, 0.0, 1.0)));
-        world.user_cmd.set_style(div1, BorderTopType(Dimension::Points(10.0)));
-        world.user_cmd.set_style(div1, BorderRightType(Dimension::Points(10.0)));
-        world.user_cmd.set_style(div1, BorderBottomType(Dimension::Points(10.0)));
-        world.user_cmd.set_style(div1, BorderLeftType(Dimension::Points(10.0)));
+        world.user_cmd.set_style(div1, BorderColorType(CgColor::new(1.0, 0.0, 0.0, 1.0)));
+        world.user_cmd.set_style(div1, BorderTopType(Dimension::Points(10.5)));
+        world.user_cmd.set_style(div1, BorderRightType(Dimension::Points(10.5)));
+        world.user_cmd.set_style(div1, BorderBottomType(Dimension::Points(10.5)));
+        world.user_cmd.set_style(div1, BorderLeftType(Dimension::Points(10.5)));
         world.user_cmd.append(div1, root);
 
-        // 添加一个红色div
+        // 添加一个红色圆角div
         let div2 = world.spawn(NodeTag::Div);
         world.user_cmd.set_style(div2, WidthType(Dimension::Points(110.0)));
         world.user_cmd.set_style(div2, HeightType(Dimension::Points(144.0)));

@@ -2,7 +2,7 @@ use pi_style::style::StyleType;
 use pi_world::{event::{ComponentAdded, ComponentChanged}, prelude::{Changed, ComponentRemoved, Entity, Has, ParamSet, Query}, schedule::PreUpdate, single_res::SingleRes};
 use pi_bevy_ecs_extend::prelude::OrInitSingleRes;
 
-use crate::{components::user::Hsi, resource::{GlobalDirtyMark, RenderContextMarkType}, system::{draw_obj::calc_text::IsRun, pass::pass_life::pass_mark, system_set::UiSystemSet}};
+use crate::{components::user::Hsi, resource::{GlobalDirtyMark, IsRun, RenderContextMarkType}, system::{base::pass::pass_life::pass_mark, system_set::UiSystemSet}};
 
 use pi_postprocess::effect::HSB;
 

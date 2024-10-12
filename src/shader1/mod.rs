@@ -1,13 +1,17 @@
 use std::ops::Range;
 
 use pi_null::Null;
+use pi_print_any::{print_any, println_any};
 use pi_render::rhi::shader::{WriteBuffer, GetBuffer};
 
-use self::meterial::TyUniformMut;
+use self::batch_meterial::TyMeterialMut;
 
 // pub mod text_sdf2;
-pub mod meterial;
+pub mod batch_meterial;
 pub mod gup_arraybuffer;
+pub mod batch_gauss_blur;
+pub mod batch_sdf_gray;
+pub mod batch_sdf_glow;
 
 pub type InstanceIndex = usize;
 
@@ -24,7 +28,7 @@ pub struct GpuBuffer {
 impl GpuBuffer {
 	pub fn get_render_ty(&self, index: u32) -> usize {
 		let mut uniform_data = [0.0];
-		let mut uniform = TyUniformMut(uniform_data.as_mut_slice());
+		let mut uniform = TyMeterialMut(uniform_data.as_mut_slice());
 		uniform.get_data(index, &self.data);
 
 		uniform_data[0] as usize
@@ -144,6 +148,24 @@ impl GpuBuffer {
 		self.update_dirty_range(index..index + value.len());
 	}
 
+	// 连续设置相同的buffer到多个实例
+	pub fn set_data_mult<T: WriteBuffer>(&mut self, mut index: usize, count: usize, value: &T) {
+		let end = index + count * self.alignment;
+		while index < end {
+			self.instance_data_mut(index).set_data(value);
+			index += self.alignment;
+		}
+	}
+
+	// 连续设置相同的buffer到多个实例
+	pub fn set_data_mult1<T: WriteBuffer>(&mut self, mut index: Range<usize>, value: &T) {
+		let mut i = index.start;
+		while i < index.end {
+			self.instance_data_mut(i).set_data(value);
+			i += self.alignment;
+		}
+	}
+
 	
 
 	/// 在cur_index索引之后扩展片段
@@ -210,6 +232,7 @@ impl<'a> InstanceData<'a> {
 	// 为该实例设置数据
 	pub fn set_data<T: WriteBuffer>(&mut self, value: &T) {
 
+		// println_any!("set data========={:?}, {:?}, {:?}", self.index, value.offset(),  value);
 		log::trace!("byte_len========={:?}, {:?}, {:?}, {:?}, {:?}, {:?}", self.index, value.offset(), value.byte_len(), self.data.data.len(), self.data.capacity(), self.data.alignment);
 
 		#[cfg(debug_assertions)]
@@ -222,12 +245,13 @@ impl<'a> InstanceData<'a> {
 		// 	pi_print_any::out_any!(log::error, "set_data==={:?}, {:?}", self.index/ 240, value);
 		// }
 		// 在debug版本， 检查数据写入是否超出自身对齐范围
-		debug_assert_eq!((value.byte_len() as usize + self.index) / self.data.alignment, self.index / self.data.alignment);
+		debug_assert_eq!((value.byte_len() as usize + self.index - 1) / self.data.alignment, self.index / self.data.alignment);
 		debug_assert!((self.index + value.offset() as usize + value.byte_len() as usize) <= self.data.data.len());
 
 		value.write_into(self.index as u32, &mut self.data.data);
 		// log::trace!("byte_len0========={:?}", value.byte_len());
 		self.data.update_dirty_range(self.index..self.index + self.data.alignment);
+		
 
 		// if value.offset() <= 180 && value.offset() + value.byte_len() >=184 {
 			// let start = 180 + self.index;
@@ -239,10 +263,10 @@ impl<'a> InstanceData<'a> {
 		// }
 
 		// if self.index == 64 || self.index == 65 {
-		// 	let start = 180 + self.index;
-		// 	let rrr = &self.data.data[start..start + 4];
-		// 	let f32rr: &[f32] = bytemuck::cast_slice(rrr);
-		// 	pi_print_any::out_any!(log::error, "set_data1==={:?}, {:?}, {:?}",  self.index/ 240, value, (f32rr, f32rr1));
+			// let start = self.index;
+			// let rrr = &self.data.data[start..start + value.byte_len() as usize];
+			// let f32rr: &[f32] = bytemuck::cast_slice(rrr);
+			// pi_print_any::out_any!(log::error, "set_data1==={:?}, {:?}, {:?}",  self.index/ 240, value, f32rr);
 		// }
 	}
 
