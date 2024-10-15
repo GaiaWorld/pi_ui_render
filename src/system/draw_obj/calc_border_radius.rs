@@ -2,8 +2,9 @@
 use std::hash::{Hash, Hasher};
 
 use pi_flex_layout::prelude::Rect;
-use pi_sdf::shape::SvgInfo;
-use pi_sdf::shape::PathVerb;
+use pi_hal::svg::{Path, PathVerb, SvgInfo};
+// use pi_sdf::shape::SvgInfo;
+// use pi_sdf::shape::PathVerb;
 use pi_style::style::StyleType;
 use pi_world::filter::Or;
 /// 为圆角设置渲染数据
@@ -104,7 +105,7 @@ pub fn calc_border_radius(
                 None => {
                     let (mut verb, mut points) = (vec![], vec![]);
                     gen_sdf(&sdf_info, &mut points, &mut verb);
-                    let svg_info = pi_sdf::shape::Path::new1(verb, points).get_svg_info();
+                    let svg_info = Path::new1(verb, points).get_svg_info();
                     let point = [
                         100.0, 100.0, f32::INFINITY,
                         102.0, 100.0, 0.0,
