@@ -1,7 +1,8 @@
 //! 圆角从有到删除，没有正确处理顶点（TODO）
 
 use pi_flex_layout::prelude::Rect;
-use pi_sdf::shape::PathVerb;
+use pi_hal::svg::{Path, PathVerb};
+// use pi_sdf::shape::PathVerb;
 use pi_style::style::{CgColor, StyleType};
 use pi_world::event::ComponentRemoved;
 use pi_world::fetch::OrDefault;
@@ -154,7 +155,7 @@ pub fn calc_border_color_instace_count(
 				gen_inner_sdf(&sdf_info.0, &sdf_info.1.0, &mut points, &mut verb);
 
 				log::debug!("calc_border_color: {:?}", (&verb, &points, &sdf_info));
-				let svg_info = pi_sdf::shape::Path::new1(verb, points).get_svg_info();
+				let svg_info = Path::new1(verb, points).get_svg_info();
 
 				sdf2_table.add_shape(hash, svg_info, sdf_info.0.width as usize, 1,  2);
 				sdf2_table.shapes_tex_info.get(&hash).unwrap()

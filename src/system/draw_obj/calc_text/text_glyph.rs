@@ -3,12 +3,13 @@
 //! 在fontsheet中，文字最多缓存一张纹理。为字符分配纹理，可能存在空间不足的情况。此时，本系统将清空fontsheet中所有缓存的字符，并重新为当前所有显示节点上的文字重新绘制纹理。
 use std::{collections::VecDeque, sync::{atomic::AtomicBool, Arc}};
 
+use pi_hal::font_brush::SdfInfo2;
 use pi_world::{filter::Or, prelude::{Changed, Entity, Mut, OrDefault, ParamSet, Query, SingleResMut, With}};
 use pi_bevy_ecs_extend::{
     prelude::{Layer, OrInitSingleResMut},
     system_param::res::OrInitSingleRes,
 };
-use pi_sdf::utils::SdfInfo2;
+// use pi_sdf::utils::SdfInfo2;
 use pi_key_alloter::DefaultKey;
 use pi_render::font::{Font, FontSheet};
 use pi_share::{Share, ShareMutex};

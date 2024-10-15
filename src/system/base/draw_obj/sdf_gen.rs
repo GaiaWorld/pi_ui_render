@@ -81,9 +81,9 @@ pub fn draw_sdf(
         await_list.push_back((result.clone(), mark.clone(), draw_count));
         let cur_await = font_sheet.draw_await(result.clone(), 0, draw_count);
         MULTI_MEDIA_RUNTIME.spawn(async move {
-            let t1 = std::time::Instant::now();
+            let t1 = pi_time::Instant::now();
             cur_await.await;
-            log::debug!("draw sdf2==========={:?}", (draw_count, std::time::Instant::now() - t1));
+            log::error!("draw sdf2==========={:?}", (draw_count,  pi_time::Instant::now() - t1));
             mark.store(true, std::sync::atomic::Ordering::Relaxed);
         }).unwrap();
     }
@@ -95,9 +95,9 @@ pub fn draw_sdf(
             // println!("await================{:?}", &await_set_gylph);
             if is_load.load(std::sync::atomic::Ordering::Relaxed) == true {
                 let (result, _, draw_count) = await_list.pop_front().unwrap();
-                let t1 = std::time::Instant::now();
+                let t1 = pi_time::Instant::now();
                 font_sheet.update_sdf2(result); // 更新纹理
-                log::debug!("update_sdf2================{:?}", (draw_count, std::time::Instant::now() - t1));
+                log::debug!("update_sdf2================{:?}", (draw_count, pi_time::Instant::now() - t1));
                 
                 next = await_list.front();
                 continue;
