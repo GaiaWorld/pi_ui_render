@@ -663,36 +663,52 @@ pub fn batch_instance_data(
 			// 1. 与上一个pass相比， fbo发生了改变（处理第一个pass时， 不算发生了改变）
 			// 2. 当前Pass与之前处理的pass存在依赖关系
 			// 3. 迭代到最后一个pass
-			let (split_index/*上一个清屏的批处理索引：单位（批次）*/, end/*实例数据的结束偏移：单位（字节）*/) = if fbo_changed1 || is_active {
+			let (split_index/*上一个清屏的批处理索引：单位（批次）*/, end/*实例数据的结束偏移：单位（字节）*/, draw_call_count/*该次清屏，对应的drawcall数量*/) = if fbo_changed1 || is_active {
 				// 如果fbo发生了改变， 重新劈分clear
 				let c = (DrawElement::Clear {
 					draw_state: InstanceDrawState { 
 						instance_data_range: draw_2d_list.clear_instance..draw_2d_list.clear_instance + instances.instance_data.alignment, 
 						pipeline: Some(instances.clear_pipeline.clone()),
-						texture_bind_group: Some(instances.batch_texture.default_texture_group.clone()),
+						texture_bind_group: None,
 					},
 					is_active,
+					draw_count: 0,
 				}, *pass_id);
 				let last_index = pre_clear_index;
 				pre_clear_index = instances.draw_list.len(); // 记录当前清屏所需drawcall（实例化渲染， 渲染多个清屏）的索引
 				instances.draw_list.push(c);
 				batch_state.pre_pipeline = instances.clear_pipeline.clone();
 				if instances.draw_list.len() > 1 {
-					(last_index, draw_2d_list.clear_instance)
+					(last_index, draw_2d_list.clear_instance, instances.draw_list.len() - 1 - last_index)
 				} else {
-					(Null::null(), 0)
+					(Null::null(), 0, 0/*此分支次数据不会处理， 随便写的0*/)
 				}
 			} else {
 				if instances.draw_list.len() > 0 && pass_index >= batch_state.next_node_with_depend { 
-					(pre_clear_index, draw_2d_list.clear_instance + instances.instance_data.alignment)
+					(pre_clear_index, draw_2d_list.clear_instance + instances.instance_data.alignment, instances.draw_list.len() - pre_clear_index)
 				} else {
-					(Null::null(), draw_2d_list.clear_instance)
+					(Null::null(), draw_2d_list.clear_instance, 0/*此分支次数据不会处理， 随便写的0*/)
 				}
 			};
 			if !split_index.is_null() {
 				// fbo未改变， 并且迭代结束了，则设置上一个清屏drawcall的实例范围
-				if let DrawElement::Clear {draw_state, ..} = &mut instances.draw_list[split_index].0 {
+				if let DrawElement::Clear {draw_state, mut draw_count, ..} = &mut instances.draw_list[split_index].0 {
 					draw_state.instance_data_range.end = end;
+					*draw_count = draw_call_count;
+					if draw_call_count > 0 {
+						let group = match instances.draw_list[split_index + 1] {
+							DrawElement::DrawInstance {draw_state, ..} => {
+								// 这里将清屏的texture_bind_group设置为接下来第一个需要渲染的drawcall的texture_bind_group, 而不是default_texture_group
+								// 可检查渲染时，texture的切换
+								draw_state.texture_bind_group.clone()
+							},
+							_ => {
+								Some(instances.batch_texture.default_texture_group.clone())
+							},
+						};
+						draw_state.texture_bind_group = Some(group);
+					}
+					
 					// log::warn!("is_split_clear========={:?}", (pass_id, split_index, pre_clear_index, draw_2d_list.clear_instance, fbo_changed1, &draw_state.instance_data_range, draw_state.instance_data_range.len() / 224));
 				}
 			}

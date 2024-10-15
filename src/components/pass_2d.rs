@@ -85,6 +85,7 @@ pub enum DrawElement {
         // 所有pass中有一些pass处于激活状态， 而有一个asImage为force的节点， 处于未激活状态（应该使用原有的纹理，而不应该被清屏），
         // 这类节点的清屏， 其可见性应该设置为不可见TODO
 		is_active: bool, 
+        draw_count: usize, // draw_call数量（一些清屏， 其draw数量为0， 则该清屏可以被忽略）
 	}, 
     // // Pass2D类型， 需要递归渲染其对应的实例
 	// Pass2D{

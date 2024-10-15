@@ -773,9 +773,9 @@ impl Node for Pass2DNode {
 				}
 				
 				match &element.0 {
-					DrawElement::Clear { draw_state, is_active } => {
+					DrawElement::Clear { draw_state, is_active, draw_count } => {
 						// log::warn!("clear======={:?}, {:?}", is_active, draw_state.instance_data_range.start / 224);
-						if !*is_active {
+						if !*is_active || draw_count == 0 {
 							continue; // 没有激活的fbo， 不清屏
 						}
 						param.instance_draw.set_pipeline(&mut rp, draw_state, &mut render_state);
