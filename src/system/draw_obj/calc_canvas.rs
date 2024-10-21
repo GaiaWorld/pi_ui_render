@@ -95,7 +95,7 @@ pub fn calc_canvas_graph(
 				continue;
 			}
 
-			log::warn!("canvas id========: {:?}", (entity, &from_graph_id.0));
+			// log::warn!("canvas id========: {:?}", (entity, &from_graph_id.0));
 			
 			let id = type_to_post_process(**from_graph_id, as_image, &graph_id_query1, &mut rg);
             let mut in_pass_id = **in_pass_id;
