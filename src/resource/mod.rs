@@ -34,7 +34,7 @@ use pi_world::prelude::{Entity, FromWorld, World, Command, CommandQueue};
 
 use crate::components::calc::{EntityKey, Quad, StyleBit, StyleMarkType};
 use crate::components::user::serialize::{AttrSet, StyleAttr};
-use crate::components::user::{AsImage, ClipPath, MaskImage, Point2, RenderDirty, RenderTargetType, Vector2, Viewport};
+use crate::components::user::{AsImage, ClipPath, MaskImage, Point2, RenderTargetType, Vector2, Viewport};
 use crate::components::SettingComponentIds;
 use pi_spatial::quad_helper::QuadTree as QuadTree1;
 // use crate::utils::cmd::{CommandQueue, Command, DataQuery};
@@ -67,6 +67,9 @@ pub enum OtherDirtyType {
     NodeState = 114, // NodeState修改
     NodeTreeRemove = 113, // 树结构改变
 }
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct RenderDirty(pub bool, pub bool/*当前帧是否脏*/, pub bool/*上一帧是否脏*/);
 
 
 #[derive(Default, Deref, Serialize, Deserialize)]
@@ -367,12 +370,12 @@ impl UserCommands {
     /// 设置渲染脏
     pub fn set_render_dirty(&mut self, node: Entity, cmd: RenderDirty) -> &mut Self {
         // println_any!("push_cmd===={:?}", 1);
-        let r = NodeCmd(cmd, node);
+        // let r = NodeCmd(cmd, node);
 
-        #[cfg(feature = "debug")]
-        self.other_commands_list.push(CmdType::NodeCmdRenderRenderDirty(r.clone()));
+        // #[cfg(feature = "debug")]
+        // self.other_commands_list.push(CmdType::NodeCmdRenderRenderDirty(r.clone()));
 
-        self.other_commands.push(r);
+        // self.other_commands.push(r);
 		self
     }
 

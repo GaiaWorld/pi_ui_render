@@ -28,7 +28,7 @@ use wgpu::{ BindGroupLayout, CommandEncoder, RenderPass, Sampler};
 
 use crate::{components::{calc::{style_bit, LayoutResult, NodeState, StyleBit, StyleMarkType, LAYOUT_DIRTY}, draw_obj::{InstanceSplit, TempGeoBuffer, TextOuterGlowMark, TextShadowMark}, pass_2d::InstanceDrawState, root::DynTargetType}, resource::{draw_obj::RenderState, TextOuterGlowRenderObjType, TextShadowRenderObjType}, shader1::{batch_gauss_blur::{BatchGussMeterial, GaussDirecition}, batch_meterial::{LayoutUniform, TyMeterial, UvUniform}, batch_sdf_glow::BatchGlowMeterial, batch_sdf_gray::BatchGrayMeterial}, system::draw_obj::root_view_port::create_dyn_target_type};
 use crate::components::draw_obj::{BoxType, PolygonType, RenderCount, TempGeo, TextMark, VColor};
-use crate::components::user::{get_size, TextContent, TextOuterGlow, TextOverflowData, TextShadow, TextStyle, Vector4};
+use crate::components::user::{get_size, TextContent, TextOuterGlow, TextOverflowData, TextShadow, TextStyle};
 use crate::components::user::Color;
 use crate::resource::{GlobalDirtyMark, IsRun, OtherDirtyType, ShareFontSheet, TextRenderObjType};
 use crate::shader::ui_meterial::ColorUniform;
@@ -43,7 +43,7 @@ use super::{text_glyph::text_glyph, TEXT_OUTER_GLOW_ORDER, TEXT_SHADOW_ORDER};
 use super::TEXT_ORDER;
 use super::text_split::text_split;
 
-use crate::components::calc::{WorldMatrix, DrawList};
+use crate::components::calc::DrawList;
 use crate::components::draw_obj::InstanceIndex;
 use crate::resource::draw_obj::InstanceContext;
 use crate::system::system_set::{UiSchedule, UiSystemSet};
@@ -137,8 +137,7 @@ impl Plugin for Sdf2TextPlugin {
 
 lazy_static! {
 	pub static ref TEXT_DIRTY: StyleMarkType = TEXT_LEN_DIRTY.clone()
-		.set_bit(OtherDirtyType::NodeState as usize)
-		.set_bit(OtherDirtyType::WorldMatrix as usize);
+		.set_bit(OtherDirtyType::NodeState as usize);
 	pub static ref TEXT_LEN_DIRTY: StyleMarkType = TEXT_LAYOUT_DIRTY.clone() | LAYOUT_DIRTY
 		.set_bit(StyleType::Color as usize)
 		.set_bit(StyleType::TextStroke as usize)
@@ -200,7 +199,6 @@ pub fn calc_sdf2_text_len(
 		Option<&TextShadow>, 
 		OrDefault<TextStyle>,
 		Option<&TextOuterGlow>,
-		&WorldMatrix,
 		&Up,
 		&Layer,
 	), (
@@ -232,7 +230,6 @@ pub fn calc_sdf2_text_len(
 		text_shadow,
 		text_style,
 		text_outer_glow,
-		world_matrix,
 		mut up,
 		layer,
 	) in query.iter() {
@@ -279,7 +276,6 @@ pub fn calc_sdf2_text_len(
 				text_overflow_data,
 				font_sheet: &mut *font_sheet,
 				own_layout: layout,
-				world_matrix,
 
 				fontsize,
 				half_stroke: (*text_style.text_stroke.width) / 2.0,
@@ -290,8 +286,8 @@ pub fn calc_sdf2_text_len(
 			0
 		};
 		
-
-		if render_count.0 != count as u32 {
+		let diff = render_count.0 as i32 - count as i32;
+		if diff < 0 || diff > 10 { // 这里， 为文字数量保有一定的变动空间，防止像倒计时这类的文字，数量发生变化后，使得批渲数据重新分配
 			render_count.0 = count as u32;
 			global_mark.mark.set(OtherDirtyType::InstanceCount as usize, true);
 			log::debug!("node_changed2============");
@@ -684,17 +680,25 @@ pub fn calc_sdf2_text(
 			Ok(r) => r,
 			_ => continue,
 		};
-		let mut ty = instances.instance_data.instance_data_mut(instance_index.start).get_render_ty();
+		let start = instance_index.start;
+		let mut ty = instances.instance_data.instance_data_mut(start).get_render_ty();
+		ty &= !(1 << RenderFlagType::Invalid as usize);
 		if *text_style.text_stroke.width > 0.0 {
 			ty |= 1 << RenderFlagType::Stroke as usize;
 		} else {
 			ty &= !(1 << RenderFlagType::Stroke as usize);
 		}
-		text.text_geo.set_instance_data(instance_index.start, &mut instances, Some(&OtherInfo {
+		let end = text.text_geo.set_instance_data(start, &mut instances, Some(&OtherInfo {
 			sdf_info: [text.px_range, text.fill_bound, text.stroke_bound],
 			stroke_color: [stroke_color.x, stroke_color.y, stroke_color.z, stroke_color.w],
 			ty: ty as f32,
 		}), buffer);
+
+		if end < instance_index.end {
+			// 设多余的实例为无效实例
+			ty |= 1 << RenderFlagType::Invalid as usize;
+			instances.instance_data.set_data_mult1(end..instance_index.end, &TyMeterial(&[ty as f32]));
+		}
 	}
 	
 	buffer.clear();
@@ -711,7 +715,6 @@ struct UniformData<'a> {
 	text_outer_glow: Option<&'a TextOuterGlow>,
 	text_style: &'a TextStyle,
 	font_sheet: &'a mut FontSheet,
-	world_matrix: &'a WorldMatrix,
 
 	fontsize: f32, // 字体大小
 	half_stroke: f32, // 描边的一半宽度
@@ -747,12 +750,10 @@ pub struct TextResult {
 impl<'a> UniformData<'a> {
 	fn geo(&self, entity: Entity, temp: &mut TextTemp) -> usize {
 		let font_size = get_size(&self.text_style.font_size) as f32;		
-		let scale = Vector4::from(self.world_matrix.fixed_columns(1));
 		let font_size_scale = font_size.max(0.0001) / sdf_font_size(font_size as usize) as f32;
-		let scale = scale.dot(&scale).sqrt() * font_size_scale ;
-		let px_range = pi_hal::font::sdf2_table::PXRANGE as f32 * scale * 2.0;
+		let px_range = pi_hal::font::sdf2_table::PXRANGE as f32 * font_size_scale * 2.0;
 		let fill_bound = 0.5 - (self.text_style.font_weight as f32 / 500 as f32 - 1.0) / px_range;
-		let stroke_bound = fill_bound - (*self.text_style.text_stroke.width)/2.0/font_size_scale/pi_hal::font::sdf2_table::PXRANGE as f32/2.0;
+		let stroke_bound = fill_bound - (*self.text_style.text_stroke.width)/2.0/font_size_scale/(pi_hal::font::sdf2_table::PXRANGE as f32 * 2.0);
 
 		let mut calc_result = TextResult {
 			

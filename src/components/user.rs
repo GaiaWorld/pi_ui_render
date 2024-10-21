@@ -698,6 +698,7 @@ impl Default for FlexNormal {
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Canvas {
 	pub id: Entity,
+    pub pre_graph_id: pi_render::depend_graph::NodeId,
 	pub by_draw_list: bool,
 }
 
@@ -727,7 +728,7 @@ pub mod serialize {
         calc::{BackgroundImageTexture, BorderImageTexture}, user::*
     };
     use pi_atom::Atom;
-    use pi_print_any::out_any;
+    use pi_print_any::{out_any, println_any};
     // use pi_ecs::{
     //     prelude::{Query, SingleResMut},
     //     query::{DefaultComponent, Write},
@@ -844,6 +845,7 @@ pub mod serialize {
         mut f: F,
     ) {
 		// log::debug!("type: {:?}, entity: {:?}", std::any::type_name::<C>(), entity);
+        
         log::debug!(
             "set_style_attr, type: {:?}, value: {:?}, entity: {:?}",
             std::any::type_name::<C>(),

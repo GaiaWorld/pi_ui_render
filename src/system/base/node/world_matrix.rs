@@ -38,7 +38,7 @@
 //!
 //! 可以考虑： 当父矩阵计算完成后，父节点所有子节点所形成的子树，可以并行计算（他们依赖的父矩阵已经计算完毕）
 use pi_bevy_ecs_extend::system_param::tree::Down;
-use pi_world::event::{ComponentAdded, ComponentChanged};
+use pi_world::event::{ComponentAdded, ComponentChanged, EventSender};
 use pi_world::prelude::{ParamSet, Query, SingleResMut, Entity, With};
 use pi_bevy_ecs_extend::prelude::{Layer, LayerDirty, OrInitSingleRes, Up};
 
@@ -55,12 +55,12 @@ use crate::utils::tools::calc_bound_box;
 
 pub struct CalcMatrix;
 
-// #[derive(Debug)]
-// pub struct OldQuad {
-//     pub entity: Entity,
-//     pub root: Entity,
-//     pub quad: Quad,
-// }
+#[derive(Debug)]
+pub struct OldQuad {
+    pub entity: Entity,
+    pub root: Entity,
+    pub quad: Quad,
+}
 
 // fn print_parent(idtree: &EntityTree<Node>, id: Id<Node>) {
 //     let parent_id = idtree.get_up(id).map_or(Id::<Node>::null(), |up| up.parent());
@@ -111,6 +111,7 @@ pub fn cal_matrix(
     content_box: Query<&mut ContentBox>,
     mut layer_dirty1: LayerDirty<With<Empty>>,
     mut global_dirty: SingleResMut<GlobalDirtyMark>,
+    // mut event_writer1: EventSender<OldQuad>,
 ) {
 	if r.0 {
 		return;
@@ -263,6 +264,8 @@ pub fn cal_matrix(
 						&matrix,
 						&mut quad,
 						&mut quad_tree,
+                        // &mut event_writer1,
+                        // layer
 					);
                    
 					#[cfg(debug_assertions)]
@@ -299,13 +302,15 @@ pub fn calc_quad(
     world_matrix: &WorldMatrix,
     quad: &mut Quad,
     quad_tree: &mut QuadTree,
+    // event_writer1: &mut EventSender<OldQuad>,
+    // layer: &Layer,
 ) {
     let width = layout.rect.right - layout.rect.left;
     let height = layout.rect.bottom - layout.rect.top;
     let aabb = calc_bound_box(&Aabb2::new(Point2::new(0.0, 0.0), Point2::new(width, height)), world_matrix);
 
     let item = Quad::new(aabb);
-    // // 在修改oct前，先发出一个删除事件，一些sys能够通过监听该事件知道在删除前，quad的值（如脏区域系统，需要了解oct在修改之前的值，来更新脏区域）
+    // 在修改oct前，先发出一个删除事件，一些sys能够通过监听该事件知道在删除前，quad的值（如脏区域系统，需要了解oct在修改之前的值，来更新脏区域）
     // if let Some(r) = quad_tree.get(&EntityKey(id)) {
     //     event_writer1.send(OldQuad {
     //         entity: id,

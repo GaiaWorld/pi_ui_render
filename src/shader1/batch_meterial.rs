@@ -19,7 +19,7 @@ pub enum RenderFlagType {
 	Stroke = 8, // 256  
 	TextStroke = 9, // 512
 	NotVisibility = 10, // 1024
-	PointerSamp = 11, // 2048
+	Invalid = 11, // 2048 无效渲染， 诸如像文字这类渲染， 可能会在实例buffer上保留一定数量的冗余实例， 这些实例被设置为无效渲染
 	LinearGradient = 12, // 4096
 	Border = 13, // 8192
 	BoxShadow = 14, // 16384

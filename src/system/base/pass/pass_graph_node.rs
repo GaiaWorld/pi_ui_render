@@ -1,5 +1,5 @@
 
-use std::mem::transmute;
+use std::{mem::transmute, ops::Range};
 
 use pi_world::prelude::{Query, Entity, OrDefault, SystemParam, Local, SingleRes, ParamSet};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, OrInitSingleRes, Layer};
@@ -12,7 +12,7 @@ use pi_bevy_render_plugin::{
 };
 use pi_futures::BoxFuture;
 use pi_null::Null;
-use pi_render::components::view::target_alloc::{SafeAtlasAllocator, SafeTargetView};
+use pi_render::components::view::target_alloc::{GetTargetView, SafeAtlasAllocator, SafeTargetView};
 // use pi_postprocess::
 use pi_postprocess::prelude::PostprocessTexture;
 use pi_render::{
@@ -55,7 +55,7 @@ pub struct BuildParam<'w> {
 			'static,
 			(
 				&'static Layer,
-				&'static Camera,
+				&'static mut Camera,
 				&'static ParentPassId,
 				&'static RenderTarget,
 				Option<&'static AsImage>,
@@ -276,7 +276,7 @@ impl Node for Pass2DNode {
 		// log::warn!("run1======{:?}", pass2d_id);
 		let p0 = param.query.p0();
 		let (layer, 
-			camera,
+			mut camera,
 			parent_pass2d_id,
 			render_target, 
 			as_image,
@@ -289,8 +289,6 @@ impl Node for Pass2DNode {
 			_ => return Ok(out),
 		};
 		log::trace!(pass = format!("{:?}", pass2d_id).as_str(); "build graph node, instance_index: {:?}, has_effect: {:?},pass2d_id: {:?}", instance_index, post_process_info.has_effect(), pass2d_id);
-
-		// log::trace!("build2======{:?}", pass2d_id);
 
 		match &**param.surface {
 			Some(r) => r,
@@ -319,96 +317,81 @@ impl Node for Pass2DNode {
 		// 	println!("pass1, {:?}", (pass2d_id, camera.is_active, parent_pass2d_id.is_null(), list0.instance_range.len(),  content_box.layout.width(), content_box.layout.height()));
 		// }
 		let is_not_only_as_image = post_process_info.is_not_only_as_image(&param.as_image_mark_type);
-		log::trace!(pass = format!("{:?}", pass2d_id).as_str();"build graph node1, pass2d_id: {pass2d_id:?}, \nparent_pass2d_id: {:?}, \ninput count: {}, \ninput: {:?}, \nis_active: {:?}, \nis_changed: {:?}, \nview_port: {:?}, \nfrom: {_from:?}, \nto: {to:?}", parent_pass2d_id, input.0.len(), input.0.iter().map(|r| {(r.0.clone(), r.1.target.is_some(), &r.1.valid_rect)}).collect::<Vec<_>>(), camera.is_active, camera.is_change, &camera.view_port);
-		if camera.is_active || parent_pass2d_id.is_null() {
-			let mut render_to_fbo = false;
-			let (offsetx, offsety) = (
-				render_target.bound_box.mins.x - camera.view_port.mins.x,
-				render_target.bound_box.mins.y - camera.view_port.mins.y,
-			);
-			let (view_port_w, view_port_h) = (
-				camera.view_port.maxs.x - camera.view_port.mins.x,
-				camera.view_port.maxs.y - camera.view_port.mins.y,
-			);
-			// let next_target = &mut param.temp_next_target.0;
+		log::trace!(pass = format!("{:?}", pass2d_id).as_str();"build graph node1, pass2d_id: {pass2d_id:?}, \nparent_pass2d_id: {:?}, \ninput count: {}, \ninput: {:?}, \nis_active: {:?}, \nis_changed: {:?}, \nview_port: {:?}, \nfrom: {_from:?}, \nto: {to:?}", parent_pass2d_id, input.0.len(), input.0.iter().map(|r| {(r.0.clone(), r.1.target.is_some(), &r.1.valid_rect)}).collect::<Vec<_>>(), camera.is_render_own, camera.draw_changed, &camera.view_port);
 
-			// if list.opaque.len() > 0 || list.transparent.len() > 0 {
-			if camera.is_active && list0.instance_range.len() > 0 {
-				if parent_pass2d_id.is_null() && !post_process_info.has_effect() && RenderTargetType::Screen == last_rt_type {
-					// log::trace!("build1======{:?}", pass2d_id);
-				
-					// 如果是根节点，并且不存在effect， 直接渲染到屏幕
-					// 根节点应该有个组件，表明是否渲染到屏幕， 如果不渲染到屏幕，则渲染到临时fbo并输出（TODO）
-					// (RenderPassTarget::Screen(&param.surface, &param.screen.depth), &param.fbo_clear_color.0)
-					// RenderPassTarget::Screen
-				} else {
+		let mut render_to_fbo = false;
+		let (offsetx, offsety) = (
+			render_target.bound_box.mins.x - camera.view_port.mins.x,
+			render_target.bound_box.mins.y - camera.view_port.mins.y,
+		);
+		let (view_port_w, view_port_h) = (
+			camera.view_port.maxs.x - camera.view_port.mins.x,
+			camera.view_port.maxs.y - camera.view_port.mins.y,
+		);
+		// let next_target = &mut param.temp_next_target.0;
 
-					// 排除to节点中分配的Target
-					
-					// for next in to.iter() {
-					// 	if let Some(pass_id) = param.pass_graph_map.get(*next) {
-					// 		if let Ok(render_target) = param.render_targets.get(*pass_id) {
-					// 			let r: Share<SafeTargetView> = match &render_target.target {
-					// 				StrongTarget::Asset(r) => r.0.clone(),
-					// 				StrongTarget::Raw(r) => r.0.clone(),
-					// 				_ => continue,
-					// 			};
-					// 			next_target.push(SimpleInOut {
-					// 				target: Some(r),
-					// 				valid_rect: None,
-					// 			});
-					// 		}
-					// 	}
-					// }
+		// if list.opaque.len() > 0 || list.transparent.len() > 0 {
+		let catch_target = match &render_target.target {
+			StrongTarget::Asset(r) => Some(r.0.clone()),
+			StrongTarget::Raw(r) => Some(r.0.clone()),
+			_ => None,
+		};
 
-					
-					// 否则渲染到临时fbo上
-					match render_target.get_or_create(
-						&param.atlas_allocator,
-						as_image,
-						&param.cache_target,
-						&param.as_image_mark_type,
-						post_process_info,
-						&t_type,
-						16 * 1024 * 1024, // 默认最多缓存16M的target，可配置？TODO
-						input.0.values(),
-						parent_pass2d_id.is_null(),
-					) {
-						Some(r) => {
-							// log::warn!("alloc=============={:?}", (pass2d_id, r.index, &r.target().colors[0].1));
-							// for i in input.0.values() {
-							// 	if let Some(t) = &i.target {
-							// 		log::warn!("alloc input =============={:?}", (pass2d_id, r.index, &t.target().colors[0].1));
-							// 	} else {
-							// 		log::warn!("alloc input =============={:?}", (pass2d_id, false));
-							// 	}
-								
-							// }
-							// next_target.clear();
-							render_to_fbo = true;
-							// log::warn!("build========{:?}", (pass2d_id, &r.target().colors[0].0));
-							self.target = Some(r.clone());
+		if let Some(catch_target) = catch_target {
 
-							RenderPassTarget::Fbo(r)
-						}
-						None => {
-							// next_target.clear();
-							// log::trace!("none==============={:?}", pass2d_id);
-							// 不进行渲染（可能由父节点对它进行渲染）
-							return Ok(out);
-						}
-					};
-				};
-				
-			} else {
-				// 实例个数为零， 则返回曾经缓存的fbo
-				match &render_target.target {
-					StrongTarget::Asset(r) => self.target = Some(r.0.clone()),
-					StrongTarget::Raw(r) => self.target = Some(r.0.clone()),
-					StrongTarget::None => ()
-				};
+			out.target = Some(catch_target); // 缓存fbo
+			fbo_info.post_draw = None; // 不进行后处理， 因为渲染上下文未改变， 并且渲染结果已经缓存
+			out.valid_rect = Some((offsetx as u32, offsety as u32, view_port_w as u32, view_port_h as u32));
+		} else if camera.is_render_own || parent_pass2d_id.is_null() {
+			if parent_pass2d_id.is_null() && !post_process_info.has_effect() && RenderTargetType::Screen == last_rt_type {
+
+			} else if is_only_one_pass(input, &param.instance_draw, &list0.instance_range, view_port_w as u32, view_port_h as u32) {
+
+				// 如果只有一个输入，并且draw2dList中也只存在一个渲染对象(该渲染对象一定是将输入fb拷贝到目标上)
+				// 此时， 可直接将输入作为输出
+				let input_fbo = input.0.values().next().unwrap().clone();
+				self.target = input_fbo.target.clone();
+				camera.is_render_own = false; // 自身不渲染（渲染结果跟输入完全一样， 直接使用了输入fbo的结果）
 				render_to_fbo = true;
-			}
+			} else {
+	
+				// 否则渲染到临时fbo上
+				match render_target.get_or_create(
+					&param.atlas_allocator,
+					as_image,
+					&param.cache_target,
+					&param.as_image_mark_type,
+					post_process_info,
+					&t_type,
+					16 * 1024 * 1024, // 默认最多缓存16M的target，可配置？TODO
+					input.0.values(),
+					!is_not_only_as_image,
+				) {
+					Some(r) => {
+						// log::warn!("alloc=============={:?}", (pass2d_id, r.index, &r.target().colors[0].1));
+						// for i in input.0.values() {
+						// 	if let Some(t) = &i.target {
+						// 		log::warn!("alloc input =============={:?}", (pass2d_id, r.index, &t.target().colors[0].1));
+						// 	} else {
+						// 		log::warn!("alloc input =============={:?}", (pass2d_id, false));
+						// 	}
+							
+						// }
+						// next_target.clear();
+						render_to_fbo = true;
+						// log::warn!("build========{:?}", (pass2d_id, &r.target().colors[0].0));
+						self.target = Some(r.clone());
+
+						RenderPassTarget::Fbo(r)
+					}
+					None => {
+						// next_target.clear();
+						// log::trace!("none==============={:?}", pass2d_id);
+						// 不进行渲染（可能由父节点对它进行渲染）
+						return Ok(out);
+					}
+				};
+			};
 			// let t4 = std::time::Instant::now();
 
 			out.valid_rect = Some((offsetx as u32, offsety as u32, view_port_w as u32, view_port_h as u32));
@@ -440,6 +423,7 @@ impl Node for Pass2DNode {
 						16, 
 						&param.device, 
 						&param.queue, 
+						// target,
 						PostprocessTexture::from_share_target(rt.clone(), wgpu::TextureFormat::pi_render_default()),
 						dst_size,
 						&param.atlas_allocator,
@@ -496,12 +480,24 @@ impl Node for Pass2DNode {
 
 							out.valid_rect = None;
 
-							let final_target = param.atlas_allocator.allocate( 
-								target_size.0, 
-								target_size.1, 
-								t_type.has_depth, 
-								[post_target.clone()].iter()
-							);
+
+							let final_target = render_target.get_or_create(
+								&param.atlas_allocator,
+								as_image,
+								&param.cache_target,
+								&param.as_image_mark_type,
+								post_process_info,
+								&t_type,
+								16 * 1024 * 1024, // 默认最多缓存16M的target，可配置？TODO
+								[post_target.clone()].iter(),
+								true,
+							).unwrap();
+							// let final_target = param.atlas_allocator.allocate( 
+							// 	target_size.0, 
+							// 	target_size.1, 
+							// 	t_type.has_depth, 
+							// 	[post_target.clone()].iter()
+							// );
 							// log::warn!("build1========{:?}", (pass2d_id, &final_target.target().colors[0].0));
 
 							if Share::ptr_eq(&final_target.target().colors[0].0, &post_target.target().colors[0].0) {
@@ -528,7 +524,6 @@ impl Node for Pass2DNode {
 				// println!("build1============{:?}", (t2 - t1, t3 - t2, t4 - t3, t5 - t4));
 			}
 		}
-
 		
 		// let t6 = std::time::Instant::now();
 		if let Some(as_image) = as_image {
@@ -540,6 +535,7 @@ impl Node for Pass2DNode {
 		}
 
 		if let (true, Some(target)) = (!list0.clear_instance.is_null(), &self.target) {
+			// 旧的fbo与新的fbo不同， 或区域不同， 需要重新设置清屏实例数据
 			let mut is_set_clear = false;
 			if let Some(fbo) = &fbo_info.fbo {
 				let rect1 = fbo.rect_with_border();
@@ -579,6 +575,7 @@ impl Node for Pass2DNode {
 		// 设置fbo_info
 		if !instance_index.start.is_null() {
 			if let Some(target) = &out.target {
+				// 旧的fbo输出与新的不同， 需要重新设置uv
 				let mut is_set_uv = false;
 				if let Some(fbo) = &fbo_info.out {
 					if !Share::ptr_eq(&fbo.target().colors[0].0 , &target.target().colors[0].0) {
@@ -599,13 +596,15 @@ impl Node for Pass2DNode {
 					param.instance_draw.instance_data.instance_data_mut(instance_index.start).set_data(&UvUniform(uv_box.as_slice()));
 				}
 			} else if fbo_info.out.is_some() {
-				param.instance_draw.rebatch = true; // 设置rebatch为true， 使得后续重新进行批处理
+				// 旧的fbo存在， 新的fbo不存在，设置rebatch为true， 使得后续重新进行批处理
+				param.instance_draw.rebatch = true;
 			}
 	
 			// 设置实例是否需要还原预乘
 			let mut ty = param.instance_draw.instance_data.instance_data_mut(instance_index.start).get_render_ty();
 			let mut visibility = is_show.get_visibility() && is_show.get_display() && !layer.layer().is_null();
 			if out.target.is_none() {
+				// 没有分配fbo，设置为不可见
 				visibility = false;
 			}
 			if (ty & (1 << RenderFlagType::NotVisibility as usize) == 0) != visibility {
@@ -773,9 +772,9 @@ impl Node for Pass2DNode {
 				}
 				
 				match &element.0 {
-					DrawElement::Clear { draw_state, is_active, draw_count } => {
+					DrawElement::Clear { draw_state, is_active } => {
 						// log::warn!("clear======={:?}, {:?}", is_active, draw_state.instance_data_range.start / 224);
-						if !*is_active || draw_count == 0 {
+						if !*is_active {
 							continue; // 没有激活的fbo， 不清屏
 						}
 						param.instance_draw.set_pipeline(&mut rp, draw_state, &mut render_state);
@@ -793,10 +792,11 @@ impl Node for Pass2DNode {
 					DrawElement::DrawInstance { draw_state, pass, .. } => {
 						// log::warn!("DrawInstance======={:?}, {:?}, {:?}, {:?}", pass, &draw_state.texture_bind_group, element.1, ( draw_state.instance_data_range.start/224..draw_state.instance_data_range.end/224));
 						// log::warn!("DrawInstance======={:?}, {:?}, {:?}", pass, element.1, draw_state.instance_data_range.start/224..draw_state.instance_data_range.end/224);
-						param.instance_draw.set_pipeline(&mut rp, draw_state, &mut render_state);
 						// 设置相机
 						if EntityKey(element.1).is_null() {
+							// 将根的内容拷贝到屏幕上
 							if let Ok(view_port) = param.root_query1.get(*pass) {
+								param.instance_draw.set_pipeline(&mut rp, draw_state, &mut render_state);
 								// log::warn!("root view port: {:?}", (pass, element.1, &view_port));
 								rp.set_viewport(view_port.mins.x, view_port.mins.y, view_port.maxs.x - view_port.mins.x, view_port.maxs.y - view_port.mins.y, 0.0, 1.0);
 								// 如果没有设置相机， 则随便设置一个（这里仅仅是将根节点的内容拷贝到屏幕， 实际上不会用到相机， 但是为了统一pipeline， 需要设置一个）
@@ -806,36 +806,49 @@ impl Node for Pass2DNode {
 									// set_camera = true;
 									camera_is_set = true;
 								}
+								param.instance_draw.draw(&mut rp, draw_state, &mut render_state);
+							} else {
+								unreachable!();
 							}
-						} else if pre_pass != EntityKey(*pass) {
+						} else {
 							if let Ok((camera, _render_target)) = param.pass2d_query.get(*pass) {
-								if !camera.is_active {
-									// log::warn!("is_active DrawInstance======={:?}, {:?}", pass, element.1);
+								if !camera.is_render_own {
+									log::warn!("is not active DrawInstance======={:?}, {:?}", pass, element.1);
 									continue;
 								}
-								if let Some(c) = &camera.bind_group {
-									c.set(&mut rp, CameraBind::set());
-									// set_camera = true;
+								param.instance_draw.set_pipeline(&mut rp, draw_state, &mut render_state);
+								if pre_pass != EntityKey(*pass) {
+									if let Some(c) = &camera.bind_group {
+										c.set(&mut rp, CameraBind::set());
+										// set_camera = true;
+									}
+									let view_port = (
+										(fbo_view_port.0 as f32 - fbo_camera.view_port.mins.x) + camera.view_port.mins.x,
+										(fbo_view_port.1 as f32 - fbo_camera.view_port.mins.y) + camera.view_port.mins.y,
+										camera.view_port.maxs.x - camera.view_port.mins.x,
+										camera.view_port.maxs.y - camera.view_port.mins.y,
+									);
+	
+									// let view_port = calc_view_port(&rt, &camera.view_port, &render_target.bound_box);
+									// log::warn!("DrawInstance view port: {:?}", (pass, element.1, view_port, camera.view_port, &fbo_camera.view_port, &fbo_view_port));
+									rp.set_viewport(view_port.0, view_port.1, view_port.2, view_port.3, 0.0, 1.0);
+									pre_pass = EntityKey(*pass);
 								}
-								let view_port = (
-									(fbo_view_port.0 as f32 - fbo_camera.view_port.mins.x) + camera.view_port.mins.x,
-									(fbo_view_port.1 as f32 - fbo_camera.view_port.mins.y) + camera.view_port.mins.y,
-									camera.view_port.maxs.x - camera.view_port.mins.x,
-									camera.view_port.maxs.y - camera.view_port.mins.y,
-								);
 
-								// let view_port = calc_view_port(&rt, &camera.view_port, &render_target.bound_box);
-								// log::warn!("DrawInstance view port: {:?}", (pass, element.1, view_port, camera.view_port, &fbo_camera.view_port, &fbo_view_port));
-								rp.set_viewport(view_port.0, view_port.1, view_port.2, view_port.3, 0.0, 1.0);
+								param.instance_draw.draw(&mut rp, draw_state, &mut render_state);
+								
+							} else {
+								unreachable!();
 							}
-							pre_pass = EntityKey(*pass);
+							
+							
 						}
 						
 						log::trace!("draw_state========={:?}", draw_state);
 						// if !set_camera{
 						// 	log::warn!("DrawInstance!============{:?}", (pass, pre_pass, render_state.reset));
 						// }
-						param.instance_draw.draw(&mut rp, draw_state, &mut render_state);
+						
 						
 					},
 					DrawElement::DrawPost(post_range) => {
@@ -843,6 +856,12 @@ impl Node for Pass2DNode {
 						// log::warn!("DrawPost======{:?}", element.1);
 						// 处理后处理
 						for post_pass_id in param.instance_draw.posts[post_range.clone()].iter() {
+							if let Ok((camera, _render_target)) = param.pass2d_query.get(*post_pass_id) {
+								// 如果目标fbo对应的相机未激活, 不需要渲染
+								if !camera.is_render_own {
+									continue;
+								}
+							}
 							let fbo = param.fbo_query.get(*post_pass_id).unwrap(); 
 							log::trace!("post============={:?}", (fbo.post_draw.is_some(), fbo.out.is_some()));
 							if let (Some((front_draw, final_draw)), Some(final_target)) = (&fbo.post_draw, &fbo.out) {
@@ -1169,7 +1188,7 @@ pub fn create_rp_for_fbo<'a>(
 impl RenderTarget {
     // 返回(渲染目标, 是否使用了新的渲染目标)
     // 如果未分配新的渲染目标，渲染时应该做脏更
-    pub fn get_or_create<'s, T: Iterator<Item = &'s SimpleInOut>>(
+    pub fn get_or_create<'s, G: GetTargetView, T: Iterator<Item=G>>(
         &'s mut self,
         atlas_allocator: &SafeAtlasAllocator,
         as_image: Option<&AsImage>,
@@ -1179,41 +1198,40 @@ impl RenderTarget {
         t_type: &DynTargetType,
         max_cache: usize,
         exclude: T,
-        is_force_alloc: bool,
+        by_catch: bool,
     ) -> Option<Share<SafeTargetView>> {
-        if is_force_alloc || post_info.has_effect() {
-            match &self.target {
-                StrongTarget::Asset(r) => {
+        if by_catch {
+			match &self.target {
+				StrongTarget::Asset(r) => {
 					return Some(r.0.clone())
 				},
 				StrongTarget::Raw(r) => return Some(r.0.clone()),
-                StrongTarget::None => {
-                    let width = (self.bound_box.maxs.x - self.bound_box.mins.x).ceil() as u32;
-                    let height = (self.bound_box.maxs.y - self.bound_box.mins.y).ceil() as u32;
+				StrongTarget::None => {
+					let width = (self.bound_box.maxs.x - self.bound_box.mins.x).ceil() as u32;
+					let height = (self.bound_box.maxs.y - self.bound_box.mins.y).ceil() as u32;
 
 					if width == 0 || height == 0 {
 						return None;
 					}
 
-                    let as_image = match as_image {
-                        Some(r) => r.level.clone(),
-                        None => pi_style::style::AsImage::None,
-                    };
+					let as_image = match as_image {
+						Some(r) => r.level.clone(),
+						None => pi_style::style::AsImage::None,
+					};
 
 					// println!("get_width======: {:?}",( width, height, assets.assets.size(), max_cache));
 
 					let capacity_overflow = assets.assets.size() as u32 + width * height * 4 > max_cache as u32;
-                    // 如果设置节点为建议缓存，在显存已经超出max_cache的情况下， 不为其分配target， 该相机下的物体直接渲染到父target上
-                    if AsImage1::Advise == as_image && post_info.is_not_only_as_image(as_image_mark_type) && capacity_overflow
-                    {
-                        return None;
-                    };
+					// 如果设置节点为建议缓存，在显存已经超出max_cache的情况下， 不为其分配target， 该相机下的物体直接渲染到父target上
+					if AsImage1::Advise == as_image && post_info.is_not_only_as_image(as_image_mark_type) && capacity_overflow
+					{
+						return None;
+					};
 
-                    // 分配渲染目标
-                    let t = CacheTarget(atlas_allocator.allocate(width, height, t_type.has_depth, exclude));
-
-                    match as_image {
-                        AsImage1::None => {
+					// 分配渲染目标
+					let t = CacheTarget(atlas_allocator.allocate(width, height, t_type.has_depth, exclude));
+					match as_image {
+						AsImage1::None => {
 							return Some(t.0);
 							// // 放入资产管理器，由资产管理器管理
 							// if capacity_overflow {
@@ -1242,21 +1260,39 @@ impl RenderTarget {
 							// self.target = StrongTarget::Asset(t.clone());
 							return Some(t.0.clone());
 						}
-                    };
-                    
-                    
-                }
-            }
-        // // if let None = target {
-        // // 如果后处理效果不只包含as_image，则
-        // if post_info.is_only_as_image(as_image_mark_type) {
-        // 	// || assets.size() as u32 + width * height * 4 <= max_cache as u32
+					};
+					
+					
+				}
+			}
+		} else {
+			let width = (self.bound_box.maxs.x - self.bound_box.mins.x).ceil() as u32;
+			let height = (self.bound_box.maxs.y - self.bound_box.mins.y).ceil() as u32;
 
-        // 	return (Some(t.0), true)
-        // }
-        // }
-        } else {
-            None
-        }
+			// if width == 0 || height == 0 {
+			// 	return None;
+			// }
+			Some(atlas_allocator.allocate(width, height, t_type.has_depth, exclude))
+		}
     }
+}
+
+
+pub fn is_only_one_pass(input: &InParamCollector<SimpleInOut>, instance_draw: &InstanceContext, instance_range: &Range<usize>, view_port_w: u32, view_port_h: u32) -> bool {
+	let mut ret = false;
+	if input.0.len() == 1 && instance_range.len() == instance_draw.instance_data.alignment {
+		// 如果只有一个输入，并且draw2dList中也只存在一个渲染对象(该渲染对象一定是将输入fb拷贝到目标上)
+		// 此时， 可直接将输入作为输出
+		let input_fbo = input.0.values().next().unwrap().clone();
+		if let Some(r) = input_fbo.target {
+			let (w, h) = match input_fbo.valid_rect {
+				Some(rect) => (rect.2, rect.3),
+				None => (r.target().width, r.target().height),
+			};
+			if w == view_port_w && h == view_port_h {
+				ret = true;
+			}
+		}
+	}
+	ret
 }

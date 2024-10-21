@@ -90,7 +90,7 @@ pub fn clip_path_post_process(
 		return;
 	}
     for (clip_path, layout, content_box, overflow, view, camera, mut post) in query.iter_mut() {
-        if !camera.is_active {
+        if !camera.is_render_own {
             continue;
         }
         // 节点可视区域（没有与父裁剪区域相交的部分， 可能是节点的ContentBox，也可能是布局的内容区域）

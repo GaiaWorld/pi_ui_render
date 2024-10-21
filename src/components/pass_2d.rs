@@ -35,8 +35,13 @@ pub struct Camera {
     // pub project: Matrix4,
     pub bind_group: Option<DrawBindGroup>,
     pub view_port: Aabb2,      // 非渲染视口区域（相对于全局的0,0点）
-    pub is_active: bool,       // 是否激活相机（如果未激活，该相机不会渲染任何物体），通常相机不在脏区域内， 或相机内无任何drawobj，则该值为false
-    pub is_change: bool, // 表示相机内的渲染内容是否改变， is_active为false时，该值为任何值都无所谓，is_active为true时，仅仅当内容相对于上一帧发生改变时，该值为true
+    // 是否渲染自身内容（如果为false，该相机不会渲染任何物体）
+    // draw_changed为true是， is_active一定为true
+    // draw_changed为false时，还需要看，从当前上下文开始向上递归，是否有上下文渲染目标被缓存，如果有，则is_active为false，否则为true
+    pub is_render_own: bool,
+    pub draw_changed: bool,     // 表示相机内的渲染内容是否改变
+    // 是否渲染(表示该pass是否渲染到父目标上)
+    pub is_render_to_parent: bool,  
 }
 
 impl Default for Camera {
@@ -46,8 +51,9 @@ impl Default for Camera {
             // project: Default::default(),
             bind_group: None,
             view_port: Aabb2::new(Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)),
-            is_active: false,
-            is_change: true,
+            is_render_own: false,
+            draw_changed: true,
+            is_render_to_parent: true,
         }
     }
 }
@@ -84,8 +90,7 @@ pub enum DrawElement {
         // 需要注意： 
         // 所有pass中有一些pass处于激活状态， 而有一个asImage为force的节点， 处于未激活状态（应该使用原有的纹理，而不应该被清屏），
         // 这类节点的清屏， 其可见性应该设置为不可见TODO
-		is_active: bool, 
-        draw_count: usize, // draw_call数量（一些清屏， 其draw数量为0， 则该清屏可以被忽略）
+		is_active: bool,
 	}, 
     // // Pass2D类型， 需要递归渲染其对应的实例
 	// Pass2D{
@@ -223,6 +228,7 @@ pub enum DirtyType {
     Depth = 2,     // 深度脏 （需要重新排序）
     DirtyRect = 3, // 脏区域
 }
+
 
 /// 脏区域, 设置在每个渲染上下文上
 #[derive(Clone, Debug, Component)]

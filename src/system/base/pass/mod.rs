@@ -15,6 +15,7 @@ pub mod pass_graph_node;
 pub mod pass_life;
 pub mod update_graph;
 pub mod root;
+pub mod pass_dirty;
 
 
 pub struct UiPassPlugin;
@@ -55,8 +56,22 @@ impl Plugin for UiPassPlugin {
             // 脏区域、相机、深度，更新uniform不顶点buffer到wgpu
             // .add_system(UiStage, pass_dirty_rect::calc_global_dirty_rect.in_set(UiSystemSet::PassCalc))
             .add_system(UiStage, 
-                pass_camera::calc_camera
+                pass_camera::calc_pass_dirty
                     // .after(pass_dirty_rect::calc_global_dirty_rect)
+					.after(UiSystemSet::BaseCalcFlush)
+                    .in_set(UiSystemSet::PassCalc),
+            )
+            .add_system(UiStage, 
+                pass_camera::calc_pass_active
+                    // .after(pass_dirty_rect::calc_global_dirty_rect)
+                    .after(update_graph::update_graph)
+					.after(UiSystemSet::BaseCalcFlush),
+            )
+            
+            .add_system(UiStage, 
+                pass_camera::calc_camera
+                    .after(pass_camera::calc_pass_dirty)
+                    .before(pass_camera::calc_pass_active)
 					.after(UiSystemSet::BaseCalcFlush)
                     .in_set(UiSystemSet::PassCalc),
             )

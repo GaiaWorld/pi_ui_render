@@ -4,15 +4,15 @@
         "type": "lldb",
         "request": "launch",
         "name": "run a_cmd_play",
-        "program": "D:\\0_rust\\pi_ui_render_new\\target\\debug\\examples\\a_cmd_play.exe",
+        "program": "D:\\0_rust\\pi_ui_render\\target\\debug\\examples\\a_cmd_play.exe",
         "args": [],
-        "cwd": "D:\\0_rust\\pi_ui_render_new",
+        "cwd": "D:\\0_rust\\pi_ui_render",
         "sourceMap": {},
         "sourceLanguages": [
         "rust"
         ],
         "env": {
-        "RUST_LOG": "warn,pi_ui_render::resource::animation_sheet=debug",
+        "RUST_LOG": "warn",
         "GL": "opengl",
         "RUST_BACKTRACE": "short",
         "ALLUSERSPROFILE": "C:\\ProgramData",

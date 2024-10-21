@@ -391,7 +391,7 @@ pub fn update_render_instance_data(
 			} else {
 				// 存在旧的，从旧的实例上拷贝过来
 				new_index = new_instances.cur_index()..new_instances.cur_index() + render_count.0 as usize * new_instances.alignment;
-				log::debug!("change_index============{:?}, {:?}, {:?}", entity, new_index, old_index);
+				log::debug!("change_index============{:?}, {:?}, {:?}", (node, entity), new_index, old_index);
 				if render_count.0 > 0 {
 					new_instances.extend(instances.instance_data.slice(old_index.clone()));
 
@@ -481,6 +481,8 @@ pub fn update_render_instance_data(
 				draw_2d_list.transparent.push(i.clone());
 			}
 		}
+		// 设置all_list长度为0（数据还在，数据用于下次列表与新元素对比，来确定列表是否发生改变）
+		draw_2d_list.reset();
 		
 		// draw_2d_list.instance_range.clear();
 		// draw_2d_list.need_dyn_fbo_index.clear();
@@ -651,9 +653,9 @@ pub fn batch_instance_data(
 				},
 			};	
 
-			let is_active = query_camera.get(*pass_id).unwrap().is_active;
-			let active_changed = if is_active != global_state.is_active {
-				global_state.is_active = is_active;
+			let is_render_own = query_camera.get(*pass_id).unwrap().is_render_own;
+			let active_changed = if is_render_own != global_state.is_active {
+				global_state.is_active = is_render_own;
 				true
 			} else {
 				false
@@ -663,16 +665,15 @@ pub fn batch_instance_data(
 			// 1. 与上一个pass相比， fbo发生了改变（处理第一个pass时， 不算发生了改变）
 			// 2. 当前Pass与之前处理的pass存在依赖关系
 			// 3. 迭代到最后一个pass
-			let (split_index/*上一个清屏的批处理索引：单位（批次）*/, end/*实例数据的结束偏移：单位（字节）*/, draw_call_count/*该次清屏，对应的drawcall数量*/) = if fbo_changed1 || is_active {
+			let (split_index/*上一个清屏的批处理索引：单位（批次）*/, end/*实例数据的结束偏移：单位（字节）*/, draw_call_count/*该次清屏，对应的drawcall数量*/) = if fbo_changed1 || active_changed {
 				// 如果fbo发生了改变， 重新劈分clear
 				let c = (DrawElement::Clear {
 					draw_state: InstanceDrawState { 
 						instance_data_range: draw_2d_list.clear_instance..draw_2d_list.clear_instance + instances.instance_data.alignment, 
 						pipeline: Some(instances.clear_pipeline.clone()),
-						texture_bind_group: None,
+						texture_bind_group: None, // 暂时设置为None， 后续会修改为下一个渲染对象的group
 					},
-					is_active,
-					draw_count: 0,
+					is_active: is_render_own,
 				}, *pass_id);
 				let last_index = pre_clear_index;
 				pre_clear_index = instances.draw_list.len(); // 记录当前清屏所需drawcall（实例化渲染， 渲染多个清屏）的索引
@@ -692,23 +693,8 @@ pub fn batch_instance_data(
 			};
 			if !split_index.is_null() {
 				// fbo未改变， 并且迭代结束了，则设置上一个清屏drawcall的实例范围
-				if let DrawElement::Clear {draw_state, mut draw_count, ..} = &mut instances.draw_list[split_index].0 {
-					draw_state.instance_data_range.end = end;
-					*draw_count = draw_call_count;
-					if draw_call_count > 0 {
-						let group = match instances.draw_list[split_index + 1] {
-							DrawElement::DrawInstance {draw_state, ..} => {
-								// 这里将清屏的texture_bind_group设置为接下来第一个需要渲染的drawcall的texture_bind_group, 而不是default_texture_group
-								// 可检查渲染时，texture的切换
-								draw_state.texture_bind_group.clone()
-							},
-							_ => {
-								Some(instances.batch_texture.default_texture_group.clone())
-							},
-						};
-						draw_state.texture_bind_group = Some(group);
-					}
-					
+				if let DrawElement::Clear {draw_state, ..} = &mut instances.draw_list[split_index].0 {
+					draw_state.instance_data_range.end = end;		
 					// log::warn!("is_split_clear========={:?}", (pass_id, split_index, pre_clear_index, draw_2d_list.clear_instance, fbo_changed1, &draw_state.instance_data_range, draw_state.instance_data_range.len() / 224));
 				}
 			}
@@ -718,24 +704,26 @@ pub fn batch_instance_data(
 				}
 			}
 
-			// let mut instance_data_start = draw_2d_list.instance_range.start;
-			// let mut instance_data_end =  draw_2d_list.instance_range.start;
-			let mut draw_2d_list = std::mem::take(draw_2d_list);
-			// log::warn!("pass_index================{:?}", (pass_index, pass_id));
-			
-			batch_pass(&mut query, &mut batch_state, &mut global_state, instances, &mut draw_2d_list, *pass_id, *pass_id);
-			batch_depth(&mut query, instances, &mut draw_2d_list, &mut 1);
+			// 当需要渲染时， 才需要劈分数据
+			if is_render_own {
+				// let mut instance_data_start = draw_2d_list.instance_range.start;
+				// let mut instance_data_end =  draw_2d_list.instance_range.start;
+				let mut draw_2d_list = std::mem::take(draw_2d_list);
+				// log::warn!("pass_index================{:?}", (pass_index, pass_id));
+				
+				batch_pass(&mut query, &mut batch_state, &mut global_state, instances, &mut draw_2d_list, *pass_id, *pass_id);
+				batch_depth(&mut query, instances, &mut draw_2d_list, &mut 1);
 
-			// 还回列表
-			let mut draw_2d_list1= match query.pass_query.get_mut(*pass_id) {
-				Ok(r) => r,
-				_ => unreachable!()
-			};
-			*(draw_2d_list1.bypass_change_detection()) = draw_2d_list;
+				// 还回列表
+				let mut draw_2d_list1= match query.pass_query.get_mut(*pass_id) {
+					Ok(r) => r,
+					_ => unreachable!()
+				};
+				*(draw_2d_list1.bypass_change_detection()) = draw_2d_list;
+			}
+			
 			// log::warn!("effect================{:?}", pass_id);
-		} else {
-			draw_2d_list.reset();
-		}	
+		}
 		
 		// 已经到达下一个"有依赖未就绪"的节点
 		// 在draw_list中push一个DrawPost， 用于绘制当前需要绘制的后处理效果
@@ -960,7 +948,7 @@ fn batch_pass(
 	let mut instance_data_end =  draw_list.instance_range.start;
 
 	// let mut pipeline;
-	// log::warn!("batch_pass======={:?}", (pass_id, parent_pass_id));
+	// log::warn!("batch_pass======={:?}", (parent_pass_id, pass_id, draw_list.opaque.len(), draw_list.transparent.len()));
 	for (draw_index, _, _draw_info) in draw_list.opaque.iter().rev().chain(draw_list.transparent.iter()) {
 		let mut last_pipeline = None;
 		let mut split_by_texture:  Option<(InstanceIndex, &Handle<AssetWithId<TextureRes>>, &Share<wgpu::Sampler>)> = None;
@@ -1196,9 +1184,6 @@ fn batch_pass(
 			pass: pass_id,
 		}, parent_pass_id));
 	}
-	log::debug!("pass_toop_list!!!!!2222===={:?}", pass_id);
-	// 设置all_list长度为0（数据还在，数据用于下次列表与新元素对比，来确定列表是否发生改变）
-	draw_list.reset();
 }
 
 #[derive(SystemParam)]

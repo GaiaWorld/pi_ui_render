@@ -3,7 +3,7 @@
 
 
 use pi_style::style::StyleType;
-use pi_world::{event::EventSender, prelude::{Changed, ComponentRemoved, Entity, Has, ParamSet, Query, SingleResMut}, single_res::SingleRes, system::{SystemMeta, TypeInfo}, system_params::{Local, SystemParam}, world::World};
+use pi_world::{event::EventSender, prelude::{Changed, ComponentRemoved, Entity, Has, ParamSet, Query, SingleResMut}, single_res::SingleRes, system::{SystemMeta, TypeInfo}, system_params::{ComponentDebugIndex, Local, SystemParam}, world::World};
 use pi_bevy_ecs_extend::prelude::OrInitSingleRes;
 
 use pi_time::Instant;
@@ -52,6 +52,8 @@ pub fn calc_animation_1(
     mut user_commands: SingleResMut<UserCommands>,
     global_mark: SingleRes<GlobalDirtyMark>,
     r: OrInitSingleRes<IsRun>,
+
+    a: ComponentDebugIndex<Animation>,
 ) {
 
     let time = Instant::now();
@@ -83,9 +85,14 @@ pub fn calc_animation_1(
     // let time1 = pi_time::Instant::now();
     // 绑定动画
     if animation_change(&*global_mark) {
+        // log::warn!("aaa========={:?}", a.0);
         for (node, animation) in style_query.p0().iter() {
             if let Err(e) = keyframes_sheet.bind_static_animation(node, animation) {
                 log::error!("{:?}", e);
+            }
+            use pi_key_alloter::Key;
+            if node.index() == 60 {
+                panic!("aaa");
             }
         }
     }

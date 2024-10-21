@@ -6,7 +6,7 @@ use pi_bevy_ecs_extend::prelude::OrInitSingleResMut;
 
 use pi_bevy_render_plugin::PiRenderDevice;
 use pi_share::Share;
-use crate::{ resource::{draw_obj::InstanceContext, ShareFontSheet}, system::system_set::UiSystemSet};
+use crate::{resource::{draw_obj::InstanceContext, RenderDirty, ShareFontSheet}, system::system_set::UiSystemSet};
 use pi_world::prelude::Plugin;
 use pi_hal::{font::{font::FontType, sdf2_table::SdfResult}, runtime::MULTI_MEDIA_RUNTIME};
 use crate::prelude::UiStage;
@@ -70,6 +70,7 @@ pub fn update_sdf2_texture(
 
 pub fn draw_sdf(
     font_sheet: SingleResMut<ShareFontSheet>, 
+    mut render_dirty: OrInitSingleResMut<RenderDirty>,
     mut await_list: Local<VecDeque<(SdfResult, Share<AtomicBool>, usize)>>,
 ) {
     let mut font_sheet: pi_share::cell::RefMut<'_, pi_render::font::FontSheet> = font_sheet.borrow_mut();
@@ -81,9 +82,9 @@ pub fn draw_sdf(
         await_list.push_back((result.clone(), mark.clone(), draw_count));
         let cur_await = font_sheet.draw_await(result.clone(), 0, draw_count);
         MULTI_MEDIA_RUNTIME.spawn(async move {
-            let t1 = pi_time::Instant::now();
+            // let t1 = pi_time::Instant::now();
             cur_await.await;
-            log::error!("draw sdf2==========={:?}", (draw_count,  pi_time::Instant::now() - t1));
+            // log::error!("draw sdf2==========={:?}", (draw_count,  pi_time::Instant::now() - t1));
             mark.store(true, std::sync::atomic::Ordering::Relaxed);
         }).unwrap();
     }
@@ -100,6 +101,7 @@ pub fn draw_sdf(
                 log::debug!("update_sdf2================{:?}", (draw_count, pi_time::Instant::now() - t1));
                 
                 next = await_list.front();
+                render_dirty.0 = true;
                 continue;
             }
         }

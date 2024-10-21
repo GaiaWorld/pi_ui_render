@@ -73,10 +73,18 @@ pub fn calc_canvas_graph(
 				continue; // 未改变， 什么也不做
 			}
 
+			
+
 			// 如果canvas关联的内容发生改变， 则设置Canvas改变
 			// if from_graph_id_changed {
-				canvas.set_changed();
+				// canvas.set_changed(); //  目前由于外部总在改变GraphId， 这里先不设置， 仅仅依赖set_brush来设置
 			// }
+			if from_graph_id.is_changed() && !in_pass_id.is_changed() {
+				// graph_id的值未改变， 不需要重新添加依赖关系（否则会导致渲染图脏， 进而重新进行toop排序）
+			    if canvas.pre_graph_id == from_graph_id.0 {
+					continue;
+				}
+			}
 
 			let as_image = match canvas_other_query.get(entity) {
 				Ok(r) => r,
@@ -86,6 +94,8 @@ pub fn calc_canvas_graph(
 			if from_graph_id.is_null() {
 				continue;
 			}
+
+			log::warn!("canvas id========: {:?}", (entity, &from_graph_id.0));
 			
 			let id = type_to_post_process(**from_graph_id, as_image, &graph_id_query1, &mut rg);
             let mut in_pass_id = **in_pass_id;

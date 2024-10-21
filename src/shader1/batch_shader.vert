@@ -40,7 +40,7 @@ layout(location = 4) out vec2 vSdfUv; // sdfUv
 void main() {
 	int ty1 = int(other.w + 0.1); 
 
-	if ((ty1 & 1024) != 0) { // is_not_visibility(不可见时， 返回的顶点面积为0)
+	if ((ty1 & 3072) != 0) { // 1024 + 2048 is_not_visibility(不可见时， 返回的顶点面积为0)
 		gl_Position = vec4(0.0, 0.0, 0.0, 0.0);
 		return;
 	}
@@ -108,6 +108,7 @@ void main() {
 	// 计算顶点	
 	mat4 m = mat4(matrix0, matrix1, matrix2, matrix3);
 	if ((ty1 & 2) == 0) {
+		vSdf.x = vSdf.x * length(matrix0.xyz); // distance_px_range乘以x轴上的缩放
 		gl_Position = project * view * m * vec4(p, 1.0, 1.0);
 	} else {
 		gl_Position = m * vec4(p, 1.0, 1.0);

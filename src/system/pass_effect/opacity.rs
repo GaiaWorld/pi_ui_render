@@ -55,7 +55,7 @@ pub fn opacity_post_process(
    
     for entity in opacity_change.iter().chain(opacity_added.iter()) {
         if let Ok((opacity, mut post_list, mut post_info)) = query.get_mut(*entity) {
-            log::debug!("opacity: {:?}", *opacity);
+            log::debug!("opacity: {:?}", (entity, **opacity));
             if **opacity >= 1.0 {
                 post_list.alpha = None;
                 post_info.effect_mark.set(***mark_type, false);

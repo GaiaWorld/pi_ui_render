@@ -390,7 +390,7 @@ impl KeyFramesSheet {
 
     // 将动画绑定到目标上（目标即节点的实体id）
     pub fn bind_static_animation(&mut self, target: ObjKey, animation: &Animation) -> Result<(), Vec<KeyFrameError>> {
-        log::debug!("bind_static_animation====={:?}, {:?}", target, animation);
+        log::debug!("bind_static_animation====={:?}, {:p}, {:?}", target, animation, animation);
         // 先解绑节点上的动画
         self.unbind_animation_all(target);
         // 再绑定新的动画
@@ -412,8 +412,9 @@ impl KeyFramesSheet {
 
         let mut names = Vec::with_capacity(value.len());
         log::debug!(
-            "bind_runtime_animation====={:?}， animaton： {:?}, keyframes: {:?}",
+            "bind_runtime_animation====={:?}， {:p}, animaton： {:?}, keyframes: {:?}",
             target,
+            animation,
             animation,
             value
         );

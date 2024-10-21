@@ -173,8 +173,7 @@ pub fn set_texture<'w, const DIRTY_TYPE: OtherDirtyType, S: From<Atom> + std::cm
                 if img != &S::from(key.clone()) {
                     continue;
                 }
-                if let Ok(mut dst) = query_dst.get_mut(id) {
-                    
+                if let Ok(mut dst) = query_dst.get_mut(id) {               
                     log::debug!("texture_load success 2: {:?}, {:?}, {:?}", id, key, texture.id);
                     is_change =  f(&mut dst, D::from(texture), id) || is_change;
                     global_mark.mark.set(DIRTY_TYPE as usize, true);
