@@ -44,6 +44,7 @@ pub fn calc_pass_dirty(
 	if r.0 {
 		return;
 	}
+    render_dirty.0 = true;
 
     if render_dirty.0 {
         // 如果渲染脏，则全部脏， 不需要计算各pass的脏

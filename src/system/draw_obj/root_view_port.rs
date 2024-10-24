@@ -11,7 +11,7 @@ use pi_render::{
 use smallvec::SmallVec;
 
 use crate::{
-    components::{calc::WorldMatrix, draw_obj::DynTargetType, user::{Matrix4, Size, Transform, Vector3, Viewport}},
+    components::{draw_obj::DynTargetType, root::RootScale, user::{Size, Transform, Viewport}},
     resource::draw_obj::MaxViewSize,
 };
 
@@ -21,7 +21,7 @@ use crate::resource::IsRun;
 /// 创建图节点所需要的数据
 /// 如： DynTargetType (需要根据视口变化及时调整)
 pub fn calc_dyn_target_type(
-    mut query: Alter<(&Viewport, &Size), Changed<Viewport>, (DynTargetType, Transform)>,
+    mut query: Alter<(&Viewport, &Size), Changed<Viewport>, (DynTargetType, Transform, RootScale)>,
 
     atlas_allocator: SingleRes<PiSafeAtlasAllocator>,
     mut max_view_size: SingleResMut<MaxViewSize>,
@@ -55,7 +55,7 @@ pub fn calc_dyn_target_type(
         transform.add_func(pi_style::style::TransformFunc::Scale(view_width as f32/width, view_height as f32/height));
         transform.origin = TransformOrigin::XY(LengthUnit::Pixel(0.0), LengthUnit::Pixel(0.0));
         log::warn!("calc_dyn_target_type==========={:?}, {:?}, {:?}", view_width as f32/width, view_height as f32/height, (width, height, view_width, view_height));
-        let _ = iter.alter((ty, transform));
+        let _ = iter.alter((ty, transform, RootScale{x: view_width as f32/width, y: view_height as f32/height}));
     }
 }
 

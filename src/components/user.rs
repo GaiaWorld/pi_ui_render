@@ -360,6 +360,7 @@ impl Transform {
     pub fn add_func(&mut self, f: TransformFunc) { self.all_transform.transform.push(f); }
     pub fn set_origin(&mut self, o: TransformOrigin) { self.origin = o; }
 }
+
 // 背景色和class
 #[derive(Debug, Clone, Default, Serialize, Deserialize, Deref)]
 pub struct BackgroundColor(pub Color);

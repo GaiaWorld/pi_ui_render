@@ -129,6 +129,7 @@ pub fn load_image<'w, const DIRTY_TYPE: OtherDirtyType, S: 'static + Send + Sync
         _ => {
             let (awaits, device, queue) = (image_await.0.clone(), (*device).clone(), (*queue).clone());
             let (id, key) = (entity, (*key).clone());
+            log::debug!("image await: {:?}, {:?}", id, key);
           
 			let key_alloter = key_alloter.0.clone();
             RENDER_RUNTIME

@@ -66,3 +66,8 @@ pub struct RootDirtyRect(pub DirtyRect);
 //     // pub temp: (Vec<Entity>, Vec<Entity>), // 排序需要的临时数据
 //     pub draw_index: usize, // 将当前结果绘制到屏幕上的实例化draw的索引， 为null时， 不需要draw
 // }
+#[derive(Default, Component)]
+pub struct RootScale {
+    pub x: f32,
+    pub y: f32,
+}

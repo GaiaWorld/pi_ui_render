@@ -197,7 +197,7 @@ pub fn cal_matrix(
                 // 父为空，则其为根节点，其世界矩阵为单位阵
                 let mut r = WorldMatrix::default();
                 if let Some(transform) = transform {
-                    log::warn!("matrix time1========{:?}", transform);
+                    // log::warn!("matrix time1========{:?}", transform);
                     r = r * WorldMatrix::form_transform_layout(
                         &transform.all_transform,
                         &transform.origin,

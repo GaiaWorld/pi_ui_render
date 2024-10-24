@@ -14,7 +14,7 @@ use std::ops::Range;
 use std::hash::Hash;
 use std::hash::Hasher;
 
-use crate::components::calc::{style_bit, BorderSdfUv, DrawList, LayoutResult, SdfSlice, SdfUv, StyleBit, StyleMarkType};
+use crate::components::calc::{style_bit, BorderSdfUv, DrawList, LayoutResult, SdfSlice, SdfUv, StyleBit, StyleMarkType, WorldMatrix};
 use crate::components::draw_obj::{BorderColorMark, BoxType, InstanceIndex, RenderCount};
 use crate::components::user::BorderRadius;
 use crate::components::user::BorderColor;
@@ -31,7 +31,7 @@ use crate::system::base::draw_obj::life_drawobj::{self, update_render_instance_d
 use crate::resource::IsRun;
 use crate::utils::tools::{cal_border_radius, calc_hash, eq_f32, BorderRadiusPixel};
 
-use super::calc_border_radius::{min_level, BorderSdfInfo};
+use super::calc_border_radius::{radius_edge_size, BorderSdfInfo};
 use super::geo_split::GridBufer;
 
 pub struct BorderColorPlugin;
@@ -102,8 +102,9 @@ pub fn calc_border_color_instace_count(
 			OrDefault<SdfUv>,
             &LayoutResult,
 			&DrawList,
+			&WorldMatrix
         ),
-        Or<(Changed<BorderColor>, Changed<BorderRadius>, Changed<LayoutResult>)>, // 圆角和Border颜色， 都需要设置border宽度
+        Or<(Changed<BorderColor>, Changed<BorderRadius>, Changed<WorldMatrix>)>, // 圆角和Border颜色， 都需要设置border宽度
     >,
 	mut query_draw: Query<&mut RenderCount, With<BorderColorMark>>,
 	render_type: OrInitSingleRes<BorderColorRenderObjType>,
@@ -116,7 +117,7 @@ pub fn calc_border_color_instace_count(
 
 	let render_type = ***render_type;
 	let grid_buffer = &mut **grid_buffer;
-	for (border_color, border_radius, sdf_uv, layout, draw_list) in query.iter() {
+	for (border_color, border_radius, sdf_uv, layout, draw_list, world_matrix) in query.iter() {
 		let draw_id = match draw_list.get_one(render_type) {
 			Some(r) => r.id,
 			None => continue,
@@ -142,7 +143,8 @@ pub fn calc_border_color_instace_count(
 		let width = layout.rect.right - layout.rect.left;
 		let height = layout.rect.bottom - layout.rect.top; 
 		let rd = cal_border_radius(border_radius, &layout.rect);
-		let sdf_info = boder_sdf_info(&rd, &layout.border);
+		let scale = world_matrix.column(0).x.min(world_matrix.column(1).y);
+		let sdf_info = boder_sdf_info(&rd, &layout.border, scale);
 		log::debug!("calc_border_color1========= {:?}", (&sdf_info));
 		let hash = calc_hash(&sdf_info, 0);
 		
@@ -167,7 +169,7 @@ pub fn calc_border_color_instace_count(
 			right:  sdf_glyph.x as f32 + sdf_glyph.width as f32,
 			top:    sdf_glyph.y as f32,
 			bottom: sdf_glyph.y as f32 + sdf_glyph.height as f32,
-		}, 2.0);
+		}, 2.0 / sdf_info.0.scale/(scale + 0.0001));
 		let sdf_uv0 = &sdf_uv.0;
 
 		log::debug!("radius sdf_uv====={:?}, {:?}", &sdf_uv, sdf_glyph);
@@ -340,32 +342,34 @@ impl Hash for BorderWidth {
 
 
 fn boder_sdf_info(
-    rd: &BorderRadiusPixel, border: &Rect<f32>) -> (BorderSdfInfo, BorderWidth) {
+    rd: &BorderRadiusPixel, border: &Rect<f32>, scale: f32) -> (BorderSdfInfo, BorderWidth) {
 	// 最小的圆角值
-    let min_radius = rd.x[0].min(rd.x[1]).min(rd.y[0]).min(rd.y[1]).min(rd.x[2]).min(rd.y[2]).min(rd.x[3]).min(rd.y[3]);
+    // let min_radius = rd.x[0].min(rd.x[1]).min(rd.y[0]).min(rd.y[1]).min(rd.x[2]).min(rd.y[2]).min(rd.x[3]).min(rd.y[3]);
     
     // 所有圆角和边框的最大值
     let max_size = (rd.x[0].max(border.left) + rd.x[1].max(border.right))
 						.max(rd.x[2].max(border.right) + rd.x[3].max(border.left))
 						.max(rd.y[0].max(border.top) + rd.y[3].max(border.top))
-						.max(rd.y[1].max(border.bottom) + rd.y[2].max(border.bottom));
+						.max(rd.y[1].max(border.bottom) + rd.y[2].max(border.bottom)) * scale;
 
-    let level = min_level(min_radius, max_size);
-    let size = 32.0 * level;
+    let size = radius_edge_size(max_size);
+    // let size = 32.0 * level;
 
-    let border_size = 30.0 * level;
+    // let border_size = 30.0 * level;
 
-    let border_scale = border_size / max_size; // 缩放比例
+    let border_scale = size / max_size; // 缩放比例
+	let scale1 =  border_scale * scale;
 	
-	log::debug!("boder_sdf_info==========={:?}", (level, min_radius, max_size, size,  border_size, border_scale, max_size));
+	log::debug!("boder_sdf_info==========={:?}", ( max_size, size, border_scale, max_size));
 
     (BorderSdfInfo {
-        width: size,
-        height: size,
+        width: size + 2.0,
+        height: size + 2.0,
         sdf_radius: BorderRadiusPixel {
-            x: [rd.x[0] * border_scale, rd.x[1] * border_scale, rd.x[2] * border_scale, rd.x[3] * border_scale],
-            y: [rd.y[0] * border_scale, rd.y[1] * border_scale, rd.y[2] * border_scale, rd.y[3] * border_scale],
+            x: [rd.x[0] * scale1, rd.x[1] * scale1, rd.x[2] * scale1, rd.x[3] * scale1],
+            y: [rd.y[0] * scale1, rd.y[1] * scale1, rd.y[2] * scale1, rd.y[3] * scale1],
         },
+		scale: border_scale,
     }, BorderWidth(Rect {
 		top: border.top * border_scale, 
 		right: border.right * border_scale, 

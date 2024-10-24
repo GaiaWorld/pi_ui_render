@@ -37,7 +37,7 @@ impl Example for ExampleCommonPlay {
         // None表示使用默认值
         // Some(Size { width: 1080, height: 2160 })
         #[cfg(not(target_os = "android"))]
-		let r = Some(Size { width: 400, height: 800 });
+		let r = Some(Size { width: 522, height: 919 });
         #[cfg(target_os = "android")]
         let r = None;
         r
