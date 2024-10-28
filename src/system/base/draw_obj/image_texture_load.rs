@@ -119,7 +119,7 @@ pub fn load_image<'w, const DIRTY_TYPE: OtherDirtyType, S: 'static + Send + Sync
 				let r = D::from(r);
 				if *dst != r {
                     
-                    
+                    log::debug!("image catch: {:?}, {:?}", entity, key);
 					(*f)(&mut dst, r, entity);
                     global_mark.mark.set(DIRTY_TYPE as usize, true);
 				}

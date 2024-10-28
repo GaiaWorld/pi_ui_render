@@ -54,8 +54,6 @@ pub fn calc_border_radius(
         Or<(Changed<BorderRadius>, Changed<WorldMatrix>)>,
     >,
 
-    query_root: Query<&RootScale>,
-
     global_mark: SingleRes<GlobalDirtyMark>,
     font_sheet: SingleResMut<ShareFontSheet>,
 	r: OrInitSingleRes<IsRun>,

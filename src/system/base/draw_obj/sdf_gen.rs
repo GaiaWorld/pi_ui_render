@@ -82,9 +82,9 @@ pub fn draw_sdf(
         await_list.push_back((result.clone(), mark.clone(), draw_count));
         let cur_await = font_sheet.draw_await(result.clone(), 0, draw_count);
         MULTI_MEDIA_RUNTIME.spawn(async move {
-            // let t1 = pi_time::Instant::now();
+            let t1 = pi_time::Instant::now();
             cur_await.await;
-            // log::error!("draw sdf2==========={:?}", (draw_count,  pi_time::Instant::now() - t1));
+            log::debug!("draw sdf2==========={:?}", (draw_count,  pi_time::Instant::now() - t1));
             mark.store(true, std::sync::atomic::Ordering::Relaxed);
         }).unwrap();
     }

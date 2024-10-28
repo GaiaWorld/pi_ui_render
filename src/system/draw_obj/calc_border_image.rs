@@ -120,7 +120,6 @@ pub fn calc_border_image_instance_count(
 	}
 	let render_type = ***render_type;
 	let grid_buffer = &mut **grid_buffer;
-
 	for (layout, draw_list, border_image_texture, border_clip, border_repeat, border_slice, border_image, sdf_slice, sdf_uv, entity) in query1.iter() {
 		let sdf_uv = &sdf_uv.0;
 		let border_image_texture = match &border_image_texture.0 {
@@ -128,24 +127,20 @@ pub fn calc_border_image_instance_count(
 				// 图片不一致， 返回
 				if *r.key() != border_image.0.str_hash() as u64 {
 					log::debug!("calc_background_image1, {:?}", (r.key(), border_image.0.str_hash()));
-					return;
+					continue;
 				}
 				r
 			},
 			None => {
 				log::debug!("calc_background_image2");
-				return
+				continue;
 			}, 
 		};
-		
+
 		let draw_id = match draw_list.get_one(render_type) {
 			Some(r) => r.id,
-			None => return,
+			None => continue,
 		};
-
-		if border_image.0.as_str().contains("yxxq_lan1") {
-			log::debug!("calc_border_image=======, {:?}", entity);
-		}
 		
 		if let Ok (mut render_count) = query_draw.get_mut(draw_id) {
 				let border_aabb = layout.border_aabb();
@@ -180,6 +175,7 @@ pub fn calc_border_image_instance_count(
 					width: slice_size_percent.width * border_image_texture.width as f32,
 					height: slice_size_percent.height * border_image_texture.height as f32,
 				};
+
 				let slice_middle = Point2::new(
 					(slice_uv.right + slice_uv.left) / 2.0,
 					(slice_uv.bottom + slice_uv.top) / 2.0,
@@ -428,46 +424,48 @@ pub fn calc_border_image_instance_count(
 					global_mark.mark.set(OtherDirtyType::InstanceCount as usize, true);
 				}
 
+				let range = [
+					(
+						left_range.clone(),
+						top_range.clone(),
+					),
+					(
+						right_range.clone(),
+						top_range.clone(),
+					),
+					(
+						right_range.clone(),
+						bottom_range.clone(),
+					),
+					(
+						left_range.clone(),
+						bottom_range.clone(),
+					),
+					(
+						top_repeat_range.clone(),
+						top_range.clone(),
+					),
+					(
+						right_range.clone(),
+						right_repeat_range.clone(),
+					),
+					(
+						bottom_repeat_range.clone(),
+						bottom_range.clone(),
+					),
+					(
+						left_range.clone(),
+						left_repeat_range.clone(),
+					),
+					(
+						fill_weft_range.clone(),
+						fill_meridian_range.clone(),
+					),
+				];
+
 				grid_buffer.1.push((
 					draw_id,
-					[
-						(
-							left_range.clone(),
-							top_range.clone(),
-						),
-						(
-							right_range.clone(),
-							top_range.clone(),
-						),
-						(
-							right_range.clone(),
-							bottom_range.clone(),
-						),
-						(
-							left_range.clone(),
-							bottom_range.clone(),
-						),
-						(
-							top_repeat_range.clone(),
-							top_range.clone(),
-						),
-						(
-							right_range.clone(),
-							right_repeat_range.clone(),
-						),
-						(
-							bottom_repeat_range.clone(),
-							bottom_range.clone(),
-						),
-						(
-							left_range.clone(),
-							left_repeat_range.clone(),
-						),
-						(
-							fill_weft_range.clone(),
-							fill_meridian_range.clone(),
-						),
-					]
+					range
 				));
 		}
 	}
@@ -477,19 +475,7 @@ pub fn calc_border_image_instance_count(
 pub fn calc_border_image(
 	mut grid_buffer: OrInitSingleResMut<BorderImageTemp>,
 	mut instances: OrInitSingleResMut<InstanceContext>,
-	query: Query<
-		(
-			&LayoutResult,
-			&DrawList,
-			&BorderImageTexture,
-			OrDefault<BorderImageClip>,
-			OrDefault<BorderImageRepeat>,
-			OrDefault<BorderImageSlice>,
-			&BorderImage,
-		),
-		Or<(Changed<BorderImageTexture>, Changed<BorderImageClip>, Changed<BorderImageRepeat>, Changed<BorderImageSlice>,  Changed<LayoutResult>)>,
-	>,
-    mut query_draw: Query<&InstanceIndex, With<BorderImageMark>>,
+    query_draw: Query<&InstanceIndex, With<BorderImageMark>>,
 	r: OrInitSingleRes<IsRun>,
 ) {
 	if r.0 {
