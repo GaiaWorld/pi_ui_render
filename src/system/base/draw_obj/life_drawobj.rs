@@ -220,7 +220,7 @@ pub fn update_render_instance_data(
 	node_query: Query<(Option<&ParentPassId>, &InPassId, &DrawList, &ZRange, &IsShow, Entity, &Layer)>,
 
 	mut instance_index: ParamSet<(
-		Query<(&PostProcessInfo, &'static mut InstanceIndex, Entity)>,
+		Query<(&PostProcessInfo, &'static mut InstanceIndex, Entity, &mut FboInfo)>,
 		Query<(&'static mut InstanceIndex, OrDefault<RenderCount>)>
 	)>,
 	mark_changed: ComponentChanged<RenderContextMark>,
@@ -237,8 +237,9 @@ pub fn update_render_instance_data(
 	log::trace!("life========================node_change={:?}", node_change);
 	for entity in mark_changed.iter() {
 		let p0 = instance_index.p0();
-		if let Ok((post_info, mut instance_index, e)) = p0.get_mut(*entity) {
+		if let Ok((post_info, mut instance_index, e, mut fbo)) = p0.get_mut(*entity) {
 			if !post_info.has_effect() && !instance_index.start.is_null() {
+				*fbo = FboInfo::default();
 				*instance_index = Default::default();
 			}
 			if !node_change && post_info.has_effect() && instance_index.start.is_null() ||
@@ -345,13 +346,7 @@ pub fn update_render_instance_data(
 					if post_info.has_effect() {
 						// 如果存在后处理特效， 需要分配一个实例， 用于将特效拷贝到gui上
 						alloc = Some(entity.0);
-					} else {
-						// 如果不存在effect，则删除实例索引
-						if let Ok((mut index, _render_count)) = instance_index.get_mut(entity.0) {
-							*index.bypass_change_detection() = InstanceIndex::default();
-							// println!("null=================={:?}, {:?}", entity.0, (index, InstanceIndex::default()));
-						}
-					}
+					} 
 				}
 				// #[cfg(debug_assertions)]
 				node = *entity;

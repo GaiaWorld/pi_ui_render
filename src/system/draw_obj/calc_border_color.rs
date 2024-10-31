@@ -298,7 +298,7 @@ pub fn calc_border_color(
 		if let Ok(instanceindex) = query_draw.get(draw_id) {
 			let mut start = instanceindex.start;
 			for (x_range, y_range) in range {
-				log::debug!("calc_border_image==={:?}", (draw_id, &x_range, &y_range));
+				log::debug!("calc_border_color==={:?}", (draw_id, &x_range, &y_range));
 				start = set_grid_instance(
 					&grid_buffer.0,
 					x_range,
@@ -319,7 +319,7 @@ pub fn calc_border_color(
 				px_range, fill_bound, 0.5,
 			]));
 
-			log::debug!("calc_border_image==={:?}", (draw_id, &px_range, &fill_bound));
+			log::debug!("calc_border_color==={:?}", (draw_id, &px_range, &fill_bound));
 			
 		}
 	}

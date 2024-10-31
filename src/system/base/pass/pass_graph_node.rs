@@ -571,7 +571,7 @@ impl Node for Pass2DNode {
 				// ]));
 			}
 		}
-
+		
 		// 设置fbo_info
 		if !instance_index.start.is_null() {
 			if let Some(target) = &out.target {

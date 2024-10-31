@@ -23,7 +23,7 @@ use crate::system::base::node::transition::transition_2;
 use crate::system::draw_obj::geo_split::RepeatInfo;
 use crate::system::system_set::UiSystemSet;
 use crate::components::user::BorderImage;
-use crate::system::base::draw_obj::{life_drawobj, image_texture_load};
+use crate::system::base::draw_obj::{image_texture_load, life_drawobj, set_box_type, set_box_type_count};
 use crate::resource::IsRun;
 use crate::utils::tools::eq_f32;
 
@@ -110,7 +110,7 @@ pub fn calc_border_image_instance_count(
 		),
 		Or<(Changed<BorderImageTexture>, Changed<BorderImageClip>, Changed<BorderImageRepeat>, Changed<BorderImageSlice>, Changed<LayoutResult>)>,
 	>,
-	mut query_draw: Query<&mut RenderCount, With<BorderImageMark>>,
+	mut query_draw: Query<(&mut BoxType, &mut RenderCount)>,
 	render_type: OrInitSingleRes<BorderImageRenderObjType>,
 	mut global_mark: OrInitSingleResMut<GlobalDirtyMark>,
 	r: OrInitSingleRes<IsRun>,
@@ -122,352 +122,352 @@ pub fn calc_border_image_instance_count(
 	let grid_buffer = &mut **grid_buffer;
 	for (layout, draw_list, border_image_texture, border_clip, border_repeat, border_slice, border_image, sdf_slice, sdf_uv, entity) in query1.iter() {
 		let sdf_uv = &sdf_uv.0;
+		let draw_id = match draw_list.get_one(render_type) {
+			Some(r) => r.id,
+			None => continue,
+		};
+
 		let border_image_texture = match &border_image_texture.0 {
 			Some(r) => {
 				// 图片不一致， 返回
 				if *r.key() != border_image.0.str_hash() as u64 {
 					log::debug!("calc_background_image1, {:?}", (r.key(), border_image.0.str_hash()));
+					set_box_type(draw_id, BoxType::None2, &mut query_draw);
 					continue;
 				}
 				r
 			},
 			None => {
+				set_box_type(draw_id, BoxType::None2, &mut query_draw);
 				log::debug!("calc_background_image2");
 				continue;
 			}, 
 		};
+		
+		
+		let border_aabb = layout.border_aabb();
 
-		let draw_id = match draw_list.get_one(render_type) {
-			Some(r) => r.id,
-			None => continue,
+		let pmins = &border_aabb.mins;
+		let pmaxs = &border_aabb.maxs;
+		let layout_width = (border_aabb.maxs.x - border_aabb.mins.x).max(0.003);
+		let layout_height = (border_aabb.maxs.y - border_aabb.mins.y).max(0.003);
+		
+		let mut clip = Rect {
+			left: *border_clip.left,
+			right: *border_clip.right,
+			top: *border_clip.top,
+			bottom: *border_clip.bottom,
+		};
+		verify_sero_size(&mut clip, 0.001);
+		let clip_size = Size{ width: clip.right - clip.left, height: clip.bottom - clip.top };
+
+		// 相对整个纹理， slice四条切割线的位置（0~1）
+		let mut slice_uv = Rect {
+			left:   (clip.left   + *border_slice.left   * clip_size.width),
+			right:  (clip.right  - *border_slice.right  * clip_size.width),
+			top:    (clip.top    + *border_slice.top    * clip_size.height),
+			bottom: (clip.bottom - *border_slice.bottom * clip_size.height),
+		};
+		verify_sero_size(&mut slice_uv, 0.001);
+		let slice_size_percent = Size {
+			width: (slice_uv.right - slice_uv.left),
+			height: (slice_uv.bottom - slice_uv.top),
+		};
+		let slice_size = Size {
+			width: slice_size_percent.width * border_image_texture.width as f32,
+			height: slice_size_percent.height * border_image_texture.height as f32,
+		};
+
+		// let slice_middle = Point2::new(
+		// 	(slice_uv.right + slice_uv.left) / 2.0,
+		// 	(slice_uv.bottom + slice_uv.top) / 2.0,
+		// );
+		// let ss = grid_buffer.0.positions.len();
+
+		// border布局的四条切割线的位子
+		let mut border = Rect {
+			left:   layout.border.left.max(0.001),
+			right:  (layout_width - layout.border.right).max(0.002),
+			top:    layout.border.top.max(0.001),
+			bottom: (layout_height - layout.border.bottom).max(0.002),
+		};
+		verify_sero_size(&mut border, 0.001);
+
+		let w = pmaxs.x - pmins.x - layout.border.left - layout.border.right;
+		let h = pmaxs.y - pmins.y - layout.border.top - layout.border.bottom;
+
+		// 上右下左，边框布局宽度与图片边框部分的比率
+		let factor = (
+			layout.border.top / (*border_slice.top).max(0.001) / border_image_texture.height as f32, 
+			layout.border.right / (*border_slice.right).max(0.001) / border_image_texture.width as f32, 
+			layout.border.bottom / (*border_slice.bottom).max(0.001) / border_image_texture.height as f32, 
+			layout.border.left / (*border_slice.left).max(0.001) / border_image_texture.width as f32
+		);
+
+		let layout_slice_absolute = Rect {
+			left: sdf_slice.layout_slice.left * layout_width,
+			right: sdf_slice.layout_slice.right * layout_width,
+			top: sdf_slice.layout_slice.top * layout_height,
+			bottom: sdf_slice.layout_slice.bottom * layout_height,
+		};
+
+		let direction_desc_y = DirectionDesc {
+			sdf_uv: sdf_uv.top..sdf_uv.bottom, 
+			sdf_slice: sdf_slice.sdf_slice.top..sdf_slice.sdf_slice.bottom, 
+			layout_range: pmins.y..pmaxs.y,  
+			split: layout_slice_absolute.top..layout_slice_absolute.bottom
+		};
+
+		let direction_desc_x = DirectionDesc {
+			sdf_uv: sdf_uv.left..sdf_uv.right, 
+			sdf_slice: sdf_slice.sdf_slice.left..sdf_slice.sdf_slice.right, 
+			layout_range: pmins.x..pmaxs.x,  
+			split: layout_slice_absolute.left..layout_slice_absolute.right
+		};
+
+		// 上边框
+		let top_range = if *border_slice.top > 0.0 {
+			TempGeo::grid_split(&RepeatInfo {
+				start: pmins.y,
+				end: pmins.y + layout.border.top,
+				bound_step: 0.0,
+				space: 0.0,
+				item_size: layout.border.top,
+			}, 
+			&mut grid_buffer.0, 
+			&direction_desc_y,
+			clip.top..slice_uv.top,
+			)
+		} else {
+			0..0
+		};
+
+		// 下边框
+		let bottom_range = if *border_slice.top > 0.0 {
+			TempGeo::grid_split(&RepeatInfo {
+				start: pmaxs.y - layout.border.bottom,
+				end: pmaxs.y,
+				bound_step: 0.0,
+				space: 0.0,
+				item_size: layout.border.bottom,
+			}, 
+			&mut grid_buffer.0, 
+			&direction_desc_y,
+			slice_uv.bottom..clip.bottom)
+		} else {
+			0..0
+		};
+
+		// 左边框
+		let left_range = if *border_slice.left > 0.0 {
+			TempGeo::grid_split(&RepeatInfo {
+				start: pmins.x,
+				end: pmins.x + layout.border.left,
+				bound_step: 0.0,
+				space: 0.0,
+				item_size: layout.border.left,
+			}, 
+			&mut grid_buffer.0, 
+			&direction_desc_x,
+			clip.left..slice_uv.left,)
+		} else {
+			0..0
+		};
+
+		// 右边框
+		let right_range = if *border_slice.right > 0.0 {
+			TempGeo::grid_split(&RepeatInfo {
+				start: pmaxs.x - layout.border.right,
+				end: pmaxs.x,
+				bound_step: 0.0,
+				space: 0.0,
+				item_size: layout.border.right,
+			}, 
+			&mut grid_buffer.0,	 
+			&direction_desc_x,
+			slice_uv.right..clip.right,)
+		} else {
+			0..0
 		};
 		
-		if let Ok (mut render_count) = query_draw.get_mut(draw_id) {
-				let border_aabb = layout.border_aabb();
+		let fill_y_size = pmaxs.y - layout.border.bottom - layout.border.top;
+		let fill_x_size = pmaxs.x - layout.border.left - layout.border.right;
 
-				let pmins = &border_aabb.mins;
-				let pmaxs = &border_aabb.maxs;
-				let layout_width = (border_aabb.maxs.x - border_aabb.mins.x).max(0.003);
-				let layout_height = (border_aabb.maxs.y - border_aabb.mins.y).max(0.003);
-				
-				let mut clip = Rect {
-					left: *border_clip.left,
-					right: *border_clip.right,
-					top: *border_clip.top,
-					bottom: *border_clip.bottom,
-				};
-				verify_sero_size(&mut clip, 0.001);
-				let clip_size = Size{ width: clip.right - clip.left, height: clip.bottom - clip.top };
+		// 中间纬线部分
+		let fill_weft_range = if border_slice.fill && slice_size.width > 0.0 && slice_size.height > 0.0  {
+			TempGeo::grid_split(&RepeatInfo {
+				start: layout.border.left,
+				end: pmaxs.x - layout.border.right,
+				bound_step: 0.0,
+				space: 0.0,
+				item_size: fill_x_size,
+			}, 
+			&mut grid_buffer.0, 
+			&direction_desc_x,
+			slice_uv.left..slice_uv.right,)
+		} else {
+			0..0
+		};
 
-				// 相对整个纹理， slice四条切割线的位置（0~1）
-				let mut slice_uv = Rect {
-					left:   (clip.left   + *border_slice.left   * clip_size.width),
-					right:  (clip.right  - *border_slice.right  * clip_size.width),
-					top:    (clip.top    + *border_slice.top    * clip_size.height),
-					bottom: (clip.bottom - *border_slice.bottom * clip_size.height),
-				};
-				verify_sero_size(&mut slice_uv, 0.001);
-				let slice_size_percent = Size {
-					width: (slice_uv.right - slice_uv.left),
-					height: (slice_uv.bottom - slice_uv.top),
-				};
-				let slice_size = Size {
-					width: slice_size_percent.width * border_image_texture.width as f32,
-					height: slice_size_percent.height * border_image_texture.height as f32,
-				};
+		// 中间经线部分
+		let fill_meridian_range = if border_slice.fill && slice_size.width > 0.0 && slice_size.height > 0.0  {
+			TempGeo::grid_split(&RepeatInfo {
+				start: layout.border.top,
+				end: pmaxs.y - layout.border.bottom,
+				bound_step: 0.0,
+				space: 0.0,
+				item_size: fill_y_size,
+			}, 
+			&mut grid_buffer.0,
+			&direction_desc_y,
+			slice_uv.top..slice_uv.bottom,)
+		} else {
+			0..0
+		};
 
-				let slice_middle = Point2::new(
-					(slice_uv.right + slice_uv.left) / 2.0,
-					(slice_uv.bottom + slice_uv.top) / 2.0,
-				);
-				
+		// top, 中间部分
+		let uv_size = slice_size.width * factor.0;
+		let (layout_offset, bound, space, layout_space, mut count) = calc_step(w,  uv_size, border_repeat.x);
+		let top_repeat_range = if *border_slice.top > 0.0 && !eq_f32(1.0, *border_slice.right + *border_slice.left)  {
+			TempGeo::grid_split(&RepeatInfo {
+				start: pmins.x + border.left + layout_offset,
+				end: pmins.x + border.left + fill_x_size,
+				bound_step: bound * layout_space,
+				space,
+				item_size: layout_space,
+			}, 
+			&mut grid_buffer.0, 
+			&direction_desc_x,
+			slice_uv.left..slice_uv.right,)
+		} else {
+			0..0
+		};
 
-				// border布局的四条切割线的位子
-				let mut border = Rect {
-					left:   layout.border.left.max(0.001),
-					right:  (layout_width - layout.border.right).max(0.002),
-					top:    layout.border.top.max(0.001),
-					bottom: (layout_height - layout.border.bottom).max(0.002),
-				};
-				verify_sero_size(&mut border, 0.001);
+		// bottom, 中间部分
+		let uv_size = slice_size.width * factor.2;
+		let (layout_offset, bound, space, layout_space, mut count) = calc_step(w, uv_size, border_repeat.x);
+		let bottom_repeat_range = if *border_slice.bottom > 0.0 && !eq_f32(1.0, *border_slice.right + *border_slice.left)  {
+			TempGeo::grid_split(&RepeatInfo {
+				start: pmins.x + border.left + layout_offset,
+				end: pmins.x + border.left + fill_x_size,
+				bound_step: bound * layout_space,
+				space,
+				item_size: layout_space,
+			}, 
+			&mut grid_buffer.0, 
+			&direction_desc_x,
+			slice_uv.left..slice_uv.right,)
+		} else {
+			0..0
+		};
 
-				let w = pmaxs.x - pmins.x - layout.border.left - layout.border.right;
-				let h = pmaxs.y - pmins.y - layout.border.top - layout.border.bottom;
+		// left, 中间部分
+		let uv_size = slice_size.height * factor.3;
+		let (layout_offset, bound, space, layout_space, mut count) = calc_step(h, uv_size, border_repeat.y);
+		let left_repeat_range = if *border_slice.left > 0.0 && !eq_f32(1.0, *border_slice.bottom + *border_slice.top)  {
+			TempGeo::grid_split(&RepeatInfo {
+				start: pmins.y + border.top + layout_offset,
+				end: pmins.y + border.top + fill_y_size,
+				bound_step: bound * layout_space,
+				space,
+				item_size: layout_space,
+			}, 
+			&mut grid_buffer.0, 
+			&direction_desc_y,
+			slice_uv.top..slice_uv.bottom,)
+		} else {
+			0..0
+		};
 
-				// 上右下左，边框布局宽度与图片边框部分的比率
-				let factor = (
-					layout.border.top / (*border_slice.top).max(0.001) / border_image_texture.height as f32, 
-					layout.border.right / (*border_slice.right).max(0.001) / border_image_texture.width as f32, 
-					layout.border.bottom / (*border_slice.bottom).max(0.001) / border_image_texture.height as f32, 
-					layout.border.left / (*border_slice.left).max(0.001) / border_image_texture.width as f32
-				);
+		// right, 中间部分
+		let uv_size = slice_size.height * factor.1;
+		let (layout_offset, bound, space, layout_space, mut count) = calc_step(h, uv_size, border_repeat.y);
+		let right_repeat_range = if *border_slice.right > 0.0 && !eq_f32(1.0, *border_slice.bottom + *border_slice.top) {
+			TempGeo::grid_split(&RepeatInfo {
+				start: pmins.y + border.top + layout_offset,
+				end: pmins.y + border.top + fill_y_size,
+				bound_step: bound * layout_space,
+				space,
+				item_size: layout_space,
+			}, 
+			&mut grid_buffer.0, 
+			&direction_desc_y,
+			slice_uv.top..slice_uv.bottom,)
+		} else {
+			0..0
+		};
 
-				let layout_slice_absolute = Rect {
-					left: sdf_slice.layout_slice.left * layout_width,
-					right: sdf_slice.layout_slice.right * layout_width,
-					top: sdf_slice.layout_slice.top * layout_height,
-					bottom: sdf_slice.layout_slice.bottom * layout_height,
-				};
+		let mut count = top_range.len() * (top_repeat_range.len() + left_range.len() + right_range.len()); // 上
+		count += bottom_range.len() * (bottom_repeat_range.len() + left_range.len() + right_range.len()); // 下
+		count += left_range.len() * left_repeat_range.len(); // 左、中
+		count += right_range.len() * right_repeat_range.len(); // 右、中
+		count += fill_meridian_range.len() * fill_weft_range.len(); // 中
+		count = count / 4;
 
-				let direction_desc_y = DirectionDesc {
-					sdf_uv: sdf_uv.top..sdf_uv.bottom, 
-					sdf_slice: sdf_slice.sdf_slice.top..sdf_slice.sdf_slice.bottom, 
-					layout_range: pmins.y..pmaxs.y,  
-					split: layout_slice_absolute.top..layout_slice_absolute.bottom
-				};
+		
+		set_box_type_count(draw_id, BoxType::None, count, &mut query_draw, &mut global_mark);
+		log::debug!("border render_count=============={:?}, {:?}", count, (
+			&top_range,
+			&right_range,
+			&bottom_range,
+			&left_range,
+			&top_repeat_range,
+			&right_repeat_range,
+			&bottom_repeat_range,
+			&left_repeat_range,
+			&fill_weft_range,
+			&fill_meridian_range,
+			border_slice,
+		));
 
-				let direction_desc_x = DirectionDesc {
-					sdf_uv: sdf_uv.left..sdf_uv.right, 
-					sdf_slice: sdf_slice.sdf_slice.left..sdf_slice.sdf_slice.right, 
-					layout_range: pmins.x..pmaxs.x,  
-					split: layout_slice_absolute.left..layout_slice_absolute.right
-				};
+		let range = [
+			(
+				left_range.clone(),
+				top_range.clone(),
+			),
+			(
+				right_range.clone(),
+				top_range.clone(),
+			),
+			(
+				right_range.clone(),
+				bottom_range.clone(),
+			),
+			(
+				left_range.clone(),
+				bottom_range.clone(),
+			),
+			(
+				top_repeat_range.clone(),
+				top_range.clone(),
+			),
+			(
+				right_range.clone(),
+				right_repeat_range.clone(),
+			),
+			(
+				bottom_repeat_range.clone(),
+				bottom_range.clone(),
+			),
+			(
+				left_range.clone(),
+				left_repeat_range.clone(),
+			),
+			(
+				fill_weft_range.clone(),
+				fill_meridian_range.clone(),
+			),
+		];
+		// if border_image.0.as_str().contains("eff_xinshouquanquan/2.png") {
+		// 	log::warn!("calc_border_image=======, {:?}", (&entity, &border_image, count, &range));
+		// 	log::warn!("calc_border_image1=======, {:?}", (&grid_buffer.0.positions[ss..] ));
+		// }
 
-				// 上边框
-				let top_range = if *border_slice.top > 0.0 {
-					TempGeo::grid_split(&RepeatInfo {
-						start: pmins.y,
-						end: pmins.y + layout.border.top,
-						bound_step: 0.0,
-						space: 0.0,
-						item_size: layout.border.top,
-					}, 
-					&mut grid_buffer.0, 
-					&direction_desc_y,
-					clip.top..slice_uv.top,
-					)
-				} else {
-					0..0
-				};
 
-				// 下边框
-				let bottom_range = if *border_slice.top > 0.0 {
-					TempGeo::grid_split(&RepeatInfo {
-						start: pmaxs.y - layout.border.bottom,
-						end: pmaxs.y,
-						bound_step: 0.0,
-						space: 0.0,
-						item_size: layout.border.bottom,
-					}, 
-					&mut grid_buffer.0, 
-					&direction_desc_y,
-					slice_uv.bottom..clip.bottom)
-				} else {
-					0..0
-				};
-
-				// if border_image.0.as_str().contains("yxxq_lan1") {
-				// 	log::warn!("calc_border_image=======, {:?}", (&entity, bottom_range, ));
-				// }
-
-				// 左边框
-				let left_range = if *border_slice.left > 0.0 {
-					TempGeo::grid_split(&RepeatInfo {
-						start: pmins.x,
-						end: pmins.x + layout.border.left,
-						bound_step: 0.0,
-						space: 0.0,
-						item_size: layout.border.left,
-					}, 
-					&mut grid_buffer.0, 
-					&direction_desc_x,
-					clip.left..slice_uv.left,)
-				} else {
-					0..0
-				};
-
-				// 右边框
-				let right_range = if *border_slice.right > 0.0 {
-					TempGeo::grid_split(&RepeatInfo {
-						start: pmaxs.x - layout.border.right,
-						end: pmaxs.x,
-						bound_step: 0.0,
-						space: 0.0,
-						item_size: layout.border.right,
-					}, 
-					&mut grid_buffer.0,	 
-					&direction_desc_x,
-					slice_uv.right..clip.right,)
-				} else {
-					0..0
-				};
-				
-				let fill_y_size = pmaxs.y - layout.border.bottom - layout.border.top;
-				let fill_x_size = pmaxs.x - layout.border.left - layout.border.right;
-
-				// 中间纬线部分
-				let fill_weft_range = if border_slice.fill && slice_size.width > 0.0 && slice_size.height > 0.0  {
-					TempGeo::grid_split(&RepeatInfo {
-						start: layout.border.left,
-						end: pmaxs.x - layout.border.right,
-						bound_step: 0.0,
-						space: 0.0,
-						item_size: fill_x_size,
-					}, 
-					&mut grid_buffer.0, 
-					&direction_desc_x,
-					slice_uv.left..slice_uv.right,)
-				} else {
-					0..0
-				};
-
-				// 中间经线部分
-				let fill_meridian_range = if border_slice.fill && slice_size.width > 0.0 && slice_size.height > 0.0  {
-					TempGeo::grid_split(&RepeatInfo {
-						start: layout.border.top,
-						end: pmaxs.y - layout.border.bottom,
-						bound_step: 0.0,
-						space: 0.0,
-						item_size: fill_y_size,
-					}, 
-					&mut grid_buffer.0,
-					&direction_desc_y,
-					slice_uv.top..slice_uv.bottom,)
-				} else {
-					0..0
-				};
-
-				// top, 中间部分
-				let uv_size = slice_size.width * factor.0;
-				let (layout_offset, bound, space, layout_space, mut count) = calc_step(w,  uv_size, border_repeat.x);
-				let top_repeat_range = if *border_slice.top > 0.0 && !eq_f32(1.0, *border_slice.bottom + *border_slice.top)  {
-					TempGeo::grid_split(&RepeatInfo {
-						start: pmins.x + border.left + layout_offset,
-						end: pmins.x + border.left + fill_x_size,
-						bound_step: bound * layout_space,
-						space,
-						item_size: layout_space,
-					}, 
-					&mut grid_buffer.0, 
-					&direction_desc_x,
-					slice_uv.left..slice_uv.right,)
-				} else {
-					0..0
-				};
-
-				// bottom, 中间部分
-				let uv_size = slice_size.width * factor.2;
-				let (layout_offset, bound, space, layout_space, mut count) = calc_step(w, uv_size, border_repeat.x);
-				let bottom_repeat_range = if *border_slice.left > 0.0 && !eq_f32(1.0, *border_slice.right + *border_slice.left)  {
-					TempGeo::grid_split(&RepeatInfo {
-						start: pmins.x + border.left + layout_offset,
-						end: pmins.x + border.left + fill_x_size,
-						bound_step: bound * layout_space,
-						space,
-						item_size: layout_space,
-					}, 
-					&mut grid_buffer.0, 
-					&direction_desc_x,
-					slice_uv.left..slice_uv.right,)
-				} else {
-					0..0
-				};
-
-				// left, 中间部分
-				let uv_size = slice_size.height * factor.3;
-				let (layout_offset, bound, space, layout_space, mut count) = calc_step(h, uv_size, border_repeat.y);
-				let left_repeat_range = if *border_slice.left > 0.0 && !eq_f32(1.0, *border_slice.bottom + *border_slice.top)  {
-					TempGeo::grid_split(&RepeatInfo {
-						start: pmins.y + border.top + layout_offset,
-						end: pmins.y + border.top + fill_y_size,
-						bound_step: bound * layout_space,
-						space,
-						item_size: layout_space,
-					}, 
-					&mut grid_buffer.0, 
-					&direction_desc_y,
-					slice_uv.top..slice_uv.bottom,)
-				} else {
-					0..0
-				};
-
-				// right, 中间部分
-				let uv_size = slice_size.height * factor.1;
-				let (layout_offset, bound, space, layout_space, mut count) = calc_step(h, uv_size, border_repeat.y);
-				let right_repeat_range = if *border_slice.right > 0.0 && !eq_f32(1.0, *border_slice.bottom + *border_slice.top) {
-					TempGeo::grid_split(&RepeatInfo {
-						start: pmins.y + border.top + layout_offset,
-						end: pmins.y + border.top + fill_y_size,
-						bound_step: bound * layout_space,
-						space,
-						item_size: layout_space,
-					}, 
-					&mut grid_buffer.0, 
-					&direction_desc_y,
-					slice_uv.top..slice_uv.bottom,)
-				} else {
-					0..0
-				};
-
-				let mut count = top_range.len() * (top_repeat_range.len() + left_range.len() + right_range.len()); // 上
-				count += bottom_range.len() * (bottom_repeat_range.len() + left_range.len() + right_range.len()); // 下
-				count += left_range.len() * left_repeat_range.len(); // 左、中
-				count += right_range.len() * right_repeat_range.len(); // 右、中
-				count += fill_meridian_range.len() * fill_weft_range.len(); // 中
-				count = count / 4;
-
-				if render_count.0 != count as u32 {
-					render_count.0 = count as u32;
-					log::debug!("border render_count=============={:?}, {:?}", count, (
-						&top_range,
-						&right_range,
-						&bottom_range,
-						&left_range,
-						&top_repeat_range,
-						&right_repeat_range,
-						&bottom_repeat_range,
-						&left_repeat_range,
-						&fill_weft_range,
-						&fill_meridian_range,
-						border_slice,
-					));
-					global_mark.mark.set(OtherDirtyType::InstanceCount as usize, true);
-				}
-
-				let range = [
-					(
-						left_range.clone(),
-						top_range.clone(),
-					),
-					(
-						right_range.clone(),
-						top_range.clone(),
-					),
-					(
-						right_range.clone(),
-						bottom_range.clone(),
-					),
-					(
-						left_range.clone(),
-						bottom_range.clone(),
-					),
-					(
-						top_repeat_range.clone(),
-						top_range.clone(),
-					),
-					(
-						right_range.clone(),
-						right_repeat_range.clone(),
-					),
-					(
-						bottom_repeat_range.clone(),
-						bottom_range.clone(),
-					),
-					(
-						left_range.clone(),
-						left_repeat_range.clone(),
-					),
-					(
-						fill_weft_range.clone(),
-						fill_meridian_range.clone(),
-					),
-				];
-
-				grid_buffer.1.push((
-					draw_id,
-					range
-				));
-		}
+		grid_buffer.1.push((
+			draw_id,
+			range
+		));
 	}
 }
 

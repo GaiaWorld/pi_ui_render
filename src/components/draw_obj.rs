@@ -61,8 +61,10 @@ pub enum BoxType {
     Content,
     /// 渲染为border区，世界矩阵不变换
     Border,
-	/// None, 自定义BoxLayout
-	None
+	/// None, 自定义BoxLayout, 设置世界矩阵
+	None,
+	/// Non哦, 自定义BoxLayout, 自定义世界矩阵
+	None2
 }
 
 // 临时的几何数据

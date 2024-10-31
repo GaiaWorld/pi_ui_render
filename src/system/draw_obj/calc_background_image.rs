@@ -29,7 +29,7 @@ use crate::system::system_set::UiSystemSet;
 use crate::utils::tools::eq_f32;
 use crate::components::user::BackgroundImage;
 
-use crate::system::base::draw_obj::{life_drawobj, image_texture_load};
+use crate::system::base::draw_obj::{image_texture_load, life_drawobj, set_box_type, set_box_type_count};
 use crate::resource::IsRun;
 
 use super::geo_split::GridBufer;
@@ -53,7 +53,7 @@ impl Plugin for BackgroundImagePlugin {
 					BackgroundImageRenderObjType,
 					(BackgroundImageMark, RenderCount),
 					{ BACKGROUND_IMAGE_ORDER },
-					{ BoxType::Padding },
+					{ BoxType::None },
 				>
 					.in_set(UiSystemSet::LifeDrawObject)
 					.run_if(background_image_life_change)
@@ -135,7 +135,7 @@ pub fn calc_background_image_instance_count(
 		),
 		(Or<(Changed<BackgroundImageTexture>, Changed<BackgroundImageClip>, Changed<LayoutResult>, Changed<BackgroundImageMod>)>, Or<(With<BackgroundImageMod>, With<SdfSlice>)>),
 	>,
-    mut query_draw: Query<(&mut BoxType, &mut RenderCount), With<BackgroundImageMark>>,
+    mut query_draw: Query<(&mut BoxType, &mut RenderCount)>,
 	r: OrInitSingleRes<IsRun>,
 	render_type: OrInitSingleRes<BackgroundImageRenderObjType>,
 	mut grid_buffer: OrInitSingleResMut<BackgroundImageTemp>,
@@ -155,7 +155,9 @@ pub fn calc_background_image_instance_count(
 			};
 			if let Some(ret) = calc_background_image_inner(r, &mut grid_buffer.0) {
 				grid_buffer.1.push((draw_id, ret.0));
-				set_box_type_count(draw_id, ret.2, ret.1, &mut query_draw, &mut mark);
+				set_box_type_count(draw_id, BoxType::None, ret.1, &mut query_draw, &mut mark);
+			} else {
+				set_box_type(draw_id, BoxType::None2, &mut query_draw);
 			};
 
 		}
@@ -169,24 +171,14 @@ pub fn calc_background_image_instance_count(
 			};
 			if let Some(ret) = calc_background_image_inner(r, &mut grid_buffer.0) {
 				grid_buffer.1.push((draw_id, ret.0));
-				set_box_type_count(draw_id, ret.2, ret.1, &mut query_draw, &mut mark);
+				set_box_type_count(draw_id, BoxType::None, ret.1, &mut query_draw, &mut mark);
+			} else {
+				set_box_type(draw_id, BoxType::None2, &mut query_draw);
 			};
 		}
 	}
 }
 
-fn set_box_type_count(draw_id: Entity, box_type: BoxType, render_count: usize,  query_draw: &mut Query<(&mut BoxType, &mut RenderCount), With<BackgroundImageMark>>, global_mark: &mut GlobalDirtyMark) {
-	if let Ok((mut box_type1, mut render_count1)) = query_draw.get_mut(draw_id) {
-		if box_type != *box_type1 {
-			*box_type1 = box_type;
-		}
-		if render_count as u32  != render_count1.0{
-			log::warn!("instance_count======={:?}", render_count);
-			render_count1.0 = render_count as u32 ;
-			global_mark.mark.set(OtherDirtyType::InstanceCount as usize, true);
-		}
-	}
-}
 
 /// 设置背景颜色的顶点，和颜色Uniform
 pub fn calc_background_image(

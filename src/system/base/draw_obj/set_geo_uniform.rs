@@ -1,5 +1,5 @@
 use pi_bevy_ecs_extend::prelude::{OrInitSingleRes, OrInitSingleResMut, Up};
-use pi_world::{event::ComponentChanged, fetch::OrDefault, filter::{Changed, Or}, query::Query};
+use pi_world::{event::ComponentChanged, fetch::OrDefault, filter::{Changed, Or}, query::Query, world::Entity};
 
 use crate::{components::{calc::{DrawList, LayoutResult, NodeState, WorldMatrix}, draw_obj::{BoxType, InstanceIndex, RenderCount}}, resource::{draw_obj::InstanceContext, GlobalDirtyMark, OtherDirtyType}, shader1::batch_meterial::{LayoutUniform, WorldMatrixMeterial}};
 use crate::resource::IsRun;
@@ -9,7 +9,7 @@ pub fn set_matrix_uniform(
 	mut instances: OrInitSingleResMut<InstanceContext>,
     matrix_change: ComponentChanged<WorldMatrix>,
 	// dirty_list: Event<StyleChange>,
-	query: Query<(&DrawList, &WorldMatrix, &LayoutResult, &NodeState, &Up), Or<(Changed<WorldMatrix>, Changed<DrawList>)>>,
+	query: Query<(Entity, &DrawList, &WorldMatrix, &LayoutResult, &NodeState, &Up), Or<(Changed<WorldMatrix>, Changed<DrawList>)>>,
     query_parent: Query<(&NodeState, &WorldMatrix, &Up)>,
     query_draw: Query<(&InstanceIndex, &BoxType, OrDefault<RenderCount>)>,
 	r: OrInitSingleRes<IsRun>,
@@ -33,12 +33,12 @@ pub fn set_matrix_uniform(
 }
 
 pub fn set_matrix_uniform_inner(
-    data: (&DrawList, &WorldMatrix, &LayoutResult, &NodeState, &Up),
+    data: (Entity, &DrawList, &WorldMatrix, &LayoutResult, &NodeState, &Up),
 	instances: &mut InstanceContext,
     query_draw: &Query<(&InstanceIndex, &BoxType, OrDefault<RenderCount>)>,
     query_parent: &Query<(&NodeState, &WorldMatrix, &Up)>,
 ) {
-    let (draw_list, mut world_matrix, layout, mut node_state,  mut up) = data;
+    let (entity, draw_list, mut world_matrix, layout, mut node_state,  mut up) = data;
     if draw_list.0.len() == 0 {
         return;
     }
@@ -59,18 +59,26 @@ pub fn set_matrix_uniform_inner(
                 continue;
             }
 
+            use pi_key_alloter::Key;
+            
             let aabb = match box_type {
                 BoxType::Padding => layout.padding_aabb(),
                 BoxType::Content => layout.content_aabb(),
                 BoxType::Border => layout.border_aabb(),
                 BoxType::None => {
+                    if entity.index() == 257 && entity.data().version() == 4 {
+                        println!("=============layout1=============={:?}", (entity));
+                    }
                     instances.instance_data.set_data_mult(instance_index.0.start, render_count.0 as usize, &WorldMatrixMeterial(world_matrix.as_slice()));
                     continue;
                 },
+                BoxType::None2 => continue,
             };
+            if entity.index() == 257 && entity.data().version() == 4 {
+                println!("=============layout=============={:?}", (entity, &aabb));
+            }
             instances.instance_data.set_data_mult(instance_index.0.start, render_count.0 as usize,&LayoutUniform(&[aabb.mins.x, aabb.mins.y, aabb.maxs.x - aabb.mins.x, aabb.maxs.y - aabb.mins.y]));
 	        instances.instance_data.set_data_mult(instance_index.0.start, render_count.0 as usize,&WorldMatrixMeterial(world_matrix.as_slice()));
         }
     }
-
 }
