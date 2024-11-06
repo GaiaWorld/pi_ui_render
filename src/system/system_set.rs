@@ -5,6 +5,7 @@ use pi_world::prelude::{SystemSet, ScheduleLabel};
 pub enum UiSystemSet {
     Setting, // 用户指令设置设置
     NextSetting, // 动画， 加载等内部设置
+    ClearSetting, // 清理设置
     // Load,    // 加载
     // LoadFlush,
     Layout, // 布局

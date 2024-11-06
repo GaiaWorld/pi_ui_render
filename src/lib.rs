@@ -32,7 +32,7 @@ pub mod events;
 
 
 pub mod prelude {
-    use pi_world::prelude::{App, IntoSystemConfigs, Plugin, IntoSystemSetConfigs, WorldPluginExtent};
+    use pi_world::{prelude::{App, IntoSystemConfigs, IntoSystemSetConfigs, Plugin, WorldPluginExtent}, schedule::PostUpdate};
 
     use pi_hal::font::font::FontType;
 
@@ -66,6 +66,7 @@ pub mod prelude {
             app
             
             .configure_set(UiStage, UiSystemSet::Setting.in_schedule(UiSchedule::Layout).in_schedule(UiSchedule::Calc).in_schedule(UiSchedule::Geo))
+            .configure_set(PostUpdate, UiSystemSet::ClearSetting.in_schedule(UiSchedule::Layout).in_schedule(UiSchedule::Calc).in_schedule(UiSchedule::Geo))
             // NextSetting在Setting之后运行， Setting用于作用用户指令， NextSetting用于设置加载、动画等派发过程中产生的指令
             .configure_set(UiStage, UiSystemSet::NextSetting
                 // 

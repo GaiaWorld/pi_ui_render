@@ -45,6 +45,7 @@ impl Plugin for UiNodePlugin {
 			// 维护脏列表
 			.add_system(PostUpdate, clear_dirty_mark
                 .after(bevy_window::FrameSet)
+                .in_set(UiSystemSet::ClearSetting)
             )
 			
             // 设置用户指令
