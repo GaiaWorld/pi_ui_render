@@ -50,7 +50,7 @@ pub fn set_matrix_uniform_inner(
                     world_matrix = world_matrix1;
                     up = up1;
                 } else {
-                    continue;
+                    break;
                 }
             }
             // 节点可能设置为dispaly none， 此时instance_index可能为Null TODO

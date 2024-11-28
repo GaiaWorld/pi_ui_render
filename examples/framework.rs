@@ -547,6 +547,7 @@ pub fn init(width: u32, height: u32, app: &mut App, w: Arc<pi_winit::window::Win
         total_capacity: 1024 * 1024 * 1024,
         asset_config: AssetConfig::default(),
         allocator: None,
+        collect_interval: 5000,
     })
     // .add_plugins(WorldInspectorPlugin::new())
     .add_plugins(PiRenderPlugin::default())

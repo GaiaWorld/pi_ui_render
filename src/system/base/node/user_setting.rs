@@ -314,7 +314,7 @@ pub fn user_setting2(
 				// 	return;
 				// }
                 
-                log::debug!("InsertBefore node====================node：{:?}, anchor： {:?}, node_is_exist：{:?}", node, anchor, entitys.contains(node));
+                log::debug!("InsertBefore node1====================node：{:?}, anchor： {:?}, node_is_exist：{:?}", node, anchor, entitys.contains(node));
                 // if entitys.contains(node) && (anchor.is_null() || entitys.contains(anchor)) {
                    
                     // log::warn!("InsertBefore node====================node：{:?}, anchor： {:?}", node, anchor);

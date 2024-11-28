@@ -263,6 +263,9 @@ pub fn calc_sdf2_text_len(
 						}
 						layout1 = l;
 						break;
+					} else {
+						log::warn!("can not find parent node==={:?}", (n, entity));
+						break;
 					}
 				}
 			}
