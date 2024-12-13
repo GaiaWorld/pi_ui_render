@@ -24,7 +24,6 @@ use pi_ui_render::{
 
 fn main() { framework::start(QuadExample::default()) }
 
-#[cfg(predicate)]
 #[wasm_bindgen_test::wasm_bindgen_test]
 fn test() {
 	framework::start(QuadExample::default());
@@ -71,23 +70,23 @@ impl Example for QuadExample {
 
         world.user_cmd.append(div1, root);
 
-		// 渐变
-		let div2 = world.spawn(NodeTag::Div);
-        world.user_cmd.set_style(div2, WidthType(Dimension::Points(300.0)));
-        world.user_cmd.set_style(div2, HeightType(Dimension::Points(300.0)));
-		world.user_cmd.set_style(div2, PositionTopType(Dimension::Points(100.0)));
-        world.user_cmd
-            .set_style(div2, BackgroundColorType(Color::LinearGradient(LinearGradientColor {
-                direction: 1.0,
-                list: vec![
-					ColorAndPosition { position: 0.0, rgba: CgColor::new(1.0, 0.0, 0.0, 1.0) },
-					ColorAndPosition { position: 1.0, rgba: CgColor::new(0.0, 0.0, 1.0, 1.0) }
-				],
-            })));
+		// // 渐变
+		// let div2 = world.spawn(NodeTag::Div);
+        // world.user_cmd.set_style(div2, WidthType(Dimension::Points(300.0)));
+        // world.user_cmd.set_style(div2, HeightType(Dimension::Points(300.0)));
+		// world.user_cmd.set_style(div2, PositionTopType(Dimension::Points(100.0)));
+        // world.user_cmd
+        //     .set_style(div2, BackgroundColorType(Color::LinearGradient(LinearGradientColor {
+        //         direction: 1.0,
+        //         list: vec![
+		// 			ColorAndPosition { position: 0.0, rgba: CgColor::new(1.0, 0.0, 0.0, 1.0) },
+		// 			ColorAndPosition { position: 1.0, rgba: CgColor::new(0.0, 0.0, 1.0, 1.0) }
+		// 		],
+        //     })));
 
-        world.user_cmd.append(div2, root);
+        // world.user_cmd.append(div2, root);
 
-        println!("div2======{:?}", (root, div1, div2));
+        // println!("div2======{:?}", (root, div1, div2));
 
         // // 添加一个红色div到红节点
         // let div2 = world.spawn(NodeTag::Div);

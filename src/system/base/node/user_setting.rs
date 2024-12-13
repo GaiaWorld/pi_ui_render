@@ -333,6 +333,11 @@ pub fn user_setting2(
 				// }
                 if !tree.layer(node).layer().is_null() {
                     remove_events.send(RemoveEvent(node));
+                    let up = tree.up(node);
+                    if !up.parent().is_null() {
+                        dirty_list_mark.mark_dirty(up.parent());
+                    }
+                    
                     is_remove = true;
                     log::debug!("RemoveNode node====================node={node:?}");
                     tree.remove(node);
@@ -344,10 +349,15 @@ pub fn user_setting2(
 				// 	r.0 = true;
 				// 		return;
 				// }
-				
                 is_del = true;
+                
                 // 删除所有子节点对应的实体
                 if let Some(down) = tree.get_down(node) {
+                    let up = tree.up(node);
+                    if !up.parent().is_null() {
+                        dirty_list_mark.mark_dirty(up.parent());
+                    }
+
                     let head = down.head();
                     if !head.is_null() {
                         for node in tree.recursive_iter(head) {

@@ -66,7 +66,7 @@ smallvec = { version = "1.8", features = ["serde"] }
 bitvec = { version = "1.0", features = ["serde"] }
 cssparser = "0.29"
 pi_hash = "0.1"
-pi_atom = { version = "0.5", features = ["serde", "pointer_width_32", "lookup_by_hash"] }
+pi_atom = { version = "0.5.3", features = ["serde", "lookup_by_hash"] }
 pi_enum_default_macro = "0.1"
 pi_map = "0.2"
 pi_null = "0.1"
@@ -133,10 +133,9 @@ tracing = { version = "0.1", default-features = false, features = ["std"] }
 # flume = "0.10"
 
 [dev-dependencies]
-pi_async_httpc = "0.5"
 # tracy-client-sys = "=0.22.0"
 # tracy-client = "=0.16.4"
-tracing-tracy = {version = "0.11", features = ["flush-on-exit"]}
+# tracing-tracy = {version = "0.10", features = ["flush-on-exit"]}
 
 
 log = { version = "0.4", features = ["kv_unstable", "release_max_level_info"] }
@@ -147,14 +146,14 @@ spin_sleep = "1.1"
 num_cpus = "1.13"
 # bevy_log = { version = "0.11", default-features = false }
 # bevy_a11y = "0.11"
-pi_bevy_log = { version = "0.1", registry = "yn" }
+pi_bevy_log = { version = "0.1", registry = "yn", features=["log-file"] }
 criterion = { version = "0.3", features = ["html_reports"] }
 pi_winit = { version = "0.27", registry = "yn", package = "winit" }
 tracing = "0.1"
 postcard = { version = "1.0", features = ["use-std"] }
 
-# wgpu = { version = "0.1", registry = "yn", package = "pi_wgpu" }
-wgpu = { version = "0.1", registry = "yn", package = "pi_wgpu", features=["use_wgpu"]}
+wgpu = { version = "0.1", registry = "yn", package = "pi_wgpu" }
+# wgpu = { version = "0.1", registry = "yn", package = "pi_wgpu", features=["use_wgpu"]}
 # pi_ui_render = { path = "./", features = ["trace", "single_thread"] }
 # pi_ui_render = { path = "./", features = ["trace"] }
 pi_ui_render = { path = "./", features = ["debug", "single_thread"] }
@@ -164,6 +163,7 @@ pi_bevy_winit_window = { version = "0.1", registry = "yn" }
 wasm-bindgen-test = "0.3"
 
 pi_hal = {version = "0.1.40", registry="yn"}
+# tracy-client-sys="=0.22.0"
 
 # "debug", "trace"
 # pi_export_gui = {path="../pi_export/crates/gui"}
@@ -200,6 +200,7 @@ pi_hal = {version = "0.1.40", registry="yn"}
 font_kit = { registry = "yn", version = "0.1" }
 timer = "0.2.0"
 env_logger = "0.9"
+pi_async_httpc = "0.5"
 
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 uuid = { version = "1", features = ["js"] }
@@ -301,11 +302,11 @@ pi_world_macros = { path = "../pi_world/macros" }
 # pi_curves  = {path="../pi_curves"}
 # pi_animation = { path="../pi_animation"}
 # pi_style = {path = "../pi_style"}
-# pi_wgpu = {path = "../pi_wgpu"}
-# pi_egl = {path = "../pi_egl"}
+pi_wgpu = {path = "../pi_wgpu"}
+pi_egl = {path = "../pi_egl"}
 # winit = {path = "../winit"}
 # font_kit = { path = "../font_kit" }
-pi_hal = { path = "../pi_hal" }
+pi_hal = { path = "../pi_hal1" }
 pi_sdf = { path = "../pi_sdf" }
 pi_postprocess = { path = "../pi_post_process" }
 

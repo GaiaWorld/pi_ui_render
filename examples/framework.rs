@@ -15,7 +15,9 @@ use pi_bevy_post_process::PiPostProcessPlugin;
 use pi_bevy_render_plugin::{PiRenderOptions, PiRenderPlugin};
 use pi_flex_layout::prelude::Size;
 use pi_hal::font::font::FontType;
-use pi_hal::{init_load_cb, on_load, runtime::MULTI_MEDIA_RUNTIME, Arg};
+use pi_hal::{init_load_cb, on_load, runtime::MULTI_MEDIA_RUNTIME};
+#[cfg(not(target_arch = "wasm32"))]
+use pi_hal::Arg;
 use pi_share::{Share, ShareMutex};
 use pi_ui_render::system::RunState;
 // use pi_ui_render::components::user::AsImage;
@@ -59,134 +61,137 @@ pub fn start<T: Example + Sync + Send + 'static>(example: T) {
     let play_option = example.play_option();
     let play_option1 = play_option.clone().unwrap_or_default();
 println!("===========   ===========");
-
-    match (play_option1.play_path, play_option1.play_url, play_option1.play_way.as_str()) {
-        (_, Some(url), "url") => {
-            // println!("本机IP地址: {}", ip);
-
-            //构建客户端
-            let httpc = pi_async_httpc::AsyncHttpcBuilder::new()
-                .bind_address("0.0.0.0") // 访问(localhost之外)外网用明确的本地ip（自身ip）
-                .build()
-                .unwrap();
-            init_load_cb(Arc::new(move |module: String, _: String, hash: String, path: Vec<Arg>| {
-                if module.ends_with("file") {
-                    let httpc = httpc.clone();
-                    let url = url.clone();
-                    let path = match &path[0] {
-                        Arg::String(r) => r.clone(),
-                        _ => return,
-                    };
-                    MULTI_MEDIA_RUNTIME
-                        .spawn(async move {
-                            let mut result = Vec::new();
-                            let pp: String = url + "/" + path.as_str();
-                            match httpc
-                                .build_request(pp.as_str(), pi_async_httpc::AsyncHttpRequestMethod::Get)
-                                // .set_pairs(&[("login_type", "2"), ("user", "1694151132349ldxNJ")]) // 设置参数
-                                .send()
-                                .await
-                            {
-                                Err(e) => {
-                                    log::warn!("not find file, url: {:?}, {:?}", path, e);
-                                }
-                                Ok(mut resp) => {
-                                    // println!("!!!!!!request time: {:?}", now.elapsed());
-
-                                    loop {
-                                        match resp.get_body().await {
-                                            Err(e) => {
-                                                log::warn!("not find file, url: {:?}, {:?}", path, e);
-                                                break;
-                                            }
-                                            Ok(Some(_body)) => {
-                                                result.extend_from_slice(_body.as_ref());
-                                                continue;
-                                            }
-                                            Ok(None) => {
-                                                if resp.get_status() == 200 {
-                                                    on_load(hash.parse::<u64>().unwrap(), Ok(Share::new(result)));
-                                                    log::debug!("load file success,path: {:?}", path);
-                                                    // on_load(path.as_str(), result);
-                                                } else {
-                                                    on_load(
-                                                        hash.parse::<u64>().unwrap(),
-                                                        Err(format!("not find file, url: {:?}, {:?}", path, resp.get_status())),
-                                                    );
-                                                    log::warn!("not find file, url: {:?}, {:?}", path, resp.get_status());
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        match (play_option1.play_path, play_option1.play_url, play_option1.play_way.as_str()) {  
+            (_, Some(url), "url") => {
+                // println!("本机IP地址: {}", ip);
+    
+                //构建客户端
+                let httpc = pi_async_httpc::AsyncHttpcBuilder::new()
+                    .bind_address("0.0.0.0") // 访问(localhost之外)外网用明确的本地ip（自身ip）
+                    .build()
+                    .unwrap();
+                init_load_cb(Arc::new(move |module: String, _: String, hash: String, path: Vec<Arg>| {
+                    if module.ends_with("file") {
+                        let httpc = httpc.clone();
+                        let url = url.clone();
+                        let path = match &path[0] {
+                            Arg::String(r) => r.clone(),
+                            _ => return,
+                        };
+                        MULTI_MEDIA_RUNTIME
+                            .spawn(async move {
+                                let mut result = Vec::new();
+                                let pp: String = url + "/" + path.as_str();
+                                match httpc
+                                    .build_request(pp.as_str(), pi_async_httpc::AsyncHttpRequestMethod::Get)
+                                    // .set_pairs(&[("login_type", "2"), ("user", "1694151132349ldxNJ")]) // 设置参数
+                                    .send()
+                                    .await
+                                {
+                                    Err(e) => {
+                                        log::warn!("not find file, url: {:?}, {:?}", path, e);
+                                    }
+                                    Ok(mut resp) => {
+                                        // println!("!!!!!!request time: {:?}", now.elapsed());
+    
+                                        loop {
+                                            match resp.get_body().await {
+                                                Err(e) => {
+                                                    log::warn!("not find file, url: {:?}, {:?}", path, e);
+                                                    break;
                                                 }
-
-                                                // println!("!!!!!!response time: {:?}", now.elapsed());
-                                                // println!("!!!!!!peer address: {:?}", resp.get_peer_addr());
-                                                // println!("!!!!!!url: {}", resp.get_url());
-                                                // println!("!!!!!!status: {}", resp.get_status());
-                                                // println!("!!!!!!version: {}", resp.get_version());
-                                                // println!("!!!!!!headers: {:#?}", resp.to_headers());
-                                                // println!("!!!!!!body len: {:?}", resp.get_headers("content-length"));
-                                                break;
+                                                Ok(Some(_body)) => {
+                                                    result.extend_from_slice(_body.as_ref());
+                                                    continue;
+                                                }
+                                                Ok(None) => {
+                                                    if resp.get_status() == 200 {
+                                                        on_load(hash.parse::<u64>().unwrap(), Ok(Share::new(result)));
+                                                        log::debug!("load file success,path: {:?}", path);
+                                                        // on_load(path.as_str(), result);
+                                                    } else {
+                                                        on_load(
+                                                            hash.parse::<u64>().unwrap(),
+                                                            Err(format!("not find file, url: {:?}, {:?}", path, resp.get_status())),
+                                                        );
+                                                        log::warn!("not find file, url: {:?}, {:?}", path, resp.get_status());
+                                                    }
+    
+                                                    // println!("!!!!!!response time: {:?}", now.elapsed());
+                                                    // println!("!!!!!!peer address: {:?}", resp.get_peer_addr());
+                                                    // println!("!!!!!!url: {}", resp.get_url());
+                                                    // println!("!!!!!!status: {}", resp.get_status());
+                                                    // println!("!!!!!!version: {}", resp.get_version());
+                                                    // println!("!!!!!!headers: {:#?}", resp.to_headers());
+                                                    // println!("!!!!!!body len: {:?}", resp.get_headers("content-length"));
+                                                    break;
+                                                }
                                             }
                                         }
                                     }
                                 }
-                            }
-                        })
-                        .unwrap();
-                } else {
-                    on_load(hash.parse::<u64>().unwrap(), Ok(Share::new(vec![])));
-                }
-            }));
-        }
-        (Some(dir), _, _) => {
-            init_load_cb(Arc::new(move |module: String, _: String, hash: String, path: Vec<Arg>| {
-                if module.ends_with("file") {
-                    let dir = dir.clone();
-                    let path = match &path[0] {
-                        Arg::String(r) => r.clone(),
-                        _ => return,
-                    };
-                    MULTI_MEDIA_RUNTIME
-                        .spawn(async move {
-                            if let Ok(file) = std::fs::read(Path::new(dir.as_str()).join(&path)) {
-                                on_load(hash.parse::<u64>().unwrap(), Ok(Share::new(file)));
-                                log::debug!("load file success,path: {:?}", path);
-                                // on_load(path.as_str(), file);
-                            } else {
-                                on_load(hash.parse::<u64>().unwrap(), Err(format!("not find file,path: {:?}", path)));
-                                log::warn!("not find file,path: {:?}", path);
-                            }
-                        })
-                        .unwrap();
-                } else {
-                    on_load(hash.parse::<u64>().unwrap(), Ok(Share::new(vec![])));
-                }
-            }));
-        }
-        _ => {
-            init_load_cb(Arc::new(move |module: String, _: String, hash: String, path: Vec<Arg>| {
-                // println!("=========== module: {}, {}", module, hash);
-                if module.ends_with("file") {
-                    let path = match &path[0] {
-                        Arg::String(r) => r.clone(),
-                        _ => panic!(""),
-                    };
-                    MULTI_MEDIA_RUNTIME
-                        .spawn(async move {
-                            if let Ok(file) = std::fs::read(path.as_str()) {
-                                on_load(hash.parse::<u64>().unwrap(), Ok(Share::new(file)));
-                                // on_load(path.as_str(), file);
-                                log::debug!("load file success,path: {:?}", path);
-                            } else {
-                                on_load(hash.parse::<u64>().unwrap(), Err(format!("not find file,path: {:?}", path)));
-                                log::warn!("not find file,path: {:?}", path);
-                            }
-                        })
-                        .unwrap();
-                } else {
-                    on_load(hash.parse::<u64>().unwrap(), Ok(Share::new(vec![])));
-                }
-            }));
+                            })
+                            .unwrap();
+                    } else {
+                        on_load(hash.parse::<u64>().unwrap(), Ok(Share::new(vec![])));
+                    }
+                }));
+            }
+            (Some(dir), _, _) => {
+                init_load_cb(Arc::new(move |module: String, _: String, hash: String, path: Vec<Arg>| {
+                    if module.ends_with("file") {
+                        let dir = dir.clone();
+                        let path = match &path[0] {
+                            Arg::String(r) => r.clone(),
+                            _ => return,
+                        };
+                        MULTI_MEDIA_RUNTIME
+                            .spawn(async move {
+                                if let Ok(file) = std::fs::read(Path::new(dir.as_str()).join(&path)) {
+                                    on_load(hash.parse::<u64>().unwrap(), Ok(Share::new(file)));
+                                    log::debug!("load file success,path: {:?}", path);
+                                    // on_load(path.as_str(), file);
+                                } else {
+                                    on_load(hash.parse::<u64>().unwrap(), Err(format!("not find file,path: {:?}", path)));
+                                    log::warn!("not find file,path: {:?}", path);
+                                }
+                            })
+                            .unwrap();
+                    } else {
+                        on_load(hash.parse::<u64>().unwrap(), Ok(Share::new(vec![])));
+                    }
+                }));
+            }
+            _ => {
+                init_load_cb(Arc::new(move |module: String, _: String, hash: String, path: Vec<Arg>| {
+                    // println!("=========== module: {}, {}", module, hash);
+                    if module.ends_with("file") {
+                        let path = match &path[0] {
+                            Arg::String(r) => r.clone(),
+                            _ => panic!(""),
+                        };
+                        MULTI_MEDIA_RUNTIME
+                            .spawn(async move {
+                                if let Ok(file) = std::fs::read(path.as_str()) {
+                                    on_load(hash.parse::<u64>().unwrap(), Ok(Share::new(file)));
+                                    // on_load(path.as_str(), file);
+                                    log::debug!("load file success,path: {:?}", path);
+                                } else {
+                                    on_load(hash.parse::<u64>().unwrap(), Err(format!("not find file,path: {:?}", path)));
+                                    log::warn!("not find file,path: {:?}", path);
+                                }
+                            })
+                            .unwrap();
+                    } else {
+                        on_load(hash.parse::<u64>().unwrap(), Ok(Share::new(vec![])));
+                    }
+                }));
+            }
         }
     }
+    
     // // let aa = pi_async_rt::rt::startup_global_time_loop(10);
     // // let current_dir = std::env::current_dir().unwrap();
     // #[cfg(not(target_arch = "wasm32"))]
@@ -337,12 +342,12 @@ println!("===========   ===========");
                     // window_plugin.window.height = size.height as f32;
                     (size.width, size.height)
                 } else {
-                    #[cfg(not(target_arch = "wasm32"))] {
-                    let size = window.inner_size();
-                        (size.width, size.height)
-                    }
+                    // #[cfg(not(target_arch = "wasm32"))] {
+                    // let size = window.inner_size();
+                    //     (size.width, size.height)
+                    // }
             
-                    #[cfg(target_arch = "wasm32")]
+                    // #[cfg(target_arch = "wasm32")]
                     (450, 720)
                 };
                 

@@ -54,7 +54,7 @@ pub fn calc_dyn_target_type(
         let mut transform = Transform::default();
         transform.add_func(pi_style::style::TransformFunc::Scale(view_width as f32/width, view_height as f32/height));
         transform.origin = TransformOrigin::XY(LengthUnit::Pixel(0.0), LengthUnit::Pixel(0.0));
-        log::warn!("calc_dyn_target_type==========={:?}, {:?}, {:?}", view_width as f32/width, view_height as f32/height, (width, height, view_width, view_height));
+        // log::warn!("calc_dyn_target_type==========={:?}, {:?}, {:?}", view_width as f32/width, view_height as f32/height, (width, height, view_width, view_height));
         let _ = iter.alter((ty, transform, RootScale{x: view_width as f32/width, y: view_height as f32/height}));
     }
 }

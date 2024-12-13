@@ -14,7 +14,7 @@ use std::{
 
 use pi_style::style::StyleType;
 use pi_world::{event::Event, fetch::Ticker, prelude::{Entity, Local, Mut, OrDefault, Query, With}, single_res::SingleRes};
-use pi_bevy_ecs_extend::prelude::{OrInitSingleRes, Layer, EntityTree};
+use pi_bevy_ecs_extend::prelude::{Down as Down1, EntityTree, Layer, OrInitSingleRes};
 
 use pi_flex_layout::{prelude::{
     AlignContent, AlignItems, AlignSelf, CharNode, Dimension, Direction, Display, FlexDirection, FlexLayoutStyle, FlexWrap, Get, GetMut, INode,
@@ -72,6 +72,7 @@ pub fn calc_layout(
             ),
             &StyleMark,
             Ticker<&Layer>,
+            Ticker<&Down1>,
             // Option<Ticker<&Size>>,
             // Option<Ticker<&Margin>>,
             // Option<Ticker<&Padding>>,
@@ -140,6 +141,7 @@ pub fn calc_layout(
 				(size, margin, padding, border, position, min_max, flex_container, flex_normal, show),
                 &style_mark,
 				layer,
+                down,
                 // size_dirty,
 				// margin_dirty,
 				// padding_dirty,
@@ -163,7 +165,7 @@ pub fn calc_layout(
                     // false, false, false, false, false
                     // style_mark.dirty_style
                     layer.is_changed() || style_mark.dirty_style.has_any(&*RECT_DIRTY),
-                    layer.is_changed() || style_mark.dirty_style.has_any(&*CHILD_DIRTY),
+                    layer.is_changed() || down.is_changed() || style_mark.dirty_style.has_any(&*CHILD_DIRTY),
                     style_mark.dirty_style.has_any(&*NORMAL_DIRTY),
                     style_mark.dirty_style.has_any(&*SELF_DIRTY),
                     style_mark.dirty_style.get(StyleType::Display as usize).map_or(false, |display| {*display == true}),
