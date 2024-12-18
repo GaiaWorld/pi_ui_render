@@ -32,7 +32,7 @@ use pi_style::style::StyleType;
 use pi_world::event::Event;
 use pi_world::fetch::Ticker;
 use pi_world::prelude::{With, Query, Entity};
-use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, OrInitSingleRes, Layer, EntityTree, LayerDirty, DirtyMark};
+use pi_bevy_ecs_extend::prelude::{DirtyMark, EntityTree, Layer, LayerDirty, OrInitSingleRes, OrInitSingleResMut};
 
 use pi_null::Null;
 use pi_world::single_res::SingleRes;
@@ -48,7 +48,7 @@ use super::world_matrix::Empty;
 const Z_AUTO: isize = -1;
 /// 节点zindex的最大区间
 // const Z_MAX: usize = 16;//usize::MAX;
-const Z_MAX: usize = usize::MAX;
+const Z_MAX: usize = std::u32::MAX as usize;
 /// 每个节点自身占用的zindex区间大小
 const Z_SELF: usize = 1;
 /// 子节点将区间劈分成3段，自身在中间段
@@ -71,6 +71,7 @@ pub fn calc_zindex(
     dirty_list: Event<StyleChange>,
     mut layer_dirty: LayerDirty<With<Empty>>,
     query_dirty: Query<(Ticker<&Layer>, Option<Ticker<&ZIndex>>)>,
+    query_dirty1: Query<&crate::components::user::Opacity>,
     
     mut global_mark: OrInitSingleResMut<GlobalDirtyMark>,
     query: Query<&ZIndex>,
@@ -107,7 +108,7 @@ pub fn calc_zindex(
     for (id, mark, _) in layer_dirty.iter_manual() {
         match tree.get_up(id) {
             Some(up) if !up.parent().is_null() => {
-                // log::warn!("calc_zindex======node: {:?}, parent: {:?}, layer: {:?} ", id, up.parent(), tree.get_layer(id));
+                // log::debug!("calc_zindex======node: {:?}, parent: {:?}, layer: {:?} ", id, up.parent(), tree.get_layer(id));
                 let parent = up.parent();
                 // 找到能容纳所有子节点的父节点
                 // parent节点zindex为AUTO，需要递归向上找到一个不是AUTO的节点, 以该节点作为布局环境，进行z布局
@@ -117,13 +118,21 @@ pub fn calc_zindex(
                 collect(&query, &tree, &mut vec, parent1, 0);
                 // 排序
                 vec.sort();
+                let mut is_debug = false;
+                if let Ok(opacity) = query_dirty1.get(parent1) {
+                    if opacity.0 == 0.875 {
+                        println!("====parent1: {:?}, opacity: {:?}, children_count: {:?}", parent1, opacity, children_count);
+                        is_debug = true;
+                    }
+                }
+                
                 // println!("---------local:{}, {:?}", local, vec);
                 if local {
                     // 如果是可以进行局部比较
-                    local_reset(&query, &tree, mark, &mut ranges, &mut vec, children_count, zrange);
+                    local_reset(&query, &tree, mark, &mut ranges, &mut vec, children_count, zrange, &query_dirty1, is_debug);
                 } else {
                     // 否则父节点重新设置zrange
-                    reset(&query, &tree, mark, &mut ranges, &mut vec, 0, children_count, zrange);
+                    reset(&query, &tree, mark, &mut ranges, &mut vec, 0, children_count, zrange, &query_dirty1);
                 }
             }
             _ => {
@@ -241,6 +250,8 @@ fn local_reset(
     vec: &mut Vec<ZSort>,
     children_count: usize,
     mut zrange: ZRange,
+    query_dirty1: &Query<&crate::components::user::Opacity>,
+    is_debug: bool,
 ) {
     fn empty(_mark: &mut DirtyMark, _node: &Entity) {}
     zrange.start += Z_SELF;
@@ -263,26 +274,38 @@ fn local_reset(
             // println!("mark clear, {}", vec[i].node.local().offset());
             // 如果节点脏了， 统计到dirty的数量中
             dirty.count += cur_count;
+            if is_debug {
+                log::debug!("dirty==================id: {:?}, cur_count: {:?}", id, cur_count);
+            }
             continue;
         }
         // 直到找到了一个未被修改的节点，下面成这个未被修改的节点为当前节点
 
+        if is_debug {
+            log::debug!("not_dirty=================={:?}", id);
+        }
         // 获得当前节点的zrange
         let cur_range = get_or_default(ranges, *id);
-        // log::warn!("local_reset====id: {:?}, zrange: {:?}, dirty: {:?}, range: {:?}, cur_count: {:?}, down: {:?}, i: {:?}, len: {:?}", id, zrange, dirty, range, cur_count, tree.get_down(*id), i, len);
+
+        log::debug!("local_reset====id: {:?}, zrange: {:?}, dirty: {:?}, cur_range: {:?}, cur_count: {:?}, down: {:?}, i: {:?}, len: {:?}", id, zrange, dirty, cur_range, cur_count, tree.get_down(*id), i, len);
+        log::debug!("local_reset====branch1: {:?}, 2: {:?}, 3: {:?}", 
+            zrange.end - cur_range.end < (dirty.children_count - dirty.count - cur_count) * Z_SELF, 
+            dirty.count == 0, 
+            cur_range.end < dirty.start || cur_range.end - dirty.start < (dirty.count + cur_count) * Z_SELF
+        );
         // 判断当前节点右边（不包含当前节点）能否放下，如果不行，则继续（右边z范围不能容纳右边的所有子节点， 将当前节点卷入脏统计，并继续）
         if zrange.end - cur_range.end < (dirty.children_count - dirty.count - cur_count) * Z_SELF {
             dirty.count += cur_count;
             continue;
         }
-        // 右边已经能容纳右边的节点，而当前统计的脏节点数量为0， 由于当前节点不脏， 则不需要处理当前节点
-        if dirty.count == 0 {
+        // 右边已经能容纳右边的节点，而当前统计的脏节点数量为0， 由于当前节点不脏，如果cur_range.start >= dirty.start， 则不需要处理当前节点
+        if dirty.count == 0 && cur_range.start >= dirty.start {
             dirty.begin = i + 1;
             dirty.start = cur_range.end;
             continue;
         }
-        // 右边已经能容纳右边的节点，如果左边（包含当前节点）也不能能容纳左边（包含当前节点）的节点 则将当前节点卷入脏统计，并继续
-        if cur_range.end - dirty.start < (dirty.count + cur_count) * Z_SELF {
+        // 右边已经能容纳右边的节点，如果左边（包含当前节点）不能容纳左边（包含当前节点）的节点 则将当前节点卷入脏统计，并继续
+        if cur_range.end < dirty.start || cur_range.end - dirty.start < (dirty.count + cur_count) * Z_SELF {
             dirty.count += cur_count;
             continue;
         }
@@ -298,9 +321,9 @@ fn local_reset(
         // // 前面有被修改节点，则获取脏段
         // let r = dirty_range(ranges, vec, zrange.start, range.start, &mut dirty);
         // dirty.start = range.end;
-        // log::warn!("local_reset====start: {:?}, end: {:?}, zrange: {:?}, dirty: {:?}", &vec[start].node, &vec[end - 1].node, zrange, dirty);
+        log::debug!("local_reset====start: {:?}, end: {:?}, zrange: {:?}, dirty: {:?}", &vec[start].node, &vec[end - 1].node, zrange, dirty);
         // 重置脏段
-        range_set(query, tree, mark, ranges, vec, start, end, dirty.count, r, empty);
+        range_set(query, tree, mark, ranges, vec, start, end, dirty.count, r, empty, query_dirty1);
         // 将总子节点数量减去已经处理的数量
         dirty.children_count -= dirty.count;
         dirty.count = 0;
@@ -309,7 +332,7 @@ fn local_reset(
     }
     // println!("dirty.count, {}", dirty.count);
     if dirty.count > 0 {
-        // log::warn!("local_reset1====start: {:?}, end: {:?}, zrange: {:?}, dirty: {:?}", &vec[dirty.begin as usize].node, &vec[len - 1].node, zrange, dirty);
+        log::debug!("local_reset1====start: {:?}, end: {:?}, zrange: {:?}, dirty: {:?}", &vec[dirty.begin as usize].node, &vec[len - 1].node, zrange, dirty);
         // 前面有被修改节点，则获取脏段
         // let r = dirty_range(ranges, vec, zrange.start, zrange.end, &mut dirty);
         range_set(
@@ -323,6 +346,7 @@ fn local_reset(
             dirty.count,
             ZRange(dirty.start..zrange.end),
             empty,
+            query_dirty1,
         );
     }
     // 清空
@@ -333,7 +357,7 @@ fn local_reset(
 //     // println!("dirty_range, parent_start:{}, dirty_end:{}, dirty:{:?}", parent_start, dirty_end, dirty);
 //     // 然后判断左边能否放下， 放不下， 则尝试向左移动，再次尝试能否放下
 //     loop {
-// 		// log::warn!("dirty======{:?}, {:?}, {:?}", dirty, dirty_end, Z_SELF);
+// 		// log::debug!("dirty======{:?}, {:?}, {:?}", dirty, dirty_end, Z_SELF);
 //         // 判断左节点端及其子节点，都能被装下
 //         if dirty_end - dirty.start >= dirty.count * Z_SELF {
 //             return ZRange(Range {
@@ -362,6 +386,7 @@ fn range_set(
     children_count: usize,
     mut zrange: ZRange,
     func: fn(&mut DirtyMark, &Entity),
+    query_dirty1: &Query<&crate::components::user::Opacity>,
 ) {
     // println!("range set: zrange:{:?}, begin: {}, end: {}, count: {}", zrange, begin, end, children_count);
     // 获得间隔s
@@ -376,9 +401,9 @@ fn range_set(
             start: zrange.start,
             end: zrange.start + s + Z_SELF + count * (s * Z_SPLIT + Z_SELF),
         });
-        // log::warn!("range_set========zrange: {:?}, children_count: {:?}, s: {:?}, r{:?}, count: {:?}, begin: {}, end: {}", zrange, children_count, s, r, count, begin, end);
+        // log::debug!("range_set========zrange: {:?}, children_count: {:?}, s: {:?}, r{:?}, count: {:?}, begin: {}, end: {}", zrange, children_count, s, r, count, begin, end);
         zrange.start = r.end + s;
-        set(query, tree, mark, ranges, vec, *node, count, r);
+        set(query, tree, mark, ranges, vec, *node, count, r, query_dirty1);
     }
 }
 /// 父节点下的子节点全部重置zrange
@@ -391,15 +416,18 @@ fn reset(
     index: usize,
     children_count: usize,
     mut zrange: ZRange,
+    query_dirty1: &Query<&crate::components::user::Opacity>,
 ) {
+
     zrange.start += Z_SELF;
     let len = vec.len();
     fn mark_remove(mark: &mut DirtyMark, node: &Entity) {
         // 清理脏标志，这样层脏迭代器就不会弹出这个节点
         mark.remove(&node);
     }
-    // log::warn!("reset========list: {:?}", &vec[index..len]);
-    range_set(query, tree, mark, ranges, vec, index, len, children_count, zrange, mark_remove);
+    
+    // log::debug!("reset========list: {:?}", &vec[index..len]);
+    range_set(query, tree, mark, ranges, vec, index, len, children_count, zrange, mark_remove, query_dirty1);
     // 清空
     vec.truncate(index);
 }
@@ -414,23 +442,58 @@ fn set(
     node: Entity,
     children_count: usize,
     zrange: ZRange,
+    query_dirty1: &Query<&crate::components::user::Opacity>,
 ) {
     if let Ok(mut r) = ranges.get_mut(node) {
         if *r == zrange {
             return;
         }
         *r = zrange.clone();
-        // log::warn!("set=========node: {:?}, z: {:?}", node, zrange);
+        if let Ok(opacity) = query_dirty1.get(node) {
+            if opacity.0 == 0.875 {
+                println!("====0.875: {:?}, opacity: {:?}, zrange: {:?}", node, opacity, &*zrange);
+            }
+
+            if opacity.0 == 0.75 {
+                println!("====0.75: {:?}, opacity: {:?}, zrange: {:?}", node, opacity, &*zrange);
+            }
+        }
+        // log::debug!("set=========node: {:?}, z: {:?}", node, zrange);
         if children_count > 0 {
             let len = vec.len();
             // 收集该节点的排序环境下的子节点
             collect(&query, &tree, vec, node, 0);
+           
+
             // 对新增的子节点进行排序
             let new_len = vec.len();
-            // log::warn!("set1========list: {:?}", &vec[len..new_len]);
+            // log::debug!("set1========list: {:?}", &vec[len..new_len]);
             vec[len..new_len].sort();
+            let rr = Vec::from(&vec[len..new_len]);
             // 递归设置zrange
-            reset(query, tree, mark, ranges, vec, len, children_count, zrange);
+            reset(query, tree, mark, ranges, vec, len, children_count, zrange, query_dirty1);
+             if let Ok(opacity) = query_dirty1.get(node) {
+                if opacity.0 == 0.875 {
+                    if let Some(down) = tree.get_down(node) {
+                        for child in tree.iter(down.head()) {
+                         log::debug!("====c!!!!!, {:?}, {:?}", child, len..new_len);
+                        }
+                    }
+                }
+            }
+            if let Ok(opacity) = query_dirty1.get(node) {
+                if opacity.0 == 0.875 {
+                    log::debug!("====parent!!!!! zrange: {:?}", &rr);
+                    for i in rr {
+                        if let Ok(mut r) = ranges.get_mut(i.node.0){
+                            log::debug!("====parent2: {:?}, zrange: {:?}, {:?}", i.node.0, &*r, len..new_len);
+                        } else {
+                            log::debug!("====parent3: {:?}", i.node.0);
+                        }
+                    }
+                    
+                }
+            }
         }
     }
 }
