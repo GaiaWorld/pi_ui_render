@@ -107,9 +107,11 @@ pub fn update_graph(
             if has_camera {
                 continue;
             }
-            log::debug!(entity=format!("entity_{:?}", id).as_str(); "remove graph node, entity={id:?}");
-            remove_node(format!("Pass2D_{:?}", id), &mut rg, &mut pass_graph_map);
+           
         }
+
+        log::debug!(entity=format!("entity_{:?}", *i).as_str(); "remove graph node, entity={i:?}");
+        remove_node(format!("Pass2D_{:?}", *i), &mut rg, &mut pass_graph_map);
     }
 
     let p1 = pass_query.p1();

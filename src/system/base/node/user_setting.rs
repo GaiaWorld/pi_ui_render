@@ -1,5 +1,6 @@
 //! 每个实体必须写入StyleMark组件
 
+use pi_bevy_render_plugin::{render_cross::GraphId, PiRenderGraph};
 use pi_world::{event::{Event, EventSender}, filter::Or, prelude::{Alter, Entity, Local, Mut, Query, SingleResMut, With, World}, single_res::SingleRes, system::{SystemMeta, TypeInfo}, system_params::SystemParam, world::FromWorld};
 use pi_world::world::ComponentIndex;
 use pi_key_alloter::Key;
@@ -15,8 +16,8 @@ use crate::{
     components::{
         calc::{DrawInfo, EntityKey, NodeState, StyleMarkType}, user::{serialize::DefaultStyle, Size, ZIndex}, SettingComponentIds
     }, resource::{
-        animation_sheet::KeyFramesSheet, fragment::{FragmentMap, NodeTag}, ClassSheet, GlobalDirtyMark, OtherDirtyType, QuadTree
-    }
+        animation_sheet::KeyFramesSheet, fragment::{FragmentMap, NodeTag}, ClassSheet, GlobalDirtyMark, OtherDirtyType, PassGraphMap, QuadTree
+    }, system::base::pass::update_graph::remove_node
 };
 use crate::{
     components::{
@@ -218,7 +219,7 @@ pub struct RemoveEvent(pub Entity);
 // 为节点添加依赖父子依赖关系 和 销毁节点
 pub fn user_setting2(
     mut entitys: Alter<(Option<&Size>, Option<&DrawInfo>), Or<(With<Size>, With<DrawInfo>)>, (), ()>,
-    dirty_list: Query<&DrawList>,
+    dirty_list: Query<(Option<&DrawList>, Option<&GraphId>)>,
     mut user_commands: SingleResMut<UserCommands>,
     mut quad_tree: OrInitSingleResMut<QuadTree>,
     mut tree: EntityTreeMut,
@@ -231,6 +232,8 @@ pub fn user_setting2(
     mut global_mark: SingleResMut<GlobalDirtyMark>,
     add_events: EventSender<AddEvent>,
     remove_events: EventSender<RemoveEvent>,
+    mut rg: SingleResMut<PiRenderGraph>,
+	mut pass_graph_map: OrInitSingleResMut<PassGraphMap>,
 ) {
 
     let mut dirty_list_mark = StyleDirtyList {
@@ -362,14 +365,14 @@ pub fn user_setting2(
                     if !head.is_null() {
                         for node in tree.recursive_iter(head) {
                             quad_tree.remove(&EntityKey(node));
-                            delete_draw_list(node, &dirty_list, &mut entitys, keyframes_sheet);
+                            delete_entity(node, &dirty_list, &mut entitys, keyframes_sheet, &mut rg, &mut pass_graph_map);
 
                         }
                     }
                 }
                 quad_tree.remove(&EntityKey(node));
                 tree.remove(node);
-                delete_draw_list(node, &dirty_list, &mut entitys, keyframes_sheet);
+                delete_entity(node, &dirty_list, &mut entitys, keyframes_sheet, &mut rg, &mut pass_graph_map);
             }
         };
     }
@@ -574,18 +577,27 @@ fn set_class<'w, 's>(node: Entity, style_query: &mut Setting, class: ClassName, 
     dirty_list.mark_dirty(node);
 }
 
-fn delete_draw_list(
+fn delete_entity(
     del: Entity, 
-    draw_list: &Query<&DrawList>, 
+    draw_list: &Query<(Option<&DrawList>, Option<&GraphId>)>, 
     entitys: &mut Alter<(Option<&Size>, Option<&DrawInfo>), Or<(With<Size>, With<DrawInfo>)>, (), ()>,
     keyframes_sheet: &mut KeyFramesSheet,
+    rg: &mut PiRenderGraph,
+    pass_graph_map: &mut PassGraphMap,
 ) {
-    if let Ok(list) = draw_list.get(del) {
-        for i in list.iter() {
-            let r = entitys.destroy(i.id);
-            log::debug!("delete draw obj====================id: {:?}", (i, r));
+    if let Ok((list, graph)) = draw_list.get(del) {
+        if let Some(list) = list  {
+            for i in list.iter() {
+                let r = entitys.destroy(i.id);
+                log::debug!("delete draw obj====================id: {:?}", (i, r));
+            }
+        }   
+        
+        if let Some(graph) = graph {
+            remove_node(**graph, rg, pass_graph_map);
         }
     }
+
     let r = entitys.destroy(del);
     log::debug!("removed===={:?}", del);
     keyframes_sheet.unbind_animation_all(del);
