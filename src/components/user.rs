@@ -1916,11 +1916,11 @@ pub mod serialize {
             ResetStyleFunc::new::<ResetFontStyleType>(), // 1
             ResetStyleFunc::new::<ResetFontWeightType>(), // 2
             ResetStyleFunc::new::<ResetFontSizeType>(), // 3
-            ResetStyleFunc::new::<FontFamilyType>(), // 4
-            ResetStyleFunc::new::<LetterSpacingType>(), // 5
-            ResetStyleFunc::new::<WordSpacingType>(), // 6
+            ResetStyleFunc::new::<ResetFontFamilyType>(), // 4
+            ResetStyleFunc::new::<ResetLetterSpacingType>(), // 5
+            ResetStyleFunc::new::<ResetWordSpacingType>(), // 6
             ResetStyleFunc::new::<ResetLineHeightType>(), // 7
-            ResetStyleFunc::new::<TextIndentType>(), // 8
+            ResetStyleFunc::new::<ResetTextIndentType>(), // 8
             ResetStyleFunc::new::<ResetWhiteSpaceType>(), // 9
 
             ResetStyleFunc::new::<ResetTextAlignType>(), // 10
@@ -1997,8 +1997,8 @@ pub mod serialize {
 
             ResetStyleFunc::new::<ResetPositionTypeType>(), // 67
             ResetStyleFunc::new::<ResetAlignSelfType>(), // 68
-            ResetStyleFunc::new::<FlexShrinkType>(), // 69
-            ResetStyleFunc::new::<FlexGrowType>(), // 70
+            ResetStyleFunc::new::<ResetFlexShrinkType>(), // 69
+            ResetStyleFunc::new::<ResetFlexGrowType>(), // 70
             ResetStyleFunc::new::<ResetAspectRatioType>(), // 71
             ResetStyleFunc::new::<ResetOrderType>(), // 72
             ResetStyleFunc::new::<ResetFlexBasisType>(), // 73
@@ -2030,7 +2030,7 @@ pub mod serialize {
 			ResetStyleFunc::new::<ResetTransitionTimingFunctionType>(), // 94
 			ResetStyleFunc::new::<ResetTransitionDelayType>(), // 95
 
-            ResetStyleFunc::new::<TextOuterGlowType>(), // 96
+            ResetStyleFunc::new::<ResetTextOuterGlowType>(), // 96
 
         ];
     }
