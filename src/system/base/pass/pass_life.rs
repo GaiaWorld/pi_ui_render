@@ -288,11 +288,11 @@ pub fn calc_pass_toop_sort(
         // root_instance.pass_toop_list.clear();
         // root_instance.next_node_with_depend.clear();
         // let root_instance = root_instance.bypass_change_detection();
-    while temp.0.len() > 0 {
+    while temp.0.len() > 0 { // 循环开始时， temp.0是所有的pass叶子节点
         for entity in temp.0.drain(..) {
             if let Ok((_, parent, post_info)) = query_pass.get(entity) {
                 if let Ok(mut children) = query_children.get_mut(*parent.0) {
-                    children.temp_count -= 1;
+                    children.temp_count -= 1; // temp_count的初值为子pass数量
                     children.temp_has_effect |= post_info.has_effect();
                     if children.temp_count == 0 {
                         if !children.temp_has_effect {

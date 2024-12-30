@@ -115,7 +115,7 @@ pub fn cmd_record(
 
 
 pub fn cmd_play(
-    records: OrInitSingleRes<Records>, 
+    mut records: OrInitSingleResMut<Records>, 
     mut play_state: OrInitSingleResMut<PlayState>, 
     mut user_commands: OrInitSingleResMut<UserCommands>,
     insert: Insert<()>,
@@ -131,6 +131,7 @@ pub fn cmd_play(
     if play_state.next_state_index >= records.list.len() {
         play_state.is_running = false;
         play_state.cur_frame_count = 0;
+        **records = Records::default();
         return;
     }
 
@@ -416,11 +417,13 @@ pub fn cmd_play(
     }
 
     for (entity, tag) in r.node_init_commands.iter() {
+        // log::warn!("node_init_commands:{:?} {:?}", entity, tag);
         cmds.init_node(play_state.get_node(&entity).unwrap(), *tag);
     }
 
     for s in r.style_commands.iter() {
         let class_mate = style_attr_list_to_buffer(&mut cmds.style_commands.style_buffer, &mut s.values.clone(), s.values.len());
+        // log::warn!("style_commands:{:?}", s);
         cmds.style_commands
             .commands
             .push((play_state.get_node(&s.entity).unwrap(), class_mate.start, class_mate.end, None));

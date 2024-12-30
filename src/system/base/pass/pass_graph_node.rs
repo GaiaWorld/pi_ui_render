@@ -685,7 +685,7 @@ impl Node for Pass2DNode {
 			// 		Err(_) => None,
 			// 	}
 			// };
-			log::trace!("draw_elements======{:?}", &param.instance_draw.draw_list);
+			log::trace!("draw_elements======{:?}", &param.instance_draw.draw_list.len());
 			if param.instance_draw.draw_list.len() == 0 {
 				return Ok(());
 			}
@@ -775,6 +775,7 @@ impl Node for Pass2DNode {
 					DrawElement::Clear { draw_state, is_active } => {
 						// log::warn!("clear======={:?}, {:?}", is_active, draw_state.instance_data_range.start / 224);
 						if !*is_active {
+							// log::trace!("is_active======{:?}", pass);
 							continue; // 没有激活的fbo， 不清屏
 						}
 						param.instance_draw.set_pipeline(&mut rp, draw_state, &mut render_state);
@@ -818,6 +819,7 @@ impl Node for Pass2DNode {
 								}
 								param.instance_draw.set_pipeline(&mut rp, draw_state, &mut render_state);
 								if pre_pass != EntityKey(*pass) {
+									log::trace!("change pass======{:?}", pass);
 									if let Some(c) = &camera.bind_group {
 										c.set(&mut rp, CameraBind::set());
 										// set_camera = true;
@@ -844,7 +846,7 @@ impl Node for Pass2DNode {
 							
 						}
 						
-						log::trace!("draw_state========={:?}", draw_state);
+						// log::trace!("draw_state========={:?}", draw_state);
 						// if !set_camera{
 						// 	log::warn!("DrawInstance!============{:?}", (pass, pre_pass, render_state.reset));
 						// }

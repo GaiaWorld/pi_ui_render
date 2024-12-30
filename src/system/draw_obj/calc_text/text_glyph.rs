@@ -123,7 +123,7 @@ pub fn text_glyph(
         // println!("t2======================={:?}", (ii1.len(), ii1));
 
         if is_reset {
-            println!("reset=======================");
+            log::warn!("reset=======================");
             await_set_gylph.clear();
             // 为当前所有需要显示的字符，重新分配字形信息
             for (

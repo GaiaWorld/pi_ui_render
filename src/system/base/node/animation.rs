@@ -90,10 +90,6 @@ pub fn calc_animation_1(
             if let Err(e) = keyframes_sheet.bind_static_animation(node, animation) {
                 log::error!("{:?}", e);
             }
-            use pi_key_alloter::Key;
-            if node.index() == 60 {
-                panic!("aaa");
-            }
         }
     }
     

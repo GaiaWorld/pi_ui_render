@@ -614,6 +614,8 @@ pub fn batch_instance_data(
 	
 	let pass_toop_list = std::mem::take(&mut instances.pass_toop_list);
 	log::debug!("pass_toop_list!!!!!===={:?}", pass_toop_list);
+
+	let mut old_next_node_with_depend_index = 0;
 	for (pass_index, pass_id) in pass_toop_list.iter().enumerate() {
 		let pass_index = pass_index + 1;
 
@@ -660,8 +662,10 @@ pub fn batch_instance_data(
 			// 1. 与上一个pass相比， fbo发生了改变（处理第一个pass时， 不算发生了改变）
 			// 2. 当前Pass与之前处理的pass存在依赖关系
 			// 3. 迭代到最后一个pass
-			let (split_index/*上一个清屏的批处理索引：单位（批次）*/, end/*实例数据的结束偏移：单位（字节）*/, draw_call_count/*该次清屏，对应的drawcall数量*/) = if fbo_changed1 || active_changed {
+			let (split_index/*上一个清屏的批处理索引：单位（批次）*/, end/*实例数据的结束偏移：单位（字节）*/, draw_call_count/*该次清屏，对应的drawcall数量*/) = if fbo_changed1 || active_changed || old_next_node_with_depend_index != batch_state.next_node_with_depend_index {
+				old_next_node_with_depend_index = batch_state.next_node_with_depend_index;
 				// 如果fbo发生了改变， 重新劈分clear
+				log::trace!("DrawElement::Clear====={:?}, {:?}, {:?}, {:?}", pass_id, pass_index, draw_2d_list.clear_instance/224, instances.next_node_with_depend);
 				let c = (DrawElement::Clear {
 					draw_state: InstanceDrawState { 
 						instance_data_range: draw_2d_list.clear_instance..draw_2d_list.clear_instance + instances.instance_data.alignment, 
@@ -727,7 +731,7 @@ pub fn batch_instance_data(
 				batch_state.next_node_with_depend_index += 1;
 				batch_state.next_node_with_depend = instances.next_node_with_depend.get(batch_state.next_node_with_depend_index).map_or(std::usize::MAX, |r| {*r});
 				if global_state.post_start < instances.posts.len() {
-					// log::warn!("DrawPost====={:?}, {:?}, {:?}", pass_index, global_state.post_start..instances.posts.len(), instances.next_node_with_depend);
+					log::trace!("DrawPost====={:?}, {:?}, {:?}, {:?}, {:?}", pass_id, pass_index, batch_state.next_node_with_depend, global_state.post_start..instances.posts.len(), instances.next_node_with_depend);
 					let post = (DrawElement::DrawPost(global_state.post_start..instances.posts.len()), *pass_id);
 					instances.draw_list.push(post);
 					global_state.post_start = instances.posts.len();
@@ -824,7 +828,7 @@ pub fn batch_instance_data(
 	}
 
 	// update_depth( &mut 1, &mut query.render_cross_query, instances);
-	log::debug!("draw_list======{:?}", &instances.draw_list);
+	log::debug!("draw_list======{:?}", &instances.draw_list.len());
 }
 
 
