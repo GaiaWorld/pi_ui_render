@@ -584,8 +584,8 @@ pub fn batch_instance_data(
 	instances.posts.clear();
 	instances.rebatch = false;
 
-	#[cfg(debug_assertions)]
-	instances.debug_info.clear();
+	// #[cfg(debug_assertions)]
+	// instances.debug_info.clear();
 	
 
 	let mut global_state = BatchGlobalState {
@@ -971,10 +971,10 @@ fn batch_pass(
 				if let Some(instance_split) = instance_split {
 					match instance_split {
 						InstanceSplit::ByTexture(ui_texture) => {
-							#[cfg(debug_assertions)]
-							if !index.start.is_null() {
-								instances.debug_info.insert(index.start / MeterialBind::SIZE, format!("image: {:?}", draw_entity));
-							}
+							// #[cfg(debug_assertions)]
+							// if !index.start.is_null() {
+							// 	instances.debug_info.insert(index.start / MeterialBind::SIZE, format!("image: {:?}", draw_entity));
+							// }
 							// if node_entity.index() == 159 {
 								// println!("split_by_texture=======node_entity:{:?}, draw_entity:{:?}, {:?}, {:?}", node_entity, draw_entity,  ui_texture.id, a.1);
 							// }
@@ -982,10 +982,10 @@ fn batch_pass(
 							split_by_texture = Some(((*index).clone(), ui_texture, &query.common_sampler.default));
 						},
 						InstanceSplit::ByFbo(ui_texture) => {
-							#[cfg(debug_assertions)]
-							if !index.start.is_null() {
-								instances.debug_info.insert(index.start / MeterialBind::SIZE, format!("image: {:?}", draw_entity));
-							}
+							// #[cfg(debug_assertions)]
+							// if !index.start.is_null() {
+							// 	instances.debug_info.insert(index.start / MeterialBind::SIZE, format!("image: {:?}", draw_entity));
+							// }
 							// if node_entity.index() == 159 {
 								// println!("split_by_texture=======node_entity:{:?}, draw_entity:{:?}, {:?}, {:?}", node_entity, draw_entity,  ui_texture.id, a.1);
 							// }
@@ -1011,18 +1011,18 @@ fn batch_pass(
 									split_by_texture = Some((index.clone(), &r.target().colors[0].0, &query.common_sampler.pointer)); // TODO， 根据纹理尺寸目标尺寸选择混合模式
 								}
 
-								#[cfg(debug_assertions)]
-								if !index.start.is_null() {
-									instances.debug_info.insert(index.start / MeterialBind::SIZE, format!("canvas: {:?}", draw_entity));
-								}
+								// #[cfg(debug_assertions)]
+								// if !index.start.is_null() {
+								// 	instances.debug_info.insert(index.start / MeterialBind::SIZE, format!("canvas: {:?}", draw_entity));
+								// }
 							}
 						},
 					}
 				} else {
-					#[cfg(debug_assertions)]
-					if !index.start.is_null() {
-						instances.debug_info.insert(index.start / MeterialBind::SIZE, format!("node: {:?}, draw: {:?}", node_entity, draw_entity));
-					}
+					// #[cfg(debug_assertions)]
+					// if !index.start.is_null() {
+					// 	instances.debug_info.insert(index.start / MeterialBind::SIZE, format!("node: {:?}, draw: {:?}", node_entity, draw_entity));
+					// }
 					
 				}
 
@@ -1041,9 +1041,9 @@ fn batch_pass(
 						split_by_texture = Some((index.clone(), &r.target().colors[0].0, &query.common_sampler.pointer)); // fbo拷贝使用点采样
 
 						// #[cfg(debug_assertions)]
-						if !index.start.is_null() {
-							instances.debug_info.insert(index.start / MeterialBind::SIZE, format!("pass:{:?}", r));
-						}
+						// if !index.start.is_null() {
+						// 	instances.debug_info.insert(index.start / MeterialBind::SIZE, format!("pass:{:?}", r));
+						// }
 						// #[cfg(debug_assertions)]
 						// instances.instance_data_mut(index.start + i as usize * index.alignment).set_data(&DebugInfo(&[r.0.index() as f32]));
 					}
