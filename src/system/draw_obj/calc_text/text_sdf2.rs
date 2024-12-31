@@ -233,7 +233,7 @@ pub fn calc_sdf2_text_len(
 		mut up,
 		layer,
 	) in query.iter() {
-		if layer.layer() == 0 {
+		if layer.layer().is_null() {
 			continue;
 		}
 		
@@ -684,6 +684,7 @@ pub fn calc_sdf2_text(
 			_ => continue,
 		};
 		let start = instance_index.start;
+
 		let mut ty = instances.instance_data.instance_data_mut(start).get_render_ty();
 		ty &= !(1 << RenderFlagType::Invalid as usize);
 		if *text_style.text_stroke.width > 0.0 {

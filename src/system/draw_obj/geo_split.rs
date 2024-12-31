@@ -7,7 +7,7 @@ use pi_null::Null;
 use pi_polygon::{find_lg_endp, interp_mult_by_lg, split_by_lg, Attribute, LgCfg, PolygonIndices};
 use pi_style::style::LinearGradientColor;
 
-use crate::{components::draw_obj::{InstanceIndex, PolygonType, TempGeo, TempGeoBuffer, VColor}, resource::draw_obj::InstanceContext, shader::ui_meterial::ColorUniform, shader1::batch_meterial::{LayoutUniform, LinearGradientColorUniform, LinearGradientPointUniform, LinearGradientSdfUvUniform, RenderFlagType, SdfUniform, SdfUvUniform, StrokeColorUniform, TyMeterial, UvUniform}, utils::tools::eq_f32};
+use crate::{components::draw_obj::{PolygonType, TempGeo, TempGeoBuffer, VColor}, resource::draw_obj::InstanceContext, shader::ui_meterial::ColorUniform, shader1::batch_meterial::{LayoutUniform, LinearGradientColorUniform, LinearGradientPointUniform, LinearGradientSdfUvUniform, RenderFlagType, SdfUniform, SdfUvUniform, StrokeColorUniform, TyMeterial, UvUniform}, utils::tools::eq_f32};
 
 impl TempGeo {
    

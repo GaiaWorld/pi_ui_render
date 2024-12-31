@@ -1,9 +1,10 @@
 use pi_flex_layout::prelude::Rect;
+use pi_null::Null;
 use pi_style::style::{Aabb2, CgColor, Point2, StyleType};
 use pi_world::event::{ComponentAdded, ComponentChanged, ComponentRemoved};
 use pi_world::filter::Or;
 use pi_world::prelude::{Changed, With, Query, Plugin, IntoSystemConfigs};
-use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, OrInitSingleRes};
+use pi_bevy_ecs_extend::prelude::{Layer, OrInitSingleRes, OrInitSingleResMut};
 use pi_world::single_res::{SingleRes, SingleResMut};
 use std::hash::Hash;
 use std::hash::Hasher;
@@ -25,7 +26,6 @@ use crate::system::base::draw_obj::life_drawobj::{self, update_render_instance_d
 use crate::resource::IsRun;
 use crate::utils::tools::calc_hash;
 
-use super::calc_border_image::BorderImageTemp;
 use super::geo_split::GridBufer;
 
 pub struct BoxShadowPlugin;
@@ -75,7 +75,7 @@ pub struct BoxShadowTemp (pub GridBufer, pub Vec<(Entity, CgColor, [(Range<usize
 pub fn calc_box_shadow_instace_count(
 	font_sheet: SingleResMut<ShareFontSheet>,
 	mut grid_buffer: OrInitSingleResMut<BoxShadowTemp>,
-    query: Query<(&BoxShadow, &DrawList, &LayoutResult), Or<(Changed<BoxShadow>, Changed<LayoutResult>)>>,
+    query: Query<(&BoxShadow, &DrawList, &LayoutResult, &Layer), Or<(Changed<BoxShadow>, Changed<LayoutResult>, Changed<Layer>)>>,
 	changed: ComponentChanged<BoxShadow>,
 	added: ComponentAdded<BoxShadow>,
     mut query_draw: Query<&mut RenderCount, With<BoxShadowMark>>,
@@ -94,7 +94,10 @@ pub fn calc_box_shadow_instace_count(
 
 	for entity in changed.iter().chain(added.iter()) {
 		log::debug!("calc_box_shadow_instace_count0========================");
-		if let Ok((box_shadow, draw_list, layout)) = query.get(*entity) {
+		if let Ok((box_shadow, draw_list, layout, layer)) = query.get(*entity) {
+			if layer.layer().is_null() {
+				continue;
+			}
 			log::debug!("calc_box_shadow_instace_count1========================");
 			let draw_id = match draw_list.get_one(render_type) {
 				Some(r) => r.id,

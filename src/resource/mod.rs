@@ -32,7 +32,7 @@ use pi_hal::font::sdf_table::FontCfg;
 // use pi_ecs::prelude::{FromWorld, Id, World};
 use pi_world::prelude::{Entity, FromWorld, World, Command, CommandQueue};
 
-use crate::components::calc::{EntityKey, Quad, StyleBit, StyleMarkType};
+use crate::components::calc::{EntityKey, Quad, StyleMarkType};
 use crate::components::user::serialize::{AttrSet, StyleAttr};
 use crate::components::user::{AsImage, ClipPath, MaskImage, Point2, RenderTargetType, Vector2, Viewport};
 use crate::components::SettingComponentIds;
@@ -164,17 +164,24 @@ impl UserCommands {
             (ids.render_context_mark, true),
             (ids.draw_list, true),
             (ids.is_show, true),
+            // (ids.is_display, true),
         ]);
         if tag == NodeTag::VNode {
-            type_arr.push((ids.down, true));
-            type_arr.push((ids.up, true));
-            type_arr.push((ids.layer, true));
-            type_arr.push((ids.node_state, true));
             type_arr.push((ids.z_index, true));
-            type_arr.push((ids.matrix, true));
-            type_arr.push((ids.z_range, true));
-            type_arr.push((ids.content_box, true));
-            type_arr.push((ids.layout, true));
+
+            // type_arr.push((ids.down, true));
+            // type_arr.push((ids.up, true));
+            // type_arr.push((ids.layer, true));
+            // type_arr.push((ids.node_state, true));
+            // type_arr.push((ids.size, true));
+            
+            
+            // type_arr.push((ids.matrix, true));
+            // type_arr.push((ids.z_range, true));
+            // type_arr.push((ids.content_box, true));
+            // type_arr.push((ids.layout, true));
+        } else {
+            
         }
         type_arr
     }
@@ -367,7 +374,7 @@ impl UserCommands {
     }
 
     /// 设置渲染脏
-    pub fn set_render_dirty(&mut self, node: Entity, cmd: RenderDirty) -> &mut Self {
+    pub fn set_render_dirty(&mut self, _node: Entity, _cmd: RenderDirty) -> &mut Self {
         // println_any!("push_cmd===={:?}", 1);
         // let r = NodeCmd(cmd, node);
 

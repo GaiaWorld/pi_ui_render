@@ -1,8 +1,7 @@
 use std::ops::Range;
 
 use pi_null::Null;
-use pi_print_any::{print_any, println_any};
-use pi_render::rhi::shader::{WriteBuffer, GetBuffer};
+use pi_render::rhi::shader::{GetBuffer, WriteBuffer};
 
 use self::batch_meterial::TyMeterialMut;
 
@@ -15,10 +14,13 @@ pub mod batch_sdf_glow;
 
 pub type InstanceIndex = usize;
 
+const UNUSE_START: usize = (std::u32::MAX / 2) as usize;
+
 // 渲染实例数据
 #[derive(Clone, Debug)]
 pub struct GpuBuffer {
 	pub data: Vec<u8>,
+	// pub unused: BlockAlloter, // 未使用的数据（display为none， 或不在树上的渲染数据， 拷贝到此处）
 	pub alignment: usize,
 	pub cur_index: usize,
 
@@ -26,6 +28,7 @@ pub struct GpuBuffer {
 }
 
 impl GpuBuffer {
+	const UNUSE_BLOCK_SIZE: usize = 64;
 	pub fn get_render_ty(&self, index: u32) -> usize {
 		let mut uniform_data = [0.0];
 		let mut uniform = TyMeterialMut(uniform_data.as_mut_slice());
@@ -38,6 +41,7 @@ impl GpuBuffer {
 	pub fn new(alignment: usize, capacity: usize) -> Self {
 		Self {
 			data: Vec::with_capacity(capacity),
+			// unused: BlockAlloter::new(alignment, Self::UNUSE_BLOCK_SIZE, Self::UNUSE_BLOCK_SIZE),
 			alignment,
 			cur_index: 0,
 			dirty_range: std::usize::MAX..std::usize::MAX,
@@ -136,16 +140,25 @@ impl GpuBuffer {
 	}
 
 	// 为该实例设置数据
-	pub fn set_data(&mut self, index: usize, value: &[u8]) {
-		// 在debug版本， 检查数据写入是否超出自身对齐范围
-		debug_assert!((value.byte_len() as usize + index) > self.data.len());
-		let d = self.data.as_mut_slice();
-		for i in 0..value.len() {
-			d[i] = value[i];
-		}
-		// value.write_into(self.index as u32, &mut self.data.data);
-		log::trace!("byte_len1========={:?}", value.byte_len());
-		self.update_dirty_range(index..index + value.len());
+	pub fn set_data(&mut self, mut index: usize, value: &[u8]) {
+		let len = value.len();
+		// if index >= UNUSE_START {
+		// 	// 设置未使用的数据
+		// 	index = index - UNUSE_START;
+		// 	unsafe { std::ptr::copy_nonoverlapping(value.as_ptr(), self.unused.get_mut(index).as_mut_ptr().add(index), len) }
+		// } else {
+			// 在debug版本， 检查数据写入是否超出自身对齐范围
+			debug_assert!((len as usize + index) > self.data.len());
+			
+			unsafe { std::ptr::copy_nonoverlapping(value.as_ptr(), self.data.as_mut_ptr().add(index), len) }
+			// let d = self.data.as_mut_slice();
+			// for i in 0..value.len() {
+			// 	d[i] = value[i];
+			// }
+			// value.write_into(self.index as u32, &mut self.data.data);
+			log::trace!("byte_len1========={:?}", value.byte_len());
+			self.update_dirty_range(index..index + value.len());
+		// }
 	}
 
 	// 连续设置相同的buffer到多个实例
@@ -232,9 +245,10 @@ impl<'a> InstanceData<'a> {
 	// 为该实例设置数据
 	pub fn set_data<T: WriteBuffer>(&mut self, value: &T) {
 
-		// println_any!("set data========={:?}, {:?}, {:?}", self.index, value.offset(),  value);
-		log::trace!("byte_len========={:?}, {:?}, {:?}, {:?}, {:?}, {:?}", self.index, value.offset(), value.byte_len(), self.data.data.len(), self.data.capacity(), self.data.alignment);
-
+	// 	if self.index == 18446744073709551615 {
+	// 	// println_any!("set data========={:?}, {:?}, {:?}", self.index, value.offset(),  value);
+	// 	log::warn!("byte_len========={:?}, {:?}, {:?}, {:?}, {:?}, {:?}", self.index, value.offset(), value.byte_len(), self.data.data.len(), self.data.capacity(), self.data.alignment);
+	// }
 		#[cfg(debug_assertions)]
 		if (self.index + value.offset() as usize + value.byte_len() as usize) > self.data.data.len() {
 			panic!("byte_len========={:?}, {:?}, {:?}, {:?}, {:?}, {:?}", self.index, value.offset(), value.byte_len(), self.data.data.len(), self.data.capacity(), self.data.alignment);

@@ -215,7 +215,7 @@ pub fn calc_svg(
                 continue;
             }
             log::debug!("calc_sdf2_text222");
-            if layer.layer() == 0 {
+            if layer.layer().is_null() {
                 continue;
             }
             log::debug!("calc_sdf2_text3");

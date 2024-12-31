@@ -528,6 +528,13 @@ impl IsShow {
     }
 }
 
+// // 上一个版本在IsShow组件中体现， 现在独立出来
+// // 节点layer为0是，IsDisplay会设置为false 
+// // 是否为display（单独为一个组件， display会印象渲染实例个数， display为false的节点，不组织渲染数据）
+// // 组织渲染数据比较费， 将display独立为一个组件，有利于ecs过滤
+// #[derive(Deref, Clone, Debug, PartialEq, Serialize, Deserialize, Default, Component)]
+// pub struct IsDisplay(pub bool);
+
 // 样式标记
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, Component)]
 pub struct StyleMark {

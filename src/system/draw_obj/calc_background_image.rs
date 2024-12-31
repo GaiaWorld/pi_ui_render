@@ -3,10 +3,11 @@
 use std::ops::Range;
 
 use pi_flex_layout::prelude::Rect;
+use pi_null::Null;
 use pi_world::filter::Or;
 use pi_world::param_set::ParamSet;
 use pi_world::prelude::{Changed, With, Without, Query, Plugin, OrDefault, IntoSystemConfigs, Has, ComponentRemoved};
-use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, OrInitSingleRes};
+use pi_bevy_ecs_extend::prelude::{Layer, OrInitSingleRes, OrInitSingleResMut};
 
 use pi_flex_layout::style::Dimension;
 use pi_style::style::{ImageRepeatOption, StyleType};
@@ -114,8 +115,10 @@ pub fn calc_background_image_instance_count(
 				&BackgroundImage,
 				Option<&SdfSlice>,
 				OrDefault<SdfUv>,
+				
 			),
-			&DrawList
+			&DrawList,
+			&pi_bevy_ecs_extend::prelude::Layer,
 		),
 		(Or<(Changed<BackgroundImageTexture>, Changed<BackgroundImageClip>)>, Without<BackgroundImageMod>, Without<SdfSlice>),
 	>,
@@ -131,9 +134,10 @@ pub fn calc_background_image_instance_count(
 				Option<&SdfSlice>,
 				OrDefault<SdfUv>,
 			),
-			&DrawList
+			&DrawList,
+			&pi_bevy_ecs_extend::prelude::Layer,
 		),
-		(Or<(Changed<BackgroundImageTexture>, Changed<BackgroundImageClip>, Changed<LayoutResult>, Changed<BackgroundImageMod>)>, Or<(With<BackgroundImageMod>, With<SdfSlice>)>),
+		(Or<(Changed<BackgroundImageTexture>, Changed<BackgroundImageClip>, Changed<LayoutResult>, Changed<BackgroundImageMod>, Changed<Layer>)>, Or<(With<BackgroundImageMod>, With<SdfSlice>)>),
 	>,
     mut query_draw: Query<(&mut BoxType, &mut RenderCount)>,
 	r: OrInitSingleRes<IsRun>,
@@ -148,7 +152,10 @@ pub fn calc_background_image_instance_count(
 	let render_type = ***render_type;
 
 	if mark.mark.has_any(&*BACKGROUND_TEXTURE_DIRTY1) {
-		for (r, draw_list) in query1.iter() {
+		for (r, draw_list, layer) in query1.iter() {
+			if layer.layer().is_null() {
+				continue;
+			}
 			let draw_id = match draw_list.get_one(render_type) {
 				Some(r) => r.id,
 				None => continue,
@@ -164,7 +171,10 @@ pub fn calc_background_image_instance_count(
 	}
 
 	if mark.mark.has_any(&*BACKGROUND_TEXTURE_DIRTY2) {
-		for (r, draw_list) in query2.iter() {
+		for (r, draw_list, layer) in query2.iter() {
+			if layer.layer().is_null() {
+				continue;
+			}
 			let draw_id = match draw_list.get_one(render_type) {
 				Some(r) => r.id,
 				None => continue,

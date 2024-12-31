@@ -1,10 +1,8 @@
 
 use std::hash::{Hash, Hasher};
 
-use guillotiere::euclid::num::Ceil;
-use nalgebra::ComplexField;
 use pi_flex_layout::prelude::Rect;
-use pi_hal::svg::{Path, PathVerb, SvgInfo};
+use pi_hal::svg::{Path, PathVerb};
 // use pi_sdf::shape::SvgInfo;
 // use pi_sdf::shape::PathVerb;
 use pi_style::style::StyleType;
@@ -12,11 +10,10 @@ use pi_world::filter::Or;
 /// 为圆角设置渲染数据
 
 use pi_world::prelude::{Changed, Query, ComponentRemoved};
-use pi_bevy_ecs_extend::prelude::{Layer, OrInitSingleRes};
+use pi_bevy_ecs_extend::prelude::OrInitSingleRes;
 use pi_world::schedule_config::IntoSystemConfigs;
 use pi_world::single_res::{SingleRes, SingleResMut};
 use pi_world::prelude::Plugin;
-use crate::components::root::{RootScale, Viewport};
 use crate::prelude::UiStage;
 
 use crate::components::calc::{style_bit, LayoutResult, SdfSlice, SdfUv, StyleBit, StyleMarkType, WorldMatrix, LAYOUT_DIRTY};

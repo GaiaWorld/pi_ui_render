@@ -2,13 +2,14 @@
 
 use pi_flex_layout::prelude::Rect;
 use pi_hal::svg::{Path, PathVerb};
+use pi_null::Null;
 // use pi_sdf::shape::PathVerb;
 use pi_style::style::{CgColor, StyleType};
 use pi_world::event::ComponentRemoved;
 use pi_world::fetch::OrDefault;
 use pi_world::filter::Or;
 use pi_world::prelude::{Changed, With, Query, Plugin, IntoSystemConfigs};
-use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, OrInitSingleRes};
+use pi_bevy_ecs_extend::prelude::{Layer, OrInitSingleRes, OrInitSingleResMut};
 use pi_world::single_res::{SingleRes, SingleResMut};
 use std::ops::Range;
 use std::hash::Hash;
@@ -99,12 +100,12 @@ pub fn calc_border_color_instace_count(
         (
 			&BorderColor,
 			OrDefault<BorderRadius>,
-			OrDefault<SdfUv>,
             &LayoutResult,
 			&DrawList,
-			&WorldMatrix
+			&WorldMatrix,
+			&Layer,
         ),
-        Or<(Changed<BorderColor>, Changed<BorderRadius>, Changed<WorldMatrix>)>, // 圆角和Border颜色， 都需要设置border宽度
+        Or<(Changed<BorderColor>, Changed<BorderRadius>, Changed<WorldMatrix>, Changed<Layer>)>, // 圆角和Border颜色， 都需要设置border宽度
     >,
 	mut query_draw: Query<&mut RenderCount, With<BorderColorMark>>,
 	render_type: OrInitSingleRes<BorderColorRenderObjType>,
@@ -117,7 +118,10 @@ pub fn calc_border_color_instace_count(
 
 	let render_type = ***render_type;
 	let grid_buffer = &mut **grid_buffer;
-	for (border_color, border_radius, sdf_uv, layout, draw_list, world_matrix) in query.iter() {
+	for (border_color, border_radius, layout, draw_list, world_matrix, layer) in query.iter() {
+		if layer.layer().is_null() {
+			continue;
+		}
 		let draw_id = match draw_list.get_one(render_type) {
 			Some(r) => r.id,
 			None => continue,
@@ -135,7 +139,6 @@ pub fn calc_border_color_instace_count(
 			}
 			continue;
 		}
-		let sdf_uv0 = &sdf_uv.0;
 
 		// 边框大小相等， 可以重用圆角sdf或矩形sdf
 		let mut font_sheet = font_sheet.borrow_mut();
@@ -391,7 +394,7 @@ fn gen_inner_sdf(sdf_info: &BorderSdfInfo, rect: &Rect<f32>,  points: &mut Vec<f
     let mut x  ;
     let mut y = box_min_y + rd.y[3];
 	let mut pre_x;
-	let mut pre_y ;
+	let pre_y ;
     verb.push(PathVerb::MoveTo);
     points.extend_from_slice(&[box_min_x, y]);
 

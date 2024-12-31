@@ -51,7 +51,7 @@ pub fn text_split(
 	}
     let mut font_sheet = font_sheet.0.borrow_mut();
     for (entity, text_content, text_style, up, size, normal_style, node_state, style_mark, flex_container, layer, text_overflow_data) in query.iter_mut() {
-        if layer.layer() == 0 {
+        if layer.layer().is_null() {
             continue;
         }
 

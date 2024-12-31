@@ -294,6 +294,7 @@ pub struct InstanceContext {
 
 	pub instance_data: GpuBuffer,
 	pub instance_buffer: Option<(wgpu::Buffer, usize)>,
+    pub batch_texture: BatchTexture,
 
     pub text_gray_instance_data: GpuBuffer,
 	pub text_gray_instance_buffer: Option<(wgpu::Buffer, usize)>,
@@ -307,11 +308,9 @@ pub struct InstanceContext {
     pub text_glow_instance_data: GpuBuffer,
 	pub text_glow_instance_buffer: Option<(wgpu::Buffer, usize)>,
 
-	// // 深度buffer
-	pub depth_data: GpuBuffer,
-	pub depth_buffer: Option<(wgpu::Buffer, usize)>,
-
-	pub batch_texture: BatchTexture,
+	// // // 深度buffer
+	// pub depth_data: GpuBuffer,
+	// pub depth_buffer: Option<(wgpu::Buffer, usize)>,
 
 	// sdf纹理(由于实例数据槽位有限， text的数据填充后没有空间放置纹理索引， 因此这里将文字纹理单独放在group中， 文字采样固定纹理)
 	pub sdf2_texture_group: Option<Share<wgpu::BindGroup>>,
@@ -756,8 +755,8 @@ impl FromWorld for InstanceContext {
 
 			batch_texture,
 
-			depth_data: GpuBuffer::new(4, 0),
-			depth_buffer: None,
+			// depth_data: GpuBuffer::new(4, 0),
+			// depth_buffer: None,
 
 			sdf2_texture_group: None,
 			sdf2_texture_layout: text_texture_layout,

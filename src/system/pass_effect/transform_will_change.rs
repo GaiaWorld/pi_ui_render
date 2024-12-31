@@ -1,9 +1,10 @@
+use pi_null::Null;
 use pi_style::style::StyleType;
-use pi_world::{event::EventSender, filter::Or, prelude::{Changed, Entity, Has, Local, OrDefault, ParamSet, Query, Ticker}, single_res::SingleRes};
+use pi_world::{filter::Or, prelude::{Changed, Entity, Has, Local, OrDefault, ParamSet, Query, Ticker}, single_res::SingleRes};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleRes, Up, Layer, DirtyMark};
 
 use crate::{
-    components::{calc::{style_bit, InPassId, StyleBit, StyleMarkType}, user::TransformWillChange}, resource::{GlobalDirtyMark, IsRun, OtherDirtyType}, system::{base::{node::world_matrix, pass::{pass_dirty_rect::OldTransformWillChange, pass_life}}, system_set::UiSystemSet}
+    components::{calc::{style_bit, StyleBit, StyleMarkType}, user::TransformWillChange}, resource::{GlobalDirtyMark, IsRun, OtherDirtyType}, system::{base::{node::world_matrix, pass::{pass_dirty_rect::OldTransformWillChange, pass_life}}, system_set::UiSystemSet}
 };
 
 use pi_hash::XHashMap;
@@ -131,7 +132,7 @@ pub fn transform_will_change_post_process(
 
     // ParentPassId修改的节点，也需要插入到层脏
     for (layer, entity) in query_parent_pass_changed.iter() {
-        if layer.layer() == 0 {
+        if layer.layer().is_null() {
             continue;
         }
 

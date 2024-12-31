@@ -1,11 +1,8 @@
-
-
-use pi_flex_layout::prelude::Rect;
-use pi_style::style::{CgColor, Stroke, StyleType};
-use pi_world::event::{Event, EventSender};
+use pi_null::Null;
+use pi_style::style::{CgColor, StyleType};
 use pi_world::fetch::OrDefault;
 use pi_world::prelude::{Changed, With, Query, Plugin, IntoSystemConfigs};
-use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, OrInitSingleRes};
+use pi_bevy_ecs_extend::prelude::{Layer, OrInitSingleRes, OrInitSingleResMut};
 use pi_world::single_res::SingleRes;
 use pi_polygon::mult_to_triangle;
 use pi_world::world::Entity;
@@ -14,7 +11,7 @@ use crate::components::calc::{style_bit, DrawInfo, DrawList, LayoutResult, SdfSl
 use crate::components::draw_obj::{BackgroundColorMark, BoxType, InstanceIndex, PolygonType, RenderCount, TempGeo, TempGeoBuffer, VColor};
 use crate::resource::{BackgroundColorRenderObjType, GlobalDirtyMark, IsRun, OtherDirtyType};
 use crate::resource::draw_obj::InstanceContext;
-use crate::shader1::batch_meterial::{ColorUniform, RenderFlagType, SdfUvUniform, StrokeColorUniform, TyMeterial};
+use crate::shader1::batch_meterial::{ColorUniform, RenderFlagType, SdfUvUniform, TyMeterial};
 use crate::components::user::{BackgroundColor, Color};
 use crate::system::base::node::layout::calc_layout;
 use crate::system::draw_obj::geo_split::OtherInfo;
@@ -86,7 +83,7 @@ pub struct BackgroundColorChange(Vec<(Entity, ColorEvent)>, TempGeoBuffer);
 /// 计算背景颜色的实例个数（线性渐变需要渲染多个实例）
 pub fn calc_background_color_instance_count(
 	mut events: OrInitSingleResMut<BackgroundColorChange>,
-    query: Query<(&BackgroundColor, &LayoutResult, &DrawList, Entity, OrDefault<SdfUv>, Option<&SdfSlice>), (Changed<BackgroundColor>, Changed<LayoutResult>)>,
+    query: Query<(&BackgroundColor, &LayoutResult, &DrawList, Entity, OrDefault<SdfUv>, Option<&SdfSlice>, &Layer), (Changed<BackgroundColor>, Changed<LayoutResult>, Changed<Layer>)>,
 	mut query_draw: Query<(&mut RenderCount, &mut DrawInfo), With<BackgroundColorMark>>,
 	r: OrInitSingleRes<IsRun>,
 	render_type: OrInitSingleRes<BackgroundColorRenderObjType>,
@@ -98,7 +95,10 @@ pub fn calc_background_color_instance_count(
 	}
 
 	let render_type = ***render_type;
-	for (background_color, layout, draw_list, entity, sdf_uv, sdf_slice) in query.iter() {
+	for (background_color, layout, draw_list, entity, sdf_uv, sdf_slice, layer) in query.iter() {
+		if layer.layer().is_null() {
+			continue;
+		}
 		let draw_id = match draw_list.get_one(render_type) {
 			Some(r) => r.id,
 			None => continue,

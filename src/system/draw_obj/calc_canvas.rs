@@ -67,7 +67,7 @@ pub fn calc_canvas_graph(
 	}
 
 	// canvas的图节点id由外部系统设置
-    for (mut canvas, in_pass_id, entity) in canvas_query.iter_mut() {
+    for (canvas, in_pass_id, entity) in canvas_query.iter_mut() {
         if let Ok(from_graph_id) = graph_id_query.get(canvas.id) {
 			if !from_graph_id.is_changed() && !in_pass_id.is_changed() {
 				continue; // 未改变， 什么也不做

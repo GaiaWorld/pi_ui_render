@@ -105,7 +105,7 @@ impl Plugin for UiReadyDrawPlugin {
     }
 }
 
-pub fn set_box(world_matrix: &WorldMatrix, layou_rect: &Aabb2, instance_data: &mut InstanceData) {
+pub fn set_box(_world_matrix: &WorldMatrix, _layou_rect: &Aabb2, _instance_data: &mut InstanceData) {
 	// let left_top = world_matrix * Vector4::new(layou_rect.mins.x, layou_rect.mins.y, 0.0, 1.0);
 	// let left_bottom = world_matrix * Vector4::new(layou_rect.mins.x, layou_rect.maxs.y, 0.0, 1.0);
 	// let right_bottom = world_matrix * Vector4::new(layou_rect.maxs.x, layou_rect.maxs.y, 0.0, 1.0);

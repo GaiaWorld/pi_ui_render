@@ -1,12 +1,13 @@
 use std::ops::Range;
 
+use pi_null::Null;
 use pi_world::fetch::OrDefault;
 use pi_world::filter::Or;
 use pi_world::prelude::{Changed, With, Query, Plugin, IntoSystemConfigs};
-use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, OrInitSingleRes};
+use pi_bevy_ecs_extend::prelude::{Layer, OrInitSingleRes, OrInitSingleResMut};
 
 use pi_flex_layout::prelude::{Rect, Size};
-use pi_style::style::{ImageRepeatOption, Point2, StyleType};
+use pi_style::style::{ImageRepeatOption, StyleType};
 use pi_world::single_res::SingleRes;
 use pi_world::world::Entity;
 
@@ -106,9 +107,9 @@ pub fn calc_border_image_instance_count(
 			&BorderImage,
 			OrDefault<SdfSlice>,
 			OrDefault<SdfUv>,
-			Entity,
+			&Layer,
 		),
-		Or<(Changed<BorderImageTexture>, Changed<BorderImageClip>, Changed<BorderImageRepeat>, Changed<BorderImageSlice>, Changed<LayoutResult>)>,
+		Or<(Changed<BorderImageTexture>, Changed<BorderImageClip>, Changed<BorderImageRepeat>, Changed<BorderImageSlice>, Changed<LayoutResult>, Changed<Layer>)>,
 	>,
 	mut query_draw: Query<(&mut BoxType, &mut RenderCount)>,
 	render_type: OrInitSingleRes<BorderImageRenderObjType>,
@@ -120,7 +121,10 @@ pub fn calc_border_image_instance_count(
 	}
 	let render_type = ***render_type;
 	let grid_buffer = &mut **grid_buffer;
-	for (layout, draw_list, border_image_texture, border_clip, border_repeat, border_slice, border_image, sdf_slice, sdf_uv, entity) in query1.iter() {
+	for (layout, draw_list, border_image_texture, border_clip, border_repeat, border_slice, border_image, sdf_slice, sdf_uv, layer) in query1.iter() {
+		if layer.layer().is_null() {
+			continue;
+		}
 		let sdf_uv = &sdf_uv.0;
 		let draw_id = match draw_list.get_one(render_type) {
 			Some(r) => r.id,
@@ -327,7 +331,7 @@ pub fn calc_border_image_instance_count(
 
 		// top, 中间部分
 		let uv_size = slice_size.width * factor.0;
-		let (layout_offset, bound, space, layout_space, mut count) = calc_step(w,  uv_size, border_repeat.x);
+		let (layout_offset, bound, space, layout_space, _count) = calc_step(w,  uv_size, border_repeat.x);
 		let top_repeat_range = if *border_slice.top > 0.0 && !eq_f32(1.0, *border_slice.right + *border_slice.left)  {
 			TempGeo::grid_split(&RepeatInfo {
 				start: pmins.x + border.left + layout_offset,
@@ -345,7 +349,7 @@ pub fn calc_border_image_instance_count(
 
 		// bottom, 中间部分
 		let uv_size = slice_size.width * factor.2;
-		let (layout_offset, bound, space, layout_space, mut count) = calc_step(w, uv_size, border_repeat.x);
+		let (layout_offset, bound, space, layout_space, _count) = calc_step(w, uv_size, border_repeat.x);
 		let bottom_repeat_range = if *border_slice.bottom > 0.0 && !eq_f32(1.0, *border_slice.right + *border_slice.left)  {
 			TempGeo::grid_split(&RepeatInfo {
 				start: pmins.x + border.left + layout_offset,
@@ -363,7 +367,7 @@ pub fn calc_border_image_instance_count(
 
 		// left, 中间部分
 		let uv_size = slice_size.height * factor.3;
-		let (layout_offset, bound, space, layout_space, mut count) = calc_step(h, uv_size, border_repeat.y);
+		let (layout_offset, bound, space, layout_space, _count) = calc_step(h, uv_size, border_repeat.y);
 		let left_repeat_range = if *border_slice.left > 0.0 && !eq_f32(1.0, *border_slice.bottom + *border_slice.top)  {
 			TempGeo::grid_split(&RepeatInfo {
 				start: pmins.y + border.top + layout_offset,
@@ -381,7 +385,7 @@ pub fn calc_border_image_instance_count(
 
 		// right, 中间部分
 		let uv_size = slice_size.height * factor.1;
-		let (layout_offset, bound, space, layout_space, mut count) = calc_step(h, uv_size, border_repeat.y);
+		let (layout_offset, bound, space, layout_space, _count) = calc_step(h, uv_size, border_repeat.y);
 		let right_repeat_range = if *border_slice.right > 0.0 && !eq_f32(1.0, *border_slice.bottom + *border_slice.top) {
 			TempGeo::grid_split(&RepeatInfo {
 				start: pmins.y + border.top + layout_offset,

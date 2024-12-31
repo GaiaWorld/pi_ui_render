@@ -89,7 +89,7 @@ pub fn calc_text(
                 continue;
             }
 
-			if layer.layer() == 0 {
+			if layer.layer().is_null() {
 				continue;
 			}
 

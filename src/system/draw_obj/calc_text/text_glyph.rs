@@ -4,6 +4,7 @@
 use std::{collections::VecDeque, sync::{atomic::AtomicBool, Arc}};
 
 use pi_hal::font_brush::SdfInfo2;
+use pi_null::Null;
 use pi_world::{filter::Or, prelude::{Changed, Entity, Mut, OrDefault, ParamSet, Query, SingleResMut, With}};
 use pi_bevy_ecs_extend::{
     prelude::{Layer, OrInitSingleResMut},
@@ -233,7 +234,7 @@ fn set_gylph(
     font_sheet: &mut FontSheet,
 	text_overflow_data: Option<Mut<'_, TextOverflowData>>
 ) -> Result<bool, ()> { // 返回字形是否已经准备就绪
-	if layer.layer() == 0 {
+	if layer.layer().is_null() {
 		return Ok(true);
 	}
     // let scale = Vector4::from(world_matrix.fixed_columns(1));
