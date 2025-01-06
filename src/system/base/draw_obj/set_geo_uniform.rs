@@ -23,6 +23,7 @@ pub fn set_matrix_uniform(
         for data in query.iter() {
             set_matrix_uniform_inner(data, &mut instances, &query_draw, &query_parent); 
         }
+        matrix_change.mark_read();
     } else {
         for entity in matrix_change.iter() {
             if let Ok(data) = query.get(*entity) {
