@@ -660,7 +660,8 @@ pub fn setting_next_record(world: &mut World, mut local_state: Local<NextState>)
     let local_state = &mut *local_state;
     if local_state.is_end {
        if play_option.play_mod == PlayMod::RepeatLast {
-            let record = world.get_single_res_mut::<Records>().unwrap();
+            let record: &mut pi_world::single_res::TickRes<Records> = world.get_single_res_mut::<Records>().unwrap();
+            
             record.cur_frame_count = 0;
 
             let play_state = world.get_single_res_mut::<PlayState>().unwrap();
@@ -669,17 +670,26 @@ pub fn setting_next_record(world: &mut World, mut local_state: Local<NextState>)
             play_state.next_state_index = 0;
             play_state.cur_frame_count = 0;
             play_state.speed = play_option.speed;  
+           
        }
        
        
        #[cfg(all(not(target_arch = "wasm32"), not(target_env = "msvc"), not(target_os = "android")))] 
-       if play_option.jemalloc && (local_state.file_index == 50 || local_state.file_index == 2000) {
+       if play_option.jemalloc && (
+        local_state.file_index == 50 
+        || local_state.file_index == 500
+        || local_state.file_index == 1000
+        || local_state.file_index == 1500
+        || local_state.file_index == 2000) {
             let file_index = local_state.file_index;
             let _ = pi_hal::runtime::MULTI_MEDIA_RUNTIME.block_on(async move {
                 let r = get_heap().await.unwrap();
                 std::fs::write(format!("heap_{:?}.pb.gz", file_index).as_str(), r).unwrap();
             });
-            local_state.file_index += 1;
+        }
+        local_state.file_index += 1;
+        if local_state.file_index % 50 == 0 {
+            log::warn!("heap===={:?}", local_state.file_index);
         }
         
         return;
