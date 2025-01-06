@@ -2546,7 +2546,24 @@ pub fn style_attr_list_to_buffer(style_buffer: &mut Vec<u8>, style_list: &mut Ve
         let r = style_list.pop_front().unwrap();
         match r {
             StyleAttribute::Reset(r) => style_buffer.push(r),
-            StyleAttribute::Set(r) => style_to_buffer(style_buffer, r, &mut class_meta),
+            StyleAttribute::Set(r) => {
+                match &r {
+                    // pi_style::style_parse::Attribute::AnimationName(_) => (),
+                    // pi_style::style_parse::Attribute::AnimationDuration(_) => (),
+                    // pi_style::style_parse::Attribute::AnimationTimingFunction(_) => (),
+                    // pi_style::style_parse::Attribute::AnimationIterationCount(_) => (),
+                    // pi_style::style_parse::Attribute::AnimationDirection(_) => (),
+                    // pi_style::style_parse::Attribute::AnimationFillMode(_) => (),
+                    // pi_style::style_parse::Attribute::AnimationPlayState(_) => (),
+                    // pi_style::style_parse::Attribute::AnimationDelay(_) => (),
+                    // pi_style::style_parse::Attribute::BackgroundImage(_) => (),
+                    // pi_style::style_parse::Attribute::BackgroundImageClip(_) => (),
+                    _ => {
+                        style_to_buffer(style_buffer, r, &mut class_meta);
+                    }
+                };
+                
+            },
         }
 
         count -= 1;

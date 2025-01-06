@@ -4,7 +4,7 @@ mod framework;
 use std::path::PathBuf;
 
 // use font_kit::font::new_face_by_path;
-use framework::{Param, Example};
+use framework::{Example, Param, PlayMod};
 use nalgebra::Point2;
 use pi_flex_layout::prelude::Size;
 use pi_style::style::Aabb2;
@@ -71,6 +71,8 @@ impl Example for ExampleCommonPlay {
             speed: 1.0,
             play_url: None,
             play_way: "path".to_string(),
+            jemalloc: false,
+            play_mod: PlayMod::Normal,
 		};
         #[cfg(target_os = "android")]
         let config = include_str!("source/run_config.txt");
@@ -95,6 +97,13 @@ impl Example for ExampleCommonPlay {
                     option.max_index = value.trim().parse().unwrap();
                 } else if key == "speed" {
                     option.speed = value.trim().parse().unwrap();
+                } else if key == "jemalloc" {
+                    option.jemalloc = value.trim().parse().unwrap();
+                } else if key == "play_mod" {
+                    option.play_mod = match value.trim() {
+                        "repeat_last" => PlayMod::RepeatLast,
+                        _ => PlayMod::Normal,
+                    };
                 }
             }
         }

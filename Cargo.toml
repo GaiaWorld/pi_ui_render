@@ -202,6 +202,10 @@ timer = "0.2.0"
 env_logger = "0.9"
 pi_async_httpc = "0.5"
 
+[target.'cfg(all(not(target_arch = "wasm32"), not(target_env = "msvc"), not(target_os = "android")))'.dev-dependencies]
+jemalloc_pprof = "0.6"
+tikv-jemallocator = "0.6"
+
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 uuid = { version = "1", features = ["js"] }
 pi-async-rt = { version = "0.1", features = ["serial"] }

@@ -39,6 +39,13 @@ use pi_world::system_params::SystemParam;
 
 wasm_bindgen_test::wasm_bindgen_test_configure!(run_in_browser);
 
+#[cfg(not(target_env = "msvc"))]
+use tikv_jemallocator::Jemalloc;
+
+#[cfg(not(target_env = "msvc"))]
+#[global_allocator]
+static GLOBAL: Jemalloc = Jemalloc;
+
 pub trait Example: 'static + Sized {
     fn setting(&mut self, _app: &mut App) {}
     fn init(&mut self, param: Param, size: (usize, usize));
@@ -52,6 +59,26 @@ pub trait Example: 'static + Sized {
     #[cfg(feature = "debug")]
     fn record_option(&self) -> pi_ui_render::system::base::node::cmd_play::TraceOption { pi_ui_render::system::base::node::cmd_play::TraceOption::None }
     fn play_option(&self) -> Option<PlayOption> { None }
+}
+
+#[cfg(all(not(target_arch = "wasm32"), not(target_env = "msvc"), not(target_os = "android")))]
+pub async fn get_heap() -> Result<Vec<u8>, String> {
+    let mut prof_ctl = jemalloc_pprof::PROF_CTL.as_ref().unwrap().lock().await;
+    require_profiling_activated(&prof_ctl)?;
+    let pprof = prof_ctl
+        .dump_pprof()
+        .map_err(|err| err.to_string())?;
+    Ok(pprof)
+}
+
+/// Checks whether jemalloc profiling is activated an returns an error response if not.
+#[cfg(all(not(target_arch = "wasm32"), not(target_env = "msvc"), not(target_os = "android")))]
+fn require_profiling_activated(prof_ctl: &jemalloc_pprof::JemallocProfCtl) -> Result<(), String> {
+    if prof_ctl.activated() {
+        Ok(())
+    } else {
+        Err("heap profiling not activated".to_string())
+    }
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -91,7 +118,7 @@ println!("===========   ===========");
                                     .await
                                 {
                                     Err(e) => {
-                                        log::warn!("not find file, url: {:?}, {:?}", path, e);
+                                        // log::warn!("not find file, url: {:?}, {:?}", path, e);
                                     }
                                     Ok(mut resp) => {
                                         // println!("!!!!!!request time: {:?}", now.elapsed());
@@ -99,7 +126,7 @@ println!("===========   ===========");
                                         loop {
                                             match resp.get_body().await {
                                                 Err(e) => {
-                                                    log::warn!("not find file, url: {:?}, {:?}", path, e);
+                                                    // log::warn!("not find file, url: {:?}, {:?}", path, e);
                                                     break;
                                                 }
                                                 Ok(Some(_body)) => {
@@ -116,7 +143,7 @@ println!("===========   ===========");
                                                             hash.parse::<u64>().unwrap(),
                                                             Err(format!("not find file, url: {:?}, {:?}", path, resp.get_status())),
                                                         );
-                                                        log::warn!("not find file, url: {:?}, {:?}", path, resp.get_status());
+                                                        // log::warn!("not find file, url: {:?}, {:?}", path, resp.get_status());
                                                     }
     
                                                     // println!("!!!!!!response time: {:?}", now.elapsed());
@@ -155,7 +182,7 @@ println!("===========   ===========");
                                     // on_load(path.as_str(), file);
                                 } else {
                                     on_load(hash.parse::<u64>().unwrap(), Err(format!("not find file,path: {:?}", path)));
-                                    log::warn!("not find file,path: {:?}", path);
+                                    // log::warn!("not find file,path: {:?}", path);
                                 }
                             })
                             .unwrap();
@@ -180,7 +207,7 @@ println!("===========   ===========");
                                     log::debug!("load file success,path: {:?}", path);
                                 } else {
                                     on_load(hash.parse::<u64>().unwrap(), Err(format!("not find file,path: {:?}", path)));
-                                    log::warn!("not find file,path: {:?}", path);
+                                    // log::warn!("not find file,path: {:?}", path);
                                 }
                             })
                             .unwrap();
@@ -621,10 +648,34 @@ pub fn record_cmd_to_file(mut records: SingleResMut<Records>) {
 // 设置下一条记录
 #[cfg(feature = "debug")]
 pub fn setting_next_record(world: &mut World, mut local_state: Local<NextState>) {
+    use tracing_subscriber::fmt::format;
+
+    let play_option = (*world.get_single_res::<PlayOption>().unwrap()).clone();
     if local_state.is_end {
+       if play_option.play_mod == PlayMod::RepeatLast {
+            let record = world.get_single_res_mut::<Records>().unwrap();
+            record.cur_frame_count = 0;
+
+            let play_state = world.get_single_res_mut::<PlayState>().unwrap();
+            play_state.is_running = true;
+            play_state.next_reord_index = 0;
+            play_state.next_state_index = 0;
+            play_state.cur_frame_count = 0;
+            play_state.speed = play_option.speed;  
+       }
+       
+       
+       #[cfg(all(not(target_arch = "wasm32"), not(target_env = "msvc"), not(target_os = "android")))] {
+       if play_option.jemalloc && (local_state.file_index == 50 || local_state.file_index == 2000) {
+                let r = get_heap().unwrap();
+                std::fs::write(format!("heap_{:?}.pb.gz", local_state.file_index).as_str(), r).unwrap();
+                local_state.file_index += 1;
+            }
+        }
+        
         return;
     }
-    let play_option = (*world.get_single_res::<PlayOption>().unwrap()).clone();
+    
     let local_state = &mut *local_state;
     setting(&mut local_state.file_index, world, &mut local_state.is_end, &play_option)
 }
@@ -665,7 +716,6 @@ fn setting(file_index1: &mut usize, world: &mut World, is_end: &mut bool, play_o
                     Ok(bin) => {
                         match postcard::from_bytes::<Records>(&bin) {
                             Ok(r) => {
-                                log::debug!("cmd!!!!!!!!!================{:?}", r.len());
                                 world.or_register_single_res(TypeInfo::of::<Records>());
                                 **world.get_single_res_mut::<Records>().unwrap() = r;
                                 // 重设播放状态
@@ -684,11 +734,7 @@ fn setting(file_index1: &mut usize, world: &mut World, is_end: &mut bool, play_o
                         file_index += 1;
                         *file_index1 = file_index;
                     }
-                    Err(_e) => {
-                        if !*is_end {
-                            log::warn!("play end, {:?}", path1);
-                            // world.insert_single_res(IsRun(true)); // 屏蔽所有节点运行
-                        }
+                    Err(_e) => {  
                         *is_end = true;
                         return;
                     }
@@ -741,6 +787,15 @@ pub struct PlayOption {
     pub cmd_path: String,
     pub max_index: usize,
     pub speed: f32,
+    pub jemalloc: bool,
+    pub play_mod: PlayMod,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub enum PlayMod {
+    #[default]
+    Normal,
+    RepeatLast,
 }
 
 // #[allow(dead_code)]

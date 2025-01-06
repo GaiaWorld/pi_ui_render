@@ -131,7 +131,7 @@ pub fn cmd_play(
     if play_state.next_state_index >= records.list.len() {
         play_state.is_running = false;
         play_state.cur_frame_count = 0;
-        **records = Records::default();
+        // **records = Records::default();
         return;
     }
 
@@ -152,7 +152,6 @@ pub fn cmd_play(
     if r.frame_index < play_state.cur_frame_count {
         return;
     }
-
     // 先创建实体， 并建立映射关系
     for x in r.nodes_creates.clone().iter() {
         let id = insert.insert(());
@@ -231,13 +230,13 @@ pub fn cmd_play(
     for other_command in r.other_commands_list.iter() {
         match other_command {
             CmdType::RuntimeAnimationBindCmd(r) => {
-                let mut r = r.clone();
-                let node = match play_state.get_node(&r.2) {
-                    Some(r) => r,
-                    None => continue,
-                };
-                r.2 = node;
-                cmds.push_cmd(r);
+                // let mut r = r.clone();
+                // let node = match play_state.get_node(&r.2) {
+                //     Some(r) => r,
+                //     None => continue,
+                // };
+                // r.2 = node;
+                // cmds.push_cmd(r);
             }
             CmdType::ComponentCmd(r) => {
                 let mut r = r.clone();
