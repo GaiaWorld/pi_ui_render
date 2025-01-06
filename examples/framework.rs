@@ -681,6 +681,7 @@ pub fn setting_next_record(world: &mut World, mut local_state: Local<NextState>)
         || local_state.file_index == 1000
         || local_state.file_index == 1500
         || local_state.file_index == 2000) {
+            use pi_async_rt::prelude::AsyncRuntimeExt;
             let file_index = local_state.file_index;
             let _ = pi_hal::runtime::MULTI_MEDIA_RUNTIME.block_on(async move {
                 let r = get_heap().await.unwrap();
