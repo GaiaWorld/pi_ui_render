@@ -204,7 +204,7 @@ pi_async_httpc = "0.5"
 
 [target.'cfg(all(not(target_arch = "wasm32"), not(target_env = "msvc"), not(target_os = "android")))'.dev-dependencies]
 jemalloc_pprof = "0.6"
-tikv-jemallocator = "0.6"
+tikv-jemallocator = { version = "0.6.0", features = ["profiling", "unprefixed_malloc_on_supported_platforms"] }
 
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 uuid = { version = "1", features = ["js"] }

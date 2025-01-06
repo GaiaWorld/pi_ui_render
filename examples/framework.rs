@@ -39,12 +39,18 @@ use pi_world::system_params::SystemParam;
 
 wasm_bindgen_test::wasm_bindgen_test_configure!(run_in_browser);
 
-#[cfg(not(target_env = "msvc"))]
+#[cfg(all(not(target_arch = "wasm32"), not(target_env = "msvc"), not(target_os = "android")))]
 use tikv_jemallocator::Jemalloc;
 
-#[cfg(not(target_env = "msvc"))]
+#[cfg(all(not(target_arch = "wasm32"), not(target_env = "msvc"), not(target_os = "android")))]
 #[global_allocator]
 static GLOBAL: Jemalloc = Jemalloc;
+
+
+#[cfg(all(not(target_arch = "wasm32"), not(target_env = "msvc"), not(target_os = "android")))]
+#[allow(non_upper_case_globals)]
+#[export_name = "malloc_conf"]
+pub static malloc_conf: &[u8] = b"prof:true,prof_active:true,lg_prof_sample:19\0";
 
 pub trait Example: 'static + Sized {
     fn setting(&mut self, _app: &mut App) {}
@@ -651,6 +657,7 @@ pub fn setting_next_record(world: &mut World, mut local_state: Local<NextState>)
     use tracing_subscriber::fmt::format;
 
     let play_option = (*world.get_single_res::<PlayOption>().unwrap()).clone();
+    let local_state = &mut *local_state;
     if local_state.is_end {
        if play_option.play_mod == PlayMod::RepeatLast {
             let record = world.get_single_res_mut::<Records>().unwrap();
@@ -667,17 +674,17 @@ pub fn setting_next_record(world: &mut World, mut local_state: Local<NextState>)
        
        #[cfg(all(not(target_arch = "wasm32"), not(target_env = "msvc"), not(target_os = "android")))] 
        if play_option.jemalloc && (local_state.file_index == 50 || local_state.file_index == 2000) {
+            let file_index = local_state.file_index;
             let _ = pi_hal::runtime::MULTI_MEDIA_RUNTIME.block_on(async move {
                 let r = get_heap().await.unwrap();
-                std::fs::write(format!("heap_{:?}.pb.gz", local_state.file_index).as_str(), r).unwrap();
-                local_state.file_index += 1;
+                std::fs::write(format!("heap_{:?}.pb.gz", file_index).as_str(), r).unwrap();
             });
+            local_state.file_index += 1;
         }
         
         return;
     }
-    
-    let local_state = &mut *local_state;
+
     setting(&mut local_state.file_index, world, &mut local_state.is_end, &play_option)
 }
 
