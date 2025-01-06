@@ -685,7 +685,7 @@ pub fn setting_next_record(world: &mut World, mut local_state: Local<NextState>)
             let file_index = local_state.file_index;
             let _ = pi_hal::runtime::MULTI_MEDIA_RUNTIME.block_on(async move {
                 let r = get_heap().await.unwrap();
-                std::fs::write(format!("heap_{:?}.pb.gz", file_index).as_str(), r).unwrap();
+                std::fs::write(format!("heap{:?}.pb.gz", file_index).as_str(), r).unwrap();
             });
         }
         local_state.file_index += 1;
