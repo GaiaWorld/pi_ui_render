@@ -665,7 +665,7 @@ pub fn setting_next_record(world: &mut World, mut local_state: Local<NextState>)
        }
        
        
-       #[cfg(all(not(target_arch = "wasm32"), not(target_env = "msvc"), not(target_os = "android")))] {
+       #[cfg(all(not(target_arch = "wasm32"), not(target_env = "msvc"), not(target_os = "android")))] 
        if play_option.jemalloc && (local_state.file_index == 50 || local_state.file_index == 2000) {
             let _ = pi_hal::runtime::MULTI_MEDIA_RUNTIME.block_on(async move {
                 let r = get_heap().await.unwrap();
