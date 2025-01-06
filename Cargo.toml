@@ -197,7 +197,6 @@ pi_hal = {version = "0.1.40", registry="yn"}
 # futures = "0.3"
 # fixedbitset = "0.4"
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
-font_kit = { registry = "yn", version = "0.1" }
 timer = "0.2.0"
 env_logger = "0.9"
 pi_async_httpc = "0.5"
@@ -308,8 +307,7 @@ pi_world_macros = { path = "../pi_world/macros" }
 # pi_style = {path = "../pi_style"}
 pi_wgpu = {path = "../pi_wgpu"}
 pi_egl = {path = "../pi_egl"}
-# winit = {path = "../winit"}
-# font_kit = { path = "../font_kit" }
+winit = {path = "../winit"}
 pi_hal = { path = "../pi_hal" }
 pi_sdf = { path = "../pi_sdf" }
 pi_postprocess = { path = "../pi_post_process" }
