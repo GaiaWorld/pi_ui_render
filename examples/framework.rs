@@ -659,28 +659,9 @@ pub fn setting_next_record(world: &mut World, mut local_state: Local<NextState>)
     let play_option = (*world.get_single_res::<PlayOption>().unwrap()).clone();
     let local_state = &mut *local_state;
     if local_state.is_end {
-       if play_option.play_mod == PlayMod::RepeatLast {
         let play_state = world.get_single_res_mut::<PlayState>().unwrap();
-        if !play_state.is_running {
-            play_state.is_running = true;
-            play_state.next_reord_index = 0;
-            play_state.next_state_index = 0;
-            play_state.cur_frame_count = 0;
-            play_state.speed = play_option.speed; 
-
-            let record: &mut pi_world::single_res::TickRes<Records> = world.get_single_res_mut::<Records>().unwrap();
-            
-            record.cur_frame_count = 0;
-        }
-            
-
-             
-           
-       }
-       
-       
-       #[cfg(all(not(target_arch = "wasm32"), not(target_env = "msvc"), not(target_os = "android")))] 
-       if play_option.jemalloc && (
+        #[cfg(all(not(target_arch = "wasm32"), not(target_env = "msvc"), not(target_os = "android")))] 
+        if play_option.jemalloc && !play_state.is_running && (
         local_state.file_index == 50 
         || local_state.file_index == 500
         || local_state.file_index == 1000
@@ -693,10 +674,33 @@ pub fn setting_next_record(world: &mut World, mut local_state: Local<NextState>)
                 std::fs::write(format!("heap{:?}.pb.gz", file_index).as_str(), r).unwrap();
             });
         }
-        local_state.file_index += 1;
-        if local_state.file_index % 50 == 0 {
-            log::warn!("heap===={:?}", (local_state.file_index, world.len()));
-        }
+
+       if play_option.play_mod == PlayMod::RepeatLast {       
+            if !play_state.is_running {
+                play_state.is_running = true;
+                play_state.next_reord_index = 0;
+                play_state.next_state_index = 0;
+                play_state.cur_frame_count = 0;
+                play_state.speed = play_option.speed; 
+
+                let record: &mut pi_world::single_res::TickRes<Records> = world.get_single_res_mut::<Records>().unwrap();
+                
+                record.cur_frame_count = 0;
+
+                local_state.file_index += 1;
+                if local_state.file_index % 50 == 0 {
+                    log::warn!("heap===={:?}", (local_state.file_index, world.len()));
+                }
+            }
+       } else if !play_state.is_running {
+            local_state.file_index += 1;
+            if local_state.file_index % 50 == 0 {
+                log::warn!("heap===={:?}", (local_state.file_index, world.len()));
+            }
+       }
+
+       
+       
         
         return;
     }
