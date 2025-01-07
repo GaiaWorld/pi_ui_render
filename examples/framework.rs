@@ -663,6 +663,8 @@ pub fn setting_next_record(world: &mut World, mut local_state: Local<NextState>)
         #[cfg(all(not(target_arch = "wasm32"), not(target_env = "msvc"), not(target_os = "android")))] 
         if play_option.jemalloc && !play_state.is_running && (
         local_state.file_index == 50 
+        || local_state.file_index == 100
+        || local_state.file_index == 200
         || local_state.file_index == 500
         || local_state.file_index == 1000
         || local_state.file_index == 1500
