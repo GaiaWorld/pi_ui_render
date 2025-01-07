@@ -120,6 +120,7 @@ pub struct UserCommands {
 
     #[cfg(feature = "debug")]
     pub other_commands_list: Vec<CmdType>, // 是CommandQueue中元素的枚举形式，便于序列化
+    pub is_record: bool,
 
 	pub version: usize,
 }
@@ -258,7 +259,7 @@ impl UserCommands {
                 return self;
             }
         };
-        animations.name.scope_hash = node.index() as usize; // 因为每个运行时动画是节点独有的，以节点的index作为scope_hash(不能同时有两个index相等的实体)
+        animations.name.scope_hash = node.index() as usize; // 因为每个ji运行时动画是节点独有的，以节点的index作为scope_hash(不能同时有两个index相等的实体)
 
         let css = match parse_class_map_from_string(css, scope_hash as usize) {
             Ok(r) => r,
@@ -281,7 +282,9 @@ impl UserCommands {
         let r = RuntimeAnimationBindCmd(css.key_frames.frames, unsafe { transmute(animations) }, node);
 
         #[cfg(feature = "debug")]
-        self.other_commands_list.push(CmdType::RuntimeAnimationBindCmd(r.clone()));
+        if self.is_record {
+            self.other_commands_list.push(CmdType::RuntimeAnimationBindCmd(r.clone()));
+        }
 
         self.push_cmd(r);
 		self
@@ -308,7 +311,9 @@ impl UserCommands {
         let r = FontCfgCmd(cfg);
 
         #[cfg(feature = "debug")]
-        self.other_commands_list.push(CmdType::SdfCfgCmd(r.clone()));
+        if self.is_record {
+            self.other_commands_list.push(CmdType::SdfCfgCmd(r.clone()));
+        }
 
         self.other_commands.push(r);
 		self
@@ -320,7 +325,9 @@ impl UserCommands {
         let r = FontSdf2Cmd(name, buffer);
 
         #[cfg(feature = "debug")]
-        self.other_commands_list.push(CmdType::Sdf2CfgCmd(r.clone()));
+        if self.is_record {
+            self.other_commands_list.push(CmdType::Sdf2CfgCmd(r.clone()));
+        }
 
         self.other_commands.push(r);
 		self
@@ -332,7 +339,9 @@ impl UserCommands {
         let r = SdfDefaultCharCmd{font_face, char};
 
         #[cfg(feature = "debug")]
-        self.other_commands_list.push(CmdType::SdfDefaultCharCmd(r.clone()));
+        if self.is_record {
+            self.other_commands_list.push(CmdType::SdfDefaultCharCmd(r.clone()));
+        }
 
         self.other_commands.push(r);
 		self
@@ -344,7 +353,9 @@ impl UserCommands {
         let r = NodeCmd(cmd, node);
 
         #[cfg(feature = "debug")]
-        self.other_commands_list.push(CmdType::NodeCmdViewport(r.clone()));
+        if self.is_record {
+            self.other_commands_list.push(CmdType::NodeCmdViewport(r.clone()));
+        }
 
         self.other_commands.push(r);
 		self
@@ -356,7 +367,9 @@ impl UserCommands {
         let r = NodeCmd(cmd, node);
 
         #[cfg(feature = "debug")]
-        self.other_commands_list.push(CmdType::NodeCmdRenderTargetType(r.clone()));
+        if self.is_record {
+            self.other_commands_list.push(CmdType::NodeCmdRenderTargetType(r.clone()));
+        }
 
         self.other_commands.push(r);
 		self
@@ -367,7 +380,9 @@ impl UserCommands {
         // println_any!("push_cmd===={:?}", 1);
 		let cmd = ClearColorCmd(color);
         #[cfg(feature = "debug")]
-        self.other_commands_list.push(CmdType::NodeCmdRenderClearColor(cmd.clone()));
+        if self.is_record {
+            self.other_commands_list.push(CmdType::NodeCmdRenderClearColor(cmd.clone()));
+        }
 
         self.other_commands.push(cmd);
 		self
@@ -390,7 +405,9 @@ impl UserCommands {
         // println_any!("push_cmd===={:?}", 1);
 
         #[cfg(feature = "debug")]
-        self.other_commands_list.push(CmdType::ExtendFragmentCmd(cmd.clone()));
+        if self.is_record {
+            self.other_commands_list.push(CmdType::ExtendFragmentCmd(cmd.clone()));
+        }
 
         self.other_commands.push(cmd);
 		self
@@ -401,7 +418,9 @@ impl UserCommands {
         // println_any!("push_cmd===={:?}", 1);
 
         #[cfg(feature = "debug")]
-        self.other_commands_list.push(CmdType::ExtendCssCmd(cmd.clone()));
+        if self.is_record {
+            self.other_commands_list.push(CmdType::ExtendCssCmd(cmd.clone()));
+        }
 
         self.other_commands.push(cmd);
 		self
@@ -410,7 +429,9 @@ impl UserCommands {
     /// 添加默认样式
     pub fn add_default_css(&mut self, cmd: DefaultStyleCmd) -> &mut Self {
         #[cfg(feature = "debug")]
-        self.other_commands_list.push(CmdType::DefaultStyleCmd(cmd.clone()));
+        if self.is_record {
+            self.other_commands_list.push(CmdType::DefaultStyleCmd(cmd.clone()));
+        }
 
         self.other_commands.push(cmd);
 		self

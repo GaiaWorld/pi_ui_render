@@ -230,13 +230,13 @@ pub fn cmd_play(
     for other_command in r.other_commands_list.iter() {
         match other_command {
             CmdType::RuntimeAnimationBindCmd(r) => {
-                // let mut r = r.clone();
-                // let node = match play_state.get_node(&r.2) {
-                //     Some(r) => r,
-                //     None => continue,
-                // };
-                // r.2 = node;
-                // cmds.push_cmd(r);
+                let mut r = r.clone();
+                let node = match play_state.get_node(&r.2) {
+                    Some(r) => r,
+                    None => continue,
+                };
+                r.2 = node;
+                cmds.push_cmd(r);
             }
             CmdType::ComponentCmd(r) => {
                 let mut r = r.clone();
