@@ -660,16 +660,21 @@ pub fn setting_next_record(world: &mut World, mut local_state: Local<NextState>)
     let local_state = &mut *local_state;
     if local_state.is_end {
        if play_option.play_mod == PlayMod::RepeatLast {
-            let record: &mut pi_world::single_res::TickRes<Records> = world.get_single_res_mut::<Records>().unwrap();
-            
-            record.cur_frame_count = 0;
-
-            let play_state = world.get_single_res_mut::<PlayState>().unwrap();
+        let play_state = world.get_single_res_mut::<PlayState>().unwrap();
+        if !play_state.is_running {
             play_state.is_running = true;
             play_state.next_reord_index = 0;
             play_state.next_state_index = 0;
             play_state.cur_frame_count = 0;
-            play_state.speed = play_option.speed;  
+            play_state.speed = play_option.speed; 
+
+            let record: &mut pi_world::single_res::TickRes<Records> = world.get_single_res_mut::<Records>().unwrap();
+            
+            record.cur_frame_count = 0;
+        }
+            
+
+             
            
        }
        
@@ -690,7 +695,7 @@ pub fn setting_next_record(world: &mut World, mut local_state: Local<NextState>)
         }
         local_state.file_index += 1;
         if local_state.file_index % 50 == 0 {
-            log::warn!("heap===={:?}", local_state.file_index);
+            log::warn!("heap===={:?}", (local_state.file_index, world.len()));
         }
         
         return;
@@ -735,6 +740,7 @@ fn setting(file_index1: &mut usize, world: &mut World, is_end: &mut bool, play_o
                     Ok(bin) => {
                         match postcard::from_bytes::<Records>(&bin) {
                             Ok(r) => {
+                                // log::warn!("parse cmd================{:?}", r);
                                 world.or_register_single_res(TypeInfo::of::<Records>());
                                 **world.get_single_res_mut::<Records>().unwrap() = r;
                                 // 重设播放状态
