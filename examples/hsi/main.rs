@@ -42,7 +42,7 @@ impl Example for QuadExample {
             root,
             Viewport(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(size.0 as f32, size.1 as f32))),
         );
-        world.user_cmd.set_render_dirty(root, RenderDirty(true));
+        // world.user_cmd.set_render_dirty(root, pi_ui_render::resource::RenderDirty(true));
 
         world.user_cmd.set_style(root, WidthType(Dimension::Points(size.0 as f32)));
         world.user_cmd.set_style(root, HeightType(Dimension::Points(size.1 as f32)));

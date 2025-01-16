@@ -4,9 +4,6 @@
 #[path = "../framework.rs"]
 mod framework;
 
-use std::mem::swap;
-
-use font_kit::font::new_face_by_path;
 use framework::{Param, Example};
 use pi_atom::Atom;
 use pi_flex_layout::style::{Dimension, PositionType, OverflowWrap};
@@ -38,11 +35,6 @@ pub struct QuadExample {
 
 impl Example for QuadExample {
     fn init(&mut self, mut world: Param, size: (usize, usize)) {
-        let mut dir = std::env::current_dir().unwrap();
-        log::info!("dir: {:?}", dir);
-        dir.push("examples/text/source/hwkt.ttf");
-        // new_face_by_path("hwkt".to_string(), dir.to_str().unwrap());
-        new_face_by_path("hwkt".to_string(), "examples/text/source/SOURCEHANSANSK-MEDIUM.TTF");
 
         // 添加根节点
         let root = world.spawn(NodeTag::Div);

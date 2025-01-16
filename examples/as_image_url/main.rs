@@ -69,6 +69,7 @@ impl Example for QuadExample {
         // 添加根节点
         let root_tow = world.spawn(NodeTag::Div);
         world.user_cmd.push_cmd(NodeCmd(ClearColor(CgColor::new(0.0, 0.0, 0.0, 0.0), true), root_tow));
+        world.user_cmd.push_cmd(NodeCmd(ClearColor(CgColor::new(0.0, 0.0, 0.0, 0.0), true), root_tow));
         world.user_cmd.push_cmd(NodeCmd(
             Viewport(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(size.0 as f32, size.1 as f32))),
             root_tow,
