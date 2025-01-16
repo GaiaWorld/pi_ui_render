@@ -15,12 +15,11 @@ use pi_polygon::PolygonIndices;
 use pi_postprocess::image_effect::PostProcessDraw;
 use pi_render::{renderer::draw_obj::DrawObj as DrawState1, rhi::asset::{TextureRes, AssetWithId}, components::view::target_alloc::ShareTargetView};
 use pi_share::Share;
-use pi_style::style::{CgColor, OuterGlow};
+use pi_style::style::CgColor;
 use pi_world::insert::Component;
-use smallvec::SmallVec;
 
 use super::{calc::{BackgroundImageTexture, BorderImageTexture}, user::{BackgroundColor, BorderColor, BoxShadow, Canvas, SvgContent, SvgInnerContent, TextContent, TextOuterGlow, TextShadow}};
-pub use super::root::{CopyFboToScreen, DynTargetType};
+pub use super::root::DynTargetType;
 use std::marker::ConstParamTy;
 
 pub struct DrawObject;
@@ -230,7 +229,7 @@ impl Default for RenderCount {
 pub struct FboInfo {
 	/// 当前pass中的渲染对象渲染在哪个fbo上（canvas或后处理都会分配fbo， 该fbo在渲染图build阶段产生）
 	pub fbo: Option<ShareTargetView>, 
-	/// 当前pass输出的fbo（pass的fbo经过后处理得到的最终结果，该fbo在渲染图build阶段产生）
+	// /// 当前pass输出的fbo（pass的fbo经过后处理得到的最终结果，该fbo在渲染图build阶段产生）
 	pub out: Option<ShareTargetView>,
 	pub in_batch: usize, // 当为null时， 表示还没有批处理， 否则表示所在批的索引
 	pub post_draw: Option<(Vec<PostProcessDraw>, pi_render::renderer::draw_obj::DrawObj)>,
@@ -334,7 +333,10 @@ pub trait GetInstanceSplit {
 impl GetInstanceSplit for BorderImageTexture {
 	fn get_split(&self) -> Option<InstanceSplit> {
 		match &self.0 {
-			Some(r) => Some(InstanceSplit::ByTexture(r.clone())),
+			Some(r) => Some(InstanceSplit::ByTexture(match r {
+				super::calc::Texture::All(r) => r.clone(),
+				super::calc::Texture::Part(safe_target_view, _) => safe_target_view.target().colors[0].0.clone(),
+			})),
 			None => None,
 		}
 		
@@ -344,7 +346,10 @@ impl GetInstanceSplit for BorderImageTexture {
 impl GetInstanceSplit for BackgroundImageTexture {
 	fn get_split(&self) -> Option<InstanceSplit> {
 		match &self.0 {
-			Some(r) => Some(InstanceSplit::ByTexture(r.clone())),
+			Some(r) => Some(InstanceSplit::ByTexture(match r {
+				super::calc::Texture::All(r) => r.clone(),
+				super::calc::Texture::Part(safe_target_view, _) => safe_target_view.target().colors[0].0.clone(),
+			})),
 			None => None,
 		}
 	}

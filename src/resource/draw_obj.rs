@@ -33,7 +33,7 @@ use wgpu::{
 use pi_render::rhi::shader::Input;
 
 use crate::{
-    components::{calc::WorldMatrix, pass_2d::{CacheTarget, DrawElement, InstanceDrawState}}, resource::ShareFontSheet, shader1::{batch_gauss_blur::{self, BatchGussMeterial, GussMeterialBind}, batch_meterial::{vert_layout, CameraBind, MeterialBind, PositionVert, ProjectUniform, Sdf2TextureSizeUniform, ViewUniform}, batch_sdf_glow::{self, BatchGlowMeterial, GlowMeterialBind}, batch_sdf_gray::{self, BatchGrayMeterial, GrayMeterialBind}, GpuBuffer}, utils::tools::{calc_float_hash, calc_hash}
+    components::{calc::WorldMatrix, pass_2d::{CacheTarget, DrawElement, InstanceDrawState}}, resource::ShareFontSheet, shader1::{batch_gauss_blur::{self, GussMeterialBind}, batch_meterial::{vert_layout, CameraBind, MeterialBind, PositionVert, ProjectUniform, Sdf2TextureSizeUniform, ViewUniform}, batch_sdf_glow::{self, GlowMeterialBind}, batch_sdf_gray::{self, GrayMeterialBind}, GpuBuffer}, utils::tools::{calc_float_hash, calc_hash}
 };
 
 // /// 一组纹理的绑定， 用于实例化渲染
@@ -332,7 +332,6 @@ pub struct InstanceContext {
 
     pub pass_toop_list: Vec<Entity>, //该根下 从叶子开始的广度遍历排序
     pub next_node_with_depend: Vec<usize>,
-    pub temp: (Vec<Entity>, Vec<Entity>, Vec<Entity>),
 
     pub debug_info: VecMap<String>,
 }
@@ -770,7 +769,6 @@ impl FromWorld for InstanceContext {
 
             pass_toop_list: Default::default(),
             next_node_with_depend: Default::default(),
-            temp: Default::default(),
             debug_info: VecMap::default(),
 		}
     }

@@ -13,11 +13,12 @@ use user::SvgInnerContent;
 
 use self::{
     calc::{DrawInfo, DrawList, EntityKey, IsShow, NodeState, RenderContextMark, TransformWillChangeMatrix, View},
-    draw_obj::{BoxType, CopyFboToScreen, FboInfo, InstanceIndex},
+    draw_obj::{BoxType, FboInfo, InstanceIndex},
     pass_2d::{ChildrenPass, GraphId, ParentPassId, PostProcess, PostProcessInfo, RenderTarget},
     root::RootDirtyRect,
     user::{ClassName, Overflow},
 };
+use pi_bevy_render_plugin::asimage_url::RenderTarget as RenderTarget1;
 
 
 #[derive(Clone)]
@@ -263,6 +264,7 @@ pub struct PassBundle {
     pub render_target: RenderTarget,
 	pub instance_index: InstanceIndex,
 	pub fbo_info: FboInfo,
+    pub render_target1: RenderTarget1,
 }
 
 impl PassBundle {
@@ -279,19 +281,14 @@ impl PassBundle {
 #[derive(Bundle)]
 pub struct RootBundle {
     pub render_target: RenderTarget,
-    pub copy_draw_obj: CopyFboToScreen,
-    // pub clear_color_group: ClearColorBindGroup,
     pub dirty_rect: RootDirtyRect,
-    // pub clear_color: ClearColor,
     pub overflow: Overflow,
-    // pub root_instance: RootInstance,
 }
 
 impl Default for RootBundle {
     fn default() -> Self {
         Self {
             render_target: Default::default(),
-            copy_draw_obj: Default::default(),
             // clear_color_group: Default::default(),
             dirty_rect: Default::default(),
             // clear_color: Default::default(),

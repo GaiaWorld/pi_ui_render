@@ -3,7 +3,7 @@
 use std::collections::hash_map::Entry;
 
 use pi_bevy_render_plugin::{
-    node::{Node, NodeId as GraphNodeId, ParamUsage}, PiRenderDevice, PiRenderGraph, PiSafeAtlasAllocator, RenderContext, CLEAR_WIDNOW_NODE
+    node::{Node, NodeId as GraphNodeId, ParamUsage}, PiRenderDevice, PiRenderGraph, PiSafeAtlasAllocator, RenderContext
 };
 use pi_flex_layout::prelude::CharNode;
 use pi_futures::BoxFuture;
@@ -683,6 +683,10 @@ pub fn calc_sdf2_text(
 			Ok(r) => r,
 			_ => continue,
 		};
+		// 节点可能设置为dispaly none， 此时instance_index可能为Null
+		if pi_null::Null::is_null(&instance_index.0.start) {
+			continue;
+		}
 		let start = instance_index.start;
 
 		let mut ty = instances.instance_data.instance_data_mut(start).get_render_ty();
@@ -1067,12 +1071,13 @@ pub struct QueryParam<'w> {
 pub fn init_text_effect_graph(
 	mut rg: SingleResMut<PiRenderGraph>,
 ) {
+	let effect_graph_id = rg.add_sub_graph("gui_effect_graph").unwrap();
 	let node = TextEffectNode;
-	let id = rg.add_node("GuiTextEffectNode", node, Null::null()).unwrap();
+	let id = rg.add_node("GuiTextEffectNode", node, effect_graph_id).unwrap();
 
-	// 将其设置在清屏之前运行， 以为这它在所有节点gui之前运行
-	let _ = rg.remove_depend(CLEAR_WIDNOW_NODE, id);
-	let _ = rg.add_depend(id, CLEAR_WIDNOW_NODE);
+	// 将其设置在所有gui节点之前运行
+	let main_graph_id = rg.main_graph_id();
+	let _ = rg.add_depend(effect_graph_id, main_graph_id);
 }
 
 /// 渲染图节点， 用于将文字做模糊处理（draw_front）

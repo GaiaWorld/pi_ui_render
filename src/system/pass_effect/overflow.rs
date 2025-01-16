@@ -5,7 +5,6 @@
 use pi_style::style::StyleType;
 use pi_world::prelude::{With, Query, Entity, Ticker};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleRes, Layer, Root};
-use pi_world::schedule::PreUpdate;
 use pi_world::single_res::SingleRes;
 
 use crate::resource::{GlobalDirtyMark, IsRun};
@@ -14,7 +13,7 @@ use crate::system::base::pass::pass_life;
 use crate::system::system_set::UiSystemSet;
 use crate::{components::calc::OverflowDesc, resource::RenderContextMarkType};
 
-use crate::components::user::{AsImage, Overflow, Transform};
+use crate::components::user::{AsImage, Overflow};
 
 
 use crate::{
@@ -34,7 +33,7 @@ use crate::components::{
     calc::{LayoutResult, OveflowRotate, Quad, TransformWillChangeMatrix, View, WorldMatrix},
     user::{Aabb2, Matrix4, Point2, Vector4},
 };
-use pi_world::prelude::{App, Plugin, PostUpdate, IntoSystemConfigs};
+use pi_world::prelude::{App, Plugin, IntoSystemConfigs};
 use crate::prelude::UiStage;
 
 use super::transform_will_change;
@@ -281,7 +280,7 @@ fn recursive_cal_overflow(
                 // 存在父裁剪框，则与父裁剪框相交
                 let r = intersect_or_zero(&quad1, &parent_aabb.aabb);
 				// log::warn!("is_change======tracker_matrix: {:?}, tracker_willchange: {:?}, overflow: {:?}, entity: {:?}, \nparent_aabb: {:?}, willchange: {:?}, \nmatrix: {:?}", tracker_matrix.is_changed(),tracker_willchange.is_changed(), overflow, entity, parent_aabb, tracker_willchange, tracker_matrix);
-                use pi_key_alloter::Key;
+                // use pi_key_alloter::Key;
                 // if id.index() == 4 {
                     // log::warn!("overflow================id:{:?}, \nr:{:?}, \nlayout: {:?}, \nwill_change:{:?}, \nmatrix: {:?}, \nparent_aabb: {:?}, \nquad: {:?}, \nquad1: {:?}", 
                     // id, &r, &content_box.layout, &will_change.0, &world_matrix, &parent_aabb.aabb, quad, quad1);

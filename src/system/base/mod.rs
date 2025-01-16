@@ -18,6 +18,7 @@ impl Plugin for BasePlugin {
     fn build(&self, app: &mut pi_world::prelude::App) {
 		app
             .add_plugins(draw_obj::sdf_gen::SdfPlugin)
+            .add_plugins(draw_obj::image_texture_load::ImageLoadPlugin)
             .add_plugins(node::UiNodePlugin)
             .add_plugins(pass::UiPassPlugin)
             .add_system(UiStage, draw_obj::set_geo_uniform::set_matrix_uniform

@@ -1,8 +1,9 @@
 
 use std::{mem::transmute, ops::Range};
 
-use pi_world::prelude::{Query, Entity, OrDefault, SystemParam, Local, SingleRes, ParamSet};
+use pi_world::prelude::{Query, Entity, OrDefault, SystemParam, SingleRes, ParamSet};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, OrInitSingleRes, Layer};
+use pi_bevy_render_plugin::asimage_url::RenderTarget as RenderTarget1;
 
 use pi_assets::asset::Handle;
 use pi_bevy_asset::ShareAssetMgr;
@@ -13,7 +14,6 @@ use pi_bevy_render_plugin::{
 use pi_futures::BoxFuture;
 use pi_null::Null;
 use pi_render::components::view::target_alloc::{GetTargetView, SafeAtlasAllocator, SafeTargetView};
-// use pi_postprocess::
 use pi_postprocess::prelude::PostprocessTexture;
 use pi_render::{
     components::view::target_alloc::ShareTargetView,
@@ -34,7 +34,7 @@ use crate::{
     components::{
         calc::{DrawList, EntityKey, IsShow, WorldMatrix}, draw_obj::{DynTargetType, FboInfo, InstanceIndex}, pass_2d::{CacheTarget, Camera, Draw2DList, DrawElement, GraphId, ParentPassId, PostProcess, PostProcessInfo, RenderTarget, RenderTargetCache, ScreenTarget, StrongTarget}, user::{Aabb2, AsImage, Canvas, Point2, RenderTargetType, Viewport}
     }, resource::{
-        draw_obj::{InstanceContext, RenderState, TargetCacheMgr}, CanvasRenderObjType, PassGraphMap, RenderContextMarkType
+        draw_obj::{InstanceContext, RenderState, TargetCacheMgr}, CanvasRenderObjType, RenderContextMarkType
     }, shader1::batch_meterial::{CameraBind, RenderFlagType, TyMeterial, UvUniform}, system::draw_obj::set_matrix
 };
 
@@ -64,12 +64,13 @@ pub struct BuildParam<'w> {
 				&'static InstanceIndex,
 				&'static Draw2DList,
 				&'static mut FboInfo,
+				&'static mut RenderTarget1,
 				&'static IsShow, 
-				Entity,
+				// Entity,
 			),
 		>,
 		
-		Query<'static, (&'static InstanceIndex, &'static mut FboInfo)>,
+		Query<'static, (&'static InstanceIndex, &'static mut FboInfo, &'static mut RenderTarget1)>,
 	)>,
 	query_graph_id: Query<'w, OrDefault<GraphId>>,
 	query_canvas: Query<'w, (
@@ -91,13 +92,10 @@ pub struct BuildParam<'w> {
 	device: SingleRes<'w, PiRenderDevice>,
 	queue: SingleRes<'w, PiRenderQueue>,
 	surface: SingleRes<'w, PiScreenTexture>,
-	pass_graph_map: SingleRes<'w, PassGraphMap>,
-	render_targets: Query<'w, &'static RenderTarget>,
 	cache_target: SingleRes<'w, TargetCacheMgr>,
 	as_image_mark_type: OrInitSingleRes<'w, RenderContextMarkType<AsImage>>,
 	instance_draw: OrInitSingleResMut<'w, InstanceContext>,
 
-	temp_next_target: Local<'w, (Vec<SimpleInOut>, Vec<SimpleInOut>)>,
 	canvas_render_type: OrInitSingleRes<'w, CanvasRenderObjType>,
 }
 
@@ -105,7 +103,8 @@ pub struct BuildParam<'w> {
 pub struct Param<'w> {
 	fbo_query: Query<
 		'w,
-		&'static FboInfo,
+		(&'static FboInfo,
+		&'static RenderTarget1),
 	>,
 	root_query1: Query<'w, &'static Viewport>,
 	
@@ -118,37 +117,6 @@ pub struct Param<'w> {
 	
 	
 }
-
-
-// pub struct Param<'w, 's> {
-//     pass2d_query: Query<
-//         'w,
-//         (
-//             &'static Camera,
-//             &'static RenderTarget,
-//         ),
-//     >,
-// 	fbo_query: Query<
-// 		'w,
-// 		&'static FboInfo,
-// 	>,
-//     // graph_id_query: Query<'w, &'static GraphId>,
-//     post_query: Query<'w, (&'static PostProcess, &'static RenderTarget, &'static GraphId, Option<&'static AsImage>)>,
-//     screen: SingleRes<'w, ScreenTarget>,
-
-
-//     // last_rt: &'s RenderTarget,
-//     // last_rt_type: RenderTargetType,
-//     // t_type: &'s DynTargetType,
-//     // copy_fbo: Option<&'s CopyFboToScreen>,
-//     // clear_color_group: Option<&'s ClearColorBindGroup>,
-//     surface: &'s ScreenTexture,
-
-// 	instance_draw: OrInitSingleRes<'s, InstanceContext>,
-// }
-
-// last_rt_type: RenderTargetType,
-// clear_color: ClearColor,
 
 impl Pass2DNode {
     pub fn new(pass2d_id: Entity) -> Self {
@@ -203,6 +171,7 @@ impl Node for Pass2DNode {
 		// let t1 = std::time::Instant::now();
 		// let mut param = query_param_state.get_mut(world);
 		// pass2d_id为null， 表示一个空节点， 空节点在全局只会有一个， 用于将所有根节点渲染到屏幕
+		// 所有gui图节点， 都会链接到该节点上
 		// 该节点本身不需要分配fbo
 		// 但需要处理所有canvas节点的fbo， 将其放在组件上，以便进行批渲染
 		if EntityKey(pass2d_id).is_null() {	
@@ -214,7 +183,7 @@ impl Node for Pass2DNode {
 					_ => continue,
 				};
 				
-				let (instance_index, mut fbo_info) = match p1.get_mut(canvas_draw_obj_id.id) {
+				let (instance_index, mut _fbo_info, mut out_target) = match p1.get_mut(canvas_draw_obj_id.id) {
 					Ok(r) => r,
 					Err(_) => continue,
 				};
@@ -234,7 +203,7 @@ impl Node for Pass2DNode {
 					if let Some(target) = &out.target {
 						let mut is_set_uv = false;
 						// log::error!("target=============== {:?}", (pass2d_id, ty, visibility));
-						if let Some(fbo) = &fbo_info.out {
+						if let Some(fbo) = &out_target.0 {
 							if !Share::ptr_eq(&fbo.target().colors[0].0 , &target.target().colors[0].0) {
 								param.instance_draw.rebatch = true; // 设置rebatch为true， 使得后续重新进行批处理
 							}
@@ -255,7 +224,7 @@ impl Node for Pass2DNode {
 						visibility = false; // canvas的输出fbo为null时， 不应该显示canvas
 						// log::error!("visibility1=============== {:?}", (pass2d_id, ty, visibility));
 					}
-					fbo_info.out = out.target.clone(); // 设置到组件上， 后续批处理需要用到
+					out_target.0 = out.target.clone(); // 设置到组件上， 后续批处理需要用到
 				} else {
 					visibility = false; // canvas的输出fbo为null时， 不应该显示canvas
 					// log::error!("visibility2=============== {:?}", (pass2d_id, ty, visibility));
@@ -284,10 +253,16 @@ impl Node for Pass2DNode {
 			post_process_info,
 			instance_index,
 			list0,
-			mut fbo_info, is_show, entity) = match p0.get_mut(pass2d_id) {
+			mut fbo_info, mut out_target, is_show) = match p0.get_mut(pass2d_id) {
 			Ok(r) if r.0.layer() > 0 => r,
 			_ => return Ok(out),
 		};
+
+		// 非fbo节点， 不build
+		if !parent_pass2d_id.is_null() && !post_process_info.has_effect() {
+			return Ok(out);
+		}
+		
 		log::trace!(pass = format!("{:?}", pass2d_id).as_str(); "build graph node, instance_index: {:?}, has_effect: {:?},pass2d_id: {:?}", instance_index, post_process_info.has_effect(), pass2d_id);
 
 		match &**param.surface {
@@ -577,7 +552,7 @@ impl Node for Pass2DNode {
 			if let Some(target) = &out.target {
 				// 旧的fbo输出与新的不同， 需要重新设置uv
 				let mut is_set_uv = false;
-				if let Some(fbo) = &fbo_info.out {
+				if let Some(fbo) = &out_target.0 {
 					if !Share::ptr_eq(&fbo.target().colors[0].0 , &target.target().colors[0].0) {
 						param.instance_draw.rebatch = true; // 设置rebatch为true， 使得后续重新进行批处理
 					}
@@ -595,7 +570,7 @@ impl Node for Pass2DNode {
 					let uv_box = target.uv_box();
 					param.instance_draw.instance_data.instance_data_mut(instance_index.start).set_data(&UvUniform(uv_box.as_slice()));
 				}
-			} else if fbo_info.out.is_some() {
+			} else if out_target.0.is_some() {
 				// 旧的fbo存在， 新的fbo不存在，设置rebatch为true， 使得后续重新进行批处理
 				param.instance_draw.rebatch = true;
 			}
@@ -617,7 +592,7 @@ impl Node for Pass2DNode {
 			// 	println!("visibility=============== {:?}", (pass2d_id, instance_index.start, visibility,  out.target.is_none(), list0.instance_range.len() > 0));
 			// }
 			log::trace!("out.target======{:?}", (pass2d_id, self.target.is_some(), out.target.is_some()));
-			fbo_info.out = out.target.clone(); // 设置到组件上， 后续批处理需要用到
+			out_target.0 = out.target.clone(); // 设置到组件上， 后续批处理需要用到
 			fbo_info.fbo = self.target.as_ref().map(|r| {Share::new(r.downgrade())});
 		}
 		
@@ -700,7 +675,7 @@ impl Node for Pass2DNode {
 			let mut rt = if EntityKey(first.1).is_null() {
 				RPTarget::Screen(&surface, &param.screen.depth)
 			} else {
-				let fbo1 = param.fbo_query.get(first.1).unwrap();
+				let (fbo1, _out_target1) = param.fbo_query.get(first.1).unwrap();
 				match fbo1.fbo.as_ref() {
 					Some(r) => {
 						// log::warn!("create_rp0============={:?}", &r.target().colors[0].1);
@@ -734,14 +709,14 @@ impl Node for Pass2DNode {
 			
 			// log::warn!("draw_list============={:?}", param.instance_draw.draw_list.len());
 			// log::warn!("draw_list============={:?}", (param.instance_draw.draw_list.len(), &param.instance_draw.draw_list));
-			let mut ii = 0;
+			// let mut ii = 0;
 			for element in param.instance_draw.draw_list.iter() {
-				ii += 1;
+				// ii += 1;
 				// log::warn!("create_rp xxxxx============={:?}", &element.1);
 				let t = if EntityKey(element.1).is_null() {
 					RPTarget::Screen(&surface, &param.screen.depth)
 				} else {
-					let fbo1 = param.fbo_query.get(element.1).unwrap();
+					let (fbo1, _out_target1) = param.fbo_query.get(element.1).unwrap();
 					match fbo1.fbo.as_ref() {
 						Some(r) => {
 							// log::warn!("create_rp1============={:?}", (element.1, &r.target().colors[0].1));
@@ -864,9 +839,9 @@ impl Node for Pass2DNode {
 									continue;
 								}
 							}
-							let fbo = param.fbo_query.get(*post_pass_id).unwrap(); 
-							log::trace!("post============={:?}", (fbo.post_draw.is_some(), fbo.out.is_some()));
-							if let (Some((front_draw, final_draw)), Some(final_target)) = (&fbo.post_draw, &fbo.out) {
+							let (fbo, out_target) = param.fbo_query.get(*post_pass_id).unwrap(); 
+							log::trace!("post============={:?}", (fbo.post_draw.is_some(), out_target.0.is_some()));
+							if let (Some((front_draw, final_draw)), Some(final_target)) = (&fbo.post_draw, &out_target.0) {
 								log::trace!("post0============={:?}", post_pass_id);
 								let post_process = if let Ok(post_process) = param.post_query.get(*post_pass_id) {
 									post_process

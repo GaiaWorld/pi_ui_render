@@ -1,6 +1,6 @@
 
 use pi_style::style::StyleType;
-use pi_world::{app::App, event::{ComponentAdded, ComponentChanged}, prelude::{Changed, ComponentRemoved, Has, IntoSystemConfigs, ParamSet, Plugin, Query}, schedule::PreUpdate, single_res::SingleRes};
+use pi_world::{app::App, event::{ComponentAdded, ComponentChanged}, prelude::{IntoSystemConfigs, Plugin, Query}, single_res::SingleRes};
 use pi_bevy_ecs_extend::prelude::OrInitSingleRes;
 
 use crate::{components::user::Opacity, resource::{GlobalDirtyMark, IsRun, RenderContextMarkType}, system::{base::pass::pass_life::{self, pass_mark}, system_set::UiSystemSet}};

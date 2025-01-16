@@ -3,7 +3,7 @@
 
 
 use pi_style::style::StyleType;
-use pi_world::{event::EventSender, prelude::{Changed, ComponentRemoved, Entity, Has, ParamSet, Query, SingleResMut}, single_res::SingleRes, system::{SystemMeta, TypeInfo}, system_params::{ComponentDebugIndex, Local, SystemParam}, world::World};
+use pi_world::{event::EventSender, prelude::{Changed, ComponentRemoved, Entity, Has, ParamSet, Query, SingleResMut}, single_res::SingleRes, system::{SystemMeta, TypeInfo}, system_params::{Local, SystemParam}, world::World};
 use pi_bevy_ecs_extend::prelude::OrInitSingleRes;
 
 use pi_time::Instant;
@@ -53,7 +53,7 @@ pub fn calc_animation_1(
     global_mark: SingleRes<GlobalDirtyMark>,
     r: OrInitSingleRes<IsRun>,
 
-    a: ComponentDebugIndex<Animation>,
+    // a: ComponentDebugIndex<Animation>,
 ) {
 
     let time = Instant::now();

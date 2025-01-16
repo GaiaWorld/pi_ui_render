@@ -15,16 +15,18 @@
 //! 4. 在节点上创建其所在的Pass2D实体的索引（InPass2DId），表明节点上的渲染对象应该渲染到那个Psss2D上。
 //!
 //!
+use pi_bevy_render_plugin::{render_cross::GraphId, NodeId, PiRenderGraph};
+use pi_slotmap::SecondaryMap;
 use pi_style::style::Aabb2;
-use pi_world::{event::ComponentChanged, fetch::{OrDefault, Ticker}, filter::{Or, With}, prelude::{Alter, Changed, ComponentRemoved, Entity, Has, Mut, ParamSet, Query, SingleRes, SingleResMut}};
-use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, OrInitSingleRes, Up, Layer, LayerDirty};
+use pi_world::{event::ComponentChanged, fetch::Ticker, filter::{Or, With}, prelude::{Alter, Changed, Entity, Mut, ParamSet, Query, SingleRes, SingleResMut}, system_params::Local};
+use pi_bevy_ecs_extend::prelude::{Layer, LayerDirty, OrInitSingleRes, OrInitSingleResMut, Root, Up};
 
 use pi_null::Null;
 
 use crate::{
     components::{
-        calc::{style_bit, ContentBox, EntityKey, InPassId, LayoutResult, NeedMark, OverflowDesc, RenderContextMark, StyleBit, StyleMarkType, TransformWillChangeMatrix, View, WorldMatrix}, draw_obj::InstanceIndex, pass_2d::{Camera, ChildrenPass, ParentPassId, PostProcessInfo}, user::{Matrix4, Overflow, Point2, Vector3}, PassBundle
-    }, resource::{draw_obj::InstanceContext, EffectRenderContextMark, GlobalDirtyMark, IsRun, OtherDirtyType, RenderContextMarkType}, shader1::batch_meterial::{RenderFlagType, TyMeterial, WorldMatrixMeterial}, system::draw_obj::{set_box, set_matrix}
+        calc::{style_bit, ContentBox, EntityKey, InPassId, NeedMark, OverflowDesc, RenderContextMark, StyleBit, StyleMarkType, TransformWillChangeMatrix, View, WorldMatrix}, draw_obj::InstanceIndex, pass_2d::{Camera, ChildrenPass, ParentPassId, PostProcessInfo}, user::{Point2, Size}, PassBundle
+    }, resource::{draw_obj::InstanceContext, EffectRenderContextMark, GlobalDirtyMark, IsRun, OtherDirtyType, RenderContextMarkType}, shader1::batch_meterial::{RenderFlagType, TyMeterial}, system::{base::draw_obj::image_texture_load::AsImageBindList, draw_obj::set_matrix}
 };
 
 
@@ -56,11 +58,11 @@ pub fn cal_context(
     // mut event_reader: EventReader<ComponentEvent<Changed<RenderContextMark>>>,
     // mut event_writer: EventWriter<ComponentEvent<Changed<ParentPassId>>>,
     // mut mark_change: Query<Entity, Changed<RenderContextMark>>,
-    mut layer_dirty: LayerDirty<With<RenderContextMark>>,
+    mut layer_dirty: LayerDirty<(With<RenderContextMark>, Changed<Layer>)>,
     // dirty_list: Event<StyleChange>,
     mark_changed: ComponentChanged<RenderContextMark>,
     // mark_added: ComponentAdded<RenderContextMark>,
-    query_dirty: Query<(Ticker<&RenderContextMark>, Option<&PostProcessInfo>, Ticker<&Layer>)>,
+    query_dirty: Query<(Ticker<&RenderContextMark>, Option<&PostProcessInfo>)>,
     
     effect_mark: SingleRes<EffectRenderContextMark>,
     mut global_mark: SingleResMut<GlobalDirtyMark>,
@@ -83,7 +85,7 @@ pub fn cal_context(
     // 如果mark修改，加入层脏
     for entity in mark_changed.iter() {
         let entity = *entity;
-        if let Ok((mark, post_info, layer)) = query_dirty.get(entity) { 
+        if let Ok((mark, post_info)) = query_dirty.get(entity) { 
             if post_info.is_some() && mark.not_any() {
                 pass_life_change = true;
                 log::debug!("pass_life del========================{:?}", entity);
@@ -229,7 +231,6 @@ pub fn calc_pass_children_and_clear(
     query_pass: Query<(Entity, &ParentPassId)>,
     // mut query_root: Query<&mut RootInstance>,
     // mut temp: Local<(Vec<Entity>, Vec<Entity>)>,
-    mut instances: SingleResMut<InstanceContext>,
 	r: OrInitSingleRes<IsRun>
 ) {
     
@@ -253,72 +254,189 @@ pub fn calc_pass_children_and_clear(
             children.push(EntityKey(entity));
         }
     }
-
-    // 找到叶子节点
-    for (mut children, entity) in query.p1().iter_mut() {
-        // if let Ok(mut root_instance) = query_root.get_mut(layer.root()) {
-            if children.len() == 0 {
-                instances.temp.0.push(entity);
-            }
-            children.temp_count = children.len();
-        // }
-    }
 }
 
-
-// 
+// 对gui中的Pass进行拓扑排序
 pub fn calc_pass_toop_sort(
-    // query_mark: Query<&RenderContextMark, Changed<RenderContextMark>>,
-    mut query_children: Query<&mut ChildrenPass>,
-    query_pass: Query<(Entity, &ParentPassId, &PostProcessInfo)>,
-    // mut query_root: Query<&mut RootInstance>,
+    query_root: Query<&GraphId, (With<Root>, With<Size>)>,
+    query_post: Query<&PostProcessInfo, With<Size>>,
     mut instances: SingleResMut<InstanceContext>,
-	r: OrInitSingleRes<IsRun>
+    rg: SingleRes<PiRenderGraph>,
+	r: OrInitSingleRes<IsRun>,
+    mut temp: Local<(Vec<NodeId>, Vec<NodeId>, Vec<NodeId>, SecondaryMap<NodeId, (usize, bool)>)>,
+
+    mark_change: ComponentChanged<RenderContextMark>,
+    as_image_change: ComponentChanged<AsImageBindList>,
+
 ) {
     if r.0 {
 		return;
 	}
+
+    if mark_change.len() == 0 && as_image_change.len() == 0 {
+        mark_change.mark_read();
+        as_image_change.mark_read();
+        return;
+    }
+
+    let temp = &mut *temp;
+    let rg = &*rg;
     
-    let InstanceContext {pass_toop_list,  next_node_with_depend, temp, ..} = &mut *instances;
+    let InstanceContext {pass_toop_list,  next_node_with_depend, ..} = &mut *instances;
     // 从叶子节点开始排序
     pass_toop_list.clear();
     next_node_with_depend.clear();
-    log::debug!("calc_pass_toop_sort, temp_len:{:?}", temp.0.len());
-    // for mut root_instance in query_root.iter_mut() {
-        // root_instance.pass_toop_list.clear();
-        // root_instance.next_node_with_depend.clear();
-        // let root_instance = root_instance.bypass_change_detection();
+    // log::debug!("calc_pass_toop_sort, temp_len:{:?}", temp.0.len());
+    
+    let mut temp_before = Vec::new();
+    for i in query_root.iter() {
+        temp.1.push(i.0.clone());
+    }
+    temp_before.push(&temp.1[0..temp.1.len()]);
+    // log::warn!("temp_before======{:?}", &temp_before);
+
+    loop  {
+        let node_ids = match  temp_before.pop() {
+            Some(node_ids) => node_ids,
+            None => break,
+        };
+        // log::warn!("temp_before1======{:?}", &node_ids);
+        for node_id in node_ids {
+            match temp.3.get_mut(node_id.clone()) {
+                Some(_count) => continue, // 存在索引，表示已经迭代过了， 不需要处理 
+                None => {
+                    let before = rg.before_nodes(node_id.clone()).unwrap();
+                    temp.3.insert(node_id.clone(), (before.len(), false));
+                    if before.len() > 0 {
+                        temp_before.push(before);
+                    } else {
+                        temp.0.push(node_id.clone()); // 如果没有后续节点， 则加入当前列表
+                    }
+                },
+            };
+        }
+    }
+    temp.1.clear();
+
+
+    let mut last_depend = 0;
     while temp.0.len() > 0 { // 循环开始时， temp.0是所有的pass叶子节点
-        for entity in temp.0.drain(..) {
-            if let Ok((_, parent, post_info)) = query_pass.get(entity) {
-                if let Ok(mut children) = query_children.get_mut(*parent.0) {
-                    children.temp_count -= 1; // temp_count的初值为子pass数量
-                    children.temp_has_effect |= post_info.has_effect();
-                    if children.temp_count == 0 {
-                        if !children.temp_has_effect {
-                            temp.1.push(*parent.0);
-                        } else {
-                            temp.2.push(*parent.0);
+      
+        // log::warn!("after!!!!======{:?}", &temp.0);
+        for node_id in temp.0.drain(..) {
+            let entity = rg.get_bind(node_id.clone());
+            // log::warn!("after1======{:?}", (node_id, entity));
+            let mut has_effect = false;
+            if query_post.contains(entity) { // 对应节点为gui节点
+                pass_toop_list.push(entity); // 加入到pass_toop_list
+                if let Ok(post_info) = query_post.get(entity) {
+                    has_effect = post_info.has_effect();
+                }
+            } else if pass_toop_list.len() != last_depend {
+                // log::warn!("zzzz======================{:?}", (entity, pass_toop_list.len()));
+                // next_node_with_depend.push(pass_toop_list.len()); // 下一个存在依赖的节点在toop排序中的索引
+                // last_depend = pass_toop_list.len();
+                has_effect = true;
+            };
+
+            let after = rg.after_nodes(node_id).unwrap(); //
+            // log::warn!("after2======{:?}", after);
+            for node_id in after {
+                if let Some((count, before_has_effect)) = temp.3.get_mut(node_id.clone()) {
+                    *count = *count - 1;
+                    *before_has_effect |= has_effect;
+                    // log::warn!("after3======{:?}", (node_id, *count));
+                    if *count == 0 { // 依赖已经分析完毕
+                        if *before_has_effect { // 前置节点存在fbo依赖
+                            temp.1.push(node_id.clone());
+                        } else { // 前置节点不存在fbo依赖
+                            temp.2.push(node_id.clone());
                         }
-                        children.temp_has_effect = false;
                     }
                 }
             }
-            pass_toop_list.push(entity);
         }
-        if temp.1.len() > 0 {
-            std::mem::swap(&mut temp.0, &mut temp.1);
-        } else {
-            let l = pass_toop_list.len();
-            next_node_with_depend.push(l); // 下一个存在依赖的节点在toop排序中的索引
+
+        if temp.2.len() > 0 { // 非fbo节点
+            // log::warn!("2222======================{:?}", (&temp.2));
             std::mem::swap(&mut temp.0, &mut temp.2);
+        } else {
+            
+            if temp.1.len() > 0 {
+                std::mem::swap(&mut temp.0, &mut temp.1);
+            }
+            let l = pass_toop_list.len();
+            // log::warn!("111======================{:?}", (l, &temp.0));
+            if l != last_depend {
+                next_node_with_depend.push(l); // 下一个存在依赖的节点在toop排序中的索引
+                last_depend = l;
+            }
         } 
+
+        
     }
 
     temp.0.clear();
     temp.1.clear();
     temp.2.clear();
+    temp.3.clear();
+    // log::warn!("pass_toop_list======{:?}", (&pass_toop_list, &next_node_with_depend));
 }
+
+
+// // 
+// pub fn calc_pass_toop_sort(
+//     // query_mark: Query<&RenderContextMark, Changed<RenderContextMark>>,
+//     mut query_children: Query<&mut ChildrenPass>,
+//     query_pass: Query<(Entity, &ParentPassId, &PostProcessInfo)>,
+//     // mut query_root: Query<&mut RootInstance>,
+//     mut instances: SingleResMut<InstanceContext>,
+// 	r: OrInitSingleRes<IsRun>
+// ) {
+//     if r.0 {
+// 		return;
+// 	}
+    
+//     let InstanceContext {pass_toop_list,  next_node_with_depend, temp, ..} = &mut *instances;
+//     // 从叶子节点开始排序
+//     pass_toop_list.clear();
+//     next_node_with_depend.clear();
+//     log::debug!("calc_pass_toop_sort, temp_len:{:?}", temp.0.len());
+//     // for mut root_instance in query_root.iter_mut() {
+//         // root_instance.pass_toop_list.clear();
+//         // root_instance.next_node_with_depend.clear();
+//         // let root_instance = root_instance.bypass_change_detection();
+//     while temp.0.len() > 0 { // 循环开始时， temp.0是所有的pass叶子节点
+//         for entity in temp.0.drain(..) {
+//             if let Ok((_, parent, post_info)) = query_pass.get(entity) {
+//                 if let Ok(mut children) = query_children.get_mut(*parent.0) {
+//                     children.temp_count -= 1; // temp_count的初值为子pass数量
+//                     children.temp_has_effect |= post_info.has_effect();
+//                     if children.temp_count == 0 {
+//                         if !children.temp_has_effect {
+//                             temp.1.push(*parent.0);
+//                         } else {
+//                             temp.2.push(*parent.0);
+//                         }
+//                         children.temp_has_effect = false;
+//                     }
+//                 }
+//             }
+//             pass_toop_list.push(entity);
+//         }
+//         if temp.1.len() > 0 {
+//             std::mem::swap(&mut temp.0, &mut temp.1);
+//         } else {
+//             let l = pass_toop_list.len();
+//             next_node_with_depend.push(l); // 下一个存在依赖的节点在toop排序中的索引
+//             std::mem::swap(&mut temp.0, &mut temp.2);
+//         } 
+//     }
+
+//     temp.0.clear();
+//     temp.1.clear();
+//     temp.2.clear();
+// }
 
 
 /// 标记RenderContextMark
@@ -364,10 +482,9 @@ pub fn calc_pass(
         &Camera,
         &View,
         &TransformWillChangeMatrix,
-        OrDefault<Overflow>,
-        &LayoutResult,
-        &ContentBox,
-        Entity,
+        // OrDefault<Overflow>,
+        // &LayoutResult,
+        // &ContentBox,
     ), Or<(Changed<PostProcessInfo>, Changed<WorldMatrix>, Changed<ContentBox>)>>,
     // query1: Query<
 	// 	(
@@ -381,7 +498,7 @@ pub fn calc_pass(
     if r.0 {
 		return;
 	}
-    for (instance_index, parent_pass_id, camera, view, will_change, overflow, layout, content_box, entity) in query.iter() {
+    for (instance_index, parent_pass_id, camera, view, will_change) in query.iter() {
         log::debug!("passs1==============={:?}", instance_index.0.start);
         // 节点可能设置为dispaly none， 此时instance_index可能为Null
         // 节点可能没有后处理效果， 此时instance_index为Null
@@ -409,23 +526,23 @@ pub fn calc_pass(
             render_flag |= 1 << RenderFlagType::IgnoreCamera as usize;
             instance_data.set_data(&TyMeterial(&[render_flag as f32]));
         } else {
-            let (left, top, width, height) = if **overflow {
-                // oveflow需要裁剪子节点到内容区域（注意，同时也将自身裁剪到内容区域，这与浏览器标准不符）
-                (
-                    layout.border.left + layout.padding.left,
-                    layout.border.top + layout.padding.top,
-                    layout.rect.right - (layout.border.right + layout.padding.right) - layout.rect.left,
-                    layout.rect.bottom - (layout.border.top + layout.padding.top) - layout.rect.top,
-                )
-            } else {
-                // 如果子节点设有transform， 并且使得超出了本节点的布局范围会有问题（如何解决？TODO）
-                (
-                    0.0,
-                    0.0,
-                    content_box.layout.maxs.x - content_box.layout.mins.x,
-                    content_box.layout.maxs.y - content_box.layout.mins.y,
-                )
-            };
+            // let (left, top, width, height) = if **overflow {
+            //     // oveflow需要裁剪子节点到内容区域（注意，同时也将自身裁剪到内容区域，这与浏览器标准不符）
+            //     (
+            //         layout.border.left + layout.padding.left,
+            //         layout.border.top + layout.padding.top,
+            //         layout.rect.right - (layout.border.right + layout.padding.right) - layout.rect.left,
+            //         layout.rect.bottom - (layout.border.top + layout.padding.top) - layout.rect.top,
+            //     )
+            // } else {
+            //     // 如果子节点设有transform， 并且使得超出了本节点的布局范围会有问题（如何解决？TODO）
+            //     (
+            //         0.0,
+            //         0.0,
+            //         content_box.layout.maxs.x - content_box.layout.mins.x,
+            //         content_box.layout.maxs.y - content_box.layout.mins.y,
+            //     )
+            // };
             // instance_data.set_data(&BoxUniform(&[left, top, width, height]));
             instance_data.set_data(&TyMeterial(&[render_flag as f32]));
             // 设置quad到世界位置
@@ -602,31 +719,31 @@ pub fn calc_pass(
 	}
 }
 
-fn context_attr_del<T>(
-    dels: &mut Query<(&'static mut RenderContextMark, Has<T>)>,
-    removed: &mut ComponentRemoved<T>,
-    mark_type: usize,
-    // event_writer: &mut EventWriter<ComponentEvent<Changed<RenderContextMark>>>,
-    // render_context: &mut Query<&'static mut RenderContextMark>,
-) {
-    // Opacity组件删除，取消渲染上下文标记
-    for i in removed.iter() {
-        if let Ok((mut render_mark_value, has_t)) = dels.get_mut(*i) {
-            if has_t {
-                continue;
-            }
-            unsafe { render_mark_value.replace_unchecked(mark_type, false) };
-            // 通知（RenderContextMark组件在每个节点上都存在， 但实际上，是渲染上下文的节点不多，基于通知的改变更高效）
-            // log::debug!("pass_mark_del,{:?}, {:?}", del, std::any::type_name::<T>());
-            // if unsafe { render_mark_value.replace_unchecked(mark_type, false) } {
-            //     // 通知（RenderContextMark组件在每个节点上都存在， 但实际上，是渲染上下文的节点不多，基于通知的改变更高效）
-            //     log::debug!("pass_mark_del,{:?}, {:?}", del, std::any::type_name::<T>());
-            //     event_writer.send(ComponentEvent::new(del));
-            // }
-        }
-    }
+// fn context_attr_del<T>(
+//     dels: &mut Query<(&'static mut RenderContextMark, Has<T>)>,
+//     removed: &mut ComponentRemoved<T>,
+//     mark_type: usize,
+//     // event_writer: &mut EventWriter<ComponentEvent<Changed<RenderContextMark>>>,
+//     // render_context: &mut Query<&'static mut RenderContextMark>,
+// ) {
+//     // Opacity组件删除，取消渲染上下文标记
+//     for i in removed.iter() {
+//         if let Ok((mut render_mark_value, has_t)) = dels.get_mut(*i) {
+//             if has_t {
+//                 continue;
+//             }
+//             unsafe { render_mark_value.replace_unchecked(mark_type, false) };
+//             // 通知（RenderContextMark组件在每个节点上都存在， 但实际上，是渲染上下文的节点不多，基于通知的改变更高效）
+//             // log::debug!("pass_mark_del,{:?}, {:?}", del, std::any::type_name::<T>());
+//             // if unsafe { render_mark_value.replace_unchecked(mark_type, false) } {
+//             //     // 通知（RenderContextMark组件在每个节点上都存在， 但实际上，是渲染上下文的节点不多，基于通知的改变更高效）
+//             //     log::debug!("pass_mark_del,{:?}, {:?}", del, std::any::type_name::<T>());
+//             //     event_writer.send(ComponentEvent::new(del));
+//             // }
+//         }
+//     }
     
-}
+// }
 
 
 #[inline]

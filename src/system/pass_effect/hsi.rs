@@ -1,5 +1,5 @@
 use pi_style::style::StyleType;
-use pi_world::{event::{ComponentAdded, ComponentChanged}, prelude::{Changed, ComponentRemoved, Entity, Has, ParamSet, Query}, schedule::PreUpdate, single_res::SingleRes};
+use pi_world::{event::{ComponentAdded, ComponentChanged}, prelude::{Entity, Query}, single_res::SingleRes};
 use pi_bevy_ecs_extend::prelude::OrInitSingleRes;
 
 use crate::{components::user::Hsi, resource::{GlobalDirtyMark, IsRun, RenderContextMarkType}, system::{base::pass::pass_life::pass_mark, system_set::UiSystemSet}};
@@ -7,7 +7,7 @@ use crate::{components::user::Hsi, resource::{GlobalDirtyMark, IsRun, RenderCont
 use pi_postprocess::effect::HSB;
 
 use crate::components::pass_2d::{PostProcess, PostProcessInfo};
-use pi_world::prelude::{App, Plugin, PostUpdate, IntoSystemConfigs};
+use pi_world::prelude::{App, Plugin, IntoSystemConfigs};
 use crate::prelude::UiStage;
 
 pub struct HsiPlugin;

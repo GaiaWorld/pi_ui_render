@@ -1,5 +1,5 @@
-use pi_style::style::StyleType;
-use pi_world::{event::{ComponentAdded, ComponentChanged}, prelude::{App, Changed, ComponentRemoved, Has, IntoSystemConfigs, ParamSet, Plugin, Query}, single_res::SingleRes};
+
+use pi_world::{event::{ComponentAdded, ComponentChanged}, prelude::{App, IntoSystemConfigs, Plugin, Query}};
 use pi_bevy_ecs_extend::prelude::OrInitSingleRes;
 
 use crate::{
@@ -7,7 +7,7 @@ use crate::{
         pass_2d::PostProcessInfo,
         user::RadialWave,
     },
-    resource::{GlobalDirtyMark, IsRun, RenderContextMarkType},
+    resource::{ IsRun, RenderContextMarkType},
     system::system_set::UiSystemSet,
 };
 
@@ -78,7 +78,7 @@ pub fn radial_wave_post_process(
     }
 }
 
-pub fn radial_wave_changed(mut changed: ComponentAdded<RadialWave>) -> bool {
+pub fn radial_wave_changed(changed: ComponentAdded<RadialWave>) -> bool {
     let r = changed.len() > 0;
     changed.mark_read();
     r

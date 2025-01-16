@@ -14,7 +14,7 @@ use pi_style::style::{ImageRepeatOption, StyleType};
 use pi_world::single_res::{SingleRes, SingleResMut};
 use pi_world::world::Entity;
 
-use crate::components::calc::{style_bit, BackgroundImageTexture, DrawList, LayoutResult, SdfSlice, SdfUv, StyleBit, StyleMark, StyleMarkType, LAYOUT_DIRTY};
+use crate::components::calc::{style_bit, BackgroundImageTexture, DrawList, LayoutResult, SdfSlice, SdfUv, StyleBit, StyleMark, StyleMarkType, Texture, LAYOUT_DIRTY};
 use crate::components::draw_obj::{BackgroundImageMark, BoxType, InstanceIndex, RenderCount, TempGeo};
 use crate::components::user::{BackgroundImageClip, BackgroundImageMod, FitType, Point2, Size, Vector2};
 use crate::resource::draw_obj::InstanceContext;
@@ -41,7 +41,7 @@ impl Plugin for BackgroundImagePlugin {
     fn build(&self, app: &mut pi_world::prelude::App) {
 		app
 			// .add_frame_event::<ComponentEvent<Changed<BackgroundImageTexture>>>()
-			.add_system(UiStage, image_texture_load::image_load::<BackgroundImage, BackgroundImageTexture, {OtherDirtyType::BackgroundImageTexture}>
+			.add_system(UiStage, image_texture_load::image_load::<BackgroundImage, BackgroundImageTexture, {OtherDirtyType::BackgroundImageTexture}, BackgroundImageRenderObjType>
 				.in_set(UiSystemSet::NextSetting)
 
 				.after(transition_2))
@@ -58,7 +58,7 @@ impl Plugin for BackgroundImagePlugin {
 				>
 					.in_set(UiSystemSet::LifeDrawObject)
 					.run_if(background_image_life_change)
-					.after(image_texture_load::image_load::<BackgroundImage, BackgroundImageTexture, {OtherDirtyType::BackgroundImageTexture}>),
+					.after(image_texture_load::image_load::<BackgroundImage, BackgroundImageTexture, {OtherDirtyType::BackgroundImageTexture}, BackgroundImageRenderObjType>),
 			)
 			.add_system(UiStage, 
 				calc_background_image
@@ -248,9 +248,11 @@ pub fn calc_background_image_inner(
 	let background_image_texture = match &background_image_texture_ref.0 {
 		Some(r) => {
 			// 图片不一致， 返回
-			if *r.key() != background_image.0.str_hash() as u64 {
-				log::debug!("calc_background_image1, entity={:?}, {:?}", entity, (r.key(), background_image.0.str_hash()));
-				return None;
+			if let Texture::All(r) = r {
+				if *r.key() != background_image.0.str_hash() as u64 {
+					log::debug!("calc_background_image1, entity={:?}, {:?}", entity, (r.key(), background_image.0.str_hash()));
+					return None;
+				}
 			}
 			r
 		},
@@ -296,12 +298,12 @@ pub fn calc_background_image_inner(
 		let mut pend = padding_aabb.maxs.clone();
 		let padding_width = padding_aabb.maxs.x - padding_aabb.mins.x;
 		let padding_height = padding_aabb.maxs.y - padding_aabb.mins.y;
+		let s = background_image_texture.size();
 		let texture_size = Vector2::new(
-			background_image_texture.width as f32 * (background_image_clip.right - background_image_clip.left).abs(),
-			background_image_texture.height as f32 * (background_image_clip.bottom - background_image_clip.top).abs(),
+			s.width as f32 * (background_image_clip.right - background_image_clip.left).abs(),
+			s.height as f32 * (background_image_clip.bottom - background_image_clip.top).abs(),
 		);
-		let mut uv1 = Point2::new(*background_image_clip.left, *background_image_clip.top);
-		let mut uv2 = Point2::new(*background_image_clip.right, *background_image_clip.bottom);
+		let (mut uv1, mut uv2) = background_image_texture.to_uv(&background_image_clip);
 
 		let mut box_ty = BoxType::None;
 		if background_image_mod.repeat.x == ImageRepeatOption::Stretch && background_image_mod.repeat.y == ImageRepeatOption::Stretch {
@@ -464,14 +466,15 @@ pub fn set_image_default_size(
     // 处理增加的图片问题
     for (mut size, texture, clip, style_mark) in param.p1().iter_mut() {
 		if let Some(texture) = &texture.0 {
+			let s = texture.size();
 			// 本地样式和class样式都未设置宽度，设置默认图片宽度
 			if style_mark.local_style[StyleType::Width as usize] == false && style_mark.class_style[StyleType::Width as usize] == false {
-				size.width = Dimension::Points(texture.width as f32 * *(clip.right - clip.left));
+				size.width = Dimension::Points(s.width as f32 * *(clip.right - clip.left));
 			}
 
 			// 本地样式和class样式都未设置高度，设置默认图片高度
 			if style_mark.local_style[StyleType::Height as usize] == false && style_mark.class_style[StyleType::Height as usize] == false {
-				size.height = Dimension::Points(texture.height as f32 * *(clip.bottom - clip.top));
+				size.height = Dimension::Points(s.height as f32 * *(clip.bottom - clip.top));
 			}
 		}
 	}

@@ -4,7 +4,7 @@ use pi_world::{filter::Or, prelude::{Changed, Entity, Has, Local, OrDefault, Par
 use pi_bevy_ecs_extend::prelude::{OrInitSingleRes, Up, Layer, DirtyMark};
 
 use crate::{
-    components::{calc::{style_bit, StyleBit, StyleMarkType}, user::TransformWillChange}, resource::{GlobalDirtyMark, IsRun, OtherDirtyType}, system::{base::{node::world_matrix, pass::{pass_dirty_rect::OldTransformWillChange, pass_life}}, system_set::UiSystemSet}
+    components::{calc::{style_bit, StyleBit, StyleMarkType}, user::TransformWillChange}, resource::{GlobalDirtyMark, IsRun, OtherDirtyType}, system::{base::{node::world_matrix, pass::pass_life}, system_set::UiSystemSet}
 };
 
 use pi_hash::XHashMap;

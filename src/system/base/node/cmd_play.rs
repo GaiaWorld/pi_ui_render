@@ -115,7 +115,7 @@ pub fn cmd_record(
 
 
 pub fn cmd_play(
-    mut records: OrInitSingleResMut<Records>, 
+    records: OrInitSingleResMut<Records>, 
     mut play_state: OrInitSingleResMut<PlayState>, 
     mut user_commands: OrInitSingleResMut<UserCommands>,
     insert: Insert<()>,

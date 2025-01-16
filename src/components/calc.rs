@@ -1,5 +1,8 @@
 //! 定义计算组件（非用户设置的组件）
 
+use pi_bevy_render_plugin::render_cross::GraphId;
+use pi_flex_layout::prelude::SideGap;
+use pi_render::components::view::target_alloc::ShareTargetView;
 use pi_world::insert::Component;
 use pi_world::prelude::Entity;
 use pi_style::style::AllTransform;
@@ -34,8 +37,9 @@ pub use super::user::{NodeState, StyleType};
 
 pub struct LayoutResult {
     pub rect: Rect<f32>,
-    pub border: Rect<f32>,
-    pub padding: Rect<f32>,
+    pub border: SideGap<f32>,
+    pub padding: SideGap<f32>,
+    pub absolute: bool,
 }
 
 impl Default for LayoutResult {
@@ -47,18 +51,19 @@ impl Default for LayoutResult {
                 top: 0.0,
                 bottom: 0.0,
             },
-            border: Rect {
+            border: SideGap {
                 left: 0.0,
                 right: 0.0,
                 top: 0.0,
                 bottom: 0.0,
             },
-            padding: Rect {
+            padding: SideGap {
                 left: 0.0,
                 right: 0.0,
                 top: 0.0,
                 bottom: 0.0,
             },
+            absolute: false,
         }
     }
 }
@@ -687,8 +692,8 @@ impl FromWorld for SdfUv {
     }
 }
 
-#[derive(Debug, Clone, Default)]
-pub struct MaskTexture (pub Option<Handle<AssetWithId<TextureRes>>>);
+#[derive(Debug, Clone, Default, Deref)]
+pub struct MaskTexture(pub Option<Texture>);
 
 impl Null for MaskTexture {
     fn null() -> Self { 
@@ -705,24 +710,27 @@ impl PartialEq for MaskTexture {
 			(None, None) => true,
 			(None, Some(_)) => false,
 			(Some(_), None) => false,
-			(Some(r1), Some(r2)) =>  Share::ptr_eq(r1, r2),
+			(Some(r1), Some(r2)) =>  r1.eq(r2),
 		}
     }
 }
 impl Eq for MaskTexture {}
 
 
-impl From<Handle<AssetWithId<TextureRes>>> for MaskTexture {
-    fn from(handle: Handle<AssetWithId<TextureRes>>) -> Self { MaskTexture(Some(handle)) }
+impl From<Texture> for MaskTexture {
+    fn from(handle: Texture) -> Self { MaskTexture(Some(handle)) }
 }
 
 impl From<Option<Handle<AssetWithId<TextureRes>>>> for MaskTexture {
-    fn from(handle: Option<Handle<AssetWithId<TextureRes>>>) -> Self { MaskTexture(handle) }
+    fn from(handle: Option<Handle<AssetWithId<TextureRes>>>) -> Self { MaskTexture(match handle {
+        Some(handle) => Some(Texture::All(handle)),
+        None => None,
+    }) }
 }
 
-impl From<MaskTexture> for Option<Handle<AssetWithId<TextureRes>>>{
-    fn from(mask_texture: MaskTexture) -> Self { mask_texture.0 }
-}
+// impl From<MaskTexture> for Option<Handle<AssetWithId<TextureRes>>>{
+//     fn from(mask_texture: MaskTexture) -> Self { mask_texture.0 }
+// }
 
 #[derive(Deref, Debug, PartialEq, Eq, Hash, Ord, PartialOrd, Copy, Clone, Serialize, Deserialize)]
 pub struct EntityKey(pub Entity);
@@ -944,7 +952,7 @@ impl Default for OverflowDesc {
 /// BorderImageTexture.0只有在设置了图片路径，但纹理还未加载成功的情况下，才会为none
 /// 如果删除了图片路径，会删除该组件
 #[derive(Deref, Default)]
-pub struct BorderImageTexture(pub Option<Handle<AssetWithId<TextureRes>>>);
+pub struct BorderImageTexture(pub Option<Texture>);
 
 impl PartialEq for BorderImageTexture {
     #[inline]
@@ -953,15 +961,15 @@ impl PartialEq for BorderImageTexture {
 			(None, None) => true,
 			(None, Some(_)) => false,
 			(Some(_), None) => false,
-			(Some(r1), Some(r2)) =>  Share::ptr_eq(r1, r2),
+			(Some(r1), Some(r2)) => r1.eq( r2),
 		}
     }
 }
 impl Eq for BorderImageTexture {}
 
 
-impl From<Handle<AssetWithId<TextureRes>>> for BorderImageTexture {
-    fn from(handle: Handle<AssetWithId<TextureRes>>) -> Self { Self(Some(handle)) }
+impl From<Texture> for BorderImageTexture {
+    fn from(handle: Texture) -> Self { Self(Some(handle)) }
 }
 
 
@@ -971,10 +979,71 @@ impl Null for BorderImageTexture {
     fn is_null(&self) -> bool { self.0.is_none() }
 }
 
+#[derive(Debug, Clone)]
+pub enum Texture {
+    All(Handle<AssetWithId<TextureRes>>),
+    Part(ShareTargetView, GraphId)
+}
+
+impl Texture {
+    pub fn size(&self) -> FlexSize<u32> {
+        match self {
+            Texture::All(handle) => FlexSize {
+                width: handle.width,
+                height: handle.height,
+            },
+            Texture::Part(r, _) => {
+                let rect = r.rect();
+                FlexSize {
+                    width: rect.width() as u32,
+                    height: rect.height() as u32,
+                }
+            }
+        }
+    }
+
+    pub fn to_uv(&self, clip: &NotNanRect) -> (Point2, Point2) {
+        match self {
+            Texture::All(_handle) => (
+                Point2::new(*clip.left, *clip.top),
+                Point2::new(*clip.right, *clip.bottom),
+            ),
+            Texture::Part(r, _) => {
+                let rect = r.rect();
+                let size = FlexSize {
+                    width: rect.width() as f32,
+                    height: rect.height() as f32,
+                };
+                let (top, right, bottom, left) = (
+                    *clip.top * size.height,
+                    *clip.right * size.width,
+                    *clip.bottom * size.height,
+                    *clip.left * size.width,
+                );
+                let (width, height) = (r.target().width as f32, r.target().height as f32);
+                (
+                    Point2::new((left + rect.min.x as f32) / width, (top + rect.min.y as f32) / height),
+                    Point2::new((right + rect.min.x as f32) / width, (bottom + rect.min.y as f32) / height),
+                )
+            }
+        }
+    }
+}
+
+impl PartialEq for Texture {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Texture::All(r1), Texture::All(r2)) =>  Share::ptr_eq(r1, r2),
+            (Texture::Part(r1, e1), Texture::Part(r2, e2)) =>  Share::ptr_eq(r1, r2) && e2 == e1,
+            _ => false,
+        }
+    }
+}
+
 /// BackgroundImageTexture.0只有在设置了图片路径，但纹理还未加载成功的情况下，才会为none
 /// 如果删除了图片路径，会删除该组件
 #[derive(Deref, Default)]
-pub struct BackgroundImageTexture(pub Option<Handle<AssetWithId<TextureRes>>>);
+pub struct BackgroundImageTexture(pub Option<Texture>);
 
 impl PartialEq for BackgroundImageTexture {
     #[inline]
@@ -983,14 +1052,14 @@ impl PartialEq for BackgroundImageTexture {
 			(None, None) => true,
 			(None, Some(_)) => false,
 			(Some(_), None) => false,
-			(Some(r1), Some(r2)) =>  Share::ptr_eq(r1, r2),
+			(Some(r1), Some(r2)) => r1.eq(r2),
 		}
     }
 }
 impl Eq for BackgroundImageTexture {}
 
-impl From<Handle<AssetWithId<TextureRes>>> for BackgroundImageTexture {
-    fn from(handle: Handle<AssetWithId<TextureRes>>) -> Self { Self(Some(handle)) }
+impl From<Texture> for BackgroundImageTexture {
+    fn from(handle: Texture) -> Self { Self(Some(handle)) }
 }
 
 impl Null for BackgroundImageTexture {

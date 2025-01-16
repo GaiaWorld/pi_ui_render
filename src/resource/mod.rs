@@ -8,14 +8,13 @@ pub use cmd::*;
 use pi_atom::Atom;
 use pi_bevy_asset::ShareAssetMgr;
 use pi_bevy_render_plugin::TextureKeyAlloter;
-use pi_bevy_render_plugin::{PiRenderDevice, PiRenderQueue, node:: NodeId as GraphNodeId};
+use pi_bevy_render_plugin::{PiRenderDevice, PiRenderQueue};
 use pi_hal::font::font::FontType;
 use pi_map::Map;
 use pi_null::Null;
 use pi_render::font::FontSheet;
 use pi_render::rhi::asset::{TextureRes, AssetWithId};
 use pi_share::{Share, ShareCell};
-use pi_slotmap::SecondaryMap;
 use pi_style::style::{Aabb2, CgColor};
 use pi_world::world::ComponentIndex;
 use pi_key_alloter::Key;
@@ -844,6 +843,3 @@ impl ShareFontSheet {
     }
 }
 
-/// 建立PassId和GraphNodeId的映射
-#[derive(Deref, Default)]
-pub struct PassGraphMap(pub SecondaryMap<GraphNodeId, Entity>);

@@ -43,8 +43,8 @@ impl Plugin for UiPassPlugin {
                     .after(UiSystemSet::PassFlush), // 在上下文创建之后执行
             )
             .add_system(UiStage, pass_life::calc_pass_toop_sort
-                .run_if(pass_life_children)
-                .after(UiSystemSet::PassSetting)
+                // .run_if(pass_life_children)
+                .after(update_graph::update_graph)
             )
             .add_startup_system(UiStage, init_root_graph)
             // 计算图节点及其依赖

@@ -1,5 +1,6 @@
 
 
+use pi_bevy_render_plugin::asimage_url::RenderTarget;
 use pi_world::alter::Alter;
 use pi_world::event::{ComponentAdded, ComponentChanged};
 use pi_world::insert::Bundle;
@@ -34,7 +35,7 @@ use crate::resource::{GlobalDirtyMark, IsRun, OtherDirtyType, RenderObjType};
 
 use crate::components::calc::DrawList;
 use crate::shader1::GpuBuffer;
-use crate::shader1::batch_meterial::{BatchMeterial, DebugInfo, DepthMeterial, LayoutUniform, MeterialBind, RenderFlagType, TetxureIndexMeterial, TyMeterial, WorldMatrixMeterial};
+use crate::shader1::batch_meterial::{BatchMeterial, DebugInfo, DepthMeterial, MeterialBind, RenderFlagType, TetxureIndexMeterial, TyMeterial, WorldMatrixMeterial};
 
 /// 新版本的draw_object生命周期管理
 /// 用于创建和销毁drawobj
@@ -624,7 +625,7 @@ pub fn batch_instance_data(
 			_ => continue
 		};
 		log::debug!("pass_toop_list!!!!!11111===={:?}", pass_id);
-		let (_, _, fbo_info) = query.draw_query.get(*pass_id).unwrap();
+		let (_, _, fbo_info, _render_target) = query.draw_query.get(*pass_id).unwrap();
 		
 
 		let mut fbo_changed = false;
@@ -662,7 +663,7 @@ pub fn batch_instance_data(
 			// 1. 与上一个pass相比， fbo发生了改变（处理第一个pass时， 不算发生了改变）
 			// 2. 当前Pass与之前处理的pass存在依赖关系
 			// 3. 迭代到最后一个pass
-			let (split_index/*上一个清屏的批处理索引：单位（批次）*/, end/*实例数据的结束偏移：单位（字节）*/, draw_call_count/*该次清屏，对应的drawcall数量*/) = if fbo_changed1 || active_changed || old_next_node_with_depend_index != batch_state.next_node_with_depend_index {
+			let (split_index/*上一个清屏的批处理索引：单位（批次）*/, end/*实例数据的结束偏移：单位（字节）*/, _draw_call_count/*该次清屏，对应的drawcall数量*/) = if fbo_changed1 || active_changed || old_next_node_with_depend_index != batch_state.next_node_with_depend_index {
 				old_next_node_with_depend_index = batch_state.next_node_with_depend_index;
 				// 如果fbo发生了改变， 重新劈分clear
 				log::trace!("DrawElement::Clear====={:?}, {:?}, {:?}, {:?}", pass_id, pass_index, draw_2d_list.clear_instance/224, instances.next_node_with_depend);
@@ -781,6 +782,7 @@ pub fn batch_instance_data(
 		// log::warn!("root======={:?}", root);
 		if !instance_index.start.is_null() {
 			let p = instances.common_pipeline.clone();
+			// instance_index.start不为null， 则需要将该跟对应的fbo渲染到屏幕上
 			instances.draw_list.push((DrawElement::DrawInstance {
 				draw_state: InstanceDrawState { 
 					instance_data_range: instance_index.start..instance_index.end, 
@@ -792,8 +794,8 @@ pub fn batch_instance_data(
 				pass: root,
 			}, EntityKey::null().0));
 
-			let (_, _, fbo_info) = query.draw_query.get(root).unwrap();
-			if let Some(target) = &fbo_info.out {
+			let (_, _, _fbo_info, render_target) = query.draw_query.get(root).unwrap();
+			if let Some(target) = &render_target.0 {
 				let texture = &target.target().colors[0].0;
 				let (texture_index, group) = instances.batch_texture.push(texture, &query.common_sampler.pointer, &query.device);
 				instances.instance_data.instance_data_mut(instance_index.start).set_data(&TetxureIndexMeterial(&[texture_index as f32])); // 设置drawobj的纹理索引
@@ -956,8 +958,8 @@ fn batch_pass(
 		let cur_pipeline = match draw_index.clone() {
 			DrawIndex::DrawObj{ 
 				draw_entity, 
-				node_entity,
-			 } => if let Ok((instance_split, pipeline, fbo_info)) = query.draw_query.get(*draw_entity) {
+				..
+			 } => if let Ok((instance_split, pipeline, _fbo_info, render_target)) = query.draw_query.get(*draw_entity) {
 				// 为每一个drawObj分配新索引
 				let index = query.instance_index.get_mut(draw_entity.0).unwrap();
 				instance_data_end1 = instance_data_end;
@@ -1007,7 +1009,7 @@ fn batch_pass(
 								};
 								let mut instance_data = instances.instance_data.instance_data_mut(index.start);
 								instance_data.set_data(&TyMeterial(&[ty as f32]));
-								if let Some(r) = &fbo_info.out {
+								if let Some(r) = &render_target.0 {
 									split_by_texture = Some((index.clone(), &r.target().colors[0].0, &query.common_sampler.pointer)); // TODO， 根据纹理尺寸目标尺寸选择混合模式
 								}
 
@@ -1032,11 +1034,11 @@ fn batch_pass(
 			},
 			DrawIndex::Pass2D(cur_pass) => match query.post_info_query.get(cur_pass.0) {
 				Ok(post_info) if  post_info.has_effect() => {
-					let (_, _, fbo_info) = query.draw_query.get(cur_pass.0).unwrap();
+					let (_, _, _fbo_info, render_target) = query.draw_query.get(cur_pass.0).unwrap();
 					let index = query.instance_index.get_mut(cur_pass.0).unwrap();
 					instance_data_end1 = instance_data_end;
 					instance_data_end = index.end;
-					if let Some(r) = &fbo_info.out {
+					if let Some(r) = &render_target.0 {
 						// log::warn!("pass=========={:?}", (cur_pass, index.start/224, &r.target().colors[0].1));
 						split_by_texture = Some((index.clone(), &r.target().colors[0].0, &query.common_sampler.pointer)); // fbo拷贝使用点采样
 
@@ -1189,7 +1191,7 @@ fn batch_pass(
 pub struct BatchQuery<'w> {
 	pass_query: Query<'w, &'static mut Draw2DList>,
 	post_info_query: Query<'w, &'static PostProcessInfo>,
-	draw_query: Query<'w, (Option<&'static InstanceSplit>, Option<&'static Pipeline>, OrDefault<FboInfo>)>,
+	draw_query: Query<'w, (Option<&'static InstanceSplit>, Option<&'static Pipeline>, OrDefault<FboInfo>, OrDefault<RenderTarget>)>,
 	instance_index: Query<'w, &'static InstanceIndex>,
 	common_sampler: OrInitSingleRes<'w,CommonSampler>,
 	device: SingleRes<'w,PiRenderDevice>,

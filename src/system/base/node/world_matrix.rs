@@ -38,7 +38,7 @@
 //!
 //! 可以考虑： 当父矩阵计算完成后，父节点所有子节点所形成的子树，可以并行计算（他们依赖的父矩阵已经计算完毕）
 use pi_bevy_ecs_extend::system_param::tree::Down;
-use pi_world::event::{ComponentAdded, ComponentChanged, EventSender};
+use pi_world::event::{ComponentAdded, ComponentChanged};
 use pi_world::prelude::{ParamSet, Query, SingleResMut, Entity, With};
 use pi_bevy_ecs_extend::prelude::{Layer, LayerDirty, OrInitSingleRes, Up};
 
@@ -222,7 +222,7 @@ pub fn cal_matrix(
                     }
                 };
 
-                let offset = (layout.rect.left + parent_layout.padding.left, layout.rect.top + parent_layout.padding.top);
+                let offset = (layout.rect.left + parent_layout.border.left, layout.rect.top + parent_layout.border.top);
                 match transform {
                     // transform存在时，根据transform和布局计算得到变换矩阵，再乘以父矩阵
                     Some(transform) => {

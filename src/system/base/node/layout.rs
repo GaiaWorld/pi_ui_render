@@ -12,13 +12,12 @@ use std::{
     ops::{Index, IndexMut},
 };
 
-use pi_style::style::StyleType;
+use pi_style::style::{StyleType, TextStyle};
 use pi_world::{event::Event, fetch::Ticker, prelude::{Entity, Local, Mut, OrDefault, Query, With}, single_res::SingleRes};
 use pi_bevy_ecs_extend::prelude::{Down as Down1, EntityTree, Layer, OrInitSingleRes};
 
 use pi_flex_layout::{prelude::{
-    AlignContent, AlignItems, AlignSelf, CharNode, Dimension, Direction, Display, FlexDirection, FlexLayoutStyle, FlexWrap, Get, GetMut, INode,
-    INodeStateType, JustifyContent, Layout, LayoutContext, LayoutR, Number, Overflow, PositionType, Rect, TreeStorage,
+    BoxStyle, AlignContent, AlignItems, AlignSelf, CharNode, Dimension, Direction, Display, FlexDirection, FlexLayoutStyle, FlexWrap, Get, GetMut, INode, NodeState as INodeStateType, JustifyContent, Layout, LayoutContext, LayoutR, Number, Overflow, PositionType, Rect, SideGap, TreeStorage
 }, style::OverflowWrap};
 
 use crate::{components::{
@@ -52,6 +51,7 @@ pub fn calc_layout(
         OrDefault<FlexContainer>,
         OrDefault<FlexNormal>,
         OrDefault<Show>,
+        OrDefault<TextStyle>,
     )>,
     mut inodes: Query<&'static mut NodeState>,
     idtree: EntityTree,
@@ -69,6 +69,7 @@ pub fn calc_layout(
                 OrDefault<FlexContainer>,
                 OrDefault<FlexNormal>,
                 OrDefault<Show>,
+                OrDefault<TextStyle>,
             ),
             &StyleMark,
             Ticker<&Layer>,
@@ -89,7 +90,7 @@ pub fn calc_layout(
     >,
     mut layout_r: Query<&'static mut LayoutResult>,
     mut layer_dirty: Local<LayerDirty<LayoutKey>>,
-    default_style: Local<(Size, Margin, Padding, Border, Position, MinMax, FlexContainer, FlexNormal, Show)>,
+    default_style: Local<(Size, Margin, Padding, Border, Position, MinMax, FlexContainer, FlexNormal, Show, TextStyle)>,
     // mut event_write: EventWriter<ComponentEvent<Changed<LayoutResult>>>,
 	r: OrInitSingleRes<IsRun>,
 	dirty_list: Event<StyleChange>,
@@ -138,7 +139,7 @@ pub fn calc_layout(
 		for e in dirty_list.iter() {
 			if let Ok((
 				e,
-				(size, margin, padding, border, position, min_max, flex_container, flex_normal, show),
+				(size, margin, padding, border, position, min_max, flex_container, flex_normal, show, text_style),
                 &style_mark,
 				layer,
                 down,
@@ -197,7 +198,7 @@ pub fn calc_layout(
 					text_index: usize::null(),
 				};
 
-				let style = LayoutStyle((size, margin, padding, border, position, min_max, flex_container, flex_normal, show));
+				let style = LayoutStyle((size, margin, padding, border, position, min_max, flex_container, flex_normal, show, text_style));
 
 				if rect_dirty {
 					// let __ss = inodes.get_mut(e).map(|mut s| s.state.self_dirty_true());
@@ -285,10 +286,11 @@ pub struct LayoutStyles<'a, 'b> {
             OrDefault<FlexContainer>,
             OrDefault<FlexNormal>,
             OrDefault<Show>,
+            OrDefault<TextStyle>,
         ),
     >,
     char_nodes: &'a mut Query<'b, &'static mut NodeState>,
-    default: &'a (Size, Margin, Padding, Border, Position, MinMax, FlexContainer, FlexNormal, Show),
+    default: &'a (Size, Margin, Padding, Border, Position, MinMax, FlexContainer, FlexNormal, Show, TextStyle),
 }
 
 impl<'a, 'b> Get<LayoutKey> for LayoutStyles<'a, 'b> {
@@ -301,7 +303,7 @@ impl<'a, 'b> Get<LayoutKey> for LayoutStyles<'a, 'b> {
             let char_node = &(**self.char_nodes.get(k.entity).unwrap()).text[k.text_index];
             LayoutStyle((
                 unsafe { transmute(&char_node.size) },
-                unsafe { transmute(&char_node.margin) },
+                &self.default.1,
                 &self.default.2,
                 &self.default.3,
                 &self.default.4,
@@ -309,6 +311,7 @@ impl<'a, 'b> Get<LayoutKey> for LayoutStyles<'a, 'b> {
                 &self.default.6,
                 &self.default.7,
                 &self.default.8,
+                &self.default.9,
             ))
         }
     }
@@ -361,7 +364,7 @@ impl<'a, 'w> GetMut<LayoutKey> for LayoutRs<'a, 'w> {
 
 pub enum LayoutRItem<'a, 'w> {
     Node(Mut<'a, LayoutResult>, &'a mut Query<'w, &'static mut NodeState>, Entity),
-    Text(&'a mut CharNode, &'a Rect<f32>),
+    Text(&'a mut CharNode, &'a SideGap<f32>),
 }
 
 // pub struct LayoutRItem<'s>(WriteItem<LayoutResult>, &'s mut LayoutResult);
@@ -373,16 +376,16 @@ impl<'a, 'w> LayoutR for LayoutRItem<'a, 'w> {
             LayoutRItem::Text(char_node, _) => &char_node.pos,
         }
     }
-    fn border(&self) -> &Rect<f32> {
+    fn border(&self) -> &SideGap<f32> {
         match self {
             LayoutRItem::Node(r, _, _) => &r.border,
-            LayoutRItem::Text(_, r) => r,
+            LayoutRItem::Text(_, r) => *r,
         }
     }
-    fn padding(&self) -> &Rect<f32> {
+    fn padding(&self) -> &SideGap<f32> {
         match self {
             LayoutRItem::Node(r, _, _) => &r.padding,
-            LayoutRItem::Text(_, r) => r,
+            LayoutRItem::Text(_, r) => *r,
         }
     }
 
@@ -395,12 +398,12 @@ impl<'a, 'w> LayoutR for LayoutRItem<'a, 'w> {
             }
         };
     }
-    fn set_border(&mut self, v: Rect<f32>) {
+    fn set_border(&mut self, v: SideGap<f32>) {
         if let LayoutRItem::Node(r, _, _) = self {
             r.border = v;
         }
     }
-    fn set_padding(&mut self, v: Rect<f32>) {
+    fn set_padding(&mut self, v: SideGap<f32>) {
         if let LayoutRItem::Node(r, _, _) = self {
             r.padding = v;
         }
@@ -440,6 +443,7 @@ impl<'a, 'w> LayoutR for LayoutRItem<'a, 'w> {
             // r.notify_modify();
         }
     }
+
 }
 
 #[derive(Debug)]
@@ -454,10 +458,11 @@ pub struct LayoutStyle<'a>(
         &'a FlexContainer,
         &'a FlexNormal,
         &'a Show,
+        &'a TextStyle,
     ),
 );
 
-impl<'a> FlexLayoutStyle for LayoutStyle<'a> {
+impl<'a> BoxStyle for LayoutStyle<'a> {
     fn width(&self) -> Dimension { self.0 .0.width }
     fn height(&self) -> Dimension { self.0 .0.height }
 
@@ -484,6 +489,32 @@ impl<'a> FlexLayoutStyle for LayoutStyle<'a> {
     fn display(&self) -> Display { self.0 .8.get_display() }
 
     fn position_type(&self) -> PositionType { self.0 .7.position_type }
+    
+    fn overflow(&self) -> Overflow { unimplemented!() }
+    fn min_width(&self) -> Dimension { self.0 .5.min.width }
+    fn min_height(&self) -> Dimension { self.0 .5.min.height }
+    fn max_width(&self) -> Dimension { self.0 .5.max.width }
+    fn max_height(&self) -> Dimension { self.0 .5.max.height }
+    fn aspect_ratio(&self) -> Number { self.0 .7.aspect_ratio }
+
+	fn overflow_wrap(&self) -> OverflowWrap {
+		self.0.6.overflow_wrap
+	}
+    
+    fn auto_reduce(&self) -> bool {
+        self.0.6.auto_reduce
+    }
+    
+    fn letter_spacing(&self) -> f32 {
+        self.0.9.letter_spacing
+    }
+    
+    fn word_spacing(&self) -> f32 {
+        self.0.9.word_spacing
+    }
+}
+
+impl<'a> FlexLayoutStyle for LayoutStyle<'a> {
     fn direction(&self) -> Direction { self.0 .6.direction }
 
     fn flex_direction(&self) -> FlexDirection { self.0 .6.flex_direction }
@@ -497,17 +528,25 @@ impl<'a> FlexLayoutStyle for LayoutStyle<'a> {
     fn flex_grow(&self) -> f32 { self.0 .7.flex_grow }
     fn flex_shrink(&self) -> f32 { self.0 .7.flex_shrink }
     fn align_self(&self) -> AlignSelf { self.0 .7.align_self }
-
-    fn overflow(&self) -> Overflow { unimplemented!() }
-    fn min_width(&self) -> Dimension { self.0 .5.min.width }
-    fn min_height(&self) -> Dimension { self.0 .5.min.height }
-    fn max_width(&self) -> Dimension { self.0 .5.max.width }
-    fn max_height(&self) -> Dimension { self.0 .5.max.height }
-    fn aspect_ratio(&self) -> Number { self.0 .7.aspect_ratio }
-
-	fn overflow_wrap(&self) -> OverflowWrap {
-		self.0.6.overflow_wrap
-	}
+    fn row_gap(&self) -> f32 {
+        self.0.6.row_gap
+    }
+    
+    fn column_gap(&self) -> f32 {
+        self.0.6.column_gap
+    }
+    
+    fn flex_container_style(&self) -> pi_flex_layout::prelude::FlexContainerStyle {
+        pi_flex_layout::prelude::FlexContainerStyle {
+            flex_direction: self.flex_direction(),
+            flex_wrap: self.flex_wrap(),
+            justify_content: self.justify_content(),
+            align_items: self.align_items(),
+            align_content: self.align_content(),
+            row_gap: self.row_gap(),
+            column_gap: self.column_gap(),
+        }
+    }
 }
 
 pub struct Tree<'a, 'b> {

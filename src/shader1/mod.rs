@@ -14,7 +14,7 @@ pub mod batch_sdf_glow;
 
 pub type InstanceIndex = usize;
 
-const UNUSE_START: usize = (std::u32::MAX / 2) as usize;
+// const UNUSE_START: usize = (std::u32::MAX / 2) as usize;
 
 // 渲染实例数据
 #[derive(Clone, Debug)]
@@ -28,7 +28,7 @@ pub struct GpuBuffer {
 }
 
 impl GpuBuffer {
-	const UNUSE_BLOCK_SIZE: usize = 64;
+	// const UNUSE_BLOCK_SIZE: usize = 64;
 	pub fn get_render_ty(&self, index: u32) -> usize {
 		let mut uniform_data = [0.0];
 		let mut uniform = TyMeterialMut(uniform_data.as_mut_slice());
@@ -140,7 +140,7 @@ impl GpuBuffer {
 	}
 
 	// 为该实例设置数据
-	pub fn set_data(&mut self, mut index: usize, value: &[u8]) {
+	pub fn set_data(&mut self, index: usize, value: &[u8]) {
 		let len = value.len();
 		// if index >= UNUSE_START {
 		// 	// 设置未使用的数据
@@ -171,7 +171,7 @@ impl GpuBuffer {
 	}
 
 	// 连续设置相同的buffer到多个实例
-	pub fn set_data_mult1<T: WriteBuffer>(&mut self, mut index: Range<usize>, value: &T) {
+	pub fn set_data_mult1<T: WriteBuffer>(&mut self, index: Range<usize>, value: &T) {
 		let mut i = index.start;
 		while i < index.end {
 			self.instance_data_mut(i).set_data(value);

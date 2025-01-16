@@ -16,8 +16,8 @@ use crate::{
     components::{
         calc::{DrawInfo, EntityKey, NodeState, StyleMarkType}, user::{serialize::DefaultStyle, Size, ZIndex}, SettingComponentIds
     }, resource::{
-        animation_sheet::KeyFramesSheet, fragment::{FragmentMap, NodeTag}, ClassSheet, GlobalDirtyMark, OtherDirtyType, PassGraphMap, QuadTree
-    }, system::base::pass::update_graph::remove_node
+        animation_sheet::KeyFramesSheet, fragment::{FragmentMap, NodeTag}, ClassSheet, GlobalDirtyMark, OtherDirtyType, QuadTree
+    }, system::base::{draw_obj::image_texture_load::AsImageBindList, pass::update_graph::AsImageRefCount}
 };
 use crate::{
     components::{
@@ -140,7 +140,7 @@ pub fn user_setting1(
                     add_component_ops(n.style_meta.start, n.style_meta.end, &fragments.style_buffer, &setting_components, &mut component_ids);
                 }
                 // 添加class所组件id
-                if n.class.len() > 0 {           
+                if n.class.len() > 0 {
                     for i in n.class.iter() {
                         if let Some(class) = class_sheet.class_map.get(i) {
                             add_component_ops(class.start, class.end, &class_sheet.style_buffer, &setting_components, component_ids)
@@ -219,7 +219,7 @@ pub struct RemoveEvent(pub Entity);
 // 为节点添加依赖父子依赖关系 和 销毁节点
 pub fn user_setting2(
     mut entitys: Alter<(Option<&Size>, Option<&DrawInfo>), Or<(With<Size>, With<DrawInfo>)>, (), ()>,
-    dirty_list: Query<(Option<&DrawList>, Option<&GraphId>)>,
+    dirty_list: Query<(Option<&DrawList>, Option<&GraphId>, Option<&AsImageBindList>)>,
     mut user_commands: SingleResMut<UserCommands>,
     mut quad_tree: OrInitSingleResMut<QuadTree>,
     mut tree: EntityTreeMut,
@@ -233,7 +233,7 @@ pub fn user_setting2(
     add_events: EventSender<AddEvent>,
     remove_events: EventSender<RemoveEvent>,
     mut rg: SingleResMut<PiRenderGraph>,
-	mut pass_graph_map: OrInitSingleResMut<PassGraphMap>,
+    mut ref_count: OrInitSingleResMut<AsImageRefCount>,
 ) {
 
     let mut dirty_list_mark = StyleDirtyList {
@@ -365,14 +365,14 @@ pub fn user_setting2(
                     if !head.is_null() {
                         for node in tree.recursive_iter(head) {
                             quad_tree.remove(&EntityKey(node));
-                            delete_entity(node, &dirty_list, &mut entitys, keyframes_sheet, &mut rg, &mut pass_graph_map);
+                            delete_entity(node, &dirty_list, &mut entitys, keyframes_sheet, &mut rg, &mut ref_count);
 
                         }
                     }
                 }
                 quad_tree.remove(&EntityKey(node));
                 tree.remove(node);
-                delete_entity(node, &dirty_list, &mut entitys, keyframes_sheet, &mut rg, &mut pass_graph_map);
+                delete_entity(node, &dirty_list, &mut entitys, keyframes_sheet, &mut rg, &mut ref_count);
             }
         };
     }
@@ -579,23 +579,39 @@ fn set_class<'w, 's>(node: Entity, style_query: &mut Setting, class: ClassName, 
 
 fn delete_entity(
     del: Entity, 
-    draw_list: &Query<(Option<&DrawList>, Option<&GraphId>)>, 
+    draw_list: &Query<(Option<&DrawList>, Option<&GraphId>, Option<&AsImageBindList>)>, 
     entitys: &mut Alter<(Option<&Size>, Option<&DrawInfo>), Or<(With<Size>, With<DrawInfo>)>, (), ()>,
     keyframes_sheet: &mut KeyFramesSheet,
     rg: &mut PiRenderGraph,
-    pass_graph_map: &mut PassGraphMap,
+    ref_count: &mut AsImageRefCount,
 ) {
-    if let Ok((list, graph)) = draw_list.get(del) {
+    if let Ok((list, graph, as_image_bind_list)) = draw_list.get(del) {
         if let Some(list) = list  {
             for i in list.iter() {
                 let r = entitys.destroy(i.id);
                 log::debug!("delete draw obj====================id: {:?}", (i, r));
             }
-        }   
+        }
+
+        if let Some(as_image_bind_list) = as_image_bind_list {
+            for i in as_image_bind_list.0.iter() {
+                if !i.old_before_graph_id.is_null() {
+                    if let Some(ref_count) = ref_count.0.get_mut(&(i.old_before_graph_id.0.clone(), i.after_graph.clone())) {
+                        *ref_count -= 1; // 引用计数减1
+                        if *ref_count == 0 { // 引用计数为0时， 移除依赖
+                            let _ = rg.remove_depend(i.old_before_graph_id.0.clone(), i.after_graph.clone());
+                        }
+                    }
+                }
+            }
+        } 
         
         if let Some(graph) = graph {
-            remove_node(**graph, rg, pass_graph_map);
+            let _ = rg.remove_node(**graph);
+            // remove_node(**graph, rg, pass_graph_map);
         }
+
+        
     }
 
     let r = entitys.destroy(del);

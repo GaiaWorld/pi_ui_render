@@ -118,18 +118,11 @@ pub fn calc_zindex(
                 collect(&query, &tree, &mut vec, parent1, 0);
                 // 排序
                 vec.sort();
-                let mut is_debug = false;
-                if let Ok(opacity) = query_dirty1.get(parent1) {
-                    if opacity.0 == 0.875 {
-                        println!("====parent1: {:?}, opacity: {:?}, children_count: {:?}", parent1, opacity, children_count);
-                        is_debug = true;
-                    }
-                }
                 
                 // println!("---------local:{}, {:?}", local, vec);
                 if local {
                     // 如果是可以进行局部比较
-                    local_reset(&query, &tree, mark, &mut ranges, &mut vec, children_count, zrange, &query_dirty1, is_debug);
+                    local_reset(&query, &tree, mark, &mut ranges, &mut vec, children_count, zrange, &query_dirty1);
                 } else {
                     // 否则父节点重新设置zrange
                     reset(&query, &tree, mark, &mut ranges, &mut vec, 0, children_count, zrange, &query_dirty1);
@@ -251,7 +244,6 @@ fn local_reset(
     children_count: usize,
     mut zrange: ZRange,
     query_dirty1: &Query<&crate::components::user::Opacity>,
-    is_debug: bool,
 ) {
     fn empty(_mark: &mut DirtyMark, _node: &Entity) {}
     zrange.start += Z_SELF;
@@ -274,16 +266,9 @@ fn local_reset(
             // println!("mark clear, {}", vec[i].node.local().offset());
             // 如果节点脏了， 统计到dirty的数量中
             dirty.count += cur_count;
-            if is_debug {
-                log::debug!("dirty==================id: {:?}, cur_count: {:?}", id, cur_count);
-            }
             continue;
         }
         // 直到找到了一个未被修改的节点，下面成这个未被修改的节点为当前节点
-
-        if is_debug {
-            log::debug!("not_dirty=================={:?}", id);
-        }
         // 获得当前节点的zrange
         let cur_range = get_or_default(ranges, *id);
 
@@ -449,15 +434,6 @@ fn set(
             return;
         }
         *r = zrange.clone();
-        if let Ok(opacity) = query_dirty1.get(node) {
-            if opacity.0 == 0.875 {
-                println!("====0.875: {:?}, opacity: {:?}, zrange: {:?}", node, opacity, &*zrange);
-            }
-
-            if opacity.0 == 0.75 {
-                println!("====0.75: {:?}, opacity: {:?}, zrange: {:?}", node, opacity, &*zrange);
-            }
-        }
         // log::debug!("set=========node: {:?}, z: {:?}", node, zrange);
         if children_count > 0 {
             let len = vec.len();
@@ -469,31 +445,8 @@ fn set(
             let new_len = vec.len();
             // log::debug!("set1========list: {:?}", &vec[len..new_len]);
             vec[len..new_len].sort();
-            let rr = Vec::from(&vec[len..new_len]);
             // 递归设置zrange
             reset(query, tree, mark, ranges, vec, len, children_count, zrange, query_dirty1);
-             if let Ok(opacity) = query_dirty1.get(node) {
-                if opacity.0 == 0.875 {
-                    if let Some(down) = tree.get_down(node) {
-                        for child in tree.iter(down.head()) {
-                         log::debug!("====c!!!!!, {:?}, {:?}", child, len..new_len);
-                        }
-                    }
-                }
-            }
-            if let Ok(opacity) = query_dirty1.get(node) {
-                if opacity.0 == 0.875 {
-                    log::debug!("====parent!!!!! zrange: {:?}", &rr);
-                    for i in rr {
-                        if let Ok(mut r) = ranges.get_mut(i.node.0){
-                            log::debug!("====parent2: {:?}, zrange: {:?}, {:?}", i.node.0, &*r, len..new_len);
-                        } else {
-                            log::debug!("====parent3: {:?}", i.node.0);
-                        }
-                    }
-                    
-                }
-            }
         }
     }
 }

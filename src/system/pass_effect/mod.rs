@@ -4,13 +4,10 @@ use blur::BlurPlugin;
 use hsi::HsiPlugin;
 use opacity::OpacityPlugin;
 use overflow::OverflowPlugin;
-use pi_world::prelude::{App, Plugin, IntoSystemConfigs, WorldPluginExtent};
+use pi_world::prelude::{App, Plugin, WorldPluginExtent};
 use transform_will_change::TransformWillChangePlugin;
 
 use self::{as_image::UiAsImagePlugin, clip_path::UiClipPathPlugin, radial_wave::RadialWavePlugin};
-
-use crate::system::system_set::UiSystemSet;
-use crate::prelude::UiStage;
 
 pub mod as_image;
 pub mod blur;

@@ -2,10 +2,8 @@ use pi_style::style::StyleType;
 use pi_world::app::App;
 use pi_world::prelude::{Changed, ParamSet, Query, Has, ComponentRemoved, IntoSystemConfigs};
 use pi_bevy_ecs_extend::prelude::OrInitSingleRes;
-use pi_world::schedule::PreUpdate;
 use pi_world::single_res::SingleRes;
 
-use crate::components::calc::{style_bit, StyleBit, StyleMarkType};
 use crate::resource::{GlobalDirtyMark, IsRun};
 use crate::system::base::pass::pass_life;
 use crate::system::system_set::UiSystemSet;

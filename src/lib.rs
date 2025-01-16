@@ -38,7 +38,7 @@ pub mod prelude {
 
     pub use crate::resource::UserCommands;
     use crate::system::{
-        /*shader_utils::UiShaderPlugin, */ base::{node::UiNodePlugin, pass::UiPassPlugin, BasePlugin}, draw_obj::UiReadyDrawPlugin, pass_effect::UiEffectPlugin, shader_utils::UiShaderPlugin, system_set::{UiSchedule, UiSystemSet}, RunState
+        /*shader_utils::UiShaderPlugin, */ base::BasePlugin, draw_obj::UiReadyDrawPlugin, pass_effect::UiEffectPlugin, shader_utils::UiShaderPlugin, system_set::{UiSchedule, UiSystemSet}, RunState
     };
 
     // #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]

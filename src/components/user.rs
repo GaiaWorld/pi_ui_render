@@ -344,6 +344,9 @@ pub struct SvgFilter(pub Vec<Entity>);
 // }
 
 
+
+
+
 // 将display、visibility、enable合并为show组件
 #[derive(Deref, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Show(pub usize);
@@ -581,6 +584,7 @@ impl Show {
     pub fn set_display(&mut self, display: Display) {
         match display {
             Display::Flex => self.0 &= !(ShowType::Display as usize),
+            Display::Grid => self.0 &= !(ShowType::Display as usize),
             Display::None => self.0 |= ShowType::Display as usize,
         }
     }
@@ -642,6 +646,9 @@ pub struct FlexContainer {
     pub align_content: AlignContent,
     pub direction: Direction,
 	pub overflow_wrap: OverflowWrap,
+    pub row_gap: f32,
+    pub column_gap: f32,
+    pub auto_reduce: bool,
 }
 
 // 描述节点自身行为的flex布局属性
@@ -677,6 +684,9 @@ impl Default for FlexContainer {
             align_content: AlignContent::FlexStart,
             direction: Default::default(),
 			overflow_wrap: Default::default(),
+            row_gap: 0.0,
+            column_gap: 0.0,
+            auto_reduce: false,
         }
     }
 }
@@ -729,7 +739,7 @@ pub mod serialize {
         calc::{BackgroundImageTexture, BorderImageTexture}, user::*
     };
     use pi_atom::Atom;
-    use pi_print_any::{out_any, println_any};
+    // use pi_print_any::{out_any, println_any};
     // use pi_ecs::{
     //     prelude::{Query, SingleResMut},
     //     query::{DefaultComponent, Write},
@@ -1433,6 +1443,9 @@ pub mod serialize {
     impl_style!(PositionBottomType, PositionBottom, position, Position, bottom, Dimension);
     impl_style!(PositionLeftType, PositionLeft, position, Position, left, Dimension);
 
+    impl_style!(RowGapType, RowGap, flex_container, FlexContainer, row_gap, f32);
+    impl_style!(ColumnGapType, ColumnGap, flex_container, FlexContainer, column_gap, f32);
+    impl_style!(AutoReduceType, AutoReduce, flex_container, FlexContainer, auto_reduce, bool);
     impl_style!(MinWidthType, MinWidth, min_max, MinMax, min, width, Dimension);
     impl_style!(MinHeightType, MinHeight, min_max, MinMax, min, height, Dimension);
     impl_style!(MaxHeightType, MaxHeight, min_max, MinMax, max, height, Dimension);
@@ -1788,7 +1801,7 @@ pub mod serialize {
 
     lazy_static::lazy_static! {
 
-        static ref STYLE_ATTR: [StyleFunc; 97] = [
+        static ref STYLE_ATTR: [StyleFunc; 100] = [
             StyleFunc::new::<BackgroundRepeatType>(), // 0
             StyleFunc::new::<FontStyleType>(), // 1
             StyleFunc::new::<FontWeightType>(), // 2
@@ -1907,10 +1920,13 @@ pub mod serialize {
 			StyleFunc::new::<TransitionDelayType>(), // 95
 
             StyleFunc::new::<TextOuterGlowType>(), // 96
+            StyleFunc::new::<RowGapType>(), // 97
+            StyleFunc::new::<ColumnGapType>(), // 98
+            StyleFunc::new::<AutoReduceType>(), // 99
 		];
 
 		
-		static ref RESET_STYLE_ATTR: [ResetStyleFunc; 97] = [
+		static ref RESET_STYLE_ATTR: [ResetStyleFunc; 100] = [
         /******************************* reset ******************************************************/
             ResetStyleFunc::new::<ResetBackgroundRepeatType>(), // 0
             ResetStyleFunc::new::<ResetFontStyleType>(), // 1
@@ -2031,7 +2047,9 @@ pub mod serialize {
 			ResetStyleFunc::new::<ResetTransitionDelayType>(), // 95
 
             ResetStyleFunc::new::<ResetTextOuterGlowType>(), // 96
-
+            ResetStyleFunc::new::<ResetRowGapType>(), // 97
+            ResetStyleFunc::new::<ResetColumnGapType>(), // 98
+            ResetStyleFunc::new::<ResetAutoReduceType>(), // 99
         ];
     }
 

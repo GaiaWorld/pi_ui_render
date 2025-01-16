@@ -11,7 +11,7 @@ use pi_style::style::{ImageRepeatOption, StyleType};
 use pi_world::single_res::SingleRes;
 use pi_world::world::Entity;
 
-use crate::components::calc::{style_bit, BorderImageTexture, DrawList, LayoutResult, SdfSlice, SdfUv, StyleBit, StyleMarkType, LAYOUT_DIRTY};
+use crate::components::calc::{style_bit, BorderImageTexture, DrawList, LayoutResult, SdfSlice, SdfUv, StyleBit, StyleMarkType, Texture, LAYOUT_DIRTY};
 use crate::components::draw_obj::{BorderImageMark, BoxType, InstanceIndex, RenderCount, TempGeo};
 use crate::components::user::{BorderImageClip, BorderImageRepeat, BorderImageSlice};
 use crate::resource::draw_obj::InstanceContext;
@@ -36,7 +36,7 @@ impl Plugin for BorderImagePlugin {
     fn build(&self, app: &mut pi_world::prelude::App) {
 		app
 			// .add_frame_event::<ComponentEvent<Changed<BorderImageTexture>>>()
-			.add_system(UiStage, image_texture_load::image_load::<BorderImage, BorderImageTexture, {OtherDirtyType::BorderImageTexture}>
+			.add_system(UiStage, image_texture_load::image_load::<BorderImage, BorderImageTexture, {OtherDirtyType::BorderImageTexture}, BorderImageRenderObjType>
 				.in_set(UiSystemSet::NextSetting)
 				.after(transition_2))
 			.add_system(UiStage, 
@@ -49,7 +49,7 @@ impl Plugin for BorderImagePlugin {
 				>
 					.in_set(UiSystemSet::LifeDrawObject)
 					.run_if(border_image_life_change)
-					.after(image_texture_load::image_load::<BorderImage, BorderImageTexture, {OtherDirtyType::BorderImageTexture}>),
+					.after(image_texture_load::image_load::<BorderImage, BorderImageTexture, {OtherDirtyType::BorderImageTexture}, BorderImageRenderObjType>),
 			)
 			.add_system(UiStage, 
 				calc_border_image
@@ -134,10 +134,12 @@ pub fn calc_border_image_instance_count(
 		let border_image_texture = match &border_image_texture.0 {
 			Some(r) => {
 				// 图片不一致， 返回
-				if *r.key() != border_image.0.str_hash() as u64 {
-					log::debug!("calc_background_image1, {:?}", (r.key(), border_image.0.str_hash()));
-					set_box_type(draw_id, BoxType::None2, &mut query_draw);
-					continue;
+				if let Texture::All(r) = r {
+					if *r.key() != border_image.0.str_hash() as u64 {
+						log::debug!("calc_background_image1, {:?}", (r.key(), border_image.0.str_hash()));
+						set_box_type(draw_id, BoxType::None2, &mut query_draw);
+						continue;
+					}
 				}
 				r
 			},
@@ -156,11 +158,12 @@ pub fn calc_border_image_instance_count(
 		let layout_width = (border_aabb.maxs.x - border_aabb.mins.x).max(0.003);
 		let layout_height = (border_aabb.maxs.y - border_aabb.mins.y).max(0.003);
 		
+		let (uv0, uv1) = border_image_texture.to_uv(border_clip);
 		let mut clip = Rect {
-			left: *border_clip.left,
-			right: *border_clip.right,
-			top: *border_clip.top,
-			bottom: *border_clip.bottom,
+			left: uv0.x,
+			right: uv1.x,
+			top: uv0.y,
+			bottom: uv0.y,
 		};
 		verify_sero_size(&mut clip, 0.001);
 		let clip_size = Size{ width: clip.right - clip.left, height: clip.bottom - clip.top };
@@ -177,9 +180,10 @@ pub fn calc_border_image_instance_count(
 			width: (slice_uv.right - slice_uv.left),
 			height: (slice_uv.bottom - slice_uv.top),
 		};
+		let s = border_image_texture.size();
 		let slice_size = Size {
-			width: slice_size_percent.width * border_image_texture.width as f32,
-			height: slice_size_percent.height * border_image_texture.height as f32,
+			width: slice_size_percent.width * s.width as f32,
+			height: slice_size_percent.height * s.height as f32,
 		};
 
 		// let slice_middle = Point2::new(
@@ -202,10 +206,10 @@ pub fn calc_border_image_instance_count(
 
 		// 上右下左，边框布局宽度与图片边框部分的比率
 		let factor = (
-			layout.border.top / (*border_slice.top).max(0.001) / border_image_texture.height as f32, 
-			layout.border.right / (*border_slice.right).max(0.001) / border_image_texture.width as f32, 
-			layout.border.bottom / (*border_slice.bottom).max(0.001) / border_image_texture.height as f32, 
-			layout.border.left / (*border_slice.left).max(0.001) / border_image_texture.width as f32
+			layout.border.top / (*border_slice.top).max(0.001) / s.height as f32, 
+			layout.border.right / (*border_slice.right).max(0.001) / s.width as f32, 
+			layout.border.bottom / (*border_slice.bottom).max(0.001) / s.height as f32, 
+			layout.border.left / (*border_slice.left).max(0.001) / s.width as f32
 		);
 
 		let layout_slice_absolute = Rect {

@@ -51,7 +51,6 @@ pub fn calc_global_dirty_rect(
                 &Layer,
                 &TransformWillChangeMatrix,
                 Ticker<&PostProcess>,
-                Ticker<&ChildrenPass>,
                 &ContentBox,
                 Option<Ticker<&TransformWillChange>>,
                 Entity,
@@ -135,7 +134,7 @@ pub fn calc_global_dirty_rect(
     // }
 
     // 遍历所有pass的脏区域，求并，得全局脏区域
-    for (mut pass_dirty_rect, layer, will_change_matrix, post_ref, _children_ref, content_box, transform_willchange_ref, entity, parent_pass_id) in
+    for (mut pass_dirty_rect, layer, will_change_matrix, post_ref, content_box, transform_willchange_ref, entity, parent_pass_id) in
         query_pass.p0().iter_mut()
     {
         // postlist修改，Pass2d需要设置脏区域，暂时将其直接设置为内容box（实际上应该设置更精确一点，TODO）

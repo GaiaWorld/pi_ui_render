@@ -1,6 +1,6 @@
 //! 圆角从有到删除，没有正确处理顶点（TODO）
 
-use pi_flex_layout::prelude::Rect;
+use pi_flex_layout::prelude::{Rect, SideGap};
 use pi_hal::svg::{Path, PathVerb};
 use pi_null::Null;
 // use pi_sdf::shape::PathVerb;
@@ -345,7 +345,7 @@ impl Hash for BorderWidth {
 
 
 fn boder_sdf_info(
-    rd: &BorderRadiusPixel, border: &Rect<f32>, scale: f32) -> (BorderSdfInfo, BorderWidth) {
+    rd: &BorderRadiusPixel, border: &SideGap<f32>, scale: f32) -> (BorderSdfInfo, BorderWidth) {
 	// 最小的圆角值
     // let min_radius = rd.x[0].min(rd.x[1]).min(rd.y[0]).min(rd.y[1]).min(rd.x[2]).min(rd.y[2]).min(rd.x[3]).min(rd.y[3]);
     

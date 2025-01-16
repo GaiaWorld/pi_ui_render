@@ -10,7 +10,7 @@ use std::mem::transmute;
 use pi_bevy_render_plugin::{render_cross::GraphId, PiRenderGraph};
 use pi_null::Null;
 use pi_style::style::StyleType;
-use pi_world::{event::{ComponentChanged, Event}, prelude::{Changed, Entity, Mut, Query, SingleRes, Ticker}, single_res::SingleResMut, system_params::Local};
+use pi_world::{event::{ComponentChanged, Event}, prelude::{Changed, Entity, Mut, Query, SingleRes, Ticker}, single_res::SingleResMut};
 use pi_bevy_ecs_extend::prelude::{Layer, OrInitSingleRes, OrInitSingleResMut};
 
 use pi_render::renderer::draw_obj::DrawBindGroup;
@@ -21,11 +21,11 @@ use crate::{
         calc::{
             BackgroundImageTexture, BorderImageTexture, InPassId, IsShow, OverflowDesc, Quad, TransformWillChangeMatrix, View, WorldMatrix
         }, pass_2d::{
-            Camera, ChildrenPass, ParentPassId, PostProcessInfo, RenderTarget, RenderTargetCache, StrongTarget
+            Camera, ParentPassId, PostProcessInfo, RenderTarget, RenderTargetCache, StrongTarget
         }, user::{Aabb2, AsImage, Canvas, Point2, Vector2, Viewport}
     }, resource::{
         draw_obj::InstanceContext, GlobalDirtyMark, IsRun, RenderDirty, ShareFontSheet
-    }, shader::camera, shader1::batch_meterial::{ProjectUniform, Sdf2TextureSizeUniform, ViewUniform}, system::{base::node::user_setting::StyleChange, utils::{create_project, rotatequad_quad_intersection}}, utils::tools::intersect
+    }, shader1::batch_meterial::{ProjectUniform, Sdf2TextureSizeUniform, ViewUniform}, system::{base::node::user_setting::StyleChange, utils::{create_project, rotatequad_quad_intersection}}, utils::tools::intersect
 };
 
 pub fn calc_pass_dirty(
@@ -527,16 +527,3 @@ fn mark_pass_dirty(mut pass_id: Entity, query: &mut Query<(&mut Camera, &ParentP
         pass_id = parent_pass.0.0;
     }
 }
-
-// #[inline]
-// fn mark_children_active(pass_id: Entity, parent_acitve: bool, query: &mut Query<&mut Camera>, query_c: &Query<&ChildrenPass>, i: &mut usize) {
-//     if let (Ok(mut camera), Ok(parent_pass)) = (query.get_mut(pass_id), query_c.get(pass_id)) {
-//         *i = *i + 1;
-//         let is_active = camera.is_render_own && parent_acitve;
-//         camera.is_render_own = is_active;
-//         camera.is_render_to_parent = parent_acitve;
-//         for c in parent_pass.list.iter() {
-//             mark_children_active(**c, is_active, query, query_c, i);
-//         }
-//     }
-// }

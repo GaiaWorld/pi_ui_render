@@ -1,16 +1,14 @@
 use std::sync::atomic::AtomicUsize;
 
 use pi_style::style::StyleType;
-use pi_world::{filter::Or, prelude::{App, Changed, ComponentRemoved, Has, IntoSystemConfigs, ParamSet, Plugin, Query}, single_res::SingleRes};
+use pi_world::{prelude::{App, Changed, IntoSystemConfigs, Plugin, Query}, single_res::SingleRes};
 use pi_bevy_ecs_extend::prelude::OrInitSingleRes;
 
 use pi_bevy_asset::{Allocator, AssetConfig, AssetDesc, ShareAssetMgr};
 use pi_null::Null;
 
 use crate::{
-    components::{
-        calc::{style_bit, StyleBit, StyleMarkType}, pass_2d::{CacheTarget, PostProcessInfo}, user::{AsImage, Overflow}
-    },
+    components::{pass_2d::{CacheTarget, PostProcessInfo}, user::{AsImage, Overflow}},
     resource::{draw_obj::TargetCacheMgr, GlobalDirtyMark, RenderContextMarkType, IsRun},
     system::base::{
         // node::user_setting::user_setting,

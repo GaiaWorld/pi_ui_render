@@ -31,7 +31,7 @@ use pi_style::style::{AnimationDirection, AnimationTimingFunction};
 use pi_style::{style_parse::Attribute, style_type::*};
 use smallvec::SmallVec;
 
-use crate::{components::{calc::StyleMarkType, user::{serialize::AttrSet, Animation}}, utils::tools::calc_hash_slice};
+use crate::components::{calc::StyleMarkType, user::{serialize::AttrSet, Animation}};
 use pi_style::style::Time;
 
 use super::StyleCommands;
@@ -675,6 +675,9 @@ impl KeyFramesSheet {
 			Attribute::TransitionTimingFunction(_) => (),
 			Attribute::TransitionDelay(_) => (),
             Attribute::TextOuterGlow(_) => (),
+            Attribute::RowGap(_) => (),
+            Attribute::ColumnGap(_) => (),
+            Attribute::AutoReduce(_) => (),
 		}
 
 	}
