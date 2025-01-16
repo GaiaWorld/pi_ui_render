@@ -1073,7 +1073,7 @@ pub fn init_text_effect_graph(
 ) {
 	let effect_graph_id = rg.add_sub_graph("gui_effect_graph").unwrap();
 	let node = TextEffectNode;
-	let id = rg.add_node("GuiTextEffectNode", node, effect_graph_id).unwrap();
+	let _id = rg.add_node("GuiTextEffectNode", node, effect_graph_id).unwrap();
 
 	// 将其设置在所有gui节点之前运行
 	let main_graph_id = rg.main_graph_id();
