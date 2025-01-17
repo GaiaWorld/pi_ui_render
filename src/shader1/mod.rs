@@ -80,7 +80,7 @@ impl GpuBuffer {
 		self.cur_index += self.alignment;
 		self.update_dirty_range(ret..self.cur_index);
 		self.reserve();
-		// log::warn!("alloc_instance_data=============={:?}", ret);
+		// log::warn!("alloc_instance_data=============={:?}", backt);
 		ret
 	}
 

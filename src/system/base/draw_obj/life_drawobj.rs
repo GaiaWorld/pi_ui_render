@@ -779,7 +779,7 @@ pub fn batch_instance_data(
 
 	for (root, instance_index) in query_root.iter_mut() {
 		// 将当前剩余未批处理的数据合批
-		// log::warn!("root======={:?}", root);
+		// log::warn!("root======={:?}", (root, instance_index.start / 224));
 		if !instance_index.start.is_null() {
 			let p = instances.common_pipeline.clone();
 			// instance_index.start不为null， 则需要将该跟对应的fbo渲染到屏幕上
@@ -972,6 +972,12 @@ fn batch_pass(
 
 				if let Some(instance_split) = instance_split {
 					match instance_split {
+						InstanceSplit::ByEntity(entity) => if let Ok((_instance_split, _pipeline, _fbo_info, render_target)) = query.draw_query.get(entity.clone()) {
+							if let Some(t) = &render_target.0 {
+								log::warn!("ByEntity======{:?}", (entity, &t.target().colors[0].0));
+								split_by_texture = Some(((*index).clone(), &t.target().colors[0].0, &query.common_sampler.pointer));
+							}
+						},
 						InstanceSplit::ByTexture(ui_texture) => {
 							// #[cfg(debug_assertions)]
 							// if !index.start.is_null() {
@@ -1019,6 +1025,7 @@ fn batch_pass(
 								// }
 							}
 						},
+						
 					}
 				} else {
 					// #[cfg(debug_assertions)]

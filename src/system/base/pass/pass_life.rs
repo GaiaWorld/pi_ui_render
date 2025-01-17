@@ -18,7 +18,7 @@
 use pi_bevy_render_plugin::{render_cross::GraphId, NodeId, PiRenderGraph};
 use pi_slotmap::SecondaryMap;
 use pi_style::style::Aabb2;
-use pi_world::{event::ComponentChanged, fetch::Ticker, filter::{Or, With}, prelude::{Alter, Changed, Entity, Mut, ParamSet, Query, SingleRes, SingleResMut}, system_params::Local};
+use pi_world::{event::{ComponentAdded, ComponentChanged}, fetch::Ticker, filter::{Or, With}, prelude::{Alter, Changed, Entity, Mut, ParamSet, Query, SingleRes, SingleResMut}, system_params::Local};
 use pi_bevy_ecs_extend::prelude::{Layer, LayerDirty, OrInitSingleRes, OrInitSingleResMut, Root, Up};
 
 use pi_null::Null;
@@ -266,16 +266,18 @@ pub fn calc_pass_toop_sort(
     mut temp: Local<(Vec<NodeId>, Vec<NodeId>, Vec<NodeId>, SecondaryMap<NodeId, (usize, bool)>)>,
 
     mark_change: ComponentChanged<RenderContextMark>,
-    as_image_change: ComponentChanged<AsImageBindList>,
+    as_image_changed: ComponentChanged<AsImageBindList>,
+    as_image_added: ComponentAdded<AsImageBindList>,
 
 ) {
     if r.0 {
 		return;
 	}
 
-    if mark_change.len() == 0 && as_image_change.len() == 0 {
+    if mark_change.len() == 0 && as_image_changed.len() == 0 && as_image_added.len() == 0 {
         mark_change.mark_read();
-        as_image_change.mark_read();
+        as_image_changed.mark_read();
+        as_image_added.mark_read();
         return;
     }
 
@@ -380,7 +382,7 @@ pub fn calc_pass_toop_sort(
     temp.1.clear();
     temp.2.clear();
     temp.3.clear();
-    // log::warn!("pass_toop_list======{:?}", (&pass_toop_list, &next_node_with_depend));
+    log::warn!("2222======================{:?}, {:?}", pass_toop_list, next_node_with_depend);
 }
 
 

@@ -1,6 +1,6 @@
 use std::{marker::PhantomData, ops::Deref};
 
-use pi_world::{alter::Alter, event::ComponentChanged, fetch::OrDefault, filter::With, insert::Component, prelude::{Changed, ComponentRemoved, Entity, Has, ParamSet, Query, SingleRes}, single_res::SingleResMut, world::FromWorld};
+use pi_world::{alter::Alter, event::{ComponentAdded, ComponentChanged}, fetch::OrDefault, filter::With, insert::Component, prelude::{Changed, ComponentRemoved, Entity, Has, ParamSet, Query, SingleRes}, single_res::SingleResMut, world::FromWorld};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleRes, OrInitSingleResMut};
 
 use crossbeam::queue::SegQueue;
@@ -60,16 +60,19 @@ pub fn add_as_image_graph_depend(
     mut query_with_as_image: Query<(&mut AsImageBindList, &InPassId)>,
     query_pass: Query<(&ParentPassId, &GraphId), With<Camera>>,
     as_image_url_changed: ComponentChanged<AsImageBindList>,
+    as_image_url_added: ComponentAdded<AsImageBindList>,
     mut rg: SingleResMut<PiRenderGraph>,
     mut ref_count: OrInitSingleResMut<AsImageRefCount>,
 ) { 
-    if as_image_url_changed.len() == 0 {
+    log::warn!("add_as_image_graph_depend================{:?}", as_image_url_changed.len());
+    if as_image_url_changed.len() == 0 && as_image_url_added.len() == 0 {
         return;
     }
     
     let ref_count = &mut *ref_count;
 
-    for entity in as_image_url_changed.iter() {
+    for entity in as_image_url_changed.iter().chain(as_image_url_added.iter()) {
+        log::warn!("entity================{:?}", entity);
         if let Ok((mut as_image_bind_list, inpass)) = query_with_as_image.get_mut(*entity) {
             let to = get_to(*inpass.0, &query_pass);
             let as_image_bind_list = as_image_bind_list.bypass_change_detection();
@@ -86,6 +89,7 @@ pub fn add_as_image_graph_depend(
                         }
                     }
                     ref_count.add_one((as_image_bind.before_graph_id.0.clone(), to));
+                    log::warn!("add depend: {:?} -> {:?}", as_image_bind.before_graph_id.0.clone(), to);
                     let _ = rg.add_depend(as_image_bind.before_graph_id.0.clone(), to);
                     as_image_bind.old_before_graph_id = as_image_bind.before_graph_id.clone();
                     as_image_bind.after_graph = to;
@@ -229,6 +233,7 @@ pub fn load_image<'w, const DIRTY_TYPE: OtherDirtyType, S: 'static + Send + Sync
 ) {
     match asimage_url::load_from_asimage_url(key.as_str(), query_render_target) {
         Ok(r) => {
+            log::warn!("load image from asimage_url=============");
             match r {
                 Some((safe_target_view, graph_id, from_target)) => if let Ok(mut dst) = query_dst.get_mut(entity) {
                     if let Ok(Option::Some(mut as_image)) =  query_as_image.get_mut(entity) {
@@ -245,6 +250,7 @@ pub fn load_image<'w, const DIRTY_TYPE: OtherDirtyType, S: 'static + Send + Sync
                             obj_type: src_ty,
                             after_graph,
                         });
+                        log::warn!("image1============{:?}", (&graph_id, &old_graph_id));
                         if graph_id != old_graph_id {
                             // 如果新旧绑定不相等， 需要设置脏标记
                             as_image.set_changed();
@@ -261,7 +267,7 @@ pub fn load_image<'w, const DIRTY_TYPE: OtherDirtyType, S: 'static + Send + Sync
                         });
                         let _ = query_as_image.alter(entity, r);     
                     }
-                    let r = D::from(Texture::Part(safe_target_view, graph_id));
+                    let r = D::from(Texture::Part(safe_target_view, from_target));
                     if *dst != r {
                         (*f)(&mut dst, r, entity);
                         global_mark.mark.set(DIRTY_TYPE as usize, true);
@@ -272,8 +278,8 @@ pub fn load_image<'w, const DIRTY_TYPE: OtherDirtyType, S: 'static + Send + Sync
             };
             return;
         },
-        Err(asimage_url::LoadError::MismatchProtocol) => {},
-        _ => return,
+        Err(asimage_url::LoadError::MismatchProtocol) => {log::warn!("load image from asimage_url1=============");},
+        r => {log::warn!("load image from asimage_url2============={:?}", key.as_str());return},
        
     };
     let result = AssetMgr::load(&texture_assets_mgr, &(key.str_hash() as u64));
@@ -379,6 +385,7 @@ pub fn set_texture<'w, const DIRTY_TYPE: OtherDirtyType, S: From<Atom> + std::cm
                                         obj_type: src_ty,
                                         after_graph,
                                     });
+                                    log::warn!("image2============{:?}", (&graph_id, &old_graph_id));
                                     if graph_id != old_graph_id {
                                         // 如果新旧绑定不相等， 需要设置脏标记
                                         as_image.set_changed();
@@ -397,7 +404,7 @@ pub fn set_texture<'w, const DIRTY_TYPE: OtherDirtyType, S: From<Atom> + std::cm
                                 }
 
                                 // log::warn!("texture_load success 2: {:?}, {:?}, {:?}", id, key, texture.id);
-                                is_change =  f(&mut dst, D::from(Texture::Part(safe_target_view, graph_id)), entity) || is_change;
+                                is_change =  f(&mut dst, D::from(Texture::Part(safe_target_view, from_target)), entity) || is_change;
                                 global_mark.mark.set(DIRTY_TYPE as usize, true);
                             },
                             None => image_await.1.0.push((entity, key.clone())),

@@ -348,7 +348,7 @@ impl InstanceContext {
         }
     }
 	pub fn draw<'a>(&'a self, rp: &mut RenderPass<'a>, instance_draw: &'a InstanceDrawState, render_state: &mut RenderState) {
-        // log::warn!("draw====={:?}", (render_state.reset, &instance_draw.texture_bind_group, &render_state.texture));
+        log::warn!("draw====={:?}", (render_state.reset, &instance_draw.texture_bind_group, &render_state.texture));
         if render_state.reset  {
             if let Some(texture) = &self.sdf2_texture_group {
                 rp.set_bind_group(1, texture, &[]);

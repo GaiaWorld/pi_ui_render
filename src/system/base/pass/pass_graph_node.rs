@@ -146,8 +146,10 @@ impl Node for Pass2DNode {
 	fn reset<'a>(
 			&'a mut self,
 	) {
+		log::warn!("reset========{:?}", (self.pass2d_id, self.target.is_some()));
 		self.out_put_target = None;
 		self.target = None;
+		
 	}
 
 	/// 用于给pass2d分配fbo
@@ -280,7 +282,7 @@ impl Node for Pass2DNode {
 					return Ok(out)
 				}
 			}
-		};
+		}; 
 
 		// SAFE: 保证渲染图并行时不会访问同时访问同一个实体的renderTarget，这里的转换是安全的
 		let render_target = unsafe { &mut *(render_target as *const RenderTarget as *mut RenderTarget) };
@@ -354,7 +356,7 @@ impl Node for Pass2DNode {
 						// }
 						// next_target.clear();
 						render_to_fbo = true;
-						// log::warn!("build========{:?}", (pass2d_id, &r.target().colors[0].0));
+						log::warn!("build========{:?}", (pass2d_id, &r.target().colors[0].0));
 						self.target = Some(r.clone());
 
 						RenderPassTarget::Fbo(r)
@@ -548,34 +550,38 @@ impl Node for Pass2DNode {
 		}
 		
 		// 设置fbo_info
-		if !instance_index.start.is_null() {
-			if let Some(target) = &out.target {
-				// 旧的fbo输出与新的不同， 需要重新设置uv
-				let mut is_set_uv = false;
-				if let Some(fbo) = &out_target.0 {
-					if !Share::ptr_eq(&fbo.target().colors[0].0 , &target.target().colors[0].0) {
-						param.instance_draw.rebatch = true; // 设置rebatch为true， 使得后续重新进行批处理
-					}
-					let rect1 = fbo.rect();
-					let rect2 = target.rect();
-					if rect1 != rect2 {
-						is_set_uv = true;
-					}
-				} else {
+		if let Some(target) = &out.target {
+			// 旧的fbo输出与新的不同， 需要重新设置uv
+			let mut is_set_uv = false;
+			if let Some(fbo) = &out_target.0 {
+				if !Share::ptr_eq(&fbo.target().colors[0].0 , &target.target().colors[0].0) {
 					param.instance_draw.rebatch = true; // 设置rebatch为true， 使得后续重新进行批处理
+				}
+				let rect1 = fbo.rect();
+				let rect2 = target.rect();
+				if rect1 != rect2 {
 					is_set_uv = true;
 				}
-				if is_set_uv {
+			} else {
+				param.instance_draw.rebatch = true; // 设置rebatch为true， 使得后续重新进行批处理
+				is_set_uv = true;
+			}
+			if is_set_uv {
+				if !instance_index.start.is_null() {
 					// uv变化，设置uv
 					let uv_box = target.uv_box();
 					param.instance_draw.instance_data.instance_data_mut(instance_index.start).set_data(&UvUniform(uv_box.as_slice()));
+				} else {
+					param.instance_draw.rebatch = true; // 设置rebatch为true， 使得后续重新进行批处理
 				}
-			} else if out_target.0.is_some() {
-				// 旧的fbo存在， 新的fbo不存在，设置rebatch为true， 使得后续重新进行批处理
-				param.instance_draw.rebatch = true;
 			}
-	
-			// 设置实例是否需要还原预乘
+		} else if out_target.0.is_some() {
+			// 旧的fbo存在， 新的fbo不存在，设置rebatch为true， 使得后续重新进行批处理
+			param.instance_draw.rebatch = true;
+		}
+
+		// 设置实例是否需要还原预乘
+		if !instance_index.start.is_null() {
 			let mut ty = param.instance_draw.instance_data.instance_data_mut(instance_index.start).get_render_ty();
 			let mut visibility = is_show.get_visibility() && is_show.get_display() && !layer.layer().is_null();
 			if out.target.is_none() {
@@ -588,13 +594,14 @@ impl Node for Pass2DNode {
 				
 				param.instance_draw.instance_data.instance_data_mut(instance_index.start).set_data(&TyMeterial(&[ty as f32]));
 			}
-			// if instance_index.start == 125 * 240 {
-			// 	println!("visibility=============== {:?}", (pass2d_id, instance_index.start, visibility,  out.target.is_none(), list0.instance_range.len() > 0));
-			// }
-			log::trace!("out.target======{:?}", (pass2d_id, self.target.is_some(), out.target.is_some()));
-			out_target.0 = out.target.clone(); // 设置到组件上， 后续批处理需要用到
-			fbo_info.fbo = self.target.as_ref().map(|r| {Share::new(r.downgrade())});
 		}
+		// if instance_index.start == 125 * 240 {
+		// 	println!("visibility=============== {:?}", (pass2d_id, instance_index.start, visibility,  out.target.is_none(), list0.instance_range.len() > 0));
+		// }
+
+		log::trace!("out.target======{:?}", (pass2d_id, self.target.is_some(), out.target.is_some()));
+		out_target.0 = out.target.clone(); // 设置到组件上， 后续批处理需要用到
+		fbo_info.fbo = self.target.as_ref().map(|r| {Share::new(r.downgrade())});
 		
 		// if content_box.layout.width() >= 700.0 && content_box.layout.height() >= 910.0 {
 		// 	println!("pass2, {:?}", (pass2d_id, fbo_info.out.is_some()));
@@ -637,41 +644,14 @@ impl Node for Pass2DNode {
 			if !EntityKey(pass2d_id).is_null() {
 				return Ok(());
 			}
-			// let rrr: &mut GpuBuffer = unsafe {&mut *( &query_param.instance_draw.instance_data as *const GpuBuffer as usize as *mut GpuBuffer) };
-			// log::warn!("draw1==={:?}", rrr.instance_data_mut(64 * 240).get_render_ty());
 
-            // let param = Param {
-			// 	fbo_query: query_param.fbo_query,
-            //     pass2d_query: query_param.pass2d_query.1,
-            //     post_query: query_param.pass2d_query.2,
-            //     screen: query_param.screen,
-            //     surface: surface,
-
-			// 	instance_draw: query_param.instance_draw,
-            // };
-
-			// let get_root = |pass2d_id: Entity| {
-			// 	let layer = match query_param.pass2d_query.0.get(pass2d_id) {
-			// 		Some(r) => r,
-			// 		None => return None,
-			// 	};
-			// 	match query_param.query_pass_node.get(layer.root()) {
-			// 		Ok(r) => Some(r),
-			// 		Err(_) => None,
-			// 	}
-			// };
 			log::trace!("draw_elements======{:?}", &param.instance_draw.draw_list.len());
 			if param.instance_draw.draw_list.len() == 0 {
 				return Ok(());
 			}
 			let mut commands = commands.borrow_mut();
 			let first = &param.instance_draw.draw_list[0];
-			// let (camera, list, parent_pass2d_id, _clear_group, render_target) = if let Ok(r) = param.pass2d_query.get(pass2d_id) {
-			// 	r
-			// } else {
-			// 	return Ok(());
-			// };
-			// log::warn!("run=============");
+
 			let mut rt = if EntityKey(first.1).is_null() {
 				RPTarget::Screen(&surface, &param.screen.depth)
 			} else {
@@ -707,19 +687,18 @@ impl Node for Pass2DNode {
 			let fbo_pass_id = first.1;
 			// let mut set_camera = false;
 			
-			// log::warn!("draw_list============={:?}", param.instance_draw.draw_list.len());
+			log::warn!("draw_list============={:?}", param.instance_draw.draw_list.len());
 			// log::warn!("draw_list============={:?}", (param.instance_draw.draw_list.len(), &param.instance_draw.draw_list));
 			// let mut ii = 0;
 			for element in param.instance_draw.draw_list.iter() {
 				// ii += 1;
-				// log::warn!("create_rp xxxxx============={:?}", &element.1);
 				let t = if EntityKey(element.1).is_null() {
 					RPTarget::Screen(&surface, &param.screen.depth)
 				} else {
 					let (fbo1, _out_target1) = param.fbo_query.get(element.1).unwrap();
 					match fbo1.fbo.as_ref() {
 						Some(r) => {
-							// log::warn!("create_rp1============={:?}", (element.1, &r.target().colors[0].1));
+							log::warn!("create_rp1============={:?}", (element.1, &r.target().colors[0].1));
 							RPTarget::Fbo(r)
 						},
 						None => RPTarget::Screen(&surface, &param.screen.depth)
@@ -727,7 +706,7 @@ impl Node for Pass2DNode {
 				};
 
 				if !t.eq(&rt) {
-					// log::warn!("create_rp!!!!!!!=============");
+					// log::warn!("create_rp!!!!!!!============={:?}", (pass2d_id, &t));
 					{let _a = rp;} // 释放
 					rp = create_rp(
 						&t,
@@ -748,7 +727,7 @@ impl Node for Pass2DNode {
 				
 				match &element.0 {
 					DrawElement::Clear { draw_state, is_active } => {
-						// log::warn!("clear======={:?}, {:?}", is_active, draw_state.instance_data_range.start / 224);
+						log::trace!("clear======={:?}, {:?}, {:?}", element.1, is_active, draw_state.instance_data_range.start / 224);
 						if !*is_active {
 							// log::trace!("is_active======{:?}", pass);
 							continue; // 没有激活的fbo， 不清屏

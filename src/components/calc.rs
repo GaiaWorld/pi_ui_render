@@ -982,7 +982,7 @@ impl Null for BorderImageTexture {
 #[derive(Debug, Clone)]
 pub enum Texture {
     All(Handle<AssetWithId<TextureRes>>),
-    Part(ShareTargetView, GraphId)
+    Part(ShareTargetView, Entity)
 }
 
 impl Texture {

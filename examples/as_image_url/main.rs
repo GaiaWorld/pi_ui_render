@@ -3,22 +3,21 @@
 #[path = "../framework.rs"]
 mod framework;
 
-use std::mem::swap;
-
 use async_trait::async_trait;
 /// 渲染四边形 demo
 
 use framework::{Param, Example};
+use pi_atom::Atom;
 use pi_flex_layout::style::{Dimension, PositionType};
 use pi_null::Null;
 use pi_style::{
     style::{Aabb2, Point2},
-    style_type::{BackgroundColorType, HeightType, MarginLeftType, MarginTopType, PositionLeftType, PositionTopType, PositionTypeType, WidthType, AsImageType},
+    style_type::{AsImageType, BackgroundColorType, BackgroundImageType, HeightType, MarginLeftType, MarginTopType, PositionLeftType, PositionTopType, PositionTypeType, WidthType},
 };
 use pi_ui_render::{
     components::{
         calc::EntityKey,
-        user::{CgColor, ClearColor, Color, Viewport},
+        user::{CgColor, ClearColor, Color, RenderTargetType, Viewport},
 
     },
     resource::{NodeCmd, UserCommands},
@@ -29,7 +28,7 @@ fn main() { framework::start(QuadExample::default()) }
 
 #[derive(Default)]
 pub struct QuadExample {
-    cmd: UserCommands,
+    _cmd: UserCommands,
 }
 
 #[async_trait]
@@ -68,15 +67,16 @@ impl Example for QuadExample {
 
         // 添加根节点
         let root_tow = world.spawn(NodeTag::Div);
-        world.user_cmd.push_cmd(NodeCmd(ClearColor(CgColor::new(0.0, 0.0, 0.0, 0.0), true), root_tow));
+        log::warn!("root_tow===={:?}", root_tow);
+        world.user_cmd.push_cmd(NodeCmd(RenderTargetType::OffScreen, root_tow));
         world.user_cmd.push_cmd(NodeCmd(ClearColor(CgColor::new(0.0, 0.0, 0.0, 0.0), true), root_tow));
         world.user_cmd.push_cmd(NodeCmd(
-            Viewport(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(size.0 as f32, size.1 as f32))),
+            Viewport(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(300.0, 300.0))),
             root_tow,
         ));
 
-        world.user_cmd.set_style(root_tow, WidthType(Dimension::Points(size.0 as f32)));
-        world.user_cmd.set_style(root_tow, HeightType(Dimension::Points(size.1 as f32)));
+        world.user_cmd.set_style(root_tow, WidthType(Dimension::Points(300.0)));
+        world.user_cmd.set_style(root_tow, HeightType(Dimension::Points(300.0)));
 
         world.user_cmd.set_style(root_tow, PositionTypeType(PositionType::Absolute));
         world.user_cmd.set_style(root_tow, PositionLeftType(Dimension::Points(0.0)));
@@ -94,7 +94,18 @@ impl Example for QuadExample {
             .set_style(div1, BackgroundColorType(Color::RGBA(CgColor::new(0.0, 1.0, 0.0, 1.0))));
 
         world.user_cmd.append(div1, root_tow);
+
+
+        let asimage_url = pi_bevy_render_plugin::asimage_url::entity_to_asimage_url(root_tow);
+        // 添加一个红色div到根节点
+        let div2 = world.spawn(NodeTag::Div);
+        world.user_cmd.set_style(div2, WidthType(Dimension::Points(100.0)));
+        world.user_cmd.set_style(div2, HeightType(Dimension::Points(100.0)));
+        world.user_cmd
+            .set_style(div2, BackgroundImageType(Atom::new(asimage_url)));
+
+         world.user_cmd.append(div2, root_one);
     }
 
-    fn render(&mut self, cmd: &mut UserCommands) {  }
+    fn render(&mut self, _cmd: &mut UserCommands) {  }
 }
