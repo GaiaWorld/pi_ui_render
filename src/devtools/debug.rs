@@ -43,7 +43,7 @@ use crate::components::calc::View;
 use smallvec::SmallVec;
 
 #[derive(Serialize, Deserialize, Debug)]
-struct Quad {
+pub struct Quad {
     pub left_top: Point2,
     pub left_bottom: Point2,
     pub right_bottom: Point2,
@@ -51,7 +51,7 @@ struct Quad {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-struct Layout1 {
+pub struct Layout1 {
     rect: Rect<f32>,
     border: Rect<f32>,
     padding: Rect<f32>,
@@ -66,7 +66,7 @@ pub struct Rect<T> {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-struct Info {
+pub struct Info {
     pub overflow: bool,
 	pub blend_mode: Option<BlendMode>,
     // pub by_overflow: usize,
@@ -290,7 +290,7 @@ pub fn get_class(world: &World, class_name: u32) -> String {
 }
 
 
-pub fn node_info(world: &World, entity: Entity) -> String {
+pub fn node_info(world: &World, entity: Entity) -> Info {
     let layout = world.get_component::<LayoutResult>(entity).unwrap().clone();
 
     let world_matrix = &world.get_component::<WorldMatrix>(entity).unwrap().clone();
@@ -591,7 +591,7 @@ pub fn node_info(world: &World, entity: Entity) -> String {
 		None
 	};
 	info.canvas = format!("{:?}, {:?}", canvas, canvas_graph_id);
-    serde_json::to_string(&info).unwrap()
+    info
 }
 
 #[derive(Serialize, Deserialize, Debug)]

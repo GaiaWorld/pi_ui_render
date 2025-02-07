@@ -279,7 +279,7 @@ pub fn load_image<'w, const DIRTY_TYPE: OtherDirtyType, S: 'static + Send + Sync
             return;
         },
         Err(asimage_url::LoadError::MismatchProtocol) => (),
-        r => {log::warn!("load image from asimage_url fail============={:?}", key.as_str());return},
+        _r => {log::warn!("load image from asimage_url fail============={:?}", key.as_str());return},
        
     };
     let result = AssetMgr::load(&texture_assets_mgr, &(key.str_hash() as u64));
