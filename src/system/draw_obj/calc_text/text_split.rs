@@ -160,7 +160,7 @@ impl<'a> Calc<'a> {
         let (id, text_style, text, node_state) = (self.id, self.text_style, self.text, &mut self.node_state);
 
         let chars: &'static mut Vec<CharNode> = unsafe { transmute(&mut node_state.text) };
-        let (mut word_index, mut p_x, mut char_index) = (0, 0.0, 0);
+        let (mut word_index, mut p_x, mut word_margin_start, mut char_index) = (0, 0.0, 0.0, 0);
 
         if text_style.text_indent > 0.0 {
             self.create_or_get_indice(chars, text_style.text_indent, char_index, -1);
@@ -174,7 +174,9 @@ impl<'a> Calc<'a> {
             match cr {
                 SplitResult::Word(char_i, c) => {
                     let cn = self.create_or_get(c, chars, char_index, p_x, char_i);
+                    cn.margin.left = Dimension::Points(word_margin_start);
                     char_index += 1;
+                    word_margin_start = self.char_margin;
                 }
                 SplitResult::WordNext(char_i, c) => {
                     let cn = self.create_or_get(c, chars, char_index, p_x, char_i);
@@ -185,9 +187,10 @@ impl<'a> Calc<'a> {
                 }
                 // 存在WordStart， 表示开始一个多字符单词
                 SplitResult::WordStart(char_i, c) => {
-                    self.create_or_get_container(chars, char_index, -1);
+                    self.create_or_get_container(chars, char_index, word_margin_start, -1);
                     word_index = char_index;
                     p_x = 0.0;
+                    word_margin_start = self.char_margin;
                     char_index += 1;
 
                     let cn = self.create_or_get(c, chars, char_index, p_x, char_i);
@@ -204,7 +207,9 @@ impl<'a> Calc<'a> {
                 }
                 SplitResult::Whitespace(char_i) => {
                     let cn = self.create_or_get(' ', chars, char_index, p_x, char_i);
+                    cn.margin.left = Dimension::Points(word_margin_start); //word_margin_start;
                     char_index += 1;
+                    word_margin_start = self.char_margin;
                     // word_margin_start += self.font_size/3.0 + self.word_margin;
                 }
                 SplitResult::Newline(char_i) => {
@@ -226,6 +231,12 @@ impl<'a> Calc<'a> {
             size: Size {
                 width: Dimension::Points(width),
                 height: Dimension::Points(self.line_height),
+            },
+            margin: Rect {
+                left: Dimension::Points(self.char_margin),
+                top: Dimension::Points(0.0),
+                right: Dimension::Points(0.0),
+                bottom: Dimension::Points(0.0),
             },
             pos: Rect {
                 left: p_x,
@@ -255,12 +266,18 @@ impl<'a> Calc<'a> {
         cn
     }
 
-    fn create_or_get_container<'b>(&mut self, chars: &'b mut Vec<CharNode>, index: usize, char_i: isize) -> &'b mut CharNode {
+    fn create_or_get_container<'b>(&mut self, chars: &'b mut Vec<CharNode>, index: usize, word_margin_start: f32, char_i: isize) -> &'b mut CharNode {
         let r = CharNode {
             ch: char::from(0),
             size: Size {
                 width: Dimension::Points(0.0),
                 height: Dimension::Points(self.line_height),
+            },
+            margin: Rect {
+                left: Dimension::Points(word_margin_start),
+                right: Dimension::Points(0.0),
+                top: Dimension::Points(0.0),
+                bottom: Dimension::Points(0.0),
             },
             pos: Rect {
                 top: 0.0,

@@ -675,9 +675,9 @@ impl KeyFramesSheet {
 			Attribute::TransitionTimingFunction(_) => (),
 			Attribute::TransitionDelay(_) => (),
             Attribute::TextOuterGlow(_) => (),
-            Attribute::RowGap(_) => (),
-            Attribute::ColumnGap(_) => (),
-            Attribute::AutoReduce(_) => (),
+            // Attribute::RowGap(_) => (),
+            // Attribute::ColumnGap(_) => (),
+            // Attribute::AutoReduce(_) => (),
 		}
 
 	}

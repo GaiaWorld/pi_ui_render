@@ -13,7 +13,7 @@ pub fn to_css_str(attr: &Attribute) -> (&'static str, String) {
         Attribute::PositionType(r) => ("position", match r.0 {
             PositionType::Relative => "relative".to_string(),
             PositionType::Absolute => "absolute".to_string(),
-            PositionType::Fixed => "fixed".to_string(),
+            // PositionType::Fixed => "fixed".to_string(),
         }),
         Attribute::FlexWrap(r) => ("flex-wrap", match r.0 {
             FlexWrap::NoWrap => "nowrap".to_string(),
@@ -121,7 +121,7 @@ pub fn to_css_str(attr: &Attribute) -> (&'static str, String) {
         Attribute::Display(r) => ("display", match r.0 {
             Display::Flex => "flex".to_string(),
             Display::None => "none".to_string(),
-            Display::Grid => "Grid".to_string(),
+            // Display::Grid => "Grid".to_string(),
         }),
         Attribute::Visibility(r) => ("visibility", match r.0 {
             true => "visible".to_string(),
@@ -497,8 +497,8 @@ pub fn to_css_str(attr: &Attribute) -> (&'static str, String) {
                 + "px "
                 + r.intensity.to_string().as_str()
         }),
-        Attribute::RowGap(r) => ("row-gap", r.0.to_string() + "px"),
-        Attribute::ColumnGap(r) => ("column-gap", r.0.to_string() + "px"),
-        Attribute::AutoReduce(r) => ("auto-reduce", r.0.to_string()),
+        // Attribute::RowGap(r) => ("row-gap", r.0.to_string() + "px"),
+        // Attribute::ColumnGap(r) => ("column-gap", r.0.to_string() + "px"),
+        // Attribute::AutoReduce(r) => ("auto-reduce", r.0.to_string()),
     }
 }

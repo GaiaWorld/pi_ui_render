@@ -17,7 +17,7 @@ use pi_world::{event::Event, fetch::Ticker, prelude::{Entity, Local, Mut, OrDefa
 use pi_bevy_ecs_extend::prelude::{Down as Down1, EntityTree, Layer, OrInitSingleRes};
 
 use pi_flex_layout::{prelude::{
-    BoxStyle, AlignContent, AlignItems, AlignSelf, CharNode, Dimension, Direction, Display, FlexDirection, FlexLayoutStyle, FlexWrap, Get, GetMut, INode, NodeState as INodeStateType, JustifyContent, Layout, LayoutContext, LayoutR, Number, Overflow, PositionType, Rect, SideGap, TreeStorage
+    AlignContent, AlignItems, AlignSelf, CharNode, Dimension, Direction, Display, FlexDirection, FlexLayoutStyle, FlexWrap, Get, GetMut, INode, INodeStateType, JustifyContent, Layout, LayoutContext, LayoutR, Number, Overflow, PositionType, Rect, TreeStorage
 }, style::OverflowWrap};
 
 use crate::{components::{
@@ -364,7 +364,7 @@ impl<'a, 'w> GetMut<LayoutKey> for LayoutRs<'a, 'w> {
 
 pub enum LayoutRItem<'a, 'w> {
     Node(Mut<'a, LayoutResult>, &'a mut Query<'w, &'static mut NodeState>, Entity),
-    Text(&'a mut CharNode, &'a SideGap<f32>),
+    Text(&'a mut CharNode, &'a Rect<f32>),
 }
 
 // pub struct LayoutRItem<'s>(WriteItem<LayoutResult>, &'s mut LayoutResult);
@@ -376,13 +376,13 @@ impl<'a, 'w> LayoutR for LayoutRItem<'a, 'w> {
             LayoutRItem::Text(char_node, _) => &char_node.pos,
         }
     }
-    fn border(&self) -> &SideGap<f32> {
+    fn border(&self) -> &Rect<f32> {
         match self {
             LayoutRItem::Node(r, _, _) => &r.border,
             LayoutRItem::Text(_, r) => *r,
         }
     }
-    fn padding(&self) -> &SideGap<f32> {
+    fn padding(&self) -> &Rect<f32> {
         match self {
             LayoutRItem::Node(r, _, _) => &r.padding,
             LayoutRItem::Text(_, r) => *r,
@@ -398,12 +398,12 @@ impl<'a, 'w> LayoutR for LayoutRItem<'a, 'w> {
             }
         };
     }
-    fn set_border(&mut self, v: SideGap<f32>) {
+    fn set_border(&mut self, v: Rect<f32>) {
         if let LayoutRItem::Node(r, _, _) = self {
             r.border = v;
         }
     }
-    fn set_padding(&mut self, v: SideGap<f32>) {
+    fn set_padding(&mut self, v: Rect<f32>) {
         if let LayoutRItem::Node(r, _, _) = self {
             r.padding = v;
         }
@@ -462,7 +462,8 @@ pub struct LayoutStyle<'a>(
     ),
 );
 
-impl<'a> BoxStyle for LayoutStyle<'a> {
+
+impl<'a> FlexLayoutStyle for LayoutStyle<'a> {
     fn width(&self) -> Dimension { self.0 .0.width }
     fn height(&self) -> Dimension { self.0 .0.height }
 
@@ -501,20 +502,17 @@ impl<'a> BoxStyle for LayoutStyle<'a> {
 		self.0.6.overflow_wrap
 	}
     
-    fn auto_reduce(&self) -> bool {
-        self.0.6.auto_reduce
-    }
+    // fn auto_reduce(&self) -> bool {
+    //     self.0.6.auto_reduce
+    // }
     
-    fn letter_spacing(&self) -> f32 {
-        self.0.9.letter_spacing
-    }
+    // fn letter_spacing(&self) -> f32 {
+    //     self.0.9.letter_spacing
+    // }
     
-    fn word_spacing(&self) -> f32 {
-        self.0.9.word_spacing
-    }
-}
-
-impl<'a> FlexLayoutStyle for LayoutStyle<'a> {
+    // fn word_spacing(&self) -> f32 {
+    //     self.0.9.word_spacing
+    // }
     fn direction(&self) -> Direction { self.0 .6.direction }
 
     fn flex_direction(&self) -> FlexDirection { self.0 .6.flex_direction }
@@ -528,25 +526,25 @@ impl<'a> FlexLayoutStyle for LayoutStyle<'a> {
     fn flex_grow(&self) -> f32 { self.0 .7.flex_grow }
     fn flex_shrink(&self) -> f32 { self.0 .7.flex_shrink }
     fn align_self(&self) -> AlignSelf { self.0 .7.align_self }
-    fn row_gap(&self) -> f32 {
-        self.0.6.row_gap
-    }
+    // fn row_gap(&self) -> f32 {
+    //     self.0.6.row_gap
+    // }
     
-    fn column_gap(&self) -> f32 {
-        self.0.6.column_gap
-    }
+    // fn column_gap(&self) -> f32 {
+    //     self.0.6.column_gap
+    // }
     
-    fn flex_container_style(&self) -> pi_flex_layout::prelude::FlexContainerStyle {
-        pi_flex_layout::prelude::FlexContainerStyle {
-            flex_direction: self.flex_direction(),
-            flex_wrap: self.flex_wrap(),
-            justify_content: self.justify_content(),
-            align_items: self.align_items(),
-            align_content: self.align_content(),
-            row_gap: self.row_gap(),
-            column_gap: self.column_gap(),
-        }
-    }
+    // fn flex_container_style(&self) -> pi_flex_layout::prelude::FlexContainerStyle {
+    //     pi_flex_layout::prelude::FlexContainerStyle {
+    //         flex_direction: self.flex_direction(),
+    //         flex_wrap: self.flex_wrap(),
+    //         justify_content: self.justify_content(),
+    //         align_items: self.align_items(),
+    //         align_content: self.align_content(),
+    //         row_gap: self.row_gap(),
+    //         column_gap: self.column_gap(),
+    //     }
+    // }
 }
 
 pub struct Tree<'a, 'b> {

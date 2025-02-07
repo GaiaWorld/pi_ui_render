@@ -584,7 +584,7 @@ impl Show {
     pub fn set_display(&mut self, display: Display) {
         match display {
             Display::Flex => self.0 &= !(ShowType::Display as usize),
-            Display::Grid => self.0 &= !(ShowType::Display as usize),
+            // Display::Grid => self.0 &= !(ShowType::Display as usize),
             Display::None => self.0 |= ShowType::Display as usize,
         }
     }
@@ -1453,9 +1453,9 @@ pub mod serialize {
     impl_style!(PositionBottomType, PositionBottom, position, Position, bottom, Dimension);
     impl_style!(PositionLeftType, PositionLeft, position, Position, left, Dimension);
 
-    impl_style!(RowGapType, RowGap, flex_container, FlexContainer, row_gap, f32);
-    impl_style!(ColumnGapType, ColumnGap, flex_container, FlexContainer, column_gap, f32);
-    impl_style!(AutoReduceType, AutoReduce, flex_container, FlexContainer, auto_reduce, bool);
+    // impl_style!(RowGapType, RowGap, flex_container, FlexContainer, row_gap, f32);
+    // impl_style!(ColumnGapType, ColumnGap, flex_container, FlexContainer, column_gap, f32);
+    // impl_style!(AutoReduceType, AutoReduce, flex_container, FlexContainer, auto_reduce, bool);
     impl_style!(MinWidthType, MinWidth, min_max, MinMax, min, width, Dimension);
     impl_style!(MinHeightType, MinHeight, min_max, MinMax, min, height, Dimension);
     impl_style!(MaxHeightType, MaxHeight, min_max, MinMax, max, height, Dimension);
@@ -1811,7 +1811,7 @@ pub mod serialize {
 
     lazy_static::lazy_static! {
 
-        static ref STYLE_ATTR: [StyleFunc; 100] = [
+        static ref STYLE_ATTR: [StyleFunc; 97] = [
             StyleFunc::new::<BackgroundRepeatType>(), // 0
             StyleFunc::new::<FontStyleType>(), // 1
             StyleFunc::new::<FontWeightType>(), // 2
@@ -1930,13 +1930,13 @@ pub mod serialize {
 			StyleFunc::new::<TransitionDelayType>(), // 95
 
             StyleFunc::new::<TextOuterGlowType>(), // 96
-            StyleFunc::new::<RowGapType>(), // 97
-            StyleFunc::new::<ColumnGapType>(), // 98
-            StyleFunc::new::<AutoReduceType>(), // 99
+            // StyleFunc::new::<RowGapType>(), // 97
+            // StyleFunc::new::<ColumnGapType>(), // 98
+            // StyleFunc::new::<AutoReduceType>(), // 99
 		];
 
 		
-		static ref RESET_STYLE_ATTR: [ResetStyleFunc; 100] = [
+		static ref RESET_STYLE_ATTR: [ResetStyleFunc; 97] = [
         /******************************* reset ******************************************************/
             ResetStyleFunc::new::<ResetBackgroundRepeatType>(), // 0
             ResetStyleFunc::new::<ResetFontStyleType>(), // 1
@@ -2057,9 +2057,9 @@ pub mod serialize {
 			ResetStyleFunc::new::<ResetTransitionDelayType>(), // 95
 
             ResetStyleFunc::new::<ResetTextOuterGlowType>(), // 96
-            ResetStyleFunc::new::<ResetRowGapType>(), // 97
-            ResetStyleFunc::new::<ResetColumnGapType>(), // 98
-            ResetStyleFunc::new::<ResetAutoReduceType>(), // 99
+            // ResetStyleFunc::new::<ResetRowGapType>(), // 97
+            // ResetStyleFunc::new::<ResetColumnGapType>(), // 98
+            // ResetStyleFunc::new::<ResetAutoReduceType>(), // 99
         ];
     }
 

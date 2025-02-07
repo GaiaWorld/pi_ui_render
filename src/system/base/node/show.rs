@@ -111,7 +111,7 @@ pub fn calc_show(
         let display_value = match show_value.get_display() {
             Display::Flex => true,
             Display::None => false,
-			Display::Grid => true,
+			// Display::Grid => true,
         };
         let visibility_value = show_value.get_visibility();
         let enable_value = show_value.get_enable();

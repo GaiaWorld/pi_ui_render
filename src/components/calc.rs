@@ -1,7 +1,6 @@
 //! 定义计算组件（非用户设置的组件）
 
 use pi_bevy_render_plugin::render_cross::GraphId;
-use pi_flex_layout::prelude::SideGap;
 use pi_render::components::view::target_alloc::ShareTargetView;
 use pi_world::insert::Component;
 use pi_world::prelude::Entity;
@@ -37,8 +36,8 @@ pub use super::user::{NodeState, StyleType};
 
 pub struct LayoutResult {
     pub rect: Rect<f32>,
-    pub border: SideGap<f32>,
-    pub padding: SideGap<f32>,
+    pub border: Rect<f32>,
+    pub padding: Rect<f32>,
 }
 
 impl Default for LayoutResult {
@@ -50,13 +49,13 @@ impl Default for LayoutResult {
                 top: 0.0,
                 bottom: 0.0,
             },
-            border: SideGap {
+            border: Rect {
                 left: 0.0,
                 right: 0.0,
                 top: 0.0,
                 bottom: 0.0,
             },
-            padding: SideGap {
+            padding: Rect {
                 left: 0.0,
                 right: 0.0,
                 top: 0.0,
