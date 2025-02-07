@@ -864,6 +864,16 @@ pub mod serialize {
             entity
         );
 
+        // if std::any::type_name::<C>().contains("TextContent") {
+        //     log::warn!(
+        //         "set_style_attr, type: {:?}, value: {:?}, entity: {:?}",
+        //         std::any::type_name::<C>(),
+        //         v,
+        //         entity
+        //     );
+        // }
+        
+
        
         // pi_print_any::out_any!(println,
         //     "set_style_attr, type: {:?}, value: {:?}, entity: {:?}",

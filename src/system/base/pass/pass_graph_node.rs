@@ -146,7 +146,7 @@ impl Node for Pass2DNode {
 	fn reset<'a>(
 			&'a mut self,
 	) {
-		log::warn!("reset========{:?}", (self.pass2d_id, self.target.is_some()));
+		// log::warn!("reset========{:?}", (self.pass2d_id, self.target.is_some()));
 		self.out_put_target = None;
 		self.target = None;
 		
@@ -356,7 +356,7 @@ impl Node for Pass2DNode {
 						// }
 						// next_target.clear();
 						render_to_fbo = true;
-						log::warn!("build========{:?}", (pass2d_id, &r.target().colors[0].0));
+						// log::warn!("build========{:?}", (pass2d_id, &r.target().colors[0].0));
 						self.target = Some(r.clone());
 
 						RenderPassTarget::Fbo(r)
@@ -687,7 +687,7 @@ impl Node for Pass2DNode {
 			let fbo_pass_id = first.1;
 			// let mut set_camera = false;
 			
-			log::warn!("draw_list============={:?}", param.instance_draw.draw_list.len());
+			// log::warn!("draw_list============={:?}", param.instance_draw.draw_list.len());
 			// log::warn!("draw_list============={:?}", (param.instance_draw.draw_list.len(), &param.instance_draw.draw_list));
 			// let mut ii = 0;
 			for element in param.instance_draw.draw_list.iter() {
@@ -698,7 +698,7 @@ impl Node for Pass2DNode {
 					let (fbo1, _out_target1) = param.fbo_query.get(element.1).unwrap();
 					match fbo1.fbo.as_ref() {
 						Some(r) => {
-							log::warn!("create_rp1============={:?}", (element.1, &r.target().colors[0].1));
+							// log::warn!("create_rp1============={:?}", (element.1, &r.target().colors[0].1));
 							RPTarget::Fbo(r)
 						},
 						None => RPTarget::Screen(&surface, &param.screen.depth)
@@ -768,7 +768,7 @@ impl Node for Pass2DNode {
 						} else {
 							if let Ok((camera, _render_target)) = param.pass2d_query.get(*pass) {
 								if !camera.is_render_own {
-									log::warn!("is not active DrawInstance======={:?}, {:?}", pass, element.1);
+									// log::warn!("is not active DrawInstance======={:?}, {:?}", pass, element.1);
 									continue;
 								}
 								param.instance_draw.set_pipeline(&mut rp, draw_state, &mut render_state);

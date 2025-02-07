@@ -29,6 +29,10 @@ pub mod shader1;
 pub mod system;
 pub mod utils;
 pub mod events;
+pub mod tools;
+
+#[cfg(feature = "debug")]
+pub mod devtools;
 
 
 pub mod prelude {

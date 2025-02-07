@@ -260,13 +260,15 @@ pub fn user_setting2(
             let n = &fragments.fragments[i];
             let node = &c.entitys[i - t.start];
             log::debug!(
-                "fragment_commands insertChild!!====================node：{:?}, parent {:?}",
+                "fragment_commands insertChild!!====================key: {:?}, node：{:?}, parent {:?}",
+                c.key,
                 node,
                 n.parent
             );
             if let (false, true) = (n.parent.is_null(), entitys.contains(*node)) {
                 log::debug!(
-                    "fragment_commands insertChild====================node：{:?}, parent {:?}",
+                    "fragment_commands insertChild====================key: {:?}, node：{:?}, parent {:?}",
+                    c.key,
                     node,
                     c.entitys[n.parent]
                 );

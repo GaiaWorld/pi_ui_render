@@ -64,7 +64,7 @@ pub fn add_as_image_graph_depend(
     mut rg: SingleResMut<PiRenderGraph>,
     mut ref_count: OrInitSingleResMut<AsImageRefCount>,
 ) { 
-    log::warn!("add_as_image_graph_depend================{:?}", as_image_url_changed.len());
+    // log::warn!("add_as_image_graph_depend================{:?}", as_image_url_changed.len());
     if as_image_url_changed.len() == 0 && as_image_url_added.len() == 0 {
         return;
     }
@@ -278,8 +278,8 @@ pub fn load_image<'w, const DIRTY_TYPE: OtherDirtyType, S: 'static + Send + Sync
             };
             return;
         },
-        Err(asimage_url::LoadError::MismatchProtocol) => {log::warn!("load image from asimage_url1=============");},
-        r => {log::warn!("load image from asimage_url2============={:?}", key.as_str());return},
+        Err(asimage_url::LoadError::MismatchProtocol) => (),
+        r => {log::warn!("load image from asimage_url fail============={:?}", key.as_str());return},
        
     };
     let result = AssetMgr::load(&texture_assets_mgr, &(key.str_hash() as u64));

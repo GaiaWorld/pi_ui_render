@@ -340,6 +340,8 @@ println!("===========   ===========");
     // 	}));
     // }
     let mut app = App::new();
+    #[cfg(not(target_arch = "wasm32"))]
+    pi_ui_render::devtools::start_server(&mut app); // 开启开发工具
     let mut is_init = false;
     event_loop.run(move |event, _, control_flow| {
         match event {
@@ -696,9 +698,9 @@ pub fn setting_next_record(world: &mut World, mut local_state: Local<NextState>)
             }
        } else if !play_state.is_running {
             local_state.file_index += 1;
-            if local_state.file_index % 50 == 0 {
-                log::warn!("heap===={:?}", (local_state.file_index, world.len()));
-            }
+            // if local_state.file_index % 50 == 0 {
+            //     log::warn!("heap===={:?}", (local_state.file_index, world.len()));
+            // }
        }
 
        

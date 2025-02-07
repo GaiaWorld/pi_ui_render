@@ -39,7 +39,6 @@ pub struct LayoutResult {
     pub rect: Rect<f32>,
     pub border: SideGap<f32>,
     pub padding: SideGap<f32>,
-    pub absolute: bool,
 }
 
 impl Default for LayoutResult {
@@ -63,7 +62,6 @@ impl Default for LayoutResult {
                 top: 0.0,
                 bottom: 0.0,
             },
-            absolute: false,
         }
     }
 }
