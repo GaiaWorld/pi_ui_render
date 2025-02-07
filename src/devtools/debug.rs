@@ -41,8 +41,6 @@ use crate::resource::ClassSheet;
 use pi_world::prelude::Entity;
 use crate::components::calc::View;
 use smallvec::SmallVec;
-#[cfg(target_arch = "wasm32")]
-use wasm_bindgen::prelude::wasm_bindgen;
 
 #[derive(Serialize, Deserialize, Debug)]
 struct Quad {

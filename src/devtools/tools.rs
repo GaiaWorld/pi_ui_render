@@ -189,6 +189,8 @@ impl ChildProtocol<TcpSocket> for MyChildProtocol {
                       _connect: WsSocket<TcpSocket>,
                       _context: WsSession,
                       reason: Result<()>) -> LocalBoxFuture<'static, ()> {
+        // let uid = SOCKETS.get()
+        // SOCKETS
         async move {
             if let Err(e) = reason {
                 return println!("websocket closed, reason: {:?}", e);
