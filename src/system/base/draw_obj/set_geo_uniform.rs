@@ -39,7 +39,7 @@ pub fn set_matrix_uniform_inner(
     query_draw: &Query<(&InstanceIndex, &BoxType, OrDefault<RenderCount>)>,
     query_parent: &Query<(&NodeState, &WorldMatrix, &Up)>,
 ) {
-    let (entity, draw_list, mut world_matrix, layout, mut node_state,  mut up) = data;
+    let (_entity, draw_list, mut world_matrix, layout, mut node_state,  mut up) = data;
     if draw_list.0.len() == 0 {
         return;
     }
@@ -60,24 +60,25 @@ pub fn set_matrix_uniform_inner(
                 continue;
             }
 
-            use pi_key_alloter::Key;
+            // use pi_key_alloter::Key;
             
             let aabb = match box_type {
                 BoxType::Padding => layout.padding_aabb(),
                 BoxType::Content => layout.content_aabb(),
                 BoxType::Border => layout.border_aabb(),
                 BoxType::None => {
-                    if entity.index() == 257 && entity.data().version() == 4 {
-                        println!("=============layout1=============={:?}", (entity));
-                    }
+                    // if entity.index() == 257 && entity.data().version() == 4 {
+                    //     println!("=============layout1=============={:?}", (entity));
+                    // }
+                    // log::warn!("=============layout1=============={:?}", (entity, world_matrix.as_slice().len()));
                     instances.instance_data.set_data_mult(instance_index.0.start, render_count.0 as usize, &WorldMatrixMeterial(world_matrix.as_slice()));
                     continue;
                 },
                 BoxType::None2 => continue,
             };
-            if entity.index() == 257 && entity.data().version() == 4 {
-                println!("=============layout=============={:?}", (entity, &aabb));
-            }
+            // if entity.index() == 257 && entity.data().version() == 4 {
+            //     println!("=============layout=============={:?}", (entity, &aabb));
+            // }
             instances.instance_data.set_data_mult(instance_index.0.start, render_count.0 as usize,&LayoutUniform(&[aabb.mins.x, aabb.mins.y, aabb.maxs.x - aabb.mins.x, aabb.maxs.y - aabb.mins.y]));
 	        instances.instance_data.set_data_mult(instance_index.0.start, render_count.0 as usize,&WorldMatrixMeterial(world_matrix.as_slice()));
         }

@@ -163,7 +163,7 @@ pub fn calc_border_image_instance_count(
 			left: uv0.x,
 			right: uv1.x,
 			top: uv0.y,
-			bottom: uv0.y,
+			bottom: uv1.y,
 		};
 		verify_sero_size(&mut clip, 0.001);
 		let clip_size = Size{ width: clip.right - clip.left, height: clip.bottom - clip.top };

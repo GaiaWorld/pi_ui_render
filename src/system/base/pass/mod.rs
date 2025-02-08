@@ -31,14 +31,17 @@ impl Plugin for UiPassPlugin {
                     .after(UiSystemSet::PassFlush)
 					
 			)
+            .add_system(UiStage, pass_life::cal_pass_life.run_if(pass_life::pass_life_change).in_set(UiSystemSet::PassLife))
             .add_system(UiStage, pass_life::cal_context
                 .run_if(pass_life::pass_life_change)
-                .in_set(UiSystemSet::PassLife))
+                .after(UiSystemSet::PassFlush) // 在上下文创建之后执行
+                .in_set(UiSystemSet::PassSetting))
             // .add_system(UiStage, apply_deferred.in_set(UiSystemSet::PassFlush))
             .add_system(UiStage, 
                 pass_life::calc_pass_children_and_clear
                     .in_set(UiSystemSet::PassSetting)
                     .run_if(pass_life_children)
+                    .after(pass_life::cal_context)
 					.before(UiSystemSet::PassSettingWithParent) // 在所有依赖父子关系的system之前执行
                     .after(UiSystemSet::PassFlush), // 在上下文创建之后执行
             )

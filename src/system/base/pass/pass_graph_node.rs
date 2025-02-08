@@ -243,7 +243,7 @@ impl Node for Pass2DNode {
 		}
 		
 		// let t2 = std::time::Instant::now();
-		log::trace!(pass = format!("{:?}", pass2d_id).as_str(); "build graph node");
+		log::trace!(pass = format!("{:?}", pass2d_id).as_str(); "build graph node, pass: {:?}", pass2d_id);
 		// log::warn!("run1======{:?}", pass2d_id);
 		let p0 = param.query.p0();
 		let (layer, 
@@ -363,8 +363,8 @@ impl Node for Pass2DNode {
 					}
 					None => {
 						// next_target.clear();
-						// log::trace!("none==============={:?}", pass2d_id);
-						// 不进行渲染（可能由父节点对它进行渲染）
+						// log::warn!("none==============={:?}", pass2d_id);
+						// 不进行渲染（可能由父节点对它进行渲染, 也可能渲染目标尺寸为0）
 						return Ok(out);
 					}
 				};
@@ -1225,9 +1225,9 @@ impl RenderTarget {
 			let width = (self.bound_box.maxs.x - self.bound_box.mins.x).ceil() as u32;
 			let height = (self.bound_box.maxs.y - self.bound_box.mins.y).ceil() as u32;
 
-			// if width == 0 || height == 0 {
-			// 	return None;
-			// }
+			if width == 0 || height == 0 {
+				return None;
+			}
 			Some(atlas_allocator.allocate(width, height, t_type.has_depth, exclude))
 		}
     }

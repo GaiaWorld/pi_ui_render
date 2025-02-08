@@ -206,6 +206,7 @@ pub fn calc_background_image(
 	log::trace!("bg image========================{:?}", (mark.mark.has_any(&*BACKGROUND_TEXTURE_DIRTY1), mark.mark.has_any(&*BACKGROUND_TEXTURE_DIRTY2)));
 	for (draw_id, (x_range, y_range)) in grid_buffer.1.drain(..) {
 
+		
 		if let Ok(instanceindex) = query_draw.get(draw_id) {
 			set_grid_instance(
 				&grid_buffer.0,

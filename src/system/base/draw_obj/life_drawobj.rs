@@ -232,6 +232,7 @@ pub fn update_render_instance_data(
 	mut catche_buffer: OrInitSingleResMut<RenderInstances1>,
 	default_sdf_uv: OrInitSingleRes<SdfUv>,
 ) {
+	log::debug!("update_render_instance_data=====================");
 	// 如果没有实体创建， 也没有实体删除， zindex也没改变，上下文结构也没改变， 则不需要更新实例数据
 	// let mark_changed = query_mark.iter().next().is_some();
 	let mut node_change = node_change(&global_mark);
@@ -294,6 +295,9 @@ pub fn update_render_instance_data(
 				}
 				let mut info = info.clone();
 				info.set_visibility(is_show.get_visibility() && is_show.get_display() && !layer.layer().is_null());
+				// if id.index() == 53 && id.data().version() == 4 {
+					// log::warn!("el======{:?}", (id, draw_id.id, in_pass_id, ));
+				// }
 				list.push_element(
 					DrawIndex::DrawObj{
 						draw_entity: EntityKey(draw_id.id),
@@ -404,6 +408,7 @@ pub fn update_render_instance_data(
 	let p0 = pass_query.p0();	
 		
 	let pass_toop_list = std::mem::take(&mut instances.pass_toop_list);
+	log::debug!("pass_toop_list===={:?}", &pass_toop_list);
 	for entity in pass_toop_list.iter() {
 		let (mut draw_2d_list, _pass_id) = match p0.get_mut(*entity) {
 			Ok(r) => r,
