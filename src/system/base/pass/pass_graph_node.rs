@@ -179,22 +179,25 @@ impl Node for Pass2DNode {
 		if EntityKey(pass2d_id).is_null() {	
 			let p1 = param.query.p1();
 			for (canvas, draw_obj_list, is_show, layer) in param.query_canvas.iter() {
-				// log::error!("canvas=============== {:?}", (pass2d_id));
+				log::debug!("canvas0=============== {:?}", (pass2d_id, canvas));
 				let (canvas_graph_id, canvas_draw_obj_id) = match (param.query_graph_id.get(canvas.id), draw_obj_list.get_one(***param.canvas_render_type)) {
 					(Ok(r), Some(r1)) => (r, r1),
 					_ => continue,
 				};
+				log::debug!("canvas1=============== {:?}", (pass2d_id, canvas));
 				
 				let (instance_index, mut _fbo_info, mut out_target) = match p1.get_mut(canvas_draw_obj_id.id) {
 					Ok(r) => r,
 					Err(_) => continue,
 				};
+				log::debug!("canvas2=============== {:?}", (pass2d_id, canvas));
 
 				// 设置实例是否需要还原预乘
 				let mut ty = param.instance_draw.instance_data.instance_data_mut(instance_index.start).get_render_ty();
 				let mut visibility = is_show.get_visibility() && is_show.get_display() && !layer.layer().is_null();
 
-				if let Some(out) = input.0.get(&canvas_graph_id.0) {		
+				if let Some(out) = input.0.get(&canvas_graph_id.0) {	
+					log::debug!("canvas3=============== {:?}", (pass2d_id, canvas_graph_id.0));	
 					// match pipeline{
 					// 	Some(r) if !Share::ptr_eq(r, &instances.premultiply_pipeline) => ty &= !(1 << RenderFlagType::Premulti as usize),
 					// 	_ => ty |= 1 << RenderFlagType::Premulti as usize,
@@ -204,7 +207,7 @@ impl Node for Pass2DNode {
 
 					if let Some(target) = &out.target {
 						let mut is_set_uv = false;
-						// log::error!("target=============== {:?}", (pass2d_id, ty, visibility));
+						log::debug!("target=============== {:?}", (pass2d_id, canvas_graph_id.0, ty, visibility));
 						if let Some(fbo) = &out_target.0 {
 							if !Share::ptr_eq(&fbo.target().colors[0].0 , &target.target().colors[0].0) {
 								param.instance_draw.rebatch = true; // 设置rebatch为true， 使得后续重新进行批处理
@@ -629,9 +632,9 @@ impl Node for Pass2DNode {
         let pass2d_id = self.pass2d_id;
 		// let rt = self.rt.take();
 		// let post_draw = self.post_draw.take();
-		log::trace!("draw1==={:?}", (pass2d_id, _id));
+		log::debug!("draw1==={:?}", (pass2d_id, _id));
         Box::pin(async move {
-			// log::warn!("run0======{:?}", pass2d_id);
+			log::debug!("run0======{:?}", pass2d_id);
             // let query_param = query_param_state.get(world);
             // log::trace!(pass = format!("{:?}", pass2d_id).as_str(); "run graph node, ", param.surface.is_some());
 			let surface = match &**param.surface {
@@ -645,7 +648,7 @@ impl Node for Pass2DNode {
 				return Ok(());
 			}
 
-			log::trace!("draw_elements======{:?}", &param.instance_draw.draw_list.len());
+			log::debug!("draw_elements======{:?}", &param.instance_draw.draw_list.len());
 			if param.instance_draw.draw_list.len() == 0 {
 				return Ok(());
 			}

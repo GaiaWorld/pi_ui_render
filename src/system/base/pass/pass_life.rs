@@ -268,7 +268,7 @@ pub fn calc_pass_toop_sort(
         temp.1.push(i.0.clone());
     }
     temp_before.push(&temp.1[0..temp.1.len()]);
-    // log::warn!("temp_before======{:?}", &temp_before);
+    log::debug!("temp_before======{:?}", &temp_before);
 
     loop  {
         let node_ids = match  temp_before.pop() {

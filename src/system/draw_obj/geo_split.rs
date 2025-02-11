@@ -161,8 +161,6 @@ impl TempGeo {
         let splt_end_size = desc.layout_range.end - desc.split.end;
 
         let position_start = buffer.positions.len();
-
-        log::debug!("len============={:?}", position_start);
         
         let mut start = repeat_info.start;
         let mut next = (repeat_info.start + if repeat_info.bound_step > 0.0 {repeat_info.bound_step} else {repeat_info.item_size}).min(repeat_info.end);
@@ -630,7 +628,8 @@ pub fn set_grid_instance(buffer: &GridBufer, x_range: Range<usize>, y_range: Ran
     instance_start
 }
 
-// 某以方向的信息
+// 某一方向的信息
+#[derive(Debug)]
 pub struct DirectionDesc { 
     pub sdf_uv: Range<f32>,
     pub sdf_slice: Range<f32>,

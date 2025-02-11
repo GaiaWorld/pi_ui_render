@@ -234,7 +234,7 @@ pub fn calc_border_image_instance_count(
 		};
 
 		// 上边框
-		let top_range = if *border_slice.top > 0.0 {
+		let top_range = if layout.border.top > 0.0 {
 			TempGeo::grid_split(&RepeatInfo {
 				start: pmins.y,
 				end: pmins.y + layout.border.top,
@@ -251,7 +251,7 @@ pub fn calc_border_image_instance_count(
 		};
 
 		// 下边框
-		let bottom_range = if *border_slice.top > 0.0 {
+		let bottom_range = if layout.border.bottom > 0.0 {
 			TempGeo::grid_split(&RepeatInfo {
 				start: pmaxs.y - layout.border.bottom,
 				end: pmaxs.y,
@@ -267,7 +267,7 @@ pub fn calc_border_image_instance_count(
 		};
 
 		// 左边框
-		let left_range = if *border_slice.left > 0.0 {
+		let left_range = if layout.border.left > 0.0 {
 			TempGeo::grid_split(&RepeatInfo {
 				start: pmins.x,
 				end: pmins.x + layout.border.left,
@@ -283,7 +283,7 @@ pub fn calc_border_image_instance_count(
 		};
 
 		// 右边框
-		let right_range = if *border_slice.right > 0.0 {
+		let right_range = if layout.border.right > 0.0 {
 			TempGeo::grid_split(&RepeatInfo {
 				start: pmaxs.x - layout.border.right,
 				end: pmaxs.x,
@@ -302,7 +302,7 @@ pub fn calc_border_image_instance_count(
 		let fill_x_size = pmaxs.x - layout.border.left - layout.border.right;
 
 		// 中间纬线部分
-		let fill_weft_range = if border_slice.fill && slice_size.width > 0.0 && slice_size.height > 0.0  {
+		let fill_weft_range = if border_slice.fill && fill_y_size > 0.0 && fill_x_size > 0.0  {
 			TempGeo::grid_split(&RepeatInfo {
 				start: layout.border.left,
 				end: pmaxs.x - layout.border.right,
@@ -318,7 +318,7 @@ pub fn calc_border_image_instance_count(
 		};
 
 		// 中间经线部分
-		let fill_meridian_range = if border_slice.fill && slice_size.width > 0.0 && slice_size.height > 0.0  {
+		let fill_meridian_range = if border_slice.fill && fill_y_size > 0.0 && fill_y_size > 0.0  {
 			TempGeo::grid_split(&RepeatInfo {
 				start: layout.border.top,
 				end: pmaxs.y - layout.border.bottom,
@@ -333,10 +333,11 @@ pub fn calc_border_image_instance_count(
 			0..0
 		};
 
+		
 		// top, 中间部分
 		let uv_size = slice_size.width * factor.0;
 		let (layout_offset, bound, space, layout_space, _count) = calc_step(w,  uv_size, border_repeat.x);
-		let top_repeat_range = if *border_slice.top > 0.0 && !eq_f32(1.0, *border_slice.right + *border_slice.left)  {
+		let top_repeat_range = if border.top > 0.0 && fill_x_size > 0.0  {
 			TempGeo::grid_split(&RepeatInfo {
 				start: pmins.x + border.left + layout_offset,
 				end: pmins.x + border.left + fill_x_size,
@@ -354,7 +355,7 @@ pub fn calc_border_image_instance_count(
 		// bottom, 中间部分
 		let uv_size = slice_size.width * factor.2;
 		let (layout_offset, bound, space, layout_space, _count) = calc_step(w, uv_size, border_repeat.x);
-		let bottom_repeat_range = if *border_slice.bottom > 0.0 && !eq_f32(1.0, *border_slice.right + *border_slice.left)  {
+		let bottom_repeat_range = if border.bottom > 0.0 && fill_x_size > 0.0  {
 			TempGeo::grid_split(&RepeatInfo {
 				start: pmins.x + border.left + layout_offset,
 				end: pmins.x + border.left + fill_x_size,
@@ -372,7 +373,7 @@ pub fn calc_border_image_instance_count(
 		// left, 中间部分
 		let uv_size = slice_size.height * factor.3;
 		let (layout_offset, bound, space, layout_space, _count) = calc_step(h, uv_size, border_repeat.y);
-		let left_repeat_range = if *border_slice.left > 0.0 && !eq_f32(1.0, *border_slice.bottom + *border_slice.top)  {
+		let left_repeat_range = if border.left > 0.0 && fill_y_size > 0.0  {
 			TempGeo::grid_split(&RepeatInfo {
 				start: pmins.y + border.top + layout_offset,
 				end: pmins.y + border.top + fill_y_size,
@@ -390,7 +391,7 @@ pub fn calc_border_image_instance_count(
 		// right, 中间部分
 		let uv_size = slice_size.height * factor.1;
 		let (layout_offset, bound, space, layout_space, _count) = calc_step(h, uv_size, border_repeat.y);
-		let right_repeat_range = if *border_slice.right > 0.0 && !eq_f32(1.0, *border_slice.bottom + *border_slice.top) {
+		let right_repeat_range = if border.right > 0.0 && fill_y_size > 0.0 {
 			TempGeo::grid_split(&RepeatInfo {
 				start: pmins.y + border.top + layout_offset,
 				end: pmins.y + border.top + fill_y_size,
@@ -414,7 +415,7 @@ pub fn calc_border_image_instance_count(
 
 		
 		set_box_type_count(draw_id, BoxType::None, count, &mut query_draw, &mut global_mark);
-		log::debug!("border render_count=============={:?}, {:?}", count, (
+		log::debug!("border render_count=============={:?}, {:?}, {:?}", &border_image.0, count, (
 			&top_range,
 			&right_range,
 			&bottom_range,
@@ -526,7 +527,7 @@ pub fn verify_sero_size(value: &mut Rect<f32>, min_size: f32) {
 pub fn calc_step(show_size: f32, img_size: f32, rtype: ImageRepeatOption) -> (f32/*第一个item的布局偏移*/, f32/*边缘部分需要渲染多少个item(0~1，单边)*/ , f32/*每个item间隔）*/, f32/*每个item占用的布局宽度*/, usize/*重复次数*/) {
 	log::debug!("calc_step {:?} {:?} {:?}", show_size, img_size, rtype);
 	if eq_f32(img_size, 0.0) || eq_f32(show_size, 0.0) {
-		return (0.0, 0.0, 0.0, 0.001, 0);  // 避免为0， 因为其将作为除数
+		return (0.0, 0.0, 0.0, show_size.max(0.001), 0);  // 避免为0， 因为其将作为除数
 	}
 
     let repeat_count = show_size / img_size; // 区域内可重复的次数

@@ -371,19 +371,19 @@ impl InstanceContext {
 
         // log::warn!("darw================={:?}", instance_draw.instance_data_range.start as u32/self.instance_data.alignment as u32..instance_draw.instance_data_range.end as u32/self.instance_data.alignment as u32 );
         // log::warn!("instance_data_range====={:?}", (&instance_draw.instance_data_range, instance_draw.instance_data_range.start as u32/self.instance_data.alignment as u32..instance_draw.instance_data_range.end as u32/self.instance_data.alignment as u32));
-		// #[cfg(debug_assertions)]
-        // {
-        //     for i in instance_draw.instance_data_range.start as u32/self.instance_data.alignment as u32..instance_draw.instance_data_range.end as u32/self.instance_data.alignment as u32 {
-        //         // let debug_info = self.debug_info.get(i as usize/MeterialBind::SIZE);
-        //         // let index = i as usize * self.instance_data.alignment;
-        //         // let render_flag = self.instance_data.get_render_ty(index as u32);
-        //         // if render_flag == 0 {
-        //         //     panic!("!!!!!!!!!!!!!!, {}", index);
-        //         // }
-        //         rp.draw(0..6, i..i+1);
-        //     } 
-        // }
-        // #[cfg(not(debug_assertions))]
+		#[cfg(debug_assertions)]
+        {
+            for i in instance_draw.instance_data_range.start as u32/self.instance_data.alignment as u32..instance_draw.instance_data_range.end as u32/self.instance_data.alignment as u32 {
+                // let debug_info = self.debug_info.get(i as usize/MeterialBind::SIZE);
+                // let index = i as usize * self.instance_data.alignment;
+                // let render_flag = self.instance_data.get_render_ty(index as u32);
+                // if render_flag == 0 {
+                //     panic!("!!!!!!!!!!!!!!, {}", index);
+                // }
+                rp.draw(0..6, i..i+1);
+            } 
+        }
+        #[cfg(not(debug_assertions))]
         rp.draw(0..6, instance_draw.instance_data_range.start as u32/self.instance_data.alignment as u32..instance_draw.instance_data_range.end as u32/self.instance_data.alignment as u32);
 
 	}

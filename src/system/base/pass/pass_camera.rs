@@ -52,6 +52,7 @@ pub fn calc_pass_dirty(
         quad_changed.mark_read();
         bg_image_changed.mark_read();
         border_image_changed.mark_read();
+        canvas_changed.mark_read();
         render_dirty.1 = true;
         return;
     }
