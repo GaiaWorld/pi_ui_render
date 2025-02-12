@@ -309,11 +309,11 @@ pi_flex_layout = { path = "../pi_flex_layout" }
 # pi_curves  = {path="../pi_curves"}
 # pi_animation = { path="../pi_animation"}
 pi_style = {path = "../pi_style"}
-pi_wgpu = {path = "../pi_wgpu"}
-pi_egl = {path = "../pi_egl"}
-winit = {path = "../winit"}
-pi_hal = { path = "../pi_hal" }
-pi_sdf = { path = "../pi_sdf" }
+# pi_wgpu = {path = "../pi_wgpu"}
+# pi_egl = {path = "../pi_egl"}
+# winit = {path = "../winit"}
+# pi_hal = { path = "../pi_hal" }
+# pi_sdf = { path = "../pi_sdf" }
 pi_postprocess = { path = "../pi_post_process" }
 
 # bevy
