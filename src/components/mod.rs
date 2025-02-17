@@ -9,7 +9,7 @@ pub mod user;
 // use calc::IsDisplay;
 use pi_world::{prelude::{Bundle, Entity, FromWorld}, world::{ComponentIndex, World}};
 use pi_bevy_ecs_extend::prelude::{Down, Layer, Up};
-use user::SvgInnerContent;
+use user::{SvgFilter, SvgInnerContent, SvgLinearGradient, SvgLinearGradientStop, SvgShadow};
 
 use self::{
     calc::{DrawInfo, DrawList, EntityKey, IsShow, NodeState, RenderContextMark, TransformWillChangeMatrix, View},
@@ -85,6 +85,10 @@ pub struct SettingComponentIds {
     // pub is_display: ComponentIndex,
 
     pub svg: ComponentIndex,
+    pub svg_shadow: ComponentIndex,
+    svg_filter: ComponentIndex,
+    svg_linear_gradient: ComponentIndex,
+    svg_linear_gradient_stop: ComponentIndex,
 }
 
 impl FromWorld for SettingComponentIds {
@@ -153,6 +157,10 @@ impl FromWorld for SettingComponentIds {
             // is_display: world.init_component::<self::calc::IsDisplay>(),
 
             svg: world.init_component::<SvgInnerContent>(),
+            svg_shadow: world.init_component::<SvgShadow>(),
+            svg_filter: world.init_component::<SvgFilter>(),
+            svg_linear_gradient: world.init_component::<SvgLinearGradient>(),
+            svg_linear_gradient_stop: world.init_component::<SvgLinearGradientStop>(),
         }
     }
 }

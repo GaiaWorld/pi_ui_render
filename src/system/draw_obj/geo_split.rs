@@ -436,6 +436,7 @@ impl TempGeo {
                     let mut instance_data = instances.instance_data.instance_data_mut(instance_start);
                     let mut render_flag = instance_data.get_render_ty();
                     render_flag |= 1 << RenderFlagType::LinearGradient as usize;
+                    render_flag |= 1 << RenderFlagType::Stroke as usize;
                     instance_data.set_data(&TyMeterial(&[render_flag as f32]));
         
                     let p = [
@@ -630,7 +631,8 @@ pub fn set_grid_instance(buffer: &GridBufer, x_range: Range<usize>, y_range: Ran
     instance_start
 }
 
-// 某以方向的信息
+// 某一方向的信息
+#[derive(Debug)]
 pub struct DirectionDesc { 
     pub sdf_uv: Range<f32>,
     pub sdf_slice: Range<f32>,

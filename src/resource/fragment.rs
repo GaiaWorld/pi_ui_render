@@ -9,7 +9,7 @@ use smallvec::SmallVec;
 use std::{collections::VecDeque, ops::Range};
 use thiserror::Error;
 
-use crate::components::user::ClassName;
+use crate::components::user::{serialize::{SvgType, SvgTypeAttr}, svg_style_list_to_buffer, ClassName, SvgShapeEnum};
 
 /// 模板map
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -29,8 +29,17 @@ impl FragmentMap {
         let index = fragments.len();
         let style_buffer = &mut self.style_buffer;
         for mut node in value.fragments.into_iter() {
-            let count = node.style.len();
-            let meta = style_list_to_buffer(style_buffer, &mut node.style, count);
+            let meta = match &mut node.style {
+                Attributes::GuiAttributes(vec_deque) => { 
+                    let count = vec_deque.len(); 
+                    style_list_to_buffer(style_buffer, vec_deque, count)
+                }
+                Attributes::SvgAttributes(vec_deque) => {
+                    let count = vec_deque.len(); 
+                    svg_style_list_to_buffer(style_buffer, vec_deque, count)
+                },
+            };
+            
             fragments.push(NodeFragmentCmd {
                 tag: node.tag,
                 parent: if node.parent.is_null() { usize::null() } else { node.parent as usize },
@@ -60,6 +69,34 @@ pub enum NodeTag {
     Span,
     Canvas,
     VNode,
+    Svg,
+    Rect,
+    Circle,
+    Ellipse,
+    Line,
+    Polygon,
+    Polyline,
+    Path,
+    Filter,
+    LinearGradient,
+    Stop,
+    Defs,
+    FeDropShadow
+}
+
+impl NodeTag{
+    pub fn to_svg_shape(&self) -> Option<SvgShapeEnum> {
+        match self {
+            NodeTag::Rect => Some(SvgShapeEnum::Rect),
+            NodeTag::Circle =>  Some(SvgShapeEnum::Circle),
+            NodeTag::Ellipse =>  Some(SvgShapeEnum::Ellipse),
+            NodeTag::Line =>  Some(SvgShapeEnum::Segment),
+            NodeTag::Polygon =>  Some(SvgShapeEnum::Polygon),
+            NodeTag::Polyline =>  Some(SvgShapeEnum::Polyline),
+            NodeTag::Path =>  Some(SvgShapeEnum::Path),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Error, Debug)]
@@ -78,6 +115,19 @@ impl TryFrom<&str> for NodeTag {
             "span" => NodeTag::Span,
             "image" => NodeTag::Image,
             "template" => NodeTag::VNode,
+            "svg" => NodeTag::Svg,
+            "rect" => NodeTag::Rect,
+            "circle" => NodeTag::Circle,
+            "ellipse" => NodeTag::Ellipse,
+            "line" => NodeTag::Line,
+            "polygon" => NodeTag::Polygon,
+            "polyline" => NodeTag::Polyline,
+            "path" => NodeTag::Path,
+            "defs" => NodeTag::Defs,
+            "filter" => NodeTag::Filter,
+            "feDropShadow" => NodeTag::FeDropShadow,
+            "linearGradient" => NodeTag::LinearGradient,
+            "stop" => NodeTag::Stop,
             _ => return Err(TagErr::InvaildName(value.to_string())),
         };
         Ok(r)
@@ -90,11 +140,23 @@ pub struct Fragments {
     pub map: XHashMap<u32, Range<usize>>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum Attributes {
+    GuiAttributes(VecDeque<Attribute>),
+    SvgAttributes(VecDeque<SvgTypeAttr>)
+}
+
+impl Default for Attributes{
+    fn default() -> Self {
+        Self::GuiAttributes(VecDeque::default())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct NodeFragment {
     pub tag: NodeTag,
     pub parent: u32,
-    pub style: VecDeque<Attribute>,
+    pub style: Attributes,
     pub class: SmallVec<[u32; 1]>,
 }
 

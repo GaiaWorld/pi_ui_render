@@ -545,7 +545,7 @@ pub struct StyleMark {
     pub class_style: StyleMarkType, // class样式， 表示节点样式中，哪些样式是由class设置的
 }
 
-pub type StyleMarkType = BitArray<[u32; 4]>;
+pub type StyleMarkType = BitArray<[u32; 5]>;
 
 /// 标记渲染context中需要的效果， 如Blur、Opacity、Hsi、MasImage等
 /// 此数据结构仅记录位标记，具体哪些属性用哪一位来标记，这里并不关心，由逻辑保证

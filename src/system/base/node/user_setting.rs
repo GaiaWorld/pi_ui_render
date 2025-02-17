@@ -497,7 +497,7 @@ pub fn set_style<'w, 's>(node: Entity, start: usize, end: usize, style_buffer: &
 	log::trace!("set_style==========={:?}", node);
 
     let mut style_reader = StyleTypeReader::new(style_buffer, start, end);
-    let mut local_mark = BitArray::new([0, 0, 0, 0]);
+    let mut local_mark = BitArray::new([0, 0, 0, 0, 0]);
     while style_reader.write_to_component(&mut local_mark, node, style_query, is_clone) {}
 
     if let Ok(mut style_mark) = style_query.world.get_component_mut_by_index::<StyleMark>(node, style_query.style.style_mark) {
@@ -525,7 +525,7 @@ fn set_class<'w, 's>(node: Entity, style_query: &mut Setting, class: ClassName, 
     };
 
     let (old_class_style_mark, local_style_mark) = (style_mark.class_style.clone(), style_mark.local_style.clone());
-    let mut new_class_style_mark: StyleMarkType = BitArray::new([0, 0, 0, 0]);
+    let mut new_class_style_mark: StyleMarkType = BitArray::new([0, 0, 0, 0, 0]);
 
     // 设置class样式
     for i in class.iter() {
@@ -556,8 +556,8 @@ fn set_class<'w, 's>(node: Entity, style_query: &mut Setting, class: ClassName, 
     let buffer = Vec::new();
     for i in invalid_style.iter_ones() {
         // count.fetch_add(1, Ordering::Relaxed);
-        StyleAttr::reset(&mut cur_style_mark, i as u8, &buffer, 0, style_query, node);
-        StyleAttr::push_component_ops(i as u8 + STYLE_COUNT, &style_query.style,  component_ids1)
+        StyleAttr::reset(&mut cur_style_mark, i as u16, &buffer, 0, style_query, node);
+        StyleAttr::push_component_ops(i as u16 + STYLE_COUNT, &style_query.style,  component_ids1)
     }
 
     if component_ids1.len() > 0 {
