@@ -657,7 +657,6 @@ pub fn record_cmd_to_file(mut records: SingleResMut<Records>) {
 #[cfg(feature = "debug")]
 pub fn setting_next_record(world: &mut World, mut local_state: Local<NextState>) {
     use tracing_subscriber::fmt::format;
-
     let play_option = (*world.get_single_res::<PlayOption>().unwrap()).clone();
     let local_state = &mut *local_state;
     if local_state.is_end {
@@ -703,13 +702,10 @@ pub fn setting_next_record(world: &mut World, mut local_state: Local<NextState>)
             // }
        }
 
-       
-       
-        
         return;
     }
 
-    setting(&mut local_state.file_index, world, &mut local_state.is_end, &play_option)
+    setting(&mut local_state.file_index, world, &mut local_state.is_end, &play_option);
 }
 
 

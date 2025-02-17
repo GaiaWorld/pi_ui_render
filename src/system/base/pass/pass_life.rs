@@ -18,7 +18,7 @@
 use pi_bevy_render_plugin::{render_cross::GraphId, NodeId, PiRenderGraph};
 use pi_slotmap::SecondaryMap;
 use pi_style::style::Aabb2;
-use pi_world::{event::{ComponentAdded, ComponentChanged}, fetch::{OrDefault, Ticker}, filter::{Or, With}, prelude::{Alter, Changed, Entity, Mut, ParamSet, Query, SingleRes, SingleResMut}, system_params::Local};
+use pi_world::{event::{ComponentAdded, ComponentChanged, ComponentRemoved}, fetch::{OrDefault, Ticker}, filter::{Or, With}, prelude::{Alter, Changed, Entity, Mut, ParamSet, Query, SingleRes, SingleResMut}, system_params::Local};
 use pi_bevy_ecs_extend::prelude::{Layer, LayerDirty, OrInitSingleRes, OrInitSingleResMut, Root, Up};
 
 use pi_null::Null;
@@ -227,6 +227,7 @@ pub fn calc_pass_children_and_clear(
 }
 
 // 对gui中的Pass进行拓扑排序
+// RenderContextMark修改， AsImageBindList修改或添加、Camera删除，都需要冲洗计算toop排序
 pub fn calc_pass_toop_sort(
     query_root: Query<&GraphId, (With<Root>, With<Size>)>,
     query_post: Query<&PostProcessInfo, With<Size>>,
@@ -239,17 +240,19 @@ pub fn calc_pass_toop_sort(
     as_image_changed: ComponentChanged<AsImageBindList>,
     as_image_added: ComponentAdded<AsImageBindList>,
 
+    mark: SingleRes<GlobalDirtyMark>,
+
 ) {
     if r.0 {
 		return;
 	}
 
-    if mark_change.len() == 0 && as_image_changed.len() == 0 && as_image_added.len() == 0 {
-        mark_change.mark_read();
-        as_image_changed.mark_read();
-        as_image_added.mark_read();
+    if !mark.mark.has_any(&*PASS_CHILDREN_DIRTY) && mark_change.len() == 0 && as_image_changed.len() == 0 && as_image_added.len() == 0 {
         return;
     }
+    mark_change.mark_read();
+    as_image_changed.mark_read();
+    as_image_added.mark_read();
 
     let temp = &mut *temp;
     let rg = &*rg;
@@ -265,7 +268,7 @@ pub fn calc_pass_toop_sort(
         temp.1.push(i.0.clone());
     }
     temp_before.push(&temp.1[0..temp.1.len()]);
-    // log::warn!("temp_before======{:?}", &temp_before);
+    log::debug!("temp_before======{:?}", &temp_before);
 
     loop  {
         let node_ids = match  temp_before.pop() {
@@ -278,6 +281,7 @@ pub fn calc_pass_toop_sort(
                 Some(_count) => continue, // 存在索引，表示已经迭代过了， 不需要处理 
                 None => {
                     let before = rg.before_nodes(node_id.clone()).unwrap();
+                    log::debug!("temp_before2======node_id:{:?}, before: {:?}", node_id, &before);
                     temp.3.insert(node_id.clone(), (before.len(), false));
                     if before.len() > 0 {
                         temp_before.push(before);
@@ -303,6 +307,7 @@ pub fn calc_pass_toop_sort(
                 pass_toop_list.push(entity); // 加入到pass_toop_list
                 if let Ok(post_info) = query_post.get(entity) {
                     has_effect = post_info.has_effect();
+                    log::debug!("after2======has_effect{:?}", (entity, node_id, has_effect));
                 }
             } else if pass_toop_list.len() != last_depend {
                 // log::warn!("zzzz======================{:?}", (entity, pass_toop_list.len()));
@@ -347,6 +352,8 @@ pub fn calc_pass_toop_sort(
 
         
     }
+
+    log::debug!("111======================{:?}, \n{:?}", pass_toop_list, next_node_with_depend);
 
     temp.0.clear();
     temp.1.clear();

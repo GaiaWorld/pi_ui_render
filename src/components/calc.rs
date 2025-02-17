@@ -1,6 +1,5 @@
 //! 定义计算组件（非用户设置的组件）
 
-use pi_bevy_render_plugin::render_cross::GraphId;
 use pi_render::components::view::target_alloc::ShareTargetView;
 use pi_world::insert::Component;
 use pi_world::prelude::Entity;

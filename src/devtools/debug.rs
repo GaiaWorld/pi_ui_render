@@ -189,7 +189,7 @@ pub fn get_gui_root(world: &mut World) -> Option<Entity> {
     query.iter(world).next()
 }
 
-pub fn get_document_tree(world: &mut World) -> String {
+pub fn get_document_tree(world: &mut World) -> GuiNode {
     let mut query = world.query::<Entity, (With<Root>, With<Size>)>();
     let root = query.iter(world).next().unwrap();
 
@@ -197,7 +197,7 @@ pub fn get_document_tree(world: &mut World) -> String {
     let query = query.get_param(world);
     let mut n = GuiNode::default();
     init_node( root, &mut n, &query);
-    serde_json::to_string(&n).unwrap()
+    return n;
 }
 
 

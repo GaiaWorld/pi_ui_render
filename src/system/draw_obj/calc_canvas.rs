@@ -1,7 +1,13 @@
-
+/// canvas功能
+/// 0. draw_object_life_new系统， 为canvas创建对应的DrawObj
+/// 1. calc_canvas_graph检测canvas对应GraphId和InPassId组件的变化， 将canvas的GraphId链接到当前canvas所在的图节点上
+/// 2. calc_canvas_graph将canvas对应GraphId连接到gui最终图节点上
+/// 3. 在pass_graph_node图节点的build中， 遍历所有cnavas，将其GraphId对应的fbo设置在canvas draw obj 的OutTarget上以便后续渲染（需要步骤2支持，才能找到对应的fbo）
+/// 4. canvsas组件删除后， 需要删除对应的依赖关系（这里由外部系统保证， 当外部系统删除了对应的GraphId对应的图节点，依赖关系也随之删除了）
 use pi_world::fetch::Ticker;
 use pi_world::prelude::{Query, SingleResMut, Entity, Plugin, IntoSystemConfigs, SingleRes};
 use pi_bevy_ecs_extend::prelude::OrInitSingleRes;
+use pi_bevy_render_plugin::asimage_url::RenderTarget as RenderTarget1;
 
 use pi_bevy_render_plugin::PiRenderGraph;
 use pi_bevy_render_plugin::render_cross::GraphId;
@@ -30,7 +36,7 @@ impl Plugin for CanvasPlugin {
 			draw_object_life_new::<
 				Canvas,
 				CanvasRenderObjType,
-				(CanvasMark, GraphId, FboInfo),
+				(CanvasMark, GraphId, FboInfo, RenderTarget1),
 				{ CANVAS_ORDER },
 				{ BoxType::Padding },
 			>
@@ -55,7 +61,7 @@ pub fn calc_canvas_graph(
 	mut canvas_query: Query<(&mut Canvas, Ticker<&InPassId>, Entity)>,
 	canvas_other_query: Query<Option<&AsImage>>,
 	graph_id_query: Query<Ticker<&GraphId>>,
-	graph_id_query1: Query<&GraphId>,
+	graph_id_query1: Query<(&GraphId)>,
 	inpass_query: Query<&ParentPassId>,
 
 	mut rg: SingleResMut<PiRenderGraph>,
@@ -67,14 +73,14 @@ pub fn calc_canvas_graph(
 	}
 
 	// canvas的图节点id由外部系统设置
-    for (canvas, in_pass_id, entity) in canvas_query.iter_mut() {
+    for (mut canvas, in_pass_id, entity) in canvas_query.iter_mut() {
         if let Ok(from_graph_id) = graph_id_query.get(canvas.id) {
+
 			if !from_graph_id.is_changed() && !in_pass_id.is_changed() {
 				continue; // 未改变， 什么也不做
 			}
 
-			
-
+			log::debug!("canvas====={:?}", (entity, from_graph_id.is_changed(), in_pass_id.is_changed(), &*from_graph_id));
 			// 如果canvas关联的内容发生改变， 则设置Canvas改变
 			// if from_graph_id_changed {
 				// canvas.set_changed(); //  目前由于外部总在改变GraphId， 这里先不设置， 仅仅依赖set_brush来设置
@@ -85,6 +91,7 @@ pub fn calc_canvas_graph(
 					continue;
 				}
 			}
+			canvas.pre_graph_id = from_graph_id.0;
 
 			let as_image = match canvas_other_query.get(entity) {
 				Ok(r) => r,
@@ -94,15 +101,15 @@ pub fn calc_canvas_graph(
 			if from_graph_id.is_null() {
 				continue;
 			}
-
-			// log::warn!("canvas id========: {:?}", (entity, &from_graph_id.0));
 			
 			let id = type_to_post_process(**from_graph_id, as_image, &graph_id_query1, &mut rg);
+			log::debug!("canvas id========: {:?}", (entity, &in_pass_id, &from_graph_id.0, id));
             let mut in_pass_id = **in_pass_id;
             loop {
                 if let Ok(to_graph_id) = graph_id_query1.get(*in_pass_id) {
                     if !to_graph_id.is_null() {
 						log::trace!("canvas add graph depend, before={:?}, after={:?}", id, to_graph_id);
+						log::trace!("canvas add graph depend, before={:?}, after={:?}", id, last_graph_id.0);
                         if let Err(e) = rg.add_depend(id, **to_graph_id) {
                             log::error!("add_depend fail, {:?}", e);
                         }

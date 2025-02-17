@@ -629,7 +629,6 @@ pub fn batch_instance_data(
 			Ok(r) => r,
 			_ => continue
 		};
-		log::debug!("pass_toop_list!!!!!11111===={:?}", pass_id);
 		let (_, _, fbo_info, _render_target) = query.draw_query.get(*pass_id).unwrap();
 		
 
@@ -732,12 +731,15 @@ pub fn batch_instance_data(
 		
 		// 已经到达下一个"有依赖未就绪"的节点
 		// 在draw_list中push一个DrawPost， 用于绘制当前需要绘制的后处理效果
+		// if pass_index > 15 {
+		// 	log::warn!("pass_index================{:?}", (pass_index, pass_id, batch_state.next_node_with_depend, fbo_changed, global_state.post_start, instances.posts.len()));
+		// }
 		if pass_index >= batch_state.next_node_with_depend || fbo_changed {
 			if pass_index >= batch_state.next_node_with_depend {
 				batch_state.next_node_with_depend_index += 1;
 				batch_state.next_node_with_depend = instances.next_node_with_depend.get(batch_state.next_node_with_depend_index).map_or(std::usize::MAX, |r| {*r});
 				if global_state.post_start < instances.posts.len() {
-					log::trace!("DrawPost====={:?}, {:?}, {:?}, {:?}, {:?}", pass_id, pass_index, batch_state.next_node_with_depend, global_state.post_start..instances.posts.len(), instances.next_node_with_depend);
+					log::debug!("DrawPost====={:?}, index={}, {:?}, {:?}, {:?}, {:?}", pass_id, instances.draw_list.len(), pass_index, batch_state.next_node_with_depend, global_state.post_start..instances.posts.len(), instances.next_node_with_depend);
 					let post = (DrawElement::DrawPost(global_state.post_start..instances.posts.len()), *pass_id);
 					instances.draw_list.push(post);
 					global_state.post_start = instances.posts.len();

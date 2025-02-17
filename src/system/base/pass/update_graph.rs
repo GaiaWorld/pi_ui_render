@@ -12,6 +12,7 @@ use pi_bevy_ecs_extend::prelude::{OrInitSingleRes, OrInitSingleResMut};
 use pi_bevy_render_plugin::{NodeId, PiRenderGraph, NodeLabel};
 use pi_null::Null;
 
+use crate::components::pass_2d::PostProcessInfo;
 use crate::resource::IsRun;
 use crate::{
     components::{
@@ -40,7 +41,7 @@ pub fn init_root_graph(
 /// 根据声明创建图节点，删除图节点， 建立图节点的依赖关系
 pub fn update_graph(
     mut pass_query: ParamSet<(
-        Query<(Option<&mut GraphId>, Entity, OrDefault<ParentPassId>, &RenderContextMark)>,
+        Query<(Option<&mut GraphId>, Entity, OrDefault<ParentPassId>, &RenderContextMark, &PostProcessInfo)>,
         (
 			Query<(&ParentPassId, &GraphId, Option<&AsImage>), (Or<(Changed<ParentPassId>, Changed<AsImage>, Changed<GraphId>)>, With<Camera>)>, 
 			Query<(&ParentPassId, &GraphId), With<Camera>>,
@@ -68,7 +69,7 @@ pub fn update_graph(
     for entity in mark_changed.iter() {
         let p0 = pass_query.p0();
         log::debug!(entity=format!("entity_{:?}", entity).as_str();  "add graph node0, entity={entity:?}");
-        if let Ok((graph_id, entity, parent_passs_id, mark)) = p0.get_mut(*entity) {
+        if let Ok((graph_id, entity, parent_passs_id, mark, post_info)) = p0.get_mut(*entity) {
             let is_root = pi_null::Null::is_null(&parent_passs_id.0);
             log::debug!(entity=format!("entity_{:?}", entity).as_str();  "add graph node1, entity={entity:?}, mark={:?}, is_root: {:?}, parent_passs_id={:?}", mark.any(),  is_root, parent_passs_id);
              // if post_info.has_effect() || is_root {
@@ -92,6 +93,9 @@ pub fn update_graph(
                     }
                 };
                 rg.set_bind(graph_node_id, entity);
+
+                let is_tansfer = !post_info.has_effect() && !is_root;
+                rg.set_is_transfer(graph_node_id, is_tansfer);
 
                 if is_root {
                     log::debug!("add_depend======{:?}, {:?}", graph_node_id, last_graph_id.0);
