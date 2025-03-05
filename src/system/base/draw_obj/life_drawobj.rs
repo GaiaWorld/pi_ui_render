@@ -236,7 +236,8 @@ pub fn update_render_instance_data(
 	// 如果没有实体创建， 也没有实体删除， zindex也没改变，上下文结构也没改变， 则不需要更新实例数据
 	// let mark_changed = query_mark.iter().next().is_some();
 	let mut node_change = node_change(&global_mark);
-	log::trace!("life========================node_change={:?}", node_change);
+	let instances = &mut **instances;
+	log::trace!("life========================node_change={:?}， {:p}", node_change, instances);
 	for entity in mark_changed.iter() {
 		let p0 = instance_index.p0();
 		if let Ok((post_info, mut instance_index, e, mut fbo)) = p0.get_mut(*entity) {
@@ -261,7 +262,7 @@ pub fn update_render_instance_data(
 	if !node_change {
 		return;
 	}
-	log::debug!("life========================node_change={:?}, pass_toop_list: {:?}", node_change, &instances.pass_toop_list);
+	log::debug!("life========================node_change={:?}, rebatch: {:?},  pass_toop_list: {:?}, {:p}", node_change, instances.rebatch, &instances.pass_toop_list, instances);
 	// node_change.node_changed = false;
 	// node_change.rebatch = false;
 	
@@ -579,9 +580,9 @@ pub fn batch_instance_data(
 ) {
 	
 
-	let instances = &mut *instances;
+	let instances = &mut **instances;
 	// println!("batch_instance_data=========={:?}", instances.rebatch);
-	log::trace!("batch_instance_data, rebatch={:?}", instances.rebatch);
+	log::trace!("batch_instance_data, rebatch={:?}, {:p}", instances.rebatch, instances);
 	if !instances.rebatch {
 		return;
 	}
@@ -670,7 +671,7 @@ pub fn batch_instance_data(
 			let (split_index/*上一个清屏的批处理索引：单位（批次）*/, end/*实例数据的结束偏移：单位（字节）*/, _draw_call_count/*该次清屏，对应的drawcall数量*/) = if fbo_changed1 || active_changed || old_next_node_with_depend_index != batch_state.next_node_with_depend_index {
 				old_next_node_with_depend_index = batch_state.next_node_with_depend_index;
 				// 如果fbo发生了改变， 重新劈分clear
-				log::trace!("DrawElement::Clear====={:?}, {:?}, {:?}, {:?}", pass_id, pass_index, draw_2d_list.clear_instance/224, instances.next_node_with_depend);
+				log::debug!("DrawElement::Clear====={:?}, {:?}, {:?}, {:?}", pass_id, pass_index, draw_2d_list.clear_instance/224, instances.next_node_with_depend);
 				let c = (DrawElement::Clear {
 					draw_state: InstanceDrawState { 
 						instance_data_range: draw_2d_list.clear_instance..draw_2d_list.clear_instance + instances.instance_data.alignment, 
@@ -981,7 +982,7 @@ fn batch_pass(
 					match instance_split {
 						InstanceSplit::ByEntity(entity) => if let Ok((_instance_split, _pipeline, _fbo_info, render_target)) = query.draw_query.get(entity.clone()) {
 							if let Some(t) = &render_target.0 {
-								log::warn!("ByEntity======{:?}", (entity, &t.target().colors[0].0));
+								log::debug!("ByEntity======{:?}", (entity, &t.target().colors[0].0));
 								split_by_texture = Some(((*index).clone(), &t.target().colors[0].0, &query.common_sampler.pointer));
 							}
 						},
@@ -993,7 +994,7 @@ fn batch_pass(
 							// if node_entity.index() == 159 {
 								// println!("split_by_texture=======node_entity:{:?}, draw_entity:{:?}, {:?}, {:?}", node_entity, draw_entity,  ui_texture.id, a.1);
 							// }
-							
+							log::debug!("ByTexture======{:?}", draw_entity);
 							split_by_texture = Some(((*index).clone(), ui_texture, &query.common_sampler.default));
 						},
 						InstanceSplit::ByFbo(ui_texture) => {
@@ -1004,7 +1005,7 @@ fn batch_pass(
 							// if node_entity.index() == 159 {
 								// println!("split_by_texture=======node_entity:{:?}, draw_entity:{:?}, {:?}, {:?}", node_entity, draw_entity,  ui_texture.id, a.1);
 							// }
-							// log::warn!("fbo=========={:?}", ( &ui_texture.as_ref().unwrap().target().colors[0].1));
+							log::debug!("ByFbo=========={:?}", ( &ui_texture.as_ref().unwrap().target().colors[0].1));
 							split_by_texture = Some((index.clone(), &ui_texture.as_ref().unwrap().target().colors[0].0, &query.common_sampler.default));
 						},
 						InstanceSplit::ByCross(is_list) =>  {
@@ -1035,6 +1036,7 @@ fn batch_pass(
 						
 					}
 				} else {
+					log::debug!("ByNone=========={:?}", draw_entity);
 					// #[cfg(debug_assertions)]
 					// if !index.start.is_null() {
 					// 	instances.debug_info.insert(index.start / MeterialBind::SIZE, format!("node: {:?}, draw: {:?}", node_entity, draw_entity));

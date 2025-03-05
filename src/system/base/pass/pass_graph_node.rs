@@ -348,7 +348,7 @@ impl Node for Pass2DNode {
 					!is_not_only_as_image,
 				) {
 					Some(r) => {
-						// log::warn!("alloc=============={:?}", (pass2d_id, r.index, &r.target().colors[0].1));
+						log::debug!("alloc=============={:?}", (pass2d_id, r.index, &r.target().colors[0].1));
 						// for i in input.0.values() {
 						// 	if let Some(t) = &i.target {
 						// 		log::warn!("alloc input =============={:?}", (pass2d_id, r.index, &t.target().colors[0].1));
@@ -667,6 +667,7 @@ impl Node for Pass2DNode {
 					None => RPTarget::Screen(&surface, &param.screen.depth)
 				}
 			};
+			log::debug!("create_rp1============={:?}", (pass2d_id, &first.1, &rt));
 			let mut rp = create_rp(
 				&rt,
 				&mut commands,
@@ -694,6 +695,7 @@ impl Node for Pass2DNode {
 			// log::warn!("draw_list============={:?}", (param.instance_draw.draw_list.len(), &param.instance_draw.draw_list));
 			// let mut ii = 0;
 			for element in param.instance_draw.draw_list.iter() {
+				log::debug!("element============={:?}", element);
 				// ii += 1;
 				let t = if EntityKey(element.1).is_null() {
 					RPTarget::Screen(&surface, &param.screen.depth)
@@ -709,7 +711,7 @@ impl Node for Pass2DNode {
 				};
 
 				if !t.eq(&rt) {
-					// log::warn!("create_rp!!!!!!!============={:?}", (pass2d_id, &t));
+					log::debug!("create_rp2============={:?}", (pass2d_id, &element.1, &t));
 					{let _a = rp;} // 释放
 					rp = create_rp(
 						&t,
@@ -718,7 +720,7 @@ impl Node for Pass2DNode {
 					);
 					render_state.reset = true;
 
-					// log::warn!("create_rp1============={:?}", element.1);
+					// log::debug!("create_rp1============={:?}", element.1);
 				}
 				rt = t;
 
@@ -730,7 +732,7 @@ impl Node for Pass2DNode {
 				
 				match &element.0 {
 					DrawElement::Clear { draw_state, is_active } => {
-						log::trace!("clear======={:?}, {:?}, {:?}", element.1, is_active, draw_state.instance_data_range.start / 224);
+						// log::warn!("clear======={:?}, {:?}, {:?}", element.1, is_active, draw_state.instance_data_range.start / 224);
 						if !*is_active {
 							// log::trace!("is_active======{:?}", pass);
 							continue; // 没有激活的fbo， 不清屏

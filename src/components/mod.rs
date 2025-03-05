@@ -9,7 +9,7 @@ pub mod user;
 // use calc::IsDisplay;
 use pi_world::{prelude::{Bundle, Entity, FromWorld}, world::{ComponentIndex, World}};
 use pi_bevy_ecs_extend::prelude::{Down, Layer, Up};
-use user::{SvgFilter, SvgInnerContent, SvgLinearGradient, SvgLinearGradientStop, SvgShadow};
+use user::{AsImage, SvgFilter, SvgInnerContent, SvgLinearGradient, SvgLinearGradientStop, SvgShadow};
 
 use self::{
     calc::{DrawInfo, DrawList, EntityKey, IsShow, NodeState, RenderContextMark, TransformWillChangeMatrix, View},
@@ -295,6 +295,8 @@ pub struct RootBundle {
 
 impl Default for RootBundle {
     fn default() -> Self {
+        let mut r = AsImage::default();
+        r.level = pi_style::style::AsImage::Advise;
         Self {
             render_target: Default::default(),
             // clear_color_group: Default::default(),

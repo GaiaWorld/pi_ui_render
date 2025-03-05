@@ -284,10 +284,10 @@ pub fn calc_background_image_inner(
 		bottom: sdf_slice.layout_slice.bottom * layout_height,
 	};
 
-	if background_image.0.as_str().contains("yxxq_lv1") {
-		let (layout_width, layout_height) = layout.size();
-		log::warn!("=============!!!!!!!!!!!=============={:?}", (entity, background_image.0.as_str(), layout_width, layout_height, &sdf_uv, &sdf_slice));
-	}
+	// if background_image.0.as_str().contains("yxxq_lv1") {
+	// 	let (layout_width, layout_height) = layout.size();
+	// 	log::debug!("=============!!!!!!!!!!!=============={:?}", (entity, background_image.0.as_str(), layout_width, layout_height, &sdf_uv, &sdf_slice));
+	// }
 	let mut instance_count = 1;
 	{
 

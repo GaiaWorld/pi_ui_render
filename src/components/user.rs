@@ -122,7 +122,7 @@ impl NeedMark for RadialWave {
 pub struct ZIndex(pub isize);
 
 /// 当post_process不为null时， 节点需要通过post_process对应的图节点进行处理，输出结果再渲染到gui上(注意，当前节点问根节点时，设置post_process，将不能把结果再渲染回gui)
-#[derive(Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize, Debug)]
+#[derive(Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize, Debug, Component)]
 pub struct AsImage {
 	pub level: AsImage1, 
 	pub post_process: EntityKey, // 通过post_process， 需要能查询到一个GraphId组件，此GraphId对应的图节点负责后处理效果
@@ -2543,53 +2543,6 @@ pub enum StyleAttribute {
     Reset(u16),
     Set(Attribute),
 }
-
-pub fn style_attr_list_to_buffer(style_buffer: &mut Vec<u8>, style_list: &mut VecDeque<StyleAttribute>, mut count: usize) -> ClassMeta {
-    let start = style_buffer.len();
-    let mut class_meta = ClassMeta {
-        start,
-        end: start,
-        class_style_mark: BitArray::default(),
-    };
-
-    loop {
-        if count == 0 {
-            break;
-        }
-        let r = style_list.pop_front().unwrap();
-        match r {
-            StyleAttribute::Reset(r) => {
-                style_buffer.push((r & 255) as u8);
-                style_buffer.push((r >> 8) as u8);
-            }
-            StyleAttribute::Set(r) => {
-                match &r {
-                    // pi_style::style_parse::Attribute::AnimationName(_) => (),
-                    // pi_style::style_parse::Attribute::AnimationDuration(_) => (),
-                    // pi_style::style_parse::Attribute::AnimationTimingFunction(_) => (),
-                    // pi_style::style_parse::Attribute::AnimationIterationCount(_) => (),
-                    // pi_style::style_parse::Attribute::AnimationDirection(_) => (),
-                    // pi_style::style_parse::Attribute::AnimationFillMode(_) => (),
-                    // pi_style::style_parse::Attribute::AnimationPlayState(_) => (),
-                    // pi_style::style_parse::Attribute::AnimationDelay(_) => (),
-                    // pi_style::style_parse::Attribute::BackgroundImage(_) => (),
-                    // pi_style::style_parse::Attribute::BackgroundImageClip(_) => (),
-                    _ => {
-                        style_to_buffer(style_buffer, r, &mut class_meta);
-                    }
-                };
-                
-            },
-        }
-
-        count -= 1;
-    }
-    class_meta.end = style_buffer.len();
-
-    class_meta
-}
-
-
 
 
 // clone指针指向的对象（可能未对齐）

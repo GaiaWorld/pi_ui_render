@@ -171,6 +171,7 @@ impl BatchTexture {
 			return None;
 		}
 
+        // log::debug!("take_group========{:?}", self.temp_textures.len());
         // let len = self.temp_textures.len();
 
 		let group = Some(Self::take_group1(device, &self.temp_textures, &self.default_texture_view, &self.default_sampler, &self.group_layout));
@@ -182,7 +183,8 @@ impl BatchTexture {
 
 	/// 将当前的临时数据立即创建一个bindgroup，并返回
 	pub fn default_group(&mut self, device: &wgpu::Device) -> wgpu::BindGroup {
-		Self::take_group1(device, &Vec::new(), &self.default_texture_view, &self.default_sampler, &self.group_layout)
+		let r = Self::take_group1(device, &Vec::new(), &self.default_texture_view, &self.default_sampler, &self.group_layout);
+        r
 	}
 
 	/// 将当前的临时数据立即创建一个bindgroup，并返回

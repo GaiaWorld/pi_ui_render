@@ -13,7 +13,7 @@ use pi_tcp::{SocketConfig, SocketEvent,
         connect::TcpSocket,
         server::{PortsAdapterFactory, SocketListener}};
 use json::JsonValue;
-use crate::{components::user::{ClassName, Size}, devtools::get_document_tree};
+use crate::{components::user::{ClassName, Size}, devtools::{get_document_tree, get_roots}};
 
 use super::{init_node, node_info, GuiNode};
 
@@ -279,15 +279,20 @@ fn parse_cmd(cmd: &str, connect: WsSocket<TcpSocket>, world: &mut World) -> std:
 
     match cmd.as_str() {
         "request-document" => {
-            let msg = get_document_tree(world);
-            let cmd = Cmd {
-                cmd: "document-data".to_string(),
-                payload: msg,
-            };
-            let msg = serde_json::to_string(&cmd).unwrap();
-            if let Err(e) = connect.send(WsFrameType::Text, msg.as_bytes().to_vec()) {
-                log::error!("send error: {}", e);
+            let roots = get_roots(world);
+            log::error!("root======{:?}", &roots);
+            for root in roots.into_iter() {
+                let msg = get_document_tree(world, root);
+                let cmd = Cmd {
+                    cmd: "document-data".to_string(),
+                    payload: msg,
+                };
+                let msg = serde_json::to_string(&cmd).unwrap();
+                if let Err(e) = connect.send(WsFrameType::Text, msg.as_bytes().to_vec()) {
+                    log::error!("send error: {}", e);
+                }
             }
+            
         },
         "request-style" => {
             let _select_node_id: Entity = match obj.get("payload") {

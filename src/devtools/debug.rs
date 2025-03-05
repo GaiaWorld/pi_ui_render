@@ -7,6 +7,7 @@ use pi_bevy_ecs_extend::prelude::Down;
 use pi_bevy_ecs_extend::prelude::Root;
 use pi_bevy_ecs_extend::prelude::Up;
 use pi_bevy_ecs_extend::system_param::tree::Layer;
+use pi_bevy_render_plugin::asimage_url::RenderTarget;
 use pi_null::Null;
 use pi_render::rhi::asset::TextureRes;
 use pi_style::style::ImageRepeat;
@@ -67,6 +68,7 @@ pub struct Rect<T> {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Info {
+    pub has_render_target: bool,
     pub overflow: bool,
 	pub blend_mode: Option<BlendMode>,
     // pub by_overflow: usize,
@@ -77,7 +79,8 @@ pub struct Info {
     pub blur: f32,
     pub zindex: isize,
     pub zdepth: f32,
-    pub layout: Layout1,
+    pub layout: Layout,
+    pub world_matrix: WorldMatrix,
     pub border_box: Quad,
     pub padding_box: Quad,
     pub content_box: Quad,
@@ -189,15 +192,17 @@ pub fn get_gui_root(world: &mut World) -> Option<Entity> {
     query.iter(world).next()
 }
 
-pub fn get_document_tree(world: &mut World) -> GuiNode {
-    let mut query = world.query::<Entity, (With<Root>, With<Size>)>();
-    let root = query.iter(world).next().unwrap();
-
+pub fn get_document_tree(world: &mut World, root: Entity) -> GuiNode {
     let mut query = world.query::<(&Down, &Up, Option<&ClassName>), With<Size>>();
     let query = query.get_param(world);
     let mut n = GuiNode::default();
     init_node( root, &mut n, &query);
     return n;
+}
+
+pub fn get_roots(world: &mut World) -> Vec<Entity> {
+    let mut query = world.query::<Entity, (With<Root>, With<Size>)>();
+    return query.iter(world).collect();
 }
 
 
@@ -291,7 +296,28 @@ pub fn get_class(world: &World, class_name: u32) -> String {
 
 
 pub fn node_info(world: &World, entity: Entity) -> Info {
-    let layout = world.get_component::<LayoutResult>(entity).unwrap().clone();
+    let (node_state, is_vnode) = match world.get_component::<NodeState>(entity) {
+        Ok(r) => (Some(r.clone()), r.is_vnode()),
+        Err(_) => (None, false),
+    };
+    let layout = world.get_component::<LayoutResult>(entity).unwrap();
+    let layout1 = Layout {
+        node_state: node_state,
+        size: world.get_component::<Size>(entity).ok().map(|r| r.clone()),
+        margin: world.get_component::<Margin>(entity).ok().map(|r| r.clone()),
+        padding: world.get_component::<Padding>(entity).ok().map(|r| r.clone()),
+        border: world.get_component::<Border>(entity).ok().map(|r| r.clone()),
+        position: world.get_component::<Position>(entity).ok().map(|r| r.clone()),
+        minmax: world.get_component::<MinMax>(entity).ok().map(|r| r.clone()),
+        flex_container: world.get_component::<FlexContainer>(entity).ok().map(|r| r.clone()),
+        flex_normal: world.get_component::<FlexNormal>(entity).ok().map(|r| r.clone()),
+        show: world.get_component::<Show>(entity).ok().map(|r| r.clone()),
+        layout_ret: Some(layout.clone()),
+        is_vnode,
+
+    };
+    
+           
 
     let world_matrix = &world.get_component::<WorldMatrix>(entity).unwrap().clone();
 
@@ -452,6 +478,7 @@ pub fn node_info(world: &World, entity: Entity) -> Info {
         text_overflow_data,
         context_mark,
         blend_mode,
+        render_taregt,
     ) =
         (
             world.get_component::<Overflow>(entity).ok(),
@@ -492,6 +519,10 @@ pub fn node_info(world: &World, entity: Entity) -> Info {
             world.get_component::<TextOverflowData>(entity).ok(),
             world.get_component::<RenderContextMark>(entity).unwrap(),
             world.get_component::<BlendMode>(entity).ok(),
+            match world.get_component::<RenderTarget>(entity) {
+                Ok(render_target) => render_target.0.is_some(),
+                _ => false,
+            },
         );
 
 	let mut mark_str = Vec::new();
@@ -521,6 +552,7 @@ pub fn node_info(world: &World, entity: Entity) -> Info {
 	}
 	
     let mut info = Info {
+        has_render_target: render_taregt,
         // char_block: char_block,
         overflow: overflow.map_or(false, |r| r.0),
 		blend_mode: blend_mode.map(|r| r.clone()),
@@ -542,7 +574,8 @@ pub fn node_info(world: &World, entity: Entity) -> Info {
         blur: blur.map_or(0.0, |r| r.0),
         zindex: zindex.map_or(0, |r| r.0),
         zdepth: z_range.map_or(0.0, |r| r.start as f32),
-        layout: unsafe { transmute(layout.clone()) },
+        layout: layout1,
+        world_matrix: world.get_component::<WorldMatrix>(entity).unwrap().clone(),
         border_box: absolute_b_box,
         padding_box: absolute_p_box,
         content_box: absolute_c_box,

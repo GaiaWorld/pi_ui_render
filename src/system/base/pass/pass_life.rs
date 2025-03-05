@@ -298,10 +298,10 @@ pub fn calc_pass_toop_sort(
     let mut last_depend = 0;
     while temp.0.len() > 0 { // 循环开始时， temp.0是所有的pass叶子节点
       
-        // log::warn!("after!!!!======{:?}", &temp.0);
+        log::debug!("after!!!!======{:?}", &temp.0);
         for node_id in temp.0.drain(..) {
             let entity = rg.get_bind(node_id.clone());
-            // log::warn!("after1======{:?}", (node_id, entity));
+            log::debug!("after1======{:?}", (node_id, entity));
             let mut has_effect = false;
             if query_post.contains(entity) { // 对应节点为gui节点
                 pass_toop_list.push(entity); // 加入到pass_toop_list
@@ -317,12 +317,12 @@ pub fn calc_pass_toop_sort(
             };
 
             let after = rg.after_nodes(node_id).unwrap(); //
-            // log::warn!("after2======{:?}", after);
+            log::debug!("after2======{:?}", after);
             for node_id in after {
                 if let Some((count, before_has_effect)) = temp.3.get_mut(node_id.clone()) {
                     *count = *count - 1;
                     *before_has_effect |= has_effect;
-                    // log::warn!("after3======{:?}", (node_id, *count));
+                    log::debug!("after3======{:?}", (node_id, *count));
                     if *count == 0 { // 依赖已经分析完毕
                         if *before_has_effect { // 前置节点存在fbo依赖
                             temp.1.push(node_id.clone());
@@ -334,6 +334,7 @@ pub fn calc_pass_toop_sort(
             }
         }
 
+        log::debug!("next======================{:?}", (&temp.1, &temp.2));
         if temp.2.len() > 0 { // 非fbo节点
             // log::warn!("2222======================{:?}", (&temp.2));
             std::mem::swap(&mut temp.0, &mut temp.2);
@@ -343,7 +344,7 @@ pub fn calc_pass_toop_sort(
                 std::mem::swap(&mut temp.0, &mut temp.1);
             }
             let l = pass_toop_list.len();
-            // log::warn!("111======================{:?}", (l, &temp.0));
+            log::debug!("next_node_with_depend======================{:?}", (l, &temp.0));
             if l != last_depend {
                 next_node_with_depend.push(l); // 下一个存在依赖的节点在toop排序中的索引
                 last_depend = l;
@@ -353,7 +354,7 @@ pub fn calc_pass_toop_sort(
         
     }
 
-    log::debug!("111======================{:?}, \n{:?}", pass_toop_list, next_node_with_depend);
+    log::warn!("111======================{:?}, \n{:?}", pass_toop_list, next_node_with_depend);
 
     temp.0.clear();
     temp.1.clear();

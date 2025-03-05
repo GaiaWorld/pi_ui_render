@@ -179,12 +179,12 @@ pub fn calc_camera(
             // 因为， 如果将其缓存，直到重新设置为可见， 中间发生了哪些改变不可知，也不知道fbo是否需要重新渲染， 因此，直接释放掉
             render_target.target = StrongTarget::None;
             render_target.cache = RenderTargetCache::None;
-			return old_is_render_own == camera.is_render_own;
+			return old_is_render_own != camera.is_render_own;
 		}
 
         let view_port = match query_root.get(layer.root()) {
             Ok(r) => r,
-            Err(_) => return old_is_render_own == camera.is_render_own,
+            Err(_) => return old_is_render_own != camera.is_render_own,
         };
 
         let overflow_aabb = &*overflow_aabb;
@@ -195,7 +195,7 @@ pub fn calc_camera(
             if !local_dirty_mark {
                 
                 // 存在fbo缓存， 且本地不脏，则不需要渲染
-                return old_is_render_own == camera.is_render_own;
+                return old_is_render_own != camera.is_render_own;
             }
         }
 
@@ -229,7 +229,7 @@ pub fn calc_camera(
         log::trace!("pass_id2 22========={:?}, {:?}", entity, (&*dirty_rect, overflow_aabb, !is_show.get_visibility(), !is_show.get_display()));
         if no_rotate_view_aabb.mins.x >= no_rotate_view_aabb.maxs.x || no_rotate_view_aabb.mins.y >= no_rotate_view_aabb.maxs.y {
             // 如果视口为0， 则不需要渲染
-            return old_is_render_own == camera.is_render_own;
+            return old_is_render_own != camera.is_render_own;
         }
 
         // 计算视图区域（世界坐标系）
@@ -316,7 +316,7 @@ pub fn calc_camera(
             render_target.bound_box = camera.view_port.clone();
         }
 
-        return old_is_render_own == camera.is_render_own;
+        return old_is_render_own != camera.is_render_own;
 
         // if let &StrongTarget::None = &render_target.target {
 		// 	// if bg.is_some() {
@@ -375,7 +375,7 @@ pub fn calc_camera(
     for r in query_pass.iter_mut() {
         is_render_own_changed |= calc_camera(r);
     }
-    instance_context.rebatch = is_render_own_changed;
+    instance_context.rebatch |= is_render_own_changed;
 
     // if view_port_is_dirty {
     //     // 当视口发生变化时， 需要遍历所有的pass2d从新计算相机
