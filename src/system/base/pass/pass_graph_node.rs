@@ -348,7 +348,7 @@ impl Node for Pass2DNode {
 					!is_not_only_as_image,
 				) {
 					Some(r) => {
-						log::debug!("alloc=============={:?}", (pass2d_id, r.index, &r.target().colors[0].1));
+						log::debug!("alloc=============={:?}", (pass2d_id, /* r.index, */ &r.target().colors[0].1));
 						// for i in input.0.values() {
 						// 	if let Some(t) = &i.target {
 						// 		log::warn!("alloc input =============={:?}", (pass2d_id, r.index, &t.target().colors[0].1));

@@ -44,15 +44,15 @@ single_thread = [
 ] # 本地平台，设置该feature有效，运行时为单线程运行时
 
 [dependencies]
-pi_async_httpc = {version="0.5", optional=true}
-pi_ws = {version="0.5", optional=true}
-pi_tcp = {version="0.3", optional=true}
+pi_async_httpc = {version="0.6", optional=true}
+pi_ws = {version="0.6", optional=true}
+pi_tcp = {version="0.5", optional=true}
 json = {version="0.12", optional=true}
 # glow = "0.13"
 bitflags = "1.2"
 serde_json = "1.0"
 pi_print_any = "0.1"
-pi_slotmap = "0.1"
+pi_slotmap = "0.2"
 num-traits = "0.2.6"
 fnv = "1.0.6"
 lazy_static = "1.4"
@@ -71,7 +71,7 @@ smallvec = { version = "1.8", features = ["serde"] }
 bitvec = { version = "1.0", features = ["serde"] }
 cssparser = "0.29"
 pi_hash = "0.1"
-pi_atom = { version = "0.5", features = ["serde", "lookup_by_hash"] }
+pi_atom = { version = "0.6", features = ["serde", "lookup_by_hash"] }
 pi_enum_default_macro = "0.1"
 pi_map = "0.2"
 pi_null = "0.1"
@@ -85,34 +85,34 @@ crossbeam = "0.8"
 fixedbitset = { version = "0.4", features = ["serde"] }
 bytemuck = { version = "1.4", features = ["derive"] }
 naga = { version = "0.19" }
-pi_assets = "0.14"
-image = "0.24"
+pi_assets = "0.15"
+image = "0.25"
 polygon2 = "0.3"
-pi_slotmap_tree = "0.3"
+pi_slotmap_tree = "0.4"
 pi_dirty = "0.1"
 
-pi_flex_layout = "0.2"
-pi_spatial = "0.5"
-pi_hal = { version = "0.1", registry = "yn" }
-pi_postprocess = { version = "0.1", registry = "yn" }
+pi_flex_layout = "0.4"
+pi_spatial = "0.6"
+pi_hal = { version = "0.2", registry = "yn" }
+pi_postprocess = { version = "0.2", registry = "yn" }
 pi_curves = { version = "0.1", registry = "yn" }
-pi_animation = { version = "0.1", registry = "yn" }
-render_derive = { version = "0.1", registry = "yn" }
-pi_style = { version = "0.1", registry = "yn" }
+pi_animation = { version = "0.2", registry = "yn" }
+render_derive = { version = "0.2", registry = "yn" }
+pi_style = { version = "0.3", registry = "yn" }
 pi_densevec = "0.1"
 pi_futures = "0.1"
 pi_time = "0.5"
 # siphasher = {version="0.3", features=["serde_no_std"]}
 # wasm-bindgen = { version = "0.2", features = ["serde-serialize"] }
 
-pi_bevy_post_process = { version = "0.1", registry = "yn" }
-pi_bevy_ecs_extend = { version = "0.1", registry = "yn" }
-pi_bevy_render_plugin = { version = "0.1", registry = "yn" }
-pi_bevy_asset = { version = "0.1", registry = "yn" }
-pi_world = "0.1.20"
+pi_bevy_post_process = { version = "0.2", registry = "yn" }
+pi_bevy_ecs_extend = { version = "0.2", registry = "yn" }
+pi_bevy_render_plugin = { version = "0.2", registry = "yn" }
+pi_bevy_asset = { version = "0.2", registry = "yn" }
+pi_world = "0.2"
 # bevy_utils = "0.11"
 # bevy_app = { version = "0.11", default_features = false }
-bevy_window = { version = "0.1", registry = "yn", package = "pi_bevy_window" }
+bevy_window = { version = "0.2", registry = "yn", package = "pi_bevy_window" }
 # bevy_window = "0.11"
 # zerovec = "0.9"
 guillotiere = { version = "0.6" }
@@ -120,15 +120,15 @@ derive-deref-rs = "0.1"
 thiserror = "1.0"
 
 # wgpu = { version = "0.1", registry = "yn", package = "pi_wgpu" }
-wgpu = { version = "0.1", registry = "yn", package = "pi_wgpu"}
+wgpu = { version = "0.2", registry = "yn", package = "pi_wgpu"}
 
-pi-async-rt = "0.1"
-pi_share = { version = "0.4" }
-pi_render = { version = "0.1", registry = "yn", features = ["debug_info"] }
+pi-async-rt = "0.2"
+pi_share = { version = "0.5" }
+pi_render = { version = "0.2", registry = "yn"  }
 # derive_deref = "1.1"
 tracing-subscriber = "0.3"
 ahash = "0.8"
-pi_key_alloter = {version = "0.5", features = ["serde"]}
+pi_key_alloter = {version = "0.6", features = ["serde"]}
 
 pi_ui_render_macros = {version="0.1.1", path = "./macros", registry = "yn"}
 tracing = { version = "0.1", default-features = false, features = ["std"] }
@@ -151,23 +151,23 @@ spin_sleep = "1.1"
 num_cpus = "1.13"
 # bevy_log = { version = "0.11", default-features = false }
 # bevy_a11y = "0.11"
-pi_bevy_log = { version = "0.1", registry = "yn", features=["log-file"] }
+pi_bevy_log = { version = "0.2", registry = "yn", features=["log-file"] }
 criterion = { version = "0.3", features = ["html_reports"] }
 pi_winit = { version = "0.27", registry = "yn", package = "winit" }
 tracing = "0.1"
 postcard = { version = "1.0", features = ["use-std"] }
 
 # wgpu = { version = "0.1", registry = "yn", package = "pi_wgpu" }
-wgpu = { version = "0.1", registry = "yn", package = "pi_wgpu", features=["use_wgpu"]}
+wgpu = { version = "0.2", registry = "yn", package = "pi_wgpu", features=["use_wgpu"]}
 # pi_ui_render = { path = "./", features = ["trace", "single_thread"] }
 # pi_ui_render = { path = "./", features = ["trace"] }
 pi_ui_render = { path = "./", features = ["debug", "single_thread", "devtools"] }
 # bevy_ecs = {version = "0.11",  features = ["multi-threaded"]}
 
-pi_bevy_winit_window = { version = "0.1", registry = "yn" }
+pi_bevy_winit_window = { version = "0.2", registry = "yn" }
 wasm-bindgen-test = "0.3"
 
-pi_hal = {version = "0.1.40", registry="yn"}
+pi_hal = {version = "0.2", registry="yn"}
 # tracy-client-sys="=0.22.0"
 
 # "debug", "trace"
@@ -211,18 +211,18 @@ tikv-jemallocator = { version = "0.6.0", features = ["profiling", "unprefixed_ma
 
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 uuid = { version = "1", features = ["js"] }
-pi-async-rt = { version = "0.1", features = ["serial"] }
-pi_render = { version = "0.1", registry = "yn", features = ["webgl"] }
+pi-async-rt = { version = "0.2", features = ["serial"] }
+pi_render = { version = "0.2", registry = "yn", features = ["webgl"] }
 web-sys = { version = "0.3", features = ["HtmlCanvasElement"] }
 wasm-bindgen = "0.2"
-pi_hal = { version = "0.1", registry = "yn", features = ["web_local_load"] }
+pi_hal = { version = "0.2", registry = "yn", features = ["web_local_load"] }
 getrandom = { version = "0.2.7", features = ["js"] }
 
 [target.'cfg(target_os = "android")'.dev-dependencies]
 ndk-glue = "0.7"
 
 [build-dependencies]
-render_compile = { version = "0.1", registry = "yn" }
+render_compile = { version = "0.2", registry = "yn" }
 
 
 [profile.release]
@@ -238,7 +238,7 @@ codegen-units = 1
 # features = [
 # 	"console",
 # ]
-[net]
+# [net]
 # git-fetch-with-cli = true
 # offline = true
 
@@ -280,8 +280,8 @@ test = true
 # pi_assets = { path = "../pi_assets" }
 # pi_share = { path = "../pi_share" }
 # wgpu= {path = "../wgpu/wgpu"}
-pi_world = { path = "../pi_world" }
-pi_world_macros = { path = "../pi_world/macros" }
+# pi_world = { path = "../pi_world" }
+# pi_world_macros = { path = "../pi_world/macros" }
 # pi_polygon = { path = "../pi_polygon" }
 
 # bevy_app = { path = "../bevy/crates/bevy_app" }
@@ -298,7 +298,7 @@ pi_world_macros = { path = "../pi_world/macros" }
 
 # pi_slotmap_tree = { path = "../pi_slotmap_tree" }
 # pi_map = { path = "../pi_map" }
-pi_flex_layout = { path = "../pi_flex_layout" }
+# pi_flex_layout = { path = "../pi_flex_layout" }
 # pi_dirty={path = "../pi_dirty" }
 # pi_spatial = { path="../pi_spatial" }
 
@@ -308,13 +308,13 @@ pi_flex_layout = { path = "../pi_flex_layout" }
 [patch.yn]
 # pi_curves  = {path="../pi_curves"}
 # pi_animation = { path="../pi_animation"}
-pi_style = {path = "../pi_style"}
+# pi_style = {path = "../pi_style"}
 # pi_wgpu = {path = "../pi_wgpu"}
 # pi_egl = {path = "../pi_egl"}
 # winit = {path = "../winit"}
 # pi_hal = { path = "../pi_hal" }
 # pi_sdf = { path = "../pi_sdf" }
-pi_postprocess = { path = "../pi_post_process" }
+# pi_postprocess = { path = "../pi_post_process" }
 
 # bevy
 # pi_bevy_ecs_extend = { path = "../pi_bevy_new_graphic/crates/ecs_extend" }
@@ -326,20 +326,20 @@ pi_postprocess = { path = "../pi_post_process" }
 # pi_bevy_post_process = { path = "../pi_bevy_new_graphic/crates/post_process" }
 # pi_bevy_window = { path = "../pi_bevy_new_graphic/crates/window" }
 
-pi_bevy_ecs_extend = { path = "../pi_bevy/crates/ecs_extend" }
-pi_bevy_render_plugin = { path = "../pi_bevy/crates/render" }
-pi_bevy_asset = { path = "../pi_bevy/crates/asset" }
-pi_bevy_winit_window = { path = "../pi_bevy/crates/winit_window" }
-pi_bevy_log = { path = "../pi_bevy/crates/log" }
-pi_bevy_ecs_macro = { path = "../pi_bevy/crates/ecs_extend/macro" }
-pi_bevy_post_process = { path = "../pi_bevy/crates/post_process" }
-pi_bevy_window = { path = "../pi_bevy/crates/window" }
+# pi_bevy_ecs_extend = { path = "../pi_bevy/crates/ecs_extend" }
+# pi_bevy_render_plugin = { path = "../pi_bevy/crates/render" }
+# pi_bevy_asset = { path = "../pi_bevy/crates/asset" }
+# pi_bevy_winit_window = { path = "../pi_bevy/crates/winit_window" }
+# pi_bevy_log = { path = "../pi_bevy/crates/log" }
+# pi_bevy_ecs_macro = { path = "../pi_bevy/crates/ecs_extend/macro" }
+# pi_bevy_post_process = { path = "../pi_bevy/crates/post_process" }
+# pi_bevy_window = { path = "../pi_bevy/crates/window" }
 
 # pi_render
-pi_render = { path = "../pi_render" }
-render_core = {path = "../pi_render/crates/render_core"}
-render_derive = {path = "../pi_render/crates/render_derive"}
-render_compile = {path = "../pi_render/crates/render_compile"}
+# pi_render = { path = "../pi_render" }
+# render_core = {path = "../pi_render/crates/render_core"}
+# render_derive = {path = "../pi_render/crates/render_derive"}
+# render_compile = {path = "../pi_render/crates/render_compile"}
 
 # pi_postprocess = { path = "../pi_post_process"}
 
