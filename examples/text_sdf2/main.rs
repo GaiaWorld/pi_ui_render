@@ -12,7 +12,7 @@ use smallvec::smallvec;
 use framework::{Param, Example};
 use ordered_float::NotNan;
 use pi_atom::Atom;
-use pi_flex_layout::style::{Dimension, PositionType, OverflowWrap};
+use pi_flex_layout::style::{Dimension, FlexDirection, OverflowWrap, PositionType};
 use pi_null::Null;
 use pi_ui_render::{
     components::{
@@ -27,7 +27,7 @@ fn main() { framework::start(QuadExample::default()) }
 use pi_style::{
     style::{Aabb2, ColorAndPosition, FontStyle, LinearGradientColor, OuterGlow, Point2, Stroke, TextContent, TextOverflow, TextShadow, TransformFunc},
     style_type::{
-        AsImageType, BackgroundColorType, ColorType, FlexWrapType, FontFamilyType, FontSizeType, FontStyleType, FontWeightType, HeightType, LetterSpacingType, MarginLeftType, MarginTopType, OverflowWrapType, PositionLeftType, PositionTopType, PositionTypeType, TextContentType, TextOuterGlowType, TextOverflowType, TextShadowType, TextStrokeType, TransformType, WidthType, WordSpacingType
+        AsImageType, BackgroundColorType, ColorType, FlexDirectionType, FlexWrapType, FontFamilyType, FontSizeType, FontStyleType, FontWeightType, HeightType, LetterSpacingType, MarginLeftType, MarginTopType, OverflowWrapType, PositionLeftType, PositionTopType, PositionTypeType, TextContentType, TextOuterGlowType, TextOverflowType, TextShadowType, TextStrokeType, TransformType, WidthType, WordSpacingType
     },
 };
 
@@ -145,6 +145,7 @@ impl Example for QuadExample {
 		world.user_cmd.set_style(div5, TextOverflowType(TextOverflow::Custom("，后续省略..".to_string())));
 		world.user_cmd.set_style(div5, FlexWrapType(pi_flex_layout::style::FlexWrap::NoWrap));
         world.user_cmd.set_style(div5, FontFamilyType(Atom::from("hwkt")));
+        world.user_cmd.set_style(div5, FlexDirectionType(FlexDirection::RowReverse));
         // world.user_cmd.set_style(div5, ColorType(Color::RGBA(CgColor::new(0.0, 1.0, 0.0, 1.0))));
         world.user_cmd.set_style(div5, ColorType(Color::LinearGradient(LinearGradientColor {
             direction: 0.5 * 3.14,

@@ -109,7 +109,8 @@ pub fn enum_type(_attr: TokenStream, item: TokenStream) -> TokenStream {
     }
 
     TokenStream::from(quote! {
-             
+            #[derive(Debug, Clone, Serialize, Deserialize)]
+            #[repr(u16)]    
             pub enum #name {
                 #( 
                     #attr,
@@ -118,12 +119,13 @@ pub fn enum_type(_attr: TokenStream, item: TokenStream) -> TokenStream {
             
 
             #(
+                #[derive(Debug, Clone, Serialize, Deserialize)]
                 pub struct #attr_types(pub #v_types);
                 impl Attr for #attr_types {
-                    fn get_type() -> u8 {
-                        #name::#attr as u8
+                    fn get_type() -> u16 {
+                        #name::#attr as u16
                     }
-                    fn get_style_index() -> u8 {#name::#attr as u8}
+                    fn get_style_index() -> u16 {#name::#attr as u16}
                     #[inline]
                     fn size() -> usize { std::mem::size_of::<#attr_types>() }
 
@@ -137,7 +139,7 @@ pub fn enum_type(_attr: TokenStream, item: TokenStream) -> TokenStream {
                         let ty = Self::get_type() + #index_start;
 
                         // 写类型索引
-                        std::ptr::copy_nonoverlapping(&ty as *const u8, buffer.as_mut_ptr().add(len), ty_size);
+                        std::ptr::copy_nonoverlapping(&ty as *const u16 as *const u8, buffer.as_mut_ptr().add(len), ty_size);
                         
                         // 写值
                         std::ptr::copy_nonoverlapping(
@@ -152,10 +154,10 @@ pub fn enum_type(_attr: TokenStream, item: TokenStream) -> TokenStream {
             #(
                 pub struct #reset_types;
                 impl Attr for #reset_types {
-                    fn get_type() -> u8 {
-                        #name::#attr as u8
+                    fn get_type() -> u16 {
+                        #name::#attr as u16
                     }
-                    fn get_style_index() -> u8 {#name::#attr as u8 + #len as u8}
+                    fn get_style_index() -> u16 {#name::#attr as u16 + #len as u16}
                     #[inline]
                     fn size() -> usize { 0 }
 
@@ -166,12 +168,13 @@ pub fn enum_type(_attr: TokenStream, item: TokenStream) -> TokenStream {
                         buffer.set_len(len + ty_size);   
                         let ty = Self::get_type() + #index_start;
                         // 写类型索引
-                        std::ptr::copy_nonoverlapping(&ty as *const u8, buffer.as_mut_ptr().add(len), ty_size);
+                        std::ptr::copy_nonoverlapping(&ty  as *const u16 as *const u8, buffer.as_mut_ptr().add(len), ty_size);
                     
                     }
                 }
             )* 
 
+            #[derive(Debug, Clone, Serialize, Deserialize)]
             pub enum #attr_name {
                 #(#attr(#attr_types),)*
             }

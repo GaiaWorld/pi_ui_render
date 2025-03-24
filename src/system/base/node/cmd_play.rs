@@ -4,19 +4,21 @@ use std::{collections::VecDeque, mem::transmute};
 
 use crate::{
     components::{
-        calc::EntityKey, root::Viewport, user::{serialize::StyleTypeReader, style_attr_list_to_buffer, ClassName, StyleAttribute}
+        calc::EntityKey, root::Viewport, user::{serialize::StyleTypeReader, ClassName, StyleAttribute}
     },
     prelude::UserCommands,
     resource::{fragment::NodeTag, CmdType, FragmentCommand, NodeCommand}, system::base::node::user_setting,
 };
 
-use pi_style::style::Aabb2;
+use bitvec::array::BitArray;
+use pi_atom::Atom;
+use pi_style::{style::Aabb2, style_parse::style_to_buffer, style_type::{BackgroundImageType, BorderImageType, ClassMeta, MaskImageType}};
 use pi_world::{insert::Insert, prelude::{App, Entity, IntoSystemConfigs, Plugin}};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, OrInitSingleRes};
 
-use pi_bevy_render_plugin::FrameState;
+use pi_bevy_render_plugin::{asimage_url::entity_to_asimage_url, FrameState};
 use pi_null::Null;
-use pi_slotmap::SecondaryMap;
+use pi_slotmap::{KeyData, SecondaryMap};
 
 use crate::system::{system_set::UiSystemSet, RunState};
 use crate::prelude::UiStage;
@@ -421,7 +423,7 @@ pub fn cmd_play(
     }
 
     for s in r.style_commands.iter() {
-        let class_mate = style_attr_list_to_buffer(&mut cmds.style_commands.style_buffer, &mut s.values.clone(), s.values.len());
+        let class_mate = style_attr_list_to_buffer(&play_state, &mut cmds.style_commands.style_buffer, &mut s.values.clone(), s.values.len());
         // log::warn!("style_commands:{:?}", s);
         cmds.style_commands
             .commands
@@ -439,6 +441,91 @@ pub fn cmd_play(
 pub struct StyleCmd {
     pub entity: Entity,
     pub values: VecDeque<StyleAttribute>,
+}
+
+pub fn parse_asimage (url: &str, play_state: &PlayState) -> String {
+    if !url.starts_with("asimage:://") {
+        return url.to_string();
+    }
+
+    let r = url["asimage:://".len()..].to_string();
+    let mut r = r.split("v");
+    let index: u32 = match r.next() {
+        Some(r) => match r.parse() {
+            Ok(r) => r,
+            Err(_) => return "".to_string(),
+        },
+        None => return "".to_string(),
+    };
+    let version: u32 = match r.next() {
+        Some(r) => match r.parse() {
+            Ok(r) => r,
+            Err(_) => return "".to_string(),
+        },
+        None => return "".to_string(),
+    };
+    let entity = Entity::from(KeyData::from_ffi((u64::from(version) << 32) | u64::from(index)));
+    return match play_state.get_node(&entity) {
+        Some(r) => entity_to_asimage_url(r),
+        None => "".to_string(),
+    };
+}
+
+pub fn style_attr_list_to_buffer(play_state: &PlayState, style_buffer: &mut Vec<u8>, style_list: &mut VecDeque<StyleAttribute>, mut count: usize) -> ClassMeta {
+    let start: usize = style_buffer.len();
+    let mut class_meta = ClassMeta {
+        start,
+        end: start,
+        class_style_mark: BitArray::default(),
+    };
+
+    loop {
+        if count == 0 {
+            break;
+        }
+        let r = style_list.pop_front().unwrap();
+        match r {
+            StyleAttribute::Reset(r) => {
+                style_buffer.push((r & 255) as u8);
+                style_buffer.push((r >> 8) as u8);
+            }
+            StyleAttribute::Set(r) => {
+                let r = match r {
+                    pi_style::style_parse::Attribute::BackgroundImage(r) => {
+                        pi_style::style_parse::Attribute::BackgroundImage(BackgroundImageType( Atom::from(parse_asimage(r.0.as_str(), play_state)) ))
+                    },
+                    pi_style::style_parse::Attribute::BorderImage(r) => {
+                        pi_style::style_parse::Attribute::BorderImage(BorderImageType( Atom::from(parse_asimage(r.0.as_str(), play_state)) ))
+                    },
+                    pi_style::style_parse::Attribute::MaskImage(r) => {
+                        let r = match r.0 {
+                            pi_style::style::MaskImage::Path(r) => pi_style::style::MaskImage::Path( Atom::from(parse_asimage(r.as_str(), play_state))),
+                            r => r,
+                        };
+                        pi_style::style_parse::Attribute::MaskImage(MaskImageType(r))
+                    },
+                    // pi_style::style_parse::Attribute::AnimationName(_) => (),
+                    // pi_style::style_parse::Attribute::AnimationDuration(_) => (),
+                    // pi_style::style_parse::Attribute::AnimationTimingFunction(_) => (),
+                    // pi_style::style_parse::Attribute::AnimationIterationCount(_) => (),
+                    // pi_style::style_parse::Attribute::AnimationDirection(_) => (),
+                    // pi_style::style_parse::Attribute::AnimationFillMode(_) => (),
+                    // pi_style::style_parse::Attribute::AnimationPlayState(_) => (),
+                    // pi_style::style_parse::Attribute::AnimationDelay(_) => (),
+                    // pi_style::style_parse::Attribute::BackgroundImage(_) => (),
+                    // pi_style::style_parse::Attribute::BackgroundImageClip(_) => (),
+                    r => r
+                };
+                style_to_buffer(style_buffer, r, &mut class_meta);
+                
+            },
+        }
+
+        count -= 1;
+    }
+    class_meta.end = style_buffer.len();
+
+    class_meta
 }
 
 

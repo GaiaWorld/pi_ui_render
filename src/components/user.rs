@@ -1,5 +1,10 @@
 //！ 定义用户设置的组件
 
+use pi_style::style_parse::{TokenParseError, ItemParseErrors, TokenErrorsInfo};
+use crate::resource::fragment::NodeTag;
+use std::hash::Hasher;
+use pi_style::style_parse::{parse_color_function, parse_color_hex, parse_len, parse_color, parse_color_keyword};
+use cssparser::{CowRcStr, SourceLocation, Token, Parser, BasicParseErrorKind};
 use std::mem::{transmute, forget};
 use std::ptr::read_unaligned;
 use std::{collections::VecDeque, fmt::Debug};
@@ -28,15 +33,23 @@ use pi_style::{
         BoxShadow as BoxShadow1, Hsi as Hsi1, MaskImage as MaskImage1, TextContent as TextContent1,
     },
     style_parse::Attribute,
-    style_type::{ClassMeta, Attr, STYLE_COUNT},
+    style_type::{ClassMeta, Attr, STYLE_COUNT_MAX},
 };
 
 use pi_world::world::World;
 use crate::resource::animation_sheet::TransitionData;
+use serialize::{
+    StrokeDasharrayType, SvgColorType, SvgFilterIDType, SvgFilterType, SvgGradientStopColorType, SvgGradientStopOffsetType, SvgHeightType,
+    SvgLinearGradientTransformType, SvgLinerGradientType, SvgShadowBlurLevelType, SvgShadowColorType, SvgShadowOffsetXType, SvgShadowOffsetYType,
+    SvgShapeAXType, SvgShapeAYType, SvgShapeBXType, SvgShapeBYType, SvgShapeCXType, SvgShapeCYType, SvgShapeHeightType, SvgShapePathType,
+    SvgShapePointsType, SvgShapeRadiusType, SvgShapeRadiusXType, SvgShapeRadiusYType, SvgShapeType, SvgShapeWidthType, SvgShapeXType, SvgShapeYType,
+    SvgStrokeColorType, SvgStrokeWidthType, SvgType, SvgTypeAttr, SvgWidthType,
+};
 // use pi_hal::pi_sdf::shape::PathVerb;
 
 use super::calc::{NeedMark, EntityKey, StyleMarkType};
 pub use super::root::{ClearColor, RenderDirty, RenderTargetType, Viewport};
+use pi_style::style_parse::end_cur_attr;
 use smallvec::SmallVec;
 
 pub type Matrix4 = nalgebra::Matrix4<f32>;
@@ -289,11 +302,16 @@ impl NeedMark for Opacity {
 pub struct TextContent(pub TextContent1);
 
 
-#[derive(Default, Component, Clone)]
+#[derive(Default, Component, Clone, Debug)]
 pub struct SvgInnerContent {
     pub shape: Shape,
     pub style: SvgStyle,
     pub hash: u64,
+    pub bbox: (f32, f32, f32, f32),
+    pub is_area: bool,
+    pub scale: f32,
+    pub count: u32,
+    pub svg_info: SvgInfo,
 }
 
 #[derive(Default, Component, Clone)]
@@ -305,44 +323,26 @@ pub struct SvgContent {
     pub max_x: f32,
     pub max_y: f32,
 }
+#[derive(Debug, Default, Component, Clone, Serialize, Deserialize)]
+pub struct SvgFilter(pub u64);
+
+#[derive(Clone, Default, Deref, Debug, Serialize, Deserialize)]
+pub struct SvgShadow(pub Shadow);
+
+#[derive(Clone, Default, Deref, Debug, Serialize, Deserialize)]
+pub struct SvgShadowNode(pub SvgShadow);
 
 #[derive(Debug, Default, Component, Clone)]
-pub struct SvgGradient {
-    pub x1: f32,
-    pub y1: f32,
-    pub x2: f32,
-    pub y2: f32,
-    pub id: Vec<Entity>
+pub struct SvgLinearGradient {
+    pub gradient_transform: f32,
+    pub id: u64,
 }
 
 #[derive(Debug, Default, Component, Clone)]
-pub struct SvgStop {
+pub struct SvgLinearGradientStop {
     pub offset: f32,
     pub color: CgColor,
 }
-
-#[derive(Debug, Default, Clone)]
-pub struct SvgFilterBlurLevel {
-    pub level: f32,
-}
-
-#[derive(Debug, Default, Clone)]
-pub struct SvgFilterOffset {
-    pub offset_x: f32,
-    pub offset_y: f32,
-    pub color: f32,
-}
-
-#[derive(Debug, Default, Clone)]
-pub struct SvgFilter(pub Vec<Entity>);
-
-
-// impl Default for SvgColor{
-//     fn default() -> Self {
-//         todo!()
-//     }
-// }
-
 
 
 
@@ -485,24 +485,32 @@ pub struct TextStyle {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum SvgColor {
+    Color(Color),
+    ID(u64),
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SvgStyle {
     pub stroke: Stroke,
-    pub fill_color: Color, //颜色
+    pub fill_color: SvgColor, //颜色
     pub stroke_dasharray: StrokeDasharray,
     pub shadow: Shadow,
-    pub outer_glow_color_and_dist: [f32; 4],
-    pub filter :Entity
+    pub outer_glow: Option<TextOuterGlow>,
+    pub filter: u64,
 }
 
 impl Default for SvgStyle {
     fn default() -> Self {
         Self {
-            stroke: Stroke{ width: unsafe { NotNan::new_unchecked(0.0) }, color: CgColor::new(0.0, 0.0, 0.0, 0.0) },
-            fill_color: Color::RGBA(CgColor::new(0.0, 0.0, 0.0, 0.0)),
+            stroke: Stroke {
+                width: unsafe { NotNan::new_unchecked(0.0) },
+                color: CgColor::new(0.0, 0.0, 0.0, 0.0),
+            },
+            fill_color: SvgColor::Color(Color::RGBA(CgColor::new(0.0, 0.0, 0.0, 0.0))),
             stroke_dasharray: Default::default(),
             shadow: Shadow::default(),
-            outer_glow_color_and_dist: [0.0,0.0,0.0,f32::INFINITY],
-            filter: Entity::null()
+            outer_glow: None,
+            filter: u64::null(),
         }
     }
 }
@@ -823,7 +831,7 @@ pub mod serialize {
     //     fn get_style_index() -> u8
     //     where
     //         Self: Sized {
-    //         STYLE_COUNT * 2
+    //         STYLE_COUNT_MAX * 2
     //     }
     //     /// 样式属性的牛内存大小
     //     fn size() -> usize
@@ -834,6 +842,7 @@ pub mod serialize {
     // }
 
     /// 从Buffer中读取StyleType
+    #[derive(Debug)]
     pub struct StyleTypeReader<'a> {
         buffer: &'a Vec<u8>,
         cursor: usize,
@@ -1022,7 +1031,7 @@ pub mod serialize {
 			// let c = self.cursor;
             let next_type = self.next_type();
             if let Some(style_type) = next_type {
-                let r = if style_type < STYLE_COUNT {
+                let r = if style_type < STYLE_COUNT_MAX {
                     let r = StyleAttr::to_attr(style_type, &self.buffer, self.cursor);
                     StyleAttribute::Set(r)
                 } else {
@@ -1078,16 +1087,16 @@ pub mod serialize {
         }
 
         // 读下一个样式类型
-        fn next_type(&mut self) -> Option<u8> {
+        fn next_type(&mut self) -> Option<u16> {
             if self.cursor >= self.end {
                 return None;
             }
 
             // let ty_size = std::mem::size_of::<u8>();
-            let ty = unsafe { Some(self.buffer.as_ptr().add(self.cursor).cast::<u8>().read_unaligned()) };
+            let ty = unsafe { Some(self.buffer.as_ptr().add(self.cursor).cast::<u16>().read_unaligned()) };
 
             // self.cursor += ty_size;
-            self.cursor += 1;
+            self.cursor += 2;
             ty
         }
     }
@@ -1733,7 +1742,7 @@ pub mod serialize {
 
 
     pub struct StyleFunc {
-        get_type: fn() -> u8,
+        get_type: fn() -> u16,
 		get: fn(world: &World, query: &SettingComponentIds, entity: Entity) -> Option<Attribute>,
         // get_style_index: fn() -> u8,
         size: fn() -> usize,
@@ -1780,7 +1789,7 @@ pub mod serialize {
     }
 
     pub struct SvgFunc {
-        get_type: fn() -> u8,
+        get_type: fn() -> u16,
 		get: fn(world: &World, query: &SettingComponentIds, entity: Entity) -> Option<SvgTypeAttr>,
         // get_style_index: fn() -> u8,
         size: fn() -> usize,
@@ -1808,10 +1817,10 @@ pub mod serialize {
             }
         }
     }
-
+    static STYLE_ATTR_COUNT: usize = 100;
     lazy_static::lazy_static! {
 
-        static ref STYLE_ATTR: [StyleFunc; 100] = [
+        static ref STYLE_ATTR: [StyleFunc; STYLE_ATTR_COUNT] = [
             StyleFunc::new::<BackgroundRepeatType>(), // 0
             StyleFunc::new::<FontStyleType>(), // 1
             StyleFunc::new::<FontWeightType>(), // 2
@@ -1936,7 +1945,7 @@ pub mod serialize {
 		];
 
 		
-		static ref RESET_STYLE_ATTR: [ResetStyleFunc; 100] = [
+		static ref RESET_STYLE_ATTR: [ResetStyleFunc; STYLE_ATTR_COUNT] = [
         /******************************* reset ******************************************************/
             ResetStyleFunc::new::<ResetBackgroundRepeatType>(), // 0
             ResetStyleFunc::new::<ResetFontStyleType>(), // 1
@@ -2116,6 +2125,10 @@ pub mod serialize {
 		pub text_overflow: u32,
 
         pub svg: u32,
+        pub svg_shadow: u32,
+        pub svg_filter: u32,
+        pub svg_linear_gradient: u32,
+        pub svg_linear_gradient_stop: u32,
     }
 
     impl FromWorld for DefaultStyle {
@@ -2166,6 +2179,10 @@ pub mod serialize {
                 text_overflow: world.init_single_res::<TextOverflow>() as u32,
 
                 svg: world.init_single_res::<SvgInnerContent>() as u32,
+                svg_shadow: world.init_single_res::<SvgShadow>() as u32,
+                svg_filter: world.init_single_res::<SvgFilter>() as u32,
+                svg_linear_gradient: world.init_single_res::<SvgLinearGradient>() as u32,
+                svg_linear_gradient_stop: world.init_single_res::<SvgLinearGradientStop>() as u32,
             }
         }
     }
@@ -2174,7 +2191,7 @@ pub mod serialize {
 
     impl StyleAttr {
         #[inline]
-        pub fn get_type(style_type: u8) -> StyleType { unsafe { transmute((STYLE_ATTR[style_type as usize].get_type)()) } }
+        pub fn get_type(style_type: u16) -> StyleType { unsafe { transmute((STYLE_ATTR[style_type as usize].get_type)()) } }
 
         #[inline]
         pub unsafe fn write<T: Attr>(value: T, buffer: &mut Vec<u8>) {
@@ -2185,158 +2202,161 @@ pub mod serialize {
         #[inline]
         pub fn set(
             cur_style_mark: &mut StyleMarkType,
-            style_index: u8,
+            style_index: u16,
             buffer: &Vec<u8>,
             offset: usize,
             query: &mut Setting,
             entity: Entity,
             is_clone: bool,
         ) {
-			if style_index > STYLE_COUNT {
-				(RESET_STYLE_ATTR[style_index as usize - STYLE_COUNT as usize].set)(unsafe { buffer.as_ptr().add(offset) }, query, entity, is_clone)
-			} else if style_index < STYLE_COUNT * 2  {
-				(STYLE_ATTR[style_index as usize].set)(unsafe { buffer.as_ptr().add(offset) }, query, entity, is_clone);
+            if style_index > STYLE_COUNT_MAX {
+                (RESET_STYLE_ATTR[style_index as usize - STYLE_COUNT_MAX as usize].set)(unsafe { buffer.as_ptr().add(offset) }, query, entity, is_clone)
+            } else if style_index < STYLE_COUNT_MAX * 2 {
+                if style_index >= STYLE_ATTR_COUNT as u16{
+                    (SVGTYPE_ATTR[style_index as usize - STYLE_ATTR_COUNT].set)(unsafe { buffer.as_ptr().add(offset) }, query, entity, is_clone);
+                } else {
+                    (STYLE_ATTR[style_index as usize].set)(unsafe { buffer.as_ptr().add(offset) }, query, entity, is_clone);
+                }
                 cur_style_mark.set(style_index as usize, true);
 			} 
-            // else if style_index < STYLE_COUNT * 2 + SVG_COUNT {
+            // else if style_index < STYLE_COUNT_MAX * 2 + SVG_COUNT {
             //     // set svg
             //     (SVGTYPE_ATTR[style_index as usize].set)(unsafe { buffer.as_ptr().add(offset) }, query, entity, is_clone);
-            // } else if style_index < STYLE_COUNT * 2 + SVG_COUNT * 2 {
+            // } else if style_index < STYLE_COUNT_MAX * 2 + SVG_COUNT * 2 {
             //     // reset svg
             //     (RESET_SVGTYPE_ATTR[style_index as usize].set)(unsafe { buffer.as_ptr().add(offset) }, query, entity, is_clone);
             // }
             
         }
 
-        pub fn push_component_ops(
-            style_index: u8,
-            components: &SettingComponentIds,
-            arr: &mut Vec<(ComponentIndex, bool)>,){
-            
-            if style_index > STYLE_COUNT {
-                (RESET_STYLE_ATTR[style_index as usize - STYLE_COUNT as usize].push_component_ops)(components, arr)
+        pub fn push_component_ops(style_index: u16, components: &SettingComponentIds, arr: &mut Vec<(ComponentIndex, bool)>) {
+            if style_index > STYLE_COUNT_MAX {
+                (RESET_STYLE_ATTR[style_index as usize - STYLE_COUNT_MAX as usize].push_component_ops)(components, arr)
             } else {
-                (STYLE_ATTR[style_index as usize].push_component_ops)(components, arr)
+                let r = if style_index >= STYLE_ATTR_COUNT as u16 {
+                    (SVGTYPE_ATTR[(style_index - STYLE_ATTR_COUNT as u16) as usize].push_component_ops)(components, arr)
+                } else {
+                    (STYLE_ATTR[style_index as usize].push_component_ops)(components, arr)
+                };
+                r
             }
 
         }
 
-		pub fn get(
-            style_index: u8,
-            world: &World,
-            query: &SettingComponentIds,
-            entity: Entity,
-        ) -> Option<Attribute> {
+        pub fn get(style_index: u16, world: &World, query: &SettingComponentIds, entity: Entity) -> Option<Attribute> {
+            // if style_index >= 97 {
+            //     (SVGTYPE_ATTR[(style_index - 97) as usize].get)(world, query, entity)
+            // } else {
             (STYLE_ATTR[style_index as usize].get)(world, query, entity)
+            // }
+            // println!("==============get: {}", style_index);
         }
 
         #[inline]
-        pub fn to_attr(style_index: u8, buffer: &Vec<u8>, offset: usize) -> Attribute {
+        pub fn to_attr(style_index: u16, buffer: &Vec<u8>, offset: usize) -> Attribute {
             (STYLE_ATTR[style_index as usize].to_attr)(unsafe { buffer.as_ptr().add(offset) })
         }
 
         #[inline]
-        pub fn size(style_index: u8) -> usize { 
-			if style_index > STYLE_COUNT {
+        pub fn size(style_index: u16) -> usize {
+			if style_index > STYLE_COUNT_MAX {
 				0
 			} else {
-				(STYLE_ATTR[style_index as usize].size)()
+                let r = if style_index >= STYLE_ATTR_COUNT as u16 {
+                    (SVGTYPE_ATTR[(style_index - STYLE_ATTR_COUNT as u16) as usize].size)()
+                } else {
+                    (STYLE_ATTR[style_index as usize].size)()
+                };
+                r
 			}
 		 }
 
         #[inline]
-        pub fn reset(_cur_style_mark: &mut StyleMarkType, style_index: u8, buffer: &Vec<u8>, offset: usize, query: &mut Setting, entity: Entity) {
+        pub fn reset(_cur_style_mark: &mut StyleMarkType, style_index: u16, buffer: &Vec<u8>, offset: usize, query: &mut Setting, entity: Entity) {
             (RESET_STYLE_ATTR[style_index as usize].set)(unsafe { buffer.as_ptr().add(offset) }, query, entity, false);
         }
 
         #[inline]
-        pub fn set_default(style_index: u8, buffer: &Vec<u8>, offset: usize, world: &mut World, query: &DefaultStyle) {
+        pub fn set_default(style_index: u16, buffer: &Vec<u8>, offset: usize, world: &mut World, query: &DefaultStyle) {
             (STYLE_ATTR[style_index as usize].set_default)(buffer, offset, world, query);
         }
     }
 
+
+    pub enum GuiAttribute {
+        TypeAttr(Attribute),
+        SvgTypeAttr(SvgTypeAttr)
+    }
     /// svg属性类型
     #[enum_type]
-    #[index_start(0)]
+    #[index_start(100)]
     #[func(SvgFunc)]
     #[reset_func(ResetStyleFunc)]
     pub enum SvgType {
         #[v(f32)]
-        SvgWidth, // 0,
+        SvgWidth, // 97,
         #[v(f32)]
-        SvgHeight, // 1,
-        #[v(Color)]
-        SvgColor, // 2,
+        SvgHeight, // 98,
+        #[v(SvgColor)]
+        SvgColor, // 99,
         #[v(CgColor)]
-        SvgStrokeColor, // 3,
+        SvgStrokeColor, // 100,
         #[v(NotNan<f32>)]
-        SvgStrokeWidth, // 4,
+        SvgStrokeWidth, // 101,
         #[v(StrokeDasharray)]
-        StrokeDasharray, // 5,
+        StrokeDasharray, // 102,
         #[v(SvgShapeEnum)]
-        SvgShape, // 6,
+        SvgShape, // 103,
         #[v(f32)]
-        SvgShapeWidth, // 7,
+        SvgShapeWidth, // 104,
         #[v(f32)]
-        SvgShapeHeight, // 8,
+        SvgShapeHeight, // 105,
         #[v(f32)]
-        SvgShapeX, // 9,
+        SvgShapeX, // 106,
         #[v(f32)]
-        SvgShapeY, // 10,
+        SvgShapeY, // 107,
         #[v(f32)]
-        SvgShapeCX, // 11,
+        SvgShapeCX, // 108,
         #[v(f32)]
-        SvgShapeCY, // 12,
+        SvgShapeCY, // 109,
         #[v(f32)]
-        SvgShapeRadius, // 13,
+        SvgShapeRadius, // 110,
         #[v(f32)]
-        SvgShapeRadiusX, // 14,
+        SvgShapeRadiusX, // 111,
         #[v(f32)]
-        SvgShapeRadiusY, // 15,
+        SvgShapeRadiusY, // 112,
         #[v(f32)]
-        SvgShapeAX, // 16,
+        SvgShapeAX, // 113,
         #[v(f32)]
-        SvgShapeAY, // 17,
+        SvgShapeAY, // 114,
         #[v(f32)]
-        SvgShapeBX, // 18,
+        SvgShapeBX, // 115,
         #[v(f32)]
-        SvgShapeBY, // 19,
+        SvgShapeBY, // 116,
         #[v(Vec<f32>)]
-        SvgShapePoints, // 20,
+        SvgShapePoints, // 117,
         #[v((Vec<f32>, Vec<u8>))]
-        SvgShapePath, // 21,
+        SvgShapePath, // 118,
+        #[v(u64)]
+        SvgFilter, // 119,
+        #[v(u64)]
+        SvgFilterID, // 120,
         #[v(CgColor)]
-        SvgShadowColor, // 22,
+        SvgShadowColor, // 121,
         #[v(f32)]
-        SvgShadowOffsetX, // 23,
+        SvgShadowOffsetX, // 122,
         #[v(f32)]
-        SvgShadowOffsetY, // 24,
+        SvgShadowOffsetY, // 123,
         #[v(f32)]
-        SvgShadowBlurLevel, // 25,
+        SvgShadowBlurLevel, // 124,
+        #[v(u64)]
+        SvgLinerGradient, // 125,
         #[v(f32)]
-        SvgFilterOffsetX, // 26,
-        #[v(f32)]
-        SvgFilterOffsetY, // 27,
-        #[v(f32)]
-        SvgFilterColor, // 28,
-        #[v(f32)]
-        SvgFilterBlurLevel, // 29,
-        #[v(f32)]
-        SvgGradientX1, // 30,
-        #[v(f32)]
-        SvgGradientY1, // 31,
-        #[v(f32)]
-        SvgGradientX2, // 32,
-        #[v(f32)]
-        SvgGradientY2, // 33,
-        #[v(f32)]
-        SvgStopOffset, // 34,
+        SvgLinearGradientTransform, // 126,
         #[v(CgColor)]
-        SvgStopColor, // 35,
-        #[v(Entity)]
-        SvgGradient, // 36,
-        #[v(Entity)]
-        SvgFilter, // 37,
+        SvgGradientStopColor, // 127,
+        #[v(f32)]
+        SvgGradientStopOffset, // 128,
     }
 
     impl_style!(@svg SvgWidthType, SvgWidth, svg, SvgContent, v, f32,
@@ -2438,9 +2458,9 @@ pub mod serialize {
         if let (Shape::Segment { by, .. }, Shape::Segment { by: v, .. }) = (&mut svg.shape, &v.shape){ *by = *v; }
     );
     impl_style!(@svg SvgShapePointsType, SvgShapePoints, svg, SvgInnerContent, v, Vec<f32>,
-        if let Shape::Polygon { points } = &mut svg.shape{ *points = v; },
-        if let Shape::Polygon { points } = &svg.shape{ points.clone() } else { Default::default() },
-        if let (Shape::Polygon { points }, Shape::Polygon { points: v }) = (&mut svg.shape, &v.shape){ *points = v.clone(); }
+        if let Shape::Polygon { points } | Shape::Polyline { points} = &mut svg.shape{ *points = v; },
+        if let Shape::Polygon { points } | Shape::Polyline { points}  = &svg.shape{ points.clone() } else { Default::default() },
+        if let (Shape::Polygon { points } | Shape::Polyline { points }, Shape::Polygon { points: v } | Shape::Polyline { points: v }) = (&mut svg.shape, &v.shape){ *points = v.clone(); }
     );
     impl_style!(@svg SvgShapePathType, SvgShapePath, svg, SvgInnerContent, v, (Vec<f32>, Vec<u8>),
         if let Shape::Path { points, verb } = &mut svg.shape{ *points = v.0; *verb = v.1; },
@@ -2448,7 +2468,7 @@ pub mod serialize {
         if let (Shape::Path { points, verb }, Shape::Path { points: v, verb: v1 }) = (&mut svg.shape, &v.shape){ *points = v.clone(); *verb = v1.clone(); }
     );
 
-    impl_style!(@svg SvgColorType, SvgColor, svg, SvgInnerContent, v, Color,
+    impl_style!(@svg SvgColorType, SvgColor, svg, SvgInnerContent, v, SvgColor,
         svg.style.fill_color = v,
         svg.style.fill_color.clone(),
         svg.style.fill_color = v.style.fill_color.clone()
@@ -2468,140 +2488,64 @@ pub mod serialize {
         svg.style.stroke_dasharray.clone(),
         svg.style.stroke_dasharray = v.style.stroke_dasharray.clone()
     );
-    impl_style!(@svg SvgShadowColorType, SvgShadowColor, svg, SvgInnerContent, v, CgColor,
-        svg.style.shadow.color = v,
-        svg.style.shadow.color.clone(),
-        svg.style.shadow.color = v.style.shadow.color.clone()
+    impl_style!(@svg SvgShadowColorType, SvgShadowColor, svg_shadow, SvgShadow, v, CgColor,
+        svg_shadow.color = v,
+        svg_shadow.color.clone(),
+        svg_shadow.color = v.color.clone()
     );
-    impl_style!(@svg SvgShadowOffsetXType, SvgShadowOffsetX, svg, SvgInnerContent, v, f32,
-        svg.style.shadow.offset_x = v,
-        svg.style.shadow.offset_x.clone(),
-        svg.style.shadow.offset_x = v.style.shadow.offset_x.clone()
+    impl_style!(@svg SvgShadowOffsetXType, SvgShadowOffsetX, svg_shadow, SvgShadow, v, f32,
+        svg_shadow.offset_x = v,
+        svg_shadow.offset_x.clone(),
+        svg_shadow.offset_x = v.offset_x.clone()
     );
-    impl_style!(@svg SvgShadowOffsetYType, SvgShadowOffsetY, svg, SvgInnerContent, v, f32,
-        svg.style.shadow.offset_y = v,
-        svg.style.shadow.offset_y.clone(),
-        svg.style.shadow.offset_y = v.style.shadow.offset_y.clone()
+    impl_style!(@svg SvgShadowOffsetYType, SvgShadowOffsetY, svg_shadow, SvgShadow, v, f32,
+        svg_shadow.offset_y = v,
+        svg_shadow.offset_y.clone(),
+        svg_shadow.offset_y = v.offset_y.clone()
     );
-    impl_style!(@svg SvgShadowBlurLevelType, SvgShadowBlurLevel, svg, SvgInnerContent, v, f32,
-        svg.style.shadow.blur_level = v,
-        svg.style.shadow.blur_level.clone(),
-        svg.style.shadow.blur_level = v.style.shadow.blur_level.clone()
+    impl_style!(@svg SvgShadowBlurLevelType, SvgShadowBlurLevel, svg_shadow, SvgShadow, v, f32,
+        svg_shadow.blur_level = v,
+        svg_shadow.blur_level.clone(),
+        svg_shadow.blur_level = v.blur_level.clone()
     );
-    impl_style!(@svg SvgFilterType, SvgFilter, svg, SvgInnerContent, v, Entity,
+    impl_style!(@svg SvgFilterType, SvgFilter, svg, SvgInnerContent, v, u64,
         svg.style.filter = v,
         svg.style.filter.clone(),
         svg.style.filter = v.style.filter.clone()
     );
-    // TODO
-    impl_style!(@svg SvgGradientType, SvgGradient, svg, SvgGradient, v, Entity,
-        svg.id.push(v),
-        svg.id.last().map_or(Entity::null(), |r| {r.clone()}),
-        svg.id = v.id.clone()
+    impl_style!(@svg SvgFilterIDType, SvgFilterID, svg_filter, SvgFilter, v, u64,
+        svg_filter.0 = v,
+        svg_filter.0.clone(),
+        svg_filter.0 = v.0.clone()
+    );
+    impl_style!(@svg SvgLinerGradientType, SvgLinerGradient, svg_linear_gradient, SvgLinearGradient, v, u64,
+        svg_linear_gradient.id = v,
+        svg_linear_gradient.id.clone(),
+        svg_linear_gradient.id = v.id.clone()
+    );
+    impl_style!(@svg SvgLinearGradientTransformType, SvgLinearGradientTransform, svg_linear_gradient, SvgLinearGradient, v, f32,
+        svg_linear_gradient.gradient_transform = v,
+        svg_linear_gradient.gradient_transform.clone(),
+        svg_linear_gradient.gradient_transform = v.gradient_transform.clone()
+    );
+    impl_style!(@svg SvgGradientStopOffsetType, SvgGradientStopOffset, svg_linear_gradient_stop, SvgLinearGradientStop, v, f32,
+        svg_linear_gradient_stop.offset = v,
+        svg_linear_gradient_stop.offset.clone(),
+        svg_linear_gradient_stop.offset = v.offset.clone()
     );
 
-    impl_style!(@svg SvgFilterOffsetXType, SvgFilterOffsetX, svg, SvgFilterOffset, v, f32,
-        svg.offset_x = v,
-        svg.offset_x.clone(),
-        svg.offset_x = v.offset_x.clone()
+    impl_style!(@svg SvgGradientStopColorType, SvgGradientStopColor, svg_linear_gradient_stop, SvgLinearGradientStop, v, CgColor,
+        svg_linear_gradient_stop.color = v,
+        svg_linear_gradient_stop.color.clone(),
+        svg_linear_gradient_stop.color = v.color.clone()
     );
-    impl_style!(@svg SvgFilterOffsetYType, SvgFilterOffsetY, svg, SvgFilterOffset, v, f32,
-        svg.offset_y = v,
-        svg.offset_y.clone(),
-        svg.offset_y = v.offset_y.clone()
-    );
-    impl_style!(@svg SvgFilterColorType, SvgFilterColor, svg, SvgFilterOffset, v, f32,
-        svg.color = v,
-        svg.color.clone(),
-        svg.color = v.color.clone()
-    );
-    impl_style!(@svg SvgFilterBlurLevelType, SvgFilterBlurLevel, svg, SvgFilterBlurLevel, v, f32,
-        svg.level = v,
-        svg.level.clone(),
-        svg.level = v.level.clone()
-    );
-    impl_style!(@svg SvgGradientX1Type, SvgGradientX1, svg, SvgGradient, v, f32,
-        svg.x1 = v,
-        svg.x1.clone(),
-        svg.x1 = v.x1.clone()
-    );
-    impl_style!(@svg SvgGradientY1Type, SvgGradientY1, svg, SvgGradient, v, f32,
-        svg.y1 = v,
-        svg.y1.clone(),
-        svg.y1 = v.y1.clone()
-    );
-    impl_style!(@svg SvgGradientX2Type, SvgGradientX2, svg, SvgGradient, v, f32,
-        svg.x2 = v,
-        svg.x2.clone(),
-        svg.x2 = v.x2.clone()
-    );
-    impl_style!(@svg SvgGradientY2Type, SvgGradientY2, svg, SvgGradient, v, f32,
-        svg.y2 = v,
-        svg.y2.clone(),
-        svg.y2 = v.y2.clone()
-    );
-    impl_style!(@svg SvgStopOffsetType, SvgStopOffset, svg, SvgStop, v, f32,
-        svg.offset = v,
-        svg.offset.clone(),
-        svg.offset = v.offset.clone()
-    );
-    impl_style!(@svg SvgStopColorType, SvgStopColor, svg, SvgStop, v, CgColor,
-        svg.color = v,
-        svg.color.clone(),
-        svg.color = v.color.clone()
-    );
-    
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum StyleAttribute {
-    Reset(u8),
+    Reset(u16),
     Set(Attribute),
 }
-
-pub fn style_attr_list_to_buffer(style_buffer: &mut Vec<u8>, style_list: &mut VecDeque<StyleAttribute>, mut count: usize) -> ClassMeta {
-    let start = style_buffer.len();
-    let mut class_meta = ClassMeta {
-        start,
-        end: start,
-        class_style_mark: BitArray::default(),
-    };
-
-    loop {
-        if count == 0 {
-            break;
-        }
-        let r = style_list.pop_front().unwrap();
-        match r {
-            StyleAttribute::Reset(r) => style_buffer.push(r),
-            StyleAttribute::Set(r) => {
-                match &r {
-                    // pi_style::style_parse::Attribute::AnimationName(_) => (),
-                    // pi_style::style_parse::Attribute::AnimationDuration(_) => (),
-                    // pi_style::style_parse::Attribute::AnimationTimingFunction(_) => (),
-                    // pi_style::style_parse::Attribute::AnimationIterationCount(_) => (),
-                    // pi_style::style_parse::Attribute::AnimationDirection(_) => (),
-                    // pi_style::style_parse::Attribute::AnimationFillMode(_) => (),
-                    // pi_style::style_parse::Attribute::AnimationPlayState(_) => (),
-                    // pi_style::style_parse::Attribute::AnimationDelay(_) => (),
-                    // pi_style::style_parse::Attribute::BackgroundImage(_) => (),
-                    // pi_style::style_parse::Attribute::BackgroundImageClip(_) => (),
-                    _ => {
-                        style_to_buffer(style_buffer, r, &mut class_meta);
-                    }
-                };
-                
-            },
-        }
-
-        count -= 1;
-    }
-    class_meta.end = style_buffer.len();
-
-    class_meta
-}
-
-
 
 
 // clone指针指向的对象（可能未对齐）
@@ -2662,40 +2606,6 @@ impl Shape {
             Shape::Path { points, verb } => !(points.is_empty() || verb.is_empty()),
         }
     }
-
-    pub fn hash(&self) -> u64 {
-        use std::hash::Hasher;
-
-        let mut hasher = pi_hash::DefaultHasher::default();
-        let data = match self {
-            Shape::Rect { x, y, width, height } => vec![*x, *y, *width, *height, 1.0],
-            Shape::Circle { cx, cy, radius } => vec![*cx, *cy, *radius, 2.0],
-            Shape::Ellipse { cx, cy, rx, ry } => vec![*cx, *cy, *rx, *ry, 3.0],
-            Shape::Segment { ax, ay, bx, by } => vec![*ax, *ay, *bx, *by, 4.0],
-            Shape::Polygon { points } => {
-                let mut p = points.clone();
-                p.push(5.0);
-                p
-            }
-            Shape::Polyline { points } => {
-                let mut p = points.clone();
-                p.push(6.0);
-                p
-            }
-            Shape::Path { points, verb } => {
-                let mut p = points.clone();
-                let mut v = verb.iter().map(|v| (*v).into()).collect::<Vec<f32>>();
-                p.append(&mut v);
-                p.push(7.0);
-                p
-            }
-        };
-        println!("hash data: {:?}", bytemuck::cast_slice::<_, u8>(data.as_slice()));
-        hasher.write(bytemuck::cast_slice::<_, u8>(data.as_slice()));
-        let hash = hasher.finish() as u64;
-        println!("hash: {}", hash);
-        hash
-    }
 }
 
 #[rustfmt::skip]
@@ -2735,4 +2645,593 @@ impl From<f32> for Shape {
 
 impl Default for Shape {
     fn default() -> Self { Self::from(0.0) }
+}
+
+
+pub fn parse_dasharray<'i, 't>(input: &mut Parser<'i, 't>) -> Result<StrokeDasharray, TokenParseError<'i>> {
+    let mut stroke_dasharray = StrokeDasharray::default();
+    let mut count = 0;
+    loop {
+        let location = input.current_source_location();
+        let token = input.next()?;
+        println!("parse_points1 : {:?}", token);
+        match token {
+            Token::Number { value, .. } => {
+                if count == 0 {
+                    stroke_dasharray.real = *value;
+                    count += 1;
+                } else {
+                    stroke_dasharray.empty = *value;
+                    break;
+                }
+            }
+            Token::Comma => continue,
+            Token::Semicolon => break,
+            _ => return Err(TokenParseError::from_expect(location, "<dasharray>", token.clone())),
+        }
+    }
+    Ok(stroke_dasharray)
+}
+
+pub fn parse_points<'i, 't>(input: &mut Parser<'i, 't>) -> Result<Vec<f32>, TokenParseError<'i>> {
+    let mut points = vec![];
+    loop {
+        let location = input.current_source_location();
+        let token = input.next()?;
+        println!("parse_points1 : {:?}", token);
+        match token {
+            Token::Number { value, .. } => points.push(*value),
+            Token::Comma => continue,
+            Token::Semicolon => break,
+            _ => return Err(TokenParseError::from_expect(location, "<points>", token.clone())),
+        }
+    }
+    Ok(points)
+}
+
+use pi_hal::svg::{PathVerb, SvgInfo};
+fn parse_verb(verb: &str) -> Result<u8, String> {
+    match verb {
+        "M" => Ok(PathVerb::MoveTo as u8),
+        "m" => Ok(PathVerb::MoveToRelative as u8),
+        "L" => Ok(PathVerb::LineTo as u8),
+        "l" => Ok(PathVerb::LineToRelative as u8),
+        "H" => Ok(PathVerb::HorizontalLineTo as u8),
+        "h" => Ok(PathVerb::HorizontalLineToRelative as u8),
+        "V" => Ok(PathVerb::VerticalLineTo as u8),
+        "v" => Ok(PathVerb::VerticalLineToRelative as u8),
+        "C" => Ok(PathVerb::CubicTo as u8),
+        "c" => Ok(PathVerb::CubicToRelative as u8),
+        "S" => Ok(PathVerb::SmoothCubicTo as u8),
+        "s" => Ok(PathVerb::SmoothCubicToRelative as u8),
+        "Q" => Ok(PathVerb::QuadTo as u8),
+        "q" => Ok(PathVerb::QuadToRelative as u8),
+        "T" => Ok(PathVerb::SmoothQuadTo as u8),
+        "t" => Ok(PathVerb::SmoothQuadToRelative as u8),
+        "A" => Ok(PathVerb::EllipticalArcTo as u8),
+        "a" => Ok(PathVerb::EllipticalArcToRelative as u8),
+        "Z" => Ok(PathVerb::Close as u8),
+        _ => Err(format!("{} is not surpport!!!", verb)),
+    }
+}
+
+pub fn parse_path<'i, 't>(input: &mut Parser<'i, 't>) -> Result<(Vec<f32>, Vec<u8>), TokenParseError<'i>> {
+    let mut verb = vec![];
+    let mut points = vec![];
+    loop {
+        let location = input.current_source_location();
+        let token = input.next()?;
+        println!("parse_points1 : {:?}", token);
+        match token {
+            Token::Number { value, .. } => points.push(*value),
+            Token::Ident(i) => {
+                verb.push(parse_verb(i.as_ref()).map_err(|op| TokenParseError::from_expect(location, " <path> parse_verb error  ", token.clone()))?)
+            }
+            Token::Comma => continue,
+            Token::Semicolon => break,
+            _ => return Err(TokenParseError::from_expect(location, "<points>", token.clone())),
+        }
+    }
+    Ok((points, verb))
+}
+
+pub fn parse_str<'i, 't>(input: &mut Parser<'i, 't>) -> Result<String, TokenParseError<'i>> {
+    loop {
+        let location = input.current_source_location();
+        let token = input.next()?;
+        println!("parse_points1 : {:?}", token);
+        match token {
+            Token::Ident(i) => {
+                let r = i.as_ref();
+                return Ok(r.to_string());
+                // verb.push(parse_verb(i.as_ref()).map_err(|op| TokenParseError::from_expect(location, " <id> parse_str error  ", token.clone()))?)
+            }
+            Token::Comma => continue,
+            _ => return Err(TokenParseError::from_expect(location, "<points>", token.clone())),
+        }
+    }
+}
+
+
+pub fn svg_parser_style_items<'i, 't>(input: &mut Parser<'i, 't>, arr: &mut VecDeque<SvgTypeAttr>, scope_hash: usize, tag: NodeTag) {
+    loop {
+        if let Err(e) = svg_parse_style_item(arr, scope_hash, input, tag) {
+            if let ItemParseErrors::ValueError { .. } = e {
+                println!("{}", e);
+            }
+            println!("{}", e);
+            end_cur_attr(input);
+        } else {
+            // 成功后，尝试解析一个或多个分号
+            let _r = input.try_parse(|i| i.expect_semicolon());
+        }
+        if input.is_exhausted() {
+            break;
+        }
+    }
+}
+
+pub fn svg_parse_style_item<'i, 't>(
+    buffer: &mut VecDeque<SvgTypeAttr>,
+    scope_hash: usize,
+    input: &mut Parser<'i, 't>,
+    tag: NodeTag,
+) -> Result<(), ItemParseErrors<'i>> {
+    let location = input.current_source_location();
+    let key_token = input.next()?;
+    let name = match key_token {
+        Token::Semicolon => return Ok(()), // 如果是分号，直接结束本次匹配
+        Token::Ident(r) => r.clone(),
+        _ => {
+            return Err(ItemParseErrors::KeyError {
+                location: location,
+                kind: BasicParseErrorKind::UnexpectedToken(key_token.clone()),
+            })
+        }
+    };
+    println!("parse_style_item_value ======== 0name: {}", name);
+    match svg_parse_style_item_value(location, name.clone(), buffer, scope_hash, input, tag) {
+        Ok(_) => Ok(()),
+        Err(e) => {
+            log::error!("svg_parse_style_item error: {:?}", e);
+            match e.error {
+                TokenErrorsInfo::KeyError => Err(ItemParseErrors::KeyError {
+                    location,
+                    kind: BasicParseErrorKind::UnexpectedToken(Token::Ident(name)),
+                }),
+                _ => Err(ItemParseErrors::ValueError {
+                    attribute: name.clone(),
+                    error: e,
+                }),
+            }
+        }
+    }
+}
+
+fn extract_gradient(url: &str) -> Option<&str> {
+    if let Some(start) = url.find('#') {
+        return Some(&url[start + 1..url.len()]);
+    }
+    None
+}
+
+pub fn parse_svg_len<'i, 't>(input: &mut Parser<'i, 't>) -> Result<f32, TokenParseError<'i>> {
+    let location = input.current_source_location();
+    let token = input.next()?;
+    let dimension = match *token {
+        Token::Dimension { value, ref unit, .. } if unit.as_ref() == "px" => value,
+        Token::Number { value, .. } => value,
+        Token::Percentage { unit_value, .. } => unit_value,
+        _ => return Err(TokenParseError::from_expect(location, "<length>", token.clone()))?,
+    };
+    Ok(dimension)
+}
+
+pub fn parse_svg_color<'i, 't>(input: &mut Parser<'i, 't>) -> Result<SvgColor, TokenParseError<'i>> {
+    let location = input.current_source_location();
+    let token = input.next()?;
+    println!("======== token: {:?}", token);
+    match *token {
+        Token::Hash(ref value) | Token::IDHash(ref value) if let Ok(r) = parse_color_hex(value.as_ref()) => Ok(SvgColor::Color(Color::RGBA(r))),
+        Token::Ident(ref value) if let Ok(r) = parse_color_keyword(value.as_ref()) => Ok(SvgColor::Color(Color::RGBA(r))),
+        Token::Function(ref name) => {
+            let n = name.clone();
+            Ok(input.parse_nested_block(|input| Ok(SvgColor::Color(Color::RGBA(parse_color_function(location, n, input)?))))?)
+        }
+        Token::UnquotedUrl(ref url) => {
+            if let Some(str) = extract_gradient(url.as_ref()) {
+                println!("========= UnquotedUrl: {}", str);
+                let mut hasher = pi_hash::DefaultHasher::default();
+                hasher.write(str.as_bytes());
+                let hash = hasher.finish();
+                Ok(SvgColor::ID(hash))
+            } else {
+                return Err(TokenParseError::from_expect(location, "<color>", token.clone()));
+            }
+        }
+        _ => return Err(TokenParseError::from_expect(location, "<color>", token.clone())),
+    }
+}
+
+pub fn parse_rotate<'i, 't>(input: &mut Parser<'i, 't>) -> Result<f32, TokenParseError<'i>> {
+    let location = input.current_source_location();
+    let token = input.next()?;
+    match *token {
+        Token::Function(ref name) => {
+            let n = name.clone();
+            let r = input.parse_nested_block(|input| Ok(input.expect_number()?))?;
+            Ok(r)
+        }
+        _ => return Err(TokenParseError::from_expect(location, "<color>", token.clone())),
+    }
+}
+
+pub fn svg_parse_style_item_value<'i, 't>(
+    location: SourceLocation,
+    name: CowRcStr<'i>,
+    buffer: &mut VecDeque<SvgTypeAttr>,
+    scope_hash: usize,
+    input: &mut Parser<'i, 't>,
+    tag: NodeTag,
+) -> Result<(), TokenParseError<'i>> {
+    println!("svg_parse_style_item_value: {:?}", name.as_ref());
+    match name.as_ref() {
+        "fill" => {
+            input.expect_colon()?;
+            let ty = SvgColorType(parse_svg_color(input)?);
+            buffer.push_back(SvgTypeAttr::SvgColor(ty));
+        }
+        "stroke" => {
+            input.expect_colon()?;
+            let ty = SvgStrokeColorType(parse_color(input)?);
+            log::trace!("{:?}", ty);
+            buffer.push_back(SvgTypeAttr::SvgStrokeColor(ty));
+        }
+        "stroke-width" => {
+            input.expect_colon()?;
+            let ty = SvgStrokeWidthType(NotNan::new(parse_len(input)?).unwrap());
+            log::trace!("{:?}", ty);
+            buffer.push_back(SvgTypeAttr::SvgStrokeWidth(ty));
+        }
+        "stroke-dasharray" => {
+            input.expect_colon()?;
+            let ty = StrokeDasharrayType(parse_dasharray(input)?);
+            log::trace!("{:?}", ty);
+            buffer.push_back(SvgTypeAttr::StrokeDasharray(ty));
+        }
+        "x" => {
+            input.expect_colon()?;
+            let ty = SvgShapeXType(parse_len(input)?);
+            log::trace!("{:?}", ty);
+            buffer.push_back(SvgTypeAttr::SvgShapeX(ty));
+        }
+        "y" => {
+            input.expect_colon()?;
+            let ty = SvgShapeYType(parse_len(input)?);
+            log::trace!("{:?}", ty);
+            buffer.push_back(SvgTypeAttr::SvgShapeY(ty));
+        }
+        "width" => unsafe {
+            input.expect_colon()?;
+            let ty = SvgShapeWidthType(parse_len(input)?);
+            log::trace!("{:?}", ty);
+            buffer.push_back(SvgTypeAttr::SvgShapeWidth(ty));
+        },
+        "height" => {
+            input.expect_colon()?;
+            let ty = SvgShapeHeightType(parse_len(input)?);
+            log::trace!("{:?}", ty);
+            buffer.push_back(SvgTypeAttr::SvgShapeHeight(ty));
+        }
+        "cx" => {
+            input.expect_colon()?;
+            let ty = SvgShapeCXType(parse_len(input)?);
+            log::trace!("{:?}", ty);
+            buffer.push_back(SvgTypeAttr::SvgShapeCX(ty));
+        }
+        "cy" => {
+            input.expect_colon()?;
+            let ty = SvgShapeCYType(parse_len(input)?);
+            log::trace!("{:?}", ty);
+            buffer.push_back(SvgTypeAttr::SvgShapeCY(ty));
+        }
+        "r" => {
+            input.expect_colon()?;
+            let ty = SvgShapeRadiusType(parse_len(input)?);
+            log::trace!("{:?}", ty);
+            buffer.push_back(SvgTypeAttr::SvgShapeRadius(ty));
+        }
+        "rx" => {
+            input.expect_colon()?;
+            let ty = SvgShapeRadiusXType(parse_len(input)?);
+            log::trace!("{:?}", ty);
+            buffer.push_back(SvgTypeAttr::SvgShapeRadiusX(ty));
+        }
+        "ry" => {
+            input.expect_colon()?;
+            let ty = SvgShapeRadiusYType(parse_len(input)?);
+            log::trace!("{:?}", ty);
+            buffer.push_back(SvgTypeAttr::SvgShapeRadiusY(ty));
+        }
+        "x1" => {
+            input.expect_colon()?;
+            let ty = SvgShapeAXType(parse_len(input)?);
+            log::trace!("{:?}", ty);
+            buffer.push_back(SvgTypeAttr::SvgShapeAX(ty));
+        }
+        "y1" => {
+            input.expect_colon()?;
+            let ty = SvgShapeAYType(parse_len(input)?);
+            log::trace!("{:?}", ty);
+            buffer.push_back(SvgTypeAttr::SvgShapeAY(ty));
+        }
+        "x2" => {
+            input.expect_colon()?;
+            let ty = SvgShapeBXType(parse_len(input)?);
+            log::trace!("{:?}", ty);
+            buffer.push_back(SvgTypeAttr::SvgShapeBX(ty));
+        }
+        "y2" => {
+            input.expect_colon()?;
+            let ty = SvgShapeBYType(parse_len(input)?);
+            log::trace!("{:?}", ty);
+            buffer.push_back(SvgTypeAttr::SvgShapeBY(ty));
+        }
+
+        "points" => {
+            input.expect_colon()?;
+            let ty = SvgShapePointsType(parse_points(input)?);
+            log::trace!("{:?}", ty);
+            buffer.push_back(SvgTypeAttr::SvgShapePoints(ty));
+        }
+        "d" => {
+            input.expect_colon()?;
+            let ty = SvgShapePathType(parse_path(input)?);
+            log::trace!("{:?}", ty);
+            buffer.push_back(SvgTypeAttr::SvgShapePath(ty));
+        }
+
+        "id" => {
+            input.expect_colon()?;
+            let mut hasher = pi_hash::DefaultHasher::default();
+            let str = parse_str(input)?;
+            println!("=========== id: {}", str);
+            hasher.write(str.as_bytes());
+            let hash = hasher.finish();
+            if let NodeTag::Filter = tag {
+                buffer.push_back(SvgTypeAttr::SvgFilterID(SvgFilterIDType(hash)));
+            } else if let NodeTag::LinearGradient = tag {
+                buffer.push_back(SvgTypeAttr::SvgLinerGradient(SvgLinerGradientType(hash)));
+            }
+        }
+        "dx" => {
+            input.expect_colon()?;
+            let ty = SvgShadowOffsetXType(parse_len(input)?);
+            log::trace!("{:?}", ty);
+            buffer.push_back(SvgTypeAttr::SvgShadowOffsetX(ty));
+        }
+        "dy" => {
+            input.expect_colon()?;
+            let ty = SvgShadowOffsetYType(parse_len(input)?);
+            log::trace!("{:?}", ty);
+            buffer.push_back(SvgTypeAttr::SvgShadowOffsetY(ty));
+        }
+        "stdDeviation" => {
+            input.expect_colon()?;
+            let ty = SvgShadowBlurLevelType(parse_len(input)?);
+            log::trace!("{:?}", ty);
+            buffer.push_back(SvgTypeAttr::SvgShadowBlurLevel(ty));
+        }
+        "flood-color" => {
+            input.expect_colon()?;
+            let ty = SvgShadowColorType(parse_color(input)?);
+            log::trace!("{:?}", ty);
+            buffer.push_back(SvgTypeAttr::SvgShadowColor(ty));
+        }
+        "stop-color" => {
+            input.expect_colon()?;
+            let ty = SvgGradientStopColorType(parse_color(input)?);
+            log::trace!("{:?}", ty);
+            buffer.push_back(SvgTypeAttr::SvgGradientStopColor(ty));
+        }
+        "offset" => {
+            input.expect_colon()?;
+            let ty = SvgGradientStopOffsetType(parse_svg_len(input)?);
+            log::trace!("{:?}", ty);
+            buffer.push_back(SvgTypeAttr::SvgGradientStopOffset(ty));
+        }
+        "gradientTransform" => {
+            input.expect_colon()?;
+            let ty = SvgLinearGradientTransformType(parse_rotate(input)?);
+            log::trace!("{:?}", ty);
+            buffer.push_back(SvgTypeAttr::SvgLinearGradientTransform(ty));
+        }
+        "filter" => {
+            input.expect_colon()?;
+            if let Token::UnquotedUrl(ref url) = input.next()? {
+                if let Some(str) = extract_gradient(url.as_ref()) {
+                    let mut hasher = pi_hash::DefaultHasher::default();
+                    hasher.write(str.as_bytes());
+                    let hash = hasher.finish();
+                    let ty = SvgFilterType(hash);
+                    log::trace!("{:?}", ty);
+                    buffer.push_back(SvgTypeAttr::SvgFilter(ty));
+                    return Ok(());
+                }
+            }
+
+            return Err(TokenParseError {
+                location,
+                error: TokenErrorsInfo::KeyError,
+            });
+        }
+        _ => {
+            log::error!("=============== svg_parse_style_item_value: {:?}", name.as_ref());
+            return Err(TokenParseError {
+                location,
+                error: TokenErrorsInfo::KeyError,
+            });
+        }
+    };
+    Ok(())
+}
+
+pub fn svg_style_list_to_buffer(style_buffer: &mut Vec<u8>, style_list: &mut VecDeque<SvgTypeAttr>, mut count: usize) -> ClassMeta {
+    let start = style_buffer.len();
+    let mut class_meta = ClassMeta {
+        start,
+        end: start,
+        class_style_mark: BitArray::default(),
+    };
+
+    loop {
+        if count == 0 {
+            break;
+        }
+        let r = style_list.pop_front().unwrap();
+        log::error!("svg_style_list_to_buffer : {:?}", r);
+        svg_style_to_buffer(style_buffer, r, &mut class_meta);
+        count -= 1;
+    }
+    class_meta.end = style_buffer.len();
+
+    class_meta
+}
+
+pub fn svg_style_to_buffer(style_buffer: &mut Vec<u8>, mut style: SvgTypeAttr, class_meta: &mut ClassMeta) {
+    match &mut style {
+        // SvgTypeAttr::SvgShape(v)=>{}
+        SvgTypeAttr::StrokeDasharray(r) => unsafe {
+            class_meta.class_style_mark.set(StrokeDasharrayType::get_type() as usize, true);
+            r.write(style_buffer);
+        },
+        SvgTypeAttr::SvgColor(r) => unsafe {
+            log::error!("===== SvgTypeAttr::SvgColor: {}", SvgColorType::get_type());
+            class_meta.class_style_mark.set(SvgColorType::get_type() as usize, true);
+            r.write(style_buffer);
+        },
+        SvgTypeAttr::SvgFilter(r) => unsafe {
+            class_meta.class_style_mark.set(SvgFilterType::get_type() as usize, true);
+            r.write(style_buffer);
+        },
+
+        SvgTypeAttr::SvgHeight(r) => unsafe {
+            class_meta.class_style_mark.set(SvgHeightType::get_type() as usize, true);
+            r.write(style_buffer);
+        },
+        SvgTypeAttr::SvgShadowBlurLevel(r) => unsafe {
+            class_meta.class_style_mark.set(SvgShadowBlurLevelType::get_type() as usize, true);
+            r.write(style_buffer);
+        },
+        SvgTypeAttr::SvgShadowColor(r) => unsafe {
+            class_meta.class_style_mark.set(SvgShadowColorType::get_type() as usize, true);
+            r.write(style_buffer);
+        },
+
+        SvgTypeAttr::SvgShadowOffsetX(r) => unsafe {
+            class_meta.class_style_mark.set(SvgShadowOffsetXType::get_type() as usize, true);
+            r.write(style_buffer);
+        },
+        SvgTypeAttr::SvgShadowOffsetY(r) => unsafe {
+            class_meta.class_style_mark.set(SvgShadowOffsetYType::get_type() as usize, true);
+            r.write(style_buffer);
+        },
+        SvgTypeAttr::SvgShape(r) => unsafe {
+            class_meta.class_style_mark.set(SvgShapeType::get_type() as usize, true);
+            r.write(style_buffer);
+        },
+        SvgTypeAttr::SvgShapeAX(r) => unsafe {
+            class_meta.class_style_mark.set(SvgShapeAXType::get_type() as usize, true);
+            r.write(style_buffer);
+        },
+        SvgTypeAttr::SvgShapeAY(r) => unsafe {
+            class_meta.class_style_mark.set(SvgShapeAYType::get_type() as usize, true);
+            r.write(style_buffer);
+        },
+        SvgTypeAttr::SvgWidth(r) => unsafe {
+            class_meta.class_style_mark.set(SvgWidthType::get_type() as usize, true);
+            r.write(style_buffer);
+        },
+        SvgTypeAttr::SvgStrokeColor(r) => unsafe {
+            class_meta.class_style_mark.set(SvgStrokeColorType::get_type() as usize, true);
+            r.write(style_buffer);
+        },
+        SvgTypeAttr::SvgStrokeWidth(r) => unsafe {
+            class_meta.class_style_mark.set(SvgStrokeWidthType::get_type() as usize, true);
+            r.write(style_buffer);
+        },
+        SvgTypeAttr::SvgShapeWidth(r) => unsafe {
+            class_meta.class_style_mark.set(SvgShapeWidthType::get_type() as usize, true);
+            r.write(style_buffer);
+        },
+        SvgTypeAttr::SvgShapeHeight(r) => unsafe {
+            class_meta.class_style_mark.set(SvgShapeHeightType::get_type() as usize, true);
+            r.write(style_buffer);
+        },
+        SvgTypeAttr::SvgShapeX(r) => unsafe {
+            class_meta.class_style_mark.set(SvgShapeXType::get_type() as usize, true);
+            r.write(style_buffer);
+        },
+        SvgTypeAttr::SvgShapeY(r) => unsafe {
+            class_meta.class_style_mark.set(SvgShapeYType::get_type() as usize, true);
+            r.write(style_buffer);
+        },
+        SvgTypeAttr::SvgShapeCX(r) => unsafe {
+            class_meta.class_style_mark.set(SvgShapeCXType::get_type() as usize, true);
+            r.write(style_buffer);
+        },
+        SvgTypeAttr::SvgShapeCY(r) => unsafe {
+            class_meta.class_style_mark.set(SvgShapeCYType::get_type() as usize, true);
+            r.write(style_buffer);
+        },
+        SvgTypeAttr::SvgShapeRadius(r) => unsafe {
+            class_meta.class_style_mark.set(SvgShapeRadiusType::get_type() as usize, true);
+            r.write(style_buffer);
+        },
+        SvgTypeAttr::SvgShapeRadiusX(r) => unsafe {
+            class_meta.class_style_mark.set(SvgShapeRadiusXType::get_type() as usize, true);
+            r.write(style_buffer);
+        },
+        SvgTypeAttr::SvgShapeRadiusY(r) => unsafe {
+            class_meta.class_style_mark.set(SvgShapeRadiusYType::get_type() as usize, true);
+            r.write(style_buffer);
+        },
+        SvgTypeAttr::SvgShapeBX(r) => unsafe {
+            class_meta.class_style_mark.set(SvgShapeBXType::get_type() as usize, true);
+            r.write(style_buffer);
+        },
+        SvgTypeAttr::SvgShapeBY(r) => unsafe {
+            class_meta.class_style_mark.set(SvgShapeBYType::get_type() as usize, true);
+            r.write(style_buffer);
+        },
+        SvgTypeAttr::SvgShapePoints(r) => unsafe {
+            class_meta.class_style_mark.set(SvgShapePointsType::get_type() as usize, true);
+            r.write(style_buffer);
+        },
+        SvgTypeAttr::SvgShapePath(r) => unsafe {
+            class_meta.class_style_mark.set(SvgShapePathType::get_type() as usize, true);
+            r.write(style_buffer);
+        },
+        SvgTypeAttr::SvgLinerGradient(r) => unsafe {
+            class_meta.class_style_mark.set(SvgLinerGradientType::get_type() as usize, true);
+            r.write(style_buffer);
+        },
+        SvgTypeAttr::SvgLinearGradientTransform(r) => unsafe {
+            class_meta.class_style_mark.set(SvgLinearGradientTransformType::get_type() as usize, true);
+            r.write(style_buffer);
+        },
+        SvgTypeAttr::SvgGradientStopColor(r) => unsafe {
+            class_meta.class_style_mark.set(SvgGradientStopColorType::get_type() as usize, true);
+            r.write(style_buffer);
+        },
+        SvgTypeAttr::SvgGradientStopOffset(r) => unsafe {
+            class_meta.class_style_mark.set(SvgGradientStopOffsetType::get_type() as usize, true);
+            r.write(style_buffer);
+        },
+        SvgTypeAttr::SvgFilterID(r) => unsafe {
+            class_meta.class_style_mark.set(SvgFilterIDType::get_type() as usize, true);
+            r.write(style_buffer);
+        },
+    }
+    std::mem::forget(style);
 }

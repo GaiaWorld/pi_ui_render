@@ -10,7 +10,7 @@ use pi_assets::{
     asset::{GarbageEmpty, Handle},
     mgr::{AssetMgr, LoadResult, Receiver},
 };
-use pi_async_rt::prelude::{AsyncRuntime, AsyncRuntimeExt, AsyncVariableNonBlocking};
+use pi_async_rt::prelude::{AsyncRuntime, AsyncRuntimeExt, AsyncVariable};
 use pi_bevy_asset::ShareAssetMgr;
 use pi_bevy_render_plugin::PiRenderDevice;
 use pi_hal::runtime::RENDER_RUNTIME;
@@ -66,7 +66,7 @@ pub async fn calc_node_pipeline1(
     pipeline_map: SingleRes<'static, ShareAssetMgr<RenderRes<RenderPipeline>>>,
     shader_map: SingleRes<'static, ShareAssetMgr<RenderRes<Program>>>,
 ) {
-    let value = AsyncVariableNonBlocking::<(
+    let value = AsyncVariable::<(
         Vec<(Entity, Handle<RenderRes<RenderPipeline>>)>,
         usize,
         Option<Handle<RenderRes<RenderPipeline>>>,

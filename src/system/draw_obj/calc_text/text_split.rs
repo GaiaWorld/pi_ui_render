@@ -11,7 +11,7 @@ use pi_flex_layout::{
     style::{AlignContent, AlignItems, Dimension, FlexWrap, JustifyContent, PositionType},
 };
 use pi_null::Null;
-use pi_render::font::{split, Font, FontId, FontSheet, SplitResult};
+use pi_render::font::{split, Font, FontId, FontSheet, GlyphId, SplitResult};
 use pi_slotmap::DefaultKey;
 use pi_style::style::{StyleType, TextAlign, VerticalAlign, TextOverflow};
 
@@ -168,30 +168,34 @@ impl<'a> Calc<'a> {
         }
 
         // 根据每个字符, 创建charNode
-        for cr in split(text, true, text_style.white_space.preserve_spaces()) {
-            // println!("cacl_simple, cr: {:?}, char_index:{}, word_index: {}, word_margin_start: {}, p_x:{}", cr, char_index, word_index, word_margin_start, p_x);
+        for cr in self.font_sheet.font_mgr_mut().split(self.font_id, text, true, text_style.white_space.preserve_spaces()) {
+            println!("cacl_simple, cr: {:?}, char_index:{}, word_index: {}, p_x:{}", cr, char_index, word_index, p_x);
             // 如果是单词的结束字符，释放掉当前节点后面的所有兄弟节点， 并将当前节点索引重置为当前节点的父节点的下一个兄弟节点
             match cr {
-                SplitResult::Word(char_i, c) => {
-                    let cn = self.create_or_get(c, chars, char_index, p_x, char_i);
+                SplitResult::Word(char_i, c, id) => {
+                    let cn = self.create_or_get(c, id, chars, char_index, p_x, char_i);
+                    if let Some(id) = id { cn.ch_id = *id; }
                     char_index += 1;
                 }
-                SplitResult::WordNext(char_i, c) => {
-                    let cn = self.create_or_get(c, chars, char_index, p_x, char_i);
+                SplitResult::WordNext(char_i, c, id) => {
+                    let cn = self.create_or_get(c, id, chars, char_index, p_x, char_i);
                     cn.context_id = word_index as isize;
+                    if let Some(id) = id { cn.ch_id = *id; }
                     p_x += dimension_points(cn.size.width) + self.char_margin; // 下一个字符的位置
                     char_index += 1;
                     chars[word_index].count += 1;
                 }
                 // 存在WordStart， 表示开始一个多字符单词
-                SplitResult::WordStart(char_i, c) => {
+                SplitResult::WordStart(char_i, c, id) => {
                     self.create_or_get_container(chars, char_index, -1);
                     word_index = char_index;
                     p_x = 0.0;
                     char_index += 1;
 
-                    let cn = self.create_or_get(c, chars, char_index, p_x, char_i);
+                    let cn = self.create_or_get(c, id, chars, char_index, p_x, char_i);
+                    println!("===== WordStart: {:?}", (&cn, id));
                     cn.context_id = word_index as isize;
+                    if let Some(id) = id { cn.ch_id = *id; }
                     p_x += dimension_points(cn.size.width) + self.char_margin; // 下一个字符的位置
                     chars[word_index].count += 1;
                     char_index += 1;
@@ -203,7 +207,7 @@ impl<'a> Calc<'a> {
                     };
                 }
                 SplitResult::Whitespace(char_i) => {
-                    let cn = self.create_or_get(' ', chars, char_index, p_x, char_i);
+                    let cn = self.create_or_get(' ', None, chars, char_index, p_x, char_i);
                     char_index += 1;
                     // word_margin_start += self.font_size/3.0 + self.word_margin;
                 }
@@ -219,8 +223,8 @@ impl<'a> Calc<'a> {
         }
     }
 
-    fn create_char_node(&mut self, ch: char, p_x: f32, char_i: isize) -> CharNode {
-        let width = self.font_sheet.measure_width(self.font_id, ch);
+    fn create_char_node(&mut self, ch: char, glyph_id: Option<GlyphId>, p_x: f32, char_i: isize) -> CharNode {
+        let width = if let Some(id) = glyph_id {self.font_sheet.font_mgr_mut().measure_width_of_glyph_id(self.font_id, id)} else {0.0};
         CharNode {
             ch,
             size: Size {
@@ -240,13 +244,13 @@ impl<'a> Calc<'a> {
         }
     }
 
-    fn create_or_get<'b>(&mut self, ch: char, chars: &'b mut Vec<CharNode>, index: usize, p_x: f32, char_i: isize) -> &'b mut CharNode {
+    fn create_or_get<'b>(&mut self, ch: char, glyph_id: Option<GlyphId>, chars: &'b mut Vec<CharNode>, index: usize, p_x: f32, char_i: isize) -> &'b mut CharNode {
         if index >= chars.len() {
-            chars.push(self.create_char_node(ch, p_x, char_i));
+            chars.push(self.create_char_node(ch, glyph_id, p_x, char_i));
         } else {
             let cn = &chars[index];
             if cn.ch != ch {
-                chars[index] = self.create_char_node(ch, p_x, char_i);
+                chars[index] = self.create_char_node(ch, glyph_id, p_x, char_i);
             }
         }
         let cn = &mut chars[index];

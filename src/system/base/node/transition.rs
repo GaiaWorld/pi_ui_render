@@ -180,7 +180,7 @@ pub fn transition_1_2(
 						unbind: false,
 					};
 					if style_change {
-						cmd.attr = StyleAttr::get(property as u8, world, &setting_components, entity);
+						cmd.attr = StyleAttr::get(property as u16, world, &setting_components, entity);
 						if cmd.attr.is_none() {
 							cmd.unbind = true; // 不存在属性， 则需要删除transition绑定
 						}
@@ -211,7 +211,7 @@ pub fn transition_1_2(
 					};
 
 					if style_change {
-						cmd.attr = StyleAttr::get(property as u8, world, &setting_components, entity);
+						cmd.attr = StyleAttr::get(property as u16, world, &setting_components, entity);
 						if cmd.attr.is_none() {
 							cmd.unbind = true; // 不存在属性， 则需要删除transition绑定
 						}
@@ -336,7 +336,7 @@ pub fn transition_2(
 			let mut set_data = |i: usize, property: usize| {
 				let style_change = style_mark.dirty_style[property];
 				if style_change {
-					match StyleAttr::get(property as u8, world, &setting_components, entity) {
+					match StyleAttr::get(property as u16, world, &setting_components, entity) {
 						Some(r) => cmds.list.push((entity, TransitionCmd::Change3(i, r))), // 该指令在下一帧的transition_1_3中处理
 						None => return,
 					};
