@@ -308,6 +308,18 @@ pub struct InstanceContext {
     pub text_glow_instance_data: GpuBuffer,
 	pub text_glow_instance_buffer: Option<(wgpu::Buffer, usize)>,
 
+    pub svg_gray_instance_data: GpuBuffer,
+	pub svg_gray_instance_buffer: Option<(wgpu::Buffer, usize)>,
+
+    pub svg_shadow_h_instance_data: GpuBuffer,
+	pub svg_shadow_h_instance_buffer: Option<(wgpu::Buffer, usize)>,
+
+    pub svg_shadow_v_instance_data: GpuBuffer,
+	pub svg_shadow_v_instance_buffer: Option<(wgpu::Buffer, usize)>,
+
+    pub svg_glow_instance_data: GpuBuffer,
+	pub svg_glow_instance_buffer: Option<(wgpu::Buffer, usize)>,
+
 	// // // 深度buffer
 	// pub depth_data: GpuBuffer,
 	// pub depth_buffer: Option<(wgpu::Buffer, usize)>,
@@ -752,6 +764,18 @@ impl FromWorld for InstanceContext {
             text_glow_instance_data: GpuBuffer::new(GrayMeterialBind::SIZE, 200 * GlowMeterialBind::SIZE),
 			text_glow_instance_buffer: None,
 
+            svg_gray_instance_data: GpuBuffer::new(GrayMeterialBind::SIZE, 200 * GrayMeterialBind::SIZE),
+			svg_gray_instance_buffer: None,
+
+            svg_shadow_h_instance_data: GpuBuffer::new(GrayMeterialBind::SIZE, 200 * GussMeterialBind::SIZE),
+			svg_shadow_h_instance_buffer: None,
+
+            svg_shadow_v_instance_data: GpuBuffer::new(GrayMeterialBind::SIZE, 200 * GussMeterialBind::SIZE),
+			svg_shadow_v_instance_buffer: None,
+
+            svg_glow_instance_data: GpuBuffer::new(GrayMeterialBind::SIZE, 200 * GlowMeterialBind::SIZE),
+			svg_glow_instance_buffer: None,
+
 			batch_texture,
 
 			// depth_data: GpuBuffer::new(4, 0),
@@ -797,6 +821,11 @@ impl InstanceContext {
         Self::update1(device, queue, &mut self.text_shadow_v_instance_data, &mut self.text_shadow_v_instance_buffer);
         Self::update1(device, queue, &mut self.text_gray_instance_data, &mut self.text_gray_instance_buffer);
         Self::update1(device, queue, &mut self.text_glow_instance_data, &mut self.text_glow_instance_buffer);
+
+        Self::update1(device, queue, &mut self.svg_shadow_h_instance_data, &mut self.svg_shadow_h_instance_buffer);
+        Self::update1(device, queue, &mut self.svg_shadow_v_instance_data, &mut self.svg_shadow_v_instance_buffer);
+        Self::update1(device, queue, &mut self.svg_gray_instance_data, &mut self.svg_gray_instance_buffer);
+        Self::update1(device, queue, &mut self.svg_glow_instance_data, &mut self.svg_glow_instance_buffer);
 		// Self::update1(device, queue, &mut self.depth_data, &mut self.depth_buffer);
 		
 	}

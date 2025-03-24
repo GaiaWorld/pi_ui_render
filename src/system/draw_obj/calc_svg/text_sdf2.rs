@@ -36,7 +36,7 @@ use crate::shader::ui_meterial::ColorUniform;
 use crate::shader1::batch_meterial::RenderFlagType;
 
 
-use crate::components::user::{serialize::SCG_STYLE_START, SvgFilter, TextContent, TextOverflowData, TextStyle};
+use crate::components::user::{serialize::STYLE_ATTR_COUNT, SvgFilter, TextContent, TextOverflowData, TextStyle};
 use crate::system::draw_obj::geo_split::OtherInfo;
 use crate::{
     components::draw_obj::{BoxType, PolygonType, RenderCount, SvgMark, TempGeo, TextMark, VColor},
@@ -163,31 +163,31 @@ lazy_static! {
     pub static ref SVG_DIRTY: StyleMarkType = SVG_LEN_DIRTY.clone();
     pub static ref SVG_LEN_DIRTY: StyleMarkType = SVG_LAYOUT_DIRTY.clone()
         | LAYOUT_DIRTY
-            .set_bit(SvgType::SvgColor as usize + SCG_STYLE_START)
-            .set_bit(SvgType::SvgStrokeColor as usize + SCG_STYLE_START)
-            .set_bit(SvgType::SvgStrokeWidth as usize + SCG_STYLE_START)
-            .set_bit(SvgType::SvgShadowBlurLevel as usize + SCG_STYLE_START)
-            .set_bit(SvgType::SvgShadowOffsetX as usize + SCG_STYLE_START)
-            .set_bit(SvgType::SvgShadowColor as usize + SCG_STYLE_START)
-            .set_bit(SvgType::SvgShadowOffsetY as usize + SCG_STYLE_START);
+            .set_bit(SvgType::SvgColor as usize + STYLE_ATTR_COUNT)
+            .set_bit(SvgType::SvgStrokeColor as usize + STYLE_ATTR_COUNT)
+            .set_bit(SvgType::SvgStrokeWidth as usize + STYLE_ATTR_COUNT)
+            .set_bit(SvgType::SvgShadowBlurLevel as usize + STYLE_ATTR_COUNT)
+            .set_bit(SvgType::SvgShadowOffsetX as usize + STYLE_ATTR_COUNT)
+            .set_bit(SvgType::SvgShadowColor as usize + STYLE_ATTR_COUNT)
+            .set_bit(SvgType::SvgShadowOffsetY as usize + STYLE_ATTR_COUNT);
     pub static ref SVG_LAYOUT_DIRTY: StyleMarkType = style_bit()
-        .set_bit(SvgType::SvgShapeAX as usize + SCG_STYLE_START)
-        .set_bit(SvgType::SvgShapeAY as usize + SCG_STYLE_START)
-        .set_bit(SvgType::SvgShapeBX as usize + SCG_STYLE_START)
-        .set_bit(SvgType::SvgShapeBY as usize + SCG_STYLE_START)
-        .set_bit(SvgType::SvgShapeCX as usize + SCG_STYLE_START)
-        .set_bit(SvgType::SvgShapeCY as usize + SCG_STYLE_START)
-        .set_bit(SvgType::SvgShapeHeight as usize + SCG_STYLE_START)
-        .set_bit(SvgType::SvgShapeWidth as usize + SCG_STYLE_START)
-        .set_bit(SvgType::SvgShapeRadius as usize + SCG_STYLE_START)
-        .set_bit(SvgType::SvgShapeRadiusX as usize + SCG_STYLE_START)
-        .set_bit(SvgType::SvgShapeRadiusY as usize + SCG_STYLE_START)
-        .set_bit(SvgType::SvgShapePath as usize + SCG_STYLE_START)
-        .set_bit(SvgType::SvgShapePoints as usize + SCG_STYLE_START)
-        .set_bit(SvgType::SvgShape as usize + SCG_STYLE_START)
-        .set_bit(SvgType::SvgShapePoints as usize + SCG_STYLE_START)
-        .set_bit(SvgType::SvgShapeX as usize + SCG_STYLE_START)
-        .set_bit(SvgType::SvgShapeY as usize + SCG_STYLE_START)
+        .set_bit(SvgType::SvgShapeAX as usize + STYLE_ATTR_COUNT)
+        .set_bit(SvgType::SvgShapeAY as usize + STYLE_ATTR_COUNT)
+        .set_bit(SvgType::SvgShapeBX as usize + STYLE_ATTR_COUNT)
+        .set_bit(SvgType::SvgShapeBY as usize + STYLE_ATTR_COUNT)
+        .set_bit(SvgType::SvgShapeCX as usize + STYLE_ATTR_COUNT)
+        .set_bit(SvgType::SvgShapeCY as usize + STYLE_ATTR_COUNT)
+        .set_bit(SvgType::SvgShapeHeight as usize + STYLE_ATTR_COUNT)
+        .set_bit(SvgType::SvgShapeWidth as usize + STYLE_ATTR_COUNT)
+        .set_bit(SvgType::SvgShapeRadius as usize + STYLE_ATTR_COUNT)
+        .set_bit(SvgType::SvgShapeRadiusX as usize + STYLE_ATTR_COUNT)
+        .set_bit(SvgType::SvgShapeRadiusY as usize + STYLE_ATTR_COUNT)
+        .set_bit(SvgType::SvgShapePath as usize + STYLE_ATTR_COUNT)
+        .set_bit(SvgType::SvgShapePoints as usize + STYLE_ATTR_COUNT)
+        .set_bit(SvgType::SvgShape as usize + STYLE_ATTR_COUNT)
+        .set_bit(SvgType::SvgShapePoints as usize + STYLE_ATTR_COUNT)
+        .set_bit(SvgType::SvgShapeX as usize + STYLE_ATTR_COUNT)
+        .set_bit(SvgType::SvgShapeY as usize + STYLE_ATTR_COUNT)
         .set_bit(OtherDirtyType::NodeTreeAdd as usize);
 }
 

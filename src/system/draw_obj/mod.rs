@@ -28,6 +28,7 @@ use self::calc_border_image::BorderImagePlugin;
 use self::calc_box_shadow::BoxShadowPlugin;
 use self::calc_canvas::CanvasPlugin;
 use self::calc_text::UiTextPlugin;
+use self::calc_svg::SvgPlugin;
 use crate::system::base::draw_obj::life_drawobj::{batch_instance_data, update_render_instance_data};
 
 pub mod calc_background_color;
@@ -37,7 +38,7 @@ pub mod calc_border_image;
 pub mod calc_box_shadow;
 pub mod calc_canvas;
 pub mod calc_text;
-// pub mod calc_svg;
+pub mod calc_svg;
 pub mod calc_border_radius;
 
 pub mod blend_mode;
@@ -99,7 +100,7 @@ impl Plugin for UiReadyDrawPlugin {
 			// 文字功能
 			.add_plugins(UiTextPlugin {font_type: self.font_type})
             // svg功能
-		    // .add_plugins(SvgPlugin)
+		    .add_plugins(SvgPlugin)
 			.add_plugins(DebugPlugin)
 			;
     }

@@ -3,7 +3,7 @@ mod text_glyph;
 mod text_shadow;
 mod text_split;
 // mod text_texture;
-mod text_sdf2;
+pub(crate) mod text_sdf2;
 
 use pi_world::prelude::{Plugin, App, WorldPluginExtent};
 use pi_hal::font::font::FontType;

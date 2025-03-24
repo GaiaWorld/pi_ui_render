@@ -1,6 +1,6 @@
 use pi_flex_layout::style::Dimension;
 use pi_style::style::{LengthUnit, TransformOrigin};
-use pi_world::{event::ComponentChanged, prelude::{Alter, Changed, SingleRes, SingleResMut}};
+use pi_world::prelude::{Alter, Changed, SingleRes, SingleResMut};
 use pi_bevy_ecs_extend::prelude::OrInitSingleRes;
 
 use pi_bevy_render_plugin::PiSafeAtlasAllocator;
@@ -11,7 +11,7 @@ use pi_render::{
 use smallvec::SmallVec;
 
 use crate::{
-    components::{draw_obj::DynTargetType, root::{RenderTargetType, RootScale}, user::{Size, Transform, Viewport}},
+    components::{draw_obj::DynTargetType, root::RootScale, user::{Size, Transform, Viewport}},
     resource::draw_obj::MaxViewSize,
 };
 

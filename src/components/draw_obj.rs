@@ -1,5 +1,5 @@
 //! 定义与DrawObject相关的组件
-
+use crate::components::SvgShadow;
 use std::{hash::{Hash, Hasher}, ops::Range};
 
 
@@ -184,6 +184,14 @@ pub struct TextMark;
 #[derive(Debug, Default, Component)]
 pub struct SvgMark;
 
+// 标记文字 放在DrawObject原型中，可以区分不同类型的DarwObject， 使得系统能够更好的并行
+#[derive(Debug, Default, Component)]
+pub struct SvgOuterGlowMark;
+
+// 标记文字 放在DrawObject原型中，可以区分不同类型的DarwObject， 使得系统能够更好的并行
+#[derive(Debug, Default, Component)]
+pub struct SvgShadowMark;
+
 // 标记文字阴影 放在DrawObject原型中，可以区分不同类型的DarwObject， 使得系统能够更好的并行
 // TextShadowMark.0表示是第几个Shadow创建的DrawObj
 #[derive(Debug, Default, Component)]
@@ -288,6 +296,7 @@ impl DrawCount for TextShadow {
 	}
 }
 
+impl DrawCount for SvgShadow {}
 
 pub trait HasDraw {
 	fn has_draw(&self) -> bool {true}
@@ -326,6 +335,7 @@ impl HasDraw for TextShadow {
 		self.len() > 0
 	}
 }
+impl HasDraw for SvgShadow {}
 
 pub trait GetInstanceSplit {
 	fn get_split(&self) -> Option<InstanceSplit>;
@@ -402,6 +412,10 @@ impl GetInstanceSplit for TextOuterGlow {
 	fn get_split(&self) -> Option<InstanceSplit> {
 		Some(InstanceSplit::ByFbo(None))
 	}
+}
+
+impl GetInstanceSplit for SvgShadow {
+    fn get_split(&self) -> Option<InstanceSplit> {log::error!("GetInstanceSplit SvgShadow!!!"); Some(InstanceSplit::ByFbo(None)) }
 }
 
 impl GetInstanceSplit for TextShadow {

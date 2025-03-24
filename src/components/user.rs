@@ -1817,7 +1817,7 @@ pub mod serialize {
             }
         }
     }
-    static STYLE_ATTR_COUNT: usize = 100;
+    pub(crate) static STYLE_ATTR_COUNT: usize = 100;
     lazy_static::lazy_static! {
 
         static ref STYLE_ATTR: [StyleFunc; STYLE_ATTR_COUNT] = [
@@ -2281,7 +2281,7 @@ pub mod serialize {
             (STYLE_ATTR[style_index as usize].set_default)(buffer, offset, world, query);
         }
     }
-
+    pub const SCG_STYLE_START: usize = 100;
 
     pub enum GuiAttribute {
         TypeAttr(Attribute),

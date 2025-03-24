@@ -1,7 +1,7 @@
 use std::sync::atomic::AtomicUsize;
 
 use pi_style::style::StyleType;
-use pi_world::{prelude::{App, Changed, IntoSystemConfigs, Plugin, Query}, single_res::SingleRes};
+use pi_world::{event::ComponentChanged, prelude::{App, IntoSystemConfigs, Plugin, Query}, single_res::SingleRes};
 use pi_bevy_ecs_extend::prelude::OrInitSingleRes;
 
 use pi_bevy_asset::{Allocator, AssetConfig, AssetDesc, ShareAssetMgr};
@@ -70,7 +70,9 @@ pub fn as_image_post_process(
     //     Query<(&AsImage, &mut PostProcess, &mut PostProcessInfo), Or<(Changed<AsImage>, Changed<PostProcess>)>>,
     //     Query<(&mut PostProcess, &mut PostProcessInfo, Has<AsImage>)>,
     // )>,
-    mut query: Query<(&AsImage, &mut PostProcess, &mut PostProcessInfo), Changed<AsImage>>,
+    mut query: Query<(&AsImage, &mut PostProcess, &mut PostProcessInfo)>,
+    changed: ComponentChanged<AsImage>,
+
     // removed: ComponentRemoved<AsImage>, // asImage不可移除， 设置为None来设置默认值
 	r: OrInitSingleRes<IsRun>
 ) {
@@ -94,33 +96,34 @@ pub fn as_image_post_process(
     //     }
     // }
     
-
-    for (as_image, mut post_list, mut post_info) in query.iter_mut() {
-        match (as_image.level, as_image.post_process.is_null()) {
-            (pi_style::style::AsImage::None, true) => {
-                post_info.effect_mark.set(***mark_type, false);
-                if post_list.copy.is_some() && post_info.effect_mark.get(***overflow_mark_type).as_deref() != Some(&true) {
-                    post_list.copy = None;
+    for entity in changed.iter() {
+        if let Ok((as_image, mut post_list, mut post_info)) = query.get_mut(*entity) {
+            match (as_image.level, as_image.post_process.is_null()) {
+                (pi_style::style::AsImage::None, true) => {
+                    post_info.effect_mark.set(***mark_type, false);
+                    if post_list.copy.is_some() && post_info.effect_mark.get(***overflow_mark_type).as_deref() != Some(&true) {
+                        post_list.copy = None;
+                    }
                 }
-            }
-            _ => {
-				// log::warn!("as_image================{:?}, {:?}, {:?}", as_image.post_process.is_null(), post_list.copy.is_some(), post_info.effect_mark.get(***overflow_mark_type).as_deref() != Some(&true));
-				if as_image.post_process.is_null() && post_list.copy.is_some() && post_info.effect_mark.get(***overflow_mark_type).as_deref() != Some(&true){
-					let mut effect_mark = post_info.effect_mark.clone();
-					effect_mark.set(***mark_type, false);
-					// log::warn!("as_image================{:?}, {:?}", effect_mark, &effect_mark.any());
-					// 除了Asimage以外， 还有其他后处理效果， 但没有overflow， 则不需要再copy
-					if effect_mark.any() {
-						post_list.copy = None;
-						return;
-					}
-				}
-				
-				if post_list.copy.is_none() {
-                    post_info.effect_mark.set(***mark_type, true);
-					post_list.copy = Some(CopyIntensity::default());
-				}
-                
+                _ => {
+                    log::warn!("as_image================{:?}, {:?}, {:?}", as_image.post_process.is_null(), post_list.copy.is_some(), post_info.effect_mark.get(***overflow_mark_type).as_deref() != Some(&true));
+                    if as_image.post_process.is_null() && post_list.copy.is_some() && post_info.effect_mark.get(***overflow_mark_type).as_deref() != Some(&true){
+                        let mut effect_mark = post_info.effect_mark.clone();
+                        effect_mark.set(***mark_type, false);
+                        // log::warn!("as_image================{:?}, {:?}", effect_mark, &effect_mark.any());
+                        // 除了Asimage以外， 还有其他后处理效果， 但没有overflow， 则不需要再copy
+                        if effect_mark.any() {
+                            post_list.copy = None;
+                            return;
+                        }
+                    }
+                    
+                    if post_list.copy.is_none() {
+                        post_info.effect_mark.set(***mark_type, true);
+                        post_list.copy = Some(CopyIntensity::default());
+                    }
+                    
+                }
             }
         }
     }
