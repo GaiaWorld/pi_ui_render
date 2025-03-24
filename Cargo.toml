@@ -141,9 +141,10 @@ tracing = { version = "0.1", default-features = false, features = ["std"] }
 # tracy-client-sys = "=0.22.0"
 # tracy-client = "=0.16.4"
 # tracing-tracy = {version = "0.10", features = ["flush-on-exit"]}
-
+unicode-segmentation = "1.10"
 
 log = { version = "0.4", features = ["kv_unstable", "release_max_level_info"] }
+allsorts = { version = "0.14", default-features = false,  features = ["flate2_rust", "outline"]}
 # log = { version = "0.4", features = ["kv_unstable", "max_level_off"] }
 float-ord = "0.3"
 async-trait = "0.1"
@@ -272,7 +273,7 @@ test = true
 
 
 [patch.crates-io]
-# pi_append_vec = {path = "../pi_append_vec"}
+# allsorts = {path = "../allsorts"}
 # probabilistic-collections = { git = "https://github.com/GaiaWorld/pi_probabilistic_collections.git" }
 # pi_graph = { path = "../pi_graph" }
 # pi_async_graph = { path = "../pi_async_graph" }
@@ -312,8 +313,8 @@ test = true
 # pi_wgpu = {path = "../pi_wgpu"}
 # pi_egl = {path = "../pi_egl"}
 # winit = {path = "../winit"}
-# pi_hal = { path = "../pi_hal" }
-# pi_sdf = { path = "../pi_sdf" }
+pi_hal = { path = "../pi_hal" }
+pi_sdf = { path = "../pi_sdf" }
 # pi_postprocess = { path = "../pi_post_process" }
 
 # bevy
@@ -336,10 +337,10 @@ test = true
 # pi_bevy_window = { path = "../pi_bevy/crates/window" }
 
 # pi_render
-# pi_render = { path = "../pi_render" }
-# render_core = {path = "../pi_render/crates/render_core"}
-# render_derive = {path = "../pi_render/crates/render_derive"}
-# render_compile = {path = "../pi_render/crates/render_compile"}
+pi_render = { path = "../pi_render" }
+render_core = {path = "../pi_render/crates/render_core"}
+render_derive = {path = "../pi_render/crates/render_derive"}
+render_compile = {path = "../pi_render/crates/render_compile"}
 
 # pi_postprocess = { path = "../pi_post_process"}
 
