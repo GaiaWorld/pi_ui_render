@@ -299,9 +299,9 @@ pub fn user_setting2(
 					// }
 					
                     // log::warn!("AppendNode node====================node： {:?}, parent： {:?}", node, parent);
-                    dirty_list_mark.mark_dirty(node);
                     tree.insert_child(node, parent, std::usize::MAX);
                     if !tree.layer(node).layer().is_null() {
+                        dirty_list_mark.mark_tree_dirty(node, &mut tree);
                         add_events.send(AddEvent(node));
                     }
                 // }
@@ -323,9 +323,9 @@ pub fn user_setting2(
                 // if entitys.contains(node) && (anchor.is_null() || entitys.contains(anchor)) {
                    
                     // log::warn!("InsertBefore node====================node：{:?}, anchor： {:?}", node, anchor);
-                    dirty_list_mark.mark_dirty(node);
                     tree.insert_brother(node, anchor, InsertType::Front);
                     if !tree.layer(node).layer().is_null() {
+                        dirty_list_mark.mark_tree_dirty(node, &mut tree);
                         add_events.send(AddEvent(node));
                     }
                 // }
@@ -436,6 +436,16 @@ impl<'s, 'w> StyleDirtyList<'s, 'w> {
 			self.list.send(StyleChange(entity));
 		}
         self.mark.set(index, true);
+	}
+
+    /// 标记整棵树脏
+	pub fn mark_tree_dirty(&mut self, entity: Entity, tree: &EntityTreeMut) {
+		self.mark_dirty(entity);
+
+        let head = tree.down(entity).head();
+        for i in tree.recursive_iter(head) {
+			self.mark_dirty(i);
+        }
 	}
 
 	/// 清理标记

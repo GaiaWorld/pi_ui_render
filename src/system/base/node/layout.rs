@@ -7,7 +7,7 @@
 //!
 
 use std::{
-    intrinsics::transmute,
+    mem::transmute,
     marker::PhantomData,
     ops::{Index, IndexMut},
 };

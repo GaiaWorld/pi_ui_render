@@ -18,7 +18,7 @@
 use pi_bevy_render_plugin::{render_cross::GraphId, NodeId, PiRenderGraph};
 use pi_slotmap::SecondaryMap;
 use pi_style::style::Aabb2;
-use pi_world::{event::{ComponentAdded, ComponentChanged, ComponentRemoved}, fetch::{OrDefault, Ticker}, filter::{Or, With}, prelude::{Alter, Changed, Entity, Mut, ParamSet, Query, SingleRes, SingleResMut}, system_params::Local};
+use pi_world::{event::{ComponentAdded, ComponentChanged}, fetch::{OrDefault, Ticker}, filter::{Or, With}, prelude::{Alter, Changed, Entity, Mut, ParamSet, Query, SingleRes, SingleResMut}, system_params::Local};
 use pi_bevy_ecs_extend::prelude::{Layer, LayerDirty, OrInitSingleRes, OrInitSingleResMut, Root, Up};
 
 use pi_null::Null;

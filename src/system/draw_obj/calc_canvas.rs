@@ -61,7 +61,7 @@ pub fn calc_canvas_graph(
 	mut canvas_query: Query<(&mut Canvas, Ticker<&InPassId>, Entity)>,
 	canvas_other_query: Query<Option<&AsImage>>,
 	graph_id_query: Query<Ticker<&GraphId>>,
-	graph_id_query1: Query<(&GraphId)>,
+	graph_id_query1: Query<&GraphId>,
 	inpass_query: Query<&ParentPassId>,
 
 	mut rg: SingleResMut<PiRenderGraph>,

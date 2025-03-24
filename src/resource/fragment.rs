@@ -9,7 +9,7 @@ use smallvec::SmallVec;
 use std::{collections::VecDeque, ops::Range};
 use thiserror::Error;
 
-use crate::components::user::{serialize::{SvgType, SvgTypeAttr}, svg_style_list_to_buffer, ClassName, SvgShapeEnum};
+use crate::components::user::{serialize::SvgTypeAttr, svg_style_list_to_buffer, ClassName, SvgShapeEnum};
 
 /// 模板map
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]

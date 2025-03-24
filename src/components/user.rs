@@ -26,7 +26,6 @@ pub use pi_style::style::{
     Enable, FitType, FontSize, FontStyle, ImageRepeat, IterationCount, LengthUnit, LineHeight, LinearGradientColor, NotNanRect, ShowType, Stroke,
     StyleType, TextAlign, TextShadow as TextShadow1, Time, TransformFunc, TransformFuncs, TransformOrigin, VerticalAlign, WhiteSpace,
 };
-use pi_style::style_parse::style_to_buffer;
 use pi_style::{
     style::{
         AllTransform, AsImage as AsImage1, BaseShape, BlendMode as BlendMode1, BorderImageSlice as BorderImageSlice1, BorderRadius as BorderRadius1,
@@ -42,7 +41,7 @@ use serialize::{
     SvgLinearGradientTransformType, SvgLinerGradientType, SvgShadowBlurLevelType, SvgShadowColorType, SvgShadowOffsetXType, SvgShadowOffsetYType,
     SvgShapeAXType, SvgShapeAYType, SvgShapeBXType, SvgShapeBYType, SvgShapeCXType, SvgShapeCYType, SvgShapeHeightType, SvgShapePathType,
     SvgShapePointsType, SvgShapeRadiusType, SvgShapeRadiusXType, SvgShapeRadiusYType, SvgShapeType, SvgShapeWidthType, SvgShapeXType, SvgShapeYType,
-    SvgStrokeColorType, SvgStrokeWidthType, SvgType, SvgTypeAttr, SvgWidthType,
+    SvgStrokeColorType, SvgStrokeWidthType, SvgTypeAttr, SvgWidthType,
 };
 // use pi_hal::pi_sdf::shape::PathVerb;
 
