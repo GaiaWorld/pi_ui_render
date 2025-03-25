@@ -3,11 +3,11 @@
 use std::ops::Range;
 
 use pi_world::{insert::Component, prelude::Entity};
-use pi_assets::asset::{Handle, Size, Asset, Droper};
+use pi_assets::asset::{Handle, Size, Asset};
 pub use pi_bevy_render_plugin::render_cross::GraphId;
 use pi_postprocess::postprocess::PostProcess as PostProcess1;
 use pi_render::{
-    components::view::target_alloc::ShareTargetView,
+    components::view::target_alloc::{SafeTargetView, ShareTargetView},
     renderer::draw_obj::DrawBindGroup,
     rhi::{asset::RenderRes, bind_group::BindGroup, buffer::Buffer},
 };
@@ -36,11 +36,12 @@ pub struct Camera {
     pub bind_group: Option<DrawBindGroup>,
     pub view_port: Aabb2,      // 非渲染视口区域（相对于全局的0,0点）
     // 是否渲染自身内容（如果为false，该相机不会渲染任何物体）
-    // draw_changed为true是， is_active一定为true
-    // draw_changed为false时，还需要看，从当前上下文开始向上递归，是否有上下文渲染目标被缓存，如果有，则is_active为false，否则为true
+    // draw_changed为true时， is_render_own一定为true
+    // draw_changed为false时，还需要看，从当前上下文开始向上递归，是否有上下文渲染目标被缓存，如果有，则is_render_own为false，否则为true
     pub is_render_own: bool,
-    pub draw_changed: bool,     // 表示相机内的渲染内容是否改变
-    // 是否渲染(表示该pass是否渲染到父目标上)
+    // 表示相机内的渲染内容是否改变
+    pub draw_changed: bool,
+    // 是否渲染到父目标(表示该pass是否渲染到父目标上)
     pub is_render_to_parent: bool,  
 }
 
@@ -423,8 +424,7 @@ impl Default for RenderTarget {
 pub enum StrongTarget {
 	#[default]
 	None,
-    Asset(Handle<CacheTarget>),
-    Raw(CacheTarget),
+    Asset(ShareTargetView),
 }
 
 
@@ -432,7 +432,7 @@ pub enum StrongTarget {
 pub enum RenderTargetCache {
 	#[default]
 	None,
-    Strong(Handle<CacheTarget>),
-    Weak(ShareWeak<Droper<CacheTarget>>),
+    Strong(ShareTargetView),
+    Weak(ShareWeak<SafeTargetView>),
 }
 

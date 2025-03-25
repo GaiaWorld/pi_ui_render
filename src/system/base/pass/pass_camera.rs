@@ -24,7 +24,7 @@ use crate::{
             Camera, ParentPassId, PostProcessInfo, RenderTarget, RenderTargetCache, StrongTarget
         }, user::{Aabb2, AsImage, Canvas, Point2, Vector2, Viewport}
     }, resource::{
-        draw_obj::InstanceContext, GlobalDirtyMark, IsRun, RenderDirty, ShareFontSheet
+        draw_obj::{InstanceContext, TargetCacheMgr}, GlobalDirtyMark, IsRun, RenderDirty, ShareFontSheet
     }, shader1::batch_meterial::{ProjectUniform, Sdf2TextureSizeUniform, ViewUniform}, system::{base::node::user_setting::StyleChange, utils::{create_project, rotatequad_quad_intersection}}, utils::tools::intersect
 };
 
@@ -44,7 +44,6 @@ pub fn calc_pass_dirty(
 	if r.0 {
 		return;
 	}
-    render_dirty.0 = true;
 
     if render_dirty.0 {
         // 如果渲染脏，则全部脏， 不需要计算各pass的脏
@@ -106,6 +105,7 @@ pub fn calc_camera(
     font_sheet: SingleRes<ShareFontSheet>,
 	mut instance_context: SingleResMut<InstanceContext>,
     mut render_dirty: OrInitSingleResMut<RenderDirty>,
+    assets: SingleRes<TargetCacheMgr>,
 	r: OrInitSingleRes<IsRun>,
 ) {
 	if r.0 {
@@ -296,9 +296,16 @@ pub fn calc_camera(
             is_render_to_parent: old_is_render_to_parent,
         };
 
-        // log::warn!("calc camera========={:?}", entity);
-
         // 删除原有缓冲（内容发生改变会重新渲染， 原有缓冲没有作用）
+        match &render_target.cache {
+            RenderTargetCache::None => (),
+            RenderTargetCache::Strong(droper) => {assets.0.pop_by_filter(|r| {
+                Share::as_ptr(&r.0) == Share::as_ptr(droper)
+            });},
+            RenderTargetCache::Weak(droper) => {assets.0.pop_by_filter(|r| {
+                Share::as_ptr(&r.0) == ShareWeak::as_ptr(droper)
+            });},
+        };
         render_target.target = StrongTarget::None;
         render_target.cache = RenderTargetCache::None;
 

@@ -68,7 +68,7 @@ pub enum OtherDirtyType {
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
-pub struct RenderDirty(pub bool, pub bool/*当前帧是否脏*/, pub bool/*上一帧是否脏*/);
+pub struct RenderDirty(pub bool/*外部需要渲染设脏， 设置此字段，每帧会被清理*/, pub bool/*当前帧是否脏*/, pub bool/*上一帧是否脏*/);
 
 #[derive(Default, Deref, Serialize, Deserialize)]
 pub struct GlobalDirtyMark {

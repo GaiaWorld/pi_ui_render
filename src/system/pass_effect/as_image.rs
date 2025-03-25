@@ -1,10 +1,11 @@
-use std::sync::atomic::AtomicUsize;
 
+
+use pi_assets::homogeneous::HomogeneousMgr;
 use pi_style::style::StyleType;
 use pi_world::{event::ComponentChanged, prelude::{App, IntoSystemConfigs, Plugin, Query}, single_res::SingleRes};
 use pi_bevy_ecs_extend::prelude::OrInitSingleRes;
 
-use pi_bevy_asset::{Allocator, AssetConfig, AssetDesc, ShareAssetMgr};
+use pi_bevy_asset::{Allocator, AssetConfig};
 use pi_null::Null;
 
 use crate::{
@@ -30,17 +31,18 @@ impl Plugin for UiAsImagePlugin {
         let assets_mgr = {
             let w = app.world.unsafe_world();
             let asset_config = w.get_single_res::<AssetConfig>().unwrap();
-            let default_cfg = AssetDesc {
-                ref_garbage: false,
-                min: 0,
-                weight: 5, // 默认32M的fbo缓存
-                timeout: 0,            // 并不会启用超时整理， 这里的数值无所谓（记得该资源管理器中的资源需要手动删除）
-            };
+            // let default_cfg = AssetDesc {
+            //     ref_garbage: false,
+            //     min: 0,
+            //     weight: 5, // 默认32M的fbo缓存
+            //     timeout: 0,            // 并不会启用超时整理， 这里的数值无所谓（记得该资源管理器中的资源需要手动删除）
+            // };
             // let desc = asset_config.get::<CacheTarget>().unwrap_or(&default_cfg);
-            ShareAssetMgr::<CacheTarget>::new_with_config(pi_assets::asset::GarbageEmpty(), &default_cfg, asset_config, allocator)
+            HomogeneousMgr::<CacheTarget>::new(pi_assets::homogeneous::GarbageEmpty(), 16 * 1000 * 1000, 50 * 1000)
+            // ShareAssetMgr::<CacheTarget>::new_with_config(pi_assets::asset::GarbageEmpty(), &default_cfg, asset_config, allocator)
         };
 
-        app.world.insert_single_res(TargetCacheMgr { key: AtomicUsize::new(0), assets: assets_mgr });
+        app.world.insert_single_res(TargetCacheMgr (assets_mgr ));
             // 标记有AsImage组件的节点为渲染上下文
         app
             .add_system(UiStage, 

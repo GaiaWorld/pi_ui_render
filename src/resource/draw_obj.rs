@@ -3,7 +3,7 @@ use std::{collections::hash_map::Entry, hash::Hash, marker::PhantomData, num::No
 
 use pi_world::prelude::{FromWorld, World, Entity};
 use ordered_float::NotNan;
-use pi_assets::{asset::Handle, mgr::AssetMgr};
+use pi_assets::{asset::Handle, homogeneous::HomogeneousMgr, mgr::AssetMgr};
 use pi_atom::Atom;
 use pi_bevy_asset::ShareAssetMgr;
 use pi_bevy_render_plugin::{NodeId, PiRenderDevice, PiRenderQueue};
@@ -336,7 +336,7 @@ pub struct InstanceContext {
 
 	pub default_camera: BufferGroup,
 
-	pub draw_list: Vec<(DrawElement, Entity/*passid*/)>, // 渲染元素
+	pub draw_list: Vec<(DrawElement, Entity/*fbo passid*/)>, // 渲染元素
     // /// 批处理是否需要调整
     // /// 当draw_obj新增和删除、RenderCount发生改变、纹理发生改变（包含动态分配的fbo）时， 需要重新调整批处理
     pub rebatch: bool, 
@@ -1627,17 +1627,8 @@ impl CommonBlendState {
 }
 
 // 渲染目标管理
-pub struct TargetCacheMgr {
-	pub key: AtomicUsize,
-	pub assets: ShareAssetMgr<CacheTarget>,
-}
+pub struct TargetCacheMgr(pub Share<HomogeneousMgr<CacheTarget>>);
 
-impl TargetCacheMgr {
-	pub fn push(&self, value: CacheTarget) -> Handle<CacheTarget> {
-		let key = self.key.fetch_add(1, Ordering::Relaxed);
-		self.assets.insert(key, value).unwrap()
-	}
-}
 
 pub fn create_render_pipeline(
     labal: &str,
