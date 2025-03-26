@@ -286,6 +286,7 @@ pub struct InstanceContext {
 	pub premultiply_blend_state_hash: u64,
 
 	pub common_pipeline: Share<wgpu::RenderPipeline>,
+    pub copy_pipeline: Share<wgpu::RenderPipeline>,
 	pub premultiply_pipeline: Share<wgpu::RenderPipeline>,
 	pub clear_pipeline: Share<wgpu::RenderPipeline>,
     pub mask_image_pipeline: Share<wgpu::RenderPipeline>,
@@ -589,7 +590,8 @@ impl FromWorld for InstanceContext {
         });
 
 		let common_blend_state_hash = calc_hash(&CommonBlendState::NORMAL, 0);
-		let common_pipeline = Share::new(create_render_pipeline("common_pipeline ui", &device, &pipeline_layout, &vs, &fs, Some(CommonBlendState::NORMAL), CompareFunction::GreaterEqual, true, wgpu::TextureFormat::pi_render_default(), vert_layout().as_slice(), MeterialBind::SIZE));
+		let copy_pipeline = Share::new(create_render_pipeline("copy_pipeline ui", &device, &pipeline_layout, &vs, &fs, Some(CommonBlendState::NORMAL), CompareFunction::Always, false, wgpu::TextureFormat::pi_render_default(), vert_layout().as_slice(), MeterialBind::SIZE));
+		let common_pipeline  = Share::new(create_render_pipeline("common_pipeline ui", &device, &pipeline_layout, &vs, &fs, Some(CommonBlendState::NORMAL), CompareFunction::GreaterEqual, true, wgpu::TextureFormat::pi_render_default(), vert_layout().as_slice(), MeterialBind::SIZE));
 
 		let premultiply_blend_state_hash = calc_hash(&CommonBlendState::PREMULTIPLY, 0);
 		let premultiply_pipeline = Share::new(create_render_pipeline("premultiply_pipeline ui", &device, &pipeline_layout, &vs, &fs, Some(CommonBlendState::PREMULTIPLY), CompareFunction::GreaterEqual, true, wgpu::TextureFormat::pi_render_default(), vert_layout().as_slice(), MeterialBind::SIZE));
@@ -743,6 +745,7 @@ impl FromWorld for InstanceContext {
 			common_blend_state_hash,
 			premultiply_blend_state_hash,
 			common_pipeline,
+            copy_pipeline,
 			premultiply_pipeline,
 			clear_pipeline,
             mask_image_pipeline,

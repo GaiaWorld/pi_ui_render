@@ -647,7 +647,7 @@ impl Node for Pass2DNode {
 			if !EntityKey(pass2d_id).is_null() {
 				return Ok(());
 			}
-			log::warn!("draw=========================");
+			// log::warn!("draw=========================");
 
 			log::debug!("draw_elements======{:?}", &param.instance_draw.draw_list.len());
 			if param.instance_draw.draw_list.len() == 0 {
@@ -663,7 +663,7 @@ impl Node for Pass2DNode {
 				}
 				let element = &param.instance_draw.draw_list[i];
 				rt = if EntityKey(element.1).is_null() {
-					RPTarget::Screen(&surface, &param.screen.depth)
+					RPTarget::Screen(&surface, &None)
 				} else {
 					if let Ok((camera, _render_target)) = param.pass2d_query.get(element.1) {
 						if !camera.is_render_own {
@@ -679,10 +679,13 @@ impl Node for Pass2DNode {
 							// log::warn!("create_rp0============={:?}", &r.target().colors[0].1);
 							RPTarget::Fbo(r)
 						},
-						None => RPTarget::Screen(&surface, &param.screen.depth)
+						None => {
+							// log::warn!("screen============={:?}", element.1);
+							RPTarget::Screen(&surface, &param.screen.depth)
+						}
 					}
 				};
-				log::debug!("create_rp1============={:?}", (pass2d_id, &element.1, &rt));
+				// log::warn!("create_rp1============={:?}", (pass2d_id, &element.1, &rt));
 				rp = create_rp(
 					&rt,
 					&mut commands,
@@ -725,7 +728,8 @@ impl Node for Pass2DNode {
 				if pre_fbo_pass_id != element.1 {
 					// ii += 1;
 					let t: RPTarget<'_> = if EntityKey(element.1).is_null() {
-						RPTarget::Screen(&surface, &param.screen.depth)
+						// log::warn!("Screen=============depth none");
+						RPTarget::Screen(&surface, &None)
 					} else {
 						if let Ok((camera, _render_target)) = param.pass2d_query.get(element.1) {
 							if !camera.is_render_own {
@@ -739,12 +743,15 @@ impl Node for Pass2DNode {
 								// log::warn!("create_rp1============={:?}", (element.1, &r.target().colors[0].1));
 								RPTarget::Fbo(r)
 							},
-							None => RPTarget::Screen(&surface, &param.screen.depth)
+							None => {
+								// log::warn!("screen1============={:?}", element.1);
+								RPTarget::Screen(&surface, &param.screen.depth)
+							}
 						}
 					};
 
 					if !t.eq(&rt) {
-						log::debug!("create_rp2============={:?}", (pass2d_id, &element.1, &t));
+						// log::warn!("create_rp2============={:?}", (pass2d_id, &element.1, &t));
 						{let _a = rp;} // 释放
 						rp = create_rp(
 							&t,
@@ -932,7 +939,7 @@ impl<'a> RPTarget<'a>{
 	fn eq(&self, other: &RPTarget<'a>) -> bool {
 		match (self, other) {
 		    (RPTarget::Fbo(a), RPTarget::Fbo(b)) => Share::ptr_eq(&a.target().colors[0].0, &b.target().colors[0].0),
-			(RPTarget::Screen(_, _), RPTarget::Screen(_, _)) => true,
+			(RPTarget::Screen(_, None), RPTarget::Screen(_, None)) | (RPTarget::Screen(_, Some(_)), RPTarget::Screen(_, Some(_)))  => true,
 			_ => false
 		}
 	}
@@ -945,8 +952,8 @@ pub fn create_rp<'a>(
     ops: Option<wgpu::Operations<wgpu::Color>>,
 ) -> RenderPass<'a> {
     match rt {
-        RPTarget::Screen(surface, _depth) => {
-            create_screen_rp(surface, &None, commands, ops)
+        RPTarget::Screen(surface, depth) => {
+            create_screen_rp(surface, depth, commands, ops)
         }
         RPTarget::Fbo(rt) => {
             // 渲染到临时的fbo上
@@ -986,12 +993,13 @@ pub fn create_screen_rp<'a>(
 			ops,
 			view: surface.view.as_ref().unwrap(),
 		})],
-		depth_stencil_attachment: match depth {
+		depth_stencil_attachment:  match depth {
 			Some(r) => Some(wgpu::RenderPassDepthStencilAttachment {
 				stencil_ops: None,
+				// 渲染到屏幕，不需要清理深度，也不需要写深度
 				depth_ops: Some(wgpu::Operations {
 					load: wgpu::LoadOp::Clear(-1.0),
-					store: wgpu::StoreOp::Store,
+					store: wgpu::StoreOp::Discard,
 				}),
 				view: r,
 			}),

@@ -789,7 +789,7 @@ pub fn batch_instance_data(
 		// 将当前剩余未批处理的数据合批
 		// log::warn!("root======={:?}", (root, instance_index.start / 224));
 		if !instance_index.start.is_null() {
-			let p = instances.common_pipeline.clone();
+			let p = instances.copy_pipeline.clone();
 			// instance_index.start不为null， 则需要将该跟对应的fbo渲染到屏幕上
 			instances.draw_list.push((DrawElement::DrawInstance {
 				draw_state: InstanceDrawState { 
