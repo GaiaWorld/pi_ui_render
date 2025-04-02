@@ -340,8 +340,8 @@ println!("===========   ===========");
     // 	}));
     // }
     let mut app = App::new();
-    #[cfg(not(target_arch = "wasm32"))]
-    pi_ui_render::devtools::start_server(&mut app); // 开启开发工具
+    // #[cfg(not(target_arch = "wasm32"))]
+    // pi_ui_render::devtools::start_server(&mut app); // 开启开发工具
     let mut is_init = false;
     event_loop.run(move |event, _, control_flow| {
         match event {

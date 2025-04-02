@@ -267,7 +267,6 @@ fn set_gylph(
     // let mut char_id;
 
     for char_node in chars.iter_mut() {
-        println!("===========char_node: {:?}", char_node);
         if char_node.ch > ' ' {
             if char_node.ch_id.is_null(){
                 log::info!(
@@ -306,9 +305,9 @@ fn set_gylph(
             //     }
             // }
 
-            // if let Some(text_outer_glow) = text_outer_glow {
-            //     font_sheet.font_mgr_mut().add_font_outer_glow(font_id, char_id, text_outer_glow.distance as u32);
-            // }
+            if let Some(text_outer_glow) = text_outer_glow {
+                font_sheet.font_mgr_mut().add_font_outer_glow(font_id, pi_render::font::GlyphId(char_node.ch_id), text_outer_glow.distance as u32);
+            }
 
 			// // 如果是sdf2渲染，需要修改准备状态
 			// if let FontType::Sdf2 = font_type {
@@ -321,44 +320,56 @@ fn set_gylph(
         }
     }
 
-	// if let Some(mut text_overflow) = text_overflow_data {
-	// 	let text_overflow = text_overflow.bypass_change_detection();
-	// 	for char_node in text_overflow.text_overflow_char.iter_mut() {
-	// 		let glyph_id = font_sheet.glyph_id(font_id, char_node.ch);
-	// 		// 异常，无法计算字形
-	// 		char_id = match glyph_id {
-    //             Some(r) => r,
-    //             None => {
-    //                 // 纹理空间不足
-    //                 log::info!(
-    //                     "异常，无法计算字形,char:{:?}, family:{:?}, id:{:?}, texture_width: {:?}, texture_height: {:?}",
-    //                     char_node.ch,
-    //                     text_style.font_family,
-    //                     entity,
-	// 					font_sheet.font_mgr().size().width,
-	// 					font_sheet.font_mgr().size().height,
-    //                 );
-    //                 return Err(());
-    //             }
-    //         };
-    //         char_node.ch_id = *char_id;
+	if let Some(mut text_overflow) = text_overflow_data {
+		let text_overflow = text_overflow.bypass_change_detection();
+		for char_node in text_overflow.text_overflow_char.iter_mut() {
+            if char_node.ch_id.is_null(){
+                // 纹理空间不足
+                log::info!(
+                    "异常，无法计算字形,char:{:?}, family:{:?}, id:{:?}, texture_width: {:?}, texture_height: {:?}",
+                    char_node.ch,
+                    text_style.font_family,
+                    entity,
+                    font_sheet.font_mgr().size().width,
+                    font_sheet.font_mgr().size().height,
+                );
+                return Err(());
+            }
+			// let glyph_id = font_sheet.glyph_id(font_id, char_node.ch);
+			// 异常，无法计算字形
+			// char_id = match glyph_id {
+            //     Some(r) => r,
+            //     None => {
+            //         // 纹理空间不足
+            //         log::info!(
+            //             "异常，无法计算字形,char:{:?}, family:{:?}, id:{:?}, texture_width: {:?}, texture_height: {:?}",
+            //             char_node.ch,
+            //             text_style.font_family,
+            //             entity,
+			// 			font_sheet.font_mgr().size().width,
+			// 			font_sheet.font_mgr().size().height,
+            //         );
+            //         return Err(());
+            //     }
+            // };
+            // char_node.ch_id = *char_id;
 
-    //         // if let Some(text_shadow) = text_shadow {
-    //         //     for item in text_shadow.iter() {
-    //         //         font_sheet.font_mgr_mut().add_font_shadow(font_id, char_id, item.blur as u32, NotNan::new(text_style.font_weight()).unwrap());
-    //         //     }
-    //         // }
+            // if let Some(text_shadow) = text_shadow {
+            //     for item in text_shadow.iter() {
+            //         font_sheet.font_mgr_mut().add_font_shadow(font_id, char_id, item.blur as u32, NotNan::new(text_style.font_weight()).unwrap());
+            //     }
+            // }
 
-    //         if let Some(text_outer_glow) = text_outer_glow {
-    //             font_sheet.font_mgr_mut().add_font_outer_glow(font_id, char_id, text_outer_glow.distance as u32);
-    //         }
-	// 		// if let FontType::Sdf2 = font_type {
-	// 		// 	log::trace!("sdf2 texture is ready=============={:?},{:?}, {:?}", char_node.ch, char_id, font_sheet.font_mgr().table.sdf2_table.glyph(char_id).advance);
-	// 		// 	if font_sheet.font_mgr().table.sdf2_table.glyph(char_id).advance == 0.0 {
-	// 		// 		is_ready = false;
-	// 		// 	}
-	// 		// }
-	// 	}
-	// }
+            if let Some(text_outer_glow) = text_outer_glow {
+                font_sheet.font_mgr_mut().add_font_outer_glow(font_id, pi_render::font::GlyphId(char_node.ch_id), text_outer_glow.distance as u32);
+            }
+			// if let FontType::Sdf2 = font_type {
+			// 	log::trace!("sdf2 texture is ready=============={:?},{:?}, {:?}", char_node.ch, char_id, font_sheet.font_mgr().table.sdf2_table.glyph(char_id).advance);
+			// 	if font_sheet.font_mgr().table.sdf2_table.glyph(char_id).advance == 0.0 {
+			// 		is_ready = false;
+			// 	}
+			// }
+		}
+	}
     Ok(is_ready)
 }

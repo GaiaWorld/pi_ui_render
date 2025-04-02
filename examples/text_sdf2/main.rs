@@ -12,7 +12,7 @@ use smallvec::smallvec;
 use framework::{Param, Example};
 use ordered_float::NotNan;
 use pi_atom::Atom;
-use pi_flex_layout::style::{Dimension, FlexDirection, OverflowWrap, PositionType};
+use pi_flex_layout::style::{Dimension, PositionType, OverflowWrap};
 use pi_null::Null;
 use pi_ui_render::{
     components::{
@@ -27,10 +27,11 @@ fn main() { framework::start(QuadExample::default()) }
 use pi_style::{
     style::{Aabb2, ColorAndPosition, FontStyle, LinearGradientColor, OuterGlow, Point2, Stroke, TextContent, TextOverflow, TextShadow, TransformFunc},
     style_type::{
-        AsImageType, BackgroundColorType, ColorType, FlexDirectionType, FlexWrapType, FontFamilyType, FontSizeType, FontStyleType, FontWeightType, HeightType, LetterSpacingType, MarginLeftType, MarginTopType, OverflowWrapType, PositionLeftType, PositionTopType, PositionTypeType, TextContentType, TextOuterGlowType, TextOverflowType, TextShadowType, TextStrokeType, TransformType, WidthType, WordSpacingType
+        AsImageType, BackgroundColorType, ColorType, FlexDirectionType, FlexWrapType, FontFamilyType, FontSizeType, FontStyleType, FontWeightType, HeightType, JustifyContentType, LetterSpacingType, MarginLeftType, MarginTopType, OverflowWrapType, PositionLeftType, PositionTopType, PositionTypeType, TextContentType, TextOuterGlowType, TextOverflowType, TextShadowType, TextStrokeType, TransformType, WidthType, WordSpacingType
     },
 };
-
+use pi_style::style::WhiteSpace;
+use pi_style::style_type::WhiteSpaceType;
 #[derive(Default)]
 pub struct QuadExample {
     cmd: UserCommands,
@@ -47,6 +48,7 @@ impl Example for QuadExample {
 			let font_sheet = world.font_sheet.as_ref().unwrap();
 			let mut font_sheet = font_sheet.borrow_mut();
 			let font_file = std::fs::read("examples/text/source/SOURCEHANSANSK-MEDIUM.TTF").unwrap();
+            // let font_file = std::fs::read("examples/text/source/Rubik-VariableFont_wght.ttf").unwrap();
 			let font_face_id = font_sheet.font_mgr_mut().create_font_face(&Atom::from("hwkt"));
 			font_sheet.font_mgr_mut().table.sdf2_table.add_font(font_face_id, Arc::new(font_file));
 		}
@@ -137,16 +139,22 @@ impl Example for QuadExample {
         // world.user_cmd.append(div4, root);
 
 		let div5 = world.spawn(NodeTag::Span);
-        world.user_cmd.set_style(div5, WidthType(Dimension::Points(250.0)));
+        world.user_cmd.set_style(div5, WidthType(Dimension::Points(450.0)));
         world.user_cmd.set_style(div5, HeightType(Dimension::Points(100.0)));
 		world.user_cmd.set_style(div5, PositionTopType(Dimension::Points(250.0)));
         world.user_cmd
+            // .set_style(div5, TextContentType(TextContent("一二三".to_string(), Atom::from("一二三"))));
+            // .set_style(div5, TextContentType(TextContent("(Unicode Conference)".to_string(), Atom::from("(Unicode Conference)"))));
+            // .set_style(div5, TextContentType(TextContent("، فهو يتحدّث بلغة يونيكود.يد (Unicode Conference)، الذي سيعقد في 10-12 آذار 1997 بمدينة مَايِنْتْس، ألمانيا. حيث ستتم، تصميم النصوص والحوسبة متعددة اللغات".to_string(), Atom::from("، فهو يتحدّث بلغة يونيكود.يد (Unicode Conference)، الذي سيعقد في 10-12 آذار 1997 بمدينة مَايِنْتْس، ألمانيا. حيث ستتم، تصميم النصوص والحوسبة متعددة اللغات"))));
+            // .set_style(div5, TextContentType(TextContent("(abc efg)، فهو يتحدّث بلغة يونيكود.يد (Unicode Conference)،".to_string(), Atom::from("، فهو يتحدّث بلغة يونيكود.يد (Unicode Conference)،"))));
             .set_style(div5, TextContentType(TextContent("测试TextOverflow11111111111111111111111111111111111".to_string(), Atom::from("测试TextOverflow11111111111111111111111111111111111"))));
-		world.user_cmd.set_style(div5, TextOverflowType(TextOverflow::Custom("，后续省略..".to_string())));
-		world.user_cmd.set_style(div5, FlexWrapType(pi_flex_layout::style::FlexWrap::NoWrap));
+        world.user_cmd.set_style(div5, TextOverflowType(TextOverflow::Custom("，后续省略..".to_string())));
+		world.user_cmd.set_style(div5, FlexWrapType(pi_flex_layout::style::FlexWrap::Wrap));
         world.user_cmd.set_style(div5, FontFamilyType(Atom::from("hwkt")));
-        world.user_cmd.set_style(div5, FlexDirectionType(FlexDirection::RowReverse));
         // world.user_cmd.set_style(div5, ColorType(Color::RGBA(CgColor::new(0.0, 1.0, 0.0, 1.0))));
+        world.user_cmd.set_style(div5, WhiteSpaceType(WhiteSpace::PreWrap));
+        // world.user_cmd.set_style(div5, JustifyContentType(pi_flex_layout::style::JustifyContent::FlexEnd));
+                // world.user_cmd.set_style(div5, FlexDirectionType(pi_flex_layout::style::FlexDirection::RowReverse));
         world.user_cmd.set_style(div5, ColorType(Color::LinearGradient(LinearGradientColor {
             direction: 0.5 * 3.14,
             list: vec![

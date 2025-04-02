@@ -8,10 +8,10 @@ use pi_bevy_ecs_extend::prelude::{OrInitSingleRes, Up, Layer};
 use ordered_float::NotNan;
 use pi_flex_layout::{
     prelude::{CharNode, Rect, Size},
-    style::{AlignContent, AlignItems, Dimension, FlexWrap, JustifyContent, PositionType},
+    style::{AlignContent, AlignItems, Dimension, FlexDirection, FlexWrap, JustifyContent, PositionType},
 };
 use pi_null::Null;
-use pi_render::font::{split, Font, FontId, FontSheet, GlyphId, SplitResult};
+use pi_render::font::{split, Font, FontId, FontSheet, GlyphId, SplitResult, SplitResult2};
 use pi_slotmap::DefaultKey;
 use pi_style::style::{StyleType, TextAlign, VerticalAlign, TextOverflow};
 
@@ -74,7 +74,9 @@ pub fn text_split(
         // 字体描边宽度
         let sw = text_style.text_stroke.width;
 
+        let mut is_reverse = false;
         if let Some(r) = flex_container {
+            is_reverse = r.flex_direction.is_reverse();
             fit_text_style(text_style, style_mark, r);
         }
 
@@ -93,7 +95,7 @@ pub fn text_split(
         };
 
         // 将文字劈分为字符形式，放入nodestate中
-        calc.calc_simple();
+        calc.calc_simple(is_reverse);
 
         // 如果父节点没有其它子节点，或者，自身定义了宽度或高度，则可使用简单布局
         if !EntityKey(up.parent()).is_null() && EntityKey(up.prev()).is_null() && EntityKey(up.next()).is_null() {
@@ -119,12 +121,13 @@ pub fn text_split(
 					});
 				},
 				TextOverflow::Custom(s) => {
-					for c in s.chars() {
+                    let (s, ids) = font_sheet.font_mgr_mut().glyph_indexs(font_id, s, is_reverse);
+					for (id, c) in ids.iter().zip(s.chars()) {
 						let width = font_sheet.measure_width(font_id, c);
 						text_overflow_char.push(TextOverflowChar {
 							width,
 							ch: c,
-							ch_id: DefaultKey::default(),
+							ch_id: if let Some(id) = id { **id } else { DefaultKey::default() },
 						});
 					}
 					
@@ -156,7 +159,7 @@ impl<'a> Calc<'a> {
     // 简单布局， 将文字劈分，单词节点的内部字符使用绝对布局，其余节点使用相对布局
     // 与图文混排的布局方式不同，该布局不需要为每个字符节点创建实体
     #[allow(unused_variables)]
-    fn calc_simple(&mut self) {
+    fn calc_simple(&mut self, is_reverse: bool) {
         let (id, text_style, text, node_state) = (self.id, self.text_style, self.text, &mut self.node_state);
 
         let chars: &'static mut Vec<CharNode> = unsafe { transmute(&mut node_state.text) };
@@ -168,16 +171,16 @@ impl<'a> Calc<'a> {
         }
 
         // 根据每个字符, 创建charNode
-        for cr in self.font_sheet.font_mgr_mut().split(self.font_id, text, true, text_style.white_space.preserve_spaces()) {
-            println!("cacl_simple, cr: {:?}, char_index:{}, word_index: {}, p_x:{}", cr, char_index, word_index, p_x);
+        for cr in self.font_sheet.font_mgr_mut().split(self.font_id, text, true, text_style.white_space.preserve_spaces(), is_reverse) {
+            // println!("cacl_simple, cr: {:?}, char_index:{}, word_index: {}, p_x:{}", cr, char_index, word_index, p_x);
             // 如果是单词的结束字符，释放掉当前节点后面的所有兄弟节点， 并将当前节点索引重置为当前节点的父节点的下一个兄弟节点
             match cr {
-                SplitResult::Word(char_i, c, id) => {
+                SplitResult2::Word(char_i, c, id) => {
                     let cn = self.create_or_get(c, id, chars, char_index, p_x, char_i);
                     if let Some(id) = id { cn.ch_id = *id; }
                     char_index += 1;
                 }
-                SplitResult::WordNext(char_i, c, id) => {
+                SplitResult2::WordNext(char_i, c, id) => {
                     let cn = self.create_or_get(c, id, chars, char_index, p_x, char_i);
                     cn.context_id = word_index as isize;
                     if let Some(id) = id { cn.ch_id = *id; }
@@ -186,32 +189,32 @@ impl<'a> Calc<'a> {
                     chars[word_index].count += 1;
                 }
                 // 存在WordStart， 表示开始一个多字符单词
-                SplitResult::WordStart(char_i, c, id) => {
+                SplitResult2::WordStart(char_i, c, id) => {
                     self.create_or_get_container(chars, char_index, -1);
                     word_index = char_index;
                     p_x = 0.0;
                     char_index += 1;
 
                     let cn = self.create_or_get(c, id, chars, char_index, p_x, char_i);
-                    println!("===== WordStart: {:?}", (&cn, id));
+                    // println!("===== WordStart: {:?}", (&cn, id));
                     cn.context_id = word_index as isize;
                     if let Some(id) = id { cn.ch_id = *id; }
                     p_x += dimension_points(cn.size.width) + self.char_margin; // 下一个字符的位置
                     chars[word_index].count += 1;
                     char_index += 1;
                 }
-                SplitResult::WordEnd(_) => {
+                SplitResult2::WordEnd(_) => {
                     chars[word_index].size = Size {
                         width: Dimension::Points(p_x - self.char_margin),
                         height: Dimension::Points(self.line_height),
                     };
                 }
-                SplitResult::Whitespace(char_i) => {
-                    let cn = self.create_or_get(' ', None, chars, char_index, p_x, char_i);
+                SplitResult2::Whitespace(char_i, id) => {
+                    let cn = self.create_or_get(' ', id, chars, char_index, p_x, char_i);
                     char_index += 1;
                     // word_margin_start += self.font_size/3.0 + self.word_margin;
                 }
-                SplitResult::Newline(char_i) => {
+                SplitResult2::Newline(char_i) => {
                     self.create_or_get_breakline(chars, char_index, char_i);
                     char_index += 1;
                 }

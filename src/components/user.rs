@@ -1619,16 +1619,6 @@ pub mod serialize {
                 entity
             );
 
-            use pi_key_alloter::Key;
-            if entity.index() == 90 ||  entity.index() == 91 {
-                log::debug!(
-                    "set_style_attr, type: {:?}, value: {:?}, entity: {:?}",
-                    std::any::type_name::<TransformWillChange>(),
-                    v,
-                    entity
-                );
-            }
-
 			if !v {
 				if let Ok(mut component) = query.world.get_component_mut_by_index::<TransformWillChange>(entity, query.style.transform_will_change) {
                     if let Some(c) = &component.0 {

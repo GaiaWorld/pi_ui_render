@@ -4,9 +4,9 @@
         "type": "lldb",
         "request": "launch",
         "name": "run a_cmd_play",
-        "program": "D:\\0_rust\\pi_ui_render\\target\\debug\\examples\\a_cmd_play.exe",
+        "program": "E:\\app_new_gui\\pi_ui_render_new_layout\\target\\debug\\examples\\a_cmd_play.exe",
         "args": [],
-        "cwd": "D:\\0_rust\\pi_ui_render",
+        "cwd": "E:\\app_new_gui\\pi_ui_render_new_layout",
         "sourceMap": {},
         "sourceLanguages": [
         "rust"
