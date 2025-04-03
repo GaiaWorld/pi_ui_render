@@ -1,46 +1,64 @@
 //! 计算内容包围盒
 //! 内容包围盒是指： **自身+递归子节点**的包围盒
 
-use pi_world::{filter::With, prelude::Query};
-use pi_bevy_ecs_extend::prelude::{Up, Layer, LayerDirty, Down};
+use pi_style::style::TransformWillChange;
+use pi_world::{event::{ComponentAdded, ComponentChanged}, prelude::{Query, Plugin, App, IntoSystemConfigs}};
+use pi_bevy_ecs_extend::prelude::{ EntityTree, OrInitSingleResMut};
+use crate::{resource::MatrixDirty, system::{base::node::world_matrix::cal_matrix, system_set::UiSystemSet}};
+use pi_bevy_ecs_extend::system_param::layer_dirty::{RemainDirty, OutDirty};
 
 use pi_null::Null;
 
 use crate::{
     components::{
-        calc::{ContentBox, EntityKey, LayoutResult, Quad, WorldMatrix},
+        calc::{ContentBox, EntityKey, LayoutResult, Quad, TransformWillChangeMatrix, WorldMatrix},
         user::{Aabb2, BoxShadow, Point2, TextShadow},
-    },
-    utils::tools::calc_bound_box,
+    }, utils::tools::calc_bound_box
 };
+use crate::prelude::UiStage;
 
-use super::world_matrix::Empty;
+pub struct ContentBoxPlugin;
 
-pub struct CalcContentBox;
+impl Plugin for ContentBoxPlugin {
+    fn build(&self, app: &mut App) {
+		app
+			.add_system(UiStage, calc_content_box.in_set(UiSystemSet::PassSetting)
+				.after(cal_matrix)
+		);
+	}
+}
 
 /// 计算内容包围盒（包含布局的包围盒，和世界坐标系的包围盒）
 pub fn calc_content_box(
-    dirty: &mut LayerDirty<With<Empty>>,
-    node_box: &Query<(&Quad, &LayoutResult, Option<&TextShadow>, Option<&BoxShadow>, &WorldMatrix)>,
-    down: Query<&Down>,
-    up: Query<&Up>,
-    layer: Query<&Layer>,
-    mut content_box: Query<&mut ContentBox>,
+    mut dirty: OrInitSingleResMut<MatrixDirty>,
+    node_box: Query<(&Quad, &LayoutResult, Option<&TextShadow>, Option<&BoxShadow>, &WorldMatrix)>,
+    entity_tree: EntityTree,
+    text_shadow_dirty: ComponentChanged<TextShadow>,
+    box_shadow_dirty: ComponentChanged<BoxShadow>,
+    text_shadow_add: ComponentAdded<TextShadow>,
+    box_shadow_add: ComponentAdded<BoxShadow>,
+    mut content_box: Query<(&mut ContentBox, Option<&TransformWillChange>, Option<&TransformWillChangeMatrix>)>,
 	// r: OrInitSingleRes<IsRun>
 ) {
 	// if r.0 {
 	// 	return;
 	// }
-    if dirty.count() == 0 {
+    let dirty = &mut ***dirty;
+    for i in text_shadow_dirty.iter().chain(box_shadow_dirty.iter()).chain(text_shadow_add.iter()).chain(box_shadow_add.iter()) {
+        dirty.marked_dirty(*i, *i, &entity_tree);
+    }
+
+    if dirty.dirty.count() == 0 {
         return;
     }
-    let mut end = dirty.end();
+    let mut end = dirty.dirty.end();
 
     // 从最大的层开始迭代
     while end > 0 {
         // 将脏劈分为两部分：1.当前迭代的层， 2.剩余部分
         // 在迭代当前层的过程中，可能继续设置父脏，因此将当前迭代层劈分出来
-        let (mut remain, mut cur) = dirty.split(end - 1);
+        let (remain, cur) = dirty.dirty.split(end - 1);
+        let (mut remain, mut cur) = (RemainDirty(remain), OutDirty(cur, &mut dirty.dirty_mark_list));
         for id in cur.iter() {
             let mut chilren_change = false;
             // 当前节点的oct
@@ -95,18 +113,28 @@ pub fn calc_content_box(
             // 	Point2::new(0.0, 0.0),
             // 	Point2::new(r.1.rect.right - r.1.rect.left, r.1.rect.bottom - r.1.rect.top),
             // )
-
+            // log::warn!("context_box parent======: id: {:?} box_shadow: {:?}, text_shadow: {:?}", id, box_shadow, text_shadow);
             // 如果存在子节点，求所有子节点的ContextBox和自身的Oct的并
-            if let Ok(down_item) = down.get(id) {
+            if let Some(down_item) = entity_tree.get_down(id) {
                 let mut child = down_item.head();
 
                 while !EntityKey(child).is_null() {
                     // 如果content_box不存在，则节点不是一个真实的节点，可能是一个文字节点，不需要计算
-                    if let Ok(content_box_item) = content_box.get(child) {
-                        box_and(&mut oct, &content_box_item.oct);
+                    if let Ok((content_box_item, transform_will_change, transform_will_change_matrix)) = content_box.get(child) {
+                        // log::warn!("context_box======: id: {:?} child: {:?} layout: {:?}, layout: {:?}", id, child, layout, content_box_item.layout);
+                        // log::warn!("context_box1======: id: {:?} child: {:?} layout: {:?}, layout: {:?}", id, child, oct, content_box_item.oct);
+                        if let (Some(_transform_will_change), Some(TransformWillChangeMatrix(Some(transform_will_change_matrix)))) = (transform_will_change, transform_will_change_matrix) {
+                            
+                            let child_oct = calc_bound_box(&content_box_item.oct, &(world_matrix.clone() * &transform_will_change_matrix.will_change_matrix * &transform_will_change_matrix.invert) );
+                            box_and(&mut oct, &child_oct);
+                        } else {
+                            box_and(&mut oct, &content_box_item.oct);
+                        }
+                        
                         box_and(&mut layout, &content_box_item.layout);
                         
-                        let up = up.get(child).unwrap();
+                        
+                        let up = entity_tree.get_up(child).unwrap();
                         child = up.next();
                     } else {
                         break;
@@ -114,24 +142,26 @@ pub fn calc_content_box(
                 }
             }
 
-            let mut old = content_box.get_mut(id).unwrap();
-
-            if old.oct != oct || old.layout != layout {
-                chilren_change = true;
-            }
-
             layout.mins.x += x;
             layout.mins.y += y;
             layout.maxs.x += x;
             layout.maxs.y += y;
 
+            let (mut old, _, _) = content_box.get_mut(id).unwrap();
+
+            if old.oct != oct || 
+            old.layout != layout {
+                chilren_change = true;
+            }
+
+            // log::debug!("content_box===================={:?}", (id, &old.oct, &oct, chilren_change));
             // 如果内容包围盒发生改变，则重新插入内容包围盒，并标记父脏
             if chilren_change {
                 old.oct = oct;
                 old.layout = layout;
-                if let Ok(up) = up.get(id) {
+                if let Some(up) = entity_tree.get_up(id) {
                     if !EntityKey(up.parent()).is_null() {
-                        let layer = layer.get(up.parent()).unwrap();
+                        let layer = entity_tree.get_layer(up.parent()).unwrap();
                         remain.mark(up.parent(), layer.layer());
                     }
                 }
@@ -139,6 +169,7 @@ pub fn calc_content_box(
         }
         end -= 1;
     }
+    dirty.clear();
 }
 
 // 两个aabb的并

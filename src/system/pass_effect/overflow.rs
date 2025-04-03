@@ -9,7 +9,7 @@ use pi_world::single_res::SingleRes;
 
 use crate::resource::{GlobalDirtyMark, IsRun};
 use crate::system::base::node::world_matrix::cal_matrix;
-use crate::system::base::pass::pass_life;
+use crate::system::base::pass::{content_box, pass_life};
 use crate::system::system_set::UiSystemSet;
 use crate::{components::calc::OverflowDesc, resource::RenderContextMarkType};
 
@@ -51,9 +51,7 @@ impl Plugin for OverflowPlugin {
             .add_system(UiStage, 
                 overflow_post_process
                     .after(pass_life::calc_pass_children_and_clear)
-                    // .after(content_box::calc_content_box)
-                    .after(cal_matrix)
-                    .after(transform_will_change::transform_will_change_post_process)
+                    .after(content_box::calc_content_box)
                     .in_set(UiSystemSet::PassSetting))
         ;
     }
@@ -262,8 +260,19 @@ fn recursive_cal_overflow(
                         &**quad
                     }
                 } else {
-                    // log::warn!("overflow3=========={:?}", (id, &content_box.oct));
                     &content_box.oct
+                    // 
+                    // if eq_f32(content_box.oct.mins.x, quad.mins.x) &&
+                    // eq_f32(content_box.oct.mins.y, quad.mins.y) &&
+                    // eq_f32(content_box.oct.maxs.x, quad.maxs.x) &&
+                    // eq_f32(content_box.oct.maxs.x, quad.maxs.y) {
+                    //     // 如果content_box.layout与当前节点的content_box.layout完全一致，可直接使用quad
+                    //     &**quad
+                    // } else {
+                    //     // 否则计算出 content_box.layout对应的包围盒
+                    //     quad_temp = cal_no_rotate_box(&content_box.layout, &world_matrix.0);
+                    //     &quad_temp
+                    // }
                 };
                 
 
@@ -285,6 +294,7 @@ fn recursive_cal_overflow(
                     // log::warn!("overflow================id:{:?}, \nr:{:?}, \nlayout: {:?}, \nwill_change:{:?}, \nmatrix: {:?}, \nparent_aabb: {:?}, \nquad: {:?}, \nquad1: {:?}", 
                     // id, &r, &content_box.layout, &will_change.0, &world_matrix, &parent_aabb.aabb, quad, quad1);
                 // }
+                log::trace!("overflow4=========={:?}", (id, &quad1, &parent_aabb.aabb, &r));
                 
                 *oveflow_aabb = View {
                     desc: OverflowDesc::NoRotate(quad1.clone()),

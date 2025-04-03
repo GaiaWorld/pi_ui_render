@@ -131,7 +131,11 @@ pub fn calc_camera(
         }
         // box_aabb(&mut all_dirty_rect, &view_port.0);
     }
-    let render_dirty1 = render_dirty.0;
+    let mut render_dirty1 = render_dirty.0;
+    #[cfg(debug_assertions)]
+    {
+        render_dirty1 = true;
+    }
     render_dirty.0 = false;
 
     let mut is_render_own_changed = false;
@@ -170,7 +174,7 @@ pub fn calc_camera(
         // local_dirty_mark = true;
         camera.draw_changed = false;
 
-        // log::warn!("change==========={:?}", (entity, camera.draw_changed, render_dirty.0));
+        log::debug!("change==========={:?}", (entity, camera.draw_changed, render_dirty.0, is_show.get_visibility(), is_show.get_display()));
         // 检查render_target的缓存情况， 设置rendertarget
         check_render_target(&mut render_target, as_image);
 
@@ -226,7 +230,7 @@ pub fn calc_camera(
 
                 // log::warn!("viewport======={:?}, \nview_aabb={:?}, \noverflow_aabb={:?}, \ndirty_rect={:?}", entity, no_rotate_view_aabb, overflow_aabb, dirty_rect);
 
-        log::trace!("pass_id2 22========={:?}, {:?}", entity, (&*dirty_rect, overflow_aabb, !is_show.get_visibility(), !is_show.get_display()));
+        log::debug!("pass_id2 22========={:?}, {:?}", entity, (&*dirty_rect, overflow_aabb, !is_show.get_visibility(), !is_show.get_display()));
         if no_rotate_view_aabb.mins.x >= no_rotate_view_aabb.maxs.x || no_rotate_view_aabb.mins.y >= no_rotate_view_aabb.maxs.y {
             // 如果视口为0， 则不需要渲染
             return old_is_render_own != camera.is_render_own;
@@ -310,6 +314,8 @@ pub fn calc_camera(
         render_target.cache = RenderTargetCache::None;
 
 
+        let width = camera.view_port.maxs.x - camera.view_port.mins.x;
+        let height = camera.view_port.maxs.y - camera.view_port.mins.y;
         if layer.root() == entity {
             // 根节点必须分配与根节点overflow_aabb等大的fbo
             // 因为根节点fbo要缓冲上一帧的内容，其fbo大小必须包含整个视口内容
@@ -321,7 +327,12 @@ pub fn calc_camera(
         } else {
             // 非根节点，在没有旧的fbo的情况下，只需要开与渲染区域等大的fbo
             render_target.bound_box = camera.view_port.clone();
+            render_target.accurate_bound_box = Aabb2::new(
+                Point2::new((no_rotate_view_aabb.mins.x - camera.view_port.mins.x) / width, (no_rotate_view_aabb.mins.y - camera.view_port.mins.y) / height),
+                Point2::new((no_rotate_view_aabb.maxs.x - camera.view_port.maxs.x) / width, (no_rotate_view_aabb.maxs.y - camera.view_port.maxs.y) / height),
+            );
         }
+        
 
         return old_is_render_own != camera.is_render_own;
 
@@ -480,6 +491,7 @@ pub fn calc_pass_active(
 	if r.0 {
 		return;
 	}
+    
     let is_dirty = render_dirty.1 || render_dirty.2;
     render_dirty.0 = false;
     render_dirty.2 = render_dirty.1; // 设置为上一帧是否脏

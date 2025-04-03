@@ -425,7 +425,7 @@ pub fn update_render_instance_data(
 			let instance_data_range = &draw_2d_list.instance_range;
 			let mut cur_index = new_instances.cur_index();
 			new_instances.extend(instances.instance_data.slice(instance_data_range.clone()));
-			log::debug!("list_is_change not, {:?}", instance_data_range);
+			log::warn!("list_is_change not, entity: {:?}, {:?}", entity, instance_data_range);
 			// 如果新的索引和原有索引不同，需要更新每个draw_obj的实例索引, 如果深度值不同， 需要更新深度值
 			if cur_index != instance_data_range.start {
 				new_instances.update_dirty_range(cur_index..cur_index + instance_data_range.len());
@@ -740,7 +740,7 @@ pub fn batch_instance_data(
 				batch_state.next_node_with_depend_index += 1;
 				batch_state.next_node_with_depend = instances.next_node_with_depend.get(batch_state.next_node_with_depend_index).map_or(std::usize::MAX, |r| {*r});
 				if global_state.post_start < instances.posts.len() {
-					log::debug!("DrawPost====={:?}, index={}, {:?}, {:?}, {:?}, {:?}", pass_id, instances.draw_list.len(), pass_index, batch_state.next_node_with_depend, global_state.post_start..instances.posts.len(), instances.next_node_with_depend);
+					log::trace!("DrawPost====={:?}, index={}, {:?}, {:?}, {:?}, {:?}", pass_id, instances.draw_list.len(), pass_index, batch_state.next_node_with_depend, global_state.post_start..instances.posts.len(), instances.next_node_with_depend);
 					let post = (DrawElement::DrawPost(global_state.post_start..instances.posts.len()), *pass_id);
 					instances.draw_list.push(post);
 					global_state.post_start = instances.posts.len();

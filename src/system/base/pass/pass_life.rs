@@ -270,6 +270,7 @@ pub fn calc_pass_toop_sort(
     temp_before.push(&temp.1[0..temp.1.len()]);
     log::debug!("temp_before======{:?}", &temp_before);
 
+    // 遍历所有节点，在temp.0中放入所有的叶子节点，并将每个节点的前置依赖数量放入temp.3中缓存
     loop  {
         let node_ids = match  temp_before.pop() {
             Some(node_ids) => node_ids,
@@ -286,7 +287,7 @@ pub fn calc_pass_toop_sort(
                     if before.len() > 0 {
                         temp_before.push(before);
                     } else {
-                        temp.0.push(node_id.clone()); // 如果没有后续节点， 则加入当前列表
+                        temp.0.push(node_id.clone()); // 如果没有后续节点， 则加入当前列表(叶子节点列表)
                     }
                 },
             };
@@ -317,12 +318,12 @@ pub fn calc_pass_toop_sort(
             };
 
             let after = rg.after_nodes(node_id).unwrap(); //
-            log::debug!("after2======{:?}", after);
+            log::debug!("after3======{:?}", after);
             for node_id in after {
                 if let Some((count, before_has_effect)) = temp.3.get_mut(node_id.clone()) {
                     *count = *count - 1;
                     *before_has_effect |= has_effect;
-                    log::debug!("after3======{:?}", (node_id, *count));
+                    log::debug!("after4======{:?}", (node_id, *count));
                     if *count == 0 { // 依赖已经分析完毕
                         if *before_has_effect { // 前置节点存在fbo依赖
                             temp.1.push(node_id.clone());
@@ -354,7 +355,7 @@ pub fn calc_pass_toop_sort(
         
     }
 
-    // log::warn!("111======================{:?}, \n{:?}", pass_toop_list, next_node_with_depend);
+    log::debug!("111======================{:?}, \n{:?}", pass_toop_list, next_node_with_depend);
 
     temp.0.clear();
     temp.1.clear();

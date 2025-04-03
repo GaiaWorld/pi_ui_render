@@ -1,5 +1,5 @@
 use pass_life::pass_life_children;
-use pi_world::prelude::{App, Plugin, PostUpdate, IntoSystemConfigs};
+use pi_world::prelude::{App, Plugin, PostUpdate, IntoSystemConfigs, WorldPluginExtent};
 use pi_bevy_render_plugin::{GraphBuild, GraphRun};
 
 use self::pass_camera::calc_camera;
@@ -16,6 +16,8 @@ pub mod pass_life;
 pub mod update_graph;
 pub mod root;
 pub mod pass_dirty;
+pub mod world_invert;
+pub mod content_box;
 
 
 pub struct UiPassPlugin;
@@ -86,6 +88,8 @@ impl Plugin for UiPassPlugin {
                     ,
             )
             .add_system(UiStage, root::root_calc.in_set(UiSystemSet::PassMark))
+            .add_plugins(world_invert::WorldInvertPlugin)
+            .add_plugins(content_box::ContentBoxPlugin)
         ;
     }
 }

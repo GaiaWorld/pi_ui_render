@@ -11,7 +11,6 @@ use crate::prelude::UiStage;
 pub mod layout;
 pub mod world_matrix;
 // pub mod quad;
-pub mod content_box;
 pub mod show;
 pub mod user_setting;
 pub mod z_index;

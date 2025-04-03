@@ -6,6 +6,7 @@ pub mod pass_2d;
 pub mod root;
 pub mod user;
 
+use pass_2d::WorldMatrixInvert;
 // use calc::IsDisplay;
 use pi_world::{prelude::{Bundle, Entity, FromWorld}, world::{ComponentIndex, World}};
 use pi_bevy_ecs_extend::prelude::{Down, Layer, Up};
@@ -273,6 +274,7 @@ pub struct PassBundle {
 	pub instance_index: InstanceIndex,
 	pub fbo_info: FboInfo,
     pub render_target1: RenderTarget1,
+    pub world_matrix_invert: WorldMatrixInvert,
 }
 
 impl PassBundle {

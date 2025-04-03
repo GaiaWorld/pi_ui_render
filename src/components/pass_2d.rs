@@ -17,12 +17,22 @@ use wgpu::RenderPipeline;
 use crate::resource::RenderContextMarkType;
 
 use super::{
-    calc::{DrawInfo, EntityKey, ZRange},
+    calc::{DrawInfo, EntityKey, WorldMatrix, ZRange},
     user::{Aabb2, AsImage, Point2},
 };
 
 /// 一个渲染Pass
 pub struct Pass2D;
+
+/// 世界矩阵的逆矩阵
+#[derive(Default, Component, Debug)]
+pub struct WorldMatrixInvert {
+    pub value: Option<WorldMatrix>,
+    // 标记哪些类型的上下文需要世界矩阵的逆矩阵
+    // 目前， 设置TransfromWillchange、ClipPath的节点， 需要世界矩阵的逆矩阵计算
+    // pub mark: bitvec::prelude::BitArray<[u32; 1]> 
+    pub is_valid: bool, // 标记逆矩阵是否有效（一些pass节点不需要逆矩阵， 即便存在该组件， 也没有正确的计算出逆矩阵）
+}
 
 // /// 一个Pass2D必需含有该组件
 // #[derive(Debug, Default)]
@@ -405,6 +415,8 @@ pub struct RenderTarget {
     pub cache: RenderTargetCache,
     // 当前target所对应的在该节点的非旋转坐标系下的包围盒（分配fbo的尺寸）
     pub bound_box: Aabb2,
+    // 精确的bound_box，由于bound_box是整数数据， 并非渲染时的精确包围盒， 需要记录精确包围盒，以免出现渲染下次（范围： 0~1， 表示距离边界的偏移比例）
+    pub accurate_bound_box: Aabb2,
 }
 
 impl Default for RenderTarget {
@@ -416,6 +428,10 @@ impl Default for RenderTarget {
                 mins: Point2::new(0.0, 0.0),
                 maxs: Point2::new(0.0, 0.0),
             },
+            accurate_bound_box: Aabb2 {
+                mins: Point2::new(0.0, 0.0),
+                maxs: Point2::new(0.0, 0.0),
+            }
         }
     }
 }

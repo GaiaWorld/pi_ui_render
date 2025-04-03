@@ -1088,7 +1088,6 @@ fn push_pos_uv(
     bbox: (f32, f32, f32, f32),
     svg_info: &SvgInfo
 ) {
-    log::error!("push_pos_uv============={:?}", (info, &bbox));
 
     // 否则， push aabb
     let ps = [bbox.0 - half_extend, bbox.1 - half_extend, bbox.2 + half_extend, bbox.3 + half_extend];
@@ -1100,7 +1099,6 @@ fn push_pos_uv(
         info.y + info.height as f32 + half_extend,
     ];
 
-    log::error!("push_pos_uv1============={:?}, {:?}", ps, uv);
     uvs.extend_from_slice(&uv);
     positions.extend_from_slice(&ps[..]);
 }

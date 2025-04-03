@@ -10,7 +10,7 @@ use std::ptr::read_unaligned;
 use std::{collections::VecDeque, fmt::Debug};
 
 // use pi_world::event::Event;
-use pi_world::prelude::{Entity, Component, Mut};
+use pi_world::prelude::{Entity, Component, Mut, FromWorld};
 use bitvec::prelude::BitArray;
 use pi_ui_render_macros::enum_type;
 use ordered_float::NotNan;
@@ -465,22 +465,9 @@ pub struct TextStyle {
 	pub text_align: TextAlign,
 
 	pub color: Color, //颜色
-
-    // pub color: Color, //颜色
-    // pub text_indent: f32,
-    // pub text_stroke: Stroke,
-    // pub text_align: TextAlign,
-    // pub letter_spacing: f32,     //字符间距， 单位：像素
-    // pub word_spacing: f32,       //字符间距， 单位：像素
-    // pub white_space: WhiteSpace, //空白处理
-    // pub line_height: LineHeight, //设置行高
-    // pub vertical_align: VerticalAlign,
-
-    // pub font_style: FontStyle, //	规定字体样式。参阅：font-style 中可能的值。
-    // pub font_weight: usize,    //	规定字体粗细。参阅：font-weight 中可能的值。
-    // pub font_size: FontSize,   //
-    // pub font_family: Atom,     //	规定字体系列。参阅：font-family 中可能的值。
 }
+
+
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum SvgColor {
@@ -532,6 +519,15 @@ pub struct TextShadow(pub TextShadowList);
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, Deref)]
 pub struct TextOuterGlow(pub OuterGlow);
+
+impl FromWorld for TextStyle {
+    fn from_world(world: &mut World) -> Self {
+        match world.get_single_res::<TextStyle>() {
+            Some(r) => (**r).clone(),
+            None => Self::default(),
+        }
+    }
+}
 
 impl Default for TextStyle {
     fn default() -> Self {
@@ -680,6 +676,15 @@ impl Default for Position {
     }
 }
 
+impl FromWorld for FlexContainer {
+    fn from_world(world: &mut World) -> Self {
+        match world.get_single_res::<FlexContainer>() {
+            Some(flex_container) => (**flex_container).clone(),
+            None => Self::default(),
+        }
+    }
+}
+
 impl Default for FlexContainer {
     fn default() -> Self {
         FlexContainer {
@@ -689,7 +694,7 @@ impl Default for FlexContainer {
             align_items: Default::default(),
             align_content: AlignContent::FlexStart,
             direction: Default::default(),
-			overflow_wrap: Default::default(),
+            overflow_wrap: Default::default(),
             row_gap: 0.0,
             column_gap: 0.0,
             auto_reduce: false,
@@ -1197,6 +1202,7 @@ pub mod serialize {
                 fn set_default<'a>(buffer: &Vec<u8>, offset: usize, world: &mut World, query: &DefaultStyle) {
                     if let Some($component_name) = world.index_single_res_mut::<$component_ty>(query.$component_name as usize) {
                         let $value_name = unsafe { buffer.as_ptr().add(offset).cast::<$value_ty>().read_unaligned() };
+                        log::debug!("set_default_style, {:?}, {:?}", std::any::type_name::<$component_ty>(), $value_name);
                         $set;
                     }
                 }
@@ -2211,6 +2217,7 @@ pub mod serialize {
                 (RESET_STYLE_ATTR[style_index as usize - STYLE_COUNT as usize].set)(unsafe { buffer.as_ptr().add(offset) }, query, entity, is_clone)
             } else if style_index < STYLE_COUNT * 2 {
                 if style_index >= GUI_STYLE_COUNT {
+                    log::warn!("style_index: {}", style_index);
                     (SVGTYPE_ATTR[style_index as usize - 97].set)(unsafe { buffer.as_ptr().add(offset) }, query, entity, is_clone);
                 } else {
                     (STYLE_ATTR[style_index as usize].set)(unsafe { buffer.as_ptr().add(offset) }, query, entity, is_clone);

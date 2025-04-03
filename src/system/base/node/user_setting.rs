@@ -4,7 +4,7 @@ use pi_bevy_render_plugin::{render_cross::GraphId, PiRenderGraph};
 use pi_world::{event::{Event, EventSender}, filter::Or, prelude::{Alter, Entity, Local, Mut, Query, SingleResMut, With, World}, single_res::SingleRes, system::{SystemMeta, TypeInfo}, system_params::SystemParam, world::FromWorld};
 use pi_world::world::ComponentIndex;
 use pi_key_alloter::Key;
-use pi_bevy_ecs_extend::prelude::{EntityTreeMut, OrInitSingleResMut};
+use pi_bevy_ecs_extend::prelude::{EntityTreeMut, OrInitSingleRes, OrInitSingleResMut};
 
 use bitvec::array::BitArray;
 use pi_map::Map;
@@ -61,7 +61,7 @@ pub struct StyleDirtyMark(pub bitvec::vec::BitVec<usize>);
 pub fn user_setting1(
     world: &mut World,
     id: Local<SingleId>,
-    setting_components: Local<SettingComponentIds>,
+    setting_components: OrInitSingleRes<SettingComponentIds>,
     default_style: Local<DefaultStyle>,
     // mut dirty_mark: Local<bitvec::vec::BitVec<usize>>,
 ) {

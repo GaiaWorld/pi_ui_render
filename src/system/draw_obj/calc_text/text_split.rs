@@ -51,9 +51,10 @@ pub fn text_split(
 	}
     let mut font_sheet = font_sheet.0.borrow_mut();
     for (entity, text_content, text_style, up, size, normal_style, node_state, style_mark, flex_container, layer, text_overflow_data) in query.iter_mut() {
-        if layer.layer().is_null() {
-            continue;
-        }
+        // if layer.layer().is_null() {
+        //     continue;
+        // }
+        // log::warn!("text_split============={:?}", (text_content, &text_style.font_family));
 
         // 字体大小，根据font-size样式，计算字体的绝对大小
         let font_size = get_size(&text_style.font_size);
@@ -226,6 +227,7 @@ impl<'a> Calc<'a> {
 
     fn create_char_node(&mut self, ch: char, p_x: f32, char_i: isize) -> CharNode {
         let width = self.font_sheet.measure_width(self.font_id, ch);
+        log::warn!("create_char_node======font_id: {:?}, ch: {:?}, width: {:?}, font-size:{:?}, line_height: {:?}, font-famlity: {:?}", self.font_id, ch, width, self.font_size, self.text_style.line_height, &self.text_style.font_family);
         CharNode {
             ch,
             size: Size {

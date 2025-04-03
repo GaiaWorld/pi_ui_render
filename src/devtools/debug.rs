@@ -16,12 +16,15 @@ use pi_world::query::Query;
 use crate::components::calc::DrawInfo;
 use crate::components::calc::InPassId;
 use crate::components::calc::RenderContextMark;
+use crate::components::calc::StyleMark;
 use crate::components::pass_2d::Camera;
 use crate::components::pass_2d::GraphId;
 use crate::components::pass_2d::ParentPassId;
+use crate::components::user::serialize::StyleAttr;
 use crate::components::user::{BorderRadius, BorderImageSlice, BorderImageRepeat, BorderImageClip, BorderImage, Border, Blur, BackgroundImageMod, BackgroundImageClip, BackgroundImage, AsImage, Animation};
 use crate::components::user::{TextStyle, TextShadow, TextOverflowData, TextContent, Show, RadialWave, Position, Padding, Opacity, MaskImageClip, Margin, Hsi, FlexContainer, ClipPath, Canvas, BoxShadow};
 use crate::components::user::{BorderColor, BackgroundColor, BlendMode, ClassName, FlexNormal, MaskImage, MinMax, NodeState, StyleAttribute, FitType, ZIndex, Vector2, TransformWillChange, Transform};
+use crate::components::SettingComponentIds;
 use crate::resource::fragment::DebugInfo;
 use crate::resource::RenderContextMarkType;
 use serde::{Deserialize, Serialize};
@@ -271,6 +274,15 @@ pub fn get_layout(world: &World, node_id: Entity) -> String {
     }).unwrap()
 }
 
+pub fn get_class_names(world: &World, entity: Entity) -> String {
+
+    let names = match world.get_component::<ClassName>(entity) {
+        Ok(r) => r.0.iter().map(|r| *r).collect::<Vec<_>>(),
+        _ => return "[]".to_string(),
+    };
+
+	serde_json::to_string(&names).unwrap()
+}
 
 pub fn get_class(world: &World, class_name: u32) -> String {
     let class = match world.get_single_res::<ClassSheet>() {
@@ -292,6 +304,27 @@ pub fn get_class(world: &World, class_name: u32) -> String {
 	};
 
 	serde_json::to_string(&class).unwrap()
+}
+
+pub fn get_style(world: &World, entity: Entity) -> String {
+    let mut ret = "".to_string();
+    let style_mark = match world.get_component::<StyleMark>(entity) {
+        Ok(r) => r.local_style,
+        Err(_) => return ret,
+    };
+    let setting_components = &**world.get_single_res::<SettingComponentIds>().unwrap();
+    
+    
+    for style_index in style_mark.iter_ones() {
+        let attr = StyleAttr::get(style_index as u16, world, setting_components, entity);
+        if let Some(attr) = attr {
+            let (s, v) = crate::tools::to_css_str(&attr);
+            if s != "" {
+                ret += (s.to_string() + ":" + v.as_str() + ";").as_str();
+            }
+        }
+    }
+    return ret;
 }
 
 

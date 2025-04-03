@@ -1,10 +1,15 @@
 
 use pi_flex_layout::style::{PositionType, FlexWrap, FlexDirection, AlignContent, AlignItems, AlignSelf, JustifyContent, Display, Dimension};
-use pi_style::{style::{FitType, ImageRepeatOption, TextAlign, VerticalAlign, WhiteSpace, FontStyle, LineHeight, Color}, style_parse::Attribute};
+use pi_style::{style::{BorderRadius, Color, FitType, FontStyle, ImageRepeatOption, LengthUnit, LineHeight, TextAlign, VerticalAlign, WhiteSpace}, style_parse::Attribute};
 
 pub fn to_css_str(attr: &Attribute) -> (&'static str, String) {
     match attr {
-        Attribute::ClipPath(_) => todo!(),
+        Attribute::ClipPath(r) => ("clip-path", match &r.0 {
+            pi_style::style::BaseShape::Circle { radius, center } => format!("circle({})", len_to_str(radius) + " at " + len_to_str(&center.x).as_str() + " " + len_to_str(&center.y).as_str()),
+            pi_style::style::BaseShape::Ellipse { rx, ry, center } => format!("ellipse({})", len_to_str(rx) + " " + len_to_str(ry).as_str() + " at " + len_to_str(&center.x).as_str() + " " + len_to_str(&center.y).as_str()),
+            pi_style::style::BaseShape::Inset { rect_box, border_radius } => todo!(),
+            pi_style::style::BaseShape::Sector { rotate, angle, radius, center } => todo!(),
+        }),
 		Attribute::AsImage(r) => ("as-image", match r.0 {
 			pi_style::style::AsImage::None => "none".to_string(),
 			pi_style::style::AsImage::Advise => "advise".to_string(),
@@ -502,3 +507,22 @@ pub fn to_css_str(attr: &Attribute) -> (&'static str, String) {
         // Attribute::AutoReduce(r) => ("auto-reduce", r.0.to_string()),
     }
 }
+
+
+fn len_to_str(value: &LengthUnit) -> String {
+    match value {
+        LengthUnit::Pixel(r) => r.to_string() + "px",
+        LengthUnit::Percent(r) => r.to_string() + "%",
+        // LengthUnit::Rem(r) => r.to_string() + "rem",
+        // LengthUnit::Em(r) => r.to_string() + "em",
+    }
+}
+
+// fn border_radius_to_str(value: &BorderRadius) -> String {
+//     format!();
+// }
+
+// pub struct BorderRadius {
+//     pub x: [LengthUnit; 4], // 从左上角开始， 顺时针经过的每个角的圆角的x半径
+// 	pub y: [LengthUnit; 4], // 从左上角开始， 顺时针经过的每个角的圆角的y半径
+// }

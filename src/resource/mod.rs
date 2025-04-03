@@ -35,6 +35,7 @@ use crate::components::calc::{EntityKey, Quad, StyleMarkType};
 use crate::components::user::serialize::{AttrSet, StyleAttr};
 use crate::components::user::{AsImage, ClipPath, MaskImage, Point2, RenderTargetType, Vector2, Viewport};
 use crate::components::SettingComponentIds;
+use crate::utils::tools::LayerDirty;
 use pi_spatial::quad_helper::QuadTree as QuadTree1;
 // use crate::utils::cmd::{CommandQueue, Command, DataQuery};
 // use pi_world::prelude::{CommandQueue, Commands, World};
@@ -74,6 +75,10 @@ pub struct RenderDirty(pub bool/*外部需要渲染设脏， 设置此字段，�
 pub struct GlobalDirtyMark {
     pub mark: StyleMarkType,
 }
+
+
+#[derive(Default, Deref)]
+pub struct MatrixDirty(pub LayerDirty<Entity>);
 
 /// 用户指令缓冲区
 pub struct UserCommandsCache(pub UserCommands);
@@ -225,6 +230,10 @@ impl UserCommands {
     pub fn set_default_style_by_str(&mut self, class: &str, scope_hash: usize) -> &mut Self {
         match parse_style_list_from_string(class, scope_hash) {
             Ok(r) => {
+                #[cfg(feature = "debug")]
+                if self.is_record {
+                    self.other_commands_list.push(CmdType::DefaultStyleCmd(DefaultStyleCmd(r.clone())));
+                }
                 self.other_commands.push(DefaultStyleCmd(r));
             }
             Err(e) => {

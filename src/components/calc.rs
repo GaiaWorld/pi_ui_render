@@ -464,7 +464,7 @@ impl WorldMatrix {
 // #[storage = ]
 #[derive(Clone, Debug, Serialize, Deserialize, Component)]
 // #[storage(QuadTree)]
-pub struct Quad(pub Aabb2);
+pub struct Quad(pub Aabb2, );
 
 impl Quad {
     pub fn new(aabb: Aabb2) -> Quad { Quad(aabb) }
@@ -602,16 +602,21 @@ impl TransformWillChangeMatrix {
         TransformWillChangeMatrix(Some(Share::new(TransformWillChangeMatrixInner {
             will_change,
             will_change_invert,
-            primitive,
+            will_change_matrix: primitive.clone(), 
+            invert: primitive,
         })))
     }
 }
 
 #[derive(Debug, Clone, Default)]
 pub struct TransformWillChangeMatrixInner {
-    pub will_change: WorldMatrix, // 节点真实的世界矩阵（即will_change*worldmatrix*顶点=真实的世界坐标位置） = ParentWorldMatrix * primitive * ParentWorldMatrix逆
-    pub will_change_invert: WorldMatrix, // will_change 逆
-    pub primitive: WorldMatrix,   // = Parent1.WillChangeTransform * Parent2.WillChangeTransform * ... * this.WillChangeTransform
+    // will_change矩阵（will_change*worldmatrix*顶点=真实的世界坐标位置） = ParentWorldMatrix * primitive * ParentWorldMatrix逆
+    pub will_change: WorldMatrix, 
+    // will_change 逆
+    pub will_change_invert: WorldMatrix, 
+    // pub primitive: WorldMatrix;// = Parent1.WillChangeTransform * Parent2.WillChangeTransform * ... * this.WillChangeTransform
+    pub invert: WorldMatrix,  // will_change属性所在节点的世界矩阵的逆， 
+    pub will_change_matrix: WorldMatrix,  // will_change属性所在节点的willchange_transfrom对应的矩阵，
 }
 
 #[derive(Debug, Clone)]
@@ -892,7 +897,7 @@ pub struct DrawObjId {
 /// 每个Pass2d都必须存在一个视图
 #[derive(Clone, Default, Debug, Component)]
 pub struct View {
-    /// 为some时，节点山下文渲染需要新的视口，否则应该继承父节点的视口
+    /// 为some时，节点上下文渲染需要新的视口，否则应该继承父节点的视口
     pub view_box: ViewBox,
     /// 旋转情况下是Some， 记录旋转矩阵和旋转逆矩阵
     pub desc: OverflowDesc,
@@ -938,7 +943,7 @@ pub struct OveflowRotate {
 #[derive(Clone, Debug)]
 pub enum OverflowDesc {
     Rotate(OveflowRotate), // 所在节点存在旋转的情况下， 描述旋转信息
-    NoRotate(Aabb2),       // 所在节点不存在旋转的情况下，描述自身的aabb
+    NoRotate(Aabb2),       // 所在节点不存在旋转的情况下，描述自身内容的世界aabb
 }
 
 impl Default for OverflowDesc {
