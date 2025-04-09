@@ -122,6 +122,10 @@ pub fn calc_border_image_instance_count(
 	let render_type = ***render_type;
 	let grid_buffer = &mut **grid_buffer;
 	for (layout, draw_list, border_image_texture, border_clip, border_repeat, border_slice, border_image, sdf_slice, sdf_uv, layer) in query1.iter() {
+		// if border_image.0.as_str().contains("tongyongdianhei_yuanjiao10_bg") {
+		// 	log::warn!("border image====={:?}", (border_image.0.as_str(), layer.layer().is_null(), draw_list.get_one(render_type), border_image_texture.is_some()));
+		// }
+		
 		if layer.layer().is_null() {
 			continue;
 		}

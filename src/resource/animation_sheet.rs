@@ -3,7 +3,7 @@ use std::{any::Any, collections::VecDeque, mem::replace};
 
 use pi_world::prelude::Entity;
 use bitvec::array::BitArray;
-use log::debug;
+use log::{debug, warn};
 use ordered_float::NotNan;
 use pi_animation::{
     amount::AnimationAmountCalc,
@@ -721,6 +721,7 @@ impl KeyFramesSheet {
 						Some(r) => r,
 						None => {
 							self.temp_errs.push(KeyFrameError::NotExistFrameData(target, animation.clone()));
+                            // log::warn!("key_frames_map===:{:?}", self.key_frames_map.keys().collect::<Vec<_>>());
 							continue;
 						}
 					}

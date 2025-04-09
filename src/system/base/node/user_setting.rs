@@ -537,6 +537,7 @@ fn set_class<'w, 's>(node: Entity, style_query: &mut Setting, class: ClassName, 
     let (old_class_style_mark, local_style_mark) = (style_mark.class_style.clone(), style_mark.local_style.clone());
     let mut new_class_style_mark: StyleMarkType = BitArray::new([0, 0, 0, 0, 0]);
 
+    log::trace!("set classes==========={:?}, {:?}", node, class);
     // 设置class样式
     for i in class.iter() {
         if let Some(class) = class_sheet.class_map.get(i) {

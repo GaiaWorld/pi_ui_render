@@ -1,4 +1,5 @@
 use std::mem::transmute;
+use std::ops::Range;
 
 use pi_atom::get_by_hash;
 use pi_atom::Atom;
@@ -10,6 +11,9 @@ use pi_bevy_ecs_extend::system_param::tree::Layer;
 use pi_bevy_render_plugin::asimage_url::RenderTarget;
 use pi_null::Null;
 use pi_render::rhi::asset::TextureRes;
+use pi_render::rhi::shader::GetBuffer;
+use pi_render::rhi::shader::WriteBuffer;
+use pi_style::style::Aabb2;
 use pi_style::style::ImageRepeat;
 use pi_world::filter::With;
 use pi_world::query::Query;
@@ -17,6 +21,9 @@ use crate::components::calc::DrawInfo;
 use crate::components::calc::InPassId;
 use crate::components::calc::RenderContextMark;
 use crate::components::calc::StyleMark;
+use crate::components::calc::{TransformWillChangeMatrixInner, TransformWillChangeMatrix};
+use crate::components::draw_obj::InstanceIndex;
+use crate::components::draw_obj::RenderCount;
 use crate::components::pass_2d::Camera;
 use crate::components::pass_2d::GraphId;
 use crate::components::pass_2d::ParentPassId;
@@ -25,8 +32,17 @@ use crate::components::user::{BorderRadius, BorderImageSlice, BorderImageRepeat,
 use crate::components::user::{TextStyle, TextShadow, TextOverflowData, TextContent, Show, RadialWave, Position, Padding, Opacity, MaskImageClip, Margin, Hsi, FlexContainer, ClipPath, Canvas, BoxShadow};
 use crate::components::user::{BorderColor, BackgroundColor, BlendMode, ClassName, FlexNormal, MaskImage, MinMax, NodeState, StyleAttribute, FitType, ZIndex, Vector2, TransformWillChange, Transform};
 use crate::components::SettingComponentIds;
+use crate::resource::draw_obj::InstanceContext;
 use crate::resource::fragment::DebugInfo;
+use crate::resource::BackgroundColorRenderObjType;
+use crate::resource::BackgroundImageRenderObjType;
+use crate::resource::BorderColorRenderObjType;
+use crate::resource::BorderImageRenderObjType;
+use crate::resource::CanvasRenderObjType;
 use crate::resource::RenderContextMarkType;
+use crate::resource::TextRenderObjType;
+use crate::shader1::batch_meterial::MeterialBind;
+use crate::shader1::batch_meterial::RenderFlagType;
 use serde::{Deserialize, Serialize};
 
 use pi_style::style::Point2;
@@ -71,22 +87,25 @@ pub struct Rect<T> {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Info {
-    pub has_render_target: bool,
+    pub render_obj: Vec<RenderObject>,
+    pub pass_info: Option<PassInfo>,
     pub overflow: bool,
-	pub blend_mode: Option<BlendMode>,
     // pub by_overflow: usize,
     pub visibility: bool,
     pub display: bool,
     pub enable: bool,
-    pub opacity: f32,
-    pub blur: f32,
-    pub zindex: isize,
-    pub zdepth: f32,
     pub layout: Layout,
+    pub transform: Option<Transform>,
+    pub transform_will_change: Option<TransformWillChange>,
     pub world_matrix: WorldMatrix,
     pub border_box: Quad,
     pub padding_box: Quad,
     pub content_box: Quad,
+    pub blend_mode: Option<BlendMode>,
+    pub opacity: f32,
+    pub blur: f32,
+    pub zindex: isize,
+    pub zdepth: f32,
     // pub culling: bool,
     // char_block: Option<CharBlock1>,
     pub class_name: Option<ClassName>,
@@ -96,7 +115,6 @@ pub struct Info {
     // pub render_context: bool,
     pub background_color: Option<BackgroundColor>,
     pub border_color: Option<BorderColor>,
-    pub transform: Option<Transform>,
     pub box_shadow: Option<BoxShadow>,
     pub border_image_clip: Option<BorderImageClip>,
     pub border_image_slice: Option<BorderImageSlice>,
@@ -107,11 +125,8 @@ pub struct Info {
     pub object_fit: Option<FitType>,
     pub background_repeat: Option<ImageRepeat>,
     pub filter: Option<Hsi>,
-    pub transform_will_change: Option<TransformWillChange>,
     pub parent_id: String,
 	pub inpass: String,
-	pub parentpass: String,
-	pub graph_id: String,
     pub content_bound_box: Option<ContentBox>,
     pub quad: Option<crate::components::calc::Quad>,
 
@@ -120,22 +135,60 @@ pub struct Info {
     text_content: Option<TextContent>,
     // style_mark: StyleMark,
     children: Vec<f64>,
-    pub render_obj: Vec<RenderObject>,
 	pub animation: String,
 	pub as_image: String,
 	pub canvas: String,
 	pub layer: String,
-	pub view_port: String,
-	pub view: String,
+	
 	pub text_overflow_data: String,
-	pub context_mark: String,
+	
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct PassInfo {
+    
+    pub copy_render_obj: RenderObject,
+    pub context_mark: String,
+    pub view_port: Aabb2,      // 非渲染视口区域（相对于全局的0,0点）
+    // 当前target所对应的在该节点的非旋转坐标系下的包围盒（分配fbo的尺寸）
+    pub bound_box: Aabb2,
+    // 精确的bound_box，由于bound_box是整数数据， 并非渲染时的精确包围盒， 需要记录精确包围盒，以免出现渲染下次（范围： 0~1， 表示距离边界的偏移比例）
+    pub accurate_bound_box: Aabb2,
+    // 是否渲染自身内容（如果为false，该相机不会渲染任何物体）
+    // draw_changed为true时， is_render_own一定为true
+    // draw_changed为false时，还需要看，从当前上下文开始向上递归，是否有上下文渲染目标被缓存，如果有，则is_render_own为false，否则为true
+    pub is_render_own: bool,
+    // 表示相机内的渲染内容是否改变
+    pub draw_changed: bool,
+    // 是否渲染到父目标(表示该pass是否渲染到父目标上)
+    pub is_render_to_parent: bool, 
+    pub has_render_target: bool, 
+    pub view: View,
+    pub transform_will_change_matrix: Option<TransformWillChangeMatrixInner>,
+    pub parentpass: Entity,
+	pub graph_id: String,
 }
 
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct RenderObject {
-    pub id: String,
-    pub name: String,
+    pub id: Entity,
+    pub instance_index: Range<usize>, // 实例索引
+    pub instance_count: usize, // 实例数量
+    pub instance_ty: InstanceType,
+    pub instance_data: Vec<CommonMeterial>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub enum InstanceType {
+    BackgroundImage,
+    BackgroundColor,
+    BorderImage,
+    BorderColor,
+    Char,
+    Canvas,
+    CopyFbo,
+    Unknown,
 }
 
 
@@ -188,6 +241,21 @@ pub struct GuiNode {
 pub struct ClassAttr {
     name: String,
     value: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct GloabalInfo {
+    // pass2d 渲染排序
+    pass2d_sort: Vec<String>,
+    next_node_with_depend: Vec<usize>, // 下一个有依赖的pass2d节点的索引
+}
+
+pub fn get_global_info(world: &World) -> GloabalInfo {
+    let instance_context = &**world.get_single_res::<InstanceContext>().unwrap();
+    GloabalInfo {
+        pass2d_sort: instance_context.pass_toop_list.iter().map(|x| format!("{:?}", x)).collect::<Vec<String>>(),
+        next_node_with_depend: instance_context.next_node_with_depend.clone(),
+    }
 }
 
 pub fn get_gui_root(world: &mut World) -> Option<Entity> {
@@ -354,8 +422,6 @@ pub fn node_info(world: &World, entity: Entity) -> Info {
 
     let world_matrix = &world.get_component::<WorldMatrix>(entity).unwrap().clone();
 
-    let view_port =  world.get_component::<Camera>(entity).map(|r| {r.view_port.clone()});
-	let view =  world.get_component::<View>(entity).map(|r| {r.clone()});
 
 	let mark_type_as_image = world.get_single_res::<RenderContextMarkType<AsImage>>().unwrap();
 	let mark_type_overflow = world.get_single_res::<RenderContextMarkType<Overflow>>().unwrap();
@@ -447,14 +513,137 @@ pub fn node_info(world: &World, entity: Entity) -> Info {
     };
 
     let mut draw_objs = Vec::new();
+    let instance_context = &**world.get_single_res::<InstanceContext>().unwrap();
+    let border_image_type = &**world.get_single_res::<BorderImageRenderObjType>().unwrap();
+    let border_color_type = &**world.get_single_res::<BorderColorRenderObjType>().unwrap();
+    let bg_color_type = &**world.get_single_res::<BackgroundColorRenderObjType>().unwrap();
+    let bg_image_type = &**world.get_single_res::<BackgroundImageRenderObjType>().unwrap();
+    let canvas_type = &**world.get_single_res::<CanvasRenderObjType>().unwrap();
+    let text_type = &**world.get_single_res::<TextRenderObjType>().unwrap();
+
+    let create_render_obj = |instance_index: Range<usize>, id: Entity, instance_ty: InstanceType| {
+        
+        let mut render_obj = RenderObject {
+            id: id,
+
+            instance_index: instance_index.start / MeterialBind::SIZE .. instance_index.end / MeterialBind::SIZE,
+            instance_count: 1,
+            instance_ty,
+            instance_data: Vec::new(),
+        };
+
+        for i in render_obj.instance_index.clone() {
+            let index = i * MeterialBind::SIZE;
+            let mut r = CommonMeterial::default();
+            r.get_data(index as u32, &instance_context.instance_data.data());
+            // if r.ty as usize & RenderFlagType::ClipRectRadius as usize > 0 {
+            //     r.render_flag += "&ClipRectRadius";
+            // }
+            if r.ty as usize & (1 << RenderFlagType::IgnoreCamera as usize) > 0 {
+                r.render_flag += "&IgnoreCamera";
+            }
+            if r.ty as usize & (1 << RenderFlagType::Premulti as usize) > 0 {
+                r.render_flag += "&Premulti";
+            }
+            if r.ty as usize & (1 << RenderFlagType::R8 as usize) > 0 {
+                r.render_flag += "&R8";
+            }
+            // if r.ty as usize & RenderFlagType::ClipSector as usize > 0 {
+            //     r.render_flag += "&ClipSector";
+            // }
+            // if r.ty as usize & RenderFlagType::Uv as usize > 0 {
+            //     r.render_flag += "&Uv";
+            // }
+            // if r.ty as usize & RenderFlagType::Color as usize > 0 {
+            //     r.render_flag += "&Color";
+            // }
+            if r.ty as usize & (1 << RenderFlagType::Stroke as usize) > 0 {
+                r.render_flag += "&Stroke";
+            }
+            // if r.ty as usize & RenderFlagType::TextStroke as usize > 0 {
+            //     r.render_flag += "&TextStroke";
+            // }
+            if r.ty as usize & (1 << RenderFlagType::NotVisibility as usize) > 0 {
+                r.render_flag += "&NotVisibility";
+            }
+            if r.ty as usize & (1 << RenderFlagType::Invalid as usize) > 0 {
+                r.render_flag += "&Invalid";
+            }
+            if r.ty as usize & (1 << RenderFlagType::LinearGradient as usize) > 0 {
+                r.render_flag += "&LinearGradient";
+            }
+            // if r.ty as usize & RenderFlagType::Border as usize > 0 {
+            //     r.render_flag += "&Border";
+            // }
+            // if r.ty as usize & RenderFlagType::BoxShadow as usize > 0 {
+            //     r.render_flag += "&BoxShadow";
+            // }
+            // if r.ty as usize & RenderFlagType::ImageRepeat as usize > 0 {
+            //     r.render_flag += "&ImageRepeat";
+            // }
+            // if r.ty as usize & RenderFlagType::BorderImage as usize > 0 {
+            //     r.render_flag += "&BorderImage";
+            // }
+            // if r.ty as usize & RenderFlagType::Sdf2 as usize > 0 {
+            //     r.render_flag += "&Sdf2";
+            // }
+            // if r.ty as usize & RenderFlagType::Sdf2OutGlow as usize > 0 {
+            //     r.render_flag += "&Sdf2OutGlow";
+            // }
+            // if r.ty as usize & RenderFlagType::SvgStrokeDasharray as usize > 0 {
+            //     r.render_flag += "&SvgStrokeDasharray";
+            // }
+            // if r.ty as usize & RenderFlagType::Svg as usize > 0 {
+            //     r.render_flag += "&Svg";
+            // }
+            // if r.ty as usize & RenderFlagType::Sdf2Shadow as usize > 0 {
+            //     r.render_flag += "&Sdf2Shadow";
+            // }
+            render_obj.instance_data.push(r);
+           
+            // instance_context.instance_data.instance_data_mut()
+        }
+        return render_obj;
+
+    };
     for i in draw_list.iter() {
-        if let Ok(_) = world.get_component::<DrawInfo>(i.id) {
-			draw_objs.push(RenderObject {
-				id: format!("{:?}", i),
-				name: "".to_string().clone(),
-			});
+        if let (Ok(_), instance_index, count) = (
+            world.get_component::<DrawInfo>(i.id),
+            world.get_component::<InstanceIndex>(i.id),
+            world.get_component::<RenderCount>(i.id),
+        ) {
+            let instance_index = match instance_index {
+                Ok(r) => r.0.clone(),
+                Err(_) => Null::null(),
+            };
+            let ty = *i.ty;
+            let ty = if ty == ***bg_color_type {
+                InstanceType::BackgroundColor
+            } else if ty == ***bg_image_type {
+                InstanceType::BackgroundImage
+            } else if ty == ***canvas_type {
+                InstanceType::Canvas
+            } else if ty == ***text_type {
+                InstanceType::Char
+            } else if ty == ***border_color_type{
+                InstanceType::BorderColor
+            } else if ty == ***border_image_type{
+                InstanceType::BorderImage
+            } else {
+                InstanceType::Unknown
+            };
+    
+            let mut render_obj = create_render_obj(instance_index, i.id.clone(), ty);
+            render_obj.instance_count = match count {
+                Ok(c) => c.0 as usize,
+                _ => 1,
+            };
+			draw_objs.push(render_obj);
 		}
     }
+
+    
+
     let mut children = Vec::new();
 
     if let Ok(down) = world.get_component::<Down>(entity) {
@@ -501,8 +690,6 @@ pub fn node_info(world: &World, entity: Entity) -> Info {
         hsi,
         transform_will_change,
         inpass,
-        parentpass,
-        graph_id,
         animation,
         text_shadow,
         as_image,
@@ -511,7 +698,6 @@ pub fn node_info(world: &World, entity: Entity) -> Info {
         text_overflow_data,
         context_mark,
         blend_mode,
-        render_taregt,
     ) =
         (
             world.get_component::<Overflow>(entity).ok(),
@@ -542,8 +728,6 @@ pub fn node_info(world: &World, entity: Entity) -> Info {
             world.get_component::<Hsi>(entity).ok(),
             world.get_component::<TransformWillChange>(entity).ok(),
             world.get_component::<InPassId>(entity).ok(),
-            world.get_component::<ParentPassId>(entity).ok(),
-            world.get_component::<GraphId>(entity).ok(),
             world.get_component::<Animation>(entity).ok(),
             world.get_component::<TextShadow>(entity).ok(),
             world.get_component::<AsImage>(entity).ok(),
@@ -552,10 +736,6 @@ pub fn node_info(world: &World, entity: Entity) -> Info {
             world.get_component::<TextOverflowData>(entity).ok(),
             world.get_component::<RenderContextMark>(entity).unwrap(),
             world.get_component::<BlendMode>(entity).ok(),
-            match world.get_component::<RenderTarget>(entity) {
-                Ok(render_target) => render_target.0.is_some(),
-                _ => false,
-            },
         );
 
 	let mut mark_str = Vec::new();
@@ -583,9 +763,43 @@ pub fn node_info(world: &World, entity: Entity) -> Info {
 	if context_mark.get(***mark_type_transform_willchange).as_deref() == Some(&true) {
 		mark_str.push("TransformWillChange");
 	}
+
+    let pass_info = if let (Ok(instance_index), Ok(camera)) = (world.get_component::<InstanceIndex>(entity), world.get_component::<Camera>(entity)) {
+        let render_obj = create_render_obj(instance_index.0.clone(), Null::null(), InstanceType::CopyFbo);
+	    let view =  world.get_component::<View>(entity).unwrap();
+        let has_render_target = match world.get_component::<RenderTarget>(entity) {
+            Ok(render_target) => render_target.0.is_some(),
+            _ => false,
+        };
+        let render_target1 = world.get_component::<crate::components::pass_2d::RenderTarget>(entity).unwrap();
+        Some(PassInfo{
+            copy_render_obj: render_obj,
+            has_render_target,
+            bound_box: render_target1.bound_box.clone(),
+            accurate_bound_box: render_target1.accurate_bound_box.clone(),
+            is_render_own: camera.is_render_own,
+            draw_changed: camera.draw_changed,
+            is_render_to_parent: camera.is_render_to_parent,
+            transform_will_change_matrix: match world.get_component::<TransformWillChangeMatrix>(entity) {
+                Ok(r) => match &r.0 {
+                    Some(r) => Some((**r).clone()),
+                    _ => None
+                },
+                _ => None,
+            },
+            parentpass:  world.get_component::<ParentPassId>(entity).unwrap().0.0,
+            graph_id: format!("{:?}", world.get_component::<GraphId>(entity).ok()),
+            view_port: camera.view_port,
+            view: view.clone(),
+            context_mark: mark_str.join("|"),
+        })
+    } else {
+        None
+    };
+    
 	
     let mut info = Info {
-        has_render_target: render_taregt,
+        pass_info,
         // char_block: char_block,
         overflow: overflow.map_or(false, |r| r.0),
 		blend_mode: blend_mode.map(|r| r.clone()),
@@ -638,17 +852,12 @@ pub fn node_info(world: &World, entity: Entity) -> Info {
         transform_will_change: transform_will_change.map(|r| r.clone()),
         parent_id: format!("{:?}", parent),
 		inpass: format!("{:?}", inpass),
-		parentpass: format!("{:?}", parentpass),
-		graph_id: format!("{:?}", graph_id),
         children: children,
 		animation: format!("{:?}", animation),
 		as_image: format!("{:?}", as_image),
 		canvas: "".to_string(),
 		layer: format!("{:?}", layer),
-		view_port: format!("{:?}", view_port),
-		view: format!("{:?}", view),
 		text_overflow_data: format!("{:?}", text_overflow_data),
-		context_mark: mark_str.join("|"),
     };
 	let canvas = canvas.map(|r| {r.clone()});
 	let canvas_graph_id = if let Some(canvas) = canvas.clone() {
@@ -659,6 +868,66 @@ pub fn node_info(world: &World, entity: Entity) -> Info {
 	info.canvas = format!("{:?}, {:?}", canvas, canvas_graph_id);
     info
 }
+
+#[repr(C)]
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct CommonMeterial {
+    pub matrix: [f32; 16],
+    pub layout_offset_or_point0: [f32; 2],
+    pub layout_scale_or_point1: [f32; 2],
+	pub linear_point2: [f32; 2],
+    pub texture_index: f32,
+    pub ty: f32,
+	pub slope_x: f32,
+    pub slope_y: f32,
+    pub slope_origin: [f32;2],
+    pub color0: [f32; 4],
+	pub color_or_color1: [f32; 4],
+	pub uv_or_color2: [f32; 4], // min, max  (min是左上角)
+	pub stroke_color: [f32; 4],
+	pub distance_px_range: f32,
+    pub fill_bound: f32,
+    pub stroke_bound: f32,
+    pub depth: f32,
+	pub sdf_uv_or_sdf0_sdf1: [f32; 4],
+    pub sdf_uv2: [f32; 2], // 当为渐变颜色时存在， 表示sdfUv2
+    pub render_flag: String,
+}
+   
+
+impl pi_render::rhi::shader::WriteBuffer for CommonMeterial {
+	fn write_into(&self, index: u32, buffer: &mut [u8]) {
+		
+		unsafe { std::ptr::copy_nonoverlapping(
+			self as *const Self as usize as *const u8,
+			buffer.as_mut_ptr().add(index as usize),
+			216,
+		) };
+	}
+	#[inline]
+	fn byte_len(&self) -> u32 {
+		216
+	}
+
+	#[inline]
+	fn offset(&self) -> u32 {
+		0
+	}
+}
+impl pi_render::rhi::shader::Uniform for CommonMeterial {
+	type Binding = MeterialBind;
+}
+
+impl GetBuffer for CommonMeterial {
+	fn get_data(&mut self, index: u32, buffer: &[u8]) {
+		let len = self.byte_len() as usize;
+		unsafe {
+			buffer.as_ptr().add(index as usize + self.offset() as usize).copy_to_nonoverlapping(self as *const Self as usize as *mut u8, len);
+		};
+	}
+}
+
+
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct TexInfo {

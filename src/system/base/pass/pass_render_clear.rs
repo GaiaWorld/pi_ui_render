@@ -23,7 +23,7 @@ impl CalcRenderClear {
 		// }
 
         for mut camera in query_pass.iter_mut() {
-            camera.is_active = false;
+            camera.bypass_change_detection().is_active = false;
         }
     }
 }

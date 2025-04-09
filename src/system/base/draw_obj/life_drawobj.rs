@@ -221,7 +221,7 @@ pub fn update_render_instance_data(
 	node_query: Query<(Option<&ParentPassId>, &InPassId, &DrawList, &ZRange, &IsShow, Entity, &Layer)>,
 
 	mut instance_index: ParamSet<(
-		Query<(&PostProcessInfo, &'static mut InstanceIndex, Entity, &mut FboInfo)>,
+		Query<(&PostProcessInfo, &'static mut InstanceIndex, Entity, &mut FboInfo, &mut RenderTarget)>,
 		Query<(&'static mut InstanceIndex, OrDefault<RenderCount>)>
 	)>,
 	mark_changed: ComponentChanged<RenderContextMark>,
@@ -240,9 +240,10 @@ pub fn update_render_instance_data(
 	log::trace!("life========================node_change={:?}， {:p}", node_change, instances);
 	for entity in mark_changed.iter() {
 		let p0 = instance_index.p0();
-		if let Ok((post_info, mut instance_index, e, mut fbo)) = p0.get_mut(*entity) {
+		if let Ok((post_info, mut instance_index, e, mut fbo, mut render_target)) = p0.get_mut(*entity) {
 			if !post_info.has_effect() && !instance_index.start.is_null() {
 				*fbo = FboInfo::default();
+				*render_target = Default::default();
 				*instance_index = Default::default();
 			}
 			if !node_change && post_info.has_effect() && instance_index.start.is_null() ||

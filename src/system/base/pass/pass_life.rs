@@ -464,9 +464,10 @@ pub fn calc_pass(
         &View,
         &TransformWillChangeMatrix,
         // OrDefault<Overflow>,
-        // &LayoutResult,
-        // &ContentBox,
-    ), Or<(Changed<PostProcessInfo>, Changed<WorldMatrix>, Changed<ContentBox>)>>,
+        &crate::components::calc::LayoutResult,
+        &ContentBox,
+        Entity,
+    ), Or<(Changed<PostProcessInfo>, Changed<ContentBox>, Changed<TransformWillChangeMatrix>, Changed<Camera>)>>,
     // query1: Query<
 	// 	(
     //         &ParentPassId,
@@ -479,7 +480,7 @@ pub fn calc_pass(
     if r.0 {
 		return;
 	}
-    for (instance_index, parent_pass_id, camera, view, will_change) in query.iter() {
+    for (instance_index, parent_pass_id, camera, view, will_change, layout, content_box, entity, ) in query.iter() {
         log::debug!("passs1==============={:?}", instance_index.0.start);
         // 节点可能设置为dispaly none， 此时instance_index可能为Null
         // 节点可能没有后处理效果， 此时instance_index为Null
@@ -530,7 +531,7 @@ pub fn calc_pass(
             match (&view.desc, &will_change.0) {
                 (OverflowDesc::NoRotate(_), None) => {
                     set_matrix(&WorldMatrix::default(), &camera.view_port, &mut instance_data);
-                    // log::warn!("no rotate=================={:?}", (instance_index.start / 224, entity, &camera.view_port));
+                    log::trace!("no rotate=================={:?}", (instance_index.start / 224, entity, &camera.view_port, layout, content_box));
                     // instance_data.set_data(&QuadUniform(&[
                     //     view_port.mins.x, view_port.mins.y,
                     //     view_port.mins.x, view_port.maxs.y,

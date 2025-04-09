@@ -581,6 +581,7 @@ impl Node for Pass2DNode {
 					uv_box[1] += mins.y * h;
 					uv_box[2] += maxs.x * w;
 					uv_box[3] += maxs.y * h;
+					log::trace!("set pass uv======passid:{:?}, instance_index: {:?}, uv: {:?}, accurate_bound_box: {:?}, rect: {:?}", pass2d_id, instance_index.start/224, &uv_box, &render_target.accurate_bound_box, &rect);
 									
 					param.instance_draw.instance_data.instance_data_mut(instance_index.start).set_data(&UvUniform(uv_box.as_slice()));
 				} else {

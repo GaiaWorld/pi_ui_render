@@ -166,15 +166,16 @@ pub fn calc_camera(
         )
     | -> bool {
 
-        let old_is_render_own = camera.is_render_own;
-        let old_is_render_to_parent = camera.is_render_to_parent;
-        camera.is_render_own = false;
-        log::debug!("camera.is_render_own = {:?};", (entity, camera.draw_changed, render_dirty1, view_port_is_dirty, as_image, &render_target.cache));
-        let local_dirty_mark = camera.draw_changed || render_dirty1 || view_port_is_dirty;
+        let camera_bypass = camera.bypass_change_detection();
+        let old_is_render_own = camera_bypass.is_render_own;
+        let old_is_render_to_parent = camera_bypass.is_render_to_parent;
+        camera_bypass.is_render_own = false;
+        log::debug!("camera.is_render_own = {:?};", (entity, camera_bypass.draw_changed, render_dirty1, view_port_is_dirty, as_image, &render_target.cache));
+        let local_dirty_mark = camera_bypass.draw_changed || render_dirty1 || view_port_is_dirty;
         // local_dirty_mark = true;
-        camera.draw_changed = false;
+        camera_bypass.draw_changed = false;
 
-        log::debug!("change==========={:?}", (entity, camera.draw_changed, render_dirty.0, is_show.get_visibility(), is_show.get_display()));
+        log::debug!("change==========={:?}", (entity, camera_bypass.draw_changed, render_dirty.0, is_show.get_visibility(), is_show.get_display()));
         // 检查render_target的缓存情况， 设置rendertarget
         check_render_target(&mut render_target, as_image);
 
@@ -183,12 +184,12 @@ pub fn calc_camera(
             // 因为， 如果将其缓存，直到重新设置为可见， 中间发生了哪些改变不可知，也不知道fbo是否需要重新渲染， 因此，直接释放掉
             render_target.target = StrongTarget::None;
             render_target.cache = RenderTargetCache::None;
-			return old_is_render_own != camera.is_render_own;
+			return old_is_render_own != camera_bypass.is_render_own;
 		}
 
         let view_port = match query_root.get(layer.root()) {
             Ok(r) => r,
-            Err(_) => return old_is_render_own != camera.is_render_own,
+            Err(_) => return old_is_render_own != camera_bypass.is_render_own,
         };
 
         let overflow_aabb = &*overflow_aabb;
@@ -199,7 +200,7 @@ pub fn calc_camera(
             if !local_dirty_mark {
                 
                 // 存在fbo缓存， 且本地不脏，则不需要渲染
-                return old_is_render_own != camera.is_render_own;
+                return old_is_render_own != camera_bypass.is_render_own;
             }
         }
 
@@ -233,7 +234,7 @@ pub fn calc_camera(
         log::debug!("pass_id2 22========={:?}, {:?}", entity, (&*dirty_rect, overflow_aabb, !is_show.get_visibility(), !is_show.get_display()));
         if no_rotate_view_aabb.mins.x >= no_rotate_view_aabb.maxs.x || no_rotate_view_aabb.mins.y >= no_rotate_view_aabb.maxs.y {
             // 如果视口为0， 则不需要渲染
-            return old_is_render_own != camera.is_render_own;
+            return old_is_render_own != camera_bypass.is_render_own;
         }
 
         // 计算视图区域（世界坐标系）
@@ -505,6 +506,7 @@ pub fn calc_pass_active(
     for node in instance_context.pass_toop_list.iter().rev() {
         if let Ok((mut camera, _post_info, mut parent_pass, graph_id)) = query.get_mut(*node) {
             let old_is_render_to_parent = camera.is_render_to_parent;
+            let camera = camera.bypass_change_detection();
             if parent_pass.0.is_null() {
                 camera.is_render_to_parent = true;
             } else {
@@ -538,12 +540,12 @@ pub fn calc_pass_active(
 
 #[inline]
 fn mark_pass_dirty(mut pass_id: Entity, query: &mut Query<(&mut Camera, &ParentPassId)>,) {
-    while let Ok((mut is_dirty, parent_pass)) = query.get_mut(pass_id) {
-        if is_dirty.draw_changed {
+    while let Ok((mut camera, parent_pass)) = query.get_mut(pass_id) {
+        if camera.draw_changed {
             break;
         }
 
-        is_dirty.bypass_change_detection().draw_changed = true;
+        camera.bypass_change_detection().draw_changed = true;
         pass_id = parent_pass.0.0;
     }
 }

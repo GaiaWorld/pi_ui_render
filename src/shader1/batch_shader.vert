@@ -107,7 +107,7 @@ void main() {
 
 	// 计算顶点	
 	mat4 m = mat4(matrix0, matrix1, matrix2, matrix3);
-	if ((ty1 & 2) == 0) {
+	if ((ty1 & 2) == 0) { // 忽略相机
 		vSdf.x = vSdf.x * length(matrix0.xyz); // distance_px_range乘以x轴上的缩放
 		gl_Position = project * view * m * vec4(p, 1.0, 1.0);
 	} else {

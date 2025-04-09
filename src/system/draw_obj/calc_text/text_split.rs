@@ -227,7 +227,7 @@ impl<'a> Calc<'a> {
 
     fn create_char_node(&mut self, ch: char, p_x: f32, char_i: isize) -> CharNode {
         let width = self.font_sheet.measure_width(self.font_id, ch);
-        log::warn!("create_char_node======font_id: {:?}, ch: {:?}, width: {:?}, font-size:{:?}, line_height: {:?}, font-famlity: {:?}", self.font_id, ch, width, self.font_size, self.text_style.line_height, &self.text_style.font_family);
+        // log::warn!("create_char_node======font_id: {:?}, ch: {:?}, width: {:?}, font-size:{:?}, line_height: {:?}, font-famlity: {:?}", self.font_id, ch, width, self.font_size, self.text_style.line_height, &self.text_style.font_family);
         CharNode {
             ch,
             size: Size {

@@ -1,14 +1,17 @@
 
 use pi_flex_layout::style::{PositionType, FlexWrap, FlexDirection, AlignContent, AlignItems, AlignSelf, JustifyContent, Display, Dimension};
-use pi_style::{style::{BorderRadius, Color, FitType, FontStyle, ImageRepeatOption, LengthUnit, LineHeight, TextAlign, VerticalAlign, WhiteSpace}, style_parse::Attribute};
+use pi_style::{style::{AnimationDirection, AnimationTimingFunction, BorderRadius, Color, FitType, FontStyle, ImageRepeatOption, LengthUnit, LineHeight, TextAlign, VerticalAlign, WhiteSpace}, style_parse::Attribute};
+use pi_style::style::TransformOrigin;
+use pi_curves::steps::EStepMode;
+use tracing_subscriber::fmt::format;
 
 pub fn to_css_str(attr: &Attribute) -> (&'static str, String) {
     match attr {
         Attribute::ClipPath(r) => ("clip-path", match &r.0 {
             pi_style::style::BaseShape::Circle { radius, center } => format!("circle({})", len_to_str(radius) + " at " + len_to_str(&center.x).as_str() + " " + len_to_str(&center.y).as_str()),
             pi_style::style::BaseShape::Ellipse { rx, ry, center } => format!("ellipse({})", len_to_str(rx) + " " + len_to_str(ry).as_str() + " at " + len_to_str(&center.x).as_str() + " " + len_to_str(&center.y).as_str()),
-            pi_style::style::BaseShape::Inset { rect_box, border_radius } => todo!(),
-            pi_style::style::BaseShape::Sector { rotate, angle, radius, center } => todo!(),
+            pi_style::style::BaseShape::Inset { rect_box, border_radius } => format!("inset({})", len_to_str(&rect_box[0]) + " " + len_to_str(&rect_box[1]).as_str()+ " " + len_to_str(&rect_box[2]).as_str()+ " " + len_to_str(&rect_box[3]).as_str() + " round " + border_radius_to_str(border_radius).as_str()),
+            pi_style::style::BaseShape::Sector { rotate, angle, radius, center } =>  format!("sector({} {} {} at {} {})", rotate, angle, len_to_str(radius), len_to_str(&center.x), len_to_str(&center.y) ),
         }),
 		Attribute::AsImage(r) => ("as-image", match r.0 {
 			pi_style::style::AsImage::None => "none".to_string(),
@@ -147,7 +150,11 @@ pub fn to_css_str(attr: &Attribute) -> (&'static str, String) {
         Attribute::TextIndent(r) => ("text-indent", r.to_string() + "px"),
         Attribute::WordSpacing(r) => ("word-space", r.to_string() + "px"),
         Attribute::FontWeight(r) => ("font-weight", r.to_string()),
-        Attribute::FontSize(_r) => ("","".to_string()), // TODO
+        Attribute::FontSize(r) => ("font-size", match &r.0 {
+            pi_style::style::FontSize::None => "normal".to_string(),
+            pi_style::style::FontSize::Length(r) => format!("{}px", r),
+            pi_style::style::FontSize::Percent(r) => format!("{}%", r),
+        }),
         Attribute::FontFamily(r) => ("font-family", r.to_string()),
         Attribute::ZIndex(r) => ("z-index", r.to_string()),
         Attribute::Opacity(r) => ("opacity", r.0.to_string()),
@@ -447,13 +454,16 @@ pub fn to_css_str(attr: &Attribute) -> (&'static str, String) {
                 + ")"
         }),
 
-        Attribute::BorderRadius(_r) => ("", "".to_string()),    // TODO
-        Attribute::TransformOrigin(_r) => ("", "".to_string()), // TODO
-        Attribute::Hsi(_r) => ("", "".to_string()),
+        Attribute::BorderRadius(_r) => ("border-radius", border_radius_to_str(&_r.0)),
+        Attribute::TransformOrigin(_r) => ("transform-origin", match &_r.0 {
+            TransformOrigin::Center => "center".to_string(),
+            TransformOrigin::XY(x, y) => format!("{} {}", len_to_str(x), len_to_str(y)),
+        }),
+        Attribute::Hsi(_r) => ("filter", format!("hsi({} {}, {})", _r.hue_rotate,  _r.saturate,  _r.bright_ness)),
         Attribute::BorderImageRepeat(r) => ("border-image-repeat", format!("{:?}", r.x) + " " + format!("{:?}", r.y).as_str()),
         Attribute::Blur(r) => ("blur", r.0.to_string() + "px"),
         Attribute::MaskImage(r) => ("mask-image",format!("{:?}", r.0)),
-        Attribute::Transform(_r) => ("", "".to_string()),               // TODO
+        Attribute::Transform(_r) => ("transform", "".to_string()),               // TODO
 		Attribute::Translate(_r) => ("", "".to_string()),               // TODO
 		Attribute::Scale(_r) => ("", "".to_string()),               // TODO
 		Attribute::Rotate(_r) => ("", "".to_string()),               // TODO
@@ -462,16 +472,43 @@ pub fn to_css_str(attr: &Attribute) -> (&'static str, String) {
         Attribute::Direction(_r) => ("", "".to_string()),               // TODO
         Attribute::AspectRatio(_r) => ("", "".to_string()),             // TODO
         Attribute::Order(_r) => ("", "".to_string()),                   // TODO
-        Attribute::TextContent(_r) => ("", "".to_string()),             // TODO
+        Attribute::TextContent(_r) => ("text-content", _r.0.0.to_string()),
         Attribute::VNode(_r) => ("", "".to_string()),                   // TODO
-        Attribute::AnimationName(_r) => ("", "".to_string()),           // TODO
-        Attribute::AnimationDuration(_r) => ("", "".to_string()),       // TODO
-        Attribute::AnimationTimingFunction(_r) => ("", "".to_string()), // TODO
-        Attribute::AnimationDelay(_r) => ("", "".to_string()),          // TODO
-        Attribute::AnimationIterationCount(_r) => ("", "".to_string()), // TODO
-        Attribute::AnimationDirection(_r) => ("", "".to_string()),      // TODO
-        Attribute::AnimationFillMode(_r) => ("", "".to_string()),       // TODO
-        Attribute::AnimationPlayState(_r) => ("", "".to_string()),
+        Attribute::AnimationName(_r) => ("animation", _r.0.value.iter().map(|r| r.as_str().to_string()).collect::<Vec<String>>().join(",")),
+        Attribute::AnimationDuration(_r) => ("animation-duration", _r.0.iter().map(|r| format!("{}ms", r.0)).collect::<Vec<String>>().join(",")),
+        Attribute::AnimationTimingFunction(_r) => ("animation-timing-function", _r.0.iter().map(|r| match r {
+            AnimationTimingFunction::Linear => "linear".to_string(),
+            AnimationTimingFunction::Ease(_) => "ease".to_string(),
+            AnimationTimingFunction::CubicBezier(0.42, 0.0, 1.0, 1.0) => "ease-in".to_string(),
+            AnimationTimingFunction::CubicBezier(0.0, 0.0, 0.58, 1.0) => "ease-out".to_string(),
+            AnimationTimingFunction::CubicBezier(r0, r1, r2, r3) => format!("cubic-bezier({}, {}, {}, {})", r0, r1, r2, r3),
+            AnimationTimingFunction::Step(1, EStepMode::JumpStart) => "step-start".to_string(),
+            AnimationTimingFunction::Step(1, EStepMode::JumpEnd) => "step-end".to_string(),
+            AnimationTimingFunction::Step(r, r1) => format!("step({}, {})", r, match r1 {
+                EStepMode::JumpStart => "jump-start",
+                EStepMode::JumpEnd => "jump-end",
+                EStepMode::JumpNone => "jump-none",
+                EStepMode::JumpBoth => "jump-both",
+            }.to_string()),
+        }).collect::<Vec<String>>().join(",")),
+        Attribute::AnimationDelay(_r) => ("animation-delay", _r.0.iter().map(|r| format!("{}ms", r.0)).collect::<Vec<String>>().join(",")),
+        Attribute::AnimationIterationCount(_r) => ("animation-iteration-count", _r.0.iter().map(|r| format!("{}", r.0)).collect::<Vec<String>>().join(",")),
+        Attribute::AnimationDirection(_r) => ("animation-direction", _r.0.iter().map(|r| match r {
+            AnimationDirection::Normal => "normal".to_string(),
+            AnimationDirection::Reverse => "reverse".to_string(),
+            AnimationDirection::Alternate => "alternate".to_string(),
+            AnimationDirection::AlternateReverse => "alternate-reverse".to_string(),
+        }).collect::<Vec<String>>().join(",")),
+        Attribute::AnimationFillMode(_r) => ("animation-fill-mode", _r.0.iter().map(|r| match r {
+            pi_style::style::AnimationFillMode::None =>  "none".to_string(),
+            pi_style::style::AnimationFillMode::Forwards =>  "forwards".to_string(),
+            pi_style::style::AnimationFillMode::Backwards =>  "backwards".to_string(),
+            pi_style::style::AnimationFillMode::Both =>  "both".to_string(),
+        }).collect::<Vec<String>>().join(",")),
+        Attribute::AnimationPlayState(_r) => ("animation-play-state", _r.0.iter().map(|r| match r {
+            pi_style::style::AnimationPlayState::Running => "running".to_string(),
+            pi_style::style::AnimationPlayState::Paused => "paused".to_string(),
+        }).collect::<Vec<String>>().join(",")), 
         Attribute::TextOverflow(r) =>  ("text-overflow", match &r.0 {
             pi_style::style::TextOverflow::None => "none".to_string(),
             pi_style::style::TextOverflow::Clip => "clip".to_string(),
@@ -518,9 +555,19 @@ fn len_to_str(value: &LengthUnit) -> String {
     }
 }
 
-// fn border_radius_to_str(value: &BorderRadius) -> String {
-//     format!();
-// }
+
+fn border_radius_to_str(value: &BorderRadius) -> String {
+    format!("{} {} {} {}/{} {} {} {}", 
+        len_to_str(&value.x[0]), 
+        len_to_str(&value.x[1]), 
+        len_to_str(&value.x[2]), 
+        len_to_str(&value.x[3]), 
+        len_to_str(&value.y[0]), 
+        len_to_str(&value.y[1]), 
+        len_to_str(&value.y[2]), 
+        len_to_str(&value.y[3]), 
+    )
+}
 
 // pub struct BorderRadius {
 //     pub x: [LengthUnit; 4], // 从左上角开始， 顺时针经过的每个角的圆角的x半径

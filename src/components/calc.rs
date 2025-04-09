@@ -608,7 +608,7 @@ impl TransformWillChangeMatrix {
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct TransformWillChangeMatrixInner {
     // will_change矩阵（will_change*worldmatrix*顶点=真实的世界坐标位置） = ParentWorldMatrix * primitive * ParentWorldMatrix逆
     pub will_change: WorldMatrix, 
@@ -895,7 +895,7 @@ pub struct DrawObjId {
 
 /// 视图
 /// 每个Pass2d都必须存在一个视图
-#[derive(Clone, Default, Debug, Component)]
+#[derive(Clone, Default, Debug, Component, Serialize, Deserialize)]
 pub struct View {
     /// 为some时，节点上下文渲染需要新的视口，否则应该继承父节点的视口
     pub view_box: ViewBox,
@@ -905,7 +905,7 @@ pub struct View {
 
 /// 可视包围盒
 /// 已经考虑了Overflow、TransformWillChange因素，得到了该节点的真实可视区域
-#[derive(Clone, Debug, Component)]
+#[derive(Clone, Debug, Component, Serialize, Deserialize)]
 pub struct ViewBox {
     /// 当前节点的可视包围盒
     /// 其原点位置是对世界原点作本节点旋转变换的逆变换所得
@@ -929,7 +929,7 @@ impl Default for ViewBox {
     }
 }
 
-#[derive(Clone, Default, Debug)]
+#[derive(Clone, Default, Debug, Serialize, Deserialize)]
 pub struct OveflowRotate {
     // 相对于父上下文的旋转
     pub from_context_rotate: WorldMatrix,
@@ -940,7 +940,7 @@ pub struct OveflowRotate {
 }
 
 // 描述oveflow
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum OverflowDesc {
     Rotate(OveflowRotate), // 所在节点存在旋转的情况下， 描述旋转信息
     NoRotate(Aabb2),       // 所在节点不存在旋转的情况下，描述自身内容的世界aabb
