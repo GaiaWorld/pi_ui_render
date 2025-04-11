@@ -1,7 +1,7 @@
 //! 每个实体必须写入StyleMark组件
 
 use pi_bevy_render_plugin::{render_cross::GraphId, PiRenderGraph};
-use pi_world::{event::{Event, EventSender}, filter::Or, prelude::{Alter, Entity, Local, Mut, Query, SingleResMut, With, World}, single_res::SingleRes, system::{SystemMeta, TypeInfo}, system_params::SystemParam, world::FromWorld};
+use pi_world::{event::{Event, EventSender, EventWriter}, filter::Or, prelude::{Alter, Entity, Local, Mut, Query, SingleResMut, With, World}, single_res::SingleRes, system::{SystemMeta, TypeInfo}, system_params::SystemParam, world::FromWorld};
 use pi_world::world::ComponentIndex;
 use pi_key_alloter::Key;
 use pi_bevy_ecs_extend::prelude::{EntityTreeMut, OrInitSingleRes, OrInitSingleResMut};
@@ -284,6 +284,7 @@ pub fn user_setting2(
     for c in user_commands.node_commands.drain(..) {
         match c {
             NodeCommand::AppendNode(node, parent) => {
+                
                 is_add = true;
                 log::debug!("AppendNode====================node： {:?}, parent： {:?}, node_is_exist：{:?}, parent_is_exist: {:?}", node, parent, entitys.contains(node), entitys.contains(parent));
                 // if entitys.contains(node) && (parent.is_null() || entitys.contains(parent)) {

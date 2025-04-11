@@ -1177,3 +1177,11 @@ lazy_static! {
         .set_bit(StyleType::Visibility as usize)
         .set_bit(StyleType::Enable as usize);
 }
+
+// 是否存在动画， 用于优化渲染
+#[derive(Debug, Serialize, Deserialize, Component, Default, Clone)]
+pub struct HasAnimation {
+    pub child_count_width_animation: usize, // 包含动画的直接子节点的数量（子节点自身或递归子节点有动画，都算作包含动画）+ 自身数量（自身有动画为1，否则为0）
+    pub old_set_parent: Entity, // 曾经为该父节点贡献过有动画的子节点数量（父节点的child_count_width_animation， 当前节点为其贡献1）
+    pub old_has_animation: bool, // 自身在前一次渲染中是否有动画
+}

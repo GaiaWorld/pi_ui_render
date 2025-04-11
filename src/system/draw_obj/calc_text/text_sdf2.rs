@@ -121,7 +121,7 @@ impl Plugin for Sdf2TextPlugin {
 					
 					.after(UiSystemSet::LifeDrawObjectFlush)
 					.before(update_render_instance_data)
-					.after(calc_layout)
+					.after(UiSystemSet::Layout)
 					.run_if(text_len_change)
 			)
 			// 更新实例数据

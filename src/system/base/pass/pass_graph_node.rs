@@ -26,6 +26,7 @@ use pi_render::{
         CommandEncoder,
     },
 };
+
 use pi_share::{ShareRefCell, Share};
 use pi_style::style::AsImage as AsImage1;
 use wgpu::RenderPass;
@@ -37,6 +38,7 @@ use crate::{
         draw_obj::{InstanceContext, RenderState, TargetCacheMgr}, CanvasRenderObjType, RenderContextMarkType
     }, shader1::batch_meterial::{CameraBind, RenderFlagType, TyMeterial, UvUniform}, system::draw_obj::set_matrix
 };
+use crate::components::pass_2d::IsSteady;
 
 
 /// Pass2D 渲染图节点
@@ -59,6 +61,7 @@ pub struct BuildParam<'w> {
 				&'static ParentPassId,
 				&'static RenderTarget,
 				Option<&'static AsImage>,
+				&'static IsSteady,
 				&'static mut PostProcess, 
 				&'static PostProcessInfo, 
 				&'static InstanceIndex,
@@ -254,6 +257,7 @@ impl Node for Pass2DNode {
 			parent_pass2d_id,
 			render_target, 
 			as_image,
+			is_steady,
 			mut post_process, 
 			post_process_info,
 			instance_index,
@@ -343,6 +347,7 @@ impl Node for Pass2DNode {
 					16 * 1024 * 1024, // 默认最多缓存16M的target，可配置？TODO
 					input.0.values(),
 					!is_not_only_as_image,
+					is_steady.0,
 				) {
 					
 					Some(r) => {
@@ -469,6 +474,7 @@ impl Node for Pass2DNode {
 								16 * 1024 * 1024, // 默认最多缓存16M的target，可配置？TODO
 								[post_target.clone()].iter(),
 								true,
+								is_steady.0,
 							).unwrap();
 							// let final_target = param.atlas_allocator.allocate( 
 							// 	target_size.0, 
@@ -1214,6 +1220,7 @@ impl RenderTarget {
         max_cache: usize,
         exclude: T,
         by_catch: bool,
+		is_steady: bool,
     ) -> Option<Share<SafeTargetView>> {
         if by_catch {
 			match &self.target {
@@ -1254,10 +1261,12 @@ impl RenderTarget {
 						return None;
 					};
 
-					match as_image {
-						AsImage1::None => {
-							// 分配渲染目标
-							let t = CacheTarget(atlas_allocator.allocate(width, height, t_type.has_depth, exclude));
+					// 分配渲染目标
+					let t = CacheTarget(atlas_allocator.allocate(width, height, t_type.has_depth, exclude));
+					match (as_image, is_steady) {
+						(AsImage1::None, false) => {
+							
+							
 							return Some(t.0);
 							// // 放入资产管理器，由资产管理器管理
 							// if capacity_overflow {
@@ -1271,15 +1280,13 @@ impl RenderTarget {
 							
 						},
 						r => {
-							// 分配渲染目标
-							let t = CacheTarget(atlas_allocator.allocate(width, height, t_type.has_depth, exclude));
 							assets.0.push(t.clone());
 							match r {
-								AsImage1::Advise => {
+								(AsImage1::Advise, _) | (_, true) => {
 									self.target = StrongTarget::Asset(t.0.clone());
 									self.cache = RenderTargetCache::Weak(Share::downgrade(&t.0))
 								},
-								AsImage1::Force => {
+								(AsImage1::Force, _) => {
 									self.target = StrongTarget::Asset(t.0.clone());
 									self.cache = RenderTargetCache::Strong(t.0.clone())
 								},

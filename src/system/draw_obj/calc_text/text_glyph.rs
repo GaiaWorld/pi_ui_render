@@ -269,7 +269,7 @@ fn set_gylph(
     for char_node in chars.iter_mut() {
         if char_node.ch > ' ' {
             let glyph_id = font_sheet.glyph_id(font_id, char_node.ch);
-            // log::debug!("sdf2 texture is ready =============={:?},{:?}", char_node.ch, &glyph_id);
+            // log::debug!("sdf2 texture is ready =============={:?} ,{:?},{:?}", &text_style.font_family, char_node.ch, &glyph_id);
             // 异常，无法计算字形
             char_id = match glyph_id {
                 Some(r) => r,

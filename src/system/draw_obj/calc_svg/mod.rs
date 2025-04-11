@@ -92,7 +92,7 @@ impl Plugin for SvgPlugin {
                 calc_sdf2_text_len
                     .after(UiSystemSet::LifeDrawObjectFlush)
                     .before(update_render_instance_data)
-                    .after(calc_layout),
+                    .after(UiSystemSet::Layout),
             )
             .add_system(UiStage, calc_sdf2_svg.in_set(UiSystemSet::PrepareDrawObj).run_if(svg_change));
     }

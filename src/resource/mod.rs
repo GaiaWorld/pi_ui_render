@@ -169,6 +169,7 @@ impl UserCommands {
             (ids.render_context_mark, true),
             (ids.draw_list, true),
             (ids.is_show, true),
+            (ids.has_animation, true),
             // (ids.is_display, true),
         ]);
         if tag == NodeTag::VNode {

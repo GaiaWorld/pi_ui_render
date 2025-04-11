@@ -452,3 +452,7 @@ pub enum RenderTargetCache {
     Weak(ShareWeak<SafeTargetView>),
 }
 
+/// 是否稳定, 标记一个Pass2d节点是否经常保持不变
+#[derive(Debug, Default, Component, Clone)]
+pub struct IsSteady(pub bool);
+

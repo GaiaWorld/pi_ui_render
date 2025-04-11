@@ -6,6 +6,7 @@ pub mod pass_2d;
 pub mod root;
 pub mod user;
 
+use calc::HasAnimation;
 use pass_2d::WorldMatrixInvert;
 // use calc::IsDisplay;
 use pi_world::{prelude::{Bundle, Entity, FromWorld}, world::{ComponentIndex, World}};
@@ -20,6 +21,7 @@ use self::{
     user::{ClassName, Overflow},
 };
 use pi_bevy_render_plugin::asimage_url::RenderTarget as RenderTarget1;
+use crate::components::pass_2d::IsSteady;
 
 
 #[derive(Clone)]
@@ -83,6 +85,7 @@ pub struct SettingComponentIds {
     pub render_context_mark: ComponentIndex,
     pub draw_list: ComponentIndex,
     pub is_show: ComponentIndex,
+    pub has_animation: ComponentIndex,
     // pub is_display: ComponentIndex,
 
     pub svg: ComponentIndex,
@@ -95,6 +98,7 @@ pub struct SettingComponentIds {
 impl FromWorld for SettingComponentIds {
     fn from_world(world: &mut World) -> Self {
         Self {
+            has_animation: world.init_component::<HasAnimation>(),
             down: world.init_component::<Down>(),
             up: world.init_component::<Up>(),
             layer: world.init_component::<Layer>(),
@@ -186,6 +190,7 @@ pub struct NodeBundle {
     pub is_show: IsShow,
     // pub is_display: IsDisplay,
     pub class_name: ClassName,
+    pub has_animation: HasAnimation,
 }
 
 // /// 绘制对象Bundle
@@ -275,6 +280,7 @@ pub struct PassBundle {
 	pub fbo_info: FboInfo,
     pub render_target1: RenderTarget1,
     pub world_matrix_invert: WorldMatrixInvert,
+    pub is_steady: IsSteady,
 }
 
 impl PassBundle {

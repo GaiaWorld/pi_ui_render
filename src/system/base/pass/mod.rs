@@ -18,6 +18,7 @@ pub mod root;
 pub mod pass_dirty;
 pub mod world_invert;
 pub mod content_box;
+pub mod calc_render_steady;
 
 
 pub struct UiPassPlugin;
@@ -77,6 +78,7 @@ impl Plugin for UiPassPlugin {
                 pass_camera::calc_camera
                     .after(pass_camera::calc_pass_dirty)
                     .before(pass_camera::calc_pass_active)
+                    .after(calc_render_steady::calc_is_steady)
 					.after(UiSystemSet::BaseCalcFlush)
                     .in_set(UiSystemSet::PassCalc),
             )
@@ -90,6 +92,7 @@ impl Plugin for UiPassPlugin {
             .add_system(UiStage, root::root_calc.in_set(UiSystemSet::PassMark))
             .add_plugins(world_invert::WorldInvertPlugin)
             .add_plugins(content_box::ContentBoxPlugin)
+            .add_plugins(calc_render_steady::RenderSteadyPlugin)
         ;
     }
 }
