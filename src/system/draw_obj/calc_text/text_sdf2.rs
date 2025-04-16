@@ -793,7 +793,7 @@ impl<'a> UniformData<'a> {
 		if text_overflow.0 {
 			line_max = self.layout.rect.right - self.layout.border.right - self.layout.padding.right - self.layout.border.left - self.layout.padding.left - self.layout.rect.left;
 		}
-
+		
 		for c in self.node_state.0.text.iter() {
 			if c.ch == char::from(0) {
 				if c.count > 0 {

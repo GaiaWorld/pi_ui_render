@@ -1,6 +1,6 @@
 use std::{marker::PhantomData, ops::Deref};
 
-use pi_world::{alter::Alter, event::{ComponentAdded, ComponentChanged}, fetch::OrDefault, filter::With, insert::Component, prelude::{Changed, ComponentRemoved, Entity, Has, ParamSet, Query, SingleRes}, single_res::SingleResMut, world::FromWorld};
+use pi_world::{alter::Alter, event::{ComponentAdded, ComponentChanged}, fetch::OrDefault, filter::With, insert::Component, prelude::{Query, ParamUnReady, Changed, ComponentRemoved, Entity, Has, ParamSet, SingleRes}, single_res::SingleResMut, world::FromWorld};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleRes, OrInitSingleResMut};
 
 use crossbeam::queue::SegQueue;
@@ -55,19 +55,26 @@ impl<Key: 'static + Send + Sync, T> Default for ImageAwait<Key, T> {
 pub struct CalcImageLoad<S: std::ops::Deref<Target = Atom>, D: From<Handle<AssetWithId<TextureRes>>>>(PhantomData<(S, D)>);
 
 
+
 // 添加asImage资源的图依赖关系
 pub fn add_as_image_graph_depend(
-    mut query_with_as_image: Query<(&mut AsImageBindList, &InPassId)>,
-    query_pass: Query<(&ParentPassId, &GraphId), With<Camera>>,
     as_image_url_changed: ComponentChanged<AsImageBindList>,
     as_image_url_added: ComponentAdded<AsImageBindList>,
-    mut rg: SingleResMut<PiRenderGraph>,
-    mut ref_count: OrInitSingleResMut<AsImageRefCount>,
+
+    p: ParamUnReady<(
+        Query<(&mut AsImageBindList, &InPassId)>,
+        Query<(&ParentPassId, &GraphId), With<Camera>>,
+        SingleResMut<PiRenderGraph>,
+        OrInitSingleResMut<AsImageRefCount>,
+    )>,
+   
 ) { 
     log::debug!("add_as_image_graph_depend================{:?}, {:?}", as_image_url_changed.len(), as_image_url_added.len());
     if as_image_url_changed.len() == 0 && as_image_url_added.len() == 0 {
         return;
     }
+
+    let (mut query_with_as_image, query_pass, mut rg, mut ref_count) = p.ready();
     
     let ref_count = &mut *ref_count;
 
@@ -171,7 +178,7 @@ pub fn image_load<
 	if r.0 {
 		return;
 	}
-    let del = &mut query_set.p0();
+    let del = query_set.p0();
     for i in removed.iter() {
         // 图片删除，则删除对应的Texture
         if let Ok((mut r, has_s)) = del.get_mut(*i) {
@@ -189,6 +196,7 @@ pub fn image_load<
     };
 
     // 处理图片路径修改，尝试加载图片（异步加载，加载完成后，放入image_await中）
+    let p1 = query_set.p1();
     for (entity, key) in query.iter() {
         load_image::<DIRTY_TYPE, _, _, _>(
             entity,
@@ -197,7 +205,7 @@ pub fn image_load<
             &mut image_await,
             &device,
             &queue,
-            query_set.p1(),
+            p1,
             &mut query_as_image,
             &query_render_target,
             &texture_assets_mgr,
@@ -206,8 +214,8 @@ pub fn image_load<
             &mut global_mark,
         );
     }
-
-    set_texture::<DIRTY_TYPE, _, _, _>(***src_ty, &mut image_await, &query_src, query_set.p1(),  &mut query_as_image, &query_render_target, f, &mut global_mark);
+    
+    set_texture::<DIRTY_TYPE, _, _, _>(***src_ty, &mut image_await, &query_src, p1,  &mut query_as_image, &query_render_target, f, &mut global_mark);
 	// if is_change {
 	// 	for mut r in dirty.iter_mut() {
 	// 		**r = true;

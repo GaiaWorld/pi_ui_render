@@ -99,6 +99,9 @@ pub fn calc_layout(
 	if r.0 {
 		return;
 	}
+    if dirty_list.len() == 0 {
+        return;
+    }
 
 	let time = pi_time::Instant::now();
 
@@ -171,6 +174,7 @@ pub fn calc_layout(
                     style_mark.dirty_style.has_any(&*SELF_DIRTY),
                     style_mark.dirty_style.get(StyleType::Display as usize).map_or(false, |display| {*display == true}),
                 );
+                
 
                 // let (rect_dirty, children_dirty, normal_style_dirty, self_style_dirty, display_dirty) = (
 				// 	size_dirty.map_or(false, |size| size.is_changed())

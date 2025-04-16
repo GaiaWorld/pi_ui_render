@@ -98,7 +98,7 @@ pub fn user_setting1(
 
     let mut events = EventSender::<'_, StyleChange>::init_state(&mut w6, &mut s_meta);
     let mut dirty_list = StyleDirtyList {
-		list: EventSender::<'_, StyleChange>::get_param(&w5, &mut s_meta, &mut events, world.tick()),
+		list: EventSender::<'_, StyleChange>::get_param(&mut events),
 		mark: &mut dirty_mark.0,
 	};
 

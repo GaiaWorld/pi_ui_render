@@ -1,7 +1,9 @@
 use pi_style::style::StyleType;
 use pi_world::app::App;
-use pi_world::prelude::{Changed, ParamSet, Query, Has, ComponentRemoved, IntoSystemConfigs};
+use pi_world::filter::With;
+use pi_world::prelude::{ComponentRemoved, IntoSystemConfigs};
 use pi_bevy_ecs_extend::prelude::OrInitSingleRes;
+use pi_world::query::Query;
 use pi_world::single_res::SingleRes;
 
 use crate::resource::{GlobalDirtyMark, IsRun};
@@ -39,42 +41,45 @@ impl Plugin for BlurPlugin {
 // 如果Blur修改，设置PostProcess中的blur_dual属性为对应值
 pub fn blur_post_process(
     mark_type: OrInitSingleRes<RenderContextMarkType<Blur>>,
-    mut query: ParamSet<(
-        Query<(&Blur, &mut PostProcess, &mut PostProcessInfo), Changed<Blur>>,
-        Query<(&mut PostProcess, &mut PostProcessInfo, Has<Blur>)>,
-    )>,
-    remove: ComponentRemoved<Blur>,
+    mut query: Query<(&Blur, &mut PostProcess, &mut PostProcessInfo), With<Blur>>,
+    // remove: ComponentRemoved<Blur>, // 不可移除
+    changed: ComponentRemoved<Blur>, // 不可移除
 	r: OrInitSingleRes<IsRun>
 ) {
 	if r.0 {
 		return;
 	}
-    let p1 = query.p1();
-    for i in remove.iter() {
-        if let Ok((mut post_list, mut post_info, has_blur)) = p1.get_mut(*i) {
-            if has_blur {
-                continue;
+    // let p1 = query.p1();
+    // for i in remove.iter() {
+    //     if let Ok((mut post_list, mut post_info, has_blur)) = p1.get_mut(*i) {
+    //         if has_blur {
+    //             continue;
+    //         }
+    //         post_list.blur_dual = None;
+    //         post_info.effect_mark.set(***mark_type, false);
+    //     }
+    // }
+    if changed.len() == 0 {
+        return;
+    }
+
+    for entity in changed.iter() {
+        if let Ok ((blur, mut post_list, mut post_info)) = query.get_mut(*entity) {
+            if **blur > 0.0 {
+                post_list.blur_dual = Some(BlurDual {
+                    radius: blur.0 as u8,
+                    iteration: 2,
+                    intensity: 1.0,
+                    simplified_up: false,
+                });
+                post_info.effect_mark.set(***mark_type, true);
+            } else {
+                post_list.blur_dual = None;
+                post_info.effect_mark.set(***mark_type, false);
             }
-            post_list.blur_dual = None;
-            post_info.effect_mark.set(***mark_type, false);
         }
     }
     
-
-    for (blur, mut post_list, mut post_info) in query.p0().iter_mut() {
-        if **blur > 0.0 {
-            post_list.blur_dual = Some(BlurDual {
-                radius: blur.0 as u8,
-                iteration: 2,
-                intensity: 1.0,
-                simplified_up: false,
-            });
-            post_info.effect_mark.set(***mark_type, true);
-        } else {
-            post_list.blur_dual = None;
-            post_info.effect_mark.set(***mark_type, false);
-        }
-    }
 }
 
 pub fn blur_change(mark: SingleRes<GlobalDirtyMark>) -> bool {

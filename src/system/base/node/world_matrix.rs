@@ -112,55 +112,6 @@ pub fn cal_matrix(
 		return;
 	}
     
-    // println!("matrix time0========{:?}", ( ii, i1, pi_time::Instant::now() - time));
-    // let time = pi_time::Instant::now();
-	// let count = dirtys.count();
-    // transform修改，标记层脏(这里transform_change不直接在层脏中声明，是因为transform改变不会发送对应的事件)
-	// let time2 = pi_time::Instant::now();
-
-    // let layer_dirty_count = dirtys.count();
-    // 计算布局
-    // let _sss = tracing::info_span!("matrix compute", layer_dirty_count).entered();
-    // let mut ii = Vec::new();
-    // for (i, t1, t2, t3) in query11.iter() {
-    //     ii.push((i, t1.map(|t| {t.is_changed()}), t2.is_changed(), t3.is_changed()));
-    // }
-    // let mut ii = 0;
-    // for i in dirty_list2.iter() {
-    //     if let Ok((layer, style_mark)) = query_dirty2.get(i.0) {
-    //         if !layer.layer().is_null() && (
-    //             layer.is_changed() || 
-    //             style_mark.dirty_style.has_any(&CONTENT_BOX_DIRTY)
-    //         ) {
-    //             ii +=1;
-    //             layer_dirty1.mark(i.0);
-    //         }
-    //     }
-    // }
-
-    // let mut ii1 = Vec::new();
-	// let count = dirtys.count();
-    // LAYOUT_DIRTY
-    // let mut jj = 0;
-    // let time1 = pi_time::Instant::now();
-    
-    // for i in dirty_list.iter() {
-
-    //     if let Ok((layer, layout, transform, text_shadow, box_shadow)) = query_dirty.get(i.0) {
-            
-    //         if !layer.layer().is_null() && (
-    //             layer.is_changed() || 
-    //             layout.is_changed() || 
-    //             transform.map_or(false, |r| {r.is_changed()}) || 
-    //             text_shadow.map_or(false, |r| {r.is_changed()}) || 
-    //             box_shadow.map_or(false, |r| {r.is_changed()})
-    //         ) {
-    //             // jj +=1;
-    //             layer_dirty.mark(i.0);
-    //         }
-    //     }
-    // }
-
     for i in layout_dirty.iter().chain(transform_dirty.iter()).chain(transform_add.iter()) {
         layer_dirty.mark(*i);
     }
@@ -170,6 +121,8 @@ pub fn cal_matrix(
 
     if layer_dirty.count() > 0 {
         global_dirty.mark.set(OtherDirtyType::WorldMatrix as usize, true);
+    } else {
+        return;
     }
 
     // let time2 = pi_time::Instant::now();

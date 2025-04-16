@@ -1,5 +1,5 @@
 use pi_style::style::StyleType;
-use pi_world::{event::{ComponentAdded, ComponentChanged}, prelude::{Entity, Query}, single_res::SingleRes};
+use pi_world::{event::ComponentChanged, prelude::Entity, query::Query, single_res::SingleRes};
 use pi_bevy_ecs_extend::prelude::OrInitSingleRes;
 
 use crate::{components::user::Hsi, resource::{GlobalDirtyMark, IsRun, RenderContextMarkType}, system::{base::pass::pass_life::pass_mark, system_set::UiSystemSet}};
@@ -34,24 +34,19 @@ pub fn hsi_post_process(
     mark_type: OrInitSingleRes<RenderContextMarkType<Hsi>>,
     mut query: Query<(&Hsi, &mut PostProcess, &mut PostProcessInfo, Entity)>,
     changed: ComponentChanged<Hsi>,
-    added: ComponentAdded<Hsi>,
+    // added: ComponentAdded<Hsi>,
     // remove: ComponentRemoved<Hsi>,
 	r: OrInitSingleRes<IsRun>
 ) {
 	if r.0 {
 		return;
 	}
-    // let p1 = query.p1();
-    // for i in remove.iter() {
-    //     if let Ok((mut post_list, mut post_info, hsi)) = p1.get_mut(*i) {
-    //         if hsi {
-    //             continue;
-    //         }
-    //         post_list.hsb = None;
-    //         render_mark_false(***mark_type, &mut render_mark_value);
-    //     }
-    // }
-    for entity in changed.iter().chain(added.iter()) {
+
+    if changed.len() == 0 {
+        return;
+    }
+
+    for entity in changed.iter() {
         if let Ok((hsi, mut post_list, mut post_info, _entity)) = query.get_mut(*entity) {
             if hsi.saturate != 0.0 || hsi.hue_rotate != 0.0 || hsi.bright_ness != 0.0 {
                 post_list.hsb = Some(HSB {

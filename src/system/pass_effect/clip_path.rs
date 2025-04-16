@@ -55,6 +55,9 @@ pub fn clip_path_del(
 	if r.0 {
 		return;
 	}
+    if remove.len() == 0 {
+        return;
+    }
     for i in remove.iter() {
         if let Ok((mut post_list, has_clip )) = query.get_mut(*i) {
             if has_clip {

@@ -52,6 +52,7 @@ pub struct ClassSheet(pi_style::style_type::ClassSheet);
 #[derive(Serialize, Deserialize, Clone, Copy, Hash, ConstParamTy, PartialEq, Eq)]
 pub enum OtherDirtyType {
     // NodeCreate = 127, // 添加到树上也算创建
+    Canvas = 128, // 遮罩纹理
     NodeTreeAdd = 127, // 树结构改变
     NodeTreeDel = 126, // 树结构改变
     DrawObjCreate = 125, // drawObj创建

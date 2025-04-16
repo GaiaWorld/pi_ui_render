@@ -19,22 +19,31 @@ use pi_share::{Share, ShareWeak};
 use crate::{
     components::{
         calc::{
-            BackgroundImageTexture, BorderImageTexture, InPassId, IsShow, OverflowDesc, Quad, TransformWillChangeMatrix, View, WorldMatrix
+            BackgroundImageTexture, BorderImageTexture, InPassId, IsShow, MaskTexture, OverflowDesc, Quad, StyleBit, TransformWillChangeMatrix, View, WorldMatrix
         }, pass_2d::{
             Camera, IsSteady, ParentPassId, PostProcessInfo, RenderTarget, RenderTargetCache, StrongTarget
         }, user::{Aabb2, AsImage, Canvas, Point2, Vector2, Viewport}
     }, resource::{
-        draw_obj::{InstanceContext, TargetCacheMgr}, GlobalDirtyMark, IsRun, RenderDirty, ShareFontSheet
+        draw_obj::{InstanceContext, TargetCacheMgr}, GlobalDirtyMark, IsRun, OtherDirtyType, RenderDirty, ShareFontSheet
     }, shader1::batch_meterial::{ProjectUniform, Sdf2TextureSizeUniform, ViewUniform}, system::{base::node::user_setting::StyleChange, utils::{create_project, rotatequad_quad_intersection}}, utils::tools::intersect
 };
+use crate::components::calc::{StyleMarkType, style_bit};
+lazy_static! {
+	pub static ref OTHER_RENDER_DIRTY: StyleMarkType = style_bit()
+        .set_bit(OtherDirtyType::MaskImageTexture as usize)
+        .set_bit(OtherDirtyType::BorderImageTexture as usize)
+		.set_bit(OtherDirtyType::BackgroundImageTexture as usize);
+}
 
 pub fn calc_pass_dirty(
+    // mut global_mark: OrInitSingleRes<GlobalDirtyMark>,
     mut render_dirty: OrInitSingleResMut<RenderDirty>,
-    dirty_list: Event<StyleChange>,
+    style_dirty_list: Event<StyleChange>,
     quad_changed: ComponentChanged<Quad>,
 
     bg_image_changed: ComponentChanged<BackgroundImageTexture>,
     border_image_changed: ComponentChanged<BorderImageTexture>,
+    mask_image_changed: ComponentChanged<MaskTexture>,
     canvas_changed: ComponentChanged<Canvas>,
 
     mut query: Query<(&mut Camera, &ParentPassId)>,
@@ -47,11 +56,12 @@ pub fn calc_pass_dirty(
 
     if render_dirty.0 {
         // 如果渲染脏，则全部脏， 不需要计算各pass的脏
-        dirty_list.mark_read();
+        style_dirty_list.mark_read();
         quad_changed.mark_read();
         bg_image_changed.mark_read();
         border_image_changed.mark_read();
         canvas_changed.mark_read();
+        mask_image_changed.mark_read();
         render_dirty.1 = true;
         return;
     }
@@ -60,7 +70,8 @@ pub fn calc_pass_dirty(
 
     // 用户修改，脏区域发生变化
     // let mut p2 = query_pass.p2();
-    for node_id in dirty_list.iter() {
+    // 样式脏， 引起渲染脏， 设置所在pass和递归父pass的draw_changed
+    for node_id in style_dirty_list.iter() {
         let in_pass_id = match query1.get(**node_id) {
             Ok(r) => r,
             _ => continue,
@@ -71,14 +82,20 @@ pub fn calc_pass_dirty(
     }
 
     // 处理包围盒改变前的区域，与脏区域求并
-    for node_id in quad_changed.iter().chain(bg_image_changed.iter()).chain(border_image_changed.iter()).chain(canvas_changed.iter()) {
-        let in_pass_id = match query1.get(*node_id) {
-            Ok(r) => r,
-            _ => continue,
-        };
-        is_dirty = true;
-        // log::debug!("dirty========other {:?}, {:?}", node_id, in_pass_id);
-        mark_pass_dirty(***in_pass_id, &mut query);
+    if quad_changed.len() > 0 ||
+    bg_image_changed.len() > 0 ||
+    border_image_changed.len() > 0 ||
+    canvas_changed.len() > 0 ||
+    mask_image_changed.len() > 0 {
+        for node_id in quad_changed.iter().chain(bg_image_changed.iter()).chain(border_image_changed.iter()).chain(canvas_changed.iter()).chain(mask_image_changed.iter()) {
+            let in_pass_id = match query1.get(*node_id) {
+                Ok(r) => r,
+                _ => continue,
+            };
+            is_dirty = true;
+            // log::debug!("dirty========other {:?}, {:?}", node_id, in_pass_id);
+            mark_pass_dirty(***in_pass_id, &mut query);
+        }
     }
 
     render_dirty.1 = is_dirty;
@@ -101,7 +118,7 @@ pub fn calc_camera(
             Ticker<&IsShow>,
         ),
     >,
-    // mut query_root: ParamSet<(Query<(&RootDirtyRect, OrDefault<RenderDirty>, Ref<Viewport>)>, Query<&mut RenderDirty>)>,
+
     query_root: Query<Ticker<&Viewport>>,
     font_sheet: SingleRes<ShareFontSheet>,
 	mut instance_context: SingleResMut<InstanceContext>,
@@ -414,15 +431,6 @@ pub fn calc_camera(
     
 }
 
-// pub fn camera_change(mark: SingleRes<GlobalDirtyMark>, view: ComponentChanged<View>, query_root: Query<(), Changed<Viewport>>) -> bool {
-// 	let r = view.len() > 0 
-//         || mark.mark.get(StyleType::Display as usize).map_or(false, |display| {*display == true})
-//         || mark.mark.get(StyleType::Visibility as usize).map_or(false, |display| {*display == true})
-//         || mark.mark.get(StyleType::AsImage as usize).map_or(false, |display| {*display == true})
-//         || query_root.iter().next().is_some();
-// 	view.mark_read();
-// 	r
-// }
 
 pub fn check_render_target(render_target: &mut RenderTarget, as_image: Option<&AsImage>, is_steady: bool) {
     let as_image = match as_image {

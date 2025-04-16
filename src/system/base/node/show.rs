@@ -61,6 +61,10 @@ pub fn calc_show(
 		layer_dirty.mark(entity.0)
 	}
 
+	if remove_events.len() == 0 && layer_dirty.count() == 0 {
+		return;
+	}
+
 	// 已经移除的节点， 设置display为false
 	for entity in remove_events.iter() {
 		if let Ok(mut is_show) = write.get_mut(entity.0) {
@@ -184,6 +188,9 @@ pub fn set_show_data(
 	r: OrInitSingleRes<IsRun>,
 ) {
 	if r.0 {
+		return;
+	}
+	if show_changed.0.len() == 0 {
 		return;
 	}
 	for node in show_changed.0.drain(..) {

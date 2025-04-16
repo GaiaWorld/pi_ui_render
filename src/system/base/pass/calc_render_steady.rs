@@ -38,6 +38,9 @@ pub fn calc_has_animation(
 ) {
 
     let has_animation_chaned = &mut *has_animation_chaned;
+    if changed.len() == 0 && mounted.len() == 0 {
+        return;
+    }
     // 被挂到树上， 可能animation没有改变， 也需要迭代设置
     for i in changed.iter().chain(mounted.iter().map(|r| { &mut r.0 })) {
         if let Ok((animation, up, mut has_animation, layer)) = query.get_mut(*i) {

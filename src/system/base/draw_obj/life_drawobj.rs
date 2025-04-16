@@ -74,8 +74,9 @@ pub fn draw_object_life_new<
 
     // 收集需要删除DrawObject的实体
 	let mut is_delete = false;
+	let p1 = query_meterial.p1();
 	for i in removed.iter() {
-		if let Ok((has_texture, mut draw_list)) = query_meterial.p1().get_mut(*i) {
+		if let Ok((has_texture, mut draw_list)) = p1.get_mut(*i) {
 			if has_texture {
 				continue;
 			}
@@ -108,8 +109,8 @@ pub fn draw_object_life_new<
 	// }
 	let mut is_create = false;
 	if changed.len() > 0 || added.len() > 0 {
+		let p0 = query_meterial.p0();
 		for entity in changed.iter().chain(added.iter()) {
-			let p0 = query_meterial.p0();
 			if let Ok((src, mut draw_list, node)) = p0.get_mut(*entity) {
 				if !src.has_draw() {
 					continue;
@@ -238,8 +239,8 @@ pub fn update_render_instance_data(
 	let mut node_change = node_change(&global_mark);
 	let instances = &mut **instances;
 	log::trace!("life========================node_change={:?}， {:p}", node_change, instances);
+	let p0 = instance_index.p0();
 	for entity in mark_changed.iter() {
-		let p0 = instance_index.p0();
 		if let Ok((post_info, mut instance_index, e, mut fbo, mut render_target)) = p0.get_mut(*entity) {
 			if !post_info.has_effect() && !instance_index.start.is_null() {
 				*fbo = FboInfo::default();
@@ -575,7 +576,7 @@ pub fn update_render_instance_data(
 /// ]
 pub fn batch_instance_data(
 	mut query: BatchQuery,
-	mut query_root: Query<(Entity, &InstanceIndex), With<Root>>, // 只有gui的Root才会有Size
+	query_root: Query<(Entity, &InstanceIndex), With<Root>>, // 只有gui的Root才会有Size
 	query_camera: Query<&'static Camera>,
 	mut instances : OrInitSingleResMut<InstanceContext>,
 ) {
@@ -786,7 +787,7 @@ pub fn batch_instance_data(
 	}
 	instances.pass_toop_list = pass_toop_list;
 
-	for (root, instance_index) in query_root.iter_mut() {
+	for (root, instance_index) in query_root.iter() {
 		// 将当前剩余未批处理的数据合批
 		// log::warn!("root======={:?}", (root, instance_index.start / 224));
 		if !instance_index.start.is_null() {

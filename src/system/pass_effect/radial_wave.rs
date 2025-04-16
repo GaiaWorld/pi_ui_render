@@ -1,5 +1,5 @@
 
-use pi_world::{event::{ComponentAdded, ComponentChanged}, prelude::{App, IntoSystemConfigs, Plugin, Query}};
+use pi_world::{event::ComponentChanged, prelude::{App, IntoSystemConfigs, Plugin}, query::Query};
 use pi_bevy_ecs_extend::prelude::OrInitSingleRes;
 
 use crate::{
@@ -42,7 +42,7 @@ impl Plugin for RadialWavePlugin {
 pub fn radial_wave_post_process(
     mark_type: OrInitSingleRes<RenderContextMarkType<RadialWave>>,
     changed: ComponentChanged<RadialWave>,
-    added: ComponentAdded<RadialWave>,
+    // added: ComponentAdded<RadialWave>,
     mut query: Query<(&RadialWave, &mut PostProcess, &mut PostProcessInfo)>,
     // remove: ComponentRemoved<RadialWave>,
 	r: OrInitSingleRes<IsRun>
@@ -61,9 +61,12 @@ pub fn radial_wave_post_process(
     //         post_list.radial_wave = None;
     //     }
     // }
+    if changed.len() == 0 {
+        return;
+    }
 
 	// RadialWave 如果修改，添加上下文标记， 并设置后处理
-    for entity in changed.iter().chain(added.iter()) {
+    for entity in changed.iter() {
         if let Ok( (radial_wave, mut post_list, mut post_info)) = query.get_mut(*entity) {
             if radial_wave.0.weight == 0.0 {
                 post_info.effect_mark.set(***mark_type, false);
@@ -78,7 +81,7 @@ pub fn radial_wave_post_process(
     }
 }
 
-pub fn radial_wave_changed(changed: ComponentAdded<RadialWave>) -> bool {
+pub fn radial_wave_changed(changed: ComponentChanged<RadialWave>) -> bool {
     let r = changed.len() > 0;
     changed.mark_read();
     r

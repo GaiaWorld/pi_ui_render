@@ -178,7 +178,7 @@ impl Command for FontCfgCmd {
 
 // 添加sdf2字体指令
 #[derive(Clone, Debug)]
-pub struct FontSdf2Cmd(pub Atom, pub Arc<Vec<u8>>);
+pub struct FontSdf2Cmd(pub Atom, pub Share<Vec<u8>>);
 impl Command for FontSdf2Cmd {
     fn apply(self, world: &mut World) {
         let sheet = &****world.get_single_res_mut::<ShareFontSheet>().unwrap();

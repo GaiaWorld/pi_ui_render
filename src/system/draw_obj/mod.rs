@@ -11,7 +11,7 @@ use crate::resource::draw_obj::MaxViewSize;
 use crate::shader1::InstanceData;
 use crate::shader1::batch_meterial::{LayoutUniform, WorldMatrixMeterial};
 
-use super::debug::DebugPlugin;
+// use super::debug::DebugPlugin;
 use crate::system::base::{
 	node::{show, z_index},
 	pass::{last_update_wgpu::last_update_wgpu, pass_life, update_graph::update_graph},
@@ -101,7 +101,7 @@ impl Plugin for UiReadyDrawPlugin {
 			.add_plugins(UiTextPlugin {font_type: self.font_type})
             // svg功能
 		    .add_plugins(SvgPlugin)
-			.add_plugins(DebugPlugin)
+			// .add_plugins(DebugPlugin)
 			;
     }
 }

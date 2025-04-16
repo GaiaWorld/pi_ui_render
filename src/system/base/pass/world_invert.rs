@@ -1,7 +1,4 @@
-// pub fn transform_will_change_post_process(
-//     query_matrix: Query<(&'static WorldMatrix, &'static LayoutResult)>
-// ) {
-// }
+
 
 use pi_bevy_ecs_extend::prelude::{OrInitSingleRes, OrInitSingleResMut};
 use pi_style::style::StyleType;

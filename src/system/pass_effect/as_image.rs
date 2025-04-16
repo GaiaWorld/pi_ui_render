@@ -97,7 +97,10 @@ pub fn as_image_post_process(
     //         }
     //     }
     // }
-    
+    if changed.len() == 0 {
+        return;
+    }
+
     for entity in changed.iter() {
         if let Ok((as_image, mut post_list, mut post_info)) = query.get_mut(*entity) {
             match (as_image.level, as_image.post_process.is_null()) {

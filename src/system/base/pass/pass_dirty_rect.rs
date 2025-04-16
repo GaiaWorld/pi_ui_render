@@ -1,4 +1,4 @@
-use pi_world::{event::Event, fetch::{Mut, Ticker}, param_set::ParamSet, prelude::{Changed, Entity, Or, Query, With}};
+use pi_world::{event::{ComponentChanged, Event}, fetch::{Mut, Ticker}, param_set::ParamSet, prelude::{Changed, Entity, Or, Query, With}};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleRes, Layer};
 
 use pi_style::style::Aabb2;
@@ -41,7 +41,8 @@ pub fn calc_global_dirty_rect(
     // transform_willchange: Query<(&Quad, &ContentBox, &ParentPassId, &TransformWillChangeMatrix, &Overflow), Changed<TransformWillChange>>,
 
     // Canvas改变，脏区域发生变化
-    query_show_change: Query<(&Quad, &InPassId), Changed<Canvas>>,
+    query_show_change: Query<(&Quad, &InPassId), With<Canvas>>,
+    canvas_changed: ComponentChanged<Canvas>,
 
 
     mut query_pass: ParamSet<(
@@ -75,28 +76,38 @@ pub fn calc_global_dirty_rect(
 	}
     // 如果有节点修改了ShowChange，需要设置脏区域
     let mut p2 = query_pass.p2();
-    for (quad, in_pass_id) in query_show_change.iter() {
-        mark_pass_dirty_rect(***in_pass_id, &*quad, &mut p2);
+    if canvas_changed.len() > 0 {
+        for entity in canvas_changed.iter() {
+            if let Ok((quad, in_pass_id)) = query_show_change.get(*entity) {
+                mark_pass_dirty_rect(***in_pass_id, &*quad, &mut p2);
+            }
+        }
+       
     }
+    
 
     // 用户修改，脏区域发生变化
     // let mut p2 = query_pass.p2();
-    for node_id in dirty_list.iter() {
-        let (in_pass_id, quad) = match query_node1.get(**node_id) {
-            Ok(r) => r,
-            _ => continue,
-        };
-		// log::warn!("dirty========{:?}, {:?}", node_id, quad);
-        mark_pass_dirty_rect(***in_pass_id, quad, &mut p2);
+    if dirty_list.len() > 0 {
+        for node_id in dirty_list.iter() {
+            let (in_pass_id, quad) = match query_node1.get(**node_id) {
+                Ok(r) => r,
+                _ => continue,
+            };
+            // log::warn!("dirty========{:?}, {:?}", node_id, quad);
+            mark_pass_dirty_rect(***in_pass_id, quad, &mut p2);
+        }
     }
     // 处理包围盒改变前的区域，与脏区域求并
-    for OldQuad { quad, entity, .. } in quad_olds.iter() {
-        let (in_pass_id, cur_quad) = match query_node1.get(*entity) {
-            Ok(r) => r,
-            _ => continue,
-        };
-        mark_pass_dirty_rect(***in_pass_id, cur_quad, &mut p2);
-        mark_pass_dirty_rect(***in_pass_id, quad, &mut p2);
+    if quad_olds.len() > 0 {
+        for OldQuad { quad, entity, .. } in quad_olds.iter() {
+            let (in_pass_id, cur_quad) = match query_node1.get(*entity) {
+                Ok(r) => r,
+                _ => continue,
+            };
+            mark_pass_dirty_rect(***in_pass_id, cur_quad, &mut p2);
+            mark_pass_dirty_rect(***in_pass_id, quad, &mut p2);
+        }
     }
 
     // // transform_willchange修改后， 或更新父的脏区域
@@ -191,15 +202,17 @@ pub fn calc_global_dirty_rect(
     }
     let p1 = query_pass.p1();
     // 旧的transformwillchange也需要考虑到脏区域中
-    for old_willchange in transform_willchange_olds.iter() {
-        let (mut dirty_rect, _viewport_tracker) = match query_root.get_mut(old_willchange.root) {
-            Ok(r) => r,
-            _ => continue,
-        };
+    if transform_willchange_olds.len() > 0 {
+        for old_willchange in transform_willchange_olds.iter() {
+            let (mut dirty_rect, _viewport_tracker) = match query_root.get_mut(old_willchange.root) {
+                Ok(r) => r,
+                _ => continue,
+            };
 
-        if let Ok((mut pass_dirty_rect, content_box)) = p1.get_mut(old_willchange.inpass_id) {
-            merge_dirty_rect(&mut pass_dirty_rect, &mut dirty_rect, content_box, &old_willchange.matrix);
-            pass_dirty_rect.state = DirtyRectState::UnInit;
+            if let Ok((mut pass_dirty_rect, content_box)) = p1.get_mut(old_willchange.inpass_id) {
+                merge_dirty_rect(&mut pass_dirty_rect, &mut dirty_rect, content_box, &old_willchange.matrix);
+                pass_dirty_rect.state = DirtyRectState::UnInit;
+            }
         }
     }
 }

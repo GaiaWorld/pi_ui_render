@@ -146,27 +146,29 @@ pub fn transform_will_change_post_process(
 
     // 迭代层脏
     let LayerDirty { dirty, dirty_mark_list } = &mut *layer_dirty;
-    for (id, _layer) in dirty.iter() {
-        dirty_mark_list.remove(id);
-        let parent_pass_id = query_parent_pass.get(*id).unwrap();
+    if dirty.count() > 0 {
+        for (id, _layer) in dirty.iter() {
+            dirty_mark_list.remove(id);
+            let parent_pass_id = query_parent_pass.get(*id).unwrap();
 
-        let parent_will_change_matrix = match query_will_change_matrix.p0().get(***parent_pass_id) {
-            Ok(r) => r.clone(),
-            _ => TransformWillChangeMatrix(None),
-        };
-        recursive_set_matrix(
-            *id,
-            parent_will_change_matrix,
-            &query_node1,
-            &query_matrix,
-            &mut query_will_change_matrix.p0(),
-            &query_children,
-            dirty_mark_list,
-            // &mut events_writer,
-        );
+            let parent_will_change_matrix = match query_will_change_matrix.p0().get(***parent_pass_id) {
+                Ok(r) => r.clone(),
+                _ => TransformWillChangeMatrix(None),
+            };
+            recursive_set_matrix(
+                *id,
+                parent_will_change_matrix,
+                &query_node1,
+                &query_matrix,
+                &mut query_will_change_matrix.p0(),
+                &query_children,
+                dirty_mark_list,
+                // &mut events_writer,
+            );
+        }
+
+        layer_dirty.clear();
     }
-
-    layer_dirty.clear();
 }
 
 lazy_static! {

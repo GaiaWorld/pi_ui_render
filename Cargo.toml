@@ -1,6 +1,6 @@
 [package]
 name = "pi_ui_render"
-version = "0.2.3"
+version = "0.2.4"
 authors = ["suncy <suncy@gmail.com>"]
 edition = "2021"
 description = "Renderer 2D UI with Bevy Ecs"
@@ -280,9 +280,9 @@ test = true
 # pi_assets = { path = "../pi_assets" }
 # pi_share = { path = "../pi_share" }
 # wgpu= {path = "../wgpu/wgpu"}
-pi_world = { path = "../pi_world1" }
+pi_world = { path = "../pi_world" }
 # pi_world_macros = { path = "../pi_world/macros" }
-pi_polygon = { path = "../pi_polygon" }
+# pi_polygon = { path = "../pi_polygon" }
 
 # bevy_app = { path = "../bevy/crates/bevy_app" }
 # bevy_ecs = { path = "../bevy/crates/bevy_ecs" }
@@ -298,7 +298,7 @@ pi_polygon = { path = "../pi_polygon" }
 
 # pi_slotmap_tree = { path = "../pi_slotmap_tree" }
 # pi_map = { path = "../pi_map" }
-# pi_flex_layout = { path = "../pi_flex_layout" }
+pi_flex_layout = { path = "../pi_flex_layout0.2" }
 # pi_dirty={path = "../pi_dirty" }
 # pi_spatial = { path="../pi_spatial" }
 
