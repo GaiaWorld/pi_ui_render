@@ -1,7 +1,7 @@
 //! 计算递归子节点是否存在动画， 以优化渲染
 //! 不存在动画的节点， 如果是fbo， 缓存起来， 后续不需要再重复渲染
 use pi_bevy_ecs_extend::prelude::{Layer, Root, OrInitSingleResMut, Up, OrInitSingleRes};
-use pi_world::{event::{ComponentChanged, EventReader}, fetch::Ticker, prelude::{App, Entity, IntoSystemConfigs, Plugin, Query, With}};
+use pi_world::{event::{ComponentChanged, EventReader, ComponentAdded}, fetch::Ticker, prelude::{App, Entity, IntoSystemConfigs, Plugin, Query, With}};
 
 use pi_null::Null;
 
@@ -33,16 +33,17 @@ impl Plugin for RenderSteadyPlugin {
 pub fn calc_has_animation(
     mut query: Query<(Option<&Animation>, &Up, &mut HasAnimation, Ticker<&Layer>)>,
     changed: ComponentChanged<Animation>, // Animation组件一旦创建， 不会再删除, 因此只处理改变
+    added: ComponentAdded<Animation>, // Animation组件一旦创建， 不会再删除, 因此只处理改变
     mounted: EventReader<AddEvent>,
     mut has_animation_chaned: OrInitSingleResMut<HasAnimationChanged>,
 ) {
 
     let has_animation_chaned = &mut *has_animation_chaned;
-    if changed.len() == 0 && mounted.len() == 0 {
+    if changed.len() == 0 && mounted.len() == 0 && added.len() == 0 {
         return;
     }
     // 被挂到树上， 可能animation没有改变， 也需要迭代设置
-    for i in changed.iter().chain(mounted.iter().map(|r| { &mut r.0 })) {
+    for i in changed.iter().chain(added.iter()).chain(mounted.iter().map(|r| { &mut r.0 })) {
         if let Ok((animation, up, mut has_animation, layer)) = query.get_mut(*i) {
             let animation_count = match animation {
                 Some(animation) => animation.name.value.len(),

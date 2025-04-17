@@ -246,6 +246,7 @@ pub fn update_render_instance_data(
 				*fbo = FboInfo::default();
 				*render_target = Default::default();
 				*instance_index = Default::default();
+				log::debug!("delloc pass1======================={:?}", entity);
 			}
 			if !node_change && post_info.has_effect() && instance_index.start.is_null() ||
 				(!post_info.has_effect() && !instance_index.start.is_null())
@@ -427,7 +428,7 @@ pub fn update_render_instance_data(
 			let instance_data_range = &draw_2d_list.instance_range;
 			let mut cur_index = new_instances.cur_index();
 			new_instances.extend(instances.instance_data.slice(instance_data_range.clone()));
-			log::warn!("list_is_change not, entity: {:?}, {:?}", entity, instance_data_range);
+			log::debug!("list_is_change not, entity: {:?}, {:?}", entity, instance_data_range);
 			// 如果新的索引和原有索引不同，需要更新每个draw_obj的实例索引, 如果深度值不同， 需要更新深度值
 			if cur_index != instance_data_range.start {
 				new_instances.update_dirty_range(cur_index..cur_index + instance_data_range.len());
@@ -710,13 +711,12 @@ pub fn batch_instance_data(
 					instances.posts.push(*pass_id);// 后处理节点留在本层渲染末尾处理
 				}
 			}
-
 			// 当需要渲染时， 才需要劈分数据
 			if is_render_own {
 				// let mut instance_data_start = draw_2d_list.instance_range.start;
 				// let mut instance_data_end =  draw_2d_list.instance_range.start;
 				let mut draw_2d_list = std::mem::take(draw_2d_list);
-				// log::warn!("pass_index================{:?}", (pass_index, pass_id));
+				log::debug!("pass_index================{:?}", (pass_index, pass_id, &draw_2d_list));
 				
 				batch_pass(&mut query, &mut batch_state, &mut global_state, instances, &mut draw_2d_list, *pass_id, *pass_id);
 				batch_depth(&mut query, instances, &mut draw_2d_list, &mut 1);
@@ -979,12 +979,13 @@ fn batch_pass(
 				} else {
 					&instances.common_pipeline
 				};
+				log::debug!("ByEntity======{:?}", (pass_id, instance_split));
 
 				if let Some(instance_split) = instance_split {
 					match instance_split {
 						InstanceSplit::ByEntity(entity) => if let Ok((_instance_split, _pipeline, _fbo_info, render_target)) = query.draw_query.get(entity.clone()) {
 							if let Some(t) = &render_target.0 {
-								log::debug!("ByEntity======{:?}", (entity, &t.target().colors[0].0));
+								log::debug!("ByEntity======{:?}", (pass_id, entity, &t.target().colors[0].0));
 								split_by_texture = Some(((*index).clone(), &t.target().colors[0].0, &query.common_sampler.pointer));
 							}
 						},
@@ -1007,7 +1008,7 @@ fn batch_pass(
 							// if node_entity.index() == 159 {
 								// println!("split_by_texture=======node_entity:{:?}, draw_entity:{:?}, {:?}, {:?}", node_entity, draw_entity,  ui_texture.id, a.1);
 							// }
-							log::debug!("ByFbo=========={:?}", ( &ui_texture.as_ref().unwrap().target().colors[0].1));
+							log::debug!("ByFbo=========={:?}", (pass_id, draw_entity, &ui_texture.as_ref().unwrap().target().colors[0].1));
 							split_by_texture = Some((index.clone(), &ui_texture.as_ref().unwrap().target().colors[0].0, &query.common_sampler.default));
 						},
 						InstanceSplit::ByCross(is_list) =>  {
@@ -1057,7 +1058,7 @@ fn batch_pass(
 					instance_data_end1 = instance_data_end;
 					instance_data_end = index.end;
 					if let Some(r) = &render_target.0 {
-						// log::warn!("pass=========={:?}", (cur_pass, index.start/224, &r.target().colors[0].1));
+						log::debug!("pass=========={:?}", (pass_id, cur_pass, index.start/224, &r.target().colors[0].1));
 						split_by_texture = Some((index.clone(), &r.target().colors[0].0, &query.common_sampler.pointer)); // fbo拷贝使用点采样
 
 						// #[cfg(debug_assertions)]

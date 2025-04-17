@@ -2217,7 +2217,7 @@ pub mod serialize {
                 (RESET_STYLE_ATTR[style_index as usize - STYLE_COUNT as usize].set)(unsafe { buffer.as_ptr().add(offset) }, query, entity, is_clone)
             } else if style_index < STYLE_COUNT * 2 {
                 if style_index >= GUI_STYLE_COUNT {
-                    log::warn!("style_index: {}", style_index);
+                    log::debug!("style_index: {}", style_index);
                     (SVGTYPE_ATTR[style_index as usize - 97].set)(unsafe { buffer.as_ptr().add(offset) }, query, entity, is_clone);
                 } else {
                     (STYLE_ATTR[style_index as usize].set)(unsafe { buffer.as_ptr().add(offset) }, query, entity, is_clone);

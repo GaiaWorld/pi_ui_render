@@ -10,7 +10,7 @@ use std::mem::transmute;
 use pi_bevy_render_plugin::{render_cross::GraphId, PiRenderGraph};
 use pi_null::Null;
 use pi_style::{style::StyleType, style_type::AsImageType};
-use pi_world::{event::{ComponentChanged, Event}, prelude::{Changed, Entity, Mut, Query, SingleRes, Ticker}, single_res::SingleResMut};
+use pi_world::{event::{ComponentAdded, ComponentChanged, Event}, prelude::{Changed, Entity, Mut, Query, SingleRes, Ticker}, single_res::SingleResMut};
 use pi_bevy_ecs_extend::prelude::{Layer, OrInitSingleRes, OrInitSingleResMut};
 
 use pi_render::renderer::draw_obj::DrawBindGroup;
@@ -44,7 +44,7 @@ pub fn calc_pass_dirty(
     bg_image_changed: ComponentChanged<BackgroundImageTexture>,
     border_image_changed: ComponentChanged<BorderImageTexture>,
     mask_image_changed: ComponentChanged<MaskTexture>,
-    canvas_changed: ComponentChanged<Canvas>,
+    canvas_changed: ComponentChanged<Canvas>, // canvas一定需要修改
 
     mut query: Query<(&mut Camera, &ParentPassId)>,
     query1: Query<&InPassId>,
@@ -149,11 +149,7 @@ pub fn calc_camera(
         }
         // box_aabb(&mut all_dirty_rect, &view_port.0);
     }
-    let mut render_dirty1 = render_dirty.0;
-    #[cfg(debug_assertions)]
-    {
-        render_dirty1 = true;
-    }
+    let render_dirty1 = render_dirty.0;
     render_dirty.0 = false;
 
     let mut is_render_own_changed = false;
@@ -190,7 +186,7 @@ pub fn calc_camera(
         let old_is_render_own = camera_bypass.is_render_own;
         let old_is_render_to_parent = camera_bypass.is_render_to_parent;
         camera_bypass.is_render_own = false;
-        log::debug!("camera.is_render_own = {:?};", (entity, camera_bypass.draw_changed, render_dirty1, view_port_is_dirty, as_image, &render_target.cache));
+        // log::debug!("camera.is_render_own = {:?};", (entity, camera_bypass.draw_changed, render_dirty1, view_port_is_dirty, as_image, &render_target.cache));
         let local_dirty_mark = camera_bypass.draw_changed || render_dirty1 || view_port_is_dirty;
         // local_dirty_mark = true;
         camera_bypass.draw_changed = false;
@@ -251,7 +247,7 @@ pub fn calc_camera(
 
                 // log::debug!("viewport======={:?}, \nview_aabb={:?}, \noverflow_aabb={:?}, \ndirty_rect={:?}", entity, no_rotate_view_aabb, overflow_aabb, dirty_rect);
 
-        log::debug!("pass_id2 22========={:?}, {:?}", entity, (&*dirty_rect, overflow_aabb, !is_show.get_visibility(), !is_show.get_display()));
+        log::debug!("pass_id2 22========={:?}, {:?}", entity, (&*dirty_rect, overflow_aabb, no_rotate_view_aabb, !is_show.get_visibility(), !is_show.get_display()));
         if no_rotate_view_aabb.mins.x >= no_rotate_view_aabb.maxs.x || no_rotate_view_aabb.mins.y >= no_rotate_view_aabb.maxs.y {
             // 如果视口为0， 则不需要渲染
             return old_is_render_own != camera_bypass.is_render_own;

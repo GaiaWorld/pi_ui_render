@@ -100,6 +100,7 @@ pub struct BuildParam<'w> {
 	instance_draw: OrInitSingleResMut<'w, InstanceContext>,
 
 	canvas_render_type: OrInitSingleRes<'w, CanvasRenderObjType>,
+	
 }
 
 #[derive(SystemParam)]
@@ -117,7 +118,7 @@ pub struct Param<'w> {
     screen: SingleRes<'w, ScreenTarget>,
     surface: SingleRes<'w, PiScreenTexture>,
 	instance_draw: OrInitSingleRes<'w, InstanceContext>,
-	
+	query_parent: Query<'w, &'static ParentPassId>,
 	
 }
 
@@ -172,7 +173,7 @@ impl Node for Pass2DNode {
 			target: None,
 			valid_rect: None,
 		};
-		log::trace!("build======{:?}", (pass2d_id, _id));
+		log::debug!("build======{:?}", (pass2d_id, _id, _from, to));
 		// let t1 = std::time::Instant::now();
 		// let mut param = query_param_state.get_mut(world);
 		// pass2d_id为null， 表示一个空节点， 空节点在全局只会有一个， 用于将所有根节点渲染到屏幕
@@ -351,7 +352,7 @@ impl Node for Pass2DNode {
 				) {
 					
 					Some(r) => {
-						log::debug!("alloc=============={:?}", (pass2d_id, /* r.index, */ &r.target().colors[0].1, r.rect(), r.uv_box()));
+						
 						// for i in input.0.values() {
 						// 	if let Some(t) = &i.target {
 						// 		log::warn!("alloc input =============={:?}", (pass2d_id, r.index, &t.target().colors[0].1));
@@ -683,9 +684,12 @@ impl Node for Pass2DNode {
 				} else {
 					if let Ok((camera, _render_target)) = param.pass2d_query.get(element.1) {
 						if !camera.is_render_own {
+							// log::warn!("is_render_own false====================={:?}", element.1);
 							// 自身不渲染， 则跳过
 							i += 1;
 							continue;
+						} else {
+							// log::warn!("is_render_own true====================={:?}", element.1);
 						}
 					}
 					let (fbo1, _out_target1) = param.fbo_query.get(element.1).unwrap();
@@ -700,7 +704,8 @@ impl Node for Pass2DNode {
 						}
 					}
 				};
-				log::debug!("create_rp1============={:?}", (pass2d_id, &element.1));
+				
+				log::debug!("create_rp1============={:?}", (pass2d_id, &element.1, param.query_parent.get(element.1), &rt));
 				rp = create_rp(
 					&rt,
 					&mut commands,
@@ -750,8 +755,11 @@ impl Node for Pass2DNode {
 					} else {
 						if let Ok((camera, _render_target)) = param.pass2d_query.get(element.1) {
 							if !camera.is_render_own {
+								// log::warn!("is_render_own false1====================={:?}", element.1);
 								// 自身不渲染， 则跳过
 								continue;
+							} else {
+								// log::warn!("is_render_own true1====================={:?}", element.1);
 							}
 						}
 						let (fbo1, _out_target1) = param.fbo_query.get(element.1).unwrap();
@@ -768,7 +776,7 @@ impl Node for Pass2DNode {
 					};
 
 					if !t.eq(&rt) {
-						// log::warn!("create_rp2============={:?}", (pass2d_id, &element.1, &t));
+						log::debug!("create_rp2============={:?}", (pass2d_id, &element.1, param.query_parent.get(element.1), &t));
 						{let _a = rp;} // 释放
 						rp = create_rp(
 							&t,
@@ -909,7 +917,7 @@ impl Node for Pass2DNode {
 								// final_draw
 								let render_target_rect = final_target.rect();
 								rp = create_rp_for_fbo1(final_target, &mut commands, None);
-								// log::warn!("create_rp post============={:?}", (post_pass_id, &final_target.target().colors[0].1));
+								log::debug!("create_rp post============={:?}", (post_pass_id, &final_target.target().colors[0].1));
 								let view_port = (
 									render_target_rect.min.x as f32, 
 									render_target_rect.min.y as f32,

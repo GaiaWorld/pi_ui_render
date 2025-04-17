@@ -1,5 +1,6 @@
 use pi_style::style::StyleType;
 use pi_world::app::App;
+use pi_world::event::{ComponentAdded, ComponentChanged};
 use pi_world::filter::With;
 use pi_world::prelude::{ComponentRemoved, IntoSystemConfigs};
 use pi_bevy_ecs_extend::prelude::OrInitSingleRes;
@@ -43,7 +44,8 @@ pub fn blur_post_process(
     mark_type: OrInitSingleRes<RenderContextMarkType<Blur>>,
     mut query: Query<(&Blur, &mut PostProcess, &mut PostProcessInfo), With<Blur>>,
     // remove: ComponentRemoved<Blur>, // 不可移除
-    changed: ComponentRemoved<Blur>, // 不可移除
+    changed: ComponentChanged<Blur>, // 不可移除
+    added: ComponentAdded<Blur>, // 不可移除
 	r: OrInitSingleRes<IsRun>
 ) {
 	if r.0 {
@@ -59,11 +61,8 @@ pub fn blur_post_process(
     //         post_info.effect_mark.set(***mark_type, false);
     //     }
     // }
-    if changed.len() == 0 {
-        return;
-    }
 
-    for entity in changed.iter() {
+    for entity in changed.iter().chain(added.iter()) {
         if let Ok ((blur, mut post_list, mut post_info)) = query.get_mut(*entity) {
             if **blur > 0.0 {
                 post_list.blur_dual = Some(BlurDual {

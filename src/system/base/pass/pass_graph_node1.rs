@@ -647,7 +647,7 @@ impl Node for Pass2DNode {
 			if !EntityKey(pass2d_id).is_null() {
 				return Ok(());
 			}
-			log::warn!("draw=========================");
+			log::debug!("draw=========================");
 
 			log::debug!("draw_elements======{:?}", &param.instance_draw.draw_list.len());
 			if param.instance_draw.draw_list.len() == 0 {
@@ -696,7 +696,7 @@ impl Node for Pass2DNode {
 			// log::warn!("draw_list============={:?}", (param.instance_draw.draw_list.len(), &param.instance_draw.draw_list));
 			// let mut ii = 0;
 			for element in param.instance_draw.draw_list.iter() {
-				log::warn!("element============={:?}, {:?}", fbo_pass_id, element.1);
+				log::debug!("element============={:?}, {:?}", fbo_pass_id, element.1);
 				// ii += 1;
 				let t = if EntityKey(element.1).is_null() {
 					RPTarget::Screen(&surface, &param.screen.depth)

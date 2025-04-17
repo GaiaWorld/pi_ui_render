@@ -73,6 +73,7 @@ impl Example for ExampleCommonPlay {
             play_way: "path".to_string(),
             jemalloc: false,
             play_mod: PlayMod::Normal,
+            render_debug: false,
 		};
         #[cfg(target_os = "android")]
         let config = include_str!("source/run_config.txt");
@@ -104,6 +105,8 @@ impl Example for ExampleCommonPlay {
                         "repeat_last" => PlayMod::RepeatLast,
                         _ => PlayMod::Normal,
                     };
+                } else if key == "render_debug" {
+                    option.render_debug = value.trim().parse().unwrap();
                 }
             }
         }

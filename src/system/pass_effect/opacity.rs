@@ -1,6 +1,6 @@
 
 use pi_style::style::StyleType;
-use pi_world::{app::App, event::ComponentChanged, prelude::{IntoSystemConfigs, Plugin}, query::Query, single_res::SingleRes};
+use pi_world::{app::App, event::{ComponentChanged, ComponentAdded}, prelude::{IntoSystemConfigs, Plugin}, query::Query, single_res::SingleRes};
 use pi_bevy_ecs_extend::prelude::OrInitSingleRes;
 
 use crate::{components::user::Opacity, resource::{GlobalDirtyMark, IsRun, RenderContextMarkType}, system::{base::pass::pass_life::{self, pass_mark}, system_set::UiSystemSet}};
@@ -33,7 +33,7 @@ impl Plugin for OpacityPlugin {
 pub fn opacity_post_process(
     mark_type: OrInitSingleRes<RenderContextMarkType<Opacity>>,
     opacity_change: ComponentChanged<Opacity>,
-    // opacity_added: ComponentAdded<Opacity>,
+    opacity_added: ComponentAdded<Opacity>,
     mut query: Query<(&Opacity, &mut PostProcess, &mut PostProcessInfo)>,
     // remove: ComponentRemoved<Opacity>,
 	r: OrInitSingleRes<IsRun>
@@ -52,11 +52,8 @@ pub fn opacity_post_process(
     //         render_mark_false(***mark_type, &mut render_mark_value);
     //     }
     // }
-    if opacity_change.len() == 0 {
-        return;
-    }
    
-    for entity in opacity_change.iter() {
+    for entity in opacity_change.iter().chain(opacity_added.iter()) {
         if let Ok((opacity, mut post_list, mut post_info)) = query.get_mut(*entity) {
             log::debug!("opacity: {:?}", (entity, **opacity));
             if **opacity >= 1.0 {

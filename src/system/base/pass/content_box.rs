@@ -2,7 +2,7 @@
 //! 内容包围盒是指： **自身+递归子节点**的包围盒
 
 use pi_style::style::TransformWillChange;
-use pi_world::{event::ComponentChanged, prelude::{App, IntoSystemConfigs, Plugin}, query::Query};
+use pi_world::{event::{ComponentChanged, ComponentAdded}, prelude::{App, IntoSystemConfigs, Plugin}, query::Query};
 use pi_bevy_ecs_extend::prelude::{ EntityTree, OrInitSingleResMut};
 use crate::{resource::MatrixDirty, system::{base::node::world_matrix::cal_matrix, system_set::UiSystemSet}};
 use pi_bevy_ecs_extend::system_param::layer_dirty::{RemainDirty, OutDirty};
@@ -35,8 +35,8 @@ pub fn calc_content_box(
     entity_tree: EntityTree,
     text_shadow_dirty: ComponentChanged<TextShadow>,
     box_shadow_dirty: ComponentChanged<BoxShadow>,
-    // text_shadow_add: ComponentAdded<TextShadow>, // 必定先先创建， 在修改
-    // box_shadow_add: ComponentAdded<BoxShadow>, // 必定先先创建， 在修改
+    text_shadow_added: ComponentAdded<TextShadow>, 
+    box_shadow_added: ComponentAdded<BoxShadow>, 
     mut content_box: Query<(&mut ContentBox, Option<&TransformWillChange>, Option<&TransformWillChangeMatrix>)>,
 	// r: OrInitSingleRes<IsRun>
 ) {
@@ -44,11 +44,10 @@ pub fn calc_content_box(
 	// 	return;
 	// }
     let dirty = &mut ***dirty;
-    if text_shadow_dirty.len() == 0 && box_shadow_dirty.len() == 0 {
-        return;
-    }
-    for i in text_shadow_dirty.iter().chain(box_shadow_dirty.iter()) {
-        dirty.marked_dirty(*i, *i, &entity_tree);
+    if text_shadow_dirty.len() > 0 || box_shadow_dirty.len() > 0 || text_shadow_added.len() > 0 || box_shadow_added.len() > 0 {
+        for i in text_shadow_dirty.iter().chain(box_shadow_dirty.iter()).chain(text_shadow_added.iter()).chain(box_shadow_added.iter()) {
+            dirty.marked_dirty(*i, *i, &entity_tree);
+        }
     }
 
     if dirty.dirty.count() == 0 {
@@ -157,7 +156,7 @@ pub fn calc_content_box(
                 chilren_change = true;
             }
 
-            // log::debug!("content_box===================={:?}", (id, &old.oct, &oct, chilren_change));
+            log::debug!("content_box===================={:?}", (id, &old.oct, &oct, chilren_change));
             // 如果内容包围盒发生改变，则重新插入内容包围盒，并标记父脏
             if chilren_change {
                 old.oct = oct;

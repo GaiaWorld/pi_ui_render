@@ -2,7 +2,7 @@
 
 use pi_assets::homogeneous::HomogeneousMgr;
 use pi_style::style::StyleType;
-use pi_world::{event::ComponentChanged, prelude::{App, IntoSystemConfigs, Plugin, Query}, single_res::SingleRes};
+use pi_world::{event::{ComponentAdded, ComponentChanged}, prelude::{App, IntoSystemConfigs, Plugin, Query}, single_res::SingleRes};
 use pi_bevy_ecs_extend::prelude::OrInitSingleRes;
 
 use pi_bevy_asset::{Allocator, AssetConfig};
@@ -74,6 +74,7 @@ pub fn as_image_post_process(
     // )>,
     mut query: Query<(&AsImage, &mut PostProcess, &mut PostProcessInfo)>,
     changed: ComponentChanged<AsImage>,
+    added: ComponentAdded<AsImage>,
 
     // removed: ComponentRemoved<AsImage>, // asImage不可移除， 设置为None来设置默认值
 	r: OrInitSingleRes<IsRun>
@@ -97,11 +98,8 @@ pub fn as_image_post_process(
     //         }
     //     }
     // }
-    if changed.len() == 0 {
-        return;
-    }
 
-    for entity in changed.iter() {
+    for entity in changed.iter().chain(added.iter()) {
         if let Ok((as_image, mut post_list, mut post_info)) = query.get_mut(*entity) {
             match (as_image.level, as_image.post_process.is_null()) {
                 (pi_style::style::AsImage::None, true) => {
@@ -111,7 +109,7 @@ pub fn as_image_post_process(
                     }
                 }
                 _ => {
-                    log::warn!("as_image================{:?}, {:?}, {:?}", as_image.post_process.is_null(), post_list.copy.is_some(), post_info.effect_mark.get(***overflow_mark_type).as_deref() != Some(&true));
+                    log::debug!("as_image================{:?}, {:?}, {:?}", as_image.post_process.is_null(), post_list.copy.is_some(), post_info.effect_mark.get(***overflow_mark_type).as_deref() != Some(&true));
                     if as_image.post_process.is_null() && post_list.copy.is_some() && post_info.effect_mark.get(***overflow_mark_type).as_deref() != Some(&true){
                         let mut effect_mark = post_info.effect_mark.clone();
                         effect_mark.set(***mark_type, false);

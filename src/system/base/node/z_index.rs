@@ -29,7 +29,7 @@
 use std::ops::Range;
 
 use pi_style::style::StyleType;
-use pi_world::event::{ComponentChanged, Event};
+use pi_world::event::{ComponentAdded, ComponentChanged, Event};
 use pi_world::fetch::Ticker;
 use pi_world::prelude::{With, Query, Entity};
 use pi_bevy_ecs_extend::prelude::{DirtyMark, EntityTree, Layer, LayerDirty, OrInitSingleRes, OrInitSingleResMut};
@@ -79,13 +79,14 @@ pub fn calc_zindex(
     // mut dirtys: LayerDirty<((Changed<Layer>, Changed<ZIndex>), With<Size>)>,
     mut ranges: Query<&mut ZRange>,
     chaned: ComponentChanged<ZIndex>,
+    added: ComponentAdded<ZIndex>,
 	r: OrInitSingleRes<IsRun>,
 ) {
 	if r.0 {
 		return;
 	}
 
-    if global_mark.get(OtherDirtyType::NodeTreeAdd as usize).as_deref() == Some(&false) && chaned.len() == 0 {
+    if global_mark.get(OtherDirtyType::NodeTreeAdd as usize).as_deref() == Some(&false) && chaned.len() == 0 && added.len() == 0{
         return;
     }
     if global_mark.get(OtherDirtyType::NodeTreeAdd as usize).as_deref() == Some(&true) {
@@ -99,8 +100,10 @@ pub fn calc_zindex(
                 }
             }
         }
+        chaned.mark_read();
+        added.mark_read();
     } else {
-        for i in chaned.iter() {
+        for i in chaned.iter().chain(added.iter()) {
         
             if let Ok((layer, _zindex)) = query_dirty.get(*i) {
                 // println!("calc_zindex1============{:?}, {:?}", i.0, (!layer.layer().is_null(), layer.is_changed(), zindex.is_changed()));
@@ -111,7 +114,7 @@ pub fn calc_zindex(
             }
         }
     }
-    chaned.mark_read();
+  
     
 
     // zindex发生变化， 实例需要重新排序

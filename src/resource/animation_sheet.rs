@@ -234,7 +234,6 @@ impl KeyFramesSheet {
     // 推动动画
     pub fn run(&mut self, style_commands: &mut StyleCommands, delta_ms: u64) {
         // self.run_count += 1;
-        // log::warn!("run=========");
         self.runtime_info_map.reset();
         self.animation_context_amount.anime_curve_calc(delta_ms, &mut self.runtime_info_map);
         for i in self.type_use_mark.iter_ones() {

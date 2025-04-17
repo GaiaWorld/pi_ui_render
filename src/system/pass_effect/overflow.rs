@@ -90,7 +90,6 @@ pub fn overflow_post_process(
     };
     // 从根节点遍历， 修改OverflowAabb
     for root in roots.iter() {
-        // log::warn!("root======{:?}", root);
         // log::warn!("recursive_cal_overflow======{:?}, {:?}", pass_mut.get_mut(root).is_ok(), pass_read1.get(root));
 
         recursive_cal_overflow(
@@ -151,7 +150,7 @@ fn recursive_cal_overflow(
             parent_is_change || world_matrix.is_changed() || will_change.is_changed() || overflow_is_change || layer.is_changed();
 
         let world_matrix = &*world_matrix;
-        log::trace!("is_change======{:?}, overflow: {:?}, \nparent_aabb: {:?}", is_change, overflow, parent_aabb);
+        log::debug!("is_change======id: {:?}, is_change:{:?}, overflow: {:?}, \nparent_aabb: {:?}", id, is_change, overflow, parent_aabb);
         if is_change {
             let matrix_temp;
             let matrix = match &will_change.0 {
@@ -291,7 +290,7 @@ fn recursive_cal_overflow(
                     // log::warn!("overflow================id:{:?}, \nr:{:?}, \nlayout: {:?}, \nwill_change:{:?}, \nmatrix: {:?}, \nparent_aabb: {:?}, \nquad: {:?}, \nquad1: {:?}", 
                     // id, &r, &content_box.layout, &will_change.0, &world_matrix, &parent_aabb.aabb, quad, quad1);
                 // }
-                log::trace!("overflow4=========={:?}", (id, &quad1, &parent_aabb.aabb, &r));
+                log::debug!("overflow4=========={:?}", (id, &quad1, &parent_aabb.aabb, &r));
                 
                 *oveflow_aabb = View {
                     desc: OverflowDesc::NoRotate(quad1.clone()),

@@ -1,4 +1,4 @@
-use pi_world::{event::{ComponentChanged, Event}, fetch::{Mut, Ticker}, param_set::ParamSet, prelude::{Changed, Entity, Or, Query, With}};
+use pi_world::{event::{ComponentAdded, ComponentChanged, Event}, fetch::{Mut, Ticker}, param_set::ParamSet, prelude::{Changed, Entity, Or, Query, With}};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleRes, Layer};
 
 use pi_style::style::Aabb2;
@@ -43,6 +43,7 @@ pub fn calc_global_dirty_rect(
     // Canvas改变，脏区域发生变化
     query_show_change: Query<(&Quad, &InPassId), With<Canvas>>,
     canvas_changed: ComponentChanged<Canvas>,
+    canvas_added: ComponentAdded<Canvas>,
 
 
     mut query_pass: ParamSet<(
@@ -76,8 +77,8 @@ pub fn calc_global_dirty_rect(
 	}
     // 如果有节点修改了ShowChange，需要设置脏区域
     let mut p2 = query_pass.p2();
-    if canvas_changed.len() > 0 {
-        for entity in canvas_changed.iter() {
+    if canvas_changed.len() > 0 || canvas_added.len() > 0 {
+        for entity in canvas_changed.iter().chain(canvas_added.iter()) {
             if let Ok((quad, in_pass_id)) = query_show_change.get(*entity) {
                 mark_pass_dirty_rect(***in_pass_id, &*quad, &mut p2);
             }
