@@ -15,6 +15,8 @@
 //! 4. 在节点上创建其所在的Pass2D实体的索引（InPass2DId），表明节点上的渲染对象应该渲染到那个Psss2D上。
 //!
 //!
+use std::collections::VecDeque;
+
 use pi_bevy_render_plugin::{render_cross::GraphId, NodeId, PiRenderGraph};
 use pi_slotmap::SecondaryMap;
 use pi_style::style::Aabb2;
@@ -267,16 +269,16 @@ pub fn calc_pass_toop_sort(
     next_node_with_depend.clear();
     // log::debug!("calc_pass_toop_sort, temp_len:{:?}", temp.0.len());
     
-    let mut temp_before = Vec::new();
+    let mut temp_before = VecDeque::new();
     for i in query_root.iter() {
         temp.1.push(i.0.clone());
     }
-    temp_before.push(&temp.1[0..temp.1.len()]);
+    temp_before.push_back(&temp.1[0..temp.1.len()]);
     log::debug!("temp_before======{:?}", &temp_before);
 
     // 遍历所有节点，在temp.0中放入所有的叶子节点，并将每个节点的前置依赖数量放入temp.3中缓存
     loop  {
-        let node_ids = match  temp_before.pop() {
+        let node_ids = match  temp_before.pop_front() {
             Some(node_ids) => node_ids,
             None => break,
         };
@@ -289,7 +291,7 @@ pub fn calc_pass_toop_sort(
                     log::debug!("temp_before2======node_id:{:?}, before: {:?}", node_id, &before);
                     temp.3.insert(node_id.clone(), (before.len(), false));
                     if before.len() > 0 {
-                        temp_before.push(before);
+                        temp_before.push_back(before);
                     } else {
                         temp.0.push(node_id.clone()); // 如果没有后续节点， 则加入当前列表(叶子节点列表)
                     }

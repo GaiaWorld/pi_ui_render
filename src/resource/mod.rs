@@ -18,6 +18,7 @@ use pi_share::{Share, ShareCell};
 use pi_style::style::{Aabb2, CgColor};
 use pi_world::world::ComponentIndex;
 use pi_key_alloter::Key;
+use smallvec::SmallVec;
 
 use std::marker::{ConstParamTy, PhantomData};
 use std::mem::transmute;
@@ -117,6 +118,9 @@ pub struct UserCommands {
     // pub text_commands: Vec<(Entity, Option<TextContent>)>,
     /// class指令(class指令单独放，使得class设置可以在style设置之后执行，性能会更高，因为style设置了的属性，class不会再重复设置)
     pub class_commands: Vec<(Entity, ClassName)>,
+
+    /// selector指令
+    pub selector_commands: Vec<(Entity, ClassName)>,
 
     // css 内容增加指令
     // pub css_commands: Vec<ClassSheet>,
@@ -308,6 +312,11 @@ impl UserCommands {
 		self
     }
 
+    pub fn set_selector(&mut self, entity: Entity, value: ClassName) -> &mut Self {
+        self.selector_commands.push((entity, value));
+		self
+    }
+
     /// 添加指令
     pub fn push_cmd<T: Command>(&mut self, cmd: T) -> &mut Self {
         // println_any!("push_cmd===={:?}", 1);
@@ -399,14 +408,14 @@ impl UserCommands {
     }
 
     /// 设置渲染脏
-    pub fn set_render_dirty(&mut self, _node: Entity, _cmd: RenderDirty) -> &mut Self {
+    pub fn set_render_dirty(&mut self, _node: Entity, cmd: RenderDirty) -> &mut Self {
         // println_any!("push_cmd===={:?}", 1);
         // let r = NodeCmd(cmd, node);
 
-        // #[cfg(feature = "debug")]
-        // self.other_commands_list.push(CmdType::NodeCmdRenderRenderDirty(r.clone()));
+        #[cfg(feature = "debug")]
+        self.other_commands_list.push(CmdType::NodeCmdRenderRenderDirty(RenderDirtyCmd(cmd.clone())));
 
-        // self.other_commands.push(r);
+        self.other_commands.push(RenderDirtyCmd(cmd));
 		self
     }
 

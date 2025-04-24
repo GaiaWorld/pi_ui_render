@@ -9,8 +9,7 @@ use std::mem::transmute;
 
 use pi_bevy_render_plugin::{render_cross::GraphId, PiRenderGraph};
 use pi_null::Null;
-use pi_style::{style::StyleType, style_type::AsImageType};
-use pi_world::{event::{ComponentAdded, ComponentChanged, Event}, prelude::{Changed, Entity, Mut, Query, SingleRes, Ticker}, single_res::SingleResMut};
+use pi_world::{event::{ComponentAdded, ComponentChanged, Event}, prelude::{Entity, Mut, Query, SingleRes, Ticker}, single_res::SingleResMut};
 use pi_bevy_ecs_extend::prelude::{Layer, OrInitSingleRes, OrInitSingleResMut};
 
 use pi_render::renderer::draw_obj::DrawBindGroup;
@@ -24,7 +23,7 @@ use crate::{
             Camera, IsSteady, ParentPassId, PostProcessInfo, RenderTarget, RenderTargetCache, StrongTarget
         }, user::{Aabb2, AsImage, Canvas, Point2, Vector2, Viewport}
     }, resource::{
-        draw_obj::{InstanceContext, TargetCacheMgr}, GlobalDirtyMark, IsRun, OtherDirtyType, RenderDirty, ShareFontSheet
+        draw_obj::{InstanceContext, TargetCacheMgr}, IsRun, OtherDirtyType, RenderDirty, ShareFontSheet
     }, shader1::batch_meterial::{ProjectUniform, Sdf2TextureSizeUniform, ViewUniform}, system::{base::node::user_setting::StyleChange, utils::{create_project, rotatequad_quad_intersection}}, utils::tools::intersect
 };
 use crate::components::calc::{StyleMarkType, style_bit};
@@ -126,6 +125,7 @@ pub fn calc_camera(
     assets: SingleRes<TargetCacheMgr>,
 	r: OrInitSingleRes<IsRun>,
 ) {
+    log::debug!("calc_camera===============================");
 	if r.0 {
 		return;
 	}
@@ -153,8 +153,6 @@ pub fn calc_camera(
     render_dirty.0 = false;
 
     let mut is_render_own_changed = false;
-
-    // log::debug!("calc camera=========", );
 
     let calc_camera = |
         (
@@ -184,7 +182,6 @@ pub fn calc_camera(
 
         let camera_bypass = camera.bypass_change_detection();
         let old_is_render_own = camera_bypass.is_render_own;
-        let old_is_render_to_parent = camera_bypass.is_render_to_parent;
         camera_bypass.is_render_own = false;
         // log::debug!("camera.is_render_own = {:?};", (entity, camera_bypass.draw_changed, render_dirty1, view_port_is_dirty, as_image, &render_target.cache));
         let local_dirty_mark = camera_bypass.draw_changed || render_dirty1 || view_port_is_dirty;
@@ -200,7 +197,13 @@ pub fn calc_camera(
             // 因为， 如果将其缓存，直到重新设置为可见， 中间发生了哪些改变不可知，也不知道fbo是否需要重新渲染， 因此，直接释放掉
             render_target.target = StrongTarget::None;
             render_target.cache = RenderTargetCache::None;
-			return old_is_render_own != camera_bypass.is_render_own;
+            if camera_bypass.is_visible {
+                camera_bypass.is_visible = false; // 设置为不可见
+                camera_bypass.view_port = Aabb2::new(Point2::new(0.0, 0.0), Point2::new(0.0, 0.0));
+                return true; // 返回true，表示需要重新批处理
+            }
+            
+			return old_is_render_own != camera.is_render_own;
 		}
 
         let view_port = match query_root.get(layer.root()) {
@@ -250,6 +253,11 @@ pub fn calc_camera(
         log::debug!("pass_id2 22========={:?}, {:?}", entity, (&*dirty_rect, overflow_aabb, no_rotate_view_aabb, !is_show.get_visibility(), !is_show.get_display()));
         if no_rotate_view_aabb.mins.x >= no_rotate_view_aabb.maxs.x || no_rotate_view_aabb.mins.y >= no_rotate_view_aabb.maxs.y {
             // 如果视口为0， 则不需要渲染
+            if camera_bypass.is_visible {
+                camera_bypass.is_visible = false; // 设置为不可见
+                camera_bypass.view_port = no_rotate_view_aabb;
+                return true; // 返回true，表示需要重新批处理
+            }
             return old_is_render_own != camera_bypass.is_render_own;
         }
 
@@ -314,7 +322,8 @@ pub fn calc_camera(
             // world_matrix: world_matrix.clone(),
             is_render_own: true,
             draw_changed: false,
-            is_render_to_parent: old_is_render_to_parent,
+            is_render_to_parent: camera.is_render_to_parent,
+            is_visible: true,
         };
 
         // 删除原有缓冲（内容发生改变会重新渲染， 原有缓冲没有作用）
@@ -492,7 +501,7 @@ pub fn calc_pass_active(
     mut query: Query<(&mut Camera, &PostProcessInfo, &ParentPassId, &GraphId)>,
 	r: OrInitSingleRes<IsRun>,
     mut render_dirty: OrInitSingleResMut<RenderDirty>,
-    instance_context: OrInitSingleRes<InstanceContext>,
+    mut instance_context: OrInitSingleResMut<InstanceContext>,
     mut rg: SingleResMut<PiRenderGraph>,
 ) {
 	if r.0 {
@@ -506,6 +515,7 @@ pub fn calc_pass_active(
     if !is_dirty {
         return;
     }
+    let instance_context = &mut **instance_context;
 
     let q1: &Query<(&mut Camera, &PostProcessInfo, &ParentPassId, &GraphId)> = unsafe {transmute(&query)};
     // log::debug!("calc_pass_active======{:?}", (instance_context.pass_toop_list.len(), render_dirty.1, render_dirty.2));
@@ -515,6 +525,8 @@ pub fn calc_pass_active(
             let camera = camera.bypass_change_detection();
             if parent_pass.0.is_null() {
                 camera.is_render_to_parent = true;
+            } else if !camera.is_visible {
+                camera.is_render_to_parent = false;
             } else {
                 while let Ok((c1, p1, pp1, _)) = q1.get(parent_pass.0.0) {
                     if !p1.has_effect() {
@@ -525,13 +537,18 @@ pub fn calc_pass_active(
                     camera.is_render_to_parent = c1.is_render_own;
                     // log::debug!("set======{:?}", (node, parent_pass.0.0, graph_id.0, camera.is_render_to_parent, camera.is_render_own, c1.is_render_own, ));
                     camera.is_render_own = camera.is_render_own && c1.is_render_own;
+                    // if !camera.is_render_own {
+                    //     log::debug!("camera.is_render_own= false================={:?}", (node, parent_pass.0.0, camera.is_render_own, c1.is_render_own));
+                    // }
                     break;
                     
                 } 
             }
             // log::debug!("set_enable======{:?}", (node, graph_id.0, camera.is_render_to_parent, camera.is_render_own ));
             if old_is_render_to_parent != camera.is_render_to_parent {
+                log::debug!("set_enable======{:?}", (node, graph_id.0, camera.is_render_to_parent));
                 let _ = rg.set_enable(graph_id.0, camera.is_render_to_parent);
+                instance_context.rebatch = true;
             }
         }
     }

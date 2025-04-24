@@ -7,6 +7,7 @@ use pi_world::prelude::{With, Query, Entity, Ticker};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleRes, Layer, Root};
 use pi_world::single_res::SingleRes;
 
+use crate::components::calc::RenderContextMark;
 use crate::resource::{GlobalDirtyMark, IsRun};
 use crate::system::base::pass::{content_box, pass_life};
 use crate::system::system_set::UiSystemSet;
@@ -67,8 +68,10 @@ pub fn overflow_post_process(
         &'static ChildrenPass,
         Option<Ticker<&Overflow>>,
         Ticker<&'static Layer>,
+        &'static RenderContextMark,
     )>,
     mark_type: OrInitSingleRes<RenderContextMarkType<Overflow>>,
+    mark_type1: OrInitSingleRes<RenderContextMarkType<crate::components::user::Hsi>>,
     as_image_mark_type: OrInitSingleRes<RenderContextMarkType<AsImage>>,
 	r: OrInitSingleRes<IsRun>
 ) {
@@ -90,7 +93,7 @@ pub fn overflow_post_process(
     };
     // 从根节点遍历， 修改OverflowAabb
     for root in roots.iter() {
-        // log::warn!("recursive_cal_overflow======{:?}, {:?}", pass_mut.get_mut(root).is_ok(), pass_read1.get(root));
+        // log::debug!("recursive_cal_overflow======{:?}, {:?}", pass_mut.get_mut(root).is_ok(), pass_read1.get(root));
 
         recursive_cal_overflow(
             false,
@@ -100,6 +103,7 @@ pub fn overflow_post_process(
             &mut pass_mut,
             &pass_read,
             &mark_type,
+            &mark_type1,
             &as_image_mark_type,
         );
     }
@@ -124,8 +128,10 @@ fn recursive_cal_overflow(
         &'static ChildrenPass,
         Option<Ticker<&Overflow>>,
         Ticker<&'static Layer>,
+        &'static RenderContextMark,
     )>,
     mark_type: &RenderContextMarkType<Overflow>,
+    mark_type1: &RenderContextMarkType<crate::components::user::Hsi>,
     as_image_mark_type: &RenderContextMarkType<AsImage>,
 ) {
     if let (
@@ -138,7 +144,8 @@ fn recursive_cal_overflow(
             content_box,
             children,
             overflow,
-            layer
+            layer,
+            mark,
         )),
     ) = (pass_mut.get_mut(id), pass_read.get(id))
     {
@@ -150,7 +157,7 @@ fn recursive_cal_overflow(
             parent_is_change || world_matrix.is_changed() || will_change.is_changed() || overflow_is_change || layer.is_changed();
 
         let world_matrix = &*world_matrix;
-        log::debug!("is_change======id: {:?}, is_change:{:?}, overflow: {:?}, \nparent_aabb: {:?}", id, is_change, overflow, parent_aabb);
+        log::debug!("is_change======id: {:?}, is_change:{:?}, overflow: {:?}, \nparent_aabb: {:?}, mark: {:?}", id, is_change, overflow, parent_aabb, mark.get(**mark_type1).map(|r| {*r.as_ref()}));
         if is_change {
             let matrix_temp;
             let matrix = match &will_change.0 {
@@ -199,7 +206,7 @@ fn recursive_cal_overflow(
                     )
                 };
 
-                // log::warn!("content_box=====id: {:?}, {:?}, layout: {:?}, left: {}, top: {}, right: {}, bottom: {}", entity, content_box, layout, left, top, right, bottom);
+                // log::debug!("content_box=====id: {:?}, {:?}, layout: {:?}, left: {}, top: {}, right: {}, bottom: {}", entity, content_box, layout, left, top, right, bottom);
 
                 let left_top = matrix * Vector4::new(left, top, 0.0, 1.0);
                 let left_bottom = matrix * Vector4::new(left, bottom, 0.0, 1.0);
@@ -248,11 +255,11 @@ fn recursive_cal_overflow(
                     if left > 0.0 || top > 0.0 || right > 0.0 || bottom > 0.0 {
                         let right = layout.rect.right - right;
                         let bottom = layout.rect.bottom - bottom;
-                        // log::warn!("overflow0=========={:?}", (id, [left, top, right, bottom]));
+                        // log::debug!("overflow0=========={:?}", (id, [left, top, right, bottom]));
                         quad_temp = cal_no_rotate_box(&Aabb2::new(Point2::new(left, top), Point2::new(right, bottom)), &world_matrix.0);
                         &quad_temp
                     } else {
-                        // log::warn!("overflow1=========={:?}", (id, quad));
+                        // log::debug!("overflow1=========={:?}", (id, quad));
                         &**quad
                     }
                 } else {
@@ -284,10 +291,10 @@ fn recursive_cal_overflow(
 
                 // 存在父裁剪框，则与父裁剪框相交
                 let r = intersect_or_zero(&quad1, &parent_aabb.aabb);
-				// log::warn!("is_change======tracker_matrix: {:?}, tracker_willchange: {:?}, overflow: {:?}, entity: {:?}, \nparent_aabb: {:?}, willchange: {:?}, \nmatrix: {:?}", tracker_matrix.is_changed(),tracker_willchange.is_changed(), overflow, entity, parent_aabb, tracker_willchange, tracker_matrix);
+				// log::debug!("is_change======tracker_matrix: {:?}, tracker_willchange: {:?}, overflow: {:?}, entity: {:?}, \nparent_aabb: {:?}, willchange: {:?}, \nmatrix: {:?}", tracker_matrix.is_changed(),tracker_willchange.is_changed(), overflow, entity, parent_aabb, tracker_willchange, tracker_matrix);
                 // use pi_key_alloter::Key;
                 // if id.index() == 4 {
-                    // log::warn!("overflow================id:{:?}, \nr:{:?}, \nlayout: {:?}, \nwill_change:{:?}, \nmatrix: {:?}, \nparent_aabb: {:?}, \nquad: {:?}, \nquad1: {:?}", 
+                    // log::debug!("overflow================id:{:?}, \nr:{:?}, \nlayout: {:?}, \nwill_change:{:?}, \nmatrix: {:?}, \nparent_aabb: {:?}, \nquad: {:?}, \nquad1: {:?}", 
                     // id, &r, &content_box.layout, &will_change.0, &world_matrix, &parent_aabb.aabb, quad, quad1);
                 // }
                 log::debug!("overflow4=========={:?}", (id, &quad1, &parent_aabb.aabb, &r));
@@ -332,6 +339,7 @@ fn recursive_cal_overflow(
                     pass_mut,
                     pass_read,
                     mark_type,
+                    mark_type1,
                     as_image_mark_type,
                 );
             }
@@ -398,7 +406,7 @@ fn calc_rotate_matrix(mut matrix: Matrix4) -> Matrix4 {
     let scale_x = Vector4::from(matrix.fixed_columns(0));
     let scale_y = Vector4::from(matrix.fixed_columns(1));
     let scale_z = Vector4::from(matrix.fixed_columns(2));
-    // log::warn!("scale_x================{:?}", scale_x);
+    // log::debug!("scale_x================{:?}", scale_x);
     let scale_x = scale_x.norm();
     let scale_y = scale_y.norm();
     let scale_z = scale_z.norm();
@@ -426,7 +434,7 @@ fn calc_rotate_matrix(mut matrix: Matrix4) -> Matrix4 {
         Some(m) => m,
         None => return WorldMatrix::default().0, // 没有逆矩阵， 则返回单位阵（没有逆矩阵时， 空间被压缩， 2d界面实际上不会显示， 因此此矩阵为任何矩阵都无所谓）
     };
-    // log::warn!("zz0================{:?}, \nscalex: {}, \nscaley: {:?}, \ninvert: {:?}", m1, scale_x, scale_y, invert);
+    // log::debug!("zz0================{:?}, \nscalex: {}, \nscaley: {:?}, \ninvert: {:?}", m1, scale_x, scale_y, invert);
     // invert
     // m * invert * m_invert
     // 之所以乘以m_invert， 是为了保持每次回到非旋转状态的原点的一致性（否则，在做fbo缓存时， 不能确定脏区域相对于原fbo的位置）

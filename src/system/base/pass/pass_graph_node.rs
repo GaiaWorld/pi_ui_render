@@ -45,8 +45,8 @@ use crate::components::pass_2d::IsSteady;
 // #[derive(Clone)]
 pub struct Pass2DNode {
     pub pass2d_id: Entity,
-	pub out_put_target: Option<ShareTargetView>, // 握住一个ShareTargetView， 该view肯呢个占用了分配空间， 当它释放时，空间可能被释放
-	pub target: Option<ShareTargetView>, // 握住一个ShareTargetView， 该view肯呢个占用了分配空间， 当它释放时，空间可能被释放
+	pub output_target: Option<ShareTargetView>, // 握住一个ShareTargetView， 该view肯呢个占用了分配空间， 当它释放时，空间可能被释放
+	pub render_target: Option<ShareTargetView>, // 握住一个ShareTargetView， 该view肯呢个占用了分配空间， 当它释放时，空间可能被释放
 }
 
 #[derive(SystemParam)]
@@ -129,8 +129,8 @@ impl Pass2DNode {
             // last_post_key: EntityKey::default(),
             // rt: None,
 			// post_draw: None,
-			out_put_target: None,
-			target: None,
+			output_target: None,
+			render_target: None,
             // param,
         }
     }
@@ -150,9 +150,12 @@ impl Node for Pass2DNode {
 	fn reset<'a>(
 			&'a mut self,
 	) {
-		// log::warn!("reset========{:?}", (self.pass2d_id, self.target.is_some(), self.out_put_target.is_some()));
-		self.out_put_target = None;
-		self.target = None;
+		// if self.output_target.is_some() {
+			log::debug!("reset========{:?}", (self.pass2d_id, self.render_target.is_some(), self.output_target.is_some()));
+		// }
+		// 
+		self.output_target = None;
+		self.render_target = None;
 		
 	}
 
@@ -333,8 +336,9 @@ impl Node for Pass2DNode {
 				// 如果只有一个输入，并且draw2dList中也只存在一个渲染对象(该渲染对象一定是将输入fb拷贝到目标上)
 				// 此时， 可直接将输入作为输出
 				let input_fbo = input.0.values().next().unwrap().clone();
-				self.target = input_fbo.target.clone();
+				self.render_target = input_fbo.target.clone();
 				camera.is_render_own = false; // 自身不渲染（渲染结果跟输入完全一样， 直接使用了输入fbo的结果）
+				// log::debug!("camera.is_render_own= false================={:?}", pass2d_id);
 				render_to_fbo = true;
 			} else {
 				// 否则渲染到临时fbo上
@@ -363,8 +367,10 @@ impl Node for Pass2DNode {
 						// }
 						// next_target.clear();
 						render_to_fbo = true;
+						log::debug!("alloc rendertarget========{:?}", (self.pass2d_id, r.target().colors[0].0.id, r.rect()));
 						// log::warn!("build========{:?}", (pass2d_id, &r.target().colors[0].0));
-						self.target = Some(r.clone());
+						self.render_target = Some(r.clone());
+						
 
 						RenderPassTarget::Fbo(r)
 					}
@@ -379,7 +385,7 @@ impl Node for Pass2DNode {
 			// let t4 = std::time::Instant::now();
 
 			out.valid_rect = Some((offsetx as u32, offsety as u32, view_port_w as u32, view_port_h as u32));
-			if let (Some(rt), true) = (&mut self.target, render_to_fbo) {
+			if let (Some(rt), true) = (&mut self.render_target, render_to_fbo) {
 				if is_not_only_as_image {
 					let mut target = PostprocessTexture::from_share_target(rt.clone(), wgpu::TextureFormat::pi_render_default());
 					let rect: guillotiere::euclid::Box2D<i32, guillotiere::euclid::UnknownUnit> = rt.rect().clone();
@@ -477,6 +483,8 @@ impl Node for Pass2DNode {
 								true,
 								is_steady.0,
 							).unwrap();
+
+							log::debug!("alloc outputtarget========{:?}", (self.pass2d_id, final_target.target().colors[0].0.id, final_target.rect()));
 							// let final_target = param.atlas_allocator.allocate( 
 							// 	target_size.0, 
 							// 	target_size.1, 
@@ -490,7 +498,7 @@ impl Node for Pass2DNode {
 							}
 
 							out.target = Some(Share::new(final_target.downgrade()));
-							self.out_put_target = Some(final_target.clone());
+							self.output_target = Some(final_target.clone());
 
 							log::trace!("post1111============={:?}, {:?}", pass2d_id, final_draw.is_some());
 							match final_draw {
@@ -503,7 +511,7 @@ impl Node for Pass2DNode {
 					};
 				} else {
 					log::trace!("post222============={:?}", pass2d_id);
-					out.target = self.target.as_ref().map(|r| {Share::new(r.downgrade())});
+					out.target = self.render_target.as_ref().map(|r| {Share::new(r.downgrade())});
 				}
 				// let t5 = std::time::Instant::now();
 				// println!("build1============{:?}", (t2 - t1, t3 - t2, t4 - t3, t5 - t4));
@@ -519,7 +527,7 @@ impl Node for Pass2DNode {
 			}
 		}
 
-		if let (true, Some(target)) = (!list0.clear_instance.is_null(), &self.target) {
+		if let (true, Some(target)) = (!list0.clear_instance.is_null(), &self.render_target) {
 			// 旧的fbo与新的fbo不同， 或区域不同， 需要重新设置清屏实例数据
 			let mut is_set_clear = false;
 			if let Some(fbo) = &fbo_info.fbo {
@@ -619,9 +627,9 @@ impl Node for Pass2DNode {
 		// 	println!("visibility=============== {:?}", (pass2d_id, instance_index.start, visibility,  out.target.is_none(), list0.instance_range.len() > 0));
 		// }
 
-		log::trace!("out.target======{:?}", (pass2d_id, self.target.is_some(), out.target.is_some()));
+		log::trace!("out.target======{:?}", (pass2d_id, self.render_target.is_some(), out.target.is_some()));
 		out_target.0 = out.target.clone(); // 设置到组件上， 后续批处理需要用到
-		fbo_info.fbo = self.target.as_ref().map(|r| {Share::new(r.downgrade())});
+		fbo_info.fbo = self.render_target.as_ref().map(|r| {Share::new(r.downgrade())});
 		
 		// if content_box.layout.width() >= 700.0 && content_box.layout.height() >= 910.0 {
 		// 	println!("pass2, {:?}", (pass2d_id, fbo_info.out.is_some()));
@@ -840,7 +848,7 @@ impl Node for Pass2DNode {
 						} else {
 							if let Ok((camera, _render_target)) = param.pass2d_query.get(*pass) {
 								if !camera.is_render_own {
-									// log::warn!("is not active DrawInstance======={:?}, {:?}", pass, element.1);
+									// log::debug!("is not active DrawInstance======={:?}, {:?}", pass, element.1);
 									continue;
 								}
 								param.instance_draw.set_pipeline(&mut rp, draw_state, &mut render_state);
@@ -862,7 +870,6 @@ impl Node for Pass2DNode {
 									rp.set_viewport(view_port.0, view_port.1, view_port.2, view_port.3, 0.0, 1.0);
 									pre_pass = EntityKey(*pass);
 								}
-
 								param.instance_draw.draw(&mut rp, draw_state, &mut render_state);
 								
 							} else {

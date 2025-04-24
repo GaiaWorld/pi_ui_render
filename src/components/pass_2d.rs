@@ -49,6 +49,8 @@ pub struct Camera {
     // draw_changed为true时， is_render_own一定为true
     // draw_changed为false时，还需要看，从当前上下文开始向上递归，是否有上下文渲染目标被缓存，如果有，则is_render_own为false，否则为true
     pub is_render_own: bool,
+    // 是否可见（显示设置不可见， 或被overflow裁剪， 都视为不可见）
+    pub is_visible: bool, 
     // 表示相机内的渲染内容是否改变
     pub draw_changed: bool,
     // 是否渲染到父目标(表示该pass是否渲染到父目标上)
@@ -65,6 +67,7 @@ impl Default for Camera {
             is_render_own: false,
             draw_changed: true,
             is_render_to_parent: true,
+            is_visible: false,
         }
     }
 }

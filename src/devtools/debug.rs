@@ -22,6 +22,7 @@ use crate::components::calc::InPassId;
 use crate::components::calc::RenderContextMark;
 use crate::components::calc::StyleMark;
 use crate::components::calc::{TransformWillChangeMatrixInner, TransformWillChangeMatrix};
+use crate::components::draw_obj::FboInfo;
 use crate::components::draw_obj::InstanceIndex;
 use crate::components::draw_obj::RenderCount;
 use crate::components::pass_2d::Camera;
@@ -162,7 +163,8 @@ pub struct PassInfo {
     pub draw_changed: bool,
     // 是否渲染到父目标(表示该pass是否渲染到父目标上)
     pub is_render_to_parent: bool, 
-    pub has_render_target: bool, 
+    pub render_target: String, 
+    pub out_render_target: String, 
     pub view: View,
     pub transform_will_change_matrix: Option<TransformWillChangeMatrixInner>,
     pub parentpass: Entity,
@@ -248,13 +250,55 @@ pub struct GloabalInfo {
     // pass2d 渲染排序
     pass2d_sort: Vec<String>,
     next_node_with_depend: Vec<usize>, // 下一个有依赖的pass2d节点的索引
+    draw_list: Vec<DrawInstance>,
+    draw_list_1: Vec<String>, // draw_list中每个实例对应的fbo_pass
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct DrawInstance {
+    fbo_pass: Entity,
+    pass: Entity,
+    instance_range: Range<usize>,
+    ty: Draw2DType,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum Draw2DType {
+    DrawPost,
+    DrawInstance,
+    Clear,
+    GraphDrawList,
 }
 
 pub fn get_global_info(world: &World) -> GloabalInfo {
     let instance_context = &**world.get_single_res::<InstanceContext>().unwrap();
+    let draw_list = instance_context.draw_list.iter().map(|x| {
+        let (instance_range, ty, pass) = match &x.0 {
+            crate::components::pass_2d::DrawElement::DrawInstance { draw_state, pass, .. } => {
+                (draw_state.instance_data_range.start / 224..draw_state.instance_data_range.end / 224, Draw2DType::DrawInstance, *pass)
+            },
+            crate::components::pass_2d::DrawElement::Clear { draw_state, .. } => 
+                (draw_state.instance_data_range.start / 224..draw_state.instance_data_range.end / 224, Draw2DType::Clear, x.1),
+            crate::components::pass_2d::DrawElement::GraphDrawList { id, .. } => 
+                (0..0, Draw2DType::GraphDrawList, id.0),
+            crate::components::pass_2d::DrawElement::DrawPost(range) => 
+                (range.clone(), Draw2DType::DrawPost, x.1),
+        };
+        DrawInstance {
+            fbo_pass: x.1,
+            pass,
+            instance_range,
+            ty
+        }
+    }).collect::<Vec<DrawInstance>>();
+    let draw_list_1 = instance_context.draw_list.iter().map(|x| {
+        format!("{:?}", x.1)
+    }).collect::<Vec<String>>();
     GloabalInfo {
         pass2d_sort: instance_context.pass_toop_list.iter().map(|x| format!("{:?}", x)).collect::<Vec<String>>(),
         next_node_with_depend: instance_context.next_node_with_depend.clone(),
+        draw_list,
+        draw_list_1,
     }
 }
 
@@ -767,14 +811,19 @@ pub fn node_info(world: &World, entity: Entity) -> Info {
     let pass_info = if let (Ok(instance_index), Ok(camera)) = (world.get_component::<InstanceIndex>(entity), world.get_component::<Camera>(entity)) {
         let render_obj = create_render_obj(instance_index.0.clone(), Null::null(), InstanceType::CopyFbo);
 	    let view =  world.get_component::<View>(entity).unwrap();
-        let has_render_target = match world.get_component::<RenderTarget>(entity) {
-            Ok(render_target) => render_target.0.is_some(),
-            _ => false,
+        let out_render_target = match world.get_component::<RenderTarget>(entity) {
+            Ok(RenderTarget(Some(render_target))) => format!("{:?}", render_target.target().colors[0].0.id),
+            _ => "".to_string(),
+        };
+        let render_target = match world.get_component::<FboInfo>(entity) {
+            Ok(FboInfo{fbo: Some(render_target), ..}) => format!("{:?}", render_target.target().colors[0].0.id),
+            _ => "".to_string(),
         };
         let render_target1 = world.get_component::<crate::components::pass_2d::RenderTarget>(entity).unwrap();
         Some(PassInfo{
             copy_render_obj: render_obj,
-            has_render_target,
+            render_target,
+            out_render_target,
             bound_box: render_target1.bound_box.clone(),
             accurate_bound_box: render_target1.accurate_bound_box.clone(),
             is_render_own: camera.is_render_own,

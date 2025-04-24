@@ -281,13 +281,7 @@ pub fn cmd_play(
                 cmds.push_cmd(r.clone());
             }
             CmdType::NodeCmdRenderRenderDirty(r) => {
-                let mut r = r.clone();
-                let node = match play_state.get_node(&r.1) {
-                    Some(r) => r,
-                    None => continue,
-                };
-                r.1 = node;
-                cmds.push_cmd(r);
+                cmds.push_cmd(r.clone());
             }
             CmdType::NodeCmdRenderNodeBundle(r) => {
                 let mut r = r.clone();

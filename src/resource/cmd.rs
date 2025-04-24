@@ -23,15 +23,14 @@ use crate::{
     components::{
         calc::EntityKey, user::{
             serialize::{DefaultStyle, StyleTypeReader},
-            Animation, AsImage, Canvas, RenderDirty, RenderTargetType, Viewport,
+            Animation, AsImage, Canvas, RenderTargetType, Viewport,
         }, NodeBundle
     },
     resource::animation_sheet::KeyFramesSheet,
 };
 
 use super::{
-    fragment::{FragmentMap, Fragments},
-    ClassSheet, ShareFontSheet,
+    fragment::{FragmentMap, Fragments}, ClassSheet, RenderDirty, ShareFontSheet
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -314,6 +313,20 @@ impl Command for ClearColorCmd {
     }
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct RenderDirtyCmd(pub RenderDirty);
+
+impl Command for RenderDirtyCmd {
+    fn apply(self, world: &mut World) {
+        match world.get_single_res_mut::<RenderDirty>() {
+            Some(r) => **r = self.0,
+            None => {
+                world.insert_single_res(self.0);
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 /// 节点指令
 pub enum NodeCommand {
@@ -342,7 +355,7 @@ pub enum CmdType {
     NodeCmdViewport(NodeCmd<Viewport>),
     NodeCmdRenderTargetType(NodeCmd<RenderTargetType>),
     NodeCmdRenderClearColor(ClearColorCmd),
-    NodeCmdRenderRenderDirty(NodeCmd<RenderDirty>),
+    NodeCmdRenderRenderDirty(RenderDirtyCmd),
     NodeCmdRenderNodeBundle(NodeCmd<NodeBundle>),
 
     ExtendFragmentCmd(ExtendFragmentCmd),

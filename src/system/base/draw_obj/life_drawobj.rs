@@ -30,7 +30,7 @@ use crate::components::user::RenderTargetType;
 
 use crate::components::DrawBundleNew;
 use crate::components::pass_2d::{Camera, Draw2DList, DrawElement, DrawIndex, InstanceDrawState, ParentPassId, PostProcessInfo};
-use crate::resource::draw_obj::{InstanceContext, CommonSampler};
+use crate::resource::draw_obj::{BatchTexture, CommonSampler, InstanceContext};
 use crate::resource::{GlobalDirtyMark, IsRun, OtherDirtyType, RenderObjType};
 
 use crate::components::calc::DrawList;
@@ -626,6 +626,22 @@ pub fn batch_instance_data(
 	log::debug!("pass_toop_list!!!!!===={:?}", pass_toop_list);
 
 	let mut old_next_node_with_depend_index = 0;
+	
+	fn take_group(batch_texture: &mut BatchTexture, device: &wgpu::Device, last_group: &Option<Share<wgpu::BindGroup>>, pre_group: usize, draw_list: &mut Vec<(DrawElement, Entity/*fbo passid*/)>) {
+		let group =	match batch_texture.take_group(device) {
+			Some(group) => Some(Share::new(group)),
+			None => match last_group {
+				Some(r) => Some(r.clone()),
+				None => Some(Share::new(batch_texture.default_group(device))),
+			}
+		};
+		for i in pre_group..draw_list.len() {
+			if let DrawElement::DrawInstance { draw_state, .. } | DrawElement::Clear { draw_state, .. } = &mut draw_list[i].0 {
+				draw_state.texture_bind_group = group.clone();
+			}
+		}
+	}
+
 	for (pass_index, pass_id) in pass_toop_list.iter().enumerate() {
 		let pass_index = pass_index + 1;
 
@@ -666,6 +682,10 @@ pub fn batch_instance_data(
 			} else {
 				false
 			};
+			if is_render_own && fbo_changed {
+				take_group(&mut instances.batch_texture, &query.device, &mut global_state.last_group, global_state.pre_group, &mut instances.draw_list);
+				global_state.pre_group = instances.draw_list.len();
+			}
 			// 上一个清屏的批处理索引在当前pass新建了清屏批次时，才返回已经批处理完成的上一个清屏批处理的索引， 否则split_index为null
 			// 有三种情况， 使得split_index不为null：
 			// 1. 与上一个pass相比， fbo发生了改变（处理第一个pass时， 不算发生了改变）
@@ -737,7 +757,7 @@ pub fn batch_instance_data(
 		// if pass_index > 15 {
 		// 	log::warn!("pass_index================{:?}", (pass_index, pass_id, batch_state.next_node_with_depend, fbo_changed, global_state.post_start, instances.posts.len()));
 		// }
-		if pass_index >= batch_state.next_node_with_depend || fbo_changed {
+		if pass_index >= batch_state.next_node_with_depend {
 			if pass_index >= batch_state.next_node_with_depend {
 				batch_state.next_node_with_depend_index += 1;
 				batch_state.next_node_with_depend = instances.next_node_with_depend.get(batch_state.next_node_with_depend_index).map_or(std::usize::MAX, |r| {*r});
@@ -750,27 +770,7 @@ pub fn batch_instance_data(
 			}
 			
 			// 如果处理了当前层的后处理， group需要重新生成（不能确定后处理的fbo的依赖关系）
-			// let group = if pass_index == batch_state.toop_list_len {
-			let group =	match instances.batch_texture.take_group(&query.device) {
-				Some(group) => Some(Share::new(group)),
-				None => match global_state.last_group.clone() {
-					Some(r) => Some(r),
-					None => Some(Share::new(instances.batch_texture.default_group(&query.device))),
-				}
-			};
-			// } else {
-			// 	match global_state.last_group.clone() {
-			// 		Some(r) => Some(r),
-			// 		None => Some(Share::new(instances.batch_texture.default_group(&query.device))),
-			// 	}
-			// };
-
-			// log::warn!("pass_index====={:?}", (pass_id, fob_change, pass_index, batch_state.next_node_with_depend, pass_toop_list.len(), global_state.pre_group, instances.draw_list.len(),  &instances.next_node_with_depend));
-			for i in global_state.pre_group..instances.draw_list.len() {
-				if let DrawElement::DrawInstance { draw_state, .. } | DrawElement::Clear { draw_state, .. } = &mut instances.draw_list[i].0 {
-					draw_state.texture_bind_group = group.clone();
-				}
-			}
+			take_group(&mut instances.batch_texture, &query.device, &mut global_state.last_group, global_state.pre_group, &mut instances.draw_list);
 			global_state.pre_group = instances.draw_list.len();
 			// // 最后一个Pass, 需要设置前面批数据的texture_bind_group
 			// if pass_index == batch_state.toop_list_len {
@@ -825,19 +825,8 @@ pub fn batch_instance_data(
 		
 	}
 	
-	let group = match instances.batch_texture.take_group(&query.device) {
-		Some(group) => Some(Share::new(group)),
-		None => match global_state.last_group.clone() {
-			Some(r) => Some(r),
-			None => Some(Share::new(instances.batch_texture.default_group(&query.device))),
-		}
-	};
 	// 最后一个Pass, 需要设置前面批数据的texture_bind_group
-	for i in global_state.pre_group..instances.draw_list.len() {
-		if let DrawElement::DrawInstance { draw_state, .. } | DrawElement::Clear { draw_state, .. } = &mut instances.draw_list[i].0 {
-			draw_state.texture_bind_group = group.clone();
-		}
-	}
+	take_group(&mut instances.batch_texture, &query.device, &mut global_state.last_group, global_state.pre_group, &mut instances.draw_list);
 
 	// update_depth( &mut 1, &mut query.render_cross_query, instances);
 	log::debug!("draw_list======{:?}", &instances.draw_list.len());
@@ -1054,12 +1043,17 @@ fn batch_pass(
 			DrawIndex::Pass2D(cur_pass) => match query.post_info_query.get(cur_pass.0) {
 				Ok(post_info) if  post_info.has_effect() => {
 					let (_, _, _fbo_info, render_target) = query.draw_query.get(cur_pass.0).unwrap();
+					let camera = query.camera_query.get(cur_pass.0).unwrap();
 					let index = query.instance_index.get_mut(cur_pass.0).unwrap();
 					instance_data_end1 = instance_data_end;
 					instance_data_end = index.end;
 					if let Some(r) = &render_target.0 {
-						log::debug!("pass=========={:?}", (pass_id, cur_pass, index.start/224, &r.target().colors[0].1));
-						split_by_texture = Some((index.clone(), &r.target().colors[0].0, &query.common_sampler.pointer)); // fbo拷贝使用点采样
+						if camera.is_render_to_parent { 
+							// 如果是fbo， 必须可以可以渲染到父，才能设置texture， 否则，该节点不会作为图节点输出到下一个依赖， 可能导致纹理既作为源又作为目标
+							log::debug!("pass=========={:?}", (pass_id, cur_pass, index.start/224, &r.target().colors[0].1));
+							split_by_texture = Some((index.clone(), &r.target().colors[0].0, &query.common_sampler.pointer)); // fbo拷贝使用点采样
+
+						}
 
 						// #[cfg(debug_assertions)]
 						// if !index.start.is_null() {
@@ -1211,6 +1205,7 @@ pub struct BatchQuery<'w> {
 	pass_query: Query<'w, &'static mut Draw2DList>,
 	post_info_query: Query<'w, &'static PostProcessInfo>,
 	draw_query: Query<'w, (Option<&'static InstanceSplit>, Option<&'static Pipeline>, OrDefault<FboInfo>, OrDefault<RenderTarget>)>,
+	camera_query:  Query<'w, &'static Camera>,
 	instance_index: Query<'w, &'static InstanceIndex>,
 	common_sampler: OrInitSingleRes<'w,CommonSampler>,
 	device: SingleRes<'w,PiRenderDevice>,
