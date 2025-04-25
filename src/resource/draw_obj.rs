@@ -1,6 +1,7 @@
 //! 与DrawObject相关的资源
 use std::{collections::hash_map::Entry, hash::Hash, marker::PhantomData, num::NonZeroU32, sync::atomic::{Ordering, AtomicUsize}, borrow::Cow};
 
+use naga::Range;
 use pi_world::prelude::{FromWorld, World, Entity};
 use ordered_float::NotNan;
 use pi_assets::{asset::Handle, homogeneous::HomogeneousMgr, mgr::AssetMgr};
@@ -349,6 +350,8 @@ pub struct InstanceContext {
     pub next_node_with_depend: Vec<usize>,
 
     pub debug_info: VecMap<String>,
+
+    pub draw_screen_range: std::ops::Range<usize>
 }
 
 impl InstanceContext {
@@ -799,6 +802,7 @@ impl FromWorld for InstanceContext {
             pass_toop_list: Default::default(),
             next_node_with_depend: Default::default(),
             debug_info: VecMap::default(),
+            draw_screen_range: 0..0,
 		}
     }
 	

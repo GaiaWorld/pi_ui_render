@@ -9,7 +9,7 @@ use std::mem::transmute;
 
 use pi_bevy_render_plugin::{render_cross::GraphId, PiRenderGraph};
 use pi_null::Null;
-use pi_world::{event::{ComponentAdded, ComponentChanged, Event}, prelude::{Entity, Mut, Query, SingleRes, Ticker}, single_res::SingleResMut};
+use pi_world::{event::{ComponentChanged, Event}, prelude::{Entity, Mut, Query, SingleRes, Ticker}, single_res::SingleResMut};
 use pi_bevy_ecs_extend::prelude::{Layer, OrInitSingleRes, OrInitSingleResMut};
 
 use pi_render::renderer::draw_obj::DrawBindGroup;
@@ -319,6 +319,7 @@ pub fn calc_camera(
             // project: project_matrix,
             bind_group: Some(DrawBindGroup::Offset(camera_group)),
             view_port: aabb,
+            draw_range: camera.draw_range.clone(),
             // world_matrix: world_matrix.clone(),
             is_render_own: true,
             draw_changed: false,
@@ -547,7 +548,7 @@ pub fn calc_pass_active(
             // log::debug!("set_enable======{:?}", (node, graph_id.0, camera.is_render_to_parent, camera.is_render_own ));
             if old_is_render_to_parent != camera.is_render_to_parent {
                 log::debug!("set_enable======{:?}", (node, graph_id.0, camera.is_render_to_parent));
-                let _ = rg.set_enable(graph_id.0, camera.is_render_to_parent);
+                let _ = rg.set_is_build(graph_id.0, camera.is_render_to_parent);
                 instance_context.rebatch = true;
             }
         }

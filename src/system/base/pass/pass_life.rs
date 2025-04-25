@@ -236,9 +236,10 @@ pub fn calc_pass_children_and_clear(
 // RenderContextMark修改， AsImageBindList修改或添加、Camera删除，都需要冲洗计算toop排序
 pub fn calc_pass_toop_sort(
     query_root: Query<&GraphId, (With<Root>, With<Size>)>,
+    query_graph_id: Query<&GraphId>,
     query_post: Query<&PostProcessInfo, With<Size>>,
     mut instances: SingleResMut<InstanceContext>,
-    rg: SingleRes<PiRenderGraph>,
+    mut rg: SingleResMut<PiRenderGraph>,
 	r: OrInitSingleRes<IsRun>,
     mut temp: Local<(Vec<NodeId>, Vec<NodeId>, Vec<NodeId>, SecondaryMap<NodeId, (usize, bool)>)>,
 
@@ -261,7 +262,7 @@ pub fn calc_pass_toop_sort(
     as_image_added.mark_read();
 
     let temp = &mut *temp;
-    let rg = &*rg;
+    let rg = &mut *rg;
     
     let InstanceContext {pass_toop_list,  next_node_with_depend, ..} = &mut *instances;
     // 从叶子节点开始排序
@@ -310,23 +311,43 @@ pub fn calc_pass_toop_sort(
             let entity = rg.get_bind(node_id.clone());
             log::debug!("after1======{:?}", (node_id, entity));
             let mut has_effect = false;
+            let mut is_gui = false;
             if query_post.contains(entity) { // 对应节点为gui节点
+                if pass_toop_list.len() != last_depend {
+                    // 不是当前无依赖的起点，则设置前一个不可运行（只有每组中的最后一个运行）
+                    if let Ok( graph_id) = query_graph_id.get(*pass_toop_list.last().unwrap()) {
+                        let _ = rg.set_is_run(graph_id.0, false);
+                    }
+                } 
+                
                 pass_toop_list.push(entity); // 加入到pass_toop_list
+               
+                is_gui = true;
                 if let Ok(post_info) = query_post.get(entity) {
                     has_effect = post_info.has_effect();
                     log::debug!("after2======has_effect{:?}", (entity, node_id, has_effect));
                 }
-            } else if pass_toop_list.len() != last_depend {
+            } else {
                 // log::warn!("zzzz======================{:?}", (entity, pass_toop_list.len()));
                 // next_node_with_depend.push(pass_toop_list.len()); // 下一个存在依赖的节点在toop排序中的索引
                 // last_depend = pass_toop_list.len();
-                has_effect = true;
+                has_effect = true; // 不是gui节点， 统统当做是有特效节点
             };
 
             let after = rg.after_nodes(node_id).unwrap(); //
+            let mut is_gui_to_other = false;
             log::debug!("after3======{:?}", after);
             for node_id in after {
                 if let Some((count, before_has_effect)) = temp.3.get_mut(node_id.clone()) {
+                    if is_gui {
+                        let entity = rg.get_bind(node_id.clone());
+                        if !query_post.contains(entity) { 
+                            // 存在一个gui到其他系统的的链接
+                            is_gui_to_other = true;
+                        }
+                    }
+                    
+
                     *count = *count - 1;
                     *before_has_effect |= has_effect;
                     log::debug!("after4======{:?}", (node_id, *count));
@@ -337,6 +358,21 @@ pub fn calc_pass_toop_sort(
                             temp.2.push(node_id.clone());
                         }
                     }
+                }
+            }
+
+            // 如果当前节点是gui节点， 并连接到gui之外的系统， 立即设置下一个依赖索引
+            // 因为gui的图渲染不是每pass节点渲染自身内容，而是下个依赖之前的图节点中， 跟其他无依赖的pass节点批量清屏，在逐个渲染， 再逐个后处理
+            // 由于无法分析其他系统的图节点的组织方式， 唯一明确的是， gui与外部系统相连， gui必然将渲染结果输出到后续的外部系统节点
+            // 这里立即设置下个依赖， 保证当前pass的图节点运行后，其渲染结果也已经呈现， 使得外部节点能正常渲染
+            if is_gui_to_other {
+                let l = pass_toop_list.len();
+                if l != last_depend {
+                    if let Ok( graph_id) = query_graph_id.get(*pass_toop_list.last().unwrap()) {
+                        let _ = rg.set_is_run(graph_id.0, true);
+                    }
+                    next_node_with_depend.push(l); // 下一个存在依赖的节点在toop排序中的索引
+                    last_depend = l;
                 }
             }
         }
@@ -353,6 +389,10 @@ pub fn calc_pass_toop_sort(
             let l = pass_toop_list.len();
             log::debug!("next_node_with_depend======================{:?}", (l, &temp.0));
             if l != last_depend {
+                if let Ok( graph_id) = query_graph_id.get(*pass_toop_list.last().unwrap()) {
+                    let _ = rg.set_is_run(graph_id.0, true);
+                }
+                
                 next_node_with_depend.push(l); // 下一个存在依赖的节点在toop排序中的索引
                 last_depend = l;
             }

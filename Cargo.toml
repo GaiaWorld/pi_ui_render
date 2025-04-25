@@ -1,6 +1,6 @@
 [package]
 name = "pi_ui_render"
-version = "0.2.6"
+version = "0.2.7"
 authors = ["suncy <suncy@gmail.com>"]
 edition = "2021"
 description = "Renderer 2D UI with Bevy Ecs"
@@ -157,8 +157,8 @@ pi_winit = { version = "0.27", registry = "yn", package = "winit" }
 tracing = "0.1"
 postcard = { version = "1.0", features = ["use-std"] }
 
-wgpu = { version = "0.2", registry = "yn", package = "pi_wgpu" }
-# wgpu = { version = "0.2", registry = "yn", package = "pi_wgpu", features=["use_wgpu"]}
+# wgpu = { version = "0.2", registry = "yn", package = "pi_wgpu" }
+wgpu = { version = "0.2", registry = "yn", package = "pi_wgpu", features=["use_wgpu"]}
 # pi_ui_render = { path = "./", features = ["trace", "single_thread"] }
 # pi_ui_render = { path = "./", features = ["trace"] }
 pi_ui_render = { path = "./", features = ["debug", "single_thread", "devtools"] }

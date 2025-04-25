@@ -578,7 +578,7 @@ pub fn update_render_instance_data(
 pub fn batch_instance_data(
 	mut query: BatchQuery,
 	query_root: Query<(Entity, &InstanceIndex), With<Root>>, // 只有gui的Root才会有Size
-	query_camera: Query<&'static Camera>,
+	mut query_camera: Query<&'static mut Camera>,
 	mut instances : OrInitSingleResMut<InstanceContext>,
 ) {
 	
@@ -642,6 +642,8 @@ pub fn batch_instance_data(
 		}
 	}
 
+	let mut start_draw_index = instances.draw_list.len();
+
 	for (pass_index, pass_id) in pass_toop_list.iter().enumerate() {
 		let pass_index = pass_index + 1;
 
@@ -654,6 +656,7 @@ pub fn batch_instance_data(
 
 		let mut fbo_changed = false;
 		let draw_2d_list = draw_2d_list.bypass_change_detection();
+		let mut camera = query_camera.get_mut(*pass_id).unwrap();
 		if !draw_2d_list.clear_instance.is_null() {
 			// 如果pass需要清屏
 			let fbo_changed1 = match (&fbo_info.fbo, &global_state.last_fbo){
@@ -675,7 +678,7 @@ pub fn batch_instance_data(
 				},
 			};	
 
-			let is_render_own = query_camera.get(*pass_id).unwrap().is_render_own;
+			let is_render_own = camera.is_render_own;
 			let active_changed = if is_render_own != global_state.is_active {
 				global_state.is_active = is_render_own;
 				true
@@ -683,6 +686,7 @@ pub fn batch_instance_data(
 				false
 			};
 			if is_render_own && fbo_changed {
+				// 如果fbo发生改变， 需要结束之前的纹理批处理， 避免出现渲染源和目标冲突
 				take_group(&mut instances.batch_texture, &query.device, &mut global_state.last_group, global_state.pre_group, &mut instances.draw_list);
 				global_state.pre_group = instances.draw_list.len();
 			}
@@ -767,6 +771,8 @@ pub fn batch_instance_data(
 					instances.draw_list.push(post);
 					global_state.post_start = instances.posts.len();
 				}
+				camera.bypass_change_detection().draw_range = start_draw_index..instances.draw_list.len();
+				start_draw_index = instances.draw_list.len();
 			}
 			
 			// 如果处理了当前层的后处理， group需要重新生成（不能确定后处理的fbo的依赖关系）
@@ -788,11 +794,10 @@ pub fn batch_instance_data(
 	instances.pass_toop_list = pass_toop_list;
 
 	for (root, instance_index) in query_root.iter() {
-		// 将当前剩余未批处理的数据合批
 		// log::warn!("root======={:?}", (root, instance_index.start / 224));
 		if !instance_index.start.is_null() {
 			let p = instances.copy_pipeline.clone();
-			// instance_index.start不为null， 则需要将该跟对应的fbo渲染到屏幕上
+			// instance_index.start不为null， 则需要将对应的fbo渲染到屏幕上
 			instances.draw_list.push((DrawElement::DrawInstance {
 				draw_state: InstanceDrawState { 
 					instance_data_range: instance_index.start..instance_index.end, 
@@ -824,6 +829,7 @@ pub fn batch_instance_data(
 		}
 		
 	}
+	instances.draw_screen_range =  start_draw_index..instances.draw_list.len();
 	
 	// 最后一个Pass, 需要设置前面批数据的texture_bind_group
 	take_group(&mut instances.batch_texture, &query.device, &mut global_state.last_group, global_state.pre_group, &mut instances.draw_list);
