@@ -719,9 +719,8 @@ impl Default for FlexNormal {
 /// 绘制canvas的图节点
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Canvas {
+    pub by_draw_list: bool,
 	pub id: Entity,
-    pub pre_graph_id: pi_render::depend_graph::NodeId,
-	pub by_draw_list: bool,
 }
 
 /// 显示改变（一般是指canvas，gui不能感知除了style属性以外的属性改变，如果canvas内容发生改变，应该通过style设置，以便gui能感知，从而设置脏区域）

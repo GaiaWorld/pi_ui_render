@@ -21,7 +21,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     components::{
-        calc::EntityKey, user::{
+        calc::{CanvasGraph, EntityKey}, user::{
             serialize::{DefaultStyle, StyleTypeReader},
             Animation, AsImage, Canvas, RenderTargetType, Viewport,
         }, NodeBundle
@@ -121,6 +121,26 @@ impl Command for PostProcessCmd {
             let _ = world.make_entity_editor().alter_components_by_index(self.1,&[(id, true)]);
             if let Ok(mut r) = world.get_component_mut_by_index::<AsImage>(self.1, id) {
                 r.post_process = self.0;
+            }
+        } else {
+            pi_print_any::out_any!(log::debug, "node_cmd fail======================={:?}, {:?}", &self.1, &self.0);
+        }
+    }
+}
+
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct CanvasCmd(pub Entity, pub bool, pub Entity);
+impl Command for CanvasCmd {
+    fn apply(self, world: &mut World) {
+        if world.contains_entity(self.2) {
+            pi_print_any::out_any!(log::debug, "NodeCmd====================node：{:?}, anchor： {:?}", self.1, &self.0);
+            let id = world.init_component::<Canvas>();
+            let id1 = world.init_component::<CanvasGraph>();
+            let _ = world.make_entity_editor().alter_components_by_index(self.2,&[(id, true), (id1, true)]);
+            if let Ok(mut r) = world.get_component_mut_by_index::<Canvas>(self.2, id) {
+                r.id = self.0;
+                r.by_draw_list = self.1;
             }
         } else {
             pi_print_any::out_any!(log::debug, "node_cmd fail======================={:?}, {:?}", &self.1, &self.0);

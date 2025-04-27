@@ -529,6 +529,14 @@ impl IsShow {
     }
 }
 
+/// canvas图节点
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct CanvasGraph {
+    pub pre_graph_id: pi_render::depend_graph::NodeId,
+    pub to_graph_id: pi_render::depend_graph::NodeId,
+	
+}
+
 // // 上一个版本在IsShow组件中体现， 现在独立出来
 // // 节点layer为0是，IsDisplay会设置为false 
 // // 是否为display（单独为一个组件， display会印象渲染实例个数， display为false的节点，不组织渲染数据）

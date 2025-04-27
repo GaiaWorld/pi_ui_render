@@ -13,7 +13,7 @@ use pi_bevy_render_plugin::PiRenderGraph;
 use pi_bevy_render_plugin::render_cross::GraphId;
 use pi_null::Null;
 
-use crate::components::calc::InPassId;
+use crate::components::calc::{CanvasGraph, InPassId};
 use crate::components::draw_obj::{BoxType, CanvasMark, FboInfo};
 use crate::components::pass_2d::ParentPassId;
 use crate::components::user::{Canvas, AsImage};
@@ -58,7 +58,7 @@ pub const CANVAS_ORDER: u8 = 6;
 
 /// 为canvas节点添加图依赖结构
 pub fn calc_canvas_graph(
-	mut canvas_query: Query<(&mut Canvas, Ticker<&InPassId>, Entity)>,
+	mut canvas_query: Query<(&Canvas, &mut CanvasGraph, Ticker<&InPassId>, Entity)>,
 	canvas_other_query: Query<Option<&AsImage>>,
 	graph_id_query: Query<Ticker<&GraphId>>,
 	graph_id_query1: Query<&GraphId>,
@@ -73,10 +73,11 @@ pub fn calc_canvas_graph(
 	}
 
 	// canvas的图节点id由外部系统设置
-    for (mut canvas, in_pass_id, entity) in canvas_query.iter_mut() {
+    for (canvas, mut canvas_graph, in_pass_id, entity) in canvas_query.iter_mut() {
         if let Ok(from_graph_id) = graph_id_query.get(canvas.id) {
-
-			if !from_graph_id.is_changed() && !in_pass_id.is_changed() {
+			let graph_changed = canvas_graph.pre_graph_id != from_graph_id.0;
+			
+			if !graph_changed && !in_pass_id.is_changed() {
 				continue; // 未改变， 什么也不做
 			}
 
@@ -85,13 +86,20 @@ pub fn calc_canvas_graph(
 			// if from_graph_id_changed {
 				// canvas.set_changed(); //  目前由于外部总在改变GraphId， 这里先不设置， 仅仅依赖set_brush来设置
 			// }
-			if from_graph_id.is_changed() && !in_pass_id.is_changed() {
+			if graph_changed && !in_pass_id.is_changed() {
 				// graph_id的值未改变， 不需要重新添加依赖关系（否则会导致渲染图脏， 进而重新进行toop排序）
-			    if canvas.pre_graph_id == from_graph_id.0 {
+			    if canvas_graph.pre_graph_id == from_graph_id.0 {
 					continue;
 				}
 			}
-			canvas.pre_graph_id = from_graph_id.0;
+			let pre_graph_id = canvas_graph.pre_graph_id;
+			canvas_graph.pre_graph_id = from_graph_id.0;
+
+			// 移除原有依赖
+			if !pre_graph_id.is_null() {
+				let _ = rg.remove_depend(pre_graph_id, canvas_graph.to_graph_id);
+				let _ = rg.remove_depend(pre_graph_id, last_graph_id.0);
+			}
 
 			let as_image = match canvas_other_query.get(entity) {
 				Ok(r) => r,
@@ -113,6 +121,7 @@ pub fn calc_canvas_graph(
                         if let Err(e) = rg.add_depend(id, **to_graph_id) {
                             log::error!("add_depend fail, {:?}", e);
                         }
+						canvas_graph.to_graph_id = to_graph_id.0.clone();
 						// 把canvas节点与根节点相连，在根节点处处理canvas bingroup
 						if let Err(e) = rg.add_depend(id, last_graph_id.0) {
                             log::error!("add_depend fail, {:?}", e);
