@@ -136,7 +136,16 @@ pub fn calc_canvas_graph(
                     break;
                 }
             }
-        }
+        } else {
+			let pre_graph_id = canvas_graph.pre_graph_id;
+
+			// 移除原有依赖
+			if !pre_graph_id.is_null() {
+				let _ = rg.remove_depend(pre_graph_id, canvas_graph.to_graph_id);
+				let _ = rg.remove_depend(pre_graph_id, last_graph_id.0);
+			}
+
+		}
     }
 }
 

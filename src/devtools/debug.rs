@@ -250,9 +250,11 @@ pub struct ClassAttr {
 pub struct GloabalInfo {
     // pass2d 渲染排序
     pass2d_sort: Vec<String>,
-    next_node_with_depend: Vec<usize>, // 下一个有依赖的pass2d节点的索引
+    next_node_with_depend: Vec<String>, // 下一个有依赖的pass2d节点的索引
     draw_list: Vec<DrawInstance>,
     draw_list_1: Vec<String>, // draw_list中每个实例对应的fbo_pass
+    can_run_nodes: Vec<String>, // 可以运行的图节点
+    can_build_nodes: Vec<String>, // 可build的图节点
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -273,6 +275,7 @@ pub enum Draw2DType {
 
 pub fn get_global_info(world: &World) -> GloabalInfo {
     let instance_context = &**world.get_single_res::<InstanceContext>().unwrap();
+    let rg = &**world.get_single_res::<pi_bevy_render_plugin::PiRenderGraph>().unwrap();
     let draw_list = instance_context.draw_list.iter().map(|x| {
         let (instance_range, ty, pass) = match &x.0 {
             crate::components::pass_2d::DrawElement::DrawInstance { draw_state, pass, .. } => {
@@ -297,9 +300,11 @@ pub fn get_global_info(world: &World) -> GloabalInfo {
     }).collect::<Vec<String>>();
     GloabalInfo {
         pass2d_sort: instance_context.pass_toop_list.iter().map(|x| format!("{:?}", x)).collect::<Vec<String>>(),
-        next_node_with_depend: instance_context.next_node_with_depend.clone(),
+        next_node_with_depend: instance_context.next_node_with_depend.iter().map(|x| format!("{:?}", (x-1, instance_context.pass_toop_list[x-1]))).collect::<Vec<String>>(),
         draw_list,
         draw_list_1,
+        can_run_nodes: rg.can_run_nodes().iter().map(|x| format!("{:?}", x)).collect::<Vec<String>>(),
+        can_build_nodes: rg.can_build_nodes().iter().map(|x| format!("{:?}", x)).collect::<Vec<String>>(),
     }
 }
 
