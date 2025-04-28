@@ -659,7 +659,7 @@ impl Node for Pass2DNode {
 		// let post_draw = self.post_draw.take();
 		// log::warn!("draw1==={:?}", (pass2d_id, _id));
         Box::pin(async move {
-			// log::warn!("run0======{:?}", pass2d_id);
+			log::debug!("run0======{:?}", pass2d_id);
             // let query_param = query_param_state.get(world);
             // log::trace!(pass = format!("{:?}", pass2d_id).as_str(); "run graph node, ", param.surface.is_some());
 			
@@ -840,6 +840,10 @@ impl Node for Pass2DNode {
 						param.instance_draw.draw(&mut rp, draw_state, &mut render_state);
 					},
 					DrawElement::DrawInstance { draw_state, pass, .. } => {
+						// use pi_slotmap::Key;
+						// if pass.index() == 67 {
+							// log::debug!("draw_elements1======{:?}", (pass2d_id, element.1, draw_state.instance_data_range.start/224..draw_state.instance_data_range.end/224));
+						// }
 						// log::debug!("DrawInstance======={:?}, {:?}, {:?}, {:?}", pass, &draw_state.texture_bind_group, element.1, ( draw_state.instance_data_range.start/224..draw_state.instance_data_range.end/224));
 						// log::debug!("DrawInstance======={:?}, {:?}, {:?}", pass, element.1, draw_state.instance_data_range.start/224..draw_state.instance_data_range.end/224);
 						// 设置相机
@@ -885,6 +889,9 @@ impl Node for Pass2DNode {
 									rp.set_viewport(view_port.0, view_port.1, view_port.2, view_port.3, 0.0, 1.0);
 									pre_pass = EntityKey(*pass);
 								}
+								// if pass.index() == 67 {
+									// log::debug!("draw_elements2======{:?}", (pass2d_id, element.1, draw_state.instance_data_range.start/224..draw_state.instance_data_range.end/224));
+								// }
 								param.instance_draw.draw(&mut rp, draw_state, &mut render_state);
 								
 							} else {

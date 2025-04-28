@@ -302,8 +302,28 @@ pub fn calc_pass_toop_sort(
     }
     temp.1.clear();
 
+    let mut set_depend = |pass_toop_list: &Vec<Entity>, last_effect: usize, last_depend: &mut usize, rg: &mut PiRenderGraph| {
+        if last_effect != *last_depend {
+            let last_effect_index = last_effect - 1;
+            for i in *last_depend .. pass_toop_list.len() {
+                if let Ok(graph_id) = query_graph_id.get(pass_toop_list[i]) {
+                    let r = if last_effect_index != i {
+                        false
+                    } else {
+                        true
+                    };
+                    let _ = rg.set_is_run(graph_id.0, r);
+                    log::debug!("set_is_run==============={:?}", (pass_toop_list[i], r));
+                }
+            }
+            next_node_with_depend.push(last_effect); // 下一个存在依赖的节点在toop排序中的索引
+            *last_depend = last_effect;
+        }
+    };
+
 
     let mut last_depend = 0;
+    let mut last_effect = 0;
     while temp.0.len() > 0 { // 循环开始时， temp.0是所有的pass叶子节点
       
         log::debug!("after!!!!======{:?}", &temp.0);
@@ -313,20 +333,17 @@ pub fn calc_pass_toop_sort(
             let mut has_effect = false;
             let mut is_gui = false;
             if query_post.contains(entity) { // 对应节点为gui节点
-                if pass_toop_list.len() != last_depend {
-                    // 不是当前无依赖的起点，则设置前一个不可运行（只有每组中的最后一个运行）
-                    if let Ok( graph_id) = query_graph_id.get(*pass_toop_list.last().unwrap()) {
-                        let _ = rg.set_is_run(graph_id.0, false);
-                    }
-                } 
-                
                 pass_toop_list.push(entity); // 加入到pass_toop_list
-               
-                is_gui = true;
                 if let Ok(post_info) = query_post.get(entity) {
                     has_effect = post_info.has_effect();
-                    log::debug!("after2======has_effect{:?}", (entity, node_id, has_effect));
+                    if has_effect {
+                        last_effect = pass_toop_list.len();
+                    }
+                    
+                    log::debug!("after2======has_effect{:?}", (entity, node_id, last_effect, has_effect));
                 }
+                is_gui = true;
+                
             } else {
                 // log::warn!("zzzz======================{:?}", (entity, pass_toop_list.len()));
                 // next_node_with_depend.push(pass_toop_list.len()); // 下一个存在依赖的节点在toop排序中的索引
@@ -366,14 +383,7 @@ pub fn calc_pass_toop_sort(
             // 由于无法分析其他系统的图节点的组织方式， 唯一明确的是， gui与外部系统相连， gui必然将渲染结果输出到后续的外部系统节点
             // 这里立即设置下个依赖， 保证当前pass的图节点运行后，其渲染结果也已经呈现， 使得外部节点能正常渲染
             if is_gui_to_other {
-                let l = pass_toop_list.len();
-                if l != last_depend {
-                    if let Ok( graph_id) = query_graph_id.get(*pass_toop_list.last().unwrap()) {
-                        let _ = rg.set_is_run(graph_id.0, true);
-                    }
-                    next_node_with_depend.push(l); // 下一个存在依赖的节点在toop排序中的索引
-                    last_depend = l;
-                }
+                set_depend(pass_toop_list, last_effect, &mut last_depend, rg); 
             }
         }
 
@@ -386,22 +396,11 @@ pub fn calc_pass_toop_sort(
             if temp.1.len() > 0 {
                 std::mem::swap(&mut temp.0, &mut temp.1);
             }
-            let l = pass_toop_list.len();
-            log::debug!("next_node_with_depend======================{:?}", (l, &temp.0));
-            if l != last_depend {
-                if let Ok( graph_id) = query_graph_id.get(*pass_toop_list.last().unwrap()) {
-                    let _ = rg.set_is_run(graph_id.0, true);
-                }
-                
-                next_node_with_depend.push(l); // 下一个存在依赖的节点在toop排序中的索引
-                last_depend = l;
-            }
+            set_depend(pass_toop_list, last_effect, &mut last_depend, rg);
         } 
-
-        
     }
 
-    log::debug!("111======================{:?}, \n{:?}", pass_toop_list, next_node_with_depend);
+    log::debug!("111======================{:?}, \n{:?}", pass_toop_list, next_node_with_depend.iter().map(|i| {pass_toop_list[i - 1]}).collect::<Vec<Entity>>());
 
     temp.0.clear();
     temp.1.clear();
@@ -492,10 +491,10 @@ pub fn pass_mark<T: NeedMark + Send + Sync>(
     for (entity, value, mut render_mark_value) in query.iter_mut() {
         if value.need_mark() {
             render_mark_true( ***mark_type, &mut render_mark_value);
-            log::debug!("pass_mark_true,{:?}, {:?}", entity, (std::any::type_name::<T>(), render_mark_value.any()));
+            log::debug!("pass_mark_true,{:?}, {:?}", entity, std::any::type_name::<T>());
         } else {
             render_mark_false( ***mark_type, &mut render_mark_value);
-            log::debug!("pass_mark_false,{:?}, {:?}", entity, (std::any::type_name::<T>(), render_mark_value.any()));
+            log::debug!("pass_mark_false,{:?}, {:?}", entity, std::any::type_name::<T>());
         }
     }
 }

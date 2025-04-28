@@ -1,6 +1,6 @@
 [package]
 name = "pi_ui_render"
-version = "0.2.8"
+version = "0.2.9"
 authors = ["suncy <suncy@gmail.com>"]
 edition = "2021"
 description = "Renderer 2D UI with Bevy Ecs"
@@ -109,7 +109,7 @@ pi_bevy_post_process = { version = "0.2", registry = "yn" }
 pi_bevy_ecs_extend = { version = "0.2", registry = "yn" }
 pi_bevy_render_plugin = { version = "0.2", registry = "yn" }
 pi_bevy_asset = { version = "0.2", registry = "yn" }
-pi_world = "0.2"
+pi_world = {version="0.2"}
 # bevy_utils = "0.11"
 # bevy_app = { version = "0.11", default_features = false }
 bevy_window = { version = "0.2", registry = "yn", package = "pi_bevy_window" }
@@ -298,7 +298,7 @@ test = true
 
 # pi_slotmap_tree = { path = "../pi_slotmap_tree" }
 # pi_map = { path = "../pi_map" }
-pi_flex_layout = { path = "../pi_flex_layout0.2" }
+# pi_flex_layout = { path = "../pi_flex_layout0.2" }
 # pi_dirty={path = "../pi_dirty" }
 # pi_spatial = { path="../pi_spatial" }
 
@@ -309,7 +309,7 @@ pi_flex_layout = { path = "../pi_flex_layout0.2" }
 # pi_curves  = {path="../pi_curves"}
 # pi_animation = { path="../pi_animation"}
 # pi_style = {path = "../pi_style"}
-pi_wgpu = {path = "../pi_wgpu"}
+# pi_wgpu = {path = "../pi_wgpu"}
 # pi_egl = {path = "../pi_egl"}
 # winit = {path = "../winit"}
 # pi_hal = { path = "../pi_hal" }

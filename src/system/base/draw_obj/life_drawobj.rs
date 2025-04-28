@@ -946,7 +946,7 @@ fn batch_pass(
 
 	parent_pass_id: Entity,
 ) {
-	log::debug!("pass_toop_list!!!!!3333===={:?}", pass_id);
+	log::debug!("pass_toop_list!!!!!3333===={:?}", (pass_id, instances.draw_list.len()));
 	let mut start = 0;
 	let mut cursor = 0;
 

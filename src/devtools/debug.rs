@@ -17,6 +17,7 @@ use pi_style::style::Aabb2;
 use pi_style::style::ImageRepeat;
 use pi_world::filter::With;
 use pi_world::query::Query;
+use crate::components::calc::CanvasGraph;
 use crate::components::calc::DrawInfo;
 use crate::components::calc::InPassId;
 use crate::components::calc::RenderContextMark;
@@ -738,6 +739,7 @@ pub fn node_info(world: &World, entity: Entity) -> Info {
         text_shadow,
         as_image,
         canvas,
+        canvas_graph,
         layer,
         text_overflow_data,
         context_mark,
@@ -776,6 +778,7 @@ pub fn node_info(world: &World, entity: Entity) -> Info {
             world.get_component::<TextShadow>(entity).ok(),
             world.get_component::<AsImage>(entity).ok(),
             world.get_component::<Canvas>(entity).ok(),
+            world.get_component::<CanvasGraph>(entity).ok(),
             world.get_component::<Layer>(entity).ok(),
             world.get_component::<TextOverflowData>(entity).ok(),
             world.get_component::<RenderContextMark>(entity).unwrap(),
@@ -914,7 +917,7 @@ pub fn node_info(world: &World, entity: Entity) -> Info {
 	} else {
 		None
 	};
-	info.canvas = format!("{:?}, {:?}", canvas, canvas_graph_id);
+	info.canvas = format!("{:?}, {:?}", (canvas, canvas_graph), canvas_graph_id);
     info
 }
 
