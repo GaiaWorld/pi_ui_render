@@ -9,7 +9,7 @@ use pi_world::prelude::{Query, SingleResMut, Entity, Plugin, IntoSystemConfigs, 
 use pi_bevy_ecs_extend::prelude::OrInitSingleRes;
 use pi_bevy_render_plugin::asimage_url::RenderTarget as RenderTarget1;
 
-use pi_bevy_render_plugin::PiRenderGraph;
+use pi_bevy_render_plugin::{NodeId, PiRenderGraph};
 use pi_bevy_render_plugin::render_cross::GraphId;
 use pi_null::Null;
 
@@ -119,8 +119,9 @@ pub fn calc_canvas_graph(
 						log::trace!("canvas add graph depend, before={:?}, after={:?}", id, to_graph_id);
 						log::trace!("canvas add graph depend, before={:?}, after={:?}", id, last_graph_id.0);
                         if let Err(e) = rg.add_depend(id, **to_graph_id) {
-                            log::error!("add_depend fail, {:?}", e);
+                            log::error!("add_depend fail, {:?}", (id, **to_graph_id, e));
                         }
+						// log::warn!("add_depend======={:?}", (id, **to_graph_id));
 						canvas_graph.to_graph_id = to_graph_id.0.clone();
 						// 把canvas节点与根节点相连，在根节点处处理canvas bingroup
 						if let Err(e) = rg.add_depend(id, last_graph_id.0) {
@@ -143,6 +144,9 @@ pub fn calc_canvas_graph(
 			if !pre_graph_id.is_null() {
 				let _ = rg.remove_depend(pre_graph_id, canvas_graph.to_graph_id);
 				let _ = rg.remove_depend(pre_graph_id, last_graph_id.0);
+
+				// log::warn!("remove_depend======={:?}", (pre_graph_id, canvas_graph.to_graph_id));
+				canvas_graph.pre_graph_id = NodeId::null();
 			}
 
 		}
