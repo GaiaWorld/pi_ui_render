@@ -234,11 +234,19 @@ impl Node for Pass2DNode {
 						}
 					} else {
 						visibility = false; // canvas的输出fbo为null时， 不应该显示canvas
+						if out_target.0.is_some() {
+							param.instance_draw.rebatch = true; // 设置rebatch为true， 使得后续重新进行批处理
+						}
+						out_target.0 = None; // 设置为None， 避免纹理冲突
 						// log::error!("visibility1=============== {:?}", (pass2d_id, ty, visibility));
 					}
 					out_target.0 = out.target.clone(); // 设置到组件上， 后续批处理需要用到
 				} else {
 					visibility = false; // canvas的输出fbo为null时， 不应该显示canvas
+					if out_target.0.is_some() {
+						param.instance_draw.rebatch = true; // 设置rebatch为true， 使得后续重新进行批处理
+					}
+					out_target.0 = None; // 设置为None， 避免纹理冲突
 					// log::error!("visibility2=============== {:?}", (pass2d_id, ty, visibility));
 				}
 
