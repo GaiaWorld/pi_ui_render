@@ -159,12 +159,13 @@ pub fn update_graph(
 pub fn type_to_post_process(id: NodeId, as_image: Option<&mut AsImage>, graph_id_query: &Query<&GraphId>, rg: &mut PiRenderGraph, parent_id: NodeId) -> NodeId {
 	if let Some(r) = as_image {
 		if let Ok(post_process_graph) = graph_id_query.get(*r.post_process) {
+            if !r.old_before_graph_id.is_null() && r.old_before_graph_id != id || r.old_after_graph_id != **post_process_graph {
+                let _ = rg.remove_depend(r.old_before_graph_id, r.old_after_graph_id); // 移除旧的后处理链接关系
+                let _ = rg.remove_depend(r.old_after_graph_id, parent_id); // 移除旧的后处理链接关系
+            } 
 			if !post_process_graph.is_null() {
 				log::debug!("add_depend1======{:?}, {:?}", id, **post_process_graph);
-                if r.old_before_graph_id != id || r.old_after_graph_id != **post_process_graph {
-                    rg.remove_depend(r.old_before_graph_id, r.old_after_graph_id); // 移除旧的后处理链接关系
-                    rg.remove_depend(r.old_after_graph_id, parent_id); // 移除旧的后处理链接关系
-                } else if rg.add_depend(id, **post_process_graph).is_ok() { //  添加新的后处理链接关系
+                if rg.add_depend(id, **post_process_graph).is_ok() { //  添加新的后处理链接关系
                     r.old_before_graph_id = id;
                     r.old_after_graph_id = **post_process_graph;
 					return **post_process_graph
