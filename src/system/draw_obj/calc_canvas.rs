@@ -59,7 +59,7 @@ pub const CANVAS_ORDER: u8 = 6;
 /// 为canvas节点添加图依赖结构
 pub fn calc_canvas_graph(
 	mut canvas_query: Query<(&Canvas, &mut CanvasGraph, Ticker<&InPassId>, Entity)>,
-	canvas_other_query: Query<Option<&AsImage>>,
+	mut canvas_other_query: Query<Option<&mut AsImage>>,
 	graph_id_query: Query<Ticker<&GraphId>>,
 	graph_id_query1: Query<&GraphId>,
 	inpass_query: Query<&ParentPassId>,
@@ -101,7 +101,7 @@ pub fn calc_canvas_graph(
 				let _ = rg.remove_depend(pre_graph_id, last_graph_id.0);
 			}
 
-			let as_image = match canvas_other_query.get(entity) {
+			let mut as_image = match canvas_other_query.get_mut(entity) {
 				Ok(r) => r,
 				Err(_) => continue,
 			};
@@ -110,7 +110,7 @@ pub fn calc_canvas_graph(
 				continue;
 			}
 			
-			let id = type_to_post_process(**from_graph_id, as_image, &graph_id_query1, &mut rg);
+			let id = type_to_post_process(**from_graph_id, as_image.as_mut().map(|r| {r.bypass_change_detection()}), &graph_id_query1, &mut rg);
 			log::debug!("canvas id========: {:?}", (entity, &in_pass_id, &from_graph_id.0, id));
             let mut in_pass_id = **in_pass_id;
             loop {

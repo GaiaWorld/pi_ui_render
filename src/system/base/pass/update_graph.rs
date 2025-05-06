@@ -43,7 +43,7 @@ pub fn update_graph(
     mut pass_query: ParamSet<(
         Query<(Option<&mut GraphId>, Entity, OrDefault<ParentPassId>, &RenderContextMark, &PostProcessInfo)>,
         (
-			Query<(&ParentPassId, &GraphId, Option<&AsImage>), (Or<(Changed<ParentPassId>, Changed<AsImage>, Changed<GraphId>)>, With<Camera>)>, 
+			Query<(&ParentPassId, &GraphId, Option<&mut AsImage>), (Or<(Changed<ParentPassId>, Changed<AsImage>, Changed<GraphId>)>, With<Camera>)>, 
 			Query<(&ParentPassId, &GraphId), With<Camera>>,
 			Query<&GraphId>,
 			Query<&ChildrenPass>,
@@ -132,15 +132,18 @@ pub fn update_graph(
 
     let p1 = pass_query.p1();
     // 父修改设置图节点依赖 TODO 遍历优化
-    for (parent_id, graph_id, as_image) in p1.0.iter() {
-        log::debug!("parent_id====={:?}", (parent_id, graph_id, as_image));
+    for (parent_id, graph_id, mut as_image) in p1.0.iter_mut() {
+        log::debug!("parent_id====={:?}", (parent_id, graph_id, &as_image));
         if graph_id.0.is_null() {
             continue;
         }
-
+        let asimage = match as_image {
+            Some(ref mut v) => Some(v.bypass_change_detection()),
+            None => None,
+        };
         let parent_graph_id = get_to(***parent_id, &p1.1);
-        // let id = type_to_post_process(**graph_id, as_image, &p1.2, &mut rg);// TODO
-        let id = graph_id.0.clone();
+        let id = type_to_post_process(**graph_id, asimage, &p1.2, &mut rg);
+        // let id = graph_id.0.clone();
         // 建立父子依赖关系，使得子pass先渲染
         log::debug!("add_depend======{:?}, {:?}, {:?}", id, graph_id, parent_graph_id);
         if let Err(e) = rg.add_depend(id, parent_graph_id) {
@@ -153,12 +156,16 @@ pub fn update_graph(
 }
 
 // 如果存在后处理，连接到后处理
-pub fn type_to_post_process(id: NodeId, as_image: Option<&AsImage>, graph_id_query: &Query<&GraphId>, rg: &mut PiRenderGraph) -> NodeId {
+pub fn type_to_post_process(id: NodeId, as_image: Option<&mut AsImage>, graph_id_query: &Query<&GraphId>, rg: &mut PiRenderGraph) -> NodeId {
 	if let Some(r) = as_image {
 		if let Ok(post_process_graph) = graph_id_query.get(*r.post_process) {
 			if !post_process_graph.is_null() {
 				log::debug!("add_depend1======{:?}, {:?}", id, **post_process_graph);
-				if rg.add_depend(id, **post_process_graph).is_ok() {
+                if r.old_before_graph_id != id || r.old_after_graph_id != **post_process_graph {
+                    rg.remove_depend(r.old_before_graph_id, r.old_after_graph_id); // 移除旧的后处理链接关系
+                } else if rg.add_depend(id, **post_process_graph).is_ok() { //  添加新的后处理链接关系
+                    r.old_before_graph_id = id;
+                    r.old_after_graph_id = **post_process_graph;
 					return **post_process_graph
 				} else {
 					// 添加失败，post_process图节点可能已经销毁， 则应该忽略post_process

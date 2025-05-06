@@ -1,5 +1,6 @@
 //！ 定义用户设置的组件
 use crate::resource::animation_sheet::TransitionData;
+use pi_bevy_render_plugin::NodeId;
 use pi_style::style_parse::{TokenParseError, ItemParseErrors, TokenErrorsInfo};
 use crate::resource::fragment::NodeTag;
 use std::hash::Hasher;
@@ -125,6 +126,8 @@ pub struct ZIndex(pub isize);
 pub struct AsImage {
 	pub level: AsImage1, 
 	pub post_process: EntityKey, // 通过post_process， 需要能查询到一个GraphId组件，此GraphId对应的图节点负责后处理效果
+    pub old_before_graph_id: NodeId, // 旧的链接的图节点
+    pub old_after_graph_id: NodeId, // 旧的链接的图节点
 }
 
 impl NeedMark for AsImage {
