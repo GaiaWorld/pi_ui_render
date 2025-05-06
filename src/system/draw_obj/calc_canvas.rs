@@ -16,10 +16,10 @@ use pi_null::Null;
 use crate::components::calc::{CanvasGraph, InPassId};
 use crate::components::draw_obj::{BoxType, CanvasMark, FboInfo};
 use crate::components::pass_2d::ParentPassId;
-use crate::components::user::{Canvas, AsImage};
+use crate::components::user::Canvas;
 use crate::resource::CanvasRenderObjType;
 use crate::resource::draw_obj::LastGraphNode;
-use crate::system::base::pass::update_graph::{type_to_post_process, update_graph};
+use crate::system::base::pass::update_graph::update_graph;
 use crate::system::system_set::UiSystemSet;
 use crate::prelude::UiStage;
 
@@ -59,7 +59,7 @@ pub const CANVAS_ORDER: u8 = 6;
 /// 为canvas节点添加图依赖结构
 pub fn calc_canvas_graph(
 	mut canvas_query: Query<(&Canvas, &mut CanvasGraph, Ticker<&InPassId>, Entity)>,
-	mut canvas_other_query: Query<Option<&mut AsImage>>,
+	// mut canvas_other_query: Query<Option<&mut AsImage>>,
 	graph_id_query: Query<Ticker<&GraphId>>,
 	graph_id_query1: Query<&GraphId>,
 	inpass_query: Query<&ParentPassId>,
@@ -101,16 +101,17 @@ pub fn calc_canvas_graph(
 				let _ = rg.remove_depend(pre_graph_id, last_graph_id.0);
 			}
 
-			let mut as_image = match canvas_other_query.get_mut(entity) {
-				Ok(r) => r,
-				Err(_) => continue,
-			};
+			// let mut as_image = match canvas_other_query.get_mut(entity) {
+			// 	Ok(r) => r,
+			// 	Err(_) => continue,
+			// };
 
 			if from_graph_id.is_null() {
 				continue;
 			}
 			
-			let id = type_to_post_process(**from_graph_id, as_image.as_mut().map(|r| {r.bypass_change_detection()}), &graph_id_query1, &mut rg);
+			let id = **from_graph_id;
+			// let id = type_to_post_process(**from_graph_id, as_image.as_mut().map(|r| {r.bypass_change_detection()}), &graph_id_query1, &mut rg, Default::default());
 			log::debug!("canvas id========: {:?}", (entity, &in_pass_id, &from_graph_id.0, id));
             let mut in_pass_id = **in_pass_id;
             loop {
