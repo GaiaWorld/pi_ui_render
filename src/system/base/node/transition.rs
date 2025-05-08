@@ -231,6 +231,9 @@ pub fn transition_1_3(
 	mut keyframes_sheet: SingleResMut<KeyFramesSheet>,
 	mut cmds: OrInitSingleResMut<TransitionTempAttr>,
 ) {
+	if cmds.list.len() == 0 {
+		return;
+	}
 	for (entity, cmd) in cmds.list.drain(..) {
 		let mut transition = query.get_mut(entity).unwrap();
 		let transition = transition.bypass_change_detection();

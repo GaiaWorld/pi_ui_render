@@ -105,4 +105,6 @@ void main(void) {
 		// 阴影或外发光， 把outColor的r值表示灰度
 		outColor.rgba = vec4(vColor.rgb, outColor.r);
 	}
+
+	// outColor = vec4(sdf, 0.0, 0.0, 1.0);
 }

@@ -161,8 +161,6 @@ impl TempGeo {
         let splt_end_size = desc.layout_range.end - desc.split.end;
 
         let position_start = buffer.positions.len();
-
-        log::debug!("len============={:?}", position_start);
         
         let mut start = repeat_info.start;
         let mut next = (repeat_info.start + if repeat_info.bound_step > 0.0 {repeat_info.bound_step} else {repeat_info.item_size}).min(repeat_info.end);

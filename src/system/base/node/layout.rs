@@ -7,7 +7,7 @@
 //!
 
 use std::{
-    intrinsics::transmute,
+    mem::transmute,
     marker::PhantomData,
     ops::{Index, IndexMut},
 };
@@ -99,6 +99,9 @@ pub fn calc_layout(
 	if r.0 {
 		return;
 	}
+    if dirty_list.len() == 0 {
+        return;
+    }
 
 	let time = pi_time::Instant::now();
 

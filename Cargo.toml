@@ -157,7 +157,7 @@ pi_winit = { version = "0.27", registry = "yn", package = "winit" }
 tracing = "0.1"
 postcard = { version = "1.0", features = ["use-std"] }
 
-# wgpu = { version = "0.1", registry = "yn", package = "pi_wgpu" }
+# wgpu = { version = "0.2", registry = "yn", package = "pi_wgpu" }
 wgpu = { version = "0.2", registry = "yn", package = "pi_wgpu", features=["use_wgpu"]}
 # pi_ui_render = { path = "./", features = ["trace", "single_thread"] }
 # pi_ui_render = { path = "./", features = ["trace"] }
@@ -298,7 +298,7 @@ test = true
 
 # pi_slotmap_tree = { path = "../pi_slotmap_tree" }
 # pi_map = { path = "../pi_map" }
-# pi_flex_layout = { path = "../pi_flex_layout" }
+pi_flex_layout = { path = "../pi_flex_layout" }
 # pi_dirty={path = "../pi_dirty" }
 # pi_spatial = { path="../pi_spatial" }
 
@@ -326,14 +326,14 @@ pi_sdf = { path = "../pi_sdf" }
 # pi_bevy_post_process = { path = "../pi_bevy_new_graphic/crates/post_process" }
 # pi_bevy_window = { path = "../pi_bevy_new_graphic/crates/window" }
 
-# pi_bevy_ecs_extend = { path = "../pi_bevy/crates/ecs_extend" }
-# pi_bevy_render_plugin = { path = "../pi_bevy/crates/render" }
-# pi_bevy_asset = { path = "../pi_bevy/crates/asset" }
-# pi_bevy_winit_window = { path = "../pi_bevy/crates/winit_window" }
-# pi_bevy_log = { path = "../pi_bevy/crates/log" }
-# pi_bevy_ecs_macro = { path = "../pi_bevy/crates/ecs_extend/macro" }
-# pi_bevy_post_process = { path = "../pi_bevy/crates/post_process" }
-# pi_bevy_window = { path = "../pi_bevy/crates/window" }
+pi_bevy_ecs_extend = { path = "../pi_bevy/crates/ecs_extend" }
+pi_bevy_render_plugin = { path = "../pi_bevy/crates/render" }
+pi_bevy_asset = { path = "../pi_bevy/crates/asset" }
+pi_bevy_winit_window = { path = "../pi_bevy/crates/winit_window" }
+pi_bevy_log = { path = "../pi_bevy/crates/log" }
+pi_bevy_ecs_macro = { path = "../pi_bevy/crates/ecs_extend/macro" }
+pi_bevy_post_process = { path = "../pi_bevy/crates/post_process" }
+pi_bevy_window = { path = "../pi_bevy/crates/window" }
 
 # pi_render
 pi_render = { path = "../pi_render" }

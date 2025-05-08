@@ -22,6 +22,7 @@ use crate::{
     },
     resource::{IsRun, ShareFontSheet},
 };
+use pi_world::fetch::Ticker;
 
 /// 文字劈分
 /// 将可以简单布局的问文字节点转化为。。
@@ -40,6 +41,11 @@ pub fn text_split(
             Option<&'static mut FlexContainer>,
             &Layer,
 			Option<&'static mut TextOverflowData>,
+
+            // Ticker<&'static TextContent>,
+            // Ticker<&'static Layer>,
+            // Ticker<&'static TextStyle>,
+            // Option<Ticker<&'static TextOverflowData>>,
         ),
         Or<(Changed<TextContent>, Changed<TextStyle>, Changed<Layer>, Changed<TextOverflowData>)>,
     >,
@@ -50,10 +56,13 @@ pub fn text_split(
 		return;
 	}
     let mut font_sheet = font_sheet.0.borrow_mut();
-    for (entity, text_content, text_style, up, size, normal_style, node_state, style_mark, flex_container, layer, text_overflow_data) in query.iter_mut() {
-        if layer.layer().is_null() {
-            continue;
-        }
+    for (entity, text_content, text_style, up, size, normal_style, node_state, style_mark, flex_container, layer, text_overflow_data,
+		
+    ) in query.iter_mut() {
+        // if layer.layer().is_null() {
+        //     continue;
+        // }
+       
 
         // 字体大小，根据font-size样式，计算字体的绝对大小
         let font_size = get_size(&text_style.font_size);

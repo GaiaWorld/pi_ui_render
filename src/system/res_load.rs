@@ -1,4 +1,4 @@
-use std::{any::Any, sync::Arc};
+use std::any::Any;
 
 use pi_world::prelude::SingleRes;
 use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, OrInitSingleRes};
@@ -16,8 +16,8 @@ use pi_async_rt::prelude::AsyncRuntime;
 
 #[derive(Clone)]
 pub struct ResSuccess {
-	pub async_list: Share<SegQueue<(Atom, Arc<dyn Any + Send + Sync + 'static>)>>,
-	pub sync_list: Vec<(Atom, Arc<dyn Any + Send + Sync + 'static>)>,
+	pub async_list: Share<SegQueue<(Atom, Share<dyn Any + Send + Sync + 'static>)>>,
+	pub sync_list: Vec<(Atom, Share<dyn Any + Send + Sync + 'static>)>,
 }
 
 impl Default for ResSuccess {

@@ -68,8 +68,9 @@ pub fn calc_animation_1(
     };
     // let time0 = pi_time::Instant::now();
     // 解绑定动画
-    let p1 = style_query.p1();
+    
     if removed.len() > 0 {
+        let p1 = style_query.p1();
         for del in removed.iter() {
             if let Ok(has_animation) = p1.get(*del) {
                 if has_animation {
@@ -124,7 +125,7 @@ pub fn calc_animation_2(
     let mut events = EventSender::<'_, StyleChange>::init_state(&mut w3, &mut s_meta);
 
     let mut dirty_list = StyleDirtyList {
-		list: EventSender::<'_, StyleChange>::get_param(&w4, &mut s_meta, &mut events, world.tick()),
+		list: EventSender::<'_, StyleChange>::get_param(&mut events),
 		mark: &mut dirty_mark.0,
 	};
     // let t4 = std::time::Instant::now();

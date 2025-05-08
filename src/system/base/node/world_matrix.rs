@@ -37,20 +37,18 @@
 //! 暂时无并行。
 //!
 //! 可以考虑： 当父矩阵计算完成后，父节点所有子节点所形成的子树，可以并行计算（他们依赖的父矩阵已经计算完毕）
-use pi_bevy_ecs_extend::system_param::tree::Down;
 use pi_world::event::{ComponentAdded, ComponentChanged};
 use pi_world::prelude::{ParamSet, Query, SingleResMut, Entity, With};
-use pi_bevy_ecs_extend::prelude::{Layer, LayerDirty, OrInitSingleRes, Up};
+use pi_bevy_ecs_extend::prelude::{EntityTree, LayerDirty, OrInitSingleRes, OrInitSingleResMut, Up};
 
 use pi_map::Map;
 use pi_null::Null;
 use pi_style::style::Aabb2;
 
-use crate::components::calc::{ContentBox, EntityKey, LayoutResult, Quad, WorldMatrix};
+use crate::components::calc::{EntityKey, LayoutResult, Quad, WorldMatrix};
 use crate::components::user::{BoxShadow, Point2, TextShadow, Transform};
-use crate::resource::{GlobalDirtyMark, IsRun, OtherDirtyType, QuadTree};
-use crate::system::base::node::content_box::calc_content_box;
-use crate::utils::tools::calc_bound_box;
+use crate::resource::{GlobalDirtyMark, IsRun, MatrixDirty, OtherDirtyType, QuadTree};
+use crate::components::user::Vector4;
 
 
 pub struct CalcMatrix;
@@ -83,11 +81,7 @@ pub fn cal_matrix(
     // query_dirty: Query<(Ticker<&Layer>, Ticker<&LayoutResult>, Option<Ticker<&Transform>>, Option<Ticker<&TextShadow>>, Option<Ticker<&BoxShadow>>)>,
     layout_dirty: ComponentChanged<LayoutResult>,
     transform_dirty: ComponentChanged<Transform>,
-    text_shadow_dirty: ComponentChanged<TextShadow>,
-    box_shadow_dirty: ComponentChanged<BoxShadow>,
     transform_add: ComponentAdded<Transform>,
-    text_shadow_add: ComponentAdded<TextShadow>,
-    box_shadow_add: ComponentAdded<BoxShadow>,
 
     query: Query<(Option<&Transform>, &LayoutResult, &Up)>,
 
@@ -105,11 +99,12 @@ pub fn cal_matrix(
 
 
     // node_box: Query<(&Quad, &LayoutResult, Option<&TextShadow>, Option<&BoxShadow>, &WorldMatrix)>,
-    down: Query<&Down>,
-    up: Query<&Up>,
-    layer: Query<&Layer>,
-    content_box: Query<&mut ContentBox>,
-    mut layer_dirty1: LayerDirty<With<Empty>>,
+    // down: Query<&Down>,
+    // up: Query<&Up>,
+    // layer: Query<&Layer>,
+    // content_box: Query<&mut ContentBox>,
+    mut layer_dirty1: OrInitSingleResMut<MatrixDirty>,
+    entity_tree: EntityTree,
     mut global_dirty: SingleResMut<GlobalDirtyMark>,
     // mut event_writer1: EventSender<OldQuad>,
 ) {
@@ -117,70 +112,23 @@ pub fn cal_matrix(
 		return;
 	}
     
-    // println!("matrix time0========{:?}", ( ii, i1, pi_time::Instant::now() - time));
-    // let time = pi_time::Instant::now();
-	// let count = dirtys.count();
-    // transform修改，标记层脏(这里transform_change不直接在层脏中声明，是因为transform改变不会发送对应的事件)
-	// let time2 = pi_time::Instant::now();
-
-    // let layer_dirty_count = dirtys.count();
-    // 计算布局
-    // let _sss = tracing::info_span!("matrix compute", layer_dirty_count).entered();
-    // let mut ii = Vec::new();
-    // for (i, t1, t2, t3) in query11.iter() {
-    //     ii.push((i, t1.map(|t| {t.is_changed()}), t2.is_changed(), t3.is_changed()));
-    // }
-    // let mut ii = 0;
-    // for i in dirty_list2.iter() {
-    //     if let Ok((layer, style_mark)) = query_dirty2.get(i.0) {
-    //         if !layer.layer().is_null() && (
-    //             layer.is_changed() || 
-    //             style_mark.dirty_style.has_any(&CONTENT_BOX_DIRTY)
-    //         ) {
-    //             ii +=1;
-    //             layer_dirty1.mark(i.0);
-    //         }
-    //     }
-    // }
-
-    // let mut ii1 = Vec::new();
-	// let count = dirtys.count();
-    // LAYOUT_DIRTY
-    // let mut jj = 0;
-    // let time1 = pi_time::Instant::now();
-    
-    // for i in dirty_list.iter() {
-
-    //     if let Ok((layer, layout, transform, text_shadow, box_shadow)) = query_dirty.get(i.0) {
-            
-    //         if !layer.layer().is_null() && (
-    //             layer.is_changed() || 
-    //             layout.is_changed() || 
-    //             transform.map_or(false, |r| {r.is_changed()}) || 
-    //             text_shadow.map_or(false, |r| {r.is_changed()}) || 
-    //             box_shadow.map_or(false, |r| {r.is_changed()})
-    //         ) {
-    //             // jj +=1;
-    //             layer_dirty.mark(i.0);
-    //         }
-    //     }
-    // }
-
     for i in layout_dirty.iter().chain(transform_dirty.iter()).chain(transform_add.iter()) {
         layer_dirty.mark(*i);
     }
-    for i in text_shadow_dirty.iter().chain(box_shadow_dirty.iter()).chain(text_shadow_add.iter()).chain(box_shadow_add.iter()) {
-        layer_dirty1.mark(*i);
-    }
+
+    let layer_dirty1 = &mut layer_dirty1.0;
+
 
     if layer_dirty.count() > 0 {
         global_dirty.mark.set(OtherDirtyType::WorldMatrix as usize, true);
+    } else {
+        return;
     }
 
     // let time2 = pi_time::Instant::now();
     // println!("matrix time1========{:?}", ( time2 - time1));
     for id in layer_dirty.iter() { 
-        layer_dirty1.mark(id);
+        layer_dirty1.marked_dirty(id, id, &entity_tree);
         // ii1.push(id);
         // if count == 1 {
 		// 	log::warn!("matrix time0========{:?}", pi_time::Instant::now() - time1);
@@ -222,7 +170,7 @@ pub fn cal_matrix(
                     }
                 };
 
-                let offset = (layout.rect.left + parent_layout.border.left, layout.rect.top + parent_layout.border.top);
+                let offset = (layout.rect.left + parent_layout.border.left + parent_layout.padding.left, layout.rect.top + parent_layout.border.top + parent_layout.padding.top);
                 match transform {
                     // transform存在时，根据transform和布局计算得到变换矩阵，再乘以父矩阵
                     Some(transform) => {
@@ -270,7 +218,7 @@ pub fn cal_matrix(
                    
 					#[cfg(debug_assertions)]
 					if id == debug_entity.0.0 {
-						log::warn!("matrix=============id={:?}, \nlayout={:?}, \nmatrix={:?}, \nquad={:?}", id, layout, &matrix, &quad);
+						log::debug!("matrix=============id={:?}, \nlayout={:?}, \nmatrix={:?}, \nquad={:?}", id, layout, &matrix, &quad);
 					}
                     // log::warn!("matrix=============id={:?}, parent: {:?}, layout={:?}, \nmatrix={:?}, \nquad={:?}, \ntransform={:?}", id, parent_id, layout, &*matrix, &*quad, transform);
                     *world_matrix = matrix;
@@ -285,7 +233,7 @@ pub fn cal_matrix(
     // let time3 = pi_time::Instant::now();
     
 
-    calc_content_box(&mut layer_dirty1, matrix_calc.p2(), down, up, layer, content_box);
+    // calc_content_box(&mut layer_dirty1, matrix_calc.p2(), down, up, layer, content_box);
     // let time4 = pi_time::Instant::now();
     // println!("matrix time========{:?}, calc_content_box: {:?}", (time3 - time1, time1 - time, i, j), time4 - time3);
     // if dirtys.count() > 0 {
@@ -307,9 +255,38 @@ pub fn calc_quad(
 ) {
     let width = layout.rect.right - layout.rect.left;
     let height = layout.rect.bottom - layout.rect.top;
-    let aabb = calc_bound_box(&Aabb2::new(Point2::new(0.0, 0.0), Point2::new(width, height)), world_matrix);
 
-    let item = Quad::new(aabb);
+    let left_top = world_matrix * Vector4::new(0.0, 0.0, 0.0, 1.0);
+    let right_bottom = world_matrix * Vector4::new(width, height, 0.0, 1.0);
+
+    let item = if world_matrix.1 {
+        let right_top = world_matrix * Vector4::new(width, 0.0, 0.0, 1.0);
+        let left_bottom = world_matrix * Vector4::new(0.0, height, 0.0, 1.0);
+        let min = Point2::new(
+            left_top.x.min(right_top.x).min(left_bottom.x).min(right_bottom.x),
+            left_top.y.min(right_top.y).min(left_bottom.y).min(right_bottom.y),
+        );
+    
+        let max = Point2::new(
+            left_top.x.max(right_top.x).max(left_bottom.x).max(right_bottom.x),
+            left_top.y.max(right_top.y).max(left_bottom.y).max(right_bottom.y),
+        );
+    
+        Quad::new(Aabb2::new(min, max))
+    } else {
+        Quad::new(Aabb2::new(Point2::new(
+            left_top.x,
+            left_top.y,
+        ), Point2::new(
+            right_bottom.x,
+            right_bottom.y,
+        )))
+    };
+    
+
+    // let aabb = calc_bound_box(&Aabb2::new(Point2::new(0.0, 0.0), Point2::new(width, height)), world_matrix);
+
+    // let item = Quad::new(aabb);
     // 在修改oct前，先发出一个删除事件，一些sys能够通过监听该事件知道在删除前，quad的值（如脏区域系统，需要了解oct在修改之前的值，来更新脏区域）
     // if let Some(r) = quad_tree.get(&EntityKey(id)) {
     //     event_writer1.send(OldQuad {

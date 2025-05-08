@@ -11,7 +11,6 @@ use crate::prelude::UiStage;
 pub mod layout;
 pub mod world_matrix;
 // pub mod quad;
-pub mod content_box;
 pub mod show;
 pub mod user_setting;
 pub mod z_index;
@@ -42,7 +41,7 @@ impl Plugin for UiNodePlugin {
             // .init_single_res::<TimeInfo>()
             // .init_single_res::<KeyFramesSheet>()
 
-			// 维护脏列表
+			// 维护脏列表, 没帧结束时清理
 			.add_system(PostUpdate, clear_dirty_mark
                 .after(bevy_window::FrameSet)
                 .in_set(UiSystemSet::ClearSetting)

@@ -3,11 +3,11 @@
 use std::ops::Range;
 
 use pi_world::{insert::Component, prelude::Entity};
-use pi_assets::asset::{Handle, Size, Asset, Droper};
+use pi_assets::asset::{Handle, Size, Asset};
 pub use pi_bevy_render_plugin::render_cross::GraphId;
 use pi_postprocess::postprocess::PostProcess as PostProcess1;
 use pi_render::{
-    components::view::target_alloc::ShareTargetView,
+    components::view::target_alloc::{SafeTargetView, ShareTargetView},
     renderer::draw_obj::DrawBindGroup,
     rhi::{asset::RenderRes, bind_group::BindGroup, buffer::Buffer},
 };
@@ -17,12 +17,22 @@ use wgpu::RenderPipeline;
 use crate::resource::RenderContextMarkType;
 
 use super::{
-    calc::{DrawInfo, EntityKey, ZRange},
+    calc::{DrawInfo, EntityKey, WorldMatrix, ZRange},
     user::{Aabb2, AsImage, Point2},
 };
 
 /// 一个渲染Pass
 pub struct Pass2D;
+
+/// 世界矩阵的逆矩阵
+#[derive(Default, Component, Debug)]
+pub struct WorldMatrixInvert {
+    pub value: Option<WorldMatrix>,
+    // 标记哪些类型的上下文需要世界矩阵的逆矩阵
+    // 目前， 设置TransfromWillchange、ClipPath的节点， 需要世界矩阵的逆矩阵计算
+    // pub mark: bitvec::prelude::BitArray<[u32; 1]> 
+    pub is_valid: bool, // 标记逆矩阵是否有效（一些pass节点不需要逆矩阵， 即便存在该组件， 也没有正确的计算出逆矩阵）
+}
 
 // /// 一个Pass2D必需含有该组件
 // #[derive(Debug, Default)]
@@ -35,12 +45,16 @@ pub struct Camera {
     // pub project: Matrix4,
     pub bind_group: Option<DrawBindGroup>,
     pub view_port: Aabb2,      // 非渲染视口区域（相对于全局的0,0点）
+    pub draw_range: Range<usize>, // 渲染范围
     // 是否渲染自身内容（如果为false，该相机不会渲染任何物体）
-    // draw_changed为true是， is_active一定为true
-    // draw_changed为false时，还需要看，从当前上下文开始向上递归，是否有上下文渲染目标被缓存，如果有，则is_active为false，否则为true
+    // draw_changed为true时， is_render_own一定为true
+    // draw_changed为false时，还需要看，从当前上下文开始向上递归，是否有上下文渲染目标被缓存，如果有，则is_render_own为false，否则为true
     pub is_render_own: bool,
-    pub draw_changed: bool,     // 表示相机内的渲染内容是否改变
-    // 是否渲染(表示该pass是否渲染到父目标上)
+    // 是否可见（显示设置不可见， 或被overflow裁剪， 都视为不可见）
+    pub is_visible: bool, 
+    // 表示相机内的渲染内容是否改变
+    pub draw_changed: bool,
+    // 是否渲染到父目标(表示该pass是否渲染到父目标上)
     pub is_render_to_parent: bool,  
 }
 
@@ -51,9 +65,11 @@ impl Default for Camera {
             // project: Default::default(),
             bind_group: None,
             view_port: Aabb2::new(Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)),
+            draw_range: 0..0,
             is_render_own: false,
             draw_changed: true,
             is_render_to_parent: true,
+            is_visible: false,
         }
     }
 }
@@ -404,6 +420,8 @@ pub struct RenderTarget {
     pub cache: RenderTargetCache,
     // 当前target所对应的在该节点的非旋转坐标系下的包围盒（分配fbo的尺寸）
     pub bound_box: Aabb2,
+    // 精确的bound_box，由于bound_box是整数数据， 并非渲染时的精确包围盒， 需要记录精确包围盒，以免出现渲染下次（范围： 0~1， 表示距离边界的偏移比例）
+    pub accurate_bound_box: Aabb2,
 }
 
 impl Default for RenderTarget {
@@ -415,6 +433,10 @@ impl Default for RenderTarget {
                 mins: Point2::new(0.0, 0.0),
                 maxs: Point2::new(0.0, 0.0),
             },
+            accurate_bound_box: Aabb2 {
+                mins: Point2::new(0.0, 0.0),
+                maxs: Point2::new(0.0, 0.0),
+            }
         }
     }
 }
@@ -423,8 +445,7 @@ impl Default for RenderTarget {
 pub enum StrongTarget {
 	#[default]
 	None,
-    Asset(Handle<CacheTarget>),
-    Raw(CacheTarget),
+    Asset(ShareTargetView),
 }
 
 
@@ -432,7 +453,11 @@ pub enum StrongTarget {
 pub enum RenderTargetCache {
 	#[default]
 	None,
-    Strong(Handle<CacheTarget>),
-    Weak(ShareWeak<Droper<CacheTarget>>),
+    Strong(ShareTargetView),
+    Weak(ShareWeak<SafeTargetView>),
 }
+
+/// 是否稳定, 标记一个Pass2d节点是否经常保持不变
+#[derive(Debug, Default, Component, Clone)]
+pub struct IsSteady(pub bool);
 

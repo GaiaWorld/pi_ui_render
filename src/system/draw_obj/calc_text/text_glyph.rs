@@ -105,7 +105,7 @@ pub fn text_glyph(
             // t2
         ) in query.p0().iter_mut()
         {
-            log::debug!("set_gylph============{:?}", entity);
+            // log::warn!("set_gylph============{:?}", entity);
             // ii1.push(entity);
             // println!("text_glyph======{:?}", (t1.map(|t| {t.is_changed()}), t2.is_changed(), t3.map(|t| {t.is_changed()})));
             let r = set_gylph(entity, layer, text_style, text_outer_glow, node_state, &mut font_sheet, text_overflow_data);
@@ -234,9 +234,9 @@ fn set_gylph(
     font_sheet: &mut FontSheet,
 	text_overflow_data: Option<Mut<'_, TextOverflowData>>
 ) -> Result<bool, ()> { // 返回字形是否已经准备就绪
-	if layer.layer().is_null() {
-		return Ok(true);
-	}
+	// if layer.layer().is_null() {
+	// 	return Ok(true);
+	// }
     // let scale = Vector4::from(world_matrix.fixed_columns(1));
     // let scale = scale.dot(&scale).sqrt();
     // // log::warn!("set_gylph============={:?}, {:?}, {:?}", entity, text_content, scale);

@@ -18,6 +18,7 @@ use pi_share::{Share, ShareCell};
 use pi_style::style::{Aabb2, CgColor};
 use pi_world::world::ComponentIndex;
 use pi_key_alloter::Key;
+use smallvec::SmallVec;
 
 use std::marker::{ConstParamTy, PhantomData};
 use std::mem::transmute;
@@ -35,6 +36,7 @@ use crate::components::calc::{EntityKey, Quad, StyleMarkType};
 use crate::components::user::serialize::{AttrSet, StyleAttr};
 use crate::components::user::{AsImage, ClipPath, MaskImage, Point2, RenderTargetType, Vector2, Viewport};
 use crate::components::SettingComponentIds;
+use crate::utils::tools::LayerDirty;
 use pi_spatial::quad_helper::QuadTree as QuadTree1;
 // use crate::utils::cmd::{CommandQueue, Command, DataQuery};
 // use pi_world::prelude::{CommandQueue, Commands, World};
@@ -51,6 +53,7 @@ pub struct ClassSheet(pi_style::style_type::ClassSheet);
 #[derive(Serialize, Deserialize, Clone, Copy, Hash, ConstParamTy, PartialEq, Eq)]
 pub enum OtherDirtyType {
     // NodeCreate = 127, // 添加到树上也算创建
+    Canvas = 128, // 遮罩纹理
     NodeTreeAdd = 127, // 树结构改变
     NodeTreeDel = 126, // 树结构改变
     DrawObjCreate = 125, // drawObj创建
@@ -68,12 +71,16 @@ pub enum OtherDirtyType {
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
-pub struct RenderDirty(pub bool, pub bool/*当前帧是否脏*/, pub bool/*上一帧是否脏*/);
+pub struct RenderDirty(pub bool/*外部需要渲染设脏， 设置此字段，每帧会被清理*/, pub bool/*当前帧是否脏*/, pub bool/*上一帧是否脏*/);
 
 #[derive(Default, Deref, Serialize, Deserialize)]
 pub struct GlobalDirtyMark {
     pub mark: StyleMarkType,
 }
+
+
+#[derive(Default, Deref)]
+pub struct MatrixDirty(pub LayerDirty<Entity>);
 
 /// 用户指令缓冲区
 pub struct UserCommandsCache(pub UserCommands);
@@ -111,6 +118,9 @@ pub struct UserCommands {
     // pub text_commands: Vec<(Entity, Option<TextContent>)>,
     /// class指令(class指令单独放，使得class设置可以在style设置之后执行，性能会更高，因为style设置了的属性，class不会再重复设置)
     pub class_commands: Vec<(Entity, ClassName)>,
+
+    /// selector指令
+    pub selector_commands: Vec<(Entity, ClassName)>,
 
     // css 内容增加指令
     // pub css_commands: Vec<ClassSheet>,
@@ -164,6 +174,7 @@ impl UserCommands {
             (ids.render_context_mark, true),
             (ids.draw_list, true),
             (ids.is_show, true),
+            (ids.has_animation, true),
             // (ids.is_display, true),
         ]);
         if tag == NodeTag::VNode {
@@ -225,6 +236,10 @@ impl UserCommands {
     pub fn set_default_style_by_str(&mut self, class: &str, scope_hash: usize) -> &mut Self {
         match parse_style_list_from_string(class, scope_hash) {
             Ok(r) => {
+                #[cfg(feature = "debug")]
+                if self.is_record {
+                    self.other_commands_list.push(CmdType::DefaultStyleCmd(DefaultStyleCmd(r.clone())));
+                }
                 self.other_commands.push(DefaultStyleCmd(r));
             }
             Err(e) => {
@@ -294,6 +309,11 @@ impl UserCommands {
         // println_any!("set_class===={:?}", &value);
 		// out_any!(log::warn, "set_class, entity: {:?}, {:?}, value: {:?}", entity, unsafe {transmute::<_, f64>(entity.to_bits())}, &value);
         self.class_commands.push((entity, value));
+		self
+    }
+
+    pub fn set_selector(&mut self, entity: Entity, value: ClassName) -> &mut Self {
+        self.selector_commands.push((entity, value));
 		self
     }
 
@@ -388,14 +408,14 @@ impl UserCommands {
     }
 
     /// 设置渲染脏
-    pub fn set_render_dirty(&mut self, _node: Entity, _cmd: RenderDirty) -> &mut Self {
+    pub fn set_render_dirty(&mut self, _node: Entity, cmd: RenderDirty) -> &mut Self {
         // println_any!("push_cmd===={:?}", 1);
         // let r = NodeCmd(cmd, node);
 
-        // #[cfg(feature = "debug")]
-        // self.other_commands_list.push(CmdType::NodeCmdRenderRenderDirty(r.clone()));
+        #[cfg(feature = "debug")]
+        self.other_commands_list.push(CmdType::NodeCmdRenderRenderDirty(RenderDirtyCmd(cmd.clone())));
 
-        // self.other_commands.push(r);
+        self.other_commands.push(RenderDirtyCmd(cmd));
 		self
     }
 

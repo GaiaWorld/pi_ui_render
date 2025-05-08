@@ -5,7 +5,7 @@ use std::{sync::Arc, time::Instant};
 use bevy_window::{Window, WindowResolution};
 use pi_bevy_ecs_extend::system_param::res::OrInitSingleResMut;
 use pi_ui_render::resource::fragment::NodeTag;
-use pi_ui_render::resource::ShareFontSheet;
+use pi_ui_render::resource::{RenderDirty, ShareFontSheet};
 use pi_world::prelude::{App, Entity, First, Insert, IntoSystemConfigs, Local, SingleResMut, SystemSet, World, WorldPluginExtent};
 
 use pi_async_rt::prelude::AsyncRuntime;
@@ -352,6 +352,14 @@ println!("===========   ===========");
                 if !is_init {
                     return;
                 }
+                // 设置渲染脏
+                if let Some(play_option) = app.world.get_single_res::<PlayOption>(){
+                    if play_option.render_debug {
+                        if let Some(render_dirty) = app.world.get_single_res_mut::<RenderDirty>() {
+                            render_dirty.0 = true;
+                        }
+                    }
+                }
                 #[cfg(not(target_arch = "wasm32"))]
                 app.run();
 
@@ -657,7 +665,6 @@ pub fn record_cmd_to_file(mut records: SingleResMut<Records>) {
 #[cfg(feature = "debug")]
 pub fn setting_next_record(world: &mut World, mut local_state: Local<NextState>) {
     use tracing_subscriber::fmt::format;
-
     let play_option = (*world.get_single_res::<PlayOption>().unwrap()).clone();
     let local_state = &mut *local_state;
     if local_state.is_end {
@@ -703,13 +710,10 @@ pub fn setting_next_record(world: &mut World, mut local_state: Local<NextState>)
             // }
        }
 
-       
-       
-        
         return;
     }
 
-    setting(&mut local_state.file_index, world, &mut local_state.is_end, &play_option)
+    setting(&mut local_state.file_index, world, &mut local_state.is_end, &play_option);
 }
 
 
@@ -822,6 +826,7 @@ pub struct PlayOption {
     pub speed: f32,
     pub jemalloc: bool,
     pub play_mod: PlayMod,
+    pub render_debug: bool,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]

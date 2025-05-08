@@ -1,10 +1,10 @@
 //! 每个实体必须写入StyleMark组件
 
 use pi_bevy_render_plugin::{render_cross::GraphId, PiRenderGraph};
-use pi_world::{event::{Event, EventSender}, filter::Or, prelude::{Alter, Entity, Local, Mut, Query, SingleResMut, With, World}, single_res::SingleRes, system::{SystemMeta, TypeInfo}, system_params::SystemParam, world::FromWorld};
+use pi_world::{event::{Event, EventSender, EventWriter}, filter::Or, prelude::{Alter, Entity, Local, Mut, Query, SingleResMut, With, World}, single_res::SingleRes, system::{SystemMeta, TypeInfo}, system_params::SystemParam, world::FromWorld};
 use pi_world::world::ComponentIndex;
 use pi_key_alloter::Key;
-use pi_bevy_ecs_extend::prelude::{EntityTreeMut, OrInitSingleResMut};
+use pi_bevy_ecs_extend::prelude::{EntityTreeMut, OrInitSingleRes, OrInitSingleResMut};
 
 use bitvec::array::BitArray;
 use pi_map::Map;
@@ -61,7 +61,7 @@ pub struct StyleDirtyMark(pub bitvec::vec::BitVec<usize>);
 pub fn user_setting1(
     world: &mut World,
     id: Local<SingleId>,
-    setting_components: Local<SettingComponentIds>,
+    setting_components: OrInitSingleRes<SettingComponentIds>,
     default_style: Local<DefaultStyle>,
     // mut dirty_mark: Local<bitvec::vec::BitVec<usize>>,
 ) {
@@ -98,7 +98,7 @@ pub fn user_setting1(
 
     let mut events = EventSender::<'_, StyleChange>::init_state(&mut w6, &mut s_meta);
     let mut dirty_list = StyleDirtyList {
-		list: EventSender::<'_, StyleChange>::get_param(&w5, &mut s_meta, &mut events, world.tick()),
+		list: EventSender::<'_, StyleChange>::get_param(&mut events),
 		mark: &mut dirty_mark.0,
 	};
 
@@ -284,6 +284,7 @@ pub fn user_setting2(
     for c in user_commands.node_commands.drain(..) {
         match c {
             NodeCommand::AppendNode(node, parent) => {
+                
                 is_add = true;
                 log::debug!("AppendNode====================node： {:?}, parent： {:?}, node_is_exist：{:?}, parent_is_exist: {:?}", node, parent, entitys.contains(node), entitys.contains(parent));
                 // if entitys.contains(node) && (parent.is_null() || entitys.contains(parent)) {
@@ -299,9 +300,9 @@ pub fn user_setting2(
 					// }
 					
                     // log::warn!("AppendNode node====================node： {:?}, parent： {:?}", node, parent);
-                    dirty_list_mark.mark_dirty(node);
                     tree.insert_child(node, parent, std::usize::MAX);
                     if !tree.layer(node).layer().is_null() {
+                        dirty_list_mark.mark_tree_dirty(node, &mut tree);
                         add_events.send(AddEvent(node));
                     }
                 // }
@@ -323,9 +324,9 @@ pub fn user_setting2(
                 // if entitys.contains(node) && (anchor.is_null() || entitys.contains(anchor)) {
                    
                     // log::warn!("InsertBefore node====================node：{:?}, anchor： {:?}", node, anchor);
-                    dirty_list_mark.mark_dirty(node);
                     tree.insert_brother(node, anchor, InsertType::Front);
                     if !tree.layer(node).layer().is_null() {
+                        dirty_list_mark.mark_tree_dirty(node, &mut tree);
                         add_events.send(AddEvent(node));
                     }
                 // }
@@ -438,6 +439,16 @@ impl<'s, 'w> StyleDirtyList<'s, 'w> {
         self.mark.set(index, true);
 	}
 
+    /// 标记整棵树脏
+	pub fn mark_tree_dirty(&mut self, entity: Entity, tree: &EntityTreeMut) {
+		self.mark_dirty(entity);
+
+        let head = tree.down(entity).head();
+        for i in tree.recursive_iter(head) {
+			self.mark_dirty(i);
+        }
+	}
+
 	/// 清理标记
 	pub fn clear_mark(&mut self) {
 		self.mark.clear();
@@ -527,6 +538,7 @@ fn set_class<'w, 's>(node: Entity, style_query: &mut Setting, class: ClassName, 
     let (old_class_style_mark, local_style_mark) = (style_mark.class_style.clone(), style_mark.local_style.clone());
     let mut new_class_style_mark: StyleMarkType = BitArray::new([0, 0, 0, 0, 0]);
 
+    log::trace!("set classes==========={:?}, {:?}", node, class);
     // 设置class样式
     for i in class.iter() {
         if let Some(class) = class_sheet.class_map.get(i) {

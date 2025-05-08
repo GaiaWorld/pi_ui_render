@@ -13,7 +13,7 @@ use pi_tcp::{SocketConfig, SocketEvent,
         connect::TcpSocket,
         server::{PortsAdapterFactory, SocketListener}};
 use json::JsonValue;
-use crate::{components::user::{ClassName, Size}, devtools::get_document_tree};
+use crate::{components::user::{ClassName, Size}, devtools::{get_document_tree, get_roots}};
 
 use super::{init_node, node_info, GuiNode};
 
@@ -33,7 +33,8 @@ pub fn start_server(app: &mut App) {
     let _out = std::process::Command::new("node")
     .args([
         "src/devtools/http_server.js",
-    ]);
+    ])
+    .spawn();
 
     //启动一个websocket服务
     start_websocket_server();
@@ -188,7 +189,7 @@ fn start_websocket_server() {
             println!("!!!> Websocket Listener Bind Error, reason: {:?}", e);
         },
         Ok(_driver) => {
-            println!("===> Websocket Listener Bind Ok");
+            println!("===> Websocket Listener in: {:?}", "0.0.0.0:3001");
         }
     }
 
@@ -217,7 +218,7 @@ impl ChildProtocol<TcpSocket> for MyChildProtocol {
         }
 
         let msg = context.pop_msg();
-        println!("!!!!!!receive ok, msg: {:?}", String::from_utf8(msg.clone()));
+        // println!("!!!!!!receive ok, msg: {:?}", String::from_utf8(msg.clone()));
         CMDS.get().unwrap().push(( String::from_utf8(msg).unwrap(), connect));
         async move {
             Ok(())
@@ -272,16 +273,26 @@ fn parse_cmd(cmd: &str, connect: WsSocket<TcpSocket>, world: &mut World) -> std:
         r => return Err(format!("message invalid: {:?}", r))
     };
     let cmd = match obj.get("cmd") {
-        Some(JsonValue::String(cmd)) => cmd,
+        Some(JsonValue::Short(cmd)) => cmd,
         r => return Err(format!("cmd invalid: {:?}", r))
     };
 
     match cmd.as_str() {
         "request-document" => {
-            let msg = get_document_tree(world);
-            if let Err(e) = connect.send(WsFrameType::Text, msg.as_bytes().to_vec()) {
-                log::error!("send error: {}", e);
+            let roots = get_roots(world);
+            log::error!("root======{:?}", &roots);
+            for root in roots.into_iter() {
+                let msg = get_document_tree(world, root);
+                let cmd = Cmd {
+                    cmd: "document-data".to_string(),
+                    payload: msg,
+                };
+                let msg = serde_json::to_string(&cmd).unwrap();
+                if let Err(e) = connect.send(WsFrameType::Text, msg.as_bytes().to_vec()) {
+                    log::error!("send error: {}", e);
+                }
             }
+            
         },
         "request-style" => {
             let _select_node_id: Entity = match obj.get("payload") {

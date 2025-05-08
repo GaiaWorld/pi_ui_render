@@ -1,5 +1,5 @@
 //！ 定义用户设置的组件
-
+use crate::resource::animation_sheet::TransitionData;
 use pi_style::style_parse::{TokenParseError, ItemParseErrors, TokenErrorsInfo};
 use crate::resource::fragment::NodeTag;
 use std::hash::Hasher;
@@ -10,7 +10,7 @@ use std::ptr::read_unaligned;
 use std::{collections::VecDeque, fmt::Debug};
 
 // use pi_world::event::Event;
-use pi_world::prelude::{Entity, Component, Mut};
+use pi_world::prelude::{Entity, Component, Mut, FromWorld};
 use bitvec::prelude::BitArray;
 use pi_ui_render_macros::enum_type;
 use ordered_float::NotNan;
@@ -20,13 +20,12 @@ pub use pi_flex_layout::prelude::{Dimension, Number, Rect, Size as FlexSize};
 use pi_flex_layout::style::{AlignContent, AlignItems, AlignSelf, Direction, Display, FlexDirection, FlexWrap, JustifyContent, PositionType, OverflowWrap};
 use pi_null::Null;
 use pi_slotmap::DefaultKey;
-use pi_style::style::{TextOverflow, StrokeDasharray, Shadow, OuterGlow};
+use pi_style::style::{TextOverflow, StrokeDasharray, Shadow, OuterGlow, GUI_STYLE_COUNT};
 pub use pi_style::style::{
     Aabb2, AnimationDirection, AnimationFillMode, AnimationName, AnimationPlayState, AnimationTimingFunction, CgColor, Color, ColorAndPosition,
     Enable, FitType, FontSize, FontStyle, ImageRepeat, IterationCount, LengthUnit, LineHeight, LinearGradientColor, NotNanRect, ShowType, Stroke,
     StyleType, TextAlign, TextShadow as TextShadow1, Time, TransformFunc, TransformFuncs, TransformOrigin, VerticalAlign, WhiteSpace,
 };
-use pi_style::style_parse::style_to_buffer;
 use pi_style::{
     style::{
         AllTransform, AsImage as AsImage1, BaseShape, BlendMode as BlendMode1, BorderImageSlice as BorderImageSlice1, BorderRadius as BorderRadius1,
@@ -37,13 +36,12 @@ use pi_style::{
 };
 
 use pi_world::world::World;
-use crate::resource::animation_sheet::TransitionData;
 use serialize::{
     StrokeDasharrayType, SvgColorType, SvgFilterIDType, SvgFilterType, SvgGradientStopColorType, SvgGradientStopOffsetType, SvgHeightType,
     SvgLinearGradientTransformType, SvgLinerGradientType, SvgShadowBlurLevelType, SvgShadowColorType, SvgShadowOffsetXType, SvgShadowOffsetYType,
     SvgShapeAXType, SvgShapeAYType, SvgShapeBXType, SvgShapeBYType, SvgShapeCXType, SvgShapeCYType, SvgShapeHeightType, SvgShapePathType,
     SvgShapePointsType, SvgShapeRadiusType, SvgShapeRadiusXType, SvgShapeRadiusYType, SvgShapeType, SvgShapeWidthType, SvgShapeXType, SvgShapeYType,
-    SvgStrokeColorType, SvgStrokeWidthType, SvgType, SvgTypeAttr, SvgWidthType,
+    SvgStrokeColorType, SvgStrokeWidthType, SvgTypeAttr, SvgWidthType,
 };
 // use pi_hal::pi_sdf::shape::PathVerb;
 
@@ -123,7 +121,7 @@ impl NeedMark for RadialWave {
 pub struct ZIndex(pub isize);
 
 /// 当post_process不为null时， 节点需要通过post_process对应的图节点进行处理，输出结果再渲染到gui上(注意，当前节点问根节点时，设置post_process，将不能把结果再渲染回gui)
-#[derive(Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize, Debug)]
+#[derive(Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize, Debug, Component)]
 pub struct AsImage {
 	pub level: AsImage1, 
 	pub post_process: EntityKey, // 通过post_process， 需要能查询到一个GraphId组件，此GraphId对应的图节点负责后处理效果
@@ -467,22 +465,9 @@ pub struct TextStyle {
 	pub text_align: TextAlign,
 
 	pub color: Color, //颜色
-
-    // pub color: Color, //颜色
-    // pub text_indent: f32,
-    // pub text_stroke: Stroke,
-    // pub text_align: TextAlign,
-    // pub letter_spacing: f32,     //字符间距， 单位：像素
-    // pub word_spacing: f32,       //字符间距， 单位：像素
-    // pub white_space: WhiteSpace, //空白处理
-    // pub line_height: LineHeight, //设置行高
-    // pub vertical_align: VerticalAlign,
-
-    // pub font_style: FontStyle, //	规定字体样式。参阅：font-style 中可能的值。
-    // pub font_weight: usize,    //	规定字体粗细。参阅：font-weight 中可能的值。
-    // pub font_size: FontSize,   //
-    // pub font_family: Atom,     //	规定字体系列。参阅：font-family 中可能的值。
 }
+
+
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum SvgColor {
@@ -534,6 +519,15 @@ pub struct TextShadow(pub TextShadowList);
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, Deref)]
 pub struct TextOuterGlow(pub OuterGlow);
+
+impl FromWorld for TextStyle {
+    fn from_world(world: &mut World) -> Self {
+        match world.get_single_res::<TextStyle>() {
+            Some(r) => (**r).clone(),
+            None => Self::default(),
+        }
+    }
+}
 
 impl Default for TextStyle {
     fn default() -> Self {
@@ -682,6 +676,15 @@ impl Default for Position {
     }
 }
 
+impl FromWorld for FlexContainer {
+    fn from_world(world: &mut World) -> Self {
+        match world.get_single_res::<FlexContainer>() {
+            Some(flex_container) => (**flex_container).clone(),
+            None => Self::default(),
+        }
+    }
+}
+
 impl Default for FlexContainer {
     fn default() -> Self {
         FlexContainer {
@@ -691,7 +694,7 @@ impl Default for FlexContainer {
             align_items: Default::default(),
             align_content: AlignContent::FlexStart,
             direction: Default::default(),
-			overflow_wrap: Default::default(),
+            overflow_wrap: Default::default(),
             row_gap: 0.0,
             column_gap: 0.0,
             auto_reduce: false,
@@ -716,9 +719,8 @@ impl Default for FlexNormal {
 /// 绘制canvas的图节点
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Canvas {
+    pub by_draw_list: bool,
 	pub id: Entity,
-    pub pre_graph_id: pi_render::depend_graph::NodeId,
-	pub by_draw_list: bool,
 }
 
 /// 显示改变（一般是指canvas，gui不能感知除了style属性以外的属性改变，如果canvas内容发生改变，应该通过style设置，以便gui能感知，从而设置脏区域）
@@ -1199,6 +1201,7 @@ pub mod serialize {
                 fn set_default<'a>(buffer: &Vec<u8>, offset: usize, world: &mut World, query: &DefaultStyle) {
                     if let Some($component_name) = world.index_single_res_mut::<$component_ty>(query.$component_name as usize) {
                         let $value_name = unsafe { buffer.as_ptr().add(offset).cast::<$value_ty>().read_unaligned() };
+                        log::debug!("set_default_style, {:?}, {:?}", std::any::type_name::<$component_ty>(), $value_name);
                         $set;
                     }
                 }
@@ -2216,7 +2219,6 @@ pub mod serialize {
             //     // reset svg
             //     (RESET_SVGTYPE_ATTR[style_index as usize].set)(unsafe { buffer.as_ptr().add(offset) }, query, entity, is_clone);
             // }
-            
         }
 
         pub fn push_component_ops(style_index: u16, components: &SettingComponentIds, arr: &mut Vec<(ComponentIndex, bool)>) {
@@ -2230,7 +2232,6 @@ pub mod serialize {
                 };
                 r
             }
-
         }
 
         pub fn get(style_index: u16, world: &World, query: &SettingComponentIds, entity: Entity) -> Option<Attribute> {

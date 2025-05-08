@@ -121,7 +121,7 @@ impl Plugin for Sdf2TextPlugin {
 					
 					.after(UiSystemSet::LifeDrawObjectFlush)
 					.before(update_render_instance_data)
-					.after(calc_layout)
+					.after(UiSystemSet::Layout)
 					.run_if(text_len_change)
 			)
 			// 更新实例数据
@@ -793,7 +793,7 @@ impl<'a> UniformData<'a> {
 		if text_overflow.0 {
 			line_max = self.layout.rect.right - self.layout.border.right - self.layout.padding.right - self.layout.border.left - self.layout.padding.left - self.layout.rect.left;
 		}
-
+		
 		for c in self.node_state.0.text.iter() {
 			if c.ch == char::from(0) {
 				if c.count > 0 {
@@ -838,6 +838,7 @@ impl<'a> UniformData<'a> {
 				break;
 			}
 
+			
 			self.push_pos_uv(
 				&mut calc_result,
 				temp,
@@ -889,7 +890,6 @@ impl<'a> UniformData<'a> {
 				calc_result.text.text_geo.colors = VColor::CgColor(r.clone());
 			},
 			Color::LinearGradient(color) => {
-
 				calc_result.text.text_geo.linear_gradient_split(color, &self.own_layout.padding_rect(), &mut temp.buffer);
 				let out_indices = match &calc_result.text.text_geo.polygons {
 					PolygonType::NoRule(indices) => {
@@ -920,12 +920,13 @@ impl<'a> UniformData<'a> {
 		c: &CharNode,
 	) {
 
-		// log::debug!("glyph!!!==================={:?}, {:?}, {left:?}, {top:?}", c.ch_id, c.ch);
+		// log::debug!("glyph!!!==================={:?}, {:?}, {x:?}, {y:?}", c.ch_id, c.ch);
 		let glyph = self.font_sheet.font_mgr().table.sdf2_table.glyph(GlyphId(c.ch_id));
 		let metrics = match self.font_sheet.font_mgr().metrics(GlyphId(c.ch_id)) {
 			Some(r) => r,
 			None => return
 		};
+		// log::warn!("calc_result========c: {:?}, ch_id: {:?}, glyph: {:?}", c.ch, c.ch_id, glyph,  );
 
 
 		if let Some(text_outer_glow) = self.text_outer_glow {
@@ -1039,19 +1040,18 @@ fn push_pos_uv(
 		glyph.y + glyph.height + half_stroke_uv,
 	];
 
-	log::debug!("push_pos_uv1============={:?}, {:?}", [
-		plane_min_x,
-		plane_min_y,
-		plane_max_x,
-		plane_max_y,
-		fontsize,
-	], [
-		glyph.x - half_stroke_uv,
-		glyph.y - half_stroke_uv,
-		glyph.x + glyph.width + half_stroke_uv,
-		glyph.y + glyph.height + half_stroke_uv,
-		half_stroke_uv,
-	]);
+	// log::warn!("push_pos_uv1============={:?}, {:?}, uv: {:?}, uv_start_index: {:?}， ps: {:?}, ps_start_index: {:?}", [
+	// 	plane_min_x,
+	// 	plane_min_y,
+	// 	plane_max_x,
+	// 	plane_max_y,
+	// 	fontsize,
+	// ],  [
+	// 	half_stroke_uv,
+	// 	fontsize,
+	// 	metrics.font_size,
+		
+	// ], uv, uvs.len(), ps,  positions.len());
 	uvs.extend_from_slice(&uv);
 	positions.extend_from_slice(&ps[..]);
 }

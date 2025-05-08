@@ -15,10 +15,12 @@
 //! 4. 在节点上创建其所在的Pass2D实体的索引（InPass2DId），表明节点上的渲染对象应该渲染到那个Psss2D上。
 //!
 //!
+use std::collections::VecDeque;
+
 use pi_bevy_render_plugin::{render_cross::GraphId, NodeId, PiRenderGraph};
 use pi_slotmap::SecondaryMap;
 use pi_style::style::Aabb2;
-use pi_world::{event::{ComponentAdded, ComponentChanged}, fetch::Ticker, filter::{Or, With}, prelude::{Alter, Changed, Entity, Mut, ParamSet, Query, SingleRes, SingleResMut}, system_params::Local};
+use pi_world::{event::{ComponentAdded, ComponentChanged}, fetch::{OrDefault, Ticker}, filter::{Or, With}, prelude::{Alter, Changed, Entity, Mut, ParamSet, Query, SingleRes, SingleResMut}, system_params::Local};
 use pi_bevy_ecs_extend::prelude::{Layer, LayerDirty, OrInitSingleRes, OrInitSingleResMut, Root, Up};
 
 use pi_null::Null;
@@ -35,34 +37,58 @@ use crate::{
 // 	mark.mark.has_any(&*TEXT_LAYOUT_DIRTY)
 // }
 
-/// 记录RenderContext添加和删除的脏，同时记录节点添加到树上的脏
-/// 根据脏，从父向子递归，设置节点所在的渲染上下文（节点的渲染目标）
+/// 根据RenderContext脏，创建或删除Pass2D）
+pub fn cal_pass_life(
+    mut context_mark1: ParamSet<(
+        Alter<(&RenderContextMark, Option<&ParentPassId>), (), PassBundle, ()>, 
+        Alter<(), With<PostProcessInfo>, (), PassBundle>,
+    )>,
+    mark_changed: ComponentChanged<RenderContextMark>,
+	r: OrInitSingleRes<IsRun>,
+) {
+	if r.0 {
+		return;
+	}
+
+    log::debug!("cal_pass_life==========={:?}", mark_changed.len());
+    // let cal_context_span = tracing::info_span!("cal_context");
+    // 如果mark修改，加入层脏
+    for entity in mark_changed.iter() {
+        let (mark, parent_pass) = context_mark1.p0().get_mut(*entity).unwrap();
+        if mark.any() {
+            if parent_pass.is_none() {
+                log::debug!("create pass==========={:?}", entity);
+                // 添加pass
+                let bundle = PassBundle::new(Default::default());
+                let _ = context_mark1.p0().alter(*entity, bundle);
+            }
+        } else {
+            // 删除pass
+            log::debug!("del pass==========={:?}", entity);
+            let _ = context_mark1.p1().alter(*entity,  ());
+        }
+    }
+}
+
+/// 设置parentPassId和InPassId
 pub fn cal_context(
     // mut command: Commands,
     // mut layer_dirty: Local<LayerDirty<Entity>>,
     mut context_mark1: ParamSet<(
         Query<(Entity, &RenderContextMark, Option<&PostProcessInfo>), Changed<RenderContextMark>>,
-        Alter<(
+        Query<(
             &mut InPassId,
             &RenderContextMark,
             Option<&mut ParentPassId>,
             Option<&mut PostProcessInfo>,
-        ), (), PassBundle, ()>, 
+        )>, 
         Query<&mut InPassId>,
-        Alter<(), With<PostProcessInfo>, (), PassBundle>,
+        Query<(Ticker<&RenderContextMark>, OrDefault<ParentPassId>)>,
     )>,
-    // idtree: EntityTree,
-    // down: Query<&Down>,
     up: Query<&Up>,
-    // mut parent_pass_id: Query<&'static mut ParentPassId>,
-    // mut event_reader: EventReader<ComponentEvent<Changed<RenderContextMark>>>,
-    // mut event_writer: EventWriter<ComponentEvent<Changed<ParentPassId>>>,
-    // mut mark_change: Query<Entity, Changed<RenderContextMark>>,
     mut layer_dirty: LayerDirty<(With<RenderContextMark>, Changed<Layer>)>,
     // dirty_list: Event<StyleChange>,
     mark_changed: ComponentChanged<RenderContextMark>,
-    // mark_added: ComponentAdded<RenderContextMark>,
-    query_dirty: Query<(Ticker<&RenderContextMark>, Option<&PostProcessInfo>)>,
     
     effect_mark: SingleRes<EffectRenderContextMark>,
     mut global_mark: SingleResMut<GlobalDirtyMark>,
@@ -75,27 +101,26 @@ pub fn cal_context(
 	if r.0 {
 		return;
 	}
-    // layer_dirty.clear();
-    // let mut pass_2d_init = Vec::new();
-    // let mut pass_2d_id_insert = Vec::new();
 
     let mut pass_life_change = false;
-    log::debug!("pass calc==========={:?}", mark_changed.len());
-    // let cal_context_span = tracing::info_span!("cal_context");
+    log::debug!("cal_context==========={:?}", mark_changed.len());
     // 如果mark修改，加入层脏
-    for entity in mark_changed.iter() {
-        let entity = *entity;
-        if let Ok((mark, post_info)) = query_dirty.get(entity) { 
-            if post_info.is_some() && mark.not_any() {
-                pass_life_change = true;
-                log::debug!("pass_life del========================{:?}", entity);
-                // 删除pass
-                layer_dirty.mark(entity);
-            } else if post_info.is_none() && mark.any() {
-                pass_life_change = true;
-                log::debug!("pass_life add========================{:?}", entity);
-                // 不存在对应的pass2D， 则创建(放入层脏，按层创建)
-                layer_dirty.mark(entity);
+    if mark_changed.len() > 0 {
+        let p3 = context_mark1.p3();
+        for entity in mark_changed.iter() {
+            let entity = *entity;
+            if let Ok((mark, parent_pass_id)) = p3.get(entity) { 
+                if mark.not_any() {
+                    pass_life_change = true;
+                    log::debug!("pass_life del========================{:?}", entity);
+                    // 删除pass
+                    layer_dirty.mark(entity);
+                } else if parent_pass_id.0.is_null() && mark.any() {
+                    pass_life_change = true;
+                    log::debug!("pass_life add========================{:?}", entity);
+                    // 不存在对应的pass2D， 则创建(放入层脏，按层创建)
+                    layer_dirty.mark(entity);
+                }
             }
         }
     }
@@ -104,100 +129,51 @@ pub fn cal_context(
         global_mark.mark.set(OtherDirtyType::PassLife as usize, true);
         log::debug!("pass_life_change==================={:?}", (OtherDirtyType::PassLife as usize, &global_mark.mark, global_mark.mark.get(OtherDirtyType::PassLife as usize)));
     }
+    log::debug!("cal_context2==========={:?}", mark_changed.len());
     
-
-    // // 迭代所有layer改变的节点， 如果layer不为null，则添加到层脏
-    // for i in layer_change.iter() {
-    // 	layer_dirty.mark(i.id);
-    // }
 
     // 按层迭代
-    for node in layer_dirty.iter() {
-        let parent_context_id = match up.get(node) {
-			Ok(r) if let Ok((in_pass_id, _, _, _)) = context_mark1.p1().get(r.parent()) => **in_pass_id, // TODO
-			_ => {
-                // log::warn!("null in pass=========={:?}, up = {:?}", node, up.get(node));
-                EntityKey::null()
-            },
-		};
-
-        // let p1 = context_mark1.p1();
-        log::debug!("pass!!!======node: {:?}, has: {:?}, up: {:?}", node, context_mark1.p1().get_mut(node).is_ok(), up.get(node));
-        if let Ok((mut in_pass_id, mark, parent_pass_id, post_info)) = context_mark1.p1().get_mut(node) {
-            // mark已清空，但相机依然存在，则删除pass, 重新设置pass字节点的in_pass_id
-            if parent_pass_id.is_some() && mark.not_any() {
-                // log::debug!("del pass======node: {:?}, parent_context_id: {:?}, effect_mark{:?} {:?}, {:?}", node,  parent_context_id, **effect_mark & **mark, mark, **effect_mark);
-                // // 删除pass
-                // if in_pass_id.is_null() {
-                // 	continue;
-                // }
-                // command.entity(***camera.unwrap()).despawn();
-                // 修改in_pass_id为父的Pass2D
-                *in_pass_id = InPassId(parent_context_id);
-                // 移除Pass2D
-                let _ = context_mark1.p3().alter(node,  ());
-                // 删除后，其子节点的in_pass_id修改为parent_context_id
-                parent_context_id.0
-            } else if mark.any() {
-                // 修改in_pass_id为当前Pass2D
-                *in_pass_id = InPassId(EntityKey(node));
-                //  post_info
-                log::debug!("pass======node: {:?}, parent_pass_id: {:?}, parent_context_id: {:?}, effect_mark{:?} {:?}, {:?}", node, parent_pass_id,  parent_context_id, **effect_mark & **mark, mark, **effect_mark);
-                match parent_pass_id {
-                    None => {
-                        let mut bundle = PassBundle::new(*parent_context_id);
-                        bundle.post_list_info.effect_mark = bundle.post_list_info.effect_mark | (**effect_mark & **mark);
-                        let _ = context_mark1.p1().alter(node,  
-                            bundle);
-                        // 父的
-                        // event_writer.send(ComponentEvent::new(node));
-                    }
-                    Some(mut parent_pass_id) => {
-                        if ***parent_pass_id != *parent_context_id {
-                            **parent_pass_id = parent_context_id;
-                            // event_writer.send(ComponentEvent::new(node));
-                        }
-
-                        if let Some(mut info) = post_info {
-                            let effect = **effect_mark & **mark;
-                            info.effect_mark = info.effect_mark & **mark | effect;
-                        }
-                    }
-                };
-                // 添加后，其子节点的in_pass_id修改为当前创建的parent_context_id
-                node
-            } else {
-                log::debug!("change inpass ======node: {:?}, parent_context_id: {:?}", node,  parent_context_id);
-                // 不是一个renderContext， 则其in_pass_id为parent_context_id
-                *in_pass_id = InPassId(parent_context_id);
-                parent_context_id.0
+    if layer_dirty.count() > 0 {
+        for node in layer_dirty.iter() {
+            let parent_context_id = match up.get(node) {
+                Ok(r) if let Ok((in_pass_id, _, _, _)) = context_mark1.p1().get(r.parent()) => **in_pass_id, // TODO
+                _ => {
+                    // log::warn!("null in pass=========={:?}, up = {:?}", node, up.get(node));
+                    EntityKey::null()
+                },
             };
 
-            // let children_item = match down.get(node) {
-            //     Ok(r) => r,
-            //     _ => continue,
-            // };
+            log::debug!("pass!!!======node: {:?}, has: {:?}, up: {:?}", node, context_mark1.p1().get_mut(node).is_ok(), up.get(node));
+            if let Ok((mut in_pass_id, mark, parent_pass_id, post_info)) = context_mark1.p1().get_mut(node) {
+                // mark已清空，但相机依然存在，则删除pass, 重新设置pass字节点的in_pass_id
+                log::debug!("pass0======node: {:?}, {:?}, {:?}", node, mark.not_any(), parent_pass_id);
+                if mark.not_any() {
+                    log::debug!("del pass0======node: {:?}, {:?}", node, parent_pass_id);
+                    // 修改in_pass_id为父的Pass2D
+                    *in_pass_id = InPassId(parent_context_id);
+                } else {
+                    // 修改in_pass_id为当前Pass2D
+                    *in_pass_id = InPassId(EntityKey(node));
+                    //  post_info
+                    log::debug!("pass======node: {:?}, parent_pass_id: {:?}, parent_context_id: {:?}, effect_mark{:?} {:?}, {:?}", node, parent_pass_id,  parent_context_id, **effect_mark & **mark, mark, **effect_mark);
+                    match parent_pass_id {
+                        Some(mut parent_pass_id) => {
+                            if ***parent_pass_id != *parent_context_id {
+                                **parent_pass_id = parent_context_id;
+                                // event_writer.send(ComponentEvent::new(node));
+                            }
 
-            // recursive_set_node_context(
-            //     children_item.head(),
-            //     &idtree,
-            //     &down,
-            //     &mut context_mark1.p1(),
-            //     &mut parent_pass_id,
-            //     EntityKey(in_pass_id),
-            // );
+                            if let Some(mut info) = post_info {
+                                let effect = **effect_mark & **mark;
+                                info.effect_mark = info.effect_mark & **mark | effect;
+                            }
+                        },
+                        _ => unreachable!()
+                    };
+                };
+            }
         }
     }
-
-    // if layer_dirty.count() > 0 {
-    //     event_writer.send(ContextMarkChanged);
-    // }
-    
-
-    // // 批量设置插入指令（PassBundle）
-    // if pass_2d_init.len() > 0 {
-    //     command.insert_or_spawn_batch(pass_2d_init.into_iter());
-    // }
 }
 
 lazy_static! {
@@ -257,11 +233,13 @@ pub fn calc_pass_children_and_clear(
 }
 
 // 对gui中的Pass进行拓扑排序
+// RenderContextMark修改， AsImageBindList修改或添加、Camera删除，都需要冲洗计算toop排序
 pub fn calc_pass_toop_sort(
     query_root: Query<&GraphId, (With<Root>, With<Size>)>,
+    query_graph_id: Query<&GraphId>,
     query_post: Query<&PostProcessInfo, With<Size>>,
     mut instances: SingleResMut<InstanceContext>,
-    rg: SingleRes<PiRenderGraph>,
+    mut rg: SingleResMut<PiRenderGraph>,
 	r: OrInitSingleRes<IsRun>,
     mut temp: Local<(Vec<NodeId>, Vec<NodeId>, Vec<NodeId>, SecondaryMap<NodeId, (usize, bool)>)>,
 
@@ -269,20 +247,22 @@ pub fn calc_pass_toop_sort(
     as_image_changed: ComponentChanged<AsImageBindList>,
     as_image_added: ComponentAdded<AsImageBindList>,
 
+    mark: SingleRes<GlobalDirtyMark>,
+
 ) {
     if r.0 {
 		return;
 	}
 
-    if mark_change.len() == 0 && as_image_changed.len() == 0 && as_image_added.len() == 0 {
-        mark_change.mark_read();
-        as_image_changed.mark_read();
-        as_image_added.mark_read();
+    if !mark.mark.has_any(&*PASS_CHILDREN_DIRTY) && mark_change.len() == 0 && as_image_changed.len() == 0 && as_image_added.len() == 0 {
         return;
     }
+    mark_change.mark_read();
+    as_image_changed.mark_read();
+    as_image_added.mark_read();
 
     let temp = &mut *temp;
-    let rg = &*rg;
+    let rg = &mut *rg;
     
     let InstanceContext {pass_toop_list,  next_node_with_depend, ..} = &mut *instances;
     // 从叶子节点开始排序
@@ -290,29 +270,31 @@ pub fn calc_pass_toop_sort(
     next_node_with_depend.clear();
     // log::debug!("calc_pass_toop_sort, temp_len:{:?}", temp.0.len());
     
-    let mut temp_before = Vec::new();
+    let mut temp_before = VecDeque::new();
     for i in query_root.iter() {
         temp.1.push(i.0.clone());
     }
-    temp_before.push(&temp.1[0..temp.1.len()]);
-    // log::warn!("temp_before======{:?}", &temp_before);
+    temp_before.push_back(&temp.1[0..temp.1.len()]);
+    log::debug!("temp_before======{:?}", &temp_before);
 
+    // 遍历所有节点，在temp.0中放入所有的叶子节点，并将每个节点的前置依赖数量放入temp.3中缓存
     loop  {
-        let node_ids = match  temp_before.pop() {
+        let node_ids = match  temp_before.pop_front() {
             Some(node_ids) => node_ids,
             None => break,
         };
-        // log::warn!("temp_before1======{:?}", &node_ids);
+        log::debug!("temp_before1======{:?}", &node_ids);
         for node_id in node_ids {
             match temp.3.get_mut(node_id.clone()) {
                 Some(_count) => continue, // 存在索引，表示已经迭代过了， 不需要处理 
                 None => {
                     let before = rg.before_nodes(node_id.clone()).unwrap();
+                    log::debug!("temp_before2======node_id:{:?}, before: {:?}", node_id, &before);
                     temp.3.insert(node_id.clone(), (before.len(), false));
                     if before.len() > 0 {
-                        temp_before.push(before);
+                        temp_before.push_back(before);
                     } else {
-                        temp.0.push(node_id.clone()); // 如果没有后续节点， 则加入当前列表
+                        temp.0.push(node_id.clone()); // 如果没有后续节点， 则加入当前列表(叶子节点列表)
                     }
                 },
             };
@@ -320,34 +302,72 @@ pub fn calc_pass_toop_sort(
     }
     temp.1.clear();
 
+    let mut set_depend = |pass_toop_list: &Vec<Entity>, last_effect: usize, last_depend: &mut usize, rg: &mut PiRenderGraph| {
+        if last_effect != *last_depend {
+            let last_effect_index = last_effect - 1;
+            for i in *last_depend .. pass_toop_list.len() {
+                if let Ok(graph_id) = query_graph_id.get(pass_toop_list[i]) {
+                    let r = if last_effect_index != i {
+                        false
+                    } else {
+                        true
+                    };
+                    let _ = rg.set_is_run(graph_id.0, r);
+                    log::debug!("set_is_run==============={:?}", (pass_toop_list[i], r));
+                }
+            }
+            next_node_with_depend.push(last_effect); // 下一个存在依赖的节点在toop排序中的索引
+            *last_depend = last_effect;
+        }
+    };
+
 
     let mut last_depend = 0;
+    let mut last_effect = 0;
     while temp.0.len() > 0 { // 循环开始时， temp.0是所有的pass叶子节点
       
-        // log::warn!("after!!!!======{:?}", &temp.0);
+        log::debug!("after!!!!======{:?}", &temp.0);
         for node_id in temp.0.drain(..) {
             let entity = rg.get_bind(node_id.clone());
-            // log::warn!("after1======{:?}", (node_id, entity));
+            log::debug!("after1======{:?}", (node_id, entity));
             let mut has_effect = false;
+            let mut is_gui = false;
             if query_post.contains(entity) { // 对应节点为gui节点
                 pass_toop_list.push(entity); // 加入到pass_toop_list
                 if let Ok(post_info) = query_post.get(entity) {
                     has_effect = post_info.has_effect();
+                    if has_effect {
+                        last_effect = pass_toop_list.len();
+                    }
+                    
+                    log::debug!("after2======has_effect{:?}", (entity, node_id, last_effect, has_effect));
                 }
-            } else if pass_toop_list.len() != last_depend {
+                is_gui = true;
+                
+            } else {
                 // log::warn!("zzzz======================{:?}", (entity, pass_toop_list.len()));
                 // next_node_with_depend.push(pass_toop_list.len()); // 下一个存在依赖的节点在toop排序中的索引
                 // last_depend = pass_toop_list.len();
-                has_effect = true;
+                has_effect = true; // 不是gui节点， 统统当做是有特效节点
             };
 
             let after = rg.after_nodes(node_id).unwrap(); //
-            // log::warn!("after2======{:?}", after);
+            let mut is_gui_to_other = false;
+            log::debug!("after3======{:?}", after);
             for node_id in after {
                 if let Some((count, before_has_effect)) = temp.3.get_mut(node_id.clone()) {
+                    if is_gui {
+                        let entity = rg.get_bind(node_id.clone());
+                        if !query_post.contains(entity) { 
+                            // 存在一个gui到其他系统的的链接
+                            is_gui_to_other = true;
+                        }
+                    }
+                    
+
                     *count = *count - 1;
                     *before_has_effect |= has_effect;
-                    // log::warn!("after3======{:?}", (node_id, *count));
+                    log::debug!("after4======{:?}", (node_id, *count));
                     if *count == 0 { // 依赖已经分析完毕
                         if *before_has_effect { // 前置节点存在fbo依赖
                             temp.1.push(node_id.clone());
@@ -357,8 +377,17 @@ pub fn calc_pass_toop_sort(
                     }
                 }
             }
+
+            // 如果当前节点是gui节点， 并连接到gui之外的系统， 立即设置下一个依赖索引
+            // 因为gui的图渲染不是每pass节点渲染自身内容，而是下个依赖之前的图节点中， 跟其他无依赖的pass节点批量清屏，在逐个渲染， 再逐个后处理
+            // 由于无法分析其他系统的图节点的组织方式， 唯一明确的是， gui与外部系统相连， gui必然将渲染结果输出到后续的外部系统节点
+            // 这里立即设置下个依赖， 保证当前pass的图节点运行后，其渲染结果也已经呈现， 使得外部节点能正常渲染
+            if is_gui_to_other {
+                set_depend(pass_toop_list, last_effect, &mut last_depend, rg); 
+            }
         }
 
+        log::debug!("next======================{:?}", (&temp.1, &temp.2));
         if temp.2.len() > 0 { // 非fbo节点
             // log::warn!("2222======================{:?}", (&temp.2));
             std::mem::swap(&mut temp.0, &mut temp.2);
@@ -367,16 +396,11 @@ pub fn calc_pass_toop_sort(
             if temp.1.len() > 0 {
                 std::mem::swap(&mut temp.0, &mut temp.1);
             }
-            let l = pass_toop_list.len();
-            // log::warn!("111======================{:?}", (l, &temp.0));
-            if l != last_depend {
-                next_node_with_depend.push(l); // 下一个存在依赖的节点在toop排序中的索引
-                last_depend = l;
-            }
+            set_depend(pass_toop_list, last_effect, &mut last_depend, rg);
         } 
-
-        
     }
+
+    log::debug!("111======================{:?}, \n{:?}", pass_toop_list, next_node_with_depend.iter().map(|i| {pass_toop_list[i - 1]}).collect::<Vec<Entity>>());
 
     temp.0.clear();
     temp.1.clear();
@@ -467,10 +491,10 @@ pub fn pass_mark<T: NeedMark + Send + Sync>(
     for (entity, value, mut render_mark_value) in query.iter_mut() {
         if value.need_mark() {
             render_mark_true( ***mark_type, &mut render_mark_value);
-            log::debug!("pass_mark_true,{:?}, {:?}", entity, (std::any::type_name::<T>(), render_mark_value.any()));
+            log::debug!("pass_mark_true,{:?}, {:?}", entity, std::any::type_name::<T>());
         } else {
             render_mark_false( ***mark_type, &mut render_mark_value);
-            log::debug!("pass_mark_false,{:?}, {:?}", entity, (std::any::type_name::<T>(), render_mark_value.any()));
+            log::debug!("pass_mark_false,{:?}, {:?}", entity, std::any::type_name::<T>());
         }
     }
 }
@@ -485,9 +509,10 @@ pub fn calc_pass(
         &View,
         &TransformWillChangeMatrix,
         // OrDefault<Overflow>,
-        // &LayoutResult,
-        // &ContentBox,
-    ), Or<(Changed<PostProcessInfo>, Changed<WorldMatrix>, Changed<ContentBox>)>>,
+        &crate::components::calc::LayoutResult,
+        &ContentBox,
+        Entity,
+    ), Or<(Changed<PostProcessInfo>, Changed<ContentBox>, Changed<TransformWillChangeMatrix>, Changed<Camera>)>>,
     // query1: Query<
 	// 	(
     //         &ParentPassId,
@@ -500,7 +525,7 @@ pub fn calc_pass(
     if r.0 {
 		return;
 	}
-    for (instance_index, parent_pass_id, camera, view, will_change) in query.iter() {
+    for (instance_index, parent_pass_id, camera, view, will_change, layout, content_box, entity, ) in query.iter() {
         log::debug!("passs1==============={:?}", instance_index.0.start);
         // 节点可能设置为dispaly none， 此时instance_index可能为Null
         // 节点可能没有后处理效果， 此时instance_index为Null
@@ -551,7 +576,7 @@ pub fn calc_pass(
             match (&view.desc, &will_change.0) {
                 (OverflowDesc::NoRotate(_), None) => {
                     set_matrix(&WorldMatrix::default(), &camera.view_port, &mut instance_data);
-                    // log::warn!("no rotate=================={:?}", (instance_index.start / 224, entity, &camera.view_port));
+                    log::trace!("no rotate=================={:?}", (instance_index.start / 224, entity, &camera.view_port, layout, content_box));
                     // instance_data.set_data(&QuadUniform(&[
                     //     view_port.mins.x, view_port.mins.y,
                     //     view_port.mins.x, view_port.maxs.y,

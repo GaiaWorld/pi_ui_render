@@ -2,7 +2,7 @@
 //! 该系统默认为所有已经创建的Entity创建Show组件， 并监听Show和Display的创建修改， 以及监听idtree上的创建事件， 计算已经在idtree上///! 存在的实体的Enable和Visibility
 
 use pi_style::style::StyleType;
-use pi_world::{event::{ComponentChanged, Event}, filter::With, prelude::{IntoSystemConfigs, OrDefault, Plugin, Query}, single_res::SingleRes, world::Entity};
+use pi_world::{event::{ComponentAdded, ComponentChanged, Event}, filter::With, prelude::{IntoSystemConfigs, OrDefault, Plugin, Query}, single_res::SingleRes, world::Entity};
 use pi_bevy_ecs_extend::prelude::{EntityTree, Layer, LayerDirty, OrInitSingleRes, OrInitSingleResMut, Up};
 
 use pi_flex_layout::style::Display;
@@ -38,6 +38,7 @@ pub struct ShowDirty(pub Vec<Entity>);
 /// 计算节点的显示属性
 pub fn calc_show(
 	show_changed: ComponentChanged<Show>,
+	show_added: ComponentAdded<Show>,
 	add_events: Event<AddEvent>,
     remove_events: Event<RemoveEvent>,
     mut layer_dirty: LayerDirty<With<Empty>>,
@@ -54,27 +55,33 @@ pub fn calc_show(
 	if r.0 {
 		return;
 	}
-    for entity in show_changed.iter() {
-        layer_dirty.mark(*entity)
-    }
-	for entity in add_events.iter() {
-		layer_dirty.mark(entity.0)
+	if show_changed.len() > 0 || show_added.len() > 0 {
+		for entity in show_changed.iter().chain(show_added.iter()) {
+			layer_dirty.mark(*entity)
+		}
+	}
+	if add_events.len() > 0 {
+		for entity in add_events.iter() {
+			layer_dirty.mark(entity.0)
+		}
 	}
 
 	// 已经移除的节点， 设置display为false
-	for entity in remove_events.iter() {
-		if let Ok(mut is_show) = write.get_mut(entity.0) {
-			is_show_changed.0.push(entity.0);
-			let head = tree.get_down(entity.0).unwrap().head;
-			is_show.set_display(false);
-			for i in tree.recursive_iter(head) {
-				if let Ok(mut is_show) = write.get_mut(i) {
-					is_show_changed.0.push(i);
-					is_show.set_display(false);
+	if remove_events.len() > 0 {
+		for entity in remove_events.iter() {
+			if let Ok(mut is_show) = write.get_mut(entity.0) {
+				is_show_changed.0.push(entity.0);
+				let head = tree.get_down(entity.0).unwrap().head;
+				is_show.set_display(false);
+				for i in tree.recursive_iter(head) {
+					if let Ok(mut is_show) = write.get_mut(i) {
+						is_show_changed.0.push(i);
+						is_show.set_display(false);
+					}
 				}
 			}
-		}
 
+		}
 	}
 
 	// for (layer, show, entity) in query_dirty.iter() {
@@ -85,72 +92,73 @@ pub fn calc_show(
 	// 		layer_dirty.mark(i.0);
 	// 	}
 	// }
+	if layer_dirty.count() > 0 {
+		let mut display_change = false;
+		let mut visibility_change = false;
 
-	let mut display_change = false;
-	let mut visibility_change = false;
+		for node in layer_dirty.iter() {
+			let mut parent_c_visibility = true;
+			let mut parent_c_display = true;
+			let mut parent_c_enable = true;
 
-    for node in layer_dirty.iter() {
-        let mut parent_c_visibility = true;
-		let mut parent_c_display = true;
-        let mut parent_c_enable = true;
+			let item = match query.get(node) {
+				Ok(r) => r,
+				_ => continue,
+			};
+			if let Some(up) = item.1 {
+				let parent = up.parent();
+				if let Ok(w) = write.get(parent) {
+					parent_c_visibility = w.get_visibility();
+					parent_c_display = w.get_display();
+					parent_c_enable = w.get_enable();
+				}
+			}
 
-        let item = match query.get(node) {
-            Ok(r) => r,
-            _ => continue,
-        };
-        if let Some(up) = item.1 {
-            let parent = up.parent();
-            if let Ok(w) = write.get(parent) {
-                parent_c_visibility = w.get_visibility();
-				parent_c_display = w.get_display();
-                parent_c_enable = w.get_enable();
-            }
-        }
+			let show_value = item.0;
+			let display_value = match show_value.get_display() {
+				Display::Flex => true,
+				Display::None => false,
+				Display::Grid => true,
+			};
+			let visibility_value = show_value.get_visibility();
+			let enable_value = show_value.get_enable();
 
-        let show_value = item.0;
-        let display_value = match show_value.get_display() {
-            Display::Flex => true,
-            Display::None => false,
-			Display::Grid => true,
-        };
-        let visibility_value = show_value.get_visibility();
-        let enable_value = show_value.get_enable();
+			let c_visibility =  visibility_value && parent_c_visibility;
+			let c_display = display_value && parent_c_display;
 
-        let c_visibility =  visibility_value && parent_c_visibility;
-		let c_display = display_value && parent_c_display;
+			let c_enable = match enable_value {
+				Enable::Visible => true,
+				Enable::Auto => parent_c_enable,
+				Enable::None => false,
+			};
+			let c_enable = c_visibility && c_enable;
+			let mut write_item = write.get_mut(node).unwrap();
+			let write_item1 = write_item.bypass_change_detection();
+			if c_display != write_item1.get_display() {
+				display_change = true;
+				write_item1.set_display(c_display);
+			}
 
-        let c_enable = match enable_value {
-            Enable::Visible => true,
-            Enable::Auto => parent_c_enable,
-            Enable::None => false,
-        };
-        let c_enable = c_visibility && c_enable;
-        let mut write_item = write.get_mut(node).unwrap();
-		let write_item1 = write_item.bypass_change_detection();
-		if c_display != write_item1.get_display() {
-			display_change = true;
-			write_item1.set_display(c_display);
+			if c_visibility != write_item1.get_visibility() {
+				visibility_change = true;
+				write_item1.set_visibility(c_visibility);
+			}
+
+			if display_change || visibility_change {
+				is_show_changed.0.push(node);
+			}
+			
+			// log::debug!("c_enable: {}", c_enable);
+			// log::warn!("show=============entity: {:?}, c_enable: {:?}, parent: {:?}, enable_value: {:?}", node, c_enable, parent_c_enable, enable_value);
+			// println!("show=============entity: {:?}, c_display: {:?}, c_visibility: {:?}, c_enable: {:?}, {:?}", node, c_display, c_visibility, c_enable, visibility_change);
+			write_item.set_enable(c_enable);
 		}
 
-		if c_visibility != write_item1.get_visibility() {
-			visibility_change = true;
-			write_item1.set_visibility(c_visibility);
-		}
-
+		// display改变， 则发出通知，如果是实例化渲染， 需要重新组织实例化数据（display为None的实例， 不应该在实例化数据中）
 		if display_change || visibility_change {
-			is_show_changed.0.push(node);
+			global_mark.mark.set(OtherDirtyType::InstanceCount as usize, true);
+			log::debug!("node_changed3============");
 		}
-		
-		// log::debug!("c_enable: {}", c_enable);
-		// log::warn!("show=============entity: {:?}, c_enable: {:?}, parent: {:?}, enable_value: {:?}", node, c_enable, parent_c_enable, enable_value);
-        // println!("show=============entity: {:?}, c_display: {:?}, c_visibility: {:?}, c_enable: {:?}, {:?}", node, c_display, c_visibility, c_enable, visibility_change);
-		write_item.set_enable(c_enable);
-    }
-
-	// display改变， 则发出通知，如果是实例化渲染， 需要重新组织实例化数据（display为None的实例， 不应该在实例化数据中）
-	if display_change || visibility_change {
-		global_mark.mark.set(OtherDirtyType::InstanceCount as usize, true);
-		log::debug!("node_changed3============");
 	}
 }
 
@@ -184,6 +192,9 @@ pub fn set_show_data(
 	r: OrInitSingleRes<IsRun>,
 ) {
 	if r.0 {
+		return;
+	}
+	if show_changed.0.len() == 0 {
 		return;
 	}
 	for node in show_changed.0.drain(..) {

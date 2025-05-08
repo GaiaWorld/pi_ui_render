@@ -1,5 +1,5 @@
 use pass_life::pass_life_children;
-use pi_world::prelude::{App, Plugin, PostUpdate, IntoSystemConfigs};
+use pi_world::prelude::{App, Plugin, PostUpdate, IntoSystemConfigs, WorldPluginExtent};
 use pi_bevy_render_plugin::{GraphBuild, GraphRun};
 
 use self::pass_camera::calc_camera;
@@ -16,6 +16,9 @@ pub mod pass_life;
 pub mod update_graph;
 pub mod root;
 pub mod pass_dirty;
+pub mod world_invert;
+pub mod content_box;
+pub mod calc_render_steady;
 
 
 pub struct UiPassPlugin;
@@ -31,14 +34,17 @@ impl Plugin for UiPassPlugin {
                     .after(UiSystemSet::PassFlush)
 					
 			)
+            .add_system(UiStage, pass_life::cal_pass_life.run_if(pass_life::pass_life_change).in_set(UiSystemSet::PassLife))
             .add_system(UiStage, pass_life::cal_context
                 .run_if(pass_life::pass_life_change)
-                .in_set(UiSystemSet::PassLife))
+                .after(UiSystemSet::PassFlush) // 在上下文创建之后执行
+                .in_set(UiSystemSet::PassSetting))
             // .add_system(UiStage, apply_deferred.in_set(UiSystemSet::PassFlush))
             .add_system(UiStage, 
                 pass_life::calc_pass_children_and_clear
                     .in_set(UiSystemSet::PassSetting)
                     .run_if(pass_life_children)
+                    .after(pass_life::cal_context)
 					.before(UiSystemSet::PassSettingWithParent) // 在所有依赖父子关系的system之前执行
                     .after(UiSystemSet::PassFlush), // 在上下文创建之后执行
             )
@@ -72,6 +78,7 @@ impl Plugin for UiPassPlugin {
                 pass_camera::calc_camera
                     .after(pass_camera::calc_pass_dirty)
                     .before(pass_camera::calc_pass_active)
+                    .after(calc_render_steady::calc_is_steady)
 					.after(UiSystemSet::BaseCalcFlush)
                     .in_set(UiSystemSet::PassCalc),
             )
@@ -83,6 +90,9 @@ impl Plugin for UiPassPlugin {
                     ,
             )
             .add_system(UiStage, root::root_calc.in_set(UiSystemSet::PassMark))
+            .add_plugins(world_invert::WorldInvertPlugin)
+            .add_plugins(content_box::ContentBoxPlugin)
+            .add_plugins(calc_render_steady::RenderSteadyPlugin)
         ;
     }
 }

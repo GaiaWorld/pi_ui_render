@@ -206,6 +206,7 @@ pub fn calc_background_image(
 	log::trace!("bg image========================{:?}", (mark.mark.has_any(&*BACKGROUND_TEXTURE_DIRTY1), mark.mark.has_any(&*BACKGROUND_TEXTURE_DIRTY2)));
 	for (draw_id, (x_range, y_range)) in grid_buffer.1.drain(..) {
 
+		
 		if let Ok(instanceindex) = query_draw.get(draw_id) {
 			set_grid_instance(
 				&grid_buffer.0,
@@ -283,10 +284,10 @@ pub fn calc_background_image_inner(
 		bottom: sdf_slice.layout_slice.bottom * layout_height,
 	};
 
-	if background_image.0.as_str().contains("yxxq_lv1") {
-		let (layout_width, layout_height) = layout.size();
-		log::warn!("=============!!!!!!!!!!!=============={:?}", (entity, background_image.0.as_str(), layout_width, layout_height, &sdf_uv, &sdf_slice));
-	}
+	// if background_image.0.as_str().contains("yxxq_lv1") {
+	// 	let (layout_width, layout_height) = layout.size();
+	// 	log::debug!("=============!!!!!!!!!!!=============={:?}", (entity, background_image.0.as_str(), layout_width, layout_height, &sdf_uv, &sdf_slice));
+	// }
 	let mut instance_count = 1;
 	{
 

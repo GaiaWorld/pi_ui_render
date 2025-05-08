@@ -71,22 +71,5 @@ $env:RUST_LOG="warn"
 + 层脏的mark使用bitvec？（不合理， mark中需要记录层）
 
 
-文档
-
-依赖库去重
-thread 'Default-Single-Worker' panicked at 'Error in Surface::configure: Both `Surface` width and height must be non-zero. Wait to recreate the `Surface` until the window has non-zero area.
-transform数据结构修改
-vue: 事件监听，可以在模板上阻止默认行为，阻止冒泡等
-
-
-panicked at 'wgpu error: Validation Error
-
-Caused by:
-    In Device::create_render_pipeline
-      note: label = `ColorEffect`
-    Downlevel flags BUFFER_BINDINGS_NOT_16_BYTE_ALIGNED are required but not supported on the device.
-This is not an invalid use of WebGPU: the underlying API or device does not support enough features to be a fully compliant implementation. A subset of the features can still be used. If you are running this program on native and not in a browser and wish to work around this issue, call Adapter::downlevel_properties or Device::downlevel_properties to get a listing of the features the current platform supports
-
-
 
 

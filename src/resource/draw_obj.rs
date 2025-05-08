@@ -1,9 +1,10 @@
 //! 与DrawObject相关的资源
 use std::{collections::hash_map::Entry, hash::Hash, marker::PhantomData, num::NonZeroU32, sync::atomic::{Ordering, AtomicUsize}, borrow::Cow};
 
+use naga::Range;
 use pi_world::prelude::{FromWorld, World, Entity};
 use ordered_float::NotNan;
-use pi_assets::{asset::Handle, mgr::AssetMgr};
+use pi_assets::{asset::Handle, homogeneous::HomogeneousMgr, mgr::AssetMgr};
 use pi_atom::Atom;
 use pi_bevy_asset::ShareAssetMgr;
 use pi_bevy_render_plugin::{NodeId, PiRenderDevice, PiRenderQueue};
@@ -171,6 +172,7 @@ impl BatchTexture {
 			return None;
 		}
 
+        // log::debug!("take_group========{:?}", self.temp_textures.len());
         // let len = self.temp_textures.len();
 
 		let group = Some(Self::take_group1(device, &self.temp_textures, &self.default_texture_view, &self.default_sampler, &self.group_layout));
@@ -182,7 +184,8 @@ impl BatchTexture {
 
 	/// 将当前的临时数据立即创建一个bindgroup，并返回
 	pub fn default_group(&mut self, device: &wgpu::Device) -> wgpu::BindGroup {
-		Self::take_group1(device, &Vec::new(), &self.default_texture_view, &self.default_sampler, &self.group_layout)
+		let r = Self::take_group1(device, &Vec::new(), &self.default_texture_view, &self.default_sampler, &self.group_layout);
+        r
 	}
 
 	/// 将当前的临时数据立即创建一个bindgroup，并返回
@@ -284,6 +287,7 @@ pub struct InstanceContext {
 	pub premultiply_blend_state_hash: u64,
 
 	pub common_pipeline: Share<wgpu::RenderPipeline>,
+    pub copy_pipeline: Share<wgpu::RenderPipeline>,
 	pub premultiply_pipeline: Share<wgpu::RenderPipeline>,
 	pub clear_pipeline: Share<wgpu::RenderPipeline>,
     pub mask_image_pipeline: Share<wgpu::RenderPipeline>,
@@ -334,7 +338,7 @@ pub struct InstanceContext {
 
 	pub default_camera: BufferGroup,
 
-	pub draw_list: Vec<(DrawElement, Entity/*passid*/)>, // 渲染元素
+	pub draw_list: Vec<(DrawElement, Entity/*fbo passid*/)>, // 渲染元素
     // /// 批处理是否需要调整
     // /// 当draw_obj新增和删除、RenderCount发生改变、纹理发生改变（包含动态分配的fbo）时， 需要重新调整批处理
     pub rebatch: bool, 
@@ -346,6 +350,8 @@ pub struct InstanceContext {
     pub next_node_with_depend: Vec<usize>,
 
     pub debug_info: VecMap<String>,
+
+    pub draw_screen_range: std::ops::Range<usize>
 }
 
 impl InstanceContext {
@@ -587,7 +593,8 @@ impl FromWorld for InstanceContext {
         });
 
 		let common_blend_state_hash = calc_hash(&CommonBlendState::NORMAL, 0);
-		let common_pipeline = Share::new(create_render_pipeline("common_pipeline ui", &device, &pipeline_layout, &vs, &fs, Some(CommonBlendState::NORMAL), CompareFunction::GreaterEqual, true, wgpu::TextureFormat::pi_render_default(), vert_layout().as_slice(), MeterialBind::SIZE));
+		let copy_pipeline = Share::new(create_render_pipeline("copy_pipeline ui", &device, &pipeline_layout, &vs, &fs, Some(CommonBlendState::NORMAL), CompareFunction::Always, false, wgpu::TextureFormat::pi_render_default(), vert_layout().as_slice(), MeterialBind::SIZE));
+		let common_pipeline  = Share::new(create_render_pipeline("common_pipeline ui", &device, &pipeline_layout, &vs, &fs, Some(CommonBlendState::NORMAL), CompareFunction::GreaterEqual, true, wgpu::TextureFormat::pi_render_default(), vert_layout().as_slice(), MeterialBind::SIZE));
 
 		let premultiply_blend_state_hash = calc_hash(&CommonBlendState::PREMULTIPLY, 0);
 		let premultiply_pipeline = Share::new(create_render_pipeline("premultiply_pipeline ui", &device, &pipeline_layout, &vs, &fs, Some(CommonBlendState::PREMULTIPLY), CompareFunction::GreaterEqual, true, wgpu::TextureFormat::pi_render_default(), vert_layout().as_slice(), MeterialBind::SIZE));
@@ -741,6 +748,7 @@ impl FromWorld for InstanceContext {
 			common_blend_state_hash,
 			premultiply_blend_state_hash,
 			common_pipeline,
+            copy_pipeline,
 			premultiply_pipeline,
 			clear_pipeline,
             mask_image_pipeline,
@@ -794,6 +802,7 @@ impl FromWorld for InstanceContext {
             pass_toop_list: Default::default(),
             next_node_with_depend: Default::default(),
             debug_info: VecMap::default(),
+            draw_screen_range: 0..0,
 		}
     }
 	
@@ -1625,17 +1634,8 @@ impl CommonBlendState {
 }
 
 // 渲染目标管理
-pub struct TargetCacheMgr {
-	pub key: AtomicUsize,
-	pub assets: ShareAssetMgr<CacheTarget>,
-}
+pub struct TargetCacheMgr(pub Share<HomogeneousMgr<CacheTarget>>);
 
-impl TargetCacheMgr {
-	pub fn push(&self, value: CacheTarget) -> Handle<CacheTarget> {
-		let key = self.key.fetch_add(1, Ordering::Relaxed);
-		self.assets.insert(key, value).unwrap()
-	}
-}
 
 pub fn create_render_pipeline(
     labal: &str,

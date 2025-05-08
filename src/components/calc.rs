@@ -1,6 +1,5 @@
 //! 定义计算组件（非用户设置的组件）
 
-use pi_bevy_render_plugin::render_cross::GraphId;
 use pi_flex_layout::prelude::SideGap;
 use pi_render::components::view::target_alloc::ShareTargetView;
 use pi_world::insert::Component;
@@ -466,7 +465,7 @@ impl WorldMatrix {
 // #[storage = ]
 #[derive(Clone, Debug, Serialize, Deserialize, Component)]
 // #[storage(QuadTree)]
-pub struct Quad(pub Aabb2);
+pub struct Quad(pub Aabb2, );
 
 impl Quad {
     pub fn new(aabb: Aabb2) -> Quad { Quad(aabb) }
@@ -529,6 +528,14 @@ impl IsShow {
             self.0 &= !(ShowType::Enable as usize);
         }
     }
+}
+
+/// canvas图节点
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct CanvasGraph {
+    pub pre_graph_id: pi_render::depend_graph::NodeId,
+    pub to_graph_id: pi_render::depend_graph::NodeId,
+	
 }
 
 // // 上一个版本在IsShow组件中体现， 现在独立出来
@@ -604,16 +611,21 @@ impl TransformWillChangeMatrix {
         TransformWillChangeMatrix(Some(Share::new(TransformWillChangeMatrixInner {
             will_change,
             will_change_invert,
-            primitive,
+            will_change_matrix: primitive.clone(), 
+            invert: primitive,
         })))
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct TransformWillChangeMatrixInner {
-    pub will_change: WorldMatrix, // 节点真实的世界矩阵（即will_change*worldmatrix*顶点=真实的世界坐标位置） = ParentWorldMatrix * primitive * ParentWorldMatrix逆
-    pub will_change_invert: WorldMatrix, // will_change 逆
-    pub primitive: WorldMatrix,   // = Parent1.WillChangeTransform * Parent2.WillChangeTransform * ... * this.WillChangeTransform
+    // will_change矩阵（will_change*worldmatrix*顶点=真实的世界坐标位置） = ParentWorldMatrix * primitive * ParentWorldMatrix逆
+    pub will_change: WorldMatrix, 
+    // will_change 逆
+    pub will_change_invert: WorldMatrix, 
+    // pub primitive: WorldMatrix;// = Parent1.WillChangeTransform * Parent2.WillChangeTransform * ... * this.WillChangeTransform
+    pub invert: WorldMatrix,  // will_change属性所在节点的世界矩阵的逆， 
+    pub will_change_matrix: WorldMatrix,  // will_change属性所在节点的willchange_transfrom对应的矩阵，
 }
 
 #[derive(Debug, Clone)]
@@ -892,9 +904,9 @@ pub struct DrawObjId {
 
 /// 视图
 /// 每个Pass2d都必须存在一个视图
-#[derive(Clone, Default, Debug, Component)]
+#[derive(Clone, Default, Debug, Component, Serialize, Deserialize)]
 pub struct View {
-    /// 为some时，节点山下文渲染需要新的视口，否则应该继承父节点的视口
+    /// 为some时，节点上下文渲染需要新的视口，否则应该继承父节点的视口
     pub view_box: ViewBox,
     /// 旋转情况下是Some， 记录旋转矩阵和旋转逆矩阵
     pub desc: OverflowDesc,
@@ -902,7 +914,7 @@ pub struct View {
 
 /// 可视包围盒
 /// 已经考虑了Overflow、TransformWillChange因素，得到了该节点的真实可视区域
-#[derive(Clone, Debug, Component)]
+#[derive(Clone, Debug, Component, Serialize, Deserialize)]
 pub struct ViewBox {
     /// 当前节点的可视包围盒
     /// 其原点位置是对世界原点作本节点旋转变换的逆变换所得
@@ -926,7 +938,7 @@ impl Default for ViewBox {
     }
 }
 
-#[derive(Clone, Default, Debug)]
+#[derive(Clone, Default, Debug, Serialize, Deserialize)]
 pub struct OveflowRotate {
     // 相对于父上下文的旋转
     pub from_context_rotate: WorldMatrix,
@@ -937,10 +949,10 @@ pub struct OveflowRotate {
 }
 
 // 描述oveflow
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum OverflowDesc {
     Rotate(OveflowRotate), // 所在节点存在旋转的情况下， 描述旋转信息
-    NoRotate(Aabb2),       // 所在节点不存在旋转的情况下，描述自身的aabb
+    NoRotate(Aabb2),       // 所在节点不存在旋转的情况下，描述自身内容的世界aabb
 }
 
 impl Default for OverflowDesc {
@@ -1173,4 +1185,12 @@ lazy_static! {
         .set_bit(StyleType::Display as usize)
         .set_bit(StyleType::Visibility as usize)
         .set_bit(StyleType::Enable as usize);
+}
+
+// 是否存在动画， 用于优化渲染
+#[derive(Debug, Serialize, Deserialize, Component, Default, Clone)]
+pub struct HasAnimation {
+    pub child_count_width_animation: usize, // 包含动画的直接子节点的数量（子节点自身或递归子节点有动画，都算作包含动画）+ 自身数量（自身有动画为1，否则为0）
+    pub old_set_parent: Entity, // 曾经为该父节点贡献过有动画的子节点数量（父节点的child_count_width_animation， 当前节点为其贡献1）
+    pub old_has_animation: bool, // 自身在前一次渲染中是否有动画
 }

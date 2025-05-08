@@ -7,6 +7,7 @@
 #![feature(const_trait_impl)]
 #![feature(adt_const_params)]
 #![allow(invalid_reference_casting)]
+#[allow(deprecated)]
 
 // use pi_hash::XHashSet;
 

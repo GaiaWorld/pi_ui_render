@@ -21,17 +21,16 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     components::{
-        calc::EntityKey, user::{
+        calc::{CanvasGraph, EntityKey}, user::{
             serialize::{DefaultStyle, StyleTypeReader},
-            Animation, AsImage, Canvas, RenderDirty, RenderTargetType, Viewport,
+            Animation, AsImage, Canvas, RenderTargetType, Viewport,
         }, NodeBundle
     },
     resource::animation_sheet::KeyFramesSheet,
 };
 
 use super::{
-    fragment::{FragmentMap, Fragments},
-    ClassSheet, ShareFontSheet,
+    fragment::{FragmentMap, Fragments}, ClassSheet, RenderDirty, ShareFontSheet
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -129,6 +128,26 @@ impl Command for PostProcessCmd {
     }
 }
 
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct CanvasCmd(pub Entity, pub bool, pub Entity);
+impl Command for CanvasCmd {
+    fn apply(self, world: &mut World) {
+        if world.contains_entity(self.2) {
+            pi_print_any::out_any!(log::debug, "NodeCmd====================node：{:?}, anchor： {:?}", self.1, &self.0);
+            let id = world.init_component::<Canvas>();
+            let id1 = world.init_component::<CanvasGraph>();
+            let _ = world.make_entity_editor().alter_components_by_index(self.2,&[(id, true), (id1, true)]);
+            if let Ok(mut r) = world.get_component_mut_by_index::<Canvas>(self.2, id) {
+                r.id = self.0;
+                r.by_draw_list = self.1;
+            }
+        } else {
+            pi_print_any::out_any!(log::debug, "node_cmd fail======================={:?}, {:?}", &self.1, &self.0);
+        }
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ComponentCmd<T>(pub T, pub Entity);
 impl<T: 'static + Send + Sync> Command for ComponentCmd<T> {
@@ -178,7 +197,7 @@ impl Command for FontCfgCmd {
 
 // 添加sdf2字体指令
 #[derive(Clone, Debug)]
-pub struct FontSdf2Cmd(pub Atom, pub Arc<Vec<u8>>);
+pub struct FontSdf2Cmd(pub Atom, pub Share<Vec<u8>>);
 impl Command for FontSdf2Cmd {
     fn apply(self, world: &mut World) {
         let sheet = &****world.get_single_res_mut::<ShareFontSheet>().unwrap();
@@ -314,6 +333,20 @@ impl Command for ClearColorCmd {
     }
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct RenderDirtyCmd(pub RenderDirty);
+
+impl Command for RenderDirtyCmd {
+    fn apply(self, world: &mut World) {
+        match world.get_single_res_mut::<RenderDirty>() {
+            Some(r) => **r = self.0,
+            None => {
+                world.insert_single_res(self.0);
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 /// 节点指令
 pub enum NodeCommand {
@@ -342,7 +375,7 @@ pub enum CmdType {
     NodeCmdViewport(NodeCmd<Viewport>),
     NodeCmdRenderTargetType(NodeCmd<RenderTargetType>),
     NodeCmdRenderClearColor(ClearColorCmd),
-    NodeCmdRenderRenderDirty(NodeCmd<RenderDirty>),
+    NodeCmdRenderRenderDirty(RenderDirtyCmd),
     NodeCmdRenderNodeBundle(NodeCmd<NodeBundle>),
 
     ExtendFragmentCmd(ExtendFragmentCmd),

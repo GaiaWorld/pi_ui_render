@@ -80,7 +80,7 @@ impl GpuBuffer {
 		self.cur_index += self.alignment;
 		self.update_dirty_range(ret..self.cur_index);
 		self.reserve();
-		// log::warn!("alloc_instance_data=============={:?}", backt);
+		// log::warn!("alloc_instance_data=============={:?}", ret);
 		ret
 	}
 
@@ -249,10 +249,12 @@ impl<'a> InstanceData<'a> {
 	// 	// println_any!("set data========={:?}, {:?}, {:?}", self.index, value.offset(),  value);
 	// 	log::warn!("byte_len========={:?}, {:?}, {:?}, {:?}, {:?}, {:?}", self.index, value.offset(), value.byte_len(), self.data.data.len(), self.data.capacity(), self.data.alignment);
 	// }
+		// if value.offset() == 0 {
+		// 	log::warn!("set_data========={:?}, {:?}, {:?}, {:?}, {:?}, {:?}", self.index, value.offset(), value.byte_len(), self.data.data.len(), self.data.capacity(), self.data.alignment);
+		// }
 		#[cfg(debug_assertions)]
 		if (self.index + value.offset() as usize + value.byte_len() as usize) > self.data.data.len() {
 			panic!("byte_len========={:?}, {:?}, {:?}, {:?}, {:?}, {:?}", self.index, value.offset(), value.byte_len(), self.data.data.len(), self.data.capacity(), self.data.alignment);
-
 		}
 		// pi_print_any::out_any!(log::error, "set_data==={:?}, {:?}", value, (value.offset(), value.offset() + value.byte_len(), self.index));
 		// if (self.index/ 240 == 64 || self.index/ 240 == 65 || self.index/ 240 == 63) && value.offset() <= 180 && value.offset() + value.byte_len() >=184 {

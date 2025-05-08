@@ -9,8 +9,7 @@ use std::mem::transmute;
 
 use pi_bevy_render_plugin::{render_cross::GraphId, PiRenderGraph};
 use pi_null::Null;
-use pi_style::style::StyleType;
-use pi_world::{event::{ComponentChanged, Event}, prelude::{Changed, Entity, Mut, Query, SingleRes, Ticker}, single_res::SingleResMut};
+use pi_world::{event::{ComponentChanged, Event}, prelude::{Entity, Mut, Query, SingleRes, Ticker}, single_res::SingleResMut};
 use pi_bevy_ecs_extend::prelude::{Layer, OrInitSingleRes, OrInitSingleResMut};
 
 use pi_render::renderer::draw_obj::DrawBindGroup;
@@ -19,23 +18,32 @@ use pi_share::{Share, ShareWeak};
 use crate::{
     components::{
         calc::{
-            BackgroundImageTexture, BorderImageTexture, InPassId, IsShow, OverflowDesc, Quad, TransformWillChangeMatrix, View, WorldMatrix
+            BackgroundImageTexture, BorderImageTexture, InPassId, IsShow, MaskTexture, OverflowDesc, Quad, StyleBit, TransformWillChangeMatrix, View, WorldMatrix
         }, pass_2d::{
-            Camera, ParentPassId, PostProcessInfo, RenderTarget, RenderTargetCache, StrongTarget
+            Camera, IsSteady, ParentPassId, PostProcessInfo, RenderTarget, RenderTargetCache, StrongTarget
         }, user::{Aabb2, AsImage, Canvas, Point2, Vector2, Viewport}
     }, resource::{
-        draw_obj::InstanceContext, GlobalDirtyMark, IsRun, RenderDirty, ShareFontSheet
+        draw_obj::{InstanceContext, TargetCacheMgr}, IsRun, OtherDirtyType, RenderDirty, ShareFontSheet
     }, shader1::batch_meterial::{ProjectUniform, Sdf2TextureSizeUniform, ViewUniform}, system::{base::node::user_setting::StyleChange, utils::{create_project, rotatequad_quad_intersection}}, utils::tools::intersect
 };
+use crate::components::calc::{StyleMarkType, style_bit};
+lazy_static! {
+	pub static ref OTHER_RENDER_DIRTY: StyleMarkType = style_bit()
+        .set_bit(OtherDirtyType::MaskImageTexture as usize)
+        .set_bit(OtherDirtyType::BorderImageTexture as usize)
+		.set_bit(OtherDirtyType::BackgroundImageTexture as usize);
+}
 
 pub fn calc_pass_dirty(
+    // mut global_mark: OrInitSingleRes<GlobalDirtyMark>,
     mut render_dirty: OrInitSingleResMut<RenderDirty>,
-    dirty_list: Event<StyleChange>,
+    style_dirty_list: Event<StyleChange>,
     quad_changed: ComponentChanged<Quad>,
 
     bg_image_changed: ComponentChanged<BackgroundImageTexture>,
     border_image_changed: ComponentChanged<BorderImageTexture>,
-    canvas_changed: ComponentChanged<Canvas>,
+    mask_image_changed: ComponentChanged<MaskTexture>,
+    canvas_changed: ComponentChanged<Canvas>, // canvas一定需要修改
 
     mut query: Query<(&mut Camera, &ParentPassId)>,
     query1: Query<&InPassId>,
@@ -44,14 +52,15 @@ pub fn calc_pass_dirty(
 	if r.0 {
 		return;
 	}
-    render_dirty.0 = true;
 
     if render_dirty.0 {
         // 如果渲染脏，则全部脏， 不需要计算各pass的脏
-        dirty_list.mark_read();
+        style_dirty_list.mark_read();
         quad_changed.mark_read();
         bg_image_changed.mark_read();
         border_image_changed.mark_read();
+        canvas_changed.mark_read();
+        mask_image_changed.mark_read();
         render_dirty.1 = true;
         return;
     }
@@ -60,25 +69,32 @@ pub fn calc_pass_dirty(
 
     // 用户修改，脏区域发生变化
     // let mut p2 = query_pass.p2();
-    for node_id in dirty_list.iter() {
+    // 样式脏， 引起渲染脏， 设置所在pass和递归父pass的draw_changed
+    for node_id in style_dirty_list.iter() {
         let in_pass_id = match query1.get(**node_id) {
             Ok(r) => r,
             _ => continue,
         };
         is_dirty = true;
-		// log::warn!("dirty========style {:?}, {:?}", node_id, in_pass_id);
+		// log::debug!("dirty========style {:?}, {:?}", node_id, in_pass_id);
         mark_pass_dirty(***in_pass_id, &mut query);
     }
 
     // 处理包围盒改变前的区域，与脏区域求并
-    for node_id in quad_changed.iter().chain(bg_image_changed.iter()).chain(border_image_changed.iter()).chain(canvas_changed.iter()) {
-        let in_pass_id = match query1.get(*node_id) {
-            Ok(r) => r,
-            _ => continue,
-        };
-        is_dirty = true;
-        // log::warn!("dirty========other {:?}, {:?}", node_id, in_pass_id);
-        mark_pass_dirty(***in_pass_id, &mut query);
+    if quad_changed.len() > 0 ||
+    bg_image_changed.len() > 0 ||
+    border_image_changed.len() > 0 ||
+    canvas_changed.len() > 0 ||
+    mask_image_changed.len() > 0 {
+        for node_id in quad_changed.iter().chain(bg_image_changed.iter()).chain(border_image_changed.iter()).chain(canvas_changed.iter()).chain(mask_image_changed.iter()) {
+            let in_pass_id = match query1.get(*node_id) {
+                Ok(r) => r,
+                _ => continue,
+            };
+            is_dirty = true;
+            // log::debug!("dirty========other {:?}, {:?}", node_id, in_pass_id);
+            mark_pass_dirty(***in_pass_id, &mut query);
+        }
     }
 
     render_dirty.1 = is_dirty;
@@ -95,18 +111,21 @@ pub fn calc_camera(
             &TransformWillChangeMatrix,
             &Layer,
             Option<&AsImage>,
+            &IsSteady,
             &mut RenderTarget,
             &Quad,
             Ticker<&IsShow>,
         ),
     >,
-    // mut query_root: ParamSet<(Query<(&RootDirtyRect, OrDefault<RenderDirty>, Ref<Viewport>)>, Query<&mut RenderDirty>)>,
+
     query_root: Query<Ticker<&Viewport>>,
     font_sheet: SingleRes<ShareFontSheet>,
 	mut instance_context: SingleResMut<InstanceContext>,
     mut render_dirty: OrInitSingleResMut<RenderDirty>,
+    assets: SingleRes<TargetCacheMgr>,
 	r: OrInitSingleRes<IsRun>,
 ) {
+    log::debug!("calc_camera===============================");
 	if r.0 {
 		return;
 	}
@@ -135,8 +154,6 @@ pub fn calc_camera(
 
     let mut is_render_own_changed = false;
 
-    // log::warn!("calc camera=========", );
-
     let calc_camera = |
         (
             entity, 
@@ -144,7 +161,8 @@ pub fn calc_camera(
             overflow_aabb, 
             willchange_matrix, 
             layer, 
-            as_image, 
+            as_image,
+            is_steady, 
             mut render_target, 
             quad, 
             is_show): 
@@ -155,35 +173,42 @@ pub fn calc_camera(
             &TransformWillChangeMatrix,
             &Layer,
             Option<&AsImage>,
+            &IsSteady,
             Mut<RenderTarget>,
             &Quad,
             Ticker<&IsShow>,
         )
     | -> bool {
 
-        let old_is_render_own = camera.is_render_own;
-        let old_is_render_to_parent = camera.is_render_to_parent;
-        camera.is_render_own = false;
-        log::debug!("camera.is_render_own = {:?};", (entity, camera.draw_changed, render_dirty1, view_port_is_dirty, as_image, &render_target.cache));
-        let local_dirty_mark = camera.draw_changed || render_dirty1 || view_port_is_dirty;
+        let camera_bypass = camera.bypass_change_detection();
+        let old_is_render_own = camera_bypass.is_render_own;
+        camera_bypass.is_render_own = false;
+        // log::debug!("camera.is_render_own = {:?};", (entity, camera_bypass.draw_changed, render_dirty1, view_port_is_dirty, as_image, &render_target.cache));
+        let local_dirty_mark = camera_bypass.draw_changed || render_dirty1 || view_port_is_dirty;
         // local_dirty_mark = true;
-        camera.draw_changed = false;
+        camera_bypass.draw_changed = false;
 
-        // log::warn!("change==========={:?}", (entity, camera.draw_changed, render_dirty.0));
+        log::debug!("change==========={:?}", (entity, camera_bypass.draw_changed, render_dirty.0, is_show.get_visibility(), is_show.get_display()));
         // 检查render_target的缓存情况， 设置rendertarget
-        check_render_target(&mut render_target, as_image);
+        check_render_target(&mut render_target, as_image, is_steady.0);
 
         if !is_show.get_visibility() || !is_show.get_display() {
             // 如果设置为隐藏，之前的渲染结果也需要释放
             // 因为， 如果将其缓存，直到重新设置为可见， 中间发生了哪些改变不可知，也不知道fbo是否需要重新渲染， 因此，直接释放掉
             render_target.target = StrongTarget::None;
             render_target.cache = RenderTargetCache::None;
-			return old_is_render_own == camera.is_render_own;
+            if camera_bypass.is_visible {
+                camera_bypass.is_visible = false; // 设置为不可见
+                camera_bypass.view_port = Aabb2::new(Point2::new(0.0, 0.0), Point2::new(0.0, 0.0));
+                return true; // 返回true，表示需要重新批处理
+            }
+            
+			return old_is_render_own != camera.is_render_own;
 		}
 
         let view_port = match query_root.get(layer.root()) {
             Ok(r) => r,
-            Err(_) => return old_is_render_own == camera.is_render_own,
+            Err(_) => return old_is_render_own != camera_bypass.is_render_own,
         };
 
         let overflow_aabb = &*overflow_aabb;
@@ -194,7 +219,7 @@ pub fn calc_camera(
             if !local_dirty_mark {
                 
                 // 存在fbo缓存， 且本地不脏，则不需要渲染
-                return old_is_render_own == camera.is_render_own;
+                return old_is_render_own != camera_bypass.is_render_own;
             }
         }
 
@@ -217,18 +242,23 @@ pub fn calc_camera(
             // let r = calc_bound_box(&aabb, &oveflow_rotate.rotate_matrix_invert);
             // let rr = intersect(&overflow, &r).unwrap_or(Aabb2::new(Point2::new(0.0, 0.0),
             // Point2::new(0.0, 0.0)));
-            // log::warn!("rr=====id: {:?} \nrotate_matrix_invert: {:?}, \nview_port: {:?}, \nview_box.aabb: {:?}, \n rr: {:?}, ", entity, &oveflow_rotate.world_rotate_invert, view_port, overflow_aabb.view_box.aabb, rr);
+            // log::debug!("rr=====id: {:?} \nrotate_matrix_invert: {:?}, \nview_port: {:?}, \nview_box.aabb: {:?}, \n rr: {:?}, ", entity, &oveflow_rotate.world_rotate_invert, view_port, overflow_aabb.view_box.aabb, rr);
             rr
         } else {
             intersect(&overflow_aabb.view_box.aabb, &view_port).unwrap_or(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)))
         };
 
-                // log::warn!("viewport======={:?}, \nview_aabb={:?}, \noverflow_aabb={:?}, \ndirty_rect={:?}", entity, no_rotate_view_aabb, overflow_aabb, dirty_rect);
+                // log::debug!("viewport======={:?}, \nview_aabb={:?}, \noverflow_aabb={:?}, \ndirty_rect={:?}", entity, no_rotate_view_aabb, overflow_aabb, dirty_rect);
 
-        log::trace!("pass_id2 22========={:?}, {:?}", entity, (&*dirty_rect, overflow_aabb, !is_show.get_visibility(), !is_show.get_display()));
+        log::debug!("pass_id2 22========={:?}, {:?}", entity, (&*dirty_rect, overflow_aabb, no_rotate_view_aabb, !is_show.get_visibility(), !is_show.get_display()));
         if no_rotate_view_aabb.mins.x >= no_rotate_view_aabb.maxs.x || no_rotate_view_aabb.mins.y >= no_rotate_view_aabb.maxs.y {
             // 如果视口为0， 则不需要渲染
-            return old_is_render_own == camera.is_render_own;
+            if camera_bypass.is_visible {
+                camera_bypass.is_visible = false; // 设置为不可见
+                camera_bypass.view_port = no_rotate_view_aabb;
+                return true; // 返回true，表示需要重新批处理
+            }
+            return old_is_render_own != camera_bypass.is_render_own;
         }
 
         // 计算视图区域（世界坐标系）
@@ -241,7 +271,7 @@ pub fn calc_camera(
         //     _ => &no_rotate_view_aabb,
         // };
 
-		// log::warn!("last_dirty======{:?}, {:?}", entity, cull_aabb);
+		// log::debug!("last_dirty======{:?}, {:?}", entity, cull_aabb);
         let aabb = Aabb2::new(
             Point2::new(no_rotate_view_aabb.mins.x.floor(), no_rotate_view_aabb.mins.y.floor()),
             Point2::new(no_rotate_view_aabb.maxs.x.ceil(), no_rotate_view_aabb.maxs.y.ceil()),
@@ -267,8 +297,8 @@ pub fn calc_camera(
             view_matrix = &view_temp1;
         }
         
-        // log::warn!("pass_id=========\nentity: {:?}, \nproject_matrix: {:?}, \nview_matrix: {}, \nwillchange_matrix:{:?} \naabb:{:?}, \noverflow_aabb: {:?}", entity, project_matrix, view_matrix, willchange_matrix, aabb, overflow_aabb);
-        // log::warn!("pass_id2=========\nentity: {:?}, \nproject_matrix: {:?}, \nview_matrix: {}, \nwillchange_matrix:{:?} \naabb:{:?}, \noverflow_aabb: {:?}", entity, project_matrix, view_matrix, willchange_matrix, aabb, overflow_aabb);
+        // log::debug!("pass_id=========\nentity: {:?}, \nproject_matrix: {:?}, \nview_matrix: {}, \nwillchange_matrix:{:?} \naabb:{:?}, \noverflow_aabb: {:?}", entity, project_matrix, view_matrix, willchange_matrix, aabb, overflow_aabb);
+        // log::debug!("pass_id2=========\nentity: {:?}, \nproject_matrix: {:?}, \nview_matrix: {}, \nwillchange_matrix:{:?} \naabb:{:?}, \noverflow_aabb: {:?}", entity, project_matrix, view_matrix, willchange_matrix, aabb, overflow_aabb);
 
         let mut camera_group = instance_context.camera_alloter.alloc();
         camera_group.set_uniform(&ProjectUniform(project_matrix.as_slice()));
@@ -289,19 +319,30 @@ pub fn calc_camera(
             // project: project_matrix,
             bind_group: Some(DrawBindGroup::Offset(camera_group)),
             view_port: aabb,
+            draw_range: camera.draw_range.clone(),
             // world_matrix: world_matrix.clone(),
             is_render_own: true,
             draw_changed: false,
-            is_render_to_parent: old_is_render_to_parent,
+            is_render_to_parent: camera.is_render_to_parent,
+            is_visible: true,
         };
 
-        // log::warn!("calc camera========={:?}", entity);
-
         // 删除原有缓冲（内容发生改变会重新渲染， 原有缓冲没有作用）
+        match &render_target.cache {
+            RenderTargetCache::None => (),
+            RenderTargetCache::Strong(droper) => {assets.0.pop_by_filter(|r| {
+                Share::as_ptr(&r.0) == Share::as_ptr(droper)
+            });},
+            RenderTargetCache::Weak(droper) => {assets.0.pop_by_filter(|r| {
+                Share::as_ptr(&r.0) == ShareWeak::as_ptr(droper)
+            });},
+        };
         render_target.target = StrongTarget::None;
         render_target.cache = RenderTargetCache::None;
 
 
+        let width = camera.view_port.maxs.x - camera.view_port.mins.x;
+        let height = camera.view_port.maxs.y - camera.view_port.mins.y;
         if layer.root() == entity {
             // 根节点必须分配与根节点overflow_aabb等大的fbo
             // 因为根节点fbo要缓冲上一帧的内容，其fbo大小必须包含整个视口内容
@@ -313,14 +354,19 @@ pub fn calc_camera(
         } else {
             // 非根节点，在没有旧的fbo的情况下，只需要开与渲染区域等大的fbo
             render_target.bound_box = camera.view_port.clone();
+            render_target.accurate_bound_box = Aabb2::new(
+                Point2::new((no_rotate_view_aabb.mins.x - camera.view_port.mins.x) / width, (no_rotate_view_aabb.mins.y - camera.view_port.mins.y) / height),
+                Point2::new((no_rotate_view_aabb.maxs.x - camera.view_port.maxs.x) / width, (no_rotate_view_aabb.maxs.y - camera.view_port.maxs.y) / height),
+            );
         }
+        
 
-        return old_is_render_own == camera.is_render_own;
+        return old_is_render_own != camera.is_render_own;
 
         // if let &StrongTarget::None = &render_target.target {
 		// 	// if bg.is_some() {
-		// 	// 	log::warn!("aaaa1================={:?}, {:?}, {:?}, {}", entity, render_target.bound_box, &camera.view_port, render_target.bound_box.maxs.x - render_target.bound_box.mins.x);
-		// 	// 	log::warn!("aaaa0================={:?}, {:?}, {:?}, {}", entity, view_port, );
+		// 	// 	log::debug!("aaaa1================={:?}, {:?}, {:?}, {}", entity, render_target.bound_box, &camera.view_port, render_target.bound_box.maxs.x - render_target.bound_box.mins.x);
+		// 	// 	log::debug!("aaaa0================={:?}, {:?}, {:?}, {}", entity, view_port, );
 		// 	// }
 		// 	if layer.root() == entity {
 		// 		// 根节点必须分配与根节点overflow_aabb等大的fbo
@@ -341,7 +387,7 @@ pub fn calc_camera(
 		// 		Point2::new(overflow_aabb.mins.x.floor(), overflow_aabb.mins.y.floor()),
 		// 		Point2::new(overflow_aabb.maxs.x.ceil(), overflow_aabb.maxs.y.ceil()),
 		// 	);
-		// 	// log::warn!("target_size_change========{:?}, {:?}, {:?}, {:?}", entity, &render_target.bound_box, overflow_aabb.view_box.aabb.clone(), &camera.view_port);
+		// 	// log::debug!("target_size_change========{:?}, {:?}, {:?}, {:?}", entity, &render_target.bound_box, overflow_aabb.view_box.aabb.clone(), &camera.view_port);
 			
 
 			
@@ -358,7 +404,7 @@ pub fn calc_camera(
         //     // if target_size_change {
 				
 		// 	// 	// if bg.is_some() {
-		// 	// 	// 	log::warn!("aaaa2================={:?}, {:?}, {:?}, {}", entity, render_target.bound_box, &camera.view_port, render_target.bound_box.maxs.x - render_target.bound_box.mins.x);
+		// 	// 	// 	log::debug!("aaaa2================={:?}, {:?}, {:?}, {}", entity, render_target.bound_box, &camera.view_port, render_target.bound_box.maxs.x - render_target.bound_box.mins.x);
 		// 	// 	// }
         //     //     // 从资源管理器中删除原有的渲染目标（TODO， 另外还需要在RenderTarget销毁时， 从资源管理器中删除）
         //     //     render_target.target = StrongTarget::None; // 设置为None， 等待渲染时重新分配
@@ -374,7 +420,7 @@ pub fn calc_camera(
     for r in query_pass.iter_mut() {
         is_render_own_changed |= calc_camera(r);
     }
-    instance_context.rebatch = is_render_own_changed;
+    instance_context.rebatch |= is_render_own_changed;
 
     // if view_port_is_dirty {
     //     // 当视口发生变化时， 需要遍历所有的pass2d从新计算相机
@@ -391,72 +437,62 @@ pub fn calc_camera(
     
 }
 
-pub fn camera_change(mark: SingleRes<GlobalDirtyMark>, view: ComponentChanged<View>, query_root: Query<(), Changed<Viewport>>) -> bool {
-	let r = view.len() > 0 
-        || mark.mark.get(StyleType::Display as usize).map_or(false, |display| {*display == true})
-        || mark.mark.get(StyleType::Visibility as usize).map_or(false, |display| {*display == true})
-        || mark.mark.get(StyleType::AsImage as usize).map_or(false, |display| {*display == true})
-        || query_root.iter().next().is_some();
-	view.mark_read();
-	r
-}
 
-pub fn check_render_target(render_target: &mut RenderTarget, as_image: Option<&AsImage>) {
-    match as_image {
-        Some(as_image) => match as_image.level {
-            pi_style::style::AsImage::None => {
-                // 设置render_target.cache为none，在渲染时动态分配rendertarget
-                render_target.cache = RenderTargetCache::None;
-            }
-            pi_style::style::AsImage::Advise => {
-                match &render_target.cache {
-					RenderTargetCache::None => return,
-                    RenderTargetCache::Strong(r) => {
-                        render_target.target = StrongTarget::Asset(r.clone());
-                        // 缓存修改为弱引用
-                        let weak = Share::downgrade(r);
-                        render_target.cache = RenderTargetCache::Weak(weak);
-                    }
-                    RenderTargetCache::Weak(r) => {
-                        match ShareWeak::upgrade(r) {
-                            Some(r) => {
-                                // 弱引用升级成功，返回强引用，如果相机被激活，外部应该将其放在render_target.target上， 避免在渲染时， 该弱引用对应的值已被销毁
-                                render_target.target = StrongTarget::Asset(r.clone());
-                            }
-                            None => {
-                                // 弱引用升级不成功，清理掉弱引用
-                                render_target.cache = RenderTargetCache::None;
-                            }
-                        };
-                    }
-                }
-            }
-            pi_style::style::AsImage::Force => {
-                match &render_target.cache {
-					RenderTargetCache::None => return,
-                    RenderTargetCache::Strong(r) => {
-                        // 返回强引用
-                        render_target.target = StrongTarget::Asset(r.clone());
-                    }
-                    RenderTargetCache::Weak(r) => {
-                        match ShareWeak::upgrade(r) {
-                            Some(r) => {
-                                render_target.target = StrongTarget::Asset(r.clone());
-                                // 缓存强引用
-                                render_target.cache = RenderTargetCache::Strong(r);
-                            }
-                            None => {
-                                // 弱引用升级不成功，清理掉弱引用
-                                render_target.cache = RenderTargetCache::None;
-                            }
-                        };
-                    }
-                }
-            }
-        },
-        None => {
+pub fn check_render_target(render_target: &mut RenderTarget, as_image: Option<&AsImage>, is_steady: bool) {
+    let as_image = match as_image {
+        Some(r) => r.level,
+        None => pi_style::style::AsImage::None,
+    };
+    
+    match (as_image, is_steady) {
+        (pi_style::style::AsImage::None, false) => {
             // 设置render_target.cache为none，在渲染时动态分配rendertarget
             render_target.cache = RenderTargetCache::None;
+        }
+        (pi_style::style::AsImage::Advise, _) | (_, true) => {
+            match &render_target.cache {
+                RenderTargetCache::None => return,
+                RenderTargetCache::Strong(r) => {
+                    render_target.target = StrongTarget::Asset(r.clone());
+                    // 缓存修改为弱引用
+                    let weak = Share::downgrade(r);
+                    render_target.cache = RenderTargetCache::Weak(weak);
+                }
+                RenderTargetCache::Weak(r) => {
+                    match ShareWeak::upgrade(r) {
+                        Some(r) => {
+                            // 弱引用升级成功，返回强引用，如果相机被激活，外部应该将其放在render_target.target上， 避免在渲染时， 该弱引用对应的值已被销毁
+                            render_target.target = StrongTarget::Asset(r.clone());
+                        }
+                        None => {
+                            // 弱引用升级不成功，清理掉弱引用
+                            render_target.cache = RenderTargetCache::None;
+                        }
+                    };
+                }
+            }
+        }
+        (pi_style::style::AsImage::Force, _) => {
+            match &render_target.cache {
+                RenderTargetCache::None => return,
+                RenderTargetCache::Strong(r) => {
+                    // 返回强引用
+                    render_target.target = StrongTarget::Asset(r.clone());
+                }
+                RenderTargetCache::Weak(r) => {
+                    match ShareWeak::upgrade(r) {
+                        Some(r) => {
+                            render_target.target = StrongTarget::Asset(r.clone());
+                            // 缓存强引用
+                            render_target.cache = RenderTargetCache::Strong(r);
+                        }
+                        None => {
+                            // 弱引用升级不成功，清理掉弱引用
+                            render_target.cache = RenderTargetCache::None;
+                        }
+                    };
+                }
+            }
         }
     }
 }
@@ -466,12 +502,13 @@ pub fn calc_pass_active(
     mut query: Query<(&mut Camera, &PostProcessInfo, &ParentPassId, &GraphId)>,
 	r: OrInitSingleRes<IsRun>,
     mut render_dirty: OrInitSingleResMut<RenderDirty>,
-    instance_context: OrInitSingleRes<InstanceContext>,
+    mut instance_context: OrInitSingleResMut<InstanceContext>,
     mut rg: SingleResMut<PiRenderGraph>,
 ) {
 	if r.0 {
 		return;
 	}
+    
     let is_dirty = render_dirty.1 || render_dirty.2;
     render_dirty.0 = false;
     render_dirty.2 = render_dirty.1; // 设置为上一帧是否脏
@@ -479,14 +516,18 @@ pub fn calc_pass_active(
     if !is_dirty {
         return;
     }
+    let instance_context = &mut **instance_context;
 
     let q1: &Query<(&mut Camera, &PostProcessInfo, &ParentPassId, &GraphId)> = unsafe {transmute(&query)};
-    // log::warn!("calc_pass_active======{:?}", (instance_context.pass_toop_list.len(), render_dirty.1, render_dirty.2));
+    // log::debug!("calc_pass_active======{:?}", (instance_context.pass_toop_list.len(), render_dirty.1, render_dirty.2));
     for node in instance_context.pass_toop_list.iter().rev() {
         if let Ok((mut camera, _post_info, mut parent_pass, graph_id)) = query.get_mut(*node) {
             let old_is_render_to_parent = camera.is_render_to_parent;
+            let camera = camera.bypass_change_detection();
             if parent_pass.0.is_null() {
                 camera.is_render_to_parent = true;
+            } else if !camera.is_visible {
+                camera.is_render_to_parent = false;
             } else {
                 while let Ok((c1, p1, pp1, _)) = q1.get(parent_pass.0.0) {
                     if !p1.has_effect() {
@@ -495,15 +536,20 @@ pub fn calc_pass_active(
                     }
 
                     camera.is_render_to_parent = c1.is_render_own;
-                    // log::warn!("set======{:?}", (node, parent_pass.0.0, graph_id.0, camera.is_render_to_parent, camera.is_render_own, c1.is_render_own, ));
+                    // log::debug!("set======{:?}", (node, parent_pass.0.0, graph_id.0, camera.is_render_to_parent, camera.is_render_own, c1.is_render_own, ));
                     camera.is_render_own = camera.is_render_own && c1.is_render_own;
+                    // if !camera.is_render_own {
+                    //     log::debug!("camera.is_render_own= false================={:?}", (node, parent_pass.0.0, camera.is_render_own, c1.is_render_own));
+                    // }
                     break;
                     
                 } 
             }
-            // log::warn!("set_enable======{:?}", (node, graph_id.0, camera.is_render_to_parent, camera.is_render_own ));
+            // log::debug!("set_enable======{:?}", (node, graph_id.0, camera.is_render_to_parent, camera.is_render_own ));
             if old_is_render_to_parent != camera.is_render_to_parent {
-                let _ = rg.set_enable(graph_id.0, camera.is_render_to_parent);
+                log::debug!("set_enable======{:?}", (node, graph_id.0, camera.is_render_to_parent));
+                let _ = rg.set_is_build(graph_id.0, camera.is_render_to_parent);
+                instance_context.rebatch = true;
             }
         }
     }
@@ -518,12 +564,12 @@ pub fn calc_pass_active(
 
 #[inline]
 fn mark_pass_dirty(mut pass_id: Entity, query: &mut Query<(&mut Camera, &ParentPassId)>,) {
-    while let Ok((mut is_dirty, parent_pass)) = query.get_mut(pass_id) {
-        if is_dirty.draw_changed {
+    while let Ok((mut camera, parent_pass)) = query.get_mut(pass_id) {
+        if camera.draw_changed {
             break;
         }
 
-        is_dirty.bypass_change_detection().draw_changed = true;
+        camera.bypass_change_detection().draw_changed = true;
         pass_id = parent_pass.0.0;
     }
 }

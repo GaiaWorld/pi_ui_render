@@ -131,7 +131,7 @@ impl Example for QuadExample {
         world.user_cmd.set_style(canvas, HeightType(Dimension::Points(300.0)));
         world.user_cmd.set_style(canvas, PositionLeftType(Dimension::Points(100.0)));
         world.user_cmd.set_style(canvas, PositionTopType(Dimension::Points(100.0)));
-        world.user_cmd.push_cmd(ComponentCmd(Canvas{id: root_tow, by_draw_list: false, pre_graph_id: Default::default()}, canvas));
+        world.user_cmd.push_cmd(pi_ui_render::resource::CanvasCmd(root_tow, false, canvas));
         world.user_cmd.append(canvas, self.root_one.0);
 
     }
