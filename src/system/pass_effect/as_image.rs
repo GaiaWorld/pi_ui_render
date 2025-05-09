@@ -49,14 +49,12 @@ impl Plugin for UiAsImagePlugin {
                 pass_life::pass_mark::<AsImage>
                     .after(user_setting2)
                     .before(pass_life::cal_context)
-                    .run_if(as_image_change)
                     // ,
             )
             .add_system(UiStage, 
                 as_image_post_process
                     .before(last_update_wgpu)
                     .after(calc_camera)
-                    .run_if(as_image_change)
                     // ,
             );
     }

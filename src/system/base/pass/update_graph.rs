@@ -19,7 +19,7 @@ use crate::{
         calc::{EntityKey, RenderContextMark},
         pass_2d::{Camera, ChildrenPass, GraphId, ParentPassId},
         user::AsImage,
-    }, resource::draw_obj::LastGraphNode, system::base::pass::pass_graph_node::Pass2DNode
+    }, resource::draw_obj::LastGraphNode, system::base::pass::pass_graph_node::{Pass2DNode, CustomCopyNode}
 };
 
 // 初始化渲染图的根节点
@@ -43,7 +43,7 @@ pub fn update_graph(
     mut pass_query: ParamSet<(
         Query<(Option<&mut GraphId>, Entity, OrDefault<ParentPassId>, &RenderContextMark, &PostProcessInfo)>,
         (
-			Query<(&ParentPassId, &GraphId, Option<&mut AsImage>), (Or<(Changed<ParentPassId>, Changed<AsImage>, Changed<GraphId>)>, With<Camera>)>, 
+			Query<(&ParentPassId, &GraphId, Option<&mut AsImage>, Entity), (Or<(Changed<ParentPassId>, Changed<AsImage>, Changed<GraphId>)>, With<Camera>)>, 
 			Query<(&ParentPassId, &GraphId), With<Camera>>,
 			Query<&GraphId>,
 			Query<&ChildrenPass>,
@@ -132,7 +132,7 @@ pub fn update_graph(
 
     let p1 = pass_query.p1();
     // 父修改设置图节点依赖 TODO 遍历优化
-    for (parent_id, graph_id, mut as_image) in p1.0.iter_mut() {
+    for (parent_id, graph_id, mut as_image, entity) in p1.0.iter_mut() {
         log::debug!("parent_id====={:?}", (parent_id, graph_id, &as_image));
         if graph_id.0.is_null() {
             continue;
@@ -142,7 +142,7 @@ pub fn update_graph(
             None => None,
         };
         let parent_graph_id = get_to(***parent_id, &p1.1);
-        let id = type_to_post_process(**graph_id, asimage, &p1.2, &mut rg, parent_graph_id);
+        let id = type_to_post_process(**graph_id, asimage, &p1.2, &mut rg, parent_graph_id, entity);
         // let id = graph_id.0.clone();
         // 建立父子依赖关系，使得子pass先渲染
         log::debug!("add_depend======{:?}, {:?}, {:?}", id, graph_id, parent_graph_id);
@@ -156,24 +156,52 @@ pub fn update_graph(
 }
 
 // 如果存在后处理，连接到后处理
-pub fn type_to_post_process(id: NodeId, as_image: Option<&mut AsImage>, graph_id_query: &Query<&GraphId>, rg: &mut PiRenderGraph, parent_id: NodeId) -> NodeId {
-	if let Some(r) = as_image {
-		if let Ok(post_process_graph) = graph_id_query.get(*r.post_process) {
-            if !r.old_before_graph_id.is_null() && r.old_before_graph_id != id || r.old_after_graph_id != **post_process_graph {
-                let _ = rg.remove_depend(r.old_before_graph_id, r.old_after_graph_id); // 移除旧的后处理链接关系
-                let _ = rg.remove_depend(r.old_after_graph_id, parent_id); // 移除旧的后处理链接关系
+pub fn type_to_post_process(id: NodeId, as_image: Option<&mut AsImage>, graph_id_query: &Query<&GraphId>, rg: &mut PiRenderGraph, parent_id: NodeId, entity: Entity) -> NodeId {
+    if let Some(as_image) = as_image {
+        let post_process_graph =  match graph_id_query.get(*as_image.post_process) {
+            Ok(r) => r.0,
+            _ => Null::null()
+        };
+
+        if as_image.old_post_graph_id != post_process_graph  {
+            // 后处理节点id改变， 移除pass2did和后处理节点的链接关系（注意， 如果是pass2d节点发生改变， 则不需要移除， 因为pass2d节点改变， 旧的psss2d节点必然被移除，也就自然跟后处理节点解绑了）
+            if !as_image.old_post_graph_id.is_null()  {
+                let _ = rg.remove_depend(as_image.old_pass2d_graph_id, as_image.old_post_graph_id);
+            }
+
+            // 后处理不为null，尝试添加后处理需要的链接关系
+            if !post_process_graph.is_null() {
+                if as_image.copy_graph_id.is_null() { 
+                    // 移除id与父的链接关系
+                    let _ = rg.remove_depend(id, parent_id);
+                    // 该节点用于将后处理结果拷贝回RenderTaget，并添加copy节点与父的链接关系
+                    as_image.copy_graph_id = rg.add_node_not_run(format!("Pass2D_CopyTarget_{:?}", entity), CustomCopyNode::new(entity), NodeId::default()).unwrap();
+                } else if !as_image.old_post_graph_id.is_null() {
+                    let _ = rg.remove_depend(as_image.old_post_graph_id, as_image.copy_graph_id); // 移除旧的后处理链接关系
+                    let _ = rg.remove_depend(as_image.old_post_graph_id, parent_id); // 移除旧的后处理链接关系
+                }
+                // 添加后处理节点和copy节点的关系
+                let _ = rg.add_depend(post_process_graph, as_image.copy_graph_id);
+                // 后处理节点和parent节点相连， 是为了避免parent节点build时， 后处理节点的输出fbo已经调用reset方法释放了
+                let _ = rg.add_depend(post_process_graph, parent_id);
+                // 添加当前节点与后处理节点的链接关系
+                let _ = rg.add_depend(id, post_process_graph);
+                as_image.old_post_graph_id = post_process_graph;
+                as_image.old_pass2d_graph_id = id;
+                return as_image.copy_graph_id;
+            }
+            as_image.old_post_graph_id = post_process_graph;
+            // 如果last_graph_id不是pass2did，也不是null， 则一定是copy节点， 此时需要销毁copy节点（没有字段记录copy节点的id了）
+            if !as_image.copy_graph_id.is_null() {
+                let _ = rg.remove_node(as_image.copy_graph_id);
+                as_image.copy_graph_id = Null::null();
             } 
-			if !post_process_graph.is_null() {
-				log::debug!("add_depend1======{:?}, {:?}", id, **post_process_graph);
-                if rg.add_depend(id, **post_process_graph).is_ok() { //  添加新的后处理链接关系
-                    r.old_before_graph_id = id;
-                    r.old_after_graph_id = **post_process_graph;
-					return **post_process_graph
-				} else {
-					// 添加失败，post_process图节点可能已经销毁， 则应该忽略post_process
-				}
-			}
-		}
+        }
+        if post_process_graph.is_null() {
+            return id;
+        } else {
+            return as_image.copy_graph_id;
+        }
 	}
 	return id;
 }
@@ -266,3 +294,5 @@ impl AsImageRefCount {
         }
 	}
 }
+
+

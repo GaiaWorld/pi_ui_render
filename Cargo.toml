@@ -1,6 +1,6 @@
 [package]
 name = "pi_ui_render"
-version = "0.2.13"
+version = "0.2.14"
 authors = ["suncy <suncy@gmail.com>"]
 edition = "2021"
 description = "Renderer 2D UI with Bevy Ecs"

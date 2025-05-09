@@ -1,7 +1,7 @@
 
 use std::{mem::transmute, ops::Range};
 
-use pi_world::{prelude::{Entity, OrDefault, ParamSet, Query, SingleRes, SystemParam}, query::QueryError};
+use pi_world::{prelude::{Entity, OrDefault, ParamSet, Query, SingleRes, SystemParam}, query::QueryError, single_res::SingleResMut};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, OrInitSingleRes, Layer};
 use pi_bevy_render_plugin::asimage_url::RenderTarget as RenderTarget1;
 
@@ -573,70 +573,32 @@ impl Node for Pass2DNode {
 			}
 		}
 		
-		// 设置fbo_info
-		if let Some(target) = &out.target {
-			// 旧的fbo输出与新的不同， 需要重新设置uv
-			let mut is_set_uv = false;
-			if let Some(fbo) = &out_target.0 {
-				if !Share::ptr_eq(&fbo.target().colors[0].0 , &target.target().colors[0].0) {
-					param.instance_draw.rebatch = true; // 设置rebatch为true， 使得后续重新进行批处理
-				}
-				let rect1 = fbo.rect();
-				let rect2 = target.rect();
-				if rect1 != rect2 {
-					is_set_uv = true;
-				}
-			} else {
-				param.instance_draw.rebatch = true; // 设置rebatch为true， 使得后续重新进行批处理
-				is_set_uv = true;
-			}
-			if is_set_uv {
-				if !instance_index.start.is_null() {
-					// uv变化，设置uv
-					let mut uv_box = target.uv_box();
-					let rect = target.rect().size();
-					let (t_w, t_h) = (target.target().width, target.target().height);
-					let (w, h) = (rect.width as f32 / t_w as f32, rect.height as f32 / t_h as f32);
-					// 修正uv， 渲染目标宽高一定是整数， 但真实的渲染区域尺寸不一定， 修正到精确的渲染区域
-					let mins = &render_target.accurate_bound_box.mins; 
-					let maxs = &render_target.accurate_bound_box.maxs; 
-					uv_box[0] += mins.x * w;
-					uv_box[1] += mins.y * h;
-					uv_box[2] += maxs.x * w;
-					uv_box[3] += maxs.y * h;
-					log::trace!("set pass uv======passid:{:?}, instance_index: {:?}, uv: {:?}, accurate_bound_box: {:?}, rect: {:?}", pass2d_id, instance_index.start/224, &uv_box, &render_target.accurate_bound_box, &rect);
-									
-					param.instance_draw.instance_data.instance_data_mut(instance_index.start).set_data(&UvUniform(uv_box.as_slice()));
-				} else {
-					param.instance_draw.rebatch = true; // 设置rebatch为true， 使得后续重新进行批处理
-				}
-			}
-		} else if out_target.0.is_some() {
-			// 旧的fbo存在， 新的fbo不存在，设置rebatch为true， 使得后续重新进行批处理
-			param.instance_draw.rebatch = true;
-		}
+		// 旧的fbo输出与新的不同， 需要重新设置uv
+		let has_custom_post = match as_image {
+			Some(r) => !r.old_pass2d_graph_id.is_null(),
+			None => false,
+		};
+		// 如果存在自定义后处理， 会在copy节点中比较
+		if !has_custom_post {
+			compare_target( &out.target, &mut out_target, render_target, instance_index, &mut param.instance_draw, is_show, layer);
+			log::trace!("out.target======{:?}", (pass2d_id, self.render_target.is_some(), out.target.is_some()));
+			out_target.0 = out.target.clone(); // 设置到组件上， 后续批处理需要用到
+		} 
+		// else {
+		// 	out.valid_rect = None; // 输出到自定义后处理节点，设置为
+		// }
+		// if let Some(r) = &out_target.0 {
+		// 	use pi_slotmap::Key;
+		// 	if pass2d_id.index() == 3 {
+		// 		log::warn!("build====================={:?}",  (r.rect(), &out.valid_rect, &render_target.bound_box, &camera.view_port));
+		// 	}
+			
+		// }
+		
 
-		// 设置实例是否需要还原预乘
-		if !instance_index.start.is_null() {
-			let mut ty = param.instance_draw.instance_data.instance_data_mut(instance_index.start).get_render_ty();
-			let mut visibility = is_show.get_visibility() && is_show.get_display() && !layer.layer().is_null();
-			if out.target.is_none() {
-				// 没有分配fbo，设置为不可见
-				visibility = false;
-			}
-			if (ty & (1 << RenderFlagType::NotVisibility as usize) == 0) != visibility {
-				ty = ty & !(1 << RenderFlagType::NotVisibility as usize) | ((unsafe {transmute::<_, u8>(!visibility)} as usize) << (RenderFlagType::NotVisibility as usize));
-				// 根据canvas是否有对应的fbo，决定该节点是否显示
-				
-				param.instance_draw.instance_data.instance_data_mut(instance_index.start).set_data(&TyMeterial(&[ty as f32]));
-			}
-		}
 		// if instance_index.start == 125 * 240 {
 		// 	println!("visibility=============== {:?}", (pass2d_id, instance_index.start, visibility,  out.target.is_none(), list0.instance_range.len() > 0));
 		// }
-
-		log::trace!("out.target======{:?}", (pass2d_id, self.render_target.is_some(), out.target.is_some()));
-		out_target.0 = out.target.clone(); // 设置到组件上， 后续批处理需要用到
 		fbo_info.fbo = self.render_target.as_ref().map(|r| {Share::new(r.downgrade())});
 		
 		// if content_box.layout.width() >= 700.0 && content_box.layout.height() >= 910.0 {
@@ -1375,4 +1337,139 @@ pub fn is_only_one_pass(input: &InParamCollector<SimpleInOut>, instance_draw: &I
 		}
 	}
 	ret
+}
+
+// 用于将外部系统的图节点输出的fbo， 拷贝到RenderTarget1中， 后续才能正常渲染
+pub struct CustomCopyNode(pub Entity/*做自定义后处理效果的实体id*/, Option<ShareTargetView>);
+impl CustomCopyNode {
+	pub fn new(id: Entity) -> Self {
+		Self(id, None)
+	}
+}
+
+impl Node for CustomCopyNode {
+    type Input = SimpleInOut;
+    type Output = SimpleInOut;
+
+	type BuildParam = (Query<'static, (&'static mut RenderTarget1, &'static RenderTarget, &'static InstanceIndex, &'static IsShow, &'static Layer)>, SingleResMut<'static, InstanceContext>);
+    type RunParam = ();
+
+		// 释放纹理占用
+	fn reset<'a>(
+			&'a mut self,
+	) {
+		self.1 = None;
+	}
+
+	/// 用于给pass2d分配fbo
+	fn build<'a>(
+		&'a mut self,
+		// world: &'a mut pi_world::world::World,
+		param: &'a mut Self::BuildParam,
+		_context: pi_bevy_render_plugin::RenderContext,
+		input: &'a Self::Input,
+		_usage: &'a pi_bevy_render_plugin::node::ParamUsage,
+		_id: GraphNodeId,
+		_from: &'a [GraphNodeId],
+		_to: &'a [GraphNodeId],
+	) -> Result<Self::Output, String> {
+		match (&input.target, param.0.get_mut(self.0)) {
+			(r, Ok((mut out_target, render_target, instance_index, is_show, layer))) => {
+				// 比较target是否发生改变， 如果发生改变， 需要重新批处理
+				compare_target(r, out_target.bypass_change_detection(), render_target, instance_index, &mut param.1, is_show, layer);
+				// log::error!("out_target.0================={:?}", &out_target.0);
+				out_target.0 = r.clone();
+			}
+			_ => (),
+		}
+		Ok(input.clone())
+    }
+
+    fn run<'a>(
+        &'a mut self,
+        // world: &'a World,
+        _param: &'a Self::RunParam,
+        _context: RenderContext,
+        _commands: ShareRefCell<CommandEncoder>,
+        _input: &'a Self::Input,
+        _usage: &'a ParamUsage,
+        _id: GraphNodeId,
+        _from: &'a [GraphNodeId],
+        _to: &'a [GraphNodeId],
+        // context: RenderContext,
+        // mut commands: ShareRefCell<CommandEncoder>,
+        // inputs: &'a [Self::Output],
+    ) -> BoxFuture<'a, Result<(), String>> {
+        unreachable!()
+    }
+}
+
+fn compare_target(
+	target: &Option<ShareTargetView>, 
+	out_target: &mut RenderTarget1, 
+	render_target: &RenderTarget, 
+	instance_index: &InstanceIndex, 
+	instance_context: &mut InstanceContext,
+	is_show: &IsShow,
+	layer: &Layer
+) {
+	if let Some(target) = &target {
+		// 旧的fbo输出与新的不同， 需要重新设置uv
+		// 旧的fbo输出与新的不同， 需要重新设置uv
+		let mut is_set_uv = false;
+		if let Some(fbo) = &out_target.0 {
+			if !Share::ptr_eq(&fbo.target().colors[0].0 , &target.target().colors[0].0) {
+				instance_context.rebatch = true; // 设置rebatch为true， 使得后续重新进行批处理
+			}
+			let rect1 = fbo.rect();
+			let rect2 = target.rect();
+			if rect1 != rect2 {
+				is_set_uv = true;
+			}
+		} else {
+			instance_context.rebatch = true; // 设置rebatch为true， 使得后续重新进行批处理
+			is_set_uv = true;
+		}
+		if is_set_uv {
+			if !instance_index.start.is_null() {
+				// uv变化，设置uv
+				let mut uv_box = target.uv_box();
+				let rect = target.rect().size();
+				let (t_w, t_h) = (target.target().width, target.target().height);
+				let (w, h) = (rect.width as f32 / t_w as f32, rect.height as f32 / t_h as f32);
+				// 修正uv， 渲染目标宽高一定是整数， 但真实的渲染区域尺寸不一定， 修正到精确的渲染区域
+				let mins = &render_target.accurate_bound_box.mins; 
+				let maxs = &render_target.accurate_bound_box.maxs; 
+				uv_box[0] += mins.x * w;
+				uv_box[1] += mins.y * h;
+				uv_box[2] += maxs.x * w;
+				uv_box[3] += maxs.y * h;
+				log::trace!("set pass uv======instance_index: {:?}, uv: {:?}, accurate_bound_box: {:?}, rect: {:?}", instance_index.start/224, &uv_box, &render_target.accurate_bound_box, &rect);
+								
+				instance_context.instance_data.instance_data_mut(instance_index.start).set_data(&UvUniform(uv_box.as_slice()));
+			} else {
+				instance_context.rebatch = true; // 设置rebatch为true， 使得后续重新进行批处理
+			}
+		}
+	} else if out_target.0.is_some() {
+		// 旧的fbo存在， 新的fbo不存在，设置rebatch为true， 使得后续重新进行批处理
+		instance_context.rebatch = true;
+	}
+
+
+	// 设置实例是否需要还原预乘
+	if !instance_index.start.is_null() {
+		let mut ty = instance_context.instance_data.instance_data_mut(instance_index.start).get_render_ty();
+		let mut visibility = is_show.get_visibility() && is_show.get_display() && !layer.layer().is_null();
+		if target.is_none() {
+			// 没有分配fbo，设置为不可见
+			visibility = false;
+		}
+		if (ty & (1 << RenderFlagType::NotVisibility as usize) == 0) != visibility {
+			ty = ty & !(1 << RenderFlagType::NotVisibility as usize) | ((unsafe {transmute::<_, u8>(!visibility)} as usize) << (RenderFlagType::NotVisibility as usize));
+			// 根据canvas是否有对应的fbo，决定该节点是否显示
+			
+			instance_context.instance_data.instance_data_mut(instance_index.start).set_data(&TyMeterial(&[ty as f32]));
+		}
+	}
 }

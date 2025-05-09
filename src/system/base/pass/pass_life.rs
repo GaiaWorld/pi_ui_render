@@ -487,14 +487,18 @@ pub fn pass_mark<T: NeedMark + Send + Sync>(
     // let mut render_context = query_set.p1();
     // 组件删除，取消渲染上下文标记
     // context_attr_del(query_set.p1(), &mut removed, ***mark_type);
-    // println!("pass_mark!!!!!!, {:?}", std::any::type_name::<T>());
     for (entity, value, mut render_mark_value) in query.iter_mut() {
         if value.need_mark() {
             render_mark_true( ***mark_type, &mut render_mark_value);
-            log::debug!("pass_mark_true,{:?}, {:?}", entity, std::any::type_name::<T>());
+            // if std::any::type_name::<T>().contains("AsImage") {
+                log::debug!("pass_mark_true,{:?}, {:?}", entity, std::any::type_name::<T>());
+            // }
+           
         } else {
             render_mark_false( ***mark_type, &mut render_mark_value);
-            log::debug!("pass_mark_false,{:?}, {:?}", entity, std::any::type_name::<T>());
+            // if std::any::type_name::<T>().contains("AsImage") {
+                log::debug!("pass_mark_false,{:?}, {:?}", entity, std::any::type_name::<T>());
+            // }
         }
     }
 }
