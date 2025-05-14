@@ -47,14 +47,17 @@ impl Plugin for UiAsImagePlugin {
         app
             .add_system(UiStage, 
                 pass_life::pass_mark::<AsImage>
-                    .after(user_setting2)
-                    .before(pass_life::cal_context)
+                    .in_set(UiSystemSet::PassMark)
+                    // .after(user_setting2)
+                    // .before(pass_life::cal_context)
                     // ,
             )
             .add_system(UiStage, 
                 as_image_post_process
-                    .before(last_update_wgpu)
-                    .after(calc_camera)
+                .in_set(UiSystemSet::PassSetting)
+                .after(UiSystemSet::PassFlush)
+                    // .before(last_update_wgpu)
+                    // .after(calc_camera)
                     // ,
             );
     }
