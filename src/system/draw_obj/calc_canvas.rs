@@ -114,7 +114,7 @@ pub fn calc_canvas_graph(
         } else if !canvas_graph.old_canvas_graph_id.is_null(){
 			let _ = rg.remove_depend(canvas_graph.old_canvas_graph_id, parent_pass_id);
 			let _ = rg.remove_depend(canvas_graph.old_canvas_graph_id, canvas_graph.copy_graph_id);
-			let _ = rg.remove_depend(canvas_graph.copy_graph_id, parent_pass_id);
+			// let _ = rg.remove_depend(canvas_graph.copy_graph_id, parent_pass_id); // 这里不能移除， 使得copy_graph_id在判断输入为空时， 设置canvas渲染不可见
 
 			// log::warn!("remove_depend======={:?}", (pre_graph_id, canvas_graph.to_graph_id));
 			canvas_graph.old_canvas_graph_id = NodeId::null();
