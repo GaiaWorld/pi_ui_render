@@ -1378,8 +1378,9 @@ fn compare_target(
 		let mut ty = instance_context.instance_data.instance_data_mut(instance_index.start).get_render_ty();
 		// 没有分配fbo，设置将渲染无效
 		let invaild = target.is_none();
+		let invaild = (unsafe {transmute::<_, u8>(invaild)} as usize) << (RenderFlagType::Invalid as usize);
 		if (ty & (1 << RenderFlagType::Invalid as usize) == 0) != invaild {
-			ty = ty & ((unsafe {transmute::<_, u8>(invaild)} as usize) << (RenderFlagType::Invalid as usize));
+			ty = ty | invaild;
 			// 根据canvas是否有对应的fbo，决定该节点是否显示
 			
 			instance_context.instance_data.instance_data_mut(instance_index.start).set_data(&TyMeterial(&[ty as f32]));
