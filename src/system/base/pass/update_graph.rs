@@ -43,7 +43,7 @@ pub fn update_graph(
     mut pass_query: ParamSet<(
         Query<(Option<&mut GraphId>, Entity, OrDefault<ParentPassId>, &RenderContextMark, &PostProcessInfo)>,
         (
-			Query<(&ParentPassId, &GraphId, Option<&mut AsImage>, Entity), (Or<(Changed<ParentPassId>, Changed<AsImage>, Changed<GraphId>)>, With<Camera>)>, 
+			Query<(&mut ParentPassId, &GraphId, Option<&mut AsImage>, Entity), (Or<(Changed<ParentPassId>, Changed<AsImage>, Changed<GraphId>)>, With<Camera>)>, 
 			Query<(&ParentPassId, &GraphId), With<Camera>>,
 			Query<&GraphId>,
 			Query<&ChildrenPass>,
@@ -79,6 +79,9 @@ pub fn update_graph(
                     Some(r) => r,
                     None => continue,
                 };
+
+                let is_tansfer = !post_info.has_effect() && !is_root;
+                rg.set_is_transfer(graph_id.0, is_tansfer);
                 
                 if !graph_id.0.is_null() {
                     continue;
@@ -93,9 +96,6 @@ pub fn update_graph(
                     }
                 };
                 rg.set_bind(graph_node_id, entity);
-
-                let is_tansfer = !post_info.has_effect() && !is_root;
-                rg.set_is_transfer(graph_node_id, is_tansfer);
 
                 if is_root {
                     log::debug!("add_depend======{:?}, {:?}", graph_node_id, last_graph_id.0);
@@ -132,8 +132,9 @@ pub fn update_graph(
 
     let p1 = pass_query.p1();
     // 父修改设置图节点依赖 TODO 遍历优化
-    for (parent_id, graph_id, mut as_image, entity) in p1.0.iter_mut() {
-        log::debug!("parent_id====={:?}", (parent_id, graph_id, &as_image));
+    for (mut parent_id, graph_id, mut as_image, entity) in p1.0.iter_mut() {
+        let parent_id = parent_id.bypass_change_detection();
+        log::debug!("parent_id====={:?}", (&parent_id, graph_id, &as_image));
         if graph_id.0.is_null() {
             continue;
         }
@@ -141,14 +142,22 @@ pub fn update_graph(
             Some(ref mut v) => Some(v.bypass_change_detection()),
             None => None,
         };
-        let parent_graph_id = get_to(***parent_id, &p1.1);
+        let parent_graph_id = find_parent_graph_id(parent_id.0.clone(), &p1.1);
         let id = type_to_post_process(**graph_id, asimage, &p1.2, &mut rg, parent_graph_id, entity);
         // let id = graph_id.0.clone();
         // 建立父子依赖关系，使得子pass先渲染
-        log::debug!("add_depend======{:?}, {:?}, {:?}", id, graph_id, parent_graph_id);
-        if let Err(e) = rg.add_depend(id, parent_graph_id) {
-            log::error!("{:?}", e);
+        if id != parent_id.1.0 || parent_graph_id != parent_id.1.1 {
+            log::debug!("add_depend======id: {:?}, graph_id: {:?}, parent_graph_id: {:?}, entity: {:?}, parent_pass_entity: {:?}", id, graph_id, parent_graph_id, entity, parent_id.0);
+            if let Err(e) = rg.add_depend(id, parent_graph_id) {
+                log::error!("{:?}", e);
+            }
+            if !parent_id.1.1.is_null() {
+                let _ = rg.remove_depend(parent_id.1.0, parent_id.1.1);
+            }
         }
+        
+        parent_id.1 = (id, parent_graph_id);
+        
     }
 
 	// 更新图结构
@@ -164,6 +173,7 @@ pub fn type_to_post_process(id: NodeId, as_image: Option<&mut AsImage>, graph_id
         };
 
         if as_image.old_post_graph_id != post_process_graph  {
+            // log::warn!("post_process_graph changed, old: {:?}, new: {:?}");
             // 后处理节点id改变， 移除pass2did和后处理节点的链接关系（注意， 如果是pass2d节点发生改变， 则不需要移除， 因为pass2d节点改变， 旧的psss2d节点必然被移除，也就自然跟后处理节点解绑了）
             if !as_image.old_post_graph_id.is_null()  {
                 let _ = rg.remove_depend(as_image.old_pass2d_graph_id, as_image.old_post_graph_id);
@@ -188,6 +198,7 @@ pub fn type_to_post_process(id: NodeId, as_image: Option<&mut AsImage>, graph_id
                 let _ = rg.add_depend(id, post_process_graph);
                 as_image.old_post_graph_id = post_process_graph;
                 as_image.old_pass2d_graph_id = id;
+                log::debug!("post graph ==========post_process_graph: {:?}, copy_graph_id: {:?}, parent_id:{:?}", post_process_graph, as_image.copy_graph_id, parent_id);
                 return as_image.copy_graph_id;
             }
             as_image.old_post_graph_id = post_process_graph;
@@ -206,11 +217,11 @@ pub fn type_to_post_process(id: NodeId, as_image: Option<&mut AsImage>, graph_id
 	return id;
 }
 
-pub fn get_to<'w, 's, F: FilterComponents>(parent_id: Entity, query: &Query<(&'w ParentPassId, &'s GraphId), F>) -> NodeId {
+pub fn find_parent_graph_id<'w, 's, F: FilterComponents>(parent_id: Entity, query: &Query<(&'w ParentPassId, &'s GraphId), F>) -> NodeId {
     if let Ok((mut parent_id, mut parent_graph_id)) = query.get(parent_id) {
         // 父的pass2d不存在图节点， 继续找父
         while parent_graph_id.0.is_null() {
-            if let Ok((parent_id1, parent_graph_id1)) = query.get(***parent_id) {
+            if let Ok((parent_id1, parent_graph_id1)) = query.get(parent_id.0) {
                 parent_id = parent_id1;
                 parent_graph_id = parent_graph_id1;
             } else {

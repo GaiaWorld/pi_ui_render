@@ -158,8 +158,8 @@ pub fn cal_context(
                     log::debug!("pass======node: {:?}, parent_pass_id: {:?}, parent_context_id: {:?}, effect_mark{:?} {:?}, {:?}", node, parent_pass_id,  parent_context_id, **effect_mark & **mark, mark, **effect_mark);
                     match parent_pass_id {
                         Some(mut parent_pass_id) => {
-                            if ***parent_pass_id != *parent_context_id {
-                                **parent_pass_id = parent_context_id;
+                            if parent_pass_id.0 != *parent_context_id {
+                                parent_pass_id.0 = *parent_context_id;
                                 // event_writer.send(ComponentEvent::new(node));
                             }
 
@@ -226,7 +226,7 @@ pub fn calc_pass_children_and_clear(
         if parent.0.is_null() {
             continue;
         }
-        if let Ok(mut children) = query_children.get_mut(*parent.0) {
+        if let Ok(mut children) = query_children.get_mut(parent.0) {
             children.push(EntityKey(entity));
         }
     }

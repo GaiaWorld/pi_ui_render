@@ -316,7 +316,7 @@ pub fn update_render_instance_data(
         // parent_pass_id存在，表示本节点是一个pass2d
         // if camera.is_active {
             if let Some(parent) = parent_pass_id {
-                if let Ok(mut p_draw_2d_list) = p1.get_mut(*parent.0) {
+                if let Ok(mut p_draw_2d_list) = p1.get_mut(parent.0) {
 					log::debug!("draw info1========id={:?}, in_pass_id={:?}, parent_pass_id={:?}, draw_list={:?}", id, in_pass_id, parent_pass_id, draw_list);
 					// if p_camera.is_active && p_camera.is_change {
 						p_draw_2d_list.push_element(DrawIndex::Pass2D(EntityKey(id)), z_range.clone(), DrawInfo::new(10, false));

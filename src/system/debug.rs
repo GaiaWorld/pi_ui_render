@@ -2,7 +2,7 @@ use crate::{
     components::calc::DrawList,
     resource::{fragment::DebugInfo, ShareFontSheet},
 };
-use pi_world::{prelude::Plugin, schedule::Last};
+use pi_world::{prelude::Plugin, schedule::End};
 use pi_world::{
     query::Query,
     single_res::{SingleRes, SingleResMut},
@@ -33,6 +33,6 @@ impl Plugin for DebugPlugin {
     fn build(&self, app: &mut pi_world::prelude::App) {
         let info = DebugInfo::default();
         app.world.insert_single_res(info);
-        app.add_system(Last, sys_debug_info);
+        app.add_system(End, sys_debug_info);
     }
 }

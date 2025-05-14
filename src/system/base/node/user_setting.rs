@@ -14,7 +14,7 @@ use pi_style::style_type::STYLE_COUNT;
 
 use crate::{
     components::{
-        calc::{DrawInfo, EntityKey, NodeState, StyleMarkType}, user::{serialize::DefaultStyle, Size, ZIndex, AsImage}, SettingComponentIds
+        calc::{CanvasGraph, DrawInfo, EntityKey, NodeState, StyleMarkType}, user::{serialize::DefaultStyle, AsImage, Size, ZIndex}, SettingComponentIds
     }, resource::{
         animation_sheet::KeyFramesSheet, fragment::{FragmentMap, NodeTag}, ClassSheet, GlobalDirtyMark, OtherDirtyType, QuadTree
     }, system::base::{draw_obj::image_texture_load::AsImageBindList, pass::update_graph::AsImageRefCount}
@@ -219,7 +219,7 @@ pub struct RemoveEvent(pub Entity);
 // 为节点添加依赖父子依赖关系 和 销毁节点
 pub fn user_setting2(
     mut entitys: Alter<(Option<&Size>, Option<&DrawInfo>), Or<(With<Size>, With<DrawInfo>)>, (), ()>,
-    dirty_list: Query<(Option<&DrawList>, Option<&GraphId>, Option<&AsImageBindList>,  Option<&AsImage>)>,
+    dirty_list: Query<(Option<&DrawList>, Option<&GraphId>, Option<&AsImageBindList>,  Option<&AsImage>, Option<&CanvasGraph>)>,
     mut user_commands: SingleResMut<UserCommands>,
     mut quad_tree: OrInitSingleResMut<QuadTree>,
     mut tree: EntityTreeMut,
@@ -593,13 +593,13 @@ fn set_class<'w, 's>(node: Entity, style_query: &mut Setting, class: ClassName, 
 
 fn delete_entity(
     del: Entity, 
-    draw_list: &Query<(Option<&DrawList>, Option<&GraphId>, Option<&AsImageBindList>, Option<&AsImage>)>, 
+    draw_list: &Query<(Option<&DrawList>, Option<&GraphId>, Option<&AsImageBindList>, Option<&AsImage>, Option<&CanvasGraph>)>, 
     entitys: &mut Alter<(Option<&Size>, Option<&DrawInfo>), Or<(With<Size>, With<DrawInfo>)>, (), ()>,
     keyframes_sheet: &mut KeyFramesSheet,
     rg: &mut PiRenderGraph,
     ref_count: &mut AsImageRefCount,
 ) {
-    if let Ok((list, graph, as_image_bind_list, as_image)) = draw_list.get(del) {
+    if let Ok((list, graph, as_image_bind_list, as_image, canvas_graph)) = draw_list.get(del) {
         if let Some(list) = list  {
             for i in list.iter() {
                 let r = entitys.destroy(i.id);
@@ -622,8 +622,13 @@ fn delete_entity(
 
         if let Some(as_image) = as_image {
             if !as_image.copy_graph_id.is_null() {
-                // last_graph_id可能是copy节点， 需要删除
                 let _ = rg.remove_node(as_image.copy_graph_id);
+            }
+        }
+
+        if let Some(canvas_graph) = canvas_graph {
+            if !canvas_graph.copy_graph_id.is_null() {
+                let _ = rg.remove_node(canvas_graph.copy_graph_id);
             }
         }
         

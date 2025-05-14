@@ -80,8 +80,8 @@ impl Default for Camera {
 //     // pub value: WorldMatrix,
 // }
 
-#[derive(Debug, Default, Deref, Copy, Clone, Component)]
-pub struct ParentPassId(pub EntityKey);
+#[derive(Debug, Default, Copy, Clone, Component)]
+pub struct ParentPassId(pub Entity, pub (pi_bevy_render_plugin::NodeId, pi_bevy_render_plugin::NodeId));
 
 #[derive(Debug, Default, Deref, Clone, Component)]
 pub struct ChildrenPass {

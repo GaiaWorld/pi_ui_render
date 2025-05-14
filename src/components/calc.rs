@@ -532,9 +532,10 @@ impl IsShow {
 /// canvas图节点
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct CanvasGraph {
-    pub pre_graph_id: pi_render::depend_graph::NodeId,
-    pub to_graph_id: pi_render::depend_graph::NodeId,
-	
+    // 外部系统的图节点
+    pub old_canvas_graph_id: pi_render::depend_graph::NodeId,
+    // 由于外部系统只在图节点输出中曝露其渲染目标， gui系统单独创建一个图节点，连接到外部图节点， 以便将其输出放在在canvas实体的组件上，供gui使用
+	pub copy_graph_id: pi_render::depend_graph::NodeId, 
 }
 
 // // 上一个版本在IsShow组件中体现， 现在独立出来

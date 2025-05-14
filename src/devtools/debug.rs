@@ -168,7 +168,7 @@ pub struct PassInfo {
     pub out_render_target: String, 
     pub view: View,
     pub transform_will_change_matrix: Option<TransformWillChangeMatrixInner>,
-    pub parentpass: Entity,
+    pub parentpass: (Entity, pi_bevy_render_plugin::NodeId),
 	pub graph_id: String,
 }
 
@@ -828,6 +828,7 @@ pub fn node_info(world: &World, entity: Entity) -> Info {
             _ => "".to_string(),
         };
         let render_target1 = world.get_component::<crate::components::pass_2d::RenderTarget>(entity).unwrap();
+        let parent = world.get_component::<ParentPassId>(entity).unwrap();
         Some(PassInfo{
             copy_render_obj: render_obj,
             render_target,
@@ -844,7 +845,7 @@ pub fn node_info(world: &World, entity: Entity) -> Info {
                 },
                 _ => None,
             },
-            parentpass:  world.get_component::<ParentPassId>(entity).unwrap().0.0,
+            parentpass:  (parent.0, parent.1.1),
             graph_id: format!("{:?}", world.get_component::<GraphId>(entity).ok()),
             view_port: camera.view_port,
             view: view.clone(),

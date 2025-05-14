@@ -176,7 +176,7 @@ pub fn calc_global_dirty_rect(
                 entity
             } else {
                 // 只有transfrom_will_change， 从父开始设脏
-                ***parent_pass_id
+                parent_pass_id.0
             };
             // 标记脏
             while let Ok((mut dirty_mark, parent_pass_id)) = query_dirty_mark.get_mut(start_dirty) {
@@ -184,7 +184,7 @@ pub fn calc_global_dirty_rect(
 					break;
 				}
 				dirty_mark.0 = true;
-				start_dirty = *** parent_pass_id;
+				start_dirty = parent_pass_id.0;
                 
             }
             // 本地脏区域合并到全局脏区域中
