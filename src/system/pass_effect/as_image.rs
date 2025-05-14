@@ -7,6 +7,7 @@ use pi_bevy_ecs_extend::prelude::OrInitSingleRes;
 
 use pi_bevy_asset::{Allocator, AssetConfig};
 use pi_null::Null;
+use crate::system::system_set::UiSystemSet;
 
 use crate::{
     components::{pass_2d::{CacheTarget, PostProcessInfo}, user::{AsImage, Overflow}},
