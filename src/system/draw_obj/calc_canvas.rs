@@ -1,3 +1,4 @@
+use futures::sink::With;
 /// canvas功能
 /// 0. draw_object_life_new系统， 为canvas创建对应的DrawObj
 /// 1. calc_canvas_graph检测canvas对应GraphId和InPassId组件的变化， 将canvas的GraphId链接到当前canvas所在的图节点上
@@ -13,7 +14,7 @@ use pi_bevy_render_plugin::render_cross::GraphId;
 use pi_null::Null;
 
 use crate::components::calc::{CanvasGraph, DrawList, InPassId};
-use crate::components::draw_obj::{BoxType, CanvasMark, FboInfo};
+use crate::components::draw_obj::{BoxType, CanvasMark, FboInfo, RenderCount};
 use crate::components::user::Canvas;
 use crate::resource::CanvasRenderObjType;
 use crate::system::base::pass::pass_graph_node::CustomCopyNode;
@@ -34,7 +35,7 @@ impl Plugin for CanvasPlugin {
 			draw_object_life_new::<
 				Canvas,
 				CanvasRenderObjType,
-				(CanvasMark, GraphId, FboInfo, RenderTarget1),
+				(CanvasMark, GraphId, FboInfo, RenderTarget1, RenderCount),
 				{ CANVAS_ORDER },
 				{ BoxType::Padding },
 			>
@@ -59,6 +60,7 @@ pub fn calc_canvas_graph(
 	mut canvas_query: Query<(&Canvas, &mut CanvasGraph, &InPassId, Entity, &DrawList)>,
 	// mut canvas_other_query: Query<Option<&mut AsImage>>,
 	graph_id_query: Query<&GraphId>,
+	// mut render_count: Query<&mut RenderCount>,
 
 	canvas_render_type: SingleResMut<CanvasRenderObjType>,
 	mut rg: SingleResMut<PiRenderGraph>,
@@ -70,6 +72,18 @@ pub fn calc_canvas_graph(
 
 	// canvas的图节点id由外部系统设置
     for (canvas, mut canvas_graph, in_pass_id, entity, draw_list) in canvas_query.iter_mut() {
+		// 重新设置渲染数量
+		let render_obj = draw_list.get_one(**canvas_render_type).unwrap();
+		// let mut render_count = render_count.get_mut(render_obj.id).unwrap();
+		// let render_count1 = if canvas.id.is_null() || canvas.by_draw_list {
+		// 	0
+		// } else {
+		// 	1
+		// };
+		// if render_count1 != render_count.0 {
+		// 	render_count.0 = render_count1;
+		// }
+
 		let canvas_graph_id = match graph_id_query.get(canvas.id) {
 			Ok(r) => r.0,
 			Err(_) => Null::null(),
@@ -86,7 +100,6 @@ pub fn calc_canvas_graph(
 		if canvas_graph.copy_graph_id.is_null() {
 			// 该节点用于将后处理结果拷贝回RenderTaget，并添加copy节点与父的链接关系
 			// 无论图节点是否存在， 始终保持copy节点存在并build， 这样当外部系统不设置graph时，canvas能正确的不渲染（在copy节点， 判断了输入没有target， 设置为无效渲染）
-			let render_obj = draw_list.get_one(**canvas_render_type).unwrap();
 			canvas_graph.copy_graph_id = rg.add_node_not_run(format!("Canvas_CopyTarget_{:?}", entity), CustomCopyNode::new(render_obj.id), NodeId::default()).unwrap();
 			let _ = rg.add_depend(canvas_graph.copy_graph_id, parent_pass_id);
 		}

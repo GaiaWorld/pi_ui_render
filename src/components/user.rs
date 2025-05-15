@@ -731,11 +731,6 @@ pub struct Canvas {
 impl crate::components::draw_obj::DrawCount for Canvas {
 	fn draw_count(&self) -> usize {
         1
-        // if self.by_draw_list || self.id.is_null() {
-        //     0
-        // } else {
-        //     1
-        // }
 	}
 }
 

@@ -1378,7 +1378,7 @@ fn compare_target(
 	}
 
 
-	// 设置实例是否需要还原预乘
+	// 设置实例是否可见
 	if has_instance {
 		let mut ty = instance_context.instance_data.instance_data_mut(instance_index.start).get_render_ty();
 		// 没有分配fbo，设置将渲染无效
