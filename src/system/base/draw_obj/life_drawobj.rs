@@ -1017,6 +1017,7 @@ fn batch_pass(
 								// 设置实例是否需要还原预乘
 								let mut ty = instances.instance_data.instance_data_mut(index.start).get_render_ty();
 								
+								// log::error!("pipeline================{:?}", (draw_entity, pipeline.is_some()));
 								match pipeline{
 									Some(r) if !Share::ptr_eq(r, &instances.premultiply_pipeline) => ty &= !(1 << RenderFlagType::Premulti as usize),
 									_ => ty |= 1 << RenderFlagType::Premulti as usize,

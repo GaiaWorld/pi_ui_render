@@ -1259,10 +1259,10 @@ pub fn is_only_one_pass(input: &InParamCollector<SimpleInOut>, instance_draw: &I
 }
 
 // 用于将外部系统的图节点输出的fbo， 拷贝到RenderTarget1中， 后续才能正常渲染
-pub struct CustomCopyNode(pub Entity/*做自定义后处理效果的实体id*/, Option<ShareTargetView>);
+pub struct CustomCopyNode(pub Entity/*做自定义后处理效果的实体id*/);
 impl CustomCopyNode {
 	pub fn new(id: Entity) -> Self {
-		Self(id, None)
+		Self(id)
 	}
 }
 
@@ -1272,13 +1272,6 @@ impl Node for CustomCopyNode {
 
 	type BuildParam = (Query<'static, (&'static mut RenderTarget1, Option<&'static RenderTarget>, &'static InstanceIndex)>, SingleResMut<'static, InstanceContext>);
     type RunParam = ();
-
-		// 释放纹理占用
-	fn reset<'a>(
-			&'a mut self,
-	) {
-		self.1 = None;
-	}
 
 	/// 用于给pass2d分配fbo
 	fn build<'a>(
@@ -1377,7 +1370,7 @@ fn compare_target(
 		instance_context.rebatch = true;
 	}
 
-
+	
 	// 设置实例是否可见
 	if has_instance {
 		let mut ty = instance_context.instance_data.instance_data_mut(instance_index.start).get_render_ty();
@@ -1385,7 +1378,8 @@ fn compare_target(
 		let invaild = target.is_none();
 		let invaild = (unsafe {transmute::<_, u8>(invaild)} as usize) << (RenderFlagType::Invalid as usize);
 		if ty & (1 << RenderFlagType::Invalid as usize) != invaild {
-			ty = ty & (!(1 << RenderFlagType::Invalid as usize) | invaild);
+			
+			ty = ty & !(1 << RenderFlagType::Invalid as usize) | invaild;
 			
 			// 根据canvas是否有对应的fbo，决定该节点是否显示
 			instance_context.instance_data.instance_data_mut(instance_index.start).set_data(&TyMeterial(&[ty as f32]));
