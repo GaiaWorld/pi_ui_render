@@ -319,7 +319,9 @@ pub fn update_render_instance_data(
                 if let Ok(mut p_draw_2d_list) = p1.get_mut(parent.0) {
 					log::debug!("draw info1========id={:?}, in_pass_id={:?}, parent_pass_id={:?}, draw_list={:?}", id, in_pass_id, parent_pass_id, draw_list);
 					// if p_camera.is_active && p_camera.is_change {
-						p_draw_2d_list.push_element(DrawIndex::Pass2D(EntityKey(id)), z_range.clone(), DrawInfo::new(10, false));
+						let mut info = DrawInfo::new(10, false);
+						info.set_visibility(is_show.get_visibility() && is_show.get_display() && !layer.layer().is_null());
+						p_draw_2d_list.push_element(DrawIndex::Pass2D(EntityKey(id)), z_range.clone(), info);
 					// }
                 }
             }
