@@ -1008,7 +1008,7 @@ fn batch_pass(
 						},
 						InstanceSplit::ByCross(id, is_list) =>  {
 							if *is_list {
-								cross_list = Some(id);
+								cross_list = Some(EntityKey(*id));
 								// is_list为true时， 必须劈分
 								last_pipeline = Some(root_state.pre_pipeline.clone())
 							} else {

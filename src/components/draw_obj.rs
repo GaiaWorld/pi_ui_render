@@ -270,8 +270,6 @@ pub trait DrawCount {
 	}
 }
 
-impl DrawCount for Canvas {}
-
 impl DrawCount for BackgroundColor {}
 
 impl DrawCount for BorderColor {}
