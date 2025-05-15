@@ -728,6 +728,16 @@ pub struct Canvas {
 	pub id: Entity,
 }
 
+impl DrawCount for Canvas {
+	fn draw_count(&self) -> usize {
+        if self.by_draw_list || self.id.is_null() {
+            0
+        } else {
+            1
+        }
+	}
+}
+
 /// 显示改变（一般是指canvas，gui不能感知除了style属性以外的属性改变，如果canvas内容发生改变，应该通过style设置，以便gui能感知，从而设置脏区域）
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct ShowChange;

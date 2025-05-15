@@ -22,7 +22,7 @@ use crate::components::draw_obj::{BoxType, DrawCount};
 use crate::components::calc::{style_bit, DrawInfo, EntityKey, InPassId, IsShow, NodeId, RenderContextMark, SdfUv, StyleBit, StyleMarkType, WorldMatrix, ZRange};
 use crate::components::draw_obj::{ FboInfo, GetInstanceSplit, HasDraw, InstanceIndex, InstanceSplit, Pipeline, RenderCount};
 // use crate::components::root::RootInstance;
-use crate::components::user::RenderTargetType;
+use crate::components::user::{Canvas, RenderTargetType};
 // #[cfg(debug_assertions)]
 // use crate::components::user::{BackgroundColor, BackgroundImage, BlendMode, BorderImage, Canvas, TextContent};
 // #[cfg(debug_assertions)]
@@ -1006,9 +1006,9 @@ fn batch_pass(
 							log::debug!("ByFbo=========={:?}", (pass_id, draw_entity, &ui_texture.as_ref().unwrap().target().colors[0].1));
 							split_by_texture = Some((index.clone(), &ui_texture.as_ref().unwrap().target().colors[0].0, &query.common_sampler.default));
 						},
-						InstanceSplit::ByCross(is_list) =>  {
+						InstanceSplit::ByCross(id, is_list) =>  {
 							if *is_list {
-								cross_list = Some(draw_entity);
+								cross_list = Some(id);
 								// is_list为true时， 必须劈分
 								last_pipeline = Some(root_state.pre_pipeline.clone())
 							} else {

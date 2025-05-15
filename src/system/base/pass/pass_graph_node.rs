@@ -3,7 +3,7 @@ use std::{mem::transmute, ops::Range};
 
 use pi_world::{prelude::{Entity, OrDefault, ParamSet, Query, SingleRes, SystemParam}, query::QueryError, single_res::SingleResMut};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, OrInitSingleRes, Layer};
-use pi_bevy_render_plugin::asimage_url::RenderTarget as RenderTarget1;
+use pi_bevy_render_plugin::{asimage_url::RenderTarget as RenderTarget1, render_cross::DrawList};
 
 use pi_assets::asset::Handle;
 use pi_bevy_asset::ShareAssetMgr;
@@ -109,6 +109,7 @@ pub struct Param<'w> {
     surface: SingleRes<'w, PiScreenTexture>,
 	instance_draw: OrInitSingleRes<'w, InstanceContext>,
 	query_parent: Query<'w, &'static ParentPassId>,
+	render_cross_query: &mut Query<&'static pi_bevy_render_plugin::render_cross::DrawList>,
 	
 }
 
@@ -848,8 +849,11 @@ impl Node for Pass2DNode {
 						}
 						render_state.reset = true;
 					},
-					DrawElement::GraphDrawList { .. } => {
-						todo!();
+					DrawElement::GraphDrawList {id, .. } => {
+						if let Ok(r) = param.render_cross_query.get(id.0) {
+							pi_render::renderer::draw_obj_list::DrawList::render(r.draw_list.list.as_slice(), &mut rp);
+						}
+						// todo!();
 						// render_state.reset = true;
 					},
 					
@@ -1326,6 +1330,7 @@ fn compare_target(
 	instance_index: &InstanceIndex, 
 	instance_context: &mut InstanceContext,
 ) {
+	let has_instance = !instance_index.start.is_null() && instance_index.end > instance_index.start;
 	if let Some(target) = &target {
 		// 旧的fbo输出与新的不同， 需要重新设置uv
 		// 旧的fbo输出与新的不同， 需要重新设置uv
@@ -1344,7 +1349,7 @@ fn compare_target(
 			is_set_uv = true;
 		}
 		if is_set_uv {
-			if !instance_index.start.is_null() {
+			if has_instance {
 				// uv变化，设置uv
 				let mut uv_box = target.uv_box();
 				let rect = target.rect().size();
@@ -1374,15 +1379,15 @@ fn compare_target(
 
 
 	// 设置实例是否需要还原预乘
-	if !instance_index.start.is_null() {
+	if has_instance {
 		let mut ty = instance_context.instance_data.instance_data_mut(instance_index.start).get_render_ty();
 		// 没有分配fbo，设置将渲染无效
 		let invaild = target.is_none();
 		let invaild = (unsafe {transmute::<_, u8>(invaild)} as usize) << (RenderFlagType::Invalid as usize);
-		if (ty & (1 << RenderFlagType::Invalid as usize) == 0) != invaild {
-			ty = ty | invaild;
-			// 根据canvas是否有对应的fbo，决定该节点是否显示
+		if ty & (1 << RenderFlagType::Invalid as usize) != invaild {
+			ty = ty & (!(1 << RenderFlagType::Invalid as usize) | invaild);
 			
+			// 根据canvas是否有对应的fbo，决定该节点是否显示
 			instance_context.instance_data.instance_data_mut(instance_index.start).set_data(&TyMeterial(&[ty as f32]));
 		}
 	}
