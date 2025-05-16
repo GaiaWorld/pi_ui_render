@@ -204,11 +204,6 @@ impl DrawInfo {
         self.0 = self.0 & !(1 << 30) | ((unsafe { transmute::<_, u8>(value) } as u32) << 30); 
     }
 
-    pub fn is_by_cross(&self) -> bool { (self.0 & (1 << 29)) > 0 }
-    pub fn set_by_cross(&mut self, value: bool) { 
-        self.0 = self.0 & !(1 << 29) | ((unsafe { transmute::<_, u8>(value) } as u32) << 29); 
-    }
-
 	// 不透明排前面，透明排后面
 	pub fn opacity_order(&self) -> usize { 
 		if self.is_opacity() {
