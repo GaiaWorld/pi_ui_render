@@ -492,7 +492,7 @@ impl Node for Pass2DNode {
 		};
 		// 如果存在自定义后处理， 会在copy节点中比较
 		if !has_custom_post {
-			compare_target( &out.target, &mut out_target, Some(render_target), instance_index, &mut param.instance_draw, Null::null());
+			compare_target( &out.target, &mut out_target, Some(render_target), instance_index, &mut param.instance_draw);
 			log::trace!("out.target======{:?}", (pass2d_id, self.render_target.is_some(), out.target.is_some()));
 			out_target.0 = out.target.clone(); // 设置到组件上， 后续批处理需要用到
 		} 
@@ -852,12 +852,12 @@ impl Node for Pass2DNode {
 					DrawElement::GraphDrawList {id, .. } => {
 						if let Ok(r) = param.render_cross_query.get(id.0) {
 							// 需要重新创建rp， 清理深度
-							// {let _ = rp;};
-							// rp = create_rp(
-							// 	&rt,
-							// 	&mut commands,
-							// 	None,
-							// );
+							{let _a = rp;}
+							rp = create_rp(
+								&rt,
+								&mut commands,
+								None,
+							);
 							pi_render::renderer::draw_obj_list::DrawList::render(r.draw_list.list.as_slice(), &mut rp);
 							// 结束后， 重置rp状态， 后续渲染也需要清理深度
 							pre_fbo_pass_id = Null::null();
@@ -1299,7 +1299,7 @@ impl Node for CustomCopyNode {
 		match (&input.target, param.0.get_mut(self.0)) {
 			(r, Ok((mut out_target, render_target, instance_index))) => {
 				// 比较target是否发生改变， 如果发生改变， 需要重新批处理
-				compare_target(r, out_target.bypass_change_detection(), render_target, instance_index, &mut param.1, _id);
+				compare_target(r, out_target.bypass_change_detection(), render_target, instance_index, &mut param.1);
 				// log::error!("out_target.0================={:?}", (&self.0, &out_target.0));
 				out_target.0 = r.clone();
 			}
@@ -1333,7 +1333,7 @@ fn compare_target(
 	render_target: Option<&RenderTarget>, 
 	instance_index: &InstanceIndex, 
 	instance_context: &mut InstanceContext,
-	node: GraphNodeId,
+	// node: GraphNodeId,
 ) {
 	let has_instance = !instance_index.start.is_null() && instance_index.end > instance_index.start;
 	if let Some(target) = &target {
@@ -1389,13 +1389,13 @@ fn compare_target(
 		// 没有分配fbo，设置将渲染无效
 		let invaild = target.is_none();
 		let invaild = (unsafe {transmute::<_, u8>(invaild)} as usize) << (RenderFlagType::Invalid as usize);
-		if !node.is_null() {
-			log::error!("!!!!!!!!!!!!========================={:?}", (
-				node, 
-				target.is_none(), ty & (1 << RenderFlagType::Invalid as usize), invaild, 
-				ty & !(1 << RenderFlagType::Invalid as usize) | invaild,
-			));
-		}
+		// if !node.is_null() {
+		// 	log::error!("!!!!!!!!!!!!========================={:?}", (
+		// 		node, 
+		// 		target.is_none(), ty & (1 << RenderFlagType::Invalid as usize), invaild, 
+		// 		ty & !(1 << RenderFlagType::Invalid as usize) | invaild,
+		// 	));
+		// }
 		if ty & (1 << RenderFlagType::Invalid as usize) != invaild {
 			
 			ty = ty & !(1 << RenderFlagType::Invalid as usize) | invaild;
