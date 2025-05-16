@@ -158,11 +158,50 @@ pub struct Draw2DList {
 	// all_list的排序结果
 	pub all_list_sort: Vec<(DrawIndex, ZRange, DrawInfo)>,
     pub canvas_list: Vec<Entity>, // 单独一个drawObj绘制在一个fbo上（需要做后处理的drawObj）
+    
+    pub render_list: RenderLists,
+}
+
+
+/// 渲染列表
+#[derive(Debug)]
+pub struct RenderList {
     /// 不透明 列表
     pub opaque: Vec<(DrawIndex, ZRange, DrawInfo)>,
-
-    /// 透明 列表
+    /// 半透明 列表
     pub transparent: Vec<(DrawIndex, ZRange, DrawInfo)>,
+}
+
+/// 渲染列表
+#[derive(Debug)]
+pub struct RenderLists {
+    list: RenderList,
+    range: Vec<(Range<usize>/*不透明范围*/, Range<usize>/*半透明范围*/)>
+}
+
+impl RenderLists {
+    pub fn push_opaque(&mut self, item: (DrawIndex, ZRange, DrawInfo)) {
+        self.list.opaque.push(item)
+    }
+    pub fn push_transparent(&mut self, item: (DrawIndex, ZRange, DrawInfo)) {
+        self.list.transparent.push(item)
+    }
+    pub fn split(&mut self) {
+        let pre = self.range.last().map(|r| {r.clone()}).unwrap_or_default();
+        self.range.push((pre.0.end..self.list.opaque.len(), pre.1.end..self.list.transparent.len()))
+    }
+    pub fn clear(&mut self) {
+        self.list.opaque.clear();
+        self.list.transparent.clear();
+        self.range.clear();
+    }
+    pub fn iter<F: FnMut(&(DrawIndex, ZRange, DrawInfo))>(&self, mut f: F) {
+        for range in self.range.iter() {
+            for i in self.list.opaque[range.0.clone()].iter().rev().chain(self.list.transparent[range.0.clone()].iter()) {
+                f(i);
+            }
+        }
+    }
 }
 
 impl Default for Draw2DList {
@@ -177,8 +216,13 @@ impl Default for Draw2DList {
 			all_list_sort: Vec::default(),
             all_list: Vec::default(),
             canvas_list: Vec::default(),
-            opaque: Vec::default(),
-            transparent: Vec::default(),
+            render_list: RenderLists {
+                list: RenderList {
+                    opaque: Vec::default(),
+                    transparent: Vec::default(),
+                },
+                range: Vec::default()
+            },
         }
     }
 }

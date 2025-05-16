@@ -196,7 +196,8 @@ lazy_static! {
 		.set_bit(OtherDirtyType::DrawObjCreate as usize)
 		.set_bit(OtherDirtyType::DrawObjDelete as usize)
 		.set_bit(OtherDirtyType::InstanceCount as usize)
-		.set_bit(OtherDirtyType::PassLife as usize);
+		.set_bit(OtherDirtyType::PassLife as usize)
+		.set_bit(OtherDirtyType::CanvasBylist as usize);
 	pub static ref REBATCH_DIRTY: StyleMarkType = NODE_DIRTY.clone()
 		.set_bit(OtherDirtyType::Rebatch as usize);
 }
@@ -449,8 +450,6 @@ pub fn update_render_instance_data(
 		}
 
 		log::debug!("draw_2d_list.all_list_sort============{:?}, {:?}", entity, draw_2d_list.all_list.as_slice());
-
-		// 优先按是否透明排序， 把不透明排在最前面， 其次按深度从小到大排序
 		draw_2d_list.all_list_sort.clear();
 		draw_2d_list.all_list_sort.extend_from_slice(draw_2d_list.all_list.as_slice());
 		draw_2d_list.all_list_sort.sort_by(|(_a, a_z_depth, a_sort), (_b, b_z_depth, b_sort)| {
@@ -478,14 +477,13 @@ pub fn update_render_instance_data(
 			}
 		});
 
-		draw_2d_list.opaque.clear();
-		draw_2d_list.transparent.clear();
+		draw_2d_list.render_list.clear();
 
 		for i in draw_2d_list.all_list_sort.iter() {
 			if i.2.opacity_order() == 0 {
-				draw_2d_list.opaque.push(i.clone());
+				draw_2d_list.render_list.push_opaque(i.clone());
 			} else {
-				draw_2d_list.transparent.push(i.clone());
+				draw_2d_list.render_list.push_transparent(i.clone());
 			}
 		}
 		// 设置all_list长度为0（数据还在，数据用于下次列表与新元素对比，来确定列表是否发生改变）
@@ -497,11 +495,14 @@ pub fn update_render_instance_data(
 		log::trace!("life2========================{:?}, {:?}, {:?}, all_list_len: {}", entity, draw_2d_list.all_list_sort.len(), &draw_2d_list.all_list_sort, draw_2d_list.all_list.len()); 
 
 		let instance_data_start = new_instances.cur_index();
-		// let mut pipeline;
-		for (draw_index, _, draw_info) in draw_2d_list.opaque.iter().rev().chain(draw_2d_list.transparent.iter()) {
-			log::debug!("draw_index============{:?}", draw_index);
+		draw_2d_list.render_list.iter(|(draw_index, _, draw_info)| {
 			alloc(draw_index, draw_info, new_instances, &instances, &mut instance_index);
-		}
+		});
+		// let mut pipeline;
+		// for (draw_index, _, draw_info) in draw_2d_list.opaque.iter().rev().chain(draw_2d_list.transparent.iter()) {
+		// 	log::debug!("draw_index============{:?}", draw_index);
+		// 	alloc(draw_index, draw_info, new_instances, &instances, &mut instance_index);
+		// }
 
 		// log::warn!("all====={:?}", (entity, &draw_2d_list.all_list_sort));
 		// 设置当前pass对应的实例范围（当一些节点发生改变， 而当前pass的节点未发生变动， 则根据该范围从旧的实例数据拷贝到新的实例数据）
@@ -957,7 +958,7 @@ fn batch_pass(
 
 	// let mut pipeline;
 	// log::warn!("batch_pass======={:?}", (parent_pass_id, pass_id, draw_list.opaque.len(), draw_list.transparent.len()));
-	for (draw_index, _, _draw_info) in draw_list.opaque.iter().rev().chain(draw_list.transparent.iter()) {
+	draw_list.render_list.iter(|(draw_index, _, draw_info)| {
 		let mut last_pipeline = None;
 		let mut split_by_texture:  Option<(InstanceIndex, &Handle<AssetWithId<TextureRes>>, &Share<wgpu::Sampler>)> = None;
 		let mut instance_data_end1 = instance_data_end;
@@ -1093,17 +1094,17 @@ fn batch_pass(
 
 					let mut draw_2d_list = match query.pass_query.get_mut(*cur_pass) {
 						Ok(r) => r,
-						_ => continue
+						_ => return
 					};
 					let draw_2d_list = draw_2d_list.bypass_change_detection();
 					let mut draw_2d_list = std::mem::take(draw_2d_list);
 					batch_pass(query, root_state, global_state, instances, &mut draw_2d_list, *cur_pass, parent_pass_id);
 					let mut draw_2d_list1= match query.pass_query.get_mut(*cur_pass) {
 						Ok(r) => r,
-						_ => continue
+						_ => return
 					};
 					*(draw_2d_list1.bypass_change_detection()) = draw_2d_list;
-					continue;
+					return;
 				},
 			},
 			_ => &root_state.pre_pipeline,
@@ -1191,7 +1192,7 @@ fn batch_pass(
 		}
 		
 		cursor += 1;
-	}	
+	});	
 
 	// log::warn!("aa====={:?}", (instance_data_start, instance_data_end, instances.draw_list.len()));
 	// 将当前剩余未批处理的数据合批

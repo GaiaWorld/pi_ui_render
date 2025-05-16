@@ -13,10 +13,10 @@ use pi_bevy_render_plugin::{NodeId, PiRenderGraph};
 use pi_bevy_render_plugin::render_cross::GraphId;
 use pi_null::Null;
 
-use crate::components::calc::{CanvasGraph, DrawList, InPassId};
+use crate::components::calc::{CanvasGraph, DrawInfo, DrawList, InPassId};
 use crate::components::draw_obj::{BoxType, CanvasMark, FboInfo, RenderCount};
 use crate::components::user::Canvas;
-use crate::resource::CanvasRenderObjType;
+use crate::resource::{CanvasRenderObjType, GlobalDirtyMark, OtherDirtyType};
 use crate::system::base::pass::pass_graph_node::CustomCopyNode;
 use crate::system::base::pass::update_graph::update_graph;
 use crate::system::system_set::UiSystemSet;
@@ -40,6 +40,7 @@ impl Plugin for CanvasPlugin {
 				{ BoxType::Padding },
 			>
 				.in_set(UiSystemSet::LifeDrawObject)
+				.before(calc_canvas_graph),
 		)
 		.add_system(
 			UiStage, 
@@ -54,15 +55,16 @@ impl Plugin for CanvasPlugin {
 
 pub const CANVAS_ORDER: u8 = 6;
 
-
 /// 为canvas节点添加图依赖结构
+/// 同时， 设置ByCross标记
 pub fn calc_canvas_graph(
 	mut canvas_query: Query<(&Canvas, &mut CanvasGraph, &InPassId, Entity, &DrawList)>,
 	// mut canvas_other_query: Query<Option<&mut AsImage>>,
 	graph_id_query: Query<&GraphId>,
-	// mut render_count: Query<&mut RenderCount>,
+	mut draw_info: Query<&mut DrawInfo>,
 
 	canvas_render_type: SingleResMut<CanvasRenderObjType>,
+	mut global_dirty_mark: SingleResMut<GlobalDirtyMark>,
 	mut rg: SingleResMut<PiRenderGraph>,
 	r: OrInitSingleRes<IsRun>
 ) {
@@ -74,15 +76,14 @@ pub fn calc_canvas_graph(
     for (canvas, mut canvas_graph, in_pass_id, entity, draw_list) in canvas_query.iter_mut() {
 		// 重新设置渲染数量
 		let render_obj = draw_list.get_one(**canvas_render_type).unwrap();
-		// let mut render_count = render_count.get_mut(render_obj.id).unwrap();
-		// let render_count1 = if canvas.id.is_null() || canvas.by_draw_list {
-		// 	0
-		// } else {
-		// 	1
-		// };
-		// if render_count1 != render_count.0 {
-		// 	render_count.0 = render_count1;
-		// }
+		let mut draw_info = draw_info.get_mut(render_obj.id).unwrap();
+		let is_by_cross = draw_info.is_by_cross();
+		let new_is_by_cross = !canvas.id.is_null() && canvas.by_draw_list;
+		if (new_is_by_cross != is_by_cross) {
+			draw_info.set_by_cross(new_is_by_cross);
+			global_dirty_mark.mark.set(OtherDirtyType::CanvasBylist as usize, new_is_by_cross);
+			
+		}
 
 		let canvas_graph_id = match graph_id_query.get(canvas.id) {
 			Ok(r) => r.0,
