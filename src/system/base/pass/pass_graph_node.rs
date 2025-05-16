@@ -1393,7 +1393,7 @@ fn compare_target(
 			log::error!("!!!!!!!!!!!!========================={:?}", (
 				node, 
 				target.is_none(), ty & (1 << RenderFlagType::Invalid as usize), invaild, 
-				ty & !(1 << RenderFlagType::Invalid as usize) | invaild;
+				ty & !(1 << RenderFlagType::Invalid as usize) | invaild,
 			));
 		}
 		if ty & (1 << RenderFlagType::Invalid as usize) != invaild {
