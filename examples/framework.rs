@@ -353,13 +353,13 @@ println!("===========   ===========");
                     return;
                 }
                 // 设置渲染脏
-                if let Some(play_option) = app.world.get_single_res::<PlayOption>(){
-                    if play_option.render_debug {
+                // if let Some(play_option) = app.world.get_single_res::<PlayOption>(){
+                    // if play_option.render_debug {
                         if let Some(render_dirty) = app.world.get_single_res_mut::<RenderDirty>() {
                             render_dirty.0 = true;
                         }
-                    }
-                }
+                    // }
+                // }
                 #[cfg(not(target_arch = "wasm32"))]
                 app.run();
 

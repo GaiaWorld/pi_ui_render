@@ -375,6 +375,7 @@ impl TempGeo {
             PolygonType::Rect(range) => {
                 let mut i = range.start;
                 let end = range.end;
+                
                 while i < end {
                     let pindex0 = i;
                     let pindex1 = i + 2;
@@ -395,10 +396,11 @@ impl TempGeo {
                         VColor::CgColor(c) => c, 
                         VColor::Linear => todo!(), // 四边形的情况， 一定是纯色
                     };
+                    // log::warn!("geo_split================{:?}", (instance_start, p));
                     instance_data.set_data(&LinearGradientPointUniform(&p));
                     instance_data.set_data(&ColorUniform(&[colors.x, colors.y, colors.z, colors.w]));
                     instance_data.set_data(&SdfUvUniform(&sdf_uv));
-                    log::debug!("set_instance_data rect============{:?}", (&p, &sdf_uv, colors) );
+                   
                     if let Some(other_info) = other_info {
                         instance_data.set_data(&SdfUniform(&other_info.sdf_info));
                         instance_data.set_data(&StrokeColorUniform(&other_info.stroke_color));

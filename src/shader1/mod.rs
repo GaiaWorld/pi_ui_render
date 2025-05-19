@@ -265,7 +265,7 @@ impl<'a> InstanceData<'a> {
 		debug_assert!((self.index + value.offset() as usize + value.byte_len() as usize) <= self.data.data.len());
 
 		value.write_into(self.index as u32, &mut self.data.data);
-		// log::trace!("byte_len0========={:?}", value.byte_len());
+		// log::debug!("byte_len0========={:?}", value.byte_len(), );
 		self.data.update_dirty_range(self.index..self.index + self.data.alignment);
 		
 
