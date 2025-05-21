@@ -1335,6 +1335,9 @@ fn compare_target(
 	instance_context: &mut InstanceContext,
 	// node: GraphNodeId,
 ) {
+	// if !node.is_null() {
+	// 	log::warn!("input============{:?}", (node, target.is_some()));
+	// }
 	let has_instance = !instance_index.start.is_null() && instance_index.end > instance_index.start;
 	if let Some(target) = &target {
 		// 旧的fbo输出与新的不同， 需要重新设置uv
@@ -1343,12 +1346,17 @@ fn compare_target(
 		if let Some(fbo) = &out_target.0 {
 			if !Share::ptr_eq(&fbo.target().colors[0].0 , &target.target().colors[0].0) {
 				instance_context.rebatch = true; // 设置rebatch为true， 使得后续重新进行批处理
+				// is_set_uv = true; // TODO ， 现阶段有些情况， 设置过uv， 但实例被释放，之后被其他实例占用， 但out_target没有被清理， 导致uv比较可能相等， 后续不能重置uv， 需要优化（设置uv要更新数据到显卡， 性能不好）
 			}
-			let rect1 = fbo.rect();
-			let rect2 = target.rect();
+			let rect1 = fbo.uv_box();
+			let rect2 = target.uv_box();
 			if rect1 != rect2 {
 				is_set_uv = true;
 			}
+			// if !node.is_null() {
+			// 	log::warn!("input1============{:?}", (node, has_instance, rect1, rect2, is_set_uv,
+			// 		!Share::ptr_eq(&fbo.target().colors[0].0 , &target.target().colors[0].0)));
+			// }
 		} else {
 			instance_context.rebatch = true; // 设置rebatch为true， 使得后续重新进行批处理
 			is_set_uv = true;
@@ -1369,10 +1377,12 @@ fn compare_target(
 					uv_box[2] += maxs.x * w;
 					uv_box[3] += maxs.y * h;
 				}
-				
-				log::trace!("set pass uv======instance_index: {:?}, uv: {:?}, rect: {:?}", instance_index.start/224, &uv_box, &rect);
-								
 				instance_context.instance_data.instance_data_mut(instance_index.start).set_data(&UvUniform(uv_box.as_slice()));
+				// if !node.is_null() {
+				// 	log::error!("set uv: {:?}, {:?}, {:?}", uv_box, target.rect(), (node, target.target().colors[0].0.id));
+				// }
+								
+				
 			} else {
 				instance_context.rebatch = true; // 设置rebatch为true， 使得后续重新进行批处理
 			}

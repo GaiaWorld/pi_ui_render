@@ -41,7 +41,7 @@ pub fn init_root_graph(
 /// 根据声明创建图节点，删除图节点， 建立图节点的依赖关系
 pub fn update_graph(
     mut pass_query: ParamSet<(
-        Query<(Option<&mut GraphId>, Entity, OrDefault<ParentPassId>, &RenderContextMark, &PostProcessInfo)>,
+        Query<(Option<&mut GraphId>, &ParentPassId, &PostProcessInfo)>,
         (
 			Query<(&mut ParentPassId, &GraphId, Option<&mut AsImage>, Entity), (Or<(Changed<ParentPassId>, Changed<AsImage>, Changed<GraphId>)>, With<Camera>)>, 
 			Query<(&ParentPassId, &GraphId), With<Camera>>,
@@ -50,6 +50,7 @@ pub fn update_graph(
 		),
 
     )>,
+    mark_query: Query<&RenderContextMark>,
 
     mark_changed: ComponentChanged<RenderContextMark>,
     // removed: ComponentRemoved<Camera>,
@@ -68,51 +69,53 @@ pub fn update_graph(
     let ref_count = &mut *ref_count;
     for entity in mark_changed.iter() {
         let p0 = pass_query.p0();
-        log::debug!(entity=format!("entity_{:?}", entity).as_str();  "add graph node0, entity={entity:?}");
-        if let Ok((graph_id, entity, parent_passs_id, mark, post_info)) = p0.get_mut(*entity) {
-            let is_root = pi_null::Null::is_null(&parent_passs_id.0);
-            log::debug!(entity=format!("entity_{:?}", entity).as_str();  "add graph node1, entity={entity:?}, mark={:?}, is_root: {:?}, parent_passs_id={:?}", mark.any(),  is_root, parent_passs_id);
-             // if post_info.has_effect() || is_root {
+        log::debug!(entity=format!("entity_{:?}", entity).as_str();  "update graph, entity={entity:?}");
+        if let Ok(mark) = mark_query.get(*entity) {
             if mark.any() {
-                // 存在后处理效果，或者节点本身是根节点， 才能成为一个渲染节点
-                let mut graph_id = match graph_id {
-                    Some(r) => r,
-                    None => continue,
-                };
+                if let Ok((graph_id, parent_passs_id, post_info)) = p0.get_mut(*entity) {
+                    let is_root = pi_null::Null::is_null(&parent_passs_id.0);
+                    log::debug!(entity=format!("entity_{:?}", entity).as_str();  "add graph node1, entity={entity:?}, mark={:?}, is_root: {:?}, parent_passs_id={:?}", mark.any(),  is_root, parent_passs_id);
+                    // if post_info.has_effect() || is_root {
+                    // 存在后处理效果，或者节点本身是根节点， 才能成为一个渲染节点
+                    let mut graph_id = match graph_id {
+                        Some(r) => r,
+                        None => continue,
+                    };
 
-                let is_tansfer = !post_info.has_effect() && !is_root;
-                rg.set_is_transfer(graph_id.0, is_tansfer);
-                
-                if !graph_id.0.is_null() {
-                    continue;
-                }
-
-                let add_r = rg.add_node_not_run(format!("Pass2D_{:?}", entity), Pass2DNode::new(entity), NodeId::default());
-                let graph_node_id = match add_r {
-                    Ok(r) => r,
-                    Err(e) => {
-                        log::error!("node: {:?}, {:?}", format!("Pass2D_{:?}", entity), e);
+                    let is_tansfer = !post_info.has_effect() && !is_root;
+                    rg.set_is_transfer(graph_id.0, is_tansfer);
+                    
+                    if !graph_id.0.is_null() {
                         continue;
                     }
-                };
-                rg.set_bind(graph_node_id, entity);
 
-                if is_root {
-                    log::debug!("add_depend======{:?}, {:?}", graph_node_id, last_graph_id.0);
-                    rg.add_depend(graph_node_id, last_graph_id.0).unwrap();
-                    
+                    let add_r = rg.add_node_not_run(format!("Pass2D_{:?}", entity), Pass2DNode::new(*entity), NodeId::default());
+                    let graph_node_id = match add_r {
+                        Ok(r) => r,
+                        Err(e) => {
+                            log::error!("node: {:?}, {:?}", format!("Pass2D_{:?}", entity), e);
+                            continue;
+                        }
+                    };
+                    rg.set_bind(graph_node_id, *entity);
+
+                    if is_root {
+                        log::debug!("add_depend======{:?}, {:?}", graph_node_id, last_graph_id.0);
+                        rg.add_depend(graph_node_id, last_graph_id.0).unwrap();
+                        
+                    }
+                    log::debug!(entity=format!("entity_{:?}", entity).as_str();  "add graph node, entity: {entity:?} graph_node_id: {graph_node_id:?}");
+
+                    *graph_id = GraphId(graph_node_id);
                 }
-                log::debug!(entity=format!("entity_{:?}", entity).as_str();  "add graph node, entity: {entity:?} graph_node_id: {graph_node_id:?}");
 
-                *graph_id = GraphId(graph_node_id);
+                // 从无fbo， 变为有fbo，需要添加当前图节点到父图节点的依赖关系
+                // 其父需要删除不再对应的依赖关系, 
+                // TODO: 此处实现了， 后续遍历设置依赖关系不再需要
             } else { 
-                log::debug!("remove graph======{:?}", (&entity, &graph_id));
+                log::debug!("remove graph======{:?}", &entity);
                 remove_node(format!("Pass2D_{:?}", entity), &mut rg, ref_count);
             }
-
-            // 从无fbo， 变为有fbo，需要添加当前图节点到父图节点的依赖关系
-            // 其父需要删除不再对应的依赖关系, 
-            // TODO: 此处实现了， 后续遍历设置依赖关系不再需要
         }
     }
 
@@ -134,7 +137,7 @@ pub fn update_graph(
     // 父修改设置图节点依赖 TODO 遍历优化
     for (mut parent_id, graph_id, mut as_image, entity) in p1.0.iter_mut() {
         let parent_id = parent_id.bypass_change_detection();
-        log::debug!("parent_id====={:?}", (&parent_id, graph_id, &as_image));
+        log::trace!("parent_id====={:?}", (&parent_id, graph_id, &as_image));
         if graph_id.0.is_null() {
             continue;
         }

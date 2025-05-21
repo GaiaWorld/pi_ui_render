@@ -530,7 +530,7 @@ pub fn calc_pass(
 		return;
 	}
     for (instance_index, parent_pass_id, camera, view, will_change, layout, content_box, entity, ) in query.iter() {
-        log::debug!("passs1==============={:?}", instance_index.0.start);
+        log::trace!("passs1==============={:?}", instance_index.0.start);
         // 节点可能设置为dispaly none， 此时instance_index可能为Null
         // 节点可能没有后处理效果， 此时instance_index为Null
         if pi_null::Null::is_null(&instance_index.0.start) {
