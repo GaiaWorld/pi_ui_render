@@ -287,7 +287,7 @@ impl PassBundle {
     pub fn new(parent_id: Entity) -> Self {
         Self {
             // node_id: NodeId(EntityKey(node_id)),
-            parent_id: ParentPassId(EntityKey(parent_id)),
+            parent_id: ParentPassId(parent_id, Default::default()),
             ..Default::default()
         }
     }

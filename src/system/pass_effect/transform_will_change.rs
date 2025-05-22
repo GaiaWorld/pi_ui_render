@@ -151,7 +151,7 @@ pub fn transform_will_change_post_process(
             dirty_mark_list.remove(id);
             let parent_pass_id = query_parent_pass.get(*id).unwrap();
 
-            let parent_will_change_matrix = match query_will_change_matrix.p0().get(***parent_pass_id) {
+            let parent_will_change_matrix = match query_will_change_matrix.p0().get(parent_pass_id.0) {
                 Ok(r) => r.clone(),
                 _ => TransformWillChangeMatrix(None),
             };

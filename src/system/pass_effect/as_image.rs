@@ -7,6 +7,7 @@ use pi_bevy_ecs_extend::prelude::OrInitSingleRes;
 
 use pi_bevy_asset::{Allocator, AssetConfig};
 use pi_null::Null;
+use crate::system::system_set::UiSystemSet;
 
 use crate::{
     components::{pass_2d::{CacheTarget, PostProcessInfo}, user::{AsImage, Overflow}},
@@ -47,16 +48,17 @@ impl Plugin for UiAsImagePlugin {
         app
             .add_system(UiStage, 
                 pass_life::pass_mark::<AsImage>
-                    .after(user_setting2)
-                    .before(pass_life::cal_context)
-                    .run_if(as_image_change)
+                    .in_set(UiSystemSet::PassMark)
+                    // .after(user_setting2)
+                    // .before(pass_life::cal_context)
                     // ,
             )
             .add_system(UiStage, 
                 as_image_post_process
-                    .before(last_update_wgpu)
-                    .after(calc_camera)
-                    .run_if(as_image_change)
+                .in_set(UiSystemSet::PassSetting)
+                .after(UiSystemSet::PassFlush)
+                    // .before(last_update_wgpu)
+                    // .after(calc_camera)
                     // ,
             );
     }

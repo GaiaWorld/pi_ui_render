@@ -1,9 +1,9 @@
 
 use std::{mem::transmute, ops::Range};
 
-use pi_world::{prelude::{Entity, OrDefault, ParamSet, Query, SingleRes, SystemParam}, query::QueryError};
+use pi_world::{prelude::{Entity, OrDefault, ParamSet, Query, SingleRes, SystemParam}, query::QueryError, single_res::SingleResMut};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, OrInitSingleRes, Layer};
-use pi_bevy_render_plugin::asimage_url::RenderTarget as RenderTarget1;
+use pi_bevy_render_plugin::{asimage_url::RenderTarget as RenderTarget1, render_cross::DrawList};
 
 use pi_assets::asset::Handle;
 use pi_bevy_asset::ShareAssetMgr;
@@ -33,9 +33,9 @@ use wgpu::RenderPass;
 
 use crate::{
     components::{
-        calc::{DrawList, EntityKey, IsShow, WorldMatrix}, draw_obj::{DynTargetType, FboInfo, InstanceIndex}, pass_2d::{CacheTarget, Camera, Draw2DList, DrawElement, GraphId, ParentPassId, PostProcess, PostProcessInfo, RenderTarget, RenderTargetCache, ScreenTarget, StrongTarget}, user::{Aabb2, AsImage, Canvas, Point2, RenderTargetType, Viewport}
+        calc::{EntityKey, WorldMatrix}, draw_obj::{DynTargetType, FboInfo, InstanceIndex}, pass_2d::{CacheTarget, Camera, Draw2DList, DrawElement, ParentPassId, PostProcess, PostProcessInfo, RenderTarget, RenderTargetCache, ScreenTarget, StrongTarget}, user::{Aabb2, AsImage, Point2, RenderTargetType, Viewport}
     }, resource::{
-        draw_obj::{InstanceContext, RenderState, TargetCacheMgr}, CanvasRenderObjType, RenderContextMarkType
+        draw_obj::{InstanceContext, RenderState, TargetCacheMgr}, RenderContextMarkType
     }, shader1::batch_meterial::{CameraBind, RenderFlagType, TyMeterial, UvUniform}, system::draw_obj::set_matrix
 };
 use crate::components::pass_2d::IsSteady;
@@ -45,8 +45,8 @@ use crate::components::pass_2d::IsSteady;
 // #[derive(Clone)]
 pub struct Pass2DNode {
     pub pass2d_id: Entity,
-	pub output_target: Option<ShareTargetView>, // 握住一个ShareTargetView， 该view肯呢个占用了分配空间， 当它释放时，空间可能被释放
-	pub render_target: Option<ShareTargetView>, // 握住一个ShareTargetView， 该view肯呢个占用了分配空间， 当它释放时，空间可能被释放
+	// pub output_target: Option<ShareTargetView>, // 握住一个ShareTargetView， 该view肯呢个占用了分配空间， 当它释放时，空间可能被释放
+	// pub render_target: Option<ShareTargetView>, // 握住一个ShareTargetView， 该view肯呢个占用了分配空间， 当它释放时，空间可能被释放
 }
 
 #[derive(SystemParam)]
@@ -68,19 +68,12 @@ pub struct BuildParam<'w> {
 				&'static Draw2DList,
 				&'static mut FboInfo,
 				&'static mut RenderTarget1,
-				&'static IsShow, 
+				// &'static IsShow, 
 				// Entity,
 			),
 		>,
 		
 		Query<'static, (&'static InstanceIndex, &'static mut FboInfo, &'static mut RenderTarget1)>,
-	)>,
-	query_graph_id: Query<'w, OrDefault<GraphId>>,
-	query_canvas: Query<'w, (
-		&'static Canvas,
-		&'static DrawList,
-		&'static IsShow, 
-		&'static Layer,
 	)>,
 	query_pass_node: Query<
         'w,
@@ -97,10 +90,7 @@ pub struct BuildParam<'w> {
 	surface: SingleRes<'w, PiScreenTexture>,
 	cache_target: SingleRes<'w, TargetCacheMgr>,
 	as_image_mark_type: OrInitSingleRes<'w, RenderContextMarkType<AsImage>>,
-	instance_draw: OrInitSingleResMut<'w, InstanceContext>,
-
-	canvas_render_type: OrInitSingleRes<'w, CanvasRenderObjType>,
-	
+	instance_draw: OrInitSingleResMut<'w, InstanceContext>,	
 }
 
 #[derive(SystemParam)]
@@ -119,6 +109,7 @@ pub struct Param<'w> {
     surface: SingleRes<'w, PiScreenTexture>,
 	instance_draw: OrInitSingleRes<'w, InstanceContext>,
 	query_parent: Query<'w, &'static ParentPassId>,
+	render_cross_query: Query<'w, &'static pi_bevy_render_plugin::render_cross::DrawList>,
 	
 }
 
@@ -129,8 +120,8 @@ impl Pass2DNode {
             // last_post_key: EntityKey::default(),
             // rt: None,
 			// post_draw: None,
-			output_target: None,
-			render_target: None,
+			// output_target: None,
+			// render_target: None,
             // param,
         }
     }
@@ -146,18 +137,18 @@ impl Node for Pass2DNode {
 	type BuildParam = BuildParam<'static>;
     type RunParam = Param<'static>;
 
-	// 释放纹理占用
-	fn reset<'a>(
-			&'a mut self,
-	) {
-		// if self.output_target.is_some() {
-			log::debug!("reset========{:?}", (self.pass2d_id, self.render_target.is_some(), self.output_target.is_some()));
-		// }
-		// 
-		self.output_target = None;
-		self.render_target = None;
+	// // 释放纹理占用
+	// fn reset<'a>(
+	// 		&'a mut self,
+	// ) {
+	// 	// if self.output_target.is_some() {
+	// 		log::debug!("reset========{:?}", (self.pass2d_id, self.render_target.is_some(), self.output_target.is_some()));
+	// 	// }
+	// 	// 
+	// 	self.output_target = None;
+	// 	self.render_target = None;
 		
-	}
+	// }
 
 	/// 用于给pass2d分配fbo
 	fn build<'a>(
@@ -180,85 +171,6 @@ impl Node for Pass2DNode {
 		// let t1 = std::time::Instant::now();
 		// let mut param = query_param_state.get_mut(world);
 		// pass2d_id为null， 表示一个空节点， 空节点在全局只会有一个， 用于将所有根节点渲染到屏幕
-		// 所有gui图节点， 都会链接到该节点上
-		// 该节点本身不需要分配fbo
-		// 但需要处理所有canvas节点的fbo， 将其放在组件上，以便进行批渲染
-		if EntityKey(pass2d_id).is_null() {	
-			let p1 = param.query.p1();
-			for (canvas, draw_obj_list, is_show, layer) in param.query_canvas.iter() {
-				log::debug!("canvas0=============== {:?}", (pass2d_id, canvas));
-				let (canvas_graph_id, canvas_draw_obj_id) = match (param.query_graph_id.get(canvas.id), draw_obj_list.get_one(***param.canvas_render_type)) {
-					(Ok(r), Some(r1)) => (r, r1),
-					_ => continue,
-				};
-				log::debug!("canvas1=============== {:?}", (pass2d_id, canvas));
-				
-				let (instance_index, mut _fbo_info, mut out_target) = match p1.get_mut(canvas_draw_obj_id.id) {
-					Ok(r) => r,
-					Err(_) => continue,
-				};
-				log::debug!("canvas2=============== {:?}", (pass2d_id, canvas));
-
-				// 设置实例是否需要还原预乘
-				let mut ty = param.instance_draw.instance_data.instance_data_mut(instance_index.start).get_render_ty();
-				let mut visibility = is_show.get_visibility() && is_show.get_display() && !layer.layer().is_null();
-
-				if let Some(out) = input.0.get(&canvas_graph_id.0) {	
-					log::debug!("canvas3=============== {:?}", (pass2d_id, canvas_graph_id.0));	
-					// match pipeline{
-					// 	Some(r) if !Share::ptr_eq(r, &instances.premultiply_pipeline) => ty &= !(1 << RenderFlagType::Premulti as usize),
-					// 	_ => ty |= 1 << RenderFlagType::Premulti as usize,
-					// };
-					// let mut instance_data = instances.instance_data.instance_data_mut(index.start);
-					// instance_data.set_data(&TyUniform(&[ty as f32]));
-
-					if let Some(target) = &out.target {
-						let mut is_set_uv = false;
-						log::debug!("target=============== {:?}", (pass2d_id, canvas_graph_id.0, ty, visibility));
-						if let Some(fbo) = &out_target.0 {
-							if !Share::ptr_eq(&fbo.target().colors[0].0 , &target.target().colors[0].0) {
-								param.instance_draw.rebatch = true; // 设置rebatch为true， 使得后续重新进行批处理
-							}
-							let rect1 = fbo.rect();
-							let rect2 = target.rect();
-							if rect1 != rect2 {
-								is_set_uv = true;
-							}
-						} else {
-							is_set_uv = true;
-						}
-						if is_set_uv {
-							// uv变化，设置uv
-							let uv_box = target.uv_box();
-							param.instance_draw.instance_data.instance_data_mut(instance_index.start).set_data(&UvUniform(uv_box.as_slice()));
-						}
-					} else {
-						visibility = false; // canvas的输出fbo为null时， 不应该显示canvas
-						if out_target.0.is_some() {
-							param.instance_draw.rebatch = true; // 设置rebatch为true， 使得后续重新进行批处理
-						}
-						out_target.0 = None; // 设置为None， 避免纹理冲突
-						// log::error!("visibility1=============== {:?}", (pass2d_id, ty, visibility));
-					}
-					out_target.0 = out.target.clone(); // 设置到组件上， 后续批处理需要用到
-				} else {
-					visibility = false; // canvas的输出fbo为null时， 不应该显示canvas
-					if out_target.0.is_some() {
-						param.instance_draw.rebatch = true; // 设置rebatch为true， 使得后续重新进行批处理
-					}
-					out_target.0 = None; // 设置为None， 避免纹理冲突
-					// log::error!("visibility2=============== {:?}", (pass2d_id, ty, visibility));
-				}
-
-				if (ty & (1 << RenderFlagType::NotVisibility as usize) == 0) != visibility {
-					// log::warn!("visibility=============== {:?}", (pass2d_id, ty, visibility));
-					ty = ty & !(1 << RenderFlagType::NotVisibility as usize) | ((unsafe {transmute::<_, u8>(!visibility)} as usize) << (RenderFlagType::NotVisibility as usize));
-					// 根据canvas是否有对应的fbo，决定该节点是否显示
-				    param.instance_draw.instance_data.instance_data_mut(instance_index.start).set_data(&TyMeterial(&[ty as f32]));
-				}
-			}
-			return Ok(out);
-		}
 		
 		// let t2 = std::time::Instant::now();
 		log::trace!(pass = format!("{:?}", pass2d_id).as_str(); "build graph node, pass: {:?}", pass2d_id);
@@ -274,13 +186,13 @@ impl Node for Pass2DNode {
 			post_process_info,
 			instance_index,
 			list0,
-			mut fbo_info, mut out_target, is_show) = match p0.get_mut(pass2d_id) {
+			mut fbo_info, mut out_target) = match p0.get_mut(pass2d_id) {
 			Ok(r) if r.0.layer() > 0 => r,
 			_ => return Ok(out),
 		};
 
 		// 非fbo节点， 不build
-		if !parent_pass2d_id.is_null() && !post_process_info.has_effect() {
+		if !parent_pass2d_id.0.is_null() && !post_process_info.has_effect() {
 			return Ok(out);
 		}
 		
@@ -333,18 +245,20 @@ impl Node for Pass2DNode {
 			_ => None,
 		};
 
+		let mut r_target = None;
+
 		if let Some(catch_target) = catch_target {
 			out.target = Some(catch_target); // 缓存fbo
 			fbo_info.post_draw = None; // 不进行后处理， 因为渲染上下文未改变， 并且渲染结果已经缓存
 			out.valid_rect = Some((offsetx as u32, offsety as u32, view_port_w as u32, view_port_h as u32));
-		} else if camera.is_render_own || parent_pass2d_id.is_null() {
-			if parent_pass2d_id.is_null() && !post_process_info.has_effect() && RenderTargetType::Screen == last_rt_type {
+		} else if camera.is_render_own || parent_pass2d_id.0.is_null() {
+			if parent_pass2d_id.0.is_null() && !post_process_info.has_effect() && RenderTargetType::Screen == last_rt_type {
 
 			} else if is_only_one_pass(input, &param.instance_draw, &list0.instance_range, view_port_w as u32, view_port_h as u32) {
 				// 如果只有一个输入，并且draw2dList中也只存在一个渲染对象(该渲染对象一定是将输入fb拷贝到目标上)
 				// 此时， 可直接将输入作为输出
 				let input_fbo = input.0.values().next().unwrap().clone();
-				self.render_target = input_fbo.target.clone();
+				r_target = input_fbo.target.clone();
 				camera.is_render_own = false; // 自身不渲染（渲染结果跟输入完全一样， 直接使用了输入fbo的结果）
 				// log::debug!("camera.is_render_own= false================={:?}", pass2d_id);
 				render_to_fbo = true;
@@ -377,7 +291,7 @@ impl Node for Pass2DNode {
 						render_to_fbo = true;
 						log::debug!("alloc rendertarget========{:?}", (self.pass2d_id, r.target().colors[0].0.id, r.rect()));
 						// log::warn!("build========{:?}", (pass2d_id, &r.target().colors[0].0));
-						self.render_target = Some(r.clone());
+						r_target = Some(r.clone());
 						
 
 						RenderPassTarget::Fbo(r)
@@ -393,12 +307,12 @@ impl Node for Pass2DNode {
 			// let t4 = std::time::Instant::now();
 
 			out.valid_rect = Some((offsetx as u32, offsety as u32, view_port_w as u32, view_port_h as u32));
-			if let (Some(rt), true) = (&mut self.render_target, render_to_fbo) {
+			if let (Some(rt), true) = (&mut r_target, render_to_fbo) {
 				if is_not_only_as_image {
 					let mut target = PostprocessTexture::from_share_target(rt.clone(), wgpu::TextureFormat::pi_render_default());
 					let rect: guillotiere::euclid::Box2D<i32, guillotiere::euclid::UnknownUnit> = rt.rect().clone();
 
-					let dst_size = if parent_pass2d_id.is_null() {
+					let dst_size = if parent_pass2d_id.0.is_null() {
 						// 根节点必须整个target做后处理
 						target.use_x = rect.min.x as u32; // TODO(浮点误差？)
 						target.use_y = rect.min.y as u32;
@@ -505,8 +419,7 @@ impl Node for Pass2DNode {
 								panic!("pass!!! ========={:?}", pass2d_id);
 							}
 
-							out.target = Some(Share::new(final_target.downgrade()));
-							self.output_target = Some(final_target.clone());
+							out.target = Some(final_target);
 
 							log::trace!("post1111============={:?}, {:?}", pass2d_id, final_draw.is_some());
 							match final_draw {
@@ -519,7 +432,7 @@ impl Node for Pass2DNode {
 					};
 				} else {
 					log::trace!("post222============={:?}", pass2d_id);
-					out.target = self.render_target.as_ref().map(|r| {Share::new(r.downgrade())});
+					out.target = r_target.clone();
 				}
 				// let t5 = std::time::Instant::now();
 				// println!("build1============{:?}", (t2 - t1, t3 - t2, t4 - t3, t5 - t4));
@@ -535,7 +448,7 @@ impl Node for Pass2DNode {
 			}
 		}
 
-		if let (true, Some(target)) = (!list0.clear_instance.is_null(), &self.render_target) {
+		if let (true, Some(target)) = (!list0.clear_instance.is_null(), &r_target) {
 			// 旧的fbo与新的fbo不同， 或区域不同， 需要重新设置清屏实例数据
 			let mut is_set_clear = false;
 			if let Some(fbo) = &fbo_info.fbo {
@@ -573,77 +486,43 @@ impl Node for Pass2DNode {
 			}
 		}
 		
-		// 设置fbo_info
-		if let Some(target) = &out.target {
-			// 旧的fbo输出与新的不同， 需要重新设置uv
-			let mut is_set_uv = false;
-			if let Some(fbo) = &out_target.0 {
-				if !Share::ptr_eq(&fbo.target().colors[0].0 , &target.target().colors[0].0) {
-					param.instance_draw.rebatch = true; // 设置rebatch为true， 使得后续重新进行批处理
-				}
-				let rect1 = fbo.rect();
-				let rect2 = target.rect();
-				if rect1 != rect2 {
-					is_set_uv = true;
-				}
-			} else {
-				param.instance_draw.rebatch = true; // 设置rebatch为true， 使得后续重新进行批处理
-				is_set_uv = true;
-			}
-			if is_set_uv {
-				if !instance_index.start.is_null() {
-					// uv变化，设置uv
-					let mut uv_box = target.uv_box();
-					let rect = target.rect().size();
-					let (t_w, t_h) = (target.target().width, target.target().height);
-					let (w, h) = (rect.width as f32 / t_w as f32, rect.height as f32 / t_h as f32);
-					// 修正uv， 渲染目标宽高一定是整数， 但真实的渲染区域尺寸不一定， 修正到精确的渲染区域
-					let mins = &render_target.accurate_bound_box.mins; 
-					let maxs = &render_target.accurate_bound_box.maxs; 
-					uv_box[0] += mins.x * w;
-					uv_box[1] += mins.y * h;
-					uv_box[2] += maxs.x * w;
-					uv_box[3] += maxs.y * h;
-					log::trace!("set pass uv======passid:{:?}, instance_index: {:?}, uv: {:?}, accurate_bound_box: {:?}, rect: {:?}", pass2d_id, instance_index.start/224, &uv_box, &render_target.accurate_bound_box, &rect);
-									
-					param.instance_draw.instance_data.instance_data_mut(instance_index.start).set_data(&UvUniform(uv_box.as_slice()));
-				} else {
-					param.instance_draw.rebatch = true; // 设置rebatch为true， 使得后续重新进行批处理
-				}
-			}
-		} else if out_target.0.is_some() {
-			// 旧的fbo存在， 新的fbo不存在，设置rebatch为true， 使得后续重新进行批处理
-			param.instance_draw.rebatch = true;
-		}
+		// 旧的fbo输出与新的不同， 需要重新设置uv
+		let has_custom_post = match as_image {
+			Some(r) => !r.old_pass2d_graph_id.is_null(),
+			None => false,
+		};
+		// 如果存在自定义后处理， 会在copy节点中比较
+		if !has_custom_post {
+			compare_target( &out.target, &mut out_target, Some(render_target), instance_index, &mut param.instance_draw);
+			log::trace!("out.target======{:?}", (pass2d_id, r_target.is_some(), out.target.is_some()));
+			out_target.0 = out.target.as_ref().map(|r| {Share::new(r.downgrade())}); // 设置到组件上， 后续批处理需要用到
+		} 
+		// else {
+		// 	out.valid_rect = None; // 输出到自定义后处理节点，设置为
+		// }
+		// if let Some(r) = &out_target.0 {
+		// 	use pi_slotmap::Key;
+		// 	if pass2d_id.index() == 3 {
+		// 		log::warn!("build====================={:?}",  (r.rect(), &out.valid_rect, &render_target.bound_box, &camera.view_port));
+		// 	}
+			
+		// }
+		
 
-		// 设置实例是否需要还原预乘
-		if !instance_index.start.is_null() {
-			let mut ty = param.instance_draw.instance_data.instance_data_mut(instance_index.start).get_render_ty();
-			let mut visibility = is_show.get_visibility() && is_show.get_display() && !layer.layer().is_null();
-			if out.target.is_none() {
-				// 没有分配fbo，设置为不可见
-				visibility = false;
-			}
-			if (ty & (1 << RenderFlagType::NotVisibility as usize) == 0) != visibility {
-				ty = ty & !(1 << RenderFlagType::NotVisibility as usize) | ((unsafe {transmute::<_, u8>(!visibility)} as usize) << (RenderFlagType::NotVisibility as usize));
-				// 根据canvas是否有对应的fbo，决定该节点是否显示
-				
-				param.instance_draw.instance_data.instance_data_mut(instance_index.start).set_data(&TyMeterial(&[ty as f32]));
-			}
-		}
 		// if instance_index.start == 125 * 240 {
 		// 	println!("visibility=============== {:?}", (pass2d_id, instance_index.start, visibility,  out.target.is_none(), list0.instance_range.len() > 0));
 		// }
-
-		log::trace!("out.target======{:?}", (pass2d_id, self.render_target.is_some(), out.target.is_some()));
-		out_target.0 = out.target.clone(); // 设置到组件上， 后续批处理需要用到
-		fbo_info.fbo = self.render_target.as_ref().map(|r| {Share::new(r.downgrade())});
+		fbo_info.fbo = r_target.as_ref().map(|r| {Share::new(r.downgrade())});
 		
 		// if content_box.layout.width() >= 700.0 && content_box.layout.height() >= 910.0 {
 		// 	println!("pass2, {:?}", (pass2d_id, fbo_info.out.is_some()));
 		// }
 		// let t7 = std::time::Instant::now();
-		// println!("build2============{:?}", (t7 - t6));
+		// use pi_slotmap::Key;
+		// if pass2d_id.index() == 4 {
+		// 	log::error!("id============{:?}", pass2d_id);
+		// }
+		
 		Ok(out)
 	}
 
@@ -665,7 +544,7 @@ impl Node for Pass2DNode {
         let pass2d_id = self.pass2d_id;
 		// let rt = self.rt.take();
 		// let post_draw = self.post_draw.take();
-		// log::warn!("draw1==={:?}", (pass2d_id, _id));
+		log::debug!("draw1==={:?}", (pass2d_id));
         Box::pin(async move {
 			log::debug!("run0======{:?}", pass2d_id);
             // let query_param = query_param_state.get(world);
@@ -971,9 +850,20 @@ impl Node for Pass2DNode {
 						}
 						render_state.reset = true;
 					},
-					DrawElement::GraphDrawList { .. } => {
-						todo!();
-						// render_state.reset = true;
+					DrawElement::GraphDrawList {id, .. } => {
+						if let Ok(r) = param.render_cross_query.get(id.0) {
+							// 需要重新创建rp， 清理深度
+							{let _a = rp;}
+							rp = create_rp(
+								&rt,
+								&mut commands,
+								None,
+							);
+							pi_render::renderer::draw_obj_list::DrawList::render(r.draw_list.list.as_slice(), &mut rp);
+							// 结束后， 重置rp状态， 后续渲染也需要清理深度
+							pre_fbo_pass_id = Null::null();
+							rt = RPTarget::None;
+						}
 					},
 					
 				}
@@ -995,6 +885,7 @@ pub enum RenderPassTarget {
 pub enum RPTarget<'a> {
     Fbo(&'a ShareTargetView),
     Screen(&'a ScreenTexture, &'a Option<Handle<RenderRes<wgpu::TextureView>>>),
+	None,
 }
 
 impl<'a> RPTarget<'a>{
@@ -1026,6 +917,7 @@ pub fn create_rp<'a>(
 			// fbo永远不清屏
             create_rp_for_fbo1(rt, commands, None)
         }
+		_ => unreachable!()
     }
 }
 // 返回renderpass， view_port， clear_port
@@ -1087,7 +979,8 @@ pub fn calc_view_port<'a>(
 				view_port.maxs.y - view_port.mins.y,
 			)
         }
-        RPTarget::Fbo(rt) => calc_fbo_view_port(rt, view_port, target_view_port)
+        RPTarget::Fbo(rt) => calc_fbo_view_port(rt, view_port, target_view_port),
+		_ => unreachable!()
     }
 }
 
@@ -1375,4 +1268,151 @@ pub fn is_only_one_pass(input: &InParamCollector<SimpleInOut>, instance_draw: &I
 		}
 	}
 	ret
+}
+
+// 用于将外部系统的图节点输出的fbo， 拷贝到RenderTarget1中， 后续才能正常渲染
+pub struct CustomCopyNode(pub Entity/*做自定义后处理效果的实体id*/);
+impl CustomCopyNode {
+	pub fn new(id: Entity) -> Self {
+		Self(id)
+	}
+}
+
+impl Node for CustomCopyNode {
+    type Input = SimpleInOut;
+    type Output = SimpleInOut;
+
+	type BuildParam = (Query<'static, (&'static mut RenderTarget1, Option<&'static RenderTarget>, &'static InstanceIndex)>, SingleResMut<'static, InstanceContext>);
+    type RunParam = ();
+
+	/// 用于给pass2d分配fbo
+	fn build<'a>(
+		&'a mut self,
+		// world: &'a mut pi_world::world::World,
+		param: &'a mut Self::BuildParam,
+		_context: pi_bevy_render_plugin::RenderContext,
+		input: &'a Self::Input,
+		_usage: &'a pi_bevy_render_plugin::node::ParamUsage,
+		_id: GraphNodeId,
+		_from: &'a [GraphNodeId],
+		_to: &'a [GraphNodeId],
+	) -> Result<Self::Output, String> {
+		match (&input.target, param.0.get_mut(self.0)) {
+			(r, Ok((mut out_target, render_target, instance_index))) => {
+				// 比较target是否发生改变， 如果发生改变， 需要重新批处理
+				compare_target(r, out_target.bypass_change_detection(), render_target, instance_index, &mut param.1);
+				// log::error!("out_target.0================={:?}", (&self.0, &out_target.0));
+				out_target.0 = r.clone();
+			}
+			_ => (),
+		}
+		Ok(input.clone())
+    }
+
+    fn run<'a>(
+        &'a mut self,
+        // world: &'a World,
+        _param: &'a Self::RunParam,
+        _context: RenderContext,
+        _commands: ShareRefCell<CommandEncoder>,
+        _input: &'a Self::Input,
+        _usage: &'a ParamUsage,
+        _id: GraphNodeId,
+        _from: &'a [GraphNodeId],
+        _to: &'a [GraphNodeId],
+        // context: RenderContext,
+        // mut commands: ShareRefCell<CommandEncoder>,
+        // inputs: &'a [Self::Output],
+    ) -> BoxFuture<'a, Result<(), String>> {
+        unreachable!()
+    }
+}
+
+fn compare_target(
+	target: &Option<ShareTargetView>, 
+	out_target: &mut RenderTarget1, 
+	render_target: Option<&RenderTarget>, 
+	instance_index: &InstanceIndex, 
+	instance_context: &mut InstanceContext,
+	// node: GraphNodeId,
+) {
+	// if !node.is_null() {
+	// 	log::warn!("input============{:?}", (node, target.is_some()));
+	// }
+	let has_instance = !instance_index.start.is_null() && instance_index.end > instance_index.start;
+	if let Some(target) = &target {
+		// 旧的fbo输出与新的不同， 需要重新设置uv
+		// 旧的fbo输出与新的不同， 需要重新设置uv
+		let mut is_set_uv = false;
+		if let Some(fbo) = &out_target.0 {
+			if !Share::ptr_eq(&fbo.target().colors[0].0 , &target.target().colors[0].0) {
+				instance_context.rebatch = true; // 设置rebatch为true， 使得后续重新进行批处理
+				// is_set_uv = true; // TODO ， 现阶段有些情况， 设置过uv， 但实例被释放，之后被其他实例占用， 但out_target没有被清理， 导致uv比较可能相等， 后续不能重置uv， 需要优化（设置uv要更新数据到显卡， 性能不好）
+			}
+			let rect1 = fbo.uv_box();
+			let rect2 = target.uv_box();
+			if rect1 != rect2 {
+				is_set_uv = true;
+			}
+			// if !node.is_null() {
+			// 	log::warn!("input1============{:?}", (node, has_instance, rect1, rect2, is_set_uv,
+			// 		!Share::ptr_eq(&fbo.target().colors[0].0 , &target.target().colors[0].0)));
+			// }
+		} else {
+			instance_context.rebatch = true; // 设置rebatch为true， 使得后续重新进行批处理
+			is_set_uv = true;
+		}
+		if is_set_uv {
+			if has_instance {
+				// uv变化，设置uv
+				let mut uv_box = target.uv_box();
+				let rect = target.rect().size();
+				let (t_w, t_h) = (target.target().width, target.target().height);
+				let (w, h) = (rect.width as f32 / t_w as f32, rect.height as f32 / t_h as f32);
+				// 修正uv， 渲染目标宽高一定是整数， 但真实的渲染区域尺寸不一定， 修正到精确的渲染区域
+				if let Some(render_target) = render_target {
+					let mins = &render_target.accurate_bound_box.mins; 
+					let maxs = &render_target.accurate_bound_box.maxs; 
+					uv_box[0] += mins.x * w;
+					uv_box[1] += mins.y * h;
+					uv_box[2] += maxs.x * w;
+					uv_box[3] += maxs.y * h;
+				}
+				instance_context.instance_data.instance_data_mut(instance_index.start).set_data(&UvUniform(uv_box.as_slice()));
+				// if !node.is_null() {
+				// 	log::error!("set uv: {:?}, {:?}, {:?}", uv_box, target.rect(), (node, target.target().colors[0].0.id));
+				// }
+								
+				
+			} else {
+				instance_context.rebatch = true; // 设置rebatch为true， 使得后续重新进行批处理
+			}
+		}
+	} else if out_target.0.is_some() {
+		// 旧的fbo存在， 新的fbo不存在，设置rebatch为true， 使得后续重新进行批处理
+		instance_context.rebatch = true;
+	}
+
+	
+	// 设置实例是否可见
+	if has_instance {
+		let mut ty = instance_context.instance_data.instance_data_mut(instance_index.start).get_render_ty();
+		// 没有分配fbo，设置将渲染无效
+		let invaild = target.is_none();
+		let invaild = (unsafe {transmute::<_, u8>(invaild)} as usize) << (RenderFlagType::Invalid as usize);
+		// if !node.is_null() {
+		// 	log::error!("!!!!!!!!!!!!========================={:?}", (
+		// 		node, 
+		// 		target.is_none(), ty & (1 << RenderFlagType::Invalid as usize), invaild, 
+		// 		ty & !(1 << RenderFlagType::Invalid as usize) | invaild,
+		// 	));
+		// }
+		if ty & (1 << RenderFlagType::Invalid as usize) != invaild {
+			
+			ty = ty & !(1 << RenderFlagType::Invalid as usize) | invaild;
+			
+			// 根据canvas是否有对应的fbo，决定该节点是否显示
+			instance_context.instance_data.instance_data_mut(instance_index.start).set_data(&TyMeterial(&[ty as f32]));
+		}
+	}
 }

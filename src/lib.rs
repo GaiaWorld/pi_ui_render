@@ -176,7 +176,7 @@ pub mod prelude {
 			})
             // .add_system(UiStage, apply_deferred.in_set(UiSystemSet::LifeDrawObjectFlush))
 
-			// .add_system(Last, crate::clear_remove_component.after(bevy_window::FrameSet)); // 在每帧结束时清理删除组件的列表
+			// .add_system(End, crate::clear_remove_component.after(bevy_window::FrameSet)); // 在每帧结束时清理删除组件的列表
             ;
             #[cfg(feature = "debug")]
             app.add_plugins(crate::system::base::node::cmd_play::UiCmdTracePlugin { option: self.cmd_trace });

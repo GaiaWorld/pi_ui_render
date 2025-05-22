@@ -115,7 +115,6 @@ pub fn calc_animation_2(
     let mut w1 = world.unsafe_world();
     let mut w2 = world.unsafe_world();
     let mut w3 = world.unsafe_world();
-    let w4 = world.unsafe_world();
     let mut w5 = world.unsafe_world();
 
     let mut global_mark = w5.index_single_res_mut::<GlobalDirtyMark>(id.global_mark).unwrap();

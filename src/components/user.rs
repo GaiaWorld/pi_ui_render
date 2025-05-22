@@ -1,5 +1,6 @@
 //！ 定义用户设置的组件
 use crate::resource::animation_sheet::TransitionData;
+use pi_bevy_render_plugin::NodeId;
 use pi_style::style_parse::{TokenParseError, ItemParseErrors, TokenErrorsInfo};
 use crate::resource::fragment::NodeTag;
 use std::hash::Hasher;
@@ -125,6 +126,10 @@ pub struct ZIndex(pub isize);
 pub struct AsImage {
 	pub level: AsImage1, 
 	pub post_process: EntityKey, // 通过post_process， 需要能查询到一个GraphId组件，此GraphId对应的图节点负责后处理效果
+    pub old_pass2d_graph_id: NodeId, // 旧的链接的图节点
+    pub old_post_graph_id: NodeId, // 旧的链接的图节点
+
+    pub copy_graph_id: NodeId, // 用于复制后处理target到实体的RenderTarget1组件的图id
 }
 
 impl NeedMark for AsImage {
@@ -721,6 +726,12 @@ impl Default for FlexNormal {
 pub struct Canvas {
     pub by_draw_list: bool,
 	pub id: Entity,
+}
+
+impl crate::components::draw_obj::DrawCount for Canvas {
+	fn draw_count(&self) -> usize {
+        1
+	}
 }
 
 /// 显示改变（一般是指canvas，gui不能感知除了style属性以外的属性改变，如果canvas内容发生改变，应该通过style设置，以便gui能感知，从而设置脏区域）

@@ -529,7 +529,7 @@ pub fn calc_pass_active(
             } else if !camera.is_visible {
                 camera.is_render_to_parent = false;
             } else {
-                while let Ok((c1, p1, pp1, _)) = q1.get(parent_pass.0.0) {
+                while let Ok((c1, p1, pp1, _)) = q1.get(parent_pass.0) {
                     if !p1.has_effect() {
                         parent_pass = pp1;
                         continue;
@@ -570,6 +570,6 @@ fn mark_pass_dirty(mut pass_id: Entity, query: &mut Query<(&mut Camera, &ParentP
         }
 
         camera.bypass_change_detection().draw_changed = true;
-        pass_id = parent_pass.0.0;
+        pass_id = parent_pass.0;
     }
 }

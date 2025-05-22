@@ -164,12 +164,20 @@ pub struct PassInfo {
     pub draw_changed: bool,
     // 是否渲染到父目标(表示该pass是否渲染到父目标上)
     pub is_render_to_parent: bool, 
-    pub render_target: String, 
-    pub out_render_target: String, 
+    pub render_target: Target, 
+    pub out_render_target: Target, 
     pub view: View,
     pub transform_will_change_matrix: Option<TransformWillChangeMatrixInner>,
-    pub parentpass: Entity,
+    pub parentpass: (Entity, pi_bevy_render_plugin::NodeId),
 	pub graph_id: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Target {
+    id: String,
+    rect: Aabb2,
+    width: f32,
+    height: f32,
 }
 
 
@@ -820,14 +828,37 @@ pub fn node_info(world: &World, entity: Entity) -> Info {
         let render_obj = create_render_obj(instance_index.0.clone(), Null::null(), InstanceType::CopyFbo);
 	    let view =  world.get_component::<View>(entity).unwrap();
         let out_render_target = match world.get_component::<RenderTarget>(entity) {
-            Ok(RenderTarget(Some(render_target))) => format!("{:?}", render_target.target().colors[0].0.id),
-            _ => "".to_string(),
+            Ok(RenderTarget(Some(render_target))) => {
+                let rect = render_target.rect();
+                Target {
+                    id: format!("{:?}", render_target.target().colors[0].0.id),
+                    rect: Aabb2::new(Point2::new(rect.min.x as f32, rect.min.y as f32), Point2::new(rect.max.x as f32, rect.max.y as f32)),
+                    width: render_target.target().width as f32,
+                    height: render_target.target().height as f32,
+                }
+            },
+            _ => Target{
+                id: Null::null(), rect: Aabb2::new(Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)),
+                width: 0.0, height: 0.0,
+            },
         };
         let render_target = match world.get_component::<FboInfo>(entity) {
-            Ok(FboInfo{fbo: Some(render_target), ..}) => format!("{:?}", render_target.target().colors[0].0.id),
-            _ => "".to_string(),
+            Ok(FboInfo{fbo: Some(render_target), ..}) => {
+                let rect = render_target.rect();
+                Target {
+                    id: format!("{:?}", render_target.target().colors[0].0.id),
+                    rect: Aabb2::new(Point2::new(rect.min.x as f32, rect.min.y as f32), Point2::new(rect.max.x as f32, rect.max.y as f32)),
+                    width: render_target.target().width as f32,
+                    height: render_target.target().height as f32,
+                }
+            },
+            _ => Target{
+                id: Null::null(), rect: Aabb2::new(Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)),
+                width: 0.0, height: 0.0,
+            },
         };
         let render_target1 = world.get_component::<crate::components::pass_2d::RenderTarget>(entity).unwrap();
+        let parent = world.get_component::<ParentPassId>(entity).unwrap();
         Some(PassInfo{
             copy_render_obj: render_obj,
             render_target,
@@ -844,7 +875,7 @@ pub fn node_info(world: &World, entity: Entity) -> Info {
                 },
                 _ => None,
             },
-            parentpass:  world.get_component::<ParentPassId>(entity).unwrap().0.0,
+            parentpass:  (parent.0, parent.1.1),
             graph_id: format!("{:?}", world.get_component::<GraphId>(entity).ok()),
             view_port: camera.view_port,
             view: view.clone(),

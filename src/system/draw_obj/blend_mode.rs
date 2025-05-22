@@ -5,7 +5,7 @@
 
 use pi_world::filter::Or;
 use pi_world::param_set::ParamSet;
-use pi_world::prelude::{Changed, SingleRes, Alter, Query};
+use pi_world::prelude::{Changed, SingleRes, Alter, Query, Entity};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, OrInitSingleRes};
 
 use pi_bevy_render_plugin::PiRenderDevice;
@@ -21,7 +21,7 @@ use pi_style::style::{BlendMode as BlendMode1, StyleType};
 
 /// 计算DrawObj的BlendState
 pub fn calc_drawobj_blendstate(
-    query_node: Query<(&BlendMode, &DrawList), Or<(Changed<BlendMode>, Changed<DrawList>)>>,
+    query_node: Query<(&BlendMode, &DrawList, Entity), Or<(Changed<BlendMode>, Changed<DrawList>)>>,
     // blend_mod_removes: Query<(&DrawList, Has<BlendMode>)>,
     // removed: ComponentRemoved<BlendMode>, // 操作指令不会删除BlendMode， 只会改为默认值
 
@@ -49,7 +49,7 @@ pub fn calc_drawobj_blendstate(
     
 
     // 根据blend_mode设置blend_state
-    for (blend_mode, draw_list) in query_node.iter() {
+    for (blend_mode, draw_list, entity) in query_node.iter() {
         if draw_list.len() == 0 {
             continue;
         }

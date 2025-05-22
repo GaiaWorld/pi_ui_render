@@ -1,7 +1,7 @@
 //! 每个实体必须写入StyleMark组件
 
 use pi_bevy_render_plugin::{render_cross::GraphId, PiRenderGraph};
-use pi_world::{event::{Event, EventSender, EventWriter}, filter::Or, prelude::{Alter, Entity, Local, Mut, Query, SingleResMut, With, World}, single_res::SingleRes, system::{SystemMeta, TypeInfo}, system_params::SystemParam, world::FromWorld};
+use pi_world::{event::{Event, EventSender}, filter::Or, prelude::{Alter, Entity, Local, Mut, Query, SingleResMut, With, World}, single_res::SingleRes, system::{SystemMeta, TypeInfo}, system_params::SystemParam, world::FromWorld};
 use pi_world::world::ComponentIndex;
 use pi_key_alloter::Key;
 use pi_bevy_ecs_extend::prelude::{EntityTreeMut, OrInitSingleRes, OrInitSingleResMut};
@@ -14,7 +14,7 @@ use pi_style::style_type::STYLE_COUNT;
 
 use crate::{
     components::{
-        calc::{DrawInfo, EntityKey, NodeState, StyleMarkType}, user::{serialize::DefaultStyle, Size, ZIndex}, SettingComponentIds
+        calc::{CanvasGraph, DrawInfo, EntityKey, NodeState, StyleMarkType}, user::{serialize::DefaultStyle, AsImage, Size, ZIndex}, SettingComponentIds
     }, resource::{
         animation_sheet::KeyFramesSheet, fragment::{FragmentMap, NodeTag}, ClassSheet, GlobalDirtyMark, OtherDirtyType, QuadTree
     }, system::base::{draw_obj::image_texture_load::AsImageBindList, pass::update_graph::AsImageRefCount}
@@ -85,7 +85,7 @@ pub fn user_setting1(
     let mut w2 = world.unsafe_world();
     let mut w3 = world.unsafe_world();
     let mut w4 = world.unsafe_world();
-    let w5 = world.unsafe_world();
+    // let w5 = world.unsafe_world();
     let mut w6 = world.unsafe_world();
     let mut w7 = world.unsafe_world();
     
@@ -219,7 +219,7 @@ pub struct RemoveEvent(pub Entity);
 // 为节点添加依赖父子依赖关系 和 销毁节点
 pub fn user_setting2(
     mut entitys: Alter<(Option<&Size>, Option<&DrawInfo>), Or<(With<Size>, With<DrawInfo>)>, (), ()>,
-    dirty_list: Query<(Option<&DrawList>, Option<&GraphId>, Option<&AsImageBindList>)>,
+    dirty_list: Query<(Option<&DrawList>, Option<&GraphId>, Option<&AsImageBindList>,  Option<&AsImage>, Option<&CanvasGraph>)>,
     mut user_commands: SingleResMut<UserCommands>,
     mut quad_tree: OrInitSingleResMut<QuadTree>,
     mut tree: EntityTreeMut,
@@ -593,13 +593,13 @@ fn set_class<'w, 's>(node: Entity, style_query: &mut Setting, class: ClassName, 
 
 fn delete_entity(
     del: Entity, 
-    draw_list: &Query<(Option<&DrawList>, Option<&GraphId>, Option<&AsImageBindList>)>, 
+    draw_list: &Query<(Option<&DrawList>, Option<&GraphId>, Option<&AsImageBindList>, Option<&AsImage>, Option<&CanvasGraph>)>, 
     entitys: &mut Alter<(Option<&Size>, Option<&DrawInfo>), Or<(With<Size>, With<DrawInfo>)>, (), ()>,
     keyframes_sheet: &mut KeyFramesSheet,
     rg: &mut PiRenderGraph,
     ref_count: &mut AsImageRefCount,
 ) {
-    if let Ok((list, graph, as_image_bind_list)) = draw_list.get(del) {
+    if let Ok((list, graph, as_image_bind_list, as_image, canvas_graph)) = draw_list.get(del) {
         if let Some(list) = list  {
             for i in list.iter() {
                 let r = entitys.destroy(i.id);
@@ -619,6 +619,18 @@ fn delete_entity(
                 }
             }
         } 
+
+        if let Some(as_image) = as_image {
+            if !as_image.copy_graph_id.is_null() {
+                let _ = rg.remove_node(as_image.copy_graph_id);
+            }
+        }
+
+        if let Some(canvas_graph) = canvas_graph {
+            if !canvas_graph.copy_graph_id.is_null() {
+                let _ = rg.remove_node(canvas_graph.copy_graph_id);
+            }
+        }
         
         if let Some(graph) = graph {
             let _ = rg.remove_node(**graph);

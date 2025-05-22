@@ -3,8 +3,7 @@
 #[path = "../framework.rs"]
 mod framework;
 
-use std::mem::swap;
-
+use pi_world::alter::Alter;
 use pi_world::prelude::{Query, App, SingleResMut, IntoSystemConfigs};
 use framework::{Param, Example};
 use pi_bevy_render_plugin::{PiRenderGraph, SimpleInOut, RenderContext};
@@ -41,7 +40,7 @@ fn main() { framework::start(CustomPostExample::default()) }
 
 #[derive(Default)]
 pub struct CustomPostExample {
-    cmd: UserCommands,
+    _cmd: UserCommands,
 }
 
 impl Example for CustomPostExample {
@@ -86,7 +85,7 @@ impl Example for CustomPostExample {
         world.user_cmd.push_cmd(PostProcessCmd(EntityKey(post_entity), div1));
     }
 
-    fn render(&mut self, cmd: &mut UserCommands) {
+    fn render(&mut self, _cmd: &mut UserCommands) {
         
     }
 }
@@ -95,24 +94,28 @@ impl Example for CustomPostExample {
 // 创建后处理节点
 pub fn create_post_graph(
 	query: Query<&AsImage>, 
-	mut query1: Query<&mut GraphId>, 
+	mut query1: Alter<Option<&GraphId>, (), GraphId, ()>, 
 	mut rg: SingleResMut<PiRenderGraph>,
 ) {
 	for as_image in query.iter() {
-		if let Ok(mut graph_id) = query1.get_mut(*as_image.post_process) {
-			if graph_id.is_null() {
-				let graph_node_id = match rg.add_node(format!("Test_CustomPost{:?}", *as_image.post_process), CustomPostNode, GraphNodeId::default()) {
-					Ok(r) => r,
-					Err(e) => {
-						log::error!("node: {:?}, {:?}", format!("Test_CustomPost_{:?}", *as_image.post_process), e);
-						return;
-					}
-				};
-				log::trace!("add graph node: {:?}", graph_node_id);
-	
-				*graph_id = GraphId(graph_node_id);
-			}
-		}
+        if as_image.post_process.is_null() {
+            continue;
+        }
+        match query1.get(*as_image.post_process) {
+            Ok(r) => if r.is_some() {
+                continue;
+            },
+            Err(_) => (),
+        };
+		let graph_node_id = match rg.add_node(format!("Test_CustomPost{:?}", *as_image.post_process), CustomPostNode, GraphNodeId::default()) {
+            Ok(r) => r,
+            Err(e) => {
+                log::error!("node: {:?}, {:?}", format!("Test_CustomPost_{:?}", *as_image.post_process), e);
+                continue;
+            }
+        };
+
+        let _ = query1.alter(*as_image.post_process, GraphId(graph_node_id));
 	}
 }
 

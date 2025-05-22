@@ -343,8 +343,8 @@ pub fn calc_quad(
 //             .add_startup_system(setup1)
 //             .add_system(UiStage, init_tree)
 //             .add_system_to_stage(CoreStage::PostUpdate, cal_matrix)
-//             .add_system_to_stage(CoreStage::Last, asset_matrix)
-//             .add_system_to_stage(CoreStage::Last, asset_quad)
+//             .add_system_to_stage(CoreStage::End, asset_matrix)
+//             .add_system_to_stage(CoreStage::End, asset_quad)
 //             .update();
 
 //         app.add_system_to_stage(CoreStage::PreUpdate, setup2).update();

@@ -1,7 +1,7 @@
 use blend_mode::blend_mod_change;
 use pi_world::prelude::IntoSystemConfigs;
 use pi_world::prelude::{App, Plugin, WorldPluginExtent};
-use pi_bevy_render_plugin::{GraphBuild, GraphRun};
+use pi_bevy_render_plugin::GraphBuild;
 use pi_hal::font::font::FontType;
 use pi_style::style::Aabb2;
 use pi_world::schedule::PostUpdate;
@@ -71,7 +71,6 @@ impl Plugin for UiReadyDrawPlugin {
 			.add_system(PostUpdate, batch_instance_data
 				.before(last_update_wgpu)
 				.after(GraphBuild)
-				.before(GraphRun)
 				)
             .add_system(UiStage, root_view_port::calc_dyn_target_type.in_set(UiSystemSet::BaseCalc))
             // .add_system(UiStage, pipeline::calc_node_pipeline.in_set(UiSystemSet::PrepareDrawObj))

@@ -9,7 +9,6 @@ use pi_world::prelude::{SystemParam, SingleRes, FromWorld, Insert, With, Query, 
 use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, OrInitSingleRes, Layer, Root};
 
 use pi_assets::asset::Handle;
-use pi_bevy_render_plugin::render_cross::DepthRange;
 use pi_bevy_render_plugin::PiRenderDevice;
 use pi_null::Null;
 use pi_render::components::view::target_alloc::ShareTargetView;
@@ -22,7 +21,7 @@ use crate::components::draw_obj::{BoxType, DrawCount};
 use crate::components::calc::{style_bit, DrawInfo, EntityKey, InPassId, IsShow, NodeId, RenderContextMark, SdfUv, StyleBit, StyleMarkType, WorldMatrix, ZRange};
 use crate::components::draw_obj::{ FboInfo, GetInstanceSplit, HasDraw, InstanceIndex, InstanceSplit, Pipeline, RenderCount};
 // use crate::components::root::RootInstance;
-use crate::components::user::RenderTargetType;
+use crate::components::user::{Canvas, RenderTargetType};
 // #[cfg(debug_assertions)]
 // use crate::components::user::{BackgroundColor, BackgroundImage, BlendMode, BorderImage, Canvas, TextContent};
 // #[cfg(debug_assertions)]
@@ -196,7 +195,8 @@ lazy_static! {
 		.set_bit(OtherDirtyType::DrawObjCreate as usize)
 		.set_bit(OtherDirtyType::DrawObjDelete as usize)
 		.set_bit(OtherDirtyType::InstanceCount as usize)
-		.set_bit(OtherDirtyType::PassLife as usize);
+		.set_bit(OtherDirtyType::PassLife as usize)
+		.set_bit(OtherDirtyType::CanvasBylist as usize);
 	pub static ref REBATCH_DIRTY: StyleMarkType = NODE_DIRTY.clone()
 		.set_bit(OtherDirtyType::Rebatch as usize);
 }
@@ -316,10 +316,12 @@ pub fn update_render_instance_data(
         // parent_pass_id存在，表示本节点是一个pass2d
         // if camera.is_active {
             if let Some(parent) = parent_pass_id {
-                if let Ok(mut p_draw_2d_list) = p1.get_mut(*parent.0) {
+                if let Ok(mut p_draw_2d_list) = p1.get_mut(parent.0) {
 					log::debug!("draw info1========id={:?}, in_pass_id={:?}, parent_pass_id={:?}, draw_list={:?}", id, in_pass_id, parent_pass_id, draw_list);
 					// if p_camera.is_active && p_camera.is_change {
-						p_draw_2d_list.push_element(DrawIndex::Pass2D(EntityKey(id)), z_range.clone(), DrawInfo::new(10, false));
+						let mut info = DrawInfo::new(10, false);
+						info.set_visibility(is_show.get_visibility() && is_show.get_display() && !layer.layer().is_null());
+						p_draw_2d_list.push_element(DrawIndex::Pass2D(EntityKey(id)), z_range.clone(), info);
 					// }
                 }
             }
@@ -447,8 +449,6 @@ pub fn update_render_instance_data(
 		}
 
 		log::debug!("draw_2d_list.all_list_sort============{:?}, {:?}", entity, draw_2d_list.all_list.as_slice());
-
-		// 优先按是否透明排序， 把不透明排在最前面， 其次按深度从小到大排序
 		draw_2d_list.all_list_sort.clear();
 		draw_2d_list.all_list_sort.extend_from_slice(draw_2d_list.all_list.as_slice());
 		draw_2d_list.all_list_sort.sort_by(|(_a, a_z_depth, a_sort), (_b, b_z_depth, b_sort)| {
@@ -476,16 +476,19 @@ pub fn update_render_instance_data(
 			}
 		});
 
-		draw_2d_list.opaque.clear();
-		draw_2d_list.transparent.clear();
+		draw_2d_list.render_list.clear();
 
 		for i in draw_2d_list.all_list_sort.iter() {
 			if i.2.opacity_order() == 0 {
-				draw_2d_list.opaque.push(i.clone());
+				draw_2d_list.render_list.push_opaque(i.clone());
 			} else {
-				draw_2d_list.transparent.push(i.clone());
+				draw_2d_list.render_list.push_transparent(i.clone());
+			}
+			if i.2.is_by_cross() {
+				draw_2d_list.render_list.split()
 			}
 		}
+		draw_2d_list.render_list.split();
 		// 设置all_list长度为0（数据还在，数据用于下次列表与新元素对比，来确定列表是否发生改变）
 		draw_2d_list.reset();
 		
@@ -495,11 +498,14 @@ pub fn update_render_instance_data(
 		log::trace!("life2========================{:?}, {:?}, {:?}, all_list_len: {}", entity, draw_2d_list.all_list_sort.len(), &draw_2d_list.all_list_sort, draw_2d_list.all_list.len()); 
 
 		let instance_data_start = new_instances.cur_index();
-		// let mut pipeline;
-		for (draw_index, _, draw_info) in draw_2d_list.opaque.iter().rev().chain(draw_2d_list.transparent.iter()) {
-			log::debug!("draw_index============{:?}", draw_index);
+		draw_2d_list.render_list.iter(|(draw_index, _, draw_info)| {
 			alloc(draw_index, draw_info, new_instances, &instances, &mut instance_index);
-		}
+		});
+		// let mut pipeline;
+		// for (draw_index, _, draw_info) in draw_2d_list.opaque.iter().rev().chain(draw_2d_list.transparent.iter()) {
+		// 	log::debug!("draw_index============{:?}", draw_index);
+		// 	alloc(draw_index, draw_info, new_instances, &instances, &mut instance_index);
+		// }
 
 		// log::warn!("all====={:?}", (entity, &draw_2d_list.all_list_sort));
 		// 设置当前pass对应的实例范围（当一些节点发生改变， 而当前pass的节点未发生变动， 则根据该范围从旧的实例数据拷贝到新的实例数据）
@@ -842,7 +848,7 @@ pub fn batch_instance_data(
 /// 更新深度， 返回消耗的深度空间
 pub fn update_depth(
 	depth_count: &mut usize,
-	render_cross_query: &mut Query<(&mut DepthRange, &pi_bevy_render_plugin::render_cross::DrawList)>,
+	render_cross_query: &mut Query<&pi_bevy_render_plugin::render_cross::DrawList>,
 	instances: &mut InstanceContext,
 ) {
 	for i in instances.draw_list.iter_mut() {
@@ -864,15 +870,15 @@ pub fn update_depth(
 			DrawElement::GraphDrawList {id, .. } => {
 				let depth = calc_depth(*depth_count);
 
-				let mut count = 1;
-				if let Ok((mut depth_range, list)) = render_cross_query.get_mut(**id) {
-					count = (list.require_depth / DEPTH_SPACE).ceil() as usize;
-					if depth_range.start != depth || depth + list.require_depth != depth_range.end { // 修改深度范围
-						depth_range.start = depth;
-						depth_range.end = depth + list.require_depth;
-					}
-				}
-				*depth_count += count;
+				// let mut count = 1;
+				// if let Ok((mut depth_range, list)) = render_cross_query.get_mut(**id) {
+				// 	count = (list.require_depth / DEPTH_SPACE).ceil() as usize;
+				// 	if depth_range.start != depth || depth + list.require_depth != depth_range.end { // 修改深度范围
+				// 		depth_range.start = depth;
+				// 		depth_range.end = depth + list.require_depth;
+				// 	}
+				// }
+				*depth_count += 1;
 			},
 			DrawElement::DrawPost(_) => (),
 			DrawElement::Clear { .. } => (),
@@ -955,7 +961,7 @@ fn batch_pass(
 
 	// let mut pipeline;
 	// log::warn!("batch_pass======={:?}", (parent_pass_id, pass_id, draw_list.opaque.len(), draw_list.transparent.len()));
-	for (draw_index, _, _draw_info) in draw_list.opaque.iter().rev().chain(draw_list.transparent.iter()) {
+	draw_list.render_list.iter(|(draw_index, _, draw_info)| {
 		let mut last_pipeline = None;
 		let mut split_by_texture:  Option<(InstanceIndex, &Handle<AssetWithId<TextureRes>>, &Share<wgpu::Sampler>)> = None;
 		let mut instance_data_end1 = instance_data_end;
@@ -1006,15 +1012,16 @@ fn batch_pass(
 							log::debug!("ByFbo=========={:?}", (pass_id, draw_entity, &ui_texture.as_ref().unwrap().target().colors[0].1));
 							split_by_texture = Some((index.clone(), &ui_texture.as_ref().unwrap().target().colors[0].0, &query.common_sampler.default));
 						},
-						InstanceSplit::ByCross(is_list) =>  {
+						InstanceSplit::ByCross(id, is_list) =>  {
 							if *is_list {
-								cross_list = Some(draw_entity);
+								cross_list = Some(EntityKey(*id));
 								// is_list为true时， 必须劈分
 								last_pipeline = Some(root_state.pre_pipeline.clone())
 							} else {
 								// 设置实例是否需要还原预乘
 								let mut ty = instances.instance_data.instance_data_mut(index.start).get_render_ty();
 								
+								// log::error!("pipeline================{:?}", (draw_entity, pipeline.is_some()));
 								match pipeline{
 									Some(r) if !Share::ptr_eq(r, &instances.premultiply_pipeline) => ty &= !(1 << RenderFlagType::Premulti as usize),
 									_ => ty |= 1 << RenderFlagType::Premulti as usize,
@@ -1090,17 +1097,17 @@ fn batch_pass(
 
 					let mut draw_2d_list = match query.pass_query.get_mut(*cur_pass) {
 						Ok(r) => r,
-						_ => continue
+						_ => return
 					};
 					let draw_2d_list = draw_2d_list.bypass_change_detection();
 					let mut draw_2d_list = std::mem::take(draw_2d_list);
 					batch_pass(query, root_state, global_state, instances, &mut draw_2d_list, *cur_pass, parent_pass_id);
 					let mut draw_2d_list1= match query.pass_query.get_mut(*cur_pass) {
 						Ok(r) => r,
-						_ => continue
+						_ => return
 					};
 					*(draw_2d_list1.bypass_change_detection()) = draw_2d_list;
-					continue;
+					return;
 				},
 			},
 			_ => &root_state.pre_pipeline,
@@ -1188,7 +1195,7 @@ fn batch_pass(
 		}
 		
 		cursor += 1;
-	}	
+	});	
 
 	// log::warn!("aa====={:?}", (instance_data_start, instance_data_end, instances.draw_list.len()));
 	// 将当前剩余未批处理的数据合批

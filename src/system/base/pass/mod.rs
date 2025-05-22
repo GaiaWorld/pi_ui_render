@@ -1,6 +1,6 @@
 use pass_life::pass_life_children;
 use pi_world::prelude::{App, Plugin, PostUpdate, IntoSystemConfigs, WorldPluginExtent};
-use pi_bevy_render_plugin::{GraphBuild, GraphRun};
+use pi_bevy_render_plugin::GraphBuild;
 
 use self::pass_camera::calc_camera;
 use self::pass_life::calc_pass;
@@ -86,7 +86,6 @@ impl Plugin for UiPassPlugin {
             .add_system(PostUpdate, 
                 last_update_wgpu::last_update_wgpu
                     .after(GraphBuild)
-					.before(GraphRun)
                     ,
             )
             .add_system(UiStage, root::root_calc.in_set(UiSystemSet::PassMark))

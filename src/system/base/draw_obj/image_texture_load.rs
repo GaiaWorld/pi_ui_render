@@ -22,7 +22,7 @@ use crate::{prelude::UiStage, system::base::pass::pass_life};
 use pi_world::prelude::IntoSystemConfigs;
 
 
-use crate::{components::{calc::{InPassId, Texture}, pass_2d::{Camera, ParentPassId}}, resource::{GlobalDirtyMark, IsRun, OtherDirtyType, RenderObjType}, system::base::pass::update_graph::{self, get_to, AsImageRefCount}};
+use crate::{components::{calc::{InPassId, Texture}, pass_2d::{Camera, ParentPassId}}, resource::{GlobalDirtyMark, IsRun, OtherDirtyType, RenderObjType}, system::base::pass::update_graph::{self, find_parent_graph_id, AsImageRefCount}};
 
 
 pub struct ImageLoadPlugin;
@@ -81,7 +81,7 @@ pub fn add_as_image_graph_depend(
     for entity in as_image_url_changed.iter().chain(as_image_url_added.iter()) {
         log::debug!("add_as_image_graph_depend entity================{:?}", entity);
         if let Ok((mut as_image_bind_list, inpass)) = query_with_as_image.get_mut(*entity) {
-            let to = get_to(*inpass.0, &query_pass);
+            let to = find_parent_graph_id(*inpass.0, &query_pass);
             let as_image_bind_list = as_image_bind_list.bypass_change_detection();
             for as_image_bind in as_image_bind_list.0.iter_mut() {
                 if as_image_bind.old_before_graph_id != as_image_bind.before_graph_id {

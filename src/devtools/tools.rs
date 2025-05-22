@@ -5,7 +5,7 @@ use crossbeam::queue::SegQueue;
 use pi_async_rt::rt::serial::AsyncRuntimeBuilder;
 use pi_bevy_ecs_extend::prelude::{Down, Layer, Up};
 use pi_null::Null;
-use pi_world::{app::App, event::ComponentRemoved, filter::{Changed, With}, query::Query, schedule::Last, schedule_config::IntoSystemConfigs, system_params::Local, world::{Entity, World}};
+use pi_world::{app::App, event::ComponentRemoved, filter::{Changed, With}, query::Query, schedule::End, schedule_config::IntoSystemConfigs, system_params::Local, world::{Entity, World}};
 use std::io::Result;
 use pi_ws::{connect::WsSocket, server::WebsocketListener, utils::{ChildProtocol, WsFrameType, WsSession}};
 use futures::future::{FutureExt, LocalBoxFuture};
@@ -39,8 +39,8 @@ pub fn start_server(app: &mut App) {
     //启动一个websocket服务
     start_websocket_server();
 
-    app.add_system(Last, tool_run);
-    app.add_system(Last, tool_run1.after(tool_run));
+    app.add_system(End, tool_run);
+    app.add_system(End, tool_run1.after(tool_run));
 }
 
 pub fn tool_run(world: &mut World) {

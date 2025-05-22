@@ -158,8 +158,8 @@ pub fn cal_context(
                     log::debug!("pass======node: {:?}, parent_pass_id: {:?}, parent_context_id: {:?}, effect_mark{:?} {:?}, {:?}", node, parent_pass_id,  parent_context_id, **effect_mark & **mark, mark, **effect_mark);
                     match parent_pass_id {
                         Some(mut parent_pass_id) => {
-                            if ***parent_pass_id != *parent_context_id {
-                                **parent_pass_id = parent_context_id;
+                            if parent_pass_id.0 != *parent_context_id {
+                                parent_pass_id.0 = *parent_context_id;
                                 // event_writer.send(ComponentEvent::new(node));
                             }
 
@@ -226,7 +226,7 @@ pub fn calc_pass_children_and_clear(
         if parent.0.is_null() {
             continue;
         }
-        if let Ok(mut children) = query_children.get_mut(*parent.0) {
+        if let Ok(mut children) = query_children.get_mut(parent.0) {
             children.push(EntityKey(entity));
         }
     }
@@ -487,14 +487,18 @@ pub fn pass_mark<T: NeedMark + Send + Sync>(
     // let mut render_context = query_set.p1();
     // 组件删除，取消渲染上下文标记
     // context_attr_del(query_set.p1(), &mut removed, ***mark_type);
-    // println!("pass_mark!!!!!!, {:?}", std::any::type_name::<T>());
     for (entity, value, mut render_mark_value) in query.iter_mut() {
         if value.need_mark() {
             render_mark_true( ***mark_type, &mut render_mark_value);
-            log::debug!("pass_mark_true,{:?}, {:?}", entity, std::any::type_name::<T>());
+            // if std::any::type_name::<T>().contains("AsImage") {
+                log::debug!("pass_mark_true,{:?}, {:?}", entity, std::any::type_name::<T>());
+            // }
+           
         } else {
             render_mark_false( ***mark_type, &mut render_mark_value);
-            log::debug!("pass_mark_false,{:?}, {:?}", entity, std::any::type_name::<T>());
+            // if std::any::type_name::<T>().contains("AsImage") {
+                log::debug!("pass_mark_false,{:?}, {:?}", entity, std::any::type_name::<T>());
+            // }
         }
     }
 }
@@ -526,7 +530,7 @@ pub fn calc_pass(
 		return;
 	}
     for (instance_index, parent_pass_id, camera, view, will_change, layout, content_box, entity, ) in query.iter() {
-        log::debug!("passs1==============={:?}", instance_index.0.start);
+        log::trace!("passs1==============={:?}", instance_index.0.start);
         // 节点可能设置为dispaly none， 此时instance_index可能为Null
         // 节点可能没有后处理效果， 此时instance_index为Null
         if pi_null::Null::is_null(&instance_index.0.start) {

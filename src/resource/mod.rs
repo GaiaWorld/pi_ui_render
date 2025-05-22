@@ -64,10 +64,12 @@ pub enum OtherDirtyType {
     BorderImageTexture = 120, // 背景纹理
     MaskImageTexture = 119, // 遮罩纹理
     // Canvas = 117, // canvas修改
+    CanvasBylist = 117, // canvas bylist改变（可改变drawobject渲染排序）
     PassLife = 116, // Pass3D生命周期（添加或移除）
     InstanceCount = 115, // 实例数量修改
     NodeState = 114, // NodeState修改
     NodeTreeRemove = 113, // 树结构改变
+    
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]

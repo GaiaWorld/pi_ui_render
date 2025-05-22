@@ -696,11 +696,13 @@ pub fn calc_sdf2_text(
 		} else {
 			ty &= !(1 << RenderFlagType::Stroke as usize);
 		}
+		// log::warn!("text================={:?}", &buffer);
 		let end = text.text_geo.set_instance_data(start, &mut instances, Some(&OtherInfo {
 			sdf_info: [text.px_range, text.fill_bound, text.stroke_bound],
 			stroke_color: [stroke_color.x, stroke_color.y, stroke_color.z, stroke_color.w],
 			ty: ty as f32,
 		}), buffer);
+		
 
 		if end < instance_index.end {
 			// 设多余的实例为无效实例
@@ -1089,13 +1091,13 @@ impl Node for TextEffectNode {
 
     type RunParam = QueryParam<'static>;
 	type BuildParam = ();
-	// 释放纹理占用
-	fn reset<'a>(
-		&'a mut self,
-	) {
-		// self.out_put_target = None;
-		// self.target = None;
-	}
+	// // 释放纹理占用
+	// fn reset<'a>(
+	// 	&'a mut self,
+	// ) {
+	// 	// self.out_put_target = None;
+	// 	// self.target = None;
+	// }
 
 	/// 用于给pass2d分配fbo
 	fn build<'a>(

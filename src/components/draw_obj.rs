@@ -254,7 +254,7 @@ pub struct FboInfo {
 #[derive(Debug, Component)]
 pub enum InstanceSplit {
 	ByTexture(Handle<AssetWithId<TextureRes>>),
-	ByCross(bool), // 交叉渲染， 表示该节点的渲染为一个外部系统的渲染， bool表示是否用运行图的方式渲染（如果是false，则为外部渲染为一个fbo，gui内部需要将其作为渲染对象渲染）
+	ByCross(Entity, bool), // 交叉渲染， 表示该节点的渲染为一个外部系统的渲染， bool表示是否用运行图的方式渲染（如果是false，则为外部渲染为一个fbo，gui内部需要将其作为渲染对象渲染）
 	ByFbo(Option<ShareTargetView>),
 	ByEntity(Entity), // asimageurl功能需要
 }
@@ -269,8 +269,6 @@ pub trait DrawCount {
 		Null::null()
 	}
 }
-
-impl DrawCount for Canvas {}
 
 impl DrawCount for BackgroundColor {}
 
@@ -368,7 +366,7 @@ impl GetInstanceSplit for BackgroundImageTexture {
 
 impl GetInstanceSplit for Canvas {
 	fn get_split(&self) -> Option<InstanceSplit> {
-		Some(InstanceSplit::ByCross(self.by_draw_list))
+		Some(InstanceSplit::ByCross(self.id, self.by_draw_list))
 	}
 }
 
