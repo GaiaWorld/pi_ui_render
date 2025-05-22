@@ -1132,11 +1132,11 @@ impl Node for SvgEffectNode {
 
     type RunParam = QueryParam<'static>;
     type BuildParam = ();
-    // 释放纹理占用
-    fn reset<'a>(&'a mut self) {
-        // self.out_put_target = None;
-        // self.target = None;
-    }
+    // // 释放纹理占用
+    // fn reset<'a>(&'a mut self) {
+    //     // self.out_put_target = None;
+    //     // self.target = None;
+    // }
 
     /// 用于给pass2d分配fbo
     fn build<'a>(
