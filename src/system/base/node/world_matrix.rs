@@ -275,11 +275,11 @@ pub fn calc_quad(
         Quad::new(Aabb2::new(min, max))
     } else {
         Quad::new(Aabb2::new(Point2::new(
-            left_top.x,
-            left_top.y,
+            left_top.x.min(right_bottom.x),
+            left_top.y.min(right_bottom.y),
         ), Point2::new(
-            right_bottom.x,
-            right_bottom.y,
+            left_top.x.max(right_bottom.x),
+            left_top.y.max(right_bottom.y),
         )))
     };
     
