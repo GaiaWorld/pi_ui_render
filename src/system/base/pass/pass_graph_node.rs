@@ -46,7 +46,7 @@ use crate::components::pass_2d::IsSteady;
 pub struct Pass2DNode {
     pub pass2d_id: Entity,
 	// pub output_target: Option<ShareTargetView>, // 握住一个ShareTargetView， 该view肯呢个占用了分配空间， 当它释放时，空间可能被释放
-	// pub render_target: Option<ShareTargetView>, // 握住一个ShareTargetView， 该view肯呢个占用了分配空间， 当它释放时，空间可能被释放
+	pub render_target: Option<ShareTargetView>, // 握住一个ShareTargetView， 该view肯呢个占用了分配空间， 当它释放时，空间可能被释放
 }
 
 #[derive(SystemParam)]
@@ -121,7 +121,7 @@ impl Pass2DNode {
             // rt: None,
 			// post_draw: None,
 			// output_target: None,
-			// render_target: None,
+			render_target: None,
             // param,
         }
     }
@@ -138,17 +138,17 @@ impl Node for Pass2DNode {
     type RunParam = Param<'static>;
 
 	// // 释放纹理占用
-	// fn reset<'a>(
-	// 		&'a mut self,
-	// ) {
+	fn reset<'a>(
+			&'a mut self,
+	) {
 	// 	// if self.output_target.is_some() {
 	// 		log::debug!("reset========{:?}", (self.pass2d_id, self.render_target.is_some(), self.output_target.is_some()));
 	// 	// }
 	// 	// 
 	// 	self.output_target = None;
-	// 	self.render_target = None;
+		self.render_target = None;
 		
-	// }
+	}
 
 	/// 用于给pass2d分配fbo
 	fn build<'a>(
@@ -257,7 +257,7 @@ impl Node for Pass2DNode {
 			} else if is_only_one_pass(input, &param.instance_draw, &list0.instance_range, view_port_w as u32, view_port_h as u32) {
 				// 如果只有一个输入，并且draw2dList中也只存在一个渲染对象(该渲染对象一定是将输入fb拷贝到目标上)
 				// 此时， 可直接将输入作为输出
-				let input_fbo = input.0.values().next().unwrap().clone();
+				let input_fbo = input.0.values().next().unwrap();
 				r_target = input_fbo.target.clone();
 				camera.is_render_own = false; // 自身不渲染（渲染结果跟输入完全一样， 直接使用了输入fbo的结果）
 				// log::debug!("camera.is_render_own= false================={:?}", pass2d_id);
@@ -388,6 +388,7 @@ impl Node for Pass2DNode {
 							} else {
 								None
 							};
+							self.render_target = Some(rt.clone());
 
 
 							out.valid_rect = None;
@@ -1257,7 +1258,7 @@ pub fn is_only_one_pass(input: &InParamCollector<SimpleInOut>, instance_draw: &I
 		// 如果只有一个输入，并且draw2dList中也只存在一个渲染对象(该渲染对象一定是将输入fb拷贝到目标上)
 		// 此时， 可直接将输入作为输出
 		let input_fbo = input.0.values().next().unwrap().clone();
-		if let Some(r) = input_fbo.target {
+		if let Some(r) = &input_fbo.target {
 			let (w, h) = match input_fbo.valid_rect {
 				Some(rect) => (rect.2, rect.3),
 				None => (r.target().width, r.target().height),
@@ -1302,7 +1303,7 @@ impl Node for CustomCopyNode {
 				// 比较target是否发生改变， 如果发生改变， 需要重新批处理
 				compare_target(r, out_target.bypass_change_detection(), render_target, instance_index, &mut param.1);
 				// log::error!("out_target.0================={:?}", (&self.0, &out_target.0));
-				out_target.0 = r.clone();
+				out_target.0 = r.as_ref().map(|r| {Share::new(r.downgrade())});
 			}
 			_ => (),
 		}
