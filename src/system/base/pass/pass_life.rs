@@ -512,6 +512,7 @@ pub fn calc_pass(
         &Camera,
         &View,
         &TransformWillChangeMatrix,
+        Option<&crate::components::user::TransformWillChange>,
         // OrDefault<Overflow>,
         &crate::components::calc::LayoutResult,
         &ContentBox,
@@ -529,7 +530,7 @@ pub fn calc_pass(
     if r.0 {
 		return;
 	}
-    for (instance_index, parent_pass_id, camera, view, will_change, layout, content_box, entity, ) in query.iter() {
+    for (instance_index, parent_pass_id, camera, view, will_change_matrix, will_change, layout, content_box, entity, ) in query.iter() {
         log::trace!("passs1==============={:?}", instance_index.0.start);
         // 节点可能设置为dispaly none， 此时instance_index可能为Null
         // 节点可能没有后处理效果， 此时instance_index为Null
@@ -577,10 +578,10 @@ pub fn calc_pass(
             // instance_data.set_data(&BoxUniform(&[left, top, width, height]));
             instance_data.set_data(&TyMeterial(&[render_flag as f32]));
             // 设置quad到世界位置
-            match (&view.desc, &will_change.0) {
+            match (&view.desc, &will_change_matrix.0) {
                 (OverflowDesc::NoRotate(_), None) => {
                     set_matrix(&WorldMatrix::default(), &camera.view_port, &mut instance_data);
-                    log::trace!("no rotate=================={:?}", (instance_index.start / 224, entity, &camera.view_port, layout, content_box));
+                    // log::warn!("no rotate=================={:?}", (instance_index.start / 224, entity, &camera.view_port, layout, content_box, will_change_matrix));
                     // instance_data.set_data(&QuadUniform(&[
                     //     view_port.mins.x, view_port.mins.y,
                     //     view_port.mins.x, view_port.maxs.y,
@@ -589,11 +590,30 @@ pub fn calc_pass(
                     // ]));
                     continue;
                 },
-                (OverflowDesc::NoRotate(_), Some(will_change)) => {
-                    set_matrix(&will_change.will_change_invert, &camera.view_port, &mut instance_data)
+                (OverflowDesc::NoRotate(_), Some(will_change_matrix)) => {
+                    // log::debug!("======================{:?}", (entity, camera.view_port, will_change_matrix, will_change));
+                    // 由于要将渲染出来的视口范围（相对最终的世界坐标原点）渲染到父上下文中， 其世界矩阵应该是父上下文认为正确的世界矩阵，
+                    // will_change_invert * view_port将视口变换到没有任何willchange作用的坐标系
+                    // will_change_matrix * will_change_invert * view_port又将没有任何willchange作用的坐标系变换到当前节点will_change作用的坐标系中（忽略了父willchange的影响）
+                    let m1 ;
+                    let m = if let Some(_) = will_change {
+                        m1 = &will_change_matrix.will_change_matrix * &will_change_matrix.will_change_invert;
+                        &m1
+                    } else {
+                        &will_change_matrix.will_change_invert
+                    };
+                    set_matrix(&m, &camera.view_port, &mut instance_data)
                 },
-                (OverflowDesc::Rotate(matrix), Some(will_change)) => {
-                    set_matrix(&(&will_change.will_change_invert * &matrix.world_rotate), &camera.view_port, &mut instance_data);
+                (OverflowDesc::Rotate(matrix), Some(will_change_matrix)) => {
+                    let m1 ;
+                    let mut m = if let Some(_) = will_change {
+                        m1 = &will_change_matrix.will_change_matrix * &will_change_matrix.will_change_invert;
+                        &m1
+                    } else {
+                        &will_change_matrix.will_change_invert
+                    };
+                    // log::warn!("======================{:?}", (entity, will_change_matrix));
+                    set_matrix(&(m * &matrix.world_rotate), &camera.view_port, &mut instance_data);
                 },
                 (OverflowDesc::Rotate(matrix), None) => set_matrix(&matrix.world_rotate, &camera.view_port, &mut instance_data),
             }

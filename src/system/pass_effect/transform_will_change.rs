@@ -209,7 +209,7 @@ pub fn recursive_set_matrix(
 
     match query_node.get(id) {
         Ok((will_change1, transform, up, layout, world_matrix_invert)) if will_change1.0.is_some() => {
-			let will_change = will_change1.0.as_ref().unwrap();
+            let will_change = will_change1.0.as_ref().unwrap();
             let ((p_matrix, parent_layout), invert) = match (query_matrix.get(up.parent()), &world_matrix_invert.value) {
                 (Ok(r), Some(world_matrix_invert)) => (r, world_matrix_invert),
                 _ => return,

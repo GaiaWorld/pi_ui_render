@@ -921,7 +921,7 @@ pub struct View {
 /// 已经考虑了Overflow、TransformWillChange因素，得到了该节点的真实可视区域
 #[derive(Clone, Debug, Component, Serialize, Deserialize)]
 pub struct ViewBox {
-    /// 当前节点的可视包围盒
+    /// 当前节点的可视包围盒(已考虑transformwillchange)
     /// 其原点位置是对世界原点作本节点旋转变换的逆变换所得
     /// 如果该节点overflow为**false**
     /// ---如果当前节点**存在旋转**，则为当前节点的**ContentBox.oct * 旋转逆矩阵**
