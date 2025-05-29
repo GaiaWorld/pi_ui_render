@@ -224,7 +224,8 @@ pub fn recursive_set_matrix(
 
             
             // 如果父上没有TransformWillChange， 此处m为TransformWillChange作用后， 节点真实的世界矩阵
-            let mut m = p_matrix * &will_change_matrix * invert;
+            let mut m_owner = p_matrix * &will_change_matrix * invert;
+            let mut m = m_owner.clone();
 
             if let Some(parent_will_change_matrix) = &parent_will_change_matrix.0 {
                 // 如果父上下文上存在TransformWillChange， 真实的世界矩阵应该需要与父上下文作用
@@ -245,7 +246,7 @@ pub fn recursive_set_matrix(
                 //         root: layer.root(),
                 //     });
                 // }
-                let will_change_matrix = TransformWillChangeMatrix::new(m.invert().unwrap(), m, will_change_matrix);
+                let will_change_matrix = TransformWillChangeMatrix::new(m.invert().unwrap(), m, m_owner);
                 *r = will_change_matrix.clone();
                 parent_will_change_matrix = will_change_matrix;
                 

@@ -616,7 +616,7 @@ impl TransformWillChangeMatrix {
         TransformWillChangeMatrix(Some(Share::new(TransformWillChangeMatrixInner {
             will_change,
             will_change_invert,
-            will_change_matrix: primitive.clone(), 
+            primitive: primitive.clone(), 
             invert: primitive,
         })))
     }
@@ -630,7 +630,7 @@ pub struct TransformWillChangeMatrixInner {
     pub will_change_invert: WorldMatrix, 
     // pub primitive: WorldMatrix;// = Parent1.WillChangeTransform * Parent2.WillChangeTransform * ... * this.WillChangeTransform
     pub invert: WorldMatrix,  // will_change属性所在节点的世界矩阵的逆， 
-    pub will_change_matrix: WorldMatrix,  // will_change属性所在节点的willchange_transfrom对应的矩阵，
+    pub primitive: WorldMatrix,  // will_change属性所在节点的willchange_transfrom对应的矩阵，
 }
 
 #[derive(Debug, Clone)]
