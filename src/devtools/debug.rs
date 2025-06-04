@@ -25,6 +25,7 @@ use crate::components::calc::StyleMark;
 use crate::components::calc::{TransformWillChangeMatrixInner, TransformWillChangeMatrix};
 use crate::components::draw_obj::FboInfo;
 use crate::components::draw_obj::InstanceIndex;
+use crate::components::draw_obj::Pipeline;
 use crate::components::draw_obj::RenderCount;
 use crate::components::pass_2d::Camera;
 use crate::components::pass_2d::GraphId;
@@ -188,6 +189,7 @@ pub struct RenderObject {
     pub instance_count: usize, // 实例数量
     pub instance_ty: InstanceType,
     pub instance_data: Vec<CommonMeterial>,
+    // pub pipeline: String, 
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -580,10 +582,10 @@ pub fn node_info(world: &World, entity: Entity) -> Info {
     let text_type = &**world.get_single_res::<TextRenderObjType>().unwrap();
 
     let create_render_obj = |instance_index: Range<usize>, id: Entity, instance_ty: InstanceType| {
-        
+        // let pipeline = format!("{:?}",world.get_component::<Pipeline>(id).ok());
         let mut render_obj = RenderObject {
             id: id,
-
+            // pipeline,
             instance_index: instance_index.start / MeterialBind::SIZE .. instance_index.end / MeterialBind::SIZE,
             instance_count: 1,
             instance_ty,

@@ -58,6 +58,7 @@ pub fn calc_drawobj_blendstate(
 		let pipeline = instances.get_or_create_pipeline(&device, blend_state, true);
         for draw_id in draw_list.iter() {
 			let _ = cmds.p1().alter(draw_id.id, (Pipeline(pipeline.clone()), ));
+            // log::warn!("blend==========={:?}", (entity, draw_id.id, blend_mode));
         }
         instances.rebatch = true; // 需要重新批处理
     }
