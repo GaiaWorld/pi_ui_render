@@ -9,10 +9,14 @@ use pi_bevy_ecs_extend::prelude::Root;
 use pi_bevy_ecs_extend::prelude::Up;
 use pi_bevy_ecs_extend::system_param::tree::Layer;
 use pi_bevy_render_plugin::asimage_url::RenderTarget;
+use pi_bevy_render_plugin::PiRenderDevice;
+use pi_bevy_render_plugin::PiRenderGraph;
+use pi_bevy_render_plugin::PiScreenTexture;
 use pi_null::Null;
 use pi_render::rhi::asset::TextureRes;
 use pi_render::rhi::shader::GetBuffer;
 use pi_render::rhi::shader::WriteBuffer;
+use pi_render::rhi::texture::PiRenderDefault;
 use pi_style::style::Aabb2;
 use pi_style::style::ImageRepeat;
 use pi_world::filter::With;
@@ -36,6 +40,7 @@ use crate::components::user::{TextStyle, TextShadow, TextOverflowData, TextConte
 use crate::components::user::{BorderColor, BackgroundColor, BlendMode, ClassName, FlexNormal, MaskImage, MinMax, NodeState, StyleAttribute, FitType, ZIndex, Vector2, TransformWillChange, Transform};
 use crate::components::SettingComponentIds;
 use crate::resource::draw_obj::InstanceContext;
+use crate::resource::draw_obj::LastGraphNode;
 use crate::resource::fragment::DebugInfo;
 use crate::resource::BackgroundColorRenderObjType;
 use crate::resource::BackgroundImageRenderObjType;
@@ -43,6 +48,7 @@ use crate::resource::BorderColorRenderObjType;
 use crate::resource::BorderImageRenderObjType;
 use crate::resource::CanvasRenderObjType;
 use crate::resource::RenderContextMarkType;
+use crate::resource::SystemRunFlag;
 use crate::resource::TextRenderObjType;
 use crate::shader1::batch_meterial::MeterialBind;
 use crate::shader1::batch_meterial::RenderFlagType;
@@ -64,6 +70,8 @@ use crate::resource::ClassSheet;
 use pi_world::prelude::Entity;
 use crate::components::calc::View;
 use smallvec::SmallVec;
+
+use super::canvas_render::CanvasRendererNode;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Quad {
@@ -1105,3 +1113,56 @@ pub struct Layout {
     pub layout_ret: Option<LayoutResult>,
 }
 
+// 使gui失效
+pub fn active_gui(world: &mut World,  active: bool) {
+    if (!active) {
+        let last_node = (**world.get_single_res::<LastGraphNode>().unwrap()).0;
+
+        let mut query = world.query::<(&Canvas, &CanvasGraph), ()>();
+        let mut graphs = Vec::new();
+        for ((canvas, canvas_graphvas)) in query.iter_mut(world) {
+            if canvas.by_draw_list {
+                continue;
+            }
+            if canvas_graphvas.old_canvas_graph_id.is_null() {
+                continue;
+            }
+            graphs.push(canvas_graphvas.old_canvas_graph_id);
+        }
+
+        // 使gui无效渲染
+        // device: &RenderDevice, screen: &PiScreenTexture, surface_format: wgpu::TextureFormat
+        let device = (***world.get_single_res::<PiRenderDevice>().unwrap()).clone();
+        
+        let mut graph = world.get_single_res_mut::<PiRenderGraph>().unwrap();
+        graph.set_finish(last_node, false); // 最终节点设置为无效
+
+        // log::warn!("invalid graph: {:?}", graphs);
+        if graphs.len() > 0 {
+            // 将canvas图节点连接到CanvasRendererNode节点上
+            let screen_texture = &**world.get_single_res::<PiScreenTexture>().unwrap();
+            let node = CanvasRendererNode::new(&device, screen_texture, wgpu::TextureFormat::pi_render_default());
+            let mut graph = world.get_single_res_mut::<PiRenderGraph>().unwrap();
+            let node: pi_bevy_render_plugin::NodeId = graph.add_node("gui canvas copy", node, Null::null()).unwrap();
+            graph.set_finish(node, true); 
+            for graph_id in graphs {
+                graph.add_depend(graph_id, node).unwrap();
+            }
+        }
+
+        // 停止所有的gui system运行
+        world.get_single_res_mut::<SystemRunFlag>().unwrap().0 = false;
+    } else {
+        // 重新启动所有的gui system运行
+        world.get_single_res_mut::<SystemRunFlag>().unwrap().0 = true;
+
+        let last_node = (**world.get_single_res::<LastGraphNode>().unwrap()).0;
+        let mut graph = world.get_single_res_mut::<PiRenderGraph>().unwrap();
+        graph.set_finish(last_node, true); // 最终节点设置为有效
+
+        let _ = graph.remove_node("gui canvas copy");
+    }
+    
+    
+
+}

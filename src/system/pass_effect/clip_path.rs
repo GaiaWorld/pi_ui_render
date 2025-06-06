@@ -9,11 +9,11 @@ use crate::{
         calc::{ContentBox, LayoutResult, OverflowDesc, Quad, TransformWillChangeMatrix, View},
         pass_2d::{Camera, WorldMatrixInvert},
         user::{ClipPath, Point2, Vector4},
-    }, resource::{GlobalDirtyMark, IsRun}, system::base::{
+    }, resource::{GlobalDirtyMark, IsRun}, system::{base::{
         // node::user_setting::user_setting,
         // pass::{last_update_wgpu::last_update_wgpu, pass_camera::calc_camera_depth_and_renderlist},
         node::user_setting::user_setting2, pass::{last_update_wgpu::last_update_wgpu, pass_camera::calc_camera, pass_life, world_invert::calc_world_invert},
-    }, utils::tools::{cal_border_radius, eq_f32}
+    }, system_set::UiSystemSet}, utils::tools::{cal_border_radius, eq_f32}
 };
 use pi_postprocess::prelude::ClipSdf;
 
@@ -29,11 +29,13 @@ impl Plugin for UiClipPathPlugin {
                 .after(user_setting2)
                 .before(pass_life::cal_context)
                 .run_if(clip_change)
+                .in_set(UiSystemSet::IsRun)
                 // ,
         )
         .add_system(UiStage, 
             clip_path_del
                 .after(user_setting2)
+                .in_set(UiSystemSet::IsRun)
                 // 
             )
         .add_system(UiStage, 
@@ -41,6 +43,7 @@ impl Plugin for UiClipPathPlugin {
                 .before(last_update_wgpu)
                 .after(calc_camera)
                 .after(calc_world_invert)
+                .in_set(UiSystemSet::IsRun)
                 // ,
         );
     }

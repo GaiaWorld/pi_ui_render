@@ -32,6 +32,7 @@ impl Plugin for UiPassPlugin {
 				calc_pass
 					.after(calc_camera)
                     .after(UiSystemSet::PassFlush)
+                    .in_set(UiSystemSet::IsRun)
 					
 			)
             .add_system(UiStage, pass_life::cal_pass_life.run_if(pass_life::pass_life_change).in_set(UiSystemSet::PassLife))
@@ -51,12 +52,14 @@ impl Plugin for UiPassPlugin {
             .add_system(UiStage, pass_life::calc_pass_toop_sort
                 // .run_if(pass_life_children)
                 .after(update_graph::update_graph)
+                .in_set(UiSystemSet::IsRun)
             )
             .add_startup_system(UiStage, init_root_graph)
             // 计算图节点及其依赖
             .add_system(UiStage, update_graph::update_graph
                 .after(UiSystemSet::PassSettingWithParent)
                 .after(UiSystemSet::PassSetting)
+                .in_set(UiSystemSet::IsRun)
             )
             // 渲染前，计算Pass的属性
             // 脏区域、相机、深度，更新uniform不顶点buffer到wgpu
@@ -71,7 +74,8 @@ impl Plugin for UiPassPlugin {
                 pass_camera::calc_pass_active
                     // .after(pass_dirty_rect::calc_global_dirty_rect)
                     .after(update_graph::update_graph)
-					.after(UiSystemSet::BaseCalcFlush),
+					.after(UiSystemSet::BaseCalcFlush)
+                    .in_set(UiSystemSet::IsRun),
             )
             
             .add_system(UiStage, 
@@ -86,6 +90,7 @@ impl Plugin for UiPassPlugin {
             .add_system(PostUpdate, 
                 last_update_wgpu::last_update_wgpu
                     .after(GraphBuild)
+                    .in_set(UiSystemSet::IsRun)
                     ,
             )
             .add_system(UiStage, root::root_calc.in_set(UiSystemSet::PassMark))

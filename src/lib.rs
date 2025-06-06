@@ -7,6 +7,10 @@
 #![feature(const_trait_impl)]
 #![feature(adt_const_params)]
 #![allow(invalid_reference_casting)]
+
+use pi_bevy_ecs_extend::prelude::OrInitSingleRes;
+use pi_world::single_res::SingleRes;
+use resource::SystemRunFlag;
 #[allow(deprecated)]
 
 // use pi_hash::XHashSet;
@@ -77,8 +81,26 @@ pub mod prelude {
                 // 
                 .after(UiSystemSet::Setting)
             )
+            
+            .configure_set(UiStage, UiSystemSet::IsRun.run_if(crate::system_is_run))
+            .configure_set(UiStage, UiSystemSet::Setting.in_set(UiSystemSet::IsRun))
+            .configure_set(UiStage, UiSystemSet::NextSetting.in_set(UiSystemSet::IsRun))
+            .configure_set(UiStage, UiSystemSet::ClearSetting.in_set(UiSystemSet::IsRun))
+            .configure_set(UiStage, UiSystemSet::Layout.in_set(UiSystemSet::IsRun))
+            .configure_set(UiStage, UiSystemSet::LayoutAfter.in_set(UiSystemSet::IsRun))
+            .configure_set(UiStage, UiSystemSet::BaseCalc.in_set(UiSystemSet::IsRun))
+            .configure_set(UiStage, UiSystemSet::BaseCalcFlush.in_set(UiSystemSet::IsRun))
+            .configure_set(UiStage, UiSystemSet::LifeDrawObject.in_set(UiSystemSet::IsRun))
+            .configure_set(UiStage, UiSystemSet::LifeDrawObjectFlush.in_set(UiSystemSet::IsRun))
+            .configure_set(UiStage, UiSystemSet::PrepareDrawObj.in_set(UiSystemSet::IsRun))
+            .configure_set(UiStage, UiSystemSet::PassMark.in_set(UiSystemSet::IsRun))
+            .configure_set(UiStage, UiSystemSet::PassLife.in_set(UiSystemSet::IsRun))
+            .configure_set(UiStage, UiSystemSet::PassFlush.in_set(UiSystemSet::IsRun))
+            .configure_set(UiStage, UiSystemSet::PassSetting.in_set(UiSystemSet::IsRun))
+            .configure_set(UiStage, UiSystemSet::PassSettingWithParent.in_set(UiSystemSet::IsRun))
+            .configure_set(UiStage, UiSystemSet::PassCalc.in_set(UiSystemSet::IsRun))
+
             // 所有其他逻辑SystemSet应该在所有指令完成后运行
-            // .configure_set(UiStage, UiSystemSet::Setting.run_if(setting_run))
             // .configure_set(UiStage, UiSystemSet::Layout.run_if(layout_run).after(UiSystemSet::NextSetting))
             // .configure_set(UiStage, UiSystemSet::Matrix.run_if(matrix_run).after(UiSystemSet::NextSetting))
 
@@ -182,6 +204,10 @@ pub mod prelude {
             app.add_plugins(crate::system::base::node::cmd_play::UiCmdTracePlugin { option: self.cmd_trace });
         }
     }
+}
+
+pub fn system_is_run(flag: OrInitSingleRes<SystemRunFlag>) -> bool {
+    return flag.0;
 }
 
 // pub fn clear_remove_component(world: &mut pi_world::prelude::World) {

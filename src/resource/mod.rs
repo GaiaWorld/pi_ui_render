@@ -72,6 +72,16 @@ pub enum OtherDirtyType {
     
 }
 
+// 系统运行标志， 为false， 所有guisystem暂停运行
+#[derive(Clone, Debug, Serialize, Deserialize)]
+
+pub struct SystemRunFlag(pub bool);
+impl Default for SystemRunFlag {
+    fn default() -> Self {
+        Self(true)
+    }
+}
+
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct RenderDirty(pub bool/*外部需要渲染设脏， 设置此字段，每帧会被清理*/, pub bool/*当前帧是否脏*/, pub bool/*上一帧是否脏*/);
 

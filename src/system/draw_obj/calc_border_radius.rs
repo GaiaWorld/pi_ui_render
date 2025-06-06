@@ -36,7 +36,8 @@ impl Plugin for BorderRadiusPlugin {
         .add_system(UiStage, 
             calc_border_radius
                 .after(world_matrix::cal_matrix)
-                .before(UiSystemSet::LifeDrawObjectFlush),
+                .before(UiSystemSet::LifeDrawObjectFlush)
+                .in_set(UiSystemSet::IsRun),
         )
 		;
     }

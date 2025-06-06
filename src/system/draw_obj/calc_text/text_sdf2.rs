@@ -123,6 +123,7 @@ impl Plugin for Sdf2TextPlugin {
 					.before(update_render_instance_data)
 					.after(UiSystemSet::Layout)
 					.run_if(text_len_change)
+					.in_set(UiSystemSet::IsRun)
 			)
 			// 更新实例数据
 			.add_system(

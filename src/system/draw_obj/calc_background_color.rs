@@ -53,6 +53,7 @@ impl Plugin for BackgroundColorPlugin {
 				.before(update_render_instance_data)
 				.after(calc_layout)
 				.run_if(background_color_change)
+				.in_set(UiSystemSet::IsRun)
 		)
 		;
     }

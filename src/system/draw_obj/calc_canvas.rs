@@ -47,6 +47,7 @@ impl Plugin for CanvasPlugin {
 			calc_canvas_graph
 				.after(update_graph)
 				.before(update_render_instance_data)
+				.in_set(UiSystemSet::IsRun)
 				
 		)
 		;

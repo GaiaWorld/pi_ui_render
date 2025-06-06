@@ -100,6 +100,7 @@ impl Plugin for UiShaderPlugin {
 			.add_system(UiStage, screen_target_resize
                 // 
                 .before(UiSystemSet::Setting)
+                .in_set(UiSystemSet::IsRun)
             )
 			// .add_startup_system(color::init)
 			// .add_startup_system(image::init)

@@ -18,7 +18,7 @@ use pi_render::rhi::asset::{AssetWithId, TextureAssetDesc, TextureRes};
 use pi_share::Share;
 use smallvec::SmallVec;
 use pi_world::prelude::Plugin;
-use crate::{prelude::UiStage, system::base::pass::pass_life};
+use crate::{prelude::UiStage, system::{base::pass::pass_life, system_set::UiSystemSet}};
 use pi_world::prelude::IntoSystemConfigs;
 
 
@@ -36,6 +36,7 @@ impl Plugin for ImageLoadPlugin {
 
 				.after(update_graph::update_graph)
                 .before(pass_life::calc_pass_toop_sort)
+                .in_set(UiSystemSet::IsRun)
             )
         ;
     }
