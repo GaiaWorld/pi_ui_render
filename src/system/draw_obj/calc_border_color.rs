@@ -353,7 +353,7 @@ fn boder_sdf_info(
     let max_size = (rd.x[0].max(border.left) + rd.x[1].max(border.right))
 						.max(rd.x[2].max(border.right) + rd.x[3].max(border.left))
 						.max(rd.y[0].max(border.top) + rd.y[3].max(border.top))
-						.max(rd.y[1].max(border.bottom) + rd.y[2].max(border.bottom)) * scale;
+						.max(rd.y[1].max(border.bottom) + rd.y[2].max(border.bottom)) + 0.00001 * scale;
 
     let size = radius_edge_size(max_size);
     // let size = 32.0 * level;

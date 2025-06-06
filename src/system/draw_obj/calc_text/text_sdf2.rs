@@ -190,17 +190,18 @@ pub fn text_outer_glow_change(mark: SingleRes<GlobalDirtyMark>) -> bool {
 /// 
 pub fn calc_sdf2_text_len(
 	mut events: OrInitSingleResMut<TextTemp>,
-    query: Query<(
+    mut query: Query<(
 		Entity, 
 		&NodeState, 
 		Option<&TextOverflowData>, 
-		&DrawList, 
+		&mut DrawList, 
 		&LayoutResult,
 		Option<&TextShadow>, 
 		OrDefault<TextStyle>,
 		Option<&TextOuterGlow>,
 		&Up,
 		&Layer,
+		&TextContent,
 	), (
 		Or<(Changed<NodeState>, 
 		Changed<TextOverflowData>, 
@@ -225,14 +226,15 @@ pub fn calc_sdf2_text_len(
 		entity,
 		node_state, 
 		text_overflow_data,
-		draw_list,
+		mut draw_list,
 		layout,
 		text_shadow,
 		text_style,
 		text_outer_glow,
 		mut up,
 		layer,
-	) in query.iter() {
+		text_content,
+	) in query.iter_mut() {
 		if layer.layer().is_null() {
 			continue;
 		}
@@ -291,7 +293,12 @@ pub fn calc_sdf2_text_len(
 		
 		let diff = render_count.0 as i32 - count as i32;
 		if diff < 0 || diff > 10 { // 这里， 为文字数量保有一定的变动空间，防止像倒计时这类的文字，数量发生变化后，使得批渲数据重新分配
+			if count as u32 > render_count.0 {
+				// log::debug!("changed==========={:?}", (draw_id, count, render_count.0, text_content));
+				draw_list.set_changed(); // 渲染数量修改， 设置为DrawList修改， 使得其他系统能正确更新实例数据（比如世界矩阵）
+			}
 			render_count.0 = count as u32;
+		
 			global_mark.mark.set(OtherDirtyType::InstanceCount as usize, true);
 			log::debug!("node_changed2============");
 		}
@@ -928,7 +935,7 @@ impl<'a> UniformData<'a> {
 			Some(r) => r,
 			None => return
 		};
-		// log::warn!("calc_result========c: {:?}, ch_id: {:?}, glyph: {:?}", c.ch, c.ch_id, glyph,  );
+		log::debug!("push_pos_uv========c: {:?}, ch_id: {:?}, glyph: {:?}, metrics: {:?}", c.ch, c.ch_id, glyph,  metrics);
 
 
 		if let Some(text_outer_glow) = self.text_outer_glow {

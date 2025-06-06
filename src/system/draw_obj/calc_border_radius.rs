@@ -47,7 +47,7 @@ pub fn calc_border_radius(
     removed: ComponentRemoved<BorderRadius>,
     // query_delete: Query<(Has<BorderRadius>, &'static DrawList)>,
     mut query: Query<
-        (&'static BorderRadius, &'static LayoutResult, &mut SdfUv, &mut SdfSlice, &WorldMatrix),
+        (&'static BorderRadius, &'static LayoutResult, &mut SdfUv, &mut SdfSlice, &WorldMatrix, pi_world::prelude::Entity),
         Or<(Changed<BorderRadius>, Changed<WorldMatrix>)>,
     >,
 
@@ -94,7 +94,7 @@ pub fn calc_border_radius(
         let mut font_sheet = font_sheet.borrow_mut();
         let sdf2_table = &mut font_sheet.font_mgr_mut().table.sdf2_table;
 
-        for (border_radius, layout, mut sdf_uv, mut sdf_slice, world_matrix) in query.iter_mut() {
+        for (border_radius, layout, mut sdf_uv, mut sdf_slice, world_matrix, entity) in query.iter_mut() {
             let scale = world_matrix.column(0).x.min(world_matrix.column(1).y);
             let width = layout.rect.right - layout.rect.left;
             let height = layout.rect.bottom - layout.rect.top; 
@@ -254,7 +254,8 @@ fn boder_sdf_info(rd: &BorderRadiusPixel, scale: f32) -> BorderSdfInfo {
     // let max_radius = rd.x[0].max(rd.x[1]).max(rd.y[0]).max(rd.y[1]).max(rd.x[2]).max(rd.y[2]).max(rd.x[3]).max(rd.y[3]) * scale;
     
     // 最小边
-    let max_size = (rd.x[0] + rd.x[1]).max(rd.x[2] + rd.x[3]).max(rd.y[0] + rd.y[3]).max(rd.y[1] + rd.y[2]) * scale;
+    let mut max_size = (rd.x[0] + rd.x[1]).max(rd.x[2] + rd.x[3]).max(rd.y[0] + rd.y[3]).max(rd.y[1] + rd.y[2]) + 0.0001;
+    max_size = max_size* scale;
 
     let size = radius_edge_size(max_size);
     // let size = 32.0 * level;

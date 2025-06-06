@@ -616,7 +616,7 @@ impl TransformWillChangeMatrix {
         TransformWillChangeMatrix(Some(Share::new(TransformWillChangeMatrixInner {
             will_change,
             will_change_invert,
-            will_change_matrix: primitive.clone(), 
+            primitive: primitive.clone(), 
             invert: primitive,
         })))
     }
@@ -630,7 +630,7 @@ pub struct TransformWillChangeMatrixInner {
     pub will_change_invert: WorldMatrix, 
     // pub primitive: WorldMatrix;// = Parent1.WillChangeTransform * Parent2.WillChangeTransform * ... * this.WillChangeTransform
     pub invert: WorldMatrix,  // will_change属性所在节点的世界矩阵的逆， 
-    pub will_change_matrix: WorldMatrix,  // will_change属性所在节点的willchange_transfrom对应的矩阵，
+    pub primitive: WorldMatrix,  // will_change属性所在节点的willchange_transfrom对应的矩阵，
 }
 
 #[derive(Debug, Clone)]
@@ -921,7 +921,7 @@ pub struct View {
 /// 已经考虑了Overflow、TransformWillChange因素，得到了该节点的真实可视区域
 #[derive(Clone, Debug, Component, Serialize, Deserialize)]
 pub struct ViewBox {
-    /// 当前节点的可视包围盒
+    /// 当前节点的可视包围盒(已考虑transformwillchange)
     /// 其原点位置是对世界原点作本节点旋转变换的逆变换所得
     /// 如果该节点overflow为**false**
     /// ---如果当前节点**存在旋转**，则为当前节点的**ContentBox.oct * 旋转逆矩阵**

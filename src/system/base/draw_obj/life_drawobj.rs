@@ -976,6 +976,7 @@ fn batch_pass(
 				instance_data_end1 = instance_data_end;
 				instance_data_end = index.end;
 				let cur_pipeline = if let Some(pipeline) = pipeline {
+					// log::warn!("pipeline======{:?}", (pass_id, draw_entity, Share::as_ptr(&pipeline.0), Share::as_ptr(&root_state.pre_pipeline), &instance_split));
 					&pipeline.0
 				} else {
 					&instances.common_pipeline
@@ -1203,7 +1204,7 @@ fn batch_pass(
 		instances.draw_list.push((DrawElement::DrawInstance {
 			draw_state: InstanceDrawState { 
 				instance_data_range: instance_data_start..instance_data_end, 
-				pipeline: Some(instances.common_pipeline.clone()),
+				pipeline: Some(root_state.pre_pipeline.clone()),
 				texture_bind_group: None,
 			},
 			depth_start: 0,

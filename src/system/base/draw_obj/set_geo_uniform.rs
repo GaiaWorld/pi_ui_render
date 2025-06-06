@@ -19,7 +19,8 @@ pub fn set_matrix_uniform(
 		return;
 	}
 
-    if global_mark.mark.get(OtherDirtyType::DrawObjCreate as usize).map_or(false, |display| {*display == true}) {
+    if global_mark.mark.get(OtherDirtyType::DrawObjCreate as usize).map_or(false, |display| {*display == true}) || 
+        global_mark.mark.get(OtherDirtyType::InstanceCount as usize).map_or(false, |display| {*display == true})  {
         for data in query.iter() {
             set_matrix_uniform_inner(data, &mut instances, &query_draw, &query_parent); 
         }
@@ -45,6 +46,7 @@ pub fn set_matrix_uniform_inner(
     }
     for draw_id in draw_list.0.iter() {
         if let Ok((instance_index, box_type, render_count)) = query_draw.get(draw_id.id) {
+            // log::debug!("set_matrix_uniform_inner==========={:?}", (draw_id.id, render_count));
             while node_state.is_vnode() {
                 if let Ok((node_state1, world_matrix1, up1)) = query_parent.get(up.parent()) {
                     node_state = node_state1;

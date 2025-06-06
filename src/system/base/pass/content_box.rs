@@ -127,7 +127,7 @@ pub fn calc_content_box(
                         // log::warn!("context_box1======: id: {:?} child: {:?} layout: {:?}, layout: {:?}", id, child, oct, content_box_item.oct);
                         if let (Some(_transform_will_change), Some(TransformWillChangeMatrix(Some(transform_will_change_matrix)))) = (transform_will_change, transform_will_change_matrix) {
                             
-                            let child_oct = calc_bound_box(&content_box_item.oct, &(world_matrix.clone() * &transform_will_change_matrix.will_change_matrix * &transform_will_change_matrix.invert) );
+                            let child_oct = calc_bound_box(&content_box_item.oct, &transform_will_change_matrix.primitive );
                             box_and(&mut oct, &child_oct);
                         } else {
                             box_and(&mut oct, &content_box_item.oct);

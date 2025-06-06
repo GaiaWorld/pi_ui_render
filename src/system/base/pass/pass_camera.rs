@@ -39,6 +39,7 @@ pub fn calc_pass_dirty(
     mut render_dirty: OrInitSingleResMut<RenderDirty>,
     style_dirty_list: Event<StyleChange>,
     quad_changed: ComponentChanged<Quad>,
+    willchange_changed: ComponentChanged<TransformWillChangeMatrix>,
 
     bg_image_changed: ComponentChanged<BackgroundImageTexture>,
     border_image_changed: ComponentChanged<BorderImageTexture>,
@@ -61,6 +62,7 @@ pub fn calc_pass_dirty(
         border_image_changed.mark_read();
         canvas_changed.mark_read();
         mask_image_changed.mark_read();
+        willchange_changed.mark_read();
         render_dirty.1 = true;
         return;
     }
@@ -86,7 +88,24 @@ pub fn calc_pass_dirty(
     border_image_changed.len() > 0 ||
     canvas_changed.len() > 0 ||
     mask_image_changed.len() > 0 {
-        for node_id in quad_changed.iter().chain(bg_image_changed.iter()).chain(border_image_changed.iter()).chain(canvas_changed.iter()).chain(mask_image_changed.iter()) {
+        for node_id in quad_changed.iter()
+            .chain(bg_image_changed.iter())
+            .chain(border_image_changed.iter())
+            .chain(canvas_changed.iter())
+            .chain(mask_image_changed.iter())  {
+            let in_pass_id = match query1.get(*node_id) {
+                Ok(r) => r,
+                _ => continue,
+            };
+            is_dirty = true;
+            // log::debug!("dirty========other {:?}, {:?}", node_id, in_pass_id);
+            mark_pass_dirty(***in_pass_id, &mut query);
+        }
+    }
+
+    if willchange_changed.len() > 0 {
+         for node_id in willchange_changed.iter() {
+            mark_pass_dirty(*node_id, &mut query);
             let in_pass_id = match query1.get(*node_id) {
                 Ok(r) => r,
                 _ => continue,

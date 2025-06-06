@@ -112,7 +112,7 @@ impl Example for QuadExample {
 
         if self.i < 1010 {
             if self.i == 0 {
-                self.move_y = 50.0;
+                // self.move_y = 50.0;
                 println!("xxx==========={:?}", self.move_y);
                 cmd.set_style(self.div2.0, TransformWillChangeType(true));
                 let mut transform_willchange = Vec::default();
