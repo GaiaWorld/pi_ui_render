@@ -5,7 +5,7 @@ use std::collections::hash_map::Entry;
 use pi_bevy_render_plugin::{
     node::{Node, NodeId as GraphNodeId, ParamUsage}, PiRenderDevice, PiRenderGraph, PiSafeAtlasAllocator, RenderContext
 };
-use pi_flex_layout::prelude::CharNode;
+use pi_flex_layout::prelude::{CharNode, Rect};
 use pi_futures::BoxFuture;
 use pi_hal::font::sdf2_table::sdf_font_size;
 use pi_hal::font::sdf_table::MetricsInfo;
@@ -21,7 +21,7 @@ use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, OrInitSingleRes, Up, Layer
 use pi_hal::font::font::FontType;
 // use pi_hal::pi_sdf::glyphy::geometry::aabb::AabbEXT;
 use pi_render::{components::view::target_alloc::{Fbo, ShareTargetView}, font::{FontSheet, Glyph, GlyphId}};
-use pi_style::style::{Aabb2, CgColor, Point2, StyleType, TextOverflow};
+use pi_style::style::{Aabb2, CgColor, ColorAndPosition, LinearGradientColor, Point2, StyleType, TextOverflow};
 use pi_world::single_res::SingleRes;
 use pi_world::system_params::SystemParam;
 use wgpu::{ BindGroupLayout, CommandEncoder, RenderPass, Sampler};
@@ -900,17 +900,19 @@ impl<'a> UniformData<'a> {
 				calc_result.text.text_geo.colors = VColor::CgColor(r.clone());
 			},
 			Color::LinearGradient(color) => {
+				log::debug!("text LinearGradient1============instance_count: {:?}", (color, &self.own_layout.padding_rect(), calc_result.instance_count, &mut temp.buffer));
 				calc_result.text.text_geo.linear_gradient_split(color, &self.own_layout.padding_rect(), &mut temp.buffer);
 				let out_indices = match &calc_result.text.text_geo.polygons {
 					PolygonType::NoRule(indices) => {
 						let mut out_indices = Vec::with_capacity(indices.counts.len() * 4); // 预计多边形为四边形
 						mult_to_triangle(&indices, &mut out_indices);
 						out_indices
+						
 					},
 					_ => todo!(), // 不会是三角形和规则多边形
 				};
 				calc_result.instance_count += out_indices.len() / 3;
-				log::debug!("text LinearGradient============instance_count: {:?}", calc_result.instance_count);
+				log::debug!("text LinearGradient2============instance_count: {:?}", (calc_result.instance_count, &mut temp.buffer, &out_indices));
 				calc_result.text.text_geo.polygons = PolygonType::Triangle(out_indices);
 			},
 		}
@@ -936,7 +938,7 @@ impl<'a> UniformData<'a> {
 			Some(r) => r,
 			None => return
 		};
-		log::debug!("push_pos_uv========c: {:?}, ch_id: {:?}, glyph: {:?}, metrics: {:?}", c.ch, c.ch_id, glyph,  metrics);
+		log::debug!("push_pos_uv========p_start: {:?}, c: {:?}, ch_id: {:?}, glyph: {:?}, metrics: {:?}", temp.buffer.positions.len(), c.ch, c.ch_id, glyph,  metrics);
 
 
 		if let Some(text_outer_glow) = self.text_outer_glow {
@@ -1302,3 +1304,30 @@ impl FboBindGroups {
 		}
 	}
 }
+
+#[test]
+fn test() {
+
+	let mut temp = TextTemp::default();
+	// [1520.0, 266.0, 1549.0, 308.0, 1520.0, 308.0, 1549.0, 266.0, 1519.9999, 266.29248, 1549.0, 266.29248]
+	temp.buffer.positions.extend_from_slice(&[-1.734375, -0.26953125, 24.0, 38.433594]);
+	temp.buffer.sdf_uvs.extend_from_slice(&[1520.0, 266.0, 1549.0, 308.0]);
+	let mut text_geo = TempGeo::default();
+	text_geo.polygons = PolygonType::Rect(0..4);  // 规则的四边形
+	text_geo.linear_gradient_split(&LinearGradientColor {
+    direction: 90.0,
+    list: vec![ColorAndPosition { position: 0.0, rgba: CgColor::new(0.0, 0.0, 0.0, 1.0) },ColorAndPosition { position: 1.0, rgba: CgColor::new(1.0, 0.0, 0.0, 1.0) }],
+}, &Rect { left: 0.0, right: 21.992188, top: 0.0, bottom: 40.0 }, &mut temp.buffer);
+	let out_indices = match &text_geo.polygons {
+		PolygonType::NoRule(indices) => {
+			let mut out_indices = Vec::with_capacity(indices.counts.len() * 4); // 预计多边形为四边形
+			mult_to_triangle(&indices, &mut out_indices);
+			out_indices
+			
+		},
+		_ => todo!(), // 不会是三角形和规则多边形
+	};
+
+	println!("zzz====={:?}, {:?}", &temp.buffer.positions, (out_indices, &temp.buffer.sdf_uvs));
+
+} 

@@ -1763,12 +1763,12 @@ pub mod serialize {
         // /// 安全： entity必须存在
         // fn set(&self, cur_style_mark: &mut StyleMarkType, buffer: &Vec<u8>, offset: usize, query: &mut Setting, entity: Entity);
         /// 安全： entity必须存在
-        set: fn(ptr: *const u8, query: &mut Setting, entity: Entity, is_clone: bool),
+        pub set: fn(ptr: *const u8, query: &mut Setting, entity: Entity, is_clone: bool),
 
         /// 设置默认值
         set_default: fn(buffer: &Vec<u8>, offset: usize, world: &mut World, query: &DefaultStyle),
         to_attr: fn(ptr: *const u8) -> Attribute,
-        push_component_ops: fn (ids: &SettingComponentIds, arr: &mut Vec<(ComponentIndex, bool)>),
+        pub push_component_ops: fn (ids: &SettingComponentIds, arr: &mut Vec<(ComponentIndex, bool)>),
     }
 
     impl StyleFunc {
@@ -1810,10 +1810,10 @@ pub mod serialize {
         // /// 安全： entity必须存在
         // fn set(&self, cur_style_mark: &mut StyleMarkType, buffer: &Vec<u8>, offset: usize, query: &mut Setting, entity: Entity);
         /// 安全： entity必须存在
-        set: fn(ptr: *const u8, query: &mut Setting, entity: Entity, is_clone: bool),
+        pub set: fn(ptr: *const u8, query: &mut Setting, entity: Entity, is_clone: bool),
 
         to_attr: fn(ptr: *const u8) -> SvgTypeAttr,
-        push_component_ops: fn (ids: &SettingComponentIds, arr: &mut Vec<(ComponentIndex, bool)>),
+        pub push_component_ops: fn (ids: &SettingComponentIds, arr: &mut Vec<(ComponentIndex, bool)>),
     }
 
     impl SvgFunc {
@@ -1834,7 +1834,7 @@ pub mod serialize {
 
     lazy_static::lazy_static! {
 
-        static ref STYLE_ATTR: [StyleFunc; 97] = [
+        pub static ref STYLE_ATTR: [StyleFunc; 97] = [
             StyleFunc::new::<BackgroundRepeatType>(), // 0
             StyleFunc::new::<FontStyleType>(), // 1
             StyleFunc::new::<FontWeightType>(), // 2
@@ -1959,7 +1959,7 @@ pub mod serialize {
 		];
 
 		
-		static ref RESET_STYLE_ATTR: [ResetStyleFunc; 97] = [
+		pub static ref RESET_STYLE_ATTR: [ResetStyleFunc; 97] = [
         /******************************* reset ******************************************************/
             ResetStyleFunc::new::<ResetBackgroundRepeatType>(), // 0
             ResetStyleFunc::new::<ResetFontStyleType>(), // 1
