@@ -179,11 +179,11 @@ pub fn enum_type(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 #(#attr(#attr_types),)*
             }
 
-            static #list_name: [#func; #len] = [
+            pub static #list_name: [#func; #len] = [
                 #(#func::new::<#attr_types>(),)*   
             ];
 
-            static #reset_list_name: [#reset_func; #len] = [
+            pub static #reset_list_name: [#reset_func; #len] = [
                 #(#reset_func::new::<#reset_types>(),)*   
             ];
             

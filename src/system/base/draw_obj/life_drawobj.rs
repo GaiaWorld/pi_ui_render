@@ -1067,6 +1067,15 @@ fn batch_pass(
 							log::debug!("pass=========={:?}", (pass_id, cur_pass, index.start/224, &r.target().colors[0].1));
 							split_by_texture = Some((index.clone(), &r.target().colors[0].0, &query.common_sampler.pointer)); // fbo拷贝使用点采样
 
+							// debug版本， 判断纹理是否冲突
+							#[cfg(debug_assertions)]
+							{
+								let (_, _, parent_fbo_info, _) = query.draw_query.get(parent_pass_id).unwrap();
+
+								if r.target().colors[0].0.id == parent_fbo_info.fbo.as_ref().unwrap().target().colors[0].0.id {
+									log::error!("texture conflicting, {:?}", (cur_pass.0, parent_pass_id));
+								}
+							}
 						}
 
 						// #[cfg(debug_assertions)]
@@ -1081,7 +1090,7 @@ fn batch_pass(
 					&instances.common_pipeline
 				},
 				_ => {
-					// 将当前剩余未批处理的数据合批
+					// 将当前剩余未批处理的数据合批(相机发生改变，需要分批)
 					if instance_data_start < instance_data_end {
 						instances.draw_list.push((DrawElement::DrawInstance {
 							draw_state: InstanceDrawState { 

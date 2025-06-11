@@ -437,6 +437,7 @@ impl TempGeo {
                     let mut render_flag = instance_data.get_render_ty();
                     render_flag |= 1 << RenderFlagType::LinearGradient as usize;
                     render_flag |= 1 << RenderFlagType::Stroke as usize;
+                    render_flag &= !(1 << RenderFlagType::Invalid as usize);
                     instance_data.set_data(&TyMeterial(&[render_flag as f32]));
         
                     let p = [
@@ -461,6 +462,7 @@ impl TempGeo {
                     if let Some(other_info) = other_info {
                         instance_data.set_data(&SdfUniform(&other_info.sdf_info));
                         instance_data.set_data(&StrokeColorUniform(&other_info.stroke_color));
+                        // instance_data.set_data(&TyMeterial(&[other_info.ty]));
                     }
 
                     // 当为渐变颜色时， 不会存在uv

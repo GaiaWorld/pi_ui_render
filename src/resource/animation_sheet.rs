@@ -1,10 +1,11 @@
 //！ 动画表资源
 use std::{any::Any, collections::VecDeque, mem::replace};
 
-use pi_world::prelude::Entity;
+use pi_world::{prelude::Entity, world::ComponentIndex};
 use bitvec::array::BitArray;
 use log::{debug, warn};
 use ordered_float::NotNan;
+use pi_style::{style::{StyleType, GUI_STYLE_COUNT}, style_type::{Attr, STYLE_COUNT}};
 use pi_animation::{
     amount::AnimationAmountCalc,
     animation::AnimationInfo,
@@ -31,10 +32,12 @@ use pi_style::style::{AnimationDirection, AnimationTimingFunction};
 use pi_style::{style_parse::Attribute, style_type::*};
 use smallvec::SmallVec;
 
-use crate::components::{calc::StyleMarkType, user::{serialize::AttrSet, Animation}};
+use crate::{components::{calc::{StyleMark, StyleMarkType}, user::{serialize::{AttrSet, Setting, StyleAttr, STYLE_ATTR, SVGTYPE_ATTR}, Animation}}, system::base::node::user_setting::StyleDirtyList};
 use pi_style::style::Time;
 
-use super::StyleCommands;
+use super::GlobalDirtyMark;
+
+// use super::StyleCommands;
 
 /// 曲线管理器
 pub struct CurveMgr {
@@ -232,7 +235,7 @@ pub enum KeyFrameError {
 
 impl KeyFramesSheet {
     // 推动动画
-    pub fn run(&mut self, style_commands: &mut StyleCommands, delta_ms: u64) {
+    pub fn run(&mut self, style_commands: &mut AnimationStyle, delta_ms: u64) {
         // self.run_count += 1;
         self.runtime_info_map.reset();
         self.animation_context_amount.anime_curve_calc(delta_ms, &mut self.runtime_info_map);
@@ -359,7 +362,7 @@ impl KeyFramesSheet {
 		self.group_bind.insert(group0, (target, GroupType::Transition(property)));
 
 		let duration = *duration as f32 / 1000.0;
-		let delay = *delay as f32 / 1000.0;
+		let delay = *delay as f32;
 		let _ = self.animation_context_amount
 			.force_group_total_frames(group0, Some(FRAME_COUNT), FRAME_COUNT as FramePerSecond);
 		self.animation_context_amount
@@ -765,8 +768,8 @@ impl KeyFramesSheet {
                 AnimationDirection::AlternateReverse => ELoopMode::OppositePly(iter_count),
             };
 
-            let duration = *Animation::get_attr(i, &animation.duration) as f32 / 1000.0;
-            let delay = *Animation::get_attr(i, &animation.delay) as f32 / 1000.0;
+            let duration = *Animation::get_attr(i, &animation.duration) as f32 / 1000.0; // 单位s
+            let delay = *Animation::get_attr(i, &animation.delay) as f32; // 单位ms
             let file_mode = Animation::get_attr(i, &animation.fill_mode);
             let timing_function = Animation::get_attr(i, &animation.timing_function);
             // let frame_per_second = (FRAME_COUNT / duration).round() as u16;
@@ -878,7 +881,7 @@ impl AnimationType {
 
 pub struct AnimationType {
     context: Box<dyn Any>, // TypeAnimationContext<T>
-    run: fn(context: &Box<dyn Any>, runtime_infos: &RuntimeInfoMap<ObjKey>, style_commands: &mut StyleCommands),
+    run: fn(context: &Box<dyn Any>, runtime_infos: &RuntimeInfoMap<ObjKey>, style_commands: &mut AnimationStyle),
     // create_animation: fn(context: &mut Box<dyn Any>, curve_ptr: usize) -> AnimationInfo,
     remove_animation: fn(context: &mut Box<dyn Any>, info: &AnimationInfo),
     add_target_animation: fn(
@@ -892,7 +895,7 @@ pub struct AnimationType {
 }
 
 trait AnimationTypeInterface {
-    fn run(context: &Box<dyn Any>, runtime_infos: &RuntimeInfoMap<ObjKey>, style_commands: &mut StyleCommands);
+    fn run(context: &Box<dyn Any>, runtime_infos: &RuntimeInfoMap<ObjKey>, style_commands: &mut AnimationStyle);
     // fn add_frame_curve(context: &mut Box<dyn Any>, curve_infos: &mut FrameCurveInfoManager, curve_ptr: usize) -> CurveId;
     // fn create_animation(context: &mut Box<dyn Any>, curve_ptr: usize) -> AnimationInfo;
     fn remove_animation(context: &mut Box<dyn Any>, info: &AnimationInfo);
@@ -907,7 +910,7 @@ trait AnimationTypeInterface {
 }
 
 impl<T: AttrSet + FrameDataValue> AnimationTypeInterface for T {
-    fn run(context: &Box<dyn Any>, runtime_infos: &RuntimeInfoMap<ObjKey>, style_commands: &mut StyleCommands) {
+    fn run(context: &Box<dyn Any>, runtime_infos: &RuntimeInfoMap<ObjKey>, style_commands: &mut AnimationStyle) {
         if let Err(e) = context
             .downcast_ref::<TypeAnimationMgr<Self>>()
             .unwrap()
@@ -952,7 +955,31 @@ impl<T: AttrSet + FrameDataValue> AnimationTypeInterface for T {
     }
 }
 
-impl<F: AttrSet + FrameDataValue> TypeAnimationResultPool<F, ObjKey> for StyleCommands {
+// impl<F: AttrSet + FrameDataValue> TypeAnimationResultPool<F, ObjKey> for StyleCommands {
+//     fn record_target(&mut self, _id_target: ObjKey) {
+//         // todo!()
+//     }
+
+//     fn record_result(
+//         &mut self,
+//         entity: ObjKey,
+//         _id_attr: pi_animation::target_modifier::IDAnimatableAttr,
+//         result: pi_animation::animation_result_pool::AnimeResult<F>,
+//     ) -> Result<(), pi_animation::error::EAnimationError> {
+//         out_any!(log::trace, "record animation result===={:?}, {:?}", &result.value, entity);
+//         self.set_style(entity, result.value);
+//         Ok(())
+//     }
+// }
+
+pub struct AnimationStyle<'a, 'w, 's> {
+    pub style_query: &'a mut Setting<'w>,
+    pub dirty_list: &'a mut StyleDirtyList<'w, 's>,
+    pub global_mark: &'a mut GlobalDirtyMark,
+    pub components_ids: Vec<(ComponentIndex, bool)>,
+}
+
+impl<'a, 'w, 's, F: AttrSet + FrameDataValue> TypeAnimationResultPool<F, ObjKey> for AnimationStyle<'a, 'w, 's> {
     fn record_target(&mut self, _id_target: ObjKey) {
         // todo!()
     }
@@ -964,10 +991,50 @@ impl<F: AttrSet + FrameDataValue> TypeAnimationResultPool<F, ObjKey> for StyleCo
         result: pi_animation::animation_result_pool::AnimeResult<F>,
     ) -> Result<(), pi_animation::error::EAnimationError> {
         out_any!(log::trace, "record animation result===={:?}, {:?}", &result.value, entity);
-        self.set_style(entity, result.value);
+        let style_index = F::get_style_index();
+        self.set_style(entity, style_index, &result.value as *const F as usize as *const u8);
         Ok(())
     }
 }
+
+impl<'a, 'w, 's> AnimationStyle<'a, 'w, 's> {
+    pub fn set_style(&mut self, entity: Entity, style_index: u16, ptr: *const u8) {
+        let mut style_mark = if let Ok(mut style_mark) = self.style_query.world.get_component_mut_by_index::<StyleMark>(entity, self.style_query.style.style_mark) {
+            style_mark
+        } else {
+            log::debug!("node is not exist: {:?}", entity);
+            // 不存在实体，不处理
+            return;
+        };
+        log::trace!("set animation style==========={:?}", entity);
+        
+        if style_index < STYLE_COUNT * 2 {
+            if style_index >= GUI_STYLE_COUNT {
+                log::debug!("style_index: {}", style_index);
+                let index = (style_index - 97) as usize;
+                (SVGTYPE_ATTR[index].push_component_ops)(&self.style_query.style, &mut self.components_ids);
+                if self.components_ids.len() > 0 {
+                    let _ = self.style_query.world.make_entity_editor().alter_components_by_index(entity, &self.components_ids);
+                    self.components_ids.clear();
+                }
+                (SVGTYPE_ATTR[index].set)(ptr, &mut self.style_query, entity, true);
+            } else {
+                (STYLE_ATTR[(style_index) as usize].push_component_ops)(&self.style_query.style, &mut self.components_ids);
+                if self.components_ids.len() > 0 {
+                    let _ = self.style_query.world.make_entity_editor().alter_components_by_index(entity, &self.components_ids);
+                    self.components_ids.clear();
+                }
+                (STYLE_ATTR[style_index as usize].set)(ptr, &mut self.style_query, entity, true);
+            }
+            style_mark.local_style.set(style_index as usize, true);
+            style_mark.dirty_style.set(style_index as usize, true);
+            self.global_mark.mark.set(style_index as usize, true);
+        } 
+
+        self.dirty_list.mark_dirty(entity);
+    }
+}
+
 
 
 const FRAME_COUNT: f32 = 10000.0;

@@ -63,6 +63,7 @@ impl Plugin for BorderImagePlugin {
 					.before(update_render_instance_data)
 					.after(calc_layout)
 					.run_if(border_texture_change)
+					.in_set(UiSystemSet::IsRun)
 			)
 		;
     }

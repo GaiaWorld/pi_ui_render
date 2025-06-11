@@ -67,10 +67,12 @@ impl Plugin for UiReadyDrawPlugin {
 				.after(update_graph)
 				.after(pass_life::calc_pass_toop_sort)
 				.before(UiSystemSet::PrepareDrawObj)
+				.in_set(UiSystemSet::IsRun)
 				)
 			.add_system(PostUpdate, batch_instance_data
 				.before(last_update_wgpu)
 				.after(GraphBuild)
+				.in_set(UiSystemSet::IsRun)
 				)
             .add_system(UiStage, root_view_port::calc_dyn_target_type.in_set(UiSystemSet::BaseCalc))
             // .add_system(UiStage, pipeline::calc_node_pipeline.in_set(UiSystemSet::PrepareDrawObj))
@@ -80,7 +82,8 @@ impl Plugin for UiReadyDrawPlugin {
 					.run_if(blend_mod_change)
                     
                     .before(UiSystemSet::LifeDrawObjectFlush)
-                    .after(UiSystemSet::LifeDrawObject),
+                    .after(UiSystemSet::LifeDrawObject)
+					.in_set(UiSystemSet::IsRun),
             )
 
 			.add_plugins(BorderRadiusPlugin)

@@ -73,6 +73,7 @@ impl Plugin for BackgroundImagePlugin {
 					.before(update_render_instance_data)
 					.after(calc_layout)
 					.run_if(background_texture_change)
+					.in_set(UiSystemSet::IsRun)
 			)
 		;
     }

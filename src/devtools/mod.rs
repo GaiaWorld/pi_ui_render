@@ -1,6 +1,7 @@
 /// 开发工具
 
 mod debug;
+mod canvas_render;
 
 #[cfg(feature = "devtools")]
 mod tools;

@@ -21,12 +21,13 @@ impl Plugin for ShowPlugin {
     fn build(&self, app: &mut pi_world::prelude::App) {
 		app
 			// .add_frame_event::<NodeVisibilityChange>()
-			.add_system(UiStage, calc_show.in_set(UiSystemSet::BaseCalc).run_if(show_change))
+			.add_system(UiStage, calc_show.in_set(UiSystemSet::BaseCalc).run_if(show_change).in_set(UiSystemSet::IsRun))
 			.add_system(UiStage, 
 				set_show_data
 					.run_if(show_data_change)
 					.after(update_render_instance_data)
 					.after(UiSystemSet::PrepareDrawObj) // 这里是为了确保与其他设置实例数据的system不并行， 因为设置的数据冲突（TyUniform）
+					.in_set(UiSystemSet::IsRun)
 					)
 		;
 	}

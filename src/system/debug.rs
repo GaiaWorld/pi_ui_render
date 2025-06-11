@@ -2,11 +2,13 @@ use crate::{
     components::calc::DrawList,
     resource::{fragment::DebugInfo, ShareFontSheet},
 };
-use pi_world::{prelude::Plugin, schedule::End};
+use pi_world::{prelude::Plugin, schedule::End, schedule_config::IntoSystemConfigs};
 use pi_world::{
     query::Query,
     single_res::{SingleRes, SingleResMut},
 };
+
+use super::system_set::UiSystemSet;
 
 pub fn sys_debug_info(
     mut debug_info: SingleResMut<DebugInfo>,
@@ -33,6 +35,7 @@ impl Plugin for DebugPlugin {
     fn build(&self, app: &mut pi_world::prelude::App) {
         let info = DebugInfo::default();
         app.world.insert_single_res(info);
-        app.add_system(End, sys_debug_info);
+        app.add_system(End, sys_debug_info.in_set(UiSystemSet::IsRun));
     }
 }
+

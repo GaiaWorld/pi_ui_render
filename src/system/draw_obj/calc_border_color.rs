@@ -68,6 +68,7 @@ impl Plugin for BorderColorPlugin {
 				.before(update_render_instance_data)
 				.after(calc_layout)
 				.run_if(border_color_change)
+				.in_set(UiSystemSet::IsRun)
 		);
     }
 }

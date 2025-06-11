@@ -61,6 +61,7 @@ impl Plugin for BoxShadowPlugin {
 				.before(update_render_instance_data)
 				.after(calc_layout)
 				.run_if(box_shadow_change)
+				.in_set(UiSystemSet::IsRun)
 		)
 		;
     }

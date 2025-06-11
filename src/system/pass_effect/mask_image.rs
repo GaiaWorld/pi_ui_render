@@ -67,6 +67,7 @@ impl Plugin for UiMaskImagePlugin {
                 mask_image_linear_post_process
                 .run_if(mask_image_changed)
                 .after(crate::system::base::draw_obj::life_drawobj::update_render_instance_data)
+                .in_set(UiSystemSet::IsRun)
             );
     }
 }

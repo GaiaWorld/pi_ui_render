@@ -16,7 +16,7 @@ use crate::{
     components::{
         calc::{CanvasGraph, DrawInfo, EntityKey, NodeState, StyleMarkType}, user::{serialize::DefaultStyle, AsImage, Size, ZIndex}, SettingComponentIds
     }, resource::{
-        animation_sheet::KeyFramesSheet, fragment::{FragmentMap, NodeTag}, ClassSheet, GlobalDirtyMark, OtherDirtyType, QuadTree
+        animation_sheet::KeyFramesSheet, fragment::{FragmentMap, NodeTag}, ClassSheet, GlobalDirtyMark, OtherDirtyType, QuadTree, TimeInfo
     }, system::base::{draw_obj::image_texture_load::AsImageBindList, pass::update_graph::AsImageRefCount}
 };
 use crate::{
@@ -36,6 +36,8 @@ pub struct SingleId {
     pub class_sheet: usize,
     pub fragments: usize,
     pub global_mark: usize,
+    pub time_info: usize,
+    pub keyframe_sheet: usize,
     // pub quad_tree: usize,
     // pub node_changed: usize,
 }
@@ -48,6 +50,8 @@ impl FromWorld for SingleId {
             class_sheet: world.init_single_res::<ClassSheet>(),
             fragments: world.init_single_res::<FragmentMap>(),
             global_mark: world.init_single_res::<GlobalDirtyMark>(),
+            time_info: world.init_single_res::<TimeInfo>(),
+            keyframe_sheet: world.init_single_res::<KeyFramesSheet>(),
             // quad_tree: world.or_register_single_res::<QuadTree>(),
             // node_changed: world.or_register_single_res::<NodeChanged>(),
         }

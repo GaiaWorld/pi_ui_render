@@ -15,7 +15,7 @@ impl Plugin for WorldInvertPlugin {
             .add_startup_system(UiStage, mark_world_invert::<TransformWillChange, {StyleType::TransformWillChange as usize}>)
             // ClipPath标记为需要计算世界矩阵的逆矩阵
             .add_startup_system(UiStage, mark_world_invert::<ClipPath, {StyleType::ClipPath as usize}>)
-            .add_system(UiStage, calc_world_invert.after(UiSystemSet::PassLife));
+            .add_system(UiStage, calc_world_invert.after(UiSystemSet::PassLife).in_set(UiSystemSet::IsRun));
     }
 }
 // 标记哪些类型的上下文需要世界矩阵的逆矩阵

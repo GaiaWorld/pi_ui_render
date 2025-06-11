@@ -282,7 +282,7 @@ test = true
 # wgpu= {path = "../wgpu/wgpu"}
 pi_world = { path = "../pi_world" }
 # pi_world_macros = { path = "../pi_world/macros" }
-# pi_polygon = { path = "../pi_polygon" }
+pi_polygon = { path = "../pi_polygon" }
 
 # bevy_app = { path = "../bevy/crates/bevy_app" }
 # bevy_ecs = { path = "../bevy/crates/bevy_ecs" }

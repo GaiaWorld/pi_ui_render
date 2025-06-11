@@ -22,6 +22,8 @@ pub enum UiSystemSet {
     PassSetting, // 上下文计算(此时设置Pass， 与Pass的父子关系无关)
 	PassSettingWithParent, // 上下文计算(此时设置Pass，依赖于Pass的父子关系)
     PassCalc,    // 计算Pass数据
+
+    IsRun,
 }
 
 #[derive(Debug, Clone, Hash, ScheduleLabel, PartialEq, Eq)]
