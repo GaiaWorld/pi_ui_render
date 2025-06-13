@@ -723,7 +723,7 @@ impl Node for Pass2DNode {
 							rp.set_viewport(0.0, 0.0, rt.target().width as f32, rt.target().height as f32, 0.0, 1.0);
 						}
 						let group = param.instance_draw.default_camera.get_group();
-						rp.set_bind_group(CameraBind::set(), group.bind_group, group.offsets);
+						rp.set_bind_group(CameraBind::set(), group.bind_group.value(), group.offsets);
 
 						param.instance_draw.draw(&mut rp, draw_state, &mut render_state);
 					},
@@ -744,7 +744,7 @@ impl Node for Pass2DNode {
 								// 如果没有设置相机， 则随便设置一个（这里仅仅是将根节点的内容拷贝到屏幕， 实际上不会用到相机， 但是为了统一pipeline， 需要设置一个）
 								if !camera_is_set {
 									let group = param.instance_draw.default_camera.get_group();
-									rp.set_bind_group(CameraBind::set(), group.bind_group, group.offsets);
+									rp.set_bind_group(CameraBind::set(), group.bind_group.value(), group.offsets);
 									// set_camera = true;
 									camera_is_set = true;
 								}
@@ -953,7 +953,7 @@ pub fn create_screen_rp<'a>(
 				stencil_ops: None,
 				// 渲染到屏幕，不需要清理深度，也不需要写深度
 				depth_ops: Some(wgpu::Operations {
-					load: wgpu::LoadOp::Clear(-1.0),
+					load: wgpu::LoadOp::Clear(0.0),
 					store: wgpu::StoreOp::Discard,
 				}),
 				view: r,
@@ -1034,7 +1034,7 @@ pub fn create_rp_for_fbo1<'a>(
 			Some(r) => Some(wgpu::RenderPassDepthStencilAttachment {
 				stencil_ops: None,
 				depth_ops: Some(wgpu::Operations {
-					load: wgpu::LoadOp::Clear(-1.0),
+					load: wgpu::LoadOp::Clear(0.0),
 					store: wgpu::StoreOp::Store,
 				}),
 				view: &r.0,
@@ -1080,7 +1080,7 @@ pub fn create_rp_for_fbo<'a>(
             Some(r) => Some(wgpu::RenderPassDepthStencilAttachment {
                 stencil_ops: None,
                 depth_ops: Some(wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(-1.0),
+                    load: wgpu::LoadOp::Clear(0.0),
                     store: wgpu::StoreOp::Store,
                 }),
                 view: &r.0,

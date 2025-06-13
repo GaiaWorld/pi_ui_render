@@ -234,18 +234,21 @@ async fn async_calc_pipeline(
         layout: Some(&shader_info.pipeline_layout),
         vertex: wgpu::VertexState {
             module: &shader_info.vs_shader,
-            entry_point: "main",
+            entry_point: Some("main"),
             buffers: vertex_buffer_layout.as_slice(),
+            compilation_options: wgpu::PipelineCompilationOptions::default(),
         },
         fragment: Some(wgpu::FragmentState {
             module: &shader_info.fs_shader,
-            entry_point: "main",
+            entry_point: Some("main"),
             targets: pipeline_meta.state.targets.as_slice(),
+            compilation_options: wgpu::PipelineCompilationOptions::default(),
         }),
         primitive: pipeline_meta.state.primitive.clone(),
         depth_stencil: pipeline_meta.state.depth_stencil.clone(),
         multisample: pipeline_meta.state.multisample.clone(),
         multiview: pipeline_meta.state.multiview.clone(),
+        cache: None,
     });
     pipeline_receiver.receive(hash, Ok(RenderRes::new(pipeline, 5))).await
 }

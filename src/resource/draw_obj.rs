@@ -369,10 +369,10 @@ impl InstanceContext {
         // log::warn!("draw====={:?}", (render_state.reset, &instance_draw.texture_bind_group, &render_state.texture));
         if render_state.reset  {
             if let Some(texture) = &self.sdf2_texture_group {
-                rp.set_bind_group(1, texture, &[]);
+                rp.set_bind_group(1, texture.as_ref(), &[]);
             }
             if let Some(texture) = &instance_draw.texture_bind_group {
-                rp.set_bind_group(2, texture, &[]);
+                rp.set_bind_group(2, texture.as_ref(), &[]);
                 render_state.texture = texture.clone();
             }
             rp.set_vertex_buffer(0, self.vert.slice());
@@ -381,7 +381,7 @@ impl InstanceContext {
         } else {   
             if let Some(texture) = &instance_draw.texture_bind_group {
                 if !Share::ptr_eq(&texture, &render_state.texture) {
-                    rp.set_bind_group(2, texture, &[]);
+                    rp.set_bind_group(2, texture.as_ref(), &[]);
                     render_state.texture = texture.clone();
                 }
             };
@@ -417,7 +417,7 @@ impl InstanceContext {
         // log::warn!("draw_effect====={:?}", (render_state.reset, &instance_draw.instance_data_range, &instance_draw.texture_bind_group, &render_state.texture));
         if render_state.reset  {
             if let Some(texture) = &instance_draw.texture_bind_group {
-                rp.set_bind_group(1, texture, &[]);
+                rp.set_bind_group(1, texture.as_ref(), &[]);
                 render_state.texture = texture.clone();
             }
             rp.set_vertex_buffer(0, self.vert.slice());
@@ -426,7 +426,7 @@ impl InstanceContext {
         } else {   
             if let Some(texture) = &instance_draw.texture_bind_group {
                 if !Share::ptr_eq(&texture, &render_state.texture) {
-                    rp.set_bind_group(1, texture, &[]);
+                    rp.set_bind_group(1, texture.as_ref(), &[]);
                     render_state.texture = texture.clone();
                 }
             };
@@ -574,7 +574,7 @@ impl FromWorld for InstanceContext {
             source: wgpu::ShaderSource::Glsl {
                 shader: Cow::Borrowed(include_str!("../shader1/batch_shader.vert")),
                 stage: naga::ShaderStage::Vertex,
-                defines: naga::FastHashMap::default(),
+                defines: Default::default(),
             },
         });
         let fs = device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -582,7 +582,7 @@ impl FromWorld for InstanceContext {
             source: wgpu::ShaderSource::Glsl {
                 shader: Cow::Borrowed(include_str!("../shader1/batch_shader.frag")),
                 stage: naga::ShaderStage::Fragment,
-                defines: naga::FastHashMap::default(),
+                defines: Default::default(),
             },
         });
 
@@ -631,7 +631,7 @@ impl FromWorld for InstanceContext {
             source: wgpu::ShaderSource::Glsl {
                 shader: Cow::Borrowed(include_str!("../shader1/batch_sdf_gray.vert")),
                 stage: naga::ShaderStage::Vertex,
-                defines: naga::FastHashMap::default(),
+                defines: Default::default(),
             },
         });
         let text_gray_fs = device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -639,7 +639,7 @@ impl FromWorld for InstanceContext {
             source: wgpu::ShaderSource::Glsl {
                 shader: Cow::Borrowed(include_str!("../shader1/batch_sdf_gray.frag")),
                 stage: naga::ShaderStage::Fragment,
-                defines: naga::FastHashMap::default(),
+                defines: Default::default(),
             },
         });
 
@@ -666,7 +666,7 @@ impl FromWorld for InstanceContext {
             source: wgpu::ShaderSource::Glsl {
                 shader: Cow::Borrowed(include_str!("../shader1/batch_gauss_blur.vert")),
                 stage: naga::ShaderStage::Vertex,
-                defines: naga::FastHashMap::default(),
+                defines: Default::default(),
             },
         });
         let text_shadow_fs = device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -674,7 +674,7 @@ impl FromWorld for InstanceContext {
             source: wgpu::ShaderSource::Glsl {
                 shader: Cow::Borrowed(include_str!("../shader1/batch_gauss_blur.frag")),
                 stage: naga::ShaderStage::Fragment,
-                defines: naga::FastHashMap::default(),
+                defines: Default::default(),
             },
         });
         let text_shadow_pipeline = Share::new(create_render_pipeline("batch text shadow", &device, &text_effect_pipeline_layout, &text_shadow_vs, &text_shadow_fs, Some(BlendState {
@@ -695,7 +695,7 @@ impl FromWorld for InstanceContext {
             source: wgpu::ShaderSource::Glsl {
                 shader: Cow::Borrowed(include_str!("../shader1/batch_sdf_glow.vert")),
                 stage: naga::ShaderStage::Vertex,
-                defines: naga::FastHashMap::default(),
+                defines: Default::default(),
             },
         });
         let text_glow_fs = device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -703,7 +703,7 @@ impl FromWorld for InstanceContext {
             source: wgpu::ShaderSource::Glsl {
                 shader: Cow::Borrowed(include_str!("../shader1/batch_sdf_glow.frag")),
                 stage: naga::ShaderStage::Fragment,
-                defines: naga::FastHashMap::default(),
+                defines: Default::default(),
             },
         });
         let text_glow_pipeline = Share::new(create_render_pipeline("batch text glow", &device, &text_effect_pipeline_layout, &text_glow_vs, &text_glow_fs, Some(BlendState {
@@ -1682,7 +1682,7 @@ pub fn create_render_pipeline(
 		layout: Some(&pipeline_layout),
 		vertex: wgpu::VertexState {
 			module: vs,
-			entry_point: "main",
+			entry_point: Some("main"),
 			buffers: &[
 				wgpu::VertexBufferLayout {
 					array_stride: std::mem::size_of::<[f32; 2]>() as wgpu::BufferAddress,
@@ -1700,16 +1700,19 @@ pub fn create_render_pipeline(
 					attributes: vert_layout,
 				},
 			],
+            compilation_options: wgpu::PipelineCompilationOptions::default(),
 		},
 		fragment: Some(wgpu::FragmentState {
 			module: fs,
-			entry_point: "main",
+			entry_point: Some("main"),
 			targets: state.targets.as_slice(),
+            compilation_options: wgpu::PipelineCompilationOptions::default(),
 		}),
 		primitive: state.primitive.clone(),
 		depth_stencil: state.depth_stencil.clone(),
 		multisample: state.multisample.clone(),
 		multiview: state.multiview.clone(),
+        cache: None,
 	});
 
 	pipeline

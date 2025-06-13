@@ -1155,7 +1155,7 @@ impl Node for TextEffectNode {
 					state.reset = true;
 					param.instance_draw.set_pipeline(rp, draw, &mut state);
 					let group = param.instance_draw.default_camera.get_group();
-					rp.set_bind_group(0, &group.bind_group, group.offsets);
+					rp.set_bind_group(0, group.bind_group.value(), group.offsets);
 					state.reset = true;
 				}
 				let rp = rp.as_mut().unwrap();
@@ -1170,7 +1170,7 @@ impl Node for TextEffectNode {
 					let rp = rp.as_mut().unwrap();
 					param.instance_draw.set_pipeline(rp, draw, &mut state);
 					let group = param.instance_draw.default_camera.get_group();
-					rp.set_bind_group(0, &group.bind_group, group.offsets);
+					rp.set_bind_group(0, group.bind_group.value(), group.offsets);
 					
 				}
 				let rp = rp.as_mut().unwrap();
@@ -1187,7 +1187,7 @@ impl Node for TextEffectNode {
 					state.reset = true;
 					param.instance_draw.set_pipeline(rp, draw, &mut state);
 					let group = param.instance_draw.default_camera.get_group();
-					rp.set_bind_group(0, &group.bind_group, group.offsets);
+					rp.set_bind_group(0, group.bind_group.value(), group.offsets);
 					
 				}
 				let rp = rp.as_mut().unwrap();
@@ -1204,7 +1204,7 @@ impl Node for TextEffectNode {
 					let rp = rp.as_mut().unwrap();
 					param.instance_draw.set_pipeline(rp, draw, &mut state);
 					let group = param.instance_draw.default_camera.get_group();
-					rp.set_bind_group(0, &group.bind_group, group.offsets);
+					rp.set_bind_group(0, group.bind_group.value(), group.offsets);
 					
 				}
 				

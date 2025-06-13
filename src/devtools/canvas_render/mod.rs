@@ -97,7 +97,7 @@ impl CanvasRendererNode {
             source: wgpu::ShaderSource::Glsl {
                 shader: std::borrow::Cow::Borrowed(include_str!("./pass.vert")),
                 stage: naga::ShaderStage::Vertex,
-                defines: naga::FastHashMap::default(),
+                defines: Default::default(),
             },
         });
 
@@ -106,7 +106,7 @@ impl CanvasRendererNode {
             source: wgpu::ShaderSource::Glsl {
                 shader: std::borrow::Cow::Borrowed(include_str!("./pass.frag")),
                 stage: naga::ShaderStage::Fragment,
-                defines: naga::FastHashMap::default(),
+                defines: Default::default(),
             },
         });
 
@@ -130,7 +130,7 @@ impl CanvasRendererNode {
             layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState  {
                 module: &vs,
-                entry_point: "main",
+                entry_point: Some("main"),
                 buffers: &[
                     wgpu::VertexBufferLayout {
                         array_stride: 2 * 4,
@@ -147,6 +147,7 @@ impl CanvasRendererNode {
                         ],
                     }
                 ],
+                compilation_options: wgpu::PipelineCompilationOptions::default()
             },
             primitive: wgpu::PrimitiveState {
                 polygon_mode: wgpu::PolygonMode::Fill,
@@ -156,8 +157,9 @@ impl CanvasRendererNode {
             depth_stencil: None,
             multisample: wgpu::MultisampleState { count: 1, mask: !0, alpha_to_coverage_enabled: false  },
             fragment: Some(
-                wgpu::FragmentState { module: &fs, entry_point: "main", targets: &[Some(wgpu::ColorTargetState { format: surface_format, blend: None, write_mask: wgpu::ColorWrites::ALL })]  }
+                wgpu::FragmentState { module: &fs, entry_point: Some("main"), targets: &[Some(wgpu::ColorTargetState { format: surface_format, blend: None, write_mask: wgpu::ColorWrites::ALL })], compilation_options: wgpu::PipelineCompilationOptions::default()  }
             ),
+            cache: None,
             multiview: None
         });
 
@@ -244,7 +246,7 @@ impl Node for CanvasRendererNode {
             let mut i = 0;
             for (param, input) in input.0.iter() {
                 let obj = &self.objs[i];
-                rpass.set_bind_group(0, obj.bindgroup.as_ref().unwrap(), &[]);
+                rpass.set_bind_group(0, obj.bindgroup.as_ref().unwrap().value(), &[]);
                 rpass.set_vertex_buffer(1, obj.uv.as_ref().unwrap().slice(..).deref().clone());
                 rpass.draw(0..6, 0..1);
                 i += 1;
