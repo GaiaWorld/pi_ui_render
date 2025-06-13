@@ -120,7 +120,7 @@ derive-deref-rs = "0.1"
 thiserror = "1.0"
 
 # wgpu = { version = "0.1", registry = "yn", package = "pi_wgpu" }
-wgpu = { version = "0.3", registry = "yn", package = "pi_wgpu", features=["use_wgpu"]}
+wgpu = { version = "0.3", registry = "yn", package = "pi_wgpu"}
 
 pi-async-rt = "0.2"
 pi_share = { version = "0.5" }
