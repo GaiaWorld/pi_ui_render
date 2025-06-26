@@ -114,6 +114,7 @@ impl TryFrom<&str> for NodeTag {
             "canvas" => NodeTag::Canvas,
             "span" => NodeTag::Span,
             "image" => NodeTag::Image,
+            "img" => NodeTag::Image,
             "template" => NodeTag::VNode,
             "svg" => NodeTag::Svg,
             "rect" => NodeTag::Rect,
