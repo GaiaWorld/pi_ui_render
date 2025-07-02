@@ -1,14 +1,14 @@
 use pi_world::{event::{ComponentAdded, ComponentChanged, Event}, fetch::{Mut, Ticker}, param_set::ParamSet, prelude::{Changed, Entity, Or, Query, With}};
-use pi_bevy_ecs_extend::prelude::{OrInitSingleRes, Layer};
+use pi_bevy_ecs_extend::prelude::{Layer, OrInitSingleRes, OrInitSingleResMut};
 
 use pi_style::style::Aabb2;
 
 use crate::{
     components::{
-        calc::{ContentBox, InPassId, Quad, RootDirtyRect, TransformWillChangeMatrix},
+        calc::{BackgroundImageTexture, BorderImageTexture, ContentBox, InPassId, MaskTexture, Quad, RootDirtyRect, TransformWillChangeMatrix},
         pass_2d::{ChildrenPass, DirtyMark, DirtyRect, DirtyRectState, ParentPassId, PostProcess},
         user::{Canvas, TransformWillChange, Viewport},
-    }, resource::IsRun, system::base::node::{user_setting::StyleChange, world_matrix::OldQuad}, utils::tools::{box_aabb, calc_aabb}
+    }, resource::{IsRun, RenderDirty}, system::base::node::{user_setting::StyleChange, world_matrix::OldQuad}, utils::tools::{box_aabb, calc_aabb}
 };
 
 pub struct OldTransformWillChange {
@@ -41,10 +41,13 @@ pub fn calc_global_dirty_rect(
     // transform_willchange: Query<(&Quad, &ContentBox, &ParentPassId, &TransformWillChangeMatrix, &Overflow), Changed<TransformWillChange>>,
 
     // Canvas改变，脏区域发生变化
-    query_show_change: Query<(&Quad, &InPassId), With<Canvas>>,
+    query_show_change: Query<(&Quad, &InPassId)>,
     canvas_changed: ComponentChanged<Canvas>,
     canvas_added: ComponentAdded<Canvas>,
 
+    background_changed: ComponentChanged<BackgroundImageTexture>,
+    border_changed: ComponentChanged<BorderImageTexture>,
+    mask_changed: ComponentChanged<MaskTexture>,
 
     mut query_pass: ParamSet<(
         Query<
@@ -70,15 +73,55 @@ pub fn calc_global_dirty_rect(
         Query<(Ticker<&Viewport>, Entity, &mut DirtyRect), With<Viewport>>,
     )>,
     mut query_root: Query<(&mut RootDirtyRect, Ticker<&Viewport>), With<Viewport>>,
+    mut render_dirty: OrInitSingleResMut<RenderDirty>,
 	r: OrInitSingleRes<IsRun>
 ) {
 	if r.0 {
 		return;
 	}
+
+    // 如果全局脏， 则不需要计算脏区域
+    if render_dirty.0 {
+        canvas_changed.mark_read();
+        canvas_added.mark_read();
+        background_changed.mark_read();
+        border_changed.mark_read();
+        mask_changed.mark_read();
+        dirty_list.mark_read();
+        quad_olds.mark_read();
+        transform_willchange_olds.mark_read();
+        return;
+    }
     // 如果有节点修改了ShowChange，需要设置脏区域
     let mut p2 = query_pass.p2();
     if canvas_changed.len() > 0 || canvas_added.len() > 0 {
         for entity in canvas_changed.iter().chain(canvas_added.iter()) {
+            if let Ok((quad, in_pass_id)) = query_show_change.get(*entity) {
+                mark_pass_dirty_rect(***in_pass_id, &*quad, &mut p2);
+            }
+        }
+       
+    }
+
+    if background_changed.len() > 0 {
+        for entity in background_changed.iter() {
+            if let Ok((quad, in_pass_id)) = query_show_change.get(*entity) {
+                mark_pass_dirty_rect(***in_pass_id, &*quad, &mut p2);
+            }
+        }
+       
+    }
+
+    if border_changed.len() > 0 {
+        for entity in canvas_changed.iter() {
+            if let Ok((quad, in_pass_id)) = query_show_change.get(*entity) {
+                mark_pass_dirty_rect(***in_pass_id, &*quad, &mut p2);
+            }
+        }
+    }
+
+    if mask_changed.len() > 0 {
+        for entity in mask_changed.iter() {
             if let Ok((quad, in_pass_id)) = query_show_change.get(*entity) {
                 mark_pass_dirty_rect(***in_pass_id, &*quad, &mut p2);
             }
@@ -249,7 +292,7 @@ fn mark_pass_dirty_rect(pass_id: Entity, rect: &Aabb2, query_pass: &mut Query<&m
     let mut dirty_rect = match query_pass.get_mut(pass_id) {
         Ok(r) => r,
         _ => {
-            log::warn!("mark_pass_dirty_rect fail!!!, {:?}", pass_id);
+            log::debug!("mark_pass_dirty_rect fail!!!, {:?}", pass_id);
             return;
         }
     };

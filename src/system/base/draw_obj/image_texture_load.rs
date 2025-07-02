@@ -301,7 +301,7 @@ pub fn load_image<'w, const DIRTY_TYPE: OtherDirtyType, S: 'static + Send + Sync
 				let r = D::from(Texture::All(r));
 				if *dst != r {
                     
-                    // log::warn!("image catch: {:?}, {:?}", entity, key);
+                    log::debug!("texture_load success 1: {:?}, {:?}", entity, key);
 					(*f)(&mut dst, r, entity);
                     global_mark.mark.set(DIRTY_TYPE as usize, true);
 				}
@@ -360,7 +360,7 @@ pub fn set_texture<'w, const DIRTY_TYPE: OtherDirtyType, S: From<Atom> + std::cm
                     continue;
                 }
                 if let Ok(mut dst) = query_dst.get_mut(entity) {               
-                    // log::warn!("texture_load success 2: {:?}, {:?}, {:?}", id, key, texture.id);
+                    log::debug!("texture_load success 2: {:?}, {:?}, {:?}", entity, key, texture.id);
                     is_change =  f(&mut dst, D::from(Texture::All(texture)), entity) || is_change;
                     global_mark.mark.set(DIRTY_TYPE as usize, true);
                 }

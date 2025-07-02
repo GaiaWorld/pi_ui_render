@@ -21,7 +21,7 @@ use crate::components::draw_obj::{BoxType, DrawCount};
 use crate::components::calc::{style_bit, DrawInfo, EntityKey, InPassId, IsShow, NodeId, RenderContextMark, SdfUv, StyleBit, StyleMarkType, WorldMatrix, ZRange};
 use crate::components::draw_obj::{ FboInfo, GetInstanceSplit, HasDraw, InstanceIndex, InstanceSplit, Pipeline, RenderCount};
 // use crate::components::root::RootInstance;
-use crate::components::user::{Canvas, RenderTargetType};
+use crate::components::user::{Canvas, IsLeaf, RenderTargetType, Opacity};
 // #[cfg(debug_assertions)]
 // use crate::components::user::{BackgroundColor, BackgroundImage, BlendMode, BorderImage, Canvas, TextContent};
 // #[cfg(debug_assertions)]
@@ -34,7 +34,7 @@ use crate::resource::{GlobalDirtyMark, IsRun, OtherDirtyType, RenderObjType};
 
 use crate::components::calc::DrawList;
 use crate::shader1::GpuBuffer;
-use crate::shader1::batch_meterial::{BatchMeterial, DebugInfo, DepthMeterial, MeterialBind, RenderFlagType, TetxureIndexMeterial, TyMeterial, WorldMatrixMeterial};
+use crate::shader1::batch_meterial::{BatchMeterial, DebugInfo, DepthUniform, LayoutUniform, MeterialBind, OpacityUniform, RenderFlagType, TetxureIndexMeterial, TyMeterial, WorldMatrixMeterial};
 
 /// 新版本的draw_object生命周期管理
 /// 用于创建和销毁drawobj
@@ -213,6 +213,7 @@ pub fn rebatch_change(mark: &GlobalDirtyMark) -> bool {
 #[allow(suspicious_double_ref_op)]
 pub fn update_render_instance_data(
 	global_mark: OrInitSingleResMut<GlobalDirtyMark>,
+	query_opacity: Query<Option<&Opacity>, With<IsLeaf>>,
 	mut pass_query: ParamSet<(
 		Query<(&mut Draw2DList, Entity)>,
 		Query<&mut Draw2DList>,
@@ -379,12 +380,23 @@ pub fn update_render_instance_data(
 					ty |=1 << RenderFlagType::NotVisibility as usize;
 					// log::warn!("not==========={:?}", entity);
 				}
+				let opacity = match query_opacity.get(node.0) {
+					Ok(r) => {
+						ty |= 1 << RenderFlagType::Opacity as usize;
+						match r {
+							Some(r) => [r.0],
+							None => [1.0],
+						}
+					},
+					Err(_) => [1.0],
+				};
 				
 				// 初始化渲染类型
 				for i in 0..render_count.0 {
 					let mut instance_data = new_instances.instance_data_mut(new_index.start + i as usize * new_instances.alignment);
 					instance_data.set_data(&default_metrial);
 					instance_data.set_data(&TyMeterial(&[ty as f32]));
+					instance_data.set_data(&OpacityUniform(opacity.as_slice())); // 初始化opacity
 
 					// 用于debug
 					// #[cfg(debug_assertions)]
@@ -859,7 +871,7 @@ pub fn update_depth(
 					// list发生改变， 则重设depth
 					for i in 0..instance_data_range.len() / instances.instance_data.alignment {
 						let index = instance_data_range.start + i * instances.instance_data.alignment;
-						instances.instance_data.instance_data_mut(index).set_data(&DepthMeterial(&[calc_depth(*depth_count)]));
+						instances.instance_data.instance_data_mut(index).set_data(&DepthUniform(&[calc_depth(*depth_count)]));
 						*depth_count += 1;
 					}
 				} else {
@@ -908,14 +920,14 @@ fn batch_depth(
 			} => {
 				// 为每一个drawObj分配新索引
 				let index = query.instance_index.get_mut(draw_entity.0).unwrap();
-				instances.instance_data.set_data_mult1(index.0.clone(), &DepthMeterial(&[calc_depth(*depth_count)]));// 设置drawobj的深度
+				instances.instance_data.set_data_mult1(index.0.clone(), &DepthUniform(&[calc_depth(*depth_count)]));// 设置drawobj的深度
 				*depth_count +=1;
 			},
 				
 			DrawIndex::Pass2D(r) => match query.post_info_query.get(r.0) {
 				Ok(post_info) if  post_info.has_effect() => {
 					let index = query.instance_index.get_mut(r.0).unwrap();
-					instances.instance_data.set_data_mult1(index.0.clone(), &DepthMeterial(&[calc_depth(*depth_count)]));// 设置drawobj的深度
+					instances.instance_data.set_data_mult1(index.0.clone(), &DepthUniform(&[calc_depth(*depth_count)]));// 设置drawobj的深度
 					*depth_count +=1;
 				},
 				_ => {
@@ -1072,8 +1084,9 @@ fn batch_pass(
 							{
 								let (_, _, parent_fbo_info, _) = query.draw_query.get(parent_pass_id).unwrap();
 
+								// log::warn!("parent_pass_id=============={:?}", parent_pass_id);
 								if r.target().colors[0].0.id == parent_fbo_info.fbo.as_ref().unwrap().target().colors[0].0.id {
-									log::error!("texture conflicting, {:?}", (cur_pass.0, parent_pass_id));
+									log::error!("texture conflicting, {:?}, {:?}", (cur_pass.0, parent_pass_id), (r.target().colors[0].0.id, parent_fbo_info.fbo.as_ref().unwrap().target().colors[0].0.id));
 								}
 							}
 						}
@@ -1290,9 +1303,9 @@ fn set_clear_screen_instance(color: &CgColor, instances: &mut GpuBuffer) -> usiz
 
 	instance_data.set_data(&batch_meterial);
 	instance_data.set_data(&WorldMatrixMeterial(WorldMatrix::default().as_slice()));
-	instance_data.set_data(&DepthMeterial(&[0.0]));
+	instance_data.set_data(&DepthUniform(&[0.0]));
 
-	// instance_data.set_data(&LayoutUniform(&[0.0, 0.0, -1.0, -1.0]));
+	instance_data.set_data(&LayoutUniform(&[0.0, 0.0, -1.0, -1.0]));
 	let render_flag = 1 << RenderFlagType::IgnoreCamera as usize;
 	instance_data.set_data(&TyMeterial(&[render_flag as f32]));
 	// instance_data.set_data(&QuadUniform(&[

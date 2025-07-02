@@ -74,6 +74,7 @@ pub struct SettingComponentIds {
     pub class_name: ComponentIndex,
     pub as_image: ComponentIndex,
     pub text_overflow: ComponentIndex,
+    pub is_leaf: ComponentIndex,
 
     pub style_mark: ComponentIndex,
     pub matrix: ComponentIndex,
@@ -145,6 +146,7 @@ impl FromWorld for SettingComponentIds {
             class_name: world.init_component::<self::user::ClassName>(),
             as_image: world.init_component::<self::user::AsImage>(),
             text_overflow: world.init_component::<self::user::TextOverflowData>(),
+            is_leaf: world.init_component::<self::user::IsLeaf>(),
 
             background_image_texture: world.init_component::<self::calc::BackgroundImageTexture>(),
             border_image_texture: world.init_component::<self::calc::BorderImageTexture>(),

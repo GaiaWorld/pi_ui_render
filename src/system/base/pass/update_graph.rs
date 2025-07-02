@@ -83,9 +83,9 @@ pub fn update_graph(
                     };
 
                     let is_tansfer = !post_info.has_effect() && !is_root;
-                    rg.set_is_transfer(graph_id.0, is_tansfer);
                     
                     if !graph_id.0.is_null() {
+                        rg.set_is_transfer(graph_id.0, is_tansfer);
                         continue;
                     }
 
@@ -97,6 +97,7 @@ pub fn update_graph(
                             continue;
                         }
                     };
+                    rg.set_is_transfer(graph_node_id, is_tansfer);
                     rg.set_bind(graph_node_id, *entity);
 
                     if is_root {

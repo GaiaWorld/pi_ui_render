@@ -45,6 +45,7 @@ pub struct Camera {
     // pub project: Matrix4,
     pub bind_group: Option<DrawBindGroup>,
     pub view_port: Aabb2,      // 渲染视口区域（相对于全局的0,0点， 非旋转视口）
+    pub old_view_port: Aabb2,
     pub draw_range: Range<usize>, // 渲染范围
     // 是否渲染自身内容（如果为false，该相机不会渲染任何物体）
     // draw_changed为true时， is_render_own一定为true
@@ -66,6 +67,7 @@ impl Default for Camera {
             // project: Default::default(),
             bind_group: None,
             view_port: Aabb2::new(Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)),
+            old_view_port: Aabb2::new(Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)),
             draw_range: 0..0,
             is_render_own: false,
             draw_changed: true,

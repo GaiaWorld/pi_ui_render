@@ -21,15 +21,15 @@ pub enum RenderFlagType {
 	NotVisibility = 10, // 1024
 	Invalid = 11, // 2048 无效渲染， 诸如像文字这类渲染， 可能会在实例buffer上保留一定数量的冗余实例， 这些实例被设置为无效渲染
 	LinearGradient = 12, // 4096
-	Border = 13, // 8192
-	BoxShadow = 14, // 16384
-	ImageRepeat = 15, // 32768 图片uv重复
-	BorderImage = 16, // 65536 border图片uv重复
-	Sdf2 = 17, // 131072 sdf2渲染
-	Sdf2OutGlow = 18, // 262144 sdf2文字外发光
-	SvgStrokeDasharray = 19, // 524288 需要占用外发光槽位
-	Svg = 20, // 1048576 svg uv 不需要y轴颠倒
-	Sdf2Shadow = 21, // 2097152 阴影 需要占用外发光槽位
+	Opacity = 13, // 8192
+	// BoxShadow = 14, // 16384
+	// ImageRepeat = 15, // 32768 图片uv重复
+	// BorderImage = 16, // 65536 border图片uv重复
+	// Sdf2 = 17, // 131072 sdf2渲染
+	// Sdf2OutGlow = 18, // 262144 sdf2文字外发光
+	// SvgStrokeDasharray = 19, // 524288 需要占用外发光槽位
+	// Svg = 20, // 1048576 svg uv 不需要y轴颠倒
+	// Sdf2Shadow = 21, // 2097152 阴影 需要占用外发光槽位
 }
 
 #[derive(Input)]
@@ -138,13 +138,18 @@ pub struct UvUniform<'a>(pub &'a [f32]);
 #[uniform(offset(160), len(16), bind(MeterialBind))]
 pub struct StrokeColorUniform<'a>(pub &'a [f32]);
 
+/// 半透明, 半透明只在渲染图片时存在， 不可能存在描边， 因此与描边的偏移保持一致， 不会冲突
+#[derive(Uniform, Debug)]
+#[uniform(offset(160), len(4), bind(MeterialBind))]
+pub struct OpacityUniform<'a>(pub &'a [f32]);
+
 #[derive(Uniform, Debug)]
 #[uniform(offset(176), len(12), bind(MeterialBind))]
 pub struct SdfUniform<'a>(pub &'a [f32]);
 
 #[derive(Uniform, Debug)]
 #[uniform(offset(188), len(4), bind(MeterialBind))]
-pub struct DepthMeterial<'a>(pub &'a [f32]);
+pub struct DepthUniform<'a>(pub &'a [f32]);
 
 /// 单位： 像素
 #[derive(Uniform, Debug)]

@@ -63,16 +63,20 @@ impl Plugin for UiPassPlugin {
             )
             // 渲染前，计算Pass的属性
             // 脏区域、相机、深度，更新uniform不顶点buffer到wgpu
-            // .add_system(UiStage, pass_dirty_rect::calc_global_dirty_rect.in_set(UiSystemSet::PassCalc))
+            .add_system(UiStage, 
+                pass_dirty_rect::calc_global_dirty_rect
+                    .in_set(UiSystemSet::PassCalc)
+                    .after(pass_life::cal_context)
+            )
             .add_system(UiStage, 
                 pass_camera::calc_pass_dirty
-                    // .after(pass_dirty_rect::calc_global_dirty_rect)
+                    .after(pass_dirty_rect::calc_global_dirty_rect)
 					.after(UiSystemSet::BaseCalcFlush)
                     .in_set(UiSystemSet::PassCalc),
             )
             .add_system(UiStage, 
                 pass_camera::calc_pass_active
-                    // .after(pass_dirty_rect::calc_global_dirty_rect)
+                    .after(pass_dirty_rect::calc_global_dirty_rect)
                     .after(update_graph::update_graph)
 					.after(UiSystemSet::BaseCalcFlush)
                     .in_set(UiSystemSet::IsRun),

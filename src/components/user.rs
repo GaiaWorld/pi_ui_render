@@ -132,6 +132,10 @@ pub struct AsImage {
     pub copy_graph_id: NodeId, // 用于复制后处理target到实体的RenderTarget1组件的图id
 }
 
+/// 是否为叶子节点
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize, Debug)]
+pub struct IsLeaf;
+
 impl NeedMark for AsImage {
     #[inline]
     fn need_mark(&self) -> bool {

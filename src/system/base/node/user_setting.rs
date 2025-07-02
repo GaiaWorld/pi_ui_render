@@ -109,6 +109,8 @@ pub fn user_setting1(
     // 添加基础组件id
     let mut base_component_ids = UserCommands::init_component_ids(NodeTag::Div, &setting_components);
     // 添加基础组件id
+    let mut leaf_component_ids = UserCommands::init_component_ids(NodeTag::Image, &setting_components);
+    // 添加基础组件id
     let mut v_node_base_component_ids = UserCommands::init_component_ids(NodeTag::VNode, &setting_components);
     let mut component_ids1 = Vec::new();
     let mut component_ids;
@@ -135,6 +137,8 @@ pub fn user_setting1(
             if world.contains_entity(*node) {
                 if n.tag == NodeTag::VNode {
                     component_ids = &mut v_node_base_component_ids;
+                } else if n.tag == NodeTag::Image {
+                    component_ids = &mut leaf_component_ids;
                 } else {
                     component_ids = &mut base_component_ids;
                 }

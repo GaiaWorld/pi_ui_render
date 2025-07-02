@@ -132,6 +132,7 @@ pi_key_alloter = {version = "0.6", features = ["serde"]}
 
 pi_ui_render_macros = {version="0.1.1", path = "./macros", registry = "yn"}
 tracing = { version = "0.1", default-features = false, features = ["std"] }
+backtrace = "0.3"
 
 # pi_sdf = {version = "=0.1.20", registry="yn"}
 
@@ -168,6 +169,7 @@ pi_bevy_winit_window = { version = "0.2", registry = "yn" }
 wasm-bindgen-test = "0.3"
 
 pi_hal = {version = "0.2", registry="yn"}
+
 # tracy-client-sys="=0.22.0"
 
 # "debug", "trace"

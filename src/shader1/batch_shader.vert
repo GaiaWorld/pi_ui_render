@@ -24,7 +24,7 @@ layout(location = 7) in vec4 slopePoint;  // 96 (倾斜， x方向上的剪切�
 layout(location = 8) in vec4 color0;      //112                                                                              当为渐变颜色时， 表示color0
 layout(location = 9) in vec4 color;       //128 vec4 color;                                                                  当为渐变颜色时， 表示color1
 layout(location = 10) in vec4 uv;         //144 vec4 uv;                                                                     当为渐变颜色时， 表示color2 
-layout(location = 11) in vec4 strokeColor; //160 vec4 strokeColor;                                                       
+layout(location = 11) in vec4 strokeColor; //160 vec4 strokeColor;  或float opacity                                                     
 layout(location = 12) in vec4 sdf_depth;  //176 float distance_px_range, float fill_bound, float stroke_bound, float zdepth;
 layout(location = 13) in vec4 sdfUv;      //192 sdfUv;																	     当为渐变颜色时， 表示sdfUv0、sdfUv1
 layout(location = 14) in vec2 sdfUv2;     //208 ;                                                                            当为渐变颜色时， 表示sdfUv2, 否则为debu信息
@@ -36,6 +36,8 @@ layout(location = 1) out vec4 vStrokeColor; // strokeColor
 layout(location = 2) out vec4 vSdf; // sdf_depth
 layout(location = 3) out vec4 vTextureInfo; // uv + texture_index + strokeFactor
 layout(location = 4) out vec2 vSdfUv; // sdfUv
+layout(location = 5) out float opacity; // opacity
+
 
 void main() {
 	int ty1 = int(other.w + 0.1); 
@@ -93,6 +95,10 @@ void main() {
 	if ((ty1 & 256) != 0) {
 		// 存在描边时， 描边因子为0.0
 		strokeFactor = 0.0;
+		vStrokeColor = strokeColor;
+		opacity = 1.0;
+	} else {
+		opacity = 1.0 - (step(1, ty1 & 8192) * (1.0 - strokeColor.x)); // 半透明度
 	}
 
 	if ((ty1 & 16) != 0) { // R8纹理
@@ -101,7 +107,7 @@ void main() {
 	
 
 	vSdfUv = vSdfUv/sdf_tex_size;
-	vStrokeColor = strokeColor;
+	
 	vSdf = vec4(sdf_depth.xyz, not_premultiply);
 	vTextureInfo = vec4(uv_.xy, textureIndex, strokeFactor);
 

@@ -101,7 +101,7 @@ pub fn draw_sdf(
                 log::debug!("update_sdf2================{:?}", (draw_count, pi_time::Instant::now() - t1));
                 
                 next = await_list.front();
-                render_dirty.0 = true;
+                render_dirty.0 = true; // 文字纹理更新， 设置全屏渲染脏（要知道那个节点文字纹理加载成功，需要更多索引关系， 性能不一定好， 鉴于文字纹理更新不会太过频繁， 直接全屏更新）
                 continue;
             }
         }

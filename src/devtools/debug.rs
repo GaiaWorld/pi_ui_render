@@ -35,6 +35,7 @@ use crate::components::pass_2d::Camera;
 use crate::components::pass_2d::GraphId;
 use crate::components::pass_2d::ParentPassId;
 use crate::components::user::serialize::StyleAttr;
+use crate::components::user::IsLeaf;
 use crate::components::user::{BorderRadius, BorderImageSlice, BorderImageRepeat, BorderImageClip, BorderImage, Border, Blur, BackgroundImageMod, BackgroundImageClip, BackgroundImage, AsImage, Animation};
 use crate::components::user::{TextStyle, TextShadow, TextOverflowData, TextContent, Show, RadialWave, Position, Padding, Opacity, MaskImageClip, Margin, Hsi, FlexContainer, ClipPath, Canvas, BoxShadow};
 use crate::components::user::{BorderColor, BackgroundColor, BlendMode, ClassName, FlexNormal, MaskImage, MinMax, NodeState, StyleAttribute, FitType, ZIndex, Vector2, TransformWillChange, Transform};
@@ -136,6 +137,7 @@ pub struct Info {
     pub object_fit: Option<FitType>,
     pub background_repeat: Option<ImageRepeat>,
     pub filter: Option<Hsi>,
+    pub isleaf: bool,
     pub parent_id: String,
 	pub inpass: String,
     pub content_bound_box: Option<ContentBox>,
@@ -946,6 +948,7 @@ pub fn node_info(world: &World, entity: Entity) -> Info {
         object_fit: background_image_mod.map(|r| r.object_fit.clone()),
         background_repeat: background_image_mod.map(|r| r.repeat.clone()),
         filter: hsi.map(|r| r.clone()),
+        isleaf: world.get_component::<IsLeaf>(entity).is_ok(),
         // style_mark: gui.gui.style_mark.lend()[node_id],
         transform_will_change: transform_will_change.map(|r| r.clone()),
         parent_id: format!("{:?}", parent),

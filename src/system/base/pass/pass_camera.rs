@@ -9,8 +9,8 @@ use std::mem::transmute;
 
 use pi_bevy_render_plugin::{render_cross::GraphId, PiRenderGraph};
 use pi_null::Null;
-use pi_world::{event::{ComponentChanged, Event}, prelude::{Entity, Mut, Query, SingleRes, Ticker}, single_res::SingleResMut};
-use pi_bevy_ecs_extend::prelude::{Layer, OrInitSingleRes, OrInitSingleResMut};
+use pi_world::{event::{ComponentChanged, Event}, filter::{With, Without}, prelude::{Entity, Mut, Query, SingleRes, Ticker}, single_res::SingleResMut};
+use pi_bevy_ecs_extend::prelude::{Layer, OrInitSingleRes, OrInitSingleResMut, Root};
 
 use pi_render::renderer::draw_obj::DrawBindGroup;
 use pi_share::{Share, ShareWeak};
@@ -18,13 +18,13 @@ use pi_share::{Share, ShareWeak};
 use crate::{
     components::{
         calc::{
-            BackgroundImageTexture, BorderImageTexture, InPassId, IsShow, MaskTexture, OverflowDesc, Quad, StyleBit, TransformWillChangeMatrix, View, WorldMatrix
+            BackgroundImageTexture, BorderImageTexture, InPassId, IsShow, MaskTexture, OverflowDesc, Quad, RootDirtyRect, StyleBit, TransformWillChangeMatrix, View, WorldMatrix
         }, pass_2d::{
             Camera, IsSteady, ParentPassId, PostProcessInfo, RenderTarget, RenderTargetCache, StrongTarget
         }, user::{Aabb2, AsImage, Canvas, Point2, Vector2, Viewport}
     }, resource::{
         draw_obj::{InstanceContext, TargetCacheMgr}, IsRun, OtherDirtyType, RenderDirty, ShareFontSheet
-    }, shader1::batch_meterial::{ProjectUniform, Sdf2TextureSizeUniform, ViewUniform}, system::{base::node::user_setting::StyleChange, utils::{create_project, rotatequad_quad_intersection}}, utils::tools::intersect
+    }, shader1::batch_meterial::{ProjectUniform, Sdf2TextureSizeUniform, ViewUniform}, system::{base::node::user_setting::StyleChange, utils::{create_project, rotatequad_quad_intersection}}, utils::tools::{eq_f32, intersect}
 };
 use crate::components::calc::{StyleMarkType, style_bit};
 lazy_static! {
@@ -135,9 +135,25 @@ pub fn calc_camera(
             &Quad,
             Ticker<&IsShow>,
         ),
+        Without<Root>
+    >,
+    mut query_pass_root: Query<
+        (
+            Entity,
+            &mut Camera,
+            Ticker<&View>,
+            &TransformWillChangeMatrix,
+            &Layer,
+            Option<&AsImage>,
+            &IsSteady,
+            &mut RenderTarget,
+            &Quad,
+            Ticker<&IsShow>,
+        ),
+        With<Root>,
     >,
 
-    query_root: Query<Ticker<&Viewport>>,
+    mut query_root: Query<(Ticker<&Viewport>, &mut RootDirtyRect)>,
     font_sheet: SingleRes<ShareFontSheet>,
 	mut instance_context: SingleResMut<InstanceContext>,
     mut render_dirty: OrInitSingleResMut<RenderDirty>,
@@ -162,7 +178,7 @@ pub fn calc_camera(
 
     let mut view_port_is_dirty = false;
     // 迭代根节点，得到最大脏包围盒
-    for view_port in query_root.iter() {
+    for (view_port, dirty_rect) in query_root.iter() {
         if view_port.is_changed() {
             view_port_is_dirty = true;
         }
@@ -173,7 +189,7 @@ pub fn calc_camera(
 
     let mut is_render_own_changed = false;
 
-    let calc_camera = |
+    let mut calc_camera = |
         (
             entity, 
             mut camera, 
@@ -208,12 +224,10 @@ pub fn calc_camera(
         camera_bypass.draw_changed = false;
 
         log::debug!("change==========={:?}", (entity, camera_bypass.draw_changed, render_dirty.0, is_show.get_visibility(), is_show.get_display()));
-        // 检查render_target的缓存情况， 设置rendertarget
-        check_render_target(&mut render_target, as_image, is_steady.0);
-
+        
         if !is_show.get_visibility() || !is_show.get_display() {
             // 如果设置为隐藏，之前的渲染结果也需要释放
-            // 因为， 如果将其缓存，直到重新设置为可见， 中间发生了哪些改变不可知，也不知道fbo是否需要重新渲染， 因此，直接释放掉
+            // 因为， 如果将其缓存，直到重新设置为可见， 中间发生的任何改变， 都不会渲染为fbo，此时曾经缓冲的fbo的像素结果， 可能已经不正确了， 因此，直接释放掉缓存的fbo
             render_target.target = StrongTarget::None;
             render_target.cache = RenderTargetCache::None;
             if camera_bypass.is_visible {
@@ -221,38 +235,50 @@ pub fn calc_camera(
                 camera_bypass.view_port = Aabb2::new(Point2::new(0.0, 0.0), Point2::new(0.0, 0.0));
                 return true; // 返回true，表示需要重新批处理
             }
-            
-			return old_is_render_own != camera.is_render_own;
+            // 如果曾经不可见， 现在也不可见， 则不需要重新批处理
+			return false;
 		}
 
-        let view_port = match query_root.get(layer.root()) {
+        // 检查render_target的缓存情况， 如果存在缓存， 将缓存从弱引用变为强引用， 设置到rendertarget
+        check_render_target(&mut render_target, as_image, is_steady.0);
+
+        let (view_port, mut root_dirty_rect) = match query_root.get_mut(layer.root()) {
             Ok(r) => r,
             Err(_) => return old_is_render_own != camera_bypass.is_render_own,
         };
 
-        let overflow_aabb = &*overflow_aabb;
-        if let StrongTarget::None = render_target.target {
-            
-        } else {
-            
-            if !local_dirty_mark {
-                
-                // 存在fbo缓存， 且本地不脏，则不需要渲染
-                return old_is_render_own != camera_bypass.is_render_own;
-            }
+        
+        let mut dirty_rect = &root_dirty_rect.0.value;
+
+         if render_dirty1 {
+            // 如果设置了全屏脏， 设置脏区域为视口
+            dirty_rect = &view_port.0;
         }
 
-        let dirty_rect = &*view_port;
-        // 
+        if entity == layer.root() {
+            // 为了保证根节点在其视口范围的渲染结果的正确性， 根节点的脏区域需要特殊处理
+            // 如果根节点的target被缓存， 则只需要重新渲染脏区域的内容
+            // 如果根节点的target未被缓存， 需要将整个视口范围重新渲染
+            // 本方法中会先处理所有的根节点， 再处理子节点，在处理根节点时， 就将脏区域更新， 使得子节点使用正确的脏区域
+            if let StrongTarget::None = &render_target.target {
+                dirty_rect = &view_port.0;
+                root_dirty_rect.0.value = view_port.0.clone();
+            }
+
+        }
+
+       
+
+        let overflow_aabb = &*overflow_aabb;
         let no_rotate_view_aabb = if let OverflowDesc::Rotate(oveflow_rotate) = &overflow_aabb.desc {
             // let mins = oveflow_rotate.rotate_matrix_invert * Vector4::new(aabb.mins.x, aabb.mins.y, 0.0, 1.0);
             // 脏区域变化到当前上下文的非旋转坐标系，与当前上下文的视图aabb相交，得到最终视口区域
             let rr = rotatequad_quad_intersection(
                 &(
-                    Vector2::new(view_port.mins.x, view_port.mins.y),
-                    Vector2::new(view_port.mins.x, view_port.maxs.y),
-                    Vector2::new(view_port.maxs.x, view_port.maxs.y),
-                    Vector2::new(view_port.maxs.x, view_port.mins.y),
+                    Vector2::new(dirty_rect.mins.x, dirty_rect.mins.y),
+                    Vector2::new(dirty_rect.mins.x, dirty_rect.maxs.y),
+                    Vector2::new(dirty_rect.maxs.x, dirty_rect.maxs.y),
+                    Vector2::new(dirty_rect.maxs.x, dirty_rect.mins.y),
                 ),
                 &oveflow_rotate.world_rotate_invert,
                 &overflow_aabb.view_box.aabb,
@@ -264,14 +290,34 @@ pub fn calc_camera(
             // log::debug!("rr=====id: {:?} \nrotate_matrix_invert: {:?}, \nview_port: {:?}, \nview_box.aabb: {:?}, \n rr: {:?}, ", entity, &oveflow_rotate.world_rotate_invert, view_port, overflow_aabb.view_box.aabb, rr);
             rr
         } else {
-            intersect(&overflow_aabb.view_box.aabb, &view_port).unwrap_or(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)))
+            intersect(&overflow_aabb.view_box.aabb, &dirty_rect).unwrap_or(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)))
         };
+        let aabb = Aabb2::new(
+            Point2::new(no_rotate_view_aabb.mins.x.floor(), no_rotate_view_aabb.mins.y.floor()),
+            Point2::new(no_rotate_view_aabb.maxs.x.ceil(), no_rotate_view_aabb.maxs.y.ceil()),
+        );
 
-                // log::debug!("viewport======={:?}, \nview_aabb={:?}, \noverflow_aabb={:?}, \ndirty_rect={:?}", entity, no_rotate_view_aabb, overflow_aabb, dirty_rect);
+        if let StrongTarget::None = render_target.target {
+            
+        } else if !local_dirty_mark {  
+            // 如果缓冲fbo的视口区域范围大于当前视口区域， 则不需要重新渲染 , 
+            // TODO， 如果 A->B->C形成Pass父子关系， 脏区域小于A的缓冲， 也小于C的缓冲， B从Pass变为非Pass， 可能会纹理冲突????(该顾虑可能不存在)
+            if camera_bypass.view_port.mins.x <= aabb.mins.x &&
+                camera_bypass.view_port.mins.y <= aabb.mins.y &&
+                camera_bypass.view_port.maxs.x >= aabb.maxs.x &&
+                camera_bypass.view_port.maxs.y >= aabb.maxs.y {
+                // 存在fbo缓存， 且当前pass不脏，则不需要渲染
+                return old_is_render_own != camera_bypass.is_render_own;
+            }
+            // return old_is_render_own != camera_bypass.is_render_own;
+        }
+        
+        // log::debug!("viewport======={:?}, \nview_aabb={:?}, \noverflow_aabb={:?}, \ndirty_rect={:?}", entity, no_rotate_view_aabb, overflow_aabb, dirty_rect);
 
         log::debug!("pass_id2 22========={:?}, {:?}", entity, (&*dirty_rect, overflow_aabb, no_rotate_view_aabb, !is_show.get_visibility(), !is_show.get_display()));
         if no_rotate_view_aabb.mins.x >= no_rotate_view_aabb.maxs.x || no_rotate_view_aabb.mins.y >= no_rotate_view_aabb.maxs.y {
             // 如果视口为0， 则不需要渲染
+            // 与 visiblity=false和display=none的区别是， 该fbo依然可见，任何改变， 都会触发缓存的fbo重新渲染， 缓存的fbo总会是最新结果， 因此不需要将fbo释放，原有缓存依然可用
             if camera_bypass.is_visible {
                 camera_bypass.is_visible = false; // 设置为不可见
                 camera_bypass.view_port = no_rotate_view_aabb;
@@ -291,10 +337,6 @@ pub fn calc_camera(
         // };
 
 		// log::debug!("last_dirty======{:?}, {:?}", entity, cull_aabb);
-        let aabb = Aabb2::new(
-            Point2::new(no_rotate_view_aabb.mins.x.floor(), no_rotate_view_aabb.mins.y.floor()),
-            Point2::new(no_rotate_view_aabb.maxs.x.ceil(), no_rotate_view_aabb.maxs.y.ceil()),
-        );
 
         // 计算投影矩阵（投影矩阵将view_aabb范围内的对象投影到-1~1， 注意view_aabb所在坐标系为当前节点的非旋转坐标系）
         let project_matrix = create_project(aabb.mins.x, aabb.maxs.x, aabb.mins.y, aabb.maxs.y);
@@ -337,6 +379,7 @@ pub fn calc_camera(
             // view: view_matrix.clone(),
             // project: project_matrix,
             bind_group: Some(DrawBindGroup::Offset(camera_group)),
+            old_view_port: camera.view_port.clone(),
             view_port: aabb,
             draw_range: camera.draw_range.clone(),
             // world_matrix: world_matrix.clone(),
@@ -347,17 +390,32 @@ pub fn calc_camera(
         };
 
         // 删除原有缓冲（内容发生改变会重新渲染， 原有缓冲没有作用）
-        match &render_target.cache {
-            RenderTargetCache::None => (),
-            RenderTargetCache::Strong(droper) => {assets.0.pop_by_filter(|r| {
-                Share::as_ptr(&r.0) == Share::as_ptr(droper)
-            });},
-            RenderTargetCache::Weak(droper) => {assets.0.pop_by_filter(|r| {
-                Share::as_ptr(&r.0) == ShareWeak::as_ptr(droper)
-            });},
-        };
-        render_target.target = StrongTarget::None;
-        render_target.cache = RenderTargetCache::None;
+        // 除了根节点和asimageurl节点
+        // asimageurl节点 TODO
+        fn is_full_screen_render(camera: &Camera, view_port: &Aabb2) -> bool {
+            if 
+                eq_f32(camera.view_port.mins.x, view_port.mins.x) && 
+                eq_f32(camera.view_port.maxs.x, view_port.maxs.x) && 
+                eq_f32(camera.view_port.mins.y, view_port.mins.y) && 
+                eq_f32(camera.view_port.maxs.y, view_port.maxs.y) {
+                return true;
+            } else {
+                return false; 
+            }
+        }
+        if entity != layer.root() || is_full_screen_render(&*camera, &view_port.0) {
+            match &render_target.cache {
+                RenderTargetCache::None => (),
+                RenderTargetCache::Strong(droper) => {assets.0.pop_by_filter(|r| {
+                    Share::as_ptr(&r.0) == Share::as_ptr(droper)
+                });},
+                RenderTargetCache::Weak(droper) => {assets.0.pop_by_filter(|r| {
+                    Share::as_ptr(&r.0) == ShareWeak::as_ptr(droper)
+                });},
+            };
+            render_target.target = StrongTarget::None;
+            render_target.cache = RenderTargetCache::None;
+        }
 
 
         let width = camera.view_port.maxs.x - camera.view_port.mins.x;
@@ -436,6 +494,10 @@ pub fn calc_camera(
         // }
     };
     // 当视口发生变化时， 需要遍历所有的pass2d从新计算相机
+    //先处理根节点， 再处理非跟节点， 因为根节点是否缓存， 影响子节点的脏区域
+    for r in query_pass_root.iter_mut() {
+        is_render_own_changed |= calc_camera(r);
+    }
     for r in query_pass.iter_mut() {
         is_render_own_changed |= calc_camera(r);
     }

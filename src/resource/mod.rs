@@ -203,8 +203,8 @@ impl UserCommands {
             // type_arr.push((ids.z_range, true));
             // type_arr.push((ids.content_box, true));
             // type_arr.push((ids.layout, true));
-        } else {
-            
+        } else if tag == NodeTag::Image {
+            type_arr.push((ids.is_leaf, true));
         }
         type_arr
     }

@@ -9,6 +9,7 @@ layout(location = 1) in vec4 vStrokeColor; // strokeColor
 layout(location = 2) in vec4 vSdf; // sdf distancePixelRange, fillSdf, strokeSdf, not_premultiply(非预乘因子， 预乘为0.001， 非预乘为1.0)
 layout(location = 3) in vec4 vTextureInfo; // uv + texture_index + strokeFactor(该值为0.0时，表示描边， 为1.0时表示不描边， 为2.0是， 表示采样纹理为阴影纹理或外发光纹理)
 layout(location = 4) in vec2 vSdfUv; // uv + texture_index
+layout(location = 5) in float opacity; // 半透明度
 
 // sdf
 layout(set=1,binding=0) uniform texture2D tex2dSdf;
@@ -100,7 +101,7 @@ void main(void) {
 		// outColor = vec4(sdf, 0.0, 0.0, 1.0);
 		outColor.a = outColor.a * clamp(max(outlineOpacity, fillOpacity), 0.0, 1.0);
 	} else if (vTextureInfo.w < 1.1) {
-		outColor.a = outColor.a * fillOpacity;
+		outColor.a =  outColor.a * fillOpacity * opacity;
 	} else {
 		// 阴影或外发光， 把outColor的r值表示灰度
 		outColor.rgba = vec4(vColor.rgb, outColor.r);

@@ -36,7 +36,7 @@ use crate::{
         calc::{EntityKey, WorldMatrix}, draw_obj::{DynTargetType, FboInfo, InstanceIndex}, pass_2d::{CacheTarget, Camera, Draw2DList, DrawElement, ParentPassId, PostProcess, PostProcessInfo, RenderTarget, RenderTargetCache, ScreenTarget, StrongTarget}, user::{Aabb2, AsImage, Point2, RenderTargetType, Viewport}
     }, resource::{
         draw_obj::{InstanceContext, RenderState, TargetCacheMgr}, RenderContextMarkType
-    }, shader1::batch_meterial::{CameraBind, RenderFlagType, TyMeterial, UvUniform}, system::draw_obj::set_matrix
+    }, shader1::batch_meterial::{CameraBind, LayoutUniform, RenderFlagType, TyMeterial, UvUniform}, system::draw_obj::set_matrix
 };
 use crate::components::pass_2d::IsSteady;
 
@@ -81,6 +81,10 @@ pub struct BuildParam<'w> {
             &'static DynTargetType,
             OrDefault<RenderTargetType>,
         ),
+    >,
+	query_view_port: Query<
+        'w,
+        &'static Viewport,
     >,
 	post_resource: SingleRes<'w, PostprocessResource>,
     pipline_assets: SingleRes<'w, ShareAssetMgr<RenderRes<RenderPipeline>>>,
@@ -236,6 +240,16 @@ impl Node for Pass2DNode {
 			camera.view_port.maxs.x - camera.view_port.mins.x,
 			camera.view_port.maxs.y - camera.view_port.mins.y,
 		);
+		let (fbo_width, fbo_height) = if parent_pass2d_id.0.is_null() {
+			// 根节点， fbo为视口大小
+			let view_port = param.query_view_port.get(pass2d_id).unwrap();
+			(
+				view_port.maxs.x - view_port.mins.x,
+				view_port.maxs.y - view_port.mins.y,
+			)
+		} else{
+			(view_port_w, view_port_h)
+		};
 		// let next_target = &mut param.temp_next_target.0;
 
 		// if list.opaque.len() > 0 || list.transparent.len() > 0 {
@@ -248,21 +262,27 @@ impl Node for Pass2DNode {
 		let mut r_target = None;
 
 		if let Some(catch_target) = catch_target {
-			out.target = Some(catch_target); // 缓存fbo
+			out.target = Some(catch_target.clone()); // 缓存fbo
 			fbo_info.post_draw = None; // 不进行后处理， 因为渲染上下文未改变， 并且渲染结果已经缓存
 			out.valid_rect = Some((offsetx as u32, offsety as u32, view_port_w as u32, view_port_h as u32));
+			// 根节点， 不允许设置后处理，其catch_target就是r_target
+			// 根节点有在原有fbo上渲染部分的需求， 因此将catch_target赋值给r_target
+			if parent_pass2d_id.0.is_null() {
+				r_target = Some(catch_target); 
+			} 
 		} else if camera.is_render_own || parent_pass2d_id.0.is_null() {
 			if parent_pass2d_id.0.is_null() && !post_process_info.has_effect() && RenderTargetType::Screen == last_rt_type {
 
-			} else if is_only_one_pass(input, &param.instance_draw, &list0.instance_range, view_port_w as u32, view_port_h as u32) {
+			} else if is_only_one_pass(input, &param.instance_draw, &list0.instance_range, (render_target.bound_box.maxs.x - render_target.bound_box.mins.x) as u32, (render_target.bound_box.maxs.x - render_target.bound_box.mins.x) as u32) {
+				log::debug!("is_only_one_pass================={:?}", pass2d_id);
 				// 如果只有一个输入，并且draw2dList中也只存在一个渲染对象(该渲染对象一定是将输入fb拷贝到目标上)
 				// 此时， 可直接将输入作为输出
 				let input_fbo = input.0.values().next().unwrap();
 				r_target = input_fbo.target.clone();
 				camera.is_render_own = false; // 自身不渲染（渲染结果跟输入完全一样， 直接使用了输入fbo的结果）
-				// log::debug!("camera.is_render_own= false================={:?}", pass2d_id);
 				render_to_fbo = true;
 			} else {
+				// log::warn!("get_or_create================={:?}", (pass2d_id, _id, _from, ));
 				// 否则渲染到临时fbo上
 				match render_target.get_or_create(
 					&param.atlas_allocator,
@@ -281,16 +301,16 @@ impl Node for Pass2DNode {
 						
 						// for i in input.0.values() {
 						// 	if let Some(t) = &i.target {
-						// 		log::warn!("alloc input =============={:?}", (pass2d_id, r.index, &t.target().colors[0].1));
+						// 		log::debug!("alloc input =============={:?}", (pass2d_id, r.index, &t.target().colors[0].1));
 						// 	} else {
-						// 		log::warn!("alloc input =============={:?}", (pass2d_id, false));
+						// 		log::debug!("alloc input =============={:?}", (pass2d_id, false));
 						// 	}
 							
 						// }
 						// next_target.clear();
 						render_to_fbo = true;
-						log::debug!("alloc rendertarget========{:?}", (self.pass2d_id, r.target().colors[0].0.id, r.rect()));
-						// log::warn!("build========{:?}", (pass2d_id, &r.target().colors[0].0));
+						log::debug!("alloc rendertarget========{:?}", (self.pass2d_id, _id, _from, r.target().colors[0].0.id, r.rect()));
+						// log::debug!("build========{:?}", (pass2d_id, &r.target().colors[0].0));
 						r_target = Some(r.clone());
 						
 
@@ -298,11 +318,13 @@ impl Node for Pass2DNode {
 					}
 					None => {
 						// next_target.clear();
-						// log::warn!("none==============={:?}", pass2d_id);
+						// log::debug!("none==============={:?}", pass2d_id);
 						// 不进行渲染（可能由父节点对它进行渲染, 也可能渲染目标尺寸为0）
 						return Ok(out);
 					}
 				};
+
+				
 			};
 			// let t4 = std::time::Instant::now();
 
@@ -455,7 +477,7 @@ impl Node for Pass2DNode {
 			if let Some(fbo) = &fbo_info.fbo {
 				let rect1 = fbo.rect_with_border();
 				let rect2 = target.rect_with_border();
-				if rect1 != rect2 || !Share::ptr_eq(&fbo.target().colors[0].0 , &target.target().colors[0].0) {
+				if rect1 != rect2 || !Share::ptr_eq(&fbo.target().colors[0].0 , &target.target().colors[0].0) || camera.view_port != camera.old_view_port{
 					is_set_clear = true;
 				}
 			} else {
@@ -464,20 +486,32 @@ impl Node for Pass2DNode {
 			if is_set_clear {
 				// 重新设置清屏范围
 				let rect = target.rect_with_border();
+				let (x, x1, y, y1) = (
+					if offsetx == 0.0 {rect.min.x as f32}else {rect.min.x as f32 + 1.0 - offsetx},
+					if render_target.bound_box.maxs.x == camera.view_port.maxs.x {rect.max.x as f32}else {rect.max.x as f32 - 1.0 - (render_target.bound_box.maxs.x - camera.view_port.maxs.x)},
+					if render_target.bound_box.maxs.y == camera.view_port.maxs.y {rect.max.y as f32}else {rect.max.y as f32 - 1.0 - (render_target.bound_box.maxs.y - camera.view_port.maxs.y)},
+					if offsety == 0.0 {rect.min.y as f32}else {rect.min.y as f32 + 1.0 - offsety},
+				);
 				let (xmin, xmax, ymin, ymax) = (
-					rect.min.x as f32/target.target().width as f32 * 2.0 - 1.0,
-					rect.max.x as f32/target.target().width as f32 * 2.0 - 1.0,
-					-(rect.max.y as f32/target.target().height as f32 * 2.0 - 1.0),
-					-(rect.min.y as f32/target.target().height as f32 * 2.0 - 1.0), // y轴需要翻转
+					x/target.target().width as f32 * 2.0 - 1.0,
+					x1/target.target().width as f32 * 2.0 - 1.0,
+					-(y/target.target().height as f32 * 2.0 - 1.0),
+					-(y1/target.target().height as f32 * 2.0 - 1.0), // y轴需要翻转
 				);
 
-				// println!("clear_rect=============== {:?}", (entity, list0.clear_instance / 224, rect, (target.target().width, target.target().height), xmin, ymin, xmax, ymax));
-				set_matrix(
-					&WorldMatrix::default(), 
-					&Aabb2::new(Point2::new(xmin, ymin), 
-					Point2::new(xmax, ymax)), 
-					&mut param.instance_draw.instance_data.instance_data_mut(list0.clear_instance)
-				);
+				// if parent_pass2d_id.0.is_null() {
+				// 	log::debug!("clear_rect=============== {:?}", (pass2d_id, list0.clear_instance / 224, rect, (target.target().width, target.target().height), xmin, ymin, xmax, ymax, &camera.view_port, &render_target.bound_box, &rect));
+				// }
+				
+				// set_matrix(
+				// 	&WorldMatrix::default(), 
+				// 	&Aabb2::new(Point2::new(xmin, ymin), 
+				// 	Point2::new(xmax, ymax)), 
+				// 	&mut param.instance_draw.instance_data.instance_data_mut(list0.clear_instance)
+				// );
+
+				param.instance_draw.instance_data.instance_data_mut(list0.clear_instance)
+					.set_data(&LayoutUniform(&[xmin, ymin, xmax - xmin, ymax - ymin]));
 				// param.instance_draw.instance_data.instance_data_mut(list0.clear_instance).set_data(&QuadUniform(&[
 				// 	xmin, ymin,
 				// 	xmin, ymax,			
@@ -498,22 +532,14 @@ impl Node for Pass2DNode {
 			log::trace!("out.target======{:?}", (pass2d_id, r_target.is_some(), out.target.is_some()));
 			out_target.0 = out.target.as_ref().map(|r| {Share::new(r.downgrade())}); // 设置到组件上， 后续批处理需要用到
 		} 
-		// else {
-		// 	out.valid_rect = None; // 输出到自定义后处理节点，设置为
-		// }
-		// if let Some(r) = &out_target.0 {
-		// 	use pi_slotmap::Key;
-		// 	if pass2d_id.index() == 3 {
-		// 		log::warn!("build====================={:?}",  (r.rect(), &out.valid_rect, &render_target.bound_box, &camera.view_port));
-		// 	}
-			
-		// }
+
 		
 
 		// if instance_index.start == 125 * 240 {
 		// 	println!("visibility=============== {:?}", (pass2d_id, instance_index.start, visibility,  out.target.is_none(), list0.instance_range.len() > 0));
 		// }
 		fbo_info.fbo = r_target.as_ref().map(|r| {Share::new(r.downgrade())});
+		// log::debug!("target==============={:?}", (pass2d_id, fbo_info.fbo.is_some(), camera.view_port));
 		
 		// if content_box.layout.width() >= 700.0 && content_box.layout.height() >= 910.0 {
 		// 	println!("pass2, {:?}", (pass2d_id, fbo_info.out.is_some()));
@@ -717,6 +743,7 @@ impl Node for Pass2DNode {
 						}
 						param.instance_draw.set_pipeline(&mut rp, draw_state, &mut render_state);
 						// log::warn!("clear======={:?}, {:?}, {:?}, {:?}, {:?}", pass, element.1, draw_state.instance_data_range.start/224..draw_state.instance_data_range.end/224, draw_state.instance_data_range.start..draw_state.instance_data_range.end, param.instance_draw.instance_data.data.len());
+						// 批量清屏， 每个清屏实例的布局数据描述了清理区域， 视口设置为整张fbo
 						if let RPTarget::Fbo(rt) = rt {
 							// log::warn!("clear view port: {:?}", (element.1, rt.rect_with_border()));
 							// 清屏视口
@@ -1259,10 +1286,11 @@ pub fn is_only_one_pass(input: &InParamCollector<SimpleInOut>, instance_draw: &I
 		// 此时， 可直接将输入作为输出
 		let input_fbo = input.0.values().next().unwrap().clone();
 		if let Some(r) = &input_fbo.target {
-			let (w, h) = match input_fbo.valid_rect {
-				Some(rect) => (rect.2, rect.3),
-				None => (r.target().width, r.target().height),
-			};
+			// let (w, h) = match input_fbo.valid_rect {
+			// 	Some(rect) => (rect.2, rect.3),
+			// 	None => (r.target().width, r.target().height),
+			// };
+			let (w, h) = (r.target().width, r.target().height);
 			if w == view_port_w && h == view_port_h {
 				ret = true;
 			}
