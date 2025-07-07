@@ -55,7 +55,7 @@ pub static malloc_conf: &[u8] = b"prof:true,prof_active:true,lg_prof_sample:19\0
 pub trait Example: 'static + Sized {
     fn setting(&mut self, _app: &mut App) {}
     fn init(&mut self, param: Param, size: (usize, usize));
-    fn render(&mut self, commands: &mut UserCommands);
+    fn render(&mut self, _commands: &mut UserCommands) {}
 
     fn get_init_size(&self) -> Option<Size<u32>> {
         // None表示使用默认值
@@ -358,6 +358,10 @@ println!("===========   ===========");
                         if let Some(render_dirty) = app.world.get_single_res_mut::<RenderDirty>() {
                             render_dirty.0 = true;
                         }
+                    }
+                } else {
+                    if let Some(render_dirty) = app.world.get_single_res_mut::<RenderDirty>() {
+                        render_dirty.0 = true;
                     }
                 }
                 #[cfg(not(target_arch = "wasm32"))]

@@ -224,7 +224,7 @@ pub fn recursive_set_matrix(
 
             
             // 如果父上没有TransformWillChange， 此处m为TransformWillChange作用后， 节点真实的世界矩阵
-            let mut m_owner = p_matrix * &will_change_matrix * invert;
+            let m_owner = p_matrix * &will_change_matrix * invert;
             let mut m = m_owner.clone();
 
             if let Some(parent_will_change_matrix) = &parent_will_change_matrix.0 {

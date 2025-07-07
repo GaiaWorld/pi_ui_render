@@ -170,6 +170,9 @@ wasm-bindgen-test = "0.3"
 
 pi_hal = {version = "0.2", registry="yn"}
 
+html5ever = "0.27"
+markup5ever_rcdom = "0.3"
+
 # tracy-client-sys="=0.22.0"
 
 # "debug", "trace"

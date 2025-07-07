@@ -1,4 +1,4 @@
-use futures::sink::With;
+
 /// canvas功能
 /// 0. draw_object_life_new系统， 为canvas创建对应的DrawObj
 /// 1. calc_canvas_graph检测canvas对应GraphId和InPassId组件的变化， 将canvas的GraphId链接到当前canvas所在的图节点上
@@ -14,7 +14,7 @@ use pi_bevy_render_plugin::render_cross::GraphId;
 use pi_null::Null;
 
 use crate::components::calc::{CanvasGraph, DrawInfo, DrawList, InPassId};
-use crate::components::draw_obj::{BoxType, CanvasMark, FboInfo, RenderCount};
+use crate::components::draw_obj::{BoxType, CanvasMark, FboInfo};
 use crate::components::user::Canvas;
 use crate::resource::{CanvasRenderObjType, GlobalDirtyMark, OtherDirtyType};
 use crate::system::base::pass::pass_graph_node::CustomCopyNode;
@@ -35,7 +35,7 @@ impl Plugin for CanvasPlugin {
 			draw_object_life_new::<
 				Canvas,
 				CanvasRenderObjType,
-				(CanvasMark, GraphId, FboInfo, RenderTarget1, RenderCount),
+				(CanvasMark, GraphId, FboInfo, RenderTarget1),
 				{ CANVAS_ORDER },
 				{ BoxType::Padding },
 			>
@@ -80,7 +80,7 @@ pub fn calc_canvas_graph(
 		let mut draw_info = draw_info.get_mut(render_obj.id).unwrap();
 		let is_by_cross = draw_info.is_by_cross();
 		let new_is_by_cross = !canvas.id.is_null() && canvas.by_draw_list;
-		if (new_is_by_cross != is_by_cross) {
+		if new_is_by_cross != is_by_cross {
 			draw_info.set_by_cross(new_is_by_cross);
 			global_dirty_mark.mark.set(OtherDirtyType::CanvasBylist as usize, new_is_by_cross);
 			

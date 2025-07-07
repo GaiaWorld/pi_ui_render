@@ -14,14 +14,14 @@ use pi_bevy_ecs_extend::prelude::{Down, Layer, Up};
 use user::{AsImage, SvgFilter, SvgInnerContent, SvgLinearGradient, SvgLinearGradientStop, SvgShadow};
 
 use self::{
-    calc::{DrawInfo, DrawList, EntityKey, IsShow, NodeState, RenderContextMark, TransformWillChangeMatrix, View},
+    calc::{DrawInfo, DrawList, IsShow, NodeState, RenderContextMark, TransformWillChangeMatrix, View},
     draw_obj::{BoxType, FboInfo, InstanceIndex},
     pass_2d::{ChildrenPass, GraphId, ParentPassId, PostProcess, PostProcessInfo, RenderTarget},
     root::RootDirtyRect,
     user::{ClassName, Overflow},
 };
 use pi_bevy_render_plugin::asimage_url::RenderTarget as RenderTarget1;
-use crate::components::pass_2d::IsSteady;
+use crate::components::{calc::IsRotate, draw_obj::RenderCount, pass_2d::IsSteady};
 
 
 #[derive(Clone)]
@@ -78,6 +78,7 @@ pub struct SettingComponentIds {
 
     pub style_mark: ComponentIndex,
     pub matrix: ComponentIndex,
+    pub is_rotate: ComponentIndex,
     pub z_range: ComponentIndex,
     pub content_box: ComponentIndex,
     pub layout: ComponentIndex,
@@ -153,6 +154,7 @@ impl FromWorld for SettingComponentIds {
 
             style_mark: world.init_component::<self::calc::StyleMark>(),
             matrix: world.init_component::<self::calc::WorldMatrix>(),
+            is_rotate: world.init_component::<self::calc::IsRotate>(),
             z_range: world.init_component::<self::calc::ZRange>(),
             content_box: world.init_component::<self::calc::ContentBox>(),
             layout: world.init_component::<self::calc::LayoutResult>(),
@@ -178,6 +180,7 @@ pub struct NodeBundle {
     pub style_mark: calc::StyleMark,
     pub size: user::Size,
     pub matrix: calc::WorldMatrix,
+    pub is_rotate: IsRotate,
     pub z_range: calc::ZRange,
     pub content_box: calc::ContentBox,
     pub layout: calc::LayoutResult,
@@ -219,6 +222,7 @@ pub struct DrawBundleNew<T: FromWorld + Bundle + 'static> {
     // pub vs_defines: VSDefines,
     // pub pipeline_meta: PipelineMeta,
     pub draw_info: DrawInfo,
+    pub render_count: RenderCount,
     pub other: T,
 }
 

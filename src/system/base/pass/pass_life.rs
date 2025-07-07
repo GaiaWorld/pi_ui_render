@@ -514,9 +514,9 @@ pub fn calc_pass(
         &TransformWillChangeMatrix,
         Option<&crate::components::user::TransformWillChange>,
         // OrDefault<Overflow>,
-        &crate::components::calc::LayoutResult,
-        &ContentBox,
-        Entity,
+        // &crate::components::calc::LayoutResult,
+        // &ContentBox,
+        // Entity,
     ), Or<(Changed<PostProcessInfo>, Changed<ContentBox>, Changed<TransformWillChangeMatrix>, Changed<Camera>)>>,
     // query1: Query<
 	// 	(
@@ -530,15 +530,19 @@ pub fn calc_pass(
     if r.0 {
 		return;
 	}
-    for (instance_index, parent_pass_id, camera, view, will_change_matrix, will_change, layout, content_box, entity, ) in query.iter() {
-        log::trace!("passs1==============={:?}", instance_index.0.start);
+    for (instance_index, parent_pass_id, camera, view, will_change_matrix, will_change ) in query.iter() {
+        log::trace!("passs1==============={:?}", instance_index);
         // 节点可能设置为dispaly none， 此时instance_index可能为Null
         // 节点可能没有后处理效果， 此时instance_index为Null
-        if pi_null::Null::is_null(&instance_index.0.start) {
+        if pi_null::Null::is_null(&instance_index.opacity.start) &&  pi_null::Null::is_null(&instance_index.transparent.start) {
             continue;
         }
-        
-        let mut instance_data = instances.instance_data.instance_data_mut(instance_index.0.start);
+        let start = if pi_null::Null::is_null(&instance_index.transparent.start) {
+            instance_index.opacity.start
+        } else {
+            instance_index.transparent.start
+        };
+        let mut instance_data = instances.instance_data.instance_data_mut(start);
         let mut render_flag = instance_data.get_render_ty();
         render_flag |= 1 << RenderFlagType::Uv as usize;
         render_flag |= 1 << RenderFlagType::Premulti as usize;
@@ -606,7 +610,7 @@ pub fn calc_pass(
                 },
                 (OverflowDesc::Rotate(matrix), Some(will_change_matrix)) => {
                     let m1 ;
-                    let mut m = if let Some(_) = will_change {
+                    let m = if let Some(_) = will_change {
                         m1 = &will_change_matrix.primitive * &will_change_matrix.will_change_invert;
                         &m1
                     } else {

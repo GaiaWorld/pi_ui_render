@@ -76,7 +76,7 @@ pub fn calc_has_animation(
                 // 有动画的节点数量大于0，且未给当前父节点贡献一个动画节点数量，则向上递归设置父节点的动画数量——1
                 has_animation.old_set_parent = parent.clone();
                 while !parent.is_null() {
-                    if let Ok((_animation, up, mut has_animation, layer)) = query.get_mut(parent) {
+                    if let Ok((_animation, up, mut has_animation, _layer)) = query.get_mut(parent) {
                         let has_animation = has_animation.bypass_change_detection();
                         has_animation.child_count_width_animation += 1; // 父节点动画数量+1
                         parent = up.parent();
@@ -93,7 +93,7 @@ pub fn calc_has_animation(
                 // 有动画的节点数量等于0，且已经给当前父节点贡献一个动画节点数量，则向上递归设置父节点的动画数量-1
                 has_animation.old_set_parent = Entity::null();
                 while !parent.is_null() {
-                    if let Ok((_animation, up, mut has_animation, layer)) = query.get_mut(parent) {
+                    if let Ok((_animation, up, mut has_animation, _layer)) = query.get_mut(parent) {
                         let has_animation = has_animation.bypass_change_detection();
                         has_animation.child_count_width_animation -= 1; // 父节点动画数量-1
                         parent = up.parent();

@@ -214,22 +214,77 @@ pub struct BorderImageMark;
 pub struct CanvasMark;
 
 // 实例索引(当只有一个实例时， InstanceIndex.0.start为该实例的属性， 当存在多个时，在从InstanceIndex.0范围内， 从InstanceIndex.0.start起， 每间隔一个实例长度，就是一个实例数据)
-#[derive(Debug, Clone, Deref, Component)]
-pub struct InstanceIndex(pub Range<usize>);
+#[derive(Debug, Clone, Component)]
+pub struct InstanceIndex {
+	pub opacity: Range<usize>, // 不透明渲染实例范围
+	pub transparent: Range<usize>, // 透明实例渲染范围
+}
+
+impl InstanceIndex {
+
+	#[inline]
+	pub fn index(&self, is_opacity: bool) -> &Range<usize> {
+		if is_opacity {
+			&self.opacity
+		} else {
+			&self.transparent
+		}
+	}
+
+	pub fn set_index(&mut self, is_opacity: bool, value: Range<usize>) {
+		if is_opacity {
+			self.opacity = value;
+		} else {
+			self.transparent = value;
+		}
+	}
+}
+
+impl Null for InstanceIndex {
+	fn null() -> Self {
+		Self {
+			opacity: Null::null(),
+			transparent: Null::null(),
+		}
+	}
+
+	#[inline]
+	fn is_null(&self) -> bool {
+		self.opacity.is_null() && self.transparent.is_null()
+	}
+}
 
 impl Default for InstanceIndex {
+	#[inline]
 	fn default() -> Self {
-		Self(pi_null::Null::null())
+		Self::null()
 	}
 }
 
 // 渲染属性（像文字这类特殊的渲染， 每个字符都是一个实例渲染， 因此一个span可能存在多个渲染实例， 如果不存在该组件， 表示一个渲染实例， 否则用该组件描述渲染实例的数量）
 #[derive(Debug, Clone, Component)]
-pub struct RenderCount(pub u32);
+pub struct RenderCount {
+	pub opacity: u32,
+	pub transparent: u32,
+}
+
+impl RenderCount {
+	#[inline]
+	pub fn count(&self, is_opacity: bool) -> u32 {
+		if is_opacity {
+			self.opacity
+		} else {
+			self.transparent
+		}
+	}
+}
 
 impl Default for RenderCount {
 	fn default() -> Self {
-		Self(1)
+		Self {
+			opacity: 0,
+			transparent: 1,
+		}
 	}
 }
 

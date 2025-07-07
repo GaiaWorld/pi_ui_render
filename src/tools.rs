@@ -3,7 +3,6 @@ use pi_flex_layout::style::{PositionType, FlexWrap, FlexDirection, AlignContent,
 use pi_style::{style::{AnimationDirection, AnimationTimingFunction, BorderRadius, Color, FitType, FontStyle, ImageRepeatOption, LengthUnit, LineHeight, TextAlign, VerticalAlign, WhiteSpace}, style_parse::Attribute};
 use pi_style::style::TransformOrigin;
 use pi_curves::steps::EStepMode;
-use tracing_subscriber::fmt::format;
 
 pub fn to_css_str(attr: &Attribute) -> (&'static str, String) {
     match attr {

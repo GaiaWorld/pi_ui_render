@@ -43,9 +43,9 @@ use pi_bevy_ecs_extend::prelude::{EntityTree, LayerDirty, OrInitSingleRes, OrIni
 
 use pi_map::Map;
 use pi_null::Null;
-use pi_style::style::Aabb2;
+use pi_style::style::{Aabb2, StyleType};
 
-use crate::components::calc::{EntityKey, LayoutResult, Quad, WorldMatrix};
+use crate::components::calc::{EntityKey, IsRotate, LayoutResult, Quad, StyleMark, WorldMatrix};
 use crate::components::user::{BoxShadow, Point2, TextShadow, Transform};
 use crate::resource::{GlobalDirtyMark, IsRun, MatrixDirty, OtherDirtyType, QuadTree};
 use crate::components::user::Vector4;
@@ -67,6 +67,14 @@ pub struct OldQuad {
 //         print_parent(idtree, parent_id);
 //     }
 // }
+
+pub const RENDER_TYPE: u32 = 
+    ( 1 << StyleType::BackgroundColor as usize) |
+    ( 1 << StyleType::BackgroundImage as usize) |
+    ( 1 << StyleType::BorderColor as usize) |
+    ( 1 << StyleType::BorderImage as usize) ; // |
+
+    // ( 1 << StyleType::TextContent as usize); // TODO
 pub struct Empty;
 /// 计算世界矩阵
 /// 世界矩阵以自身左上角为原点
@@ -88,7 +96,7 @@ pub fn cal_matrix(
     // query11: Query<(Entity,  Option<Ticker<&Transform>>, Ticker<&Layer>, Ticker<&LayoutResult>), ((Changed<LayoutResult>, Changed<Layer>, Changed<Transform>), With<Size>)>,
     mut matrix_calc: ParamSet<(
         Query<(&LayoutResult, &WorldMatrix)>, 
-        Query<(&mut WorldMatrix, &mut Quad)>,
+        Query<(&mut WorldMatrix, &mut Quad, &mut IsRotate, &StyleMark)>,
         Query<(&Quad, &LayoutResult, Option<&TextShadow>, Option<&BoxShadow>, &WorldMatrix)>,
     )>,
     // mut dirtys: LayerDirty<((Changed<LayoutResult>, Changed<Transform>), With<Size>)>,
@@ -205,7 +213,7 @@ pub fn cal_matrix(
 			// }
             // 将计算结果写入组件
             match matrix_calc.p1().get_mut(id) {
-                Ok((mut world_matrix, mut quad)) => {
+                Ok((mut world_matrix, mut quad, mut is_rotate, style_mark)) => {
 					calc_quad(
 						id,
 						layout,
@@ -221,9 +229,20 @@ pub fn cal_matrix(
 						log::debug!("matrix=============id={:?}, \nlayout={:?}, \nmatrix={:?}, \nquad={:?}", id, layout, &matrix, &quad);
 					}
                     // log::warn!("matrix=============id={:?}, parent: {:?}, layout={:?}, \nmatrix={:?}, \nquad={:?}, \ntransform={:?}", id, parent_id, layout, &*matrix, &*quad, transform);
+                    if is_rotate.0 != matrix.1 {
+                        is_rotate.0 = matrix.1;
+                    }
                     *world_matrix = matrix;
 
-					
+                    // 标记渲染obj脏（优化性能， 不需要每个渲染obj的system在matrix变化的情况下总是迭代， 如果matrix修改， 但节点上没有任何渲染属性， 则其他system不需要迭代）
+                    let mut m = style_mark.local_style.as_raw_slice()[0] & RENDER_TYPE;
+                    if m > 0 {
+                        global_dirty.as_raw_mut_slice()[0] |= m;
+                    }
+                    m = style_mark.class_style.as_raw_slice()[0] & RENDER_TYPE;
+                    if m > 0 {
+                        global_dirty.as_raw_mut_slice()[0] |= m;
+                    }
                 }
                 Err(_) => {}
             };

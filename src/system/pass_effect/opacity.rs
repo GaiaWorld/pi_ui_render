@@ -1,9 +1,9 @@
 
 use pi_style::style::StyleType;
-use pi_world::{app::App, event::{ComponentAdded, ComponentChanged}, filter::{With, Without}, prelude::{IntoSystemConfigs, Plugin}, query::Query, single_res::SingleRes, world::Entity};
+use pi_world::{app::App, event::{ComponentAdded, ComponentChanged}, filter::{With, Without}, prelude::{IntoSystemConfigs, Plugin}, query::Query, single_res::SingleRes};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleRes, OrInitSingleResMut};
 
-use crate::{components::{calc::{DrawList, RenderContextMark}, draw_obj::InstanceIndex, user::{IsLeaf, Opacity}}, resource::{draw_obj::InstanceContext, GlobalDirtyMark, IsRun, RenderContextMarkType}, shader1::batch_meterial::OpacityUniform, system::{base::pass::pass_life::{self, pass_mark, render_mark_false, render_mark_true}, system_set::UiSystemSet}};
+use crate::{components::{calc::{DrawList, RenderContextMark}, draw_obj::InstanceIndex, user::{IsLeaf, Opacity}}, resource::{draw_obj::InstanceContext, GlobalDirtyMark, IsRun, RenderContextMarkType}, shader1::batch_meterial::OpacityUniform, system::{base::pass::pass_life::{self, render_mark_false, render_mark_true}, system_set::UiSystemSet}};
 
 use pi_postprocess::effect::Alpha;
 
@@ -66,8 +66,8 @@ pub fn opacity_post_process(
     opacity_change: ComponentChanged<Opacity>,
     opacity_added: ComponentAdded<Opacity>,
     mut query: Query<(&Opacity, &mut PostProcess, &mut PostProcessInfo), Without<IsLeaf>>,
-    mut query1: Query<(&Opacity, &DrawList), With<IsLeaf>>,
-    mut query_draw: Query<&InstanceIndex>,
+    query1: Query<(&Opacity, &DrawList), With<IsLeaf>>,
+    query_draw: Query<&InstanceIndex>,
     // remove: ComponentRemoved<Opacity>,
 	r: OrInitSingleRes<IsRun>
 ) {
@@ -87,19 +87,24 @@ pub fn opacity_post_process(
     // }
    
     for entity in opacity_change.iter().chain(opacity_added.iter()) {
-        // 是叶子节点， opacity设置在实例属性上
         // 这里的逻辑不需要考虑与实例分配系统的顺序问题， 实例分配系统会使用正确的opacity值初始化实例
         if let Ok((opacity, draw_list)) = query1.get(*entity) {
+            // 是叶子节点， opacity设置在实例属性上
             for draw_id in draw_list.iter() {
 				if let Ok(instance_index) = query_draw.get(draw_id.id) {
 					let alignment = instances.instance_data.alignment;
-					let count = instance_index.0.len() / alignment;
-					for index in 0..count {
-						set_instance_opacity(opacity.0, instance_index.0.start + index * alignment, &mut instances);
+					let transparent_count = instance_index.transparent.len() / alignment;
+					for index in 0..transparent_count {
+						set_instance_opacity(opacity.0, instance_index.transparent.start + index * alignment, &mut instances);
+					}
+                    let opacity_count = instance_index.opacity.len() / alignment;
+					for index in 0..opacity_count {
+						set_instance_opacity(opacity.0, instance_index.transparent.start + index * alignment, &mut instances);
 					}
 				}
 			}
-        }else if let Ok((opacity, mut post_list, mut post_info)) = query.get_mut(*entity) {
+        } else if let Ok((opacity, mut post_list, mut post_info)) = query.get_mut(*entity) {
+            // 非叶子节点， 设置在后处理上
             log::debug!("opacity: {:?}", (entity, **opacity));
             if **opacity >= 1.0 {
                 post_list.alpha = None;

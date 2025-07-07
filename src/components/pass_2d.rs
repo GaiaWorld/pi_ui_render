@@ -201,7 +201,7 @@ impl RenderLists {
         self.list.transparent.clear();
         self.range.clear();
     }
-    pub fn iter<F: FnMut(&(DrawIndex, ZRange, DrawInfo))>(&self, mut f: F) {
+    pub fn iter<F: FnMut(&( DrawIndex, ZRange, DrawInfo))>(&self, mut f: F) {
         for range in self.range.iter() {
             for i in self.list.opaque[range.0.clone()].iter().rev().chain(self.list.transparent[range.1.clone()].iter()) {
                 f(i);

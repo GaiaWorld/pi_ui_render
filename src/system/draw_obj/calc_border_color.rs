@@ -47,7 +47,7 @@ impl Plugin for BorderColorPlugin {
 			life_drawobj::draw_object_life_new::<
 				BorderColor,
 				BorderColorRenderObjType,
-				(BorderColorMark, RenderCount, BorderSdfUv),
+				(BorderColorMark, BorderSdfUv),
 				{ BORDER_COLOR_ORDER },
 				{ BoxType::None },
 			>
@@ -135,8 +135,8 @@ pub fn calc_border_color_instace_count(
 			&& eq_f32(layout.border.right, 0.0) 
 			&& eq_f32(layout.border.bottom, 0.0) 
 			&& eq_f32(layout.border.left, 0.0) {
-			if render_count.0 > 0 {
-				render_count.0 = 0;
+			if render_count.opacity > 0 || render_count.transparent > 0 {
+				*render_count = RenderCount {opacity: 0, transparent: 0};
 			}
 			continue;
 		}
@@ -274,8 +274,29 @@ pub fn calc_border_color_instace_count(
 			(fill_latitude, bottom),
 		]));
 
-		if render_count.0 != count as u32 {
-			render_count.0 = count as u32;
+		let render_count_new = if border_color.0.is_opacity() && 
+			!world_matrix.1 && 
+			rd.x[0] == 0.0 &&
+			rd.x[1] == 0.0 &&
+			rd.x[2] == 0.0 &&
+			rd.x[3] == 0.0 &&
+			rd.y[0] == 0.0 &&
+			rd.y[1] == 0.0 &&
+			rd.y[2] == 0.0 &&
+			rd.y[3] == 0.0
+		{
+			RenderCount {
+				opacity: count as u32,
+				transparent: 0,
+			}
+		} else {
+			RenderCount {
+				opacity: 0,
+				transparent: count as u32,
+			}
+		};
+		if render_count.opacity != render_count_new.opacity as u32 || render_count.transparent != render_count_new.transparent as u32 {
+			*render_count = render_count_new;
 			global_mark.mark.set(OtherDirtyType::InstanceCount as usize, true);
 		}
 	
@@ -300,7 +321,8 @@ pub fn calc_border_color(
 	for (draw_id, color, px_range, fill_bound, range) in grid_buffer.1.drain(..) {
 		
 		if let Ok(instanceindex) = query_draw.get(draw_id) {
-			let mut start = instanceindex.start;
+			let index = if instanceindex.opacity.len() > 0 { &instanceindex.opacity} else {&instanceindex.transparent};
+			let mut start = index.start;
 			for (x_range, y_range) in range {
 				log::debug!("calc_border_color==={:?}", (draw_id, &x_range, &y_range));
 				start = set_grid_instance(
@@ -313,13 +335,13 @@ pub fn calc_border_color(
 			}
 			
 			let alignment = instances.instance_data.alignment;
-			instances.instance_data.set_data_mult(instanceindex.start, (instanceindex.end - instanceindex.start) / alignment, &StrokeColorUniform(&[
+			instances.instance_data.set_data_mult(index.start, (index.end - index.start) / alignment, &StrokeColorUniform(&[
 				color.x, color.y, color.z, color.w
 			]));
-			instances.instance_data.set_data_mult(instanceindex.start, (instanceindex.end - instanceindex.start) / alignment, &ColorUniform(&[
+			instances.instance_data.set_data_mult(index.start, (index.end - index.start) / alignment, &ColorUniform(&[
 				color.x, color.y, color.z, color.w
 			]));
-			instances.instance_data.set_data_mult(instanceindex.start, (instanceindex.end - instanceindex.start) / alignment, &SdfUniform(&[
+			instances.instance_data.set_data_mult(index.start, (index.end - index.start) / alignment, &SdfUniform(&[
 				px_range, fill_bound, 0.5,
 			]));
 

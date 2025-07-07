@@ -9,7 +9,7 @@ use smallvec::SmallVec;
 use std::hash::Hash;
 /// 中间计算的组件
 use std::{
-    intrinsics::transmute,
+    mem::transmute,
     ops::{Deref, DerefMut, Mul},
 };
 
@@ -221,6 +221,15 @@ impl DrawInfo {
 
     pub fn set_is_opacity(&mut self, value: bool) { self.0 = self.0 << 1 >> 1 | ((unsafe { transmute::<_, u8>(value) } as u32) << 31); }
 }
+
+/// 描述节点是否旋转
+/// -不透明（颜色不透明、图片不透明、没有圆角）+ 不旋转， 整体采用“非sdf”方式渲染
+/// -不透明（颜色不透明、图片不透明、没有圆角）+ 旋转 + 大尺寸， 需要通过九宫格切分， 中间部分采用非sdf方式渲染， 边缘部分采用sdf方式渲染
+/// -不透明（颜色不透明、图片不透明、没有圆角）+ 旋转 + 小尺寸， 整体采用“sdf”方式渲染
+/// -透明， 整体采用“sdf”方式渲染
+#[derive(Debug, Clone, Serialize, Deserialize, Component, Default)]
+pub struct IsRotate(pub bool);
+
 
 // 世界矩阵，  WorldMatrix(矩阵, 矩阵描述的变换是存在旋转变换)， 如果不存在旋转变换， 可以简化矩阵的乘法
 #[derive(Debug, Clone, Serialize, Deserialize, Component)]
@@ -635,8 +644,8 @@ pub struct TransformWillChangeMatrixInner {
 
 #[derive(Debug, Clone)]
 pub struct SdfSlice {
-    pub sdf_slice: Rect<f32>, // 0~1
-    pub layout_slice: Rect<f32>,
+    pub sdf_slice: Rect<f32>, // 0~1   , 以左上角为原点的上、右、下、左位置
+    pub layout_slice: Rect<f32>, // 0~1, 以左上角为原点的上、右、下、左位置
 }
 
 impl Default for SdfSlice {
@@ -678,6 +687,9 @@ impl Default for BorderSdfUv {
     }
 }
 
+const DEFAULT_SDF_SIZE: f32 = 32.0;
+const DEFAULT_SDF_SLICE: f32 = 2.0;
+
 impl FromWorld for SdfUv {
     fn from_world(world: &mut pi_world::world::World) -> Self {
         if let Some(sdf_uv) = world.get_single_res::<SdfUv>() {
@@ -686,9 +698,9 @@ impl FromWorld for SdfUv {
         let font_sheet = world.get_single_res_mut::<ShareFontSheet>().unwrap();
         
         let mut font_sheet = font_sheet.borrow_mut();
-        let rect = pi_hal::svg::Rect::new(0.0, 0.0, 32.0, 32.0);
+        let rect = pi_hal::svg::Rect::new(0.0, 0.0, DEFAULT_SDF_SIZE, DEFAULT_SDF_SIZE);
         let hash = calc_hash(&"rect sdf", 0);
-        font_sheet.font_mgr_mut().table.sdf2_table.add_shape(calc_hash(&"rect sdf", 0), rect.get_svg_info(), 32, 128, 2);
+        font_sheet.font_mgr_mut().table.sdf2_table.add_shape(calc_hash(&"rect sdf", 0), rect.get_svg_info(), DEFAULT_SDF_SIZE as usize, 128, 2);
 
         let info = font_sheet.font_mgr_mut().table.sdf2_table.get_shape(hash).unwrap();
         log::debug!("rect SdfUv========================{:?}",Rect {
@@ -704,6 +716,21 @@ impl FromWorld for SdfUv {
             right: info.x as f32 + info.width as f32 - 5.0,
             bottom: info.y as f32 + info.height as f32 - 5.0,
         }, 128.0 * 2.0)
+    }
+}
+
+// 四边形的sdf切换（纹理宽度为32 * 32，上下左右边缘各切14个像素， 中间留四个像素）
+#[derive(Debug, Clone)]
+pub struct RectSdfSlice (pub Rect<f32>);
+
+impl Default for RectSdfSlice {
+    fn default() -> Self {
+        Self(Rect {
+            left: DEFAULT_SDF_SLICE / DEFAULT_SDF_SIZE,
+            right: (DEFAULT_SDF_SIZE - DEFAULT_SDF_SLICE) / DEFAULT_SDF_SIZE,
+            top: DEFAULT_SDF_SLICE / DEFAULT_SDF_SIZE,
+            bottom: (DEFAULT_SDF_SIZE - DEFAULT_SDF_SLICE) / DEFAULT_SDF_SIZE,
+        })
     }
 }
 
@@ -1041,6 +1068,16 @@ impl Texture {
                     Point2::new((right + rect.min.x as f32) / width, (bottom + rect.min.y as f32) / height),
                 )
             }
+        }
+    }
+
+    /**
+     * 是否不透明
+     */
+    pub fn is_opacity(&self) -> bool {
+        match self {
+            Texture::All(r) => r.is_opacity,
+            Texture::Part(..) => false, // todo!()
         }
     }
 }

@@ -3,7 +3,7 @@
 use std::{
     borrow::BorrowMut,
     collections::VecDeque,
-    mem::replace, sync::Arc,
+    mem::replace,
 };
 
 use pi_share::Share;

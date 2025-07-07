@@ -48,7 +48,7 @@ pub fn calc_border_radius(
     removed: ComponentRemoved<BorderRadius>,
     // query_delete: Query<(Has<BorderRadius>, &'static DrawList)>,
     mut query: Query<
-        (&'static BorderRadius, &'static LayoutResult, &mut SdfUv, &mut SdfSlice, &WorldMatrix, pi_world::prelude::Entity),
+        (&'static BorderRadius, &'static LayoutResult, &mut SdfUv, &mut SdfSlice, &WorldMatrix),
         Or<(Changed<BorderRadius>, Changed<WorldMatrix>)>,
     >,
 
@@ -95,7 +95,7 @@ pub fn calc_border_radius(
         let mut font_sheet = font_sheet.borrow_mut();
         let sdf2_table = &mut font_sheet.font_mgr_mut().table.sdf2_table;
 
-        for (border_radius, layout, mut sdf_uv, mut sdf_slice, world_matrix, entity) in query.iter_mut() {
+        for (border_radius, layout, mut sdf_uv, mut sdf_slice, world_matrix) in query.iter_mut() {
             let scale = world_matrix.column(0).x.min(world_matrix.column(1).y);
             let width = layout.rect.right - layout.rect.left;
             let height = layout.rect.bottom - layout.rect.top; 

@@ -2,7 +2,7 @@ use pi_style::style::StyleType;
 use pi_world::app::App;
 use pi_world::event::{ComponentAdded, ComponentChanged};
 use pi_world::filter::With;
-use pi_world::prelude::{ComponentRemoved, IntoSystemConfigs};
+use pi_world::prelude::IntoSystemConfigs;
 use pi_bevy_ecs_extend::prelude::OrInitSingleRes;
 use pi_world::query::Query;
 use pi_world::single_res::SingleRes;

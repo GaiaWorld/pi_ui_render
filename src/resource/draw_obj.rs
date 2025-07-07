@@ -1,7 +1,6 @@
 //! 与DrawObject相关的资源
-use std::{collections::hash_map::Entry, hash::Hash, marker::PhantomData, num::NonZeroU32, sync::atomic::{Ordering, AtomicUsize}, borrow::Cow};
+use std::{collections::hash_map::Entry, hash::Hash, marker::PhantomData, num::NonZeroU32, borrow::Cow};
 
-use naga::Range;
 use pi_world::prelude::{FromWorld, World, Entity};
 use ordered_float::NotNan;
 use pi_assets::{asset::Handle, homogeneous::HomogeneousMgr, mgr::AssetMgr};
@@ -287,6 +286,7 @@ pub struct InstanceContext {
 	pub premultiply_blend_state_hash: u64,
 
 	pub common_pipeline: Share<wgpu::RenderPipeline>,
+    pub common_opacity_pipeline: Share<wgpu::RenderPipeline>,
     pub copy_pipeline: Share<wgpu::RenderPipeline>,
 	pub premultiply_pipeline: Share<wgpu::RenderPipeline>,
 	pub clear_pipeline: Share<wgpu::RenderPipeline>,
@@ -586,6 +586,15 @@ impl FromWorld for InstanceContext {
             },
         });
 
+        let opacity_fs = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some(&"opacity_ui_fs"),
+            source: wgpu::ShaderSource::Glsl {
+                shader: Cow::Borrowed(include_str!("../shader1/batch_shader_opacity.frag")),
+                stage: naga::ShaderStage::Fragment,
+                defines: naga::FastHashMap::default(),
+            },
+        });
+
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("ui_shader"),
             bind_group_layouts: &[&*uniform_layout, &text_texture_layout, &batch_texture.group_layout],
@@ -593,11 +602,12 @@ impl FromWorld for InstanceContext {
         });
 
 		let common_blend_state_hash = calc_hash(&CommonBlendState::NORMAL, 0);
-		let copy_pipeline = Share::new(create_render_pipeline("copy_pipeline ui", &device, &pipeline_layout, &vs, &fs, Some(CommonBlendState::NORMAL), CompareFunction::Always, false, wgpu::TextureFormat::pi_render_default(), vert_layout().as_slice(), MeterialBind::SIZE));
-		let common_pipeline  = Share::new(create_render_pipeline("common_pipeline ui", &device, &pipeline_layout, &vs, &fs, Some(CommonBlendState::NORMAL), CompareFunction::GreaterEqual, true, wgpu::TextureFormat::pi_render_default(), vert_layout().as_slice(), MeterialBind::SIZE));
+		let copy_pipeline = Share::new(create_render_pipeline("copy_pipeline ui", &device, &pipeline_layout, &vs, &fs, Some(CommonBlendState::NORMAL), CompareFunction::Always, false, wgpu::TextureFormat::pi_render_default(), vert_layout().as_slice(), MeterialBind::SIZE, true));
+		let common_pipeline  = Share::new(create_render_pipeline("common_pipeline ui", &device, &pipeline_layout, &vs, &fs, Some(CommonBlendState::NORMAL), CompareFunction::GreaterEqual, true, wgpu::TextureFormat::pi_render_default(), vert_layout().as_slice(), MeterialBind::SIZE, false));
+        let common_opacity_pipeline = Share::new(create_render_pipeline("common_opacity_pipeline ui", &device, &pipeline_layout, &vs, &opacity_fs, Some(CommonBlendState::NORMAL), CompareFunction::GreaterEqual, true, wgpu::TextureFormat::pi_render_default(), vert_layout().as_slice(), MeterialBind::SIZE, true));
 
 		let premultiply_blend_state_hash = calc_hash(&CommonBlendState::PREMULTIPLY, 0);
-		let premultiply_pipeline = Share::new(create_render_pipeline("premultiply_pipeline ui", &device, &pipeline_layout, &vs, &fs, Some(CommonBlendState::PREMULTIPLY), CompareFunction::GreaterEqual, true, wgpu::TextureFormat::pi_render_default(), vert_layout().as_slice(), MeterialBind::SIZE));
+		let premultiply_pipeline = Share::new(create_render_pipeline("premultiply_pipeline ui", &device, &pipeline_layout, &vs, &fs, Some(CommonBlendState::PREMULTIPLY), CompareFunction::GreaterEqual, true, wgpu::TextureFormat::pi_render_default(), vert_layout().as_slice(), MeterialBind::SIZE, true));
 
 		let clear_blend_state_hash = calc_hash(&CompareFunction::Always, calc_hash(&CommonBlendState::NORMAL, 0));
 		let clear_pipeline = Share::new(create_render_pipeline("clear ui", &device, &pipeline_layout, &vs, &fs, Some(BlendState {
@@ -611,7 +621,7 @@ impl FromWorld for InstanceContext {
 				dst_factor: wgpu::BlendFactor::Zero,
 				operation: wgpu::BlendOperation::Add,
 			},
-		}), CompareFunction::Always, true, wgpu::TextureFormat::pi_render_default(), vert_layout().as_slice(), MeterialBind::SIZE));
+		}), CompareFunction::Always, true, wgpu::TextureFormat::pi_render_default(), vert_layout().as_slice(), MeterialBind::SIZE, true));
         let mask_image_pipeline = Share::new(create_render_pipeline("mask image", &device, &pipeline_layout, &vs, &fs, Some(BlendState {
 			color: wgpu::BlendComponent {
 				src_factor: wgpu::BlendFactor::One,
@@ -623,7 +633,7 @@ impl FromWorld for InstanceContext {
 				dst_factor: wgpu::BlendFactor::Zero,
 				operation: wgpu::BlendOperation::Add,
 			},
-		}), CompareFunction::Always, false, wgpu::TextureFormat::pi_render_default(), vert_layout().as_slice(), MeterialBind::SIZE));
+		}), CompareFunction::Always, false, wgpu::TextureFormat::pi_render_default(), vert_layout().as_slice(), MeterialBind::SIZE, true));
 
 
         let text_gray_vs = device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -659,7 +669,7 @@ impl FromWorld for InstanceContext {
 				dst_factor: wgpu::BlendFactor::Zero,
 				operation: wgpu::BlendOperation::Add,
 			},
-		}), CompareFunction::Always, false, wgpu::TextureFormat::R8Unorm, batch_sdf_gray::vert_layout().as_slice(), GrayMeterialBind::SIZE));
+		}), CompareFunction::Always, false, wgpu::TextureFormat::R8Unorm, batch_sdf_gray::vert_layout().as_slice(), GrayMeterialBind::SIZE, true));
        
         let text_shadow_vs = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some(&"ui_text_shadow_vs"),
@@ -688,7 +698,7 @@ impl FromWorld for InstanceContext {
 				dst_factor: wgpu::BlendFactor::Zero,
 				operation: wgpu::BlendOperation::Add,
 			},
-		}), CompareFunction::Always, false, wgpu::TextureFormat::R8Unorm, batch_gauss_blur::vert_layout().as_slice(), GussMeterialBind::SIZE));
+		}), CompareFunction::Always, false, wgpu::TextureFormat::R8Unorm, batch_gauss_blur::vert_layout().as_slice(), GussMeterialBind::SIZE, true));
         
         let text_glow_vs = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some(&"ui_text_glow_vs"),
@@ -717,7 +727,7 @@ impl FromWorld for InstanceContext {
 				dst_factor: wgpu::BlendFactor::One,
 				operation: wgpu::BlendOperation::Max,
 			},
-		}), CompareFunction::Always, false, wgpu::TextureFormat::R8Unorm, batch_sdf_glow::vert_layout().as_slice(), GlowMeterialBind::SIZE));
+		}), CompareFunction::Always, false, wgpu::TextureFormat::R8Unorm, batch_sdf_glow::vert_layout().as_slice(), GlowMeterialBind::SIZE, true));
 
 		let mut pipeline_cache = XHashMap::default();
 		pipeline_cache.insert(common_blend_state_hash, common_pipeline.clone());
@@ -748,6 +758,7 @@ impl FromWorld for InstanceContext {
 			common_blend_state_hash,
 			premultiply_blend_state_hash,
 			common_pipeline,
+            common_opacity_pipeline,
             copy_pipeline,
 			premultiply_pipeline,
 			clear_pipeline,
@@ -816,7 +827,7 @@ impl InstanceContext {
 			Entry::Occupied(r) => r.get().clone(),
 			Entry::Vacant(r) => {
 				let pipeline = Share::new(create_render_pipeline(
-                    "batch ui", &device, &self.pipeline_layout, &self.vs, &self.fs, Some(blend_state), CompareFunction::GreaterEqual, has_depth, wgpu::TextureFormat::pi_render_default(), vert_layout().as_slice(), MeterialBind::SIZE));
+                    "batch ui", &device, &self.pipeline_layout, &self.vs, &self.fs, Some(blend_state), CompareFunction::GreaterEqual, has_depth, wgpu::TextureFormat::pi_render_default(), vert_layout().as_slice(), MeterialBind::SIZE, true));
 				r.insert(pipeline.clone());
 				pipeline
 			},
@@ -1649,6 +1660,7 @@ pub fn create_render_pipeline(
     format: wgpu::TextureFormat,
     vert_layout: &[wgpu::VertexAttribute],
     size: usize,
+    depth_write_enabled: bool,
 ) -> wgpu::RenderPipeline {
 	let state = PipelineState {
         targets: vec![Some(wgpu::ColorTargetState {
@@ -1665,7 +1677,7 @@ pub fn create_render_pipeline(
         depth_stencil: match has_depth {
             true => Some(DepthStencilState {
                 format: TextureFormat::Depth32Float,
-                depth_write_enabled: true,
+                depth_write_enabled,
                 depth_compare,
                 // depth_compare: CompareFunction::Always,
                 stencil: StencilState::default(),

@@ -40,7 +40,7 @@ impl Plugin for BoxShadowPlugin {
 			life_drawobj::draw_object_life_new::<
 				BoxShadow,
 				BoxShadowRenderObjType,
-				(BoxShadowMark, RenderCount),
+				BoxShadowMark,
 				{ BOX_SHADOW_ORDER },
 				{ BoxType::None },
 			>
@@ -168,8 +168,8 @@ pub fn calc_box_shadow_instace_count(
 			grid_buffer.1.push((draw_id, box_shadow.color.clone(), range));
 
 
-			if render_count.0 != count as u32 {
-				render_count.0 = count as u32;
+			if render_count.transparent != count as u32 {
+				render_count.transparent = count as u32;
 				global_mark.mark.set(OtherDirtyType::InstanceCount as usize, true);
 			}
 		}
@@ -193,6 +193,7 @@ pub fn calc_box_shadow(
 	for (draw_id, color, range) in grid_buffer.1.drain(..) {
 		log::debug!("calc_box_shadow======{:?}", (&color, &range));
 		if let Ok(instanceindex) = query_draw.get(draw_id) {
+			let instanceindex = &instanceindex.transparent;
 			let mut start = instanceindex.start;
 			for (x_range, y_range) in range {
 				start = set_grid_instance(

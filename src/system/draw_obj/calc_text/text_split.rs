@@ -1,6 +1,6 @@
 //! 文字劈分系統
 //! 将文字劈分为字符，放入NodeState中，并设置好每个字符的布局宽高。等待布局系统布局
-use std::intrinsics::transmute;
+use std::mem::transmute;
 
 use pi_world::{filter::Or, prelude::{Changed, Entity, Mut, OrDefault, Query, SingleResMut}};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleRes, Up, Layer};
@@ -22,7 +22,6 @@ use crate::{
     },
     resource::{IsRun, ShareFontSheet},
 };
-use pi_world::fetch::Ticker;
 
 /// 文字劈分
 /// 将可以简单布局的问文字节点转化为。。
@@ -39,7 +38,6 @@ pub fn text_split(
             &'static mut NodeState,
             &'static StyleMark,
             Option<&'static mut FlexContainer>,
-            &Layer,
 			Option<&'static mut TextOverflowData>,
 
             // Ticker<&'static TextContent>,
@@ -56,7 +54,7 @@ pub fn text_split(
 		return;
 	}
     let mut font_sheet = font_sheet.0.borrow_mut();
-    for (entity, text_content, text_style, up, size, normal_style, node_state, style_mark, flex_container, layer, text_overflow_data,
+    for (entity, text_content, text_style, up, size, normal_style, node_state, style_mark, flex_container, text_overflow_data,
 		
     ) in query.iter_mut() {
         // if layer.layer().is_null() {

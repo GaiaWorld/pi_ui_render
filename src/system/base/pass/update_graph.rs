@@ -4,7 +4,6 @@ use std::collections::hash_map::Entry;
 
 use pi_hash::XHashMap;
 use pi_world::event::ComponentChanged;
-use pi_world::fetch::OrDefault;
 use pi_world::filter::Or;
 use pi_world::prelude::{Changed, Entity, FilterComponents, ParamSet, Query, SingleRes, SingleResMut, With};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleRes, OrInitSingleResMut};

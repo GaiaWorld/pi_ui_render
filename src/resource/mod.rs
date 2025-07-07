@@ -18,7 +18,6 @@ use pi_share::{Share, ShareCell};
 use pi_style::style::{Aabb2, CgColor};
 use pi_world::world::ComponentIndex;
 use pi_key_alloter::Key;
-use smallvec::SmallVec;
 
 use std::marker::{ConstParamTy, PhantomData};
 use std::mem::transmute;
@@ -178,6 +177,7 @@ impl UserCommands {
 
             (ids.style_mark, true),
             (ids.matrix, true),
+            (ids.is_rotate, true),
             (ids.z_range, true),
             (ids.content_box, true),
             (ids.layout, true),

@@ -1,0 +1,17 @@
+ <!--测试图片是否正确的使用不透明方式渲染和半透明方式渲染-->
+<div style="width: 100%;height:100%">
+    <!--不透明图片, 一个“非”sdf渲染实例-->
+    <div style="width:110px;height:110px;background-image: url(examples/z_source/moon.jpg);"></div>
+    <!--不透明图片 + 旋转， 切分， 边缘部分多个sdf渲染实例， 中间部分一个“非”sdf渲染实例-->
+    <div style="width:110px;height:110px;background-image: url(examples/z_source/moon.jpg);transform: rotateZ(45deg);"></div>
+    <!--不透明图片 + 圆角， 切分， 边缘部分多个sdf渲染实例， 中间部分一个sdf渲染实例-->
+    <div style="width:110px;height:110px;background-image: url(examples/z_source/moon.jpg);border-radius: 20px;"></div>
+
+    <!--透明图片, 一个“非”sdf渲染实例-->
+    <div style="width:110px;height:110px;background-image: url(examples/z_source/dialog_bg.png);"></div>
+    <!--透明图片 + 旋转， 切分， 边缘部分多个sdf渲染实例， 中间部分一个“非”sdf渲染实例-->
+    <div style="width:110px;height:110px;background-image: url(examples/z_source/dialog_bg.png);transform: rotateZ(45deg);"></div>
+    <!--透明图片 + 圆角， 切分， 边缘部分多个sdf渲染实例， 中间部分一个sdf渲染实例-->
+    <div style="width:110px;height:110px;background-image: url(examples/z_source/dialog_bg.png);border-radius: 20px;"></div>
+
+</div>

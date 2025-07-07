@@ -58,31 +58,34 @@ pub fn set_matrix_uniform_inner(
             }
             // 节点可能设置为dispaly none， 此时instance_index可能为Null TODO
             log::debug!("set_matrix_uniform!!!!: draw_id={:?}, instance_index={:?}", draw_id.id, instance_index);
-            if pi_null::Null::is_null(&instance_index.0.start) {
-                continue;
-            }
-
-            // use pi_key_alloter::Key;
-            
-            let aabb = match box_type {
-                BoxType::Padding => layout.padding_aabb(),
-                BoxType::Content => layout.content_aabb(),
-                BoxType::Border => layout.border_aabb(),
-                BoxType::None => {
-                    // if entity.index() == 257 && entity.data().version() == 4 {
-                    //     println!("=============layout1=============={:?}", (entity));
-                    // }
-                    // log::warn!("=============layout1=============={:?}", (entity, world_matrix.as_slice().len()));
-                    instances.instance_data.set_data_mult(instance_index.0.start, render_count.0 as usize, &WorldMatrixMeterial(world_matrix.as_slice()));
-                    continue;
-                },
-                BoxType::None2 => continue,
-            };
-            // if entity.index() == 257 && entity.data().version() == 4 {
-            //     println!("=============layout=============={:?}", (entity, &aabb));
+            // if pi_null::Null::is_null(&instance_index.0.start) {
+            //     continue;
             // }
-            instances.instance_data.set_data_mult(instance_index.0.start, render_count.0 as usize,&LayoutUniform(&[aabb.mins.x, aabb.mins.y, aabb.maxs.x - aabb.mins.x, aabb.maxs.y - aabb.mins.y]));
-	        instances.instance_data.set_data_mult(instance_index.0.start, render_count.0 as usize,&WorldMatrixMeterial(world_matrix.as_slice()));
+            
+            let mut calc = |index: usize, count: usize| {
+                let aabb = match box_type {
+                    BoxType::Padding => layout.padding_aabb(),
+                    BoxType::Content => layout.content_aabb(),
+                    BoxType::Border => layout.border_aabb(),
+                    BoxType::None => {
+                        // if entity.index() == 257 && entity.data().version() == 4 {
+                        //     println!("=============layout1=============={:?}", (entity));
+                        // }
+                        log::debug!("matrix uniform none==========================={:?}", (draw_id, world_matrix.as_slice().len()));
+                        instances.instance_data.set_data_mult(index, count, &WorldMatrixMeterial(world_matrix.as_slice()));
+                        return;
+                    },
+                    BoxType::None2 => return,
+                };
+                // if entity.index() == 257 && entity.data().version() == 4 {
+                log::debug!("matrix uniform==========================={:?}", (draw_id, &aabb));
+                // }
+                
+                instances.instance_data.set_data_mult(index, count,&LayoutUniform(&[aabb.mins.x, aabb.mins.y, aabb.maxs.x - aabb.mins.x, aabb.maxs.y - aabb.mins.y]));
+                instances.instance_data.set_data_mult(index, count,&WorldMatrixMeterial(world_matrix.as_slice()));
+            };
+            calc(instance_index.opacity.start, render_count.opacity as usize);
+            calc(instance_index.transparent.start, render_count.transparent as usize);
         }
     }
 }

@@ -65,7 +65,7 @@ impl Plugin for SvgPlugin {
             // 创建drawobj
             .add_system(
                 UiStage,
-                draw_object_life_new::<SvgInnerContent, SvgRenderObjType, (SvgMark, RenderCount), { SVG_ORDER }, { BoxType::None }>
+                draw_object_life_new::<SvgInnerContent, SvgRenderObjType, SvgMark, { SVG_ORDER }, { BoxType::None }>
                     .in_set(UiSystemSet::LifeDrawObject)
                     .after(svg_glyph),
             )

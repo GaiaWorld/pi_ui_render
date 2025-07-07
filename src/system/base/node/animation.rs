@@ -2,23 +2,21 @@
 //! 2. 推动动画运行
 
 
-use pi_style::{style::{StyleType, Time, GUI_STYLE_COUNT}, style_type::{Attr, STYLE_COUNT}};
+use pi_style::style::StyleType;
 use pi_world::{event::EventSender, prelude::{Changed, ComponentRemoved, Entity, Has, ParamSet, Query, SingleResMut}, single_res::SingleRes, system::{SystemMeta, TypeInfo}, system_params::{Local, SystemParam}, world::World};
 use pi_bevy_ecs_extend::prelude::OrInitSingleRes;
 
-use pi_time::Instant;
-
 use crate::{
-    components::{calc::{style_bit, StyleBit, StyleMark, StyleMarkType}, user::{
-        serialize::{DefaultStyle, Setting, STYLE_ATTR, SVGTYPE_ATTR},
+    components::{calc::{style_bit, StyleBit, StyleMarkType}, user::{
+        serialize::{DefaultStyle, Setting},
         Animation,
     }, SettingComponentIds},
     resource::{
-        animation_sheet::{AnimationStyle, KeyFramesSheet}, GlobalDirtyMark, IsRun, TimeInfo, UserCommands
+        animation_sheet::{AnimationStyle, KeyFramesSheet}, GlobalDirtyMark, IsRun, TimeInfo
     }
 };
 
-use super::user_setting::{set_styles, SingleId, StyleChange, StyleDirtyList, StyleDirtyMark};
+use super::user_setting::{SingleId, StyleChange, StyleDirtyList, StyleDirtyMark};
 
 lazy_static! {
 	pub static ref ANIMATION_DIRTY: StyleMarkType = style_bit()
@@ -110,7 +108,7 @@ pub fn calc_animation_2(
     let mut w7 = world.unsafe_world();
 
   
-    let mut global_mark = w5.index_single_res_mut::<GlobalDirtyMark>(id.global_mark).unwrap();
+    let global_mark = w5.index_single_res_mut::<GlobalDirtyMark>(id.global_mark).unwrap();
     let dirty_mark = w2.index_single_res_mut::<StyleDirtyMark>(id.style_dirty_mark).unwrap();
     let time_info = w6.index_single_res_mut::<TimeInfo>(id.time_info).unwrap();
     let keyframes_sheet = w7.index_single_res_mut::<KeyFramesSheet>(id.keyframe_sheet).unwrap();

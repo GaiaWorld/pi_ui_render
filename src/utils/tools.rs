@@ -21,6 +21,13 @@ const EPSILON: f32 = std::f32::EPSILON * 1024.0;
 #[inline]
 pub fn eq_f32(v1: f32, v2: f32) -> bool { v1 == v2 || ((v2 - v1).abs() <= EPSILON) }
 
+// 大尺寸物体基准， 大于该尺寸，则为大尺寸物体
+const LARGE_SIZE_LEVEL: f32 = 100.0 * 100.0;
+/// 是否为大尺寸物体
+pub fn is_large_size(width: f32, height: f32) -> bool {
+    width >= 6.0 && height >= 6.0 &&  height * height > LARGE_SIZE_LEVEL
+}
+
 pub fn calc_hash<T: Hash>(v: &T, cur: u64) -> u64 {
     let mut hasher = DefaultHasher::default();
     cur.hash(&mut hasher);

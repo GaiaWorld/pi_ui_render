@@ -5,7 +5,6 @@ use pi_style::style::StyleType;
 use pi_world::{event::{ComponentAdded, ComponentChanged}, prelude::{App, IntoSystemConfigs, Plugin, Query}, single_res::SingleRes};
 use pi_bevy_ecs_extend::prelude::OrInitSingleRes;
 
-use pi_bevy_asset::{Allocator, AssetConfig};
 use pi_null::Null;
 use crate::system::system_set::UiSystemSet;
 
@@ -15,7 +14,7 @@ use crate::{
     system::base::{
         // node::user_setting::user_setting,
         // pass::{last_update_wgpu::last_update_wgpu, pass_camera::calc_camera_depth_and_renderlist},
-        node::user_setting::user_setting2, pass::{last_update_wgpu::last_update_wgpu, pass_camera::calc_camera, pass_life},
+        pass::pass_life,
     },
 };
 use pi_postprocess::prelude::CopyIntensity;
@@ -27,11 +26,11 @@ pub struct UiAsImagePlugin;
 
 impl Plugin for UiAsImagePlugin {
     fn build(&self, app: &mut App) {
-        let mut w1 =  app.world.unsafe_world();
-        let allocator = w1.get_single_res_mut::<Allocator>().unwrap();
+        // let w1 =  app.world.unsafe_world();
+        // let allocator = w1.get_single_res_mut::<Allocator>().unwrap();
         let assets_mgr = {
-            let w = app.world.unsafe_world();
-            let asset_config = w.get_single_res::<AssetConfig>().unwrap();
+            // let w = app.world.unsafe_world();
+            // let asset_config = w.get_single_res::<AssetConfig>().unwrap();
             // let default_cfg = AssetDesc {
             //     ref_garbage: false,
             //     min: 0,

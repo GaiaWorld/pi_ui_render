@@ -10,7 +10,14 @@ use pi_style::style::LinearGradientColor;
 use crate::{components::draw_obj::{PolygonType, TempGeo, TempGeoBuffer, VColor}, resource::draw_obj::InstanceContext, shader::ui_meterial::ColorUniform, shader1::batch_meterial::{LayoutUniform, LinearGradientColorUniform, LinearGradientPointUniform, LinearGradientSdfUvUniform, RenderFlagType, SdfUniform, SdfUvUniform, StrokeColorUniform, TyMeterial, UvUniform}, utils::tools::eq_f32};
 
 impl TempGeo {
-   
+    pub fn new(polygons: PolygonType) -> Self {
+		Self {
+			polygons,
+			colors: Default::default(),
+			sdf_px_range: 0.0,
+		}
+	}
+
     pub fn absolute_slice(slice: &Rect<f32>, target: &Rect<f32>) -> Rect<f32> {
         let split_target_width = target.right - target.left;
         let split_target_height = target.bottom - target.top;
@@ -77,6 +84,7 @@ impl TempGeo {
         ]);
     }
 
+    // 九宫格顶点索引
     // 0|-----|9---------- 8|------|3
     //10|-----|4---------- 7|------|15
     //11|-----|5---------- 6|------|14
@@ -86,20 +94,59 @@ impl TempGeo {
             PolygonIndices {
                 indices: vec![
                     0 + start, 10 + start, 4 + start, 9 + start,
-                    9 + start, 4 + start, 7 + start, 8 + start,
-                    8 + start, 7 + start, 15 + start, 3 + start,
                     10 + start, 11 + start, 5 + start, 4 + start,
-                    4 + start, 5 + start, 6 + start, 7 + start,
-                    7 + start, 6 + start, 14 + start, 15 + start,
                     11 + start, 1 + start, 12 + start, 5 + start,
                     5 + start, 12 + start, 13 + start, 6 + start,
                     6 + start, 13 + start, 2 + start, 14 + start,
+                    7 + start, 6 + start, 14 + start, 15 + start,
+                    8 + start, 7 + start, 15 + start, 3 + start,
+                    9 + start, 4 + start, 7 + start, 8 + start,
+                    4 + start, 5 + start, 6 + start, 7 + start,
                 ],
                 counts: vec![4;9],
             }
 
         )
 
+    }
+
+    // 九宫格的边缘部分顶点索引
+    // 0|-----|9---------- 8|------|3
+    //10|-----|4---------- 7|------|15
+    //11|-----|5---------- 6|------|14
+    // 1|-----|12----------13|-----|2
+    pub fn grid_border_index(start: u16) -> PolygonType {
+        PolygonType::NoRule(
+            PolygonIndices {
+                indices: vec![
+                    0 + start, 10 + start, 4 + start, 9 + start,
+                    10 + start, 11 + start, 5 + start, 4 + start,
+                    11 + start, 1 + start, 12 + start, 5 + start,
+                    5 + start, 12 + start, 13 + start, 6 + start,
+                    6 + start, 13 + start, 2 + start, 14 + start,
+                    7 + start, 6 + start, 14 + start, 15 + start,
+                    8 + start, 7 + start, 15 + start, 3 + start,
+                    9 + start, 4 + start, 7 + start, 8 + start,
+                ],
+                counts: vec![4;8],
+            }
+        )
+    }
+
+    // 九宫格的填充部分顶点索引
+    // 0|-----|9---------- 8|------|3
+    //10|-----|4---------- 7|------|15
+    //11|-----|5---------- 6|------|14
+    // 1|-----|12----------13|-----|2
+    pub fn grid_fill_index(start: u16) -> PolygonType {
+        PolygonType::NoRule(
+            PolygonIndices {
+                indices: vec![
+                    4 + start,5 + start, 6 + start, 7 + start,
+                ],
+                counts: vec![4;1],
+            }
+        )
     }
 
     // 线切分
@@ -276,7 +323,13 @@ impl TempGeo {
      
     // 生成渐变颜色实例数据
     pub fn linear_gradient_split(&mut self, color: &LinearGradientColor, lg_rect: &Rect<f32>, buffer: &mut TempGeoBuffer) {
-        let geo = self;
+        let mut data = Self::linear_gradient_split_ready(color, lg_rect, &mut buffer.positions, &mut buffer.sdf_uvs, &mut buffer.uvs);
+        self.linear_gradient_split_exec(&mut data, &mut buffer.colors);
+        log::debug!("linner======{:?}", (&self.polygons, &buffer.positions, &self.colors, color, lg_rect));
+    }
+
+    // 生成渐变颜色实例数据前的准备
+    pub fn linear_gradient_split_ready<'a>(color: &'a LinearGradientColor, lg_rect: &'a Rect<f32>, positions: &'a mut Vec<f32>, sdf_uvs: &'a mut Vec<f32>, uvs: &'a mut Vec<f32>) -> LinearData<'a> {
         let endp = find_lg_endp(
             &[
                 lg_rect.left,
@@ -304,24 +357,28 @@ impl TempGeo {
         }];
 
         let mut data = LinearData {
-            endp, lg_pos, lg_color, polygons: Default::default(), attrs: Vec::default(), positions: &mut buffer.positions,
+            endp, lg_pos, lg_color, polygons: Default::default(), attrs: Vec::default(), positions,
         };
         data.attrs.push(Attribute {
             unit: 2,
-            value: &mut buffer.sdf_uvs,
+            value: sdf_uvs,
         });
-        if buffer.uvs.len() > 0 {
+        if uvs.len() > 0 {
             data.attrs.push(Attribute {
                 unit: 2,
-                value: &mut buffer.uvs,
+                value: uvs,
             });
         }
+        data
+    }
 
+    pub fn linear_gradient_split_exec<'a>(&mut self, data: &mut LinearData<'a>, colors: &mut Vec<f32>) {
+        let geo = self;
         match &geo.polygons {
             PolygonType::NoRule(polygons) => {
                 let mut index_start = 0;
                 for j in polygons.counts.iter() {
-                    linear_gradient_split_inner(&mut data, &mut buffer.colors, &polygons.indices[index_start..index_start + *j]);
+                    linear_gradient_split_inner(data, colors, &polygons.indices[index_start..index_start + *j]);
                     index_start += *j;
                 }
             },
@@ -336,7 +393,7 @@ impl TempGeo {
                     for j in 0..*r {
                         templ_indices[j] = (i + j) as u16;
                     }
-                    linear_gradient_split_inner(&mut data, &mut buffer.colors,&mut templ_indices);
+                    linear_gradient_split_inner(data, colors, &mut templ_indices);
                     i = i + *r;
                 }
             },
@@ -356,7 +413,7 @@ impl TempGeo {
                         ii as u16, (len - 2) as u16,  (ii + 1) as u16, (len - 1) as u16,
                     ]);
                     log::debug!("data.positions========={:?}", data.positions.len());
-                    linear_gradient_split_inner(&mut data, &mut buffer.colors,&mut templ_indices);
+                    linear_gradient_split_inner(data, colors, &mut templ_indices);
                     templ_indices.clear();
                     i = i + 4;
                 }
@@ -366,8 +423,7 @@ impl TempGeo {
 
        
         geo.colors = VColor::Linear;
-        geo.polygons = PolygonType::NoRule(data.polygons);
-        log::debug!("linner======{:?}", (&geo.polygons, &buffer.positions, &geo.colors, lg_rect, color));
+        geo.polygons = PolygonType::NoRule(std::mem::replace(&mut data.polygons, Default::default()));
     }
 
     pub fn set_instance_data(&self, mut instance_start: usize, instances: &mut InstanceContext, other_info: Option<&OtherInfo>, buffer: &TempGeoBuffer) -> usize {
@@ -397,7 +453,7 @@ impl TempGeo {
                         VColor::Linear => todo!(), // 四边形的情况， 一定是纯色
                     };
                     // log::warn!("geo_split================{:?}", (instance_start, p));
-                    instance_data.set_data(&LinearGradientPointUniform(&p));
+                    instance_data.set_data(&LayoutUniform(&p));
                     instance_data.set_data(&ColorUniform(&[colors.x, colors.y, colors.z, colors.w]));
                     instance_data.set_data(&SdfUvUniform(&sdf_uv));
                    
@@ -495,7 +551,8 @@ pub struct OtherInfo {
     pub ty: f32,
 }
 
-struct LinearData<'a> {
+#[derive(Debug)]
+pub struct LinearData<'a> {
     endp: ((f32, f32), (f32, f32)),
     lg_pos: Vec<f32>,
     lg_color: Vec<LgCfg>,
@@ -718,4 +775,3 @@ pub fn grid_split_simple(grid_buffer: &mut GridBufer, rect: &Rect<f32>, sdf_uv0:
     ])
 
 }
-

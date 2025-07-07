@@ -3,9 +3,8 @@ use std::{any::Any, collections::VecDeque, mem::replace};
 
 use pi_world::{prelude::Entity, world::ComponentIndex};
 use bitvec::array::BitArray;
-use log::{debug, warn};
 use ordered_float::NotNan;
-use pi_style::{style::{StyleType, GUI_STYLE_COUNT}, style_type::{Attr, STYLE_COUNT}};
+use pi_style::{style::{GUI_STYLE_COUNT}, style_type::{Attr, STYLE_COUNT}};
 use pi_animation::{
     amount::AnimationAmountCalc,
     animation::AnimationInfo,
@@ -32,7 +31,7 @@ use pi_style::style::{AnimationDirection, AnimationTimingFunction};
 use pi_style::{style_parse::Attribute, style_type::*};
 use smallvec::SmallVec;
 
-use crate::{components::{calc::{StyleMark, StyleMarkType}, user::{serialize::{AttrSet, Setting, StyleAttr, STYLE_ATTR, SVGTYPE_ATTR}, Animation}}, system::base::node::user_setting::StyleDirtyList};
+use crate::{components::{calc::{StyleMark, StyleMarkType}, user::{serialize::{AttrSet, Setting, STYLE_ATTR, SVGTYPE_ATTR}, Animation}}, system::base::node::user_setting::StyleDirtyList};
 use pi_style::style::Time;
 
 use super::GlobalDirtyMark;
@@ -686,7 +685,7 @@ impl KeyFramesSheet {
 
     // 添加一个帧动画
     pub fn add_keyframes(&mut self, scope_hash: usize, name: Atom, value: &XHashMap<NotNan<f32>, VecDeque<Attribute>>) {
-        debug!("add_keyframes, name: {:?}, scope_hash: {:?}", name, scope_hash);
+        log::debug!("add_keyframes, name: {:?}, scope_hash: {:?}", name, scope_hash);
         for (progress, attrs) in value.iter() {
             for attr in attrs.into_iter() {
                 self.add_progress(**progress, attr);
@@ -730,7 +729,7 @@ impl KeyFramesSheet {
                 }
             };
 
-            debug!("bind_animation, target: {:?}, animation: {:?}", target, animation);
+            log::debug!("bind_animation, target: {:?}, animation: {:?}", target, animation);
             let group0 = self.animation_context_amount.create_animation_group();
             groups.push(group0);
             for (attr_animation, curve_id) in curves.data.iter() {
@@ -749,7 +748,7 @@ impl KeyFramesSheet {
             self.group_bind.insert(group0, (target, GroupType::Animation(name.clone())));
 
             // 启动动画组
-            debug!(
+            log::debug!(
                 "start anim, target: {:?}, direction: {:?}, frame_per_second: {}, from: {}, to:  {}, duration: {}s",
 				target,
                 animation.direction,
@@ -999,7 +998,7 @@ impl<'a, 'w, 's, F: AttrSet + FrameDataValue> TypeAnimationResultPool<F, ObjKey>
 
 impl<'a, 'w, 's> AnimationStyle<'a, 'w, 's> {
     pub fn set_style(&mut self, entity: Entity, style_index: u16, ptr: *const u8) {
-        let mut style_mark = if let Ok(mut style_mark) = self.style_query.world.get_component_mut_by_index::<StyleMark>(entity, self.style_query.style.style_mark) {
+        let mut style_mark = if let Ok(style_mark) = self.style_query.world.get_component_mut_by_index::<StyleMark>(entity, self.style_query.style.style_mark) {
             style_mark
         } else {
             log::debug!("node is not exist: {:?}", entity);

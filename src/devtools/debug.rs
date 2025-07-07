@@ -29,7 +29,6 @@ use crate::components::calc::StyleMark;
 use crate::components::calc::{TransformWillChangeMatrixInner, TransformWillChangeMatrix};
 use crate::components::draw_obj::FboInfo;
 use crate::components::draw_obj::InstanceIndex;
-use crate::components::draw_obj::Pipeline;
 use crate::components::draw_obj::RenderCount;
 use crate::components::pass_2d::Camera;
 use crate::components::pass_2d::GraphId;
@@ -195,8 +194,10 @@ pub struct Target {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct RenderObject {
     pub id: Entity,
-    pub instance_index: Range<usize>, // 实例索引
-    pub instance_count: usize, // 实例数量
+    pub opacity_instance_index: Range<usize>, // 实例索引
+    pub transparent_instance_index: Range<usize>, // 实例索引
+    pub opacity_instance_count: usize, // 实例数量
+    pub transparent_instance_count: usize, // 实例数量
     pub instance_ty: InstanceType,
     pub instance_data: Vec<CommonMeterial>,
     // pub pipeline: String, 
@@ -591,18 +592,20 @@ pub fn node_info(world: &World, entity: Entity) -> Info {
     let canvas_type = &**world.get_single_res::<CanvasRenderObjType>().unwrap();
     let text_type = &**world.get_single_res::<TextRenderObjType>().unwrap();
 
-    let create_render_obj = |instance_index: Range<usize>, id: Entity, instance_ty: InstanceType| {
+    let create_render_obj = |opacity_instance_index: Range<usize>, transparent_instance_index: Range<usize>, id: Entity, instance_ty: InstanceType| {
         // let pipeline = format!("{:?}",world.get_component::<Pipeline>(id).ok());
         let mut render_obj = RenderObject {
             id: id,
             // pipeline,
-            instance_index: instance_index.start / MeterialBind::SIZE .. instance_index.end / MeterialBind::SIZE,
-            instance_count: 1,
+            opacity_instance_index: opacity_instance_index.start / MeterialBind::SIZE .. opacity_instance_index.end / MeterialBind::SIZE,
+            transparent_instance_index: transparent_instance_index.start / MeterialBind::SIZE .. transparent_instance_index.end / MeterialBind::SIZE,
+            opacity_instance_count: 0,
+            transparent_instance_count: 1,
             instance_ty,
             instance_data: Vec::new(),
         };
 
-        for i in render_obj.instance_index.clone() {
+        for i in render_obj.opacity_instance_index.clone().chain(render_obj.transparent_instance_index.clone()) {
             let index = i * MeterialBind::SIZE;
             let mut r = CommonMeterial::default();
             r.get_data(index as u32, &instance_context.instance_data.data());
@@ -683,8 +686,8 @@ pub fn node_info(world: &World, entity: Entity) -> Info {
             world.get_component::<RenderCount>(i.id),
         ) {
             let instance_index = match instance_index {
-                Ok(r) => r.0.clone(),
-                Err(_) => Null::null(),
+                Ok(r) => r.clone(),
+                Err(_) => Default::default(),
             };
             let ty = *i.ty;
             let ty = if ty == ***bg_color_type {
@@ -703,10 +706,13 @@ pub fn node_info(world: &World, entity: Entity) -> Info {
                 InstanceType::Unknown
             };
     
-            let mut render_obj = create_render_obj(instance_index, i.id.clone(), ty);
-            render_obj.instance_count = match count {
-                Ok(c) => c.0 as usize,
-                _ => 1,
+            let mut render_obj = create_render_obj(instance_index.opacity, instance_index.transparent,  i.id.clone(), ty);
+            match count {
+                Ok(c) => {
+                    render_obj.opacity_instance_count = c.opacity as usize;
+                    render_obj.transparent_instance_count = c.transparent as usize;
+                },
+                _ => (),
             };
 			draw_objs.push(render_obj);
 		}
@@ -837,7 +843,7 @@ pub fn node_info(world: &World, entity: Entity) -> Info {
 	}
 
     let pass_info = if let (Ok(instance_index), Ok(camera)) = (world.get_component::<InstanceIndex>(entity), world.get_component::<Camera>(entity)) {
-        let render_obj = create_render_obj(instance_index.0.clone(), Null::null(), InstanceType::CopyFbo);
+        let render_obj = create_render_obj(instance_index.opacity.clone(),  instance_index.transparent.clone(), Null::null(), InstanceType::CopyFbo);
 	    let view =  world.get_component::<View>(entity).unwrap();
         let out_render_target = match world.get_component::<RenderTarget>(entity) {
             Ok(RenderTarget(Some(render_target))) => {
@@ -1118,12 +1124,12 @@ pub struct Layout {
 
 // 使gui失效
 pub fn active_gui(world: &mut World,  active: bool) {
-    if (!active) {
+    if !active {
         let last_node = (**world.get_single_res::<LastGraphNode>().unwrap()).0;
 
         let mut query = world.query::<(&Canvas, &CanvasGraph), ()>();
         let mut graphs = Vec::new();
-        for ((canvas, canvas_graphvas)) in query.iter_mut(world) {
+        for (canvas, canvas_graphvas) in query.iter_mut(world) {
             if canvas.by_draw_list {
                 continue;
             }
@@ -1137,17 +1143,17 @@ pub fn active_gui(world: &mut World,  active: bool) {
         // device: &RenderDevice, screen: &PiScreenTexture, surface_format: wgpu::TextureFormat
         let device = (***world.get_single_res::<PiRenderDevice>().unwrap()).clone();
         
-        let mut graph = world.get_single_res_mut::<PiRenderGraph>().unwrap();
-        graph.set_finish(last_node, false); // 最终节点设置为无效
+        let graph = world.get_single_res_mut::<PiRenderGraph>().unwrap();
+        let _ = graph.set_finish(last_node, false); // 最终节点设置为无效
 
         // log::warn!("invalid graph: {:?}", graphs);
         if graphs.len() > 0 {
             // 将canvas图节点连接到CanvasRendererNode节点上
             let screen_texture = &**world.get_single_res::<PiScreenTexture>().unwrap();
             let node = CanvasRendererNode::new(&device, screen_texture, wgpu::TextureFormat::pi_render_default());
-            let mut graph = world.get_single_res_mut::<PiRenderGraph>().unwrap();
+            let graph = world.get_single_res_mut::<PiRenderGraph>().unwrap();
             let node: pi_bevy_render_plugin::NodeId = graph.add_node("gui canvas copy", node, Null::null()).unwrap();
-            graph.set_finish(node, true); 
+            let _ = graph.set_finish(node, true); 
             for graph_id in graphs {
                 graph.add_depend(graph_id, node).unwrap();
             }
@@ -1160,8 +1166,8 @@ pub fn active_gui(world: &mut World,  active: bool) {
         world.get_single_res_mut::<SystemRunFlag>().unwrap().0 = true;
 
         let last_node = (**world.get_single_res::<LastGraphNode>().unwrap()).0;
-        let mut graph = world.get_single_res_mut::<PiRenderGraph>().unwrap();
-        graph.set_finish(last_node, true); // 最终节点设置为有效
+        let graph = world.get_single_res_mut::<PiRenderGraph>().unwrap();
+        let _ = graph.set_finish(last_node, true); // 最终节点设置为有效
 
         let _ = graph.remove_node("gui canvas copy");
     }

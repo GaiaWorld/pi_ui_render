@@ -371,7 +371,7 @@ pub fn calc_sdf2_text_len(
         // } else {
         //     0
         // };
-        render_count.0 = count as u32;
+        render_count.transparent = count as u32;
         // let diff = render_count.0 as i32 - count as i32;
         // if diff < 0 || diff > 10 {
         //     // 这里， 为文字数量保有一定的变动空间，防止像倒计时这类的文字，数量发生变化后，使得批渲数据重新分配
@@ -709,7 +709,7 @@ pub fn calc_sdf2_svg(
 
                 // 最后的高斯模糊结果渲染到屏幕或目标target上
                 {
-                    let mut instance_data = instances.instance_data.instance_data_mut(instance_index.start);
+                    let mut instance_data = instances.instance_data.instance_data_mut(instance_index.transparent.start);
                     let mut ty = instance_data.get_render_ty();
                     ty |= 1 << RenderFlagType::R8 as usize;
                     instance_data.set_data(&TyMeterial(&[ty as f32]));
@@ -853,12 +853,12 @@ pub fn calc_sdf2_svg(
         };
 
         // 节点可能设置为dispaly none， 此时instance_index可能为Null
-		if pi_null::Null::is_null(&instance_index.0.start) {
+		if pi_null::Null::is_null(&instance_index.transparent.start) {
 			continue;
 		}
 
         log::error!("calc_sdf2_text,  events.text.drain4, {:?}", instance_index);
-        let start = instance_index.start;
+        let start = instance_index.transparent.start;
         let mut ty = instances.instance_data.instance_data_mut(start).get_render_ty();
         ty &= !(1 << RenderFlagType::Invalid as usize);
         if *svg.style.stroke.width > 0.0 {
@@ -881,10 +881,10 @@ pub fn calc_sdf2_svg(
             buffer,
         );
         log::error!("calc_sdf2_text,  events.text.drain6");
-        if end < instance_index.end {
+        if end < instance_index.transparent.end {
             // 设多余的实例为无效实例
             ty |= 1 << RenderFlagType::Invalid as usize;
-            instances.instance_data.set_data_mult1(end..instance_index.end, &TyMeterial(&[ty as f32]));
+            instances.instance_data.set_data_mult1(end..instance_index.transparent.end, &TyMeterial(&[ty as f32]));
         }
     }
 

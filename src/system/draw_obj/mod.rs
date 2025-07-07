@@ -103,6 +103,9 @@ impl Plugin for UiReadyDrawPlugin {
 			.add_plugins(UiTextPlugin {font_type: self.font_type})
             // svg功能
 		    .add_plugins(SvgPlugin)
+
+
+
 			// .add_plugins(DebugPlugin)
 			;
     }

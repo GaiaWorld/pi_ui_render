@@ -1,14 +1,10 @@
 
-use std::{ops::Deref, sync::Arc};
+use std::ops::Deref;
 
-use pi_bevy_render_plugin::{node::Node, param::InParamCollector, NodeId, PiRenderDevice, PiRenderGraph, PiRenderWindow, PiScreenTexture, SimpleInOut};
-use pi_render::{components::view::target_alloc::ShareTargetView, renderer::{draw_obj::DrawObj, sampler::SamplerRes}, rhi::{bind_group::BindGroup, bind_group_layout::BindGroupLayout, buffer::Buffer, device::RenderDevice, pipeline::RenderPipeline, sampler::SamplerDesc, texture::PiRenderDefault, BufferInitDescriptor}};
+use pi_bevy_render_plugin::{node::Node, param::InParamCollector, NodeId, PiScreenTexture, SimpleInOut};
+use pi_render::{components::view::target_alloc::ShareTargetView, renderer::sampler::SamplerRes, rhi::{bind_group::BindGroup, buffer::Buffer, device::RenderDevice, sampler::SamplerDesc, BufferInitDescriptor}};
 use pi_share::Share;
-use pi_world::{prelude::{App, Plugin}, schedule::Update, single_res::{SingleRes, SingleResMut}, world::Entity};
-use wgpu::{Extent3d, TextureView};
-use pi_null::Null;
-
-use crate::components::draw_obj::Pipeline;
+use pi_world::single_res::SingleRes;
 
 #[derive(Default)]
 pub struct CanvasRenderer {
@@ -80,7 +76,7 @@ pub struct CanvasRendererNode {
     objs: Vec<CanvasRenderer>,
 }
 impl CanvasRendererNode {
-    pub fn new(device: &RenderDevice, screen: &PiScreenTexture, surface_format: wgpu::TextureFormat) -> Self {
+    pub fn new(device: &RenderDevice, _screen: &PiScreenTexture, surface_format: wgpu::TextureFormat) -> Self {
         let device = device.clone();
         let device1 = &**device;
         let points: [f32; 12] = [-0.5, -0.5, 0.5, -0.5, 0.5, 0.5, -0.5, -0.5, 0.5, 0.5, -0.5, 0.5];
@@ -191,7 +187,7 @@ impl Node for CanvasRendererNode {
 	) -> Result<Self::Output, String> {
         let mut i = 0;
         if input.0.len() > 0 {
-            for (param, input) in input.0.iter() {
+            for (_param, input) in input.0.iter() {
                 if input.target.is_none() {
                     continue;
                 }
@@ -242,7 +238,7 @@ impl Node for CanvasRendererNode {
             rpass.set_pipeline(&self.pipeline);
             rpass.set_vertex_buffer(0, self.vertex.slice(..).deref().clone());
             let mut i = 0;
-            for (param, input) in input.0.iter() {
+            for (_param, _input) in input.0.iter() {
                 let obj = &self.objs[i];
                 rpass.set_bind_group(0, obj.bindgroup.as_ref().unwrap(), &[]);
                 rpass.set_vertex_buffer(1, obj.uv.as_ref().unwrap().slice(..).deref().clone());

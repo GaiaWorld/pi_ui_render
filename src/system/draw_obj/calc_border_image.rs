@@ -1,7 +1,7 @@
 use std::ops::Range;
 
 use pi_null::Null;
-use pi_world::fetch::OrDefault;
+use pi_world::fetch::{Has, OrDefault};
 use pi_world::filter::Or;
 use pi_world::prelude::{Changed, With, Query, Plugin, IntoSystemConfigs};
 use pi_bevy_ecs_extend::prelude::{Layer, OrInitSingleRes, OrInitSingleResMut};
@@ -11,9 +11,9 @@ use pi_style::style::{ImageRepeatOption, StyleType};
 use pi_world::single_res::SingleRes;
 use pi_world::world::Entity;
 
-use crate::components::calc::{style_bit, BorderImageTexture, DrawList, LayoutResult, SdfSlice, SdfUv, StyleBit, StyleMarkType, Texture, LAYOUT_DIRTY};
+use crate::components::calc::{style_bit, BorderImageTexture, DrawList, IsRotate, LayoutResult, SdfSlice, SdfUv, StyleBit, StyleMarkType, Texture, LAYOUT_DIRTY};
 use crate::components::draw_obj::{BorderImageMark, BoxType, InstanceIndex, RenderCount, TempGeo};
-use crate::components::user::{BorderImageClip, BorderImageRepeat, BorderImageSlice};
+use crate::components::user::{BorderImageClip, BorderImageRepeat, BorderImageSlice, Opacity};
 use crate::resource::draw_obj::InstanceContext;
 use crate::resource::{BorderImageRenderObjType, GlobalDirtyMark, OtherDirtyType};
 use crate::prelude::UiStage;
@@ -43,7 +43,7 @@ impl Plugin for BorderImagePlugin {
 				life_drawobj::draw_object_life_new::<
 					BorderImageTexture,
 					BorderImageRenderObjType,
-					(BorderImageMark, RenderCount),
+					BorderImageMark,
 					{ BORDER_IMAGE_ORDER },
 					{ BoxType::None },
 				>
@@ -92,7 +92,7 @@ pub fn border_image_life_change(mark: SingleRes<GlobalDirtyMark>) -> bool {
 }
 
 #[derive(Default)]
-pub struct BorderImageTemp (pub GridBufer, pub Vec<(Entity, [(Range<usize>, Range<usize>); 9])>);
+pub struct BorderImageTemp (pub GridBufer, pub Vec<(Entity, [(Range<usize>, Range<usize>); 8], bool, (Range<usize>, Range<usize>), bool)>);
 
 /// 计算背景图片的实例数量
 pub fn calc_border_image_instance_count(
@@ -109,8 +109,11 @@ pub fn calc_border_image_instance_count(
 			OrDefault<SdfSlice>,
 			OrDefault<SdfUv>,
 			&Layer,
+			&IsRotate,
+			OrDefault<Opacity>,
+			Has<SdfSlice>,
 		),
-		Or<(Changed<BorderImageTexture>, Changed<BorderImageClip>, Changed<BorderImageRepeat>, Changed<BorderImageSlice>, Changed<LayoutResult>, Changed<Layer>)>,
+		Or<(Changed<BorderImageTexture>, Changed<BorderImageClip>, Changed<BorderImageRepeat>, Changed<BorderImageSlice>, Changed<LayoutResult>, Changed<Layer>, Changed<SdfSlice>, Changed<IsRotate>, Changed<Opacity>)>,
 	>,
 	mut query_draw: Query<(&mut BoxType, &mut RenderCount)>,
 	render_type: OrInitSingleRes<BorderImageRenderObjType>,
@@ -122,7 +125,7 @@ pub fn calc_border_image_instance_count(
 	}
 	let render_type = ***render_type;
 	let grid_buffer = &mut **grid_buffer;
-	for (layout, draw_list, border_image_texture, border_clip, border_repeat, border_slice, border_image, sdf_slice, sdf_uv, layer) in query1.iter() {
+	for (layout, draw_list, border_image_texture, border_clip, border_repeat, border_slice, border_image, sdf_slice, sdf_uv, layer, is_rotate, opacity, has_sdf_slice) in query1.iter() {
 		// if border_image.0.as_str().contains("tongyongdianhei_yuanjiao10_bg") {
 		// 	log::warn!("border image====={:?}", (border_image.0.as_str(), layer.layer().is_null(), draw_list.get_one(render_type), border_image_texture.is_some()));
 		// }
@@ -411,16 +414,35 @@ pub fn calc_border_image_instance_count(
 			0..0
 		};
 
-		let mut count = top_range.len() * (top_repeat_range.len() + left_range.len() + right_range.len()); // 上
-		count += bottom_range.len() * (bottom_repeat_range.len() + left_range.len() + right_range.len()); // 下
-		count += left_range.len() * left_repeat_range.len(); // 左、中
-		count += right_range.len() * right_repeat_range.len(); // 右、中
-		count += fill_meridian_range.len() * fill_weft_range.len(); // 中
-		count = count / 4;
+		let is_opacity = border_image_texture.is_opacity() && opacity.0 >= 1.0;
+		let is_opacity1 = !is_rotate.0 && !has_sdf_slice;
+		let edge_is_opacity = is_opacity && is_opacity1;
 
+		log::debug!("is_opacity!============={:?}", (border_image, is_opacity, is_opacity1,border_image_texture.is_opacity()));
+
+		let mut edge_count = top_range.len() * (top_repeat_range.len() + left_range.len() + right_range.len()); // 上
+		edge_count += bottom_range.len() * (bottom_repeat_range.len() + left_range.len() + right_range.len()); // 下
+		edge_count += left_range.len() * left_repeat_range.len(); // 左、中
+		edge_count += right_range.len() * right_repeat_range.len(); // 右、中
+		edge_count = edge_count / 4;
+
+		let mut fill_count = fill_meridian_range.len() * fill_weft_range.len(); // 中
+		fill_count = fill_count / 4;
 		
-		set_box_type_count(draw_id, BoxType::None, count, &mut query_draw, &mut global_mark);
-		log::debug!("border render_count=============={:?}, {:?}, {:?}", &border_image.0, count, (
+
+		let mut render_count = RenderCount::default();
+		if edge_is_opacity {
+			render_count.opacity += edge_count as u32;
+		} else {
+			render_count.transparent += edge_count as u32;
+		}
+		if is_opacity {
+			render_count.opacity += fill_count as u32;
+		} else {
+			render_count.transparent += fill_count as u32;
+		}
+		set_box_type_count(draw_id, BoxType::None, render_count, &mut query_draw, &mut global_mark);
+		log::debug!("border render_count=============={:?}, {:?}, {:?}, {:?}", &border_image.0, edge_count, fill_count, (
 			&top_range,
 			&right_range,
 			&bottom_range,
@@ -434,7 +456,7 @@ pub fn calc_border_image_instance_count(
 			border_slice,
 		));
 
-		let range = [
+		let edge_range = [
 			(
 				left_range.clone(),
 				top_range.clone(),
@@ -467,10 +489,6 @@ pub fn calc_border_image_instance_count(
 				left_range.clone(),
 				left_repeat_range.clone(),
 			),
-			(
-				fill_weft_range.clone(),
-				fill_meridian_range.clone(),
-			),
 		];
 		// if border_image.0.as_str().contains("eff_xinshouquanquan/2.png") {
 		// 	log::warn!("calc_border_image=======, {:?}", (&entity, &border_image, count, &range));
@@ -480,7 +498,13 @@ pub fn calc_border_image_instance_count(
 
 		grid_buffer.1.push((
 			draw_id,
-			range
+			edge_range,
+			edge_is_opacity,
+			(
+				fill_weft_range.clone(),
+				fill_meridian_range.clone(),
+			),
+			is_opacity
 		));
 	}
 }
@@ -498,12 +522,12 @@ pub fn calc_border_image(
 
 	let grid_buffer = &mut **grid_buffer;
 	// log::trace!("bg image========================{:?}", (mark.mark.has_any(&*BACKGROUND_TEXTURE_DIRTY1), mark.mark.has_any(&*BACKGROUND_TEXTURE_DIRTY2)));
-	for (draw_id, range) in grid_buffer.1.drain(..) {
+	for (draw_id, edge_range, edge_is_opacity, fill_range, fill_is_opacity) in grid_buffer.1.drain(..) {
 		
 		if let Ok(instanceindex) = query_draw.get(draw_id) {
-			let mut start = instanceindex.start;
-			for (x_range, y_range) in range {
-				log::debug!("calc_border_image==={:?}", (draw_id, &x_range, &y_range));
+			let mut start = instanceindex.index(edge_is_opacity).start;
+			for (x_range, y_range) in edge_range {
+				log::debug!("calc_border_image==={:?}", (draw_id, start, &x_range, &y_range));
 				start = set_grid_instance(
 					&grid_buffer.0,
 					x_range,
@@ -512,6 +536,19 @@ pub fn calc_border_image(
 					&mut instances,
 				);
 			}
+			start = if edge_is_opacity == fill_is_opacity {
+				start
+			} else {
+				instanceindex.index(fill_is_opacity).start
+			};
+			log::debug!("calc_border_image fill==={:?}", (draw_id, start, &fill_range.0, &fill_range.1));
+			set_grid_instance(
+				&grid_buffer.0,
+				fill_range.0,
+				fill_range.1,
+				start,
+				&mut instances,
+			);
 			
 		}
 	}

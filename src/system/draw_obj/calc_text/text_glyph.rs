@@ -1,19 +1,14 @@
 //! 文字字形系统
 //! 为字符分配纹理位置，得到字符的位置索引关联到CharNode中的ch_id_or_count字段上
 //! 在fontsheet中，文字最多缓存一张纹理。为字符分配纹理，可能存在空间不足的情况。此时，本系统将清空fontsheet中所有缓存的字符，并重新为当前所有显示节点上的文字重新绘制纹理。
-use std::{collections::VecDeque, sync::{atomic::AtomicBool, Arc}};
 
-use pi_hal::font_brush::SdfInfo2;
-use pi_null::Null;
 use pi_world::{filter::Or, prelude::{Changed, Entity, Mut, OrDefault, ParamSet, Query, SingleResMut, With}};
 use pi_bevy_ecs_extend::{
-    prelude::{Layer, OrInitSingleResMut},
+    prelude::OrInitSingleResMut,
     system_param::res::OrInitSingleRes,
 };
 // use pi_sdf::utils::SdfInfo2;
-use pi_key_alloter::DefaultKey;
 use pi_render::font::{Font, FontSheet};
-use pi_share::{Share, ShareMutex};
 
 use crate::{
     components::{
@@ -27,8 +22,8 @@ use super::text_sdf2::TEXT_LAYOUT_DIRTY;
 
 // pub struct Sdf2GlpyhAwaitList(pub Share<ShareMutex<Vec<(Vec<Entity>, Share<ShareMutex<(usize, Vec<(DefaultKey, TexInfo, Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>)>)>>)>>>);
 
-#[derive(Default)]
-pub struct Sdf2GlpyhAwaitList(pub VecDeque<(Vec<Entity>, Share<AtomicBool>, Arc<ShareMutex<(usize, Vec<(DefaultKey, SdfInfo2)>)>>)>);
+// #[derive(Default)]
+// pub struct Sdf2GlpyhAwaitList(pub VecDeque<(Vec<Entity>, Share<AtomicBool>, Arc<ShareMutex<(usize, Vec<(DefaultKey, SdfInfo2)>)>>)>);
 // Share<ShareMutex<(usize, Vec<(DefaultKey, TexInfo, Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>)>)>>
 // impl Default for Sdf2GlpyhAwaitList {
 //     fn default() -> Self {
@@ -47,7 +42,7 @@ pub fn text_glyph(
                 Option<&'static TextOuterGlow>,
                 // &'static TextContent,
                 &'static mut NodeState,
-				&'static Layer,
+				// &'static Layer,
 				Option<&'static mut TextOverflowData>,
                 // &TextContent,
 
@@ -68,7 +63,7 @@ pub fn text_glyph(
                 Option<&'static TextOuterGlow>,
                 // &'static TextContent,
                 &'static mut NodeState,
-				&'static Layer,
+				// &'static Layer,
 				Option<&'static mut TextOverflowData>,
             ),
             With<TextContent>,
@@ -97,7 +92,7 @@ pub fn text_glyph(
             text_outer_glow,
             // text_content,
             node_state,
-            layer,
+            // layer,
             text_overflow_data,
             // text_content,
 
@@ -108,7 +103,7 @@ pub fn text_glyph(
             // log::warn!("set_gylph============{:?}", entity);
             // ii1.push(entity);
             // println!("text_glyph======{:?}", (t1.map(|t| {t.is_changed()}), t2.is_changed(), t3.map(|t| {t.is_changed()})));
-            let r = set_gylph(entity, layer, text_style, text_outer_glow, node_state, &mut font_sheet, text_overflow_data);
+            let r = set_gylph(entity,  text_style, text_outer_glow, node_state, &mut font_sheet, text_overflow_data);
             if let Err(_) = r {
                 // 清空文字纹理TODO（清屏为玫红色）
 
@@ -134,11 +129,11 @@ pub fn text_glyph(
                 text_outer_glow,
                 // text_content,
                 node_state,
-                layer,
+                // layer,
                 text_overflow_data,
             ) in query.p1().iter_mut()
             {
-                let r = set_gylph(entity, layer, text_style, text_outer_glow, node_state, &mut font_sheet, text_overflow_data).unwrap();
+                let r = set_gylph(entity, text_style, text_outer_glow, node_state, &mut font_sheet, text_overflow_data).unwrap();
                 if r == false {
                     await_set_gylph.push(entity);
                 }
@@ -225,7 +220,7 @@ pub fn text_glyph(
 // pub struct TextOuterGlow(pub OuterGlow);
 fn set_gylph(
     entity: Entity,
-	layer: &Layer,
+	// layer: &Layer,
     // world_matrix: &WorldMatrix,
     text_style: &TextStyle,
     text_outer_glow: Option<&TextOuterGlow>,

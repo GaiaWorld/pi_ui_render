@@ -5,7 +5,7 @@ use std::collections::hash_map::Entry;
 use pi_bevy_render_plugin::{
     node::{Node, NodeId as GraphNodeId, ParamUsage}, PiRenderDevice, PiRenderGraph, PiSafeAtlasAllocator, RenderContext
 };
-use pi_flex_layout::prelude::{CharNode, Rect};
+use pi_flex_layout::prelude::CharNode;
 use pi_futures::BoxFuture;
 use pi_hal::font::sdf2_table::sdf_font_size;
 use pi_hal::font::sdf_table::MetricsInfo;
@@ -21,7 +21,7 @@ use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, OrInitSingleRes, Up, Layer
 use pi_hal::font::font::FontType;
 // use pi_hal::pi_sdf::glyphy::geometry::aabb::AabbEXT;
 use pi_render::{components::view::target_alloc::{Fbo, ShareTargetView}, font::{FontSheet, Glyph, GlyphId}};
-use pi_style::style::{Aabb2, CgColor, ColorAndPosition, LinearGradientColor, Point2, StyleType, TextOverflow};
+use pi_style::style::{Aabb2, CgColor, Point2, StyleType, TextOverflow};
 use pi_world::single_res::SingleRes;
 use pi_world::system_params::SystemParam;
 use wgpu::{ BindGroupLayout, CommandEncoder, RenderPass, Sampler};
@@ -78,7 +78,7 @@ impl Plugin for Sdf2TextPlugin {
 				draw_object_life_new::<
 						TextContent,
 						TextRenderObjType,
-						(TextMark, RenderCount),
+						TextMark,
 						{ TEXT_ORDER },
 						{ BoxType::None },>
 						.in_set(UiSystemSet::LifeDrawObject)
@@ -202,7 +202,7 @@ pub fn calc_sdf2_text_len(
 		Option<&TextOuterGlow>,
 		&Up,
 		&Layer,
-		&TextContent,
+		// &TextContent,
 	), (
 		Or<(Changed<NodeState>, 
 		Changed<TextOverflowData>, 
@@ -234,7 +234,7 @@ pub fn calc_sdf2_text_len(
 		text_outer_glow,
 		mut up,
 		layer,
-		text_content,
+		// text_content,
 	) in query.iter_mut() {
 		if layer.layer().is_null() {
 			continue;
@@ -292,13 +292,13 @@ pub fn calc_sdf2_text_len(
 			0
 		};
 		
-		let diff = render_count.0 as i32 - count as i32;
+		let diff = render_count.transparent as i32 - count as i32;
 		if diff < 0 || diff > 10 { // 这里， 为文字数量保有一定的变动空间，防止像倒计时这类的文字，数量发生变化后，使得批渲数据重新分配
-			if count as u32 > render_count.0 {
+			if count as u32 > render_count.transparent {
 				// log::debug!("changed==========={:?}", (draw_id, count, render_count.0, text_content));
 				draw_list.set_changed(); // 渲染数量修改， 设置为DrawList修改， 使得其他系统能正确更新实例数据（比如世界矩阵）
 			}
-			render_count.0 = count as u32;
+			render_count.transparent = count as u32;
 		
 			global_mark.mark.set(OtherDirtyType::InstanceCount as usize, true);
 			log::debug!("node_changed2============");
@@ -566,7 +566,7 @@ pub fn calc_sdf2_text(
 
 					// 最后的高斯模糊结果渲染到屏幕或目标target上
 					{
-						let mut instance_data = instances.instance_data.instance_data_mut(instance_index.start);
+						let mut instance_data = instances.instance_data.instance_data_mut(instance_index.transparent.start);
 						let mut ty = instance_data.get_render_ty();
 						ty |= 1 << RenderFlagType::R8 as usize;
 						instance_data.set_data(&TyMeterial(&[ty as f32]));
@@ -657,7 +657,7 @@ pub fn calc_sdf2_text(
 			};
 
 			if let Ok((instance_index, mut split)) = query_draw_other.get_mut(draw_id) {
-				let mut instance_data = instances.instance_data.instance_data_mut(instance_index.start);
+				let mut instance_data = instances.instance_data.instance_data_mut(instance_index.transparent.start);
 				let mut ty = instance_data.get_render_ty();
 				ty |= 1 << RenderFlagType::R8 as usize;
 				instance_data.set_data(&TyMeterial(&[ty as f32]));
@@ -669,7 +669,7 @@ pub fn calc_sdf2_text(
 					width as f32, 
 					height as f32
 				]));
-				log::debug!("outer_glow render to screen======{:?}", (instance_index.start, &rect, text_outer_glow.distance, width, height));
+				log::debug!("outer_glow render to screen======{:?}", (instance_index.transparent.start, &rect, text_outer_glow.distance, width, height));
 				*split = InstanceSplit::ByFbo(Some(outer_glow_target.clone()));
 			}
 		}
@@ -688,11 +688,11 @@ pub fn calc_sdf2_text(
 		let stroke_color = &text_style.text_stroke.color;
 		
 		let instance_index = match query_draw.get_mut(draw_id) {
-			Ok(r) => r,
+			Ok(r) => &r.transparent,
 			_ => continue,
 		};
 		// 节点可能设置为dispaly none， 此时instance_index可能为Null
-		if pi_null::Null::is_null(&instance_index.0.start) {
+		if pi_null::Null::is_null(&instance_index.start) {
 			continue;
 		}
 		let start = instance_index.start;
@@ -1304,30 +1304,3 @@ impl FboBindGroups {
 		}
 	}
 }
-
-#[test]
-fn test() {
-
-	let mut temp = TextTemp::default();
-	// [1520.0, 266.0, 1549.0, 308.0, 1520.0, 308.0, 1549.0, 266.0, 1519.9999, 266.29248, 1549.0, 266.29248]
-	temp.buffer.positions.extend_from_slice(&[-1.734375, -0.26953125, 24.0, 38.433594]);
-	temp.buffer.sdf_uvs.extend_from_slice(&[1520.0, 266.0, 1549.0, 308.0]);
-	let mut text_geo = TempGeo::default();
-	text_geo.polygons = PolygonType::Rect(0..4);  // 规则的四边形
-	text_geo.linear_gradient_split(&LinearGradientColor {
-    direction: 90.0,
-    list: vec![ColorAndPosition { position: 0.0, rgba: CgColor::new(0.0, 0.0, 0.0, 1.0) },ColorAndPosition { position: 1.0, rgba: CgColor::new(1.0, 0.0, 0.0, 1.0) }],
-}, &Rect { left: 0.0, right: 21.992188, top: 0.0, bottom: 40.0 }, &mut temp.buffer);
-	let out_indices = match &text_geo.polygons {
-		PolygonType::NoRule(indices) => {
-			let mut out_indices = Vec::with_capacity(indices.counts.len() * 4); // 预计多边形为四边形
-			mult_to_triangle(&indices, &mut out_indices);
-			out_indices
-			
-		},
-		_ => todo!(), // 不会是三角形和规则多边形
-	};
-
-	println!("zzz====={:?}, {:?}", &temp.buffer.positions, (out_indices, &temp.buffer.sdf_uvs));
-
-} 

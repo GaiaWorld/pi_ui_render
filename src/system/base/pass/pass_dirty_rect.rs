@@ -73,7 +73,7 @@ pub fn calc_global_dirty_rect(
         Query<(Ticker<&Viewport>, Entity, &mut DirtyRect), With<Viewport>>,
     )>,
     mut query_root: Query<(&mut RootDirtyRect, Ticker<&Viewport>), With<Viewport>>,
-    mut render_dirty: OrInitSingleResMut<RenderDirty>,
+    render_dirty: OrInitSingleResMut<RenderDirty>,
 	r: OrInitSingleRes<IsRun>
 ) {
 	if r.0 {

@@ -9,7 +9,6 @@
 #![allow(invalid_reference_casting)]
 
 use pi_bevy_ecs_extend::prelude::OrInitSingleRes;
-use pi_world::single_res::SingleRes;
 use resource::SystemRunFlag;
 #[allow(deprecated)]
 

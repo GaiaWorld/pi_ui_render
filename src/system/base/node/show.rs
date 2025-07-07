@@ -205,16 +205,20 @@ pub fn set_show_data(
 				if let Ok(instance_index) = query_draw.get(draw_id.id) {
 
 					let alignment = instances.instance_data.alignment;
-					let count = instance_index.0.len() / alignment;
-					for index in 0..count {
-						set_instance_visibility(visibility, instance_index.0.start + index * alignment, &mut instances);
+					for index in 0..instance_index.opacity.len() / alignment {
+						set_instance_visibility(visibility, instance_index.opacity.start + index * alignment, &mut instances);
+					}
+					for index in 0..instance_index.transparent.len() / alignment {
+						set_instance_visibility(visibility, instance_index.transparent.start + index * alignment, &mut instances);
 					}
 				}
 			}
 	
 			if let Some(instance_index) = instance_index {
-				if !instance_index.start.is_null() {
-					set_instance_visibility(visibility, instance_index.0.start, &mut instances);
+				if !instance_index.transparent.start.is_null() {
+					set_instance_visibility(visibility, instance_index.transparent.start, &mut instances);
+				} else if !instance_index.opacity.start.is_null() {
+					set_instance_visibility(visibility, instance_index.opacity.start, &mut instances);
 				}
 			}
 

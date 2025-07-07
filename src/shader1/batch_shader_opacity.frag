@@ -83,31 +83,5 @@ void main(void) {
 		outColor = vColor;
 	}
 
-	// rgb还原预乘模式（只有采样纹理才可能还原预乘法）
-	outColor.rgb = outColor.rgb / clamp(outColor.a, vSdf.w, 1.0);
-
-	float sdf = texture(sampler2D(tex2dSdf, sampSdf), vSdfUv).r;
-	// fillSdPx为当前到填充边界的像素距离
-	float fillSdPx = vSdf.x * (sdf - vSdf.y); 
-	float fillOpacity = clamp(fillSdPx + 0.5, 0.0, 1.0);
-	
-	if (vTextureInfo.w < 0.1) {
-		// 如果需要描边
-		// 填充与边框混合（在填充和描边交界处需要两种颜色过度）
-		outColor = mix(vStrokeColor, outColor, fillOpacity);
-
-		// outlineSdPx为当前到描边边界的像素距离
-		float outlineSdPx = vSdf.x * (sdf - vSdf.z);
-		// outlineOpacity，表示描边与背景的混合因子
-		float outlineOpacity = clamp(outlineSdPx + 0.5, 0.0, 1.0);
-		// outColor = vec4(sdf, 0.0, 0.0, 1.0);
-		outColor.a = outColor.a * clamp(max(outlineOpacity, fillOpacity), 0.0, 1.0);
-	} else if (vTextureInfo.w < 1.1) {
-		outColor.a =  outColor.a * fillOpacity * opacity;
-	} else {
-		// 阴影或外发光， 把outColor的r值表示灰度
-		outColor.rgba = vec4(vColor.rgb, outColor.r);
-	}
-
-	// outColor = vec4(sdf, 0.0, 0.0, 1.0);
+	outColor.a = outColor.a * opacity;
 }

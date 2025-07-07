@@ -3,7 +3,7 @@ use std::{mem::transmute, ops::Range};
 
 use pi_world::{prelude::{Entity, OrDefault, ParamSet, Query, SingleRes, SystemParam}, query::QueryError, single_res::SingleResMut};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, OrInitSingleRes, Layer};
-use pi_bevy_render_plugin::{asimage_url::RenderTarget as RenderTarget1, render_cross::DrawList};
+use pi_bevy_render_plugin::{asimage_url::RenderTarget as RenderTarget1};
 
 use pi_assets::asset::Handle;
 use pi_bevy_asset::ShareAssetMgr;
@@ -33,10 +33,10 @@ use wgpu::RenderPass;
 
 use crate::{
     components::{
-        calc::{EntityKey, WorldMatrix}, draw_obj::{DynTargetType, FboInfo, InstanceIndex}, pass_2d::{CacheTarget, Camera, Draw2DList, DrawElement, ParentPassId, PostProcess, PostProcessInfo, RenderTarget, RenderTargetCache, ScreenTarget, StrongTarget}, user::{Aabb2, AsImage, Point2, RenderTargetType, Viewport}
+        calc::{EntityKey, WorldMatrix}, draw_obj::{DynTargetType, FboInfo, InstanceIndex}, pass_2d::{CacheTarget, Camera, Draw2DList, DrawElement, ParentPassId, PostProcess, PostProcessInfo, RenderTarget, RenderTargetCache, ScreenTarget, StrongTarget}, user::{Aabb2, AsImage, RenderTargetType, Viewport}
     }, resource::{
         draw_obj::{InstanceContext, RenderState, TargetCacheMgr}, RenderContextMarkType
-    }, shader1::batch_meterial::{CameraBind, LayoutUniform, RenderFlagType, TyMeterial, UvUniform}, system::draw_obj::set_matrix
+    }, shader1::batch_meterial::{CameraBind, LayoutUniform, RenderFlagType, TyMeterial, UvUniform}
 };
 use crate::components::pass_2d::IsSteady;
 
@@ -81,10 +81,6 @@ pub struct BuildParam<'w> {
             &'static DynTargetType,
             OrDefault<RenderTargetType>,
         ),
-    >,
-	query_view_port: Query<
-        'w,
-        &'static Viewport,
     >,
 	post_resource: SingleRes<'w, PostprocessResource>,
     pipline_assets: SingleRes<'w, ShareAssetMgr<RenderRes<RenderPipeline>>>,
@@ -240,16 +236,16 @@ impl Node for Pass2DNode {
 			camera.view_port.maxs.x - camera.view_port.mins.x,
 			camera.view_port.maxs.y - camera.view_port.mins.y,
 		);
-		let (fbo_width, fbo_height) = if parent_pass2d_id.0.is_null() {
-			// 根节点， fbo为视口大小
-			let view_port = param.query_view_port.get(pass2d_id).unwrap();
-			(
-				view_port.maxs.x - view_port.mins.x,
-				view_port.maxs.y - view_port.mins.y,
-			)
-		} else{
-			(view_port_w, view_port_h)
-		};
+		// let (fbo_width, fbo_height) = if parent_pass2d_id.0.is_null() {
+		// 	// 根节点， fbo为视口大小
+		// 	let view_port = param.query_view_port.get(pass2d_id).unwrap();
+		// 	(
+		// 		view_port.maxs.x - view_port.mins.x,
+		// 		view_port.maxs.y - view_port.mins.y,
+		// 	)
+		// } else{
+		// 	(view_port_w, view_port_h)
+		// };
 		// let next_target = &mut param.temp_next_target.0;
 
 		// if list.opaque.len() > 0 || list.transparent.len() > 0 {
@@ -1368,7 +1364,12 @@ fn compare_target(
 	// if !node.is_null() {
 	// 	log::warn!("input============{:?}", (node, target.is_some()));
 	// }
-	let has_instance = !instance_index.start.is_null() && instance_index.end > instance_index.start;
+	let index = if instance_index.transparent.is_null() {
+		&instance_index.opacity
+	} else {
+		&instance_index.transparent
+	};
+	let has_instance = !index.start.is_null() && index.end > index.start;
 	if let Some(target) = &target {
 		// 旧的fbo输出与新的不同， 需要重新设置uv
 		// 旧的fbo输出与新的不同， 需要重新设置uv
@@ -1407,7 +1408,7 @@ fn compare_target(
 					uv_box[2] += maxs.x * w;
 					uv_box[3] += maxs.y * h;
 				}
-				instance_context.instance_data.instance_data_mut(instance_index.start).set_data(&UvUniform(uv_box.as_slice()));
+				instance_context.instance_data.instance_data_mut(index.start).set_data(&UvUniform(uv_box.as_slice()));
 				// if !node.is_null() {
 				// 	log::error!("set uv: {:?}, {:?}, {:?}", uv_box, target.rect(), (node, target.target().colors[0].0.id));
 				// }
@@ -1425,7 +1426,7 @@ fn compare_target(
 	
 	// 设置实例是否可见
 	if has_instance {
-		let mut ty = instance_context.instance_data.instance_data_mut(instance_index.start).get_render_ty();
+		let mut ty = instance_context.instance_data.instance_data_mut(index.start).get_render_ty();
 		// 没有分配fbo，设置将渲染无效
 		let invaild = target.is_none();
 		let invaild = (unsafe {transmute::<_, u8>(invaild)} as usize) << (RenderFlagType::Invalid as usize);
@@ -1441,7 +1442,7 @@ fn compare_target(
 			ty = ty & !(1 << RenderFlagType::Invalid as usize) | invaild;
 			
 			// 根据canvas是否有对应的fbo，决定该节点是否显示
-			instance_context.instance_data.instance_data_mut(instance_index.start).set_data(&TyMeterial(&[ty as f32]));
+			instance_context.instance_data.instance_data_mut(index.start).set_data(&TyMeterial(&[ty as f32]));
 		}
 	}
 }

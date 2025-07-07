@@ -1,0 +1,24 @@
+ <!--测试border-color是否正确的使用不透明方式渲染和半透明方式渲染-->
+<div style="width: 100%;height:100%">
+    <!--不透明边框色, 多个“非”sdf渲染实例-->
+    <div style="width:120px;height:120px;border-image: url(examples/z_source/xxx.jpg);border-image-slice: 30% fill;border-image-repeat: stretch; border-width: 40px;"></div>
+    <!--不透明边框色 + 旋转， 切分， 多个sdf渲染实例-->
+    <div style="width:120px;height:120px;border-image: url(examples/z_source/xxx.jpg);border-image-slice: 30% fill;border-image-repeat: stretch; border-width: 40px;transform: rotateZ(45deg);"></div>
+    <!--不透明边框色 + 圆角， 切分， 多个sdf渲染实例-->
+    <div style="width:120px;height:120px;border-image: url(examples/z_source/xxx.jpg);border-image-slice: 30% fill;border-image-repeat: stretch; border-width: 40px;border-radius: 20px;"></div>
+
+    <!--透明边框色, 多个sdf渲染实例-->
+    <div style="width:120px;height:120px;border-image: url(examples/z_source/border.png);border-image-slice: 33.3333% fill;border-image-repeat: repeat; border-width: 40px;;"></div>
+    <!--透明边框色 + 旋转， 切分， 多个sdf渲染实例-->
+    <div style="width:120px;height:120px;border-image: url(examples/z_source/border.png);border-image-slice: 33.3333% fill;border-image-repeat: repeat; border-width: 40px;;transform: rotateZ(45deg);"></div>
+    <!--透明边框色 + 圆角， 切分， 多个sdf渲染实例-->
+    <div style="width:120px;height:120px;border-image: url(examples/z_source/border.png);border-image-slice: 33.3333% fill;border-image-repeat: repeat; border-width: 40px;;border-radius: 20px;"></div>
+
+    <!--不透明边框色 + opacity < 1, 多个“非”sdf渲染实例-->
+    <div style="width:120px;height:120px;border-image: url(examples/z_source/xxx.jpg);border-image-slice: 30% fill;border-image-repeat: stretch; border-width: 40px;opacity: 0.5;"></div>
+    <!--不透明边框色 + opacity < 1 + 旋转， 切分， 多个sdf渲染实例-->
+    <div style="width:120px;height:120px;border-image: url(examples/z_source/xxx.jpg);border-image-slice: 30% fill;border-image-repeat: stretch; border-width: 40px;opacity: 0.5;transform: rotateZ(45deg);"></div>
+    <!--不透明边框色 + opacity < 1 + 圆角， 切分， 多个sdf渲染实例-->
+    <div style="width:120px;height:120px;border-image: url(examples/z_source/xxx.jpg);border-image-slice: 30% fill;border-image-repeat: stretch; border-width: 40px;opacity: 0.5;border-radius: 20px;"></div>
+
+</div>

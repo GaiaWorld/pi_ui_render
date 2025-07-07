@@ -1,0 +1,17 @@
+ <!--测试border-color是否正确的使用不透明方式渲染和半透明方式渲染-->
+<div style="width: 100%;height:100%">
+    <!--不透明边框色, 多个“非”sdf渲染实例-->
+    <div style="width:110px;height:110px;border-color: #ff0000ff;border-width: 10px;"></div>
+    <!--不透明边框色 + 旋转， 切分， 多个sdf渲染实例-->
+    <div style="width:110px;height:110px;border-color: #ff0000ff;border-width: 10px;transform: rotateZ(45deg);"></div>
+    <!--不透明边框色 + 圆角， 切分， 多个sdf渲染实例-->
+    <div style="width:110px;height:110px;border-color: #ff0000ff;border-width: 10px;border-radius: 20px;"></div>
+
+    <!--透明边框色, 多个sdf渲染实例-->
+    <div style="width:110px;height:110px;border-color: #ff000077;border-width: 10px;"></div>
+    <!--透明边框色 + 旋转， 切分， 多个sdf渲染实例-->
+    <div style="width:110px;height:110px;border-color: #ff000077;border-width: 10px;transform: rotateZ(45deg);"></div>
+    <!--透明边框色 + 圆角， 切分， 多个sdf渲染实例-->
+    <div style="width:110px;height:110px;border-color: #ff000077;border-width: 10px;border-radius: 20px;"></div>
+
+</div>
