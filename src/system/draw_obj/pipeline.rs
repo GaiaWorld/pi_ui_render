@@ -230,16 +230,19 @@ async fn async_calc_pipeline(
 	
     // 创建pipline
     let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+        cache: None,
         label: Some(&name),
         layout: Some(&shader_info.pipeline_layout),
         vertex: wgpu::VertexState {
+            compilation_options: Default::default(),
             module: &shader_info.vs_shader,
-            entry_point: "main",
+            entry_point: Some("main"),
             buffers: vertex_buffer_layout.as_slice(),
         },
         fragment: Some(wgpu::FragmentState {
+            compilation_options: Default::default(),
             module: &shader_info.fs_shader,
-            entry_point: "main",
+            entry_point: Some("main"),
             targets: pipeline_meta.state.targets.as_slice(),
         }),
         primitive: pipeline_meta.state.primitive.clone(),

@@ -20,7 +20,7 @@ use self::{
     root::RootDirtyRect,
     user::{ClassName, Overflow},
 };
-use pi_bevy_render_plugin::asimage_url::RenderTarget as RenderTarget1;
+use pi_bevy_render_plugin::{asimage_url::RenderTarget as RenderTarget1, SimpleInOut};
 use crate::components::{calc::IsRotate, draw_obj::RenderCount, pass_2d::IsSteady};
 
 
@@ -287,6 +287,7 @@ pub struct PassBundle {
     pub render_target1: RenderTarget1,
     pub world_matrix_invert: WorldMatrixInvert,
     pub is_steady: IsSteady,
+    pub simple_out: SimpleInOut,
 }
 
 impl PassBundle {

@@ -71,13 +71,12 @@ use crate::{
 use crate::components::calc::DrawList;
 use crate::components::draw_obj::InstanceIndex;
 use crate::resource::draw_obj::InstanceContext;
-use crate::system::system_set::{UiSchedule, UiSystemSet};
 
 /// 使用sdf2的方式渲染文字
 pub struct Sdf2TextPlugin;
 
 impl Plugin for Sdf2TextPlugin {
-    fn build(&self, app: &mut pi_world::prelude::App) {
+    fn build(&self, _app: &mut pi_world::prelude::App) {
         // let font_sheet = ShareFontSheet::new(&mut app.world, FontType::Sdf2);
         // app.world.insert_single_res(font_sheet);
         // app
@@ -1116,7 +1115,7 @@ pub struct QueryParam<'w> {
 pub fn init_svg_effect_graph(mut rg: SingleResMut<PiRenderGraph>) {
     let effect_graph_id = rg.add_sub_graph("gui_svg_effect_graph").unwrap();
     let node = SvgEffectNode;
-    let _id = rg.add_node("GuiSvgEffectNode", node, effect_graph_id).unwrap();
+    let _id = rg.add_node("GuiSvgEffectNode", node, effect_graph_id, Null::null()).unwrap();
 
     // 将其设置在所有gui节点之前运行
     let main_graph_id = rg.main_graph_id();
@@ -1127,11 +1126,9 @@ pub fn init_svg_effect_graph(mut rg: SingleResMut<PiRenderGraph>) {
 pub struct SvgEffectNode;
 
 impl Node for SvgEffectNode {
-    type Input = ();
-    type Output = ();
-
     type RunParam = QueryParam<'static>;
     type BuildParam = ();
+    type ResetParam = ();
     // // 释放纹理占用
     // fn reset<'a>(&'a mut self) {
     //     // self.out_put_target = None;
@@ -1144,12 +1141,10 @@ impl Node for SvgEffectNode {
         // world: &'a mut pi_world::world::World,
         _param: &'a mut Self::BuildParam,
         _context: pi_bevy_render_plugin::RenderContext,
-        _input: &'a Self::Input,
-        _usage: &'a pi_bevy_render_plugin::node::ParamUsage,
-        _id: GraphNodeId,
-        _from: &'a [GraphNodeId],
-        _to: &'a [GraphNodeId],
-    ) -> Result<Self::Output, String> {
+        _id: Entity,
+        _from: &'a [Entity],
+        _to: &'a [Entity],
+    ) -> Result<(), String> {
         Ok(())
     }
 
@@ -1158,11 +1153,9 @@ impl Node for SvgEffectNode {
         param: &'a Self::RunParam,
         _context: RenderContext,
         commands: ShareRefCell<CommandEncoder>,
-        _input: &'a Self::Input,
-        _usage: &'a ParamUsage,
-        _id: GraphNodeId,
-        _from: &'a [GraphNodeId],
-        _to: &'a [GraphNodeId],
+        _id: Entity,
+        _from: &'a [Entity],
+        _to: &'a [Entity],
     ) -> BoxFuture<'a, Result<(), String>> {
         Box::pin(async move {
             let mut commands = commands.borrow_mut();
@@ -1185,7 +1178,7 @@ impl Node for SvgEffectNode {
                     state.reset = true;
                     param.instance_draw.set_pipeline(rp, draw, &mut state);
                     let group = param.instance_draw.default_camera.get_group();
-                    rp.set_bind_group(0, &group.bind_group, group.offsets);
+                    rp.set_bind_group(0, &**group.bind_group, group.offsets);
                     state.reset = true;
                 }
                 let rp = rp.as_mut().unwrap();
@@ -1208,7 +1201,7 @@ impl Node for SvgEffectNode {
                     let rp = rp.as_mut().unwrap();
                     param.instance_draw.set_pipeline(rp, draw, &mut state);
                     let group = param.instance_draw.default_camera.get_group();
-                    rp.set_bind_group(0, &group.bind_group, group.offsets);
+                    rp.set_bind_group(0, &**group.bind_group, group.offsets);
                 }
                 let rp = rp.as_mut().unwrap();
                 param.instance_draw.set_pipeline(rp, draw, &mut state);
@@ -1232,7 +1225,7 @@ impl Node for SvgEffectNode {
                     state.reset = true;
                     param.instance_draw.set_pipeline(rp, draw, &mut state);
                     let group = param.instance_draw.default_camera.get_group();
-                    rp.set_bind_group(0, &group.bind_group, group.offsets);
+                    rp.set_bind_group(0, &**group.bind_group, group.offsets);
                 }
                 let rp = rp.as_mut().unwrap();
                 param.instance_draw.set_pipeline(rp, draw, &mut state);
@@ -1256,7 +1249,7 @@ impl Node for SvgEffectNode {
                     let rp = rp.as_mut().unwrap();
                     param.instance_draw.set_pipeline(rp, draw, &mut state);
                     let group = param.instance_draw.default_camera.get_group();
-                    rp.set_bind_group(0, &group.bind_group, group.offsets);
+                    rp.set_bind_group(0, &**group.bind_group, group.offsets);
                 }
 
                 let rp = rp.as_mut().unwrap();
@@ -1272,6 +1265,15 @@ impl Node for SvgEffectNode {
 
             Ok(())
         })
+    }
+    
+    fn reset<'a>(
+        &'a mut self,
+        param: &'a mut Self::ResetParam,
+        context: RenderContext,
+        id: Entity,
+    ) {
+
     }
 }
 

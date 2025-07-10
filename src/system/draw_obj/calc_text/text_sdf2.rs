@@ -3,7 +3,7 @@
 use std::collections::hash_map::Entry;
 
 use pi_bevy_render_plugin::{
-    node::{Node, NodeId as GraphNodeId, ParamUsage}, PiRenderDevice, PiRenderGraph, PiSafeAtlasAllocator, RenderContext
+    node::Node, PiRenderDevice, PiRenderGraph, PiSafeAtlasAllocator, RenderContext
 };
 use pi_flex_layout::prelude::CharNode;
 use pi_futures::BoxFuture;
@@ -1085,7 +1085,7 @@ pub fn init_text_effect_graph(
 ) {
 	let effect_graph_id = rg.add_sub_graph("gui_effect_graph").unwrap();
 	let node = TextEffectNode;
-	let _id = rg.add_node("GuiTextEffectNode", node, effect_graph_id).unwrap();
+	let _id = rg.add_node("GuiTextEffectNode", node, effect_graph_id, Null::null()).unwrap();
 
 	// 将其设置在所有gui节点之前运行
 	let main_graph_id = rg.main_graph_id();
@@ -1096,11 +1096,10 @@ pub fn init_text_effect_graph(
 pub struct TextEffectNode;
 
 impl Node for TextEffectNode {
-    type Input = ();
-    type Output = ();
 
     type RunParam = QueryParam<'static>;
 	type BuildParam = ();
+	type ResetParam = ();
 	// // 释放纹理占用
 	// fn reset<'a>(
 	// 	&'a mut self,
@@ -1115,12 +1114,10 @@ impl Node for TextEffectNode {
 		// world: &'a mut pi_world::world::World,
 		_param: &'a mut Self::BuildParam,
 		_context: pi_bevy_render_plugin::RenderContext,
-		_input: &'a Self::Input,
-		_usage: &'a pi_bevy_render_plugin::node::ParamUsage,
-		_id: GraphNodeId,
-		_from: &'a [GraphNodeId],
-		_to: &'a [GraphNodeId],
-	) -> Result<Self::Output, String> {
+		_id: Entity,
+		_from: &'a [Entity],
+		_to: &'a [Entity],
+	) -> Result<(), String> {
 		Ok(())
 	}
 
@@ -1129,11 +1126,9 @@ impl Node for TextEffectNode {
         param: &'a Self::RunParam,
         _context: RenderContext,
         commands: ShareRefCell<CommandEncoder>,
-        _input: &'a Self::Input,
-        _usage: &'a ParamUsage,
-        _id: GraphNodeId,
-        _from: &'a [GraphNodeId],
-        _to: &'a [GraphNodeId],
+        _id: Entity,
+        _from: &'a [Entity],
+        _to: &'a [Entity],
 
     ) -> BoxFuture<'a, Result<(), String>> {
 		Box::pin(async move {
@@ -1155,7 +1150,7 @@ impl Node for TextEffectNode {
 					state.reset = true;
 					param.instance_draw.set_pipeline(rp, draw, &mut state);
 					let group = param.instance_draw.default_camera.get_group();
-					rp.set_bind_group(0, &group.bind_group, group.offsets);
+					rp.set_bind_group(0, &**group.bind_group, group.offsets);
 					state.reset = true;
 				}
 				let rp = rp.as_mut().unwrap();
@@ -1170,7 +1165,7 @@ impl Node for TextEffectNode {
 					let rp = rp.as_mut().unwrap();
 					param.instance_draw.set_pipeline(rp, draw, &mut state);
 					let group = param.instance_draw.default_camera.get_group();
-					rp.set_bind_group(0, &group.bind_group, group.offsets);
+					rp.set_bind_group(0, &**group.bind_group, group.offsets);
 					
 				}
 				let rp = rp.as_mut().unwrap();
@@ -1187,7 +1182,7 @@ impl Node for TextEffectNode {
 					state.reset = true;
 					param.instance_draw.set_pipeline(rp, draw, &mut state);
 					let group = param.instance_draw.default_camera.get_group();
-					rp.set_bind_group(0, &group.bind_group, group.offsets);
+					rp.set_bind_group(0, &**group.bind_group, group.offsets);
 					
 				}
 				let rp = rp.as_mut().unwrap();
@@ -1204,7 +1199,7 @@ impl Node for TextEffectNode {
 					let rp = rp.as_mut().unwrap();
 					param.instance_draw.set_pipeline(rp, draw, &mut state);
 					let group = param.instance_draw.default_camera.get_group();
-					rp.set_bind_group(0, &group.bind_group, group.offsets);
+					rp.set_bind_group(0, &**group.bind_group, group.offsets);
 					
 				}
 				
@@ -1215,6 +1210,14 @@ impl Node for TextEffectNode {
 
 			Ok(())
 		})
+	}
+	
+	fn reset<'a>(
+		&'a mut self,
+		_param: &'a mut Self::ResetParam,
+		_context: RenderContext,
+		_id: Entity,
+	) {
 	}
 }
 

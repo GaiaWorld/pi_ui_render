@@ -84,7 +84,7 @@ pi_cg2d = "0.3"
 crossbeam = "0.8"
 fixedbitset = { version = "0.4", features = ["serde"] }
 bytemuck = { version = "1.4", features = ["derive"] }
-naga = { version = "0.19" }
+naga = { version = "25.0" }
 pi_assets = "0.15"
 image = "0.25"
 polygon2 = "0.3"
@@ -93,8 +93,8 @@ pi_dirty = "0.1"
 
 pi_flex_layout = "0.4"
 pi_spatial = "0.6"
-pi_hal = { version = "0.2", registry = "yn" }
-pi_postprocess = { version = "0.2", registry = "yn" }
+pi_hal = { version = "0.3", registry = "yn" }
+pi_postprocess = { version = "0.3", registry = "yn" }
 pi_curves = { version = "0.1", registry = "yn" }
 pi_animation = { version = "0.2", registry = "yn" }
 render_derive = { version = "0.2", registry = "yn" }
@@ -105,14 +105,14 @@ pi_time = "0.5"
 # siphasher = {version="0.3", features=["serde_no_std"]}
 # wasm-bindgen = { version = "0.2", features = ["serde-serialize"] }
 
-pi_bevy_post_process = { version = "0.2", registry = "yn" }
-pi_bevy_ecs_extend = { version = "0.2", registry = "yn" }
-pi_bevy_render_plugin = { version = "0.2", registry = "yn" }
-pi_bevy_asset = { version = "0.2", registry = "yn" }
+pi_bevy_post_process = { version = "0.3", registry = "yn" }
+pi_bevy_ecs_extend = { version = "0.3", registry = "yn" }
+pi_bevy_render_plugin = { version = "0.3", registry = "yn" }
+pi_bevy_asset = { version = "0.3", registry = "yn" }
 pi_world = {version="0.2"}
 # bevy_utils = "0.11"
 # bevy_app = { version = "0.11", default_features = false }
-bevy_window = { version = "0.2", registry = "yn", package = "pi_bevy_window" }
+bevy_window = { version = "0.3", registry = "yn", package = "pi_bevy_window" }
 # bevy_window = "0.11"
 # zerovec = "0.9"
 guillotiere = { version = "0.6" }
@@ -120,11 +120,11 @@ derive-deref-rs = "0.1"
 thiserror = "1.0"
 
 # wgpu = { version = "0.1", registry = "yn", package = "pi_wgpu" }
-wgpu = { version = "0.2", registry = "yn", package = "pi_wgpu"}
+wgpu = { version = "0.3", registry = "yn", package = "pi_wgpu"}
 
 pi-async-rt = "0.2"
 pi_share = { version = "0.5" }
-pi_render = { version = "0.2", registry = "yn"  }
+pi_render = { version = "0.3", registry = "yn"  }
 # derive_deref = "1.1"
 tracing-subscriber = "0.3"
 ahash = "0.8"
@@ -154,21 +154,21 @@ num_cpus = "1.13"
 # bevy_a11y = "0.11"
 pi_bevy_log = { version = "0.2", registry = "yn", features=["log-file"] }
 criterion = { version = "0.3", features = ["html_reports"] }
-pi_winit = { version = "0.27", registry = "yn", package = "winit" }
+pi_winit = { version = "0.28", registry = "yn", package = "winit" }
 tracing = "0.1"
 postcard = { version = "1.0", features = ["use-std"] }
 
 # wgpu = { version = "0.2", registry = "yn", package = "pi_wgpu" }
-wgpu = { version = "0.2", registry = "yn", package = "pi_wgpu", features=["use_wgpu"]}
+wgpu = { version = "0.3", registry = "yn", package = "pi_wgpu", features=["use_wgpu"]}
 # pi_ui_render = { path = "./", features = ["trace", "single_thread"] }
 # pi_ui_render = { path = "./", features = ["trace"] }
 pi_ui_render = { path = "./", features = ["debug", "single_thread", "devtools"] }
 # bevy_ecs = {version = "0.11",  features = ["multi-threaded"]}
 
-pi_bevy_winit_window = { version = "0.2", registry = "yn" }
+pi_bevy_winit_window = { version = "0.3", registry = "yn" }
 wasm-bindgen-test = "0.3"
 
-pi_hal = {version = "0.2", registry="yn"}
+pi_hal = {version = "0.3", registry="yn"}
 
 html5ever = "0.27"
 markup5ever_rcdom = "0.3"
@@ -217,17 +217,14 @@ tikv-jemallocator = { version = "0.6.0", features = ["profiling", "unprefixed_ma
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 uuid = { version = "1", features = ["js"] }
 pi-async-rt = { version = "0.2", features = ["serial"] }
-pi_render = { version = "0.2", registry = "yn", features = ["webgl"] }
+pi_render = { version = "0.3", registry = "yn", features = ["webgl"] }
 web-sys = { version = "0.3", features = ["HtmlCanvasElement"] }
 wasm-bindgen = "0.2"
-pi_hal = { version = "0.2", registry = "yn", features = ["web_local_load"] }
+pi_hal = { version = "0.3", registry = "yn", features = ["web_local_load"] }
 getrandom = { version = "0.2.7", features = ["js"] }
 
 [target.'cfg(target_os = "android")'.dev-dependencies]
 ndk-glue = "0.7"
-
-[build-dependencies]
-render_compile = { version = "0.2", registry = "yn" }
 
 
 [profile.release]
@@ -285,9 +282,9 @@ test = true
 # pi_assets = { path = "../pi_assets" }
 # pi_share = { path = "../pi_share" }
 # wgpu= {path = "../wgpu/wgpu"}
-pi_world = { path = "../pi_world" }
+# pi_world = { path = "../pi_world" }
 # pi_world_macros = { path = "../pi_world/macros" }
-pi_polygon = { path = "../pi_polygon" }
+# pi_polygon = { path = "../pi_polygon" }
 
 # bevy_app = { path = "../bevy/crates/bevy_app" }
 # bevy_ecs = { path = "../bevy/crates/bevy_ecs" }
@@ -344,7 +341,6 @@ pi_bevy_window = { path = "../pi_bevy/crates/window" }
 pi_render = { path = "../pi_render" }
 render_core = {path = "../pi_render/crates/render_core"}
 render_derive = {path = "../pi_render/crates/render_derive"}
-render_compile = {path = "../pi_render/crates/render_compile"}
 
 # pi_postprocess = { path = "../pi_post_process"}
 

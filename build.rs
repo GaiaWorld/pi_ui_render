@@ -1,8 +1,8 @@
 // use std::path::Path;
 
-use render_compile::{CompileShaderError};
+// use render_compile::{CompileShaderError};
 
-fn main() -> Result<(), CompileShaderError> {
+fn main()  {
 
     // // 除非修改build.rs， 否则不重新运行脚本
     // // println!("cargo:rerun-if-changed=build.rs");
@@ -51,7 +51,7 @@ fn main() -> Result<(), CompileShaderError> {
     //     )
     //     .unwrap();
     // }
-    Ok(())
+    // Ok(())
 }
 
 // fn visit_dirs<F: FnMut(&std::path::PathBuf), P: AsRef<Path>>(path: P, cb: &mut F) {

@@ -328,7 +328,7 @@ pub fn calc_pass_toop_sort(
       
         log::debug!("after!!!!======{:?}", &temp.0);
         for node_id in temp.0.drain(..) {
-            let entity = rg.get_bind(node_id.clone());
+            let entity = rg.get_data_id(node_id.clone());
             log::debug!("after1======{:?}", (node_id, entity));
             let mut has_effect = false;
             let mut is_gui = false;
@@ -357,7 +357,7 @@ pub fn calc_pass_toop_sort(
             for node_id in after {
                 if let Some((count, before_has_effect)) = temp.3.get_mut(node_id.clone()) {
                     if is_gui {
-                        let entity = rg.get_bind(node_id.clone());
+                        let entity = rg.get_data_id(node_id.clone());
                         if !query_post.contains(entity) { 
                             // 存在一个gui到其他系统的的链接
                             is_gui_to_other = true;

@@ -1152,7 +1152,7 @@ pub fn active_gui(world: &mut World,  active: bool) {
             let screen_texture = &**world.get_single_res::<PiScreenTexture>().unwrap();
             let node = CanvasRendererNode::new(&device, screen_texture, wgpu::TextureFormat::pi_render_default());
             let graph = world.get_single_res_mut::<PiRenderGraph>().unwrap();
-            let node: pi_bevy_render_plugin::NodeId = graph.add_node("gui canvas copy", node, Null::null()).unwrap();
+            let node: pi_bevy_render_plugin::NodeId = graph.add_node("gui canvas copy", node, Null::null(), Null::null()).unwrap();
             let _ = graph.set_finish(node, true); 
             for graph_id in graphs {
                 graph.add_depend(graph_id, node).unwrap();

@@ -1,10 +1,10 @@
 
 use std::ops::Deref;
 
-use pi_bevy_render_plugin::{node::Node, param::InParamCollector, NodeId, PiScreenTexture, SimpleInOut};
+use pi_bevy_render_plugin::{node::Node, PiScreenTexture, SimpleInOut};
 use pi_render::{components::view::target_alloc::ShareTargetView, renderer::sampler::SamplerRes, rhi::{bind_group::BindGroup, buffer::Buffer, device::RenderDevice, sampler::SamplerDesc, BufferInitDescriptor}};
 use pi_share::Share;
-use pi_world::single_res::SingleRes;
+use pi_world::{query::Query, single_res::SingleRes, world::Entity};
 
 #[derive(Default)]
 pub struct CanvasRenderer {
@@ -93,7 +93,7 @@ impl CanvasRendererNode {
             source: wgpu::ShaderSource::Glsl {
                 shader: std::borrow::Cow::Borrowed(include_str!("./pass.vert")),
                 stage: naga::ShaderStage::Vertex,
-                defines: naga::FastHashMap::default(),
+                defines: &[]
             },
         });
 
@@ -102,7 +102,7 @@ impl CanvasRendererNode {
             source: wgpu::ShaderSource::Glsl {
                 shader: std::borrow::Cow::Borrowed(include_str!("./pass.frag")),
                 stage: naga::ShaderStage::Fragment,
-                defines: naga::FastHashMap::default(),
+                defines: &[]
             },
         });
 
@@ -122,11 +122,13 @@ impl CanvasRendererNode {
             push_constant_ranges: &[],
         });
         let pipeline = device1.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            cache: None,
             label: Some("Final"),
             layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState  {
+                compilation_options: Default::default(),
                 module: &vs,
-                entry_point: "main",
+                entry_point: Some("main"),
                 buffers: &[
                     wgpu::VertexBufferLayout {
                         array_stride: 2 * 4,
@@ -152,7 +154,7 @@ impl CanvasRendererNode {
             depth_stencil: None,
             multisample: wgpu::MultisampleState { count: 1, mask: !0, alpha_to_coverage_enabled: false  },
             fragment: Some(
-                wgpu::FragmentState { module: &fs, entry_point: "main", targets: &[Some(wgpu::ColorTargetState { format: surface_format, blend: None, write_mask: wgpu::ColorWrites::ALL })]  }
+                wgpu::FragmentState {compilation_options: Default::default(), module: &fs, entry_point: Some("main"), targets: &[Some(wgpu::ColorTargetState { format: surface_format, blend: None, write_mask: wgpu::ColorWrites::ALL })]  }
             ),
             multiview: None
         });
@@ -167,30 +169,26 @@ impl CanvasRendererNode {
     }
 }
 impl Node for CanvasRendererNode {
-    type Input = InParamCollector<SimpleInOut>;
-
-    type Output = ();
-
-    type BuildParam = ();
+    type BuildParam = Query<'static, &'static mut SimpleInOut>;
+    type ResetParam = ();
 	type RunParam = SingleRes<'static, PiScreenTexture>;
 
 	fn build<'a>(
 		&'a mut self,
 		// _world: &'a  World,
-		_param: &'a mut Self::BuildParam,
+		param: &'a mut Self::BuildParam,
 		_context: pi_bevy_render_plugin::RenderContext,
-		input: &'a Self::Input,
-		_usage: &'a pi_bevy_render_plugin::node::ParamUsage,
-		_id: NodeId,
-		_from: &'a [NodeId],
-		_to: &'a [NodeId],
-	) -> Result<Self::Output, String> {
+		_id: Entity,
+		from: &'a [Entity],
+		_to: &'a [Entity],
+	) -> Result<(), String> {
         let mut i = 0;
-        if input.0.len() > 0 {
-            for (_param, input) in input.0.iter() {
-                if input.target.is_none() {
-                    continue;
-                }
+        if from.len() > 0 {
+            for entity in from.iter() {
+                let input = match param.get(*entity) {
+                    Ok(r) => r,
+                    Err(_) => continue,
+                };
                 let target = input.target.as_ref().unwrap();
                 if self.objs.get(i).is_none() {
                     self.objs.push(CanvasRenderer::default());
@@ -210,13 +208,11 @@ impl Node for CanvasRendererNode {
         // param: &'a mut bevy_ecs::system::SystemState<Self::RunParam>,
         _context: pi_bevy_render_plugin::RenderContext,
         mut commands: pi_share::ShareRefCell<wgpu::CommandEncoder>,
-        input: &'a Self::Input,
-        _usage: &'a pi_bevy_render_plugin::node::ParamUsage,
-		_id: NodeId,
-		_from: &'a [NodeId],
-		_to: &'a [NodeId],
-    ) -> pi_futures::BoxFuture<'a, Result<Self::Output, String>> {
-        if input.0.len() > 0 {
+		_id: Entity,
+		from: &'a [Entity],
+		_to: &'a [Entity],
+    ) -> pi_futures::BoxFuture<'a, Result<(), String>> {
+        if from.len() > 0 {
             let mut rpass = commands.begin_render_pass(
                 &wgpu::RenderPassDescriptor {
                     label: Some(""),
@@ -238,9 +234,10 @@ impl Node for CanvasRendererNode {
             rpass.set_pipeline(&self.pipeline);
             rpass.set_vertex_buffer(0, self.vertex.slice(..).deref().clone());
             let mut i = 0;
-            for (_param, _input) in input.0.iter() {
+             for _entity in from.iter() {
                 let obj = &self.objs[i];
-                rpass.set_bind_group(0, obj.bindgroup.as_ref().unwrap(), &[]);
+                let b = obj.bindgroup.as_ref().unwrap();
+                rpass.set_bind_group(0, &**b, &[]);
                 rpass.set_vertex_buffer(1, obj.uv.as_ref().unwrap().slice(..).deref().clone());
                 rpass.draw(0..6, 0..1);
                 i += 1;
@@ -250,6 +247,14 @@ impl Node for CanvasRendererNode {
         Box::pin(async move {
             Ok(())
         })
+    }
+    
+    fn reset<'a>(
+        &'a mut self,
+        _param: &'a mut Self::ResetParam,
+        _context: pi_bevy_render_plugin::RenderContext,
+        _id: pi_world::world::Entity,
+    ) {
     }
 
     

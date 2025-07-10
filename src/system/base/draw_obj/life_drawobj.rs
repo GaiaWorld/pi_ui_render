@@ -8,11 +8,9 @@ use pi_world::param_set::ParamSet;
 use pi_world::prelude::{SystemParam, SingleRes, FromWorld, Insert, With, Query, Entity, OrDefault, Has, Ticker, ComponentRemoved};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, OrInitSingleRes, Layer, Root};
 
-use pi_assets::asset::Handle;
 use pi_bevy_render_plugin::PiRenderDevice;
 use pi_null::Null;
 use pi_render::components::view::target_alloc::ShareTargetView;
-use pi_render::rhi::asset::{AssetWithId, TextureRes};
 use pi_share::Share;
 use pi_style::style::CgColor;
 use pi_key_alloter::Key;
@@ -29,7 +27,7 @@ use crate::components::user::{IsLeaf, RenderTargetType, Opacity};
 
 use crate::components::DrawBundleNew;
 use crate::components::pass_2d::{Camera, Draw2DList, DrawElement, DrawIndex, InstanceDrawState, ParentPassId, PostProcessInfo};
-use crate::resource::draw_obj::{BatchTexture, CommonSampler, InstanceContext};
+use crate::resource::draw_obj::{BatchTexture, BatchTextureItem, CommonSampler, InstanceContext};
 use crate::resource::{GlobalDirtyMark, IsRun, OtherDirtyType, RenderObjType};
 
 use crate::components::calc::DrawList;
@@ -854,7 +852,7 @@ pub fn batch_instance_data(
 			let (_, _, _fbo_info, render_target) = query.draw_query.get(root).unwrap();
 			if let Some(target) = &render_target.0 {
 				let texture = &target.target().colors[0].0;
-				let (texture_index, group) = instances.batch_texture.push(texture, &query.common_sampler.pointer, &query.device);
+				let (texture_index, group) = instances.batch_texture.push(BatchTextureItem::Fbo(texture.clone()), &query.common_sampler.pointer, &query.device);
 				instances.instance_data.instance_data_mut(instance_index.transparent.start).set_data(&TetxureIndexMeterial(&[texture_index as f32])); // 设置drawobj的纹理索引
 				
 				if let Some(group) = group {
@@ -999,7 +997,7 @@ fn batch_pass(
 	// log::warn!("batch_pass======={:?}", (parent_pass_id, pass_id, draw_list.opaque.len(), draw_list.transparent.len()));
 	draw_list.render_list.iter(|(draw_index, _, draw_info)| {
 		let mut last_pipeline = None;
-		let mut split_by_texture:  Option<(std::ops::Range<usize>, &Handle<AssetWithId<TextureRes>>, &Share<wgpu::Sampler>)> = None;
+		let mut split_by_texture:  Option<(std::ops::Range<usize>, BatchTextureItem, &Share<wgpu::Sampler>)> = None;
 		let mut instance_data_end1 = instance_data_end;
 		let mut cross_list: Option<EntityKey> = None;
 		let is_opacity = draw_info.is_opacity();
@@ -1027,7 +1025,7 @@ fn batch_pass(
 						InstanceSplit::ByEntity(entity) => if let Ok((_instance_split, _pipeline, _fbo_info, render_target)) = query.draw_query.get(entity.clone()) {
 							if let Some(t) = &render_target.0 {
 								log::debug!("ByEntity======{:?}", (pass_id, entity, &t.target().colors[0].0));
-								split_by_texture = Some(((*index).clone(), &t.target().colors[0].0, &query.common_sampler.pointer));
+								split_by_texture = Some(((*index).clone(), BatchTextureItem::Fbo(t.target().colors[0].0.clone()), &query.common_sampler.pointer));
 							}
 						},
 						InstanceSplit::ByTexture(ui_texture) => {
@@ -1039,7 +1037,7 @@ fn batch_pass(
 								// println!("split_by_texture=======node_entity:{:?}, draw_entity:{:?}, {:?}, {:?}", node_entity, draw_entity,  ui_texture.id, a.1);
 							// }
 							log::debug!("ByTexture======{:?}", draw_entity);
-							split_by_texture = Some(((*index).clone(), ui_texture, &query.common_sampler.default));
+							split_by_texture = Some(((*index).clone(), BatchTextureItem::Texture(ui_texture.clone()), &query.common_sampler.default));
 						},
 						InstanceSplit::ByFbo(ui_texture) => {
 							// #[cfg(debug_assertions)]
@@ -1050,7 +1048,7 @@ fn batch_pass(
 								// println!("split_by_texture=======node_entity:{:?}, draw_entity:{:?}, {:?}, {:?}", node_entity, draw_entity,  ui_texture.id, a.1);
 							// }
 							log::debug!("ByFbo=========={:?}", (pass_id, draw_entity, &ui_texture.as_ref().unwrap().target().colors[0].1));
-							split_by_texture = Some((index.clone(), &ui_texture.as_ref().unwrap().target().colors[0].0, &query.common_sampler.default));
+							split_by_texture = Some((index.clone(), BatchTextureItem::Fbo(ui_texture.as_ref().unwrap().target().colors[0].0.clone()), &query.common_sampler.default));
 						},
 						InstanceSplit::ByCross(id, is_list) =>  {
 							if *is_list {
@@ -1069,7 +1067,7 @@ fn batch_pass(
 								let mut instance_data = instances.instance_data.instance_data_mut(index.start);
 								instance_data.set_data(&TyMeterial(&[ty as f32]));
 								if let Some(r) = &render_target.0 {
-									split_by_texture = Some((index.clone(), &r.target().colors[0].0, &query.common_sampler.pointer)); // TODO， 根据纹理尺寸目标尺寸选择混合模式
+									split_by_texture = Some((index.clone(), BatchTextureItem::Fbo(r.target().colors[0].0.clone()), &query.common_sampler.pointer)); // TODO， 根据纹理尺寸目标尺寸选择混合模式
 								}
 
 								// #[cfg(debug_assertions)]
@@ -1106,7 +1104,7 @@ fn batch_pass(
 						if camera.is_render_to_parent { 
 							// 如果是fbo， 必须可以可以渲染到父，才能设置texture， 否则，该节点不会作为图节点输出到下一个依赖， 可能导致纹理既作为源又作为目标
 							log::debug!("pass=========={:?}", (pass_id, cur_pass, index.start/224, &r.target().colors[0].1));
-							split_by_texture = Some((index.clone(), &r.target().colors[0].0, &query.common_sampler.pointer)); // fbo拷贝使用点采样
+							split_by_texture = Some((index.clone(), BatchTextureItem::Fbo(r.target().colors[0].0.clone()), &query.common_sampler.pointer)); // fbo拷贝使用点采样
 
 							// debug版本， 判断纹理是否冲突
 							#[cfg(debug_assertions)]

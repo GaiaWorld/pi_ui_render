@@ -6,4 +6,4 @@ max_index=3;
 speed=1;
 play_mod=repeat_last2;
 jemalloc=false;
-render_debug=false;
+render_debug=true;

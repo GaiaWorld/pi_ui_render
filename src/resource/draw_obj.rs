@@ -10,8 +10,7 @@ use pi_bevy_render_plugin::{NodeId, PiRenderDevice, PiRenderQueue};
 use pi_hash::{XHashMap, XHashSet};
 use pi_map::vecmap::VecMap;
 use pi_render::{
-    renderer::{draw_obj::DrawBindGroup, vertices::{EVerticesBufferUsage, RenderVertices}}, 
-    rhi::{
+    components::view::target_alloc::FboRes, renderer::{draw_obj::DrawBindGroup, vertices::{EVerticesBufferUsage, RenderVertices}}, rhi::{
         asset::{AssetWithId, RenderRes, TextureRes},
         bind_group::BindGroup,
         bind_group_layout::BindGroupLayout,
@@ -26,9 +25,9 @@ use pi_render::{
 use pi_render::rhi::shader::AsLayoutEntry;
 use pi_render::rhi::shader::BindLayout;
 use pi_share::Share;
-use pi_slotmap::{DefaultKey, SlotMap, SecondaryMap};
+use pi_slotmap::{DefaultKey, KeyData, SecondaryMap, SlotMap};
 use wgpu::{
-    BindGroupEntry, BindingType, BlendState, BufferDescriptor, CompareFunction, DepthBiasState, DepthStencilState, Extent3d, Limits, MultisampleState, PipelineLayout, RenderPass, Sampler, SamplerBindingType, ShaderModule, ShaderStages, StencilState, TextureDescriptor, TextureFormat, TextureSampleType, TextureViewDescriptor, TextureViewDimension
+    BindGroupEntry, BindingType, BlendState, BufferDescriptor, CompareFunction, DepthBiasState, DepthStencilState, Extent3d, Limits, MultisampleState, PipelineLayout, RenderPass, Sampler, SamplerBindingType, ShaderModule, ShaderStages, StencilState, TextureDescriptor, TextureFormat, TextureSampleType, TextureView, TextureViewDescriptor, TextureViewDimension
 };
 use pi_render::rhi::shader::Input;
 
@@ -57,12 +56,33 @@ use crate::{
 // 	// pub prepare_bindgroups: Vec<BindGroup>, // 空闲的BindGroup， 通常用于本次改变时， 准备当前数据（准备完成后， 需要跟cur进行交换， 使得渲染数据得以更新）
 // }
 
+#[derive(Clone, Debug)]
+pub enum BatchTextureItem {
+    Texture(Handle<AssetWithId<TextureRes>>),
+    Fbo(Handle<FboRes>)
+}
+
+impl BatchTextureItem {
+    fn id(&self) -> &KeyData {
+        match self {
+            BatchTextureItem::Texture(droper) => &droper.id,
+            BatchTextureItem::Fbo(droper) => &droper.id,
+        }
+    }
+
+    fn texture_view(&self) -> &TextureView {
+        match self {
+            BatchTextureItem::Texture(droper) => &droper.texture_view,
+            BatchTextureItem::Fbo(droper) => &droper.texture_view,
+        }
+    }
+}
 // 批处理纹理
 pub struct BatchTexture {
 	// max_bind: usize,
 	
 	temp_texture_indexs: SecondaryMap<DefaultKey, u32>, // 纹理在该bindgroup中的binding, 以及本利本身
-	pub temp_textures: Vec<(Handle<AssetWithId<TextureRes>>, Share<wgpu::Sampler>)>,
+	pub temp_textures: Vec<(BatchTextureItem, Share<wgpu::Sampler>)>,
 
 	// group_layouts: Vec<wgpu::BindGroupLayout>,
 	group_layout: wgpu::BindGroupLayout,
@@ -144,10 +164,10 @@ impl BatchTexture {
 	}
 	/// push一张纹理，返回纹理索引， 当纹理数量达到max_bind限制时， 会返回一个wgpu::BindGroup，并先清空当前所有的临时数据， 再添加数据
 	/// 注意， 目前同一张纹理只能用同一种采样方式，使用不同的采样样式push纹理，将不会覆盖之前的（主要原因是目前gui并没有不同采样方式的需求）
-	pub fn push(&mut self, texture: &Handle<AssetWithId<TextureRes>>, sampler: &Share<Sampler>, device: &wgpu::Device) -> (usize, Option<wgpu::BindGroup>) {
+	pub fn push(&mut self, texture: BatchTextureItem, sampler: &Share<Sampler>, device: &wgpu::Device) -> (usize, Option<wgpu::BindGroup>) {
 		let mut index = self.temp_textures.len();
 
-		if let Some(r) = self.temp_texture_indexs.get(DefaultKey::from(texture.id)) {
+		if let Some(r) = self.temp_texture_indexs.get(DefaultKey::from(texture.id().clone())) {
 			return (*r as usize, None); //
 		}
 
@@ -159,8 +179,8 @@ impl BatchTexture {
 			group = None;
 		}
 
-		self.temp_texture_indexs.insert(DefaultKey::from(texture.id), index as u32);
-		self.temp_textures.push((texture.clone(), sampler.clone()));
+		self.temp_texture_indexs.insert(DefaultKey::from(texture.id().clone()), index as u32);
+		self.temp_textures.push((texture, sampler.clone()));
 
 		(index, group)
 	}
@@ -188,13 +208,13 @@ impl BatchTexture {
 	}
 
 	/// 将当前的临时数据立即创建一个bindgroup，并返回
-	fn take_group1(device: &wgpu::Device, temp_textures: &Vec<(Handle<AssetWithId<TextureRes>>, Share<wgpu::Sampler>)>, default_texture_view: &wgpu::TextureView, default_sampler: &wgpu::Sampler, group_layout: &wgpu::BindGroupLayout) -> wgpu::BindGroup {
+	fn take_group1(device: &wgpu::Device, temp_textures: &Vec<(BatchTextureItem, Share<wgpu::Sampler>)>, default_texture_view: &wgpu::TextureView, default_sampler: &wgpu::Sampler, group_layout: &wgpu::BindGroupLayout) -> wgpu::BindGroup {
 		let mut entrys = Vec::with_capacity(Self::BINDING_COUNT as usize * 2);
 		for (binding, (texture, sampler)) in temp_textures.iter().enumerate() {
 			entrys.push(
 				BindGroupEntry {
 					binding: (binding * 2) as u32,
-					resource: wgpu::BindingResource::TextureView(&texture.texture_view) ,
+					resource: wgpu::BindingResource::TextureView(&texture.texture_view()) ,
 				}
 			);
 			entrys.push(
@@ -369,10 +389,10 @@ impl InstanceContext {
         // log::warn!("draw====={:?}", (render_state.reset, &instance_draw.texture_bind_group, &render_state.texture));
         if render_state.reset  {
             if let Some(texture) = &self.sdf2_texture_group {
-                rp.set_bind_group(1, texture, &[]);
+                rp.set_bind_group(1, &**texture, &[]);
             }
             if let Some(texture) = &instance_draw.texture_bind_group {
-                rp.set_bind_group(2, texture, &[]);
+                rp.set_bind_group(2, &**texture, &[]);
                 render_state.texture = texture.clone();
             }
             rp.set_vertex_buffer(0, self.vert.slice());
@@ -381,7 +401,7 @@ impl InstanceContext {
         } else {   
             if let Some(texture) = &instance_draw.texture_bind_group {
                 if !Share::ptr_eq(&texture, &render_state.texture) {
-                    rp.set_bind_group(2, texture, &[]);
+                    rp.set_bind_group(2, &**texture, &[]);
                     render_state.texture = texture.clone();
                 }
             };
@@ -417,7 +437,7 @@ impl InstanceContext {
         // log::warn!("draw_effect====={:?}", (render_state.reset, &instance_draw.instance_data_range, &instance_draw.texture_bind_group, &render_state.texture));
         if render_state.reset  {
             if let Some(texture) = &instance_draw.texture_bind_group {
-                rp.set_bind_group(1, texture, &[]);
+                rp.set_bind_group(1, &**texture, &[]);
                 render_state.texture = texture.clone();
             }
             rp.set_vertex_buffer(0, self.vert.slice());
@@ -426,7 +446,7 @@ impl InstanceContext {
         } else {   
             if let Some(texture) = &instance_draw.texture_bind_group {
                 if !Share::ptr_eq(&texture, &render_state.texture) {
-                    rp.set_bind_group(1, texture, &[]);
+                    rp.set_bind_group(1, &**texture, &[]);
                     render_state.texture = texture.clone();
                 }
             };
@@ -574,7 +594,7 @@ impl FromWorld for InstanceContext {
             source: wgpu::ShaderSource::Glsl {
                 shader: Cow::Borrowed(include_str!("../shader1/batch_shader.vert")),
                 stage: naga::ShaderStage::Vertex,
-                defines: naga::FastHashMap::default(),
+                defines: &[],
             },
         });
         let fs = device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -582,7 +602,7 @@ impl FromWorld for InstanceContext {
             source: wgpu::ShaderSource::Glsl {
                 shader: Cow::Borrowed(include_str!("../shader1/batch_shader.frag")),
                 stage: naga::ShaderStage::Fragment,
-                defines: naga::FastHashMap::default(),
+                defines: &[],
             },
         });
 
@@ -591,7 +611,7 @@ impl FromWorld for InstanceContext {
             source: wgpu::ShaderSource::Glsl {
                 shader: Cow::Borrowed(include_str!("../shader1/batch_shader_opacity.frag")),
                 stage: naga::ShaderStage::Fragment,
-                defines: naga::FastHashMap::default(),
+                defines: &[],
             },
         });
 
@@ -641,7 +661,7 @@ impl FromWorld for InstanceContext {
             source: wgpu::ShaderSource::Glsl {
                 shader: Cow::Borrowed(include_str!("../shader1/batch_sdf_gray.vert")),
                 stage: naga::ShaderStage::Vertex,
-                defines: naga::FastHashMap::default(),
+                defines: &[],
             },
         });
         let text_gray_fs = device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -649,7 +669,7 @@ impl FromWorld for InstanceContext {
             source: wgpu::ShaderSource::Glsl {
                 shader: Cow::Borrowed(include_str!("../shader1/batch_sdf_gray.frag")),
                 stage: naga::ShaderStage::Fragment,
-                defines: naga::FastHashMap::default(),
+                defines: &[],
             },
         });
 
@@ -676,7 +696,7 @@ impl FromWorld for InstanceContext {
             source: wgpu::ShaderSource::Glsl {
                 shader: Cow::Borrowed(include_str!("../shader1/batch_gauss_blur.vert")),
                 stage: naga::ShaderStage::Vertex,
-                defines: naga::FastHashMap::default(),
+                defines: &[],
             },
         });
         let text_shadow_fs = device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -684,7 +704,7 @@ impl FromWorld for InstanceContext {
             source: wgpu::ShaderSource::Glsl {
                 shader: Cow::Borrowed(include_str!("../shader1/batch_gauss_blur.frag")),
                 stage: naga::ShaderStage::Fragment,
-                defines: naga::FastHashMap::default(),
+                defines: &[],
             },
         });
         let text_shadow_pipeline = Share::new(create_render_pipeline("batch text shadow", &device, &text_effect_pipeline_layout, &text_shadow_vs, &text_shadow_fs, Some(BlendState {
@@ -705,7 +725,7 @@ impl FromWorld for InstanceContext {
             source: wgpu::ShaderSource::Glsl {
                 shader: Cow::Borrowed(include_str!("../shader1/batch_sdf_glow.vert")),
                 stage: naga::ShaderStage::Vertex,
-                defines: naga::FastHashMap::default(),
+                defines: &[],
             },
         });
         let text_glow_fs = device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -713,7 +733,7 @@ impl FromWorld for InstanceContext {
             source: wgpu::ShaderSource::Glsl {
                 shader: Cow::Borrowed(include_str!("../shader1/batch_sdf_glow.frag")),
                 stage: naga::ShaderStage::Fragment,
-                defines: naga::FastHashMap::default(),
+                defines: &[],
             },
         });
         let text_glow_pipeline = Share::new(create_render_pipeline("batch text glow", &device, &text_effect_pipeline_layout, &text_glow_vs, &text_glow_fs, Some(BlendState {
@@ -987,7 +1007,7 @@ impl ProgramMetaInner {
         //     source: wgpu::ShaderSource::Glsl {
         //         shader: Cow::Borrowed(vs_code.as_str()),
         //         stage: naga::ShaderStage::Vertex,
-        //         defines: naga::FastHashMap::default(),
+        //         defines: &[],
         //     },
         // });
 
@@ -1000,7 +1020,7 @@ impl ProgramMetaInner {
         //     source: wgpu::ShaderSource::Glsl {
         //         shader: Cow::Borrowed(fs_code.as_str()),
         //         stage: naga::ShaderStage::Fragment,
-        //         defines: naga::FastHashMap::default(),
+        //         defines: &[],
         //     },
         // });
 
@@ -1690,11 +1710,13 @@ pub fn create_render_pipeline(
     };
 
 	let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+        cache: None,
 		label: Some(labal),
 		layout: Some(&pipeline_layout),
 		vertex: wgpu::VertexState {
+            compilation_options: Default::default(),
 			module: vs,
-			entry_point: "main",
+			entry_point: Some("main"),
 			buffers: &[
 				wgpu::VertexBufferLayout {
 					array_stride: std::mem::size_of::<[f32; 2]>() as wgpu::BufferAddress,
@@ -1714,8 +1736,9 @@ pub fn create_render_pipeline(
 			],
 		},
 		fragment: Some(wgpu::FragmentState {
+            compilation_options: Default::default(),
 			module: fs,
-			entry_point: "main",
+			entry_point: Some("main"),
 			targets: state.targets.as_slice(),
 		}),
 		primitive: state.primitive.clone(),

@@ -9,7 +9,7 @@ use pi_assets::asset::Handle;
 use pi_bevy_asset::ShareAssetMgr;
 use pi_bevy_post_process::PostprocessResource;
 use pi_bevy_render_plugin::{
-    node::{Node, NodeId as GraphNodeId, ParamUsage}, param::InParamCollector, PiRenderDevice, PiRenderQueue, PiSafeAtlasAllocator, PiScreenTexture, RenderContext, SimpleInOut
+    node::Node, PiRenderDevice, PiRenderQueue, PiSafeAtlasAllocator, PiScreenTexture, RenderContext, SimpleInOut
 };
 use pi_futures::BoxFuture;
 use pi_null::Null;
@@ -82,6 +82,7 @@ pub struct BuildParam<'w> {
             OrDefault<RenderTargetType>,
         ),
     >,
+	query_out: Query<'w, &'static mut SimpleInOut>,
 	post_resource: SingleRes<'w, PostprocessResource>,
     pipline_assets: SingleRes<'w, ShareAssetMgr<RenderRes<RenderPipeline>>>,
 	atlas_allocator: SingleRes<'w, PiSafeAtlasAllocator>,
@@ -131,23 +132,28 @@ impl Pass2DNode {
 
 
 impl Node for Pass2DNode {
-    type Input = InParamCollector<SimpleInOut>;
-    type Output = SimpleInOut;
 
 	type BuildParam = BuildParam<'static>;
     type RunParam = Param<'static>;
 
-	// // 释放纹理占用
+	type ResetParam = Query<'static, &'static mut SimpleInOut>;
+	
 	fn reset<'a>(
-			&'a mut self,
+		&'a mut self,
+		// world: &'a mut World,
+		param: &'a mut Self::ResetParam,
+		_context: RenderContext,
+			// input: &'a Self::Input,
+		// usage: &'a ParamUsage,
+			id: Entity,
+			// from: &'a [Entity],
+			// to: &'a [Entity],
 	) {
-	// 	// if self.output_target.is_some() {
-	// 		log::debug!("reset========{:?}", (self.pass2d_id, self.render_target.is_some(), self.output_target.is_some()));
-	// 	// }
-	// 	// 
-	// 	self.output_target = None;
-		self.render_target = None;
-		
+		if let Ok(mut r) = param.get_mut(id) {
+			if let Some(t) = &mut r.target {
+				*t = Share::new(t.downgrade());
+			}
+		}
 	}
 
 	/// 用于给pass2d分配fbo
@@ -156,18 +162,22 @@ impl Node for Pass2DNode {
 		// world: &'a mut pi_world::world::World,
 		param: &'a mut Self::BuildParam,
 		_context: pi_bevy_render_plugin::RenderContext,
-		input: &'a Self::Input,
-		_usage: &'a pi_bevy_render_plugin::node::ParamUsage,
-		_id: GraphNodeId,
-		_from: &'a [GraphNodeId],
-		to: &'a [GraphNodeId],
-	) -> Result<Self::Output, String> {
+		// input: &'a Self::Input,
+		// _usage: &'a pi_bevy_render_plugin::node::ParamUsage,
+		id: Entity,
+		from: &'a [Entity],
+		to: &'a [Entity],
+	) -> Result<(), String> {
 		let pass2d_id = self.pass2d_id;
-		let mut out = SimpleInOut {
-			target: None,
-			valid_rect: None,
-		};
-		log::debug!("build======{:?}", (pass2d_id, _id, _from, to));
+		let mut out = param.query_out.get_mut(id).unwrap();
+		let out = &mut *out;
+		let out = unsafe {transmute::<_, &'static mut SimpleInOut>(out)}; // 非安全防止转换生命周期， 使得query_out可再次使用
+		out.target = None; // 删除旧的
+		// let mut out = SimpleInOut {
+		// 	target: None,
+		// 	valid_rect: None,
+		// };
+		log::debug!("build======{:?}", (pass2d_id, id, from, to));
 		// let t1 = std::time::Instant::now();
 		// let mut param = query_param_state.get_mut(world);
 		// pass2d_id为null， 表示一个空节点， 空节点在全局只会有一个， 用于将所有根节点渲染到屏幕
@@ -188,19 +198,19 @@ impl Node for Pass2DNode {
 			list0,
 			mut fbo_info, mut out_target) = match p0.get_mut(pass2d_id) {
 			Ok(r) if r.0.layer() > 0 => r,
-			_ => return Ok(out),
+			_ => return Ok(()),
 		};
 
 		// 非fbo节点， 不build
 		if !parent_pass2d_id.0.is_null() && !post_process_info.has_effect() {
-			return Ok(out);
+			return Ok(());
 		}
 		
 		log::trace!(pass = format!("{:?}", pass2d_id).as_str(); "build graph node, instance_index: {:?}, has_effect: {:?},pass2d_id: {:?}", instance_index, post_process_info.has_effect(), pass2d_id);
 
 		match &**param.surface {
 			Some(r) => r,
-			_ => return Ok(out),
+			_ => return Ok(()),
 		};
 
 		let (t_type, last_rt_type) = {
@@ -210,7 +220,7 @@ impl Node for Pass2DNode {
 					r.1.clone()
 				),
 				_ => {
-					return Ok(out)
+					return Ok(())
 				}
 			}
 		}; 
@@ -225,7 +235,7 @@ impl Node for Pass2DNode {
 		// 	println!("pass1, {:?}", (pass2d_id, camera.is_active, parent_pass2d_id.is_null(), list0.instance_range.len(),  content_box.layout.width(), content_box.layout.height()));
 		// }
 		let is_not_only_as_image = post_process_info.is_not_only_as_image(&param.as_image_mark_type);
-		log::trace!(pass = format!("{:?}", pass2d_id).as_str();"build graph node1, pass2d_id: {pass2d_id:?}, \nparent_pass2d_id: {:?}, \ninput count: {}, \ninput: {:?}, \nis_active: {:?}, \nis_changed: {:?}, \nview_port: {:?}, \nfrom: {_from:?}, \nto: {to:?}", parent_pass2d_id, input.0.len(), input.0.iter().map(|r| {(r.0.clone(), r.1.target.is_some(), &r.1.valid_rect)}).collect::<Vec<_>>(), camera.is_render_own, camera.draw_changed, &camera.view_port);
+		log::trace!(pass = format!("{:?}", pass2d_id).as_str();"build graph node1, pass2d_id: {pass2d_id:?}, \nparent_pass2d_id: {:?}, \nis_active: {:?}, \nis_changed: {:?}, \nview_port: {:?}, \nfrom: {from:?}, \nto: {to:?}", parent_pass2d_id, camera.is_render_own, camera.draw_changed, &camera.view_port);
 
 		let mut render_to_fbo = false;
 		let (offsetx, offsety) = (
@@ -269,11 +279,10 @@ impl Node for Pass2DNode {
 		} else if camera.is_render_own || parent_pass2d_id.0.is_null() {
 			if parent_pass2d_id.0.is_null() && !post_process_info.has_effect() && RenderTargetType::Screen == last_rt_type {
 
-			} else if is_only_one_pass(input, &param.instance_draw, &list0.instance_range, (render_target.bound_box.maxs.x - render_target.bound_box.mins.x) as u32, (render_target.bound_box.maxs.x - render_target.bound_box.mins.x) as u32) {
+			} else if let Some(input_fbo) = is_only_one_pass(from, &mut param.query_out, &param.instance_draw, &list0.instance_range, (render_target.bound_box.maxs.x - render_target.bound_box.mins.x) as u32, (render_target.bound_box.maxs.x - render_target.bound_box.mins.x) as u32) {
 				log::debug!("is_only_one_pass================={:?}", pass2d_id);
 				// 如果只有一个输入，并且draw2dList中也只存在一个渲染对象(该渲染对象一定是将输入fb拷贝到目标上)
 				// 此时， 可直接将输入作为输出
-				let input_fbo = input.0.values().next().unwrap();
 				r_target = input_fbo.target.clone();
 				camera.is_render_own = false; // 自身不渲染（渲染结果跟输入完全一样， 直接使用了输入fbo的结果）
 				render_to_fbo = true;
@@ -288,7 +297,7 @@ impl Node for Pass2DNode {
 					post_process_info,
 					&t_type,
 					16 * 1024 * 1024, // 默认最多缓存16M的target，可配置？TODO
-					input.0.values(),
+					param.query_out.iter(),
 					!is_not_only_as_image,
 					is_steady.0,
 				) {
@@ -305,7 +314,7 @@ impl Node for Pass2DNode {
 						// }
 						// next_target.clear();
 						render_to_fbo = true;
-						log::debug!("alloc rendertarget========{:?}", (self.pass2d_id, _id, _from, r.target().colors[0].0.id, r.rect()));
+						log::debug!("alloc rendertarget========{:?}", (self.pass2d_id, id, from, r.target().colors[0].0.id, r.rect()));
 						// log::debug!("build========{:?}", (pass2d_id, &r.target().colors[0].0));
 						r_target = Some(r.clone());
 						
@@ -316,7 +325,7 @@ impl Node for Pass2DNode {
 						// next_target.clear();
 						// log::debug!("none==============={:?}", pass2d_id);
 						// 不进行渲染（可能由父节点对它进行渲染, 也可能渲染目标尺寸为0）
-						return Ok(out);
+						return Ok(());
 					}
 				};
 
@@ -546,7 +555,7 @@ impl Node for Pass2DNode {
 		// 	log::error!("id============{:?}", pass2d_id);
 		// }
 		
-		Ok(out)
+		Ok(())
 	}
 
     fn run<'a>(
@@ -555,11 +564,9 @@ impl Node for Pass2DNode {
         param: &'a Self::RunParam,
         _context: RenderContext,
         commands: ShareRefCell<CommandEncoder>,
-        _input: &'a Self::Input,
-        _usage: &'a ParamUsage,
-        _id: GraphNodeId,
-        _from: &'a [GraphNodeId],
-        _to: &'a [GraphNodeId],
+        _id: Entity,
+        _from: &'a [Entity],
+        _to: &'a [Entity],
         // context: RenderContext,
         // mut commands: ShareRefCell<CommandEncoder>,
         // inputs: &'a [Self::Output],
@@ -746,7 +753,7 @@ impl Node for Pass2DNode {
 							rp.set_viewport(0.0, 0.0, rt.target().width as f32, rt.target().height as f32, 0.0, 1.0);
 						}
 						let group = param.instance_draw.default_camera.get_group();
-						rp.set_bind_group(CameraBind::set(), group.bind_group, group.offsets);
+						rp.set_bind_group(CameraBind::set(), &**group.bind_group, group.offsets);
 
 						param.instance_draw.draw(&mut rp, draw_state, &mut render_state);
 					},
@@ -767,7 +774,7 @@ impl Node for Pass2DNode {
 								// 如果没有设置相机， 则随便设置一个（这里仅仅是将根节点的内容拷贝到屏幕， 实际上不会用到相机， 但是为了统一pipeline， 需要设置一个）
 								if !camera_is_set {
 									let group = param.instance_draw.default_camera.get_group();
-									rp.set_bind_group(CameraBind::set(), group.bind_group, group.offsets);
+									rp.set_bind_group(CameraBind::set(), &**group.bind_group, group.offsets);
 									// set_camera = true;
 									camera_is_set = true;
 								}
@@ -976,7 +983,7 @@ pub fn create_screen_rp<'a>(
 				stencil_ops: None,
 				// 渲染到屏幕，不需要清理深度，也不需要写深度
 				depth_ops: Some(wgpu::Operations {
-					load: wgpu::LoadOp::Clear(-1.0),
+					load: wgpu::LoadOp::Clear(0.0),
 					store: wgpu::StoreOp::Discard,
 				}),
 				view: r,
@@ -1057,7 +1064,7 @@ pub fn create_rp_for_fbo1<'a>(
 			Some(r) => Some(wgpu::RenderPassDepthStencilAttachment {
 				stencil_ops: None,
 				depth_ops: Some(wgpu::Operations {
-					load: wgpu::LoadOp::Clear(-1.0),
+					load: wgpu::LoadOp::Clear(0.0),
 					store: wgpu::StoreOp::Store,
 				}),
 				view: &r.0,
@@ -1103,7 +1110,7 @@ pub fn create_rp_for_fbo<'a>(
             Some(r) => Some(wgpu::RenderPassDepthStencilAttachment {
                 stencil_ops: None,
                 depth_ops: Some(wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(-1.0),
+                    load: wgpu::LoadOp::Clear(0.0),
                     store: wgpu::StoreOp::Store,
                 }),
                 view: &r.0,
@@ -1275,24 +1282,25 @@ impl RenderTarget {
 }
 
 
-pub fn is_only_one_pass(input: &InParamCollector<SimpleInOut>, instance_draw: &InstanceContext, instance_range: &Range<usize>, view_port_w: u32, view_port_h: u32) -> bool {
-	let mut ret = false;
-	if input.0.len() == 1 && instance_range.len() == instance_draw.instance_data.alignment {
+pub fn is_only_one_pass<'a>(from: &[Entity], query: &'a Query<'static, &'static mut SimpleInOut>, instance_draw: &InstanceContext, instance_range: &Range<usize>, view_port_w: u32, view_port_h: u32) -> Option<&'a SimpleInOut> {
+	if from.len() == 1 && instance_range.len() == instance_draw.instance_data.alignment {
 		// 如果只有一个输入，并且draw2dList中也只存在一个渲染对象(该渲染对象一定是将输入fb拷贝到目标上)
 		// 此时， 可直接将输入作为输出
-		let input_fbo = input.0.values().next().unwrap().clone();
-		if let Some(r) = &input_fbo.target {
-			// let (w, h) = match input_fbo.valid_rect {
-			// 	Some(rect) => (rect.2, rect.3),
-			// 	None => (r.target().width, r.target().height),
-			// };
-			let (w, h) = (r.target().width, r.target().height);
-			if w == view_port_w && h == view_port_h {
-				ret = true;
+		if let Ok(input_fbo) = query.get(from[0]) {
+			if let Some(r) = &input_fbo.target {
+				// let (w, h) = match input_fbo.valid_rect {
+				// 	Some(rect) => (rect.2, rect.3),
+				// 	None => (r.target().width, r.target().height),
+				// };
+				let (w, h) = (r.target().width, r.target().height);
+				if w == view_port_w && h == view_port_h {
+					return Some(input_fbo);
+				}
 			}
 		}
+		
 	}
-	ret
+	None
 }
 
 // 用于将外部系统的图节点输出的fbo， 拷贝到RenderTarget1中， 后续才能正常渲染
@@ -1304,11 +1312,35 @@ impl CustomCopyNode {
 }
 
 impl Node for CustomCopyNode {
-    type Input = SimpleInOut;
-    type Output = SimpleInOut;
+    // type Input = SimpleInOut;
+    // type Output = SimpleInOut;
 
-	type BuildParam = (Query<'static, (&'static mut RenderTarget1, Option<&'static RenderTarget>, &'static InstanceIndex)>, SingleResMut<'static, InstanceContext>);
+	type BuildParam = (
+		Query<'static, (&'static mut RenderTarget1, Option<&'static RenderTarget>, &'static InstanceIndex)>, 
+		SingleResMut<'static, InstanceContext>,
+		Query<'static, &'static mut SimpleInOut>, 
+	);
     type RunParam = ();
+
+	type ResetParam = Query<'static, &'static mut SimpleInOut>;
+	
+	fn reset<'a>(
+		&'a mut self,
+		// world: &'a mut World,
+		param: &'a mut Self::ResetParam,
+		_context: RenderContext,
+			// input: &'a Self::Input,
+		// usage: &'a ParamUsage,
+			id: Entity,
+			// from: &'a [Entity],
+			// to: &'a [Entity],
+	) {
+		if let Ok(mut r) = param.get_mut(id) {
+			if let Some(t) = &mut r.target {
+				*t = Share::new(t.downgrade())
+			}
+		}
+	}
 
 	/// 用于给pass2d分配fbo
 	fn build<'a>(
@@ -1316,22 +1348,26 @@ impl Node for CustomCopyNode {
 		// world: &'a mut pi_world::world::World,
 		param: &'a mut Self::BuildParam,
 		_context: pi_bevy_render_plugin::RenderContext,
-		input: &'a Self::Input,
-		_usage: &'a pi_bevy_render_plugin::node::ParamUsage,
-		_id: GraphNodeId,
-		_from: &'a [GraphNodeId],
-		_to: &'a [GraphNodeId],
-	) -> Result<Self::Output, String> {
-		match (&input.target, param.0.get_mut(self.0)) {
-			(r, Ok((mut out_target, render_target, instance_index))) => {
-				// 比较target是否发生改变， 如果发生改变， 需要重新批处理
-				compare_target(r, out_target.bypass_change_detection(), render_target, instance_index, &mut param.1);
-				// log::error!("out_target.0================={:?}", (&self.0, &out_target.0));
-				out_target.0 = r.as_ref().map(|r| {Share::new(r.downgrade())});
+		_id: Entity,
+		_from: &'a [Entity],
+		_to: &'a [Entity],
+	) -> Result<(), String> {
+		if _from.len() == 1 {
+			if let Ok(input) = param.2.get_mut(_from[0]) {
+				match (&input.target, param.0.get_mut(self.0)) {
+					(r, Ok((mut out_target, render_target, instance_index))) => {
+						// 比较target是否发生改变， 如果发生改变， 需要重新批处理
+						compare_target(r, out_target.bypass_change_detection(), render_target, instance_index, &mut param.1);
+						// log::error!("out_target.0================={:?}", (&self.0, &out_target.0));
+						out_target.0 = r.as_ref().map(|r| {Share::new(r.downgrade())});
+					}
+					_ => (),
+				}
+				return Ok(());
 			}
-			_ => (),
+			
 		}
-		Ok(input.clone())
+		Ok(())
     }
 
     fn run<'a>(
@@ -1340,17 +1376,17 @@ impl Node for CustomCopyNode {
         _param: &'a Self::RunParam,
         _context: RenderContext,
         _commands: ShareRefCell<CommandEncoder>,
-        _input: &'a Self::Input,
-        _usage: &'a ParamUsage,
-        _id: GraphNodeId,
-        _from: &'a [GraphNodeId],
-        _to: &'a [GraphNodeId],
+        _id: Entity,
+        _from: &'a [Entity],
+        _to: &'a [Entity],
         // context: RenderContext,
         // mut commands: ShareRefCell<CommandEncoder>,
         // inputs: &'a [Self::Output],
     ) -> BoxFuture<'a, Result<(), String>> {
         unreachable!()
     }
+	
+	
 }
 
 fn compare_target(

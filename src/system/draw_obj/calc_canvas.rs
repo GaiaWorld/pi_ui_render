@@ -102,7 +102,7 @@ pub fn calc_canvas_graph(
 		if canvas_graph.copy_graph_id.is_null() {
 			// 该节点用于将后处理结果拷贝回RenderTaget，并添加copy节点与父的链接关系
 			// 无论图节点是否存在， 始终保持copy节点存在并build， 这样当外部系统不设置graph时，canvas能正确的不渲染（在copy节点， 判断了输入没有target， 设置为无效渲染）
-			canvas_graph.copy_graph_id = rg.add_node_not_run(format!("Canvas_CopyTarget_{:?}", entity), CustomCopyNode::new(render_obj.id), NodeId::default()).unwrap();
+			canvas_graph.copy_graph_id = rg.add_node_not_run(format!("Canvas_CopyTarget_{:?}", entity), CustomCopyNode::new(render_obj.id), NodeId::default(), Null::null()).unwrap();
 			let _ = rg.add_depend(canvas_graph.copy_graph_id, parent_pass_id);
 		}
 

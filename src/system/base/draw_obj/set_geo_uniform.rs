@@ -1,4 +1,5 @@
 use pi_bevy_ecs_extend::prelude::{OrInitSingleRes, OrInitSingleResMut, Up};
+use pi_null::Null;
 use pi_world::{event::ComponentChanged, fetch::OrDefault, filter::{Changed, Or}, query::Query, world::Entity};
 
 use crate::{components::{calc::{DrawList, LayoutResult, NodeState, WorldMatrix}, draw_obj::{BoxType, InstanceIndex, RenderCount}}, resource::{draw_obj::InstanceContext, GlobalDirtyMark, OtherDirtyType}, shader1::batch_meterial::{LayoutUniform, WorldMatrixMeterial}};
@@ -63,6 +64,9 @@ pub fn set_matrix_uniform_inner(
             // }
             
             let mut calc = |index: usize, count: usize| {
+                if index.is_null() {
+                    return;
+                }
                 let aabb = match box_type {
                     BoxType::Padding => layout.padding_aabb(),
                     BoxType::Content => layout.content_aabb(),
