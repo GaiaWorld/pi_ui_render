@@ -140,14 +140,9 @@ impl Node for Pass2DNode {
 	
 	fn reset<'a>(
 		&'a mut self,
-		// world: &'a mut World,
 		param: &'a mut Self::ResetParam,
 		_context: RenderContext,
-			// input: &'a Self::Input,
-		// usage: &'a ParamUsage,
-			id: Entity,
-			// from: &'a [Entity],
-			// to: &'a [Entity],
+		id: Entity,
 	) {
 		if let Ok(mut r) = param.get_mut(id) {
 			if let Some(t) = &mut r.target {
@@ -665,8 +660,8 @@ impl Node for Pass2DNode {
 			let mut pre_pass = EntityKey::null();
 			let mut render_state = RenderState {
 				reset: true,
-				pipeline: param.instance_draw.common_pipeline.clone(),
-				texture: param.instance_draw.batch_texture.default_texture_group.clone(),
+				pipeline: param.instance_draw.default_pipelines.common_pipeline.clone(),
+				texture: param.instance_draw.batch_texture.default_group(false),
 			};
 			
 
@@ -976,7 +971,7 @@ pub fn create_screen_rp<'a>(
 		color_attachments: &[Some(wgpu::RenderPassColorAttachment {
 			resolve_target: None,
 			ops,
-			view: surface.view.as_ref().unwrap(),
+			view: surface.view().as_ref().unwrap(),
 		})],
 		depth_stencil_attachment:  match depth {
 			Some(r) => Some(wgpu::RenderPassDepthStencilAttachment {
@@ -1326,14 +1321,9 @@ impl Node for CustomCopyNode {
 	
 	fn reset<'a>(
 		&'a mut self,
-		// world: &'a mut World,
 		param: &'a mut Self::ResetParam,
 		_context: RenderContext,
-			// input: &'a Self::Input,
-		// usage: &'a ParamUsage,
-			id: Entity,
-			// from: &'a [Entity],
-			// to: &'a [Entity],
+		id: Entity,
 	) {
 		if let Ok(mut r) = param.get_mut(id) {
 			if let Some(t) = &mut r.target {
@@ -1352,7 +1342,9 @@ impl Node for CustomCopyNode {
 		_from: &'a [Entity],
 		_to: &'a [Entity],
 	) -> Result<(), String> {
+		log::warn!("_from==============={:?}", (_id, _from));
 		if _from.len() == 1 {
+			log::warn!("_from!!!!==============={:?}", (_id, param.2.get_mut(_from[0]).is_ok()));
 			if let Ok(input) = param.2.get_mut(_from[0]) {
 				match (&input.target, param.0.get_mut(self.0)) {
 					(r, Ok((mut out_target, render_target, instance_index))) => {

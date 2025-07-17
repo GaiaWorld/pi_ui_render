@@ -4,17 +4,12 @@ use pi_world::{alter::Alter, event::{ComponentAdded, ComponentChanged}, fetch::O
 use pi_bevy_ecs_extend::prelude::{OrInitSingleRes, OrInitSingleResMut};
 
 use crossbeam::queue::SegQueue;
-use pi_assets::{
-    asset::Handle,
-    mgr::{AssetMgr, LoadResult},
-};
-use pi_async_rt::prelude::AsyncRuntime;
+use pi_assets::asset::Handle;
 use pi_atom::Atom;
 use pi_bevy_asset::ShareAssetMgr;
 use pi_bevy_render_plugin::{asimage_url::{self, RenderTarget}, render_cross::GraphId, NodeId, PiRenderDevice, PiRenderGraph, PiRenderQueue, TextureKeyAlloter};
-use pi_hal::{loader::AsyncLoader, runtime::RENDER_RUNTIME};
 use pi_null::Null;
-use pi_render::rhi::asset::{AssetWithId, TextureAssetDesc, TextureRes};
+use pi_render::{renderer::{texture::{ImageTextureFrame, KeyImageTextureFrame}, texture_loader::{loader::ImageTextureLoader, texture_atlas::{KeyAtlasDesc, TextureCombineAtlas2DMgr}}}, rhi::asset::{AssetWithId, TextureRes}};
 use pi_share::Share;
 use smallvec::SmallVec;
 use pi_world::prelude::Plugin;
@@ -46,11 +41,12 @@ impl Plugin for ImageLoadPlugin {
 pub struct ImageAwait<Key: 'static + Send + Sync, T>(
     pub Share<SegQueue<(Key, Atom, Handle<AssetWithId<TextureRes>>)>>,
     pub (Vec<(Entity, Atom)>, Vec<(Entity, Atom)>), // 需要在下一帧重新获取Target类型的url对应的Target
+    pub ImageTextureLoader<Key>,
     PhantomData<T>
 );
 
 impl<Key: 'static + Send + Sync, T> Default for ImageAwait<Key, T> {
-    fn default() -> Self { Self(Share::new(SegQueue::new()), (Vec::new(), Vec::new()), PhantomData) }
+    fn default() -> Self { Self(Share::new(SegQueue::new()), (Vec::new(), Vec::new()), ImageTextureLoader::default(), PhantomData) }
 }
 
 pub struct CalcImageLoad<S: std::ops::Deref<Target = Atom>, D: From<Handle<AssetWithId<TextureRes>>>>(PhantomData<(S, D)>);
@@ -147,6 +143,30 @@ impl AsImageBindList {
     }
 }
 
+
+pub struct GuiTextureCombineAtlas2DMgr(pub TextureCombineAtlas2DMgr);
+
+impl FromWorld for GuiTextureCombineAtlas2DMgr {
+    fn from_world(world: &mut pi_world::world::World) -> Self {
+        let device = world.get_single_res_mut::<PiRenderDevice>().unwrap();
+        let mut r = TextureCombineAtlas2DMgr::default();
+        r.append_desc(KeyAtlasDesc {
+            format: wgpu::TextureFormat::Rgba32Uint,
+        }, device, 16, 2048, 10);
+        r.append_desc(KeyAtlasDesc {
+            format: wgpu::TextureFormat::Rgba32Float,
+        }, device, 16, 2048, 10);
+        r.append_desc(KeyAtlasDesc {
+            format: wgpu::TextureFormat::Rgba8Unorm,
+        }, device, 16, 2048, 10);
+        // r.append_desc(KeyAtlasDesc {
+        //     format: wgpu::TextureFormat::Astc { block: (), channel: () },
+        // }, device, 16, 2048, 10);
+        Self(r) 
+    }
+}
+
+
 /// Image创建，加载对应的图片
 /// 图片加载是异步，加载成功后，不能立即将图片对应的纹理设置到BorderImageTexture上
 /// 因为BorderImageTexture未加锁，其他线程可能正在使用
@@ -161,7 +181,7 @@ pub fn image_load<
     query_src: Query<(Entity, &S)>,
     query_render_target: Query<(OrDefault<RenderTarget>, OrDefault<GraphId>)>,
     // mut del: RemovedComponents<S>,
-    texture_assets_mgr: SingleRes<ShareAssetMgr<AssetWithId<TextureRes>>>,
+    texture_assets_mgr: SingleRes<ShareAssetMgr<ImageTextureFrame>>,
     mut image_await: OrInitSingleResMut<ImageAwait<Entity, S>>,
     queue: SingleRes<PiRenderQueue>,
     device: SingleRes<PiRenderDevice>,
@@ -173,6 +193,10 @@ pub fn image_load<
     src_ty: OrInitSingleRes<T>,
     removed: ComponentRemoved<S>,
     mut global_mark: SingleResMut<GlobalDirtyMark>,
+
+    mut image_loader: OrInitSingleResMut<ImageAwait<Entity, S>>,
+    mut texture_combine_mgr: OrInitSingleResMut<GuiTextureCombineAtlas2DMgr>,
+    
 
 	r: OrInitSingleRes<IsRun>,
 ) {
@@ -215,6 +239,8 @@ pub fn image_load<
             &mut global_mark,
         );
     }
+
+    image_await.2.check_combine(&device, &queue, &mut texture_combine_mgr.0);
     
     set_texture::<DIRTY_TYPE, _, _, _>(***src_ty, &mut image_await, &query_src, p1,  &mut query_as_image, &query_render_target, f, &mut global_mark);
 	// if is_change {
@@ -235,7 +261,7 @@ pub fn load_image<'w, const DIRTY_TYPE: OtherDirtyType, S: 'static + Send + Sync
     query_dst: &mut Query<&mut D>,
     query_as_image: &mut Alter<Option<&mut AsImageBindList>, (), AsImageBindList, ()>,
     query_render_target: &Query<(OrDefault<RenderTarget>, OrDefault<GraphId>)>,
-    texture_assets_mgr: &ShareAssetMgr<AssetWithId<TextureRes>>,
+    texture_assets_mgr: &ShareAssetMgr<ImageTextureFrame>,
 	key_alloter: &TextureKeyAlloter,
     f: &mut F,
     global_mark: &mut GlobalDirtyMark,
@@ -294,46 +320,31 @@ pub fn load_image<'w, const DIRTY_TYPE: OtherDirtyType, S: 'static + Send + Sync
         _r => {log::warn!("load image from asimage_url fail============={:?}", key.as_str());return},
        
     };
-    let result = AssetMgr::load(&texture_assets_mgr, &(key.str_hash() as u64));
-    match result {
-        LoadResult::Ok(r) => {
-            if let Ok(mut dst) = query_dst.get_mut(entity) {
-				let r = D::from(Texture::All(r));
-				if *dst != r {
-                    
-                    log::debug!("texture_load success 1: {:?}, {:?}", entity, key);
-					(*f)(&mut dst, r, entity);
-                    global_mark.mark.set(DIRTY_TYPE as usize, true);
-				}
+    log::debug!("texture_load: {:?}, {:?}", entity, key);
+    let result = image_await.2.async_load(
+        entity, 
+        KeyImageTextureFrame {
+            url: key.clone(),
+            file: true,
+            compressed: key.as_str().ends_with(".ktx"),
+            cancombine: true,
+        },
+        wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+        &*device,
+        &*queue,
+        &texture_assets_mgr.0
+    );
+    // let result = AssetMgr::load(&texture_assets_mgr, &(key.str_hash() as u64));
+    if let Some(texture) = result {
+        if let Ok(mut dst) = query_dst.get_mut(entity) {
+            log::debug!("texture_load success 1: {:?}, {:?}, {:?}", entity, &key, (texture.tilloff(), texture.coord(), texture.texture().is_opacity));
+            let r = D::from(Texture::Frame(texture, key.clone()));
+            if *dst != r {
                 
+                (*f)(&mut dst, r, entity);
+                global_mark.mark.set(DIRTY_TYPE as usize, true);
             }
-        }
-        _ => {
-            let (awaits, device, queue) = (image_await.0.clone(), (*device).clone(), (*queue).clone());
-            let (id, key) = (entity, (*key).clone());
-            log::debug!("image await: {:?}, {:?}", id, key);
-          
-			let key_alloter = key_alloter.0.clone();
-            RENDER_RUNTIME
-                .spawn(async move {
-                    let desc = TextureAssetDesc {
-                        url: &key,
-                        device: &device,
-                        queue: &queue,
-                        alloter: &key_alloter,
-                    };
-
-                    let r = AssetWithId::<TextureRes>::async_load(desc, result).await;
-                    match r {
-                        Ok(r) => {
-                            awaits.push((id, key.clone(), r));
-                        }
-                        Err(e) => {
-                            log::error!("load image fail, {:?}", e);
-                        }
-                    };
-                })
-                .unwrap();
+            
         }
     }
 }
@@ -352,16 +363,17 @@ pub fn set_texture<'w, const DIRTY_TYPE: OtherDirtyType, S: From<Atom> + std::cm
 ) -> bool {
 	let mut is_change = false;
     // 处理已经成功加载的图片，放入到对应组件中
-    while let Some((entity, key, texture)) = image_await.0.pop() {
+    while let Some((entity, key, texture)) = image_await.2.success.pop() {
+        log::debug!("texture_load success 0: {:?}, {:?}", entity, key);
         match query_src.get(entity) {
             Ok((_, img)) => {
                 // image已经修改，不需要设置texture
-                if img != &S::from(key.clone()) {
+                if img != &S::from(key.url.clone()) {
                     continue;
                 }
                 if let Ok(mut dst) = query_dst.get_mut(entity) {               
-                    log::debug!("texture_load success 2: {:?}, {:?}, {:?}", entity, key, texture.id);
-                    is_change =  f(&mut dst, D::from(Texture::All(texture)), entity) || is_change;
+                    log::debug!("texture_load success 2: {:?}, {:?}, {:?}", entity, key.url, (texture.tilloff(), texture.coord(), texture.texture().is_opacity));
+                    is_change =  f(&mut dst, D::from(Texture::Frame(texture, key.url.clone())), entity) || is_change;
                     global_mark.mark.set(DIRTY_TYPE as usize, true);
                 }
             }
@@ -415,7 +427,7 @@ pub fn set_texture<'w, const DIRTY_TYPE: OtherDirtyType, S: From<Atom> + std::cm
                                     let _ = query_as_image.alter(entity, r);     
                                 }
 
-                                // log::warn!("texture_load success 2: {:?}, {:?}, {:?}", id, key, texture.id);
+                                // log::debug!("texture_load success 2: {:?}, {:?}, {:?}", id, key, texture.id);
                                 is_change =  f(&mut dst, D::from(Texture::Part(safe_target_view, from_target)), entity) || is_change;
                                 global_mark.mark.set(DIRTY_TYPE as usize, true);
                             },

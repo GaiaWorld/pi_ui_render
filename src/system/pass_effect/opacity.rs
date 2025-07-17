@@ -94,13 +94,17 @@ pub fn opacity_post_process(
 				if let Ok(instance_index) = query_draw.get(draw_id.id) {
 					let alignment = instances.instance_data.alignment;
 					let transparent_count = instance_index.transparent.len() / alignment;
-					for index in 0..transparent_count {
-						set_instance_opacity(opacity.0, instance_index.transparent.start + index * alignment, &mut instances);
-					}
+                    if instance_index.transparent.end - instance_index.transparent.start > 0 {
+                        for index in 0..transparent_count {
+                            set_instance_opacity(opacity.0, instance_index.transparent.start + index * alignment, &mut instances);
+                        }
+                    }
                     let opacity_count = instance_index.opacity.len() / alignment;
-					for index in 0..opacity_count {
-						set_instance_opacity(opacity.0, instance_index.transparent.start + index * alignment, &mut instances);
-					}
+					if instance_index.opacity.end - instance_index.opacity.start > 0 {
+                        for index in 0..opacity_count {
+                            set_instance_opacity(opacity.0, instance_index.opacity.start + index * alignment, &mut instances);
+                        }
+                    }
 				}
 			}
         } else if let Ok((opacity, mut post_list, mut post_info)) = query.get_mut(*entity) {

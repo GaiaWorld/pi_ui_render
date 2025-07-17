@@ -148,6 +148,12 @@ pub fn calc_border_image_instance_count(
 						set_box_type(draw_id, BoxType::None2, &mut query_draw);
 						continue;
 					}
+				} else if let Texture::Frame(_r, key) = r {
+					if key.str_hash() != border_image.0.str_hash() as u64 {
+						log::debug!("calc_background_image1, {:?}", (key, border_image.0.str_hash()));
+						set_box_type(draw_id, BoxType::None2, &mut query_draw);
+						continue;
+					}
 				}
 				r
 			},

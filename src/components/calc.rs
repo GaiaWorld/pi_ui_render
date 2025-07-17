@@ -1,6 +1,9 @@
 //! 定义计算组件（非用户设置的组件）
 
+use pi_atom::Atom;
+use pi_hal::texture::ImageTexture;
 use pi_render::components::view::target_alloc::ShareTargetView;
+use pi_render::renderer::texture::ImageTextureFrame;
 use pi_world::insert::Component;
 use pi_world::prelude::Entity;
 use pi_style::style::AllTransform;
@@ -1024,7 +1027,8 @@ impl Null for BorderImageTexture {
 #[derive(Debug, Clone)]
 pub enum Texture {
     All(Handle<AssetWithId<TextureRes>>),
-    Part(ShareTargetView, Entity)
+    Part(ShareTargetView, Entity),
+    Frame(Handle<ImageTextureFrame>, Atom/*url*/),
 }
 
 impl Texture {
@@ -1041,6 +1045,10 @@ impl Texture {
                     height: rect.height() as u32,
                 }
             }
+            Texture::Frame(image_texture_frame, _) => FlexSize {
+                width: image_texture_frame.internal_width(),
+                height: image_texture_frame.internal_height(),
+            },
         }
     }
 
@@ -1068,6 +1076,13 @@ impl Texture {
                     Point2::new((right + rect.min.x as f32) / width, (bottom + rect.min.y as f32) / height),
                 )
             }
+            Texture::Frame(image_texture_frame, _) => {
+                let [width, height, x, y] = image_texture_frame.tilloff();
+                (
+                    Point2::new(x + *clip.left * width, y + *clip.top * height),
+                    Point2::new(x + *clip.right * width, y + *clip.bottom * height),
+                )
+            },
         }
     }
 
@@ -1077,7 +1092,8 @@ impl Texture {
     pub fn is_opacity(&self) -> bool {
         match self {
             Texture::All(r) => r.is_opacity,
-            Texture::Part(..) => false, // todo!()
+            Texture::Part(..) => false,
+            Texture::Frame(frame, _) => frame.is_opacity,
         }
     }
 }
@@ -1087,6 +1103,24 @@ impl PartialEq for Texture {
         match (self, other) {
             (Texture::All(r1), Texture::All(r2)) =>  Share::ptr_eq(r1, r2),
             (Texture::Part(r1, e1), Texture::Part(r2, e2)) =>  Share::ptr_eq(r1, r2) && e2 == e1,
+            (Texture::Frame(r1, _), Texture::Frame(r2, _)) =>  if r1.texture() as *const ImageTexture ==  r2.texture() as *const ImageTexture {
+                match (r1.frame(), r2.frame()) {
+                    (Some(r1), Some(r2)) => {
+                        if r1.texture_coord() != r2.texture_coord() {
+                            false
+                        } else {
+                            let mut t1 = [0.0; 4];
+                            let mut t2 = [0.0; 4];
+                            r1.tilloff(&mut t1, 0);r2.tilloff(&mut t2, 0);
+                            t1 == t2
+                        }
+                    },
+                    (None, None) => true,
+                    _ => false
+                }
+            } else {
+                false
+            },
             _ => false,
         }
     }

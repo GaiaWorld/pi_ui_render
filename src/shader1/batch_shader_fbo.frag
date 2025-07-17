@@ -16,7 +16,7 @@ layout(set=1,binding=0) uniform texture2D tex2dSdf;
 layout(set=1,binding=1) uniform sampler sampSdf;
 
 // 纹理， 最多一次传13张纹理
-layout(set=2,binding=0) uniform texture2DArray tex2d;
+layout(set=2,binding=0) uniform texture2D tex2d;
 
 // 采样器
 layout(set=2,binding=1) uniform sampler samp;
@@ -27,7 +27,7 @@ layout(location=0) out vec4 outColor;
 /********************************************************************************************************************************/
 
 void main(void) {
-	outColor = texture(sampler2DArray(tex2d, samp),vTextureInfo.xyz);
+	outColor = texture(sampler2D(tex2d, samp),vTextureInfo.xy);
 	outColor = outColor + vColor;
 
 	// rgb还原预乘模式（只有采样纹理才可能还原预乘法）

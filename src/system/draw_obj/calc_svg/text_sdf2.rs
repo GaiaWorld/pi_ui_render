@@ -541,8 +541,12 @@ pub fn calc_sdf2_svg(
                 log::error!("shadow bacth============");
                 let b = InstanceDrawState {
                     instance_data_range: instance_start..instances.svg_gray_instance_data.cur_index(),
-                    pipeline: Some(instances.text_gray_pipeline.clone()),
+                    pipeline: Some(instances.default_pipelines.text_gray_pipeline.clone()),
                     texture_bind_group: instances.sdf2_texture_group.clone(),
+                    #[cfg(debug_assertions)]
+                    pipeline_type: "text_gray_pipeline",
+                    #[cfg(debug_assertions)]
+                    texture_bind_group_type: "sdf2_texture_group",
                 };
                 bacth_svg_effect.shadow_gray.push((b, gray_target.target().clone()));
             } else {
@@ -602,7 +606,7 @@ pub fn calc_sdf2_svg(
             ) {
                 let b = InstanceDrawState {
                     instance_data_range: instance_start..instances.svg_shadow_h_instance_data.cur_index(),
-                    pipeline: Some(instances.text_shadow_pipeline.clone()),
+                    pipeline: Some(instances.default_pipelines.text_shadow_pipeline.clone()),
                     texture_bind_group: Some(
                         bindgroup_map
                             .bind_group(
@@ -613,6 +617,10 @@ pub fn calc_sdf2_svg(
                             )
                             .clone(),
                     ),
+                    #[cfg(debug_assertions)]
+                    pipeline_type: "text_shadow_pipeline",
+                    #[cfg(debug_assertions)]
+                    texture_bind_group_type: "sdf2_texture_group",
                 };
                 bacth_svg_effect.shadow_h.push((b, h_target.target().clone()));
             } else {
@@ -687,7 +695,7 @@ pub fn calc_sdf2_svg(
                         log::error!("shadow_v =============== 1111");
                         let b = InstanceDrawState {
                             instance_data_range: instance_start..instances.svg_shadow_v_instance_data.cur_index(),
-                            pipeline: Some(instances.text_shadow_pipeline.clone()),
+                            pipeline: Some(instances.default_pipelines.text_shadow_pipeline.clone()),
                             texture_bind_group: Some(
                                 bindgroup_map
                                     .bind_group(
@@ -698,6 +706,10 @@ pub fn calc_sdf2_svg(
                                     )
                                     .clone(),
                             ), // TODO
+                            #[cfg(debug_assertions)]
+                            pipeline_type: "text_shadow_pipeline",
+                            #[cfg(debug_assertions)]
+                            texture_bind_group_type: "sdf2_texture_group",
                         };
                         bacth_svg_effect.shadow_v.push((b, v_target.target().clone()));
                     } else {
@@ -1164,8 +1176,8 @@ impl Node for SvgEffectNode {
 
             let mut state = RenderState {
                 reset: true,
-                pipeline: param.instance_draw.common_pipeline.clone(),
-                texture: param.instance_draw.batch_texture.default_texture_group.clone(),
+                pipeline: param.instance_draw.default_pipelines.common_pipeline.clone(),
+                texture: param.instance_draw.batch_texture.default_group(false),
             };
 
             for (draw, fbo) in param.bacth_text_effect.shadow_gray.iter() {

@@ -13,7 +13,7 @@ use pi_hash::XHashSet;
 use pi_null::Null;
 use pi_polygon::PolygonIndices;
 use pi_postprocess::image_effect::PostProcessDraw;
-use pi_render::{renderer::draw_obj::DrawObj as DrawState1, rhi::asset::{TextureRes, AssetWithId}, components::view::target_alloc::ShareTargetView};
+use pi_render::{components::view::target_alloc::ShareTargetView, renderer::{draw_obj::DrawObj as DrawState1, texture::ImageTextureFrame}, rhi::asset::{AssetWithId, TextureRes}};
 use pi_share::Share;
 use pi_style::style::CgColor;
 use pi_world::{insert::Component, world::Entity};
@@ -309,13 +309,27 @@ pub struct FboInfo {
 #[derive(Debug, Component)]
 pub enum InstanceSplit {
 	ByTexture(Handle<AssetWithId<TextureRes>>),
+	ByFrame(Handle<ImageTextureFrame>),
 	ByCross(Entity, bool), // 交叉渲染， 表示该节点的渲染为一个外部系统的渲染， bool表示是否用运行图的方式渲染（如果是false，则为外部渲染为一个fbo，gui内部需要将其作为渲染对象渲染）
 	ByFbo(Option<ShareTargetView>),
 	ByEntity(Entity), // asimageurl功能需要
 }
 
-#[derive(Debug, Deref, Component)]
-pub struct Pipeline(pub Share<wgpu::RenderPipeline>);
+#[derive(Debug, Component)]
+pub struct Pipeline {
+	pub opacity: Share<wgpu::RenderPipeline>,
+	pub transparent: Share<wgpu::RenderPipeline>,
+}
+
+impl Pipeline {
+	pub fn value(&self, is_opacity: bool) -> &Share<wgpu::RenderPipeline> {
+		if is_opacity {
+			&self.opacity
+		} else {
+			&self.transparent
+		}
+	}
+}
 
 // DepthUniform
 
@@ -400,6 +414,7 @@ impl GetInstanceSplit for BorderImageTexture {
 			Some(r) => Some(match r {
 				super::calc::Texture::All(r) => InstanceSplit::ByTexture(r.clone()),
 				super::calc::Texture::Part(_, entity) => InstanceSplit::ByEntity(entity.clone()),
+				super::calc::Texture::Frame(r, _) => InstanceSplit::ByFrame(r.clone()),
 			}),
 			None => None,
 		}
@@ -413,6 +428,7 @@ impl GetInstanceSplit for BackgroundImageTexture {
 			Some(r) => Some(match r {
 				super::calc::Texture::All(r) => InstanceSplit::ByTexture(r.clone()),
 				super::calc::Texture::Part(_, entity) => InstanceSplit::ByEntity(entity.clone()),
+				super::calc::Texture::Frame(r, _) => InstanceSplit::ByFrame(r.clone()),
 			}),
 			None => None,
 		}

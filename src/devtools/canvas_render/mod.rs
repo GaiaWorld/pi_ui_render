@@ -218,7 +218,7 @@ impl Node for CanvasRendererNode {
                     label: Some(""),
                     color_attachments: &[
                         Some(wgpu::RenderPassColorAttachment {
-                            view: param.as_ref().unwrap().view.as_ref().unwrap(),
+                            view: param.as_ref().unwrap().view().as_ref().unwrap(),
                             resolve_target: None,
                             ops: wgpu::Operations {
                                 load: wgpu::LoadOp::Load,

@@ -1,4 +1,4 @@
-use blend_mode::blend_mod_change;
+use calc_pipeline::blend_mod_change;
 use pi_world::prelude::IntoSystemConfigs;
 use pi_world::prelude::{App, Plugin, WorldPluginExtent};
 use pi_bevy_render_plugin::GraphBuild;
@@ -41,7 +41,7 @@ pub mod calc_text;
 pub mod calc_svg;
 pub mod calc_border_radius;
 
-pub mod blend_mode;
+pub mod calc_pipeline;
 // pub mod clear_draw_obj;
 pub mod pipeline;
 // pub mod root_clear_color;
@@ -78,7 +78,7 @@ impl Plugin for UiReadyDrawPlugin {
             // .add_system(UiStage, pipeline::calc_node_pipeline.in_set(UiSystemSet::PrepareDrawObj))
             // 混合模式
 			.add_system(UiStage, 
-                blend_mode::calc_drawobj_blendstate
+                calc_pipeline::calc_drawobj_pilepine
 					.run_if(blend_mod_change)
                     
                     .before(UiSystemSet::LifeDrawObjectFlush)

@@ -10,7 +10,7 @@ use pi_bevy_render_plugin::{NodeId, PiRenderDevice, PiRenderQueue};
 use pi_hash::{XHashMap, XHashSet};
 use pi_map::vecmap::VecMap;
 use pi_render::{
-    components::view::target_alloc::FboRes, renderer::{draw_obj::DrawBindGroup, vertices::{EVerticesBufferUsage, RenderVertices}}, rhi::{
+    components::view::target_alloc::FboRes, renderer::{draw_obj::DrawBindGroup, texture::ImageTextureFrame, vertices::{EVerticesBufferUsage, RenderVertices}}, rhi::{
         asset::{AssetWithId, RenderRes, TextureRes},
         bind_group::BindGroup,
         bind_group_layout::BindGroupLayout,
@@ -25,7 +25,7 @@ use pi_render::{
 use pi_render::rhi::shader::AsLayoutEntry;
 use pi_render::rhi::shader::BindLayout;
 use pi_share::Share;
-use pi_slotmap::{DefaultKey, KeyData, SecondaryMap, SlotMap};
+use pi_slotmap::{DefaultKey, SlotMap};
 use wgpu::{
     BindGroupEntry, BindingType, BlendState, BufferDescriptor, CompareFunction, DepthBiasState, DepthStencilState, Extent3d, Limits, MultisampleState, PipelineLayout, RenderPass, Sampler, SamplerBindingType, ShaderModule, ShaderStages, StencilState, TextureDescriptor, TextureFormat, TextureSampleType, TextureView, TextureViewDescriptor, TextureViewDimension
 };
@@ -59,21 +59,32 @@ use crate::{
 #[derive(Clone, Debug)]
 pub enum BatchTextureItem {
     Texture(Handle<AssetWithId<TextureRes>>),
+    Frame(Handle<ImageTextureFrame>),
     Fbo(Handle<FboRes>)
 }
 
 impl BatchTextureItem {
-    fn id(&self) -> &KeyData {
-        match self {
-            BatchTextureItem::Texture(droper) => &droper.id,
-            BatchTextureItem::Fbo(droper) => &droper.id,
-        }
-    }
+    // fn id(&self) -> &KeyData {
+    //     match self {
+    //         BatchTextureItem::Texture(droper) => &droper.id,
+    //         BatchTextureItem::Fbo(droper) => &droper.id,
+    //     }
+    // }
 
     fn texture_view(&self) -> &TextureView {
         match self {
             BatchTextureItem::Texture(droper) => &droper.texture_view,
             BatchTextureItem::Fbo(droper) => &droper.texture_view,
+            BatchTextureItem::Frame(droper) => &droper.view,
+        }
+    }
+
+    fn is_eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (BatchTextureItem::Texture(droper), BatchTextureItem::Texture(droper1)) => Share::ptr_eq(droper, droper1),
+            (BatchTextureItem::Fbo(droper), BatchTextureItem::Fbo(droper1)) => Share::ptr_eq(droper, droper1),
+            (BatchTextureItem::Frame(droper), BatchTextureItem::Frame(droper1)) => Share::ptr_eq(&droper.tex, &droper1.tex),
+            _ => false,
         }
     }
 }
@@ -81,18 +92,22 @@ impl BatchTextureItem {
 pub struct BatchTexture {
 	// max_bind: usize,
 	
-	temp_texture_indexs: SecondaryMap<DefaultKey, u32>, // 纹理在该bindgroup中的binding, 以及本利本身
+	// temp_texture_indexs: SecondaryMap<DefaultKey, u32>, // 纹理在该bindgroup中的binding, 以及本利本身
 	pub temp_textures: Vec<(BatchTextureItem, Share<wgpu::Sampler>)>,
+    // pub temp_texture: (BatchTextureItem, Share<wgpu::Sampler>),
 
 	// group_layouts: Vec<wgpu::BindGroupLayout>,
 	group_layout: wgpu::BindGroupLayout,
+    group_layout_array: wgpu::BindGroupLayout,
 	pub(crate) default_texture_view: wgpu::TextureView,
+    pub(crate) default_texture_array_view: wgpu::TextureView,
 	pub(crate) default_sampler: wgpu::Sampler,
-	pub default_texture_group: Share<wgpu::BindGroup>,
+	default_texture_group: Share<wgpu::BindGroup>,
+    default_texture_array_group: Share<wgpu::BindGroup>,
 }
 
 impl BatchTexture {
-	const BINDING_COUNT: u32 = 13;
+	const BINDING_COUNT: u32 = 1;
 	pub fn new(device: &wgpu::Device) -> Self {
 		let mut entry = Vec::with_capacity(Self::BINDING_COUNT as usize);
 		for i in 0..Self::BINDING_COUNT {
@@ -121,10 +136,55 @@ impl BatchTexture {
 		// 	}));
 		// }
 		let group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-			label: Some("batch texture layout"),
+			label: Some("single texture layout"),
 			entries: &entry[..],
 		});
-		let default_texture = device.create_texture(&TextureDescriptor {
+        let group_layout_array = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+			label: Some("batch texture layout"),
+			entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Texture {
+                        sample_type: TextureSampleType::Float { filterable: true },
+                        view_dimension: TextureViewDimension::D2Array,
+                        multisampled: false,
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Sampler(SamplerBindingType::Filtering),
+                    count: None,
+                }
+            ],
+		});
+		let default_array_texture = device.create_texture(&TextureDescriptor {
+			label: Some("default texture"),
+			size: Extent3d { width: 4, height: 4, depth_or_array_layers: 2 },
+			mip_level_count: 1,
+			sample_count: 1,
+			dimension: wgpu::TextureDimension::D2,
+			format: TextureFormat::Rgba8Unorm,
+			usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+			view_formats: &[],
+		});
+       let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+			label: Some("default sampler"),
+			address_mode_u: wgpu::AddressMode::ClampToEdge,
+			address_mode_v: wgpu::AddressMode::ClampToEdge,
+			address_mode_w: wgpu::AddressMode::ClampToEdge,
+			mag_filter: wgpu::FilterMode::Nearest,
+			min_filter: wgpu::FilterMode::Nearest,
+			mipmap_filter: wgpu::FilterMode::Nearest,
+			..Default::default()
+		});
+        
+		let texture_array_view = default_array_texture.create_view(&TextureViewDescriptor::default());
+        let default_texture_array_group = Self::take_group1(device, &Vec::new(), &texture_array_view, &sampler, &group_layout_array, "batch texture bindgroup");
+
+        let default_texture = device.create_texture(&TextureDescriptor {
 			label: Some("default texture"),
 			size: Extent3d { width: 4, height: 4, depth_or_array_layers: 1 },
 			mip_level_count: 1,
@@ -136,80 +196,86 @@ impl BatchTexture {
 		});
         
 		let texture_view = default_texture.create_view(&TextureViewDescriptor::default());
-		let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-			label: Some("default sampler"),
-			address_mode_u: wgpu::AddressMode::ClampToEdge,
-			address_mode_v: wgpu::AddressMode::ClampToEdge,
-			address_mode_w: wgpu::AddressMode::ClampToEdge,
-			mag_filter: wgpu::FilterMode::Nearest,
-			min_filter: wgpu::FilterMode::Nearest,
-			mipmap_filter: wgpu::FilterMode::Nearest,
-			..Default::default()
-		});
 
-		let default_texture_group = Self::take_group1(device, &Vec::new(), &texture_view, &sampler, &group_layout);
+		let default_texture_group = Self::take_group1(device, &Vec::new(), &texture_view, &sampler, &group_layout, "single texture bindgroup");
 	
 		let r = Self {
 			// max_bind: Self::BINDING_COUNT,
-			temp_texture_indexs: SecondaryMap::new(),
+			// temp_texture_indexs: SecondaryMap::new(),
 			temp_textures: Vec::new(),
 
 			group_layout,
+            group_layout_array,
 			default_texture_view: texture_view,
+            default_texture_array_view: texture_array_view,
 			default_sampler: sampler,
 			default_texture_group: Share::new(default_texture_group),
+            default_texture_array_group: Share::new(default_texture_array_group),
 			// common_sampler: CommonSampler::new(device),
 		};
 		r
 	}
 	/// push一张纹理，返回纹理索引， 当纹理数量达到max_bind限制时， 会返回一个wgpu::BindGroup，并先清空当前所有的临时数据， 再添加数据
 	/// 注意， 目前同一张纹理只能用同一种采样方式，使用不同的采样样式push纹理，将不会覆盖之前的（主要原因是目前gui并没有不同采样方式的需求）
-	pub fn push(&mut self, texture: BatchTextureItem, sampler: &Share<Sampler>, device: &wgpu::Device) -> (usize, Option<wgpu::BindGroup>) {
-		let mut index = self.temp_textures.len();
+	pub fn push(&mut self, texture: BatchTextureItem, sampler: &Share<Sampler>, device: &wgpu::Device) -> (usize, Option<wgpu::BindGroup>, &'static str) {
+        let index = match &texture {
+            BatchTextureItem::Texture(_droper) => todo!(),
+            BatchTextureItem::Frame(droper) => droper.coord(),
+            BatchTextureItem::Fbo(_droper) => 0,
+        } as usize;
+        if let Some(r) = self.temp_textures.get(0) {
+            if r.0.is_eq(&texture) {
+                return (index, None, "none");
+            }
 
-		if let Some(r) = self.temp_texture_indexs.get(DefaultKey::from(texture.id().clone())) {
-			return (*r as usize, None); //
-		}
+            let (group, name) = self.take_group(device);
+            return (index, group, name)
+        }
 
-		let group;
-		if index == Self::BINDING_COUNT as usize {
-			group = self.take_group(device);
-			index = 0;
-		} else {
-			group = None;
-		}
-
-		self.temp_texture_indexs.insert(DefaultKey::from(texture.id().clone()), index as u32);
 		self.temp_textures.push((texture, sampler.clone()));
 
-		(index, group)
+		(index, None, "none")
 	}
 
 	/// 将当前的临时数据立即创建一个bindgroup，并返回
-	pub fn take_group(&mut self, device: &wgpu::Device) -> Option<wgpu::BindGroup> {
+	pub fn take_group(&mut self, device: &wgpu::Device) -> (Option<wgpu::BindGroup>, &'static str) {
 		if self.temp_textures.len() == 0 {
-			return None;
+			return (None, "none");
 		}
 
         // log::debug!("take_group========{:?}", self.temp_textures.len());
         // let len = self.temp_textures.len();
-
-		let group = Some(Self::take_group1(device, &self.temp_textures, &self.default_texture_view, &self.default_sampler, &self.group_layout));
+        let (group_layout, name) = match &self.temp_textures[0].0 {
+            BatchTextureItem::Texture(_droper) => todo!(),
+            BatchTextureItem::Frame(_droper) => if _droper.frame().is_some() { 
+                (&self.group_layout_array, "batch texture bindgroup") 
+            } else { 
+                (&self.group_layout,  "single texture bindgroup")
+            },
+            BatchTextureItem::Fbo(_droper) => {
+                (&self.group_layout, "single texture bindgroup")
+            },
+        };
+		let group = Some(Self::take_group1(device, &self.temp_textures, &self.default_texture_view, &self.default_sampler, &group_layout, name));
 		// 清理临时数据
-		self.temp_texture_indexs.clear();
+		// self.temp_texture_indexs.clear();
 		self.temp_textures.clear();
-		group
+		(group, name)
+	}
+
+	pub fn default_group(&self, is_single: bool) -> Share<wgpu::BindGroup> {
+		// let r = Self::take_group1(device, &Vec::new(), &self.default_texture_view, &self.default_sampler, &self.group_layout_array, "batch texture bindgroup");
+        // r
+        if is_single {
+            self.default_texture_group.clone()
+        } else {
+            self.default_texture_array_group.clone()
+        }
 	}
 
 	/// 将当前的临时数据立即创建一个bindgroup，并返回
-	pub fn default_group(&mut self, device: &wgpu::Device) -> wgpu::BindGroup {
-		let r = Self::take_group1(device, &Vec::new(), &self.default_texture_view, &self.default_sampler, &self.group_layout);
-        r
-	}
-
-	/// 将当前的临时数据立即创建一个bindgroup，并返回
-	fn take_group1(device: &wgpu::Device, temp_textures: &Vec<(BatchTextureItem, Share<wgpu::Sampler>)>, default_texture_view: &wgpu::TextureView, default_sampler: &wgpu::Sampler, group_layout: &wgpu::BindGroupLayout) -> wgpu::BindGroup {
-		let mut entrys = Vec::with_capacity(Self::BINDING_COUNT as usize * 2);
+	fn take_group1(device: &wgpu::Device, temp_textures: &Vec<(BatchTextureItem, Share<wgpu::Sampler>)>, default_texture_view: &wgpu::TextureView, default_sampler: &wgpu::Sampler, group_layout: &wgpu::BindGroupLayout, name: &str) -> wgpu::BindGroup {    
+        let mut entrys = Vec::with_capacity(Self::BINDING_COUNT as usize * 2);
 		for (binding, (texture, sampler)) in temp_textures.iter().enumerate() {
 			entrys.push(
 				BindGroupEntry {
@@ -227,7 +293,6 @@ impl BatchTexture {
 
 		
 		for binding in temp_textures.len()..Self::BINDING_COUNT as usize {
-			// log::warn!("len===================={:?}", (self.temp_textures.len(), binding));
 			entrys.push(
 				BindGroupEntry {
 					binding: (binding * 2) as u32,
@@ -243,7 +308,7 @@ impl BatchTexture {
 		}
 		
 		device.create_bind_group(&wgpu::BindGroupDescriptor {
-			label: Some("batch texture bindgroup"),
+			label: Some(name),
 			layout: group_layout, //&self.group_layouts[self.temp_textures.len() - 1],
 			entries: entrys.as_slice(),
 		})
@@ -295,26 +360,39 @@ pub struct LastGraphNode(pub NodeId);
 #[derive(Default, Debug)]
 pub struct GuiSubGraphNode(pub NodeId);
 
-pub struct InstanceContext {
-	pub vert: RenderVertices,
-
-	vs: wgpu::ShaderModule,
-	fs: wgpu::ShaderModule,
-
-	pipeline_cache: XHashMap<u64, Share<wgpu::RenderPipeline>>,
-	pub common_blend_state_hash: u64,
-	pub premultiply_blend_state_hash: u64,
-
-	pub common_pipeline: Share<wgpu::RenderPipeline>,
+pub struct DefaultPipelines {
+    pub common_pipeline: Share<wgpu::RenderPipeline>,
     pub common_opacity_pipeline: Share<wgpu::RenderPipeline>,
     pub copy_pipeline: Share<wgpu::RenderPipeline>,
 	pub premultiply_pipeline: Share<wgpu::RenderPipeline>,
+
+    pub common_fbo_pipeline: Share<wgpu::RenderPipeline>, 
+    pub common_fbo_opacity_pipeline: Share<wgpu::RenderPipeline>,
+    pub fbo_premultiply_pipeline: Share<wgpu::RenderPipeline>,
+
 	pub clear_pipeline: Share<wgpu::RenderPipeline>,
     pub mask_image_pipeline: Share<wgpu::RenderPipeline>,
 
     pub text_gray_pipeline: Share<wgpu::RenderPipeline>,
     pub text_shadow_pipeline: Share<wgpu::RenderPipeline>,
     pub text_glow_pipeline: Share<wgpu::RenderPipeline>,
+}
+pub struct InstanceContext {
+	pub vert: RenderVertices,
+
+	vs: wgpu::ShaderModule,
+	fs: wgpu::ShaderModule,
+
+	fs_opacity: wgpu::ShaderModule,
+    fs_fbo: wgpu::ShaderModule,
+    fs_opacity_fbo: wgpu::ShaderModule,
+
+	pipeline_cache: XHashMap<u64, Share<wgpu::RenderPipeline>>,
+	pub common_blend_state_hash: u64,
+	pub premultiply_blend_state_hash: u64,
+
+    pub default_pipelines: DefaultPipelines,
+	
 
 	pub instance_data: GpuBuffer,
 	pub instance_buffer: Option<(wgpu::Buffer, usize)>,
@@ -354,6 +432,7 @@ pub struct InstanceContext {
 	pub camera_alloter: ShareGroupAlloter<CameraGroup>,
 
 	pub pipeline_layout: PipelineLayout,
+    pub fbo_pipeline_layout: PipelineLayout,
     pub text_effect_pipeline_layout: PipelineLayout,
 
 	pub default_camera: BufferGroup,
@@ -378,7 +457,7 @@ impl InstanceContext {
     pub fn set_pipeline<'a>(&'a self, rp: &mut RenderPass<'a>, instance_draw: &'a InstanceDrawState, render_state: &mut RenderState) {
         let p = match &instance_draw.pipeline {
 			Some(r) => r,
-			None => &self.common_pipeline,
+			None => &self.default_pipelines.common_pipeline,
 		};
         if render_state.reset || !Share::ptr_eq(&p, &render_state.pipeline)  {
             rp.set_pipeline(p);
@@ -386,7 +465,7 @@ impl InstanceContext {
         }
     }
 	pub fn draw<'a>(&'a self, rp: &mut RenderPass<'a>, instance_draw: &'a InstanceDrawState, render_state: &mut RenderState) {
-        // log::warn!("draw====={:?}", (render_state.reset, &instance_draw.texture_bind_group, &render_state.texture));
+        // log::debug!("draw====={:?}", (render_state.reset, &instance_draw.texture_bind_group, &render_state.texture));
         if render_state.reset  {
             if let Some(texture) = &self.sdf2_texture_group {
                 rp.set_bind_group(1, &**texture, &[]);
@@ -394,6 +473,7 @@ impl InstanceContext {
             if let Some(texture) = &instance_draw.texture_bind_group {
                 rp.set_bind_group(2, &**texture, &[]);
                 render_state.texture = texture.clone();
+                // log::debug!("2===================={:p}, {:?}", &**texture, (instance_draw.pipeline_type, instance_draw.texture_bind_group_type, &instance_draw.instance_data_range));
             }
             rp.set_vertex_buffer(0, self.vert.slice());
 		    rp.set_vertex_buffer(1, self.instance_buffer.as_ref().unwrap().0.slice(..));
@@ -401,14 +481,17 @@ impl InstanceContext {
         } else {   
             if let Some(texture) = &instance_draw.texture_bind_group {
                 if !Share::ptr_eq(&texture, &render_state.texture) {
+                    // log::debug!("3===================={:p}, {:?}", &**texture, (instance_draw.pipeline_type, instance_draw.texture_bind_group_type,&instance_draw.instance_data_range));
                     rp.set_bind_group(2, &**texture, &[]);
                     render_state.texture = texture.clone();
+                } else {
+                    // log::debug!("4===================={:p}, {:?}", &**texture, (instance_draw.pipeline_type, instance_draw.texture_bind_group_type, &instance_draw.instance_data_range));
                 }
-            };
+            }
         }
 
-        // log::warn!("darw================={:?}", instance_draw.instance_data_range.start as u32/self.instance_data.alignment as u32..instance_draw.instance_data_range.end as u32/self.instance_data.alignment as u32 );
-        // log::warn!("instance_data_range====={:?}", (&instance_draw.instance_data_range, instance_draw.instance_data_range.start as u32/self.instance_data.alignment as u32..instance_draw.instance_data_range.end as u32/self.instance_data.alignment as u32));
+        // log::debug!("darw================={:?}", instance_draw.instance_data_range.start as u32/self.instance_data.alignment as u32..instance_draw.instance_data_range.end as u32/self.instance_data.alignment as u32 );
+        // log::debug!("instance_data_range====={:?}", (&instance_draw.instance_data_range, instance_draw.instance_data_range.start as u32/self.instance_data.alignment as u32..instance_draw.instance_data_range.end as u32/self.instance_data.alignment as u32));
 		#[cfg(debug_assertions)]
         {
             for i in instance_draw.instance_data_range.start as u32/self.instance_data.alignment as u32..instance_draw.instance_data_range.end as u32/self.instance_data.alignment as u32 {
@@ -434,7 +517,7 @@ impl InstanceContext {
         instance_buffer: &'a Option<(wgpu::Buffer, usize)>, 
         instance_data: &'a GpuBuffer, 
         render_state: &mut RenderState) {
-        // log::warn!("draw_effect====={:?}", (render_state.reset, &instance_draw.instance_data_range, &instance_draw.texture_bind_group, &render_state.texture));
+        // log::debug!("draw_effect====={:?}", (render_state.reset, &instance_draw.instance_data_range, &instance_draw.texture_bind_group, &render_state.texture));
         if render_state.reset  {
             if let Some(texture) = &instance_draw.texture_bind_group {
                 rp.set_bind_group(1, &**texture, &[]);
@@ -452,8 +535,8 @@ impl InstanceContext {
             };
         }
 
-        // log::warn!("darw================={:?}", instance_draw.instance_data_range.start as u32/self.instance_data.alignment as u32..instance_draw.instance_data_range.end as u32/self.instance_data.alignment as u32 );
-        // log::warn!("instance_data_range====={:?}", (&instance_draw.instance_data_range, instance_draw.instance_data_range.start as u32/self.instance_data.alignment as u32..instance_draw.instance_data_range.end as u32/self.instance_data.alignment as u32));
+        // log::debug!("darw================={:?}", instance_draw.instance_data_range.start as u32/self.instance_data.alignment as u32..instance_draw.instance_data_range.end as u32/self.instance_data.alignment as u32 );
+        // log::debug!("instance_data_range====={:?}", (&instance_draw.instance_data_range, instance_draw.instance_data_range.start as u32/self.instance_data.alignment as u32..instance_draw.instance_data_range.end as u32/self.instance_data.alignment as u32));
 		#[cfg(debug_assertions)]
         {
             for i in instance_draw.instance_data_range.start as u32/instance_data.alignment as u32..instance_draw.instance_data_range.end as u32/instance_data.alignment as u32 {
@@ -463,7 +546,7 @@ impl InstanceContext {
                 // if render_flag == 0 {
                 //     panic!("!!!!!!!!!!!!!!, {}", index);
                 // }
-                // log::warn!("instance_data_range effect====={:?}", (i, i as u32/instance_data.alignment as u32));
+                // log::debug!("instance_data_range effect====={:?}", (i, i as u32/instance_data.alignment as u32));
                 rp.draw(0..6, i..i+1);
             } 
         }
@@ -606,7 +689,7 @@ impl FromWorld for InstanceContext {
             },
         });
 
-        let opacity_fs = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+        let fs_opacity = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some(&"opacity_ui_fs"),
             source: wgpu::ShaderSource::Glsl {
                 shader: Cow::Borrowed(include_str!("../shader1/batch_shader_opacity.frag")),
@@ -615,19 +698,54 @@ impl FromWorld for InstanceContext {
             },
         });
 
+        let fs_fbo = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some(&"ui_fbo_fs"),
+            source: wgpu::ShaderSource::Glsl {
+                shader: Cow::Borrowed(include_str!("../shader1/batch_shader_fbo.frag")),
+                stage: naga::ShaderStage::Fragment,
+                defines: &[],
+            },
+        });
+
+        let fs_opacity_fbo = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some(&"opacity_fbo_ui_fs"),
+            source: wgpu::ShaderSource::Glsl {
+                shader: Cow::Borrowed(include_str!("../shader1/batch_shader_opacity_fbo.frag")),
+                stage: naga::ShaderStage::Fragment,
+                defines: &[],
+            },
+        });
+
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("ui_shader"),
+            bind_group_layouts: &[&*uniform_layout, &text_texture_layout, &batch_texture.group_layout_array],
+            push_constant_ranges: &[],
+        });
+
+        let fbo_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("ui_fbo_shader"),
             bind_group_layouts: &[&*uniform_layout, &text_texture_layout, &batch_texture.group_layout],
             push_constant_ranges: &[],
         });
 
-		let common_blend_state_hash = calc_hash(&CommonBlendState::NORMAL, 0);
-		let copy_pipeline = Share::new(create_render_pipeline("copy_pipeline ui", &device, &pipeline_layout, &vs, &fs, Some(CommonBlendState::NORMAL), CompareFunction::Always, false, wgpu::TextureFormat::pi_render_default(), vert_layout().as_slice(), MeterialBind::SIZE, true));
+		let common_blend_state_hash = calc_hash(&(CommonBlendState::NORMAL, false, false), 0);
+		let copy_pipeline = Share::new(create_render_pipeline("copy_pipeline ui", &device, &fbo_pipeline_layout, &vs, &fs_opacity_fbo, Some(CommonBlendState::NORMAL), CompareFunction::Always, false, wgpu::TextureFormat::pi_render_default(), vert_layout().as_slice(), MeterialBind::SIZE, true));
 		let common_pipeline  = Share::new(create_render_pipeline("common_pipeline ui", &device, &pipeline_layout, &vs, &fs, Some(CommonBlendState::NORMAL), CompareFunction::GreaterEqual, true, wgpu::TextureFormat::pi_render_default(), vert_layout().as_slice(), MeterialBind::SIZE, false));
-        let common_opacity_pipeline = Share::new(create_render_pipeline("common_opacity_pipeline ui", &device, &pipeline_layout, &vs, &opacity_fs, Some(CommonBlendState::NORMAL), CompareFunction::GreaterEqual, true, wgpu::TextureFormat::pi_render_default(), vert_layout().as_slice(), MeterialBind::SIZE, true));
+        
+        let common_opacity_blend_state_hash = calc_hash(&(CommonBlendState::NORMAL, true, false), 0);
+        let common_opacity_pipeline = Share::new(create_render_pipeline("common_opacity_pipeline ui", &device, &pipeline_layout, &vs, &fs_opacity, Some(CommonBlendState::NORMAL), CompareFunction::GreaterEqual, true, wgpu::TextureFormat::pi_render_default(), vert_layout().as_slice(), MeterialBind::SIZE, true));
 
-		let premultiply_blend_state_hash = calc_hash(&CommonBlendState::PREMULTIPLY, 0);
+        let common_fbo_blend_state_hash = calc_hash(&(CommonBlendState::NORMAL, false, true), 0);
+        let common_fbo_pipeline  = Share::new(create_render_pipeline("common_fbo_pipeline ui", &device, &fbo_pipeline_layout, &vs, &fs_fbo, Some(CommonBlendState::NORMAL), CompareFunction::GreaterEqual, true, wgpu::TextureFormat::pi_render_default(), vert_layout().as_slice(), MeterialBind::SIZE, false));
+        
+        let common_fbo_opacity_blend_state_hash = calc_hash(&(CommonBlendState::NORMAL, true, true), 0);
+        let common_fbo_opacity_pipeline = Share::new(create_render_pipeline("common_fbo_opacity_pipeline ui", &device, &fbo_pipeline_layout, &vs, &fs_opacity_fbo, Some(CommonBlendState::NORMAL), CompareFunction::GreaterEqual, true, wgpu::TextureFormat::pi_render_default(), vert_layout().as_slice(), MeterialBind::SIZE, true));
+
+		let premultiply_blend_state_hash = calc_hash(&(CommonBlendState::PREMULTIPLY, false, false), 0);
 		let premultiply_pipeline = Share::new(create_render_pipeline("premultiply_pipeline ui", &device, &pipeline_layout, &vs, &fs, Some(CommonBlendState::PREMULTIPLY), CompareFunction::GreaterEqual, true, wgpu::TextureFormat::pi_render_default(), vert_layout().as_slice(), MeterialBind::SIZE, true));
+        
+        let fbo_premultiply_blend_state_hash = calc_hash(&(CommonBlendState::PREMULTIPLY, false, true), 0);
+        let fbo_premultiply_pipeline = Share::new(create_render_pipeline("fbo_premultiply_pipeline ui", &device, &fbo_pipeline_layout, &vs, &fs_fbo, Some(CommonBlendState::PREMULTIPLY), CompareFunction::GreaterEqual, true, wgpu::TextureFormat::pi_render_default(), vert_layout().as_slice(), MeterialBind::SIZE, true));
 
 		let clear_blend_state_hash = calc_hash(&CompareFunction::Always, calc_hash(&CommonBlendState::NORMAL, 0));
 		let clear_pipeline = Share::new(create_render_pipeline("clear ui", &device, &pipeline_layout, &vs, &fs, Some(BlendState {
@@ -750,9 +868,16 @@ impl FromWorld for InstanceContext {
 		}), CompareFunction::Always, false, wgpu::TextureFormat::R8Unorm, batch_sdf_glow::vert_layout().as_slice(), GlowMeterialBind::SIZE, true));
 
 		let mut pipeline_cache = XHashMap::default();
+        pipeline_cache.insert(clear_blend_state_hash, clear_pipeline.clone());
+
 		pipeline_cache.insert(common_blend_state_hash, common_pipeline.clone());
 		pipeline_cache.insert(premultiply_blend_state_hash, premultiply_pipeline.clone());
-		pipeline_cache.insert(clear_blend_state_hash, clear_pipeline.clone());
+		
+        pipeline_cache.insert(common_fbo_blend_state_hash, common_fbo_pipeline.clone());
+		pipeline_cache.insert(fbo_premultiply_blend_state_hash, fbo_premultiply_pipeline.clone());
+
+        pipeline_cache.insert(common_opacity_blend_state_hash, common_opacity_pipeline.clone());
+         pipeline_cache.insert(common_fbo_opacity_blend_state_hash, common_fbo_opacity_pipeline.clone());
 
 		let view_project = WorldMatrix::default().0;
 		let mut default_camera = camera_alloter.alloc();
@@ -774,19 +899,27 @@ impl FromWorld for InstanceContext {
 			},
 			vs,
 			fs,
+            fs_opacity,
+            fs_opacity_fbo,
+            fs_fbo,
 			pipeline_cache,
 			common_blend_state_hash,
 			premultiply_blend_state_hash,
-			common_pipeline,
-            common_opacity_pipeline,
-            copy_pipeline,
-			premultiply_pipeline,
-			clear_pipeline,
-            mask_image_pipeline,
+            default_pipelines : DefaultPipelines {
+                common_pipeline,
+                common_opacity_pipeline,
+                common_fbo_pipeline, 
+                common_fbo_opacity_pipeline,
+                fbo_premultiply_pipeline,
+                copy_pipeline,
+                premultiply_pipeline,
+                clear_pipeline,
+                mask_image_pipeline,
 
-            text_gray_pipeline,
-            text_shadow_pipeline,
-            text_glow_pipeline,
+                text_gray_pipeline,
+                text_shadow_pipeline,
+                text_glow_pipeline,
+            },
 
 			instance_data: GpuBuffer::new(MeterialBind::SIZE, 1000 * MeterialBind::SIZE),
 			instance_buffer: None,
@@ -824,6 +957,7 @@ impl FromWorld for InstanceContext {
 			sdf2_texture_layout: text_texture_layout,
 			camera_alloter,
 			pipeline_layout,
+            fbo_pipeline_layout,
             text_effect_pipeline_layout,
 			default_camera,
             draw_list: Vec::new(),
@@ -841,13 +975,27 @@ impl FromWorld for InstanceContext {
 }
 
 impl InstanceContext {
-	pub fn get_or_create_pipeline(&mut self, device: &RenderDevice, blend_state: wgpu::BlendState, has_depth: bool) -> Share<wgpu::RenderPipeline> {
-		let blend_state_hash = calc_hash(&blend_state, 0);
-		match self.pipeline_cache.entry(blend_state_hash) {
+	pub fn get_or_create_pipeline(&mut self, device: &RenderDevice, blend_state: wgpu::BlendState, has_depth: bool, is_fbo: bool, is_opacity: bool) -> Share<wgpu::RenderPipeline> {
+		let hash = calc_hash(&(blend_state, has_depth, is_fbo, is_opacity), 0);
+
+		match self.pipeline_cache.entry(hash) {
 			Entry::Occupied(r) => r.get().clone(),
 			Entry::Vacant(r) => {
+                let (pipeline_layout, fs, name) = if is_fbo {
+                    if is_opacity {
+                        (&self.fbo_pipeline_layout, &self.fs_opacity_fbo, "single opacity ui pipeline")
+                    } else {
+                        (&self.fbo_pipeline_layout, &self.fs_fbo, "single ui pipeline")
+                    }
+                } else {
+                    if is_opacity {
+                        (&self.pipeline_layout, &self.fs_opacity, "batch opacity ui pipeline")
+                    } else {
+                        (&self.pipeline_layout, &self.fs, "batch ui pipeline")
+                    }
+                };
 				let pipeline = Share::new(create_render_pipeline(
-                    "batch ui", &device, &self.pipeline_layout, &self.vs, &self.fs, Some(blend_state), CompareFunction::GreaterEqual, has_depth, wgpu::TextureFormat::pi_render_default(), vert_layout().as_slice(), MeterialBind::SIZE, true));
+                    name, &device, pipeline_layout, &self.vs, fs, Some(blend_state), CompareFunction::GreaterEqual, has_depth, wgpu::TextureFormat::pi_render_default(), vert_layout().as_slice(), MeterialBind::SIZE, true));
 				r.insert(pipeline.clone());
 				pipeline
 			},
@@ -873,7 +1021,7 @@ impl InstanceContext {
 	pub fn update1(device: &RenderDevice, queue: &RenderQueue, instance_data: &mut GpuBuffer, instance_buffer: &mut Option<(wgpu::Buffer, usize)>) {
         
 		if instance_data.dirty_range.len() != 0 { 
-            // log::warn!("update instance_buffer==============={:?}, {:?}", &instance_data.dirty_range, bytemuck::cast_slice::<u8, f32>(&instance_data.data[instance_data.dirty_range.clone()]));
+            // log::debug!("update instance_buffer==============={:?}, {:?}", &instance_data.dirty_range, bytemuck::cast_slice::<u8, f32>(&instance_data.data[instance_data.dirty_range.clone()]));
             
 			if let Some((buffer, size)) = &instance_buffer {
 				if *size >= instance_data.dirty_range.end {

@@ -242,6 +242,11 @@ pub fn calc_background_image_inner(
 					log::debug!("calc_background_image1, entity={:?}, {:?}", entity, (r.key(), background_image.0.str_hash()));
 					return None;
 				}
+			} else if let Texture::Frame(_r, key) = r {
+				if key.str_hash() != background_image.0.str_hash() as u64 {
+					log::debug!("calc_background_image1, entity={:?}, {:?}", entity, (key, background_image.0.str_hash()));
+					return None;
+				}
 			}
 			r
 		},

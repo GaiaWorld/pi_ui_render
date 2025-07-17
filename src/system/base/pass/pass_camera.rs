@@ -18,21 +18,14 @@ use pi_share::{Share, ShareWeak};
 use crate::{
     components::{
         calc::{
-            BackgroundImageTexture, BorderImageTexture, InPassId, IsShow, MaskTexture, OverflowDesc, Quad, RootDirtyRect, StyleBit, TransformWillChangeMatrix, View, WorldMatrix
+            BackgroundImageTexture, BorderImageTexture, InPassId, IsShow, MaskTexture, OverflowDesc, Quad, RootDirtyRect, TransformWillChangeMatrix, View, WorldMatrix
         }, pass_2d::{
             Camera, IsSteady, ParentPassId, PostProcessInfo, RenderTarget, RenderTargetCache, StrongTarget
         }, user::{Aabb2, AsImage, Canvas, Point2, Vector2, Viewport}
     }, resource::{
-        draw_obj::{InstanceContext, TargetCacheMgr}, IsRun, OtherDirtyType, RenderDirty, ShareFontSheet
+        draw_obj::{InstanceContext, TargetCacheMgr}, IsRun, RenderDirty, ShareFontSheet
     }, shader1::batch_meterial::{ProjectUniform, Sdf2TextureSizeUniform, ViewUniform}, system::{base::node::user_setting::StyleChange, utils::{create_project, rotatequad_quad_intersection}}, utils::tools::{eq_f32, intersect}
 };
-use crate::components::calc::{StyleMarkType, style_bit};
-lazy_static! {
-	pub static ref OTHER_RENDER_DIRTY: StyleMarkType = style_bit()
-        .set_bit(OtherDirtyType::MaskImageTexture as usize)
-        .set_bit(OtherDirtyType::BorderImageTexture as usize)
-		.set_bit(OtherDirtyType::BackgroundImageTexture as usize);
-}
 
 pub fn calc_pass_dirty(
     // mut global_mark: OrInitSingleRes<GlobalDirtyMark>,

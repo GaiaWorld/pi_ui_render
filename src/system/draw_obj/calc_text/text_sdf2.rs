@@ -452,8 +452,12 @@ pub fn calc_sdf2_text(
 				log::debug!("shadow bacth============");
 				let b = InstanceDrawState {
 					instance_data_range: instance_start..instances.text_gray_instance_data.cur_index(),
-					pipeline: Some(instances.text_gray_pipeline.clone()),
+					pipeline: Some(instances.default_pipelines.text_gray_pipeline.clone()),
 					texture_bind_group: instances.sdf2_texture_group.clone(),
+					#[cfg(debug_assertions)]
+					pipeline_type: "text_gray_pipeline",
+					#[cfg(debug_assertions)]
+					texture_bind_group_type: "sdf2_texture_group",
 				};
 				bacth_text_effect.shadow_gray.push((b, gray_target.target().clone()));
 			} else {
@@ -502,8 +506,12 @@ pub fn calc_sdf2_text(
 				if is_batch(&mut pre_shadow_h_target, &mut pre_shadow_h_src, h_target.target(), Some(&gray_target.target())) {
 					let b = InstanceDrawState {
 						instance_data_range: instance_start..instances.text_shadow_h_instance_data.cur_index(),
-						pipeline: Some(instances.text_shadow_pipeline.clone()),
+						pipeline: Some(instances.default_pipelines.text_shadow_pipeline.clone()),
 						texture_bind_group: Some(bindgroup_map.bind_group(gray_target.target(), &device, &instances.sdf2_texture_layout, &instances.batch_texture.default_sampler).clone()),
+						#[cfg(debug_assertions)]
+						pipeline_type: "text_shadow_pipeline",
+						#[cfg(debug_assertions)]
+						texture_bind_group_type: "sdf2_texture_group",
 					};
 					bacth_text_effect.shadow_h.push((b, h_target.target().clone()));
 				} else {
@@ -554,8 +562,12 @@ pub fn calc_sdf2_text(
 						if is_batch(&mut pre_shadow_v_target, &mut pre_shadow_v_src, v_target.target(), Some(&h_target.target())) {
 							let b = InstanceDrawState {
 								instance_data_range: instance_start..instances.text_shadow_v_instance_data.cur_index(),
-								pipeline: Some(instances.text_shadow_pipeline.clone()),
+								pipeline: Some(instances.default_pipelines.text_shadow_pipeline.clone()),
 								texture_bind_group: Some(bindgroup_map.bind_group(h_target.target(), &device, &instances.sdf2_texture_layout, &instances.batch_texture.default_sampler).clone()), // TODO
+								#[cfg(debug_assertions)]
+								pipeline_type: "text_shadow_pipeline",
+								#[cfg(debug_assertions)]
+								texture_bind_group_type: "sdf2_texture_group",
 							};
 							bacth_text_effect.shadow_v.push((b, v_target.target().clone()));
 						} else {
@@ -638,8 +650,12 @@ pub fn calc_sdf2_text(
 			if is_batch(&mut pre_outer_glow_target, &mut pre_outer_glow_src, outer_glow_target.target(), None) {
 				let b = InstanceDrawState {
 					instance_data_range: instance_start..instances.text_glow_instance_data.cur_index(),
-					pipeline: Some(instances.text_glow_pipeline.clone()),
+					pipeline: Some(instances.default_pipelines.text_glow_pipeline.clone()),
 					texture_bind_group: instances.sdf2_texture_group.clone(), // TODO
+					#[cfg(debug_assertions)]
+					pipeline_type: "text_glow_pipeline",
+					#[cfg(debug_assertions)]
+					texture_bind_group_type: "sdf2_texture_group",
 				};
 				bacth_text_effect.outer_glows.push((b, outer_glow_target.target().clone()));
 			} else {
@@ -1138,8 +1154,8 @@ impl Node for TextEffectNode {
 
 			let mut state = RenderState {
 				reset: true,
-				pipeline: param.instance_draw.common_pipeline.clone(),
-				texture: param.instance_draw.batch_texture.default_texture_group.clone(),
+				pipeline: param.instance_draw.default_pipelines.common_pipeline.clone(),
+				texture: param.instance_draw.batch_texture.default_group(false),
 			};			
 
 			for (draw, fbo) in param.bacth_text_effect.shadow_gray.iter() {

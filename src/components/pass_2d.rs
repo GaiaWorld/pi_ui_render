@@ -136,6 +136,10 @@ pub struct InstanceDrawState {
 	pub instance_data_range: Range<usize>, // 在单列RenderInstances中的范围
 	pub pipeline: Option<Share<RenderPipeline>>, // 为None时， 默认使用全局默认的pipeline
 	pub texture_bind_group: Option<Share<wgpu::BindGroup>>, // 为None时， 不需要绑定texture_bind
+    #[cfg(debug_assertions)]
+    pub pipeline_type: &'static str,
+    #[cfg(debug_assertions)]
+    pub texture_bind_group_type: &'static str,
 }
 
 
