@@ -308,7 +308,7 @@ pub fn create_common_pipeline_state() -> PipelineState {
         })],
         primitive: wgpu::PrimitiveState {
             front_face: wgpu::FrontFace::Ccw,
-            cull_mode: None,
+            cull_mode: Some(wgpu::Face::Back),
             polygon_mode: wgpu::PolygonMode::Fill,
             ..Default::default()
         },

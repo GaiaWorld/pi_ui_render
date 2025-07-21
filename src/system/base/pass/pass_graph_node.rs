@@ -95,7 +95,7 @@ pub struct BuildParam<'w> {
 }
 
 #[derive(SystemParam)]
-pub struct Param<'w> {
+pub struct RunParam<'w> {
 	fbo_query: Query<
 		'w,
 		(&'static FboInfo,
@@ -111,7 +111,7 @@ pub struct Param<'w> {
 	instance_draw: OrInitSingleRes<'w, InstanceContext>,
 	query_parent: Query<'w, &'static ParentPassId>,
 	render_cross_query: Query<'w, &'static pi_bevy_render_plugin::render_cross::DrawList>,
-	
+	render_cross_entitys: SingleRes<'w, pi_bevy_render_plugin::render_cross::CrossRenderDrawListEntities>,
 }
 
 impl Pass2DNode {
@@ -134,7 +134,7 @@ impl Pass2DNode {
 impl Node for Pass2DNode {
 
 	type BuildParam = BuildParam<'static>;
-    type RunParam = Param<'static>;
+    type RunParam = RunParam<'static>;
 
 	type ResetParam = Query<'static, &'static mut SimpleInOut>;
 	
@@ -877,7 +877,7 @@ impl Node for Pass2DNode {
 						render_state.reset = true;
 					},
 					DrawElement::GraphDrawList {id, .. } => {
-						if let Ok(r) = param.render_cross_query.get(id.0) {
+						if let Some(entitys) = param.render_cross_entitys.0.get(&id.0) {
 							// 需要重新创建rp， 清理深度
 							{let _a = rp;}
 							rp = create_rp(
@@ -885,10 +885,16 @@ impl Node for Pass2DNode {
 								&mut commands,
 								None,
 							);
-							pi_render::renderer::draw_obj_list::DrawList::render(r.draw_list.list.as_slice(), &mut rp);
+							for entity in entitys.iter() {
+								if let Ok(r) = param.render_cross_query.get(*entity) {
+									
+									pi_render::renderer::draw_obj_list::DrawList::render(r.draw_list.list.as_slice(), &mut rp);
+								}
+							}
 							// 结束后， 重置rp状态， 后续渲染也需要清理深度
 							pre_fbo_pass_id = Null::null();
 							rt = RPTarget::None;
+							pre_pass = Null::null();
 						}
 					},
 					
@@ -1342,9 +1348,9 @@ impl Node for CustomCopyNode {
 		_from: &'a [Entity],
 		_to: &'a [Entity],
 	) -> Result<(), String> {
-		log::warn!("_from==============={:?}", (_id, _from));
+		// log::warn!("_from==============={:?}", (_id, _from));
 		if _from.len() == 1 {
-			log::warn!("_from!!!!==============={:?}", (_id, param.2.get_mut(_from[0]).is_ok()));
+			// log::warn!("_from!!!!==============={:?}", (_id, param.2.get_mut(_from[0]).is_ok()));
 			if let Ok(input) = param.2.get_mut(_from[0]) {
 				match (&input.target, param.0.get_mut(self.0)) {
 					(r, Ok((mut out_target, render_target, instance_index))) => {
