@@ -730,22 +730,22 @@ impl FromWorld for InstanceContext {
 
 		let common_blend_state_hash = calc_hash(&(CommonBlendState::NORMAL, false, false), 0);
 		let copy_pipeline = Share::new(create_render_pipeline("copy_pipeline ui", &device, &fbo_pipeline_layout, &vs, &fs_opacity_fbo, Some(CommonBlendState::NORMAL), CompareFunction::Always, false, wgpu::TextureFormat::pi_render_default(), vert_layout().as_slice(), MeterialBind::SIZE, true));
-		let common_pipeline  = Share::new(create_render_pipeline("common_pipeline ui", &device, &pipeline_layout, &vs, &fs, Some(CommonBlendState::NORMAL), CompareFunction::Always, true, wgpu::TextureFormat::pi_render_default(), vert_layout().as_slice(), MeterialBind::SIZE, false));
+		let common_pipeline  = Share::new(create_render_pipeline("common_pipeline ui", &device, &pipeline_layout, &vs, &fs, Some(CommonBlendState::NORMAL), CompareFunction::GreaterEqual, true, wgpu::TextureFormat::pi_render_default(), vert_layout().as_slice(), MeterialBind::SIZE, false));
         
         let common_opacity_blend_state_hash = calc_hash(&(CommonBlendState::NORMAL, true, false), 0);
-        let common_opacity_pipeline = Share::new(create_render_pipeline("common_opacity_pipeline ui", &device, &pipeline_layout, &vs, &fs_opacity, Some(CommonBlendState::NORMAL), CompareFunction::Always, true, wgpu::TextureFormat::pi_render_default(), vert_layout().as_slice(), MeterialBind::SIZE, true));
+        let common_opacity_pipeline = Share::new(create_render_pipeline("common_opacity_pipeline ui", &device, &pipeline_layout, &vs, &fs_opacity, Some(CommonBlendState::NORMAL), CompareFunction::GreaterEqual, true, wgpu::TextureFormat::pi_render_default(), vert_layout().as_slice(), MeterialBind::SIZE, true));
 
         let common_fbo_blend_state_hash = calc_hash(&(CommonBlendState::NORMAL, false, true), 0);
-        let common_fbo_pipeline  = Share::new(create_render_pipeline("common_fbo_pipeline ui", &device, &fbo_pipeline_layout, &vs, &fs_fbo, Some(CommonBlendState::NORMAL), CompareFunction::Always, true, wgpu::TextureFormat::pi_render_default(), vert_layout().as_slice(), MeterialBind::SIZE, false));
+        let common_fbo_pipeline  = Share::new(create_render_pipeline("common_fbo_pipeline ui", &device, &fbo_pipeline_layout, &vs, &fs_fbo, Some(CommonBlendState::NORMAL), CompareFunction::GreaterEqual, true, wgpu::TextureFormat::pi_render_default(), vert_layout().as_slice(), MeterialBind::SIZE, false));
         
         let common_fbo_opacity_blend_state_hash = calc_hash(&(CommonBlendState::NORMAL, true, true), 0);
-        let common_fbo_opacity_pipeline = Share::new(create_render_pipeline("common_fbo_opacity_pipeline ui", &device, &fbo_pipeline_layout, &vs, &fs_opacity_fbo, Some(CommonBlendState::NORMAL), CompareFunction::Always, true, wgpu::TextureFormat::pi_render_default(), vert_layout().as_slice(), MeterialBind::SIZE, true));
+        let common_fbo_opacity_pipeline = Share::new(create_render_pipeline("common_fbo_opacity_pipeline ui", &device, &fbo_pipeline_layout, &vs, &fs_opacity_fbo, Some(CommonBlendState::NORMAL), CompareFunction::GreaterEqual, true, wgpu::TextureFormat::pi_render_default(), vert_layout().as_slice(), MeterialBind::SIZE, true));
 
 		let premultiply_blend_state_hash = calc_hash(&(CommonBlendState::PREMULTIPLY, false, false), 0);
-		let premultiply_pipeline = Share::new(create_render_pipeline("premultiply_pipeline ui", &device, &pipeline_layout, &vs, &fs, Some(CommonBlendState::PREMULTIPLY), CompareFunction::Always, true, wgpu::TextureFormat::pi_render_default(), vert_layout().as_slice(), MeterialBind::SIZE, true));
+		let premultiply_pipeline = Share::new(create_render_pipeline("premultiply_pipeline ui", &device, &pipeline_layout, &vs, &fs, Some(CommonBlendState::PREMULTIPLY), CompareFunction::GreaterEqual, true, wgpu::TextureFormat::pi_render_default(), vert_layout().as_slice(), MeterialBind::SIZE, true));
         
         let fbo_premultiply_blend_state_hash = calc_hash(&(CommonBlendState::PREMULTIPLY, false, true), 0);
-        let fbo_premultiply_pipeline = Share::new(create_render_pipeline("fbo_premultiply_pipeline ui", &device, &fbo_pipeline_layout, &vs, &fs_fbo, Some(CommonBlendState::PREMULTIPLY), CompareFunction::Always, true, wgpu::TextureFormat::pi_render_default(), vert_layout().as_slice(), MeterialBind::SIZE, true));
+        let fbo_premultiply_pipeline = Share::new(create_render_pipeline("fbo_premultiply_pipeline ui", &device, &fbo_pipeline_layout, &vs, &fs_fbo, Some(CommonBlendState::PREMULTIPLY), CompareFunction::GreaterEqual, true, wgpu::TextureFormat::pi_render_default(), vert_layout().as_slice(), MeterialBind::SIZE, true));
 
 		let clear_blend_state_hash = calc_hash(&CompareFunction::Always, calc_hash(&CommonBlendState::NORMAL, 0));
 		let clear_pipeline = Share::new(create_render_pipeline("clear ui", &device, &pipeline_layout, &vs, &fs, Some(BlendState {
