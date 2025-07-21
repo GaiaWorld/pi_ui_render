@@ -111,7 +111,7 @@ pub struct RunParam<'w> {
 	instance_draw: OrInitSingleRes<'w, InstanceContext>,
 	query_parent: Query<'w, &'static ParentPassId>,
 	render_cross_query: Query<'w, &'static pi_bevy_render_plugin::render_cross::DrawList>,
-	render_cross_entitys: SingleRes<'w, pi_bevy_render_plugin::render_cross::CrossRenderDrawListEntities>,
+	render_cross_entitys: OrInitSingleRes<'w, pi_bevy_render_plugin::render_cross::CrossRenderDrawListEntities>,
 }
 
 impl Pass2DNode {

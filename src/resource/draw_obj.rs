@@ -27,7 +27,7 @@ use pi_render::rhi::shader::BindLayout;
 use pi_share::Share;
 use pi_slotmap::{DefaultKey, SlotMap};
 use wgpu::{
-    BindGroupEntry, BindingType, BlendState, BufferDescriptor, CompareFunction, DepthBiasState, DepthStencilState, Extent3d, Limits, MultisampleState, PipelineLayout, RenderPass, Sampler, SamplerBindingType, ShaderModule, ShaderStages, StencilState, TextureDescriptor, TextureFormat, TextureSampleType, TextureView, TextureViewDescriptor, TextureViewDimension
+    BindGroupEntry, BindingType, BlendState, BufferDescriptor, CompareFunction, DepthBiasState, DepthStencilState, Extent3d, FrontFace, Limits, MultisampleState, PipelineLayout, RenderPass, Sampler, SamplerBindingType, ShaderModule, ShaderStages, StencilState, TextureDescriptor, TextureFormat, TextureSampleType, TextureView, TextureViewDescriptor, TextureViewDimension
 };
 use pi_render::rhi::shader::Input;
 
@@ -729,23 +729,23 @@ impl FromWorld for InstanceContext {
         });
 
 		let common_blend_state_hash = calc_hash(&(CommonBlendState::NORMAL, false, false), 0);
-		let copy_pipeline = Share::new(create_render_pipeline("copy_pipeline ui", &device, &fbo_pipeline_layout, &vs, &fs_opacity_fbo, Some(CommonBlendState::NORMAL), CompareFunction::Always, false, wgpu::TextureFormat::pi_render_default(), vert_layout().as_slice(), MeterialBind::SIZE, true));
-		let common_pipeline  = Share::new(create_render_pipeline("common_pipeline ui", &device, &pipeline_layout, &vs, &fs, Some(CommonBlendState::NORMAL), CompareFunction::GreaterEqual, true, wgpu::TextureFormat::pi_render_default(), vert_layout().as_slice(), MeterialBind::SIZE, false));
+		let copy_pipeline = Share::new(create_render_pipeline("copy_pipeline ui", &device, &fbo_pipeline_layout, &vs, &fs_opacity_fbo, Some(CommonBlendState::NORMAL), CompareFunction::Always, false, wgpu::TextureFormat::pi_render_default(), vert_layout().as_slice(), MeterialBind::SIZE, true, FrontFace::Ccw));
+		let common_pipeline  = Share::new(create_render_pipeline("common_pipeline ui", &device, &pipeline_layout, &vs, &fs, Some(CommonBlendState::NORMAL), CompareFunction::GreaterEqual, true, wgpu::TextureFormat::pi_render_default(), vert_layout().as_slice(), MeterialBind::SIZE, false, FrontFace::Ccw));
         
         let common_opacity_blend_state_hash = calc_hash(&(CommonBlendState::NORMAL, true, false), 0);
-        let common_opacity_pipeline = Share::new(create_render_pipeline("common_opacity_pipeline ui", &device, &pipeline_layout, &vs, &fs_opacity, Some(CommonBlendState::NORMAL), CompareFunction::GreaterEqual, true, wgpu::TextureFormat::pi_render_default(), vert_layout().as_slice(), MeterialBind::SIZE, true));
+        let common_opacity_pipeline = Share::new(create_render_pipeline("common_opacity_pipeline ui", &device, &pipeline_layout, &vs, &fs_opacity, Some(CommonBlendState::NORMAL), CompareFunction::GreaterEqual, true, wgpu::TextureFormat::pi_render_default(), vert_layout().as_slice(), MeterialBind::SIZE, true, FrontFace::Ccw));
 
         let common_fbo_blend_state_hash = calc_hash(&(CommonBlendState::NORMAL, false, true), 0);
-        let common_fbo_pipeline  = Share::new(create_render_pipeline("common_fbo_pipeline ui", &device, &fbo_pipeline_layout, &vs, &fs_fbo, Some(CommonBlendState::NORMAL), CompareFunction::GreaterEqual, true, wgpu::TextureFormat::pi_render_default(), vert_layout().as_slice(), MeterialBind::SIZE, false));
+        let common_fbo_pipeline  = Share::new(create_render_pipeline("common_fbo_pipeline ui", &device, &fbo_pipeline_layout, &vs, &fs_fbo, Some(CommonBlendState::NORMAL), CompareFunction::GreaterEqual, true, wgpu::TextureFormat::pi_render_default(), vert_layout().as_slice(), MeterialBind::SIZE, false, FrontFace::Ccw));
         
         let common_fbo_opacity_blend_state_hash = calc_hash(&(CommonBlendState::NORMAL, true, true), 0);
-        let common_fbo_opacity_pipeline = Share::new(create_render_pipeline("common_fbo_opacity_pipeline ui", &device, &fbo_pipeline_layout, &vs, &fs_opacity_fbo, Some(CommonBlendState::NORMAL), CompareFunction::GreaterEqual, true, wgpu::TextureFormat::pi_render_default(), vert_layout().as_slice(), MeterialBind::SIZE, true));
+        let common_fbo_opacity_pipeline = Share::new(create_render_pipeline("common_fbo_opacity_pipeline ui", &device, &fbo_pipeline_layout, &vs, &fs_opacity_fbo, Some(CommonBlendState::NORMAL), CompareFunction::GreaterEqual, true, wgpu::TextureFormat::pi_render_default(), vert_layout().as_slice(), MeterialBind::SIZE, true, FrontFace::Ccw));
 
 		let premultiply_blend_state_hash = calc_hash(&(CommonBlendState::PREMULTIPLY, false, false), 0);
-		let premultiply_pipeline = Share::new(create_render_pipeline("premultiply_pipeline ui", &device, &pipeline_layout, &vs, &fs, Some(CommonBlendState::PREMULTIPLY), CompareFunction::GreaterEqual, true, wgpu::TextureFormat::pi_render_default(), vert_layout().as_slice(), MeterialBind::SIZE, true));
+		let premultiply_pipeline = Share::new(create_render_pipeline("premultiply_pipeline ui", &device, &pipeline_layout, &vs, &fs, Some(CommonBlendState::PREMULTIPLY), CompareFunction::GreaterEqual, true, wgpu::TextureFormat::pi_render_default(), vert_layout().as_slice(), MeterialBind::SIZE, true, FrontFace::Ccw));
         
         let fbo_premultiply_blend_state_hash = calc_hash(&(CommonBlendState::PREMULTIPLY, false, true), 0);
-        let fbo_premultiply_pipeline = Share::new(create_render_pipeline("fbo_premultiply_pipeline ui", &device, &fbo_pipeline_layout, &vs, &fs_fbo, Some(CommonBlendState::PREMULTIPLY), CompareFunction::GreaterEqual, true, wgpu::TextureFormat::pi_render_default(), vert_layout().as_slice(), MeterialBind::SIZE, true));
+        let fbo_premultiply_pipeline = Share::new(create_render_pipeline("fbo_premultiply_pipeline ui", &device, &fbo_pipeline_layout, &vs, &fs_fbo, Some(CommonBlendState::PREMULTIPLY), CompareFunction::GreaterEqual, true, wgpu::TextureFormat::pi_render_default(), vert_layout().as_slice(), MeterialBind::SIZE, true, FrontFace::Ccw));
 
 		let clear_blend_state_hash = calc_hash(&CompareFunction::Always, calc_hash(&CommonBlendState::NORMAL, 0));
 		let clear_pipeline = Share::new(create_render_pipeline("clear ui", &device, &pipeline_layout, &vs, &fs, Some(BlendState {
@@ -759,7 +759,7 @@ impl FromWorld for InstanceContext {
 				dst_factor: wgpu::BlendFactor::Zero,
 				operation: wgpu::BlendOperation::Add,
 			},
-		}), CompareFunction::Always, true, wgpu::TextureFormat::pi_render_default(), vert_layout().as_slice(), MeterialBind::SIZE, true));
+		}), CompareFunction::Always, true, wgpu::TextureFormat::pi_render_default(), vert_layout().as_slice(), MeterialBind::SIZE, true, FrontFace::Cw));
         let mask_image_pipeline = Share::new(create_render_pipeline("mask image", &device, &pipeline_layout, &vs, &fs, Some(BlendState {
 			color: wgpu::BlendComponent {
 				src_factor: wgpu::BlendFactor::One,
@@ -771,7 +771,7 @@ impl FromWorld for InstanceContext {
 				dst_factor: wgpu::BlendFactor::Zero,
 				operation: wgpu::BlendOperation::Add,
 			},
-		}), CompareFunction::Always, false, wgpu::TextureFormat::pi_render_default(), vert_layout().as_slice(), MeterialBind::SIZE, true));
+		}), CompareFunction::Always, false, wgpu::TextureFormat::pi_render_default(), vert_layout().as_slice(), MeterialBind::SIZE, true, FrontFace::Ccw));
 
 
         let text_gray_vs = device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -807,7 +807,7 @@ impl FromWorld for InstanceContext {
 				dst_factor: wgpu::BlendFactor::Zero,
 				operation: wgpu::BlendOperation::Add,
 			},
-		}), CompareFunction::Always, false, wgpu::TextureFormat::R8Unorm, batch_sdf_gray::vert_layout().as_slice(), GrayMeterialBind::SIZE, true));
+		}), CompareFunction::Always, false, wgpu::TextureFormat::R8Unorm, batch_sdf_gray::vert_layout().as_slice(), GrayMeterialBind::SIZE, true, FrontFace::Ccw));
        
         let text_shadow_vs = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some(&"ui_text_shadow_vs"),
@@ -836,7 +836,7 @@ impl FromWorld for InstanceContext {
 				dst_factor: wgpu::BlendFactor::Zero,
 				operation: wgpu::BlendOperation::Add,
 			},
-		}), CompareFunction::Always, false, wgpu::TextureFormat::R8Unorm, batch_gauss_blur::vert_layout().as_slice(), GussMeterialBind::SIZE, true));
+		}), CompareFunction::Always, false, wgpu::TextureFormat::R8Unorm, batch_gauss_blur::vert_layout().as_slice(), GussMeterialBind::SIZE, true, FrontFace::Ccw));
         
         let text_glow_vs = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some(&"ui_text_glow_vs"),
@@ -865,7 +865,7 @@ impl FromWorld for InstanceContext {
 				dst_factor: wgpu::BlendFactor::One,
 				operation: wgpu::BlendOperation::Max,
 			},
-		}), CompareFunction::Always, false, wgpu::TextureFormat::R8Unorm, batch_sdf_glow::vert_layout().as_slice(), GlowMeterialBind::SIZE, true));
+		}), CompareFunction::Always, false, wgpu::TextureFormat::R8Unorm, batch_sdf_glow::vert_layout().as_slice(), GlowMeterialBind::SIZE, true, FrontFace::Ccw));
 
 		let mut pipeline_cache = XHashMap::default();
         pipeline_cache.insert(clear_blend_state_hash, clear_pipeline.clone());
@@ -995,7 +995,7 @@ impl InstanceContext {
                     }
                 };
 				let pipeline = Share::new(create_render_pipeline(
-                    name, &device, pipeline_layout, &self.vs, fs, Some(blend_state), CompareFunction::GreaterEqual, has_depth, wgpu::TextureFormat::pi_render_default(), vert_layout().as_slice(), MeterialBind::SIZE, true));
+                    name, &device, pipeline_layout, &self.vs, fs, Some(blend_state), CompareFunction::GreaterEqual, has_depth, wgpu::TextureFormat::pi_render_default(), vert_layout().as_slice(), MeterialBind::SIZE, true, FrontFace::Ccw));
 				r.insert(pipeline.clone());
 				pipeline
 			},
@@ -1829,6 +1829,7 @@ pub fn create_render_pipeline(
     vert_layout: &[wgpu::VertexAttribute],
     size: usize,
     depth_write_enabled: bool,
+    front_face: wgpu::FrontFace,
 ) -> wgpu::RenderPipeline {
 	let state = PipelineState {
         targets: vec![Some(wgpu::ColorTargetState {
@@ -1837,7 +1838,7 @@ pub fn create_render_pipeline(
             write_mask: wgpu::ColorWrites::ALL,
         })],
         primitive: wgpu::PrimitiveState {
-            front_face: wgpu::FrontFace::Ccw,
+            front_face,
             cull_mode: Some(wgpu::Face::Back),
             polygon_mode: wgpu::PolygonMode::Fill,
             ..Default::default()
