@@ -102,7 +102,8 @@ pub struct RunParam<'w> {
 		&'static RenderTarget1),
 	>,
 	root_query1: Query<'w, &'static Viewport>,
-	
+	layer_query: Query<'w, &'static Layer>,
+
     pass2d_query: Query<'w,(&'static Camera, &'static RenderTarget, &'static FboInfo)>,
 	post_query: Query<'w, &'static PostProcess>,
     // graph_id_query: Query<'w, &'static GraphId>,
@@ -486,11 +487,12 @@ impl Node for Pass2DNode {
 			if is_set_clear {
 				// 重新设置清屏范围
 				let rect = target.rect_with_border();
+				let rect1 = target.rect();
 				let (x, x1, y, y1) = (
-					if offsetx == 0.0 {rect.min.x as f32}else {rect.min.x as f32 + 1.0 - offsetx},
-					if render_target.bound_box.maxs.x == camera.view_port.maxs.x {rect.max.x as f32}else {rect.max.x as f32 - 1.0 - (render_target.bound_box.maxs.x - camera.view_port.maxs.x)},
-					if render_target.bound_box.maxs.y == camera.view_port.maxs.y {rect.max.y as f32}else {rect.max.y as f32 - 1.0 - (render_target.bound_box.maxs.y - camera.view_port.maxs.y)},
-					if offsety == 0.0 {rect.min.y as f32}else {rect.min.y as f32 + 1.0 - offsety},
+					if offsetx == 0.0 {rect.min.x as f32}else {rect1.min.x as f32 - offsetx},
+					if render_target.bound_box.maxs.x == camera.view_port.maxs.x {rect.max.x as f32}else {rect1.max.x as f32 - (render_target.bound_box.maxs.x - camera.view_port.maxs.x)},
+					if render_target.bound_box.maxs.y == camera.view_port.maxs.y {rect.max.y as f32}else {rect1.max.y as f32 - (render_target.bound_box.maxs.y - camera.view_port.maxs.y)},
+					if offsety == 0.0 {rect.min.y as f32}else {rect1.min.y as f32 - offsety},
 				);
 				let (xmin, xmax, ymin, ymax) = (
 					x/target.target().width as f32 * 2.0 - 1.0,
@@ -876,7 +878,25 @@ impl Node for Pass2DNode {
 						}
 						render_state.reset = true;
 					},
-					DrawElement::GraphDrawList {id, .. } => {
+					DrawElement::GraphDrawList {id, pass, .. } => {
+						let camera = if let Ok((camera, _render_target, _)) = param.pass2d_query.get(*pass) {
+							// 如果目标fbo对应的相机未激活, 不需要渲染
+							if !camera.is_render_own {
+								continue;
+							}
+							camera
+						} else {
+							continue;
+						};
+
+						let root = match param.layer_query.get(*pass) {
+							Ok(r) => r.root(),
+							Err(_) => continue,
+						};
+						let view_port_size = match param.root_query1.get(root) {
+							Ok(r) => (r.maxs.x - r.mins.x, r.maxs.y - r.mins.y),
+							Err(_) => continue,
+						};
 						if let Some(entitys) = param.render_cross_entitys.0.get(&id.0) {
 							// 需要重新创建rp， 清理深度
 							{let _a = rp;}
@@ -885,10 +905,34 @@ impl Node for Pass2DNode {
 								&mut commands,
 								None,
 							);
+
 							for entity in entitys.iter() {
-								if let Ok(r) = param.render_cross_query.get(*entity) {
-									
-									pi_render::renderer::draw_obj_list::DrawList::render(r.draw_list.list.as_slice(), &mut rp);
+								if let Ok(draw_list) = param.render_cross_query.get(*entity) {
+									let svp = &draw_list.draw_list.viewport;
+									let scene_view_port = (
+										svp.0 * view_port_size.0,
+										svp.1 * view_port_size.1,
+										svp.2 * view_port_size.0,
+										svp.3 * view_port_size.1,
+									);
+									let view_port = (
+										(fbo_view_port.0 as f32 - fbo_camera_viewport.mins.x) + camera.view_port.mins.x,
+										(fbo_view_port.1 as f32 - fbo_camera_viewport.mins.y) + camera.view_port.mins.y,
+										camera.view_port.maxs.x - camera.view_port.mins.x,
+										camera.view_port.maxs.y - camera.view_port.mins.y,
+									);
+
+									log::warn!("viewport=============={:?}, {:?}", &svp, view_port);
+									// viewport
+
+									// let view_port = calc_view_port(&rt, &camera.view_port, &render_target.bound_box);
+									// log::warn!("DrawInstance view port: {:?}", (pass, element.1, view_port, camera.view_port, &fbo_camera.view_port, &fbo_view_port));
+									// 自身及所有递归父节点不可渲染， 否则，渲染结果异常
+									// 不可超过任何递归父的裁剪范围， 否则， 渲染异常
+									// rp.set_viewport(scene_view_port.0 - fbo_view_port.0 as f32, scene_view_port.1 - fbo_view_port.1 as f32, scene_view_port.2, scene_view_port.3, svp.4, svp.5);
+									rp.set_viewport(view_port.0, view_port.1, view_port.2, view_port.3, 0.0, 1.0);
+
+									pi_render::renderer::draw_obj_list::DrawList::render(draw_list.draw_list.list.as_slice(), &mut rp);
 								}
 							}
 							// 结束后， 重置rp状态， 后续渲染也需要清理深度

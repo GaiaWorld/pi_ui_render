@@ -119,6 +119,7 @@ pub enum DrawElement {
 	// },
 	GraphDrawList {
 		id: EntityKey,
+        pass: Entity,
 		depth_start: f32,
 	}, // 由另一个图节点渲染，需要调用图节点的run, EntityKey为DrawObj节点id
     // 绘制后处理

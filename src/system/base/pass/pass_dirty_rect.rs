@@ -97,6 +97,7 @@ pub fn calc_global_dirty_rect(
     if canvas_changed.len() > 0 || canvas_added.len() > 0 {
         for entity in canvas_changed.iter().chain(canvas_added.iter()) {
             if let Ok((quad, in_pass_id)) = query_show_change.get(*entity) {
+                log::trace!("canvas_changed========{:?}, {:?}", entity, quad);
                 mark_pass_dirty_rect(***in_pass_id, &*quad, &mut p2);
             }
         }
@@ -106,6 +107,7 @@ pub fn calc_global_dirty_rect(
     if background_changed.len() > 0 {
         for entity in background_changed.iter() {
             if let Ok((quad, in_pass_id)) = query_show_change.get(*entity) {
+                log::trace!("background_changed========{:?}, {:?}", entity, quad);
                 mark_pass_dirty_rect(***in_pass_id, &*quad, &mut p2);
             }
         }
@@ -115,6 +117,7 @@ pub fn calc_global_dirty_rect(
     if border_changed.len() > 0 {
         for entity in canvas_changed.iter() {
             if let Ok((quad, in_pass_id)) = query_show_change.get(*entity) {
+                log::trace!("border_changed========{:?}, {:?}", entity, quad);
                 mark_pass_dirty_rect(***in_pass_id, &*quad, &mut p2);
             }
         }
@@ -123,6 +126,7 @@ pub fn calc_global_dirty_rect(
     if mask_changed.len() > 0 {
         for entity in mask_changed.iter() {
             if let Ok((quad, in_pass_id)) = query_show_change.get(*entity) {
+                log::trace!("mask_changed========{:?}, {:?}", entity, quad);
                 mark_pass_dirty_rect(***in_pass_id, &*quad, &mut p2);
             }
         }
@@ -138,7 +142,7 @@ pub fn calc_global_dirty_rect(
                 Ok(r) => r,
                 _ => continue,
             };
-            // log::warn!("dirty========{:?}, {:?}", node_id, quad);
+            log::trace!("style========{:?}, {:?}", node_id, quad);
             mark_pass_dirty_rect(***in_pass_id, quad, &mut p2);
         }
     }
@@ -149,6 +153,7 @@ pub fn calc_global_dirty_rect(
                 Ok(r) => r,
                 _ => continue,
             };
+            log::trace!("quad==============={:?}", (entity, &cur_quad, &quad));
             mark_pass_dirty_rect(***in_pass_id, cur_quad, &mut p2);
             mark_pass_dirty_rect(***in_pass_id, quad, &mut p2);
         }

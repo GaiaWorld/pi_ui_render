@@ -136,7 +136,7 @@ pub fn calc_animation_2(
         components_ids: Vec::with_capacity(1),
     };
     // 推动动画执行
-    keyframes_sheet.run(&mut animation_style, time_info.delta);
+    keyframes_sheet.run(&mut animation_style, 16);
 
 
     // let time2 = pi_time::Instant::now();

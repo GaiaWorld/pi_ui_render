@@ -1077,10 +1077,12 @@ impl Texture {
                 )
             }
             Texture::Frame(image_texture_frame, _) => {
+                // 边界加减0.5， 防止采样过界
                 let [width, height, x, y] = image_texture_frame.tilloff();
+                let (ox, oy) = (0.5/ image_texture_frame.width() as f32, 0.5/image_texture_frame.height() as f32);
                 (
-                    Point2::new(x + *clip.left * width, y + *clip.top * height),
-                    Point2::new(x + *clip.right * width, y + *clip.bottom * height),
+                    Point2::new(x + *clip.left * width + ox, y + *clip.top * height + oy),
+                    Point2::new(x + *clip.right * width - ox - ox, y + *clip.bottom * height - oy - oy),
                 )
             },
         }

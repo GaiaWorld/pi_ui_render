@@ -4,6 +4,9 @@
 
 执行 `cargo run --example background_image` 命令运行 background_image example
 
+## 1.2.1 调试工具
+浏览器访问[调试工具](http://192.168.35.74:3000/index.html)
+
 ## 1.3. 运行 [Web 平台](https://rustwasm.github.io/docs/wasm-bindgen/contributing/testing.html)
 
 + 执行`wasm-pack test  --chrome --example background_image`命令，构建wasm以及测试环境，并开启服务器监听在`8000`端口 

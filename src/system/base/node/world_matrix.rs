@@ -37,9 +37,9 @@
 //! 暂时无并行。
 //!
 //! 可以考虑： 当父矩阵计算完成后，父节点所有子节点所形成的子树，可以并行计算（他们依赖的父矩阵已经计算完毕）
-use pi_world::event::{ComponentAdded, ComponentChanged};
+use pi_world::event::{ComponentAdded, ComponentChanged, EventSender};
 use pi_world::prelude::{ParamSet, Query, SingleResMut, Entity, With};
-use pi_bevy_ecs_extend::prelude::{EntityTree, LayerDirty, OrInitSingleRes, OrInitSingleResMut, Up};
+use pi_bevy_ecs_extend::prelude::{EntityTree, Layer, LayerDirty, OrInitSingleRes, OrInitSingleResMut, Up};
 
 use pi_map::Map;
 use pi_null::Null;
@@ -96,7 +96,7 @@ pub fn cal_matrix(
     // query11: Query<(Entity,  Option<Ticker<&Transform>>, Ticker<&Layer>, Ticker<&LayoutResult>), ((Changed<LayoutResult>, Changed<Layer>, Changed<Transform>), With<Size>)>,
     mut matrix_calc: ParamSet<(
         Query<(&LayoutResult, &WorldMatrix)>, 
-        Query<(&mut WorldMatrix, &mut Quad, &mut IsRotate, &StyleMark)>,
+        Query<(&mut WorldMatrix, &mut Quad, &mut IsRotate, &StyleMark, &Layer)>,
         Query<(&Quad, &LayoutResult, Option<&TextShadow>, Option<&BoxShadow>, &WorldMatrix)>,
     )>,
     // mut dirtys: LayerDirty<((Changed<LayoutResult>, Changed<Transform>), With<Size>)>,
@@ -114,7 +114,7 @@ pub fn cal_matrix(
     mut layer_dirty1: OrInitSingleResMut<MatrixDirty>,
     entity_tree: EntityTree,
     mut global_dirty: SingleResMut<GlobalDirtyMark>,
-    // mut event_writer1: EventSender<OldQuad>,
+    mut event_writer1: EventSender<OldQuad>,
 ) {
 	if r.0 {
 		return;
@@ -213,15 +213,15 @@ pub fn cal_matrix(
 			// }
             // 将计算结果写入组件
             match matrix_calc.p1().get_mut(id) {
-                Ok((mut world_matrix, mut quad, mut is_rotate, style_mark)) => {
+                Ok((mut world_matrix, mut quad, mut is_rotate, style_mark, layer)) => {
 					calc_quad(
 						id,
 						layout,
 						&matrix,
 						&mut quad,
 						&mut quad_tree,
-                        // &mut event_writer1,
-                        // layer
+                        &mut event_writer1,
+                        layer
 					);
                    
 					#[cfg(debug_assertions)]
@@ -269,8 +269,8 @@ pub fn calc_quad(
     world_matrix: &WorldMatrix,
     quad: &mut Quad,
     quad_tree: &mut QuadTree,
-    // event_writer1: &mut EventSender<OldQuad>,
-    // layer: &Layer,
+    event_writer1: &mut EventSender<OldQuad>,
+    layer: &Layer,
 ) {
     let width = layout.rect.right - layout.rect.left;
     let height = layout.rect.bottom - layout.rect.top;
@@ -306,14 +306,14 @@ pub fn calc_quad(
     // let aabb = calc_bound_box(&Aabb2::new(Point2::new(0.0, 0.0), Point2::new(width, height)), world_matrix);
 
     // let item = Quad::new(aabb);
-    // 在修改oct前，先发出一个删除事件，一些sys能够通过监听该事件知道在删除前，quad的值（如脏区域系统，需要了解oct在修改之前的值，来更新脏区域）
-    // if let Some(r) = quad_tree.get(&EntityKey(id)) {
-    //     event_writer1.send(OldQuad {
-    //         entity: id,
-    //         quad: r.clone(),
-    //         root: layer.root(),
-    //     });
-    // }
+    // 在修改oct前，先发出一个旧的包围盒事件，一些sys能够通过监听该事件知道在修改前，quad的值（如脏区域系统，需要了解oct在修改之前的值，来更新脏区域）
+    if let Some(r) = quad_tree.get(&EntityKey(id)) {
+        event_writer1.send(OldQuad {
+            entity: id,
+            quad: r.clone(),
+            root: layer.root(),
+        });
+    }
     // event_writer.send(ComponentEvent::new(id));
 
     quad_tree.insert(EntityKey(id), item.clone());

@@ -1273,6 +1273,7 @@ fn batch_pass(
 		if let Some(draw_entity) = cross_list {
 			instances.draw_list.push((DrawElement::GraphDrawList{ 
 				id: draw_entity, 
+				pass: pass_id,
 				depth_start: 0.0
 			}, parent_pass_id));
 			start = cursor + 1;
