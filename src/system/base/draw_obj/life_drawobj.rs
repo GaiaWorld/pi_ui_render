@@ -1162,6 +1162,9 @@ fn batch_pass(
 							{
 								let (_, _, parent_fbo_info, _) = query.draw_query.get(parent_pass_id).unwrap();
 
+								if parent_fbo_info.fbo.is_none() {
+									log::warn!("parent texture none, parent_pass_id: {:?}, cur_pass: {:?}", parent_pass_id, cur_pass.0);
+								}
 								if r.target().colors[0].0.id == parent_fbo_info.fbo.as_ref().unwrap().target().colors[0].0.id {
 									log::error!("texture conflicting, {:?}, {:?}", (cur_pass.0, parent_pass_id), (r.target().colors[0].0.id, parent_fbo_info.fbo.as_ref().unwrap().target().colors[0].0.id));
 								}

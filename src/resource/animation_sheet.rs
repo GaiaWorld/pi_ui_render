@@ -4,7 +4,7 @@ use std::{any::Any, collections::VecDeque, mem::replace};
 use pi_world::{prelude::Entity, world::ComponentIndex};
 use bitvec::array::BitArray;
 use ordered_float::NotNan;
-use pi_style::{style::{GUI_STYLE_COUNT}, style_type::{Attr, STYLE_COUNT}};
+use pi_style::{style::{AnimationPlayState, GUI_STYLE_COUNT}, style_type::{Attr, STYLE_COUNT}};
 use pi_animation::{
     amount::AnimationAmountCalc,
     animation::AnimationInfo,
@@ -703,6 +703,20 @@ impl KeyFramesSheet {
 
         // 记录KeyFrames
         self.key_frames_map.insert((scope_hash, name.clone()), KeyFrameAttr { data: key_frame, property_mark: mark });
+    }
+
+    pub fn set_play_state(&mut self, target: ObjKey, state: AnimationPlayState) {
+        let groups = match self.animation_bind.get(target) {
+            Some(r) => r,
+            None => return,
+        };
+
+        for group in groups.iter() {
+            let _ = match state {
+                AnimationPlayState::Paused => self.animation_context_amount.pause(group.clone()),
+                AnimationPlayState::Running => self.animation_context_amount.restart(group.clone()),
+            };
+        }
     }
 
     // 将动画绑定到目标上（目标即节点的实体id）

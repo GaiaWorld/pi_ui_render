@@ -27,7 +27,7 @@ use pi_null::Null;
 
 use crate::{
     components::{
-        calc::{style_bit, ContentBox, EntityKey, InPassId, NeedMark, OverflowDesc, RenderContextMark, StyleBit, StyleMarkType, TransformWillChangeMatrix, View, WorldMatrix}, draw_obj::InstanceIndex, pass_2d::{Camera, ChildrenPass, ParentPassId, PostProcessInfo}, user::{Point2, Size}, PassBundle
+        calc::{style_bit, ContentBox, EntityKey, InPassId, NeedMark, OverflowDesc, RenderContextMark, StyleBit, StyleMarkType, TransformWillChangeMatrix, View, WorldMatrix}, draw_obj::InstanceIndex, pass_2d::{Camera, ChildrenPass, ParentPassId, PostProcessInfo, RenderTarget}, user::{Point2, Size}, PassBundle
     }, resource::{draw_obj::InstanceContext, EffectRenderContextMark, GlobalDirtyMark, IsRun, OtherDirtyType, RenderContextMarkType}, shader1::batch_meterial::{RenderFlagType, TyMeterial}, system::{base::draw_obj::image_texture_load::AsImageBindList, draw_obj::set_matrix}
 };
 
@@ -509,7 +509,7 @@ pub fn calc_pass(
 	query: Query<( 
         &InstanceIndex, 
         &ParentPassId,
-        &Camera,
+        &RenderTarget,
         &View,
         &TransformWillChangeMatrix,
         Option<&crate::components::user::TransformWillChange>,
@@ -530,7 +530,7 @@ pub fn calc_pass(
     if r.0 {
 		return;
 	}
-    for (instance_index, parent_pass_id, camera, view, will_change_matrix, will_change ) in query.iter() {
+    for (instance_index, parent_pass_id, render_target, view, will_change_matrix, will_change ) in query.iter() {
         log::trace!("passs1==============={:?}", instance_index);
         // 节点可能设置为dispaly none， 此时instance_index可能为Null
         // 节点可能没有后处理效果， 此时instance_index为Null
@@ -584,7 +584,7 @@ pub fn calc_pass(
             // 设置quad到世界位置
             match (&view.desc, &will_change_matrix.0) {
                 (OverflowDesc::NoRotate(_), None) => {
-                    set_matrix(&WorldMatrix::default(), &camera.view_port, &mut instance_data);
+                    set_matrix(&WorldMatrix::default(), &render_target.bound_box, &mut instance_data);
                     // log::warn!("no rotate=================={:?}", (instance_index.start / 224, entity, &camera.view_port, layout, content_box, will_change_matrix));
                     // instance_data.set_data(&QuadUniform(&[
                     //     view_port.mins.x, view_port.mins.y,
@@ -606,7 +606,7 @@ pub fn calc_pass(
                     } else {
                         &will_change_matrix.will_change_invert
                     };
-                    set_matrix(&m, &camera.view_port, &mut instance_data)
+                    set_matrix(&m, &render_target.bound_box, &mut instance_data)
                 },
                 (OverflowDesc::Rotate(matrix), Some(will_change_matrix)) => {
                     let m1 ;
@@ -617,9 +617,9 @@ pub fn calc_pass(
                         &will_change_matrix.will_change_invert
                     };
                     // log::warn!("======================{:?}", (entity, will_change_matrix));
-                    set_matrix(&(m * &matrix.world_rotate), &camera.view_port, &mut instance_data);
+                    set_matrix(&(m * &matrix.world_rotate), &render_target.bound_box, &mut instance_data);
                 },
-                (OverflowDesc::Rotate(matrix), None) => set_matrix(&matrix.world_rotate, &camera.view_port, &mut instance_data),
+                (OverflowDesc::Rotate(matrix), None) => set_matrix(&matrix.world_rotate, &render_target.bound_box, &mut instance_data),
             }
 
             

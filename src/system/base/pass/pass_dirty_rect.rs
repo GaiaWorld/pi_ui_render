@@ -1,4 +1,4 @@
-use pi_world::{event::{ComponentAdded, ComponentChanged, Event}, fetch::{Mut, Ticker}, param_set::ParamSet, prelude::{Changed, Entity, Or, Query, With}};
+use pi_world::{event::{ComponentAdded, ComponentChanged, Event}, fetch::{Mut, Ticker}, param_set::ParamSet, prelude::{Changed, Entity, Or, Query, With}, single_res::SingleRes};
 use pi_bevy_ecs_extend::prelude::{Layer, OrInitSingleRes, OrInitSingleResMut};
 
 use pi_style::style::Aabb2;
@@ -8,14 +8,15 @@ use crate::{
         calc::{BackgroundImageTexture, BorderImageTexture, ContentBox, InPassId, MaskTexture, Quad, RootDirtyRect, TransformWillChangeMatrix},
         pass_2d::{ChildrenPass, DirtyMark, DirtyRect, DirtyRectState, ParentPassId, PostProcess},
         user::{Canvas, TransformWillChange, Viewport},
-    }, resource::{IsRun, RenderDirty}, system::base::node::{user_setting::StyleChange, world_matrix::OldQuad}, utils::tools::{box_aabb, calc_aabb}
+    }, resource::{IsRun, RenderDirty}, system::base::node::{user_setting::StyleChange, world_matrix::OldQuad}, utils::tools::{box_aabb, calc_bound_box}
 };
+use crate::resource::draw_obj::InstanceContext;
 
 pub struct OldTransformWillChange {
     pub matrix: TransformWillChangeMatrix,
     pub entity: Entity,
-    pub inpass_id: Entity,
-    pub root: Entity,
+    // pub parent_id: Entity,
+    // pub root: Entity,
 }
 
 pub struct CalcDirtyRect;
@@ -56,7 +57,6 @@ pub fn calc_global_dirty_rect(
                 &Layer,
                 &TransformWillChangeMatrix,
                 Ticker<&PostProcess>,
-                &ContentBox,
                 Option<Ticker<&TransformWillChange>>,
                 Entity,
                 &ParentPassId,
@@ -71,9 +71,11 @@ pub fn calc_global_dirty_rect(
         Query<(&mut DirtyRect, &ContentBox)>,
         Query<&mut DirtyRect>,
         Query<(Ticker<&Viewport>, Entity, &mut DirtyRect), With<Viewport>>,
+        Query<(&mut DirtyRect, &ParentPassId)>,
     )>,
     mut query_root: Query<(&mut RootDirtyRect, Ticker<&Viewport>), With<Viewport>>,
-    render_dirty: OrInitSingleResMut<RenderDirty>,
+    mut render_dirty: OrInitSingleResMut<RenderDirty>,
+    instance_context: SingleRes<InstanceContext>,
 	r: OrInitSingleRes<IsRun>
 ) {
 	if r.0 {
@@ -90,8 +92,10 @@ pub fn calc_global_dirty_rect(
         dirty_list.mark_read();
         quad_olds.mark_read();
         transform_willchange_olds.mark_read();
+        render_dirty.1 = true; // 标记本帧脏
         return;
     }
+
     // 如果有节点修改了ShowChange，需要设置脏区域
     let mut p2 = query_pass.p2();
     if canvas_changed.len() > 0 || canvas_added.len() > 0 {
@@ -193,8 +197,8 @@ pub fn calc_global_dirty_rect(
     //     pass_dirty_rect.state = DirtyRectState::Inited;
     // }
 
-    // 遍历所有pass的脏区域，求并，得全局脏区域
-    for (mut pass_dirty_rect, layer, will_change_matrix, post_ref, content_box, transform_willchange_ref, entity, parent_pass_id) in
+    let mut is_dirty = false;
+    for (mut pass_dirty_rect, layer, will_change_matrix, post_ref, transform_willchange_ref, entity, parent_pass_id) in
         query_pass.p0().iter_mut()
     {
         // postlist修改，Pass2d需要设置脏区域，暂时将其直接设置为内容box（实际上应该设置更精确一点，TODO）
@@ -210,7 +214,7 @@ pub fn calc_global_dirty_rect(
 
         // 视口改变，全局脏区域就为视口
         if viewport_tracker.is_changed() {
-            pass_dirty_rect.state = DirtyRectState::UnInit;
+            is_dirty = true;
             continue;
         }
 
@@ -220,6 +224,7 @@ pub fn calc_global_dirty_rect(
         };
 
         if pass_dirty_rect.state == DirtyRectState::Inited || willchange_changed || post_ref.is_changed() {
+            is_dirty = true;
             let mut start_dirty = if pass_dirty_rect.state == DirtyRectState::Inited {
                 entity
             } else {
@@ -236,59 +241,95 @@ pub fn calc_global_dirty_rect(
                 
             }
             // 本地脏区域合并到全局脏区域中
-            merge_dirty_rect(
-                &mut pass_dirty_rect,
-                &mut dirty_rect,
-                content_box,
-                &will_change_matrix,
-            );
+            // let aabb = merge_dirty_rect(
+            //     &mut pass_dirty_rect,
+            //     &mut dirty_rect,
+            //     &will_change_matrix,
+            // );
 
-            // 如果transform_willchange已经改变， 先不重置state， 后续一定能遍历到旧的transform_willchange， 到时候再重置
-            if !willchange_changed {
-                pass_dirty_rect.state = DirtyRectState::UnInit;
-            }
+            // 变换脏区域
+            let aabb = match &will_change_matrix.0 {
+                Some(matrix) => {
+                    // 对content_box和脏区域求交，再乘以当前的will_change
+                    // let mut aabb = content_box.oct.clone();
+                    // if pass_dirty_rect.state == DirtyRectState::Inited {
+                    //     box_aabb(&mut aabb, &pass_dirty_rect.value)
+                    // }
+                    calc_bound_box(&dirty_rect.value, &matrix.will_change)
+                }
+                None => dirty_rect.value.clone(),
+            };
+            pass_dirty_rect.value = aabb;
         }
     }
-    let p1 = query_pass.p1();
+    let p4 = query_pass.p4();
     // 旧的transformwillchange也需要考虑到脏区域中
     if transform_willchange_olds.len() > 0 {
         for old_willchange in transform_willchange_olds.iter() {
-            let (mut dirty_rect, _viewport_tracker) = match query_root.get_mut(old_willchange.root) {
-                Ok(r) => r,
-                _ => continue,
-            };
-
-            if let Ok((mut pass_dirty_rect, content_box)) = p1.get_mut(old_willchange.inpass_id) {
-                merge_dirty_rect(&mut pass_dirty_rect, &mut dirty_rect, content_box, &old_willchange.matrix);
-                pass_dirty_rect.state = DirtyRectState::UnInit;
+            // let (mut dirty_rect, _viewport_tracker) = match query_root.get_mut(old_willchange.root) {
+            //     Ok(r) => r,
+            //     _ => continue,
+            // };
+            if let Ok((pass_dirty_rect, parent_id)) = p4.get_mut(old_willchange.entity) {
+                let dirty_rect = pass_dirty_rect.clone();
+                let p = parent_id.0;
+                if let Ok((mut parent_dirty_rect, _parent_id)) = p4.get_mut(p) {
+                    merge_dirty_rect(&dirty_rect, &mut parent_dirty_rect,  &old_willchange.matrix);
+                }
             }
         }
     }
+
+    let p4 = query_pass.p4();
+    // 遍历所有pass的脏区域，将脏区域递归合并到父
+    for entity in instance_context.pass_toop_list.iter() {
+        let (dirty_rect, parent) = match p4.get_mut(*entity) {
+            Ok(r) => r,
+            Err(_) => continue,
+        };
+        if dirty_rect.state == DirtyRectState::Inited {
+            let aabb = dirty_rect.value.clone();
+            let p = parent.0;
+            let (mut dirty_rect, _parent) = match p4.get_mut(p) {
+                Ok(r) => r,
+                Err(_) => continue,
+            };
+            box_dirty_rect(aabb, &mut dirty_rect);
+        }
+    }
+    render_dirty.1 = is_dirty;
 }
 
 fn merge_dirty_rect(
-    pass_dirty_rect: &mut Mut<DirtyRect>,
-    dirty_rect: &mut Mut<RootDirtyRect>,
-    content_box: &ContentBox,
+    dirty_rect: &DirtyRect,
+    parent_dirty_rect: &mut Mut<DirtyRect>,
+    // content_box: &ContentBox,
     will_change_matrix: &TransformWillChangeMatrix,
 ) {
     let aabb = match &will_change_matrix.0 {
         Some(matrix) => {
             // 对content_box和脏区域求交，再乘以当前的will_change
-            let mut aabb = content_box.oct.clone();
-            if pass_dirty_rect.state == DirtyRectState::Inited {
-                box_aabb(&mut aabb, &pass_dirty_rect.value)
-            }
-            calc_aabb(&pass_dirty_rect.value, &matrix.will_change)
+            // let mut aabb = content_box.oct.clone();
+            // if pass_dirty_rect.state == DirtyRectState::Inited {
+            //     box_aabb(&mut aabb, &pass_dirty_rect.value)
+            // }
+            calc_bound_box(&dirty_rect.value, &matrix.will_change)
         }
-        None => pass_dirty_rect.value.clone(),
+        None => dirty_rect.value.clone(),
     };
+    box_dirty_rect(aabb, parent_dirty_rect);
+}
 
-    if dirty_rect.state == DirtyRectState::UnInit {
-        dirty_rect.value = aabb;
-        dirty_rect.state = DirtyRectState::Inited;
+fn box_dirty_rect(
+    aabb: Aabb2,
+    parent_dirty_rect: &mut Mut<DirtyRect>,
+) {
+    if parent_dirty_rect.state == DirtyRectState::UnInit {
+        parent_dirty_rect.value = aabb;
+        parent_dirty_rect.state = DirtyRectState::Inited;
+        parent_dirty_rect.draw_changed = true;
     } else {
-        box_aabb(&mut dirty_rect.value, &aabb);
+        box_aabb(&mut parent_dirty_rect.value, &aabb);
     }
 }
 
@@ -312,6 +353,7 @@ fn mark_pass_dirty_rect1(rect: &Aabb2, dirty_rect: &mut DirtyRect) {
         DirtyRectState::UnInit => DirtyRect {
             value: rect.clone(),
             state: DirtyRectState::Inited,
+            draw_changed: true,
         },
         // 如果脏区域已经初始化，这设置脏区域为当前DrawObject对应节点的包围盒与当前脏区域的合并包围盒
         DirtyRectState::Inited => {
@@ -319,6 +361,7 @@ fn mark_pass_dirty_rect1(rect: &Aabb2, dirty_rect: &mut DirtyRect) {
             DirtyRect {
                 value: dirty_rect.value.clone(),
                 state: DirtyRectState::Inited,
+                draw_changed: true,
             }
         }
     };

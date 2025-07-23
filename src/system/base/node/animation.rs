@@ -2,12 +2,12 @@
 //! 2. 推动动画运行
 
 
-use pi_style::style::StyleType;
-use pi_world::{event::EventSender, prelude::{Changed, ComponentRemoved, Entity, Has, ParamSet, Query, SingleResMut}, single_res::SingleRes, system::{SystemMeta, TypeInfo}, system_params::{Local, SystemParam}, world::World};
+use pi_style::style::{AnimationPlayState, StyleType};
+use pi_world::{event::EventSender, fetch::Ticker, filter::Or, prelude::{Changed, ComponentRemoved, Entity, Has, ParamSet, Query, SingleResMut}, single_res::SingleRes, system::{SystemMeta, TypeInfo}, system_params::{Local, SystemParam}, world::World};
 use pi_bevy_ecs_extend::prelude::OrInitSingleRes;
 
 use crate::{
-    components::{calc::{style_bit, StyleBit, StyleMarkType}, user::{
+    components::{calc::{style_bit, IsShow, StyleBit, StyleMarkType}, user::{
         serialize::{DefaultStyle, Setting},
         Animation,
     }, SettingComponentIds},
@@ -41,7 +41,7 @@ pub fn animation_change(mark: &GlobalDirtyMark) -> bool {
 pub fn calc_animation_1(
     // world: &mut World,
     mut style_query: ParamSet<(
-        Query<(Entity, &'static Animation), Changed<Animation>>,
+        Query<(Entity, Ticker<&Animation>, Ticker<&IsShow>), Or<(Changed<Animation>, Changed<IsShow>)>>,
         Query<Has<&'static Animation>>,
     )>,
     removed: ComponentRemoved<Animation>,
@@ -78,9 +78,19 @@ pub fn calc_animation_1(
     // 绑定动画
     if animation_change(&*global_mark) {
         // log::warn!("aaa========={:?}", a.0);
-        for (node, animation) in style_query.p0().iter() {
-            if let Err(e) = keyframes_sheet.bind_static_animation(node, animation) {
-                log::error!("{:?}", e);
+        for (node, animation, show) in style_query.p0().iter() {
+            if animation.is_changed() {
+                if let Err(e) = keyframes_sheet.bind_static_animation(node, &*animation) {
+                    log::error!("{:?}", e);
+                }
+            }
+            
+            if show.is_changed() {
+                let play_state = match show.get_visibility() && show.get_display() {
+                    true => AnimationPlayState::Running,
+                    false => AnimationPlayState::Paused
+                };
+                keyframes_sheet.set_play_state(node, play_state);
             }
         }
     }

@@ -1,10 +1,10 @@
 use pi_null::Null;
 use pi_style::style::StyleType;
-use pi_world::{filter::Or, prelude::{Changed, Entity, Has, Local, OrDefault, ParamSet, Query, Ticker}, single_res::SingleRes};
+use pi_world::{event::EventSender, filter::Or, prelude::{Changed, Entity, Has, Local, OrDefault, ParamSet, Query, Ticker}, single_res::SingleRes};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleRes, Up, Layer, DirtyMark};
 
 use crate::{
-    components::{calc::{style_bit, StyleBit, StyleMarkType}, pass_2d::WorldMatrixInvert, user::TransformWillChange}, resource::{GlobalDirtyMark, IsRun, OtherDirtyType}, system::{base::{node::world_matrix, pass::{pass_life, world_invert, content_box}}, system_set::UiSystemSet}
+    components::{calc::{style_bit, StyleBit, StyleMarkType}, pass_2d::WorldMatrixInvert, user::TransformWillChange}, resource::{GlobalDirtyMark, IsRun, OtherDirtyType}, system::{base::{node::world_matrix, pass::{content_box, pass_dirty_rect::OldTransformWillChange, pass_life, world_invert}}, system_set::UiSystemSet}
 };
 
 use crate::{
@@ -82,7 +82,7 @@ pub fn transform_will_change_post_process(
 
     // mut event_reader: EventReader<ComponentEvent<Changed<ParentPassId>>>,
     mut layer_dirty: Local<LayerDirty<Entity>>,
-    // mut events_writer: EventSender<OldTransformWillChange>,
+    mut events_writer: EventSender<OldTransformWillChange>,
 	r: OrInitSingleRes<IsRun>
 ) {
 	if r.0 {
@@ -163,7 +163,7 @@ pub fn transform_will_change_post_process(
                 &mut query_will_change_matrix.p0(),
                 &query_children,
                 dirty_mark_list,
-                // &mut events_writer,
+                &mut events_writer,
             );
         }
 
@@ -200,7 +200,7 @@ pub fn recursive_set_matrix(
     query: &mut Query<&'static mut TransformWillChangeMatrix>,
     query_children: &Query<&'static ChildrenPass>,
     dirty_mark: &DirtyMark,
-    // events_writer: &mut EventSender<OldTransformWillChange>,
+    events_writer: &mut EventSender<OldTransformWillChange>,
 ) {
     // 已经脏了，等待脏迭代
     if dirty_mark.get(&id).is_some() {
@@ -238,14 +238,14 @@ pub fn recursive_set_matrix(
 
             if let Ok(mut r) = query.get_mut(id) {
                 // will_change修改， 发送就的Willchange矩阵
-                // if r.is_changed() {
-                //     events_writer.send(OldTransformWillChange {
-                //         matrix: (*r).clone(),
-                //         entity: id,
-                //         inpass_id: ***inpass_id,
-                //         root: layer.root(),
-                //     });
-                // }
+                if r.is_changed() {
+                    events_writer.send(OldTransformWillChange {
+                        matrix: (*r).clone(),
+                        entity: id,
+                        // inpass_id: ***inpass_id,
+                        // root: layer.root(),
+                    });
+                }
                 let will_change_matrix = TransformWillChangeMatrix::new(m.invert().unwrap(), m, m_owner);
                 *r = will_change_matrix.clone();
                 parent_will_change_matrix = will_change_matrix;
@@ -272,7 +272,7 @@ pub fn recursive_set_matrix(
                 query,
                 query_children,
                 dirty_mark,
-                // events_writer,
+                events_writer,
             );
         }
     }

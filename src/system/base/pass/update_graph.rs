@@ -5,7 +5,7 @@ use std::collections::hash_map::Entry;
 use pi_hash::XHashMap;
 use pi_world::event::ComponentChanged;
 use pi_world::filter::Or;
-use pi_world::prelude::{Changed, Entity, FilterComponents, ParamSet, Query, SingleRes, SingleResMut, With};
+use pi_world::prelude::{Changed, Entity, FilterComponents, ParamSet, Query, SingleRes, SingleResMut};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleRes, OrInitSingleResMut};
 
 use pi_bevy_render_plugin::{NodeId, PiRenderGraph, NodeLabel};
@@ -16,7 +16,7 @@ use crate::resource::IsRun;
 use crate::{
     components::{
         calc::{EntityKey, RenderContextMark},
-        pass_2d::{Camera, ChildrenPass, GraphId, ParentPassId},
+        pass_2d::{ChildrenPass, GraphId, ParentPassId},
         user::AsImage,
     }, resource::draw_obj::LastGraphNode, system::base::pass::pass_graph_node::{Pass2DNode, CustomCopyNode}
 };
@@ -43,8 +43,8 @@ pub fn update_graph(
     mut pass_query: ParamSet<(
         Query<(Option<&mut GraphId>, &ParentPassId, &PostProcessInfo)>,
         (
-			Query<(&mut ParentPassId, &GraphId, Option<&mut AsImage>, Entity), (Or<(Changed<ParentPassId>, Changed<AsImage>, Changed<GraphId>)>, With<Camera>)>, 
-			Query<(&ParentPassId, &GraphId), With<Camera>>,
+			Query<(&mut ParentPassId, &GraphId, Option<&mut AsImage>, Entity), Or<(Changed<ParentPassId>, Changed<AsImage>, Changed<GraphId>)>>, 
+			Query<(&ParentPassId, &GraphId)>,
 			Query<&GraphId>,
 			Query<&ChildrenPass>,
 		),

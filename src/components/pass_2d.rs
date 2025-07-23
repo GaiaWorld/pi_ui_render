@@ -54,8 +54,8 @@ pub struct Camera {
     // pub is_cache: bool, // 是否使用缓冲的fbo
     // 是否可见（显示设置不可见， 或被overflow裁剪， 都视为不可见）
     pub is_visible: bool, 
-    // 表示相机内的渲染内容是否改变
-    pub draw_changed: bool,
+    // // 表示相机内的渲染内容是否改变
+    // pub draw_changed: bool,
     // 是否渲染到父目标(表示该pass是否渲染到父目标上)
     pub is_render_to_parent: bool,  
 }
@@ -70,7 +70,7 @@ impl Default for Camera {
             old_view_port: Aabb2::new(Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)),
             draw_range: 0..0,
             is_render_own: false,
-            draw_changed: true,
+            // draw_changed: true,
             is_render_to_parent: true,
             is_visible: false,
             // is_cache: false,
@@ -306,13 +306,16 @@ pub enum DirtyType {
 pub struct DirtyRect {
     pub value: Aabb2, // 在世界坐标上表示的脏区域
     pub state: DirtyRectState,
+    pub draw_changed: bool,
 }
+
 
 impl Default for DirtyRect {
     fn default() -> Self {
         Self {
             value: Aabb2::new(Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)),
             state: DirtyRectState::UnInit,
+            draw_changed: false,
         }
     }
 }
@@ -470,7 +473,7 @@ impl Asset for CacheTarget {
 #[derive(Component)]
 pub struct RenderTarget {
     // 渲染目标
-    pub target: StrongTarget,
+    pub target: Option<ShareTargetView>,
     // 缓冲ShareTargetView，当RenderTargetCache为Strong时， 强制缓冲， 当ShareTargetView为Weak时，此处并不强行缓冲ShareTargetView， 可能会被资产管理器回收
     pub cache: RenderTargetCache,
     // 当前target所对应的在该节点的非旋转坐标系下的包围盒（分配fbo的尺寸）
@@ -494,13 +497,6 @@ impl Default for RenderTarget {
             }
         }
     }
-}
-
-#[derive(Debug, Default)]
-pub enum StrongTarget {
-	#[default]
-	None,
-    Asset(ShareTargetView),
 }
 
 

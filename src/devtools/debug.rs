@@ -170,8 +170,8 @@ pub struct PassInfo {
     // draw_changed为true时， is_render_own一定为true
     // draw_changed为false时，还需要看，从当前上下文开始向上递归，是否有上下文渲染目标被缓存，如果有，则is_render_own为false，否则为true
     pub is_render_own: bool,
-    // 表示相机内的渲染内容是否改变
-    pub draw_changed: bool,
+    // // 表示相机内的渲染内容是否改变
+    // pub draw_changed: bool,
     // 是否渲染到父目标(表示该pass是否渲染到父目标上)
     pub is_render_to_parent: bool, 
     pub render_target: Target, 
@@ -884,7 +884,7 @@ pub fn node_info(world: &World, entity: Entity) -> Info {
             bound_box: render_target1.bound_box.clone(),
             accurate_bound_box: render_target1.accurate_bound_box.clone(),
             is_render_own: camera.is_render_own,
-            draw_changed: camera.draw_changed,
+            // draw_changed: camera.draw_changed,
             is_render_to_parent: camera.is_render_to_parent,
             transform_will_change_matrix: match world.get_component::<TransformWillChangeMatrix>(entity) {
                 Ok(r) => match &r.0 {

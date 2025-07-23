@@ -68,12 +68,12 @@ impl Plugin for UiPassPlugin {
                     .in_set(UiSystemSet::PassCalc)
                     .after(pass_life::cal_context)
             )
-            .add_system(UiStage, 
-                pass_camera::calc_pass_dirty
-                    .after(pass_dirty_rect::calc_global_dirty_rect)
-					.after(UiSystemSet::BaseCalcFlush)
-                    .in_set(UiSystemSet::PassCalc),
-            )
+            // .add_system(UiStage, 
+            //     pass_camera::calc_pass_dirty
+            //         .after(pass_dirty_rect::calc_global_dirty_rect)
+			// 		.after(UiSystemSet::BaseCalcFlush)
+            //         .in_set(UiSystemSet::PassCalc),
+            // )
             .add_system(UiStage, 
                 pass_camera::calc_pass_active
                     .after(pass_dirty_rect::calc_global_dirty_rect)
@@ -84,7 +84,8 @@ impl Plugin for UiPassPlugin {
             
             .add_system(UiStage, 
                 pass_camera::calc_camera
-                    .after(pass_camera::calc_pass_dirty)
+                    .after(pass_dirty_rect::calc_global_dirty_rect)
+                    .after(pass_life::calc_pass_toop_sort)
                     .before(pass_camera::calc_pass_active)
                     .after(calc_render_steady::calc_is_steady)
 					.after(UiSystemSet::BaseCalcFlush)
