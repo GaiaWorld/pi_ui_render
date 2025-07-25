@@ -340,8 +340,9 @@ impl Node for Pass2DNode {
 				r_target = Some(catch_target);  
 			}
 		} else if camera.is_render_own || parent_pass2d_id.0.is_null() {
-			if parent_pass2d_id.0.is_null() && !post_process_info.has_effect() && RenderTargetType::Screen == last_rt_type {
-
+			if parent_pass2d_id.0.is_null() && RenderTargetType::Screen == last_rt_type {
+				// 需要渲染到屏幕的根节点， 不需要分配fbo
+				return Ok(())
 			} else if let Some(input_fbo) = is_only_one_pass(from, &mut param.query_out, &param.instance_draw, &list0.instance_range, (render_target.bound_box.maxs.x - render_target.bound_box.mins.x) as u32, (render_target.bound_box.maxs.x - render_target.bound_box.mins.x) as u32) {
 				log::debug!("is_only_one_pass================={:?}", pass2d_id);
 				// 如果只有一个输入，并且draw2dList中也只存在一个渲染对象(该渲染对象一定是将输入fb拷贝到目标上)
@@ -702,6 +703,7 @@ impl Node for Pass2DNode {
 				}
 				let mut pass_query = Err(QueryError::NoMatchArchetype);
 				let element = &param.instance_draw.draw_list[i];
+
 				rt = if EntityKey(element.1).is_null() {
 					
 					RPTarget::Screen(surface, &None)
