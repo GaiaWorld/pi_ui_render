@@ -1141,7 +1141,6 @@ pub fn active_gui(world: &mut World,  active: bool) {
 
         // 使gui无效渲染
         // device: &RenderDevice, screen: &PiScreenTexture, surface_format: wgpu::TextureFormat
-        let device = (***world.get_single_res::<PiRenderDevice>().unwrap()).clone();
         
         let graph = world.get_single_res_mut::<PiRenderGraph>().unwrap();
         let _ = graph.set_finish(last_node, false); // 最终节点设置为无效
@@ -1149,8 +1148,7 @@ pub fn active_gui(world: &mut World,  active: bool) {
         // log::warn!("invalid graph: {:?}", graphs);
         if graphs.len() > 0 {
             // 将canvas图节点连接到CanvasRendererNode节点上
-            let screen_texture = &**world.get_single_res::<PiScreenTexture>().unwrap();
-            let node = CanvasRendererNode::new(&device, screen_texture, wgpu::TextureFormat::pi_render_default());
+            let node = CanvasRendererNode::new();
             let graph = world.get_single_res_mut::<PiRenderGraph>().unwrap();
             let node: pi_bevy_render_plugin::NodeId = graph.add_node("gui canvas copy", node, Null::null(), Null::null()).unwrap();
             let _ = graph.set_finish(node, true); 

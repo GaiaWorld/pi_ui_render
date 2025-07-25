@@ -403,8 +403,8 @@ pub fn calc_background_image_inner(
 			bottom: layout_slice.bottom * layout_height,
 		};
 		// use pi_key_alloter::Key;
-		// if background_image.0.as_str().contains("icon_yingxiong") {
-			// log::warn!("bg image1========================{:?}", (entity , background_image.0.as_str(), [pstart.x, pend.x, pend.y, pend.y], [uv1.x, uv2.x, uv1.y, uv2.y], &padding_aabb));
+		// if background_image.0.as_str().contains("shouZhi") {
+		// 	log::debug!("bg image1========================{:?}", (entity , background_image.0.as_str(), [pstart.x, pend.x, pend.y, pend.y], [uv1.x, uv2.x, uv1.y, uv2.y], &padding_aabb));
 		// }
 
 		let w = pend.x - pstart.x;
@@ -412,7 +412,8 @@ pub fn calc_background_image_inner(
 		let (uspace, ulayout, ucount) = calc_step(w, texture_size.x, background_image_mod.repeat.x);
 		let (vspace, vlayout, vcount) = calc_step(h, texture_size.y, background_image_mod.repeat.y);
 
-		log::debug!("bg image split========================{:?}, {:?}, \n{:?}", 
+		log::debug!("bg image split========================{:?}, \n{:?}, {:?}, \n{:?}", 
+			background_image.0.as_str(),
 			(pstart.x, uspace, ulayout, ucount), (pstart.y, vspace, vlayout, vcount),
 			(w, h, texture_size, &background_image_mod.repeat)
 		);

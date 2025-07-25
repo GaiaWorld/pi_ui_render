@@ -1,5 +1,6 @@
 
 use crate::resource::{animation_sheet::KeyFramesSheet, ClassSheet, QuadTree, TimeInfo, UserCommands};
+use crate::system::base::node::animation::AnimationPlugin;
 use layout::layout_change;
 use pi_world::prelude::{IntoSystemConfigs, Plugin, App, PostUpdate, WorldPluginExtent};
 
@@ -54,9 +55,8 @@ impl Plugin for UiNodePlugin {
             .add_system(UiStage, user_setting::user_setting1.in_set(UiSystemSet::Setting))
             .add_system(UiStage, user_setting::user_setting2.in_set(UiSystemSet::Setting).after(user_setting::user_setting1))
 
-            // 运行动画
-            .add_system(UiStage, animation::calc_animation_1.in_set(UiSystemSet::NextSetting))
-            .add_system(UiStage, animation::calc_animation_2.in_set(UiSystemSet::NextSetting).after(animation::calc_animation_1))
+            // 计算动画
+            .add_plugins(AnimationPlugin)
 
              // 计算Transition
 			.add_plugins(TransitionPlugin)

@@ -356,7 +356,7 @@ pub fn update_render_instance_data(
 	let mut default_metrial = BatchMeterial::default();
 	default_metrial.sdf_uv = [default_sdf_uv.0.left, default_sdf_uv.0.top, default_sdf_uv.0.right, default_sdf_uv.0.bottom];
 	
-	let alloc = |draw_index: &DrawIndex, draw_info: &DrawInfo, new_instances: &mut GpuBuffer, instances: &InstanceContext, instance_index: &mut Query<(&'static mut InstanceIndex, OrDefault<RenderCount>)>| {
+	let alloc = |draw_index: &DrawIndex, draw_info: &DrawInfo, new_instances: &mut GpuBuffer, instances: &InstanceContext, instance_index: &mut Query<(&'static mut InstanceIndex, OrDefault<RenderCount>)>, pass_id: Entity| {
 		let mut alloc:  Option<Entity> = None;
 		// #[cfg(debug_assertions)]
 		let mut node = EntityKey::null();
@@ -420,7 +420,8 @@ pub fn update_render_instance_data(
 
 					// 用于debug
 					// #[cfg(debug_assertions)]
-					instance_data.set_data(&DebugInfo(&[node.index() as f32]));
+					instance_data.set_data(&DebugInfo(&[pass_id.index() as f32]));
+					
 				}
 
 				log::debug!("alloc instance_index============{:?}, {:?}", entity, new_index);
@@ -532,7 +533,7 @@ pub fn update_render_instance_data(
 
 		let instance_data_start = new_instances.cur_index();
 		draw_2d_list.render_list.iter(| (draw_index, _, draw_info)| {
-			alloc(draw_index, draw_info, new_instances, &instances, &mut instance_index);
+			alloc(draw_index, draw_info, new_instances, &instances, &mut instance_index, *entity);
 		});
 		// let mut pipeline;
 		// for (draw_index, _, draw_info) in draw_2d_list.opaque.iter().rev().chain(draw_2d_list.transparent.iter()) {
@@ -553,7 +554,7 @@ pub fn update_render_instance_data(
 			// 有后处理效果， 并且最终会渲染到屏幕上， 则需要分配一个实例用于将其渲染到屏幕
 			let mut info = DrawInfo::new(10, false);
 			info.set_visibility(is_show.get_visibility() && is_show.get_display() && !layer.layer().is_null());
-			alloc(&DrawIndex::Pass2D(EntityKey(root_entity)), &info, new_instances, &instances, &mut instance_index);
+			alloc(&DrawIndex::Pass2D(EntityKey(root_entity)), &info, new_instances, &instances, &mut instance_index, root_entity);
 
 			// 否则， 不需要这个实例渲染
 		} else {
@@ -1280,6 +1281,7 @@ fn batch_pass(
 				depth_start: 0.0
 			}, parent_pass_id));
 			start = cursor + 1;
+			instance_data_start = instance_data_end; // 渲染实例跳过当前实例不渲染（通过drawlist的方式渲染， 不需要将fbo拷贝到gui上了）
 		}
 
 		// 添加渲染所需纹理， 如果纹理溢出， 需要结束批处理

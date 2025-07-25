@@ -88,6 +88,7 @@ impl Plugin for UiPassPlugin {
                     .after(pass_life::calc_pass_toop_sort)
                     .before(pass_camera::calc_pass_active)
                     .after(calc_render_steady::calc_is_steady)
+                    .after(UiSystemSet::PassSetting)
 					.after(UiSystemSet::BaseCalcFlush)
                     .in_set(UiSystemSet::PassCalc),
             )

@@ -127,7 +127,7 @@ pub fn calc_camera(
             &IsSteady,
             &mut RenderTarget,
             &Quad,
-            Ticker<&IsShow>,
+            &IsShow,
             &PostProcessInfo,
         )
     >,
@@ -144,7 +144,7 @@ pub fn calc_camera(
     //         &IsSteady,
     //         &mut RenderTarget,
     //         &Quad,
-    //         Ticker<&IsShow>,
+    //         &IsShow,
     //     ),
     //     With<Root>,
     // >,
@@ -211,7 +211,7 @@ pub fn calc_camera(
             &IsSteady,
             Mut<RenderTarget>,
             &Quad,
-            Ticker<&IsShow>,
+            &IsShow,
             &PostProcessInfo,
         ),
         parent_dirty_rect: Aabb2,
@@ -298,13 +298,12 @@ pub fn calc_camera(
         } 
 
         let mut dirty_rect = &cur_dirty_rect.value;
-        if render_dirty1 || view_port_is_dirty {
-            // 如果设置了全屏脏， 设置脏区域为视口
-            dirty_rect = &parent_dirty_rect;
-        } else if let None = &render_target.target {
+        if render_dirty1 || view_port_is_dirty || !post_info.has_effect() || render_target.target.is_none() {
+            // 如果设置了全屏脏， 设置脏区域为父的脏区域（父又递归继承了父的脏区域， 实际上是视口区域）
+            // 如果当前pass没有fbo，则也继承父的脏区域（通常， 这是一个overflow的pass， 如果不设置为父的脏区域， 节点内部的修改范围小于父的修改范围， 此时会渲染不全）
             // 节点未缓存， 设置脏区域为父的脏区域（最多只会渲染父上下文的范围）
             dirty_rect = &parent_dirty_rect;
-        } 
+        }
 
         // 为了保证根节点在其视口范围的渲染结果的正确性， 根节点的脏区域需要特殊处理
         // 如果节点的target被缓存， 则只需要重新渲染脏区域的内容
@@ -349,8 +348,6 @@ pub fn calc_camera(
             Point2::new(no_rotate_view_aabb.maxs.x.ceil(), no_rotate_view_aabb.maxs.y.ceil()),
         );
 
-        cur_dirty_rect.value = dirty_rect.clone(); // 更新当前脏区域， 后续子Pass会使用
-
         
         
         // log::debug!("viewport======={:?}, \nview_aabb={:?}, \noverflow_aabb={:?}, \ndirty_rect={:?}", entity, no_rotate_view_aabb, overflow_aabb, dirty_rect);
@@ -367,7 +364,7 @@ pub fn calc_camera(
             return old_is_render_own != camera_bypass.is_render_own;
         }
 
-        if !post_info.is_not_only_as_image(&as_image_mark_type) {
+        if post_info.is_not_only_as_image(&as_image_mark_type) {
             // 存在后处理效果，当前fbo存在脏， 则缓冲无效（缓冲的是后处理结果）， 清除缓冲
             clear_cache(&mut render_target, &assets);
         }
@@ -390,6 +387,8 @@ pub fn calc_camera(
             if let &None = &render_target.target {
                 // 如果需要强行缓冲(整个节点内容都必须缓冲下来)， 又没有旧的缓存， 则视口应该是整个节点的可视区域（重新渲染整个节点内容）
                 aabb = view_aabb_int;
+                // 重设了视口， 修改脏区域为视口区域， 使子pass知道， 父的pass需要渲染的最大范围（否则， 子pass如果脏范围较小， 并且子pass没有后处理， 其渲染会被裁剪到小范围）
+                dirty_rect = view_aabb;
             }
             let width = view_aabb_int.maxs.x - view_aabb_int.mins.x;
             let height = view_aabb_int.maxs.y - view_aabb_int.mins.y;
@@ -472,7 +471,19 @@ pub fn calc_camera(
 
        
 
-        log::debug!("camera, entity: {:?}, view_port:{:?}, no_rotate_view_aabb: {:?}, bound_box: {:?}, accurate_bound_box: {:?}", entity, &camera.view_port, &no_rotate_view_aabb, &render_target.bound_box, &render_target.accurate_bound_box);
+        log::debug!("camera, entity: {:?}, parent_pass: {:?},  is_not_only_as_image: {:?}, view_port:{:?}, bound_box: {:?}, accurate_bound_box: {:?}, \ncur_dirty_rect:{:?}, \ndirty_rect:{:?}, \noverflow_aabb:{:?}, \nno_rotate_view_aabb: {:?}, ", 
+            entity, 
+            parent_pass_id.0, 
+            post_info.is_not_only_as_image(&as_image_mark_type), 
+            &camera.view_port,   
+            &render_target.bound_box, 
+            &render_target.accurate_bound_box, 
+            cur_dirty_rect.value,
+            dirty_rect,
+            view_aabb,
+            &no_rotate_view_aabb,);
+        
+        cur_dirty_rect.value = dirty_rect.clone(); // 更新当前脏区域， 后续子Pass会使用
 
         // // 删除原有缓冲（内容发生改变会重新渲染， 原有缓冲没有作用）
         // // 除了根节点和asimageurl节点

@@ -204,6 +204,7 @@ impl Node for Pass2DNode {
 		_context: RenderContext,
 		id: Entity,
 	) {
+		log::debug!("GraphNode(Pass2DNode) reset, id:{:?}", id);
 		if let Ok(mut r) = param.get_mut(id) {
 			if let Some(t) = &mut r.target {
 				*t = Share::new(t.downgrade());
@@ -320,12 +321,13 @@ impl Node for Pass2DNode {
 
 		let mut r_target = None;
 
-		log::debug!("build1, pass2d_id: {:?}, has_catch: {:?}, parent_pass2d_id: {:?}, is_render_own: {:?}, has_effect: {:?}", 
+		log::debug!("build1, pass2d_id: {:?}, has_catch: {:?}, parent_pass2d_id: {:?}, is_render_own: {:?}, has_effect: {:?}, is_not_only_as_image: {:?}", 
 			pass2d_id, 
 			catch_target.is_some(), 
 			parent_pass2d_id, 
 			camera.is_render_own, 
-			post_process_info.has_effect()
+			post_process_info.has_effect(),
+			is_not_only_as_image,
 		);
 		if let Some(catch_target) = catch_target {
 			out.target = Some(catch_target.clone()); // 缓存fbo
@@ -399,7 +401,10 @@ impl Node for Pass2DNode {
 					}
 					None => {
 						// next_target.clear();
-						// log::debug!("none==============={:?}", pass2d_id);
+						#[cfg(debug_assertions)]
+						{
+							log::debug!("none==============={:?}", pass2d_id);
+						}
 						// 不进行渲染（可能由父节点对它进行渲染, 也可能渲染目标尺寸为0）
 						return Ok(());
 					}
@@ -687,7 +692,8 @@ impl Node for Pass2DNode {
 			log::debug!("draw_elements======{:?}", (pass2d_id, &draw_range));
 			let mut commands = commands.borrow_mut();
 
-			let (mut rt, mut rp, mut pre_fbo_pass_id, mut fbo_view_port, mut fbo_camera_viewport);
+			let (mut rt, mut rp, mut pre_fbo_pass_id, mut fbo_view_port);
+			let mut fbo_camera_viewport; 
 			
 			let mut i = draw_range.start;
 			loop {
@@ -733,7 +739,19 @@ impl Node for Pass2DNode {
 				);
 				pre_fbo_pass_id = element.1;
 				(fbo_view_port, fbo_camera_viewport) = if let Ok((camera, render_target, _)) = pass_query {
-					(calc_view_port(&rt, &camera.view_port, &render_target.bound_box), &camera.view_port)
+					let fbo_view_port= calc_view_port(&rt, &camera.view_port, &render_target.bound_box);
+					let fbo_camera_viewport = &camera.view_port;
+					let view_port = (
+						(fbo_view_port.0 as f32 - fbo_camera_viewport.mins.x) + camera.view_port.mins.x,
+						(fbo_view_port.1 as f32 - fbo_camera_viewport.mins.y) + camera.view_port.mins.y,
+						camera.view_port.maxs.x - camera.view_port.mins.x,
+						camera.view_port.maxs.y - camera.view_port.mins.y,
+					);
+					rp.set_viewport(view_port.0, view_port.1, view_port.2, view_port.3, 0.0, 1.0);
+					// 清屏
+					rp.set_scissor_rect(view_port.0 as u32, view_port.1 as u32, view_port.2 as u32, view_port.3 as u32);
+
+					(fbo_view_port, fbo_camera_viewport)
 				} else {
 					(
 						(param.screen.aabb.mins.x, param.screen.aabb.mins.y, param.screen.aabb.maxs.x - param.screen.aabb.mins.x, param.screen.aabb.maxs.y - param.screen.aabb.mins.y),
@@ -797,7 +815,7 @@ impl Node for Pass2DNode {
 						}
 					};
 
-					if !t.eq(&rt) {
+					// if !t.eq(&rt) {
 						log::debug!("create_rp2============={:?}", (pass2d_id, &element.1, param.query_parent.get(element.1), &t));
 						{let _a = rp;} // 释放
 						rp = create_rp(
@@ -808,12 +826,21 @@ impl Node for Pass2DNode {
 						render_state.reset = true;
 
 						// log::debug!("create_rp1============={:?}", element.1);
-					}
+					// }
 					rt = t;
 
 					if let Ok((camera, render_target, _)) = pass_query {
 						(fbo_view_port, fbo_camera_viewport) = (calc_view_port(&rt, &camera.view_port, &render_target.bound_box), &camera.view_port);
 						// log::warn!("fbo_view_port============={:?}", (&element.1, fbo_view_port, &render_target.bound_box, &camera.view_port));
+						let view_port = (
+							(fbo_view_port.0 as f32 - fbo_camera_viewport.mins.x) + camera.view_port.mins.x,
+							(fbo_view_port.1 as f32 - fbo_camera_viewport.mins.y) + camera.view_port.mins.y,
+							camera.view_port.maxs.x - camera.view_port.mins.x,
+							camera.view_port.maxs.y - camera.view_port.mins.y,
+						);
+						rp.set_viewport(view_port.0, view_port.1, view_port.2, view_port.3, 0.0, 1.0);
+						// 清屏
+						rp.set_scissor_rect(view_port.0 as u32, view_port.1 as u32, view_port.2 as u32, view_port.3 as u32);
 					};
 					pre_fbo_pass_id = element.1;
 					
@@ -826,18 +853,19 @@ impl Node for Pass2DNode {
 							// log::trace!("is_active======{:?}", pass);
 							continue; // 没有激活的fbo， 不清屏
 						}
-						param.instance_draw.set_pipeline(&mut rp, draw_state, &mut render_state);
 						// log::warn!("clear======={:?}, {:?}, {:?}, {:?}, {:?}", pass, element.1, draw_state.instance_data_range.start/224..draw_state.instance_data_range.end/224, draw_state.instance_data_range.start..draw_state.instance_data_range.end, param.instance_draw.instance_data.data.len());
 						// 批量清屏， 每个清屏实例的布局数据描述了清理区域， 视口设置为整张fbo
-						if let RPTarget::Fbo(rt) = rt {
-							// log::warn!("clear view port: {:?}", (element.1, rt.rect_with_border()));
-							// 清屏视口
-							rp.set_viewport(0.0, 0.0, rt.target().width as f32, rt.target().height as f32, 0.0, 1.0);
-						}
-						let group = param.instance_draw.default_camera.get_group();
-						rp.set_bind_group(CameraBind::set(), &**group.bind_group, group.offsets);
+						// if let RPTarget::Fbo(rt) = rt {
+						// 	// log::warn!("clear view port: {:?}", (element.1, rt.rect_with_border()));
+						// 	// 清屏视口
+						// 	rp.set_viewport(0.0, 0.0, rt.target().width as f32, rt.target().height as f32, 0.0, 1.0);
+						// 	rp.set_scissor_rect(0, 0, rt.target().width, rt.target().height);
+						// }
+						// param.instance_draw.set_pipeline(&mut rp, draw_state, &mut render_state);
+						// let group = param.instance_draw.default_camera.get_group();
+						// rp.set_bind_group(CameraBind::set(), &**group.bind_group, group.offsets);
 
-						param.instance_draw.draw(&mut rp, draw_state, &mut render_state);
+						// param.instance_draw.draw(&mut rp, draw_state, &mut render_state);
 					},
 					DrawElement::DrawInstance { draw_state, pass, .. } => {
 						// use pi_slotmap::Key;
@@ -897,16 +925,12 @@ impl Node for Pass2DNode {
 							} else {
 								unreachable!();
 							}
-							
-							
 						}
 						
 						// log::trace!("draw_state========={:?}", draw_state);
 						// if !set_camera{
 						// 	log::warn!("DrawInstance!============{:?}", (pass, pre_pass, render_state.reset));
-						// }
-						
-						
+						// }	
 					},
 					DrawElement::DrawPost(post_range) => {
 						log::trace!("post1============={:?}", post_range);
@@ -955,6 +979,7 @@ impl Node for Pass2DNode {
 								);
 								// log::warn!("post view port: {:?}", (element.1, &view_port));
 								rp.set_viewport(view_port.0, view_port.1, view_port.2, view_port.3, 0.0, 1.0);
+								rp.set_scissor_rect(view_port.0 as u32, view_port.1 as u32, view_port.2 as u32, view_port.3 as u32);
 								final_draw.draw(&mut rp);
 
 								rt = RPTarget::Fbo(final_target);
@@ -1096,7 +1121,7 @@ pub fn create_screen_rp<'a>(
 	let ops = match ops {
 		Some(r) => r,
 		None => wgpu::Operations {
-			// load: wgpu::LoadOp::Clear(wgpu::Color{r: 0.0, g: 0.0, b: 1.0, a: 1.0}),
+			// load: wgpu::LoadOp::Clear(wgpu::Color{r: 0.0, g: 0.0, b: 0.0, a: 1.0}),
 			load: wgpu::LoadOp::Load,
 			store: wgpu::StoreOp::Store,
 		},
@@ -1168,8 +1193,8 @@ pub fn create_rp_for_fbo1<'a>(
 	let ops = match ops {
 		Some(r) => r,
 		None => wgpu::Operations {
-			// load: wgpu::LoadOp::Clear(wgpu::Color{r: 0.0, g: 0.0, b: 0.0, a: 0.0}),
-			load: wgpu::LoadOp::Load,
+			load: wgpu::LoadOp::Clear(wgpu::Color{r: 0.0, g: 0.0, b: 0.0, a: 0.0}),
+			// load: wgpu::LoadOp::Load,
 			store: wgpu::StoreOp::Store,
 		},
 	};
@@ -1477,21 +1502,25 @@ impl Node for CustomCopyNode {
 		_from: &'a [Entity],
 		_to: &'a [Entity],
 	) -> Result<(), String> {
-		// log::warn!("_from==============={:?}", (_id, _from));
+		log::warn!("_from==============={:?}", (self.0, _id, _from));
 		if _from.len() == 1 {
 			// log::warn!("_from!!!!==============={:?}", (_id, param.2.get_mut(_from[0]).is_ok()));
-			if let Ok(input) = param.2.get_mut(_from[0]) {
-				match (&input.target, param.0.get_mut(self.0)) {
-					(r, Ok((mut out_target, render_target, instance_index))) => {
-						// 比较target是否发生改变， 如果发生改变， 需要重新批处理
-						compare_target(r, out_target.bypass_change_detection(), render_target, instance_index, &mut param.1);
-						// log::error!("out_target.0================={:?}", (&self.0, &out_target.0));
-						out_target.0 = r.as_ref().map(|r| {Share::new(r.downgrade())});
-					}
-					_ => (),
-				}
-				return Ok(());
+			let d = None;
+			let mut x;
+			let target = match param.2.get_mut(_from[0]) {
+				Ok(r) => {
+					x = r;
+					&mut x.target
+				},
+				Err(_) => &d,
+			};
+			if let Ok((mut out_target, render_target, instance_index)) = param.0.get_mut(self.0) {
+				// 比较target是否发生改变， 如果发生改变， 需要重新批处理
+				compare_target(target, out_target.bypass_change_detection(), render_target, instance_index, &mut param.1);
+				
+				out_target.0 = target.as_ref().map(|r| {Share::new(r.downgrade())});
 			}
+			log::warn!("out_target.0================={:?}", (&self.0, &target.is_some()));
 			
 		}
 		Ok(())
@@ -1571,7 +1600,7 @@ fn compare_target(
 					uv_box[2] += maxs.x * w;
 					uv_box[3] += maxs.y * h;
 
-					log::warn!("set uv, instance_index: {:?}, uv_box: {:?}, taregt_rect{:?}, accurate_bound_box: {:?}, target_id: {:?}", instance_index, uv_box, target.rect(), &render_target.accurate_bound_box, target.target().colors[0].0.id, );
+					log::debug!("set uv, instance_index: {:?}, uv_box: {:?}, taregt_rect{:?}, accurate_bound_box: {:?}, target_id: {:?}", instance_index, uv_box, target.rect(), &render_target.accurate_bound_box, target.target().colors[0].0.id, );
 				}
 				instance_context.instance_data.instance_data_mut(index.start).set_data(&UvUniform(uv_box.as_slice()));
 				

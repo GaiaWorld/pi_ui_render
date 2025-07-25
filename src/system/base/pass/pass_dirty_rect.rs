@@ -1,11 +1,11 @@
 use pi_world::{event::{ComponentAdded, ComponentChanged, Event}, fetch::{Mut, Ticker}, param_set::ParamSet, prelude::{Changed, Entity, Or, Query, With}, single_res::SingleRes};
-use pi_bevy_ecs_extend::prelude::{Layer, OrInitSingleRes, OrInitSingleResMut};
+use pi_bevy_ecs_extend::prelude::{OrInitSingleRes, OrInitSingleResMut};
 
 use pi_style::style::Aabb2;
 
 use crate::{
     components::{
-        calc::{BackgroundImageTexture, BorderImageTexture, ContentBox, InPassId, MaskTexture, Quad, RootDirtyRect, TransformWillChangeMatrix},
+        calc::{BackgroundImageTexture, BorderImageTexture, ContentBox, InPassId, MaskTexture, Quad, RenderContextMark, RootDirtyRect, TransformWillChangeMatrix},
         pass_2d::{ChildrenPass, DirtyMark, DirtyRect, DirtyRectState, ParentPassId, PostProcess},
         user::{Canvas, TransformWillChange, Viewport},
     }, resource::{IsRun, RenderDirty}, system::base::node::{user_setting::StyleChange, world_matrix::OldQuad}, utils::tools::{box_aabb, calc_bound_box}
@@ -49,12 +49,12 @@ pub fn calc_global_dirty_rect(
     background_changed: ComponentChanged<BackgroundImageTexture>,
     border_changed: ComponentChanged<BorderImageTexture>,
     mask_changed: ComponentChanged<MaskTexture>,
+    render_mark_changed: ComponentChanged<RenderContextMark>,
 
     mut query_pass: ParamSet<(
         Query<
             (
                 &mut DirtyRect,
-                &Layer,
                 &TransformWillChangeMatrix,
                 Ticker<&PostProcess>,
                 Option<Ticker<&TransformWillChange>>,
@@ -91,6 +91,7 @@ pub fn calc_global_dirty_rect(
         mask_changed.mark_read();
         dirty_list.mark_read();
         quad_olds.mark_read();
+        render_mark_changed.mark_read();
         transform_willchange_olds.mark_read();
         render_dirty.1 = true; // 标记本帧脏
         return;
@@ -198,7 +199,7 @@ pub fn calc_global_dirty_rect(
     // }
 
     let mut is_dirty = false;
-    for (mut pass_dirty_rect, layer, will_change_matrix, post_ref, transform_willchange_ref, entity, parent_pass_id) in
+    for (mut pass_dirty_rect, will_change_matrix, post_ref, transform_willchange_ref, entity, parent_pass_id) in
         query_pass.p0().iter_mut()
     {
         // postlist修改，Pass2d需要设置脏区域，暂时将其直接设置为内容box（实际上应该设置更精确一点，TODO）
@@ -207,16 +208,16 @@ pub fn calc_global_dirty_rect(
         //     mark_pass_dirty_rect1(&content_box.oct, &mut pass_dirty_rect);
         // }
 
-        let (mut dirty_rect, viewport_tracker) = match query_root.get_mut(layer.root()) {
-            Ok(r) => r,
-            _ => continue,
-        };
+        // let (dirty_rect, viewport_tracker) = match query_root.get_mut(layer.root()) {
+        //     Ok(r) => r,
+        //     _ => continue,
+        // };
 
-        // 视口改变，全局脏区域就为视口
-        if viewport_tracker.is_changed() {
-            is_dirty = true;
-            continue;
-        }
+        // // 视口改变，全局脏区域就为视口
+        // if viewport_tracker.is_changed() {
+        //     is_dirty = true;
+        //     continue;
+        // }
 
         let willchange_changed = match transform_willchange_ref {
             Some(transform_willchange_ref) => transform_willchange_ref.is_changed(),
@@ -255,9 +256,9 @@ pub fn calc_global_dirty_rect(
                     // if pass_dirty_rect.state == DirtyRectState::Inited {
                     //     box_aabb(&mut aabb, &pass_dirty_rect.value)
                     // }
-                    calc_bound_box(&dirty_rect.value, &matrix.will_change)
+                    calc_bound_box(&pass_dirty_rect.value, &matrix.will_change)
                 }
-                None => dirty_rect.value.clone(),
+                None => pass_dirty_rect.value.clone(),
             };
             pass_dirty_rect.value = aabb;
         }
@@ -297,6 +298,12 @@ pub fn calc_global_dirty_rect(
             box_dirty_rect(aabb, &mut dirty_rect);
         }
     }
+
+    if render_mark_changed.len() > 0 {
+        render_mark_changed.mark_read();
+        is_dirty = true;
+    }
+   
     render_dirty.1 = is_dirty;
 }
 

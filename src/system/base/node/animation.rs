@@ -3,8 +3,10 @@
 
 
 use pi_style::style::{AnimationPlayState, StyleType};
-use pi_world::{event::EventSender, fetch::Ticker, filter::Or, prelude::{Changed, ComponentRemoved, Entity, Has, ParamSet, Query, SingleResMut}, single_res::SingleRes, system::{SystemMeta, TypeInfo}, system_params::{Local, SystemParam}, world::World};
+use pi_world::{app::App, event::EventSender, filter::With, prelude::{Changed, ComponentRemoved, Entity, Has, ParamSet, Query, SingleResMut}, schedule_config::IntoSystemConfigs, single_res::SingleRes, system::{SystemMeta, TypeInfo}, system_params::{Local, SystemParam}, world::World};
 use pi_bevy_ecs_extend::prelude::OrInitSingleRes;
+use pi_world::prelude::Plugin;
+use crate::{prelude::UiStage, system::base::node::show::calc_show};
 
 use crate::{
     components::{calc::{style_bit, IsShow, StyleBit, StyleMarkType}, user::{
@@ -13,7 +15,7 @@ use crate::{
     }, SettingComponentIds},
     resource::{
         animation_sheet::{AnimationStyle, KeyFramesSheet}, GlobalDirtyMark, IsRun, TimeInfo
-    }
+    }, system::system_set::UiSystemSet
 };
 
 use super::user_setting::{SingleId, StyleChange, StyleDirtyList, StyleDirtyMark};
@@ -30,6 +32,25 @@ lazy_static! {
 		.set_bit(StyleType::AnimationTimingFunction as usize);
 }
 
+lazy_static! {
+	pub static ref SHOW_DIRTY: StyleMarkType = style_bit()
+        .set_bit(StyleType::Visibility as usize)
+        .set_bit(StyleType::Display as usize);
+}
+
+
+pub struct AnimationPlugin;
+
+impl Plugin for AnimationPlugin {
+    fn build(&self, app: &mut App) {
+		app
+			.add_system(UiStage, calc_animation_1.in_set(UiSystemSet::NextSetting))
+            .add_system(UiStage, calc_animation_2.in_set(UiSystemSet::NextSetting).after(calc_animation_1))
+			.add_system(UiStage, calc_animation_state.in_set(UiSystemSet::IsRun).after(calc_show))
+		;
+	}
+}
+
 pub fn animation_change(mark: &GlobalDirtyMark) -> bool {
 	mark.mark.has_any(&*ANIMATION_DIRTY)
 }
@@ -41,7 +62,7 @@ pub fn animation_change(mark: &GlobalDirtyMark) -> bool {
 pub fn calc_animation_1(
     // world: &mut World,
     mut style_query: ParamSet<(
-        Query<(Entity, Ticker<&Animation>, Ticker<&IsShow>), Or<(Changed<Animation>, Changed<IsShow>)>>,
+        Query<(Entity, &Animation), Changed<Animation>>,
         Query<Has<&'static Animation>>,
     )>,
     removed: ComponentRemoved<Animation>,
@@ -78,19 +99,9 @@ pub fn calc_animation_1(
     // 绑定动画
     if animation_change(&*global_mark) {
         // log::warn!("aaa========={:?}", a.0);
-        for (node, animation, show) in style_query.p0().iter() {
-            if animation.is_changed() {
-                if let Err(e) = keyframes_sheet.bind_static_animation(node, &*animation) {
-                    log::error!("{:?}", e);
-                }
-            }
-            
-            if show.is_changed() {
-                let play_state = match show.get_visibility() && show.get_display() {
-                    true => AnimationPlayState::Running,
-                    false => AnimationPlayState::Paused
-                };
-                keyframes_sheet.set_play_state(node, play_state);
+        for (node, animation) in style_query.p0().iter() {
+            if let Err(e) = keyframes_sheet.bind_static_animation(node, &*animation) {
+                log::error!("{:?}", e);
             }
         }
     }
@@ -102,6 +113,23 @@ pub fn calc_animation_1(
     // println!("animation1====={:?}", (time1 - time0, time2 - time1, time3 - time2, user_commands.style_commands.style_buffer.len()));
 }
 
+/// 节点不可见， 暂停动画， 否则， 恢复动画
+pub fn calc_animation_state(
+   query: Query<(Entity, &IsShow), (With<Animation>, Changed<IsShow>)>,
+   mut keyframes_sheet: SingleResMut<KeyFramesSheet>,
+   global_mark: SingleRes<GlobalDirtyMark>,
+) { 
+    if global_mark.mark.has_any(&*SHOW_DIRTY) {
+        for (node, show) in query.iter() {
+            let play_state = match show.get_visibility() && show.get_display() {
+                true => AnimationPlayState::Running,
+                false => AnimationPlayState::Paused
+            };
+            keyframes_sheet.set_play_state(node, play_state);
+        }
+    }
+    
+}
 
 /// * 将动画执行结果作用到组件上
 pub fn calc_animation_2(

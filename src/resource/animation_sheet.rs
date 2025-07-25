@@ -717,6 +717,8 @@ impl KeyFramesSheet {
                 AnimationPlayState::Running => self.animation_context_amount.restart(group.clone()),
             };
         }
+
+        log::debug!("state================{:?}", (target, state, groups));
     }
 
     // 将动画绑定到目标上（目标即节点的实体id）

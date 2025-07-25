@@ -150,7 +150,7 @@ pub fn calc_show(
 			}
 			
 			// log::debug!("c_enable: {}", c_enable);
-			// log::warn!("show=============entity: {:?}, c_enable: {:?}, parent: {:?}, enable_value: {:?}", node, c_enable, parent_c_enable, enable_value);
+			log::debug!("show=============entity: {:?}, display: {:?}, visibility: {:?}, enable: {:?}", node, c_display, c_visibility, c_enable);
 			// println!("show=============entity: {:?}, c_display: {:?}, c_visibility: {:?}, c_enable: {:?}, {:?}", node, c_display, c_visibility, c_enable, visibility_change);
 			write_item.set_enable(c_enable);
 		}
