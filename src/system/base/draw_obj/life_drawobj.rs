@@ -547,21 +547,21 @@ pub fn update_render_instance_data(
 		// }
 	}
 
-	// 为根节点分配实例， 用于将根节点拷贝到屏幕上
-	for (root_entity, render_target_type, post_process_info, is_show, layer) in query_root1.iter() {
-		log::trace!("alloc root========================{:?}", root_entity); 
-		if post_process_info.has_effect() && RenderTargetType::Screen == *render_target_type {
-			// 有后处理效果， 并且最终会渲染到屏幕上， 则需要分配一个实例用于将其渲染到屏幕
-			let mut info = DrawInfo::new(10, false);
-			info.set_visibility(is_show.get_visibility() && is_show.get_display() && !layer.layer().is_null());
-			alloc(&DrawIndex::Pass2D(EntityKey(root_entity)), &info, new_instances, &instances, &mut instance_index, root_entity);
+	// // 为根节点分配实例， 用于将根节点拷贝到屏幕上
+	// for (root_entity, render_target_type, post_process_info, is_show, layer) in query_root1.iter() {
+	// 	log::trace!("alloc root========================{:?}", root_entity); 
+	// 	if post_process_info.has_effect() && RenderTargetType::Screen == *render_target_type {
+	// 		// 有后处理效果， 并且最终会渲染到屏幕上， 则需要分配一个实例用于将其渲染到屏幕
+	// 		let mut info = DrawInfo::new(10, false);
+	// 		info.set_visibility(is_show.get_visibility() && is_show.get_display() && !layer.layer().is_null());
+	// 		alloc(&DrawIndex::Pass2D(EntityKey(root_entity)), &info, new_instances, &instances, &mut instance_index, root_entity);
 
-			// 否则， 不需要这个实例渲染
-		} else {
-			let (mut index, _render_count) = instance_index.get_mut(root_entity).unwrap();
-			*index = InstanceIndex::default();
-		}
-	}
+	// 		// 否则， 不需要这个实例渲染
+	// 	} else {
+	// 		let (mut index, _render_count) = instance_index.get_mut(root_entity).unwrap();
+	// 		*index = InstanceIndex::default();
+	// 	}
+	// }
 	// 分配清屏所需实例（清屏需要批渲染，因此将其分配在一起）
 	for entity in pass_toop_list.iter() {
 		let (mut draw_2d_list, pass_id) = match p0.get_mut(*entity) {
