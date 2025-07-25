@@ -1504,7 +1504,7 @@ impl Node for CustomCopyNode {
 		_from: &'a [Entity],
 		_to: &'a [Entity],
 	) -> Result<(), String> {
-		log::warn!("_from==============={:?}", (self.0, _id, _from));
+		log::debug!("_from==============={:?}", (self.0, _id, _from));
 		if _from.len() == 1 {
 			// log::warn!("_from!!!!==============={:?}", (_id, param.2.get_mut(_from[0]).is_ok()));
 			let d = None;
