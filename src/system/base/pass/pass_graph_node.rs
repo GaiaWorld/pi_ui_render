@@ -37,7 +37,7 @@ use crate::{
         calc::{EntityKey, WorldMatrix}, draw_obj::{DynTargetType, FboInfo, InstanceIndex}, pass_2d::{CacheTarget, Camera, Draw2DList, DrawElement, ParentPassId, PostProcess, PostProcessInfo, RenderTarget, RenderTargetCache, ScreenTarget}, user::{Aabb2, AsImage, RenderTargetType, Viewport}
     }, resource::{
         draw_obj::{InstanceContext, RenderState, TargetCacheMgr}, RenderContextMarkType
-    }, shader1::batch_meterial::{CameraBind, LayoutUniform, RenderFlagType, TyMeterial, UvUniform}
+    }, shader1::batch_meterial::{CameraBind, RenderFlagType, TyMeterial, UvUniform}
 };
 use crate::components::pass_2d::IsSteady;
 
@@ -563,56 +563,56 @@ impl Node for Pass2DNode {
 			}
 		}
 
-		if let (true, Some(target)) = (!list0.clear_instance.is_null(), &r_target) {
-			// 旧的fbo与新的fbo不同， 或区域不同， 需要重新设置清屏实例数据
-			let mut is_set_clear = false;
-			if let Some(fbo) = &fbo_info.fbo {
-				let rect1 = fbo.rect_with_border();
-				let rect2 = target.rect_with_border();
-				if rect1 != rect2 || !Share::ptr_eq(&fbo.target().colors[0].0 , &target.target().colors[0].0) || camera.view_port != camera.old_view_port{
-					is_set_clear = true;
-				}
-			} else {
-				is_set_clear = true;
-			}
-			if is_set_clear {
-				// 重新设置清屏范围
-				let rect = target.rect_with_border();
-				let rect1 = target.rect();
-				let (x, x1, y, y1) = (
-					if offsetx == 0.0 {rect.min.x as f32}else {rect1.min.x as f32 - offsetx},
-					if render_target.bound_box.maxs.x == camera.view_port.maxs.x {rect.max.x as f32}else {rect1.max.x as f32 - (render_target.bound_box.maxs.x - camera.view_port.maxs.x)},
-					if render_target.bound_box.maxs.y == camera.view_port.maxs.y {rect.max.y as f32}else {rect1.max.y as f32 - (render_target.bound_box.maxs.y - camera.view_port.maxs.y)},
-					if offsety == 0.0 {rect.min.y as f32}else {rect1.min.y as f32 - offsety},
-				);
-				let (xmin, xmax, ymin, ymax) = (
-					x/target.target().width as f32 * 2.0 - 1.0,
-					x1/target.target().width as f32 * 2.0 - 1.0,
-					-(y/target.target().height as f32 * 2.0 - 1.0),
-					-(y1/target.target().height as f32 * 2.0 - 1.0), // y轴需要翻转
-				);
+		// if let Some(target) = &r_target {
+		// 	// 旧的fbo与新的fbo不同， 或区域不同， 需要重新设置清屏实例数据
+		// 	let mut is_set_clear = false;
+		// 	if let Some(fbo) = &fbo_info.fbo {
+		// 		let rect1 = fbo.rect_with_border();
+		// 		let rect2 = target.rect_with_border();
+		// 		if rect1 != rect2 || !Share::ptr_eq(&fbo.target().colors[0].0 , &target.target().colors[0].0) || camera.view_port != camera.old_view_port{
+		// 			is_set_clear = true;
+		// 		}
+		// 	} else {
+		// 		is_set_clear = true;
+		// 	}
+		// 	if is_set_clear {
+		// 		// 重新设置清屏范围
+		// 		let rect = target.rect_with_border();
+		// 		let rect1 = target.rect();
+		// 		let (x, x1, y, y1) = (
+		// 			if offsetx == 0.0 {rect.min.x as f32}else {rect1.min.x as f32 - offsetx},
+		// 			if render_target.bound_box.maxs.x == camera.view_port.maxs.x {rect.max.x as f32}else {rect1.max.x as f32 - (render_target.bound_box.maxs.x - camera.view_port.maxs.x)},
+		// 			if render_target.bound_box.maxs.y == camera.view_port.maxs.y {rect.max.y as f32}else {rect1.max.y as f32 - (render_target.bound_box.maxs.y - camera.view_port.maxs.y)},
+		// 			if offsety == 0.0 {rect.min.y as f32}else {rect1.min.y as f32 - offsety},
+		// 		);
+		// 		let (xmin, xmax, ymin, ymax) = (
+		// 			x/target.target().width as f32 * 2.0 - 1.0,
+		// 			x1/target.target().width as f32 * 2.0 - 1.0,
+		// 			-(y/target.target().height as f32 * 2.0 - 1.0),
+		// 			-(y1/target.target().height as f32 * 2.0 - 1.0), // y轴需要翻转
+		// 		);
 
-				// if parent_pass2d_id.0.is_null() {
-				// 	log::debug!("clear_rect=============== {:?}", (pass2d_id, list0.clear_instance / 224, rect, (target.target().width, target.target().height), xmin, ymin, xmax, ymax, &camera.view_port, &render_target.bound_box, &rect));
-				// }
+		// 		// if parent_pass2d_id.0.is_null() {
+		// 		// 	log::debug!("clear_rect=============== {:?}", (pass2d_id, list0.clear_instance / 224, rect, (target.target().width, target.target().height), xmin, ymin, xmax, ymax, &camera.view_port, &render_target.bound_box, &rect));
+		// 		// }
 				
-				// set_matrix(
-				// 	&WorldMatrix::default(), 
-				// 	&Aabb2::new(Point2::new(xmin, ymin), 
-				// 	Point2::new(xmax, ymax)), 
-				// 	&mut param.instance_draw.instance_data.instance_data_mut(list0.clear_instance)
-				// );
+		// 		// set_matrix(
+		// 		// 	&WorldMatrix::default(), 
+		// 		// 	&Aabb2::new(Point2::new(xmin, ymin), 
+		// 		// 	Point2::new(xmax, ymax)), 
+		// 		// 	&mut param.instance_draw.instance_data.instance_data_mut(list0.clear_instance)
+		// 		// );
 
-				param.instance_draw.instance_data.instance_data_mut(list0.clear_instance)
-					.set_data(&LayoutUniform(&[xmin, ymin, xmax - xmin, ymax - ymin]));
-				// param.instance_draw.instance_data.instance_data_mut(list0.clear_instance).set_data(&QuadUniform(&[
-				// 	xmin, ymin,
-				// 	xmin, ymax,			
-				// 	xmax, ymax,
-				// 	xmax, ymin,
-				// ]));
-			}
-		}
+		// 		param.instance_draw.instance_data.instance_data_mut(list0.clear_instance)
+		// 			.set_data(&LayoutUniform(&[xmin, ymin, xmax - xmin, ymax - ymin]));
+		// 		// param.instance_draw.instance_data.instance_data_mut(list0.clear_instance).set_data(&QuadUniform(&[
+		// 		// 	xmin, ymin,
+		// 		// 	xmin, ymax,			
+		// 		// 	xmax, ymax,
+		// 		// 	xmax, ymin,
+		// 		// ]));
+		// 	}
+		// }
 		
 		// 旧的fbo输出与新的不同， 需要重新设置uv
 		let has_custom_post = match as_image {
@@ -697,6 +697,11 @@ impl Node for Pass2DNode {
 			let mut fbo_camera_viewport; 
 			
 			let mut i = draw_range.start;
+			let defualt_clear = Some(wgpu::Operations {
+				load: wgpu::LoadOp::Clear(wgpu::Color{r: 0.0, g: 0.0, b: 0.0, a: 0.0}),
+				// load: wgpu::LoadOp::Load,
+				store: wgpu::StoreOp::Store,
+			});
 			loop {
 				if i >=  draw_range.end { // 超出渲染范围， 返回
 					return Ok(());
@@ -737,8 +742,7 @@ impl Node for Pass2DNode {
 				rp = create_rp(
 					&rt,
 					&mut commands,
-					None,
-				);
+					defualt_clear);
 				pre_fbo_pass_id = element.1;
 				(fbo_view_port, fbo_camera_viewport) = if let Ok((camera, render_target, _)) = pass_query {
 					let fbo_view_port= calc_view_port(&rt, &camera.view_port, &render_target.bound_box);
@@ -781,6 +785,7 @@ impl Node for Pass2DNode {
 			// log::warn!("draw_list============={:?}", param.instance_draw.draw_list.len());
 			// log::warn!("draw_list============={:?}", (param.instance_draw.draw_list.len(), &param.instance_draw.draw_list));
 			// let mut ii = 0;
+			let mut rp_reset = None;
 			for i in i..draw_range.end {
 				let element = &param.instance_draw.draw_list[i];
 				// log::warn!("element============={:?}, {:?}", &element.1, &pre_fbo_pass_id);
@@ -817,18 +822,20 @@ impl Node for Pass2DNode {
 						}
 					};
 
-					// if !t.eq(&rt) {
-						log::debug!("create_rp2============={:?}", (pass2d_id, &element.1, param.query_parent.get(element.1), &t));
-						{let _a = rp;} // 释放
-						rp = create_rp(
-							&t,
-							&mut commands,
-							None,
-						);
-						render_state.reset = true;
-
-						// log::debug!("create_rp1============={:?}", element.1);
-					// }
+					log::debug!("create_rp2============={:?}", (pass2d_id, &element.1, param.query_parent.get(element.1), &t));
+					{let _a = rp;} // 释放
+					rp = create_rp(
+						&t,
+						&mut commands,
+						if rp_reset.is_some() {
+							let clear = rp_reset;
+							rp_reset = None;
+							clear
+						} else {
+							defualt_clear
+						},
+					);
+					render_state.reset = true;
 					rt = t;
 
 					if let Ok((camera, render_target, _)) = pass_query {
@@ -849,26 +856,6 @@ impl Node for Pass2DNode {
 				}
 				
 				match &element.0 {
-					DrawElement::Clear { draw_state, is_active } => {
-						// log::warn!("clear======={:?}, {:?}, {:?}", element.1, is_active, draw_state.instance_data_range.start / 224);
-						if !*is_active {
-							// log::trace!("is_active======{:?}", pass);
-							continue; // 没有激活的fbo， 不清屏
-						}
-						// log::warn!("clear======={:?}, {:?}, {:?}, {:?}, {:?}", pass, element.1, draw_state.instance_data_range.start/224..draw_state.instance_data_range.end/224, draw_state.instance_data_range.start..draw_state.instance_data_range.end, param.instance_draw.instance_data.data.len());
-						// 批量清屏， 每个清屏实例的布局数据描述了清理区域， 视口设置为整张fbo
-						// if let RPTarget::Fbo(rt) = rt {
-						// 	// log::warn!("clear view port: {:?}", (element.1, rt.rect_with_border()));
-						// 	// 清屏视口
-						// 	rp.set_viewport(0.0, 0.0, rt.target().width as f32, rt.target().height as f32, 0.0, 1.0);
-						// 	rp.set_scissor_rect(0, 0, rt.target().width, rt.target().height);
-						// }
-						// param.instance_draw.set_pipeline(&mut rp, draw_state, &mut render_state);
-						// let group = param.instance_draw.default_camera.get_group();
-						// rp.set_bind_group(CameraBind::set(), &**group.bind_group, group.offsets);
-
-						// param.instance_draw.draw(&mut rp, draw_state, &mut render_state);
-					},
 					DrawElement::DrawInstance { draw_state, pass, .. } => {
 						// use pi_slotmap::Key;
 						// if pass.index() == 67 {
@@ -971,7 +958,7 @@ impl Node for Pass2DNode {
 
 								// final_draw
 								let render_target_rect = final_target.rect();
-								rp = create_rp_for_fbo1(final_target, &mut commands, None);
+								rp = create_rp_for_fbo1(final_target, &mut commands, None); // 后处理是不需要清屏的， 但是据说清屏对移动端更友好？（TODO）
 								log::debug!("create_rp post============={:?}", (post_pass_id, &final_target.target().colors[0].1));
 								let view_port = (
 									render_target_rect.min.x as f32, 
@@ -1012,6 +999,7 @@ impl Node for Pass2DNode {
 						if let Some(entitys) = param.render_cross_entitys.0.get(&id.0) {
 							// 需要重新创建rp， 清理深度
 							{let _a = rp;}
+							// drawlist
 							rp = create_rp(
 								&rt,
 								&mut commands,
@@ -1049,6 +1037,11 @@ impl Node for Pass2DNode {
 							}
 							// 结束后， 重置rp状态， 后续渲染也需要清理深度
 							pre_fbo_pass_id = Null::null();
+							rp_reset = Some(wgpu::Operations {
+								load: wgpu::LoadOp::Load,
+								store: wgpu::StoreOp::Store,
+							});
+							render_state.reset = true;
 							rt = RPTarget::None;
 							pre_pass = Null::null();
 						}
@@ -1103,7 +1096,7 @@ pub fn create_rp<'a>(
             //     r = t;
             // }
 			// fbo永远不清屏
-            create_rp_for_fbo1(rt, commands, None)
+            create_rp_for_fbo1(rt, commands, ops)
         }
 		_ => unreachable!()
     }
@@ -1195,8 +1188,8 @@ pub fn create_rp_for_fbo1<'a>(
 	let ops = match ops {
 		Some(r) => r,
 		None => wgpu::Operations {
-			load: wgpu::LoadOp::Clear(wgpu::Color{r: 0.0, g: 0.0, b: 0.0, a: 0.0}),
-			// load: wgpu::LoadOp::Load,
+			// load: wgpu::LoadOp::Clear(wgpu::Color{r: 0.0, g: 0.0, b: 0.0, a: 0.0}),
+			load: wgpu::LoadOp::Load,
 			store: wgpu::StoreOp::Store,
 		},
 	};
@@ -1522,7 +1515,7 @@ impl Node for CustomCopyNode {
 				
 				out_target.0 = target.as_ref().map(|r| {Share::new(r.downgrade())});
 			}
-			log::warn!("out_target.0================={:?}", (&self.0, &target.is_some()));
+			log::debug!("out_target.0================={:?}", (&self.0, &target.is_some()));
 			
 		}
 		Ok(())

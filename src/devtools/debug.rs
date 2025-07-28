@@ -9,14 +9,11 @@ use pi_bevy_ecs_extend::prelude::Root;
 use pi_bevy_ecs_extend::prelude::Up;
 use pi_bevy_ecs_extend::system_param::tree::Layer;
 use pi_bevy_render_plugin::asimage_url::RenderTarget;
-use pi_bevy_render_plugin::PiRenderDevice;
 use pi_bevy_render_plugin::PiRenderGraph;
-use pi_bevy_render_plugin::PiScreenTexture;
 use pi_null::Null;
 use pi_render::rhi::asset::TextureRes;
 use pi_render::rhi::shader::GetBuffer;
 use pi_render::rhi::shader::WriteBuffer;
-use pi_render::rhi::texture::PiRenderDefault;
 use pi_style::style::Aabb2;
 use pi_style::style::ImageRepeat;
 use pi_world::filter::With;
@@ -302,8 +299,8 @@ pub fn get_global_info(world: &World) -> GloabalInfo {
             crate::components::pass_2d::DrawElement::DrawInstance { draw_state, pass, .. } => {
                 (draw_state.instance_data_range.start / 224..draw_state.instance_data_range.end / 224, Draw2DType::DrawInstance, *pass)
             },
-            crate::components::pass_2d::DrawElement::Clear { draw_state, .. } => 
-                (draw_state.instance_data_range.start / 224..draw_state.instance_data_range.end / 224, Draw2DType::Clear, x.1),
+            // crate::components::pass_2d::DrawElement::Clear { draw_state, .. } => 
+            //     (draw_state.instance_data_range.start / 224..draw_state.instance_data_range.end / 224, Draw2DType::Clear, x.1),
             crate::components::pass_2d::DrawElement::GraphDrawList { id, .. } => 
                 (0..0, Draw2DType::GraphDrawList, id.0),
             crate::components::pass_2d::DrawElement::DrawPost(range) => 

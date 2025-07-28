@@ -103,15 +103,15 @@ pub enum DrawElement {
 		depth_start: usize,
 		pass: Entity, // 所在的psss
 	}, 
-    // 清理屏幕(清理多个pass对应的多个区域)
-    Clear {
-		draw_state: InstanceDrawState,
-        // 每个pass的相机的is_active求或关系（即有一个相机被激活， 都必须清屏）
-        // 需要注意： 
-        // 所有pass中有一些pass处于激活状态， 而有一个asImage为force的节点， 处于未激活状态（应该使用原有的纹理，而不应该被清屏），
-        // 这类节点的清屏， 其可见性应该设置为不可见TODO
-		is_active: bool,
-	}, 
+    // // 清理屏幕(清理多个pass对应的多个区域)
+    // Clear {
+	// 	draw_state: InstanceDrawState,
+    //     // 每个pass的相机的is_active求或关系（即有一个相机被激活， 都必须清屏）
+    //     // 需要注意： 
+    //     // 所有pass中有一些pass处于激活状态， 而有一个asImage为force的节点， 处于未激活状态（应该使用原有的纹理，而不应该被清屏），
+    //     // 这类节点的清屏， 其可见性应该设置为不可见TODO
+	// 	is_active: bool,
+	// }, 
     // // Pass2D类型， 需要递归渲染其对应的实例
 	// Pass2D{
 	// 	id: EntityKey,
@@ -147,7 +147,8 @@ pub struct InstanceDrawState {
 // 渲染 物件 列表
 #[derive(Debug, Component)]
 pub struct Draw2DList {
-	pub clear_instance: usize, // 清屏实例数据（清屏需要一次draw）
+	// pub clear_instance: usize, // 清屏实例数据（清屏需要一次draw）
+    pub need_render_pass: bool, // 是否为一个单独的renderpass
 	// 渲染列表的长度
 	// 在收集渲染列表的过程中，all_list保留了上一帧的列表数据，此字段用于记录all_list中有多少元素是当前帧有效的
 	// 在收集过程中， 任何一个push的元素，与all_list[all_list_len]中的描述不匹配，都应该清理掉all_list_len之后的元素，并标记list_is_change为true
@@ -218,7 +219,8 @@ impl RenderLists {
 impl Default for Draw2DList {
     fn default() -> Self {
         Self {
-			clear_instance: pi_null::Null::null(),
+			// clear_instance: pi_null::Null::null(),
+            need_render_pass: false,
 			list_is_change: false,
 			draw_range: Default::default(),
 			all_list_len: 0,

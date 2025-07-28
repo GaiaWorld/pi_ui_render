@@ -9,7 +9,7 @@ use pi_flex_layout::style::Display;
 use pi_null::Null;
 
 use crate::{components::{
-    calc::{style_bit, DrawList, IsShow, StyleBit, StyleMarkType}, draw_obj::InstanceIndex, pass_2d::Draw2DList, user::{Enable, Show}
+    calc::{style_bit, DrawList, IsShow, StyleBit, StyleMarkType}, draw_obj::InstanceIndex, user::{Enable, Show}
 }, resource::{draw_obj::InstanceContext, GlobalDirtyMark, IsRun, OtherDirtyType}, shader1::batch_meterial::{RenderFlagType, TyMeterial}, system::{base::draw_obj::life_drawobj::update_render_instance_data, system_set::UiSystemSet}};
 
 use crate::prelude::UiStage;
@@ -187,7 +187,7 @@ pub fn show_data_change(show_changed: OrInitSingleRes<ShowDirty>) -> bool {
 /// visibility为false时， 设置渲染实例不可见
 pub fn set_show_data(
 	mut instances: OrInitSingleResMut<InstanceContext>,
-	query: Query<(&DrawList, &IsShow, &Layer, Option<&InstanceIndex>, Option<&Draw2DList>)>,
+	query: Query<(&DrawList, &IsShow, &Layer, Option<&InstanceIndex>)>,
 	mut show_changed: OrInitSingleResMut<ShowDirty>,
     query_draw: Query<&InstanceIndex>,
 	r: OrInitSingleRes<IsRun>,
@@ -199,7 +199,7 @@ pub fn set_show_data(
 		return;
 	}
 	for node in show_changed.0.drain(..) {
-		if let Ok((draw_list, is_show, layer, instance_index, draw_2d_list)) = query.get(node) {
+		if let Ok((draw_list, is_show, layer, instance_index)) = query.get(node) {
 			let visibility = is_show.get_visibility() && is_show.get_display() && !layer.layer().is_null();
 			for draw_id in draw_list.iter() {
 				if let Ok(instance_index) = query_draw.get(draw_id.id) {
@@ -222,11 +222,11 @@ pub fn set_show_data(
 				}
 			}
 
-			if let Some(draw_2d_list) = draw_2d_list {
-				if !draw_2d_list.clear_instance.is_null() {
-					set_instance_visibility(visibility, draw_2d_list.clear_instance, &mut instances);
-				}
-			}
+			// if let Some(draw_2d_list) = draw_2d_list {
+			// 	if !draw_2d_list.clear_instance.is_null() {
+			// 		set_instance_visibility(visibility, draw_2d_list.clear_instance, &mut instances);
+			// 	}
+			// }
 		}
 	}
 }

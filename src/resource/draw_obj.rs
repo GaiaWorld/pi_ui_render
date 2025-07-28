@@ -468,12 +468,13 @@ impl InstanceContext {
         // log::debug!("draw====={:?}", (render_state.reset, &instance_draw.texture_bind_group, &render_state.texture));
         if render_state.reset  {
             if let Some(texture) = &self.sdf2_texture_group {
+                log::debug!("set_bind_group 1===================={:p}, {:?}", &**texture, (instance_draw.pipeline_type, instance_draw.texture_bind_group_type, &instance_draw.instance_data_range));
                 rp.set_bind_group(1, &**texture, &[]);
             }
             if let Some(texture) = &instance_draw.texture_bind_group {
                 rp.set_bind_group(2, &**texture, &[]);
                 render_state.texture = texture.clone();
-                // log::debug!("2===================={:p}, {:?}", &**texture, (instance_draw.pipeline_type, instance_draw.texture_bind_group_type, &instance_draw.instance_data_range));
+                log::debug!("set_bind_group 2===================={:p}, {:?}", &**texture, (instance_draw.pipeline_type, instance_draw.texture_bind_group_type, &instance_draw.instance_data_range));
             }
             rp.set_vertex_buffer(0, self.vert.slice());
 		    rp.set_vertex_buffer(1, self.instance_buffer.as_ref().unwrap().0.slice(..));
@@ -481,7 +482,7 @@ impl InstanceContext {
         } else {   
             if let Some(texture) = &instance_draw.texture_bind_group {
                 if !Share::ptr_eq(&texture, &render_state.texture) {
-                    // log::debug!("3===================={:p}, {:?}", &**texture, (instance_draw.pipeline_type, instance_draw.texture_bind_group_type,&instance_draw.instance_data_range));
+                    log::debug!("set_bind_group 3===================={:p}, {:?}", &**texture, (instance_draw.pipeline_type, instance_draw.texture_bind_group_type,&instance_draw.instance_data_range));
                     rp.set_bind_group(2, &**texture, &[]);
                     render_state.texture = texture.clone();
                 } else {
@@ -490,7 +491,7 @@ impl InstanceContext {
             }
         }
 
-        // log::debug!("darw================={:?}", instance_draw.instance_data_range.start as u32/self.instance_data.alignment as u32..instance_draw.instance_data_range.end as u32/self.instance_data.alignment as u32 );
+        log::debug!("darw================={:?}", instance_draw.instance_data_range.start as u32/self.instance_data.alignment as u32..instance_draw.instance_data_range.end as u32/self.instance_data.alignment as u32 );
         // log::debug!("instance_data_range====={:?}", (&instance_draw.instance_data_range, instance_draw.instance_data_range.start as u32/self.instance_data.alignment as u32..instance_draw.instance_data_range.end as u32/self.instance_data.alignment as u32));
 		#[cfg(debug_assertions)]
         {

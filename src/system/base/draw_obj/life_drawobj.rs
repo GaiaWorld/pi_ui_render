@@ -12,14 +12,13 @@ use pi_bevy_render_plugin::PiRenderDevice;
 use pi_null::Null;
 use pi_render::components::view::target_alloc::ShareTargetView;
 use pi_share::Share;
-use pi_style::style::CgColor;
 use pi_key_alloter::Key;
 use crate::components::draw_obj::{BoxType, DrawCount};
 
-use crate::components::calc::{style_bit, DrawInfo, EntityKey, InPassId, IsShow, NodeId, RenderContextMark, SdfUv, StyleBit, StyleMarkType, WorldMatrix, ZRange};
+use crate::components::calc::{style_bit, DrawInfo, EntityKey, InPassId, IsShow, NodeId, RenderContextMark, SdfUv, StyleBit, StyleMarkType, ZRange};
 use crate::components::draw_obj::{ FboInfo, GetInstanceSplit, HasDraw, InstanceIndex, InstanceSplit, Pipeline, RenderCount};
 // use crate::components::root::RootInstance;
-use crate::components::user::{IsLeaf, RenderTargetType, Opacity};
+use crate::components::user::{IsLeaf, Opacity};
 // #[cfg(debug_assertions)]
 // use crate::components::user::{BackgroundColor, BackgroundImage, BlendMode, BorderImage, Canvas, TextContent};
 // #[cfg(debug_assertions)]
@@ -32,7 +31,7 @@ use crate::resource::{GlobalDirtyMark, IsRun, OtherDirtyType, RenderObjType};
 
 use crate::components::calc::DrawList;
 use crate::shader1::GpuBuffer;
-use crate::shader1::batch_meterial::{BatchMeterial, DebugInfo, DepthUniform, LayoutUniform, MeterialBind, OpacityUniform, RenderFlagType, TetxureIndexMeterial, TyMeterial, WorldMatrixMeterial};
+use crate::shader1::batch_meterial::{BatchMeterial, DebugInfo, DepthUniform, MeterialBind, OpacityUniform, RenderFlagType, TetxureIndexMeterial, TyMeterial};
 
 /// 新版本的draw_object生命周期管理
 /// 用于创建和销毁drawobj
@@ -233,7 +232,6 @@ pub fn update_render_instance_data(
 
 	draw_info: Query<(&DrawInfo, Ticker<&RenderCount>)>,
 
-	query_root1: Query<(Entity, OrDefault<RenderTargetType>, &PostProcessInfo, &IsShow, &Layer), With<Root>>, // 只有gui的Root才会有Size
 	mut catche_buffer: OrInitSingleResMut<RenderInstances1>,
 	default_sdf_uv: OrInitSingleRes<SdfUv>,
 ) {
@@ -562,36 +560,38 @@ pub fn update_render_instance_data(
 	// 		*index = InstanceIndex::default();
 	// 	}
 	// }
-	// 分配清屏所需实例（清屏需要批渲染，因此将其分配在一起）
-	for entity in pass_toop_list.iter() {
-		let (mut draw_2d_list, pass_id) = match p0.get_mut(*entity) {
-			Ok(r) => r,
-			_ => continue
-		}; 
-		match post_info_query.get(pass_id) {
-			Ok((post_info, layer)) if post_info.has_effect() || layer.is_some() => {
-				// 清屏数据
-				let index = if !draw_2d_list.clear_instance.is_null() {
-					let cur_index = new_instances.cur_index();
+	// // 分配清屏所需实例（清屏需要批渲染，因此将其分配在一起）
+	// for entity in pass_toop_list.iter() {
+	// 	let (mut draw_2d_list, pass_id) = match p0.get_mut(*entity) {
+	// 		Ok(r) => r,
+	// 		_ => continue
+	// 	}; 
+	// 	match post_info_query.get(pass_id) {
+	// 		Ok((post_info, layer)) if post_info.has_effect() || layer.is_some() => {
+	// 			// 清屏数据
+	// 			let index = if !draw_2d_list.clear_instance.is_null() {
+	// 				let cur_index = new_instances.cur_index();
 					
-					new_instances.extend(instances.instance_data.slice(draw_2d_list.clear_instance..draw_2d_list.clear_instance + new_instances.alignment));
-					if cur_index != draw_2d_list.clear_instance {
-						let end = new_instances.cur_index();
-						new_instances.update_dirty_range(cur_index..end);
-					}
-					cur_index
-				} else {
-					set_clear_screen_instance(&CgColor::new(0.0, 0.0, 0.0, 0.0), new_instances)
-				};
-				// 分配清屏数据
-				draw_2d_list.clear_instance = index;
-			},
-			_ => {
-				// 不清屏
-				draw_2d_list.clear_instance = pi_null::Null::null();
-			}
-		}
-	}
+	// 				new_instances.extend(instances.instance_data.slice(draw_2d_list.clear_instance..draw_2d_list.clear_instance + new_instances.alignment));
+	// 				if cur_index != draw_2d_list.clear_instance {
+	// 					let end = new_instances.cur_index();
+	// 					new_instances.update_dirty_range(cur_index..end);
+	// 				}
+	// 				cur_index
+	// 			} else {
+	// 				set_clear_screen_instance(&CgColor::new(0.0, 0.0, 0.0, 0.0), new_instances)
+	// 			};
+	// 			// 分配清屏数据
+	// 			// draw_2d_list.clear_instance = index;
+	// 			draw_2d_list.need_render_pass = true;
+	// 		},
+	// 		_ => {
+	// 			// 不清屏
+	// 			// draw_2d_list.clear_instance = pi_null::Null::null();
+	// 			draw_2d_list.need_render_pass = false;
+	// 		}
+	// 	}
+	// }
 	instances.pass_toop_list = pass_toop_list;
 
 	instances.instance_data.clear();
@@ -643,7 +643,6 @@ pub fn batch_instance_data(
 		pre_group: 0,
 		last_group: None,
 		last_fbo: None,
-		is_active: false,
 		pre_is_single_split: false,
 	};
 
@@ -659,13 +658,9 @@ pub fn batch_instance_data(
 		// next_node_with_depend_list: &root_instance.next_node_with_depend,
 		next_node_with_depend_index: 0,
 	};
-
-	let mut pre_clear_index = 0;
 	
 	let pass_toop_list = std::mem::take(&mut instances.pass_toop_list);
 	log::debug!("pass_toop_list!!!!!===={:?}", pass_toop_list);
-
-	let mut old_next_node_with_depend_index = 0;
 	
 
 	let mut start_draw_index = instances.draw_list.len();
@@ -683,86 +678,40 @@ pub fn batch_instance_data(
 		let mut fbo_changed = false;
 		let draw_2d_list = draw_2d_list.bypass_change_detection();
 		let mut camera = query_camera.get_mut(*pass_id).unwrap();
-		if !draw_2d_list.clear_instance.is_null() {
+
+		let (is_fbo, is_root) = if let Ok((post_info, layer)) = query.post_info_query.get(*pass_id) {
+			(post_info.has_effect(), layer.root() == *pass_id) 
+		} else {
+			(false, false)
+		};
+
+		if is_fbo || is_root {
 			// 如果pass需要清屏
-			let fbo_changed1 = match (&fbo_info.fbo, &global_state.last_fbo){
+			match (&fbo_info.fbo, &global_state.last_fbo){
 				(Some(r), Some(r1)) => {
 					if !Share::ptr_eq(&r.target().colors[0].0, &r1.target().colors[0].0) {
 						global_state.last_fbo = Some(r.clone());
 						fbo_changed = true;
-						true
-					} else {
-						false
 					}
 				},
-				(None, None) => {
-					true
-				},
-				(r, _) => {
-					global_state.last_fbo = r.clone();
-					true
-				},
+				_ => (),
 			};	
 
 			let is_render_own = camera.is_render_own;
-			let active_changed = if is_render_own != global_state.is_active {
-				global_state.is_active = is_render_own;
-				true
-			} else {
-				false
-			};
+			// let active_changed = if is_render_own != global_state.is_active {
+			// 	global_state.is_active = is_render_own;
+			// 	true
+			// } else {
+			// 	false
+			// };
 			if is_render_own && fbo_changed {
 				// 如果fbo发生改变， 需要结束之前的纹理批处理， 避免出现渲染源和目标冲突
 				take_group(&mut instances.batch_texture, &query.device, global_state.pre_group, &mut instances.draw_list, global_state.pre_is_single_split);
 				global_state.pre_group = instances.draw_list.len();
 			}
-			// 上一个清屏的批处理索引在当前pass新建了清屏批次时，才返回已经批处理完成的上一个清屏批处理的索引， 否则split_index为null
-			// 有三种情况， 使得split_index不为null：
-			// 1. 与上一个pass相比， fbo发生了改变（处理第一个pass时， 不算发生了改变）
-			// 2. 当前Pass与之前处理的pass存在依赖关系
-			// 3. 迭代到最后一个pass
-			let (split_index/*上一个清屏的批处理索引：单位（批次）*/, end/*实例数据的结束偏移：单位（字节）*/, _draw_call_count/*该次清屏，对应的drawcall数量*/) = if fbo_changed1 || active_changed || old_next_node_with_depend_index != batch_state.next_node_with_depend_index {
-				old_next_node_with_depend_index = batch_state.next_node_with_depend_index;
-				// 如果fbo发生了改变， 重新劈分clear
-				log::debug!("DrawElement::Clear====={:?}, {:?}, {:?}, {:?}", pass_id, pass_index, draw_2d_list.clear_instance/224, instances.next_node_with_depend);
-				let c = (DrawElement::Clear {
-					draw_state: InstanceDrawState { 
-						instance_data_range: draw_2d_list.clear_instance..draw_2d_list.clear_instance + instances.instance_data.alignment, 
-						pipeline: Some(instances.default_pipelines.clear_pipeline.clone()),
-						texture_bind_group: Some(instances.batch_texture.default_group(false)), // 暂时设置为None， 后续会修改为下一个渲染对象的group
-						#[cfg(debug_assertions)]
-						pipeline_type: "other",
-						#[cfg(debug_assertions)]
-						texture_bind_group_type: "none",
-					},
-					is_active: is_render_own,
-				}, *pass_id);
-				let last_index = pre_clear_index;
-				pre_clear_index = instances.draw_list.len(); // 记录当前清屏所需drawcall（实例化渲染， 渲染多个清屏）的索引
-				instances.draw_list.push(c);
-				batch_state.pre_pipeline = instances.default_pipelines.clear_pipeline.clone();
-				if instances.draw_list.len() > 1 {
-					(last_index, draw_2d_list.clear_instance, instances.draw_list.len() - 1 - last_index)
-				} else {
-					(Null::null(), 0, 0/*此分支次数据不会处理， 随便写的0*/)
-				}
-			} else {
-				if instances.draw_list.len() > 0 && pass_index >= batch_state.next_node_with_depend { 
-					(pre_clear_index, draw_2d_list.clear_instance + instances.instance_data.alignment, instances.draw_list.len() - pre_clear_index)
-				} else {
-					(Null::null(), draw_2d_list.clear_instance, 0/*此分支次数据不会处理， 随便写的0*/)
-				}
-			};
-			if !split_index.is_null() {
-				// fbo未改变， 并且迭代结束了，则设置上一个清屏drawcall的实例范围
-				if let DrawElement::Clear {draw_state, ..} = &mut instances.draw_list[split_index].0 {
-					draw_state.instance_data_range.end = end;		
-				}
-			}
-			if let Ok(post_info) = query.post_info_query.get(*pass_id) {
-				if post_info.has_effect() {
-					instances.posts.push(*pass_id);// 后处理节点留在本层渲染末尾处理
-				}
+
+			if is_fbo {
+				instances.posts.push(*pass_id);// 后处理节点留在本层渲染末尾处理
 			}
 			// 当需要渲染时， 才需要劈分数据
 			if is_render_own {
@@ -829,6 +778,7 @@ pub fn batch_instance_data(
 					// 设置之前的批渲染的纹理group
 					for i in global_state.pre_group..instances.draw_list.len() {
 						if let DrawElement::DrawInstance { draw_state, .. } = &mut instances.draw_list[i].0 {
+							log::debug!("texture flow group============={:?}, {:?}, {:p}", global_state.pre_group, &draw_state.instance_data_range, &*group);
 							draw_state.texture_bind_group = Some(group.clone());
 							#[cfg(debug_assertions)]
 							{
@@ -948,7 +898,7 @@ pub fn update_depth(
 				*depth_count += 1;
 			},
 			DrawElement::DrawPost(_) => (),
-			DrawElement::Clear { .. } => (),
+			// DrawElement::Clear { .. } => (),
 		}
 	}
 }
@@ -981,7 +931,7 @@ fn batch_depth(
 			},
 				
 			DrawIndex::Pass2D(r, ..) => match query.post_info_query.get(r.0) {
-				Ok(post_info) if  post_info.has_effect() => {
+				Ok((post_info, _)) if  post_info.has_effect() => {
 					let index = query.instance_index.get_mut(r.0).unwrap();
 					instances.instance_data.set_data_mult1(index.index(is_opacity).clone(), &DepthUniform(&[calc_depth(*depth_count)]));// 设置drawobj的深度
 					*depth_count +=1;
@@ -1045,7 +995,7 @@ fn batch_pass(
 				instance_data_end1 = instance_data_end;
 				instance_data_end = index.end;
 				let mut cur_pipeline = select_pipeline(is_opacity, false, pipeline, &instances.default_pipelines);
-				log::debug!("ByEntity======{:?}", (pass_id, instance_split));
+				log::debug!("DrawIndex::DrawObj======pass_id: {:?}, instance_split: {:?}", pass_id, instance_split);
 
 				if let Some(instance_split) = instance_split {
 					match instance_split {
@@ -1076,7 +1026,7 @@ fn batch_pass(
 							// if node_entity.index() == 159 {
 								// println!("split_by_texture=======node_entity:{:?}, draw_entity:{:?}, {:?}, {:?}", node_entity, draw_entity,  ui_texture.id, a.1);
 							// }
-							log::debug!("ByTexture======{:?}", draw_entity);
+							log::debug!("ByFrame======draw_entity: {:?}, frame: {:?}", &draw_entity, ui_texture.texture().texture);
 							split_by_texture = Some(((*index).clone(), BatchTextureItem::Frame(ui_texture.clone()), &query.common_sampler.default));
 
 							if ui_texture.frame().is_none() {
@@ -1100,6 +1050,7 @@ fn batch_pass(
 						},
 						InstanceSplit::ByCross(id, is_list) =>  {
 							if *is_list {
+								log::debug!("ByCross draw_list==========pass_id: {:?}, entity: {:?}", pass_id, id);
 								cross_list = Some(EntityKey(*id));
 								// is_list为true时， 必须劈分
 								last_pipeline = Some(root_state.pre_pipeline.clone())
@@ -1117,7 +1068,7 @@ fn batch_pass(
 								if let Some(r) = &render_target.0 {
 									split_by_texture = Some((index.clone(), BatchTextureItem::Fbo(r.target().colors[0].0.clone()), &query.common_sampler.pointer)); // TODO， 根据纹理尺寸目标尺寸选择混合模式
 								}
-								log::debug!("cross pipeline=========={:?}", pass_id);
+								log::debug!("ByCross fbo==========pass_id: {:?}, entity: {:?}", pass_id, id);
 								is_single_texture = true;
 
 								// #[cfg(debug_assertions)]
@@ -1146,7 +1097,7 @@ fn batch_pass(
 				&instances.default_pipelines.common_fbo_pipeline
 			},
 			DrawIndex::Pass2D(cur_pass ) => match query.post_info_query.get(cur_pass.0) {
-				Ok(post_info) if  post_info.has_effect() => {
+				Ok((post_info, _)) if  post_info.has_effect() => {
 					let (_, _, _fbo_info, render_target) = query.draw_query.get(cur_pass.0).unwrap();
 					let camera = query.camera_query.get(cur_pass.0).unwrap();
 					let index = query.instance_index.get_mut(cur_pass.0).unwrap().index(is_opacity);
@@ -1264,7 +1215,7 @@ fn batch_pass(
 				start = cursor;
 			}
 			if is_single_texture != global_state.pre_is_single_split {
-				log::debug!("a================{:?}", (is_single_texture, instance_data_start, instance_data_end1));
+				log::debug!(" take_group a================{:?}", (is_single_texture, instance_data_start, instance_data_end1));
 				// 纹理类型发生改变， take_group
 				take_group(&mut instances.batch_texture, &query.device, global_state.pre_group, &mut instances.draw_list, global_state.pre_is_single_split);
 				global_state.pre_group = instances.draw_list.len();
@@ -1280,6 +1231,7 @@ fn batch_pass(
 				depth_start: 0.0
 			}, parent_pass_id));
 			start = cursor + 1;
+			instance_data_end1 = instance_data_end;
 			instance_data_start = instance_data_end; // 渲染实例跳过当前实例不渲染（通过drawlist的方式渲染， 不需要将fbo拷贝到gui上了）
 		}
 
@@ -1376,7 +1328,7 @@ fn pipeline_type(cur_pipeline: &Share<wgpu::RenderPipeline>, instances: &Instanc
 #[derive(SystemParam)]
 pub struct BatchQuery<'w> {
 	pass_query: Query<'w, &'static mut Draw2DList>,
-	post_info_query: Query<'w, &'static PostProcessInfo>,
+	post_info_query: Query<'w, (&'static PostProcessInfo, &'static Layer)>,
 	draw_query: Query<'w, (Option<&'static InstanceSplit>, Option<&'static Pipeline>, OrDefault<FboInfo>, OrDefault<RenderTarget>)>,
 	camera_query:  Query<'w, &'static Camera>,
 	instance_index: Query<'w, &'static InstanceIndex>,
@@ -1425,33 +1377,32 @@ struct BatchGlobalState{
 	// 这用于比较， 当前处理的pass是否切换了fbo
 	// 当前对fbo的清屏操作，是批量清理多个区域，因此，当fbo切换时，clear实例需要放入新的批次
 	last_fbo: Option<ShareTargetView>,
-	is_active: bool,
 }
 
 
 const DEPTH_SPACE: f32 = 0.0001;
 
-fn set_clear_screen_instance(color: &CgColor, instances: &mut GpuBuffer) -> usize{
-	let new_index = instances.alloc_instance_data();
-	log::debug!("alloc clear_screen instance_index============{:?}", new_index);
-	let mut instance_data = instances.instance_data_mut(new_index);
+// fn set_clear_screen_instance(color: &CgColor, instances: &mut GpuBuffer) -> usize{
+// 	let new_index = instances.alloc_instance_data();
+// 	log::debug!("alloc clear_screen instance_index============{:?}", new_index);
+// 	let mut instance_data = instances.instance_data_mut(new_index);
 
-	let mut batch_meterial = BatchMeterial::default();
-	batch_meterial.color = [color.x, color.y, color.z, color.w];
+// 	let mut batch_meterial = BatchMeterial::default();
+// 	batch_meterial.color = [color.x, color.y, color.z, color.w];
 
-	instance_data.set_data(&batch_meterial);
-	instance_data.set_data(&WorldMatrixMeterial(WorldMatrix::default().as_slice()));
-	instance_data.set_data(&DepthUniform(&[0.0]));
+// 	instance_data.set_data(&batch_meterial);
+// 	instance_data.set_data(&WorldMatrixMeterial(WorldMatrix::default().as_slice()));
+// 	instance_data.set_data(&DepthUniform(&[0.0]));
 
-	instance_data.set_data(&LayoutUniform(&[0.0, 0.0, -1.0, -1.0]));
-	let render_flag = 1 << RenderFlagType::IgnoreCamera as usize;
-	instance_data.set_data(&TyMeterial(&[render_flag as f32]));
-	// instance_data.set_data(&QuadUniform(&[
-	// 	-1.0, 1.0,
-	// 	-1.0, -1.0,
-	// 	1.0, -1.0,
-	// 	1.0, 1.0,
-	// ]));
+// 	instance_data.set_data(&LayoutUniform(&[0.0, 0.0, -1.0, -1.0]));
+// 	let render_flag = 1 << RenderFlagType::IgnoreCamera as usize;
+// 	instance_data.set_data(&TyMeterial(&[render_flag as f32]));
+// 	// instance_data.set_data(&QuadUniform(&[
+// 	// 	-1.0, 1.0,
+// 	// 	-1.0, -1.0,
+// 	// 	1.0, -1.0,
+// 	// 	1.0, 1.0,
+// 	// ]));
 
-	new_index
-}
+// 	new_index
+// }
