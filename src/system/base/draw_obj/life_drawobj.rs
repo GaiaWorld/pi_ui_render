@@ -1098,6 +1098,7 @@ fn batch_pass(
 			},
 			DrawIndex::Pass2D(cur_pass ) => match query.post_info_query.get(cur_pass.0) {
 				Ok((post_info, _)) if  post_info.has_effect() => {
+					log::debug!("ByPass Fbo=========={:?}", cur_pass);
 					let (_, _, _fbo_info, render_target) = query.draw_query.get(cur_pass.0).unwrap();
 					let camera = query.camera_query.get(cur_pass.0).unwrap();
 					let index = query.instance_index.get_mut(cur_pass.0).unwrap().index(is_opacity);
@@ -1139,6 +1140,7 @@ fn batch_pass(
 					}
 				},
 				_ => {
+					log::debug!("ByPass Not Fbo=========={:?}", cur_pass);
 					// 将当前剩余未批处理的数据合批(没有fbo的Passd， 相机发生改变，需要分批)
 					if instance_data_start < instance_data_end {
 						instances.draw_list.push((DrawElement::DrawInstance {
@@ -1174,6 +1176,7 @@ fn batch_pass(
 				},
 			},
 			_ => {
+				log::debug!("ByPass Other==========");
 				is_single_texture = global_state.pre_is_single_split;
 				&root_state.pre_pipeline
 			},

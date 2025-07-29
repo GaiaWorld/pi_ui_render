@@ -308,6 +308,7 @@ pi_world = { path = "../pi_world" }
 # glow = {path = "../glow"}
 
 [patch.yn]
+# glow = { package = "pi_glow", path = "../pi_glow" }
 # pi_curves  = {path="../pi_curves"}
 # pi_animation = { path="../pi_animation"}
 # pi_style = {path = "../pi_style"}

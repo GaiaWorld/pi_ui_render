@@ -7,7 +7,7 @@ use pi_style::style::{Aabb2, BaseShape, LengthUnit, StyleType};
 use crate::{
     components::{
         calc::{ContentBox, LayoutResult, OverflowDesc, Quad, TransformWillChangeMatrix, View},
-        pass_2d::{Camera, WorldMatrixInvert},
+        pass_2d::{Camera, RenderTarget, WorldMatrixInvert},
         user::{ClipPath, Point2, Vector4},
     }, resource::{GlobalDirtyMark, IsRun}, system::{base::{
         // node::user_setting::user_setting,
@@ -76,12 +76,14 @@ pub fn clip_path_del(
 pub fn clip_path_post_process(
     mut query: Query<
         (
+            pi_world::world::Entity,
             &ClipPath,
             &LayoutResult,
             &ContentBox,
             &Quad,
             &View,
             &Camera,
+            &RenderTarget,
             &mut PostProcess,
             &WorldMatrixInvert,
             &TransformWillChangeMatrix,
@@ -98,7 +100,7 @@ pub fn clip_path_post_process(
 	if r.0 {
 		return;
 	}
-    for (clip_path, layout, content_box, quad, view, camera, mut post, world_matrix_invert, will_change_matrix) in query.iter_mut() {
+    for (entity, clip_path, layout, content_box, quad, view, camera, render_target, mut post, world_matrix_invert, will_change_matrix) in query.iter_mut() {
         if !camera.is_render_own {
             continue;
         }
@@ -163,10 +165,10 @@ pub fn clip_path_post_process(
         let v_ratio = (view_aabb_layout.maxs.y - view_aabb_layout.mins.y) / v_h1;
 
         let context_rect = (
-            (camera.view_port.maxs.x - camera.view_port.mins.x) * v_ratio,
-            (camera.view_port.maxs.y - camera.view_port.mins.y) * v_ratio,
-            (camera.view_port.mins.x - view_aabb.mins.x) * h_ratio + view_aabb_layout.mins.x,
-            (camera.view_port.mins.y - view_aabb.mins.y) * v_ratio + view_aabb_layout.mins.y,
+            (camera.view_port.maxs.x - camera.view_port.mins.x) * h_ratio, // width
+            (camera.view_port.maxs.y - camera.view_port.mins.y) * v_ratio, // height
+            (camera.view_port.mins.x - view_aabb.mins.x) * h_ratio + view_aabb_layout.mins.x, // x
+            (camera.view_port.mins.y - view_aabb.mins.y) * v_ratio + view_aabb_layout.mins.y, // y
         );
 
 
@@ -256,6 +258,19 @@ pub fn clip_path_post_process(
                 )
             }
         };
+        log::debug!("clip-path=======entity: {:?}, \nclip_path: {:?}, \nview_port: {:?}, \nview_aabb_layout: {:?}, \nview_aabb: {:?}, 
+        \nclip_sdf: {:?}, \nbound_box: {:?}, \ncontent_box: {:?}, \nquad: {:?}, \nlayout: {:?}", 
+            entity, 
+            &clip_path.0,
+            &camera.view_port, 
+            &view_aabb_layout, 
+            &view_aabb,
+            &clip_sdf,
+            &render_target.bound_box,
+            &content_box.oct,
+            &quad,
+            &layout,
+        );
         post.clip_sdf = Some(clip_sdf)
     }
 }
