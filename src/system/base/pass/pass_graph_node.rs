@@ -1481,9 +1481,7 @@ impl Node for CustomCopyNode {
 		id: Entity,
 	) {
 		if let Ok(mut r) = param.get_mut(id) {
-			if let Some(t) = &mut r.target {
-				*t = Share::new(t.downgrade())
-			}
+			r.target = None;
 		}
 	}
 
@@ -1498,26 +1496,21 @@ impl Node for CustomCopyNode {
 		_to: &'a [Entity],
 	) -> Result<(), String> {
 		log::debug!("_from==============={:?}", (self.0, _id, _from));
+		let mut target = None;
 		if _from.len() == 1 {
 			// log::warn!("_from!!!!==============={:?}", (_id, param.2.get_mut(_from[0]).is_ok()));
-			let d = None;
-			let mut x;
-			let target = match param.2.get_mut(_from[0]) {
-				Ok(r) => {
-					x = r;
-					&mut x.target
-				},
-				Err(_) => &d,
-			};
-			if let Ok((mut out_target, render_target, instance_index)) = param.0.get_mut(self.0) {
-				// 比较target是否发生改变， 如果发生改变， 需要重新批处理
-				compare_target(target, out_target.bypass_change_detection(), render_target, instance_index, &mut param.1);
-				
-				out_target.0 = target.as_ref().map(|r| {Share::new(r.downgrade())});
+			if let Ok(r) = param.2.get_mut(_from[0]) {
+				target = r.target.clone()
 			}
-			log::debug!("out_target.0================={:?}", (&self.0, &target.is_some()));
-			
 		}
+
+		if let Ok((mut out_target, render_target, instance_index)) = param.0.get_mut(self.0) {
+			// 比较target是否发生改变， 如果发生改变， 需要重新批处理
+			compare_target(&target, out_target.bypass_change_detection(), render_target, instance_index, &mut param.1);
+			
+			out_target.0 = target.as_ref().map(|r| {Share::new(r.downgrade())});
+		}
+		log::debug!("custom build=================entity: {:?}, id: {:?}, from: {:?}, has_target: {:?}", &self.0, _id, _from, &target.is_some());
 		Ok(())
     }
 

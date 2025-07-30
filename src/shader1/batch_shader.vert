@@ -47,10 +47,19 @@ void main() {
 		return;
 	}
 
-	vec2 p = position * box_layout.zw + box_layout.xy;
+	
+	float is_back = step(matrix0.x * matrix1.y, 0.0); // 根据矩形， 判断是否应该渲染背面， 如果需要渲染背面， 需要将顶点顺序逆时针
+	// 四边形顶点分别用两个三角形代替，分别是[0, 0]， [0, 1]， [1, 1]和[1，1]， [1, 0]， [0, 0]
+	// 只需要将[0, 0]变为[1,1], [1, 1]变为[0, 0], 就等同于交换了顶点顺序
+	float p_index1 = position.x + position.y;
+	vec2 position_fix = (
+			step(p_index1, 0.1) * vec2(1.0, 1.0) 
+			+ step(0.9, p_index1) * step(p_index1, 1.1) * position
+		) * is_back
+		+ position * (1.0 - is_back);
 
 	// 计算uv
-	float p_index = position.x + position.x + position.y;// 得到索引位置0或1或2或3（left_top = 0, left_bottom = 1, right_top = 2, right_bottom = 3）
+	float p_index = position_fix.x + position_fix.x + position_fix.y;// 得到索引位置0或1或2或3（left_top = 0, left_bottom = 1, right_top = 2, right_bottom = 3）
 	vec4 select = vec4(
 		step(p_index, 0.1),                      // 小于0.1， 只可能是0.0
 		step(0.9, p_index) * step(p_index, 1.1), // 0.9 < p_index <= 1.1, 只可能是1.0, 
@@ -63,6 +72,7 @@ void main() {
 			 + vec4(uv.zw, sdfUv.zw) * select.w;
 	float textureIndex = other.z;
 
+	vec2 p = position_fix * box_layout.zw + box_layout.xy;
 	// 处理预乘因子
 	float not_premultiply = 1.0; // 1.0表示非预乘模式， 0.001表示预乘模式
 	if ((ty1 & 8) != 0) { // 预乘模式
