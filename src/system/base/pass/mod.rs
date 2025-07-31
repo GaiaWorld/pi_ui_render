@@ -2,9 +2,10 @@ use pass_life::pass_life_children;
 use pi_world::prelude::{App, Plugin, PostUpdate, IntoSystemConfigs, WorldPluginExtent};
 use pi_bevy_render_plugin::GraphBuild;
 
-use self::pass_camera::calc_camera;
 use self::pass_life::calc_pass;
 use self::update_graph::init_root_graph;
+use crate::system::base::draw_obj::life_drawobj::update_render_instance_data;
+use crate::system::base::pass::pass_camera::calc_pass_active;
 use crate::system::system_set::UiSystemSet;
 use crate::prelude::UiStage;
 
@@ -30,7 +31,7 @@ impl Plugin for UiPassPlugin {
             // 创建、删除Pass，为Pass组织树结构
             .add_system(UiStage, 
 				calc_pass
-					.after(calc_camera)
+					.after(calc_pass_active)
                     .after(UiSystemSet::PassFlush)
                     .in_set(UiSystemSet::IsRun)
 					
@@ -85,7 +86,7 @@ impl Plugin for UiPassPlugin {
             .add_system(UiStage, 
                 pass_camera::calc_camera
                     .after(pass_dirty_rect::calc_global_dirty_rect)
-                    .after(pass_life::calc_pass_toop_sort)
+                    .after(update_render_instance_data)
                     .before(pass_camera::calc_pass_active)
                     .after(calc_render_steady::calc_is_steady)
                     .after(UiSystemSet::PassSetting)

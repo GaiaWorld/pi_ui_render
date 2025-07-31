@@ -156,7 +156,7 @@ pub fn calc_content_box(
                 chilren_change = true;
             }
 
-            log::debug!("content_box===================={:?}", (id, &old.oct, &oct, chilren_change));
+            // log::debug!("content_box===================={:?}", (id, &old.oct, &oct, chilren_change));
             // 如果内容包围盒发生改变，则重新插入内容包围盒，并标记父脏
             if chilren_change {
                 old.oct = oct;

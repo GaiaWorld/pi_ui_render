@@ -37,7 +37,7 @@ use crate::{
         calc::{EntityKey, WorldMatrix}, draw_obj::{DynTargetType, FboInfo, InstanceIndex}, pass_2d::{CacheTarget, Camera, Draw2DList, DrawElement, ParentPassId, PostProcess, PostProcessInfo, RenderTarget, RenderTargetCache, ScreenTarget}, user::{Aabb2, AsImage, RenderTargetType, Viewport}
     }, resource::{
         draw_obj::{InstanceContext, RenderState, TargetCacheMgr}, RenderContextMarkType
-    }, shader1::batch_meterial::{CameraBind, RenderFlagType, TyMeterial, UvUniform}
+    }, shader1::batch_meterial::{CameraBind, RenderFlagType, TyMeterial, UvUniform}, system::base::pass::pass_life::set_invaild
 };
 use crate::components::pass_2d::IsSteady;
 
@@ -1604,23 +1604,7 @@ fn compare_target(
 	
 	// 设置实例是否可见
 	if has_instance {
-		let mut ty = instance_context.instance_data.instance_data_mut(index.start).get_render_ty();
 		// 没有分配fbo，设置将渲染无效
-		let invaild = target.is_none();
-		let invaild = (unsafe {transmute::<_, u8>(invaild)} as usize) << (RenderFlagType::Invalid as usize);
-		// if !node.is_null() {
-		// 	log::error!("!!!!!!!!!!!!========================={:?}", (
-		// 		node, 
-		// 		target.is_none(), ty & (1 << RenderFlagType::Invalid as usize), invaild, 
-		// 		ty & !(1 << RenderFlagType::Invalid as usize) | invaild,
-		// 	));
-		// }
-		if ty & (1 << RenderFlagType::Invalid as usize) != invaild {
-			
-			ty = ty & !(1 << RenderFlagType::Invalid as usize) | invaild;
-			
-			// 根据canvas是否有对应的fbo，决定该节点是否显示
-			instance_context.instance_data.instance_data_mut(index.start).set_data(&TyMeterial(&[ty as f32]));
-		}
+		set_invaild(target.is_none(), &mut instance_context.instance_data.instance_data_mut(index.start));
 	}
 }

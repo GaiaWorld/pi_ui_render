@@ -20,7 +20,7 @@ use crate::{
         calc::{
             IsShow, OverflowDesc, Quad, TransformWillChangeMatrix, View, WorldMatrix
         }, pass_2d::{
-            Camera, DirtyRect, DirtyRectState, IsSteady, ParentPassId, PostProcessInfo, RenderTarget, RenderTargetCache
+            Camera, DirtyRect, DirtyRectState, Draw2DList, IsSteady, ParentPassId, PostProcessInfo, RenderTarget, RenderTargetCache
         }, user::{Aabb2, AsImage, Point2, Vector2, Viewport}
     }, resource::{
         draw_obj::{InstanceContext, TargetCacheMgr}, IsRun, RenderContextMarkType, RenderDirty, ShareFontSheet
@@ -129,6 +129,7 @@ pub fn calc_camera(
             &Quad,
             &IsShow,
             &PostProcessInfo,
+            &Draw2DList,
         )
     >,
 
@@ -199,7 +200,8 @@ pub fn calc_camera(
             mut render_target, 
             quad, 
             is_show,
-            post_info): 
+            post_info,
+            draw_2d_list): 
         (
             Entity,
             &ParentPassId,
@@ -213,6 +215,7 @@ pub fn calc_camera(
             &Quad,
             &IsShow,
             &PostProcessInfo,
+            &Draw2DList,
         ),
         parent_dirty_rect: Aabb2,
         cur_dirty_rect:  &mut DirtyRect,
@@ -229,14 +232,15 @@ pub fn calc_camera(
         cur_dirty_rect.state = DirtyRectState::UnInit;
         cur_dirty_rect.draw_changed = false;
         
-        if !is_show.get_visibility() || !is_show.get_display() {
+        if !is_show.get_visibility() || !is_show.get_display() || draw_2d_list.all_list_sort.len() == 0 {
             // 如果设置为隐藏，之前的渲染结果也需要释放
             // 因为， 如果将其缓存，直到重新设置为可见， 中间发生的任何改变， 都不会渲染为fbo，此时曾经缓冲的fbo的像素结果， 可能已经不正确了， 因此，直接释放掉缓存的fbo
             render_target.target = None;
             render_target.cache = RenderTargetCache::None;
             if camera_bypass.is_visible {
-                camera_bypass.is_visible = false; // 设置为不可见
-                camera_bypass.view_port = Aabb2::new(Point2::new(0.0, 0.0), Point2::new(0.0, 0.0));
+                render_target.bound_box = camera_bypass.view_port.clone();
+                camera.is_visible = false; // 设置为不可见
+                camera.view_port = Aabb2::new(Point2::new(0.0, 0.0), Point2::new(0.0, 0.0));
                 return true; // 返回true，表示需要重新批处理
             }
             // 如果曾经不可见， 现在也不可见， 则不需要重新批处理
@@ -352,13 +356,13 @@ pub fn calc_camera(
         
         // log::debug!("viewport======={:?}, \nview_aabb={:?}, \noverflow_aabb={:?}, \ndirty_rect={:?}", entity, no_rotate_view_aabb, overflow_aabb, dirty_rect);
 
-        log::debug!("pass_id2 22========={:?}, {:?}", entity, (overflow_aabb, no_rotate_view_aabb, !is_show.get_visibility(), !is_show.get_display()));
+        log::debug!("camera0, entity: {:?}, overflow_aabb: {:?}, no_rotate_view_aabb: {:?}, old_is_visible: {:?}", entity, overflow_aabb, no_rotate_view_aabb, camera_bypass.is_visible);
         if no_rotate_view_aabb.mins.x >= no_rotate_view_aabb.maxs.x || no_rotate_view_aabb.mins.y >= no_rotate_view_aabb.maxs.y {
             // 如果视口为0， 则不需要渲染
             // 与 visiblity=false和display=none的区别是， 该fbo依然可见，任何改变， 都会触发缓存的fbo重新渲染， 缓存的fbo总会是最新结果， 因此不需要将fbo释放，原有缓存依然可用
             if camera_bypass.is_visible {
                 camera_bypass.is_visible = false; // 设置为不可见
-                camera_bypass.view_port = no_rotate_view_aabb;
+                camera.view_port = no_rotate_view_aabb;
                 return true; // 返回true，表示需要重新批处理
             }
             return old_is_render_own != camera_bypass.is_render_own;

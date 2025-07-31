@@ -58,7 +58,7 @@ pub fn set_matrix_uniform_inner(
                 }
             }
             // 节点可能设置为dispaly none， 此时instance_index可能为Null TODO
-            log::debug!("set_matrix_uniform!!!!: draw_id={:?}, instance_index={:?}", draw_id.id, instance_index);
+            // log::debug!("set_matrix_uniform!!!!: draw_id={:?}, instance_index={:?}", draw_id.id, instance_index);
             // if pi_null::Null::is_null(&instance_index.0.start) {
             //     continue;
             // }
@@ -75,14 +75,14 @@ pub fn set_matrix_uniform_inner(
                         // if entity.index() == 257 && entity.data().version() == 4 {
                         //     println!("=============layout1=============={:?}", (entity));
                         // }
-                        log::debug!("matrix uniform none==========================={:?}", (draw_id, world_matrix.as_slice().len()));
+                        // log::debug!("matrix uniform none==========================={:?}", (draw_id, world_matrix.as_slice().len()));
                         instances.instance_data.set_data_mult(index, count, &WorldMatrixMeterial(world_matrix.as_slice()));
                         return;
                     },
                     BoxType::None2 => return,
                 };
                 // if entity.index() == 257 && entity.data().version() == 4 {
-                log::debug!("matrix uniform==========================={:?}", (draw_id, &aabb));
+                // log::debug!("matrix uniform==========================={:?}", (draw_id, &aabb));
                 // }
                 
                 instances.instance_data.set_data_mult(index, count,&LayoutUniform(&[aabb.mins.x, aabb.mins.y, aabb.maxs.x - aabb.mins.x, aabb.maxs.y - aabb.mins.y]));

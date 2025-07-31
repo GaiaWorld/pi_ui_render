@@ -15,7 +15,7 @@
 //! 4. 在节点上创建其所在的Pass2D实体的索引（InPass2DId），表明节点上的渲染对象应该渲染到那个Psss2D上。
 //!
 //!
-use std::collections::VecDeque;
+use std::{collections::VecDeque, mem::transmute};
 
 use pi_bevy_render_plugin::{render_cross::GraphId, NodeId, PiRenderGraph};
 use pi_slotmap::SecondaryMap;
@@ -28,7 +28,7 @@ use pi_null::Null;
 use crate::{
     components::{
         calc::{style_bit, ContentBox, EntityKey, InPassId, NeedMark, OverflowDesc, RenderContextMark, StyleBit, StyleMarkType, TransformWillChangeMatrix, View, WorldMatrix}, draw_obj::InstanceIndex, pass_2d::{Camera, ChildrenPass, ParentPassId, PostProcessInfo, RenderTarget}, user::{Point2, Size}, PassBundle
-    }, resource::{draw_obj::InstanceContext, EffectRenderContextMark, GlobalDirtyMark, IsRun, OtherDirtyType, RenderContextMarkType}, shader1::batch_meterial::{RenderFlagType, TyMeterial}, system::{base::draw_obj::image_texture_load::AsImageBindList, draw_obj::set_matrix}
+    }, resource::{draw_obj::InstanceContext, EffectRenderContextMark, GlobalDirtyMark, IsRun, OtherDirtyType, RenderContextMarkType}, shader1::{batch_meterial::{RenderFlagType, TyMeterial}, InstanceData}, system::{base::draw_obj::image_texture_load::AsImageBindList, draw_obj::set_matrix}
 };
 
 
@@ -510,13 +510,14 @@ pub fn calc_pass(
         &InstanceIndex, 
         &ParentPassId,
         &RenderTarget,
+        &Camera,
         &View,
         &TransformWillChangeMatrix,
         Option<&crate::components::user::TransformWillChange>,
         // OrDefault<Overflow>,
         // &crate::components::calc::LayoutResult,
         // &ContentBox,
-        // Entity,
+        Entity,
     ), Or<(Changed<PostProcessInfo>, Changed<ContentBox>, Changed<TransformWillChangeMatrix>, Changed<Camera>)>>,
     // query1: Query<
 	// 	(
@@ -530,19 +531,19 @@ pub fn calc_pass(
     if r.0 {
 		return;
 	}
-    for (instance_index, parent_pass_id, render_target, view, will_change_matrix, will_change ) in query.iter() {
+    for (instance_index, parent_pass_id, render_target, camera, view, will_change_matrix, will_change, entity ) in query.iter() {
         log::trace!("passs1==============={:?}", instance_index);
         // 节点可能设置为dispaly none， 此时instance_index可能为Null
         // 节点可能没有后处理效果， 此时instance_index为Null
         if pi_null::Null::is_null(&instance_index.opacity.start) &&  pi_null::Null::is_null(&instance_index.transparent.start) {
             continue;
         }
-        let start = if pi_null::Null::is_null(&instance_index.transparent.start) {
-            instance_index.opacity.start
+        let index = if pi_null::Null::is_null(&instance_index.transparent.start) {
+            &instance_index.opacity
         } else {
-            instance_index.transparent.start
+            &instance_index.transparent
         };
-        let mut instance_data = instances.instance_data.instance_data_mut(start);
+        let mut instance_data = instances.instance_data.instance_data_mut(index.start);
         let mut render_flag = instance_data.get_render_ty();
         render_flag |= 1 << RenderFlagType::Uv as usize;
         render_flag |= 1 << RenderFlagType::Premulti as usize;
@@ -581,6 +582,8 @@ pub fn calc_pass(
             // };
             // instance_data.set_data(&BoxUniform(&[left, top, width, height]));
             instance_data.set_data(&TyMeterial(&[render_flag as f32]));
+            set_invaild(!camera.is_render_to_parent, &mut instance_data);
+            log::debug!("set pass instance data, entity: {:?}, instance_index: {:?}, is_render_to_parent: {:?}, bound_box: {:?}", entity, instance_index.transparent.start / 224, camera.is_render_to_parent, &render_target.bound_box);
             // 设置quad到世界位置
             match (&view.desc, &will_change_matrix.0) {
                 (OverflowDesc::NoRotate(_), None) => {
@@ -818,5 +821,24 @@ pub fn render_mark_false(
 ) {
     if unsafe {render_mark_value.bypass_change_detection().replace_unchecked(mark_type, false) } {
         render_mark_value.set_changed();
+    }
+}
+
+pub fn set_invaild(invaild: bool, instance_data: &mut InstanceData) {
+    let mut ty = instance_data.get_render_ty();
+    let invaild = (unsafe {transmute::<_, u8>(invaild)} as usize) << (RenderFlagType::Invalid as usize);
+    // if !node.is_null() {
+    // 	log::error!("!!!!!!!!!!!!========================={:?}", (
+    // 		node, 
+    // 		target.is_none(), ty & (1 << RenderFlagType::Invalid as usize), invaild, 
+    // 		ty & !(1 << RenderFlagType::Invalid as usize) | invaild,
+    // 	));
+    // }
+    if ty & (1 << RenderFlagType::Invalid as usize) != invaild {
+        
+        ty = ty & !(1 << RenderFlagType::Invalid as usize) | invaild;
+        
+        // 根据canvas是否有对应的fbo，决定该节点是否显示
+        instance_data.set_data(&TyMeterial(&[ty as f32]));
     }
 }

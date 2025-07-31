@@ -418,7 +418,7 @@ pub fn update_render_instance_data(
 
 					// 用于debug
 					// #[cfg(debug_assertions)]
-					instance_data.set_data(&DebugInfo(&[pass_id.index() as f32]));
+					instance_data.set_data(&DebugInfo(&[node.index() as f32]));
 					
 				}
 
