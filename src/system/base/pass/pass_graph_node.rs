@@ -37,7 +37,7 @@ use crate::{
         calc::{EntityKey, WorldMatrix}, draw_obj::{DynTargetType, FboInfo, InstanceIndex}, pass_2d::{CacheTarget, Camera, Draw2DList, DrawElement, ParentPassId, PostProcess, PostProcessInfo, RenderTarget, RenderTargetCache, ScreenTarget}, user::{Aabb2, AsImage, RenderTargetType, Viewport}
     }, resource::{
         draw_obj::{InstanceContext, RenderState, TargetCacheMgr}, RenderContextMarkType
-    }, shader1::batch_meterial::{CameraBind, RenderFlagType, TyMeterial, UvUniform}, system::base::pass::pass_life::set_invaild
+    }, shader1::batch_meterial::{CameraBind, UvUniform}, system::base::pass::pass_life::set_invaild
 };
 use crate::components::pass_2d::IsSteady;
 
@@ -1087,7 +1087,7 @@ pub fn create_rp<'a>(
 ) -> RenderPass<'a> {
     match rt {
         RPTarget::Screen(surface, depth) => {
-            create_screen_rp(surface, depth, commands, ops)
+            create_screen_rp(surface, depth, commands)
         }
         RPTarget::Fbo(rt) => {
             // 渲染到临时的fbo上
@@ -1109,23 +1109,19 @@ pub fn create_screen_rp<'a>(
     // target_view_port: &Aabb2, // 渲染目标对应的view_port;
     // last_rt: &'a RenderTarget,
     // surface: &'a ScreenTexture,
-    ops: Option<wgpu::Operations<wgpu::Color>>,
+    // ops: Option<wgpu::Operations<wgpu::Color>>,
 ) -> RenderPass<'a> {
 	log::trace!("create_screen_rp===={:?}", depth.is_some());
 	// 渲染到屏幕上
-	let ops = match ops {
-		Some(r) => r,
-		None => wgpu::Operations {
-			// load: wgpu::LoadOp::Clear(wgpu::Color{r: 0.0, g: 0.0, b: 0.0, a: 1.0}),
-			load: wgpu::LoadOp::Load,
-			store: wgpu::StoreOp::Store,
-		},
-	};
 	commands.begin_render_pass(&wgpu::RenderPassDescriptor {
 		label: None,
 		color_attachments: &[Some(wgpu::RenderPassColorAttachment {
 			resolve_target: None,
-			ops,
+			ops: wgpu::Operations {
+				// load: wgpu::LoadOp::Clear(wgpu::Color{r: 0.0, g: 0.0, b: 0.0, a: 1.0}),
+				load: wgpu::LoadOp::Load,
+				store: wgpu::StoreOp::Store,
+			},
 			view: surface,
 		})],
 		depth_stencil_attachment:  match depth {
