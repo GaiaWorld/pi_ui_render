@@ -194,6 +194,7 @@ lazy_static! {
 	pub static ref NODE_DIRTY: StyleMarkType = style_bit()
 		.set_bit(OtherDirtyType::NodeTreeAdd as usize)
 		.set_bit(OtherDirtyType::NodeTreeDel as usize)
+		.set_bit(OtherDirtyType::NodeTreeRemove as usize)
 		.set_bit(OtherDirtyType::DrawObjCreate as usize)
 		.set_bit(OtherDirtyType::DrawObjDelete as usize)
 		.set_bit(OtherDirtyType::InstanceCount as usize)
@@ -222,7 +223,7 @@ pub fn update_render_instance_data(
 	)>,
 	post_info_query: Query<(&PostProcessInfo, Option<&Root>)>,
 	mut instances : OrInitSingleResMut<InstanceContext>,
-	node_query: Query<(Option<&ParentPassId>, &InPassId, &DrawList, &ZRange, &IsShow, Entity, &Layer)>,
+	node_query: Query<(Option<&ParentPassId>, &InPassId, &DrawList, &ZRange, &IsShow, Entity, Ticker<&Layer>)>,
 
 	mut instance_index: ParamSet<(
 		Query<(&PostProcessInfo, &'static mut InstanceIndex, Entity, &mut FboInfo, &mut RenderTarget)>,
@@ -282,6 +283,25 @@ pub fn update_render_instance_data(
 		// 	continue;
 		// }
 
+		// 节点从树上移除， 删除对应例索引
+		if layer.layer().is_null() {
+			if layer.is_changed() {
+				if let Ok((mut index, _render_count)) = instance_index.get_mut(id) {
+					let index = index.bypass_change_detection();
+					index.opacity = Null::null();
+					index.transparent = Null::null();
+				}
+			
+				for draw_id in draw_list.iter() {
+					if let Ok((mut index, _render_count)) = instance_index.get_mut(draw_id.id) {
+						let index = index.bypass_change_detection();
+						index.opacity = Null::null();
+						index.transparent = Null::null();
+					}
+				}
+			}
+			continue;
+		}
 		let mut draw_2d_list = match p1.get_mut(***in_pass_id) {
             Ok(r) => r,
             _ => continue,
@@ -297,7 +317,7 @@ pub fn update_render_instance_data(
 				if render_count.is_changed() {
 					list.list_is_change = true;
 				}
-				let is_visibility = is_show.get_visibility() && is_show.get_display() && !layer.layer().is_null();
+				let is_visibility = is_show.get_visibility() && is_show.get_display();
 				
 				if render_count.opacity > 0 {
 					let mut info = info.clone();
@@ -350,11 +370,10 @@ pub fn update_render_instance_data(
 		new_instances.data.reserve(instances.instance_data.cur_index() - new_instances.data.len());
 	}
 
-
 	let mut default_metrial = BatchMeterial::default();
 	default_metrial.sdf_uv = [default_sdf_uv.0.left, default_sdf_uv.0.top, default_sdf_uv.0.right, default_sdf_uv.0.bottom];
 	
-	let alloc = |draw_index: &DrawIndex, draw_info: &DrawInfo, new_instances: &mut GpuBuffer, instances: &InstanceContext, instance_index: &mut Query<(&'static mut InstanceIndex, OrDefault<RenderCount>)>, pass_id: Entity| {
+	let mut alloc = |draw_index: &DrawIndex, draw_info: &DrawInfo, new_instances: &mut GpuBuffer, instances: &InstanceContext, instance_index: &mut Query<(&'static mut InstanceIndex, OrDefault<RenderCount>)>, pass_id: Entity| {
 		let mut alloc:  Option<Entity> = None;
 		// #[cfg(debug_assertions)]
 		let mut node = EntityKey::null();
@@ -422,13 +441,13 @@ pub fn update_render_instance_data(
 					
 				}
 
-				log::debug!("alloc instance_index============{:?}, {:?}", entity, new_index);
+				log::debug!("alloc instance_index============entity={:?}, new_index={:?}, render_count={:?}", (node, entity), new_index, render_count);
 				index.set_index(is_opacity, new_index.clone());
 
 			} else {
 				// 存在旧的，从旧的实例上拷贝过来
 				new_index = new_instances.cur_index()..new_instances.cur_index() + render_count * new_instances.alignment;
-				log::debug!("change_index============{:?}, {:?}, {:?}", (node, entity), new_index, old_index);
+				log::debug!("change_index============{:?}, new_index: {:?}, old_index: {:?}", (node, entity), new_index, old_index);
 				if render_count > 0 {
 					new_instances.extend(instances.instance_data.slice(old_index.clone()));
 
@@ -445,7 +464,6 @@ pub fn update_render_instance_data(
 	let p0 = pass_query.p0();	
 		
 	let pass_toop_list = std::mem::take(&mut instances.pass_toop_list);
-	log::debug!("pass_toop_list===={:?}", &pass_toop_list);
 	for entity in pass_toop_list.iter() {
 		let (mut draw_2d_list, _pass_id) = match p0.get_mut(*entity) {
 			Ok(r) => r,
@@ -456,12 +474,12 @@ pub fn update_render_instance_data(
 
 		draw_2d_list.shrink();
 
+		log::debug!("draw_2d_list instance============entity: {:?}, list_is_change: {:?}, old_instance_range: {:?}, cur_index: {:?}, \nall_list: {:?}", entity, draw_2d_list.list_is_change, &draw_2d_list.instance_range, new_instances.cur_index(), draw_2d_list.all_list.as_slice());
 		// 渲染列表未改变， 拷贝旧数据到新的实例数据中， 如果数据偏移发生变化， 还需要标记脏区域
 		if !draw_2d_list.list_is_change {
 			let instance_data_range = &draw_2d_list.instance_range;
 			let mut cur_index = new_instances.cur_index();
 			new_instances.extend(instances.instance_data.slice(instance_data_range.clone()));
-			log::debug!("list_is_change not, entity: {:?}, {:?}", entity, instance_data_range);
 			// 如果新的索引和原有索引不同，需要更新每个draw_obj的实例索引, 如果深度值不同， 需要更新深度值
 			if cur_index != instance_data_range.start {
 				new_instances.update_dirty_range(cur_index..cur_index + instance_data_range.len());
@@ -474,13 +492,15 @@ pub fn update_render_instance_data(
 						cur_index = end;
 					};
 				}
+				draw_2d_list.instance_range = (new_instances.cur_index() - instance_data_range.len()) ..new_instances.cur_index();
 				instances.rebatch = true; // 需要重新批处理
 			}
+			continue;
 		} else {
 			instances.rebatch = true; // 需要重新批处理
 		}
 
-		log::debug!("draw_2d_list.all_list_sort============{:?}, {:?}", entity, draw_2d_list.all_list.as_slice());
+		
 		draw_2d_list.all_list_sort.clear();
 		draw_2d_list.all_list_sort.extend_from_slice(draw_2d_list.all_list.as_slice());
 		draw_2d_list.all_list_sort.sort_by(|(_a, a_z_depth, a_sort), (_b, b_z_depth, b_sort)| {

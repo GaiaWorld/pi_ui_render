@@ -162,6 +162,7 @@ lazy_static! {
     pub static ref SVG_DIRTY: StyleMarkType = SVG_LEN_DIRTY.clone();
     pub static ref SVG_LEN_DIRTY: StyleMarkType = SVG_LAYOUT_DIRTY.clone()
         | LAYOUT_DIRTY
+            .set_bit(OtherDirtyType::NodeTreeAdd as usize)
             .set_bit(SvgType::SvgColor as usize + SCG_STYLE_START)
             .set_bit(SvgType::SvgStrokeColor as usize + SCG_STYLE_START)
             .set_bit(SvgType::SvgStrokeWidth as usize + SCG_STYLE_START)

@@ -2,6 +2,7 @@ use pi_flex_layout::prelude::Rect;
 use pi_null::Null;
 use pi_style::style::{CgColor, StyleType};
 use pi_world::fetch::OrDefault;
+use pi_world::filter::Or;
 use pi_world::prelude::{Changed, With, Query, Plugin, IntoSystemConfigs};
 use pi_bevy_ecs_extend::prelude::{Layer, OrInitSingleRes, OrInitSingleResMut};
 use pi_world::single_res::SingleRes;
@@ -65,6 +66,7 @@ pub const BACKGROUND_COLOR_ORDER: u8 = 2;
 
 lazy_static! {
 	pub static ref BACKGROUND_COLOR_DATA_DIRTY: StyleMarkType = style_bit()
+		.set_bit(OtherDirtyType::NodeTreeAdd as usize)
 		.set_bit(StyleType::BackgroundColor as usize)| &*LAYOUT_DIRTY;
 }
 
@@ -90,7 +92,7 @@ pub struct BackgroundColorChange {
 pub fn calc_background_color_instance_count(
 	rect_sdf_slice: OrInitSingleRes<RectSdfSlice>,
 	mut events: OrInitSingleResMut<BackgroundColorChange>,
-    query: Query<(&BackgroundColor, &LayoutResult, &IsRotate, &DrawList, Entity, OrDefault<SdfUv>, Option<&SdfSlice>, &Layer), (Changed<BackgroundColor>, Changed<LayoutResult>, Changed<IsRotate>, Changed<Layer>)>,
+    query: Query<(&BackgroundColor, &LayoutResult, &IsRotate, &DrawList, Entity, OrDefault<SdfUv>, Option<&SdfSlice>, &Layer), Or<(Changed<BackgroundColor>, Changed<LayoutResult>, Changed<IsRotate>, Changed<Layer>)>>,
 	mut query_draw: Query<&mut RenderCount, With<BackgroundColorMark>>,
 	r: OrInitSingleRes<IsRun>,
 	render_type: OrInitSingleRes<BackgroundColorRenderObjType>,

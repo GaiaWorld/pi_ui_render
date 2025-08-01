@@ -77,6 +77,7 @@ pub const BORDER_COLOR_ORDER: u8 = 4;
 
 lazy_static! {
 	pub static ref BORDER_IMAGE_DIRTY: StyleMarkType = style_bit()
+		.set_bit(OtherDirtyType::NodeTreeAdd as usize)
 		.set_bit(StyleType::BorderColor as usize)
 		.set_bit(StyleType::BorderRadius as usize);
 }

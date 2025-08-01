@@ -1131,7 +1131,6 @@ pub fn create_screen_rp<'a>(
 		depth_stencil_attachment:  match depth {
 			Some(r) => Some(wgpu::RenderPassDepthStencilAttachment {
 				stencil_ops: None,
-				// 渲染到屏幕，不需要清理深度，也不需要写深度
 				depth_ops: Some(wgpu::Operations {
 					load: wgpu::LoadOp::Clear(0.0),
 					store: wgpu::StoreOp::Discard,

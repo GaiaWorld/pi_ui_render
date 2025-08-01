@@ -7,7 +7,7 @@ use pi_null::Null;
 use pi_world::filter::Or;
 use pi_world::param_set::ParamSet;
 use pi_world::prelude::{Changed, With, Query, Plugin, OrDefault, IntoSystemConfigs, Has, ComponentRemoved};
-use pi_bevy_ecs_extend::prelude::{OrInitSingleRes, OrInitSingleResMut};
+use pi_bevy_ecs_extend::prelude::{Layer, OrInitSingleRes, OrInitSingleResMut};
 
 use pi_flex_layout::style::Dimension;
 use pi_style::style::{ImageRepeatOption, StyleType};
@@ -86,6 +86,7 @@ lazy_static! {
 	pub static ref BACKGROUND_TEXTURE_DIRTY: StyleMarkType = style_bit()
 		.set_bit(StyleType::BackgroundImageClip as usize)
 		.set_bit(OtherDirtyType::BackgroundImageTexture as usize)
+		.set_bit(OtherDirtyType::NodeTreeAdd as usize)
 		.set_bit(StyleType::ObjectFit as usize); 
 }
 
@@ -121,9 +122,9 @@ pub fn calc_background_image_instance_count(
 				&IsRotate,
 			),
 			&DrawList,
-			&pi_bevy_ecs_extend::prelude::Layer,
+			&Layer,
 		),
-		Or<(Changed<BackgroundImageTexture>, Changed<BackgroundImageClip>, Changed<WorldMatrix>, Changed<SdfSlice>, Changed<BackgroundImageMod>, Changed<Opacity>)>,
+		Or<(Changed<BackgroundImageTexture>, Changed<BackgroundImageClip>, Changed<WorldMatrix>, Changed<SdfSlice>, Changed<BackgroundImageMod>, Changed<Opacity>, Changed<Layer>)>,
 	>,
     mut query_draw: Query<(&mut BoxType, &mut RenderCount)>,
 	r: OrInitSingleRes<IsRun>,

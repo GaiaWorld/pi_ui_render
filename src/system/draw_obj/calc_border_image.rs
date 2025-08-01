@@ -76,7 +76,8 @@ lazy_static! {
 		.set_bit(StyleType::BorderImageClip as usize)
 		.set_bit(StyleType::BorderImageSlice as usize)
 		.set_bit(StyleType::BorderImageRepeat as usize)
-		.set_bit(OtherDirtyType::BorderImageTexture as usize);
+		.set_bit(OtherDirtyType::BorderImageTexture as usize)
+		.set_bit(OtherDirtyType::NodeTreeAdd as usize);
 }
 
 pub fn border_texture_change(mark: SingleRes<GlobalDirtyMark>) -> bool {

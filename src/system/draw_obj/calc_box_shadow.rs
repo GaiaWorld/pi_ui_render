@@ -228,7 +228,8 @@ pub fn calc_box_shadow(
 lazy_static! {
 	// 子节点脏， 仅设自身child_dirty
 	pub static ref BOX_SHADOW_DIRTY: StyleMarkType = style_bit()
-		.set_bit(StyleType::BoxShadow as usize);
+		.set_bit(StyleType::BoxShadow as usize)
+		.set_bit(OtherDirtyType::NodeTreeAdd as usize);
 }
 
 pub fn box_shadow_change(mark: SingleRes<GlobalDirtyMark>) -> bool {
