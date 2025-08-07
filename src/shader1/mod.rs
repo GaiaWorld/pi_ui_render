@@ -25,6 +25,9 @@ pub struct GpuBuffer {
 	pub cur_index: usize,
 
 	pub dirty_range: Range<usize>,
+	pub merge_ranges: Vec<Range<usize>>, 
+	pub size: usize,
+	pub previous_range: Range<usize>
 }
 
 impl GpuBuffer {
@@ -45,6 +48,9 @@ impl GpuBuffer {
 			alignment,
 			cur_index: 0,
 			dirty_range: std::usize::MAX..std::usize::MAX,
+			merge_ranges: Vec::new(),
+			size: 0,
+			previous_range: std::usize::MAX..std::usize::MAX,
 		}
 	}
 
@@ -52,6 +58,9 @@ impl GpuBuffer {
 		self.data.clear();
 		self.cur_index = 0;
 		self.dirty_range = std::usize::MAX..std::usize::MAX;
+		self.merge_ranges.clear();
+		self.size = 0;
+		self.previous_range = std::usize::MAX..std::usize::MAX;
 	}
 
 	pub fn update_dirty_range(&mut self, range: Range<usize>) {
@@ -61,6 +70,12 @@ impl GpuBuffer {
 
 		if self.dirty_range.end.is_null() || range.end > self.dirty_range.end {
 			self.dirty_range.end = range.end;
+		}
+
+		if range != self.previous_range {
+			self.size += range.len();
+			self.merge_ranges.push(range.clone());
+			self.previous_range = range;
 		}
 	}
 
@@ -219,6 +234,61 @@ impl GpuBuffer {
 
 	pub fn data(&self) -> &[u8] {
 		&self.data
+	}
+	const MERGE_SIZE: usize = 300 * 1024; // 
+	const BIG_SIZE: usize = 5 * 1024; // 一个区间有BIG_SIZE大小以上的数据认为是较大的数据
+	const BIG_MERGE_GAP_SCALE: usize = 3;
+	const SMALL_MERGE_GAP_SCALE: usize = 10;
+
+	pub fn reset_count_state(&mut self) {
+		self.dirty_range = std::usize::MAX..std::usize::MAX;
+		self.merge_ranges.clear();
+		self.size = 0;
+		self.previous_range = std::usize::MAX..std::usize::MAX;
+	}
+
+	pub fn merge_ranges(&mut self) {
+		log::trace!("=============== total_size: {}, merge_ranges: {:?}, size: {}", self.dirty_range.len(), self.merge_ranges.len(), self.size);
+		// let time = std::time::Instant::now();
+		if self.merge_ranges.is_empty() {
+			return ;
+		}
+
+		let total_size =  self.dirty_range.len();
+		if total_size < Self::MERGE_SIZE || self.size * Self::SMALL_MERGE_GAP_SCALE > total_size {
+			self.merge_ranges.clear();
+			return;
+		}
+	
+		self.size = 0;
+		// 1. 按区间起点排序
+		self.merge_ranges.sort_by_key(|r| r.start);
+		
+		let mut merged = Vec::new();
+		let mut current_range = self.merge_ranges[0].start..self.merge_ranges[0].end;
+
+	
+		// 2. 遍历并合并重叠区间
+		for r in self.merge_ranges.iter() {
+			let size = r.len() + current_range.len();
+			let scale = if size < Self::BIG_SIZE { Self::SMALL_MERGE_GAP_SCALE } else { Self::BIG_MERGE_GAP_SCALE };
+			if r.start <= current_range.end + scale * size {
+				// 区间重叠，扩展当前区间
+				current_range.end = current_range.end.max(r.end);
+			} else {
+				// 无重叠，保存当前区间并开始新区间
+				self.size += current_range.len();
+				merged.push(current_range);
+				current_range = r.start..r.end;
+			}
+		}
+		
+		// 3. 添加最后一个区间
+		self.size += current_range.len();
+		merged.push(current_range);
+		
+		self.merge_ranges = merged;
+		// println!("======== merge_ranges time : {:?}", time.elapsed());
 	}
  }
 

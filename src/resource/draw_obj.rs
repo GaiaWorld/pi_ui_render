@@ -1,6 +1,7 @@
 //! 与DrawObject相关的资源
 use std::{collections::hash_map::Entry, hash::Hash, marker::PhantomData, num::NonZeroU32, borrow::Cow};
 
+use naga::Range;
 use pi_world::prelude::{FromWorld, World, Entity};
 use ordered_float::NotNan;
 use pi_assets::{asset::Handle, homogeneous::HomogeneousMgr, mgr::AssetMgr};
@@ -1005,7 +1006,18 @@ impl InstanceContext {
 	}
 
 	pub fn update(&mut self, device: &RenderDevice, queue: &RenderQueue) {
-		log::trace!("update instance_buffer={:?}", &self.instance_data.dirty_range);
+        self.instance_data.merge_ranges();
+        log::trace!(
+            "update instance_buffer={:?}",
+            (
+                &self.instance_data.dirty_range,
+                self.instance_data.dirty_range.len(),
+                &self.instance_data.merge_ranges,
+                self.instance_data.size,
+                &self.instance_data.merge_ranges.len()
+            )
+        );
+
 		Self::update1(device, queue, &mut self.instance_data, &mut self.instance_buffer);
         Self::update1(device, queue, &mut self.text_shadow_h_instance_data, &mut self.text_shadow_h_instance_buffer);
         Self::update1(device, queue, &mut self.text_shadow_v_instance_data, &mut self.text_shadow_v_instance_buffer);
@@ -1027,12 +1039,22 @@ impl InstanceContext {
             
 			if let Some((buffer, size)) = &instance_buffer {
 				if *size >= instance_data.dirty_range.end {
-					queue.write_buffer(
-						buffer,
-						instance_data.dirty_range.start as u64,
-						&instance_data.data()[instance_data.dirty_range.clone()],
-					);
-                    instance_data.dirty_range = std::usize::MAX..std::usize::MAX;
+                    if !instance_data.merge_ranges.is_empty() {
+                        for range in &instance_data.merge_ranges {
+                            queue.write_buffer(
+                                &buffer,
+                                range.start as u64,
+                                &instance_data.data()[range.clone()],
+                            );
+                        }
+                    } else {
+                        queue.write_buffer(
+                            buffer,
+                            instance_data.dirty_range.start as u64,
+                            &instance_data.data()[instance_data.dirty_range.clone()],
+                        );
+                    // }
+                    instance_data.reset_count_state(); 
 					return;
 				}
 
@@ -1045,16 +1067,26 @@ impl InstanceContext {
                 usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
                 mapped_at_creation: false,
             });
-            queue.write_buffer(
-                &buffer,
-                instance_data.dirty_range.start as u64,
-                &instance_data.data()[instance_data.dirty_range.clone()],
-            );
+            if !instance_data.merge_ranges.is_empty() {
+                for range in &instance_data.merge_ranges {
+                    queue.write_buffer(
+                        &buffer,
+                        range.start as u64,
+                        &instance_data.data()[range.clone()],
+                    );
+                } 
+            } else {
+                queue.write_buffer(
+                    &buffer,
+                    instance_data.dirty_range.start as u64,
+                    &instance_data.data()[instance_data.dirty_range.clone()],
+                );
+            }
 
             *instance_buffer = Some((buffer, len));
 			
 			// log::trace!("create instance_buffer={:?}", instance_data.data());
-			instance_data.dirty_range = std::usize::MAX..std::usize::MAX;
+			instance_data.reset_count_state(); 
 		}
 	}
 }

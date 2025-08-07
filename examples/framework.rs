@@ -395,7 +395,15 @@ println!("===========   ===========");
                     // }
             
                     // #[cfg(target_arch = "wasm32")]
-                    (450, 720)
+                    #[cfg(target_os = "android")]
+                    {
+                        let size = window.inner_size();
+                        (size.width, size.height)
+                    }
+                    
+
+                    #[cfg(not(target_os = "android"))]
+                    {(1080, 720)}
                 };
                 
                 init(width, height, &mut app, window.clone());
@@ -585,14 +593,15 @@ pub fn init(width: u32, height: u32, app: &mut App, w: Arc<pi_winit::window::Win
     // 	Err(_) => bevy_log::Level::INFO,
     // };
 
+    #[cfg(not(target_os = "android"))]
     app.add_plugins(pi_bevy_log::LogPlugin::<Vec<u8>> {
         filter,
         level: LOG_LEVEL.clone(),
         chrome_write: None,
-    })
+    });
     // .add_plugins(bevy_a11y::AccessibilityPlugin)
     // .add_plugins(bevy_input::InputPlugin::default())
-    .add_plugins(window_plugin)
+    app.add_plugins(window_plugin)
     // .add_plugins(WinitPlugin::default())
     .add_plugins(pi_bevy_winit_window::WinitPlugin::new(w).with_size(width, height))
     .add_plugins(PiAssetPlugin {
