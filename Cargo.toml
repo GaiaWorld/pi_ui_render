@@ -270,7 +270,16 @@ test = true
 # crate-type = ["cdylib"]
 # test = true
 
+# Note: there can be multiple .uses_permission entries.
+[[package.metadata.android.uses_permission]]
+name = "android.permission.INTERNET"
 
+# [[package.metadata.android.uses_permission]]
+# name = "android.permission.ACCESS_FINE_LOCATION"
+
+[package.metadata.android.signing.release]
+path = "/mnt/e/app_new_gui/pi_android/src/keystore/yineng.keystore"
+keystore_password = "123456"
 
 
 [patch.crates-io]
