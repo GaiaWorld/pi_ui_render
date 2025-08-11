@@ -540,20 +540,20 @@ pub fn init(width: u32, height: u32, app: &mut App, w: Arc<pi_winit::window::Win
 
     let mut o = PiRenderOptions::default();
 
-    #[cfg(not(target_os = "android"))]
-    match std::env::var("GL") {
-        Ok(r) if r == "opengl" => {
-            o.present_mode = wgpu::PresentMode::Fifo;
-            o.backends = wgpu::Backends::GL;
-        }
-        _ => {
-            // o.present_mode = wgpu::PresentMode::Fifo;
-            // o.backends = wgpu::Backends::GL;
-            o.present_mode = wgpu::PresentMode::Mailbox;
-            o.backends = wgpu::Backends::VULKAN;
-        }
-    };
-    #[cfg(target_os = "android")]
+    // #[cfg(not(target_os = "android"))]
+    // match std::env::var("GL") {
+    //     Ok(r) if r == "opengl" => {
+    //         o.present_mode = wgpu::PresentMode::Fifo;
+    //         o.backends = wgpu::Backends::GL;
+    //     }
+    //     _ => {
+    //         // o.present_mode = wgpu::PresentMode::Fifo;
+    //         // o.backends = wgpu::Backends::GL;
+    //         o.present_mode = wgpu::PresentMode::Mailbox;
+    //         o.backends = wgpu::Backends::VULKAN;
+    //     }
+    // };
+    // #[cfg(target_os = "android")]
     {
         o.present_mode = wgpu::PresentMode::Fifo;
         o.backends = wgpu::Backends::GL;

@@ -14,7 +14,7 @@ use pi_ui_render::resource::UserCommands;
 fn main() { framework::start(ExampleCommonPlay::new()) }
 
 #[test]
-#[wasm_bindgen_test::wasm_bindgen_test]
+// #[wasm_bindgen_test::wasm_bindgen_test]
 fn test() { framework::start(ExampleCommonPlay::new()) }
 
 pub struct ExampleCommonPlay {

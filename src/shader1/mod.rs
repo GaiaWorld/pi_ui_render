@@ -1,7 +1,11 @@
-use std::ops::Range;
+use std::{mem::transmute, ops::Range};
 
+use ordered_float::NotNan;
+use parry2d::transformation::utils::transform;
 use pi_null::Null;
 use pi_render::rhi::shader::{GetBuffer, WriteBuffer};
+
+use crate::shader1::batch_meterial::DepthUniformMut;
 
 use self::batch_meterial::TyMeterialMut;
 
@@ -35,6 +39,14 @@ impl GpuBuffer {
 		uniform.get_data(index, &self.data);
 
 		uniform_data[0] as usize
+	}
+
+	pub fn get_depth(&self, index: u32) -> f32 {
+		let mut uniform_data = [unsafe { NotNan::new_unchecked(0.0 as f32) }];
+		let mut uniform = DepthUniformMut(uniform_data.as_mut_slice());
+		uniform.get_data(index, &self.data);
+
+		*uniform_data[0]
 	}
 
 	/// 创建
@@ -179,6 +191,18 @@ impl GpuBuffer {
 		}
 	}
 
+	// 连续设置相同的buffer到多个实例(设置之前先比较)
+	pub fn set_data_mult2<T: WriteBuffer + GetBuffer + PartialEq>(&mut self, index: Range<usize>, value: &T, mut old: T) {
+		let mut i = index.start;
+		while i < index.end {
+			old.get_data(i as u32, &self.data);
+			if &old != value {
+				self.instance_data_mut(i).set_data(value);
+			}
+			i += self.alignment;
+		}
+	}
+
 	
 
 	/// 在cur_index索引之后扩展片段
@@ -231,6 +255,7 @@ impl<'a> InstanceData<'a> {
 	pub fn get_render_ty(&self) -> usize {
 		self.data.get_render_ty(self.index as u32)
 	}
+
 }
 
 
@@ -295,3 +320,4 @@ impl<'a> InstanceData<'a> {
 		self.index
 	}
 }
+

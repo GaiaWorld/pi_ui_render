@@ -238,12 +238,13 @@ pub fn calc_background_image_inner(
 	let background_image_texture = match &background_image_texture_ref.0 {
 		Some(r) => {
 			// 图片不一致， 返回
-			if let Texture::All(r) = r {
-				if *r.key() != background_image.0.str_hash() as u64 {
-					log::debug!("calc_background_image1, entity={:?}, {:?}", entity, (r.key(), background_image.0.str_hash()));
-					return None;
-				}
-			} else if let Texture::Frame(_r, key) = r {
+			// if let Texture::All(r) = r {
+			// 	if *r.key() != background_image.0.str_hash() as u64 {
+			// 		log::debug!("calc_background_image1, entity={:?}, {:?}", entity, (r.key(), background_image.0.str_hash()));
+			// 		return None;
+			// 	}
+			// } else 
+			if let Texture::Frame(_r, key) = r {
 				if key.str_hash() != background_image.0.str_hash() as u64 {
 					log::debug!("calc_background_image1, entity={:?}, {:?}", entity, (key, background_image.0.str_hash()));
 					return None;

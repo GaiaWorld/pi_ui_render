@@ -1,8 +1,9 @@
+use ordered_float::NotNan;
 use pi_bevy_ecs_extend::prelude::{OrInitSingleRes, OrInitSingleResMut, Up};
 use pi_null::Null;
 use pi_world::{event::ComponentChanged, fetch::OrDefault, filter::{Changed, Or}, query::Query, world::Entity};
 
-use crate::{components::{calc::{DrawList, LayoutResult, NodeState, WorldMatrix}, draw_obj::{BoxType, InstanceIndex, RenderCount}}, resource::{draw_obj::InstanceContext, GlobalDirtyMark, OtherDirtyType}, shader1::batch_meterial::{LayoutUniform, WorldMatrixMeterial}};
+use crate::{components::{calc::{DrawList, LayoutResult, NodeState, WorldMatrix}, draw_obj::{BoxType, InstanceIndex, RenderCount}, user::Matrix4}, resource::{draw_obj::InstanceContext, GlobalDirtyMark, OtherDirtyType}, shader1::{batch_meterial::{DepthUniformMut, LayoutUniform, WorldMatrixMeterial}, GpuBuffer}};
 use crate::resource::IsRun;
 
 pub fn set_matrix_uniform(
@@ -76,7 +77,7 @@ pub fn set_matrix_uniform_inner(
                         //     println!("=============layout1=============={:?}", (entity));
                         // }
                         // log::debug!("matrix uniform none==========================={:?}", (draw_id, world_matrix.as_slice().len()));
-                        instances.instance_data.set_data_mult(index, count, &WorldMatrixMeterial(world_matrix.as_slice()));
+                        set_matrix(index, count, world_matrix, &mut instances.instance_data);
                         return;
                     },
                     BoxType::None2 => return,
@@ -84,12 +85,17 @@ pub fn set_matrix_uniform_inner(
                 // if entity.index() == 257 && entity.data().version() == 4 {
                 // log::debug!("matrix uniform==========================={:?}", (draw_id, &aabb));
                 // }
-                
                 instances.instance_data.set_data_mult(index, count,&LayoutUniform(&[aabb.mins.x, aabb.mins.y, aabb.maxs.x - aabb.mins.x, aabb.maxs.y - aabb.mins.y]));
-                instances.instance_data.set_data_mult(index, count,&WorldMatrixMeterial(world_matrix.as_slice()));
+                set_matrix(index, count, world_matrix, &mut instances.instance_data);
             };
             calc(instance_index.opacity.start, render_count.opacity as usize);
             calc(instance_index.transparent.start, render_count.transparent as usize);
         }
     }
+}
+
+pub fn set_matrix(index: usize, count: usize, matrix: &Matrix4, instance_data: &mut GpuBuffer) {
+    // let depth = instance_data.get_depth(index as u32);
+    instance_data.set_data_mult(index, count, &WorldMatrixMeterial(matrix.as_slice()));
+    // instance_data.set_data_mult2(index..index + instance_data.alignment * count, &DepthUniformMut(&mut [unsafe{NotNan::new_unchecked(depth)}]), DepthUniformMut(&mut [unsafe{NotNan::new_unchecked(depth)}]));
 }

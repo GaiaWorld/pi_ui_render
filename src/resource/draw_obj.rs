@@ -1,6 +1,7 @@
 //! 与DrawObject相关的资源
 use std::{collections::hash_map::Entry, hash::Hash, marker::PhantomData, num::NonZeroU32, borrow::Cow};
 
+use pi_hal::texture::ImageTexture;
 use pi_world::prelude::{FromWorld, World, Entity};
 use ordered_float::NotNan;
 use pi_assets::{asset::Handle, homogeneous::HomogeneousMgr, mgr::AssetMgr};
@@ -11,21 +12,13 @@ use pi_hash::{XHashMap, XHashSet};
 use pi_map::vecmap::VecMap;
 use pi_render::{
     components::view::target_alloc::FboRes, renderer::{draw_obj::DrawBindGroup, texture::ImageTextureFrame, vertices::{EVerticesBufferUsage, RenderVertices}}, rhi::{
-        asset::{AssetWithId, RenderRes, TextureRes},
-        bind_group::BindGroup,
-        bind_group_layout::BindGroupLayout,
-        buffer::Buffer,
-        device::RenderDevice,
-        dyn_uniform_buffer::{BufferGroup, GroupAlloter},
-        pipeline::RenderPipeline,
-        shader::ShaderMeta,
-        texture::PiRenderDefault, RenderQueue,
+        asset::RenderRes, bind_group::BindGroup, bind_group_layout::BindGroupLayout, buffer::Buffer, device::RenderDevice, dyn_uniform_buffer::{BufferGroup, GroupAlloter}, pipeline::RenderPipeline, shader::ShaderMeta, texture::PiRenderDefault, RenderQueue
     }
 };
 use pi_render::rhi::shader::AsLayoutEntry;
 use pi_render::rhi::shader::BindLayout;
 use pi_share::Share;
-use pi_slotmap::{DefaultKey, SlotMap};
+use pi_slotmap::{DefaultKey, KeyData, SlotMap};
 use wgpu::{
     BindGroupEntry, BindingType, BlendState, BufferDescriptor, CompareFunction, DepthBiasState, DepthStencilState, Extent3d, FrontFace, Limits, MultisampleState, PipelineLayout, RenderPass, Sampler, SamplerBindingType, ShaderModule, ShaderStages, StencilState, TextureDescriptor, TextureFormat, TextureSampleType, TextureView, TextureViewDescriptor, TextureViewDimension
 };
@@ -58,8 +51,8 @@ use crate::{
 
 #[derive(Clone, Debug)]
 pub enum BatchTextureItem {
-    Texture(Handle<AssetWithId<TextureRes>>),
-    Frame(Handle<ImageTextureFrame>),
+    // Texture(Handle<AssetWithId<TextureRes>>),
+    Frame(Share<wgpu::BindGroup>),
     Fbo(Handle<FboRes>)
 }
 
@@ -71,23 +64,24 @@ impl BatchTextureItem {
     //     }
     // }
 
-    fn texture_view(&self) -> &TextureView {
-        match self {
-            BatchTextureItem::Texture(droper) => &droper.texture_view,
-            BatchTextureItem::Fbo(droper) => &droper.texture_view,
-            BatchTextureItem::Frame(droper) => &droper.view,
-        }
-    }
+    // fn texture_view(&self) -> &TextureView {
+    //     match self {
+    //         // BatchTextureItem::Texture(droper) => &droper.texture_view,
+    //         BatchTextureItem::Fbo(droper) => &droper.texture_view,
+    //         BatchTextureItem::Frame(droper) => &droper.view,
+    //     }
+    // }
 
-    fn is_eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (BatchTextureItem::Texture(droper), BatchTextureItem::Texture(droper1)) => Share::ptr_eq(droper, droper1),
-            (BatchTextureItem::Fbo(droper), BatchTextureItem::Fbo(droper1)) => Share::ptr_eq(droper, droper1),
-            (BatchTextureItem::Frame(droper), BatchTextureItem::Frame(droper1)) => Share::ptr_eq(&droper.tex, &droper1.tex),
-            _ => false,
-        }
-    }
+    // fn is_eq(&self, other: &Self) -> bool {
+    //     match (self, other) {
+    //         // (BatchTextureItem::Texture(droper), BatchTextureItem::Texture(droper1)) => Share::ptr_eq(droper, droper1),
+    //         (BatchTextureItem::Fbo(droper), BatchTextureItem::Fbo(droper1)) => Share::ptr_eq(droper, droper1),
+    //         (BatchTextureItem::Frame(droper), BatchTextureItem::Frame(droper1)) => Share::ptr_eq(&droper.tex, &droper1.tex),
+    //         _ => false,
+    //     }
+    // }
 }
+
 // 批处理纹理
 pub struct BatchTexture {
 	// max_bind: usize,
@@ -104,6 +98,8 @@ pub struct BatchTexture {
 	pub(crate) default_sampler: wgpu::Sampler,
 	default_texture_group: Share<wgpu::BindGroup>,
     default_texture_array_group: Share<wgpu::BindGroup>,
+    texture_array_groups: XHashMap<(usize/*ImageTexture指针*/, u8), Share<wgpu::BindGroup>>,
+    fbo_groups: XHashMap<(KeyData, u64/*sampler描述hash*/), Share<wgpu::BindGroup>>,
 }
 
 impl BatchTexture {
@@ -182,7 +178,7 @@ impl BatchTexture {
 		});
         
 		let texture_array_view = default_array_texture.create_view(&TextureViewDescriptor::default());
-        let default_texture_array_group = Self::take_group1(device, &Vec::new(), &texture_array_view, &sampler, &group_layout_array, "batch texture bindgroup");
+        let default_texture_array_group = Self::texture_group(&texture_array_view, &sampler, &group_layout_array, "batch texture bindgroup", device);
 
         let default_texture = device.create_texture(&TextureDescriptor {
 			label: Some("default texture"),
@@ -197,7 +193,7 @@ impl BatchTexture {
         
 		let texture_view = default_texture.create_view(&TextureViewDescriptor::default());
 
-		let default_texture_group = Self::take_group1(device, &Vec::new(), &texture_view, &sampler, &group_layout, "single texture bindgroup");
+		let default_texture_group = Self::texture_group(&texture_view, &sampler, &group_layout, "single texture bindgroup", device);
 	
 		let r = Self {
 			// max_bind: Self::BINDING_COUNT,
@@ -209,60 +205,123 @@ impl BatchTexture {
 			default_texture_view: texture_view,
             default_texture_array_view: texture_array_view,
 			default_sampler: sampler,
-			default_texture_group: Share::new(default_texture_group),
-            default_texture_array_group: Share::new(default_texture_array_group),
+			default_texture_group: default_texture_group,
+            default_texture_array_group: default_texture_array_group,
+            texture_array_groups: Default::default(),
+            fbo_groups: Default::default(),
 			// common_sampler: CommonSampler::new(device),
 		};
 		r
 	}
-	/// push一张纹理，返回纹理索引， 当纹理数量达到max_bind限制时， 会返回一个wgpu::BindGroup，并先清空当前所有的临时数据， 再添加数据
-	/// 注意， 目前同一张纹理只能用同一种采样方式，使用不同的采样样式push纹理，将不会覆盖之前的（主要原因是目前gui并没有不同采样方式的需求）
-	pub fn push(&mut self, texture: BatchTextureItem, sampler: &Share<Sampler>, device: &wgpu::Device) -> (usize, Option<wgpu::BindGroup>, &'static str) {
-        let index = match &texture {
-            BatchTextureItem::Texture(_droper) => todo!(),
-            BatchTextureItem::Frame(droper) => droper.coord(),
-            BatchTextureItem::Fbo(_droper) => 0,
-        } as usize;
-        if let Some(r) = self.temp_textures.get(0) {
-            if r.0.is_eq(&texture) {
-                return (index, None, "none");
-            }
 
-            let (group, name) = self.take_group(device);
-            self.temp_textures.push((texture, sampler.clone()));
-            return (index, group, name)
+    /// 纹理数组的BindGroup
+    pub fn texture_array_group(&mut self, texture: &Handle<ImageTextureFrame>, device: &wgpu::Device) -> Share<wgpu::BindGroup> {
+        match self.texture_array_groups.entry((texture.texture() as *const ImageTexture as usize, texture.coord())) {
+            Entry::Occupied(occupied_entry) => occupied_entry.get().clone(),
+            Entry::Vacant(vacant_entry) => {
+                let entrys = [
+                    BindGroupEntry {
+                        binding: 0 as u32,
+                        resource: wgpu::BindingResource::TextureView(&texture.view) ,
+                    },
+                    BindGroupEntry {
+                        binding: 1 as u32,
+                        resource: wgpu::BindingResource::Sampler(&self.default_sampler) ,
+                    }
+                ];
+              
+                
+                let group = Share::new(device.create_bind_group(&wgpu::BindGroupDescriptor {
+                    label: Some("batch texture bindgroup"),
+                    layout: &self.group_layout_array, //&self.group_layouts[self.temp_textures.len() - 1],
+                    entries: entrys.as_slice(),
+                }));
+                vacant_entry.insert(group).clone()
+                // vacant_entry
+            },
         }
+    }
 
-		self.temp_textures.push((texture, sampler.clone()));
-
-		(index, None, "none")
-	}
-
-	/// 将当前的临时数据立即创建一个bindgroup，并返回
-	pub fn take_group(&mut self, device: &wgpu::Device) -> (Option<wgpu::BindGroup>, &'static str) {
-		if self.temp_textures.len() == 0 {
-			return (None, "none");
-		}
-
-        // log::debug!("take_group========{:?}", self.temp_textures.len());
-        // let len = self.temp_textures.len();
-        let (group_layout, name) = match &self.temp_textures[0].0 {
-            BatchTextureItem::Texture(_droper) => todo!(),
-            BatchTextureItem::Frame(_droper) => if _droper.frame().is_some() { 
-                (&self.group_layout_array, "batch texture bindgroup") 
-            } else { 
-                (&self.group_layout,  "single texture bindgroup")
+    fn texture_group(view: &TextureView, sampler: &Sampler, group_layout: &wgpu::BindGroupLayout, name: &'static str, device: &wgpu::Device) -> Share<wgpu::BindGroup> {
+        let entrys = [
+            BindGroupEntry {
+                binding: 0 as u32,
+                resource: wgpu::BindingResource::TextureView(view) ,
             },
-            BatchTextureItem::Fbo(_droper) => {
-                (&self.group_layout, "single texture bindgroup")
+            BindGroupEntry {
+                binding: 1 as u32,
+                resource: wgpu::BindingResource::Sampler(sampler) ,
+            }
+        ];
+        
+        
+        Share::new(device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some(name),
+            layout: group_layout, //&self.group_layouts[self.temp_textures.len() - 1],
+            entries: entrys.as_slice(),
+        }))
+    }
+
+    /// 纹理数组的BindGroup
+    pub fn fbo_group(&mut self, texture: &Handle<FboRes>, samper_hash: u64, sampler: &Sampler, device: &wgpu::Device) -> Share<wgpu::BindGroup> {
+        match self.fbo_groups.entry((texture.res.id, samper_hash)) {
+            Entry::Occupied(occupied_entry) => occupied_entry.get().clone(),
+            Entry::Vacant(vacant_entry) => {
+                let group = Self::texture_group(&texture.res.texture_view, sampler, &self.group_layout, "single texture bindgroup", device);
+                vacant_entry.insert(group).clone()
+                // vacant_entry
             },
-        };
-		let group = Some(Self::take_group1(device, &self.temp_textures, &self.default_texture_view, &self.default_sampler, &group_layout, name));
-		// 清理临时数据
-		// self.temp_texture_indexs.clear();
-		self.temp_textures.clear();
-		(group, name)
-	}
+        }
+    }
+
+	// /// push一张纹理，返回纹理索引， 当纹理数量达到max_bind限制时， 会返回一个wgpu::BindGroup，并先清空当前所有的临时数据， 再添加数据
+	// /// 注意， 目前同一张纹理只能用同一种采样方式，使用不同的采样样式push纹理，将不会覆盖之前的（主要原因是目前gui并没有不同采样方式的需求）
+	// pub fn push(&mut self, texture: BatchTextureItem, sampler: &Share<Sampler>, device: &wgpu::Device) -> (usize, Option<wgpu::BindGroup>, &'static str) {
+    //     let index = match &texture {
+    //         // BatchTextureItem::Texture(_droper) => todo!(),
+    //         BatchTextureItem::Frame(droper) => droper.coord(),
+    //         BatchTextureItem::Fbo(_droper) => 0,
+    //     } as usize;
+    //     if let Some(r) = self.temp_textures.get(0) {
+    //         if r.0.is_eq(&texture) {
+    //             return (index, None, "none");
+    //         }
+
+    //         let (group, name) = self.take_group(device);
+    //         self.temp_textures.push((texture, sampler.clone()));
+    //         return (index, group, name)
+    //     }
+
+	// 	self.temp_textures.push((texture, sampler.clone()));
+
+	// 	(index, None, "none")
+	// }
+
+	// /// 将当前的临时数据立即创建一个bindgroup，并返回
+	// pub fn take_group(&mut self, device: &wgpu::Device) -> (Option<wgpu::BindGroup>, &'static str) {
+	// 	if self.temp_textures.len() == 0 {
+	// 		return (None, "none");
+	// 	}
+
+    //     // log::debug!("take_group========{:?}", self.temp_textures.len());
+    //     // let len = self.temp_textures.len();
+    //     let (group_layout, name) = match &self.temp_textures[0].0 {
+    //         // BatchTextureItem::Texture(_droper) => todo!(),
+    //         BatchTextureItem::Frame(_droper) => if _droper.frame().is_some() { 
+    //             (&self.group_layout_array, "batch texture bindgroup") 
+    //         } else { 
+    //             (&self.group_layout,  "single texture bindgroup")
+    //         },
+    //         BatchTextureItem::Fbo(_droper) => {
+    //             (&self.group_layout, "single texture bindgroup")
+    //         },
+    //     };
+	// 	let group = Some(Self::take_group1(device, &self.temp_textures, &self.default_texture_view, &self.default_sampler, &group_layout, name));
+	// 	// 清理临时数据
+	// 	// self.temp_texture_indexs.clear();
+	// 	self.temp_textures.clear();
+	// 	(group, name)
+	// }
 
 	pub fn default_group(&self, is_single: bool) -> Share<wgpu::BindGroup> {
 		// let r = Self::take_group1(device, &Vec::new(), &self.default_texture_view, &self.default_sampler, &self.group_layout_array, "batch texture bindgroup");
@@ -274,46 +333,46 @@ impl BatchTexture {
         }
 	}
 
-	/// 将当前的临时数据立即创建一个bindgroup，并返回
-	fn take_group1(device: &wgpu::Device, temp_textures: &Vec<(BatchTextureItem, Share<wgpu::Sampler>)>, default_texture_view: &wgpu::TextureView, default_sampler: &wgpu::Sampler, group_layout: &wgpu::BindGroupLayout, name: &str) -> wgpu::BindGroup {    
-        let mut entrys = Vec::with_capacity(Self::BINDING_COUNT as usize * 2);
-		for (binding, (texture, sampler)) in temp_textures.iter().enumerate() {
-			entrys.push(
-				BindGroupEntry {
-					binding: (binding * 2) as u32,
-					resource: wgpu::BindingResource::TextureView(&texture.texture_view()) ,
-				}
-			);
-			entrys.push(
-				BindGroupEntry {
-					binding: (binding * 2 + 1) as u32,
-					resource: wgpu::BindingResource::Sampler(&**sampler) ,
-				}
-			);
-		}
+	// /// 将当前的临时数据立即创建一个bindgroup，并返回
+	// fn take_group1(device: &wgpu::Device, temp_textures: &Vec<(BatchTextureItem, Share<wgpu::Sampler>)>, default_texture_view: &wgpu::TextureView, default_sampler: &wgpu::Sampler, group_layout: &wgpu::BindGroupLayout, name: &str) -> wgpu::BindGroup {    
+    //     let mut entrys = Vec::with_capacity(Self::BINDING_COUNT as usize * 2);
+	// 	for (binding, (texture, sampler)) in temp_textures.iter().enumerate() {
+	// 		entrys.push(
+	// 			BindGroupEntry {
+	// 				binding: (binding * 2) as u32,
+	// 				resource: wgpu::BindingResource::TextureView(&texture.texture_view()) ,
+	// 			}
+	// 		);
+	// 		entrys.push(
+	// 			BindGroupEntry {
+	// 				binding: (binding * 2 + 1) as u32,
+	// 				resource: wgpu::BindingResource::Sampler(&**sampler) ,
+	// 			}
+	// 		);
+	// 	}
 
 		
-		for binding in temp_textures.len()..Self::BINDING_COUNT as usize {
-			entrys.push(
-				BindGroupEntry {
-					binding: (binding * 2) as u32,
-					resource: wgpu::BindingResource::TextureView(default_texture_view) ,
-				}
-			);
-			entrys.push(
-				BindGroupEntry {
-					binding: (binding * 2 + 1) as u32,
-					resource: wgpu::BindingResource::Sampler(default_sampler) ,
-				}
-			);
-		}
+	// 	for binding in temp_textures.len()..Self::BINDING_COUNT as usize {
+	// 		entrys.push(
+	// 			BindGroupEntry {
+	// 				binding: (binding * 2) as u32,
+	// 				resource: wgpu::BindingResource::TextureView(default_texture_view) ,
+	// 			}
+	// 		);
+	// 		entrys.push(
+	// 			BindGroupEntry {
+	// 				binding: (binding * 2 + 1) as u32,
+	// 				resource: wgpu::BindingResource::Sampler(default_sampler) ,
+	// 			}
+	// 		);
+	// 	}
 		
-		device.create_bind_group(&wgpu::BindGroupDescriptor {
-			label: Some(name),
-			layout: group_layout, //&self.group_layouts[self.temp_textures.len() - 1],
-			entries: entrys.as_slice(),
-		})
-	}
+	// 	device.create_bind_group(&wgpu::BindGroupDescriptor {
+	// 		label: Some(name),
+	// 		layout: group_layout, //&self.group_layouts[self.temp_textures.len() - 1],
+	// 		entries: entrys.as_slice(),
+	// 	})
+	// }
 
 	/// 将当前的临时数据立即创建一个bindgroup，并返回
 	pub fn create_group(&self, device: &wgpu::Device, texture: &wgpu::TextureView, sampler: &wgpu::Sampler) -> wgpu::BindGroup {
@@ -460,18 +519,26 @@ impl InstanceContext {
 			Some(r) => r,
 			None => &self.default_pipelines.common_pipeline,
 		};
-        if render_state.reset || !Share::ptr_eq(&p, &render_state.pipeline)  {
+        let pipeline_is_changed = !Share::ptr_eq(&p, &render_state.pipeline);
+        if render_state.reset || pipeline_is_changed  {
             rp.set_pipeline(p);
             render_state.pipeline = p.clone();
+        }
+        if pipeline_is_changed {
+            render_state.pipeline_changed = true;
         }
     }
 	pub fn draw<'a>(&'a self, rp: &mut RenderPass<'a>, instance_draw: &'a InstanceDrawState, render_state: &mut RenderState) {
         // log::debug!("draw====={:?}", (render_state.reset, &instance_draw.texture_bind_group, &render_state.texture));
-        if render_state.reset  {
+        if render_state.pipeline_changed || render_state.reset {
             if let Some(texture) = &self.sdf2_texture_group {
                 // log::debug!("set_bind_group 1===================={:p}, {:?}", &**texture, (instance_draw.pipeline_type, instance_draw.texture_bind_group_type, &instance_draw.instance_data_range));
                 rp.set_bind_group(1, &**texture, &[]);
             }
+            render_state.pipeline_changed = false;
+        }
+        if render_state.reset  {
+           
             if let Some(texture) = &instance_draw.texture_bind_group {
                 rp.set_bind_group(2, &**texture, &[]);
                 render_state.texture = texture.clone();
@@ -560,6 +627,7 @@ impl InstanceContext {
 
 pub struct RenderState {
     pub reset: bool,
+    pub pipeline_changed: bool,
     pub pipeline: Share<wgpu::RenderPipeline>,
     pub texture: Share<wgpu::BindGroup>,
 }

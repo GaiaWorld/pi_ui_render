@@ -143,13 +143,14 @@ pub fn calc_border_image_instance_count(
 		let border_image_texture = match &border_image_texture.0 {
 			Some(r) => {
 				// 图片不一致， 返回
-				if let Texture::All(r) = r {
-					if *r.key() != border_image.0.str_hash() as u64 {
-						log::debug!("calc_background_image1, {:?}", (r.key(), border_image.0.str_hash()));
-						set_box_type(draw_id, BoxType::None2, &mut query_draw);
-						continue;
-					}
-				} else if let Texture::Frame(_r, key) = r {
+				// if let Texture::All(r) = r {
+				// 	if *r.key() != border_image.0.str_hash() as u64 {
+				// 		log::debug!("calc_background_image1, {:?}", (r.key(), border_image.0.str_hash()));
+				// 		set_box_type(draw_id, BoxType::None2, &mut query_draw);
+				// 		continue;
+				// 	}
+				// } else 
+				if let Texture::Frame(_r, key) = r {
 					if key.str_hash() != border_image.0.str_hash() as u64 {
 						log::debug!("calc_background_image1, {:?}", (key, border_image.0.str_hash()));
 						set_box_type(draw_id, BoxType::None2, &mut query_draw);

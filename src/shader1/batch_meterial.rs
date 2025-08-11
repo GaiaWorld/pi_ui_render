@@ -1,3 +1,4 @@
+use ordered_float::NotNan;
 use pi_render::rhi::shader::{GetBuffer, WriteBuffer};
 use render_derive::{BindLayout, BindingType, BufferSize, Input, Uniform};
 
@@ -147,9 +148,23 @@ pub struct OpacityUniform<'a>(pub &'a [f32]);
 #[uniform(offset(176), len(12), bind(MeterialBind))]
 pub struct SdfUniform<'a>(pub &'a [f32]);
 
-#[derive(Uniform, Debug)]
+// #[derive(Uniform, Debug)]
+// #[uniform(offset(188), len(4), bind(MeterialBind))]
+// pub struct DepthUniform<'a>(pub &'a [f32]);
+
+#[derive(Uniform, Debug, PartialEq)]
 #[uniform(offset(188), len(4), bind(MeterialBind))]
-pub struct DepthUniform<'a>(pub &'a [f32]);
+pub struct DepthUniformMut<'a>(pub &'a mut [NotNan<f32>]);
+
+
+impl<'a> GetBuffer for DepthUniformMut<'a> {
+	fn get_data(&mut self, index: u32, buffer: &[u8]) {
+		let len = self.0.len() * 4;
+		unsafe {
+			buffer.as_ptr().add(index as usize + self.offset() as usize).copy_to_nonoverlapping(self.0.as_mut_ptr() as usize as *mut u8, len);
+		};
+	}
+}
 
 /// 单位： 像素
 #[derive(Uniform, Debug)]

@@ -1177,6 +1177,7 @@ impl Node for SvgEffectNode {
 
             let mut state = RenderState {
                 reset: true,
+                pipeline_changed: false,
                 pipeline: param.instance_draw.default_pipelines.common_pipeline.clone(),
                 texture: param.instance_draw.batch_texture.default_group(false),
             };

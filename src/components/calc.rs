@@ -21,7 +21,6 @@ use nalgebra::Matrix4;
 use ordered_float::NotNan;
 use pi_assets::asset::Handle;
 use pi_null::Null;
-use pi_render::rhi::asset::{TextureRes, AssetWithId};
 use pi_share::Share;
 use pi_slotmap::Key;
 
@@ -766,12 +765,12 @@ impl From<Texture> for MaskTexture {
     fn from(handle: Texture) -> Self { MaskTexture(Some(handle)) }
 }
 
-impl From<Option<Handle<AssetWithId<TextureRes>>>> for MaskTexture {
-    fn from(handle: Option<Handle<AssetWithId<TextureRes>>>) -> Self { MaskTexture(match handle {
-        Some(handle) => Some(Texture::All(handle)),
-        None => None,
-    }) }
-}
+// impl From<Option<Handle<AssetWithId<TextureRes>>>> for MaskTexture {
+//     fn from(handle: Option<Handle<AssetWithId<TextureRes>>>) -> Self { MaskTexture(match handle {
+//         Some(handle) => Some(Texture::All(handle)),
+//         None => None,
+//     }) }
+// }
 
 // impl From<MaskTexture> for Option<Handle<AssetWithId<TextureRes>>>{
 //     fn from(mask_texture: MaskTexture) -> Self { mask_texture.0 }
@@ -1026,7 +1025,7 @@ impl Null for BorderImageTexture {
 
 #[derive(Debug, Clone)]
 pub enum Texture {
-    All(Handle<AssetWithId<TextureRes>>),
+    // All(Handle<AssetWithId<TextureRes>>),
     Part(ShareTargetView, Entity),
     Frame(Handle<ImageTextureFrame>, Atom/*url*/),
 }
@@ -1034,10 +1033,10 @@ pub enum Texture {
 impl Texture {
     pub fn size(&self) -> FlexSize<u32> {
         match self {
-            Texture::All(handle) => FlexSize {
-                width: handle.width,
-                height: handle.height,
-            },
+            // Texture::All(handle) => FlexSize {
+            //     width: handle.width,
+            //     height: handle.height,
+            // },
             Texture::Part(r, _) => {
                 let rect = r.rect();
                 FlexSize {
@@ -1054,10 +1053,10 @@ impl Texture {
 
     pub fn to_uv(&self, clip: &NotNanRect) -> (Point2, Point2) {
         match self {
-            Texture::All(_handle) => (
-                Point2::new(*clip.left, *clip.top),
-                Point2::new(*clip.right, *clip.bottom),
-            ),
+            // Texture::All(_handle) => (
+            //     Point2::new(*clip.left, *clip.top),
+            //     Point2::new(*clip.right, *clip.bottom),
+            // ),
             Texture::Part(r, _) => {
                 let rect = r.rect();
                 let size = FlexSize {
@@ -1093,7 +1092,7 @@ impl Texture {
      */
     pub fn is_opacity(&self) -> bool {
         match self {
-            Texture::All(r) => r.is_opacity,
+            // Texture::All(r) => r.is_opacity,
             Texture::Part(..) => false,
             Texture::Frame(frame, _) => frame.is_opacity,
         }
@@ -1103,7 +1102,7 @@ impl Texture {
 impl PartialEq for Texture {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (Texture::All(r1), Texture::All(r2)) =>  Share::ptr_eq(r1, r2),
+            // (Texture::All(r1), Texture::All(r2)) =>  Share::ptr_eq(r1, r2),
             (Texture::Part(r1, e1), Texture::Part(r2, e2)) =>  Share::ptr_eq(r1, r2) && e2 == e1,
             (Texture::Frame(r1, _), Texture::Frame(r2, _)) =>  if r1.texture() as *const ImageTexture ==  r2.texture() as *const ImageTexture {
                 match (r1.frame(), r2.frame()) {

@@ -771,6 +771,7 @@ impl Node for Pass2DNode {
 			let mut pre_pass = EntityKey::null();
 			let mut render_state = RenderState {
 				reset: true,
+				pipeline_changed: true,
 				pipeline: param.instance_draw.default_pipelines.common_pipeline.clone(),
 				texture: param.instance_draw.batch_texture.default_group(false),
 			};
