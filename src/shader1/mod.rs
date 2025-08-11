@@ -272,7 +272,6 @@ impl GpuBuffer {
 	}
 
 	pub fn merge_ranges(&mut self) {
-		log::trace!("=============== total_size: {}, merge_ranges: {:?}, size: {}", self.dirty_range.len(), self.merge_ranges.len(), self.size);
 		// let time = std::time::Instant::now();
 		if self.merge_ranges.is_empty() {
 			return ;
@@ -283,7 +282,7 @@ impl GpuBuffer {
 			self.merge_ranges.clear();
 			return;
 		}
-	
+		log::error!("===============merge_ranges start!! total_size: {}, merge_ranges: {:?}, size: {}", self.dirty_range.len(), (self.merge_ranges.len(), &self.merge_ranges), self.size);
 		self.size = 0;
 		// 1. 按区间起点排序
 		self.merge_ranges.sort_by_key(|r| r.start);
@@ -312,7 +311,7 @@ impl GpuBuffer {
 		merged.push(current_range);
 		
 		self.merge_ranges = merged;
-		// println!("======== merge_ranges time : {:?}", time.elapsed());
+		log::error!("===============merge_ranges end!! merge_ranges: {:?}, size: {}", (self.merge_ranges.len(), &self.merge_ranges), self.size);
 	}
  }
 

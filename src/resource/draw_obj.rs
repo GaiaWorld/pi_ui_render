@@ -1075,7 +1075,7 @@ impl InstanceContext {
 
 	pub fn update(&mut self, device: &RenderDevice, queue: &RenderQueue) {
         self.instance_data.merge_ranges();
-        log::error!(
+        log::trace!(
             "update instance_buffer={:?}",
             (
                 &self.instance_data.dirty_range,
