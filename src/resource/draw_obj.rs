@@ -1,7 +1,7 @@
 //! 与DrawObject相关的资源
 use std::{collections::hash_map::Entry, hash::Hash, marker::PhantomData, num::NonZeroU32, borrow::Cow};
 
-use naga::Range
+use naga::Range;
 use pi_hal::texture::ImageTexture;
 use pi_world::prelude::{FromWorld, World, Entity};
 use ordered_float::NotNan;
@@ -1075,7 +1075,7 @@ impl InstanceContext {
 
 	pub fn update(&mut self, device: &RenderDevice, queue: &RenderQueue) {
         self.instance_data.merge_ranges();
-        log::trace!(
+        log::error!(
             "update instance_buffer={:?}",
             (
                 &self.instance_data.dirty_range,
@@ -1121,7 +1121,7 @@ impl InstanceContext {
                             instance_data.dirty_range.start as u64,
                             &instance_data.data()[instance_data.dirty_range.clone()],
                         );
-                    // }
+                    }
                     instance_data.reset_count_state(); 
 					return;
 				}
