@@ -107,6 +107,7 @@ pub fn draw_object_life_new<
 	// 	panic!("aaaaaaa=======");
 	// }
 	let mut is_create = false;
+	// println!("type_name: {}, len: {}", std::any::type_name_of_val(&changed), changed.len());
 	if changed.len() > 0 || added.len() > 0 {
 		let p0 = query_meterial.p0();
 		for entity in changed.iter().chain(added.iter()) {
@@ -170,7 +171,7 @@ pub fn draw_object_life_new<
 					// 	let _ = alter_drawobj.alter(r.id, InstanceSplit::ByTexture(t));
 					// } else 
 					if let Some(InstanceSplit::ByFrame(new_texture)) = src.get_split() {
-						if let Ok((InstanceSplit::ByFrame(old_texture), instance_index)) = alter_drawobj.get(r.id) {
+						if let Ok((InstanceSplit::ByFrameGroup(old_texture, _), instance_index)) = alter_drawobj.get(r.id) {
 							if new_texture.coord() != old_texture.coord() {
 								// 图片修改， 也需要重新组织实例数据(纹理影响批处理切分)
 								rebatch = true;
