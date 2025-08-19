@@ -1,9 +1,9 @@
 play_path=D://0_js/0_direct_new/yszz/dst;
 play_url=http://192.168.35.74:81;
 play_way=url;
-play_version=zhenbaolou;
+play_version=zhenbaolou2;
 max_index=1;
-speed=0.1;
+speed=0.3;
 play_mod=repeat_last2;
 jemalloc=false;
 render_debug=true

@@ -682,6 +682,7 @@ pub fn setting_next_record(world: &mut World, mut local_state: Local<NextState>)
     let local_state = &mut *local_state;
     if local_state.is_end {
         let play_state = world.get_single_res_mut::<PlayState>().unwrap();
+        play_state.is_render = true;
         #[cfg(all(not(target_arch = "wasm32"), not(target_env = "msvc"), not(target_os = "android")))] 
         if play_option.jemalloc && !play_state.is_running && (
         local_state.file_index == 50 
@@ -763,9 +764,10 @@ fn setting(file_index1: &mut usize, world: &mut World, is_end: &mut bool, play_o
             let _ = pi_hal::runtime::MULTI_MEDIA_RUNTIME.block_on(async move {
                 match pi_hal::file::load_from_url(&pi_atom::Atom::from(path)).await {
                     Ok(bin) => {
+                        // log::warn!("play, {:?}", path1);
                         match postcard::from_bytes::<Records>(&bin) {
                             Ok(r) => {
-                                // log::warn!("parse cmd================{:?}", r);
+                                // log::warn!("parse cmd================{:?}", r.list.len());
                                 world.or_register_single_res(TypeInfo::of::<Records>());
                                 **world.get_single_res_mut::<Records>().unwrap() = r;
                                 // 重设播放状态
@@ -785,6 +787,7 @@ fn setting(file_index1: &mut usize, world: &mut World, is_end: &mut bool, play_o
                         *file_index1 = file_index;
                     }
                     Err(_e) => {  
+                        log::warn!("play end, {:?}", path1);
                         *is_end = true;
                         return;
                     }
