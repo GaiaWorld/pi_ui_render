@@ -4,6 +4,7 @@ use std::{sync::Arc, time::Instant};
 
 use bevy_window::{Window, WindowResolution};
 use pi_bevy_ecs_extend::system_param::res::OrInitSingleResMut;
+use pi_ui_render::devtools::request_right_key_element;
 use pi_ui_render::resource::fragment::NodeTag;
 use pi_ui_render::resource::{RenderDirty, ShareFontSheet};
 use pi_world::prelude::{App, Entity, First, Insert, IntoSystemConfigs, Local, SingleResMut, SystemSet, World, WorldPluginExtent};
@@ -340,9 +341,8 @@ println!("===========   ===========");
     // 	}));
     // }
     let mut app = App::new();
-    #[cfg(not(target_arch = "wasm32"))]
-    pi_ui_render::devtools::start_server(&mut app); // 开启开发工具
     let mut is_init = false;
+    let mut cursor_pos = (0.0, 0.0);
     event_loop.run(move |event, _, control_flow| {
         match event {
             Event::MainEventsCleared => {
@@ -407,6 +407,8 @@ println!("===========   ===========");
                 };
                 
                 init(width, height, &mut app, window.clone());
+                #[cfg(not(target_arch = "wasm32"))]
+                pi_ui_render::devtools::start_server(&mut app); // 开启开发工具
                 app.world.insert_single_res(RunState::MATRIX);
                 #[cfg(feature = "debug")]
                 if let Some(play_option) = &play_option {
@@ -447,6 +449,14 @@ println!("===========   ===========");
                 event: WindowEvent::CloseRequested,
                 ..
             } => *control_flow = ControlFlow::Exit,
+            Event::WindowEvent {  event: WindowEvent::MouseInput {state, button, .. }, .. } =>{
+                if pi_winit::event::ElementState::Released ==  state && pi_winit::event::MouseButton::Right == button {
+                    request_right_key_element(cursor_pos.0, cursor_pos.1);
+                }
+            }
+            Event::WindowEvent {  event: WindowEvent::CursorMoved { position,.. }, .. } =>{
+                cursor_pos = (position.x as f32, position.y as f32);
+            }
             _ => {}
         }
     });

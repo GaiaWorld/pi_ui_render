@@ -72,6 +72,31 @@ $env:RUST_LOG="warn"
 ### 误区
 + 层脏的mark使用bitvec？（不合理， mark中需要记录层）
 
+## Android 编译
+1. cargo.toml添加依赖 
+```
+[target.'cfg(target_os = "android")'.dev-dependencies]
+ndk-glue = "0.7"
 
+```
 
+2. 在需要编译的用例的main函数上添加,如下
 
+```
+#[cfg_attr(target_os = "android", ndk_glue::main(backtrace = "full"))]
+fn main(){
+
+}
+```
+3. 在caogo.toml中添加如下代码
+```
+[[example]]
+name = "a_html" # 用例名称
+crate-type = ["cdylib"]
+test = true
+```
+4. 在wsl2中使用cargo apk run --example 用例名称  将用例编译成apk; 
+
+* 注意： wsl2搭建教程参照http://192.168.31.241:8181/docs/ops/ops-1c94vf4dk94n7; 安装镜像使用\\192.168.31.241\tech\software\wsl2\centos7.tar.gz
+
+## gui
