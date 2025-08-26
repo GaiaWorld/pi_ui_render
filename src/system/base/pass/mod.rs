@@ -2,10 +2,12 @@ use pass_life::pass_life_children;
 use pi_world::prelude::{App, Plugin, PostUpdate, IntoSystemConfigs, WorldPluginExtent};
 use pi_bevy_render_plugin::GraphBuild;
 
-use self::pass_life::calc_pass;
+use self::pass_life::set_pass_instance;
 use self::update_graph::init_root_graph;
 use crate::system::base::draw_obj::life_drawobj::update_render_instance_data;
+use crate::system::base::pass::overflow::OverflowPlugin;
 use crate::system::base::pass::pass_camera::calc_pass_active;
+use crate::system::base::pass::transform_will_change::TransformWillChangePlugin;
 use crate::system::system_set::UiSystemSet;
 use crate::prelude::UiStage;
 
@@ -16,10 +18,11 @@ pub mod pass_graph_node;
 pub mod pass_life;
 pub mod update_graph;
 pub mod root;
-pub mod pass_dirty;
 pub mod world_invert;
 pub mod content_box;
 pub mod calc_render_steady;
+pub mod overflow;
+pub mod transform_will_change;
 
 
 pub struct UiPassPlugin;
@@ -30,23 +33,23 @@ impl Plugin for UiPassPlugin {
         app
             // 创建、删除Pass，为Pass组织树结构
             .add_system(UiStage, 
-				calc_pass
+				set_pass_instance
 					.after(calc_pass_active)
                     .after(UiSystemSet::PassFlush)
                     .in_set(UiSystemSet::IsRun)
 					
 			)
             .add_system(UiStage, pass_life::cal_pass_life.run_if(pass_life::pass_life_change).in_set(UiSystemSet::PassLife))
-            .add_system(UiStage, pass_life::cal_context
+            .add_system(UiStage, pass_life::set_pass_relation
                 .run_if(pass_life::pass_life_change)
                 .after(UiSystemSet::PassFlush) // 在上下文创建之后执行
                 .in_set(UiSystemSet::PassSetting))
             // .add_system(UiStage, apply_deferred.in_set(UiSystemSet::PassFlush))
             .add_system(UiStage, 
-                pass_life::calc_pass_children_and_clear
+                pass_life::calc_pass_children
                     .in_set(UiSystemSet::PassSetting)
                     .run_if(pass_life_children)
-                    .after(pass_life::cal_context)
+                    .after(pass_life::set_pass_relation)
 					.before(UiSystemSet::PassSettingWithParent) // 在所有依赖父子关系的system之前执行
                     .after(UiSystemSet::PassFlush), // 在上下文创建之后执行
             )
@@ -65,19 +68,19 @@ impl Plugin for UiPassPlugin {
             // 渲染前，计算Pass的属性
             // 脏区域、相机、深度，更新uniform不顶点buffer到wgpu
             .add_system(UiStage, 
-                pass_dirty_rect::calc_global_dirty_rect
+                pass_dirty_rect::calc_pass_dirty_rect
                     .in_set(UiSystemSet::PassCalc)
-                    .after(pass_life::cal_context)
+                    .after(pass_life::set_pass_relation)
             )
             // .add_system(UiStage, 
             //     pass_camera::calc_pass_dirty
-            //         .after(pass_dirty_rect::calc_global_dirty_rect)
+            //         .after(pass_dirty_rect::calc_pass_dirty_rect)
 			// 		.after(UiSystemSet::BaseCalcFlush)
             //         .in_set(UiSystemSet::PassCalc),
             // )
             .add_system(UiStage, 
                 pass_camera::calc_pass_active
-                    .after(pass_dirty_rect::calc_global_dirty_rect)
+                    .after(pass_dirty_rect::calc_pass_dirty_rect)
                     .after(update_graph::update_graph)
 					.after(UiSystemSet::BaseCalcFlush)
                     .in_set(UiSystemSet::IsRun),
@@ -85,7 +88,7 @@ impl Plugin for UiPassPlugin {
             
             .add_system(UiStage, 
                 pass_camera::calc_camera
-                    .after(pass_dirty_rect::calc_global_dirty_rect)
+                    .after(pass_dirty_rect::calc_pass_dirty_rect)
                     .after(update_render_instance_data)
                     .before(pass_camera::calc_pass_active)
                     .after(calc_render_steady::calc_is_steady)
@@ -104,6 +107,8 @@ impl Plugin for UiPassPlugin {
             .add_plugins(world_invert::WorldInvertPlugin)
             .add_plugins(content_box::ContentBoxPlugin)
             .add_plugins(calc_render_steady::RenderSteadyPlugin)
+            .add_plugins(OverflowPlugin)
+            .add_plugins(TransformWillChangePlugin)
         ;
     }
 }

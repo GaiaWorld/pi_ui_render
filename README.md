@@ -1,3 +1,5 @@
+[架构设计文档](./document.md)
+
 # 1. 使用
 
 ## 1.2. 运行 Windows 平台
@@ -66,9 +68,6 @@ $env:RUST_LOG="warn"
       * 渲染fbo， 如果发现fbo不脏， 并且存在对应的缓冲fbo，则将缓冲fbo输出；如果发现fbo脏，则渲染fbo，如果fbo为建议缓冲，并且AnimationCount组件的all_count字段未0，则缓冲该fbo
 
 
-### 无方案
-+ 合并渲染
-+ 支持伪类
 
 ### 误区
 + 层脏的mark使用bitvec？（不合理， mark中需要记录层）

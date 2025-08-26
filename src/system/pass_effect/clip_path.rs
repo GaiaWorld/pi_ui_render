@@ -27,7 +27,7 @@ impl Plugin for UiClipPathPlugin {
         app.add_system(UiStage, 
             pass_life::pass_mark::<ClipPath>
                 .after(user_setting2)
-                .before(pass_life::cal_context)
+                .before(pass_life::set_pass_relation)
                 .run_if(clip_change)
                 .in_set(UiSystemSet::IsRun)
                 // ,
