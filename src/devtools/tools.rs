@@ -483,7 +483,7 @@ impl Node for ShowBoxNode {
                 );
     
                 rpass.set_pipeline(&param.1.pipeline);
-                println!("view: {:?}", (quad.mins.x , quad.mins.y, quad.maxs.x - quad.mins.x, quad.maxs.y - quad.mins.y,));
+                // println!("view: {:?}", (quad.mins.x , quad.mins.y, quad.maxs.x - quad.mins.x, quad.maxs.y - quad.mins.y,));
                 rpass.set_viewport(quad.mins.x , quad.mins.y, quad.maxs.x - quad.mins.x, quad.maxs.y - quad.mins.y, 0.0, 1.0);
                 // rpass.set_bind_group(0, &bind_group1, &[]);
                 // rpass.set_bind_group(1, &bind_group2, &[]);
