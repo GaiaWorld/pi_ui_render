@@ -232,9 +232,9 @@ pub struct Transition {
     pub timing_function: SmallVec<[AnimationTimingFunction; 1]>, // 插值函数
 
 	// 计算数据
-	pub mark: StyleMarkType,
-	pub data: SmallVec<[TransitionData; 1]>,
-	pub is_all: usize,
+	pub mark: StyleMarkType, // transition.property的位标记
+	pub data: SmallVec<[TransitionData; 1]>, // 与property一一对应
+	pub is_all: usize, // 是否节点上的所有可动画属性都需要应用transition
 }
 
 impl Transition {

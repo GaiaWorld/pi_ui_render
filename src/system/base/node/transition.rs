@@ -2,13 +2,13 @@
 //! 而用户设置的style， 既可以影响start， 也可以影响end，
 //! transation分为两步处理， 在usersetting之后和动画插值前的处理阶段(阶段1)、和动画插值后的阶段（阶段2）
 //! 阶段1： 
-//! 	* 属性脏，需要将属性记录为start或end（如果属性是被删除了， 则需要删除对应的插值曲线， 并重置start和wnd）
+//! 	* 属性脏，需要将属性记录为start或end（如果属性是被删除了， 则需要删除对应的插值曲线， 并重置start和end）
 //! 	* transition_is_change脏， 或属性脏, 如果记录后，既存在start， 也存在end， 则需要重新绑定插值曲线
 //! 阶段2：
 //! 	* 属性脏，则将属性记录在start上
 //! 
 //! 
-//! 优化？（TODO）： 动画正在运行的节点，设置RuningForTransition组件， 在节点2中只遍历有RuningForTransition组件的节点
+//! 优化？（TODO）： 动画正在运行的节点，设置RuningForTransition组件， 在阶段2中只遍历有RuningForTransition组件的节点
 
 use pi_bevy_ecs_extend::{prelude::Layer, system_param::res::OrInitSingleResMut};
 use pi_world::{filter::{Changed, Or}, prelude::{App, Entity, IntoSystemConfigs, Plugin, Query, SingleResMut, Ticker}, single_res::SingleRes, system_params::Local, world::World};
@@ -67,6 +67,7 @@ pub fn transition_change(mark: SingleRes<GlobalDirtyMark>) -> bool {
 
 
 /// 处理transition(阶段1的步骤1, 在usersetting之后运行， 在animation之前运行)（阶段1分两个步骤是因为读写引用冲突的问题）
+/// 根据Transition.property，生成根据Transition.data
 pub fn transition_1_1(
 	mut query: Query<(&mut Transition, Entity, &Layer), Or<(Changed<Transition>, Changed<Layer>)>>,
 	mut keyframes_sheet: SingleResMut<KeyFramesSheet>,
@@ -88,9 +89,12 @@ pub fn transition_1_1(
 		let mut j = 0;
 		for i in transition.property.iter() {
 			if (*i).is_null() {
+				// i为null， 意味着transition.property长度为1， 并且表明所有可插值属性都需要作用在transition上
+				// i为null，transition.property长度为非1，以及其他异常情况不处理
 				transition.is_all = j;
 				break;
 			} else {
+				// 标记对应属性需要应用transition
 				transition.mark.set(*i, true);
 			}
 			j += 1;
@@ -101,13 +105,14 @@ pub fn transition_1_1(
 			let mut i = transition.property.len();
 			let mut data = std::mem::replace(&mut transition.data, SmallVec::with_capacity(i));
 			for property in  transition.property.iter() {
-				// 设置data的默认值
+				// 设置data的默认值（按照property的顺序组织的数组）
 				transition.data.push(TransitionData {
 					start: None,
 					end: None,
 					property: *property,
 				});
 			}
+			// 拷贝旧值（双重循环， 当通常没有性能问题，property的长度通常都是一两个 ）
 			while data.len() > 0 && i > 0 {
 				i -= 1;
 				let property = transition.property[i];
@@ -145,6 +150,9 @@ struct TransitionAttrChange {
 	unbind: bool,
 }
 
+// 每帧迭代所有存在Transition组件的节点
+// 如果transition脏、layer脏、或者任何transition.property描述的样式脏
+// 都需要重新生成TransitionAttrChange指令， 由transition_1_3来处理指令
 pub fn transition_1_2(
 	query: Query<(Ticker<&Transition>, &StyleMark, Entity, Ticker<&Layer>)>,
 	world: &World,
@@ -226,6 +234,7 @@ pub fn transition_1_2(
 	}
 }
 
+// 处理TransitionAttrChange指令，将指令
 pub fn transition_1_3(
 	mut query: Query<&mut Transition>,
 	mut keyframes_sheet: SingleResMut<KeyFramesSheet>,
@@ -364,6 +373,7 @@ pub fn transition_2(
 
 lazy_static! {
 
+	// 定义可插值属性
 	pub static ref INTERPOLABLE_PROPERTY: StyleMarkType = style_bit().set_bit(StyleType::BackgroundRepeat as usize)
 	.set_bit(StyleType::Color as usize)
 	.set_bit(StyleType::BackgroundImageClip as usize)
