@@ -133,6 +133,7 @@ pi_key_alloter = {version = "0.6", features = ["serde"]}
 pi_ui_render_macros = {version="0.1.1", path = "./macros", registry = "yn"}
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 backtrace = "0.3"
+postcard = { version = "1.0", features = ["use-std"] }
 
 # pi_sdf = {version = "=0.1.20", registry="yn"}
 

@@ -31,7 +31,8 @@ use pi_ui_render::{
 #[cfg(target_arch = "wasm32")]
 use pi_async_rt::rt::serial_local_compatible_wasm_runtime::{LocalTaskRunner, LocalTaskRuntime};
 #[cfg(feature = "debug")]
-use pi_ui_render::system::base::node::cmd_play::{CmdNodeCreate, PlayState, Records};
+use pi_bevy_render_plugin::cmd_play::{ PlayState, Records};
+use pi_ui_render::system::base::node::cmd_play::{CmdNodeCreate};
 use pi_winit::event::{Event, WindowEvent};
 use pi_winit::event_loop::{ControlFlow, EventLoop};
 use pi_world::single_res::SingleRes;
@@ -63,7 +64,7 @@ pub trait Example: 'static + Sized {
     }
     fn font_type(&self) -> FontType { FontType::Sdf2 }
     #[cfg(feature = "debug")]
-    fn record_option(&self) -> pi_ui_render::system::base::node::cmd_play::TraceOption { pi_ui_render::system::base::node::cmd_play::TraceOption::None }
+    fn record_option(&self) -> pi_bevy_render_plugin::cmd_play::TraceOption { pi_bevy_render_plugin::cmd_play::TraceOption::None }
     fn play_option(&self) -> Option<PlayOption> { None }
 }
 
@@ -424,11 +425,11 @@ println!("===========   ===========");
 
                 #[cfg(feature = "debug")]
                 match record_option {
-                    pi_ui_render::system::base::node::cmd_play::TraceOption::None => (),
-                    pi_ui_render::system::base::node::cmd_play::TraceOption::Record => {
+                    pi_bevy_render_plugin::cmd_play::TraceOption::None => (),
+                    pi_bevy_render_plugin::cmd_play::TraceOption::Record => {
                         app.add_system(UiStage, record_cmd_to_file.in_set(UiSystemSet::NextSetting));
                     }
-                    pi_ui_render::system::base::node::cmd_play::TraceOption::Play => {
+                    pi_bevy_render_plugin::cmd_play::TraceOption::Play => {
                         app.add_system(First, setting_next_record);
                     }
                 }
@@ -614,6 +615,7 @@ pub fn init(width: u32, height: u32, app: &mut App, w: Arc<pi_winit::window::Win
     .add_plugins(PiRenderPlugin::default())
     .add_plugins(PiPostProcessPlugin);
 
+	app.add_plugins(pi_bevy_render_plugin::cmd_play::GlobalCmdTracePlugin { option: pi_bevy_render_plugin::cmd_play::TraceOption::Play });
 
     // let h = app.world.get_single_res_mut::<pi_bevy_log::LogFilterHandle>().unwrap();
     // let default_filter = { format!("{},my_target=info", bevy_log::Level::WARN) };
@@ -662,13 +664,7 @@ pub fn record_cmd_to_file(mut records: SingleResMut<Records>) {
     if records.list.len() == 0 && records.run_state.len() == 0 {
         return;
     }
-    let r = match postcard::to_stdvec(&*records) {
-        Ok(bin) => bin,
-        Err(r) => {
-            log::error!("serialize fail!!, {:?}", r);
-            Vec::<u8>::default()
-        }
-    };
+    let r = records.bin();
     // log::warn!("record============={:?}", &*records);
     std::fs::write(Path::new("examples/a_cmd_play/source/cmds/").join("cmd_local_0.gui_cmd"), r).unwrap();
     records.clear()
@@ -763,11 +759,13 @@ fn setting(file_index1: &mut usize, world: &mut World, is_end: &mut bool, play_o
             let _ = pi_hal::runtime::MULTI_MEDIA_RUNTIME.block_on(async move {
                 match pi_hal::file::load_from_url(&pi_atom::Atom::from(path)).await {
                     Ok(bin) => {
-                        match postcard::from_bytes::<Records>(&bin) {
+                        use pi_bevy_render_plugin::Record;
+
+                        match postcard::from_bytes::<Vec<Record>>(&bin) {
                             Ok(r) => {
                                 // log::warn!("parse cmd================{:?}", r);
                                 world.or_register_single_res(TypeInfo::of::<Records>());
-                                **world.get_single_res_mut::<Records>().unwrap() = r;
+                                world.get_single_res_mut::<Records>().unwrap().list = r;
                                 // 重设播放状态
                                 let play_state = world.get_single_res_mut::<PlayState>().unwrap();
                                 play_state.is_running = true;
