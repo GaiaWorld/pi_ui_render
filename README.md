@@ -1,3 +1,5 @@
+[架构设计文档](./document.md)
+
 # 1. 使用
 
 ## 1.2. 运行 Windows 平台
@@ -5,7 +7,7 @@
 执行 `cargo run --example background_image` 命令运行 background_image example
 
 ## 1.2.1 调试工具
-浏览器访问[调试工具](http://192.168.35.74:3000/index.html)
+浏览器访问[调试工具](http://192.168.35.74:3000/index.html) (ip修改为自己的ip)
 
 ## 1.3. 运行 [Web 平台](https://rustwasm.github.io/docs/wasm-bindgen/contributing/testing.html)
 
@@ -66,13 +68,35 @@ $env:RUST_LOG="warn"
       * 渲染fbo， 如果发现fbo不脏， 并且存在对应的缓冲fbo，则将缓冲fbo输出；如果发现fbo脏，则渲染fbo，如果fbo为建议缓冲，并且AnimationCount组件的all_count字段未0，则缓冲该fbo
 
 
-### 无方案
-+ 合并渲染
-+ 支持伪类
 
 ### 误区
 + 层脏的mark使用bitvec？（不合理， mark中需要记录层）
 
+## Android 编译
+1. cargo.toml添加依赖 
+```
+[target.'cfg(target_os = "android")'.dev-dependencies]
+ndk-glue = "0.7"
 
+```
 
+2. 在需要编译的用例的main函数上添加,如下
 
+```
+#[cfg_attr(target_os = "android", ndk_glue::main(backtrace = "full"))]
+fn main(){
+
+}
+```
+3. 在caogo.toml中添加如下代码
+```
+[[example]]
+name = "a_html" # 用例名称
+crate-type = ["cdylib"]
+test = true
+```
+4. 在wsl2中使用cargo apk run --example 用例名称  将用例编译成apk; 
+
+* 注意： wsl2搭建教程参照http://192.168.31.241:8181/docs/ops/ops-1c94vf4dk94n7; 安装镜像使用\\192.168.31.241\tech\software\wsl2\centos7.tar.gz
+
+## gui

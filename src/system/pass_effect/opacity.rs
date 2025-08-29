@@ -18,7 +18,7 @@ impl Plugin for OpacityPlugin {
         app.add_system(UiStage, opacity_pass_mark
                 .in_set(UiSystemSet::PassMark)
                 .run_if(opacity_changed)
-                .before(pass_life::cal_context))
+                .before(pass_life::set_pass_relation))
             .add_system(UiStage, opacity_post_process
                 .in_set(UiSystemSet::PassSetting)
                 .run_if(opacity_changed)

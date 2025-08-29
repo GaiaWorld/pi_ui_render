@@ -266,18 +266,21 @@ name = "performance_android"
 crate-type = ["cdylib"]
 test = true
 
+# 编译apk时将下边打开
 # [[example]]
-# name = "a_cmd_play"
+# name = "a_html"
 # crate-type = ["cdylib"]
 # test = true
 
 # Note: there can be multiple .uses_permission entries.
+# 使用cargo apk 打包时将申请网络权限打到manifest
 [[package.metadata.android.uses_permission]]
 name = "android.permission.INTERNET"
 
 # [[package.metadata.android.uses_permission]]
 # name = "android.permission.ACCESS_FINE_LOCATION"
 
+# 使用cargo apk 打release包 时需要配的证书和密钥证书在pi_android中
 [package.metadata.android.signing.release]
 path = "/mnt/e/app_new_gui/pi_android/src/keystore/yineng.keystore"
 keystore_password = "123456"

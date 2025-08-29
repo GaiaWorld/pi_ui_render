@@ -1,5 +1,6 @@
 // 解析html， 并渲染
 // html中只能包含一个根节点, 如果存在多个， 只会渲染第一个
+#![feature(str_as_str)]
 
 #[path = "../framework.rs"]
 mod framework;
@@ -8,14 +9,14 @@ use framework::{Param, Example};
 use pi_flex_layout::style::{Dimension, PositionType};
 use pi_hash::XHashMap;
 use pi_null::Null;
-use pi_style::{style::{Aabb2, Point2}, style_type::{AsImageType, HeightType, MarginLeftType, MarginTopType, PositionLeftType, PositionTopType, PositionTypeType, WidthType}};
+use pi_style::{style::{Aabb2, Point2}, style_parse::parse_class_map_from_string, style_type::{AsImageType, HeightType, MarginLeftType, MarginTopType, PositionLeftType, PositionTopType, PositionTypeType, WidthType}};
 use pi_ui_render::{
     components::{calc::EntityKey, user::{CgColor, ClearColor, Viewport}},
-    resource::{FragmentCommand, NodeCmd},
+    resource::{ExtendCssCmd, FragmentCommand, NodeCmd},
 };
 use pi_ui_render::resource::fragment::NodeTag;
 
-use std::collections::VecDeque;
+use std::{collections::VecDeque, io::Read};
 
 use cssparser::{Parser, ParserInput};
 use html5ever::driver::ParseOpts;
@@ -28,6 +29,7 @@ use pi_ui_render::components::user::serialize::{SvgShapeType, SvgTypeAttr};
 use pi_ui_render::components::user::svg_parser_style_items;
 use pi_ui_render::resource::fragment::{Attributes, Fragments, NodeFragment};
 
+#[cfg_attr(target_os = "android", ndk_glue::main(backtrace = "full"))]
 fn main() { framework::start(QuadExample::default()) }
 
 #[derive(Default)]
@@ -46,10 +48,10 @@ impl Example for QuadExample {
             }
         }
 
-        let example_name = example_name.unwrap_or("background_color".to_string());
+        let example_name = example_name.unwrap_or("css".to_string());
         let path = "examples/a_html/cases/".to_string() + example_name.as_str() + ".html";
 
-        let fragments = parse_html(path.as_str());
+        let fragments = parse_html(path.as_str(), &mut world);
         let entity_len: usize = fragments.len();
 
         if entity_len == 0 {
@@ -95,7 +97,7 @@ impl Example for QuadExample {
 }
 
 
-pub fn parse_html(path: &str) -> Vec<NodeFragment> {
+pub fn parse_html(path: &str,  world: &mut Param) -> Vec<NodeFragment> {
     let current_dir = std::env::current_dir().unwrap();
     let p = current_dir.join(path);
     let opts = ParseOpts {
@@ -105,21 +107,23 @@ pub fn parse_html(path: &str) -> Vec<NodeFragment> {
         },
         ..Default::default()
     };
+    #[cfg(target_os = "android")]
+    let data = include_bytes!("./cases/css.html").to_vec();
+    #[cfg(target_os = "windows")]
+    let data = std::fs::read(p).unwrap();
+    // let data = data.as_mut_slice();
     let dom = parse_document(RcDom::default(), opts)
         .from_utf8()
-        .read_from(&mut match std::fs::File::open(p) {
-            Ok(r) => r,
-            Err(e) => panic!("{:?}", (path, e)),
-        })
+        .read_from(&mut data.as_slice())
         .unwrap();
     
     let mut fragments = Vec::new();
-    dom_to_fragment(&dom.document, Null::null(), &mut fragments);
+    dom_to_fragment(&dom.document, Null::null(), &mut fragments, world);
     fragments
 }
 
-fn dom_to_fragment(handle: &Handle, mut parent: u32, fragments: &mut Vec<NodeFragment>) {
-   parse_element(handle, parent, fragments);
+fn dom_to_fragment(handle: &Handle, mut parent: u32, fragments: &mut Vec<NodeFragment>, world: &mut Param) {
+   parse_element(handle, parent, fragments, world);
 
     if fragments.len() > 0 {
         parent = (fragments.len() - 1) as u32;
@@ -127,11 +131,12 @@ fn dom_to_fragment(handle: &Handle, mut parent: u32, fragments: &mut Vec<NodeFra
 
     let children = handle.children.borrow();
     for child in children.iter() {
-        dom_to_fragment(child, parent, fragments);
+        dom_to_fragment(child, parent, fragments, world);
     }
 }
 
-fn parse_element(handle: &Handle, parent: u32, fragments: &mut Vec<NodeFragment>) {
+fn parse_element(handle: &Handle, parent: u32, fragments: &mut Vec<NodeFragment>, world: &mut Param) {
+    // println!("========== hadle: {:?}", handle);
      match &handle.data {
         markup5ever_rcdom::NodeData::Element { name, attrs, .. } => {
            let tag = match &*name.local {
@@ -155,9 +160,10 @@ fn parse_element(handle: &Handle, parent: u32, fragments: &mut Vec<NodeFragment>
                 "defs" => NodeTag::Defs,
                 "fe-drop-shadow" => NodeTag::FeDropShadow, 
                 r => {
+                    // println!("==========r: {}", r);
                     match r{
                         "html" | "head" | "body" => (),
-                        _ => log::error!("不支持节点： {:?}", r),
+                        _ => log::error!("不支持节点： {:?}", (r, attrs)),
                         
                     };
                     return;
@@ -173,6 +179,7 @@ fn parse_element(handle: &Handle, parent: u32, fragments: &mut Vec<NodeFragment>
 
 
             for attr in attrs.borrow().iter() {
+                // println!("========== &*attr.name.local: {}", &*attr.name.local);
                 match &*attr.name.local {
                     "style" => {
                         
@@ -195,6 +202,13 @@ fn parse_element(handle: &Handle, parent: u32, fragments: &mut Vec<NodeFragment>
                         };
                         node.style = style;
                     },
+                    "class" => {
+                        for s in attr.value.as_str().split(" "){
+                            // println!("=========== class: {:?}", s.split_at(1).1.parse::<u32>().unwrap());
+                            node.class.push(s.split_at(1).1.parse::<u32>().unwrap())
+                        }
+                       
+                    }
                     _ => {}
                 };
             }
@@ -202,6 +216,11 @@ fn parse_element(handle: &Handle, parent: u32, fragments: &mut Vec<NodeFragment>
                         
             // println!("=============={:?}, {:?}", name, attrs); 
         },
+        markup5ever_rcdom::NodeData::Text{contents} => {
+             let class_map = parse_class_map_from_string(contents.take().as_str(), 0).unwrap();
+            //  println!("========= class_map: {:?}", class_map);
+             world.user_cmd.push_cmd(ExtendCssCmd(vec![class_map]));
+        }
         _ => (),
     };
     

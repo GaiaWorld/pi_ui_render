@@ -14,9 +14,11 @@ use crate::components::user::{serialize::SvgTypeAttr, svg_style_list_to_buffer, 
 /// 模板map
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct FragmentMap {
-    pub style_buffer: Vec<u8>,
-    pub fragments: Vec<NodeFragmentCmd>,
-    pub map: XHashMap<u32, Range<usize>>,
+    pub style_buffer: Vec<u8>, // 样式序列化数据
+    pub fragments: Vec<NodeFragmentCmd>, // 每节点的片段数据描述
+    // 每个片段描述了一颗只有一个根节点的树，并用一个u32命名（通常是编译时片段的hash值）
+    // Range<usize>指定了节点范围，该范围内的节点就是该片段中的节点
+    pub map: XHashMap<u32/*片段名称*/, Range<usize>/*节点范围（在字段fragments中的索引范围）*/>, 
 }
 
 impl FragmentMap {

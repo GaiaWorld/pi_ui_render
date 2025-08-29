@@ -34,7 +34,7 @@ impl Plugin for TransformWillChangePlugin {
                     .in_set(UiSystemSet::PassMark))
             .add_system(UiStage, transform_will_change_post_process
                 .run_if(transform_will_change_change)
-                .after(pass_life::calc_pass_children_and_clear)
+                .after(pass_life::calc_pass_children)
                 .after(world_matrix::cal_matrix)
                 .after(world_invert::calc_world_invert)
                 .before(content_box::calc_content_box)

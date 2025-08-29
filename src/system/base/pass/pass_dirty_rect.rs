@@ -28,7 +28,7 @@ pub struct CalcDirtyRect;
 /// 5. Pass2d子节点发生改变，修改脏区域
 /// 6. 如果设置了全局脏，则直接设置所有pass2d脏，不需要遍历检查（TODO）
 /// 根据每个Pass的脏区域，计算全局脏区域
-pub fn calc_global_dirty_rect(
+pub fn calc_pass_dirty_rect(
     // query_draw_obj: Query<&NodeId, Changed<DrawState>>,
     // query_transform_will_change: Query<&NodeId, Changed<TransformWillChangeMatrix>>,
     quad_olds: Event<OldQuad>,

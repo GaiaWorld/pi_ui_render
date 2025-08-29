@@ -45,10 +45,10 @@ impl Plugin for OverflowPlugin {
             .add_system(UiStage, pass_life::pass_mark::<Overflow>
                 .in_set(UiSystemSet::PassMark)
                 .run_if(overflow_change)
-                .before(pass_life::cal_context))
+                .before(pass_life::set_pass_relation))
             .add_system(UiStage, 
                 overflow_post_process
-                    .after(pass_life::calc_pass_children_and_clear)
+                    .after(pass_life::calc_pass_children)
                     .after(content_box::calc_content_box)
                     .in_set(UiSystemSet::PassSetting))
         ;

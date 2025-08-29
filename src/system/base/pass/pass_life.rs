@@ -71,7 +71,7 @@ pub fn cal_pass_life(
 }
 
 /// 设置parentPassId和InPassId
-pub fn cal_context(
+pub fn set_pass_relation(
     // mut command: Commands,
     // mut layer_dirty: Local<LayerDirty<Entity>>,
     mut context_mark1: ParamSet<(
@@ -199,7 +199,7 @@ pub fn pass_life_children(mark: SingleRes<GlobalDirtyMark>, changed: ComponentCh
 }
 
 /// Pass2D设置children
-pub fn calc_pass_children_and_clear(
+pub fn calc_pass_children(
     mut query: ParamSet<(
 		Query<&mut ChildrenPass>,
         Query<(&mut ChildrenPass, Entity)>,
@@ -504,7 +504,7 @@ pub fn pass_mark<T: NeedMark + Send + Sync>(
 }
 
 /// 为Pass设置渲染实例数据（将后处理结果拷贝到gui上）
-pub fn calc_pass(
+pub fn set_pass_instance(
 	mut instances: OrInitSingleResMut<InstanceContext>,
 	query: Query<( 
         &InstanceIndex, 
