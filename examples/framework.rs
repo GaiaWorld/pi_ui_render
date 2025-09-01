@@ -341,8 +341,8 @@ println!("===========   ===========");
     // 	}));
     // }
     let mut app = App::new();
-    #[cfg(not(target_arch = "wasm32"))]
-    pi_ui_render::devtools::start_server(&mut app); // 开启开发工具
+    // #[cfg(not(target_arch = "wasm32"))]
+    // pi_ui_render::devtools::start_server(&mut app); // 开启开发工具
     let mut is_init = false;
     event_loop.run(move |event, _, control_flow| {
         match event {
@@ -430,7 +430,9 @@ println!("===========   ===========");
                         app.add_system(UiStage, record_cmd_to_file.in_set(UiSystemSet::NextSetting));
                     }
                     pi_bevy_render_plugin::cmd_play::TraceOption::Play => {
-                        app.add_system(First, setting_next_record);
+                        use pi_bevy_render_plugin::{sys_cmd_replay, StageCMDTrace};
+
+                        app.add_system(First, setting_next_record.in_set(StageCMDTrace::Trace).before(sys_cmd_replay));
                     }
                 }
                 let exmple2 = exmple1.clone();
@@ -763,8 +765,11 @@ fn setting(file_index1: &mut usize, world: &mut World, is_end: &mut bool, play_o
 
                         match postcard::from_bytes::<Vec<Record>>(&bin) {
                             Ok(r) => {
-                                // log::warn!("parse cmd================{:?}", r);
                                 world.or_register_single_res(TypeInfo::of::<Records>());
+                                log::warn!("parse cmd================ {:?}", (r.len()));
+                                // for i in r.iter() {
+                                //     log::warn!("parse cmd================ {:?}", (i.frame_index, i.cmds.len(), i.entities.len(), &i.entities));
+                                // }
                                 world.get_single_res_mut::<Records>().unwrap().list = r;
                                 // 重设播放状态
                                 let play_state = world.get_single_res_mut::<PlayState>().unwrap();

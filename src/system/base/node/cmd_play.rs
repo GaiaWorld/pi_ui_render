@@ -9,18 +9,18 @@ use crate::{
     prelude::UserCommands,
     resource::{fragment::NodeTag, CmdType, FragmentCommand, NodeCommand}, system::base::node::user_setting,
 };
-
+use crate::prelude::UiStage;
+use crate::system::system_set::UiSystemSet;
 use bitvec::array::BitArray;
 use pi_atom::Atom;
 use pi_hash::XHashMap;
 use pi_style::{style::Aabb2, style_parse::style_to_buffer, style_type::{BackgroundImageType, BorderImageType, ClassMeta, MaskImageType}};
-use pi_world::{insert::Insert, prelude::{App, Entity, IntoSystemConfigs, Plugin}, schedule::First, world::World};
+use pi_world::{insert::Insert, prelude::{App, Entity, IntoSystemConfigs, Plugin}, schedule::{First, PreUpdate}, world::World};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, OrInitSingleRes};
 
 use pi_bevy_render_plugin::{asimage_url::entity_to_asimage_url, FrameState, KeyRecord, PlayState, Records, StageCMDTrace, TraceOption, RECORD_UI_COMMAND};
 use pi_null::Null;
 use pi_slotmap::{KeyData, SecondaryMap};
-
 
 pub struct UiCmdTracePlugin;
 
@@ -30,8 +30,8 @@ impl Plugin for UiCmdTracePlugin {
         log::info!("self.option==============={:?}", option.option);
         match option.option {
             TraceOption::Record => {
-                app.add_system(First, sys_ui_cmd_record
-                    .in_set(StageCMDTrace::After)
+                app.add_system(UiStage, sys_ui_cmd_record
+                    .in_set(UiSystemSet::Setting)
                     .before(user_setting::user_setting1)
                 );
             }
@@ -121,7 +121,7 @@ pub fn cmd_play_call(world: &mut World, data: &Vec<u8>, replayentities: &XHashMa
     match postcard::from_bytes::<UIRecord>(data) {
         Ok(record) => {
             let r: UIRecord = record;
-            
+            log::error!("{:?}", (r.node_commands.len(), r.node_init_commands.len(), r.style_commands.len()));
             let mut cmds = UserCommands::default();
             for i in r.node_commands.iter() {
                 apply_node_command(&mut cmds, i, replayentities);
@@ -308,12 +308,8 @@ pub fn apply_node_command(cmds: &mut UserCommands, i: &NodeCommand, play_state: 
                 Some(r) => *r,
                 None => return,
             };
-            #[cfg(not(target_arch="wasm32"))]
-            let v = unsafe { transmute::<_, f64>(b) };
-            #[cfg(target_arch="wasm32")]
-            let v = unsafe { transmute::<_, f32>(b) };
 
-            let b = if b.is_null() || v == 0.0 {
+            let b = if b.is_null() {
                 Entity::null()
             } else {
                 match play_state.get(b) {
@@ -329,12 +325,8 @@ pub fn apply_node_command(cmds: &mut UserCommands, i: &NodeCommand, play_state: 
                 Some(r) => *r,
                 None => return,
             };
-            #[cfg(not(target_arch="wasm32"))]
-            let v = unsafe { transmute::<_, f64>(b) };
-            #[cfg(target_arch="wasm32")]
-            let v = unsafe { transmute::<_, f32>(b) };
 
-            let b = if b.is_null() || v == 0.0 {
+            let b = if b.is_null() {
                 Entity::null()
             } else {
                 match play_state.get(b) {
@@ -386,6 +378,8 @@ pub fn apply_init_command(cmds: &mut UserCommands, node_init_command: (Entity, N
     let (entity, tag) = node_init_command;
     if let Some(entity) = play_state.get(&entity) {
         cmds.init_node(*entity, tag);
+    } else {
+        log::error!("Init Fail Ref {:?}", entity);
     }
 }
 
