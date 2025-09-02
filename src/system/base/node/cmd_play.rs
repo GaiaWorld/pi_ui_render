@@ -7,7 +7,7 @@ use crate::{
         root::Viewport, user::{serialize::StyleTypeReader, ClassName, StyleAttribute}
     },
     prelude::UserCommands,
-    resource::{fragment::NodeTag, CmdType, FragmentCommand, NodeCommand}, system::base::node::user_setting,
+    resource::{fragment::NodeTag, CanvasCmd, CmdType, FragmentCommand, NodeCommand, PostProcessCmd}, system::base::node::user_setting,
 };
 use crate::prelude::UiStage;
 use crate::system::system_set::UiSystemSet;
@@ -121,7 +121,6 @@ pub fn cmd_play_call(world: &mut World, data: &Vec<u8>, replayentities: &XHashMa
     match postcard::from_bytes::<UIRecord>(data) {
         Ok(record) => {
             let r: UIRecord = record;
-            log::error!("{:?}", (r.node_commands.len(), r.node_init_commands.len(), r.style_commands.len()));
             let mut cmds = UserCommands::default();
             for i in r.node_commands.iter() {
                 apply_node_command(&mut cmds, i, replayentities);
@@ -473,6 +472,49 @@ pub fn apply_nother_cmd(cmds: &mut UserCommands, other_command: &CmdType, play_s
         CmdType::Sdf2CfgCmd(r) => {
             cmds.push_cmd(r.clone());
         },
+        CmdType::Brush(CanvasCmd(a, v, b)) => {
+            let a = if a.is_null() {
+                Entity::null()
+            } else {
+                match play_state.get(a) {
+                    Some(r) => *r,
+                    None => return,
+                }
+            };
+
+            let b = if b.is_null() {
+                Entity::null()
+            } else {
+                match play_state.get(b) {
+                    Some(r) => *r,
+                    None => return,
+                }
+            };
+
+            // log::error!("Set Brush {:?}", (a, *v, b));
+            // cmds.push_cmd(CanvasCmd(a, *v, b));
+        }
+        CmdType::PostProcessCmd(PostProcessCmd(a, b)) => {
+            let a = if a.is_null() {
+                Entity::null()
+            } else {
+                match play_state.get(a) {
+                    Some(r) => *r,
+                    None => return,
+                }
+            };
+
+            let b = if b.is_null() {
+                Entity::null()
+            } else {
+                match play_state.get(b) {
+                    Some(r) => *r,
+                    None => return,
+                }
+            };
+
+            cmds.push_cmd(PostProcessCmd(a, b));
+        }
         // CmdType::SvgStrokeCmd(r) => { 
         //     let mut r = r.clone();
         //     let node = match play_state.get(&r.0) {
