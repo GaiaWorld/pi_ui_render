@@ -49,10 +49,10 @@ impl Example for ExampleCommonPlay {
     }
 
     fn init(&mut self, mut _world: Param, size: (usize, usize)) {   
-        _world.play_state.view_port = Some(Aabb2::new(
-            Point2::new(0.0, 0.0),
-            Point2::new(size.0 as f32, size.1 as f32),
-        ));
+        // _world.play_state.view_port = Some(Aabb2::new(
+        //     Point2::new(0.0, 0.0),
+        //     Point2::new(size.0 as f32, size.1 as f32),
+        // ));
         
         println!("view_port:{:?}", size);
     }
@@ -60,7 +60,7 @@ impl Example for ExampleCommonPlay {
     fn render(&mut self, _cmd: &mut UserCommands) {  }
 
     #[cfg(feature = "debug")]
-    fn record_option(&self) -> pi_ui_render::system::base::node::cmd_play::TraceOption { pi_ui_render::system::base::node::cmd_play::TraceOption::Play }
+    fn record_option(&self) -> pi_bevy_render_plugin::cmd_play::TraceOption { pi_bevy_render_plugin::cmd_play::TraceOption::Play }
 
     fn play_option(&self) -> Option<framework::PlayOption> {
 		let mut option = framework::PlayOption {

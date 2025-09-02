@@ -112,7 +112,7 @@ impl<T: Bundle + 'static + Send + Sync> Command for NodeCmd<T> {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct PostProcessCmd(pub EntityKey, pub Entity);
+pub struct PostProcessCmd(pub Entity, pub Entity);
 impl Command for PostProcessCmd {
     fn apply(self, world: &mut World) {
         if world.contains_entity(self.1) {
@@ -384,6 +384,8 @@ pub enum CmdType {
     SdfCfgCmd(FontCfgCmd),
     SdfDefaultCharCmd(SdfDefaultCharCmd),
     Sdf2CfgCmd(FontSdf2Cmd),
+    Brush(CanvasCmd),
+    PostProcessCmd(PostProcessCmd),
     // SVG
     // SvgStrokeCmd(SvgStrokeColorCmd),
     // SvgColorCmd(SvgColorCmd),

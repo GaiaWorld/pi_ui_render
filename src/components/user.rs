@@ -125,7 +125,7 @@ pub struct ZIndex(pub isize);
 #[derive(Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize, Debug, Component)]
 pub struct AsImage {
 	pub level: AsImage1, 
-	pub post_process: EntityKey, // 通过post_process， 需要能查询到一个GraphId组件，此GraphId对应的图节点负责后处理效果
+	pub post_process: Entity, // 通过post_process， 需要能查询到一个GraphId组件，此GraphId对应的图节点负责后处理效果
     pub old_pass2d_graph_id: NodeId, // 旧的链接的图节点
     pub old_post_graph_id: NodeId, // 旧的链接的图节点
 

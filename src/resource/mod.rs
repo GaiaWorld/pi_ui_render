@@ -329,6 +329,16 @@ impl UserCommands {
 		self
     }
 
+    pub fn set_custom_post(&mut self, cmd: PostProcessCmd) -> &mut Self {
+        #[cfg(feature = "debug")]
+        if self.is_record {
+            self.other_commands_list.push(CmdType::PostProcessCmd(cmd.clone()));
+        }
+
+        self.push_cmd(cmd);
+		self
+    }
+
     /// 添加指令
     pub fn push_cmd<T: Command>(&mut self, cmd: T) -> &mut Self {
         // println_any!("push_cmd===={:?}", 1);
@@ -413,6 +423,16 @@ impl UserCommands {
         #[cfg(feature = "debug")]
         if self.is_record {
             self.other_commands_list.push(CmdType::NodeCmdRenderClearColor(cmd.clone()));
+        }
+
+        self.other_commands.push(cmd);
+		self
+    }
+
+    pub fn set_brush(&mut self, cmd: CanvasCmd) -> &mut Self {
+        #[cfg(feature = "debug")]
+        if self.is_record {
+            self.other_commands_list.push(CmdType::Brush(cmd.clone()));
         }
 
         self.other_commands.push(cmd);
