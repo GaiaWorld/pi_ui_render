@@ -537,6 +537,7 @@ impl FromWorld for TextStyle {
         }
     }
 }
+pub static FONT_WEIGHT_NORMAL: usize = 400; 
 
 impl Default for TextStyle {
     fn default() -> Self {
@@ -551,7 +552,7 @@ impl Default for TextStyle {
             line_height: Default::default(),
             vertical_align: Default::default(),
             font_style: Default::default(),
-            font_weight: 500,
+            font_weight: FONT_WEIGHT_NORMAL,
             font_size: Default::default(),
             font_family: Default::default(),
         }
@@ -560,9 +561,9 @@ impl Default for TextStyle {
 
 impl TextStyle {
     pub fn font_weight(&self) -> f32 {
-        if self.font_weight == 500 {
+        if self.font_weight == FONT_WEIGHT_NORMAL {
             0.0
-        } else if self.font_weight < 500 {
+        } else if self.font_weight < FONT_WEIGHT_NORMAL {
             -1.0
         } else {
             1.0

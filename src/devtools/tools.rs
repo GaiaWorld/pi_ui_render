@@ -19,7 +19,7 @@ use pi_tcp::{SocketConfig, SocketEvent,
         connect::TcpSocket,
         server::{PortsAdapterFactory, SocketListener}};
 use json::JsonValue;
-use crate::{components::{calc::{EntityKey, InPassId, IsRotate, IsShow, Quad, ZRange}, pass_2d::ParentPassId, root::{RootScale, Viewport}, user::{ClassName, Overflow, Point2, Size}}, devtools::{get_document_tree, get_roots}, resource::{draw_obj::{create_common_pipeline_state, LastGraphNode}, IsRun, QuadTree}};
+use crate::{components::{calc::{EntityKey, InPassId, IsRotate, IsShow, Quad, ZRange}, pass_2d::ParentPassId, root::{RootScale, Viewport}, user::{ClassName, Overflow, Point2, Size}}, devtools::{get_document_tree, get_global_info, get_roots}, resource::{draw_obj::{create_common_pipeline_state, LastGraphNode}, IsRun, QuadTree}};
 use crate::devtools::{get_style, get_class_names, get_class};
 use super::{init_node, node_info, GuiNode};
 use wgpu::util::DeviceExt;
@@ -384,8 +384,46 @@ fn parse_cmd(cmd: &str, connect: WsSocket<TcpSocket>, world: &mut World) -> std:
                 }
             }
         },
-        "request-render-graph" => {},
-        "request-system-graph" => {},
+        "request-global-interface" => {
+            let msg = "{\"cmd\": \"global-info-interface\" , \"payload\": [[\"ExecutionGraph\",\"graph\"],[\"ToopGraph\",\"graph\"],[\"GlobalInfo\",\"json\"]]}";
+            println!("========= request-global-interface msg: {}", msg);
+            if let Err(e) = connect.send(WsFrameType::Text, msg.as_bytes().to_vec()) {
+                log::error!("send error: {}", e);
+            }
+        },
+        "request-global-info" => {
+            let request_cmd = match obj.get("payload") {
+                Some(JsonValue::Short(request_cmd)) => request_cmd,
+                r => return Err(format!("cmd invalid: {:?}", r))
+            };
+            let info = match request_cmd.as_str() {
+                "ExecutionGraph" => {
+                    let g = world.get_single_res::<pi_bevy_render_plugin::PiRenderGraph>().unwrap();
+                    g.dump_graphviz()
+                },
+                "ToopGraph" => {
+                    let g = world.get_single_res::<pi_bevy_render_plugin::PiRenderGraph>().unwrap();
+                    g.dump_toop_graphviz()
+                },
+                "GlobalInfo" => {
+                    let info = get_global_info(&world);
+                    serde_json::to_string(&info).unwrap()
+                },
+                _ => "".to_string(),
+            };
+            // let info = "digraph Render {\"\"}";
+            // let j = serde_json::from_str::<serde_json::Value>(&info).unwrap();
+            // println!("============ request-global-info msg: {:?}", j);
+            let msg = format!("{{\"cmd\": \"global-info-data\", \"payload\": {{\"name\":\"{}\", \"data\": {:?}}}}}", request_cmd, info);
+            println!("============ request-global-info msg: {}", msg);
+            // let j = serde_json::from_str::<serde_json::Value>(&msg).unwrap();
+            
+            // println!("============ request-global-info msg: {}", j);
+            
+            if let Err(e) = connect.send(WsFrameType::Text, msg.as_bytes().to_vec()) {
+                log::error!("send error: {}", e);
+            }
+        },
         "request-modify-style" => {},
 
         r => return Err(format!("cmd invalid: {:?}", r)) 
