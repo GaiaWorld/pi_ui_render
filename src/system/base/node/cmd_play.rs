@@ -21,7 +21,7 @@ use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, OrInitSingleRes};
 use pi_bevy_render_plugin::{asimage_url::entity_to_asimage_url, FrameState, KeyRecord, PlayState, Records, StageCMDTrace, TraceOption, RECORD_UI_COMMAND};
 use pi_null::Null;
 use pi_slotmap::{KeyData, SecondaryMap};
-
+use pi_key_alloter::Key;
 pub struct UiCmdTracePlugin;
 
 impl Plugin for UiCmdTracePlugin {
@@ -121,7 +121,7 @@ pub fn cmd_play_call(world: &mut World, data: &Vec<u8>, replayentities: &XHashMa
     match postcard::from_bytes::<UIRecord>(data) {
         Ok(record) => {
             let r: UIRecord = record;
-            let mut cmds = UserCommands::default();
+            let mut cmds = world.get_single_res_mut::<UserCommands>().unwrap();
             for i in r.node_commands.iter() {
                 apply_node_command(&mut cmds, i, replayentities);
             }
@@ -140,9 +140,6 @@ pub fn cmd_play_call(world: &mut World, data: &Vec<u8>, replayentities: &XHashMa
             for s in r.style_commands.iter() {
                 apply_style_command(&mut cmds, s, replayentities);
             }
-
-            let user_commands = world.get_single_res_mut::<UserCommands>().unwrap();
-            **user_commands = cmds;
         },
         Err(_) => {},
     }
@@ -363,7 +360,8 @@ pub fn apply_fragment_command(cmds: &mut UserCommands, fragment_commands: &Fragm
             if let None = play_state.get(r) {
                 log::warn!("xxxxxxx=========={:?}", r);
             }
-            *play_state.get(r).unwrap()
+            let result = *play_state.get(r).unwrap();
+            result
         })
         .collect();
 
@@ -371,14 +369,15 @@ pub fn apply_fragment_command(cmds: &mut UserCommands, fragment_commands: &Fragm
         key: fragment_commands.key,
         entitys: r,
     });
+
 }
 
 pub fn apply_init_command(cmds: &mut UserCommands, node_init_command: (Entity, NodeTag), play_state: &XHashMap<Entity, Entity>) {
-    let (entity, tag) = node_init_command;
-    if let Some(entity) = play_state.get(&entity) {
+    let (entity0, tag) = node_init_command;
+    if let Some(entity) = play_state.get(&entity0) {
         cmds.init_node(*entity, tag);
     } else {
-        log::error!("Init Fail Ref {:?}", entity);
+        // log::error!("Init Fail Ref {:?}", entity0);
     }
 }
 
@@ -487,12 +486,11 @@ pub fn apply_nother_cmd(cmds: &mut UserCommands, other_command: &CmdType, play_s
             } else {
                 match play_state.get(b) {
                     Some(r) => *r,
-                    None => return,
+                    None => { return },
                 }
             };
 
-            // log::error!("Set Brush {:?}", (a, *v, b));
-            // cmds.push_cmd(CanvasCmd(a, *v, b));
+            cmds.push_cmd(CanvasCmd(a, *v, b));
         }
         CmdType::PostProcessCmd(PostProcessCmd(a, b)) => {
             let a = if a.is_null() {
