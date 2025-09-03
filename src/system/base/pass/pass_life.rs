@@ -604,20 +604,20 @@ pub fn set_pass_instance(
                     // will_change_matrix * will_change_invert * view_port又将没有任何willchange作用的坐标系变换到当前节点will_change作用的坐标系中（忽略了父willchange的影响）
                     let m1 ;
                     let m = if let Some(_) = will_change {
-                        m1 = &will_change_matrix.primitive * &will_change_matrix.will_change_invert;
+                        m1 = &will_change_matrix.own_view_matrix * &will_change_matrix.view_matrix_invert;
                         &m1
                     } else {
-                        &will_change_matrix.will_change_invert
+                        &will_change_matrix.view_matrix_invert
                     };
                     set_matrix(&m, &render_target.bound_box, &mut instance_data)
                 },
                 (OverflowDesc::Rotate(matrix), Some(will_change_matrix)) => {
                     let m1 ;
                     let m = if let Some(_) = will_change {
-                        m1 = &will_change_matrix.primitive * &will_change_matrix.will_change_invert;
+                        m1 = &will_change_matrix.own_view_matrix * &will_change_matrix.view_matrix_invert;
                         &m1
                     } else {
-                        &will_change_matrix.will_change_invert
+                        &will_change_matrix.view_matrix_invert
                     };
                     // log::warn!("======================{:?}", (entity, will_change_matrix));
                     set_matrix(&(m * &matrix.world_rotate), &render_target.bound_box, &mut instance_data);

@@ -623,25 +623,24 @@ pub trait NeedMark {
 pub struct TransformWillChangeMatrix(pub Option<Share<TransformWillChangeMatrixInner>>);
 
 impl TransformWillChangeMatrix {
-    pub fn new(will_change_invert: WorldMatrix, will_change: WorldMatrix, primitive: WorldMatrix) -> TransformWillChangeMatrix {
+    pub fn new(view_matrix_invert: WorldMatrix, view_matrix: WorldMatrix, primitive: WorldMatrix) -> TransformWillChangeMatrix {
         TransformWillChangeMatrix(Some(Share::new(TransformWillChangeMatrixInner {
-            will_change,
-            will_change_invert,
-            primitive: primitive.clone(), 
-            invert: primitive,
+            view_matrix,
+            view_matrix_invert,
+            own_view_matrix: primitive.clone(), 
         })))
     }
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct TransformWillChangeMatrixInner {
-    // will_change矩阵（will_change*worldmatrix*顶点=真实的世界坐标位置） = ParentWorldMatrix * primitive * ParentWorldMatrix逆
-    pub will_change: WorldMatrix, 
-    // will_change 逆
-    pub will_change_invert: WorldMatrix, 
-    // pub primitive: WorldMatrix;// = Parent1.WillChangeTransform * Parent2.WillChangeTransform * ... * this.WillChangeTransform
-    pub invert: WorldMatrix,  // will_change属性所在节点的世界矩阵的逆， 
-    pub primitive: WorldMatrix,  // will_change属性所在节点的willchange_transfrom对应的矩阵，
+    // 当前节点需要的视图矩阵变换， view_matrix = Parent0.own_view_matrix * Parent1.own_view_matrix * ... * self.own_view_matrix
+    pub view_matrix: WorldMatrix, 
+    /// view_matrix 逆
+    pub view_matrix_invert: WorldMatrix, 
+    /// 忽略所有父的TransfromWillChange， 只考虑自身TransfromWillChange，计算而得的局部 view_matrix
+    /// own_view_matrix = ParentWorldMatrix * TransformWillChangeMatrix * WorldMatrix逆
+    pub own_view_matrix: WorldMatrix,
 }
 
 #[derive(Debug, Clone)]

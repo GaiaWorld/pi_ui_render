@@ -256,7 +256,7 @@ pub fn calc_pass_dirty_rect(
                     // if pass_dirty_rect.state == DirtyRectState::Inited {
                     //     box_aabb(&mut aabb, &pass_dirty_rect.value)
                     // }
-                    calc_bound_box(&pass_dirty_rect.value, &matrix.will_change)
+                    calc_bound_box(&pass_dirty_rect.value, &matrix.view_matrix)
                 }
                 None => pass_dirty_rect.value.clone(),
             };
@@ -320,7 +320,7 @@ fn merge_dirty_rect(
             // if pass_dirty_rect.state == DirtyRectState::Inited {
             //     box_aabb(&mut aabb, &pass_dirty_rect.value)
             // }
-            calc_bound_box(&dirty_rect.value, &matrix.will_change)
+            calc_bound_box(&dirty_rect.value, &matrix.view_matrix)
         }
         None => dirty_rect.value.clone(),
     };

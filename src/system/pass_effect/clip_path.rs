@@ -138,7 +138,7 @@ pub fn clip_path_post_process(
 
         } else if let TransformWillChangeMatrix(Some(will_change_matrix)) = will_change_matrix {
             // 存在transform时， 用will_change_invert反乘，计算出 节点可视区域在布局坐标系中的表示 
-            let will_change_matrix = &will_change_matrix.will_change_invert;
+            let will_change_matrix = &will_change_matrix.view_matrix_invert;
             let left_top = will_change_matrix * Vector4::new(view_aabb.mins.x, view_aabb.mins.y, 0.0, 1.0);
             let right_bottom = will_change_matrix * Vector4::new(view_aabb.maxs.x, view_aabb.maxs.y, 0.0, 1.0);
             Aabb2::new(

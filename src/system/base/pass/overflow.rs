@@ -162,7 +162,7 @@ fn recursive_cal_overflow(
             let matrix_temp;
             let matrix = match &will_change.0 {
                 Some(r) => {
-                    matrix_temp = &r.will_change * world_matrix;
+                    matrix_temp = &r.view_matrix * world_matrix;
                     &matrix_temp
                 }
                 None => world_matrix,
@@ -283,7 +283,7 @@ fn recursive_cal_overflow(
                 let aabb_temp;
                 let quad1 = match &will_change.0 {
                     Some(r) => {
-                        aabb_temp = cal_no_rotate_box(quad, &r.will_change);
+                        aabb_temp = cal_no_rotate_box(quad, &r.view_matrix);
                         &aabb_temp
                     }
                     None => quad,
