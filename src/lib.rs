@@ -40,6 +40,8 @@ pub mod devtools;
 
 
 pub mod prelude {
+    #[cfg(feature = "debug")]
+use pi_bevy_render_plugin::TraceOption;
     use pi_world::{prelude::{App, IntoSystemConfigs, IntoSystemSetConfigs, Plugin, WorldPluginExtent}, schedule::PostUpdate};
 
     use pi_hal::font::font::FontType;
@@ -57,7 +59,7 @@ pub mod prelude {
     #[derive(Default)]
     pub struct UiPlugin {
         #[cfg(feature = "debug")]
-        pub cmd_trace: crate::system::base::node::cmd_play::TraceOption,
+        pub cmd_trace: TraceOption,
 		pub font_type: FontType,
     }
     impl Plugin for UiPlugin {
@@ -200,7 +202,7 @@ pub mod prelude {
 			// .add_system(End, crate::clear_remove_component.after(bevy_window::FrameSet)); // 在每帧结束时清理删除组件的列表
             ;
             #[cfg(feature = "debug")]
-            app.add_plugins(crate::system::base::node::cmd_play::UiCmdTracePlugin { option: self.cmd_trace });
+            app.add_plugins(crate::system::base::node::cmd_play::UiCmdTracePlugin);
         }
     }
 }

@@ -28,7 +28,7 @@ use wgpu::{ BindGroupLayout, CommandEncoder, RenderPass, Sampler};
 
 use crate::{components::{calc::{style_bit, LayoutResult, NodeState, StyleBit, StyleMarkType, LAYOUT_DIRTY}, draw_obj::{InstanceSplit, TempGeoBuffer, TextOuterGlowMark, TextShadowMark}, pass_2d::InstanceDrawState, root::DynTargetType}, resource::{draw_obj::RenderState, TextOuterGlowRenderObjType, TextShadowRenderObjType}, shader1::{batch_gauss_blur::{BatchGussMeterial, GaussDirecition}, batch_meterial::{LayoutUniform, TyMeterial, UvUniform}, batch_sdf_glow::BatchGlowMeterial, batch_sdf_gray::BatchGrayMeterial}, system::draw_obj::root_view_port::create_dyn_target_type};
 use crate::components::draw_obj::{BoxType, PolygonType, RenderCount, TempGeo, TextMark, VColor};
-use crate::components::user::{get_size, TextContent, TextOuterGlow, TextOverflowData, TextShadow, TextStyle};
+use crate::components::user::{get_size, TextContent, TextOuterGlow, TextOverflowData, TextShadow, TextStyle, FONT_WEIGHT_NORMAL};
 use crate::components::user::Color;
 use crate::resource::{GlobalDirtyMark, IsRun, OtherDirtyType, ShareFontSheet, TextRenderObjType};
 use crate::shader::ui_meterial::ColorUniform;
@@ -787,7 +787,7 @@ impl<'a> UniformData<'a> {
 		let font_size = get_size(&self.text_style.font_size) as f32;		
 		let font_size_scale = font_size.max(0.0001) / sdf_font_size(font_size as usize) as f32;
 		let px_range = pi_hal::font::sdf2_table::PXRANGE as f32 * font_size_scale * 2.0;
-		let fill_bound = 0.5 - (self.text_style.font_weight as f32 / 500 as f32 - 1.0) / px_range;
+		let fill_bound = 0.5 - (self.text_style.font_weight as f32 / FONT_WEIGHT_NORMAL as f32 - 1.0) / px_range;
 		let stroke_bound = fill_bound - (*self.text_style.text_stroke.width)/2.0/font_size_scale/(pi_hal::font::sdf2_table::PXRANGE as f32 * 2.0);
 
 		let mut calc_result = TextResult {

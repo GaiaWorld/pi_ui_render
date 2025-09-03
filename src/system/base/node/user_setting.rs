@@ -85,7 +85,6 @@ pub fn user_setting1(
         user_commands.class_commands.is_empty() {
         return;
     }
-
     let mut w2 = world.unsafe_world();
     let mut w3 = world.unsafe_world();
     let mut w4 = world.unsafe_world();
@@ -120,11 +119,9 @@ pub fn user_setting1(
         let t = match fragments.map.get(&c.key) {
             Some(r) => r,
             _ => {
-                log::warn!("fragment is not exist, {}", c.key);
                 continue;
             }
         };
-        log::debug!("fragment_commands === {}", c.key);
         debug_assert_eq!(t.end - t.start, c.entitys.len());
 		if t.end - t.start != c.entitys.len() {
 			panic!("fragment_commands === {}, {}, {}", c.key, t.end - t.start, c.entitys.len());

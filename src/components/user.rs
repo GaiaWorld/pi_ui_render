@@ -125,7 +125,7 @@ pub struct ZIndex(pub isize);
 #[derive(Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize, Debug, Component)]
 pub struct AsImage {
 	pub level: AsImage1, 
-	pub post_process: EntityKey, // 通过post_process， 需要能查询到一个GraphId组件，此GraphId对应的图节点负责后处理效果
+	pub post_process: Entity, // 通过post_process， 需要能查询到一个GraphId组件，此GraphId对应的图节点负责后处理效果
     pub old_pass2d_graph_id: NodeId, // 旧的链接的图节点
     pub old_post_graph_id: NodeId, // 旧的链接的图节点
 
@@ -537,6 +537,7 @@ impl FromWorld for TextStyle {
         }
     }
 }
+pub static FONT_WEIGHT_NORMAL: usize = 400; 
 
 impl Default for TextStyle {
     fn default() -> Self {
@@ -551,7 +552,7 @@ impl Default for TextStyle {
             line_height: Default::default(),
             vertical_align: Default::default(),
             font_style: Default::default(),
-            font_weight: 500,
+            font_weight: FONT_WEIGHT_NORMAL,
             font_size: Default::default(),
             font_family: Default::default(),
         }
@@ -560,9 +561,9 @@ impl Default for TextStyle {
 
 impl TextStyle {
     pub fn font_weight(&self) -> f32 {
-        if self.font_weight == 500 {
+        if self.font_weight == FONT_WEIGHT_NORMAL {
             0.0
-        } else if self.font_weight < 500 {
+        } else if self.font_weight < FONT_WEIGHT_NORMAL {
             -1.0
         } else {
             1.0

@@ -32,7 +32,8 @@ use pi_ui_render::{
 #[cfg(target_arch = "wasm32")]
 use pi_async_rt::rt::serial_local_compatible_wasm_runtime::{LocalTaskRunner, LocalTaskRuntime};
 #[cfg(feature = "debug")]
-use pi_ui_render::system::base::node::cmd_play::{CmdNodeCreate, PlayState, Records};
+use pi_bevy_render_plugin::cmd_play::{ PlayState, Records};
+use pi_ui_render::system::base::node::cmd_play::{CmdNodeCreate};
 use pi_winit::event::{Event, WindowEvent};
 use pi_winit::event_loop::{ControlFlow, EventLoop};
 use pi_world::single_res::SingleRes;
@@ -64,7 +65,7 @@ pub trait Example: 'static + Sized {
     }
     fn font_type(&self) -> FontType { FontType::Sdf2 }
     #[cfg(feature = "debug")]
-    fn record_option(&self) -> pi_ui_render::system::base::node::cmd_play::TraceOption { pi_ui_render::system::base::node::cmd_play::TraceOption::None }
+    fn record_option(&self) -> pi_bevy_render_plugin::cmd_play::TraceOption { pi_bevy_render_plugin::cmd_play::TraceOption::None }
     fn play_option(&self) -> Option<PlayOption> { None }
 }
 
@@ -341,8 +342,10 @@ println!("===========   ===========");
     // 	}));
     // }
     let mut app = App::new();
+   
     let mut is_init = false;
-    let mut cursor_pos = (0.0, 0.0);
+    let mut last_x = 0.0;
+    let mut last_y = 0.0;
     event_loop.run(move |event, _, control_flow| {
         match event {
             Event::MainEventsCleared => {
@@ -407,8 +410,9 @@ println!("===========   ===========");
                 };
                 
                 init(width, height, &mut app, window.clone());
-                #[cfg(not(target_arch = "wasm32"))]
-                pi_ui_render::devtools::start_server(&mut app); // 开启开发工具
+                
+                app.add_plugins(pi_bevy_render_plugin::cmd_play::GlobalCmdTracePlugin { option: record_option });
+
                 app.world.insert_single_res(RunState::MATRIX);
                 #[cfg(feature = "debug")]
                 if let Some(play_option) = &play_option {
@@ -426,14 +430,19 @@ println!("===========   ===========");
 
                 #[cfg(feature = "debug")]
                 match record_option {
-                    pi_ui_render::system::base::node::cmd_play::TraceOption::None => (),
-                    pi_ui_render::system::base::node::cmd_play::TraceOption::Record => {
+                    pi_bevy_render_plugin::cmd_play::TraceOption::None => (),
+                    pi_bevy_render_plugin::cmd_play::TraceOption::Record => {
                         app.add_system(UiStage, record_cmd_to_file.in_set(UiSystemSet::NextSetting));
                     }
-                    pi_ui_render::system::base::node::cmd_play::TraceOption::Play => {
-                        app.add_system(First, setting_next_record);
+                    pi_bevy_render_plugin::cmd_play::TraceOption::Play => {
+                        use pi_bevy_render_plugin::{sys_cmd_replay, StageCMDTrace};
+
+                        app.add_system(First, setting_next_record.in_set(StageCMDTrace::Trace).before(sys_cmd_replay));
                     }
                 }
+                #[cfg(not(target_arch = "wasm32"))]
+                pi_ui_render::devtools::start_server(&mut app); // 开启开发工具
+
                 let exmple2 = exmple1.clone();
                 let exmple3 = exmple1.clone();
 
@@ -446,17 +455,27 @@ println!("===========   ===========");
                 });
             }
             Event::WindowEvent {
+                event: WindowEvent::MouseInput {  state, button,  ..},
+                ..
+            } => {
+                if let pi_winit::event::ElementState::Released = state {
+                    if let pi_winit::event::MouseButton::Right = button {
+                        println!("============= request_right_key_element: {:?}", (last_x, last_y));
+                        request_right_key_element(last_x, last_y);
+                    }
+                }
+            }
+            Event::WindowEvent {
+                event: WindowEvent::CursorMoved {  position,  ..},
+                ..
+            } => {
+                last_x = position.x as f32;
+                last_y = position.y as f32;
+            }
+            Event::WindowEvent {
                 event: WindowEvent::CloseRequested,
                 ..
             } => *control_flow = ControlFlow::Exit,
-            Event::WindowEvent {  event: WindowEvent::MouseInput {state, button, .. }, .. } =>{
-                if pi_winit::event::ElementState::Released ==  state && pi_winit::event::MouseButton::Right == button {
-                    request_right_key_element(cursor_pos.0, cursor_pos.1);
-                }
-            }
-            Event::WindowEvent {  event: WindowEvent::CursorMoved { position,.. }, .. } =>{
-                cursor_pos = (position.x as f32, position.y as f32);
-            }
             _ => {}
         }
     });
@@ -624,7 +643,6 @@ pub fn init(width: u32, height: u32, app: &mut App, w: Arc<pi_winit::window::Win
     .add_plugins(PiRenderPlugin::default())
     .add_plugins(PiPostProcessPlugin);
 
-
     // let h = app.world.get_single_res_mut::<pi_bevy_log::LogFilterHandle>().unwrap();
     // let default_filter = { format!("{},my_target=info", bevy_log::Level::WARN) };
     // let filter_layer = tracing_subscriber::EnvFilter::try_from_default_env()
@@ -672,13 +690,7 @@ pub fn record_cmd_to_file(mut records: SingleResMut<Records>) {
     if records.list.len() == 0 && records.run_state.len() == 0 {
         return;
     }
-    let r = match postcard::to_stdvec(&*records) {
-        Ok(bin) => bin,
-        Err(r) => {
-            log::error!("serialize fail!!, {:?}", r);
-            Vec::<u8>::default()
-        }
-    };
+    let r = records.bin();
     // log::warn!("record============={:?}", &*records);
     std::fs::write(Path::new("examples/a_cmd_play/source/cmds/").join("cmd_local_0.gui_cmd"), r).unwrap();
     records.clear()
@@ -692,7 +704,6 @@ pub fn setting_next_record(world: &mut World, mut local_state: Local<NextState>)
     let local_state = &mut *local_state;
     if local_state.is_end {
         let play_state = world.get_single_res_mut::<PlayState>().unwrap();
-        play_state.is_render = true;
         #[cfg(all(not(target_arch = "wasm32"), not(target_env = "msvc"), not(target_os = "android")))] 
         if play_option.jemalloc && !play_state.is_running && (
         local_state.file_index == 50 
@@ -774,12 +785,16 @@ fn setting(file_index1: &mut usize, world: &mut World, is_end: &mut bool, play_o
             let _ = pi_hal::runtime::MULTI_MEDIA_RUNTIME.block_on(async move {
                 match pi_hal::file::load_from_url(&pi_atom::Atom::from(path)).await {
                     Ok(bin) => {
-                        // log::warn!("play, {:?}", path1);
-                        match postcard::from_bytes::<Records>(&bin) {
+                        use pi_bevy_render_plugin::Record;
+
+                        match postcard::from_bytes::<Vec<Record>>(&bin) {
                             Ok(r) => {
-                                // log::warn!("parse cmd================{:?}", r.list.len());
                                 world.or_register_single_res(TypeInfo::of::<Records>());
-                                **world.get_single_res_mut::<Records>().unwrap() = r;
+                                log::warn!("parse cmd================ {:?}", (r.len()));
+                                // for i in r.iter() {
+                                //     log::warn!("parse cmd================ {:?}", (i.frame_index, i.cmds.len(), i.entities.len(), &i.entities));
+                                // }
+                                world.get_single_res_mut::<Records>().unwrap().list = r;
                                 // 重设播放状态
                                 let play_state = world.get_single_res_mut::<PlayState>().unwrap();
                                 play_state.is_running = true;
@@ -797,7 +812,6 @@ fn setting(file_index1: &mut usize, world: &mut World, is_end: &mut bool, play_o
                         *file_index1 = file_index;
                     }
                     Err(_e) => {  
-                        log::warn!("play end, {:?}", path1);
                         *is_end = true;
                         return;
                     }

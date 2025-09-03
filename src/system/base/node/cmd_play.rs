@@ -4,86 +4,57 @@ use std::{collections::VecDeque, mem::transmute};
 
 use crate::{
     components::{
-        calc::EntityKey, root::Viewport, user::{serialize::StyleTypeReader, ClassName, StyleAttribute}
+        root::Viewport, user::{serialize::StyleTypeReader, ClassName, StyleAttribute}
     },
     prelude::UserCommands,
-    resource::{fragment::NodeTag, CmdType, FragmentCommand, NodeCommand}, system::base::node::user_setting,
+    resource::{fragment::NodeTag, CanvasCmd, CmdType, FragmentCommand, NodeCommand, PostProcessCmd}, system::base::node::user_setting,
 };
-
+use crate::prelude::UiStage;
+use crate::system::system_set::UiSystemSet;
 use bitvec::array::BitArray;
 use pi_atom::Atom;
+use pi_hash::XHashMap;
 use pi_style::{style::Aabb2, style_parse::style_to_buffer, style_type::{BackgroundImageType, BorderImageType, ClassMeta, MaskImageType}};
-use pi_world::{insert::Insert, prelude::{App, Entity, IntoSystemConfigs, Plugin}};
+use pi_world::{insert::Insert, prelude::{App, Entity, IntoSystemConfigs, Plugin}, schedule::{First, PreUpdate}, world::World};
 use pi_bevy_ecs_extend::prelude::{OrInitSingleResMut, OrInitSingleRes};
 
-use pi_bevy_render_plugin::{asimage_url::entity_to_asimage_url, FrameState};
+use pi_bevy_render_plugin::{asimage_url::entity_to_asimage_url, FrameState, KeyRecord, PlayState, Records, StageCMDTrace, TraceOption, RECORD_UI_COMMAND};
 use pi_null::Null;
 use pi_slotmap::{KeyData, SecondaryMap};
-
-use crate::system::{system_set::UiSystemSet, RunState};
-use crate::prelude::UiStage;
-
-#[derive(Debug, Clone, Copy, Default)]
-pub enum TraceOption {
-    #[default]
-    None,
-    Record,
-    Play,
-}
-
-pub struct UiCmdTracePlugin {
-    pub option: TraceOption,
-}
+use pi_key_alloter::Key;
+pub struct UiCmdTracePlugin;
 
 impl Plugin for UiCmdTracePlugin {
     fn build(&self, app: &mut App) {
-        log::info!("self.option==============={:?}", self.option);
-        match self.option {
+        let option = app.world.get_single_res::<PlayState>().unwrap();
+        log::info!("self.option==============={:?}", option.option);
+        match option.option {
             TraceOption::Record => {
-                app.add_system(UiStage, cmd_record
+                app.add_system(UiStage, sys_ui_cmd_record
                     .in_set(UiSystemSet::Setting)
                     .before(user_setting::user_setting1)
-                );
-                // 帧数量记录每帧执行一次， 不放入UiSystemSet::Setting中
-                app.add_system(UiStage, frame_count
-                    .before(user_setting::user_setting1)
-                    .after(cmd_record)
                 );
             }
             TraceOption::Play => {
-                app.add_system(UiStage, cmd_play
-                    .in_set(UiSystemSet::Setting)
+                app.add_system(First, sys_ui_cmd_play
+                    .in_set(StageCMDTrace::After)
                     .before(user_setting::user_setting1)
                 );
             }
             TraceOption::None => return,
         };
-        app.world.init_single_res::<PlayState>();
-        app.world.init_single_res::<Records>();
-        app.world.init_single_res::<CmdNodeCreate>();
+        let option = app.world.get_single_res_mut::<Records>().unwrap();
+        option.palycalls.insert(RECORD_UI_COMMAND, cmd_play_call);
+        app.world.insert_single_res(CmdNodeCreate::default());
     }
-}
-
-pub fn frame_count(
-    mut records: OrInitSingleResMut<Records>,
-) {
-    records.cur_frame_count += 1; // 记录帧数量
 }
 
 // 记录指令
-pub fn cmd_record(
+pub fn sys_ui_cmd_record(
     mut user_commands: OrInitSingleResMut<UserCommands>,
     mut node_creates: OrInitSingleResMut<CmdNodeCreate>,
     mut records: OrInitSingleResMut<Records>,
-    run_state: OrInitSingleRes<RunState>,
-	frame_state: OrInitSingleRes<FrameState>,
 ) {
-    let cur_frame_count = records.cur_frame_count;
-    if **run_state != RunState::SETTING  {
-		if let FrameState::UnActive = **frame_state {
-			records.run_state.push((**run_state, cur_frame_count));
-		}
-    }
 
     let mut node_init_commands = Vec::new();
     let mut ss = Vec::with_capacity(user_commands.style_commands.commands.len());
@@ -94,7 +65,10 @@ pub fn cmd_record(
         }
     }
 
-    let frame_index = records.cur_frame_count;
+    node_creates.0.iter().for_each(|entity| {
+        records.record_create(*entity);
+    });
+
     if ss.len() == 0
         && user_commands.node_commands.len() == 0
         && user_commands.fragment_commands.len() == 0
@@ -105,340 +79,70 @@ pub fn cmd_record(
         // let last_index = records.list.len() - 1;
         // records.list[last_index].frame_index += 1;
     } else {
-        records.list.push(Record {
-            frame_index,
-            state: **run_state,
+        let bin = postcard::to_stdvec::<UIRecord>(&UIRecord {
             node_commands: user_commands.node_commands.clone(),
 			node_init_commands: node_init_commands,
             fragment_commands: user_commands.fragment_commands.clone(),
             style_commands: ss,
             class_commands: user_commands.class_commands.clone(),
             other_commands_list: user_commands.other_commands_list.clone(),
-            nodes_creates: node_creates.0.clone(),
         });
         user_commands.other_commands_list.clear();
         // log::info!("node_creates============{:?}", node_creates);
+
+        match bin {
+            Ok(bin) => {
+                records.record(RECORD_UI_COMMAND, bin);
+            },
+            Err(_) => {},
+        }
     }
     node_creates.0.clear();
 }
 
 
-pub fn cmd_play(
-    records: OrInitSingleResMut<Records>, 
+pub fn sys_ui_cmd_play(
     mut play_state: OrInitSingleResMut<PlayState>, 
     mut user_commands: OrInitSingleResMut<UserCommands>,
-    insert: Insert<()>,
 ) {
-    if !play_state.is_running {
-        // 清空指令列表
-        // 播放时， 忽略外部设置的任何其他指令， 只使用记录的指令来播放
-        **user_commands = UserCommands::default();
-        return; // 已经播完， 不需要继续播放
+    match play_state.playresult {
+        pi_bevy_render_plugin::EReplayResult::None => {},
+        pi_bevy_render_plugin::EReplayResult::End => {
+            **user_commands = UserCommands::default();
+        },
+        pi_bevy_render_plugin::EReplayResult::AwaitFrame => {},
+        pi_bevy_render_plugin::EReplayResult::NullFrame => {},
+        pi_bevy_render_plugin::EReplayResult::IsLast => {},
+        pi_bevy_render_plugin::EReplayResult::Ok => {},
     }
-    // 已经播放到最后一个，设置当前播放状态
-    if play_state.next_state_index >= records.list.len() {
-        play_state.is_running = false;
-        play_state.cur_frame_count = 0;
-        // **records = Records::default();
-        return;
+}
+
+pub fn cmd_play_call(world: &mut World, data: &Vec<u8>, replayentities: &XHashMap<Entity, Entity>) {
+    match postcard::from_bytes::<UIRecord>(data) {
+        Ok(record) => {
+            let r: UIRecord = record;
+            let mut cmds = world.get_single_res_mut::<UserCommands>().unwrap();
+            for i in r.node_commands.iter() {
+                apply_node_command(&mut cmds, i, replayentities);
+            }
+            for (n, class_name) in r.class_commands.iter() {
+                apply_class_name(&mut cmds, (*n, class_name.clone()), replayentities);
+            }
+            for other_command in r.other_commands_list.iter() {
+                apply_nother_cmd(&mut cmds, other_command, replayentities);
+            }
+            for fragment_commands in r.fragment_commands.iter() {
+                apply_fragment_command(&mut cmds, fragment_commands, replayentities);
+            }
+            for (entity, tag) in r.node_init_commands.iter() {
+                apply_init_command(&mut cmds, (*entity, tag.clone()), replayentities);
+            }
+            for s in r.style_commands.iter() {
+                apply_style_command(&mut cmds, s, replayentities);
+            }
+        },
+        Err(_) => {},
     }
-
-    // // 慢速播放设置
-    // if play_state.await_frame_count > 0 {
-    //     play_state.await_frame_count -= 1;
-    //     return;
-    // } else {
-    //     if play_state.speed < 1.0 && play_state.speed > 0.0 {
-    //         play_state.await_frame_count = (1.0 / play_state.speed) as usize;
-    //     }
-    // }
-
-    let mut cmds = UserCommands::default();
-    loop {
-        let r = &records.list[play_state.next_state_index];
-        // log::warn!("frame_index============{:?}", (r.frame_index, play_state.cur_frame_count, play_state.speed));
-        // 还需要继续播放一些空帧
-        if r.frame_index as f32 > play_state.cur_frame_count  as f32 * play_state.speed {
-            break;
-        }
-        // 先创建实体， 并建立映射关系
-        for x in r.nodes_creates.clone().iter() {
-            let id = insert.insert(());
-            play_state.node_map.insert(EntityKey(x.clone()), id);
-        }
-
-        let r = &records.list[play_state.next_state_index];
-
-        // 需要重新映射Entity
-        for i in r.node_commands.iter() {
-            let cmd = match i {
-                NodeCommand::AppendNode(a, b) => {
-                    let a = match play_state.get_node(a) {
-                        Some(r) => r,
-                        None => continue,
-                    };
-                    #[cfg(not(target_arch="wasm32"))]
-                    let v = unsafe { transmute::<_, f64>(b) };
-                    #[cfg(target_arch="wasm32")]
-                    let v = unsafe { transmute::<_, f32>(b) };
-
-                    let b = if EntityKey(*b).is_null() || v == 0.0 {
-                        EntityKey::null().0
-                    } else {
-                        match play_state.get_node(b) {
-                            Some(r) => r,
-                            None => continue,
-                        }
-                    };
-
-                    NodeCommand::AppendNode(a, b)
-                }
-                NodeCommand::InsertBefore(a, b) => {
-                    let a = match play_state.get_node(a) {
-                        Some(r) => r,
-                        None => continue,
-                    };
-                    #[cfg(not(target_arch="wasm32"))]
-                    let v = unsafe { transmute::<_, f64>(b) };
-                    #[cfg(target_arch="wasm32")]
-                    let v = unsafe { transmute::<_, f32>(b) };
-
-                    let b = if EntityKey(*b).is_null() || v == 0.0 {
-                        EntityKey::null().0
-                    } else {
-                        match play_state.get_node(b) {
-                            Some(r) => r,
-                            None => continue,
-                        }
-                    };
-                    NodeCommand::InsertBefore(a, b)
-                }
-                NodeCommand::RemoveNode(a) => match play_state.get_node(a) {
-                    Some(r) => NodeCommand::RemoveNode(r),
-                    None => continue,
-                },
-                NodeCommand::DestroyNode(a) => match play_state.get_node(a) {
-                    Some(r) => NodeCommand::DestroyNode(r),
-                    None => continue,
-                },
-            };
-            cmds.node_commands.push(cmd);
-        }
-
-
-        for (n, class_name) in r.class_commands.iter() {
-            let node = match play_state.get_node(n) {
-                Some(r) => r,
-                None => continue,
-            };
-            cmds.class_commands.push((node, class_name.clone()))
-        }
-
-        for other_command in r.other_commands_list.iter() {
-            match other_command {
-                CmdType::RuntimeAnimationBindCmd(r) => {
-                    let mut r = r.clone();
-                    let node = match play_state.get_node(&r.2) {
-                        Some(r) => r,
-                        None => continue,
-                    };
-                    r.2 = node;
-                    cmds.push_cmd(r);
-                }
-                CmdType::ComponentCmd(r) => {
-                    let mut r = r.clone();
-                    let node = match play_state.get_node(&r.1) {
-                        Some(r) => r,
-                        None => continue,
-                    };
-                    r.1 = node;
-                    cmds.push_cmd(r);
-                }
-                CmdType::NodeCmdViewport(r) => {
-                    let mut r = r.clone();
-                    let node = match play_state.get_node(&r.1) {
-                        Some(r) => r,
-                        None => continue,
-                    };
-                    r.1 = node;
-
-                    if let Some(view_port) = play_state.view_port {
-                        r.0 = Viewport(view_port);
-                    }
-                    cmds.push_cmd(r);
-                }
-                CmdType::NodeCmdRenderTargetType(r) => {
-                    let mut r = r.clone();
-                    let node = match play_state.get_node(&r.1) {
-                        Some(r) => r,
-                        None => continue,
-                    };
-                    r.1 = node;
-                    cmds.push_cmd(r);
-                }
-                CmdType::NodeCmdRenderClearColor(r) => {
-                    // let mut r = r.clone();
-                    // let node = match play_state.get_node(&r.1) {
-                    //     Some(r) => r,
-                    //     None => continue,
-                    // };
-                    // r.1 = node;
-                    cmds.push_cmd(r.clone());
-                }
-                CmdType::NodeCmdRenderRenderDirty(r) => {
-                    cmds.push_cmd(r.clone());
-                }
-                CmdType::NodeCmdRenderNodeBundle(r) => {
-                    let mut r = r.clone();
-                    let node = match play_state.get_node(&r.1) {
-                        Some(r) => r,
-                        None => continue,
-                    };
-                    r.1 = node;
-                    cmds.push_cmd(r);
-                }
-                CmdType::ExtendCssCmd(r) => {
-                    cmds.push_cmd(r.clone());
-                }
-                CmdType::DefaultStyleCmd(r) => {
-                    cmds.push_cmd(r.clone());
-                }
-                CmdType::ExtendFragmentCmd(r) => {
-                    cmds.push_cmd(r.clone());
-                }
-                CmdType::SdfCfgCmd(r) => {
-                    cmds.push_cmd(r.clone());
-                },
-                CmdType::SdfDefaultCharCmd(r) => {
-                    cmds.push_cmd(r.clone());
-                },
-                CmdType::Sdf2CfgCmd(r) => {
-                    cmds.push_cmd(r.clone());
-                },
-                // CmdType::SvgStrokeCmd(r) => { 
-                //     let mut r = r.clone();
-                //     let node = match play_state.get_node(&r.0) {
-                //         Some(r) => r,
-                //         None => continue,
-                //     };
-                //     r.0 = node;
-                //     cmds.push_cmd(r);
-                // },
-                // CmdType::StrokeDasharrayCmd(r) => {
-                //     let mut r = r.clone();
-                //     let node = match play_state.get_node(&r.0) {
-                //         Some(r) => r,
-                //         None => continue,
-                //     };
-                //     r.0 = node;
-                //     cmds.push_cmd(r);
-                // },
-                // CmdType::SvgShapeCmd(r) => {
-                //     let mut r = r.clone();
-                //     let node = match play_state.get_node(&r.0) {
-                //         Some(r) => r,
-                //         None => continue,
-                //     };
-                //     r.0 = node;
-                //     cmds.push_cmd(r);
-                // },
-                // CmdType::SvgStrokeWidthCmd(r) => {
-                //     let mut r = r.clone();
-                //     let node = match play_state.get_node(&r.0) {
-                //         Some(r) => r,
-                //         None => continue,
-                //     };
-                //     r.0 = node;
-                //     cmds.push_cmd(r);
-                // },
-                // CmdType::SvgShapeWidthCmd(r) => {
-                //     let mut r = r.clone();
-                //     let node = match play_state.get_node(&r.0) {
-                //         Some(r) => r,
-                //         None => continue,
-                //     };
-                //     r.0 = node;
-                //     cmds.push_cmd(r);
-                // },
-                // CmdType::SvgShapeHeightCmd(r) => {
-                //     let mut r = r.clone();
-                //     let node = match play_state.get_node(&r.0) {
-                //         Some(r) => r,
-                //         None => continue,
-                //     };
-                //     r.0 = node;
-                //     cmds.push_cmd(r);
-                // },
-                // CmdType::SvgShapeXCmd(r) => {
-                //     let mut r = r.clone();
-                //     let node = match play_state.get_node(&r.0) {
-                //         Some(r) => r,
-                //         None => continue,
-                //     };
-                //     r.0 = node;
-                //     cmds.push_cmd(r);
-                // },
-                // CmdType::SvgShapeYCmd(r) => {
-                //     let mut r = r.clone();
-                //     let node = match play_state.get_node(&r.0) {
-                //         Some(r) => r,
-                //         None => continue,
-                //     };
-                //     r.0 = node;
-                //     cmds.push_cmd(r);
-                // },
-                // CmdType::SvgColorCmd(r) => {
-                //     let mut r = r.clone();
-                //     let node = match play_state.get_node(&r.0) {
-                //         Some(r) => r,
-                //         None => continue,
-                //     };
-                //     r.0 = node;
-                //     cmds.push_cmd(r);
-                // },
-            };
-        }
-
-        for fragment_commands in r.fragment_commands.iter() {
-            let r: Vec<Entity> = fragment_commands
-                .entitys
-                .iter()
-                .map(|r| {
-                    if let None = play_state.get_node(r) {
-                        log::warn!("xxxxxxx=========={:?}", r);
-                    }
-                    play_state.get_node(r).unwrap()
-                })
-                .collect();
-            cmds.fragment_commands.push(FragmentCommand {
-                key: fragment_commands.key,
-                entitys: r,
-            });
-        }
-
-        for (entity, tag) in r.node_init_commands.iter() {
-            // log::warn!("node_init_commands:{:?} {:?}", entity, tag);
-            cmds.init_node(play_state.get_node(&entity).unwrap(), *tag);
-        }
-
-        for s in r.style_commands.iter() {
-            let class_mate = style_attr_list_to_buffer(&play_state, &mut cmds.style_commands.style_buffer, &mut s.values.clone(), s.values.len());
-            // log::warn!("style_commands:{:?}", s);
-            cmds.style_commands
-                .commands
-                .push((play_state.get_node(&s.entity).unwrap(), class_mate.start, class_mate.end, None));
-        }
-        // log::info!("style_commands============{:?}", &cmds.style_commands.commands);
-        // log::info!("node_commands============{:?}", &cmds.node_commands);
-        // let record_state = &records.run_state[play_state.next_state_index];
-        play_state.next_state_index += 1;
-        // 在example的例子中播放指令， 暂时不知道如何单独运行calc_layout, calc_matrix, 需要将其合并到render
-        if play_state.next_state_index >= records.list.len(){
-            break;
-        }
-    }
-    play_state.cur_frame_count += 1;
-    **user_commands = cmds;
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -447,7 +151,7 @@ pub struct StyleCmd {
     pub values: VecDeque<StyleAttribute>,
 }
 
-pub fn parse_asimage (url: &str, play_state: &PlayState) -> String {
+pub fn parse_asimage(url: &str, play_state: &XHashMap<Entity, Entity>) -> String {
     if !url.starts_with("asimage:://") {
         return url.to_string();
     }
@@ -469,13 +173,13 @@ pub fn parse_asimage (url: &str, play_state: &PlayState) -> String {
         None => return "".to_string(),
     };
     let entity = Entity::from(KeyData::from_ffi((u64::from(version) << 32) | u64::from(index)));
-    return match play_state.get_node(&entity) {
-        Some(r) => entity_to_asimage_url(r),
+    return match play_state.get(&entity) {
+        Some(r) => entity_to_asimage_url(*r),
         None => "".to_string(),
     };
 }
 
-pub fn style_attr_list_to_buffer(play_state: &PlayState, style_buffer: &mut Vec<u8>, style_list: &mut VecDeque<StyleAttribute>, mut count: usize) -> ClassMeta {
+pub fn style_attr_list_to_buffer(play_state: &XHashMap<Entity, Entity>, style_buffer: &mut Vec<u8>, style_list: &mut VecDeque<StyleAttribute>, mut count: usize) -> ClassMeta {
     let start: usize = style_buffer.len();
     let mut class_meta = ClassMeta {
         start,
@@ -550,16 +254,13 @@ pub fn to_attr(node: Entity, start: usize, end: usize, style_buffer: &Vec<u8>, l
 
 //
 #[derive(Default, Debug, Serialize, Deserialize)]
-pub struct Record {
-    pub frame_index: usize, // 所在帧位置
-    pub state: RunState,
+pub struct UIRecord {
     pub node_commands: Vec<NodeCommand>,
 	pub node_init_commands: Vec<(Entity, NodeTag)>,
     pub fragment_commands: Vec<FragmentCommand>,
     pub style_commands: Vec<StyleCmd>,
     pub class_commands: Vec<(Entity, ClassName)>,
     pub other_commands_list: Vec<CmdType>, // 是CommandQueue中元素的枚举形式，便于序列化
-    pub nodes_creates: Vec<Entity>,        // 创建的节点
 }
 
 // impl Record {
@@ -568,69 +269,330 @@ pub struct Record {
 // 	}
 // }
 
-#[derive(Default, Debug, Serialize, Deserialize)]
-pub struct Records {
-    pub list: Vec<Record>,
-    // 记录在每个状态下运行多少次
-    pub run_state: Vec<(RunState, usize)>,
-    pub cur_frame_count: usize,
-}
+// #[derive(Default, Debug, Serialize, Deserialize)]
+// pub struct Records {
+//     pub list: Vec<Record>,
+//     // 记录在每个状态下运行多少次
+//     pub run_state: Vec<(RunState, usize)>,
+//     pub cur_frame_count: usize,
+// }
 
 
-impl Records {
-    pub fn clear(&mut self) {
-        self.list.clear();
-        self.run_state.clear();
-        self.cur_frame_count = 0;
-    }
+// impl Records {
+//     pub fn clear(&mut self) {
+//         self.list.clear();
+//         self.run_state.clear();
+//         self.cur_frame_count = 0;
+//     }
 
-    pub fn len(&self) -> usize { self.list.len() }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Frame {
-    cur: usize,
-    frames: usize,
-}
-
-// 播放状态
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct PlayState {
-    pub next_state_index: usize, //
-    // pub need_play_empty_count: usize,
-    pub cur_frame_count: usize,
-
-    // 节点对应表（由于某些原因， record中记录的Entity与实际的Entity不匹配）（比如录制的时候是在有spine渲染的情况下进行的，而播放得时候没有spine， 会造成gui创建的实体id不同）
-    // 将指令描述中的Entity修改映射为当前创建的Entity
-    pub node_map: SecondaryMap<EntityKey, Entity>,
-    pub is_running: bool,
-
-    pub next_reord_index: usize,
-
-    // 播放速度
-    pub speed: f32,
-
-    // 等待帧数量（减速播放时需要用到）
-    pub await_frame_count: usize,
-    pub view_port: Option<Aabb2>,
-    pub is_render: bool, // 当次播放是否需要渲染（底层指令播放使用， 底层播放总是为true）
-}
-
-impl PlayState {
-    fn get_node(&self, entity: &Entity) -> Option<Entity> {
-        match self.node_map.get(EntityKey(*entity)) {
-            Some(r) => Some(*r),
-            None => None,
-        }
-    }
-}
-
-// 记录状态
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RecordState {
-    pub empty_count: usize, //
-}
+//     pub fn len(&self) -> usize { self.list.len() }
+// }
 
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct CmdNodeCreate(pub Vec<Entity>);
+
+pub trait TReplayState {
+    fn get(&self, v: &Entity) -> Option<Entity>;
+    fn view_port(&self) -> Option<Aabb2>;
+}
+
+pub fn apply_node_command(cmds: &mut UserCommands, i: &NodeCommand, play_state: &XHashMap<Entity, Entity>) {
+    let cmd = match i {
+        NodeCommand::AppendNode(a, b) => {
+            let a = match play_state.get(a) {
+                Some(r) => *r,
+                None => return,
+            };
+
+            let b = if b.is_null() {
+                Entity::null()
+            } else {
+                match play_state.get(b) {
+                    Some(r) => *r,
+                    None => return,
+                }
+            };
+
+            NodeCommand::AppendNode(a, b)
+        }
+        NodeCommand::InsertBefore(a, b) => {
+            let a = match play_state.get(a) {
+                Some(r) => *r,
+                None => return,
+            };
+
+            let b = if b.is_null() {
+                Entity::null()
+            } else {
+                match play_state.get(b) {
+                    Some(r) => *r,
+                    None => return,
+                }
+            };
+            NodeCommand::InsertBefore(a, b)
+        }
+        NodeCommand::RemoveNode(a) => match play_state.get(a) {
+            Some(r) => NodeCommand::RemoveNode(*r),
+            None => return,
+        },
+        NodeCommand::DestroyNode(a) => match play_state.get(a) {
+            Some(r) => NodeCommand::DestroyNode(*r),
+            None => return,
+        },
+    };
+    cmds.node_commands.push(cmd);
+}
+
+pub fn apply_class_name(cmds: &mut UserCommands, command: (Entity, ClassName), play_state: &XHashMap<Entity, Entity>) {
+    let (n, class_name) = command;
+    let node = match play_state.get(&n) {
+        Some(r) => *r,
+        None => return,
+    };
+    cmds.class_commands.push((node, class_name.clone()));
+}
+pub fn apply_fragment_command(cmds: &mut UserCommands, fragment_commands: &FragmentCommand, play_state: &XHashMap<Entity, Entity>) {
+    let r: Vec<Entity> = fragment_commands
+        .entitys
+        .iter()
+        .map(|r| {
+            if let None = play_state.get(r) {
+                log::warn!("xxxxxxx=========={:?}", r);
+            }
+            let result = *play_state.get(r).unwrap();
+            result
+        })
+        .collect();
+
+    cmds.fragment_commands.push(FragmentCommand {
+        key: fragment_commands.key,
+        entitys: r,
+    });
+
+}
+
+pub fn apply_init_command(cmds: &mut UserCommands, node_init_command: (Entity, NodeTag), play_state: &XHashMap<Entity, Entity>) {
+    let (entity0, tag) = node_init_command;
+    if let Some(entity) = play_state.get(&entity0) {
+        cmds.init_node(*entity, tag);
+    } else {
+        // log::error!("Init Fail Ref {:?}", entity0);
+    }
+}
+
+pub fn apply_style_command(cmds: &mut UserCommands, s: &StyleCmd, play_state: &XHashMap<Entity, Entity>) {
+        let entity = if let Some(entity) = play_state.get(&s.entity) { entity } else { return; };
+        let class_mate = style_attr_list_to_buffer(play_state, &mut cmds.style_commands.style_buffer, &mut s.values.clone(), s.values.len());
+        // log::warn!("style_commands:{:?}", s);
+        cmds.style_commands
+            .commands
+            .push((*entity, class_mate.start, class_mate.end, None));
+}
+
+pub fn apply_nother_cmd(cmds: &mut UserCommands, other_command: &CmdType, play_state: &XHashMap<Entity, Entity>) {
+    match other_command {
+        CmdType::RuntimeAnimationBindCmd(r) => {
+            let mut r = r.clone();
+            let node = match play_state.get(&r.2) {
+                Some(r) => *r,
+                None => return,
+            };
+            r.2 = node;
+            cmds.push_cmd(r);
+        }
+        CmdType::ComponentCmd(r) => {
+            let mut r = r.clone();
+            let node = match play_state.get(&r.1) {
+                Some(r) => *r,
+                None => return,
+            };
+            r.1 = node;
+            cmds.push_cmd(r);
+        }
+        CmdType::NodeCmdViewport(r) => {
+            let mut r = r.clone();
+            let node = match play_state.get(&r.1) {
+                Some(r) => *r,
+                None => return,
+            };
+            r.1 = node;
+
+            // if let Some(view_port) = play_state.view_port() {
+            //     r.0 = Viewport(view_port);
+            // }
+            cmds.push_cmd(r);
+        }
+        CmdType::NodeCmdRenderTargetType(r) => {
+            let mut r = r.clone();
+            let node = match play_state.get(&r.1) {
+                Some(r) => *r,
+                None => return,
+            };
+            r.1 = node;
+            cmds.push_cmd(r);
+        }
+        CmdType::NodeCmdRenderClearColor(r) => {
+            // let mut r = r.clone();
+            // let node = match play_state.get(&r.1) {
+            //     Some(r) => r,
+            //     None => continue,
+            // };
+            // r.1 = node;
+            cmds.push_cmd(r.clone());
+        }
+        CmdType::NodeCmdRenderRenderDirty(r) => {
+            cmds.push_cmd(r.clone());
+        }
+        CmdType::NodeCmdRenderNodeBundle(r) => {
+            let mut r = r.clone();
+            let node = match play_state.get(&r.1) {
+                Some(r) => *r,
+                None => return,
+            };
+            r.1 = node;
+            cmds.push_cmd(r);
+        }
+        CmdType::ExtendCssCmd(r) => {
+            cmds.push_cmd(r.clone());
+        }
+        CmdType::DefaultStyleCmd(r) => {
+            cmds.push_cmd(r.clone());
+        }
+        CmdType::ExtendFragmentCmd(r) => {
+            cmds.push_cmd(r.clone());
+        }
+        CmdType::SdfCfgCmd(r) => {
+            cmds.push_cmd(r.clone());
+        },
+        CmdType::SdfDefaultCharCmd(r) => {
+            cmds.push_cmd(r.clone());
+        },
+        CmdType::Sdf2CfgCmd(r) => {
+            cmds.push_cmd(r.clone());
+        },
+        CmdType::Brush(CanvasCmd(a, v, b)) => {
+            let a = if a.is_null() {
+                Entity::null()
+            } else {
+                match play_state.get(a) {
+                    Some(r) => *r,
+                    None => return,
+                }
+            };
+
+            let b = if b.is_null() {
+                Entity::null()
+            } else {
+                match play_state.get(b) {
+                    Some(r) => *r,
+                    None => { return },
+                }
+            };
+
+            cmds.push_cmd(CanvasCmd(a, *v, b));
+        }
+        CmdType::PostProcessCmd(PostProcessCmd(a, b)) => {
+            let a = if a.is_null() {
+                Entity::null()
+            } else {
+                match play_state.get(a) {
+                    Some(r) => *r,
+                    None => return,
+                }
+            };
+
+            let b = if b.is_null() {
+                Entity::null()
+            } else {
+                match play_state.get(b) {
+                    Some(r) => *r,
+                    None => return,
+                }
+            };
+
+            cmds.push_cmd(PostProcessCmd(a, b));
+        }
+        // CmdType::SvgStrokeCmd(r) => { 
+        //     let mut r = r.clone();
+        //     let node = match play_state.get(&r.0) {
+        //         Some(r) => r,
+        //         None => continue,
+        //     };
+        //     r.0 = node;
+        //     cmds.push_cmd(r);
+        // },
+        // CmdType::StrokeDasharrayCmd(r) => {
+        //     let mut r = r.clone();
+        //     let node = match play_state.get(&r.0) {
+        //         Some(r) => r,
+        //         None => continue,
+        //     };
+        //     r.0 = node;
+        //     cmds.push_cmd(r);
+        // },
+        // CmdType::SvgShapeCmd(r) => {
+        //     let mut r = r.clone();
+        //     let node = match play_state.get(&r.0) {
+        //         Some(r) => r,
+        //         None => continue,
+        //     };
+        //     r.0 = node;
+        //     cmds.push_cmd(r);
+        // },
+        // CmdType::SvgStrokeWidthCmd(r) => {
+        //     let mut r = r.clone();
+        //     let node = match play_state.get(&r.0) {
+        //         Some(r) => r,
+        //         None => continue,
+        //     };
+        //     r.0 = node;
+        //     cmds.push_cmd(r);
+        // },
+        // CmdType::SvgShapeWidthCmd(r) => {
+        //     let mut r = r.clone();
+        //     let node = match play_state.get(&r.0) {
+        //         Some(r) => r,
+        //         None => continue,
+        //     };
+        //     r.0 = node;
+        //     cmds.push_cmd(r);
+        // },
+        // CmdType::SvgShapeHeightCmd(r) => {
+        //     let mut r = r.clone();
+        //     let node = match play_state.get(&r.0) {
+        //         Some(r) => r,
+        //         None => continue,
+        //     };
+        //     r.0 = node;
+        //     cmds.push_cmd(r);
+        // },
+        // CmdType::SvgShapeXCmd(r) => {
+        //     let mut r = r.clone();
+        //     let node = match play_state.get(&r.0) {
+        //         Some(r) => r,
+        //         None => continue,
+        //     };
+        //     r.0 = node;
+        //     cmds.push_cmd(r);
+        // },
+        // CmdType::SvgShapeYCmd(r) => {
+        //     let mut r = r.clone();
+        //     let node = match play_state.get(&r.0) {
+        //         Some(r) => r,
+        //         None => continue,
+        //     };
+        //     r.0 = node;
+        //     cmds.push_cmd(r);
+        // },
+        // CmdType::SvgColorCmd(r) => {
+        //     let mut r = r.clone();
+        //     let node = match play_state.get(&r.0) {
+        //         Some(r) => r,
+        //         None => continue,
+        //     };
+        //     r.0 = node;
+        //     cmds.push_cmd(r);
+        // },
+    };
+}

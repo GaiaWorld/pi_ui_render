@@ -170,7 +170,7 @@ pub fn update_graph(
 // 如果存在后处理，连接到后处理
 pub fn type_to_post_process(id: NodeId, as_image: Option<&mut AsImage>, graph_id_query: &Query<&GraphId>, rg: &mut PiRenderGraph, parent_id: NodeId, entity: Entity) -> NodeId {
     if let Some(as_image) = as_image {
-        let post_process_graph =  match graph_id_query.get(*as_image.post_process) {
+        let post_process_graph =  match graph_id_query.get(as_image.post_process) {
             Ok(r) => r.0,
             _ => Null::null()
         };
