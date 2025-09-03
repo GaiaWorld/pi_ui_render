@@ -408,6 +408,9 @@ println!("===========   ===========");
                 };
                 
                 init(width, height, &mut app, window.clone());
+                
+                app.add_plugins(pi_bevy_render_plugin::cmd_play::GlobalCmdTracePlugin { option: record_option });
+
                 app.world.insert_single_res(RunState::MATRIX);
                 #[cfg(feature = "debug")]
                 if let Some(play_option) = &play_option {
@@ -616,8 +619,6 @@ pub fn init(width: u32, height: u32, app: &mut App, w: Arc<pi_winit::window::Win
     // .add_plugins(WorldInspectorPlugin::new())
     .add_plugins(PiRenderPlugin::default())
     .add_plugins(PiPostProcessPlugin);
-
-	app.add_plugins(pi_bevy_render_plugin::cmd_play::GlobalCmdTracePlugin { option: pi_bevy_render_plugin::cmd_play::TraceOption::Play });
 
     // let h = app.world.get_single_res_mut::<pi_bevy_log::LogFilterHandle>().unwrap();
     // let default_filter = { format!("{},my_target=info", bevy_log::Level::WARN) };
