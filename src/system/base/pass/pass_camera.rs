@@ -431,7 +431,7 @@ pub fn calc_camera(
         let view_temp;
         // 将willchange应用到视图矩阵中
         let mut view_matrix = match &willchange_matrix.0 {
-            Some(r) => &r.will_change.0,
+            Some(r) => &r.view_matrix.0,
             None => {
                 view_temp = WorldMatrix::default().0;
                 &view_temp

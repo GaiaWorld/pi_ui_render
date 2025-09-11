@@ -4,6 +4,7 @@ use std::{sync::Arc, time::Instant};
 
 use bevy_window::{Window, WindowResolution};
 use pi_bevy_ecs_extend::system_param::res::OrInitSingleResMut;
+use pi_ui_render::devtools::request_right_key_element;
 use pi_ui_render::resource::fragment::NodeTag;
 use pi_ui_render::resource::{RenderDirty, ShareFontSheet};
 use pi_world::prelude::{App, Entity, First, Insert, IntoSystemConfigs, Local, SingleResMut, SystemSet, World, WorldPluginExtent};
@@ -341,9 +342,10 @@ println!("===========   ===========");
     // 	}));
     // }
     let mut app = App::new();
-    // #[cfg(not(target_arch = "wasm32"))]
-    // pi_ui_render::devtools::start_server(&mut app); // 开启开发工具
+   
     let mut is_init = false;
+    let mut last_x = 0.0;
+    let mut last_y = 0.0;
     event_loop.run(move |event, _, control_flow| {
         match event {
             Event::MainEventsCleared => {
@@ -438,6 +440,9 @@ println!("===========   ===========");
                         app.add_system(First, setting_next_record.in_set(StageCMDTrace::Trace).before(sys_cmd_replay));
                     }
                 }
+                #[cfg(not(target_arch = "wasm32"))]
+                pi_ui_render::devtools::start_server(&mut app); // 开启开发工具
+
                 let exmple2 = exmple1.clone();
                 let exmple3 = exmple1.clone();
 
@@ -448,6 +453,24 @@ println!("===========   ===========");
                 app.add_system(First, exmple_run).add_startup_system(First, move |param: Param| {
                     exmple3.lock().unwrap().init(param, (width as usize, height as usize));
                 });
+            }
+            Event::WindowEvent {
+                event: WindowEvent::MouseInput {  state, button,  ..},
+                ..
+            } => {
+                if let pi_winit::event::ElementState::Released = state {
+                    if let pi_winit::event::MouseButton::Right = button {
+                        println!("============= request_right_key_element: {:?}", (last_x, last_y));
+                        request_right_key_element(last_x, last_y);
+                    }
+                }
+            }
+            Event::WindowEvent {
+                event: WindowEvent::CursorMoved {  position,  ..},
+                ..
+            } => {
+                last_x = position.x as f32;
+                last_y = position.y as f32;
             }
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,
