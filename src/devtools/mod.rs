@@ -3,9 +3,9 @@
 mod debug;
 mod canvas_render;
 
-#[cfg(feature = "devtools")]
+#[cfg(all(feature = "devtools", not(target_arch = "wasm32")))]
 mod tools;
 
 pub use debug::*;
-#[cfg(feature = "devtools")]
+#[cfg(all(feature = "devtools", not(target_arch = "wasm32")))]
 pub use tools::*;
