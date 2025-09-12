@@ -11,7 +11,7 @@ use pi_share::ShareRefCell;
 use pi_spatial::quad_helper::intersects;
 use pi_style::style::Aabb2;
 use pi_world::{app::App, event::ComponentRemoved, filter::{Changed, With}, query::Query, schedule::{End, Last}, schedule_config::IntoSystemConfigs, single_res::{SingleRes, SingleResMut}, system_params::{Local, SystemParam}, world::{ComponentIndex, Entity, World}};
-use serde_json::json;
+
 use std::io::Result;
 use pi_ws::{connect::WsSocket, server::WebsocketListener, utils::{ChildProtocol, WsFrameType, WsSession}};
 use futures::future::{BoxFuture, FutureExt, LocalBoxFuture};
@@ -322,7 +322,7 @@ fn parse_cmd(cmd: &str, connect: WsSocket<TcpSocket>, world: &mut World) -> std:
 
             let class_name = get_class_names(world, _select_node_id);
             let class_name = serde_json::from_str::<serde_json::Value>(&class_name).unwrap();
-            println!("======= class_name: {:?}", class_name);
+            // println!("======= class_name: {:?}", class_name);
             let mut classs = serde_json::from_str::<serde_json::Value>("{}").unwrap();
             for class_name in class_name.as_array().unwrap() {
                 let class_name = class_name.as_u64().unwrap() as u32;
@@ -332,7 +332,7 @@ fn parse_cmd(cmd: &str, connect: WsSocket<TcpSocket>, world: &mut World) -> std:
                    let c = c.split(";");
                     for a in c {
                         let arr = a.split(":").collect::<Vec<&str>>();
-                        println!("========= arr: {:?}", (&a, &arr));
+                        // println!("========= arr: {:?}", (&a, &arr));
                         if arr.len() > 1 {
                             r[arr[0]] = arr[1].into();
                         }
