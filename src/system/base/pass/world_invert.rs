@@ -1,4 +1,7 @@
-
+//! 用于计算Pass2D节点的世界矩阵的逆矩阵
+//! 不是所有的Pass2D节点都需要计算逆矩阵，只有RenderContextMark标记中包含WorldInvertMark标记的节点需要计算
+//! 可通过添加`mark_world_invert`作为一次性系统，来设置WorldInvertMark包含哪些标记， 目前标记包含，TransformWillChange、ClipPath，如需其他标记， 可扩展
+//! 因此， 目前，当节点中存在TransformWillChange或ClipPath组件时， 需要计算世界矩阵的逆矩阵
 
 use pi_bevy_ecs_extend::prelude::{OrInitSingleRes, OrInitSingleResMut};
 use pi_style::style::StyleType;

@@ -1,4 +1,4 @@
-
+//! 本模块用于给渲染图添加、删除图节点，以及连接图节点之间的依赖关系
 
 use std::collections::hash_map::Entry;
 
@@ -21,7 +21,7 @@ use crate::{
     }, resource::draw_obj::LastGraphNode, system::base::pass::pass_graph_node::{Pass2DNode, CustomCopyNode}
 };
 
-// 初始化渲染图的根节点
+/// 初始化gui渲染图的终节点`Pass2DLast`，所有节点在该节点之前执行
 pub fn init_root_graph(
     mut last_graph_id: OrInitSingleResMut<LastGraphNode>,
     mut rg: SingleResMut<PiRenderGraph>,

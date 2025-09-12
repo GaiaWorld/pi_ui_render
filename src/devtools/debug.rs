@@ -5,11 +5,13 @@ use pi_atom::get_by_hash;
 use pi_atom::Atom;
 use pi_bevy_asset::ShareAssetMgr;
 use pi_bevy_ecs_extend::prelude::Down;
+use pi_bevy_ecs_extend::prelude::EntityTag;
 use pi_bevy_ecs_extend::prelude::Root;
 use pi_bevy_ecs_extend::prelude::Up;
 use pi_bevy_ecs_extend::system_param::tree::Layer;
 use pi_bevy_render_plugin::asimage_url::RenderTarget;
 use pi_bevy_render_plugin::PiRenderGraph;
+use pi_bevy_render_plugin::SpectorNode;
 use pi_null::Null;
 use pi_render::rhi::asset::TextureRes;
 use pi_render::rhi::shader::GetBuffer;
@@ -248,22 +250,6 @@ pub struct CharNode {
     pub base_width: f32,       // font_size 为32 的字符宽度
 }
 
-#[allow(non_snake_case)]
-#[derive(Serialize, Deserialize, Debug, Clone, Default)]
-pub struct GuiNode {
-    uniqueID: f64,
-    uniqueIDString: String,
-    tag: String,
-    attrs: Vec<ClassAttr>, 
-    childs: Vec<GuiNode>,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, Default)]
-pub struct ClassAttr {
-    name: String,
-    value: String,
-}
-
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct GloabalInfo {
     // pass2d 渲染排序
@@ -331,47 +317,49 @@ pub fn get_gui_root(world: &mut World) -> Option<Entity> {
     query.iter(world).next()
 }
 
-pub fn get_document_tree(world: &mut World, root: Entity) -> GuiNode {
-    let mut query = world.query::<(&Down, &Up, Option<&ClassName>), With<Size>>();
+pub fn get_document_tree(world: &mut World, root: Entity) -> SpectorNode {
+    let mut query = world.query::<(&Down, &Up, Option<&ClassName>, Option<&EntityTag>)>();
     let query = query.get_param(world);
-    let mut n = GuiNode::default();
+    let mut n = SpectorNode::default();
     init_node( root, &mut n, &query);
     return n;
 }
 
 pub fn get_roots(world: &mut World) -> Vec<Entity> {
-    let mut query = world.query::<Entity, (With<Root>, With<Size>)>();
+    let mut query = world.query::<Entity, (With<Root>)>();
     return query.iter(world).collect();
 }
 
 
 pub fn init_node( 
     id: Entity, 
-    node: &mut GuiNode, 
-    query: &Query<(&Down, &Up, Option<&ClassName>), With<Size>>,
+    node: &mut SpectorNode, 
+    query: &Query<(&Down, &Up, Option<&ClassName>, Option<&EntityTag>)>,
 ) {
-    let (down, _, class_name) = query.get(id).unwrap();
+    let (down, _, class_name, tag) = query.get(id).unwrap();
     node.tag = "div".to_string();
+    if let Some(tag) = tag {
+        node.tag = tag.0.to_string();
+    }
     node.uniqueID = unsafe {transmute(id)};
-    node.uniqueIDString = format!("{:?}", id);
+    node.info = format!("ID={:?}", id);
     if let Some(class_name) = class_name {
         let mut r: Vec<String> = Vec::new();
         for c in class_name.0.iter() {
             r.push(c.to_string());
         }
-        node.attrs.push(ClassAttr {
-            name: "wclass".to_string(),
-            value: r.join(" "),
-        });
-
+        if class_name.0.len() > 0 {
+            node.info += " wclass=";
+            node.info += r.join(" ").as_str();
+        }
     }
 
     let mut cur_child = down.head();
     while !cur_child.is_null() {
-        let mut n = GuiNode::default();
+        let mut n = SpectorNode::default();
         init_node( cur_child, &mut n, query);
         node.childs.push(n);
-        let (_c_down, c_up, _class_name) = query.get(cur_child).unwrap();
+        let (_c_down, c_up, _class_name, tag) = query.get(cur_child).unwrap();
         cur_child = c_up.next();
     }
 }
@@ -464,12 +452,14 @@ pub fn get_style(world: &World, entity: Entity) -> String {
 }
 
 
-pub fn node_info(world: &World, entity: Entity) -> Info {
+pub fn node_info(world: &World, entity: Entity) -> Option<Info> {
     let (node_state, is_vnode) = match world.get_component::<NodeState>(entity) {
         Ok(r) => (Some(r.clone()), r.is_vnode()),
         Err(_) => (None, false),
     };
-    let layout = world.get_component::<LayoutResult>(entity).unwrap();
+    let layout = if let Ok(layout) = world.get_component::<LayoutResult>(entity) {
+        layout
+    } else { return None };
     let layout1 = Layout {
         node_state: node_state,
         size: world.get_component::<Size>(entity).ok().map(|r| r.clone()),
@@ -970,7 +960,7 @@ pub fn node_info(world: &World, entity: Entity) -> Info {
 		None
 	};
 	info.canvas = format!("{:?}, {:?}", (canvas, canvas_graph), canvas_graph_id);
-    info
+    Some(info)
 }
 
 #[repr(C)]

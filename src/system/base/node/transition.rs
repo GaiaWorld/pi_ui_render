@@ -1,14 +1,17 @@
-//! 由于动画或transition设置属性后， 不能影响插值数据的end， 只能影响插值数据的start
-//! 而用户设置的style， 既可以影响start， 也可以影响end，
+//! 参考1：https://developer.mozilla.org/zh-CN/docs/Web/CSS/transition
+//! 参考2：https://drafts.csswg.org/css-transitions/#transition-shorthand-property
+//! 由于动画或transition设置属性后， 不能影响插值数据的end， 只能影响插值数据的start（设置transition的那一刻，将当前样式当做start，重新进行过度）
 //! transation分为两步处理， 在usersetting之后和动画插值前的处理阶段(阶段1)、和动画插值后的阶段（阶段2）
+//! 而用户设置的style， 既可以影响start， 也可以影响end（style设置一个初始值是， 影响start， 后续设置style， 影响end），
 //! 阶段1： 
-//! 	* 属性脏，需要将属性记录为start或end（如果属性是被删除了， 则需要删除对应的插值曲线， 并重置start和wnd）
+//! 	* 属性脏，需要将属性记录为start或end（如果属性是被删除了， 则需要删除对应的插值曲线， 并重置start和end）
 //! 	* transition_is_change脏， 或属性脏, 如果记录后，既存在start， 也存在end， 则需要重新绑定插值曲线
-//! 阶段2：
+//! 阶段2， 在动画推动之后执行， 动画推动之后， 又反向修改了style属性， 需要记录该属性为transition的start：
 //! 	* 属性脏，则将属性记录在start上
 //! 
 //! 
-//! 优化？（TODO）： 动画正在运行的节点，设置RuningForTransition组件， 在节点2中只遍历有RuningForTransition组件的节点
+//! 优化？（TODO）： 动画正在运行的节点，设置RuningForTransition组件， 在阶段2中只遍历有RuningForTransition组件的节点
+//! TODO: 仅实现了一个简单版本的transition， 一些复杂的机制暂未实现
 
 use pi_bevy_ecs_extend::{prelude::Layer, system_param::res::OrInitSingleResMut};
 use pi_world::{filter::{Changed, Or}, prelude::{App, Entity, IntoSystemConfigs, Plugin, Query, SingleResMut, Ticker}, single_res::SingleRes, system_params::Local, world::World};
@@ -21,7 +24,7 @@ use crate::{
     components::{calc::{style_bit, StyleBit, StyleMark, StyleMarkType}, user::{
         serialize::StyleAttr, Transition,
     }, SettingComponentIds},
-    resource::{animation_sheet::{KeyFramesSheet, TransitionData}, GlobalDirtyMark, OtherDirtyType}, system::system_set::UiSystemSet,
+    resource::{animation_sheet::{KeyFramesSheet, TransitionData}, GlobalDirtyMark, OtherDirtyType}, system::{base::node::animation::calc_animation_2, system_set::UiSystemSet},
 };
 
 use crate::prelude::UiStage;
@@ -39,7 +42,7 @@ impl Plugin for TransitionPlugin {
 			)
 			.add_system(UiStage, transition_1_3.in_set(UiSystemSet::NextSetting)
 				.after(transition_1_2)
-				// .after(calc_animation)
+				.before(calc_animation_2) // 在推动动画之前执行
 			)
 			.add_system(UiStage, transition_2.in_set(UiSystemSet::NextSetting).after(transition_1_3)
 			)
@@ -67,6 +70,7 @@ pub fn transition_change(mark: SingleRes<GlobalDirtyMark>) -> bool {
 
 
 /// 处理transition(阶段1的步骤1, 在usersetting之后运行， 在animation之前运行)（阶段1分两个步骤是因为读写引用冲突的问题）
+/// 根据Transition.property，生成根据Transition.data
 pub fn transition_1_1(
 	mut query: Query<(&mut Transition, Entity, &Layer), Or<(Changed<Transition>, Changed<Layer>)>>,
 	mut keyframes_sheet: SingleResMut<KeyFramesSheet>,
@@ -88,9 +92,12 @@ pub fn transition_1_1(
 		let mut j = 0;
 		for i in transition.property.iter() {
 			if (*i).is_null() {
+				// i为null， 意味着transition.property长度为1， 并且表明所有可插值属性都需要作用在transition上
+				// i为null，transition.property长度为非1，以及其他异常情况不处理
 				transition.is_all = j;
 				break;
 			} else {
+				// 标记对应属性需要应用transition
 				transition.mark.set(*i, true);
 			}
 			j += 1;
@@ -101,13 +108,14 @@ pub fn transition_1_1(
 			let mut i = transition.property.len();
 			let mut data = std::mem::replace(&mut transition.data, SmallVec::with_capacity(i));
 			for property in  transition.property.iter() {
-				// 设置data的默认值
+				// 设置data的默认值（按照property的顺序组织的数组）
 				transition.data.push(TransitionData {
 					start: None,
 					end: None,
 					property: *property,
 				});
 			}
+			// 拷贝旧值（双重循环， 当通常没有性能问题，property的长度通常都是一两个 ）
 			while data.len() > 0 && i > 0 {
 				i -= 1;
 				let property = transition.property[i];
@@ -145,6 +153,9 @@ struct TransitionAttrChange {
 	unbind: bool,
 }
 
+// 每帧迭代所有存在Transition组件的节点
+// 如果transition脏、layer脏、或者任何transition.property描述的样式脏
+// 都需要重新生成TransitionAttrChange指令， 由transition_1_3来处理指令
 pub fn transition_1_2(
 	query: Query<(Ticker<&Transition>, &StyleMark, Entity, Ticker<&Layer>)>,
 	world: &World,
@@ -198,6 +209,7 @@ pub fn transition_1_2(
 				let mut i = 0;
 				for property in transition.mark.iter_ones() {
 					let style_change = style_mark.dirty_style[property];
+					
 					if !(style_change || transition_is_change) {
 						continue;
 					}
@@ -216,7 +228,7 @@ pub fn transition_1_2(
 							cmd.unbind = true; // 不存在属性， 则需要删除transition绑定
 						}
 					}
-
+					
 					cmds.list.push((entity, TransitionCmd::Change1(cmd)));
 					i += 1;
 				}
@@ -226,6 +238,7 @@ pub fn transition_1_2(
 	}
 }
 
+// 处理TransitionAttrChange指令，将指令
 pub fn transition_1_3(
 	mut query: Query<&mut Transition>,
 	mut keyframes_sheet: SingleResMut<KeyFramesSheet>,
@@ -249,6 +262,7 @@ pub fn transition_1_3(
 							None => data.start = Some(attr), 
 						},
 						None => {
+							// 属性被删除， 尝试解绑transition产生的动画
 							data.start = None;
 							data.end = None;
 							keyframes_sheet.unbind_transition_single(r.property as usize, entity);
@@ -270,7 +284,8 @@ pub fn transition_1_3(
 				}
 
 			},
-			TransitionCmd::Change2(style) => {
+			TransitionCmd::Change2(style) => {// 
+				// change2表示插值属性个数发生变化，重新整理过度数组
 				transition.mark = style;
 				let mut datas = std::mem::take(&mut transition.data);
 				for property in transition.mark.iter_ones() {
@@ -304,6 +319,7 @@ pub fn transition_1_3(
 
 /// 处理transition(阶段2)
 /// 属性脏，则将属性记录在start上
+/// 
 pub fn transition_2(
 	query: Query<(&Transition, &StyleMark, Entity, &Layer)>,
 	world: &World,
@@ -364,6 +380,7 @@ pub fn transition_2(
 
 lazy_static! {
 
+	// 定义可插值属性（只有这些属性才可以被transition过度）
 	pub static ref INTERPOLABLE_PROPERTY: StyleMarkType = style_bit().set_bit(StyleType::BackgroundRepeat as usize)
 	.set_bit(StyleType::Color as usize)
 	.set_bit(StyleType::BackgroundImageClip as usize)

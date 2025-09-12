@@ -221,9 +221,9 @@ impl Default for KeyFramesSheet {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct TransitionData {
-	pub start: Option<Attribute>,
-	pub end: Option<Attribute>,
-	pub property: usize,
+	pub start: Option<Attribute>, // transition开始的属性值
+	pub end: Option<Attribute>, // transition结束的属性值
+	pub property: usize, // 属性id（StyleType）
 }
 
 

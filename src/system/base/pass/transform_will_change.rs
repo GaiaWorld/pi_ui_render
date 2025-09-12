@@ -1,3 +1,19 @@
+//! 处理TransformWillChange
+//! 参考： https://developer.mozilla.org/zh-CN/docs/Web/CSS/will-change
+//! TransformWillChange中存在值时， 等同于w3c标准中设置了**will-change: transform**
+//! 应用场景： 滚动或其他高频修改Transform的场景，可优化该节点下所有节点的WorldMatrix的高频计算
+//! 实现依据： 在渲染该节点下所有子节点的渲染实例前， 修改渲染时的视图矩阵(ViewMatrix),即可将这些节点做整体变换
+//! 具体实施：以TransformWillChange设置scale:2，Transform中设置scale:3为例
+//! 1. 设置了TransformWillChange的节点，其上设置的Transfrom自动失效， 最终效果是将节点缩放2倍
+//! 2. WorldMatrix中，已经包含Transform的变换， 根据公式， 最终渲染位置P = ViewMatrix * WorldMatrix * PLayout，
+//!     为了使得最终渲染位置正确，                                    P = ParentWorldMatrix * TransformWillChangeMatrix * PLayout， 
+//!     有              ParentWorldMatrix * TransformWillChangeMatrix = ViewMatrix * WorldMatrix 
+//!                     ParentWorldMatrix * TransformWillChangeMatrix = ParentWorldMatrix * TransformWillChangeMatrix * WorldMatrix逆 * WorldMatrix
+//!                     ViewMatrix = ParentWorldMatrix * TransformWillChangeMatrix * WorldMatrix逆
+//! 3. 当然， 可能存在多层TransformWillChange嵌套的情况， 如， A、B、C三个节点形成父子关系链， A->B->C, 其中A和C都设置了TransformWillChange，
+//!     根据上述公式，                                            A.P = A.ViewMatrix * A.WorldMatrix
+//!     要计算C.P, 只需要将  A.WorldMatrix 替换为 C的变换矩阵， 即  C.P = A.ViewMatrix * C.ViewMatrix * C.WorldMatrix
+//!     因此， C最终的视图矩阵为                            ViewMatrix = A.ViewMatrix * C.ViewMatrix
 use pi_null::Null;
 use pi_style::style::StyleType;
 use pi_world::{event::EventSender, filter::Or, prelude::{Changed, Entity, Has, Local, OrDefault, ParamSet, Query, Ticker}, single_res::SingleRes};
@@ -43,16 +59,11 @@ impl Plugin for TransformWillChangePlugin {
     }
 }
 
-// 处理transform_will_change属性，计算出TransformWillChangeMatrix
-// TransformWillChange属性常用于，子节点数量较多，又频繁改变Transform的节点
-// 将变换Transform设置到TransformWillChange上，所有的子节点不需要重新计算WorldMatrix
-// 假定某个节点A上设置的TransformWillChange为T1， A的世界矩阵为Wa，
-// A存在一个子节点B，由B的Transform变换所得的局部矩阵为Tb，因此B的世界矩阵为Wa * Tb, 记作Wb
-// 又由于A上存在TransformWillChange T1，其也能影响B，
-// B的最终变换应该为Wa * T1 * Tb = Wa * T1 * Wa逆 * Wa * Tb = Wa * T1 * Wa逆 * Wb;
-// 将Wa * T1 * Wa称为TransformWillChangeMatrix TW。
-// 渲染A下所有子节点时，将TW作为视图矩阵。
-// TransformWillChange组件不可移除， 可设置为None
+/// 计算 TransformWillChangeMatrix， 包含：
+/// 1. own_view_matrix,忽略所有父的TransfromWillChange， 只考虑自身TransfromWillChange，计算而得的局部 view_matrix = ParentWorldMatrix * TransformWillChangeMatrix * WorldMatrix逆
+/// 2. view_matrix: 当前节点需要的视图矩阵变换， view_matrix = Parent0.primitive * Parent1.primitive * ... * self.primitive
+/// 3. view_matrix_invert: view_matrix 逆
+/// 注意： TransformWillChange组件一旦添加， 不允许移除， 可设置为None
 pub fn transform_will_change_post_process(
     query_matrix: Query<(&'static WorldMatrix, &'static LayoutResult)>,
     query_node1: Query<(&TransformWillChange, OrDefault<Transform>, &'static Up, &'static LayoutResult, &'static WorldMatrixInvert)>,
@@ -190,7 +201,9 @@ pub fn transform_will_change_change1(mark: SingleRes<GlobalDirtyMark>) -> bool {
     mark.mark.get(StyleType::TransformWillChange as usize).map_or(false, |display| {*display == true})
 }
 
-
+/// 递归设置Pass2D节点的TransformWillChangeMatrix
+/// 1. 节点存在TransfromWillChange， 将父的TransformWillChangeMatrix与本节点的TransfromWillChange进行叠加， 得到新的TransformWillChangeMatrix， 设置到当前节点的TransformWillChangeMatrix组件中
+/// 2. 节点不存在TransfromWillChange， 当前节点的TransformWillChangeMatrix直接继承父的Pass2D节点的TransformWillChangeMatrix
 pub fn recursive_set_matrix(
     id: Entity,
     mut parent_will_change_matrix: TransformWillChangeMatrix,
@@ -229,7 +242,7 @@ pub fn recursive_set_matrix(
 
             if let Some(parent_will_change_matrix) = &parent_will_change_matrix.0 {
                 // 如果父上下文上存在TransformWillChange， 真实的世界矩阵应该需要与父上下文作用
-                m = &parent_will_change_matrix.will_change * &m;
+                m = &parent_will_change_matrix.view_matrix * &m;
                 // will_change_matrix = &parent_will_change_matrix.primitive * &will_change_matrix;
             }
 

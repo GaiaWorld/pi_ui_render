@@ -1,63 +1,55 @@
 
-use std::{collections::HashSet, mem::transmute, sync::{Arc, Mutex, OnceLock}};
-use ahash::HashMap;
-use crossbeam::queue::SegQueue;
-use pi_async_rt::rt::serial::AsyncRuntimeBuilder;
-use pi_bevy_ecs_extend::prelude::{Down, Layer, OrInitSingleRes, OrInitSingleResMut, Up};
-use pi_bevy_render_plugin::{node::Node, NodeId, PiRenderDevice, PiRenderGraph, PiScreenTexture, RenderContext};
+use std::{collections::HashSet, mem::transmute};
+use pi_bevy_ecs_extend::prelude::{Down, EntityTag, Layer, OrInitSingleRes, OrInitSingleResMut, Up};
+use pi_bevy_render_plugin::{node::Node, PiRenderDevice, PiRenderGraph, PiScreenTexture, RenderContext};
 use pi_hal::font::sdf_gpu::create_indices;
 use pi_null::Null;
 use pi_share::ShareRefCell;
 use pi_spatial::quad_helper::intersects;
 use pi_style::style::Aabb2;
-use pi_world::{app::App, event::ComponentRemoved, filter::{Changed, With}, query::Query, schedule::{End, Last}, schedule_config::IntoSystemConfigs, single_res::{SingleRes, SingleResMut}, system_params::{Local, SystemParam}, world::{ComponentIndex, Entity, World}};
-
-use std::io::Result;
-use pi_ws::{connect::WsSocket, server::WebsocketListener, utils::{ChildProtocol, WsFrameType, WsSession}};
-use futures::future::{BoxFuture, FutureExt, LocalBoxFuture};
-use pi_tcp::{SocketConfig, SocketEvent,
-        connect::TcpSocket,
-        server::{PortsAdapterFactory, SocketListener}};
+use pi_world::{
+    prelude::{App, Entity, IntoSystemConfigs, Plugin}, 
+    world::World, event::ComponentRemoved, filter::{Changed, With}, 
+    query::Query, schedule::{End},
+    single_res::{SingleRes, SingleResMut}, system_params::{Local}
+};
+use pi_ws::{connect::WsSocket, utils::WsFrameType};
+use futures::future::BoxFuture;
+use pi_tcp::{
+    connect::TcpSocket,
+};
 use json::JsonValue;
 use crate::{components::{calc::{EntityKey, InPassId, IsRotate, IsShow, Quad, ZRange}, pass_2d::ParentPassId, root::{RootScale, Viewport}, user::{ClassName, Overflow, Point2, Size}}, devtools::{get_document_tree, get_global_info, get_roots}, resource::{draw_obj::{create_common_pipeline_state, LastGraphNode}, IsRun, QuadTree}};
 use crate::devtools::{get_style, get_class_names, get_class};
-use super::{init_node, node_info, GuiNode};
+use super::{init_node, node_info};
 use wgpu::util::DeviceExt;
 use wgpu::CommandEncoder;
-static CMDS: OnceLock<Arc<SegQueue<(String, WsSocket<TcpSocket>)>>> = OnceLock::new();
-static SOCKETS: OnceLock<Mutex<HashMap<usize, WsSocket<TcpSocket>>>> = OnceLock::new();
 
-pub fn start_server(app: &mut App) {
-    // 初始化全局变量
-    CMDS.get_or_init(|| {
-        Arc::new(SegQueue::new())
-    });
-    SOCKETS.get_or_init(|| {
-        Mutex::new(HashMap::default())
-    });
+use pi_bevy_render_plugin::spector::{send_cmd, sys_parse_cmd, CMDCalls, Cmd, SpectorNode, CMDS, SOCKETS};
 
-    // 启动一个http服务
-    // let _out = std::process::Command::new("node")
-    // .args([
-    //     "src/devtools/http_server.js",
-    // ])
-    // .spawn();
+pub struct PluginSpectorUI;
+impl Plugin for PluginSpectorUI {
+    fn build(&self, app: &mut App) {
+        init_showbox_pipeline(&mut app.world);
+        app.add_startup_system(End, init_show_box_node);
+        app.add_system(End, tool_run1.after(sys_parse_cmd));
 
-    //启动一个websocket服务
-    start_websocket_server();
-    init_showbox_pipeline(&mut app.world);
-    app.add_startup_system(End, init_show_box_node);
-    app.add_system(End, tool_run);
-    app.add_system(End, tool_run1.after(tool_run));
+        let cmdscalls = app.world.get_single_res_mut::<CMDCalls>().unwrap();
+        cmdscalls.cmdcalls.insert(String::from(CMD_REQUEST_COMPUTED),         cmd_request_computed);
+        cmdscalls.cmdcalls.insert(String::from(CMD_REQUEST_DOCUMENT),         cmd_request_document);
+        cmdscalls.cmdcalls.insert(String::from(CMD_REQUEST_GLOBAL_INFO),      cmd_request_global_info);
+        cmdscalls.cmdcalls.insert(String::from(CMD_REQUEST_GLOBAL_INTERFACE), cmd_request_global_interface);
+        cmdscalls.cmdcalls.insert(String::from(CMD_REQUEST_MODIFY_STYLE),     cmd_request_modify_style);
+        cmdscalls.cmdcalls.insert(String::from(CMD_REQUEST_RIGHTKEY_ELE),     cmd_request_right_key_element);
+        cmdscalls.cmdcalls.insert(String::from(CMD_REQUEST_SHOWBOX),          cmd_request_showbox);
+        cmdscalls.cmdcalls.insert(String::from(CMD_REQUEST_STYLE),            cmd_request_style);
+    }
 }
 
-pub fn tool_run(world: &mut World) {
-    parse_cmd1(world);
-}
 pub fn tool_run1(
     query: Query<(Entity, &Layer, &Up), (With<Size>, Changed<Layer>)>,
     query2: Query<(Entity, &Layer, &Up), With<Size>>,
-    query1: Query<(&Down, &Up, Option<&ClassName>), With<Size>>,
+    query1: Query<(&Down, &Up, Option<&ClassName>, Option<&EntityTag>)>,
     delete: ComponentRemoved<Size>,
     mut local: Local<HashSet<Entity>>,
 ) {
@@ -124,7 +116,7 @@ pub fn tool_run1(
                     let (mut _entity, _layer, up1) = query2.get(up.prev()).unwrap();
                     up = up1;
                 }
-                let mut guinode = GuiNode::default();
+                let mut guinode = SpectorNode::default();
                 init_node(e, &mut guinode, &query1);
                 let add_node_cmd = Cmd {
                     cmd: "add-child".to_string(),
@@ -146,7 +138,7 @@ pub fn tool_run1(
 struct AddNode {
     parentUniqueID: f64,
     parentUniqueIDString: String,
-    child: GuiNode,
+    child: SpectorNode,
     index: u32,
 }
 
@@ -156,163 +148,38 @@ struct RemoveNode {
     uniqueID: f64,
 }
 
-#[derive(Serialize, Debug, Clone, Default)]
-#[allow(non_snake_case)]
-struct Cmd<T: serde::Serialize> {
-    cmd: String,
-    payload: T,
-}
+pub const CMD_REQUEST_DOCUMENT: &'static str            = "request-document";
+pub const CMD_REQUEST_STYLE: &'static str               = "request-style";
+pub const CMD_REQUEST_COMPUTED: &'static str            = "request-computed";
+pub const CMD_REQUEST_SHOWBOX: &'static str             = "request-showbox";
+pub const CMD_REQUEST_RIGHTKEY_ELE: &'static str        = "request-right-key-element";
+pub const CMD_REQUEST_GLOBAL_INTERFACE: &'static str    = "request-global-interface";
+pub const CMD_REQUEST_GLOBAL_INFO: &'static str         = "request-global-info";
+pub const CMD_REQUEST_MODIFY_STYLE: &'static str        = "request-modify-style";
 
-fn send_cmd<T: serde::Serialize>(cmd: Cmd<T>, sockets: &HashMap<usize, WsSocket<TcpSocket>>) {
-    let cmd_string = serde_json::to_string(&cmd).unwrap();
-    for socket in sockets.values() {
-        if let Err(e) = socket.send(WsFrameType::Text, cmd_string.as_bytes().to_vec()) {
-            log::error!("Error sending message: {:?}", e);
+/// cmd `request-document`
+fn cmd_request_document(world: &mut World, connect: WsSocket<TcpSocket>, obj: json::object::Object) {
+    let roots = get_roots(world);
+    log::error!("root======{:?}", &roots);
+    for root in roots.into_iter() {
+        let msg = get_document_tree(world, root);
+        let cmd = Cmd {
+            cmd: "document-data".to_string(),
+            payload: msg,
+        };
+        let msg = serde_json::to_string(&cmd).unwrap();
+        if let Err(e) = connect.send(WsFrameType::Text, msg.as_bytes().to_vec()) {
+            log::error!("send error: {}", e);
         }
     }
 }
-
-fn start_websocket_server() {
-
-    let rt0 = AsyncRuntimeBuilder::default_local_thread(None, None);
-    let rt1 = AsyncRuntimeBuilder::default_local_thread(None, None);
-
-    let mut factory = PortsAdapterFactory::<TcpSocket>::new();
-    factory.bind(3001,
-                 Box::new(WebsocketListener::with_protocol(Arc::new(MyChildProtocol))));
-    let mut config = SocketConfig::new("0.0.0.0", factory.ports().as_slice());
-    config.set_option(16384, 16384, 16384, 16);
-
-    match SocketListener::bind(vec![rt0, rt1],
-                               factory,
-                               config,
-                               1024,
-                               1024 * 1024,
-                               1024,
-                               16,
-                               4096,
-                               4096,
-                               Some(1000)) {
-        Err(e) => {
-            println!("!!!> Websocket Listener Bind Error, reason: {:?}", e);
-        },
-        Ok(_driver) => {
-            println!("===> Websocket Listener in: {:?}", "0.0.0.0:3001");
-        }
-    }
-
-}
-
-
-struct MyChildProtocol;
-
-impl ChildProtocol<TcpSocket> for MyChildProtocol {
-    fn protocol_name(&self) -> &str {
-        "echo"
-    }
-
-    fn is_strict(&self) -> bool {
-        false
-    }
-
-    fn decode_protocol(&self,
-                       connect: WsSocket<TcpSocket>,
-                       context: &mut WsSession) -> LocalBoxFuture<'static, Result<()>> {
-        let uid = connect.get_uid();
-        let sockes = SOCKETS.get().unwrap();
-        let mut sockes = sockes.lock().unwrap();
-        if sockes.get(&uid).is_none() {
-            sockes.insert(uid, connect.clone());
-        }
-
-        let msg = context.pop_msg();
-        // println!("!!!!!!receive ok, msg: {:?}", (String::from_utf8(msg.clone()), uid));
-        CMDS.get().unwrap().push(( String::from_utf8(msg).unwrap(), connect));
-        async move {
-            Ok(())
-        }.boxed_local()
-    }
-
-    fn close_protocol(&self,
-                      connect: WsSocket<TcpSocket>,
-                      _context: WsSession,
-                      reason: Result<()>) -> LocalBoxFuture<'static, ()> {
-        let uid = connect.get_uid();
-        let sockes = SOCKETS.get().unwrap();
-        sockes.lock().unwrap().remove(&uid);
-        println!("websocket closed");
-        async move {
-            if let Err(e) = reason {
-                return println!("websocket closed, reason: {:?}", e);
-            }
-
-            println!("websocket closed");
-        }.boxed_local()
-    }
-
-    fn protocol_timeout(&self,
-                        _connect: WsSocket<TcpSocket>,
-                        _context: &mut WsSession,
-                        _event: SocketEvent) -> LocalBoxFuture<'static, Result<()>> {
-        async move {
-            println!("websocket timeout");
-
-            Ok(())
-        }.boxed_local()
-    }
-}
-pub fn parse_cmd1(world: &mut World) {
-    let cmds = CMDS.get().unwrap();
-
-    let mut cur_cmd = cmds.pop();
-    while let Some(cmd) = cur_cmd {
-        if let Err(e) = parse_cmd(&cmd.0, cmd.1, world) {
-            log::error!("parse cmd error111111111: {}", e);
-        }
-        cur_cmd = cmds.pop();
-    }
-
-
-}
-
-fn parse_cmd(cmd: &str, connect: WsSocket<TcpSocket>, world: &mut World) -> std::result::Result<(), String> {
-    // println!("=========== parse_cmd: {}", cmd);
-    let parsed = json::parse(cmd);
-    let obj = match parsed {
-        Ok(JsonValue::Object(obj)) => obj,
-        r => return Err(format!("message invalid: {:?}", r))
-    };
-    let cmd = match obj.get("cmd") {
-        Some(JsonValue::Short(cmd)) => cmd,
-        r => return Err(format!("cmd invalid: {:?}", r))
-    };
-
-    match cmd.as_str() {
-        "request-document" => {
-            let roots = get_roots(world);
-            log::error!("root======{:?}", &roots);
-            for root in roots.into_iter() {
-                let msg = get_document_tree(world, root);
-                let cmd = Cmd {
-                    cmd: "document-data".to_string(),
-                    payload: msg,
-                };
-                let msg = serde_json::to_string(&cmd).unwrap();
-                if let Err(e) = connect.send(WsFrameType::Text, msg.as_bytes().to_vec()) {
-                    log::error!("send error: {}", e);
-                }
-            }
-            
-        },
-        "request-style" => {
-            let _select_node_id: Entity = match obj.get("payload") {
-                Some(JsonValue::Number(select_node_id)) => unsafe{ transmute::<_, Entity>(f64::from(select_node_id.clone())) },
-                r => return Err(format!("cmd invalid: {:?}", r))
-            };
+/// cmd `request-style`
+fn cmd_request_style(world: &mut World, connect: WsSocket<TcpSocket>, obj: json::object::Object) {
+    match obj.get("payload") {
+        Some(JsonValue::Number(select_node_id)) => {
+            let _select_node_id: Entity = unsafe{ transmute::<_, Entity>(f64::from(select_node_id.clone())) };
             let style = get_style(world, _select_node_id);
 
-      
-            
             let c = style.split(";").collect::<Vec<&str>>();
             let mut style = serde_json::from_str::<serde_json::Value>("{}").unwrap();
             for  i in 0..c.len() - 1 {
@@ -322,17 +189,17 @@ fn parse_cmd(cmd: &str, connect: WsSocket<TcpSocket>, world: &mut World) -> std:
 
             let class_name = get_class_names(world, _select_node_id);
             let class_name = serde_json::from_str::<serde_json::Value>(&class_name).unwrap();
-            // println!("======= class_name: {:?}", class_name);
+            log::error!("======= class_name: {:?}", class_name);
             let mut classs = serde_json::from_str::<serde_json::Value>("{}").unwrap();
             for class_name in class_name.as_array().unwrap() {
                 let class_name = class_name.as_u64().unwrap() as u32;
                 let mut r = serde_json::from_str::<serde_json::Value>("{}").unwrap();
                 let c = get_class(&world, class_name);
-               
-                   let c = c.split(";");
+                
+                    let c = c.split(";");
                     for a in c {
                         let arr = a.split(":").collect::<Vec<&str>>();
-                        // println!("========= arr: {:?}", (&a, &arr));
+                        log::error!("========= arr: {:?}", (&a, &arr));
                         if arr.len() > 1 {
                             r[arr[0]] = arr[1].into();
                         }
@@ -345,57 +212,67 @@ fn parse_cmd(cmd: &str, connect: WsSocket<TcpSocket>, world: &mut World) -> std:
                 log::error!("send error: {}", e);
             }
         },
-        "request-computed" => {
-            let select_node_id: Entity = match obj.get("payload") {
-                Some(JsonValue::Number(select_node_id)) => unsafe{ transmute::<_, Entity>(f64::from(select_node_id.clone())) },
-                r => return Err(format!("cmd invalid: {:?}", r))
-            };
-            let msg = node_info(world, select_node_id);
-            let cmd = Cmd {
-                cmd: "computed-data".to_string(),
-                payload: msg,
-            };
-            let msg = serde_json::to_string(&cmd).unwrap();
-            if let Err(e) = connect.send(WsFrameType::Text, msg.as_bytes().to_vec()) {
-                log::error!("send error: {}", e);
-            }
-        },
-        "request-showbox" => {
-            let select_node_id: Entity = match obj.get("payload") {
-                Some(JsonValue::Number(select_node_id)) => unsafe{ transmute::<_, Entity>(f64::from(select_node_id.clone())) },
-                r => return Err(format!("cmd invalid: {:?}", r))
-            };
-
-            let info = world.get_single_res_mut::<ShowboxInfo>().unwrap();
-            if info.id != select_node_id{
-                info.id = select_node_id;
-            }
-
-        },
-        "request-right-key-element" => {
-            let x = obj["x"].as_f32().unwrap();
-            let y = obj["y"].as_f32().unwrap();
-    
-            if let Some((id, root_id)) = lookup_ele_by_pointer(world, x, y){
-                let msg = format!("{{\"cmd\": \"right-key-element\" , \"payload\": {{\"uniqueID\": {}, \"documentUniqueID\": {} }}}}", id, root_id);
-                println!("========= msg: {}", msg);
+        r => log::error!("cmd invalid: {:?}", r),
+    };
+}
+/// cmd `request-computed`
+fn cmd_request_computed(world: &mut World, connect: WsSocket<TcpSocket>, obj: json::object::Object) {
+    match obj.get("payload") {
+        Some(JsonValue::Number(select_node_id)) => {
+            let select_node_id: Entity = unsafe{ transmute::<_, Entity>(f64::from(select_node_id.clone())) };
+            if let Some(msg) = node_info(world, select_node_id) {
+                let cmd = Cmd {
+                    cmd: "computed-data".to_string(),
+                    payload: msg,
+                };
+                let msg = serde_json::to_string(&cmd).unwrap();
                 if let Err(e) = connect.send(WsFrameType::Text, msg.as_bytes().to_vec()) {
                     log::error!("send error: {}", e);
                 }
             }
         },
-        "request-global-interface" => {
-            let msg = "{\"cmd\": \"global-info-interface\" , \"payload\": [[\"ExecutionGraph\",\"graph\"],[\"ToopGraph\",\"graph\"],[\"GlobalInfo\",\"json\"]]}";
-            println!("========= request-global-interface msg: {}", msg);
-            if let Err(e) = connect.send(WsFrameType::Text, msg.as_bytes().to_vec()) {
-                log::error!("send error: {}", e);
+        r => log::error!("cmd invalid: {:?}", r),
+    };
+}
+/// cmd `request-showbox`
+fn cmd_request_showbox(world: &mut World, connect: WsSocket<TcpSocket>, obj: json::object::Object) {
+    match obj.get("payload") {
+        Some(JsonValue::Number(select_node_id)) => {
+            let select_node_id: Entity = unsafe{ transmute::<_, Entity>(f64::from(select_node_id.clone())) };
+
+            let info = world.get_single_res_mut::<ShowboxInfo>().unwrap();
+            if info.id != select_node_id{
+                info.id = select_node_id;
             }
         },
-        "request-global-info" => {
-            let request_cmd = match obj.get("payload") {
-                Some(JsonValue::Short(request_cmd)) => request_cmd,
-                r => return Err(format!("cmd invalid: {:?}", r))
-            };
+        r => return log::error!("cmd invalid: {:?}", r),
+    };
+}
+/// cmd `request-right-key-element`
+fn cmd_request_right_key_element(world: &mut World, connect: WsSocket<TcpSocket>, obj: json::object::Object) {
+    let x = obj["x"].as_f32().unwrap();
+    let y = obj["y"].as_f32().unwrap();
+
+    if let Some((id, root_id)) = lookup_ele_by_pointer(world, x, y){
+        let msg = format!("{{\"cmd\": \"right-key-element\" , \"payload\": {{\"uniqueID\": {}, \"documentUniqueID\": {} }}}}", id, root_id);
+        log::error!("========= msg: {}", msg);
+        if let Err(e) = connect.send(WsFrameType::Text, msg.as_bytes().to_vec()) {
+            log::error!("send error: {}", e);
+        }
+    }
+}
+/// cmd `request-global-interface`
+fn cmd_request_global_interface(world: &mut World, connect: WsSocket<TcpSocket>, obj: json::object::Object) {
+    let msg = "{\"cmd\": \"global-info-interface\" , \"payload\": [[\"ExecutionGraph\",\"graph\"],[\"ToopGraph\",\"graph\"],[\"GlobalInfo\",\"json\"]]}";
+    println!("========= request-global-interface msg: {}", msg);
+    if let Err(e) = connect.send(WsFrameType::Text, msg.as_bytes().to_vec()) {
+        log::error!("send error: {}", e);
+    }
+}
+/// cmd `request-global-info`
+fn cmd_request_global_info(world: &mut World, connect: WsSocket<TcpSocket>, obj: json::object::Object) {
+    let request_cmd = match obj.get("payload") {
+        Some(JsonValue::Short(request_cmd)) => {
             let info = match request_cmd.as_str() {
                 "ExecutionGraph" => {
                     let g = world.get_single_res::<pi_bevy_render_plugin::PiRenderGraph>().unwrap();
@@ -424,14 +301,13 @@ fn parse_cmd(cmd: &str, connect: WsSocket<TcpSocket>, world: &mut World) -> std:
                 log::error!("send error: {}", e);
             }
         },
-        "request-modify-style" => {},
-
-        r => return Err(format!("cmd invalid: {:?}", r)) 
+        r => return log::error!("cmd invalid: {:?}", r),
     };
-    Ok(())
 }
-
-// pub struct 
+/// cmd `request-modify-style`
+fn cmd_request_modify_style(world: &mut World, connect: WsSocket<TcpSocket>, obj: json::object::Object) {
+    
+}
 
 pub fn request_right_key_element( x: f32, y: f32) {
     let sockes = SOCKETS.get().unwrap();

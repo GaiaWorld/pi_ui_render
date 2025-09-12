@@ -101,7 +101,7 @@ pub fn calc_animation_1(
         // log::warn!("aaa========={:?}", a.0);
         for (node, animation) in style_query.p0().iter() {
             if let Err(e) = keyframes_sheet.bind_static_animation(node, &*animation) {
-                log::error!("{:?}", e);
+                // log::error!("{:?}", e);
             }
         }
     }
