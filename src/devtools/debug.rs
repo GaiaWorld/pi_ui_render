@@ -12,6 +12,7 @@ use pi_bevy_ecs_extend::system_param::tree::Layer;
 use pi_bevy_render_plugin::asimage_url::RenderTarget;
 use pi_bevy_render_plugin::PiRenderGraph;
 use pi_bevy_render_plugin::SpectorNode;
+pub use pi_bevy_render_plugin::{init_node, get_document_tree, get_roots};
 use pi_null::Null;
 use pi_render::rhi::asset::TextureRes;
 use pi_render::rhi::shader::GetBuffer;
@@ -71,6 +72,8 @@ use crate::components::calc::View;
 use smallvec::SmallVec;
 
 use super::canvas_render::CanvasRendererNode;
+
+
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Quad {
@@ -315,53 +318,6 @@ pub fn get_global_info(world: &World) -> GloabalInfo {
 pub fn get_gui_root(world: &mut World) -> Option<Entity> {
     let mut query = world.query::<Entity, (With<Root>, With<Size>)>();
     query.iter(world).next()
-}
-
-pub fn get_document_tree(world: &mut World, root: Entity) -> SpectorNode {
-    let mut query = world.query::<(&Down, &Up, Option<&ClassName>, Option<&EntityTag>)>();
-    let query = query.get_param(world);
-    let mut n = SpectorNode::default();
-    init_node( root, &mut n, &query);
-    return n;
-}
-
-pub fn get_roots(world: &mut World) -> Vec<Entity> {
-    let mut query = world.query::<Entity, (With<Root>)>();
-    return query.iter(world).collect();
-}
-
-
-pub fn init_node( 
-    id: Entity, 
-    node: &mut SpectorNode, 
-    query: &Query<(&Down, &Up, Option<&ClassName>, Option<&EntityTag>)>,
-) {
-    let (down, _, class_name, tag) = query.get(id).unwrap();
-    node.tag = "div".to_string();
-    if let Some(tag) = tag {
-        node.tag = tag.0.to_string();
-    }
-    node.uniqueID = unsafe {transmute(id)};
-    node.info = format!("ID={:?}", id);
-    if let Some(class_name) = class_name {
-        let mut r: Vec<String> = Vec::new();
-        for c in class_name.0.iter() {
-            r.push(c.to_string());
-        }
-        if class_name.0.len() > 0 {
-            node.info += " wclass=";
-            node.info += r.join(" ").as_str();
-        }
-    }
-
-    let mut cur_child = down.head();
-    while !cur_child.is_null() {
-        let mut n = SpectorNode::default();
-        init_node( cur_child, &mut n, query);
-        node.childs.push(n);
-        let (_c_down, c_up, _class_name, tag) = query.get(cur_child).unwrap();
-        cur_child = c_up.next();
-    }
 }
 
 pub fn get_layout(world: &World, node_id: Entity) -> String {
