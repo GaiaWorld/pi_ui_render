@@ -270,7 +270,7 @@ fn set_gylph(
                 Some(r) => r,
                 None => {
                     // 纹理空间不足
-                    log::info!(
+                    log::error!(
                         "异常，无法计算字形,char:{:?}, family:{:?}, id:{:?}, texture_width: {:?}, texture_height: {:?}",
                         char_node.ch,
                         text_style.font_family,
@@ -314,7 +314,7 @@ fn set_gylph(
                 Some(r) => r,
                 None => {
                     // 纹理空间不足
-                    log::info!(
+                    log::error!(
                         "异常，无法计算字形,char:{:?}, family:{:?}, id:{:?}, texture_width: {:?}, texture_height: {:?}",
                         char_node.ch,
                         text_style.font_family,
