@@ -44,6 +44,8 @@ use crate::components::user::ClassName;
 use self::draw_obj::{CommonBlendState, DrawObjDefault};
 use self::fragment::NodeTag;
 
+pub use pi_bevy_render_plugin::ShareFontSheet;
+
 
 #[derive(Default, Deref, Serialize, Deserialize)]
 pub struct ClassSheet(pi_style::style_type::ClassSheet);
@@ -898,34 +900,34 @@ impl IndexMut<EntityKey> for QuadTree {
     fn index_mut(&mut self, index: EntityKey) -> &mut Self::Output { unsafe { self.get_unchecked_mut(&index) } }
 }
 
-#[derive(Deref)]
-pub struct ShareFontSheet(pub Share<ShareCell<FontSheet>>);
+// #[derive(Deref)]
+// pub struct ShareFontSheet(pub Share<ShareCell<FontSheet>>);
 
-#[cfg(target_arch = "wasm32")]
-unsafe impl Send for ShareFontSheet {}
-#[cfg(target_arch = "wasm32")]
-unsafe impl Sync for ShareFontSheet {}
+// #[cfg(target_arch = "wasm32")]
+// unsafe impl Send for ShareFontSheet {}
+// #[cfg(target_arch = "wasm32")]
+// unsafe impl Sync for ShareFontSheet {}
 
-// impl FromWorld for ShareFontSheet {
-//     fn from_world(world: &mut World) -> Self {
-//         let texture_res_mgr = world.get_single_res::<ShareAssetMgr<TextureRes>>().unwrap();
+// // impl FromWorld for ShareFontSheet {
+// //     fn from_world(world: &mut World) -> Self {
+// //         let texture_res_mgr = world.get_single_res::<ShareAssetMgr<TextureRes>>().unwrap();
+// //         let device = world.get_single_res::<PiRenderDevice>().unwrap();
+// // 		let queue = world.get_single_res::<PiRenderQueue>().unwrap();
+// // 		let limits = device.limits();
+// //         ShareFontSheet(Share::new(ShareCell::new(FontSheet::new(&device.0, &texture_res_mgr.0, &queue.0, limits.max_texture_dimension_2d, false))))
+// //     }
+// // }
+
+// impl ShareFontSheet {
+//     pub fn new(world: &mut World, font_type: FontType) -> Self {
+// 		world.init_single_res::<TextureKeyAlloter>();
+//         let texture_res_mgr = world.get_single_res::<ShareAssetMgr<AssetWithId<TextureRes>>>().unwrap();
+// 		let alloter = world.get_single_res::<TextureKeyAlloter>().unwrap();
+		
 //         let device = world.get_single_res::<PiRenderDevice>().unwrap();
 // 		let queue = world.get_single_res::<PiRenderQueue>().unwrap();
 // 		let limits = device.limits();
-//         ShareFontSheet(Share::new(ShareCell::new(FontSheet::new(&device.0, &texture_res_mgr.0, &queue.0, limits.max_texture_dimension_2d, false))))
+//         ShareFontSheet(Share::new(ShareCell::new(FontSheet::new(&device.0, &texture_res_mgr.0, alloter.0.clone(),&queue.0, limits.max_texture_dimension_2d, font_type))))
 //     }
 // }
-
-impl ShareFontSheet {
-    pub fn new(world: &mut World, font_type: FontType) -> Self {
-		world.init_single_res::<TextureKeyAlloter>();
-        let texture_res_mgr = world.get_single_res::<ShareAssetMgr<AssetWithId<TextureRes>>>().unwrap();
-		let alloter = world.get_single_res::<TextureKeyAlloter>().unwrap();
-		
-        let device = world.get_single_res::<PiRenderDevice>().unwrap();
-		let queue = world.get_single_res::<PiRenderQueue>().unwrap();
-		let limits = device.limits();
-        ShareFontSheet(Share::new(ShareCell::new(FontSheet::new(&device.0, &texture_res_mgr.0, alloter.0.clone(),&queue.0, limits.max_texture_dimension_2d, font_type))))
-    }
-}
 

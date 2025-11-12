@@ -53,8 +53,12 @@ pub struct Sdf2TextPlugin;
 
 impl Plugin for Sdf2TextPlugin {
     fn build(&self, app: &mut pi_world::prelude::App) {
-		let font_sheet = ShareFontSheet::new(&mut app.world, FontType::Sdf2);
-		app.world.insert_single_res(font_sheet);
+		// let font_sheet = ShareFontSheet::new(&mut app.world, FontType::Sdf2);
+		// app.world.insert_single_res(font_sheet);
+        if (app.world.get_single_res::<ShareFontSheet>().is_none()) {
+        	let font_sheet = ShareFontSheet::new(&mut app.world, FontType::Sdf2);
+            app.world.insert_single_res(font_sheet);
+        }
         app
             .add_startup_system(UiStage, init_text_effect_graph)
             // 文字劈分为字符

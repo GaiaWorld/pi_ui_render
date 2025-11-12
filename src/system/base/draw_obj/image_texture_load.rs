@@ -39,7 +39,7 @@ impl Plugin for ImageLoadPlugin {
 
 #[derive(Clone)]
 pub struct ImageAwait<Key: 'static + Send + Sync, T>(
-    pub Share<SegQueue<(Key, Atom, Handle<AssetWithId<TextureRes>>)>>,
+    pub Share<SegQueue<(Key, Atom, Handle<TextureRes>)>>,
     pub (Vec<(Entity, Atom)>, Vec<(Entity, Atom)>), // 需要在下一帧重新获取Target类型的url对应的Target
     pub ImageTextureLoader<Key>,
     PhantomData<T>
@@ -49,7 +49,7 @@ impl<Key: 'static + Send + Sync, T> Default for ImageAwait<Key, T> {
     fn default() -> Self { Self(Share::new(SegQueue::new()), (Vec::new(), Vec::new()), ImageTextureLoader::default(), PhantomData) }
 }
 
-pub struct CalcImageLoad<S: std::ops::Deref<Target = Atom>, D: From<Handle<AssetWithId<TextureRes>>>>(PhantomData<(S, D)>);
+pub struct CalcImageLoad<S: std::ops::Deref<Target = Atom>, D: From<Handle<TextureRes>>>(PhantomData<(S, D)>);
 
 
 

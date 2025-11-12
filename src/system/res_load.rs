@@ -9,7 +9,7 @@ use pi_atom::Atom;
 use pi_bevy_asset::ShareAssetMgr;
 use pi_bevy_render_plugin::{PiRenderDevice, PiRenderQueue, TextureKeyAlloter};
 use pi_hal::{runtime::RENDER_RUNTIME, loader::AsyncLoader};
-use pi_render::rhi::asset::{TextureRes, AssetWithId, TextureAssetDesc};
+use pi_render::rhi::asset::{AssetWithId, ImageTextureDesc, TextureAssetDesc, TextureRes};
 use pi_share::Share;
 use pi_async_rt::prelude::AsyncRuntime;
 
@@ -41,7 +41,7 @@ pub fn load_res(
 	mut success_list: OrInitSingleResMut<ResSuccess>,
 	queue: SingleRes<PiRenderQueue>,
     device: SingleRes<PiRenderDevice>,
-	texture_assets_mgr: SingleRes<ShareAssetMgr<AssetWithId<TextureRes>>>,
+	texture_assets_mgr: SingleRes<ShareAssetMgr<TextureRes>>,
 	key_alloter: OrInitSingleRes<TextureKeyAlloter>,
 ) {
 	
@@ -64,14 +64,14 @@ pub fn load_res(
 					let key_alloter = key_alloter.clone();
 					RENDER_RUNTIME
 						.spawn(async move {
-							let desc = TextureAssetDesc {
-								alloter: &key_alloter,            
+							let desc = ImageTextureDesc {
+								// alloter: &key_alloter,            
 								url: &path,
 								device: &device,
 								queue: &queue,
 							};
 
-							let r = AssetWithId::<TextureRes>::async_load(desc, result).await;
+							let r = TextureRes::async_load(desc, result).await;
 							match r {
 								Ok(r) => {
 									async_list.push((path.clone(), r));
