@@ -27,12 +27,13 @@ use crate::components::user::{IsLeaf, Opacity};
 
 use crate::components::DrawBundleNew;
 use crate::components::pass_2d::{Camera, Draw2DList, DrawElement, DrawIndex, InstanceDrawState, ParentPassId, PostProcessInfo};
+use crate::devtools::CommonMeterial;
 use crate::resource::draw_obj::{CommonSampler, DefaultPipelines, InstanceContext};
 use crate::resource::{GlobalDirtyMark, IsRun, OtherDirtyType, RenderObjType};
 
 use crate::components::calc::DrawList;
 use crate::shader1::GpuBuffer;
-use crate::shader1::batch_meterial::{BatchMeterial, DebugInfo, DepthUniformMut, MeterialBind, OpacityUniform, RenderFlagType, TetxureIndexMeterial, TyMeterial};
+use crate::shader1::batch_meterial::{BatchMeterial, DebugInfo, DepthUniformMut, LayoutUniform, MeterialBind, OpacityUniform, RenderFlagType, TetxureIndexMeterial, TyMeterial};
 
 /// 新版本的draw_object生命周期管理
 /// 用于创建和销毁drawobj
@@ -184,6 +185,9 @@ pub fn draw_object_life_new<
 									instance_context.instance_data.set_data_mult1(instance_index.transparent.clone(), &TetxureIndexMeterial(&[new_texture.coord() as f32]));
 								}
 							}
+							if old_texture.key() != new_texture.key() {
+								rebatch = true;
+							}
 						}
 						let group = instance_context.batch_texture.texture_array_group(&new_texture, &device);
 						let _ = alter_drawobj.alter(r.id, InstanceSplit::ByFrameGroup(new_texture, group));
@@ -259,6 +263,7 @@ pub fn update_render_instance_data(
 
 	mut catche_buffer: OrInitSingleResMut<RenderInstances1>,
 	default_sdf_uv: OrInitSingleRes<SdfUv>,
+	mut list: Query<(&mut DrawList)>
 ) {
 	log::debug!("update_render_instance_data=====================");
 	// 如果没有实体创建， 也没有实体删除， zindex也没改变，上下文结构也没改变， 则不需要更新实例数据
@@ -397,7 +402,7 @@ pub fn update_render_instance_data(
 	let mut default_metrial = BatchMeterial::default();
 	default_metrial.sdf_uv = [default_sdf_uv.0.left, default_sdf_uv.0.top, default_sdf_uv.0.right, default_sdf_uv.0.bottom];
 	
-	let alloc = |draw_index: &DrawIndex, draw_info: &DrawInfo, new_instances: &mut GpuBuffer, instances: &InstanceContext, instance_index: &mut Query<(&'static mut InstanceIndex, OrDefault<RenderCount>, Option<&InstanceSplit>)>, pass_id: Entity| {
+	let alloc = |draw_index: &DrawIndex, draw_info: &DrawInfo, new_instances: &mut GpuBuffer, instances: &mut InstanceContext, instance_index: &mut Query<(&'static mut InstanceIndex, OrDefault<RenderCount>, Option<&InstanceSplit>)>, pass_id: Entity, list: &mut Query<(&'static mut DrawList)>,| {
 		let mut alloc:  Option<Entity> = None;
 		// #[cfg(debug_assertions)]
 		let mut node = EntityKey::null();
@@ -457,6 +462,7 @@ pub fn update_render_instance_data(
 					let mut instance_data = new_instances.instance_data_mut(new_index.start + i as usize * new_instances.alignment);
 					instance_data.set_data(&default_metrial);
 					instance_data.set_data(&TyMeterial(&[ty as f32]));
+					instance_data.set_data(&LayoutUniform(&[0.0; 4]));
 					instance_data.set_data(&OpacityUniform(opacity.as_slice())); // 初始化opacity
 					if let Some(InstanceSplit::ByFrameGroup(texture, _)) = &instance_split {
 						instance_data.set_data(&TetxureIndexMeterial(&[texture.coord() as f32])); // 纹理索引
@@ -471,6 +477,11 @@ pub fn update_render_instance_data(
 				}
 
 				log::debug!("alloc instance_index============entity={:?}, new_index={:?}, render_count={:?}", (node, entity), new_index, render_count);
+				if let Ok(mut d) = list.get_mut(node.0){
+					let temp = d.0.clone();
+					d.0 = temp;
+				}
+
 				index.set_index(is_opacity, new_index.clone());
 
 			} else {
@@ -486,6 +497,10 @@ pub fn update_render_instance_data(
 				}
 				index_bypass.set_index(is_opacity, new_index.clone());
 				
+				if let Ok(mut d) = list.get_mut(node.0){
+					let temp = d.0.clone();
+					d.0 = temp;
+				}
 			}
 			// log::trace!("life1========================insatnce_index={:?}, instance_data_start={:?}, draw_index={:?}, split={:?}, cur_index={:?}, render_count: {:?}", new_index, instance_data_start, draw_index, draw_query.get(entity), new_instances.cur_index(), render_count);
 		}
@@ -581,8 +596,9 @@ pub fn update_render_instance_data(
 
 		let instance_data_start = new_instances.cur_index();
 		draw_2d_list.render_list.iter(| (draw_index, _, draw_info)| {
-			alloc(draw_index, draw_info, new_instances, &instances, &mut instance_index, *entity);
+			alloc(draw_index, draw_info, new_instances, instances, &mut instance_index, *entity, &mut  list);
 		});
+		
 		// let mut pipeline;
 		// for (draw_index, _, draw_info) in draw_2d_list.opaque.iter().rev().chain(draw_2d_list.transparent.iter()) {
 		// 	log::debug!("draw_index============{:?}", draw_index);

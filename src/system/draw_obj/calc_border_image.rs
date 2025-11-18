@@ -439,6 +439,7 @@ pub fn calc_border_image_instance_count(
 		
 
 		let mut render_count = RenderCount::default();
+		render_count.transparent = 0;
 		if edge_is_opacity {
 			render_count.opacity += edge_count as u32;
 		} else {

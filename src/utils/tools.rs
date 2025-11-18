@@ -17,7 +17,7 @@ use crate::components::{
     user::{Aabb2, Matrix4, Point2, Vector4},
 };
 
-const EPSILON: f32 = std::f32::EPSILON * 1024.0;
+const EPSILON: f32 = std::f32::EPSILON * 10240.0; // 0.001
 #[inline]
 pub fn eq_f32(v1: f32, v2: f32) -> bool { v1 == v2 || ((v2 - v1).abs() <= EPSILON) }
 

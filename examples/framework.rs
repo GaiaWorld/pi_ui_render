@@ -8,7 +8,7 @@ use pi_ui_render::devtools::request_right_key_element;
 use pi_ui_render::resource::fragment::NodeTag;
 use pi_ui_render::resource::{RenderDirty, ShareFontSheet};
 use pi_world::prelude::{App, Entity, First, Insert, IntoSystemConfigs, Local, SingleResMut, SystemSet, World, WorldPluginExtent};
-
+use pi_bevy_render_plugin::spector::PluginSpector;
 use pi_async_rt::prelude::AsyncRuntime;
 use pi_bevy_asset::{AssetConfig, PiAssetPlugin};
 // use pi_pi_world_extend::prelude::Root;
@@ -28,7 +28,7 @@ use pi_ui_render::{
     prelude::{UiPlugin, UiStage},
     resource::UserCommands,
 };
-
+use pi_ui_render::devtools::PluginSpectorUI;
 #[cfg(target_arch = "wasm32")]
 use pi_async_rt::rt::serial_local_compatible_wasm_runtime::{LocalTaskRunner, LocalTaskRuntime};
 #[cfg(feature = "debug")]
@@ -119,6 +119,7 @@ println!("===========   ===========");
                             .spawn(async move {
                                 let mut result = Vec::new();
                                 let pp: String = url + "/" + path.as_str();
+                                log::error!("= load image: {:?}",pp);;
                                 match httpc
                                     .build_request(pp.as_str(), pi_async_httpc::AsyncHttpRequestMethod::Get)
                                     // .set_pairs(&[("login_type", "2"), ("user", "1694151132349ldxNJ")]) // 设置参数
@@ -346,6 +347,7 @@ println!("===========   ===========");
     let mut is_init = false;
     let mut last_x = 0.0;
     let mut last_y = 0.0;
+    let mut is_first = true;
     event_loop.run(move |event, _, control_flow| {
         match event {
             Event::MainEventsCleared => {
@@ -368,6 +370,7 @@ println!("===========   ===========");
                     }
                 }
                 #[cfg(not(target_arch = "wasm32"))]
+                // log::error!("============ app.run();");
                 app.run();
 
                 #[cfg(target_arch = "wasm32")]
@@ -440,8 +443,8 @@ println!("===========   ===========");
                         app.add_system(First, setting_next_record.in_set(StageCMDTrace::Trace).before(sys_cmd_replay));
                     }
                 }
-                #[cfg(not(target_arch = "wasm32"))]
-                pi_ui_render::devtools::start_server(&mut app); // 开启开发工具
+                // #[cfg(not(target_arch = "wasm32"))]
+                // start_server(&mut app); // 开启开发工具
 
                 let exmple2 = exmple1.clone();
                 let exmple3 = exmple1.clone();
@@ -639,10 +642,11 @@ pub fn init(width: u32, height: u32, app: &mut App, w: Arc<pi_winit::window::Win
         allocator: None,
         collect_interval: 5000,
     })
-    // .add_plugins(WorldInspectorPlugin::new())
+   
     .add_plugins(PiRenderPlugin::default())
-    .add_plugins(PiPostProcessPlugin);
-
+    .add_plugins(PiPostProcessPlugin)
+    .add_plugins(PluginSpector)
+    .add_plugins(PluginSpectorUI);
     // let h = app.world.get_single_res_mut::<pi_bevy_log::LogFilterHandle>().unwrap();
     // let default_filter = { format!("{},my_target=info", bevy_log::Level::WARN) };
     // let filter_layer = tracing_subscriber::EnvFilter::try_from_default_env()
