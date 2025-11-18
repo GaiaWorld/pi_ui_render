@@ -990,9 +990,8 @@ pub struct TexInfo {
 }
 
 pub fn texture_info(world: &mut World) -> String {
-    use pi_render::rhi::asset::AssetWithId;
     let mut res = Vec::new();
-    let info = world.get_single_res::<ShareAssetMgr<AssetWithId<TextureRes>>>().unwrap();
+    let info = world.get_single_res::<ShareAssetMgr<TextureRes>>().unwrap();
     
     for info in &info.account().used{
         res.push(TexInfo{ name: get_by_hash(info.name.clone().parse::<pi_atom::Usize>().unwrap()), size: info.size as f64, is_used: true,  timeout: info.remain_timeout as f64})
