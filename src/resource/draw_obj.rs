@@ -1107,6 +1107,7 @@ impl InstanceContext {
             
 			if let Some((buffer, size)) = &instance_buffer {
 				if *size >= instance_data.dirty_range.end {
+                    // if instance_data.dirty_range.end <= instance_data.data().len() {
                     if !instance_data.merge_ranges.is_empty() {
                         for range in &instance_data.merge_ranges {
                             queue.write_buffer(
@@ -1124,6 +1125,9 @@ impl InstanceContext {
                     }
                     instance_data.reset_count_state(); 
 					return;
+                    // }else{
+                    //     log::error!("======= write_buffer failed!! {:?}", (instance_data.data().len(), &instance_data.dirty_range))
+                    // }
 				}
 
 			}
@@ -1135,6 +1139,8 @@ impl InstanceContext {
                 usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
                 mapped_at_creation: false,
             });
+
+            // if instance_data.dirty_range.end <= len {
             if !instance_data.merge_ranges.is_empty() {
                 for range in &instance_data.merge_ranges {
                     queue.write_buffer(
@@ -1150,6 +1156,7 @@ impl InstanceContext {
                     &instance_data.data()[instance_data.dirty_range.clone()],
                 );
             }
+            // }
 
             *instance_buffer = Some((buffer, len));
 			

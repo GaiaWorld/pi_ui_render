@@ -493,6 +493,7 @@ pub fn update_render_instance_data(
 
 					if new_index.start != old_index.start || new_index.end != old_index.end {
 						new_instances.update_dirty_range(new_index.clone());
+						new_instances.reserve();
 					}
 				}
 				index_bypass.set_index(is_opacity, new_index.clone());
@@ -528,6 +529,7 @@ pub fn update_render_instance_data(
 			// 如果新的索引和原有索引不同，需要更新每个draw_obj的实例索引, 如果深度值不同， 需要更新深度值
 			if cur_index != instance_data_range.start {
 				new_instances.update_dirty_range(cur_index..cur_index + instance_data_range.len());
+				new_instances.reserve();
 				for el in draw_2d_list.all_list_sort.iter() {
 					if let DrawIndex::DrawObj{draw_entity, ..} | DrawIndex::Pass2D(draw_entity)  = &el.0 {
 						let is_opacity = el.2.is_opacity();
