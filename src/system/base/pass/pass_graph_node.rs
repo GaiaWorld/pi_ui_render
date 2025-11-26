@@ -34,9 +34,9 @@ use wgpu::RenderPass;
 
 use crate::{
     components::{
-        calc::{EntityKey, WorldMatrix}, draw_obj::{DynTargetType, FboInfo, InstanceIndex}, pass_2d::{CacheTarget, Camera, Draw2DList, DrawElement, ParentPassId, PostProcess, PostProcessInfo, RenderTarget, RenderTargetCache, ScreenTarget}, user::{Aabb2, AsImage, RenderTargetType, Viewport}
+        calc::{EntityKey, Quad, WorldMatrix}, draw_obj::{DynTargetType, FboInfo, InstanceIndex}, pass_2d::{CacheTarget, Camera, Draw2DList, DrawElement, ParentPassId, PostProcess, PostProcessInfo, RenderTarget, RenderTargetCache, ScreenTarget}, user::{Aabb2, AsImage, RenderTargetType, Viewport}
     }, resource::{
-        draw_obj::{InstanceContext, RenderState, TargetCacheMgr}, RenderContextMarkType
+        RenderContextMarkType, draw_obj::{InstanceContext, RenderState, TargetCacheMgr}
     }, shader1::batch_meterial::{CameraBind, UvUniform}, system::base::pass::pass_life::set_invaild
 };
 use crate::components::pass_2d::IsSteady;
@@ -104,6 +104,7 @@ pub struct RunParam<'w> {
 		&'static RenderTarget1),
 	>,
 	root_query1: Query<'w, &'static Viewport>,
+	quad: Query<'w, &'static Quad>,
 	layer_query: Query<'w, &'static Layer>,
 
     pass2d_query: Query<'w,(&'static Camera, &'static RenderTarget, &'static FboInfo)>,
@@ -993,10 +994,6 @@ impl Node for Pass2DNode {
 							Ok(r) => r.root(),
 							Err(_) => continue,
 						};
-						let view_port_size = match param.root_query1.get(root) {
-							Ok(r) => (r.maxs.x - r.mins.x, r.maxs.y - r.mins.y),
-							Err(_) => continue,
-						};
 						if let Some(entitys) = param.render_cross_entitys.0.get(&id.0) {
 							// 需要重新创建rp， 清理深度
 							{let _a = rp;}
@@ -1007,22 +1004,37 @@ impl Node for Pass2DNode {
 								None,
 							);
 
+							let view_port_size = match param.quad.get(root) {
+								Ok(r) => (r.mins.x, r.mins.y, r.maxs.x - r.mins.x, r.maxs.y - r.mins.y),
+								Err(_) => { continue },
+							};
+							let view_port_node = match param.quad.get(id.0) {
+								Ok(r) => (r.mins.x, r.mins.y, r.maxs.x - r.mins.x, r.maxs.y - r.mins.y),
+								Err(_) => { continue },
+							};
+							let view_port_node = (view_port_node.0 / view_port_size.2, view_port_node.1 / view_port_size.3, view_port_node.2 / view_port_size.2, view_port_node.3 / view_port_size.3);
+
 							for entity in entitys.iter() {
 								if let Ok(draw_list) = param.render_cross_query.get(*entity) {
 									let svp = &draw_list.draw_list.viewport;
-									let scene_view_port = (
-										svp.0 * view_port_size.0,
-										svp.1 * view_port_size.1,
-										svp.2 * view_port_size.0,
-										svp.3 * view_port_size.1,
-									);
 									let view_port = (
-										(fbo_view_port.0 as f32 - fbo_camera_viewport.mins.x) + camera.view_port.mins.x,
-										(fbo_view_port.1 as f32 - fbo_camera_viewport.mins.y) + camera.view_port.mins.y,
-										camera.view_port.maxs.x - camera.view_port.mins.x,
-										camera.view_port.maxs.y - camera.view_port.mins.y,
+										svp.0 * view_port_node.2 + view_port_node.0,
+										svp.1 * view_port_node.3 + view_port_node.1,
+										svp.2 * view_port_node.2,
+										svp.3 * view_port_node.3,
+									);
+									let cx = camera.view_port.mins.x;
+									let cy = camera.view_port.mins.y;
+									let cw = camera.view_port.maxs.x - camera.view_port.mins.x;
+									let ch = camera.view_port.maxs.y - camera.view_port.mins.y;
+									let view_port = (
+										(fbo_view_port.0 as f32 - fbo_camera_viewport.mins.x) + cx + view_port.0 * cw,
+										(fbo_view_port.1 as f32 - fbo_camera_viewport.mins.y) + cy + view_port.1 * ch,
+										cw * view_port.2,
+										ch * view_port.3,
 									);
 
+									// log::error!("viewport: {:?} fbo_view_port {:?}, fbo_camera_viewport: {:?}, camera.view_port: {:?}, ", svp, fbo_view_port, fbo_camera_viewport.mins, (camera.view_port.mins, camera.view_port.maxs));
 									// log::warn!("viewport=============={:?}, {:?}", &svp, view_port);
 									// viewport
 
@@ -1032,6 +1044,7 @@ impl Node for Pass2DNode {
 									// 不可超过任何递归父的裁剪范围， 否则， 渲染异常
 									// rp.set_viewport(scene_view_port.0 - fbo_view_port.0 as f32, scene_view_port.1 - fbo_view_port.1 as f32, scene_view_port.2, scene_view_port.3, svp.4, svp.5);
 									rp.set_viewport(view_port.0, view_port.1, view_port.2, view_port.3, 0.0, 1.0);
+									rp.set_scissor_rect(view_port.0 as u32, view_port.1 as u32, view_port.2 as u32, view_port.3 as u32);
 
 									pi_render::renderer::draw_obj_list::DrawList::render(draw_list.draw_list.list.as_slice(), &mut rp);
 								}
