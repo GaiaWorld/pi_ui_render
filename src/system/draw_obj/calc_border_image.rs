@@ -22,6 +22,7 @@ use crate::system::base::draw_obj::life_drawobj::update_render_instance_data;
 use crate::system::base::node::layout::calc_layout;
 use crate::system::base::node::transition::transition_2;
 use crate::system::draw_obj::geo_split::RepeatInfo;
+use crate::system::draw_obj::transition_clip;
 use crate::system::system_set::UiSystemSet;
 use crate::components::user::BorderImage;
 use crate::system::base::draw_obj::{image_texture_load, life_drawobj, set_box_type, set_box_type_count};
@@ -130,7 +131,19 @@ pub fn calc_border_image_instance_count(
 		// if border_image.0.as_str().contains("tongyongdianhei_yuanjiao10_bg") {
 		// 	log::warn!("border image====={:?}", (border_image.0.as_str(), layer.layer().is_null(), draw_list.get_one(render_type), border_image_texture.is_some()));
 		// }
-		
+		// log::error!("border_image_texture: {:?}", border_image_texture.0);
+		let mut border_clip = border_clip.clone();
+		if let Some(t) = &border_image_texture.0{
+			if let Texture::Frame(t, a) = t{
+				if let Some(f) = t.frame(){
+					let (left, right, top, bottom)  = transition_clip(border_clip.left, border_clip.right, border_clip.top, border_clip.bottom, f.rect.2 as u32, f.rect.3 as u32, f.rect.6 as u32, f.rect.7 as u32,);
+					border_clip.left = left;
+					border_clip.right = right;
+					border_clip.top = top;
+					border_clip.bottom = bottom;
+				}
+			}
+		}
 		if layer.layer().is_null() {
 			continue;
 		}
@@ -174,7 +187,7 @@ pub fn calc_border_image_instance_count(
 		let layout_width = (border_aabb.maxs.x - border_aabb.mins.x).max(0.003);
 		let layout_height = (border_aabb.maxs.y - border_aabb.mins.y).max(0.003);
 		
-		let (uv0, uv1) = border_image_texture.to_uv(border_clip);
+		let (uv0, uv1) = border_image_texture.to_uv(&border_clip.0);
 		let mut clip = Rect {
 			left: uv0.x,
 			right: uv1.x,

@@ -1104,7 +1104,10 @@ impl InstanceContext {
         
 		if instance_data.dirty_range.len() != 0 { 
             // log::debug!("update instance_buffer==============={:?}, {:?}", &instance_data.dirty_range, bytemuck::cast_slice::<u8, f32>(&instance_data.data[instance_data.dirty_range.clone()]));
-            
+            if instance_data.dirty_range.end > instance_data.data().len(){
+                log::error!("======= write_buffer failed!! {:?}", (instance_data.data().len(), &instance_data.dirty_range));
+                return;
+            }
 			if let Some((buffer, size)) = &instance_buffer {
 				if *size >= instance_data.dirty_range.end {
                     // if instance_data.dirty_range.end <= instance_data.data().len() {

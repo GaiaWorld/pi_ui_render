@@ -441,6 +441,7 @@ pub fn update_render_instance_data(
 			let new_index;
 			if old_index.is_null() || old_index.len() != new_instances.alignment * render_count {
 				// 不存在旧的，则分配一个新索引
+				// log::error!("======= alloc_instance_data_mult: {:?}")
 				new_index = new_instances.alloc_instance_data_mult(render_count);
 				let mut ty = 0;
 				if !draw_info.is_visibility() {
@@ -487,12 +488,13 @@ pub fn update_render_instance_data(
 			} else {
 				// 存在旧的，从旧的实例上拷贝过来
 				new_index = new_instances.cur_index()..new_instances.cur_index() + render_count * new_instances.alignment;
-				log::debug!("change_index============{:?}, new_index: {:?}, old_index: {:?}", (node, entity), new_index, old_index);
+				// log::debug!("change_index============{:?}, new_index: {:?}, old_index: {:?}, dirty_range: {:?}", (node, entity), new_index, old_index, &new_instances.dirty_range);
 				if render_count > 0 {
 					new_instances.extend(instances.instance_data.slice(old_index.clone()));
-
 					if new_index.start != old_index.start || new_index.end != old_index.end {
+						// log::error!("======update_dirty_range222222: {:?}", new_index.clone());
 						new_instances.update_dirty_range(new_index.clone());
+						// log::error!("======update_dirty_range33333333: {:?}", new_instances.dirty_range);
 						new_instances.reserve();
 					}
 				}
@@ -528,6 +530,7 @@ pub fn update_render_instance_data(
 			new_instances.extend(instances.instance_data.slice(instance_data_range.clone()));
 			// 如果新的索引和原有索引不同，需要更新每个draw_obj的实例索引, 如果深度值不同， 需要更新深度值
 			if cur_index != instance_data_range.start {
+				// log::error!("========= update_dirty_range2222: {:?}", cur_index..cur_index + instance_data_range.len());
 				new_instances.update_dirty_range(cur_index..cur_index + instance_data_range.len());
 				new_instances.reserve();
 				for el in draw_2d_list.all_list_sort.iter() {

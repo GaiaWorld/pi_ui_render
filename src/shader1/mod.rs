@@ -76,6 +76,7 @@ impl GpuBuffer {
 	}
 
 	pub fn update_dirty_range(&mut self, range: Range<usize>) {
+		log::error!("====== update_dirty_range: {:?}", (&range, self.data.len()));
 		if range.start < self.dirty_range.start {
 			self.dirty_range.start = range.start;
 		}

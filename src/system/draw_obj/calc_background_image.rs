@@ -26,6 +26,7 @@ use crate::system::base::draw_obj::set_geo_uniform::set_matrix_uniform;
 use crate::system::base::node::layout::calc_layout;
 use crate::system::base::node::transition::transition_2;
 use crate::system::draw_obj::geo_split::{set_grid_instance, DirectionDesc, RepeatInfo};
+use crate::system::draw_obj::transition_clip;
 use crate::system::system_set::UiSystemSet;
 use crate::utils::tools::{eq_f32, is_large_size};
 use crate::components::user::BackgroundImage;
@@ -234,6 +235,20 @@ pub fn calc_background_image_inner(
 	// render_type: RenderObjType,
 ) -> Option<((Range<usize>, Range<usize>), RenderCount/*rendercount*/)> {
 	let (entity, layout, background_image_texture_ref, background_image_clip, background_image_mod, background_image, sdf_slice, sdf_uv, opacity, is_rotate) = data;
+	let mut background_image_clip = background_image_clip.clone();
+	// log::error!("background_image_texture_ref: {:?}", background_image_texture_ref.0);
+	if let Some(t) = &background_image_texture_ref.0{
+		if let Texture::Frame(t, a) = t{
+			if let Some(f) = t.frame(){
+				let (left, right, top, bottom) = transition_clip(background_image_clip.left, background_image_clip.right, background_image_clip.top, background_image_clip.bottom, f.rect.2 as u32, f.rect.3 as u32, f.rect.6 as u32, f.rect.7 as u32,);
+				background_image_clip.left = left;
+				background_image_clip.right = right;
+				background_image_clip.top = top;
+				background_image_clip.bottom = bottom;
+			}
+			
+		}
+	}
 	let sdf_uv = &sdf_uv.0;
 	let background_image_texture = match &background_image_texture_ref.0 {
 		Some(r) => {

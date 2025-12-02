@@ -1,4 +1,5 @@
 use calc_pipeline::blend_mod_change;
+use ordered_float::NotNan;
 use pi_world::prelude::IntoSystemConfigs;
 use pi_world::prelude::{App, Plugin, WorldPluginExtent};
 use pi_bevy_render_plugin::GraphBuild;
@@ -130,4 +131,15 @@ pub fn set_box(_world_matrix: &WorldMatrix, _layou_rect: &Aabb2, _instance_data:
 pub fn set_matrix(world_matrix: &WorldMatrix, layou_rect: &Aabb2, instance_data: &mut InstanceData) {
 	instance_data.set_data(&LayoutUniform(&[layou_rect.mins.x, layou_rect.mins.y, layou_rect.maxs.x - layou_rect.mins.x, layou_rect.maxs.y - layou_rect.mins.y]));
 	instance_data.set_data(&WorldMatrixMeterial(world_matrix.as_slice()));
+}
+
+// 将png的clip转换成astc的clip，因为构建的clip是png的
+pub fn transition_clip(left: NotNan<f32>, right: NotNan<f32>,top: NotNan<f32>,bottom: NotNan<f32>, width: u32, height: u32, efficient_width: u32, efficient_height: u32)->(NotNan<f32>,NotNan<f32>,NotNan<f32>,NotNan<f32>,){
+	unsafe {
+		let left = left * NotNan::new_unchecked(efficient_width as f32) / NotNan::new_unchecked(width as f32);
+		let right = right * NotNan::new_unchecked(efficient_width as f32) / NotNan::new_unchecked(width as f32);
+		let top = top * NotNan::new_unchecked(efficient_height as f32) / NotNan::new_unchecked(height as f32);
+		let bottom = bottom * NotNan::new_unchecked(efficient_height as f32) / NotNan::new_unchecked(height as f32);
+		(left, right, top, bottom)
+	}
 }
