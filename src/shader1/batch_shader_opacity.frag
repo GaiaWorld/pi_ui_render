@@ -28,6 +28,11 @@ layout(location=0) out vec4 outColor;
 
 void main(void) {
 	outColor = texture(sampler2DArray(tex2d, samp),vTextureInfo.xyz);
+	// android 压缩纹理数组采样通道可能小于0？
+	outColor.a = clamp(outColor.a, 0.0, 1.0);
+	outColor.r = clamp(outColor.r, 0.0, 1.0);
+	outColor.g = clamp(outColor.g, 0.0, 1.0);
+	outColor.b = clamp(outColor.b, 0.0, 1.0);
 	outColor = outColor + vColor;
 
 	outColor.a = outColor.a * opacity;
