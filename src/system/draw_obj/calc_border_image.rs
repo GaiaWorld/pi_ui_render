@@ -133,17 +133,17 @@ pub fn calc_border_image_instance_count(
 		// }
 		// log::error!("border_image_texture: {:?}", border_image_texture.0);
 		let mut border_clip = border_clip.clone();
-		if let Some(t) = &border_image_texture.0{
-			if let Texture::Frame(t, a) = t{
-				if let Some(f) = t.frame(){
-					let (left, right, top, bottom)  = transition_clip(border_clip.left, border_clip.right, border_clip.top, border_clip.bottom, f.rect.2 as u32, f.rect.3 as u32, f.rect.6 as u32, f.rect.7 as u32,);
-					border_clip.left = left;
-					border_clip.right = right;
-					border_clip.top = top;
-					border_clip.bottom = bottom;
-				}
-			}
-		}
+		// if let Some(t) = &border_image_texture.0{
+		// 	if let Texture::Frame(t, a) = t{
+		// 		if let Some(f) = t.frame(){
+		// 			let (left, right, top, bottom)  = transition_clip(border_clip.left, border_clip.right, border_clip.top, border_clip.bottom, f.rect.2 as u32, f.rect.3 as u32, f.rect.6 as u32, f.rect.7 as u32,);
+		// 			border_clip.left = left;
+		// 			border_clip.right = right;
+		// 			border_clip.top = top;
+		// 			border_clip.bottom = bottom;
+		// 		}
+		// 	}
+		// }
 		if layer.layer().is_null() {
 			continue;
 		}
