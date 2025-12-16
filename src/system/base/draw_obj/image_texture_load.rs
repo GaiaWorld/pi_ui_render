@@ -49,7 +49,7 @@ impl<Key: 'static + Send + Sync, T> Default for ImageAwait<Key, T> {
     fn default() -> Self { Self(Share::new(SegQueue::new()), (Vec::new(), Vec::new()), ImageTextureLoader::default(), PhantomData) }
 }
 
-pub struct CalcImageLoad<S: std::ops::Deref<Target = Atom>, D: From<Handle<TextureRes>>>(PhantomData<(S, D)>);
+// pub struct CalcImageLoad<S: std::ops::Deref<Target = Atom>, D: From<Handle<TextureRes>>>(PhantomData<(S, D)>);
 
 
 
@@ -337,7 +337,7 @@ pub fn load_image<'w, const DIRTY_TYPE: OtherDirtyType, S: 'static + Send + Sync
     // let result = AssetMgr::load(&texture_assets_mgr, &(key.str_hash() as u64));
     if let Some(texture) = result {
         if let Ok(mut dst) = query_dst.get_mut(entity) {
-            log::debug!("texture_load success 1: {:?}, {:?}, {:?}", entity, &key, (texture.tilloff(), texture.coord(), texture.texture().is_opacity));
+            log::debug!("sync texture_load success: {:?}, {:?}, {:?}", entity, &key, (texture.tilloff(), texture.coord(), texture.texture().is_opacity));
             let r = D::from(Texture::Frame(texture, key.clone()));
             if *dst != r {
                 
@@ -346,6 +346,8 @@ pub fn load_image<'w, const DIRTY_TYPE: OtherDirtyType, S: 'static + Send + Sync
             }
             
         }
+    } else {
+        log::error!("async texture_load success: {:?}", &key,);
     }
 }
 
