@@ -426,7 +426,15 @@ pub fn calc_camera(
 
         // 计算投影矩阵（投影矩阵将view_aabb范围内的对象投影到-1~1， 注意view_aabb所在坐标系为当前节点的非旋转坐标系）
         let project_matrix = create_project(aabb.mins.x, aabb.maxs.x, aabb.mins.y, aabb.maxs.y);
-
+        if let Some(r) = overflow_aabb.pre_view_box{
+            if is_full_fbo{
+                       aabb =  Aabb2::new(
+                    Point2::new(r.mins.x.floor(), r.mins.y.floor()),
+                    Point2::new(r.maxs.x.ceil(), r.maxs.y.ceil()),
+                    );
+                    println!("========== aabb : {:?}", aabb);
+            }
+        }
         // 计算视图矩阵
         let view_temp;
         // 将willchange应用到视图矩阵中

@@ -64,7 +64,7 @@ pub fn overflow_post_process(
         Ticker<&TransformWillChangeMatrix>,
         &'static LayoutResult,
         &'static Quad,
-        &'static ContentBox,
+        Ticker<& ContentBox>,
         &'static ChildrenPass,
         Option<Ticker<&Overflow>>,
         Ticker<&'static Layer>,
@@ -90,6 +90,7 @@ pub fn overflow_post_process(
             ),
         },
         desc: OverflowDesc::NoRotate(Aabb2::new(Point2::new(-max, -max), Point2::new(max, max))),
+        pre_view_box: None
     };
     // 从根节点遍历， 修改OverflowAabb
     for root in roots.iter() {
@@ -124,7 +125,7 @@ fn recursive_cal_overflow(
         Ticker<&TransformWillChangeMatrix>,
         &'static LayoutResult,
         &'static Quad,
-        &'static ContentBox,
+        Ticker<& ContentBox>,
         &'static ChildrenPass,
         Option<Ticker<&Overflow>>,
         Ticker<&'static Layer>,
@@ -153,10 +154,10 @@ fn recursive_cal_overflow(
             Some(r) => (r.is_changed(), **r),
             None => (false, false),
         };
-        let is_change =
+        let is_change1 = //true;
             parent_is_change || world_matrix.is_changed() || will_change.is_changed() || overflow_is_change || layer.is_changed();
-
-        let world_matrix = &*world_matrix;
+        let is_change = is_change1 || content_box.is_changed();
+        let world_matrix: &WorldMatrix = &*world_matrix;
         log::debug!("is_change======id: {:?}, is_change:{:?}, overflow: {:?}, \nparent_aabb: {:?}, mark: {:?}", id, is_change, overflow, parent_aabb, mark.get(**mark_type1).map(|r| {*r.as_ref()}));
         if is_change {
             let matrix_temp;
@@ -243,6 +244,7 @@ fn recursive_cal_overflow(
                         },
                         world_rotate: WorldMatrix(world_rotate, true), // TODO
                     }),
+                    pre_view_box: None
                 };
             } else {
                 let quad_temp;
@@ -299,6 +301,11 @@ fn recursive_cal_overflow(
                 // }
                 log::debug!("overflow4=========={:?}", (id, &quad1, &parent_aabb.aabb, &r));
                 
+                let mut pre_view_box = None;//Some(oveflow_aabb.view_box.aabb.clone());
+                // if (oveflow_aabb.view_box.aabb.maxs.x - oveflow_aabb.view_box.aabb.mins.x) > 0.01 && (oveflow_aabb.view_box.aabb.maxs.y -oveflow_aabb.view_box.aabb.mins.y) > 0.01 //content_box.is_changed() 
+                // {
+                //     pre_view_box = Some(oveflow_aabb.view_box.aabb.clone());
+                // }
                 *oveflow_aabb = View {
                     desc: OverflowDesc::NoRotate(quad1.clone()),
                     view_box: ViewBox {
@@ -310,6 +317,7 @@ fn recursive_cal_overflow(
                             Vector2::new(r.maxs.x, r.mins.y),
                         ),
                     },
+                    pre_view_box
                 };
             }
             // } else {

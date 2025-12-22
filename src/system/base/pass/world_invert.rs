@@ -47,14 +47,18 @@ pub fn calc_world_invert(
         None => false,
     };
     // 矩阵不脏, 需要计算世界矩阵逆矩阵的属性也不脏， 则直接跳过
-    if !martix_dirty && (context_mark_changed.len() == 0 || !global_dirty.mark.contains(&invert_mark.1))  {
+    // 修复：当TransformWillChange变化时，即使matrix_dirty为false，如果有context_mark_changed，也应该继续计算
+    let has_transform_will_change_dirty = global_dirty.mark.get(StyleType::TransformWillChange as usize).map_or(false, |v| *v);
+    if !martix_dirty && context_mark_changed.len() == 0 && !has_transform_will_change_dirty && !global_dirty.mark.contains(&invert_mark.1)  {
         return;
     }
 
     // 计算逆矩阵
     for (world_matrix, mut world_matrix_invert, context_mark) in query.iter_mut() {
-        if !((**context_mark).clone() & &invert_mark.0).any() {
-            // 不需要计算世界矩阵的逆矩阵，修改is_valid未false，跳过
+        let needs_invert = ((**context_mark).clone() & &invert_mark.0).any();
+
+        if !needs_invert {
+            // 不需要计算世界矩阵的逆矩阵，修改is_valid为false，跳过
             if !world_matrix_invert.is_valid {
                 world_matrix_invert.is_valid = false;
             }

@@ -212,14 +212,14 @@ pub fn recursive_set_matrix(
     query_matrix: &Query<(&'static WorldMatrix, &LayoutResult)>,
     query: &mut Query<&'static mut TransformWillChangeMatrix>,
     query_children: &Query<&'static ChildrenPass>,
-    dirty_mark: &DirtyMark,
+    dirty_mark: &mut DirtyMark,
     events_writer: &mut EventSender<OldTransformWillChange>,
 ) {
-    // 已经脏了，等待脏迭代
-    if dirty_mark.get(&id).is_some() {
-        return;
-    }
-
+    // // 已经脏了，等待脏迭代
+    // if dirty_mark.get(&id).is_some() {
+    //     return;
+    // }
+    // log::error!("======== recursive_set_matrix111111111");
     match query_node.get(id) {
         Ok((will_change1, transform, up, layout, world_matrix_invert)) if will_change1.0.is_some() => {
             let will_change = will_change1.0.as_ref().unwrap();

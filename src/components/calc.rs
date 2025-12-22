@@ -943,6 +943,7 @@ pub struct View {
     pub view_box: ViewBox,
     /// 旋转情况下是Some， 记录旋转矩阵和旋转逆矩阵
     pub desc: OverflowDesc,
+    pub pre_view_box: Option<Aabb2>
 }
 
 /// 可视包围盒

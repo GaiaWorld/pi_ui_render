@@ -337,7 +337,7 @@ pub fn load_image<'w, const DIRTY_TYPE: OtherDirtyType, S: 'static + Send + Sync
     // let result = AssetMgr::load(&texture_assets_mgr, &(key.str_hash() as u64));
     if let Some(texture) = result {
         if let Ok(mut dst) = query_dst.get_mut(entity) {
-            log::debug!("sync texture_load success: {:?}, {:?}, {:?}", entity, &key, (texture.tilloff(), texture.coord(), texture.texture().is_opacity));
+            // log::debug!("sync texture_load success: {:?}, {:?}, {:?}", entity, &key, (texture.tilloff(), texture.coord(), texture.texture().is_opacity));
             let r = D::from(Texture::Frame(texture, key.clone()));
             if *dst != r {
                 
@@ -347,7 +347,7 @@ pub fn load_image<'w, const DIRTY_TYPE: OtherDirtyType, S: 'static + Send + Sync
             
         }
     } else {
-        log::error!("async texture_load success: {:?}", &key,);
+        // log::error!("async texture_load success: {:?}", &key,);
     }
 }
 
