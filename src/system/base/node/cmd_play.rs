@@ -477,7 +477,7 @@ pub fn apply_nother_cmd(cmds: &mut UserCommands, other_command: &CmdType, play_s
             } else {
                 match play_state.get(a) {
                     Some(r) => *r,
-                    None => return,
+                    None => {  return },
                 }
             };
 
@@ -489,7 +489,6 @@ pub fn apply_nother_cmd(cmds: &mut UserCommands, other_command: &CmdType, play_s
                     None => { return },
                 }
             };
-
             cmds.push_cmd(CanvasCmd(a, *v, b));
         }
         CmdType::PostProcessCmd(PostProcessCmd(a, b)) => {
