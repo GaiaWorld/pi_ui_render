@@ -27,7 +27,6 @@ use crate::components::user::{IsLeaf, Opacity};
 
 use crate::components::DrawBundleNew;
 use crate::components::pass_2d::{Camera, Draw2DList, DrawElement, DrawIndex, InstanceDrawState, ParentPassId, PostProcessInfo};
-use crate::devtools::CommonMeterial;
 use crate::resource::draw_obj::{CommonSampler, DefaultPipelines, InstanceContext};
 use crate::resource::{GlobalDirtyMark, IsRun, OtherDirtyType, RenderObjType};
 

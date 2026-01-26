@@ -11,8 +11,11 @@ use pi_world::{
     prelude::{Entity}, 
     world::World,
 };
-use crate::{components::{calc::{InPassId, IsShow, ZRange}, pass_2d::ParentPassId, user::Overflow}, devtools::{get_global_info, node_info}, resource::{draw_obj::{create_common_pipeline_state, LastGraphNode}, IsRun, QuadTree}};
-use crate::devtools::{get_style, get_class_names, get_class};
+use crate::{components::{calc::{InPassId, IsShow, ZRange}, pass_2d::ParentPassId, user::Overflow},
+    resource::{draw_obj::{create_common_pipeline_state, LastGraphNode}, IsRun, QuadTree}
+};
+#[cfg(feature = "debug")]
+use crate::devtools::{get_style, get_class_names, get_class, get_global_info, node_info};
 use crate::components::calc::Quad;
 use crate::components::calc::EntityKey;
 use crate::components::user::Aabb2;
@@ -603,7 +606,7 @@ fn border_radius_to_str(value: &BorderRadius) -> String {
 //     pub x: [LengthUnit; 4], // 从左上角开始， 顺时针经过的每个角的圆角的x半径
 // 	pub y: [LengthUnit; 4], // 从左上角开始， 顺时针经过的每个角的圆角的y半径
 // }
-
+#[cfg(feature = "debug")]
 pub fn _request_computed(world: &mut World, nodeid: Entity) -> String {
     let select_node_id: Entity = nodeid;
     if let Some(msg) = node_info(world, select_node_id) {
@@ -615,7 +618,7 @@ pub fn _request_computed(world: &mut World, nodeid: Entity) -> String {
     }
     return String::from("{}");
 }
-
+#[cfg(feature = "debug")]
 pub fn _request_style(world: &mut World, nodeid: Entity) -> String {
     let _select_node_id: Entity = nodeid;
     let style = get_style(world, _select_node_id);
@@ -649,7 +652,7 @@ pub fn _request_style(world: &mut World, nodeid: Entity) -> String {
     }
     format!("{{\"cmd\": \"style-data\", \"payload\": {{\"style\": {}, \"classs\": {} }} }}", style.to_string(), classs)
 }
-
+#[cfg(feature = "debug")]
 pub fn _request_showbox(world: &mut World, nodeid: Entity) {
     let select_node_id: Entity = nodeid;
 
@@ -659,6 +662,7 @@ pub fn _request_showbox(world: &mut World, nodeid: Entity) {
     }
 }
 
+#[cfg(feature = "debug")]
 pub fn _request_right_key_element(world: &mut World, x: f32, y: f32) -> String {
     if let Some((id, root_id)) = lookup_ele_by_pointer(world, x, y){
         let msg = format!("{{\"cmd\": \"right-key-element\" , \"payload\": {{\"uniqueID\": {}, \"documentUniqueID\": {} }}}}", id, root_id);
@@ -668,11 +672,13 @@ pub fn _request_right_key_element(world: &mut World, x: f32, y: f32) -> String {
     return String::from("{}");
 }
 
+#[cfg(feature = "debug")]
 pub fn _request_global_interface(world: &mut World) -> String {
     let msg = "{\"cmd\": \"global-info-interface\" , \"payload\": [[\"ExecutionGraph\",\"graph\"],[\"ToopGraph\",\"graph\"],[\"GlobalInfo\",\"json\"]]}";
     return String::from(msg); 
 }
 
+#[cfg(feature = "debug")]
 pub fn _request_global_info(world: &mut World, request_cmd: &str) -> String {
     let info = match request_cmd {
         "ExecutionGraph" => {
@@ -701,6 +707,7 @@ pub fn _request_global_info(world: &mut World, request_cmd: &str) -> String {
     return msg;
 }
 
+#[cfg(feature = "debug")]
 // 初始化渲染图的根节点
 pub fn init_show_box_node(
     last_graph_id: OrInitSingleResMut<LastGraphNode>,

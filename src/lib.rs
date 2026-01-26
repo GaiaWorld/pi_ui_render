@@ -40,8 +40,7 @@ pub mod devtools;
 
 
 pub mod prelude {
-    #[cfg(feature = "debug")]
-use pi_bevy_render_plugin::TraceOption;
+    use pi_bevy_render_plugin::TraceOption;
     use pi_world::{prelude::{App, IntoSystemConfigs, IntoSystemSetConfigs, Plugin, WorldPluginExtent}, schedule::PostUpdate};
 
     use pi_hal::font::font::FontType;
@@ -58,7 +57,6 @@ use pi_bevy_render_plugin::TraceOption;
 
     #[derive(Default)]
     pub struct UiPlugin {
-        #[cfg(feature = "debug")]
         pub cmd_trace: TraceOption,
 		pub font_type: FontType,
     }
