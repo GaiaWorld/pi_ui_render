@@ -1,4 +1,4 @@
-use std::{mem::transmute, ops::Range};
+use std::{fmt::Debug, mem::transmute, ops::Range};
 
 use ordered_float::NotNan;
 use parry2d::transformation::utils::transform;
@@ -190,7 +190,7 @@ impl GpuBuffer {
 	}
 
 	// 连续设置相同的buffer到多个实例
-	pub fn set_data_mult<T: WriteBuffer>(&mut self, mut index: usize, count: usize, value: &T) {
+	pub fn set_data_mult<T: WriteBuffer+ Debug>(&mut self, mut index: usize, count: usize, value: &T) {
 		let end = index + count * self.alignment;
 		while index < end {
 			self.instance_data_mut(index).set_data(value);
@@ -199,7 +199,7 @@ impl GpuBuffer {
 	}
 
 	// 连续设置相同的buffer到多个实例
-	pub fn set_data_mult1<T: WriteBuffer>(&mut self, index: Range<usize>, value: &T) {
+	pub fn set_data_mult1<T: WriteBuffer + Debug>(&mut self, index: Range<usize>, value: &T) {
 		let mut i = index.start;
 		while i < index.end {
 			self.instance_data_mut(i).set_data(value);
@@ -208,7 +208,7 @@ impl GpuBuffer {
 	}
 
 	// 连续设置相同的buffer到多个实例(设置之前先比较)
-	pub fn set_data_mult2<T: WriteBuffer + GetBuffer + PartialEq>(&mut self, index: Range<usize>, value: &T, mut old: T) {
+	pub fn set_data_mult2<T: WriteBuffer + GetBuffer + PartialEq +Debug>(&mut self, index: Range<usize>, value: &T, mut old: T) {
 		let mut i = index.start;
 		while i < index.end {
 			old.get_data(i as u32, &self.data);
@@ -338,8 +338,7 @@ impl<'a> std::fmt::Debug for InstanceData<'a> {
 
 impl<'a> InstanceData<'a> {
 	// 为该实例设置数据
-	pub fn set_data<T: WriteBuffer>(&mut self, value: &T) {
-
+	pub fn set_data<T: WriteBuffer + Debug>(&mut self, value: &T) {
 	// 	if self.index == 18446744073709551615 {
 	// 	// println_any!("set data========={:?}, {:?}, {:?}", self.index, value.offset(),  value);
 	// 	log::warn!("byte_len========={:?}, {:?}, {:?}, {:?}, {:?}, {:?}", self.index, value.offset(), value.byte_len(), self.data.data.len(), self.data.capacity(), self.data.alignment);

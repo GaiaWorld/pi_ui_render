@@ -196,7 +196,7 @@ fn create_depth_buffer(
         mip_level_count: 1,
         sample_count: 1,
         dimension: wgpu::TextureDimension::D2,
-        format: wgpu::TextureFormat::Depth32Float,
+        format: wgpu::TextureFormat::Depth24Plus, // 抖音小游戏ios高性能+模式下 Depth32Float 格式的深度纹理gl.clear时会报错导致清除不掉
         usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST | wgpu::TextureUsages::RENDER_ATTACHMENT,
         view_formats: &[],
     });

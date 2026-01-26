@@ -22,7 +22,7 @@ pub struct WorldUniform<'a>(pub &'a [f32]);
 pub struct ClipSdfOrSdflineUniform<'a>(pub &'a [f32]);
 
 
-#[derive(Uniform)]
+#[derive(Uniform, Debug)]
 #[uniform(offset(128), len(16), bind(UiMaterialBind))]
 pub struct ColorUniform<'a>(pub &'a [f32]);
 
