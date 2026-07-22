@@ -23,7 +23,7 @@ use std::marker::{ConstParamTy, PhantomData};
 use std::mem::transmute;
 use std::ops::{Index, IndexMut};
 
-use pi_style::style_parse::{parse_animation, parse_class_map_from_string, parse_style_list_from_string};
+use pi_style::style_parse::{parse_animation, parse_class_map_from_string, parse_style_list_from_string, Attribute};
 use pi_style::style_type::{ AnimationDelayType, AnimationDirectionType, AnimationDurationType, AnimationFillModeType, AnimationIterationCountType, AnimationNameType, AnimationPlayStateType, AnimationTimingFunctionType, VNodeType, ZIndexType};
 use pi_time::Instant;
 use pi_hal::font::sdf_table::FontCfg;
@@ -189,6 +189,8 @@ impl UserCommands {
             (ids.draw_list, true),
             (ids.is_show, true),
             (ids.has_animation, true),
+            #[cfg(feature = "debug1")]
+            (ids.debug_info, true),
             // (ids.is_display, true),
         ]);
         if tag == NodeTag::VNode {
@@ -244,6 +246,119 @@ impl UserCommands {
         // out_any!(log::debug, "set_style, entity: {:?}, value: {:?}", entity, &value);
         self.style_commands.set_style(entity, value);
 		self
+    }
+
+    /// 根据字符串解析样式后设置节点样式
+    pub fn set_style_str(&mut self, entity: Entity, style_str: &str) -> &mut Self {
+        match parse_style_list_from_string(style_str, 0) {
+            Ok(attrs) => {
+                for attr in attrs {
+                    match attr {
+                        Attribute::BackgroundRepeat(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::FontStyle(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::FontWeight(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::FontSize(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::FontFamily(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::LetterSpacing(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::WordSpacing(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::LineHeight(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::TextIndent(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::WhiteSpace(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::TextAlign(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::VerticalAlign(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::Color(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::TextStroke(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::TextShadow(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::BackgroundImage(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::BackgroundImageClip(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::ObjectFit(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::BackgroundColor(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::BoxShadow(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::BorderImage(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::BorderImageClip(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::BorderImageSlice(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::BorderImageRepeat(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::BorderColor(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::Hsi(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::Blur(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::MaskImage(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::MaskImageClip(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::Transform(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::TransformOrigin(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::TransformWillChange(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::BorderRadius(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::ZIndex(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::Overflow(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::BlendMode(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::Display(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::Visibility(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::Enable(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::Width(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::Height(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::MarginTop(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::MarginRight(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::MarginBottom(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::MarginLeft(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::PaddingTop(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::PaddingRight(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::PaddingBottom(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::PaddingLeft(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::BorderTop(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::BorderRight(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::BorderBottom(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::BorderLeft(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::PositionTop(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::PositionRight(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::PositionBottom(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::PositionLeft(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::MinWidth(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::MinHeight(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::MaxHeight(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::MaxWidth(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::Direction(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::FlexDirection(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::FlexWrap(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::JustifyContent(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::AlignContent(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::AlignItems(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::PositionType(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::AlignSelf(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::FlexShrink(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::FlexGrow(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::AspectRatio(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::Order(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::FlexBasis(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::Opacity(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::TextContent(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::VNode(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::AnimationName(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::AnimationDuration(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::AnimationTimingFunction(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::AnimationDelay(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::AnimationIterationCount(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::AnimationDirection(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::AnimationFillMode(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::AnimationPlayState(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::ClipPath(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::Translate(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::Scale(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::Rotate(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::AsImage(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::TextOverflow(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::OverflowWrap(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::TransitionProperty(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::TransitionDuration(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::TransitionTimingFunction(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::TransitionDelay(v) => { self.style_commands.set_style(entity, v); }
+                        Attribute::TextOuterGlow(v) => { self.style_commands.set_style(entity, v); }
+                    }
+                }
+            }
+            Err(e) => {
+                log::error!("set_style_str fail, parse style err: {:?}", e);
+            }
+        };
+        self
     }
 
     /// 设置默认样式（字符串）TODO

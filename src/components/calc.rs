@@ -2,6 +2,7 @@
 
 use pi_atom::Atom;
 use pi_hal::texture::ImageTexture;
+use pi_hash::XHashMap;
 use pi_render::components::view::target_alloc::ShareTargetView;
 use pi_render::renderer::texture::ImageTextureFrame;
 use pi_world::insert::Component;
@@ -32,9 +33,29 @@ use super::user::*;
 pub use super::root::RootDirtyRect;
 pub use super::user::{NodeState, StyleType};
 
+
+#[cfg(feature = "debug1")]
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize, Component, Default)]
+pub struct DebugInfo {
+    pub map: XHashMap<String, String>
+}
+
+#[cfg(not(feature = "debug1"))]
+#[derive(Component, Default)]
+pub struct DebugInfo;
+
+impl DebugInfo {
+    #[cfg(feature = "debug1")]
+    pub fn insert(&mut self, key: String, value: String) {
+        self.map.insert(key, value);
+    }
+    #[cfg(not(feature = "debug1"))]
+    #[inline(always)]
+    pub fn insert(&mut self, _key: String, _value: String) {}
+}
+
 /// 布局结果
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize, Component)]
-
 pub struct LayoutResult {
     pub rect: Rect<f32>,
     pub border: Rect<f32>,

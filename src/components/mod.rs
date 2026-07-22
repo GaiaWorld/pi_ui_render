@@ -92,6 +92,8 @@ pub struct SettingComponentIds {
 
     pub svg: ComponentIndex,
     pub svg_shadow: ComponentIndex,
+    #[cfg(feature = "debug1")]
+    pub debug_info: ComponentIndex,
     svg_filter: ComponentIndex,
     svg_linear_gradient: ComponentIndex,
     svg_linear_gradient_stop: ComponentIndex,
@@ -163,6 +165,8 @@ impl FromWorld for SettingComponentIds {
             render_context_mark: world.init_component::<self::calc::RenderContextMark>(),
             draw_list: world.init_component::<self::calc::DrawList>(),
             is_show: world.init_component::<self::calc::IsShow>(),
+            #[cfg(feature = "debug1")]
+            debug_info: world.init_component::<self::calc::DebugInfo>(),
             // is_display: world.init_component::<self::calc::IsDisplay>(),
 
             svg: world.init_component::<SvgInnerContent>(),
@@ -196,7 +200,10 @@ pub struct NodeBundle {
     // pub is_display: IsDisplay,
     pub class_name: ClassName,
     pub has_animation: HasAnimation,
+    #[cfg(feature = "debug1")]
+    pub debug_info: self::calc::DebugInfo,
 }
+
 
 // /// 绘制对象Bundle
 // #[derive(Bundle)]

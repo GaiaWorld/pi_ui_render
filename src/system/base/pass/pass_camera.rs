@@ -5,7 +5,7 @@
 //! 4. 为pass2D创建对应的图节点，并添加依赖关系
 //! 5. 为删除的pass2D删除图节点，并建立正确的依赖关系
 
-use std::mem::transmute;
+use std::{fmt::format, mem::transmute};
 
 use pi_bevy_render_plugin::{render_cross::GraphId, PiRenderGraph};
 use pi_null::Null;
@@ -18,7 +18,7 @@ use pi_share::{Share, ShareWeak};
 use crate::{
     components::{
         calc::{
-            IsShow, OverflowDesc, Quad, TransformWillChangeMatrix, View, WorldMatrix
+            DebugInfo, IsShow, OverflowDesc, Quad, TransformWillChangeMatrix, View, WorldMatrix
         }, pass_2d::{
             Camera, DirtyRect, DirtyRectState, Draw2DList, IsSteady, ParentPassId, PostProcessInfo, RenderTarget, RenderTargetCache
         }, user::{Aabb2, AsImage, Point2, Vector2, Viewport}
@@ -111,7 +111,8 @@ use crate::{
 
 //     render_dirty.1 = is_dirty;
 // }
-
+#[derive(Debug, Default)]
+pub struct Ticker1 (pub usize);
 #[allow(unused_must_use)]
 #[allow(unused_variables)]
 pub fn calc_camera(
@@ -130,6 +131,7 @@ pub fn calc_camera(
             &IsShow,
             &PostProcessInfo,
             &Draw2DList,
+            // &mut DebugInfo,
         )
     >,
 
@@ -157,7 +159,10 @@ pub fn calc_camera(
     assets: SingleRes<TargetCacheMgr>,
 	r: OrInitSingleRes<IsRun>,
     as_image_mark_type: OrInitSingleRes<RenderContextMarkType<AsImage>>,
+    mut ticker1: OrInitSingleResMut<Ticker1>,
 ) {
+    let ticker2 = ticker1.0;
+    ticker1.0 = ticker2 + 1;
     log::debug!("calc_camera===============================");
 	if r.0 {
 		return;
@@ -187,6 +192,7 @@ pub fn calc_camera(
 
     let mut is_render_own_changed = false;
 
+
     let calc_camera = |
         (
             entity, 
@@ -201,7 +207,9 @@ pub fn calc_camera(
             quad, 
             is_show,
             post_info,
-            draw_2d_list): 
+            draw_2d_list,
+            // mut debug_info,
+        ): 
         (
             Entity,
             &ParentPassId,
@@ -216,11 +224,11 @@ pub fn calc_camera(
             &IsShow,
             &PostProcessInfo,
             &Draw2DList,
+            // Mut<DebugInfo>,
         ),
         parent_dirty_rect: Aabb2,
         cur_dirty_rect:  &mut DirtyRect,
     | -> bool {
-
         let camera_bypass = camera.bypass_change_detection();
         let old_is_render_own = camera_bypass.is_render_own;
         camera_bypass.is_render_own = false;
@@ -241,12 +249,17 @@ pub fn calc_camera(
                 render_target.bound_box = camera_bypass.view_port.clone();
                 camera.is_visible = false; // 设置为不可见
                 camera.view_port = Aabb2::new(Point2::new(0.0, 0.0), Point2::new(0.0, 0.0));
+                #[cfg(feature = "debug1")]
+                debug_info.insert("is_visible".to_string(), format!("{:?}: {:?}, {:?}, {:?}", ticker2, is_show.get_visibility(), is_show.get_display(), draw_2d_list.all_list_sort.len()));
                 return true; // 返回true，表示需要重新批处理
             }
+            #[cfg(feature = "debug1")]
+            debug_info.insert("is_visible1".to_string(), format!("{:?}: {:?}, {:?}, {:?}", ticker2, is_show.get_visibility(), is_show.get_display(), draw_2d_list.all_list_sort.len()));
             // 如果曾经不可见， 现在也不可见， 则不需要重新批处理
 			return false;
 		}
 
+        let overflow_changed = overflow_aabb.is_changed();
         let overflow_aabb = &*overflow_aabb;
         let view_aabb = &overflow_aabb.view_box.aabb;
         let view_aabb_int = Aabb2::new(
@@ -286,20 +299,25 @@ pub fn calc_camera(
         // 检查render_target的缓存情况， 如果存在缓存， 将缓存从弱引用变为强引用， 设置到rendertarget
         check_render_target(&mut render_target, as_image, is_steady.0);
 
-        if let None = render_target.target {
-            
-        } else if !local_dirty_mark && dirty_state == DirtyRectState::UnInit {  
-            // // 如果缓冲fbo的视口区域范围大于当前视口区域， 则不需要重新渲染 , 
+        if !local_dirty_mark && dirty_state == DirtyRectState::UnInit && !overflow_changed && render_target.target.is_some() {
+            // // 如果缓冲fbo的视口区域范围大于当前视口区域， 则不需要重新渲染 ,
             // // TODO， 如果 A->B->C形成Pass父子关系， 脏区域小于A的缓冲， 也小于C的缓冲， B从Pass变为非Pass， 可能会纹理冲突????(该顾虑可能不存在)
             // if camera_bypass.view_port.mins.x <= aabb.mins.x &&
             //     camera_bypass.view_port.mins.y <= aabb.mins.y &&
             //     camera_bypass.view_port.maxs.x >= aabb.maxs.x &&
             //     camera_bypass.view_port.maxs.y >= aabb.maxs.y {
                 // 存在fbo缓存， 且当前pass不脏，则不需要渲染
+                #[cfg(feature = "debug1")]
+                debug_info.insert("not dirty".to_string(), format!("{:?}: {:?}, {:?}, {:?}", ticker2, !local_dirty_mark , dirty_state == DirtyRectState::UnInit , !overflow_changed));
                 return false;
             // }
             // return old_is_render_own != camera_bypass.is_render_own;
-        } 
+        }
+        if overflow_changed {// transformwillchange改变时， 子pass的脏区域没有正确计算， 因此这里直接设置为子节点的view_aabb；
+            // overflow 因 will_change 改变，但脏区域未初始化（子树无变化）
+            // 仅需保证该 pass 不被判为不可见即可，用 view_box 本身作为最小脏区域
+            cur_dirty_rect.value = *view_aabb;
+        }
 
         let mut dirty_rect = &cur_dirty_rect.value;
         if render_dirty1 || view_port_is_dirty || !post_info.has_effect() || render_target.target.is_none() {
@@ -363,8 +381,12 @@ pub fn calc_camera(
             if camera_bypass.is_visible {
                 camera_bypass.is_visible = false; // 设置为不可见
                 camera.view_port = no_rotate_view_aabb;
+                #[cfg(feature = "debug1")]
+                debug_info.insert("is_visible2".to_string(), format!("{:?}, dirty_rect: {:?}, parent_dirty_rect: {:?}, cur_dirty_rect:{:?}, view_aabb: {:?}", ticker2, dirty_rect, parent_dirty_rect, &cur_dirty_rect.value, &view_aabb));
                 return true; // 返回true，表示需要重新批处理
             }
+            #[cfg(feature = "debug1")]
+            debug_info.insert("is_visible3".to_string(), format!("{:?}", ticker2, ));
             return old_is_render_own != camera_bypass.is_render_own;
         }
 
@@ -400,6 +422,8 @@ pub fn calc_camera(
                 Point2::new((view_aabb.mins.x - view_aabb_int.mins.x) / width, (view_aabb.mins.y - view_aabb_int.mins.y) / height),
                 Point2::new((view_aabb.maxs.x - view_aabb_int.maxs.x) / width, (view_aabb.maxs.y - view_aabb_int.maxs.y) / height),
             );
+            #[cfg(feature = "debug1")]
+             debug_info.insert("bound_box".to_string(), format!("{:?}, {:?}", ticker2, &view_aabb_int));
 		} else {
 			render_target.bound_box = aabb.clone();
             let width = aabb.maxs.x - aabb.mins.x;
@@ -408,9 +432,29 @@ pub fn calc_camera(
                 Point2::new((no_rotate_view_aabb.mins.x - aabb.mins.x) / width, (no_rotate_view_aabb.mins.y - aabb.mins.y) / height),
                 Point2::new((no_rotate_view_aabb.maxs.x - aabb.maxs.x) / width, (no_rotate_view_aabb.maxs.y - aabb.maxs.y) / height),
             );
+            #[cfg(feature = "debug1")]
+            debug_info.insert("bound_box1".to_string(), format!("{:?}, {:?}", ticker2, &aabb));
         }
+        #[cfg(feature = "debug1")]
+        debug_info.insert("bound_box2".to_string(), format!("{:?}, {:?}", ticker2, &render_target.bound_box));
 
-        
+        // 再次判断（根第一次判断少了overflow_changed）， 因为overflow_changed改变， 需要bound_box更新（将次渲染到父时需要正确的bound_box）
+        // 第一次判断是为了快速跳出
+        // 本次判断， 是为了不进后面的逻辑， 当前节点的内容不需要渲染， 只需要渲染到父
+        if !local_dirty_mark && dirty_state == DirtyRectState::UnInit && render_target.target.is_some() {
+            // // 如果缓冲fbo的视口区域范围大于当前视口区域， 则不需要重新渲染 ,
+            // // TODO， 如果 A->B->C形成Pass父子关系， 脏区域小于A的缓冲， 也小于C的缓冲， B从Pass变为非Pass， 可能会纹理冲突????(该顾虑可能不存在)
+            // if camera_bypass.view_port.mins.x <= aabb.mins.x &&
+            //     camera_bypass.view_port.mins.y <= aabb.mins.y &&
+            //     camera_bypass.view_port.maxs.x >= aabb.maxs.x &&
+            //     camera_bypass.view_port.maxs.y >= aabb.maxs.y {
+                // 存在fbo缓存， 且当前pass不脏，则不需要渲染
+                #[cfg(feature = "debug1")]
+                debug_info.insert("渲染到父，但不渲染自身".to_string(), format!("{:?}: {:?}, {:?}, {:?}", ticker2, !local_dirty_mark , dirty_state == DirtyRectState::UnInit , !overflow_changed));
+                return false;
+            // }
+            // return old_is_render_own != camera_bypass.is_render_own;
+        }
 
         // 计算视图区域（世界坐标系）
         // let aabb_temp;

@@ -16,6 +16,7 @@ crate-type = ["lib"]
 # default = ["single_thread", "trace"]
 wasm_bindgen = []
 debug = []
+debug1 = []
 devtools = ["pi_async_httpc", "pi_ws", "pi_tcp", "json"]
 trace = []
 tracing-chrome = [

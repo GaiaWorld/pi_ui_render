@@ -156,6 +156,8 @@ pub struct Info {
 	pub layer: String,
 	
 	pub text_overflow_data: String,
+    #[cfg(feature = "debug1")]
+    pub debug_info: Option<crate::components::calc::DebugInfo>,
 	
 }
 
@@ -786,6 +788,14 @@ pub fn node_info(world: &World, entity: Entity) -> Option<Info> {
 		mark_str.push("TransformWillChange");
 	}
 
+    #[cfg(feature = "debug1")]
+    let debug_info = match world.get_component::<crate::components::calc::DebugInfo>(entity) {
+        Ok(r) => Some(crate::components::calc::DebugInfo{map:r.map.clone()}),
+        Err(_) => None,
+    };
+    #[cfg(not(feature = "debug1"))]
+    let debug_info: Option<()> = None;
+
     let pass_info = if let (Ok(instance_index), Ok(camera)) = (world.get_component::<InstanceIndex>(entity), world.get_component::<Camera>(entity)) {
         let render_obj = create_render_obj(instance_index.opacity.clone(),  instance_index.transparent.clone(), Null::null(), InstanceType::CopyFbo);
 	    let view =  world.get_component::<View>(entity).unwrap();
@@ -846,6 +856,8 @@ pub fn node_info(world: &World, entity: Entity) -> Option<Info> {
     } else {
         None
     };
+
+    
     
 	
     let mut info = Info {
@@ -910,6 +922,8 @@ pub fn node_info(world: &World, entity: Entity) -> Option<Info> {
 		canvas: "".to_string(),
 		layer: format!("{:?}", layer),
 		text_overflow_data: format!("{:?}", text_overflow_data),
+        #[cfg(feature = "debug1")]
+        debug_info,
     };
 	let canvas = canvas.map(|r| {r.clone()});
 	let canvas_graph_id = if let Some(canvas) = canvas.clone() {

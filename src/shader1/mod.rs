@@ -283,7 +283,7 @@ impl GpuBuffer {
 			self.merge_ranges.clear();
 			return;
 		}
-		log::error!("===============merge_ranges start!! total_size: {}, merge_ranges: {:?}, size: {}", self.dirty_range.len(), (self.merge_ranges.len(), &self.merge_ranges), self.size);
+		// log::error!("===============merge_ranges start!! total_size: {}, merge_ranges: {:?}, size: {}", self.dirty_range.len(), (self.merge_ranges.len(), &self.merge_ranges), self.size);
 		self.size = 0;
 		// 1. 按区间起点排序
 		self.merge_ranges.sort_by_key(|r| r.start);
@@ -312,7 +312,7 @@ impl GpuBuffer {
 		merged.push(current_range);
 		
 		self.merge_ranges = merged;
-		log::error!("===============merge_ranges end!! merge_ranges: {:?}, size: {}", (self.merge_ranges.len(), &self.merge_ranges), self.size);
+		// log::error!("===============merge_ranges end!! merge_ranges: {:?}, size: {}", (self.merge_ranges.len(), &self.merge_ranges), self.size);
 	}
  }
 

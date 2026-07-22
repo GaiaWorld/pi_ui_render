@@ -14,10 +14,10 @@ layout(set = 0, binding = 0) uniform Camera {
 layout(location = 0) in vec2 position;
 
 // 输入
-layout(location = 1) in vec4 matrix0;     // 0  四边形 （分别为四个顶点（0， 0）、（0， 1）、（1， 1），（1， 0）在世界坐标系上的位置， 由于槽位有限， 没有传入世界矩阵， 而是算出了绝对值）
-layout(location = 2) in vec4 matrix1;     // 16 四边形 （分别为四个顶点（0， 0）、（0， 1）、（1， 1），（1， 0）在世界坐标系上的位置， 由于槽位有限， 没有传入世界矩阵， 而是算出了绝对值）
-layout(location = 3) in vec4 matrix2;     // 32 四边形 （分别为四个顶点（0， 0）、（0， 1）、（1， 1），（1， 0）在世界坐标系上的位置， 由于槽位有限， 没有传入世界矩阵， 而是算出了绝对值）
-layout(location = 4) in vec4 matrix3;     // 48 四边形 （分别为四个顶点（0， 0）、（0， 1）、（1， 1），（1， 0）在世界坐标系上的位置， 由于槽位有限， 没有传入世界矩阵， 而是算出了绝对值）
+layout(location = 1) in vec4 matrix0;    
+layout(location = 2) in vec4 matrix1;    
+layout(location = 3) in vec4 matrix2;     
+layout(location = 4) in vec4 matrix3;     
 layout(location = 5) in vec4 box_layout;  // 64 布局位置（offset， scale）                                                    当为渐变颜色时，表示point0、point1
 layout(location = 6) in vec4 other;       // 80 vec2 point2,float texture_index, float ty;                                   当为渐变颜色时，xy表示point2
 layout(location = 7) in vec4 slopePoint;  // 96 (倾斜， x方向上的剪切值, 倾斜原点的y值, zw是参考原点)

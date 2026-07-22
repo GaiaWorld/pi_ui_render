@@ -119,7 +119,7 @@ println!("===========   ===========");
                             .spawn(async move {
                                 let mut result = Vec::new();
                                 let pp: String = url + "/" + path.as_str();
-                                log::error!("= load image: {:?}",pp);;
+                                // log::error!("= load image: {:?}",pp);;
                                 match httpc
                                     .build_request(pp.as_str(), pi_async_httpc::AsyncHttpRequestMethod::Get)
                                     // .set_pairs(&[("login_type", "2"), ("user", "1694151132349ldxNJ")]) // 设置参数
@@ -614,21 +614,21 @@ pub fn init(width: u32, height: u32, app: &mut App, w: Arc<pi_winit::window::Win
     };
     println!("filter========={:?}", filter);
 
-    // let level = match std::env::var("RUST_LOG") {
-    // 	Ok(r) => match r.as_str() {
-    // 		"trace" => bevy_log::Level::TRACE,
-    // 		"info" => bevy_log::Level::INFO,
-    // 		"warn" => bevy_log::Level::WARN,
-    // 		"error" => bevy_log::Level::ERROR,
-    // 		_ => bevy_log::Level::INFO
-    // 	},
-    // 	Err(_) => bevy_log::Level::INFO,
-    // };
+    let level = match std::env::var("RUST_LOG") {
+    	Ok(r) => match r.as_str() {
+    		"trace" => tracing::Level::TRACE,
+    		"info" => tracing::Level::INFO,
+    		"warn" => tracing::Level::WARN,
+    		"error" => tracing::Level::ERROR,
+    		_ => tracing::Level::INFO
+    	},
+    	Err(_) => tracing::Level::INFO,
+    };
 
     #[cfg(not(target_os = "android"))]
     app.add_plugins(pi_bevy_log::LogPlugin::<Vec<u8>> {
         filter,
-        level: LOG_LEVEL.clone(),
+        level: level,
         chrome_write: None,
     });
     // .add_plugins(bevy_a11y::AccessibilityPlugin)
@@ -768,7 +768,7 @@ fn setting(file_index1: &mut usize, world: &mut World, is_end: &mut bool, play_o
         if r.is_running {
             return;
         } else {
-            let path =
+            let path: String =
                 play_option.cmd_path.clone() + "/cmd_" + play_option.play_version.as_str() + "_" + file_index.to_string().as_str() + ".gui_cmd";
             // let path = Path::new(play_option.cmd_path.as_str()).join(("cmd_".to_string() + play_option.play_version.as_str() + "_" + file_index.to_string().as_str() + ".gui_cmd").as_str());
             if file_index > play_option.max_index {
@@ -783,7 +783,7 @@ fn setting(file_index1: &mut usize, world: &mut World, is_end: &mut bool, play_o
             let file_index1: &'static mut usize = unsafe { transmute(file_index1) };
             let is_end: &'static mut bool = unsafe { transmute(is_end) };
             let speed = play_option.speed;
-            let path1 = path.clone();
+            let path1: String = path.clone();
 
             use pi_async_rt::prelude::AsyncRuntimeExt;
             let _ = pi_hal::runtime::MULTI_MEDIA_RUNTIME.block_on(async move {
@@ -794,7 +794,17 @@ fn setting(file_index1: &mut usize, world: &mut World, is_end: &mut bool, play_o
                         match postcard::from_bytes::<Vec<Record>>(&bin) {
                             Ok(r) => {
                                 world.or_register_single_res(TypeInfo::of::<Records>());
-                                log::warn!("parse cmd================ {:?}", (r.len()));
+                                log::warn!("parse cmd================ {:?}", (path1.clone(), r.len()));
+                                // let json_path = path1.clone() + ".json";
+                                // match serde_json::to_string_pretty(&r) {
+                                //     Ok(json) => {
+                                //         match std::fs::write(&json_path, &json) {
+                                //             Ok(_) => log::warn!("serialize json success: {:?}", json_path),
+                                //             Err(e) => log::warn!("write json fail: {:?}, path: {:?}", e, json_path),
+                                //         }
+                                //     }
+                                //     Err(e) => log::warn!("serialize json fail: {:?}", e),
+                                // }
                                 // for i in r.iter() {
                                 //     log::warn!("parse cmd================ {:?}", (i.frame_index, i.cmds.len(), i.entities.len(), &i.entities));
                                 // }
@@ -899,5 +909,3 @@ pub enum PlayMod {
 // pub const FILTER: &'static str = "wgpu=error,naga=warn,bevy_app=warn,pi_world::schedule::executor::single_threaded=warn,pi_world::system::commands=warn,pi_bevy_render_plugin=error";
 // pub const FILTER: &'static str = "wgpu=warn,naga=warn,pi_wgpu=warn,pi_ui_render::system::draw_obj::life_drawobj=trace,pi_ui_render::system::pass::pass_graph_node=trace";
 // pub const FILTER: &'static str = "";
-// pub const LOG_LEVEL: bevy_log::Level = bevy_log::Level::INFO;
-pub const LOG_LEVEL: tracing::Level = tracing::Level::INFO;
