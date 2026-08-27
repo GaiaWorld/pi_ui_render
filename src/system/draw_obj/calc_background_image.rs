@@ -24,6 +24,7 @@ use crate::prelude::UiStage;
 use crate::system::base::draw_obj::life_drawobj::update_render_instance_data;
 use crate::system::base::draw_obj::set_geo_uniform::set_matrix_uniform;
 use crate::system::base::node::layout::calc_layout;
+use crate::system::base::node::world_matrix::cal_matrix;
 use crate::system::base::node::transition::transition_2;
 use crate::system::draw_obj::geo_split::{set_grid_instance, DirectionDesc, RepeatInfo};
 use crate::system::draw_obj::transition_clip;
@@ -72,7 +73,7 @@ impl Plugin for BackgroundImagePlugin {
 				calc_background_image_instance_count
 					.after(UiSystemSet::LifeDrawObjectFlush)
 					.before(update_render_instance_data)
-					.after(calc_layout)
+					.after(cal_matrix)
 					.run_if(background_texture_change)
 					.in_set(UiSystemSet::IsRun)
 			)
