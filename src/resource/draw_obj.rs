@@ -1,6 +1,7 @@
 //! 与DrawObject相关的资源
 use std::{collections::hash_map::Entry, hash::Hash, marker::PhantomData, num::NonZeroU32, borrow::Cow};
 
+use crossbeam::queue;
 use naga::Range;
 use pi_hal::texture::ImageTexture;
 use pi_world::prelude::{FromWorld, World, Entity};
@@ -21,6 +22,7 @@ use pi_render::rhi::shader::BindLayout;
 use pi_share::Share;
 use pi_slotmap::{DefaultKey, KeyData, SlotMap};
 use wgpu::{
+    util::DeviceExt,
     BindGroupEntry, BindingType, BlendState, BufferDescriptor, CompareFunction, DepthBiasState, DepthStencilState, Extent3d, FrontFace, Limits, MultisampleState, PipelineLayout, RenderPass, Sampler, SamplerBindingType, ShaderModule, ShaderStages, StencilState, TextureDescriptor, TextureFormat, TextureSampleType, TextureView, TextureViewDescriptor, TextureViewDimension
 };
 use pi_render::rhi::shader::Input;
@@ -105,7 +107,7 @@ pub struct BatchTexture {
 
 impl BatchTexture {
 	const BINDING_COUNT: u32 = 1;
-	pub fn new(device: &wgpu::Device) -> Self {
+	pub fn new(device: &wgpu::Device, queue: &wgpu::Queue) -> Self {
 		let mut entry = Vec::with_capacity(Self::BINDING_COUNT as usize);
 		for i in 0..Self::BINDING_COUNT {
 			entry.push(wgpu::BindGroupLayoutEntry {
@@ -157,16 +159,16 @@ impl BatchTexture {
                 }
             ],
 		});
-		let default_array_texture = device.create_texture(&TextureDescriptor {
+		let default_array_texture = device.create_texture_with_data(queue, &TextureDescriptor {
 			label: Some("default texture"),
-			size: Extent3d { width: 4, height: 4, depth_or_array_layers: 2 },
+			size: Extent3d { width: 1, height: 1, depth_or_array_layers: 2 },
 			mip_level_count: 1,
 			sample_count: 1,
 			dimension: wgpu::TextureDimension::D2,
 			format: TextureFormat::Rgba8Unorm,
 			usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
 			view_formats: &[],
-		});
+		}, wgpu::TextureDataOrder::LayerMajor, &[0, 0, 0, 0, 0, 0, 0, 0]);
        let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
 			label: Some("default sampler"),
 			address_mode_u: wgpu::AddressMode::ClampToEdge,
@@ -181,16 +183,16 @@ impl BatchTexture {
 		let texture_array_view = default_array_texture.create_view(&TextureViewDescriptor::default());
         let default_texture_array_group = Self::texture_group(&texture_array_view, &sampler, &group_layout_array, "batch texture bindgroup", device);
 
-        let default_texture = device.create_texture(&TextureDescriptor {
+        let default_texture = device.create_texture_with_data(queue, &TextureDescriptor {
 			label: Some("default texture"),
-			size: Extent3d { width: 4, height: 4, depth_or_array_layers: 1 },
+			size: Extent3d { width: 1, height: 1, depth_or_array_layers: 1 },
 			mip_level_count: 1,
 			sample_count: 1,
 			dimension: wgpu::TextureDimension::D2,
 			format: TextureFormat::Rgba8Unorm,
 			usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
 			view_formats: &[],
-		});
+		}, wgpu::TextureDataOrder::MipMajor, &[0, 0 ,0,0]);
         
 		let texture_view = default_texture.create_view(&TextureViewDescriptor::default());
 
@@ -639,6 +641,7 @@ impl FromWorld for InstanceContext {
         world.init_single_res::<GroupAlloterCenter>();
 		let world1 = world.unsafe_world();
         let device = world1.get_single_res::<PiRenderDevice>().unwrap();
+        let queue = world1.get_single_res::<PiRenderQueue>().unwrap();
         let mut world2 = world.unsafe_world();
         let group_center = world2.get_single_res_mut::<GroupAlloterCenter>().unwrap();
 
@@ -649,7 +652,7 @@ impl FromWorld for InstanceContext {
             usage: wgpu::BufferUsages::VERTEX,
         });
 
-		let batch_texture = BatchTexture::new(&**device);
+		let batch_texture = BatchTexture::new(&**device, &**queue);
 
 
         let limits = group_center.limits();
@@ -2128,6 +2131,5 @@ pub fn create_render_pipeline(
 //     pub dynamic_offset: Option<NonMaxU32>,
 //     pub element_type: PhantomData<T>,
 // }
-
 
 
