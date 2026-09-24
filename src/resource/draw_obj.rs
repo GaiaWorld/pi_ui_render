@@ -174,8 +174,8 @@ impl BatchTexture {
 			address_mode_u: wgpu::AddressMode::ClampToEdge,
 			address_mode_v: wgpu::AddressMode::ClampToEdge,
 			address_mode_w: wgpu::AddressMode::ClampToEdge,
-			mag_filter: wgpu::FilterMode::Nearest,
-			min_filter: wgpu::FilterMode::Nearest,
+			mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Linear,
 			mipmap_filter: wgpu::FilterMode::Nearest,
 			..Default::default()
 		});
@@ -576,7 +576,7 @@ impl InstanceContext {
                 rp.draw(0..6, i..i+1);
             } 
         }
-        #[cfg(not(debug_assertions))]
+        // #[cfg(not(debug_assertions))]
         rp.draw(0..6, instance_draw.instance_data_range.start as u32/self.instance_data.alignment as u32..instance_draw.instance_data_range.end as u32/self.instance_data.alignment as u32);
 
 	}
