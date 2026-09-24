@@ -1583,8 +1583,8 @@ fn compare_target(
 		}
 		if is_set_uv {
 			if has_instance {
-				// uv变化，设置uv
-				let mut uv_box = target.uv_box();
+				// uv变化，设置uv, 之前使用的uv， 总是向内移动了0.5个像素， 但渲染结果存在缺损， 因此改为不向内移动， 使用真实的uv
+				let mut uv_box = target.rect_normalize();
 				let rect = target.rect().size();
 				let (t_w, t_h) = (target.target().width, target.target().height);
 				let (w, h) = (rect.width as f32 / t_w as f32, rect.height as f32 / t_h as f32);
@@ -1597,10 +1597,9 @@ fn compare_target(
 					uv_box[2] += maxs.x * w;
 					uv_box[3] += maxs.y * h;
 
-					log::debug!("set uv, instance_index: {:?}, uv_box: {:?}, taregt_rect{:?}, accurate_bound_box: {:?}, target_id: {:?}", instance_index, uv_box, target.rect(), &render_target.accurate_bound_box, target.target().colors[0].0.id, );
+					log::debug!("set uv, instance_index: {:?}, rect_normalize: {:?}, uv_box: {:?}, taregt_rect{:?}, accurate_bound_box: {:?}, target_id: {:?}", instance_index, target.rect_normalize(), uv_box, target.rect(), &render_target.accurate_bound_box, target.target().colors[0].0.id, );
 				}
 				instance_context.instance_data.instance_data_mut(index.start).set_data(&UvUniform(uv_box.as_slice()));
-				
 			} else {
 				instance_context.rebatch = true; // 设置rebatch为true， 使得后续重新进行批处理
 			}

@@ -38,6 +38,7 @@ pub struct QuadExample {
 }
 
 impl Example for QuadExample {
+    
     fn init(&mut self, mut world: Param, size: (usize, usize)) {
         let dir = std::env::current_dir().unwrap();
         log::info!("dir: {:?}", dir);
@@ -71,15 +72,15 @@ impl Example for QuadExample {
         world.user_cmd.set_style(root, PositionTopType(Dimension::Points(0.0)));
         world.user_cmd.set_style(root, MarginLeftType(Dimension::Points(0.0)));
         world.user_cmd.set_style(root, MarginTopType(Dimension::Points(0.0)));
-		world.user_cmd.set_style(root, AsImageType(pi_style::style::AsImage::Force));
+		// world.user_cmd.set_style(root, AsImageType(pi_style::style::AsImage::Force));
         world.user_cmd
-            .set_style(root, BackgroundColorType(Color::RGBA(CgColor::new(1.0, 1.0, 1.0, 1.0))));
+            .set_style(root, BackgroundColorType(Color::RGBA(CgColor::new(1.0, 0.0, 0.0, 1.0))));
         world.user_cmd.append(root, EntityKey::null().0);
 
         let div1 = world.spawn(NodeTag::Span);
         world.user_cmd.set_style(div1, WidthType(Dimension::Points(50.0)));
         world.user_cmd.set_style(div1, HeightType(Dimension::Points(100.0)));
-        world.user_cmd.set_style(div1, PositionTopType(Dimension::Points(20.0)));
+        world.user_cmd.set_style(div1, PositionTopType(Dimension::Points(200.0)));
         world.user_cmd.set_style(div1, PositionLeftType(Dimension::Points(20.0)));
         world.user_cmd
             .set_style(div1, TextContentType(TextContent("base02".to_string(), Atom::from("base02"))));
