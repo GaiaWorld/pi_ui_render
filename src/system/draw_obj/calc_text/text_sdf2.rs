@@ -1056,7 +1056,8 @@ fn push_pos_uv(
 	let plane_max_x = plane_min_x + plane_width;
 	let plane_max_y = plane_min_y + plane_height;
 
-	let half_stroke_uv = half_extend*scale;
+	let half_stroke_uv = half_extend / scale;
+	
 
 	// 否则， push aabb
 	let ps = [

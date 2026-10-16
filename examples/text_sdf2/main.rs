@@ -47,7 +47,7 @@ impl Example for QuadExample {
 		{
 			let font_sheet = world.font_sheet.as_ref().unwrap();
 			let mut font_sheet = font_sheet.borrow_mut();
-			let font_file = std::fs::read("examples/text/source/SOURCEHANSANSK-MEDIUM.TTF").unwrap();
+			let font_file = std::fs::read("E:/app_new_gui/pi_ui_render/examples/text_sdf2/source/ht.ttf").unwrap();
 			let font_face_id = font_sheet.font_mgr_mut().create_font_face(&Atom::from("hwkt"));
 			font_sheet.font_mgr_mut().table.sdf2_table.add_font(font_face_id, Arc::new(font_file));
 		}
@@ -83,14 +83,14 @@ impl Example for QuadExample {
         world.user_cmd.set_style(div1, PositionTopType(Dimension::Points(200.0)));
         world.user_cmd.set_style(div1, PositionLeftType(Dimension::Points(20.0)));
         world.user_cmd
-            .set_style(div1, TextContentType(TextContent("base02".to_string(), Atom::from("base02"))));
+            .set_style(div1, TextContentType(TextContent("10.8万位".to_string(), Atom::from("10.8万位"))));
         // rgb(255,0,0) 0px 0px 5px, rgb(255,0,0) 0px 0px 3px, rgb(255,255,255) 0px 0px 1px;
         world.user_cmd.set_style(div1, FontFamilyType(Atom::from("hwkt")));
         world.user_cmd.set_style(div1, ColorType(Color::RGBA(CgColor::new(0.0, 1.0, 0.0, 1.0))));
         world.user_cmd.set_style(div1, FontSizeType(FontSize::Length(17)));
-        // world.user_cmd.set_style(div1, TextStrokeType(Stroke {
-        // 	width: unsafe {NotNan::new_unchecked(2.0)},
-        // 	color: CgColor::new(1.0, 0.0, 0.0, 1.0)}));
+        world.user_cmd.set_style(div1, TextStrokeType(Stroke {
+        	width: unsafe {NotNan::new_unchecked(2.0)},
+        	color: CgColor::new(1.0, 0.0, 0.0, 1.0)}));
         world.user_cmd.append(div1, root);
 
         // let div2 = world.spawn(NodeTag::Span);
