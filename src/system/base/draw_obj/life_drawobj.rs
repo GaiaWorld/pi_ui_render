@@ -849,8 +849,9 @@ pub fn batch_instance_data(
 			let (_, _, _fbo_info, render_target) = query.draw_query.get(root).unwrap();
 			if let Some(target) = &render_target.0 {
 				let texture_group = instances.batch_texture.fbo_group(&target.target().colors[0].0, 1, &query.common_sampler.pointer, &query.device);
-				if Share::ptr_eq(&global_state.last_group, &texture_group) {
-					// 设置之前的批渲染的纹理group
+				if !Share::ptr_eq(&global_state.last_group, &texture_group) {
+					// 最后一个group和当前group不相等时， 
+					// 将已经成批的实例的纹理设置为之前的lastgroup
 					for i in global_state.pre_group..instances.draw_list.len() {
 						if let DrawElement::DrawInstance { draw_state, .. } = &mut instances.draw_list[i].0 {
 							log::debug!("texture flow group============={:?}, {:?}, {:p}", global_state.pre_group, &draw_state.instance_data_range, &*texture_group);
@@ -862,6 +863,7 @@ pub fn batch_instance_data(
 
 						}
 					}
+					// 设置新状态
 					global_state.last_group = texture_group;
 					global_state.pre_group = instances.draw_list.len();
 				}
