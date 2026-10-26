@@ -4,7 +4,7 @@ use std::{collections::VecDeque, mem::transmute};
 
 use crate::{
     components::{
-        root::Viewport, user::{serialize::StyleTypeReader, ClassName, StyleAttribute}
+        user::{serialize::StyleTypeReader, ClassName, StyleAttribute}
     },
     prelude::UserCommands,
     resource::{fragment::NodeTag, CanvasCmd, CmdType, FragmentCommand, NodeCommand, PostProcessCmd}, system::base::node::user_setting,
@@ -65,9 +65,7 @@ pub fn sys_ui_cmd_record(
         }
     }
 
-    node_creates.0.iter().for_each(|entity| {
-        records.record_create(*entity);
-    });
+
 
     if ss.len() == 0
         && user_commands.node_commands.len() == 0
@@ -116,6 +114,7 @@ pub fn sys_ui_cmd_play(
         pi_bevy_render_plugin::EReplayResult::Ok => {},
     }
 }
+
 
 pub fn cmd_play_call(world: &mut World, data: &Vec<u8>, replayentities: &XHashMap<Entity, Entity>) {
     match postcard::from_bytes::<UIRecord>(data) {
@@ -417,10 +416,6 @@ pub fn apply_nother_cmd(cmds: &mut UserCommands, other_command: &CmdType, play_s
                 None => return,
             };
             r.1 = node;
-
-            // if let Some(view_port) = play_state.view_port() {
-            //     r.0 = Viewport(view_port);
-            // }
             cmds.push_cmd(r);
         }
         CmdType::NodeCmdRenderTargetType(r) => {
