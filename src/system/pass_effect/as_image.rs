@@ -1,6 +1,7 @@
 
 
-use pi_assets::homogeneous::HomogeneousMgr;
+use pi_assets::homogeneous::GarbageEmpty;
+use pi_bevy_asset::{Allocator, AssetConfig, AssetDesc, ShareHomogeneousMgr};
 use pi_style::style::StyleType;
 use pi_world::{event::{ComponentAdded, ComponentChanged}, prelude::{App, IntoSystemConfigs, Plugin, Query}, single_res::SingleRes};
 use pi_bevy_ecs_extend::prelude::OrInitSingleRes;
@@ -26,23 +27,25 @@ pub struct UiAsImagePlugin;
 
 impl Plugin for UiAsImagePlugin {
     fn build(&self, app: &mut App) {
-        // let w1 =  app.world.unsafe_world();
-        // let allocator = w1.get_single_res_mut::<Allocator>().unwrap();
         let assets_mgr = {
-            // let w = app.world.unsafe_world();
-            // let asset_config = w.get_single_res::<AssetConfig>().unwrap();
-            // let default_cfg = AssetDesc {
-            //     ref_garbage: false,
-            //     min: 0,
-            //     weight: 5, // 默认32M的fbo缓存
-            //     timeout: 0,            // 并不会启用超时整理， 这里的数值无所谓（记得该资源管理器中的资源需要手动删除）
-            // };
-            // let desc = asset_config.get::<CacheTarget>().unwrap_or(&default_cfg);
-            HomogeneousMgr::<CacheTarget>::new(pi_assets::homogeneous::GarbageEmpty(), 16 * 1000 * 1000, 50 * 1000)
-            // ShareAssetMgr::<CacheTarget>::new_with_config(pi_assets::asset::GarbageEmpty(), &default_cfg, asset_config, allocator)
+            let allocator = app.world.get_single_res::<Allocator>().unwrap();
+            let asset_config = app.world.get_single_res::<AssetConfig>().unwrap();
+            let default_cfg = AssetDesc {
+                ref_garbage: false,
+                min: 16 * 1000 * 1000,
+                weight: 5,
+                timeout: 50 * 1000,
+            };
+            let mut allocator = Allocator::clone(allocator);
+            ShareHomogeneousMgr::<CacheTarget>::new_with_config(
+                GarbageEmpty(),
+                &default_cfg,
+                &asset_config,
+                &mut allocator,
+            )
         };
 
-        app.world.insert_single_res(TargetCacheMgr (assets_mgr ));
+        app.world.insert_single_res(TargetCacheMgr(assets_mgr.0));
             // 标记有AsImage组件的节点为渲染上下文
         app
             .add_system(UiStage, 
