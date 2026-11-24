@@ -598,6 +598,14 @@ pub fn calc_step(show_size: f32, img_size: f32, rtype: ImageRepeatOption) -> (f3
 	
     match rtype {
         ImageRepeatOption::Repeat => { // repeat 只会渲染奇数个item（对称）
+			// 归一化舍入（如 4 位小数）会让 repeat_count 略大于整数，ceil 多切一块；
+			// 误差在半个像素内就按整数个完整 tile 精确等分。
+			let n = repeat_count.round();
+			let diff_px = (repeat_count - n).abs() * img_size;
+			if n >= 1.0 && diff_px <= 0.5 && (n as usize) % 2 == 1 {
+				let layout_space = show_size / n;
+				return (0.0, 1.0, 0.0, layout_space, n as usize);
+			}
 			let floor_count = (repeat_count.ceil() as usize >> 1 << 1) + 1; // 向上取奇数
 			let offset = if floor_count > 1 {
 				(repeat_count - (floor_count - 2) as f32) / 2.0
@@ -630,7 +638,15 @@ pub fn repeat_count(show_size: f32, img_size: f32, rtype: ImageRepeatOption) -> 
 
     let repeat_count = show_size / img_size; // 区域内可重复的次数
     match rtype {
-        ImageRepeatOption::Repeat => (repeat_count.ceil() as usize >> 1 << 1) + 1, 
+        ImageRepeatOption::Repeat => {
+            let n = repeat_count.round();
+            let diff_px = (repeat_count - n).abs() * img_size;
+            if n >= 1.0 && diff_px <= 0.5 && (n as usize) % 2 == 1 {
+                n as usize
+            } else {
+                (repeat_count.ceil() as usize >> 1 << 1) + 1
+            }
+        },
         ImageRepeatOption::Round => repeat_count.round().max(1.0) as usize, // 四舍五入个平铺
         ImageRepeatOption::Space => repeat_count.floor() as usize,
         ImageRepeatOption::Stretch => 1,
