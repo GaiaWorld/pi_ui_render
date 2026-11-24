@@ -46,8 +46,8 @@ use crate::components::pass_2d::IsSteady;
 // #[derive(Clone)]
 pub struct Pass2DNode {
     pub pass2d_id: Entity,
-	// pub output_target: Option<ShareTargetView>, // 握住一个ShareTargetView， 该view肯呢个占用了分配空间， 当它释放时，空间可能被释放
-	pub render_target: Option<ShareTargetView>, // 握住一个ShareTargetView， 该view肯呢个占用了分配空间， 当它释放时，空间可能被释放
+	// pub output_target: Option<ShareTargetView>, // 握住一个ShareTargetView， 该view占用了分配空间， 当它释放时，空间可能被释放
+	pub render_target: Option<ShareTargetView>, // 握住一个ShareTargetView， 该view占用了分配空间， 当它释放时，空间可能被释放
 }
 
 #[derive(SystemParam)]
@@ -211,6 +211,11 @@ impl Node for Pass2DNode {
 				*t = Share::new(t.downgrade());
 			}
 		}
+		// 本节点所有后继已经 build 完成，后处理输入的 rt 不再需要占用矩形区域。
+		// 这里只降级为非持有视图，底层纹理仍由 fbo_info.fbo 持有，run 阶段还能采样。
+		if let Some(t) = &mut self.render_target {
+			*t = Share::new(t.downgrade());
+		}
 	}
 
 	/// 用于给pass2d分配fbo
@@ -226,6 +231,8 @@ impl Node for Pass2DNode {
 		to: &'a [Entity],
 	) -> Result<(), String> {
 		let pass2d_id = self.pass2d_id;
+		// 上一帧 reset 已把 rt 降为非持有视图，这里彻底放掉，避免跨帧占位
+		self.render_target = None;
 		let mut out = param.query_out.get_mut(id).unwrap();
 		let out = &mut *out;
 		let out = unsafe {transmute::<_, &'static mut SimpleInOut>(out)}; // 非安全防止转换生命周期， 使得query_out可再次使用
